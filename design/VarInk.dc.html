@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Brush+Script&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #111111; } a:hover { color: #444444; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #f1efe9; color: #121212; font-family: 'Gowun Batang', serif; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <!-- 종이 결 · 화선지 -->
+  <div style="position: absolute; inset: 0; background-image: repeating-linear-gradient(180deg, rgba(18,18,18,0.03) 0 1px, transparent 1px 7px), radial-gradient(60% 40% at 20% 10%, rgba(18,18,18,0.06), transparent 70%); pointer-events: none;"></div>
+
+  <!-- 헤더: 붓으로 쓴 제목 -->
+  <div style="flex-shrink: 0; padding: 18px 20px 10px; display: flex; align-items: flex-end; gap: 10px; border-bottom: 2px solid #121212; position: relative;">
+    <span style="font-family: 'Nanum Brush Script', cursive; font-size: 34px; line-height: 1; color: #121212;">우리 반</span>
+    <span style="font-size: 11px; letter-spacing: 0.2em; color: #4a4a4a; padding-bottom: 5px;">게시판 · 실시간</span>
+  </div>
+
+  <!-- 원글 -->
+  <div style="flex-shrink: 0; padding: 12px 20px 12px; border-bottom: 1px solid #b9b5ab; position: relative;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+      <span style="font-size: 10px; padding: 2px 7px; border: 1px solid #121212; color: #121212;">공지</span>
+      <span style="font-size: 10.5px; letter-spacing: 0.1em; color: #4a4a4a;">DAY 3 · 균열</span>
+    </div>
+    <p style="margin: 0; font-size: 15px; font-weight: 700; line-height: 1.5;">오늘: A의 빈자리</p>
+    <p style="margin: 4px 0 0; font-size: 12px; color: #3c3c3c; line-height: 1.65;">기존 관계가 흔들리기 시작한다. 숨겨왔던 말이나 행동이 일부 공개된다.</p>
+    <div style="display: flex; gap: 14px; margin-top: 10px; font-size: 11px; color: #4a4a4a;">
+      <span>댓글 4</span><span>공감 2</span>
+    </div>
+  </div>
+
+  <!-- 댓글 -->
+  <div style="flex-grow: 1; padding: 6px 20px 8px; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+    <div style="display: flex; gap: 10px; padding: 11px 0; border-bottom: 1px solid #d6d2c8;">
+      <div style="width: 26px; height: 26px; border-radius: 50%; background: #121212; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #f1efe9; box-shadow: 0 0 0 2px #f1efe9, 0 0 0 3px rgba(18,18,18,0.35);">서</div>
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+        <div style="display: flex; gap: 7px; align-items: baseline;">
+          <span style="font-size: 12.5px; font-weight: 700;">서연</span>
+          <span style="font-size: 10.5px; color: #5b5b5b;">3분 전</span>
+        </div>
+        <span style="font-size: 13.5px; line-height: 1.7; color: #1e1e1e;">A 얘기 좀 그만하면 안 돼? 다들 아무렇지 않은 척하잖아.</span>
+        <span style="font-size: 11px; color: #5b5b5b; margin-top: 2px;">답글 · 공감 1</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; padding: 11px 0; border-bottom: 1px solid #d6d2c8;">
+      <div style="width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid #121212; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #121212;">나</div>
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+        <div style="display: flex; gap: 7px; align-items: baseline;">
+          <span style="font-size: 12.5px; font-weight: 700;">나</span>
+          <span style="font-size: 10.5px; color: #5b5b5b;">2분 전</span>
+        </div>
+        <span style="font-size: 13.5px; line-height: 1.7; color: #1e1e1e;">그만하자는 사람이 제일 수상한 거, 알지?</span>
+        <span style="font-size: 11px; color: #5b5b5b; margin-top: 2px;">답글 · 공감 0</span>
+      </div>
+    </div>
+
+    <!-- 공개 = 먹이 번진 자리 -->
+    <div style="margin: 10px -4px; padding: 14px 16px 13px; position: relative; color: #f1efe9; background: radial-gradient(120% 90% at 30% 40%, #121212 55%, rgba(18,18,18,0.92) 70%, rgba(18,18,18,0.55) 84%, rgba(18,18,18,0) 100%); border-radius: 46% 54% 52% 48% / 58% 44% 56% 42%; box-shadow: 0 0 18px 6px rgba(18,18,18,0.18);">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-family: 'Nanum Brush Script', cursive; font-size: 24px; line-height: 1; color: #f1efe9;">공개</span>
+        <span style="font-size: 12px; font-weight: 700;">도윤</span>
+        <span style="font-size: 10.5px; color: #c9c5bb;">방금</span>
+      </div>
+      <p style="margin: 7px 0 0; font-size: 14px; line-height: 1.75; color: #f1efe9; text-wrap: pretty;">사실 A가 마지막으로 도움을 요청했을 때, 귀찮다는 이유로 거절했다.</p>
+      <span style="display: block; margin-top: 6px; font-size: 10.5px; color: #c9c5bb;">지워지지 않는다</span>
+    </div>
+
+    <div style="display: flex; gap: 10px; padding: 11px 0; border-bottom: 1px solid #d6d2c8;">
+      <div style="width: 26px; height: 26px; border-radius: 50%; background: #121212; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #f1efe9; box-shadow: 0 0 0 2px #f1efe9, 0 0 0 3px rgba(18,18,18,0.35);">하</div>
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <div style="display: flex; gap: 7px; align-items: baseline;">
+          <span style="font-size: 12.5px; font-weight: 700;">하은</span>
+          <span style="font-size: 10.5px; color: #5b5b5b;">방금</span>
+        </div>
+        <span style="font-size: 13.5px; line-height: 1.7; color: #1e1e1e;">…뭐라고?</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 입력 -->
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 9px 20px 11px; border-top: 1px solid #121212; position: relative;">
+    <div style="height: 44px; padding: 0 12px; border: 1px solid #121212; display: flex; align-items: center; font-size: 11.5px;">행동</div>
+    <div style="height: 44px; padding: 0 12px; background: #121212; color: #f1efe9; display: flex; align-items: center; font-size: 11.5px;">공개</div>
+    <div style="flex-grow: 1; height: 44px; border-bottom: 1px solid #121212; display: flex; align-items: center; font-size: 13px; color: #5b5b5b;">댓글을 남긴다</div>
+  </div>
+
+  <!-- 탭 -->
+  <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid #121212; position: relative;">
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-size: 13.5px; font-weight: 700; background: #121212; color: #f1efe9;">게시판</div>
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-size: 13.5px; color: #3c3c3c;">아이들</div>
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-size: 13.5px; color: #3c3c3c;">프로필</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gothic+A1:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #e8e4d6; } a:hover { color: #ffffff; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; color: #e8e4d6; font-family: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif; display: flex; flex-direction: column; overflow: hidden; position: relative; background-color: #2b3a35; background-image: radial-gradient(70% 40% at 30% 20%, rgba(232,228,214,0.10), rgba(232,228,214,0) 60%), radial-gradient(60% 35% at 75% 65%, rgba(232,228,214,0.07), rgba(232,228,214,0) 60%), repeating-linear-gradient(115deg, rgba(0,0,0,0.05) 0 2px, transparent 2px 6px);">
+
+  <!-- 칠판 위 분필 제목 -->
+  <div style="flex-shrink: 0; padding: 18px 22px 8px; display: flex; align-items: flex-end; gap: 12px; border-bottom: 1.5px solid rgba(232,228,214,0.55);">
+    <span style="font-family: 'Nanum Pen Script', cursive; font-size: 36px; line-height: 1; color: #f2efe4; text-shadow: 0 0 1px rgba(242,239,228,0.7);">우리반 게시판</span>
+    <span style="font-size: 10.5px; letter-spacing: 0.16em; color: #b9b5a5; padding-bottom: 6px;">DAY 3 · 균열</span>
+  </div>
+
+  <!-- 원글 -->
+  <div style="flex-shrink: 0; padding: 12px 22px 10px; border-bottom: 1px dashed rgba(232,228,214,0.35);">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+      <span style="font-size: 10px; letter-spacing: 0.14em; padding: 2px 7px; border: 1px solid rgba(232,228,214,0.7); color: #e8e4d6;">공지</span>
+    </div>
+    <p style="margin: 0; font-family: 'Nanum Pen Script', cursive; font-size: 26px; line-height: 1.15; color: #f2efe4;">오늘: A의 빈자리</p>
+    <p style="margin: 4px 0 0; font-size: 12px; color: #c9c5b6; line-height: 1.6;">기존 관계가 흔들리기 시작한다. 숨겨왔던 말이나 행동이 일부 공개된다.</p>
+    <div style="display: flex; gap: 14px; margin-top: 8px; font-size: 11px; color: #b9b5a5;"><span>댓글 4</span><span>공감 2</span></div>
+  </div>
+
+  <!-- 댓글: 분필 글씨 -->
+  <div style="flex-grow: 1; padding: 10px 22px 6px; display: flex; flex-direction: column; gap: 4px; overflow: hidden;">
+
+    <div style="padding: 9px 0; display: flex; flex-direction: column; gap: 2px;">
+      <div style="display: flex; gap: 8px; align-items: baseline;">
+        <span style="font-size: 12px; font-weight: 500; color: #f2efe4;">서연</span>
+        <span style="font-size: 10.5px; color: #b9b5a5;">3분 전</span>
+      </div>
+      <p style="margin: 0; font-family: 'Nanum Pen Script', cursive; font-size: 21px; line-height: 1.3; color: #ebe7da;">A 얘기 좀 그만하면 안 돼? 다들 아무렇지 않은 척하잖아.</p>
+    </div>
+
+    <div style="padding: 9px 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; text-align: right;">
+      <div style="display: flex; gap: 8px; align-items: baseline;">
+        <span style="font-size: 12px; font-weight: 500; color: #f2efe4;">나</span>
+        <span style="font-size: 10.5px; color: #b9b5a5;">2분 전</span>
+      </div>
+      <p style="margin: 0; font-family: 'Nanum Pen Script', cursive; font-size: 21px; line-height: 1.3; color: #f6f3e9;">그만하자는 사람이 제일 수상한 거, 알지?</p>
+    </div>
+
+    <!-- 공개 = 분필로 두 겹 동그라미 친 자리. 지우개가 닿지 않는다 -->
+    <div style="margin: 8px 0; padding: 14px 16px; position: relative; border: 2px solid rgba(242,239,228,0.9); border-radius: 48% 52% 50% 50% / 56% 48% 52% 44%; box-shadow: inset 0 0 0 3px rgba(43,58,53,1), inset 0 0 0 4.5px rgba(242,239,228,0.55);">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-family: 'Nanum Pen Script', cursive; font-size: 22px; line-height: 1; color: #f6f3e9;">공개</span>
+        <span style="font-size: 12px; font-weight: 500; color: #f2efe4;">도윤</span>
+        <span style="font-size: 10.5px; color: #b9b5a5;">방금</span>
+      </div>
+      <p style="margin: 6px 0 0; font-family: 'Nanum Pen Script', cursive; font-size: 22px; line-height: 1.3; color: #ffffff; text-wrap: pretty;">사실 A가 마지막으로 도움을 요청했을 때, 귀찮다는 이유로 거절했다.</p>
+      <span style="display: block; margin-top: 4px; font-size: 10.5px; color: #b9b5a5;">지우개가 닿지 않는다</span>
+    </div>
+
+    <div style="padding: 9px 0; display: flex; flex-direction: column; gap: 2px;">
+      <div style="display: flex; gap: 8px; align-items: baseline;">
+        <span style="font-size: 12px; font-weight: 500; color: #f2efe4;">하은</span>
+        <span style="font-size: 10.5px; color: #b9b5a5;">방금</span>
+      </div>
+      <p style="margin: 0; font-family: 'Nanum Pen Script', cursive; font-size: 21px; line-height: 1.3; color: #ebe7da;">…뭐라고?</p>
+    </div>
+
+  </div>
+
+  <!-- 입력: 분필받이 -->
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 9px 22px 11px; border-top: 1.5px solid rgba(232,228,214,0.55);">
+    <div style="height: 44px; padding: 0 12px; border: 1px solid rgba(232,228,214,0.7); display: flex; align-items: center; font-size: 11.5px; color: #e8e4d6;">행동</div>
+    <div style="height: 44px; padding: 0 12px; background: #e8e4d6; color: #2b3a35; display: flex; align-items: center; font-size: 11.5px; font-weight: 500;">공개</div>
+    <div style="flex-grow: 1; height: 44px; border-bottom: 1px solid rgba(232,228,214,0.55); display: flex; align-items: center; font-size: 13px; color: #b9b5a5;">분필로 쓴다</div>
+  </div>
+
+  <!-- 탭 -->
+  <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1.5px solid rgba(232,228,214,0.55);">
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Pen Script', cursive; font-size: 22px; color: #ffffff; border-top: 2px solid #f2efe4; margin-top: -1.5px;">게시판</div>
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Pen Script', cursive; font-size: 22px; color: #b9b5a5;">아이들</div>
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Pen Script', cursive; font-size: 22px; color: #b9b5a5;">프로필</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
