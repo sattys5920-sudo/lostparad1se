@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Gothic+Coding:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #0b0d0f; } a:hover { color: #4d545a; }
+  </style>
+</helmet>
+
+<!-- 흑백 졸업사진. 인쇄 망점, 사진 모서리, 한 사람이 오려진 자리 -->
+<div style="width: 390px; height: 844px; color: #0b0d0f; font-family: 'Nanum Gothic Coding', 'Apple SD Gothic Neo', monospace; display: flex; flex-direction: column; overflow: hidden; position: relative; background-color: #f1f2f3; background-image: radial-gradient(circle, rgba(11,13,15,0.11) 0 0.7px, transparent 1px); background-size: 4px 4px;">
+
+  <div style="flex-shrink: 0; height: 8px; background: #0b0d0f;"></div>
+
+  <!-- 사진 캡션처럼 -->
+  <div style="flex-shrink: 0; padding: 16px 24px 10px; display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid #0b0d0f;">
+    <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 18px;">우리 반 게시판</span>
+    <span style="font-size: 10px; letter-spacing: 0.18em; color: #4d545a;">2학년 3반 · 겨울 · 남은 날 2</span>
+  </div>
+
+  <!-- 원글: 단체사진 띠. 한 칸이 비어 있다 -->
+  <div style="flex-shrink: 0; padding: 14px 24px 12px; border-bottom: 1px solid #0b0d0f; display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; gap: 6px;">
+      <div style="width: 40px; height: 48px; background: linear-gradient(180deg, #6c7378 0%, #2a2f33 55%, #1a1e21 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="width: 40px; height: 48px; background: linear-gradient(180deg, #8a9096 0%, #3a4045 55%, #1a1e21 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="width: 40px; height: 48px; background: linear-gradient(180deg, #5c6368 0%, #24292d 55%, #141719 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="width: 40px; height: 48px; border: 1px dashed #0b0d0f; background: #ffffff; display: flex; align-items: center; justify-content: center;"><span style="font-size: 9.5px; letter-spacing: 0.1em; color: #4d545a;">A</span></div>
+      <div style="width: 40px; height: 48px; background: linear-gradient(180deg, #7a8187 0%, #30363b 55%, #1a1e21 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="width: 40px; height: 48px; background: linear-gradient(180deg, #666d72 0%, #262b2f 55%, #141719 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="width: 40px; height: 48px; background: linear-gradient(180deg, #8e9499 0%, #3d4348 55%, #1a1e21 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      <span style="font-size: 10px; letter-spacing: 0.2em; color: #4d545a;">DAY 3 · 균열 · 공지</span>
+      <p style="margin: 0; font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 17px; line-height: 1.4;">오늘: A의 빈자리</p>
+      <p style="margin: 0; font-size: 11.5px; color: #2f353a; line-height: 1.65; text-wrap: pretty;">기존 관계가 흔들리기 시작한다. 숨겨왔던 말이나 행동이 일부 공개된다.</p>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; padding: 6px 24px 4px; display: flex; flex-direction: column; overflow: hidden;">
+
+    <div style="padding: 11px 0; border-bottom: 1px solid #b9bfc4; display: flex; gap: 10px;">
+      <div style="width: 30px; height: 36px; flex-shrink: 0; background: linear-gradient(180deg, #8a9096 0%, #3a4045 55%, #1a1e21 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+        <div style="display: flex; gap: 8px; align-items: baseline;">
+          <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 12.5px;">서연</span>
+          <span style="font-size: 10px; color: #4d545a;">14:02</span>
+        </div>
+        <span style="font-size: 13px; line-height: 1.7; color: #1a1e21;">A 얘기 좀 그만하면 안 돼? 다들 아무렇지 않은 척하잖아.</span>
+      </div>
+    </div>
+
+    <div style="padding: 11px 0; border-bottom: 1px solid #b9bfc4; display: flex; gap: 10px; flex-direction: row-reverse; text-align: right;">
+      <div style="width: 30px; height: 36px; flex-shrink: 0; background: linear-gradient(180deg, #666d72 0%, #262b2f 55%, #141719 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; align-items: flex-end;">
+        <div style="display: flex; gap: 8px; align-items: baseline;">
+          <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 12.5px;">나</span>
+          <span style="font-size: 10px; color: #4d545a;">14:03</span>
+        </div>
+        <span style="font-size: 13px; line-height: 1.7; color: #0b0d0f;">그만하자는 사람이 제일 수상한 거, 알지?</span>
+      </div>
+    </div>
+
+    <!-- 공개 = 검은 인화지. 오른쪽 위에 오려낸 자리 -->
+    <div style="margin: 10px 0; padding: 14px 16px 12px; background: #0b0d0f; color: #f1f2f3; position: relative; display: flex; flex-direction: column; gap: 7px;">
+      <div style="position: absolute; top: 10px; right: 10px; width: 22px; height: 26px; background: #f1f2f3; border: 1px dashed #0b0d0f;"></div>
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-right: 36px;">
+        <span style="font-size: 10px; letter-spacing: 0.22em; color: #b9bfc4;">공개 · 숨겨온 사실</span>
+        <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 12.5px;">도윤</span>
+      </div>
+      <p style="margin: 0; font-family: 'Nanum Myeongjo', serif; font-size: 15px; line-height: 1.8; text-wrap: pretty;">사실 A가 마지막으로 도움을 요청했을 때, 귀찮다는 이유로 거절했다.</p>
+      <span style="font-size: 10px; color: #b9bfc4;">인화되어 남는다</span>
+    </div>
+
+    <div style="padding: 11px 0; border-bottom: 1px solid #b9bfc4; display: flex; gap: 10px;">
+      <div style="width: 30px; height: 36px; flex-shrink: 0; background: linear-gradient(180deg, #7a8187 0%, #30363b 55%, #1a1e21 100%); border: 1px solid #0b0d0f; box-shadow: inset 0 0 0 2px #f1f2f3;"></div>
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <div style="display: flex; gap: 8px; align-items: baseline;">
+          <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 12.5px;">하은</span>
+          <span style="font-size: 10px; color: #4d545a;">14:05</span>
+        </div>
+        <span style="font-size: 13px; line-height: 1.7; color: #1a1e21;">…뭐라고?</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px 24px 12px; border-top: 1px solid #0b0d0f;">
+    <div style="height: 44px; padding: 0 12px; border: 1px solid #0b0d0f; display: flex; align-items: center; font-size: 11.5px;">행동</div>
+    <div style="height: 44px; padding: 0 12px; background: #0b0d0f; color: #f1f2f3; display: flex; align-items: center; font-size: 11.5px;">공개</div>
+    <div style="flex-grow: 1; height: 44px; border-bottom: 1px solid #0b0d0f; display: flex; align-items: center; font-size: 12.5px; color: #4d545a;">사진 뒤에 적는다</div>
+  </div>
+
+  <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #0b0d0f;">
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 14px; background: #0b0d0f; color: #f1f2f3;">게시판</div>
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Myeongjo', serif; font-size: 14px; color: #2f353a; border-right: 1px solid #b9bfc4;">아이들</div>
+    <div style="height: 56px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Myeongjo', serif; font-size: 14px; color: #2f353a;">프로필</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

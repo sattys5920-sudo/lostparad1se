@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Gothic+A1:wght@300;400;500;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #000000; } a:hover { color: #444444; }
+  </style>
+</helmet>
+
+<!-- 신문 부고란. 흰 종이와 검은 괘선뿐 -->
+<div style="width: 390px; height: 844px; background: #ffffff; color: #000000; font-family: 'Nanum Myeongjo', serif; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <!-- 제호 -->
+  <div style="flex-shrink: 0; margin: 14px 20px 0; padding: 8px 0 8px; border-top: 3px solid #000000; border-bottom: 1px solid #000000; display: flex; align-items: baseline; justify-content: space-between;">
+    <span style="font-weight: 800; font-size: 20px; letter-spacing: 0.1em;">우리 반 게시판</span>
+    <span style="font-family: 'Gothic A1', sans-serif; font-size: 10px; letter-spacing: 0.14em; color: #333333;">제3일 · 12월 · 눈</span>
+  </div>
+  <div style="flex-shrink: 0; margin: 2px 20px 0; border-bottom: 1px solid #000000;"></div>
+
+  <!-- 원글: 괘선 상자 -->
+  <div style="flex-shrink: 0; margin: 12px 20px 0; border: 2px solid #000000; padding: 12px 14px 11px; display: flex; gap: 12px; align-items: flex-start;">
+    <svg width="30" height="40" viewBox="0 0 34 44" fill="none" stroke="#000000" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter" style="flex-shrink: 0; margin-top: 1px;"><path d="M6 2v20"></path><path d="M28 2v20"></path><path d="M6 8h22"></path><path d="M6 14h22"></path><path d="M3 22h28"></path><path d="M5 22v20"></path><path d="M29 22v20"></path><path d="M11 22v20"></path><path d="M23 22v20"></path></svg>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+      <span style="font-family: 'Gothic A1', sans-serif; font-size: 10px; letter-spacing: 0.2em; color: #333333;">공지 · 균열 · 남은 날 2</span>
+      <p style="margin: 0; font-weight: 800; font-size: 18px; line-height: 1.35;">오늘: A의 빈자리</p>
+      <p style="margin: 0; font-family: 'Gothic A1', sans-serif; font-weight: 300; font-size: 12px; color: #1a1a1a; line-height: 1.7; text-wrap: pretty;">기존 관계가 흔들리기 시작한다. 숨겨왔던 말이나 행동이 일부 공개된다.</p>
+      <div style="display: flex; gap: 12px; margin-top: 4px; font-family: 'Gothic A1', sans-serif; font-size: 11px; color: #333333;"><span>댓글 4</span><span>공감 2</span></div>
+    </div>
+  </div>
+
+  <!-- 댓글: 단 나누기 없이, 검은 네모 불릿 -->
+  <div style="flex-grow: 1; padding: 6px 20px 4px; display: flex; flex-direction: column; overflow: hidden;">
+
+    <div style="padding: 12px 0; border-bottom: 1px solid #000000; display: flex; gap: 10px;">
+      <span style="width: 7px; height: 7px; background: #000000; flex-shrink: 0; margin-top: 6px;"></span>
+      <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+        <div style="display: flex; gap: 8px; align-items: baseline;">
+          <span style="font-weight: 800; font-size: 12.5px;">서연</span>
+          <span style="font-family: 'Gothic A1', sans-serif; font-size: 10.5px; color: #333333;">3분 전</span>
+        </div>
+        <span style="font-family: 'Gothic A1', sans-serif; font-weight: 300; font-size: 13.5px; line-height: 1.75; color: #000000;">A 얘기 좀 그만하면 안 돼? 다들 아무렇지 않은 척하잖아.</span>
+      </div>
+    </div>
+
+    <div style="padding: 12px 0; border-bottom: 1px solid #000000; display: flex; gap: 10px;">
+      <span style="width: 7px; height: 7px; border: 1px solid #000000; flex-shrink: 0; margin-top: 6px;"></span>
+      <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+        <div style="display: flex; gap: 8px; align-items: baseline;">
+          <span style="font-weight: 800; font-size: 12.5px;">나</span>
+          <span style="font-family: 'Gothic A1', sans-serif; font-size: 10.5px; color: #333333;">2분 전</span>
+        </div>
+        <span style="font-family: 'Gothic A1', sans-serif; font-weight: 300; font-size: 13.5px; line-height: 1.75; color: #000000;">그만하자는 사람이 제일 수상한 거, 알지?</span>
+      </div>
+    </div>
+
+    <!-- 공개 = 부고. 두꺼운 테와 가는 테, 가운데 정렬 -->
+    <div style="margin: 12px 0; padding: 3px; border: 3px solid #000000;">
+      <div style="border: 1px solid #000000; padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center;">
+        <span style="font-weight: 800; font-size: 13px; letter-spacing: 0.5em; margin-right: -0.5em;">공 개</span>
+        <p style="margin: 0; font-size: 15px; line-height: 1.85; text-wrap: pretty;">사실 A가 마지막으로 도움을 요청했을 때, 귀찮다는 이유로 거절했다.</p>
+        <div style="display: flex; gap: 10px; align-items: baseline; font-family: 'Gothic A1', sans-serif; font-size: 10.5px; color: #333333;">
+          <span>숨겨온 사실</span><span>·</span><span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 12.5px; color: #000000;">도윤</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding: 12px 0; border-bottom: 1px solid #000000; display: flex; gap: 10px;">
+      <span style="width: 7px; height: 7px; background: #000000; flex-shrink: 0; margin-top: 6px;"></span>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; gap: 8px; align-items: baseline;">
+          <span style="font-weight: 800; font-size: 12.5px;">하은</span>
+          <span style="font-family: 'Gothic A1', sans-serif; font-size: 10.5px; color: #333333;">방금</span>
+        </div>
+        <span style="font-family: 'Gothic A1', sans-serif; font-weight: 300; font-size: 13.5px; line-height: 1.75;">…뭐라고?</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin: 0 20px; padding: 10px 0 12px; border-top: 2px solid #000000;">
+    <div style="height: 44px; padding: 0 12px; border: 1px solid #000000; display: flex; align-items: center; font-family: 'Gothic A1', sans-serif; font-size: 11.5px;">행동</div>
+    <div style="height: 44px; padding: 0 12px; background: #000000; color: #ffffff; display: flex; align-items: center; font-family: 'Gothic A1', sans-serif; font-size: 11.5px;">공개</div>
+    <div style="flex-grow: 1; height: 44px; border: 1px solid #000000; display: flex; align-items: center; padding: 0 12px; font-family: 'Gothic A1', sans-serif; font-size: 13px; color: #333333;">한 줄 남긴다</div>
+  </div>
+
+  <div style="flex-shrink: 0; margin: 0 20px 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 2px solid #000000;">
+    <div style="height: 52px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; background: #000000; color: #ffffff;">게시판</div>
+    <div style="height: 52px; display: flex; align-items: center; justify-content: center; font-size: 14px; border-right: 1px solid #000000; border-left: 1px solid #000000;">아이들</div>
+    <div style="height: 52px; display: flex; align-items: center; justify-content: center; font-size: 14px;">프로필</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
