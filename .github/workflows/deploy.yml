@@ -15,6 +15,16 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# 저장소 시크릿은 Firebase 콘솔의 config 키 이름(apiKey, projectId ...)을 그대로 대문자로
+# 쓴 형태로 등록돼 있다. 앱이 읽는 이름은 VITE_ 접두어가 붙은 쪽이라 여기서 이어 준다.
+env:
+  VITE_FIREBASE_API_KEY: ${{ secrets.APIKEY }}
+  VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.AUTHDOMAIN }}
+  VITE_FIREBASE_PROJECT_ID: ${{ secrets.PROJECTID }}
+  VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.STORAGEBUCKET }}
+  VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.MESSAGINGSENDERID }}
+  VITE_FIREBASE_APP_ID: ${{ secrets.APPID }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,13 +37,6 @@ jobs:
       # 값이 비어 있으면 빌드는 그대로 성공하고 배포된 화면에서만 "Firebase가 연결되지
       # 않았다"로 나타나 원인을 찾기 어렵다. 어떤 항목이 비었는지만 남긴다(값은 찍지 않는다).
       - name: Check firebase secrets are present
-        env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
         run: |
           missing=0
           for name in VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID \
@@ -46,17 +49,10 @@ jobs:
             fi
           done
           if [ "$missing" -gt 0 ]; then
-            echo "::error::시크릿 $missing 개가 비어 있다. 저장소 Settings → Secrets and variables → Actions 의 Repository secrets 에 등록해야 한다 (Environment secrets 가 아니다)."
+            echo "::error::시크릿 $missing 개가 비어 있다. 저장소 Settings → Secrets and variables → Actions 의 Repository secrets 를 확인해야 한다."
             exit 1
           fi
       - run: npm run build
-        env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
