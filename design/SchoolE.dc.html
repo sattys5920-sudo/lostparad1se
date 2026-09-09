@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Gothic+A1:wght@300;400;500&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #7a1418; } a:hover { color: #591014; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #f2ede1; color: #201d18; font-family: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif; font-weight: 300; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <!-- 공문 머리 -->
+  <div style="padding: 22px 22px 14px; border-bottom: 3px double #201d18; display: flex; flex-direction: column; gap: 10px; position: relative;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <span style="font-size: 9.5px; letter-spacing: 0.18em; color: #6b6459;">학생회 제2026-0309호</span>
+        <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 20px;">특이사항 공문</span>
+      </div>
+      <div style="width: 46px; height: 46px; border-radius: 50%; border: 1.5px solid #7a1418; display: flex; align-items: center; justify-content: center; transform: rotate(-4deg);">
+        <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 10px; color: #7a1418; text-align: center; line-height: 1.15;">고운고<br>학생회</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 44px 1fr; row-gap: 4px; font-size: 11px; color: #4a453b; border-top: 1px solid #cfc7b3; padding-top: 8px;">
+      <span style="color: #6b6459;">수신</span><span>3학년 우리반 전원</span>
+      <span style="color: #6b6459;">제목</span><span>DAY 3 균열 — A의 빈자리 관련 기록</span>
+    </div>
+  </div>
+
+  <!-- 본문: 붙임 형식의 대화 -->
+  <div style="flex-grow: 1; padding: 16px 22px 6px; display: flex; flex-direction: column; gap: 13px; overflow: hidden; position: relative;">
+
+    <div style="display: flex; gap: 8px; align-items: baseline;">
+      <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 700; font-size: 12px; flex-shrink: 0;">서연 :</span>
+      <span style="font-size: 13px; line-height: 1.75; color: #2d2820;">A 얘기 좀 그만하면 안 돼? 다들 아무렇지 않은 척하잖아.</span>
+    </div>
+
+    <div style="display: flex; gap: 8px; align-items: baseline;">
+      <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 700; font-size: 12px; flex-shrink: 0; color: #7a1418;">나 :</span>
+      <span style="font-size: 13px; line-height: 1.75; color: #2d2820;">그만하자는 사람이 제일 수상한 거, 알지?</span>
+    </div>
+
+    <!-- 공개 = 붙임 별지 + 직인 -->
+    <div style="border: 1px solid #201d18; padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 10px; letter-spacing: 0.14em; color: #6b6459;">붙임 1 · 공개된 사실</span>
+        <span style="font-size: 10px; color: #6b6459;">진술인 : 도윤</span>
+      </div>
+      <p style="margin: 0; font-family: 'Nanum Myeongjo', serif; font-size: 14px; line-height: 1.8; text-wrap: pretty;">사실 A가 마지막으로 도움을 요청했을 때, 귀찮다는 이유로 거절했다.</p>
+      <div style="display: flex; justify-content: flex-end;">
+        <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 800; font-size: 11px; letter-spacing: 0.1em; color: #7a1418; border: 1.5px solid #7a1418; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transform: rotate(-8deg);">공개</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 8px; align-items: baseline;">
+      <span style="font-family: 'Nanum Myeongjo', serif; font-weight: 700; font-size: 12px; flex-shrink: 0;">하은 :</span>
+      <span style="font-size: 13px; line-height: 1.75; color: #2d2820;">…뭐라고?</span>
+    </div>
+
+  </div>
+
+  <!-- 기안란 -->
+  <div style="display: flex; align-items: center; gap: 8px; padding: 10px 22px 14px; border-top: 1px solid #201d18; position: relative;">
+    <div style="height: 44px; padding: 0 12px; border: 1px solid #201d18; display: flex; align-items: center; font-size: 11px; letter-spacing: 0.06em;">행동</div>
+    <div style="height: 44px; padding: 0 12px; border: 1px solid #7a1418; background: #7a1418; color: #f2ede1; display: flex; align-items: center; font-size: 11px; letter-spacing: 0.06em;">공개</div>
+    <div style="flex-grow: 1; height: 44px; border-bottom: 1px solid #201d18; display: flex; align-items: center; font-size: 12.5px; color: #6b6459;">기안 내용을 적으시오</div>
+  </div>
+
+  <!-- 탭 -->
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #201d18; background: #e9e2d1; position: relative;">
+    <div style="height: 54px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Myeongjo', serif; font-weight: 700; font-size: 13px; letter-spacing: 0.1em; border-top: 2px solid #7a1418; margin-top: -1px; color: #201d18;">공문함</div>
+    <div style="height: 54px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Myeongjo', serif; font-size: 13px; letter-spacing: 0.1em; color: #6b6459; border-right: 1px solid #cfc7b3; border-left: 1px solid #cfc7b3;">재적명부</div>
+    <div style="height: 54px; display: flex; align-items: center; justify-content: center; font-family: 'Nanum Myeongjo', serif; font-size: 13px; letter-spacing: 0.1em; color: #6b6459;">개인기록부</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

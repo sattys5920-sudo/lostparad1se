@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #3ee08a; } a:hover { color: #2bb56d; }
+    @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #060807; color: #a8b4ab; font-family: 'IBM Plex Mono', monospace; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <div style="position: absolute; inset: 0; background: repeating-linear-gradient(180deg, rgba(62,224,138,0.025) 0px, rgba(62,224,138,0.025) 1px, transparent 1px, transparent 3px); pointer-events: none; z-index: 2;"></div>
+
+  <!-- 접속 배너 -->
+  <div style="padding: 16px 16px 10px; border-bottom: 1px solid #1a2b20; display: flex; flex-direction: column; gap: 4px; position: relative;">
+    <div style="font-size: 10.5px; color: #3ee08a;">&gt; 알수없음.학교 에 접속함</div>
+    <div style="font-size: 10.5px; color: #5c6b60;">&gt; 계정 : guest_14 · 흔적 : 지워지지 않음</div>
+    <div style="font-size: 10.5px; color: #5c6b60;">&gt; 열람 : #균열 · 3일차</div>
+  </div>
+
+  <!-- 로그 -->
+  <div style="flex-grow: 1; padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; position: relative;">
+
+    <div style="font-size: 12.5px; line-height: 1.7;">
+      <span style="color: #5c6b60;">[14:02]</span>
+      <span style="color: #7fd9a4;">&lt;서연&gt;</span>
+      <span style="color: #c4cfc9;">A 얘기 좀 그만하면 안 돼? 다들 아무렇지 않은 척하잖아.</span>
+    </div>
+
+    <div style="font-size: 12.5px; line-height: 1.7;">
+      <span style="color: #5c6b60;">[14:03]</span>
+      <span style="color: #3ee08a;">&lt;나&gt;</span>
+      <span style="color: #e6ece8;">그만하자는 사람이 제일 수상한 거, 알지?</span>
+    </div>
+
+    <!-- 공개 = 복호화되는 블록 -->
+    <div style="margin: 4px 0; border: 1px solid #3ee08a; padding: 11px 13px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 22px rgba(62,224,138,0.14);">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: #3ee08a;">
+        <span>[14:04] 복호화됨 · 발신 : 도윤</span>
+        <span style="display: inline-block; width: 6px; height: 11px; background: #3ee08a; animation: blink 1s steps(1) infinite;"></span>
+      </div>
+      <p style="margin: 0; font-size: 13px; line-height: 1.8; color: #eef4f0; text-wrap: pretty;">사실 A가 마지막으로 도움을 요청했을 때, 귀찮다는 이유로 거절했다.</p>
+      <span style="font-size: 9.5px; color: #4a7a5c;">— 이 로그는 삭제되지 않는다 —</span>
+    </div>
+
+    <div style="font-size: 12.5px; line-height: 1.7;">
+      <span style="color: #5c6b60;">[14:05]</span>
+      <span style="color: #7fd9a4;">&lt;하은&gt;</span>
+      <span style="color: #c4cfc9;">…뭐라고?</span>
+    </div>
+
+  </div>
+
+  <!-- 명령 입력 -->
+  <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid #1a2b20; position: relative;">
+    <div style="height: 44px; padding: 0 12px; border: 1px solid #2a3d30; display: flex; align-items: center; font-size: 11px; color: #a8b4ab;">[행동]</div>
+    <div style="height: 44px; padding: 0 12px; border: 1px solid #3ee08a; color: #3ee08a; display: flex; align-items: center; font-size: 11px;">[공개]</div>
+    <div style="flex-grow: 1; height: 44px; background: #0c0f0d; border: 1px solid #1a2b20; display: flex; align-items: center; gap: 6px; padding: 0 12px;">
+      <span style="font-size: 12px; color: #3ee08a;">&gt;</span>
+      <span style="font-size: 12px; color: #5c6b60;">입력_</span>
+    </div>
+  </div>
+
+  <!-- 메뉴 = 탭 -->
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #1a2b20; background: #0a0d0b; position: relative;">
+    <div style="height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #3ee08a; border-top: 1px solid #3ee08a; margin-top: -1px;">
+      <span style="font-size: 9px; color: #4a7a5c;">[1]</span>
+      <span style="font-size: 11.5px;">교실_로그</span>
+    </div>
+    <div style="height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #5c6b60;">
+      <span style="font-size: 9px;">[2]</span>
+      <span style="font-size: 11.5px;">대상목록</span>
+    </div>
+    <div style="height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #5c6b60;">
+      <span style="font-size: 9px;">[3]</span>
+      <span style="font-size: 11.5px;">자기기록</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
