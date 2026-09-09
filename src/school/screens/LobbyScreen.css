@@ -1,0 +1,131 @@
+.sc-lobby {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 32px 28px;
+  gap: 26px;
+  overflow-y: auto;
+}
+
+.sc-lobby__head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sc-lobby__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--sc-text-dim);
+}
+
+.sc-lobby__head h1 {
+  margin: 0;
+  font-family: var(--sc-font-title);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--sc-text);
+}
+
+.sc-lobby__range {
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--sc-text-dim);
+}
+
+.sc-lobby__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--sc-line);
+}
+
+.sc-lobby__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 46px;
+  border-bottom: 1px solid var(--sc-line);
+}
+
+.sc-lobby__index {
+  font-size: 11px;
+  color: var(--sc-text-dim);
+  width: 22px;
+}
+
+.sc-lobby__name {
+  flex-grow: 1;
+  font-family: var(--sc-font-title);
+  font-size: 15px;
+  color: var(--sc-text);
+}
+
+.sc-lobby__kick {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  font-size: 11px;
+  color: var(--sc-text-dim);
+}
+
+.sc-lobby__empty {
+  padding: 20px 0;
+  font-size: 13px;
+  color: var(--sc-text-dim);
+}
+
+.sc-lobby__host {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sc-lobby__hint,
+.sc-lobby__error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--sc-text-dim);
+}
+
+.sc-lobby__error {
+  color: var(--sc-danger);
+}
+
+.sc-lobby__start {
+  height: 50px;
+  border: 1px solid var(--sc-text);
+  background: var(--sc-text);
+  color: var(--sc-bg);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.sc-lobby__start:disabled {
+  opacity: 0.35;
+}
+
+.sc-lobby__reset {
+  height: 42px;
+  border: 1px solid var(--sc-danger);
+  background: transparent;
+  color: var(--sc-danger);
+  font-size: 12.5px;
+}
+
+.sc-lobby__reset:disabled {
+  opacity: 0.35;
+}
+
+.sc-lobby__wait {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--sc-text-dim);
+}

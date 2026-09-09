@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// 친구들끼리 하는 비공개 게임용 규칙 — 별도 서버 인증 없이 앱 접근 코드(가입 코드)와
+// 자체 아이디/비밀번호(해시 저장)로만 구분하므로, 세부 권한 대신 sessions/live 트리
+// 바깥은 전부 차단하는 정도로 스코프를 좁힌다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /sessions/live {
+      allow read, write: if true;
+
+      match /players/{playerId} {
+        allow read, write: if true;
+      }
+
+      match /feedPosts/{postId} {
+        allow read, write: if true;
+      }
+
+      match /accounts/{username} {
+        allow read, write: if true;
+      }
+    }
+
+    match /schoolSessions/live {
+      allow read, write: if true;
+
+      match /players/{playerId} {
+        allow read, write: if true;
+      }
+
+      match /dmThreads/{threadKey} {
+        allow read, write: if true;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

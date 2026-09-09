@@ -1,0 +1,29 @@
+.sc-fb-notice {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 32px;
+}
+
+.sc-fb-notice__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: var(--sc-accent);
+}
+
+.sc-fb-notice h1 {
+  margin: 0;
+  font-family: var(--sc-font-title);
+  font-size: 21px;
+  color: var(--sc-text);
+}
+
+.sc-fb-notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--sc-text-dim);
+  font-weight: 300;
+}

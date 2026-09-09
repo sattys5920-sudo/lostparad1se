@@ -1,0 +1,21 @@
+.sc-tabbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.sc-tabbar__item {
+  height: 56px;
+  border: none;
+  background: transparent;
+  font-family: var(--sc-font-title);
+  font-size: 14px;
+  color: var(--sc-text-dim);
+  border-top: 1px solid transparent;
+}
+
+.sc-tabbar__item.is-active {
+  color: var(--sc-text);
+  border-top: 1px solid var(--sc-text);
+}
