@@ -5,6 +5,7 @@
   padding: 40px 32px 28px;
   gap: 26px;
   overflow-y: auto;
+  border-top: 8px solid var(--sc-text);
 }
 
 .sc-lobby__head {

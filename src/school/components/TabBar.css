@@ -2,20 +2,26 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   flex-shrink: 0;
+  border-top: 1px solid var(--sc-line);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .sc-tabbar__item {
   height: 56px;
   border: none;
+  border-right: 1px solid var(--sc-line);
   background: transparent;
   font-family: var(--sc-font-title);
+  font-weight: 700;
   font-size: 14px;
-  color: var(--sc-text-dim);
-  border-top: 1px solid transparent;
+  color: var(--sc-text-2);
+}
+
+.sc-tabbar__item:last-child {
+  border-right: none;
 }
 
 .sc-tabbar__item.is-active {
-  color: var(--sc-text);
-  border-top: 1px solid var(--sc-text);
+  background: var(--sc-text);
+  color: var(--sc-bg);
 }

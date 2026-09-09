@@ -80,21 +80,21 @@
   flex-direction: column;
   gap: 7px;
   padding: 14px 16px;
-  border: 1px solid var(--sc-accent-dim);
-  background: rgba(164, 90, 82, 0.06);
+  border: 1px solid var(--sc-bg);
+  background: var(--sc-text);
 }
 
 .sc-chat__reveal-label {
   font-size: 9.5px;
   letter-spacing: 0.2em;
-  color: var(--sc-accent);
+  color: var(--sc-line);
 }
 
 .sc-chat__reveal-text {
   font-family: var(--sc-font-title);
   font-size: 14.5px;
   line-height: 1.8;
-  color: var(--sc-text);
+  color: var(--sc-bg);
   text-wrap: pretty;
 }
 
