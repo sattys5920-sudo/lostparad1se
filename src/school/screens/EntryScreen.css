@@ -87,3 +87,12 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* 진행자 입구는 숨은 링크가 아니라 또 하나의 정식 입구다 */
+.sc-entry__switch--strong {
+  align-self: stretch;
+  height: 44px;
+  border: 1px solid var(--sc-line-strong);
+  color: var(--sc-text);
+  text-decoration: none;
+}

@@ -14,6 +14,7 @@ export function LobbyScreen() {
     hostSeedTestPlayers,
     hostRemoveTestPlayers,
     botCount,
+    logout,
   } = useSchoolGame()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -154,7 +155,13 @@ export function LobbyScreen() {
           </button>
         </div>
       ) : (
-        <p className="sc-lobby__wait">진행자가 시작할 때까지 기다린다.</p>
+        <div className="sc-lobby__waiting">
+          <p className="sc-lobby__wait">진행자가 시작할 때까지 기다린다.</p>
+          {/* 학생으로 한 번 들어오면 진입 화면이 다시 뜨지 않는다. 진행자로 바꿔 잡을 길을 남겨 둔다. */}
+          <button className="sc-lobby__leave" onClick={logout}>
+            나가서 다시 정하기
+          </button>
+        </div>
       )}
     </div>
   )

@@ -34,8 +34,8 @@ export function EntryScreen() {
   return (
     <div className="sc-entry">
       <div className="sc-entry__intro">
-        <span className="sc-entry__eyebrow">셋째 날 · 안개가 걷히기 전</span>
-        <h1>당신은 누구입니까</h1>
+        <span className="sc-entry__eyebrow">{mode === 'player' ? 'DAY 0 · 반이 다시 모인다' : 'DAY 0 · 진행자'}</span>
+        <h1>{mode === 'player' ? '당신은 누구입니까' : '진행자로 들어갑니다'}</h1>
       </div>
 
       {mode === 'player' ? (
@@ -53,7 +53,7 @@ export function EntryScreen() {
           <button className="sc-entry__submit" disabled={busy || !nickname.trim()} onClick={submitPlayer}>
             들어가기
           </button>
-          <button className="sc-entry__switch" onClick={() => setMode('host')}>
+          <button className="sc-entry__switch sc-entry__switch--strong" onClick={() => setMode('host')}>
             진행자로 들어가기
           </button>
         </>
