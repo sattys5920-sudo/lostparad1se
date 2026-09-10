@@ -11,6 +11,12 @@ import { teamById, TEAMS } from '../data/teams'
 import { tileById } from '../data/tiles'
 
 const STEP_MS = 160
+/**
+ * 걷기 자세가 1초에 몇 번 바뀌는지. 프레임 수가 아니라 시간으로 센다 —
+ * 화면 주사율이 달라도 걸음걸이가 같아야 한다.
+ * 예전에는 매 화면마다 0.14씩 올려 초당 여덟 번 넘게 팔이 바뀌어 허둥댔다.
+ */
+const WALK_POSES_PER_SEC = 3.2
 
 interface Ghost {
   px: number
@@ -231,8 +237,13 @@ export function MapScreen() {
 
     const DELTA: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
+    let lastFrame = performance.now()
+
     function loop(now: number) {
       if (!alive) return
+      // 화면이 한참 멈췄다 돌아와도 자세가 튀지 않게 한 번에 도는 양을 막아 둔다
+      const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000))
+      lastFrame = now
       if (!step) {
         const dir = [...held][held.size - 1]
         if (dir) {
@@ -256,7 +267,7 @@ export function MapScreen() {
         const t = Math.min(1, (now - step.startedAt) / STEP_MS)
         me.px = (step.fromX + (step.toX - step.fromX) * t) * TILE + TILE / 2
         me.py = (step.fromY + (step.toY - step.fromY) * t) * TILE + TILE / 2
-        me.phase += 0.14
+        me.phase += dt * WALK_POSES_PER_SEC
         if (t >= 1) {
           step = null
           me.moving = false
@@ -281,7 +292,7 @@ export function MapScreen() {
         g.moving = Math.abs(dx) + Math.abs(dy) > 0.6
         g.px += dx * 0.25
         g.py += dy * 0.25
-        if (g.moving) g.phase += 0.14
+        if (g.moving) g.phase += dt * WALK_POSES_PER_SEC
       }
 
       const camX = Math.round(Math.max(0, Math.min(MAP_W * TILE - canvas!.width, me.px - canvas!.width / 2)))
