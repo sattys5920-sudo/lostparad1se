@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import './AvatarPicker.css'
-import { ACTOR_H, ACTOR_W, actorSprite, FACE_NAMES, HAIR_NAMES, TEAM_WEAR } from '../map/avatar'
+import { ACTOR_H, ACTOR_W, actorSprite, FACE_NAMES, HAIR_COLORS, HAIR_GROUPS, HAIR_NAMES, TEAM_WEAR } from '../map/avatar'
 import { PORTRAIT_SIZE, portraitSprite } from '../map/portrait'
 import type { AvatarLook, TeamId } from '../types'
 
@@ -72,22 +72,45 @@ export function AvatarPicker({
           <span>게임 속 모습</span>
         </div>
         <div className="sc-avatar__caption">
-          <span>{HAIR_NAMES[look.hair]}</span>
+          <span>
+            {HAIR_NAMES[look.hair]} · {HAIR_COLORS[look.color ?? 0]}
+          </span>
           <span>{FACE_NAMES[look.face]}</span>
           <span className="sc-avatar__wear">{team ? `${team}팀 · ${TEAM_WEAR[team]}` : '옷은 팀이 정해지면 바뀐다'}</span>
         </div>
       </div>
 
-      <span className="sc-avatar__label">머리</span>
+      {HAIR_GROUPS.map((group) => (
+        <Fragment key={group.label}>
+          <span className="sc-avatar__label">{group.label}</span>
+          <div className="sc-avatar__row">
+            {HAIR_NAMES.slice(group.from, group.to).map((name, k) => {
+              const i = group.from + k
+              return (
+                <button
+                  key={name}
+                  className={`sc-avatar__chip ${look.hair === i ? 'is-on' : ''}`}
+                  title={name}
+                  onClick={() => onChange({ ...look, hair: i })}
+                >
+                  <Portrait look={{ ...look, hair: i }} scale={1.5} />
+                </button>
+              )
+            })}
+          </div>
+        </Fragment>
+      ))}
+
+      <span className="sc-avatar__label">머리색</span>
       <div className="sc-avatar__row">
-        {HAIR_NAMES.map((name, i) => (
+        {HAIR_COLORS.map((name, i) => (
           <button
             key={name}
-            className={`sc-avatar__chip ${look.hair === i ? 'is-on' : ''}`}
+            className={`sc-avatar__chip ${(look.color ?? 0) === i ? 'is-on' : ''}`}
             title={name}
-            onClick={() => onChange({ ...look, hair: i })}
+            onClick={() => onChange({ ...look, color: i })}
           >
-            <Portrait look={{ hair: i, face: look.face }} scale={1.5} />
+            <Portrait look={{ ...look, color: i }} scale={1.5} />
           </button>
         ))}
       </div>
@@ -101,7 +124,7 @@ export function AvatarPicker({
             title={name}
             onClick={() => onChange({ ...look, face: i })}
           >
-            <Portrait look={{ hair: look.hair, face: i }} scale={1.5} />
+            <Portrait look={{ ...look, face: i }} scale={1.5} />
           </button>
         ))}
       </div>

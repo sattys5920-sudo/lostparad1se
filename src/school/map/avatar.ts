@@ -1,20 +1,20 @@
-// 아바타 — 머리 10종 × 표정 10종 × 팀 유니폼.
+// 아바타 — 머리 30종 × 머리색 5종 × 표정 10종 × 팀 유니폼.
 //
 // 캐릭터는 12×18이다. 16픽셀 타일보다 조금 커서 사람이 사물보다 눈에 먼저 든다.
 // 몸통 틀에 F(얼굴)와 U(옷) 자리를 비워 두고, 머리·표정·유니폼을 얹어 굽는다.
-// 조합이 10×10×4×4×3 = 4800가지라 미리 굽지 않고 쓸 때 굽고 쌓아 둔다.
+// 조합이 많아 미리 굽지 않고 쓸 때 굽고 쌓아 둔다.
+//
+// 12칸 폭에는 머리 30종을 다 구분해 그릴 자리가 없다. 여기서는 열 가지 틀만
+// 두고, 초상화(portrait.ts)의 30종을 그중 가장 닮은 틀로 보낸다.
 import { PAL, type Dir } from './sprites'
+import { HAIR_COLORS, HAIR_GROUPS, HAIR_NAMES } from './portrait'
 import type { AvatarLook, TeamId } from '../types'
 
 export const ACTOR_W = 12
 export const ACTOR_H = 18
 
 export type { AvatarLook }
-
-export const HAIR_NAMES = [
-  '짧은 머리', '단발', '긴 머리', '하나로 묶음', '양갈래',
-  '스포츠머리', '곱슬', '앞머리', '가르마', '쪽머리',
-]
+export { HAIR_COLORS, HAIR_GROUPS, HAIR_NAMES }
 
 export const FACE_NAMES = [
   '무표정', '웃음', '활짝', '놀람', '찡그림',
@@ -175,6 +175,56 @@ const HAIR_DOWN: string[][] = [
   ],
 ]
 
+/** 초상화 머리 30종 → 위 열 가지 틀. 순서는 portrait.ts의 HAIR_NAMES와 같다. */
+const ACTOR_HAIR_OF = [
+  // 남자: 짧은·스포츠·가르마·삐침·앞머리·넘긴·더벅·곱슬·아프로·투블럭·올백·장발·포니·헝클·커튼
+  0, 5, 8, 0, 7, 8, 6, 6, 6, 5, 0, 2, 3, 6, 8,
+  // 여자: 단발·긴생머리·웨이브·양갈래·묶음·쪽·앞머리단발·히메·땋은·똥머리둘·숏컷·옆머리·반묶음·긴곱슬·옆묶음
+  1, 2, 2, 4, 3, 9, 7, 2, 3, 9, 0, 8, 2, 6, 3,
+]
+
+// ── 머리색 ──────────────────────────────────────────────────────
+// 초상화와 같은 규칙이다. 바깥 테두리(몸 실루엣 밖과 닿는 칸)는 늘 먹,
+// 얼굴과 닿는 안쪽 테두리는 색의 테두리 톤, 속은 색의 속 톤.
+// 12칸 머리는 거의가 테두리라 속 톤은 한두 줄만 보인다 — 그래도 흑발과는 갈린다.
+
+interface ActorTone {
+  fill: string
+  rim: string
+  /** 브릿지 — 안쪽에 밝은 칸을 섞는다 */
+  streak?: boolean
+}
+
+const ACTOR_TONES: ActorTone[] = [
+  { fill: '3', rim: '3' }, // 흑발
+  { fill: '2', rim: '3' }, // 적발
+  { fill: '1', rim: '2' }, // 금발
+  { fill: '0', rim: '2' }, // 백발
+  { fill: '3', rim: '3', streak: true }, // 브릿지
+]
+
+const N4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+
+function hairTone(layer: string[], base: string[], x: number, y: number, c: string, color: number): string {
+  if (color % ACTOR_TONES.length === 0) return c
+  const tone = ACTOR_TONES[color % ACTOR_TONES.length]
+  let outer = false
+  let inner = false
+  for (const [dx, dy] of N4) {
+    const nx = x + dx
+    const ny = y + dy
+    const h = layer[ny]?.[nx] ?? ' '
+    if (h !== ' ') continue
+    const b = base[ny]?.[nx] ?? ' '
+    if (b === ' ') outer = true
+    else inner = true
+  }
+  if (outer) return '3'
+  if (tone.streak) return (x + y) % 3 === 0 ? '1' : '3'
+  if (inner) return tone.rim
+  return c === '2' ? tone.rim : tone.fill
+}
+
 /**
  * 옆모습 머리. 정수리와 헤어라인(0~3줄)은 앞뒤 구분이 없으니 그대로 쓰고,
  * 그 아래(옆머리·뒷머리)는 뒤쪽 절반(0~5칸)만 남긴다. 얼굴 쪽(6~11칸)은
@@ -303,9 +353,15 @@ function compose(
   put(grid, 6, 10, '3')
 
   if (!skipHair) {
-    const hair = HAIR_DOWN[look.hair % HAIR_DOWN.length]
+    const hair = HAIR_DOWN[ACTOR_HAIR_OF[look.hair % ACTOR_HAIR_OF.length]]
     const layer = dir === 'up' ? hairUp(hair) : dir === 'down' ? hair : hairSide(hair)
-    layer.forEach((row, y) => [...row].forEach((c, x) => put(grid, x, y, c)))
+    const color = look.color ?? 0
+    layer.forEach((row, y) =>
+      [...row].forEach((c, x) => {
+        if (c === ' ') return
+        put(grid, x, y, hairTone(layer, base, x, y, c, color))
+      }),
+    )
   }
 
   // 앞머리가 눈과 입까지 덮으면 얼굴이 사라진다. 이마(3줄)와 턱은 머리에 내주고
@@ -372,7 +428,7 @@ const cache = new Map<string, HTMLCanvasElement>()
 
 /** 쓸 때 굽고 쌓아 둔다. 조합이 4800가지라 미리 다 구울 수 없다. */
 export function actorSprite(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number): HTMLCanvasElement {
-  const key = `${look.hair}-${look.face}-${team ?? '-'}-${dir}-${frame}`
+  const key = `${look.hair}-${look.color ?? 0}-${look.face}-${team ?? '-'}-${dir}-${frame}`
   const hit = cache.get(key)
   if (hit) return hit
   const drawn = dir === 'left' ? mirror(paint(compose(look, team, 'right', frame))) : paint(compose(look, team, dir, frame))
@@ -408,5 +464,9 @@ export function drawPortrait(
 export function defaultLook(seed: string): AvatarLook {
   let h = 0
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  return { hair: h % 10, face: Math.floor(h / 10) % 10 }
+  return {
+    hair: h % HAIR_NAMES.length,
+    face: Math.floor(h / 30) % FACE_NAMES.length,
+    color: Math.floor(h / 300) % HAIR_COLORS.length,
+  }
 }
