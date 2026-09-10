@@ -24,6 +24,10 @@ export const FACE_NAMES = [
 // ── 몸통 틀 ─────────────────────────────────────────────────────
 // ' ' 비움 · '3' 윤곽 · '1' 살 · 'F' 얼굴(표정이 덮는다) · 'U' 옷(팀이 덮는다)
 
+// 몸은 통짜 사각형이 아니라 사람 모양이어야 한다.
+// 어깨(8칸) → 몸통(4칸) → 허리(4칸)로 좁아지고, 팔은 몸통과 다른 톤으로 갈라 놓는다.
+// 'A'는 팔 — 옷이 밝으면 어둡게, 어두우면 밝게 칠해 늘 몸통과 갈린다.
+
 const BODY_DOWN = [
   '            ',
   '    3333    ',
@@ -36,11 +40,11 @@ const BODY_DOWN = [
   '   311113   ',
   '    3113    ',
   '  33UUUU33  ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 33UUUUUU33 ',
+  '  3AUUUUA3  ',
+  '  3AUUUUA3  ',
+  '  3AUUUUA3  ',
+  '  31UUUU13  ',
+  '  3UUUUUU3  ',
 ]
 
 const BODY_UP = [
@@ -55,13 +59,14 @@ const BODY_UP = [
   '   311113   ',
   '    3113    ',
   '  33UUUU33  ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 33UUUUUU33 ',
+  '  3AUUUUA3  ',
+  '  3AUUUUA3  ',
+  '  3AUUUUA3  ',
+  '  31UUUU13  ',
+  '  3UUUUUU3  ',
 ]
 
+// 옆모습은 앞뒤로 얇다. 몸통 3칸에 이쪽 팔 하나만 보인다.
 const BODY_SIDE = [
   '            ',
   '    3333    ',
@@ -73,18 +78,25 @@ const BODY_SIDE = [
   '    31113   ',
   '    31113   ',
   '    3113    ',
-  '  33UUUU33  ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 3UUUUUUUU3 ',
-  ' 33UUUUUU33 ',
+  '    3UUU3   ',
+  '    3UUA3   ',
+  '    3UUA3   ',
+  '    3UUA3   ',
+  '    3UU13   ',
+  '    3UU3    ',
 ]
 
-const LEGS: Record<number, string[]> = {
+/** 다리는 앞뒤가 다르다. 옆모습은 앞뒤로 엇갈리게 딛는다. */
+const LEGS_FRONT: Record<number, string[]> = {
   0: ['   33  33   ', '   33  33   '],
-  1: ['   3333     ', '   33  33   '],
-  2: ['     3333   ', '   33  33   '],
+  1: ['   33  3    ', '  333  33   '],
+  2: ['    3  33   ', '   33  333  '],
+}
+
+const LEGS_SIDE: Record<number, string[]> = {
+  0: ['    333     ', '   33 33    '],
+  1: ['   33  3    ', '  33   33   '],
+  2: ['    3  33   ', '   33   33  '],
 }
 
 // ── 머리 (앞모습) ───────────────────────────────────────────────
@@ -103,11 +115,11 @@ const HAIR_DOWN: string[][] = [
     '  33    33  ', '  33    33  ', '  33    33  ', '  333  333  ',
     '            ', '            ', '            ', '            ',
   ],
-  // 2 긴 머리
+  // 2 긴 머리 — 몸 폭 안에서 어깨 위로 떨어진다. 밖으로 뻗으면 날개처럼 보인다.
   [
     '            ', '    3333    ', '   333333   ', '  33333333  ',
     '  33    33  ', '  33    33  ', '  33    33  ', '  33    33  ',
-    '  33    33  ', ' 233    332 ', ' 233    332 ', '  33    33  ',
+    '  33    33  ', '  33    33  ', '  23    32  ', '  23    32  ',
   ],
   // 3 하나로 묶음
   [
@@ -174,7 +186,8 @@ function hairSide(down: string[]): string[] {
 /** 뒷모습 머리 — 앞모습에 뒤통수를 채운다. */
 function hairUp(down: string[]): string[] {
   return down.map((row, y) => {
-    if (y < 2 || y > 7) return row
+    // 6~7줄(목덜미)은 몸통 틀의 음영을 살려 둔다. 다 채우면 머리가 검은 덩어리가 된다.
+    if (y < 2 || y > 5) return row
     let out = ''
     for (let x = 0; x < ACTOR_W; x++) out += x >= 3 && x <= 8 ? '3' : row[x]
     return out
@@ -238,6 +251,11 @@ function uniformCell(team: TeamId | null, x: number, y: number): string {
   }
 }
 
+/** 팔은 옷과 반대 톤으로. 어느 팀 옷을 입어도 몸통과 팔이 갈린다. */
+function armCell(team: TeamId | null, x: number, y: number): string {
+  return uniformCell(team, x, y) === '1' ? '2' : '1'
+}
+
 export const TEAM_WEAR: Record<TeamId, string> = {
   A: '밝은 무지',
   B: '어두운 무지',
@@ -264,7 +282,9 @@ function put(grid: string[][], x: number, y: number, ch: string): void {
 function compose(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number): string[][] {
   const base = dir === 'up' ? BODY_UP : dir === 'down' ? BODY_DOWN : BODY_SIDE
   const grid = base.map((row, y) =>
-    [...row].map((c, x) => (c === 'F' ? '1' : c === 'U' ? uniformCell(team, x, y) : c)),
+    [...row].map((c, x) =>
+      c === 'F' ? '1' : c === 'U' ? uniformCell(team, x, y) : c === 'A' ? armCell(team, x, y) : c,
+    ),
   )
   // 옷깃 — 어느 팀이든 목 아래에 한 줄
   put(grid, 5, 10, '3')
@@ -292,13 +312,14 @@ function compose(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number)
     if (f.tear) put(grid, 8, 6, '2')
   } else if (dir !== 'up') {
     // 옆모습은 한쪽 눈과 입 오른쪽 절반만 보인다
-    ;[...f.browR].forEach((c, i) => put(grid, 5 + i, 3, c))
-    f.eyeR.forEach((row, ry) => [...row].forEach((c, i) => put(grid, 5 + i, 4 + ry, c)))
+    ;[...f.browR].forEach((c, i) => put(grid, 6 + i, 3, c))
+    f.eyeR.forEach((row, ry) => [...row].forEach((c, i) => put(grid, 6 + i, 4 + ry, c)))
     f.mouth.forEach((row, ry) => [...row.slice(2)].forEach((c, i) => put(grid, 6 + i, 6 + ry, c)))
     if (f.tear) put(grid, 7, 6, '2')
   }
 
-  return [...grid, ...LEGS[frame].map((row) => [...row])]
+  const legs = dir === 'down' || dir === 'up' ? LEGS_FRONT[frame] : LEGS_SIDE[frame]
+  return [...grid, ...legs.map((row) => [...row])]
 }
 
 function paint(grid: string[][]): HTMLCanvasElement {

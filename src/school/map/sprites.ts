@@ -807,7 +807,7 @@ export function buildSprites(): SpriteSet {
       stain: bake(STAIN),
     },
     // 사람은 아바타(map/avatar.ts)가 그린다. 여기서는 발밑 그림자만 낸다.
-    shadow: bake(['   222222   ', '  22222222  ']),
+    shadow: bake(['    2222    ', '   222222   ']),
   }
 }
 
