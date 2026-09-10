@@ -1,14 +1,17 @@
-// 오버월드 도트 캐릭터 — GBA·DS 시절 JRPG 규격.
+// 오버월드 도트 캐릭터 — 레퍼런스 시트 규격.
 //
-//   · 한 칸 32×32, 캐릭터는 2등신(머리 14줄 + 몸 15줄)
-//   · 살짝 내려다보는 3/4 부감이라 정수리가 보인다
-//   · 실루엣 둘레는 1픽셀 진한 외곽선, 안티앨리어싱 없음
-//   · 색은 12~16개, 재질마다 두세 단계 평면 음영(셀 셰이딩)
-//   · 눈은 두세 칸, 입은 아주 작거나 없다
-//   · 4방향 × 걷기 4프레임 = 16칸, 모든 칸에서 비율이 같다
+// 한 칸 32×32, 캐릭터는 26칸(5~30줄), 발바닥이 30줄에 닿는다.
+//   머리   5~17줄 (14×13) — 전체의 절반
+//   몸통  17~23줄 (7칸)   — 정면 10칸 폭, 옆 7칸 폭. 머리가 한 칸 겹친다(목 없음)
+//   다리  24~28줄         — 폭 2칸, 사이 한 칸
+//   신발  29~30줄         — 3×2
 //
-// 프로필용 벡터 아바타(svg.ts)와 같은 파츠 번호·같은 팔레트를 쓴다. 그래서
-// 프로필에서 고른 모습이 지도 위에서도 같은 사람으로 보인다.
+// 머리통은 네 방향이 같은 윤곽을 쓴다. 아래 두 맵이 그 기준이고, 머리 모양
+// 열다섯 개는 이 맵 위에서 "어디까지가 머리카락이고 어디부터가 살인지"만
+// 바꾼다. 그래서 무엇을 골라도 머리 크기와 눈 위치가 변하지 않는다.
+//
+// 테두리는 한 색이 아니다. 닿아 있는 색을 어둡게 한 값을 쓴다 —
+// 머리 테두리는 가장 어두운 머리색, 살 테두리는 진한 갈색.
 import { BAND_TONES, CLOTH, HAIR_COLORS, tone, type Tone } from './palette'
 import type { AvatarLook, TeamId } from '../types'
 
@@ -18,17 +21,21 @@ export const CELL = 64
 
 export type Dir = 'down' | 'left' | 'right' | 'up'
 export type Pose = 0 | 1 | 2
-/** 걷기 4프레임: 서기 → 왼발 → 서기 → 오른발 */
+/** 걷기 4프레임: 서기 → 걸음A → 서기 → 걸음B */
 export const WALK: readonly Pose[] = [0, 1, 0, 2]
 export const DIRS: readonly Dir[] = ['down', 'left', 'right', 'up']
 
-/** 실루엣 둘레는 재질과 상관없이 이 한 색이다. GBA 스프라이트의 기본 문법. */
-const OUTLINE = '#2b2431'
-const SKIN = tone('#f3c9a0')
-const SHOE = tone('#3c4048')
-const EYE = '#33272f'
+const SKIN = tone('#e6c9a8')
+const SHOE = tone('#2f3350')
+const EYE = '#3a3040'
 
 type Mat = 'skin' | 'hair' | 'shirt' | 'jacket' | 'sleeve' | 'accent' | 'bottom' | 'shoe' | 'eye' | 'band'
+/**
+ * 칸 하나가 쓸 색. 'auto'는 실루엣 둘레면 테두리, 아니면 바탕이다.
+ * 두 칸짜리 다리·양말처럼 좁은 부위는 'base'로 못 박는다 — 양쪽이 다 가장자리라
+ * auto로 두면 통째로 테두리색이 되어 까맣게 뭉친다.
+ */
+type Shade = 'auto' | 'base' | 'line' | 'light' | 'shade'
 
 /** [y, x0, x1] — 양끝 포함 */
 type Row = readonly [number, number, number]
@@ -38,94 +45,156 @@ const MAT_LAYER: Record<Mat, number> = {
   bottom: 2,
   shirt: 3,
   jacket: 4,
-  // 소매는 몸통보다 한 층 위에 둔다. 그래야 같은 천이라도 경계에 선이 생겨
-  // 옆모습에서 팔이 몸통에 먹히지 않는다.
   sleeve: 5,
-  accent: 6,
   shoe: 5,
+  accent: 6,
   eye: 7,
   hair: 8,
   band: 9,
 }
 
-// ── 뼈대 ────────────────────────────────────────────────────────
-// 비율이 이 캐릭터의 전부다. 아래 숫자를 지키면 어떤 파츠를 얹어도
-// 같은 사람으로 보인다.
-//
-//   머리   2~18줄 (17칸) — 전체 높이의 57%, 몸보다 확실히 넓다
-//   몸통  17~24줄 (8칸)  — 어깨 12칸에서 허리 10칸으로 좁아지는 작은 통
-//   다리  25~29줄 (5칸)  — 전체의 6분의 1
-//   발    30~31줄 (2칸)  — 작고 어두운 덩어리
-//
-// 목은 없다. 턱(18줄)이 깃 위에 바로 얹히고, 머리 아래 두 줄이 몸통 위를
-// 덮는다. 목을 한 칸이라도 그리면 2등신 비율이 깨져 인형처럼 보인다.
-// 어깨는 턱 아래에서 둥글게 흘러내리고(17줄이 좁고 18줄이 넓다) 세로로
-// 곧게 뻗는 변이 없어야 실루엣이 동글동글해진다.
+// ── 머리통 맵 ───────────────────────────────────────────────────
+// O=테두리 H=머리카락 h=윤기 S=살 E=눈 .=투명
+// 이 두 장이 모든 머리 모양의 바탕이다.
 
-/** 머리통 — 어느 방향에서도 이 모양이다. */
-const HEAD: Row[] = [
-  [2, 11, 20], [3, 9, 22], [4, 8, 23], [5, 8, 23], [6, 8, 23], [7, 8, 23],
-  [8, 8, 23], [9, 8, 23], [10, 8, 23], [11, 8, 23], [12, 8, 23], [13, 8, 23],
-  [14, 8, 23], [15, 9, 22], [16, 10, 21], [17, 11, 20], [18, 13, 18],
+const FRONT_MAP = [
+  '....OOOOOO....',
+  '..OOHHHHHHOO..',
+  '.OHHhhHHHHHHO.',
+  'OHHhHHHHHHHHHO',
+  'OHHHHHHHHHHHHO',
+  'OHHHHHHHHHHHHO',
+  'OHHSSSHSSSSHHO',
+  'OHHSSSSSSSSHHO',
+  'OHHSESSSSESHHO',
+  'OHHSESSSSESHHO',
+  'OHHSSSSSSSSHHO',
+  '.OHHSSSSSSHHO.',
+  '..OOOOOOOOOO..',
 ]
-const HEAD_TOP = 2
-const HEAD_BOTTOM = 18
-/** 머리통 가로폭 표 — 머리카락이 이 위에 얹힌다. */
-const HEAD_W: Record<number, [number, number]> = Object.fromEntries(
-  HEAD.map(([y, x0, x1]) => [y, [x0, x1] as [number, number]]),
+
+const SIDE_MAP = [
+  '....OOOOOO....',
+  '..OOHHHHHHOO..',
+  '.OHHhhhHHHHHO.',
+  'OHHHHhHHHHHHHO',
+  'OHHHHHHHHHHHHO',
+  'OHHHHHHHHHHHHO',
+  'OHHHHHHHHHHHHO',
+  'OHHHHHHHSSSSSO',
+  'OHHHHHHHSSSESO',
+  'OHHHHHHHSSSESO',
+  '.OHHHHHHSSSSSO',
+  '..OHHHHHSSSSO.',
+  '...OOOOOOOOO..',
+]
+
+/** 맵 왼쪽 위가 캔버스에서 놓이는 자리 */
+const HEAD_X = 9
+const HEAD_Y = 5
+const HEAD_BOTTOM = HEAD_Y + FRONT_MAP.length - 1
+
+interface Pix {
+  x: number
+  y: number
+  mat: Mat
+  shade: Shade
+}
+
+/** 맵 한 장을 칸 목록으로 편다. O는 이웃을 보고 머리 테두리인지 살 테두리인지 정한다. */
+function readMap(map: string[]): Pix[] {
+  const out: Pix[] = []
+  const at = (x: number, y: number) => map[y]?.[x] ?? '.'
+  for (let y = 0; y < map.length; y++) {
+    for (let x = 0; x < map[y].length; x++) {
+      const c = at(x, y)
+      if (c === '.') continue
+      let mat: Mat = 'hair'
+      let shade: Shade = 'base'  // 맵이 테두리를 직접 지정한다
+      if (c === 'S') mat = 'skin'
+      else if (c === 'E') {
+        mat = 'eye'
+      } else if (c === 'h') shade = 'light'
+      else if (c === 'O') {
+        // 위아래 이웃이 살이면 살 테두리, 아니면 머리 테두리
+        const near = [at(x, y - 1), at(x, y + 1), at(x - 1, y), at(x + 1, y)]
+        mat = near.some((n) => n === 'S' || n === 'E') && !near.includes('H') ? 'skin' : 'hair'
+        shade = 'line'
+      }
+      out.push({ x: HEAD_X + x, y: HEAD_Y + y, mat, shade })
+    }
+  }
+  return out
+}
+
+const HEAD_FRONT = readMap(FRONT_MAP)
+const HEAD_SIDE = readMap(SIDE_MAP)
+/** 뒷모습 — 정면과 같은 윤곽에 머리카락만 채운다. */
+const HEAD_BACK: Pix[] = HEAD_FRONT.map((p) =>
+  p.mat === 'skin' || p.mat === 'eye' ? { ...p, mat: 'hair' as Mat, shade: p.shade === 'line' ? 'line' : 'base' } : p,
 )
 
-/** 어깨 12칸(머리의 3/4) → 허리 10칸. 위아래가 좁아 통처럼 보인다. */
-const TORSO_FRONT: Record<number, [number, number]> = {
-  17: [11, 20], 18: [10, 21], 19: [10, 21], 20: [10, 21],
-  21: [11, 20], 22: [11, 20], 23: [11, 20], 24: [11, 20],
-}
-/** 옆몸은 정면의 70%. 앞쪽(오른쪽)으로 쏠려 있다. */
-const TORSO_SIDE: Record<number, [number, number]> = {
-  17: [13, 19], 18: [12, 20], 19: [12, 20], 20: [12, 20],
-  21: [13, 19], 22: [13, 19], 23: [13, 19], 24: [13, 19],
-}
+/** 머릿결 — 넓은 머리 면에 어두운 줄 두세 개. */
+const STRANDS_FRONT: [number, number][] = [[11, 8], [20, 9], [12, 6]]
+const STRANDS_SIDE: [number, number][] = [[12, 9], [15, 6], [11, 12]]
 
-const ARM_TOP = 19
-const ARM_END = 24
-/** 손 — 엉덩이 높이의 두 칸짜리 덩어리 */
+// ── 몸 ──────────────────────────────────────────────────────────
+
+const TORSO_TOP = 17
+const TORSO_BOTTOM = 23
+const ARM_TOP = 18
+/** 팔 길이 5칸 */
+const ARM_LEN = 4
 const HAND_TOP = 23
-const LEG_TOP = 25
+const HAND_BOTTOM = 24
+const LEG_TOP = 24
+const LEG_BOTTOM = 28
+const SHOE_TOP = 29
+const FLOOR = 30
+
+/** 정면 몸통 10칸, 어깨만 좁게 둥글린다. */
+const TORSO_FRONT: Record<number, [number, number]> = {
+  17: [12, 19], 18: [11, 20], 19: [11, 20], 20: [11, 20], 21: [11, 20], 22: [11, 20], 23: [11, 20],
+}
+/** 옆 몸통 7칸. 앞쪽으로 쏠려 있다. */
+const TORSO_SIDE: Record<number, [number, number]> = {
+  17: [14, 18], 18: [13, 19], 19: [13, 19], 20: [13, 19], 21: [13, 19], 22: [13, 19], 23: [13, 19],
+}
 
 interface Foot {
-  x: [number, number]
+  leg: [number, number]
   legBottom: number
   shoe: [number, number]
   shoeTop: number
 }
 
-function feet(dir: Dir, pose: Pose): Foot[] {
-  if (dir === 'right') {
-    if (pose === 0) return [{ x: [13, 18], legBottom: 29, shoe: [12, 19], shoeTop: 30 }]
-    const fwd: Foot = { x: [16, 19], legBottom: 28, shoe: [16, 21], shoeTop: 29 }
-    const back: Foot = { x: [11, 14], legBottom: 29, shoe: [10, 15], shoeTop: 30 }
-    return pose === 1
-      ? [back, fwd]
-      : [{ x: [12, 15], legBottom: 29, shoe: [11, 16], shoeTop: 30 }, { x: [16, 19], legBottom: 29, shoe: [16, 21], shoeTop: 30 }]
+/** 걸음. 정면·뒤는 한 발이 한 칸 들리고, 옆은 앞뒤로 벌어진다. */
+function feet(side: boolean, pose: Pose): Foot[] {
+  if (side) {
+    if (pose === 0) return [{ leg: [15, 16], legBottom: LEG_BOTTOM, shoe: [14, 16], shoeTop: SHOE_TOP }]
+    const fwd: Foot = { leg: [17, 18], legBottom: LEG_BOTTOM - 1, shoe: [17, 19], shoeTop: SHOE_TOP - 1 }
+    const back: Foot = { leg: [13, 14], legBottom: LEG_BOTTOM, shoe: [12, 14], shoeTop: SHOE_TOP }
+    return pose === 1 ? [back, fwd] : [{ ...fwd, leg: [16, 17], shoe: [16, 18] }, { ...back, leg: [14, 15], shoe: [13, 15] }]
   }
-  const l: Foot = { x: [12, 14], legBottom: 29, shoe: [11, 14], shoeTop: 30 }
-  const r: Foot = { x: [17, 19], legBottom: 29, shoe: [17, 20], shoeTop: 30 }
-  if (pose === 1) return [{ ...l, legBottom: 28, shoeTop: 29 }, r]
-  if (pose === 2) return [l, { ...r, legBottom: 28, shoeTop: 29 }]
+  const l: Foot = { leg: [14, 15], legBottom: LEG_BOTTOM, shoe: [13, 15], shoeTop: SHOE_TOP }
+  const r: Foot = { leg: [17, 18], legBottom: LEG_BOTTOM, shoe: [17, 19], shoeTop: SHOE_TOP }
+  const lift = (f: Foot): Foot => ({ ...f, legBottom: f.legBottom - 1, shoeTop: f.shoeTop - 1 })
+  if (pose === 1) return [lift(l), r]
+  if (pose === 2) return [l, lift(r)]
   return [l, r]
 }
 
-/** 팔 — 몸통에 딱 붙는 두 칸. 정면·뒤는 둘, 옆은 하나. */
-function armsAt(dir: Dir, pose: Pose, y: number): [number, number][] {
-  if (dir === 'right') {
-    const dx = pose === 1 ? 1 : pose === 2 ? -2 : 0
-    return y >= ARM_TOP && y <= ARM_END ? [[19 + dx, 20 + dx]] : []
+/** 팔 — 폭 2칸, 길이 5칸. 걸을 때 반대쪽이 한 칸 앞뒤로 흔들린다. */
+function arms(side: boolean, pose: Pose): { x: [number, number]; top: number }[] {
+  if (side) {
+    const dy = pose === 1 ? -1 : pose === 2 ? 1 : 0
+    return [{ x: [18, 19], top: ARM_TOP + dy }]
   }
   const s = pose === 1 ? 1 : pose === 2 ? -1 : 0
-  const out: [number, number][] = []
-  if (y >= ARM_TOP - s && y <= ARM_END - s) out.push([8, 9])
-  if (y >= ARM_TOP + s && y <= ARM_END + s) out.push([22, 23])
-  return out
+  return [
+    { x: [9, 10], top: ARM_TOP - s },
+    { x: [21, 22], top: ARM_TOP + s },
+  ]
 }
 
 interface Rig {
@@ -133,52 +202,34 @@ interface Rig {
   pose: Pose
   bob: number
   side: boolean
-  /** 머리 아래 — 몸통·팔·다리 */
-  body: Row[]
-  /** 머리 — 옷보다 위에 얹어 턱이 깃을 덮게 한다 */
-  head: Row[]
-  shoes: Row[]
+  head: Pix[]
+  strands: [number, number][]
   torso: Record<number, [number, number]>
-  armsAt(y: number): [number, number][]
-  legsAt(y: number): [number, number][]
+  arms: { x: [number, number]; top: number }[]
+  feet: Foot[]
 }
 
 function makeRig(dir: Dir, pose: Pose): Rig {
   const side = dir === 'right'
+  // 걸음 프레임에서는 몸 전체가 한 칸 들썩인다
   const bob = pose === 0 ? 0 : -1
-  const torso = side ? TORSO_SIDE : TORSO_FRONT
-  const fs = feet(side ? 'right' : 'down', pose)
-
-  const head: Row[] = HEAD.map(([y, x0, x1]) => [y + bob, x0, x1] as Row)
-  // 옆모습엔 코가 있다. 눈높이에서 얼굴 앞으로 한 칸 나온다.
-  if (side) head.push([14 + bob, 24, 24], [15 + bob, 24, 24])
-  const body: Row[] = []
-  for (const y of Object.keys(torso).map(Number)) body.push([y + bob, torso[y][0], torso[y][1]])
-  for (let y = ARM_TOP; y <= ARM_END; y++) {
-    for (const [x0, x1] of armsAt(side ? 'right' : 'down', pose, y)) body.push([y + bob, x0, x1])
-  }
-  for (const f of fs) for (let y = LEG_TOP; y <= f.legBottom; y++) body.push([y, f.x[0], f.x[1]])
-
-  const shoes: Row[] = []
-  for (const f of fs) for (let y = f.shoeTop; y <= 31; y++) shoes.push([y, f.shoe[0], f.shoe[1]])
-
+  const head = dir === 'up' ? HEAD_BACK : side ? HEAD_SIDE : HEAD_FRONT
   return {
     dir,
     pose,
     bob,
     side,
-    body,
-    head,
-    shoes,
-    torso,
-    armsAt: (y) => armsAt(side ? 'right' : 'down', pose, y - bob),
-    legsAt: (y) => fs.filter((f) => y >= LEG_TOP && y <= f.legBottom).map((f) => f.x),
+    head: head.map((p) => ({ ...p, y: p.y + bob })),
+    strands: (side ? STRANDS_SIDE : STRANDS_FRONT).map(([x, y]) => [x, y + bob] as [number, number]),
+    torso: side ? TORSO_SIDE : TORSO_FRONT,
+    arms: arms(side, pose),
+    feet: feet(side, pose),
   }
 }
 
-// ── 머리 15종 ───────────────────────────────────────────────────
-// 벡터 아바타와 같은 순서·같은 이름. 32칸 안에서도 실루엣이 갈리도록
-// 앞머리 모양 · 옆머리 길이 · 뒷머리 길이 · 묶음으로 나눈다.
+// ── 머리 모양 15종 ──────────────────────────────────────────────
+// 맵의 머리통은 건드리지 않는다. 앞머리가 어디까지 내려오는지, 옆머리가
+// 얼굴 옆으로 얼마나 흐르는지, 뒤로 무엇이 달렸는지만 다르다.
 
 type Bangs = 'full' | 'part' | 'straight' | 'short' | 'spiky'
 type Extra = 'twin' | 'lowTwin' | 'pony' | 'highPony' | 'sidePony' | 'braid' | 'bun' | null
@@ -186,133 +237,122 @@ type Extra = 'twin' | 'lowTwin' | 'pony' | 'highPony' | 'sidePony' | 'braid' | '
 interface HairSpec {
   name: string
   bangs: Bangs
-  /** 옆머리가 내려오는 줄 */
-  side: number
-  /** 뒷머리가 내려오는 줄 */
-  back: number
+  /** 옆머리가 얼굴 옆을 지나 몸통 옆으로 내려오는 줄. 0이면 머리통 안에서 끝난다. */
+  sideTo: number
+  /** 옆모습에서 등을 타고 내려오는 줄. 0이면 없다. */
+  backTo: number
   extra: Extra
-  wavy?: boolean
 }
 
 export const HAIR_SPECS: HairSpec[] = [
-  { name: '기본 단발', bangs: 'full', side: 18, back: 21, extra: null },
-  { name: '긴 생머리', bangs: 'full', side: 23, back: 30, extra: null },
-  { name: '양갈래', bangs: 'full', side: 15, back: 18, extra: 'twin' },
-  { name: '낮은 양갈래', bangs: 'full', side: 18, back: 20, extra: 'lowTwin' },
-  { name: '포니테일', bangs: 'full', side: 15, back: 17, extra: 'pony' },
-  { name: '높은 포니테일', bangs: 'short', side: 13, back: 16, extra: 'highPony' },
-  { name: '숏컷', bangs: 'part', side: 15, back: 16, extra: null },
-  { name: '웨이브 단발', bangs: 'full', side: 19, back: 22, extra: null, wavy: true },
-  { name: '긴 웨이브', bangs: 'full', side: 24, back: 29, extra: null, wavy: true },
-  { name: '앞머리 일자 단발', bangs: 'straight', side: 22, back: 24, extra: null },
-  { name: '사이드 포니테일', bangs: 'part', side: 16, back: 17, extra: 'sidePony' },
-  { name: '땋은 머리', bangs: 'full', side: 15, back: 18, extra: 'braid' },
-  { name: '반묶음', bangs: 'full', side: 22, back: 28, extra: 'bun' },
-  { name: '보브컷', bangs: 'full', side: 17, back: 20, extra: null },
-  { name: '헝클어진 짧은 머리', bangs: 'spiky', side: 14, back: 16, extra: null },
+  { name: '기본 단발', bangs: 'full', sideTo: 0, backTo: 19, extra: null },
+  { name: '긴 생머리', bangs: 'full', sideTo: 22, backTo: 22, extra: null },
+  { name: '양갈래', bangs: 'full', sideTo: 0, backTo: 0, extra: 'twin' },
+  { name: '낮은 양갈래', bangs: 'full', sideTo: 0, backTo: 18, extra: 'lowTwin' },
+  { name: '포니테일', bangs: 'full', sideTo: 0, backTo: 0, extra: 'pony' },
+  { name: '높은 포니테일', bangs: 'short', sideTo: 0, backTo: 0, extra: 'highPony' },
+  { name: '숏컷', bangs: 'part', sideTo: 0, backTo: 0, extra: null },
+  { name: '웨이브 단발', bangs: 'full', sideTo: 19, backTo: 20, extra: null },
+  { name: '긴 웨이브', bangs: 'full', sideTo: 23, backTo: 23, extra: null },
+  { name: '앞머리 일자 단발', bangs: 'straight', sideTo: 20, backTo: 21, extra: null },
+  { name: '사이드 포니테일', bangs: 'part', sideTo: 0, backTo: 0, extra: 'sidePony' },
+  { name: '땋은 머리', bangs: 'full', sideTo: 0, backTo: 0, extra: 'braid' },
+  { name: '반묶음', bangs: 'full', sideTo: 21, backTo: 22, extra: 'bun' },
+  { name: '보브컷', bangs: 'full', sideTo: 18, backTo: 19, extra: null },
+  { name: '헝클어진 짧은 머리', bangs: 'spiky', sideTo: 0, backTo: 0, extra: null },
 ]
 
 export const HAIR_NAMES = HAIR_SPECS.map((h) => h.name)
 
-/**
- * 앞머리가 이마를 덮는 줄. 얼굴 위쪽 3분의 1까지만이다 —
- * 눈(14~15줄)과 볼은 통째로 드러나야 한다.
- */
-const BANGS_TO: Record<Bangs, number> = { full: 10, part: 9, straight: 11, short: 8, spiky: 9 }
+/** 앞머리는 어느 방향에서도 눈높이(13줄) 아래로 내려오지 않는다. */
+const FACE_TOP = HEAD_Y + 6
 
-function hairFront(spec: HairSpec, dir: Dir): Row[] {
+function bangRows(bangs: Bangs, dir: Dir): Row[] {
+  if (dir === 'right') return []
   const out: Row[] = []
-  const to = BANGS_TO[spec.bangs]
-  // 머리카락은 두개골에 붙는다. 위·옆으로 머리통 밖 한 칸까지만 —
-  // 레퍼런스 캐릭터가 쓴 모자의 부피를 머리로 옮기면 안 된다.
-  for (let y = HEAD_TOP - 1; y <= to; y++) {
-    const w = HEAD_W[y] ?? HEAD_W[HEAD_TOP]
-    const grow = y >= HEAD_TOP + 1 && y <= HEAD_TOP + 3 ? 1 : 0
-    out.push([y, w[0] - grow, w[1] + grow])
-  }
-  if (dir === 'up') {
-    // 뒤통수는 머리카락으로 꽉 찬다
-    for (let y = to + 1; y <= HEAD_BOTTOM; y++) {
-      const w = HEAD_W[y]
-      if (w) out.push([y, w[0], w[1]])
-    }
-    return out
-  }
-  if (spec.bangs === 'part') out.push([to + 1, 8, 14])
-  if (spec.bangs === 'straight') out.push([to + 1, 9, 22])
-  if (spec.bangs === 'spiky') out.push([HEAD_TOP - 2, 12, 13], [HEAD_TOP - 2, 16, 18], [HEAD_TOP - 3, 17, 17])
-  // 옆머리
-  for (let y = to + 1; y <= spec.side; y++) {
-    const w = HEAD_W[y] ?? HEAD_W[HEAD_BOTTOM]
-    const d = spec.wavy && y % 4 < 2 ? 1 : 0
-    if (dir === 'right') {
-      // 뒤통수는 통째로 머리카락이고, 헤어라인은 비스듬히 물러난다 —
-      // 관자놀이 쪽은 앞까지 내려오고 턱으로 갈수록 뒤로 빠진다.
-      // 수직으로 자르면 옆얼굴이 아니라 살 한 줄 붙은 덩어리로 보인다.
-      const edge = Math.max(13, 19 - Math.floor((y - to - 1) / 2))
-      out.push([y, w[0] - 1 + d, edge])
-    } else {
-      out.push([y, w[0] - 1 + d, w[0] + 1 + d])
-      out.push([y, w[1] - 1 - d, w[1] + 1 - d])
-    }
+  switch (bangs) {
+    case 'straight':
+      out.push([FACE_TOP, 12, 19], [FACE_TOP + 1, 12, 19])
+      break
+    case 'full':
+      out.push([FACE_TOP, 12, 19])
+      break
+    case 'part':
+      out.push([FACE_TOP, 12, 15])
+      break
+    case 'short':
+      break
+    case 'spiky':
+      // 정수리 위로 솟은 머리끝. 맵 꼭대기(5줄)에 붙어 있어야 한다.
+      out.push([HEAD_Y - 1, 13, 14], [HEAD_Y - 1, 17, 18], [HEAD_Y - 2, 17, 17])
+      break
   }
   return out
 }
 
-function hairBack(spec: HairSpec, dir: Dir): Row[] {
+/** 얼굴 옆을 지나 가슴까지 흐르는 옆머리. 폭 두 칸. */
+function sideStrands(spec: HairSpec, dir: Dir): Row[] {
+  if (!spec.sideTo || dir === 'right') return []
   const out: Row[] = []
-  // 머리통 안에서는 머리통 폭 그대로, 어깨 아래로 내려가서야 살짝 퍼진다.
-  // 처음부터 넓게 잡으면 검은 판자를 뒤집어쓴 것처럼 보인다.
-  const below: [number, number] = dir === 'right' ? [9, 16] : [9, 22]
-  for (let y = HEAD_TOP; y <= spec.back; y++) {
-    const head = HEAD_W[y]
-    const w: [number, number] = head ?? below
-    const d = spec.wavy && y % 4 < 2 ? 1 : 0
-    const taper = y >= spec.back - 1 ? 1 : 0
-    out.push([y, w[0] + d + taper, w[1] - d - taper])
+  for (let y = HEAD_BOTTOM; y <= spec.sideTo; y++) {
+    out.push([y, 9, 10])
+    out.push([y, 21, 22])
   }
-  // 묶은 머리는 굵어도 세 칸이다. 머리통 반쪽보다 넓어지면 머리가 아니라 날개가 된다.
-  const tail = (cx: number, y0: number, y1: number, half = 1) => {
-    for (let y = y0; y <= y1; y++) {
-      const h = y === y0 || y >= y1 - 1 ? Math.max(0, half - 1) : half
-      out.push([y, cx - h, cx + h])
-    }
+  return out
+}
+
+/** 옆모습에서 등을 타고 내려오는 뒷머리. 넉 줄을 넘지 않는다. */
+function backStrands(spec: HairSpec, dir: Dir): Row[] {
+  if (!spec.backTo) return []
+  const out: Row[] = []
+  if (dir === 'right') {
+    for (let y = HEAD_BOTTOM; y <= spec.backTo; y++) out.push([y, 10, 13])
+  } else if (dir === 'up') {
+    for (let y = HEAD_BOTTOM; y <= spec.backTo; y++) out.push([y, 11, 20])
   }
-  // 옆모습에서는 가까운 쪽 하나만 보인다. 반대쪽 갈래는 머리 뒤에 숨는다.
+  return out
+}
+
+/** 묶은 머리 — 3칸 다발. 귀 높이에 붙어 어깨 높이에서 끝난다. */
+function tails(spec: HairSpec, dir: Dir): Row[] {
+  const out: Row[] = []
   const near = dir === 'right'
+  const bunch = (x0: number, y0: number, y1: number) => {
+    for (let y = y0; y <= y1; y++) out.push([y, x0, x0 + 2])
+  }
   switch (spec.extra) {
     case 'twin':
-      if (near) tail(7, 10, 23)
+      if (near) bunch(7, 13, 18)
       else {
-        tail(7, 10, 23)
-        tail(24, 10, 23)
+        bunch(7, 13, 18)
+        bunch(22, 13, 18)
       }
       break
     case 'lowTwin':
-      if (near) tail(8, 16, 28)
+      if (near) bunch(7, 16, 21)
       else {
-        tail(8, 16, 28)
-        tail(23, 16, 28)
+        bunch(7, 16, 21)
+        bunch(22, 16, 21)
       }
       break
     case 'pony':
-      tail(near ? 8 : 24, 11, 26)
+      bunch(near ? 7 : 22, 12, 19)
       break
     case 'highPony':
-      out.push([2, 19, 22])
-      tail(near ? 9 : 23, 4, 20)
+      out.push([HEAD_Y, 19, 21])
+      bunch(near ? 7 : 21, 6, 17)
       break
     case 'sidePony':
-      tail(near ? 8 : 25, 10, 24)
+      bunch(near ? 7 : 22, 13, 20)
       break
     case 'braid':
-      for (let y = 11; y <= 27; y += 2) {
-        out.push([y, 6, 8], [y + 1, 7, 8])
-        if (!near) out.push([y, 23, 25], [y + 1, 23, 24])
+      for (let y = 14; y <= 22; y += 2) {
+        out.push([y, 7, 9], [y + 1, 8, 9])
+        if (!near) out.push([y, 22, 24], [y + 1, 22, 23])
       }
       break
     case 'bun':
-      out.push([0, 14, 17], [1, 14, 17])
+      out.push([HEAD_Y - 2, 14, 17], [HEAD_Y - 1, 14, 17])
       break
     default:
       break
@@ -321,8 +361,7 @@ function hairBack(spec: HairSpec, dir: Dir): Row[] {
 }
 
 // ── 표정 ────────────────────────────────────────────────────────
-// 32칸에서 표정은 눈 몇 칸으로만 낸다. 벡터 아바타의 열다섯 표정을
-// 여기서는 다섯 가지 눈 모양으로 모은다 — 그 이상은 뭉개져서 안 보인다.
+// 눈은 맵에 이미 박혀 있다. 여기서는 그 자리를 어떻게 바꿀지만 정한다.
 
 type EyeKind = 'open' | 'happy' | 'angry' | 'sad' | 'closed'
 
@@ -332,43 +371,43 @@ const EYE_OF: EyeKind[] = [
   'happy', 'happy', 'closed', 'angry', 'open',
 ]
 
-const EYE_Y = 14
-const EYE_L = 11
-const EYE_R = 19
+const EYE_Y = HEAD_Y + 8
+const EYE_L = HEAD_X + 4
+const EYE_R = HEAD_X + 9
 
-/** 입은 한두 칸. 이보다 크면 이 크기에서 얼굴이 무너진다. */
-const MOUTH_Y = EYE_Y + 3
-
-function eyes(kind: EyeKind, dir: Dir): Row[] {
-  if (dir === 'up') return []
+/** 표정에 따라 눈 칸을 다시 찍는다. 맵의 기본 눈은 지운다. */
+function eyeRows(kind: EyeKind, dir: Dir): { on: Row[]; off: Row[] } {
+  if (dir === 'up') return { on: [], off: [[EYE_Y, EYE_L, EYE_L], [EYE_Y + 1, EYE_L, EYE_L], [EYE_Y, EYE_R, EYE_R], [EYE_Y + 1, EYE_R, EYE_R]] }
   if (dir === 'right') {
-    // 옆모습은 눈 하나. 폭 한 칸, 높이 두 칸, 얼굴 앞 끝에서 두 칸 안쪽.
-    const eye: Row[] = kind === 'closed' ? [[EYE_Y + 1, 21, 21]] : [[EYE_Y, 21, 21], [EYE_Y + 1, 21, 21]]
-    return [...eye, [MOUTH_Y, 21, 21]]
+    const x = HEAD_X + 11
+    const on: Row[] = kind === 'closed' ? [[EYE_Y + 1, x, x]] : [[EYE_Y, x, x], [EYE_Y + 1, x, x]]
+    return { on, off: [] }
   }
-  const pair = (rows: Row[]): Row[] =>
-    rows.flatMap(([y, x0, x1]) => [
-      [y, EYE_L + x0, EYE_L + x1] as Row,
-      [y, EYE_R - x1, EYE_R - x0] as Row,
-    ])
-  const mouth: Row[] = kind === 'happy' ? [[MOUTH_Y, 15, 16]] : [[MOUTH_Y, 15, 15]]
-  switch (kind) {
-    case 'happy':
-      return [...pair([[EYE_Y, 0, 1], [EYE_Y + 1, -1, -1], [EYE_Y + 1, 2, 2]]), ...mouth]
-    case 'angry':
-      return [...pair([[EYE_Y - 1, 0, 0], [EYE_Y, 1, 1], [EYE_Y + 1, 0, 1]]), ...mouth]
-    case 'sad':
-      return [...pair([[EYE_Y - 1, 1, 1], [EYE_Y, 0, 0], [EYE_Y + 1, 0, 1]]), ...mouth]
-    case 'closed':
-      return [...pair([[EYE_Y + 1, 0, 1]]), ...mouth]
-    default:
-      return [...pair([[EYE_Y, 0, 1], [EYE_Y + 1, 0, 1]]), ...mouth]
+  const off: Row[] = []
+  const on: Row[] = []
+  for (const x of [EYE_L, EYE_R]) {
+    off.push([EYE_Y, x, x], [EYE_Y + 1, x, x])
+    switch (kind) {
+      case 'closed':
+        on.push([EYE_Y + 1, x, x])
+        break
+      case 'happy':
+        on.push([EYE_Y, x, x], [EYE_Y + 1, x - 1, x - 1], [EYE_Y + 1, x + 1, x + 1])
+        break
+      case 'angry':
+        on.push([EYE_Y, x, x], [EYE_Y + 1, x, x], [EYE_Y - 1, x + (x === EYE_L ? -1 : 1), x + (x === EYE_L ? -1 : 1)])
+        break
+      case 'sad':
+        on.push([EYE_Y, x, x], [EYE_Y + 1, x, x], [EYE_Y - 1, x + (x === EYE_L ? 1 : -1), x + (x === EYE_L ? 1 : -1)])
+        break
+      default:
+        on.push([EYE_Y, x, x], [EYE_Y + 1, x, x])
+    }
   }
+  return { on, off }
 }
 
 // ── 교복 15종 ───────────────────────────────────────────────────
-// 벡터 아바타와 같은 순서·같은 색. 32칸에서는 소매 길이, 앞이 트였는지,
-// 바지인지 치마인지, 리본인지 넥타이인지로만 갈린다.
 
 type Bottom = 'pants' | 'skirt' | 'shorts'
 
@@ -376,9 +415,7 @@ interface OutfitSpec {
   name: string
   shirt: Tone
   jacket?: Tone
-  /** 앞이 트인 옷(가디건·재킷)이면 몸통 양옆만 덮는다 */
   open?: boolean
-  /** 조끼 — 소매 없이 몸통만 */
   vest?: boolean
   accent?: Tone
   ribbon?: boolean
@@ -388,7 +425,7 @@ interface OutfitSpec {
 }
 
 export const OUTFITS: OutfitSpec[] = [
-  { name: '단정한 셔츠', shirt: CLOTH.shirt, accent: CLOTH.navy, bottom: CLOTH.charcoal, kind: 'pants', long: true },
+  { name: '단정한 셔츠', shirt: CLOTH.shirt, accent: CLOTH.wine, bottom: CLOTH.charcoal, kind: 'pants', long: true },
   { name: '니트 조끼', shirt: CLOTH.shirt, jacket: CLOTH.navy, vest: true, accent: CLOTH.wine, bottom: CLOTH.charcoal, kind: 'pants', long: true },
   { name: '가디건', shirt: CLOTH.shirt, jacket: CLOTH.beige, open: true, accent: CLOTH.brown, bottom: CLOTH.charcoal, kind: 'pants', long: true },
   { name: '재킷', shirt: CLOTH.shirt, jacket: CLOTH.navy, accent: CLOTH.red, bottom: CLOTH.navy, kind: 'pants', long: true },
@@ -427,36 +464,34 @@ function edgeRows(r: Rig, y0: number, y1: number, w: number): Row[] {
   return out
 }
 
+/** 소매 — 팔의 위쪽 몇 칸. 손(2×2)은 늘 맨살로 남는다. */
 function sleeveRows(r: Rig, long: boolean): Row[] {
   const out: Row[] = []
-  const to = long ? HAND_TOP - 1 : ARM_TOP + 1
-  for (let y = ARM_TOP; y <= to; y++) {
-    for (const [x0, x1] of r.armsAt(y + r.bob)) out.push([y + r.bob, x0, x1])
+  for (const a of r.arms) {
+    const end = long ? a.top + ARM_LEN : a.top + 2
+    for (let y = a.top; y <= end; y++) out.push([y + r.bob, a.x[0], a.x[1]])
   }
   return out
 }
 
 function bottomRows(r: Rig, kind: Bottom): Row[] {
-  const out: Row[] = [...torsoRows(r, 22, 24)]
+  const out: Row[] = [...torsoRows(r, 22, TORSO_BOTTOM)]
   if (kind === 'skirt') {
-    // 치마는 엉덩이에서 한두 칸만 퍼진다. 더 퍼뜨리면 짧은 다리가 다 묻힌다.
-    const flare: Row[] = r.side
-      ? [[LEG_TOP, 11, 20], [LEG_TOP + 1, 10, 21]]
-      : [[LEG_TOP, 10, 21], [LEG_TOP + 1, 9, 22]]
+    const flare: Row[] = r.side ? [[LEG_TOP, 13, 19], [LEG_TOP + 1, 12, 20]] : [[LEG_TOP, 11, 20], [LEG_TOP + 1, 10, 21]]
     return [...out, ...flare]
   }
-  const hem = kind === 'shorts' ? LEG_TOP : LEG_TOP + 2
+  const hem = kind === 'shorts' ? LEG_TOP : LEG_TOP + 1
   for (let y = LEG_TOP; y <= hem; y++) {
-    for (const [x0, x1] of r.legsAt(y)) out.push([y, x0, x1])
+    for (const f of r.feet) if (y <= f.legBottom) out.push([y, f.leg[0], f.leg[1]])
   }
   return out
 }
 
+/** 넥타이·리본. 옆에서는 가슴 앞 끝에 한 칸만 걸친다. */
 function accentRows(r: Rig, o: OutfitSpec): Row[] {
   if (!o.accent || r.dir === 'up') return []
   const b = r.bob
-  // 옆에서는 넥타이도 리본도 가슴 앞 끝에 한 칸만 걸친다
-  if (r.side) return [[19 + b, 20, 20], [20 + b, 20, 20]]
+  if (r.side) return [[19 + b, 18, 18], [20 + b, 18, 18]]
   return o.ribbon
     ? [[18 + b, 14, 17], [19 + b, 15, 16]]
     : [[18 + b, 15, 16], [19 + b, 15, 16], [20 + b, 15, 16], [21 + b, 15, 16]]
@@ -467,18 +502,31 @@ function accentRows(r: Rig, o: OutfitSpec): Row[] {
 interface Cell {
   mat: Mat
   layer: number
+  shade: Shade
 }
 
 class Grid {
   cells: (Cell | null)[] = new Array(PX * PX).fill(null)
 
-  paint(rows: readonly Row[], mat: Mat, layerOverride?: number): void {
+  paint(rows: readonly Row[], mat: Mat, shade: Shade = 'auto', layerOverride?: number): void {
     const layer = layerOverride ?? MAT_LAYER[mat]
     for (const [y, x0, x1] of rows) {
       if (y < 0 || y >= PX) continue
       for (let x = Math.max(0, x0); x <= Math.min(PX - 1, x1); x++) {
-        this.cells[y * PX + x] = { mat, layer }
+        this.cells[y * PX + x] = { mat, layer, shade }
       }
+    }
+  }
+
+  put(p: Pix, layer: number): void {
+    if (p.x < 0 || p.y < 0 || p.x >= PX || p.y >= PX) return
+    this.cells[p.y * PX + p.x] = { mat: p.mat, layer, shade: p.shade }
+  }
+
+  clear(rows: readonly Row[]): void {
+    for (const [y, x0, x1] of rows) {
+      if (y < 0 || y >= PX) continue
+      for (let x = Math.max(0, x0); x <= Math.min(PX - 1, x1); x++) this.cells[y * PX + x] = null
     }
   }
 
@@ -495,9 +543,9 @@ function tonesFor(look: AvatarLook, team: TeamId | null): Record<Mat, Tone> {
     hair: HAIR_COLORS[(look.color ?? 0) % HAIR_COLORS.length].tone,
     shirt: o.shirt,
     jacket: o.jacket ?? o.shirt,
+    sleeve: o.jacket && o.long && !o.vest ? o.jacket : o.shirt,
     accent: o.accent ?? o.shirt,
     bottom: o.bottom,
-    sleeve: o.jacket && o.long && !o.vest ? o.jacket : o.shirt,
     shoe: SHOE,
     eye: { base: EYE, shade: EYE, light: EYE, line: EYE },
     band: team ? BAND_TONES[team] : SHOE,
@@ -510,36 +558,60 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
   const spec = HAIR_SPECS[look.hair % HAIR_SPECS.length]
   const o = OUTFITS[(look.uniform ?? 0) % OUTFITS.length]
   const g = new Grid()
+  const shift = (rows: Row[]): Row[] => rows.map(([y, a, b]) => [y + rig.bob, a, b] as Row)
 
-  g.paint(hairBack(spec, facing).map(([y, a, b]) => [y + rig.bob, a, b] as Row), 'hair')
-  g.paint(rig.body, 'skin')
+  // 몸 뒤로 흐르는 머리 먼저
+  g.paint(shift(backStrands(spec, facing)), 'hair', 'base', 0)
+  g.paint(shift(tails(spec, facing)), 'hair', 'base', 0)
 
-  g.paint(bottomRows(rig, o.kind), 'bottom')
-  g.paint([...torsoRows(rig, 17, 24), ...sleeveRows(rig, o.long)], 'shirt')
-  if (o.jacket) {
-    if (o.vest) g.paint(torsoRows(rig, 19, 23, 1), 'jacket')
-    else if (o.open) g.paint([...edgeRows(rig, 18, 24, 3), ...sleeveRows(rig, o.long)], 'jacket')
-    else g.paint([...torsoRows(rig, 17, 24), ...sleeveRows(rig, o.long)], 'jacket')
+  // 몸통·팔·손·다리
+  g.paint(torsoRows(rig, TORSO_TOP, TORSO_BOTTOM), 'skin')
+  for (const a of rig.arms) {
+    for (let y = a.top; y <= a.top + ARM_LEN; y++) g.paint([[y + rig.bob, a.x[0], a.x[1]]], 'skin')
+    for (let y = HAND_TOP; y <= HAND_BOTTOM; y++) g.paint([[y + rig.bob, a.x[0], a.x[1]]], 'skin')
   }
-  if (o.jacket && !o.vest && !o.open && facing !== 'up') g.paint(torsoRows(rig, 18, 21, 4), 'shirt')
-  // 팔은 맨 나중에 — 소매 경계선이 남아야 걷는 팔이 보인다
+  for (const f of rig.feet) {
+    for (let y = LEG_TOP; y <= f.legBottom; y++) g.paint([[y, f.leg[0], f.leg[1]]], 'skin')
+  }
+
+  // 옷 — 셔츠를 먼저 입히고 그 위에 바지·치마를 올린다(허리가 보이게)
+  g.paint(torsoRows(rig, TORSO_TOP, TORSO_BOTTOM), 'shirt')
+  if (o.jacket) {
+    if (o.vest) g.paint(torsoRows(rig, TORSO_TOP + 1, TORSO_BOTTOM - 1, 1), 'jacket')
+    else if (o.open) g.paint(edgeRows(rig, TORSO_TOP, TORSO_BOTTOM, 3), 'jacket')
+    else g.paint(torsoRows(rig, TORSO_TOP, TORSO_BOTTOM), 'jacket')
+    if (!o.vest && !o.open && facing !== 'up') g.paint(torsoRows(rig, TORSO_TOP + 1, TORSO_BOTTOM - 2, 3), 'shirt')
+  }
+  g.paint(bottomRows(rig, o.kind), 'bottom')
+  // 양말 — 밑단과 신발 사이. 맨다리를 두 칸으로 두면 테두리색만 남아 갈색 막대가 된다.
+  for (const f of rig.feet) {
+    for (let y = LEG_TOP + 2; y < f.shoeTop; y++) {
+      if (y <= f.legBottom) g.paint([[y, f.leg[0], f.leg[1]]], 'shirt', 'base')
+    }
+  }
   g.paint(sleeveRows(rig, o.long), 'sleeve')
   g.paint(accentRows(rig, o), 'accent')
-  g.paint(rig.shoes, 'shoe')
-  // 목이 없다 — 머리를 옷보다 나중에 얹어 턱이 깃 위에 바로 앉게 한다
-  g.paint(rig.head, 'skin', MAT_LAYER.eye - 1)
-  g.paint(eyes(EYE_OF[look.face % EYE_OF.length], facing).map(([y, a, b]) => [y + rig.bob, a, b] as Row), 'eye')
-  g.paint(hairFront(spec, facing).map(([y, a, b]) => [y + rig.bob, a, b] as Row), 'hair')
-  if (team) {
-    const arm = rig.armsAt(20 + rig.bob)[0]
-    if (arm) g.paint([[20 + rig.bob, arm[0], arm[1]], [21 + rig.bob, arm[0], arm[1]]], 'band')
+  for (const f of rig.feet) {
+    for (let y = f.shoeTop; y <= FLOOR - (SHOE_TOP - f.shoeTop); y++) g.paint([[y, f.shoe[0], f.shoe[1]]], 'shoe')
   }
-  return g
-}
+  if (team) {
+    const a = rig.arms[0]
+    g.paint([[a.top + 2 + rig.bob, a.x[0], a.x[1]], [a.top + 3 + rig.bob, a.x[0], a.x[1]]], 'band')
+  }
 
-/** 정수리 왼쪽 위에 찍는 두세 칸짜리 빛. 이게 있어야 머리가 덩어리로 안 보인다. */
-function isHighlight(x: number, y: number): boolean {
-  return (y === 4 && x >= 12 && x <= 14) || (y === 5 && x >= 12 && x <= 13)
+  // 머리는 맨 마지막 — 목이 없으니 턱이 깃 위에 바로 얹힌다
+  for (const p of rig.head) g.put(p, MAT_LAYER.hair)
+  g.paint(shift(sideStrands(spec, facing)), 'hair')
+  g.paint(shift(bangRows(spec.bangs, facing)), 'hair')
+  if (spec.bangs === 'short' && facing === 'down') g.paint([[FACE_TOP, 12, 19]], 'skin', 'base', MAT_LAYER.hair)
+  for (const [x, y] of rig.strands) {
+    if (g.at(x, y)?.mat === 'hair') g.paint([[y, x, x]], 'hair', 'shade', MAT_LAYER.hair)
+  }
+  const e = eyeRows(EYE_OF[look.face % EYE_OF.length], facing)
+  // 눈도 몸과 같이 들썩여야 한다. 안 그러면 걸음 프레임에서 눈이 얼굴 밖으로 샌다.
+  g.paint(shift(e.off), 'skin', 'base', MAT_LAYER.hair)
+  g.paint(shift(e.on), 'eye', 'base', MAT_LAYER.eye + 2)
+  return g
 }
 
 function paint(grid: Grid, tones: Record<Mat, Tone>): HTMLCanvasElement {
@@ -547,43 +619,21 @@ function paint(grid: Grid, tones: Record<Mat, Tone>): HTMLCanvasElement {
   c.width = PX
   c.height = PX
   const ctx = c.getContext('2d') as CanvasRenderingContext2D
-  const outline = new Uint8Array(PX * PX)
-  for (let y = 0; y < PX; y++) {
-    for (let x = 0; x < PX; x++) {
-      if (!grid.at(x, y)) continue
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-        if (!grid.at(x + dx, y + dy)) {
-          outline[y * PX + x] = 1
-          break
-        }
-      }
-    }
-  }
-  const isEdge = (x: number, y: number) => {
-    const n = grid.at(x, y)
-    return n === null || outline[y * PX + x] === 1
-  }
   for (let y = 0; y < PX; y++) {
     for (let x = 0; x < PX; x++) {
       const cell = grid.at(x, y)
       if (!cell) continue
       const t = tones[cell.mat]
-      let color: string
-      if (outline[y * PX + x]) {
-        color = OUTLINE
-      } else {
-        // 아래 레이어와 맞닿은 자리는 그 재질의 진한 색으로 한 줄 — 머리와
-        // 이마, 옷과 살이 여기서 갈린다.
-        const border = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
-          const n = grid.at(x + dx, y + dy)
-          return n !== null && n.mat !== cell.mat && n.layer < cell.layer
-        })
-        if (border) color = t.line
-        else if (cell.mat === 'hair' && isHighlight(x, y)) color = t.light
-        else if (isEdge(x + 1, y) || isEdge(x, y + 1)) color = t.shade
-        else color = t.base
+      let key: Shade = cell.shade
+      if (key === 'auto') {
+        // 테두리는 실루엣 둘레에만. 닿아 있는 색을 어둡게 한 값을 쓴다 —
+        // 전부 같은 남색으로 두르지 않는다.
+        // 안쪽 경계(머리·살, 셔츠·재킷)는 선을 긋지 않는다. 두 칸짜리 팔·다리가
+        // 통째로 테두리색이 되어 까맣게 뭉치기 때문이고, 색이 다르면 선 없이도 갈린다.
+        const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !grid.at(x + dx, y + dy))
+        key = edge ? 'line' : 'base'
       }
-      ctx.fillStyle = color
+      ctx.fillStyle = t[key as Exclude<Shade, 'auto'>]
       ctx.fillRect(x, y, 1, 1)
     }
   }
@@ -623,9 +673,7 @@ export function pixelSheet(look: AvatarLook, team: TeamId | null): HTMLCanvasEle
   ctx.imageSmoothingEnabled = false
   const pad = (CELL - PX) / 2
   DIRS.forEach((dir, row) => {
-    for (let f = 0; f < 4; f++) {
-      ctx.drawImage(pixelFrame(look, team, dir, f), f * CELL + pad, row * CELL + pad)
-    }
+    for (let f = 0; f < 4; f++) ctx.drawImage(pixelFrame(look, team, dir, f), f * CELL + pad, row * CELL + pad)
   })
   return c
 }

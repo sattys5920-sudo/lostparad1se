@@ -37,7 +37,7 @@ export interface Named {
 /** 머리색 15종. 머리 모양과 따로 고른다. */
 export const HAIR_COLORS: Named[] = [
   // 새까맣게 칠하면 도트에서 덩어리로 뭉친다. 어두운 청회색이 결이 산다.
-  { name: '검정', tone: tone('#4a4f63') },
+  { name: '검정', tone: tone('#4b4763') },
   { name: '짙은 갈색', tone: tone('#4d3627') },
   { name: '갈색', tone: tone('#7a5133') },
   { name: '밝은 갈색', tone: tone('#a97442') },
@@ -56,10 +56,10 @@ export const HAIR_COLORS: Named[] = [
 
 /** 교복에 쓰는 천 색. 옷 색은 사용자가 고르지 않고 디자인마다 정해져 있다. */
 export const CLOTH = {
-  shirt: tone('#f4f6f8'),
+  shirt: tone('#e9e0cf'),
   cream: tone('#efe6d2'),
   navy: tone('#3a4664'),
-  charcoal: tone('#4a4d55'),
+  charcoal: tone('#2f3350'),
   black: tone('#33343c'),
   grey: tone('#7d838c'),
   wine: tone('#7a3340'),
@@ -67,7 +67,7 @@ export const CLOTH = {
   beige: tone('#cdb896'),
   brown: tone('#6d523c'),
   sky: tone('#8fb0d4'),
-  red: tone('#c0392b'),
+  red: tone('#b4322e'),
   yellow: tone('#d8b24a'),
   plaid: tone('#8a6070'),
   denim: tone('#5b6f92'),
