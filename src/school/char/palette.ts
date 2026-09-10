@@ -36,7 +36,8 @@ export interface Named {
 
 /** 머리색 15종. 머리 모양과 따로 고른다. */
 export const HAIR_COLORS: Named[] = [
-  { name: '검정', tone: tone('#3b3a44') },
+  // 새까맣게 칠하면 도트에서 덩어리로 뭉친다. 어두운 청회색이 결이 산다.
+  { name: '검정', tone: tone('#4a4f63') },
   { name: '짙은 갈색', tone: tone('#4d3627') },
   { name: '갈색', tone: tone('#7a5133') },
   { name: '밝은 갈색', tone: tone('#a97442') },

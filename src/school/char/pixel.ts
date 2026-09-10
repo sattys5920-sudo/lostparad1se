@@ -28,7 +28,7 @@ const SKIN = tone('#f3c9a0')
 const SHOE = tone('#3c4048')
 const EYE = '#33272f'
 
-type Mat = 'skin' | 'hair' | 'shirt' | 'jacket' | 'accent' | 'bottom' | 'shoe' | 'eye' | 'band'
+type Mat = 'skin' | 'hair' | 'shirt' | 'jacket' | 'sleeve' | 'accent' | 'bottom' | 'shoe' | 'eye' | 'band'
 
 /** [y, x0, x1] — 양끝 포함 */
 type Row = readonly [number, number, number]
@@ -38,11 +38,14 @@ const MAT_LAYER: Record<Mat, number> = {
   bottom: 2,
   shirt: 3,
   jacket: 4,
-  accent: 5,
+  // 소매는 몸통보다 한 층 위에 둔다. 그래야 같은 천이라도 경계에 선이 생겨
+  // 옆모습에서 팔이 몸통에 먹히지 않는다.
+  sleeve: 5,
+  accent: 6,
   shoe: 5,
-  eye: 6,
-  hair: 7,
-  band: 8,
+  eye: 7,
+  hair: 8,
+  band: 9,
 }
 
 // ── 뼈대 ────────────────────────────────────────────────────────
@@ -77,9 +80,10 @@ const TORSO_FRONT: Record<number, [number, number]> = {
   17: [11, 20], 18: [10, 21], 19: [10, 21], 20: [10, 21],
   21: [11, 20], 22: [11, 20], 23: [11, 20], 24: [11, 20],
 }
+/** 옆몸은 정면의 70%. 앞쪽(오른쪽)으로 쏠려 있다. */
 const TORSO_SIDE: Record<number, [number, number]> = {
-  17: [12, 19], 18: [11, 20], 19: [11, 20], 20: [11, 20],
-  21: [12, 19], 22: [12, 19], 23: [12, 19], 24: [12, 19],
+  17: [13, 19], 18: [12, 20], 19: [12, 20], 20: [12, 20],
+  21: [13, 19], 22: [13, 19], 23: [13, 19], 24: [13, 19],
 }
 
 const ARM_TOP = 19
@@ -146,6 +150,8 @@ function makeRig(dir: Dir, pose: Pose): Rig {
   const fs = feet(side ? 'right' : 'down', pose)
 
   const head: Row[] = HEAD.map(([y, x0, x1]) => [y + bob, x0, x1] as Row)
+  // 옆모습엔 코가 있다. 눈높이에서 얼굴 앞으로 한 칸 나온다.
+  if (side) head.push([14 + bob, 24, 24], [15 + bob, 24, 24])
   const body: Row[] = []
   for (const y of Object.keys(torso).map(Number)) body.push([y + bob, torso[y][0], torso[y][1]])
   for (let y = ARM_TOP; y <= ARM_END; y++) {
@@ -208,17 +214,20 @@ export const HAIR_SPECS: HairSpec[] = [
 
 export const HAIR_NAMES = HAIR_SPECS.map((h) => h.name)
 
-/** 앞머리가 이마를 덮는 줄 — 눈(14~15줄)은 절대 가리지 않는다. */
-const BANGS_TO: Record<Bangs, number> = { full: 11, part: 10, straight: 12, short: 9, spiky: 10 }
+/**
+ * 앞머리가 이마를 덮는 줄. 얼굴 위쪽 3분의 1까지만이다 —
+ * 눈(14~15줄)과 볼은 통째로 드러나야 한다.
+ */
+const BANGS_TO: Record<Bangs, number> = { full: 10, part: 9, straight: 11, short: 8, spiky: 9 }
 
 function hairFront(spec: HairSpec, dir: Dir): Row[] {
   const out: Row[] = []
   const to = BANGS_TO[spec.bangs]
-  // 정수리 — 머리통보다 한 칸 크게 얹어 두께를 준다
-  // 정수리만 한 칸 부풀린다. 아래까지 부풀리면 머리통이 투구처럼 커진다.
+  // 머리카락은 두개골에 붙는다. 위·옆으로 머리통 밖 한 칸까지만 —
+  // 레퍼런스 캐릭터가 쓴 모자의 부피를 머리로 옮기면 안 된다.
   for (let y = HEAD_TOP - 1; y <= to; y++) {
     const w = HEAD_W[y] ?? HEAD_W[HEAD_TOP]
-    const grow = y >= HEAD_TOP + 1 && y <= HEAD_TOP + 4 ? 1 : 0
+    const grow = y >= HEAD_TOP + 1 && y <= HEAD_TOP + 3 ? 1 : 0
     out.push([y, w[0] - grow, w[1] + grow])
   }
   if (dir === 'up') {
@@ -237,8 +246,11 @@ function hairFront(spec: HairSpec, dir: Dir): Row[] {
     const w = HEAD_W[y] ?? HEAD_W[HEAD_BOTTOM]
     const d = spec.wavy && y % 4 < 2 ? 1 : 0
     if (dir === 'right') {
-      // 옆모습은 뒤통수 쪽만 덮는다 — 얼굴이 드러나야 방향이 보인다
-      out.push([y, w[0] - 1 + d, Math.min(w[0] + 3, 15)])
+      // 뒤통수는 통째로 머리카락이고, 헤어라인은 비스듬히 물러난다 —
+      // 관자놀이 쪽은 앞까지 내려오고 턱으로 갈수록 뒤로 빠진다.
+      // 수직으로 자르면 옆얼굴이 아니라 살 한 줄 붙은 덩어리로 보인다.
+      const edge = Math.max(13, 19 - Math.floor((y - to - 1) / 2))
+      out.push([y, w[0] - 1 + d, edge])
     } else {
       out.push([y, w[0] - 1 + d, w[0] + 1 + d])
       out.push([y, w[1] - 1 - d, w[1] + 1 - d])
@@ -251,7 +263,7 @@ function hairBack(spec: HairSpec, dir: Dir): Row[] {
   const out: Row[] = []
   // 머리통 안에서는 머리통 폭 그대로, 어깨 아래로 내려가서야 살짝 퍼진다.
   // 처음부터 넓게 잡으면 검은 판자를 뒤집어쓴 것처럼 보인다.
-  const below: [number, number] = dir === 'right' ? [9, 15] : [8, 23]
+  const below: [number, number] = dir === 'right' ? [9, 16] : [9, 22]
   for (let y = HEAD_TOP; y <= spec.back; y++) {
     const head = HEAD_W[y]
     const w: [number, number] = head ?? below
@@ -259,39 +271,48 @@ function hairBack(spec: HairSpec, dir: Dir): Row[] {
     const taper = y >= spec.back - 1 ? 1 : 0
     out.push([y, w[0] + d + taper, w[1] - d - taper])
   }
-  const tail = (cx: number, y0: number, y1: number, half: number) => {
+  // 묶은 머리는 굵어도 세 칸이다. 머리통 반쪽보다 넓어지면 머리가 아니라 날개가 된다.
+  const tail = (cx: number, y0: number, y1: number, half = 1) => {
     for (let y = y0; y <= y1; y++) {
-      const h = y === y0 || y >= y1 - 1 ? half - 1 : half
+      const h = y === y0 || y >= y1 - 1 ? Math.max(0, half - 1) : half
       out.push([y, cx - h, cx + h])
     }
   }
+  // 옆모습에서는 가까운 쪽 하나만 보인다. 반대쪽 갈래는 머리 뒤에 숨는다.
+  const near = dir === 'right'
   switch (spec.extra) {
     case 'twin':
-      tail(5, 8, 20, 2)
-      tail(26, 8, 20, 2)
+      if (near) tail(7, 10, 23)
+      else {
+        tail(7, 10, 23)
+        tail(24, 10, 23)
+      }
       break
     case 'lowTwin':
-      tail(6, 14, 26, 2)
-      tail(25, 14, 26, 2)
+      if (near) tail(8, 16, 28)
+      else {
+        tail(8, 16, 28)
+        tail(23, 16, 28)
+      }
       break
     case 'pony':
-      tail(26, 9, 24, 2)
+      tail(near ? 8 : 24, 11, 26)
       break
     case 'highPony':
-      out.push([1, 18, 22], [2, 20, 24])
-      tail(25, 3, 18, 2)
+      out.push([2, 19, 22])
+      tail(near ? 9 : 23, 4, 20)
       break
     case 'sidePony':
-      tail(27, 8, 22, 3)
+      tail(near ? 8 : 25, 10, 24)
       break
     case 'braid':
-      for (let y = 9; y <= 25; y += 2) {
-        out.push([y, 4, 6], [y + 1, 5, 6])
-        out.push([y, 25, 27], [y + 1, 25, 26])
+      for (let y = 11; y <= 27; y += 2) {
+        out.push([y, 6, 8], [y + 1, 7, 8])
+        if (!near) out.push([y, 23, 25], [y + 1, 23, 24])
       }
       break
     case 'bun':
-      out.push([0, 14, 17], [1, 13, 18], [2, 13, 18])
+      out.push([0, 14, 17], [1, 14, 17])
       break
     default:
       break
@@ -321,9 +342,9 @@ const MOUTH_Y = EYE_Y + 3
 function eyes(kind: EyeKind, dir: Dir): Row[] {
   if (dir === 'up') return []
   if (dir === 'right') {
-    // 옆모습은 눈 하나. 앞쪽에 붙인다.
-    const eye: Row[] = kind === 'closed' ? [[EYE_Y + 1, 18, 19]] : [[EYE_Y, 18, 19], [EYE_Y + 1, 18, 19]]
-    return [...eye, [MOUTH_Y, 19, 19]]
+    // 옆모습은 눈 하나. 폭 한 칸, 높이 두 칸, 얼굴 앞 끝에서 두 칸 안쪽.
+    const eye: Row[] = kind === 'closed' ? [[EYE_Y + 1, 21, 21]] : [[EYE_Y, 21, 21], [EYE_Y + 1, 21, 21]]
+    return [...eye, [MOUTH_Y, 21, 21]]
   }
   const pair = (rows: Row[]): Row[] =>
     rows.flatMap(([y, x0, x1]) => [
@@ -434,6 +455,8 @@ function bottomRows(r: Rig, kind: Bottom): Row[] {
 function accentRows(r: Rig, o: OutfitSpec): Row[] {
   if (!o.accent || r.dir === 'up') return []
   const b = r.bob
+  // 옆에서는 넥타이도 리본도 가슴 앞 끝에 한 칸만 걸친다
+  if (r.side) return [[19 + b, 20, 20], [20 + b, 20, 20]]
   return o.ribbon
     ? [[18 + b, 14, 17], [19 + b, 15, 16]]
     : [[18 + b, 15, 16], [19 + b, 15, 16], [20 + b, 15, 16], [21 + b, 15, 16]]
@@ -474,6 +497,7 @@ function tonesFor(look: AvatarLook, team: TeamId | null): Record<Mat, Tone> {
     jacket: o.jacket ?? o.shirt,
     accent: o.accent ?? o.shirt,
     bottom: o.bottom,
+    sleeve: o.jacket && o.long && !o.vest ? o.jacket : o.shirt,
     shoe: SHOE,
     eye: { base: EYE, shade: EYE, light: EYE, line: EYE },
     band: team ? BAND_TONES[team] : SHOE,
@@ -498,6 +522,8 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
     else g.paint([...torsoRows(rig, 17, 24), ...sleeveRows(rig, o.long)], 'jacket')
   }
   if (o.jacket && !o.vest && !o.open && facing !== 'up') g.paint(torsoRows(rig, 18, 21, 4), 'shirt')
+  // 팔은 맨 나중에 — 소매 경계선이 남아야 걷는 팔이 보인다
+  g.paint(sleeveRows(rig, o.long), 'sleeve')
   g.paint(accentRows(rig, o), 'accent')
   g.paint(rig.shoes, 'shoe')
   // 목이 없다 — 머리를 옷보다 나중에 얹어 턱이 깃 위에 바로 앉게 한다
@@ -511,9 +537,9 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
   return g
 }
 
-/** 정수리 왼쪽 위 — 머리에만 넣는 작은 빛. GBA 스프라이트의 인장 같은 것. */
+/** 정수리 왼쪽 위에 찍는 두세 칸짜리 빛. 이게 있어야 머리가 덩어리로 안 보인다. */
 function isHighlight(x: number, y: number): boolean {
-  return y >= 4 && y <= 5 && x >= 11 && x <= 15
+  return (y === 4 && x >= 12 && x <= 14) || (y === 5 && x >= 12 && x <= 13)
 }
 
 function paint(grid: Grid, tones: Record<Mat, Tone>): HTMLCanvasElement {
