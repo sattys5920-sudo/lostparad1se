@@ -1,6 +1,5 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import './AvatarPicker.css'
-import { TEAM_WEAR } from '../map/avatar'
 import {
   charDataUri,
   FACE_NAMES,
@@ -9,6 +8,7 @@ import {
   type CharView,
 } from '../char/svg'
 import { HAIR_COLORS } from '../char/palette'
+import { PX, pixelFrame } from '../char/pixel'
 import type { AvatarLook, TeamId } from '../types'
 
 /** 아바타 그림 한 장. SVG라 아무리 키워도 뭉개지지 않는다. */
@@ -31,6 +31,27 @@ function Avatar({
       height={height}
       alt=""
       draggable={false}
+    />
+  )
+}
+
+/** 지도 위에 찍히는 32칸 도트 캐릭터. 프로필에서 고른 그대로 나온다. */
+function MapSprite({ look, team, scale }: { look: AvatarLook; team: TeamId | null; scale: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+    ctx.imageSmoothingEnabled = false
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(pixelFrame(look, team, 'down', 0), 0, 0, canvas.width, canvas.height)
+  }, [look, team, scale])
+  return (
+    <canvas
+      ref={ref}
+      width={PX * scale}
+      height={PX * scale}
+      style={{ width: PX * scale, height: PX * scale, imageRendering: 'pixelated' }}
     />
   )
 }
@@ -85,6 +106,10 @@ export function AvatarPicker({
     <div className="sc-avatar">
       <div className="sc-avatar__stage">
         <Avatar look={look} team={team} height={132} />
+        <div className="sc-avatar__inGame">
+          <MapSprite look={look} team={team} scale={2} />
+          <span>지도에서</span>
+        </div>
         <div className="sc-avatar__caption">
           <span>
             {HAIR_NAMES[look.hair % HAIR_NAMES.length]} · {HAIR_COLORS[color % HAIR_COLORS.length].name}
@@ -122,5 +147,3 @@ export function AvatarPicker({
     </div>
   )
 }
-
-export { TEAM_WEAR }

@@ -3,7 +3,7 @@ import './MapScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
 import { buildSprites, PAL, type Dir } from '../map/sprites'
-import { ACTOR_H, ACTOR_W, actorSprite } from '../map/avatar'
+import { PX, pixelFrame } from '../char/pixel'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
 import { SABOTAGE_LABEL, SPATIAL_LABEL, type BuildingKind, type SabotageEffectKind, type TileId } from '../types'
 import { BUILDINGS } from '../data/buildings'
@@ -388,13 +388,14 @@ export function MapScreen() {
       ].sort((a, b) => a.py - b.py)
 
       for (const a of cast) {
-        const frame = a.moving ? 1 + (Math.floor(a.phase) % 2) : 0
-        const x = Math.round(a.px - camX - ACTOR_W / 2)
-        const y = Math.round(a.py - camY - ACTOR_H + 4)
-        ctx.drawImage(sprites.shadow, x + 1, y + ACTOR_H - 1)
-        // 사람마다 자기 머리·표정으로, 옷은 자기 팀으로 그린다
-        ctx.drawImage(actorSprite(lookRef.current(a.id), playersRef.current[a.id]?.teamId ?? null, a.dir, frame), x, y)
-        label(a.name, a.px - camX, y - 10, a.me)
+        // 걷기 네 프레임 중 서기(0)와 두 걸음(1·3)만 쓴다
+        const frame = a.moving ? (Math.floor(a.phase) % 2 === 0 ? 1 : 3) : 0
+        const x = Math.round(a.px - camX - PX / 2)
+        const y = Math.round(a.py - camY - PX + 6)
+        ctx.drawImage(sprites.shadow, x + PX / 2 - 6, y + PX - 3)
+        // 사람마다 자기 머리·머리색·표정·교복으로, 팀은 왼팔 완장으로
+        ctx.drawImage(pixelFrame(lookRef.current(a.id), playersRef.current[a.id]?.teamId ?? null, a.dir, frame), x, y)
+        label(a.name, a.px - camX, y + 4, a.me)
       }
 
       raf = requestAnimationFrame(loop)
