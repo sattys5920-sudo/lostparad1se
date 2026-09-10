@@ -2,6 +2,24 @@ import { useState } from 'react'
 import './ProfileScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { teamById } from '../data/teams'
+import type { MissionItemProgress } from '../engine/missionProgress'
+
+/** 초 단위로 재는 미션은 초로 보여주면 안 읽힌다. 300이 아니라 5분으로. */
+const TIME_METRICS = new Set(['aloneSeconds', 'roomSeconds', 'pairAloneWithTargetSeconds', 'withTargetSeconds'])
+
+function asTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}초`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return s === 0 ? `${m}분` : `${m}분 ${s}초`
+}
+
+function formatProgress(p: MissionItemProgress): string {
+  const isTime = TIME_METRICS.has(p.item.metric.kind)
+  const cap = p.item.comparison === 'atMost' ? p.current : Math.min(p.current, p.item.threshold)
+  if (isTime) return `${asTime(cap)}/${asTime(p.item.threshold)}`
+  return `${cap}/${p.item.threshold}`
+}
 
 export function ProfileScreen() {
   const {
@@ -81,9 +99,7 @@ export function ProfileScreen() {
               <div className={`sc-profile__check ${p.done ? 'is-done' : ''}`}>
                 <span className="sc-profile__check-box">{p.done ? '✓' : ''}</span>
                 <span className="sc-profile__check-text">{p.item.text}</span>
-                <span className="sc-profile__check-count">
-                  {Math.min(p.current, p.item.threshold)}/{p.item.threshold}
-                </span>
+                <span className="sc-profile__check-count">{formatProgress(p)}</span>
               </div>
             </li>
           ))}

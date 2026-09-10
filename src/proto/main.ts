@@ -1,7 +1,7 @@
 import './proto.css'
 import { firebaseConfigured } from '../firebase'
-import { isWalkable, MAP_H, MAP_W, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from './world'
-import { ACTOR_H, ACTOR_W, buildSprites, PAL, type Dir } from './sprites'
+import { isWalkable, MAP_H, MAP_W, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../school/map/world'
+import { ACTOR_H, ACTOR_W, buildSprites, PAL, type Dir } from '../school/map/sprites'
 import { leave, sendChat, sendPresence, STALE_MS, subscribeChat, subscribePresence, type ChatLine, type Presence } from './net'
 
 const STEP_MS = 160

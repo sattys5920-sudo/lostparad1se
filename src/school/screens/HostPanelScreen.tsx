@@ -25,8 +25,20 @@ export function HostPanelScreen() {
     hostResetSession,
     hostReleaseFragment,
     hostSimulateBotVotes,
+    hostSpawnFragments,
     botCount,
   } = useSchoolGame()
+  const [spawnNotice, setSpawnNotice] = useState('')
+
+  async function spawnFragmentsNow() {
+    setSpawnNotice('')
+    try {
+      const n = await hostSpawnFragments()
+      setSpawnNotice(`조각 ${n}개를 뿌렸다.`)
+    } catch (e) {
+      setSpawnNotice(e instanceof Error ? e.message : '뿌리지 못했다.')
+    }
+  }
   const [customCard, setCustomCard] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
   const [fragmentError, setFragmentError] = useState('')
@@ -96,6 +108,20 @@ export function HostPanelScreen() {
           {fragmentError && <p className="sc-host__hint">{fragmentError}</p>}
           <button className="sc-host__advance" disabled={alreadyReleased} onClick={releaseFragment}>
             {alreadyReleased ? '이미 열었다' : '반 전체에 기록을 연다'}
+          </button>
+        </section>
+      )}
+
+      {session.phase === 'day' && (
+        <section className="sc-host__section">
+          <span className="sc-host__label">지도에 조각 뿌리기</span>
+          <p className="sc-host__hint">
+            무작위 구역 네 곳에 A의 조각을 놓는다. 줍는 것도 태우는 것도 그 방에 있는 사람에게만 보인다 —
+            빈 방에서 하면 아무도 모른다.
+          </p>
+          {spawnNotice && <p className="sc-host__hint">{spawnNotice}</p>}
+          <button className="sc-host__advance" onClick={spawnFragmentsNow}>
+            조각을 뿌린다
           </button>
         </section>
       )}

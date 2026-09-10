@@ -11,7 +11,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { Dir } from './sprites'
+import type { Dir } from '../school/map/sprites'
 
 // 본 게임과 완전히 분리된 경로. 프로토타입이 실제 판을 건드릴 일이 없게 한다.
 const ROOM_ID = 'live'

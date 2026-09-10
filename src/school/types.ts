@@ -57,6 +57,33 @@ export type MissionMetric =
   | { kind: 'leverageUsed' }
   /** 내가 직접 한 영역 행동(확장·건설 등)의 횟수 — 팀 게임과 개인 미션을 잇는 지점. */
   | { kind: 'territoryAction'; action: TerritoryActionKind }
+  // ── 지도 위에서만 잴 수 있는 것들 ──
+  /** 방에 나 혼자였던 총 시간(초). */
+  | { kind: 'aloneSeconds' }
+  /** 지정한 구역들에 머문 총 시간(초). */
+  | { kind: 'roomSeconds'; rooms: string[] }
+  /** 한 번이라도 같은 방에 있었던 서로 다른 사람 수. */
+  | { kind: 'metDistinct' }
+  /** 들어가 본 서로 다른 구역 수. */
+  | { kind: 'roomsVisited' }
+  /** 정확히 둘만 있던 적이 있는 서로 다른 사람 수. */
+  | { kind: 'pairAloneDistinct'; minSeconds: number }
+  /** 지정된 대상과 단둘이 있던 시간(초). */
+  | { kind: 'pairAloneWithTargetSeconds' }
+  /** 지정된 대상과 같은 방에 있던 총 시간(초) — 피하는 미션에 쓴다. */
+  | { kind: 'withTargetSeconds' }
+  /** 특정 시간 이상 함께 있었던 서로 다른 사람 수. */
+  | { kind: 'togetherDistinct'; minSeconds: number }
+  /** 내가 있던 방에 남이 나중에 들어온 횟수. */
+  | { kind: 'visitedByOthers' }
+  /** 내가 한 공간 행동. unseenOnly면 아무도 못 본 것만 센다. */
+  | { kind: 'spatial'; action?: SpatialActionKind; unseenOnly?: boolean }
+  /** 내가 목격한 남의 공간 행동 횟수. */
+  | { kind: 'witnessedOthers'; action?: SpatialActionKind }
+  /** 내 공간 행동을 본 서로 다른 사람 수 — 0으로 버티는 미션에 쓴다. */
+  | { kind: 'witnessedMe'; action?: SpatialActionKind }
+  /** 조각이 나타난 방에 그 순간 있었던 횟수. */
+  | { kind: 'atFragmentSpawn' }
 
 /** 신뢰도 · 호감도 투표 한 건. 하루에 카테고리당 한 명에게만 줄 수 있다. */
 export interface VoteEntry {
@@ -95,6 +122,8 @@ export interface RoleSpec {
   knownRelationToA: string
   /** 아무에게도 말하지 않은 사실. 본인만 본다. */
   privateFact: string
+  /** 이 사람이 지도에서 무엇을 하는 사람인지 한 마디로. 「보는 사람」, 「들키지 않는 사람」처럼. */
+  axis: string
   mission: RoleMission
   /**
    * 인원이 8~13명일 때 역할을 몇 명까지 쓸지 정하는 우선순위(1이 가장 먼저 포함, 14가 가장 나중에 포함).
@@ -234,6 +263,11 @@ export interface PlayerProfile {
   isHost: boolean
   /** 사람이 모자랄 때 진행자가 채워 넣은 테스트용 참가자. 언제든 한 번에 뺄 수 있다. */
   isBot?: boolean
+  /**
+   * 「지정된 한 사람」이 필요한 미션(피해야 할 상대, 몰래 만나야 할 상대)의 대상.
+   * 역할을 나눠줄 때 함께 뽑고, 본인에게만 보인다.
+   */
+  assignedTargetId?: string | null
   /** 숨겨진 목표까지 마주해 결단을 내렸는지(선택 내용은 자유 텍스트로 남긴다). */
   hiddenGoalResolution: string | null
   endingKey: EndingKey | null
@@ -255,6 +289,8 @@ export interface SchoolSessionState {
   /** 진행자가 오늘 공지한 사건. */
   activeEventCard: string | null
   territory: TerritoryState
+  /** 바닥에 놓였거나 누군가 쥐고 있는 A의 조각들. */
+  mapFragments: MapFragment[]
   createdAtMs: number
 }
 
@@ -524,6 +560,75 @@ export interface LeverageToken {
   aboutId: string
   source: 'reveal' | 'fragment'
   spentAs: 'block' | 'extort' | null
+  day: number
+  createdAtMs: number
+}
+
+// ── 지도 위의 기록 ──────────────────────────────────────────────
+// 좌표는 저장하지 않는다. 남는 것은 "언제부터 언제까지 어느 방에 있었나"(구간)와
+// "무엇을 했고 누가 봤나"(사건)뿐이다. 하루치가 수백 줄을 넘지 않는다.
+
+export interface PresenceInterval {
+  id: string
+  playerId: string
+  roomId: string
+  day: number
+  enteredAtMs: number
+  /** 아직 그 방에 있으면 null. */
+  leftAtMs: number | null
+}
+
+export type FragmentState = 'onFloor' | 'held' | 'burned'
+
+/** 바닥에 놓이는 A의 조각. 줍는 것도 태우는 것도 그 방에 있는 사람에게 보인다. */
+export interface MapFragment {
+  id: string
+  text: string
+  roomId: string
+  state: FragmentState
+  holderId: string | null
+  day: number
+  createdAtMs: number
+}
+
+/** 익명으로 남기는 쪽지. 남기는 장면을 본 사람만 누가 썼는지 안다. */
+export interface MapNote {
+  id: string
+  roomId: string
+  text: string
+  authorId: string
+  witnessIds: string[]
+  readerIds: string[]
+  day: number
+  createdAtMs: number
+}
+
+export type SpatialActionKind =
+  | 'pickFragment'
+  | 'burnFragment'
+  | 'giveFragment'
+  | 'dropFragment'
+  | 'leaveNote'
+  | 'readNote'
+
+export const SPATIAL_LABEL: Record<SpatialActionKind, string> = {
+  pickFragment: '조각을 주웠다',
+  burnFragment: '조각을 태웠다',
+  giveFragment: '조각을 건넸다',
+  dropFragment: '조각을 내려놓았다',
+  leaveNote: '쪽지를 남겼다',
+  readNote: '쪽지를 읽었다',
+}
+
+export interface SpatialEvent {
+  id: string
+  kind: SpatialActionKind
+  actorId: string
+  roomId: string
+  /** 조각을 건넨 상대. */
+  targetId: string | null
+  /** 그 순간 같은 방에 있던 사람들. 비어 있으면 아무도 못 봤다는 뜻이다. */
+  witnessIds: string[]
   day: number
   createdAtMs: number
 }

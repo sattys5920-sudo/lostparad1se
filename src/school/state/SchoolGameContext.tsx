@@ -12,7 +12,22 @@ import {
   MAX_ACTIONS_PER_PLAYER,
 } from '../engine/territory'
 import { scorePlayer } from '../engine/playerScore'
+import { occupantsOf } from '../engine/presence'
 import { fragmentByDay } from '../data/fragments'
+import {
+  burnFragment,
+  closeIntervals,
+  dropFragment,
+  giveFragment,
+  leaveNote,
+  moveRoom,
+  pickFragment,
+  readNote,
+  spawnFragments,
+  subscribeIntervals,
+  subscribeNotes,
+  subscribeSpatialEvents,
+} from '../mapSync'
 import {
   addSchoolRumor,
   advanceSchoolDay,
@@ -62,7 +77,11 @@ import type {
   EndingKey,
   FragmentSpec,
   LeverageToken,
+  MapFragment,
+  MapNote,
   PlayerProfile,
+  PresenceInterval,
+  SpatialEvent,
   PlayerScoreBreakdown,
   ResourceBundle,
   RevealKind,
@@ -95,6 +114,7 @@ const EMPTY_SESSION: SchoolSessionState = {
   votes: [],
   activeEventCard: null,
   territory: initialTerritoryState(),
+  mapFragments: [],
   createdAtMs: Date.now(),
 }
 
@@ -180,6 +200,30 @@ interface SchoolGameValue {
     parentRumorId: string | null,
     aboutId?: string | null,
   ) => Promise<void>
+  // ── 지도 ──
+  /** 내가 지금 서 있는 구역. */
+  myRoomId: string
+  setMyRoom: (roomId: string) => void
+  /** 지금 나와 같은 방에 있는 사람들(나 제외). 목격자이자 대화 상대다. */
+  roomOccupantIds: string[]
+  intervals: PresenceInterval[]
+  spatialEvents: SpatialEvent[]
+  notes: MapNote[]
+  /** 지금 이 방 바닥에 놓인 조각들. */
+  fragmentsHere: MapFragment[]
+  /** 내가 쥐고 있는 조각들. */
+  myFragments: MapFragment[]
+  /** 지금 이 방에 남겨진 쪽지들. */
+  notesHere: MapNote[]
+  doPickFragment: (fragmentId: string) => Promise<void>
+  doDropFragment: (fragmentId: string) => Promise<void>
+  doBurnFragment: (fragmentId: string) => Promise<void>
+  doGiveFragment: (fragmentId: string, toPlayerId: string) => Promise<void>
+  doLeaveNote: (text: string) => Promise<void>
+  doReadNote: (noteId: string) => Promise<void>
+  hostSpawnFragments: () => Promise<number>
+  /** 미션이 지정한 상대. 본인만 본다. */
+  assignedTarget: PlayerProfile | null
   myMissionProgress: MissionItemProgress[]
   /** 오늘 신뢰/호감 투표를 이미 누구에게 줬는지. 아직이면 null. */
   myVotesToday: Record<VoteCategory, string | null>
@@ -206,6 +250,10 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
   const [sessionLoaded, setSessionLoaded] = useState(false)
   const [playersLoaded, setPlayersLoaded] = useState(false)
   const [dmThreads, setDmThreads] = useState<Record<string, DmThread>>({})
+  const [intervals, setIntervals] = useState<PresenceInterval[]>([])
+  const [spatialEvents, setSpatialEvents] = useState<SpatialEvent[]>([])
+  const [notes, setNotes] = useState<MapNote[]>([])
+  const [myRoomId, setMyRoomIdState] = useState('hallway')
 
   useEffect(() => {
     ensureSchoolSessionInitialized().catch(() => {})
@@ -217,11 +265,25 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
       setPlayers(p)
       setPlayersLoaded(true)
     })
+    const unsubIntervals = subscribeIntervals(setIntervals)
+    const unsubEvents = subscribeSpatialEvents(setSpatialEvents)
+    const unsubNotes = subscribeNotes(setNotes)
     return () => {
       unsubSession()
       unsubPlayers()
+      unsubIntervals()
+      unsubEvents()
+      unsubNotes()
     }
   }, [])
+
+  // 창을 닫을 때 열린 구간을 닫아 준다. 안 닫으면 영원히 그 방에 있는 것으로 계산된다.
+  useEffect(() => {
+    if (!viewerId) return
+    const close = () => void closeIntervals(viewerId)
+    window.addEventListener('beforeunload', close)
+    return () => window.removeEventListener('beforeunload', close)
+  }, [viewerId])
 
   useEffect(() => {
     if (!viewerId) {
@@ -240,6 +302,24 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
   )
   const relationshipMatrix = useMemo(() => computeRelationshipMatrix(session.actionLog), [session.actionLog])
 
+  const assignedTarget = myPlayer?.assignedTargetId ? (players[myPlayer.assignedTargetId] ?? null) : null
+
+  /** 지금 나와 같은 방에 있는 사람들. 목격자 판정도 대화 상대도 전부 여기서 나온다. */
+  const roomOccupantIds = useMemo(
+    () => occupantsOf(intervals, myRoomId).filter((id) => id !== viewerId),
+    [intervals, myRoomId, viewerId],
+  )
+
+  const fragmentsHere = useMemo(
+    () => session.mapFragments.filter((f) => f.state === 'onFloor' && f.roomId === myRoomId),
+    [session.mapFragments, myRoomId],
+  )
+  const myFragments = useMemo(
+    () => session.mapFragments.filter((f) => f.state === 'held' && f.holderId === viewerId),
+    [session.mapFragments, viewerId],
+  )
+  const notesHere = useMemo(() => notes.filter((n) => n.roomId === myRoomId), [notes, myRoomId])
+
   const myMissionProgress = useMemo<MissionItemProgress[]>(() => {
     if (!viewerId || !myRole) return []
     return evaluateMission(myRole, {
@@ -250,15 +330,24 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
       votes: session.votes,
       dmPartnerCount: Object.keys(dmThreads).length,
       territory: session.territory,
+      intervals,
+      spatialEvents,
+      fragments: session.mapFragments,
+      assignedTargetId: myPlayer?.assignedTargetId ?? null,
+      now: Date.now(),
     })
   }, [
     viewerId,
     myRole,
+    myPlayer?.assignedTargetId,
     session.actionLog,
     session.revealLog,
     session.rumors,
     session.votes,
     session.territory,
+    session.mapFragments,
+    intervals,
+    spatialEvents,
     dmThreads,
   ])
 
@@ -526,6 +615,50 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  /**
+   * 방을 옮길 때마다 구간을 닫고 연다. 이 한 줄에서 모든 시간 지표가 나온다.
+   * 같은 방이어도 그냥 쓴다 — 지도에 처음 들어온 순간에도 구간이 열려야 하기 때문이다.
+   * (안 열면 복도에서만 서성인 사람은 아예 존재하지 않는 것으로 계산된다.)
+   * 중복 호출은 화면 쪽에서 막는다.
+   */
+  function setMyRoom(roomId: string) {
+    setMyRoomIdState(roomId)
+    if (viewerId) void moveRoom(viewerId, roomId, session.day).catch(() => {})
+  }
+
+  /** 목격자는 "지금 이 방에 있는 나 말고 전부". 빈 방이면 아무도 모른다. */
+  function witnesses(): string[] {
+    return roomOccupantIds
+  }
+
+  async function doPickFragment(fragmentId: string) {
+    if (!viewerId) return
+    await pickFragment(fragmentId, viewerId, myRoomId, witnesses(), session.day)
+  }
+  async function doDropFragment(fragmentId: string) {
+    if (!viewerId) return
+    await dropFragment(fragmentId, viewerId, myRoomId, witnesses(), session.day)
+  }
+  async function doBurnFragment(fragmentId: string) {
+    if (!viewerId) return
+    await burnFragment(fragmentId, viewerId, myRoomId, witnesses(), session.day)
+  }
+  async function doGiveFragment(fragmentId: string, toPlayerId: string) {
+    if (!viewerId) return
+    await giveFragment(fragmentId, viewerId, toPlayerId, myRoomId, witnesses(), session.day)
+  }
+  async function doLeaveNote(text: string) {
+    if (!viewerId || !text.trim()) return
+    await leaveNote(viewerId, myRoomId, text.trim(), witnesses(), session.day)
+  }
+  async function doReadNote(noteId: string) {
+    if (!viewerId) return
+    await readNote(noteId, viewerId, myRoomId, witnesses(), session.day)
+  }
+  async function hostSpawnFragments() {
+    return spawnFragments(session.day)
+  }
+
   async function spendLeverageOn(leverageId: string, aboutId: string, mode: 'block' | 'extort') {
     if (!viewerId || !myTeamId) throw new Error('팀에 배정되지 않았다.')
     await territorySpendLeverage(session.day, viewerId, myTeamId, leverageId, aboutId, mode)
@@ -677,6 +810,23 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     revealToClass,
     performAction,
     spreadRumor,
+    myRoomId,
+    setMyRoom,
+    roomOccupantIds,
+    intervals,
+    spatialEvents,
+    notes,
+    fragmentsHere,
+    myFragments,
+    notesHere,
+    doPickFragment,
+    doDropFragment,
+    doBurnFragment,
+    doGiveFragment,
+    doLeaveNote,
+    doReadNote,
+    hostSpawnFragments,
+    assignedTarget,
     myMissionProgress,
     myVotesToday,
     castVote,

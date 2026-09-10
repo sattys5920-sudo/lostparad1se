@@ -1,6 +1,6 @@
 import './TabBar.css'
 
-export type SchoolTabId = 'home' | 'territory' | 'roster' | 'profile' | 'host'
+export type SchoolTabId = 'home' | 'map' | 'territory' | 'roster' | 'profile' | 'host'
 
 interface Tab {
   id: SchoolTabId
@@ -8,6 +8,7 @@ interface Tab {
 }
 
 const PLAYER_TABS: Tab[] = [
+  { id: 'map', label: '학교' },
   { id: 'home', label: '교실' },
   { id: 'territory', label: '영역' },
   { id: 'roster', label: '아이들' },
@@ -15,6 +16,7 @@ const PLAYER_TABS: Tab[] = [
 ]
 
 const HOST_TABS: Tab[] = [
+  { id: 'map', label: '학교' },
   { id: 'home', label: '교실' },
   { id: 'territory', label: '영역' },
   { id: 'roster', label: '아이들' },

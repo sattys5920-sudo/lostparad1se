@@ -97,6 +97,7 @@ const emptySession: SchoolSessionState = {
   votes: [],
   activeEventCard: null,
   territory: initialTerritoryState(),
+  mapFragments: [],
   createdAtMs: Date.now(),
 }
 
@@ -312,9 +313,20 @@ export async function removeSchoolPlayer(playerId: string): Promise<void> {
 export async function assignRolesAndReveal(playerIds: string[]): Promise<void> {
   const roleAssignment = assignRoles(playerIds)
   const teamAssignment = assignTeams(playerIds)
+  // 「지정된 한 사람」이 필요한 미션(피해야 할 상대, 몰래 만나야 할 상대)의 대상을 함께 뽑는다.
+  // 자기 자신은 뽑히지 않게만 하고, 나머지는 무작위로 준다.
+  const targetAssignment: Record<string, string> = {}
+  for (const playerId of playerIds) {
+    const others = playerIds.filter((id) => id !== playerId)
+    targetAssignment[playerId] = others[Math.floor(Math.random() * others.length)]
+  }
   await runTransaction(requireDb(), async (tx) => {
     for (const playerId of playerIds) {
-      tx.update(playerRef(playerId), { roleId: roleAssignment[playerId], teamId: teamAssignment[playerId] })
+      tx.update(playerRef(playerId), {
+        roleId: roleAssignment[playerId],
+        teamId: teamAssignment[playerId],
+        assignedTargetId: targetAssignment[playerId],
+      })
     }
     tx.update(sessionRef(), {
       rolesAssigned: true,

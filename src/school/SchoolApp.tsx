@@ -10,6 +10,7 @@ import { EntryScreen } from './screens/EntryScreen'
 import { LobbyScreen } from './screens/LobbyScreen'
 import { RoleRevealScreen } from './screens/RoleRevealScreen'
 import { HomeScreen } from './screens/HomeScreen'
+import { MapScreen } from './screens/MapScreen'
 import { TerritoryScreen } from './screens/TerritoryScreen'
 import { RosterScreen } from './screens/RosterScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
@@ -19,7 +20,7 @@ import { dayByNumber } from './data/days'
 
 function Shell() {
   const { isHost, session } = useSchoolGame()
-  const [activeTab, setActiveTab] = useState<SchoolTabId>('home')
+  const [activeTab, setActiveTab] = useState<SchoolTabId>('map')
   const day = dayByNumber(session.day)
 
   return (
@@ -31,6 +32,7 @@ function Shell() {
       </header>
       <main className="sc-shell__body">
         {activeTab === 'home' && (session.phase === 'ended' ? <EndingScreen /> : <HomeScreen />)}
+        {activeTab === 'map' && <MapScreen />}
         {activeTab === 'territory' && <TerritoryScreen />}
         {activeTab === 'roster' && <RosterScreen />}
         {activeTab === 'profile' && !isHost && <ProfileScreen />}

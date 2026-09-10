@@ -93,3 +93,11 @@
   font-size: 14px;
   letter-spacing: 0.08em;
 }
+
+.sc-reveal__axis {
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--sc-text-dim);
+  border-left: 2px solid var(--sc-line-strong);
+  padding-left: 9px;
+}

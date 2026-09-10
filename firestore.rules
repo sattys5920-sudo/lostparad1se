@@ -31,6 +31,23 @@ service cloud.firestore {
       match /dmThreads/{threadKey} {
         allow read, write: if true;
       }
+
+      // 지도: 살아 있는 좌표, 방 출입 구간, 목격이 붙은 사건, 익명 쪽지
+      match /positions/{playerId} {
+        allow read, write: if true;
+      }
+
+      match /intervals/{intervalId} {
+        allow read, write: if true;
+      }
+
+      match /spatialEvents/{eventId} {
+        allow read, write: if true;
+      }
+
+      match /notes/{noteId} {
+        allow read, write: if true;
+      }
     }
 
     // 걸어 다니는 학교 프로토타입. 본 게임 트리와 완전히 분리해 둔다.
