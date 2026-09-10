@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './MapScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
-import { isWalkable, MAP_H, MAP_W, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
+import { floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
 import { ACTOR_H, ACTOR_W, buildSprites, PAL, type Dir } from '../map/sprites'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
 import { SABOTAGE_LABEL, SPATIAL_LABEL, type BuildingKind, type SabotageEffectKind, type TileId } from '../types'
@@ -290,18 +290,32 @@ export function MapScreen() {
       for (let y = y0; y <= y1; y++) {
         for (let x = x0; x <= x1; x++) {
           const kind = tileAt(x, y)
-          let img
+          let img: CanvasImageSource | null
           if (kind === 'wall') {
             img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
           } else if (kind === 'door') {
             img = lockedRef.current.has(`${x},${y}`) ? sprites.tiles.doorLocked : sprites.tiles.door
           } else {
-            // 발밑 무늬가 곧 소유권이다. 주인 없는 곳은 맨바닥.
-            const owner = roomAt(x, y)?.id
-            const team = owner ? tilesRef.current[owner]?.ownerTeam : null
-            img = team ? sprites.tiles.floorTeam[team] : sprites.tiles.floorRoom
+            // 바닥은 그 실이 어떤 곳인지를 말한다. 정원은 흙, 체육관은 마루, 복도는 통로.
+            const room = roomAt(x, y)?.id
+            const kind = room ? floorOf(room) : 'room'
+            img =
+              kind === 'hall'
+                ? sprites.tiles.floorHall
+                : kind === 'outdoor'
+                  ? sprites.tiles.floorOutdoor
+                  : kind === 'wood'
+                    ? sprites.tiles.floorWood
+                    : sprites.tiles.floorRoom
+            ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+            // 소유권은 그 위에 얹는다 — 어느 실인지와 누구 땅인지를 함께 보여야 한다.
+            const team = room ? tilesRef.current[room]?.ownerTeam : null
+            img = team ? sprites.tiles.floorTeam[team] : null
           }
-          ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+          if (img) ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+          // 흔적은 바닥에 깔리고, 가구는 그 위에 선다
+          const mark = markAt(x, y)
+          if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
           const prop = propAt(x, y)
           if (prop) ctx.drawImage(sprites.props[prop], x * TILE - camX, y * TILE - camY)
         }

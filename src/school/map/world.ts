@@ -18,7 +18,10 @@
 // 구관에서 중앙광장으로는 핵심 지역을 지나야 한다. 이 그래프는 평면에 그릴 수 없어서
 // (K3,3을 품는다) 두 곳만 한 방을 거쳐 간다. 점령 인접은 data/tiles.ts의 ADJACENCY가 정한다.
 import { tileById } from '../data/tiles'
+import type { MarkKind, PropKind } from './sprites'
 import type { TeamId, TileId } from '../types'
+
+export type { PropKind, MarkKind } from './sprites'
 
 export const TILE = 16
 const N = 64
@@ -178,34 +181,222 @@ export function doorHere(x: number, y: number): Door | null {
   return doorAt.get(`${x},${y}`) ?? null
 }
 
-// ── 가구 ────────────────────────────────────────────────────────
-// 책상 사이를 비집고 다니는 것이 공간을 공간처럼 만든다. 문 앞은 반드시 비운다.
+// ── 가구와 흔적 ─────────────────────────────────────────────────
+// 방마다 다른 것을 놓는다. 이름표를 읽지 않아도 어느 실인지 알아야 한다.
+//
+// 다만 자리는 네 팀이 똑같아야 한다. 그래서 배치 뼈대는 씨앗 방 하나만 그리고
+// 회전시켜 쓰고, 그 자리에 놓을 가구만 방마다 다르게 고른다.
+// 흔적(marks)은 길을 막지 않으니 방마다 자유롭게 놓는다 — 여기에 A가 남는다.
 
-export type PropKind = 'desk' | 'shelf' | 'table' | 'plant' | 'box'
+/** 씨앗 방 안에서의 자리와, 그 자리에 놓을 가구 묶음 번호. */
+type Slot = [number, number, number]
 
-const PROP_OF: Partial<Record<TileId, PropKind>> = {
-  classroom: 'desk', hallway: 'plant', scienceRoom: 'table', artRoom: 'table',
-  musicRoom: 'shelf', clubRoom: 'box', garden: 'plant', storage: 'box',
-  library: 'shelf', gym: 'box', cafeteria: 'table', rooftop: 'plant',
-  oldBuilding: 'plant', playground: 'box', auditorium: 'table',
-  broadcastRoom: 'box', studentCouncil: 'table', centralPlaza: 'plant',
+/** 방이 90도 돌면 방 안의 자리도 같이 돈다. (lx,ly) → (h-1-ly, lx) */
+function rotSlot([lx, ly, g]: Slot, w: number, h: number): { slot: Slot; w: number; h: number } {
+  void w
+  return { slot: [h - 1 - ly, lx, g], w: h, h: w }
 }
 
 const props = new Map<string, PropKind>()
+const marks = new Map<string, MarkKind>()
+const key = (x: number, y: number) => `${x},${y}`
 
-for (const room of ROOMS) {
-  const kind = PROP_OF[room.id]
-  if (!kind) continue
-  for (const r of room.rects) {
-    if (r.w < 7 || r.h < 5) continue
-    for (let y = r.y + 2; y < r.y + r.h - 2; y += 3) {
-      for (let x = r.x + 2; x < r.x + r.w - 2; x += 3) {
-        // 문 앞 두 칸은 비운다 — 막으면 방이 잠긴다.
-        if (DOORS.some((d) => Math.abs(d.x - x) <= 2 && Math.abs(d.y - y) <= 2)) continue
-        props.set(`${x},${y}`, kind)
+/** 문 앞은 비워 둔다. 막으면 방이 잠긴다. */
+function nearDoor(x: number, y: number): boolean {
+  return DOORS.some((d) => Math.abs(d.x - x) <= 1 && Math.abs(d.y - y) <= 1)
+}
+
+/**
+ * 회전 궤도 하나를 한꺼번에 채운다. ids는 회전 순서, kinds[i]는 그 방이
+ * 묶음 번호별로 쓸 가구다.
+ */
+function furnish(ids: TileId[], seed: Rect, slots: Slot[], kinds: PropKind[][]): void {
+  let rect = seed
+  let cur = slots
+  let w = seed.w
+  let h = seed.h
+  ids.forEach((id, i) => {
+    const target = ROOM_RECTS[id][0]
+    for (const [lx, ly, g] of cur) {
+      const x = target.x + lx
+      const y = target.y + ly
+      if (lx < 0 || ly < 0 || lx >= target.w || ly >= target.h) {
+        throw new Error(`${id} 가구가 방 밖으로 나갔다: ${lx},${ly}`)
       }
+      if (nearDoor(x, y)) continue
+      props.set(key(x, y), kinds[i][g])
     }
+    // 다음 방을 위해 자리도 함께 돌린다
+    const rotated = cur.map((sl) => rotSlot(sl, w, h))
+    cur = rotated.map((r) => r.slot)
+    const dims = rotSlot([0, 0, 0], w, h)
+    w = dims.w
+    h = dims.h
+    rect = rot(rect)
+  })
+  void rect
+}
+
+const BASE_SLOTS: Slot[] = [
+  [1, 1, 0], [2, 1, 0], [3, 1, 0], [7, 1, 0], [8, 1, 0], [9, 1, 0],
+  [1, 6, 1], [2, 6, 1], [9, 6, 1], [10, 6, 1],
+]
+const RING_A_SLOTS: Slot[] = [
+  [2, 1, 0], [5, 1, 0], [8, 1, 0], [11, 1, 0], [14, 1, 0], [17, 1, 0],
+  [2, 7, 1], [5, 7, 1], [8, 7, 1], [11, 7, 1],
+  [19, 2, 2],
+]
+const RING_B_SLOTS: Slot[] = [
+  [2, 1, 0], [5, 1, 0], [8, 1, 0], [11, 1, 0], [14, 1, 0],
+  [2, 6, 1], [5, 6, 1], [8, 6, 1], [11, 6, 1], [14, 6, 1],
+  [14, 3, 2],
+]
+const GATE_SLOTS: Slot[] = [
+  [2, 2, 0], [2, 4, 0], [2, 6, 0],
+  [10, 2, 1], [13, 2, 1], [10, 6, 1], [13, 6, 1],
+  [18, 4, 2],
+]
+const CORE_SLOTS: Slot[] = [[0, 1, 0], [5, 1, 0]]
+const OLD_SLOTS: Slot[] = [[1, 1, 0], [5, 1, 0], [15, 1, 0]]
+
+// 기지 — 반이 짐을 두는 곳. 네 팀 모두 같다.
+furnish(
+  ['baseA', 'baseB', 'baseC', 'baseD'],
+  { x: 1, y: 1, w: 12, h: 9 },
+  BASE_SLOTS,
+  [['locker', 'bench'], ['locker', 'bench'], ['locker', 'bench'], ['locker', 'bench']],
+)
+// 1구역 안쪽 — 복도·미술실·동아리실·창고
+furnish(
+  ['hallway', 'artRoom', 'clubRoom', 'storage'],
+  { x: 14, y: 1, w: 21, h: 9 },
+  RING_A_SLOTS,
+  [
+    ['locker', 'plant', 'plant'],
+    ['easel', 'table', 'shelf'],
+    ['box', 'table', 'shelf'],
+    ['box', 'box', 'cabinet'],
+  ],
+)
+// 1구역 바깥쪽 — 과학실·음악실·정원·교실
+furnish(
+  ['scienceRoom', 'musicRoom', 'garden', 'classroom'],
+  { x: 36, y: 1, w: 17, h: 9 },
+  RING_B_SLOTS,
+  [
+    ['labBench', 'labBench', 'shelf'],
+    ['seats', 'seats', 'piano'],
+    ['tree', 'bench', 'plant'],
+    ['desk', 'desk', 'plant'],
+  ],
+)
+// 관문 — 도서관·체육관·급식실·옥상
+furnish(
+  ['library', 'gym', 'cafeteria', 'rooftop'],
+  { x: 24, y: 11, w: 21, h: 9 },
+  GATE_SLOTS,
+  [
+    ['shelf', 'shelf', 'table'],
+    ['vault', 'bench', 'box'],
+    ['canteen', 'table', 'table'],
+    ['tank', 'plant', 'box'],
+  ],
+)
+// 핵심 지역 — 운동장·강당·방송실·학생회실
+furnish(
+  ['playground', 'auditorium', 'broadcastRoom', 'studentCouncil'],
+  { x: 29, y: 25, w: 6, h: 3 },
+  CORE_SLOTS,
+  [['bench'], ['seats'], ['console'], ['meetingTable']],
+)
+
+// 구관 회랑 — 네 조각이 한 방이라 조각마다 같은 배치를 돌려 쓴다
+{
+  let slots = OLD_SLOTS
+  let w = 19
+  let h = 3
+  for (const rect of ROOM_RECTS.oldBuilding) {
+    for (const [lx, ly] of slots) {
+      const x = rect.x + lx
+      const y = rect.y + ly
+      if (lx >= rect.w || ly >= rect.h) throw new Error(`구관 가구가 방 밖으로 나갔다: ${lx},${ly}`)
+      if (nearDoor(x, y)) continue
+      props.set(key(x, y), 'cabinet')
+    }
+    const rotated = slots.map((sl) => rotSlot(sl, w, h))
+    slots = rotated.map((r) => r.slot)
+    const dims = rotSlot([0, 0, 0], w, h)
+    w = dims.w
+    h = dims.h
   }
+}
+
+// 중앙광장 — 화단 셋과 조형물 하나. 학교가 자랑스러워하던 것.
+for (const [lx, ly, kind] of [
+  [1, 1, 'plant'], [4, 1, 'plant'], [1, 4, 'plant'], [4, 4, 'statue'],
+] as [number, number, PropKind][]) {
+  const r = ROOM_RECTS.centralPlaza[0]
+  if (!nearDoor(r.x + lx, r.y + ly)) props.set(key(r.x + lx, r.y + ly), kind)
+}
+
+/**
+ * 흔적. 길을 막지 않고 바닥에 깔린다. 대부분은 그냥 낡은 학교의 얼룩이지만
+ * 옥상의 실내화와 국화, 중앙광장의 초는 A가 남긴 자리다.
+ */
+const MARKS: [TileId, number, number, MarkKind][] = [
+  ['classroom', 4, 8, 'flowers'],
+  ['classroom', 4, 1, 'chalk'],
+  ['hallway', 7, 4, 'poster'],
+  ['scienceRoom', 12, 4, 'stain'],
+  ['artRoom', 4, 10, 'stain'],
+  ['musicRoom', 4, 9, 'poster'],
+  ['clubRoom', 8, 4, 'crack'],
+  ['garden', 8, 4, 'flowers'],
+  ['storage', 4, 12, 'crack'],
+  ['library', 16, 4, 'poster'],
+  ['gym', 4, 14, 'crack'],
+  ['cafeteria', 10, 4, 'stain'],
+  ['rooftop', 4, 3, 'shoes'],
+  ['rooftop', 4, 5, 'flowers'],
+  ['rooftop', 4, 17, 'tape'],
+  ['oldBuilding', 7, 1, 'tape'],
+  ['oldBuilding', 12, 1, 'crack'],
+  ['playground', 3, 1, 'crack'],
+  ['auditorium', 1, 4, 'stain'],
+  ['broadcastRoom', 2, 1, 'stain'],
+  ['studentCouncil', 1, 3, 'crack'],
+  ['centralPlaza', 2, 2, 'candle'],
+  ['centralPlaza', 3, 2, 'flowers'],
+]
+
+for (const [id, lx, ly, kind] of MARKS) {
+  const r = ROOM_RECTS[id][0]
+  if (lx < 0 || ly < 0 || lx >= r.w || ly >= r.h) throw new Error(`${id} 흔적이 방 밖으로 나갔다: ${lx},${ly}`)
+  const k = key(r.x + lx, r.y + ly)
+  // 가구가 이미 선 자리에는 겹치지 않는다
+  if (!props.has(k)) marks.set(k, kind)
+}
+
+/** 방마다 바닥이 다르다. 실외는 흙, 체육관·강당은 마루, 복도·구관은 통로. */
+export type FloorKind = 'room' | 'hall' | 'outdoor' | 'wood'
+
+const FLOOR_OF: Partial<Record<TileId, FloorKind>> = {
+  hallway: 'hall',
+  oldBuilding: 'hall',
+  garden: 'outdoor',
+  playground: 'outdoor',
+  rooftop: 'outdoor',
+  centralPlaza: 'outdoor',
+  gym: 'wood',
+  auditorium: 'wood',
+}
+
+export function floorOf(id: TileId): FloorKind {
+  return FLOOR_OF[id] ?? 'room'
+}
+
+export function markAt(x: number, y: number): MarkKind | null {
+  return marks.get(key(x, y)) ?? null
 }
 
 export function propAt(x: number, y: number): PropKind | null {

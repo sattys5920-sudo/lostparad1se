@@ -1,6 +1,6 @@
 import './proto.css'
 import { firebaseConfigured } from '../firebase'
-import { isWalkable, MAP_H, MAP_W, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../school/map/world'
+import { floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../school/map/world'
 import { ACTOR_H, ACTOR_W, buildSprites, PAL, type Dir } from '../school/map/sprites'
 import { leave, sendChat, sendPresence, STALE_MS, subscribeChat, subscribePresence, type ChatLine, type Presence } from './net'
 
@@ -240,6 +240,21 @@ function resize() {
 }
 window.addEventListener('resize', resize)
 
+/** 그 실이 어떤 곳인지는 바닥이 말한다. 정원은 흙, 체육관은 마루, 복도는 통로. */
+function floorTile(x: number, y: number) {
+  const room = roomAt(x, y)?.id
+  switch (room ? floorOf(room) : 'room') {
+    case 'hall':
+      return sprites.tiles.floorHall
+    case 'outdoor':
+      return sprites.tiles.floorOutdoor
+    case 'wood':
+      return sprites.tiles.floorWood
+    default:
+      return sprites.tiles.floorRoom
+  }
+}
+
 function drawLabel(text: string, cx: number, y: number, inverted: boolean) {
   ctx.font = '7px "Gothic A1", sans-serif'
   ctx.textAlign = 'center'
@@ -305,10 +320,10 @@ function loop(now: number) {
             : sprites.tiles.wall
           : kind === 'door'
             ? sprites.tiles.door
-            : roomAt(x, y)?.id === 'hallway'
-              ? sprites.tiles.floorHall
-              : sprites.tiles.floorRoom
+            : floorTile(x, y)
       ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+      const mark = markAt(x, y)
+      if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
       const prop = propAt(x, y)
       if (prop) ctx.drawImage(sprites.props[prop], x * TILE - camX, y * TILE - camY)
     }
