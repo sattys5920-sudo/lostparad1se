@@ -28,15 +28,19 @@ export const FACE_NAMES = [
 // 어깨(8칸) → 몸통(4칸) → 허리(4칸)로 좁아지고, 팔은 몸통과 다른 톤으로 갈라 놓는다.
 // 'A'는 팔 — 옷이 밝으면 어둡게, 어두우면 밝게 칠해 늘 몸통과 갈린다.
 
+// 얼굴을 동그라미로 그린다. 예전에는 눈썹 줄(3번)만 테두리가 두 겹이라
+// 거기서 폭이 확 줄었다가 다시 늘어 — 이마가 움푹 들어간 것처럼 보였다.
+// 이제 위아래로 4→6→8→8→8→8→6→6→4 로 폭이 매끄럽게 늘고 줄어든다.
+// 눈썹은 구조(테두리)가 아니라 표정(FACES)이 살 위에 얇게 한 줄만 얹는다.
 const BODY_DOWN = [
   '            ',
   '    3333    ',
-  '   331133   ',
-  '  33FFFF33  ',
+  '   311113   ',
+  '  31111113  ',
   '  3FFFFFF3  ',
   '  3FFFFFF3  ',
   '  3FFFFFF3  ',
-  '   3FFFF3   ',
+  '   311113   ',
   '   311113   ',
   '    3113    ',
   '  33UUUU33  ',
@@ -76,12 +80,12 @@ const BODY_UP = [
 const BODY_SIDE = [
   '            ',
   '    3333    ',
-  '   331133   ',
-  '  33FFFF33  ',
+  '   311113   ',
+  '  31111113  ',
   '  3FFFFFF3  ',
   '  3FFFFFF3  ',
   '  3FFFFFF3  ',
-  '   3FFFF3   ',
+  '   311113   ',
   '   311113   ',
   '    3113    ',
   '  33UUUU33  ',
@@ -281,7 +285,13 @@ function put(grid: string[][], x: number, y: number, ch: string): void {
 }
 
 /** 몸통 틀에 머리·표정·유니폼을 얹어 한 장을 만든다. */
-function compose(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number): string[][] {
+function compose(
+  look: AvatarLook,
+  team: TeamId | null,
+  dir: Dir,
+  frame: number,
+  skipHair = false,
+): string[][] {
   const base = dir === 'up' ? BODY_UP : dir === 'down' ? BODY_DOWN : BODY_SIDE
   const grid = base.map((row, y) =>
     [...row].map((c, x) =>
@@ -292,9 +302,11 @@ function compose(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number)
   put(grid, 5, 10, '3')
   put(grid, 6, 10, '3')
 
-  const hair = HAIR_DOWN[look.hair % HAIR_DOWN.length]
-  const layer = dir === 'up' ? hairUp(hair) : dir === 'down' ? hair : hairSide(hair)
-  layer.forEach((row, y) => [...row].forEach((c, x) => put(grid, x, y, c)))
+  if (!skipHair) {
+    const hair = HAIR_DOWN[look.hair % HAIR_DOWN.length]
+    const layer = dir === 'up' ? hairUp(hair) : dir === 'down' ? hair : hairSide(hair)
+    layer.forEach((row, y) => [...row].forEach((c, x) => put(grid, x, y, c)))
+  }
 
   // 앞머리가 눈과 입까지 덮으면 얼굴이 사라진다. 이마(3줄)와 턱은 머리에 내주고
   // 눈·입 줄만 살로 되돌린다.
@@ -306,10 +318,14 @@ function compose(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number)
 
   const f = FACES[look.face % FACES.length]
   if (dir === 'down') {
-    ;[...f.browL].forEach((c, i) => put(grid, 3 + i, 3, c))
-    ;[...f.browR].forEach((c, i) => put(grid, 7 + i, 3, c))
-    f.eyeL.forEach((row, ry) => [...row].forEach((c, i) => put(grid, 3 + i, 4 + ry, c)))
-    f.eyeR.forEach((row, ry) => [...row].forEach((c, i) => put(grid, 7 + i, 4 + ry, c)))
+    // 눈이 폭 6칸짜리 살(3~8칸)의 가장자리(3·8칸)에 바로 붙으면 테두리와
+    // 뭉개져 안 보인다. 한 칸씩 안쪽(4·7칸)으로 모아 찍어서 양옆에 살을
+    // 남긴다 — 대신 눈은 두 칸이 아니라 한 칸으로 줄인다(6칸 폭에 두 눈이
+    // 서로 안 닿고 떨어져 앉을 자리가 그것뿐이다).
+    ;[...f.browL].forEach((c, i) => put(grid, 4 + i, 3, c))
+    ;[...f.browR].forEach((c, i) => put(grid, 6 + i, 3, c))
+    f.eyeL.forEach((row, ry) => put(grid, 4, 4 + ry, row[1] ?? row[0]))
+    f.eyeR.forEach((row, ry) => put(grid, 7, 4 + ry, row[0]))
     f.mouth.forEach((row, ry) => [...row].forEach((c, i) => put(grid, 4 + i, 6 + ry, c)))
     if (f.tear) put(grid, 8, 6, '2')
   } else if (dir !== 'up') {
@@ -361,6 +377,18 @@ export function actorSprite(look: AvatarLook, team: TeamId | null, dir: Dir, fra
   if (hit) return hit
   const drawn = dir === 'left' ? mirror(paint(compose(look, team, 'right', frame))) : paint(compose(look, team, dir, frame))
   cache.set(key, drawn)
+  return drawn
+}
+
+/**
+ * 머리를 얹기 전의 맨머리 얼굴. 골격 자체가 맞는지 검토할 때 쓴다
+ * (프로필 뼈대를 다시 잡을 때처럼 머리카락이 문제를 가릴 수 있어서).
+ */
+export function bareHeadSprite(face: number, dir: Dir, frame = 0): HTMLCanvasElement {
+  const drawn =
+    dir === 'left'
+      ? mirror(paint(compose({ hair: 0, face }, null, 'right', frame, true)))
+      : paint(compose({ hair: 0, face }, null, dir, frame, true))
   return drawn
 }
 
