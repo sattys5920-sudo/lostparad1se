@@ -18,7 +18,7 @@
 // 곡선은 안티앨리어싱이 걸리므로 다 그린 뒤 팔레트 두 색(먹·살)으로
 // 양자화해서 도트로 만든다. 중간 톤(눈물·볼 홍조)은 그 뒤에 사각형으로만
 // 얹는다 — 사각형은 번지지 않는다.
-import type { AvatarLook } from '../types'
+import type { AvatarLook, TeamId } from '../types'
 
 export const PORTRAIT_SIZE = 32
 
@@ -531,6 +531,7 @@ function compositeHair(ctx: Ctx, hair: number, color: number): void {
     maskCache.set(hair, mask)
   }
   const tone = TONES[color % TONES.length]
+  // 몸까지 이어 그린 전신에서도 머리는 위 32줄 안에만 있다 — 그만큼만 훑는다.
   const img = ctx.getImageData(0, 0, PORTRAIT_SIZE, PORTRAIT_SIZE)
   const d = img.data
   const S = PORTRAIT_SIZE
@@ -737,7 +738,7 @@ function drawFaceAccents(ctx: Ctx, e: Expr): void {
  * 반쯤 투명한 건 지운다. 그래야 다른 도트 그림과 같은 결이 난다.
  */
 function quantize(ctx: Ctx): void {
-  const img = ctx.getImageData(0, 0, PORTRAIT_SIZE, PORTRAIT_SIZE)
+  const img = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height)
   const d = img.data
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] < 128) {
@@ -775,5 +776,238 @@ export function portraitSprite(look: AvatarLook): HTMLCanvasElement {
   // 머리는 맨 마지막 — 눈을 가리는 머리면 눈빛까지 덮어야 한다
   compositeHair(ctx, look.hair, color)
   cache.set(key, c)
+  return c
+}
+
+// ── 전신 ────────────────────────────────────────────────────────
+// 얼굴 따로 · 지도 인형 따로 두면 같은 사람으로 안 보인다. 같은 32칸 폭에
+// 목·어깨·교복·팔다리를 그대로 이어 붙여 한 사람으로 만든다.
+// 그리는 방식은 얼굴과 똑같다 — 곡선으로 그리고, 양자화해서 도트로 만들고,
+// 옷 무늬는 그 뒤에 픽셀 단위로 얹는다(테두리는 건드리지 않는다).
+
+export const FIGURE_W = PORTRAIT_SIZE
+export const FIGURE_H = 70
+
+const SHOULDER_Y = 31
+const WAIST_Y = 45
+const HEM_Y = 55
+const SHOE_Y = 64
+const SLEEVE_END = 45
+
+/** 아래옷 — 남자 머리는 바지, 여자 머리는 치마. */
+type Bottom = 'pants' | 'skirt'
+
+function bottomOf(hair: number): Bottom {
+  return hair < HAIR_GROUPS[1].from ? 'pants' : 'skirt'
+}
+
+/**
+ * 몸을 조각조각 그려 각각 테두리를 두르면 겹친 자리에 선이 두 겹으로 남아
+ * 팔이 몸에서 떨어져 보인다. 그래서 몸은 실루엣(마스크) 하나로 합쳐 놓고,
+ * 그 가장자리만 먹으로 두른다 — 머리카락을 얹는 방식과 같다.
+ */
+function bodyShapes(ctx: Ctx, part: 'skin' | 'wear' | 'shoe', bottom: Bottom): void {
+  ctx.beginPath()
+  if (part === 'skin') {
+    // 목 · 손 · 종아리
+    ctx.roundRect(CX - 3, 25, 6, 8, 1.5)
+    ctx.moveTo(CX - 7.8, SLEEVE_END + 1)
+    ctx.arc(CX - 10.2, SLEEVE_END + 1, 2.4, 0, Math.PI * 2)
+    ctx.moveTo(CX + 12.6, SLEEVE_END + 1)
+    ctx.arc(CX + 10.2, SLEEVE_END + 1, 2.4, 0, Math.PI * 2)
+    const legTop = bottom === 'skirt' ? HEM_Y - 2 : HEM_Y - 1
+    ctx.roundRect(CX - 6.5, legTop, 5, SHOE_Y - legTop + 3, 1.5)
+    ctx.roundRect(CX + 1.5, legTop, 5, SHOE_Y - legTop + 3, 1.5)
+  } else if (part === 'wear') {
+    // 몸통 — 어깨에서 허리로 좁아진다
+    ctx.moveTo(CX - 9, WAIST_Y)
+    ctx.lineTo(CX - 10.5, SHOULDER_Y + 3)
+    ctx.quadraticCurveTo(CX - 10.5, SHOULDER_Y, CX - 6, SHOULDER_Y - 1)
+    ctx.lineTo(CX + 6, SHOULDER_Y - 1)
+    ctx.quadraticCurveTo(CX + 10.5, SHOULDER_Y, CX + 10.5, SHOULDER_Y + 3)
+    ctx.lineTo(CX + 9, WAIST_Y)
+    ctx.closePath()
+    // 소매 — 몸통에 두 칸쯤 물려야 팔이 떨어져 보이지 않는다
+    ctx.roundRect(CX - 12.5, SHOULDER_Y + 2, 4.5, SLEEVE_END - SHOULDER_Y - 2, 2)
+    ctx.roundRect(CX + 8, SHOULDER_Y + 2, 4.5, SLEEVE_END - SHOULDER_Y - 2, 2)
+    if (bottom === 'skirt') {
+      // 치마 — 허리에서 퍼진다
+      ctx.moveTo(CX - 8, WAIST_Y - 1)
+      ctx.lineTo(CX + 8, WAIST_Y - 1)
+      ctx.lineTo(CX + 10.5, HEM_Y)
+      ctx.lineTo(CX - 10.5, HEM_Y)
+      ctx.closePath()
+    } else {
+      // 바지 — 가랑이가 갈린다
+      ctx.roundRect(CX - 9, WAIST_Y - 1, 8, HEM_Y - WAIST_Y + 2, 1.5)
+      ctx.roundRect(CX + 1, WAIST_Y - 1, 8, HEM_Y - WAIST_Y + 2, 1.5)
+    }
+  } else {
+    ctx.roundRect(CX - 7, SHOE_Y, 6, 4.5, 1.5)
+    ctx.roundRect(CX + 1, SHOE_Y, 6, 4.5, 1.5)
+  }
+}
+
+function maskOf(draw: (ctx: Ctx) => void): Uint8Array {
+  const c = document.createElement('canvas')
+  c.width = FIGURE_W
+  c.height = FIGURE_H
+  const ctx = c.getContext('2d') as Ctx
+  ctx.fillStyle = INK
+  draw(ctx)
+  const d = ctx.getImageData(0, 0, FIGURE_W, FIGURE_H).data
+  const mask = new Uint8Array(FIGURE_W * FIGURE_H)
+  for (let i = 0; i < mask.length; i++) mask[i] = d[i * 4 + 3] >= 128 ? 1 : 0
+  return mask
+}
+
+const maskStore = new Map<string, Uint8Array>()
+
+function cachedMask(key: string, draw: (ctx: Ctx) => void): Uint8Array {
+  let m = maskStore.get(key)
+  if (!m) {
+    m = maskOf(draw)
+    maskStore.set(key, m)
+  }
+  return m
+}
+
+function bodyMask(bottom: Bottom): Uint8Array {
+  return cachedMask(`body-${bottom}`, (ctx) => {
+    for (const part of ['skin', 'wear'] as const) {
+      bodyShapes(ctx, part, bottom)
+      ctx.fill()
+    }
+  })
+}
+
+function shoeMask(): Uint8Array {
+  return cachedMask('shoe', (ctx) => {
+    bodyShapes(ctx, 'shoe', 'pants')
+    ctx.fill()
+  })
+}
+
+/** 실루엣을 칠한다 — 가장자리는 먹, 속은 살. 신발은 통째로 먹. */
+function drawBody(ctx: Ctx, bottom: Bottom): void {
+  const body = bodyMask(bottom)
+  const shoe = shoeMask()
+  const img = ctx.getImageData(0, 0, FIGURE_W, FIGURE_H)
+  const d = img.data
+  const inBody = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < FIGURE_W && y < FIGURE_H && (body[y * FIGURE_W + x] || shoe[y * FIGURE_W + x])
+  for (let y = 0; y < FIGURE_H; y++) {
+    for (let x = 0; x < FIGURE_W; x++) {
+      const on = body[y * FIGURE_W + x]
+      const sh = shoe[y * FIGURE_W + x]
+      if (!on && !sh) continue
+      const edge = N4.some(([dx, dy]) => !inBody(x + dx, y + dy))
+      const [r, g, b] = hex(edge || sh ? INK : LIGHT)
+      const i = (y * FIGURE_W + x) * 4
+      d[i] = r
+      d[i + 1] = g
+      d[i + 2] = b
+      d[i + 3] = 255
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+/** 교복 무늬. 흑백이라 색이 아니라 톤과 줄무늬로 팀을 가른다 — 인형과 같은 규칙. */
+function wearTone(team: TeamId | null, x: number, y: number): string {
+  switch (team) {
+    case 'B':
+      return MID
+    case 'C':
+      return y % 2 === 0 ? LIGHT : MID
+    case 'D':
+      return x % 2 === 0 ? LIGHT : MID
+    default:
+      return LIGHT
+  }
+}
+
+/** 옷이 덮는 자리(몸통 · 소매 · 아래옷)만 1인 마스크. */
+function wearMask(bottom: Bottom): Uint8Array {
+  return cachedMask(`wear-${bottom}`, (ctx) => {
+    bodyShapes(ctx, 'wear', bottom)
+    ctx.fill()
+  })
+}
+
+/**
+ * 양자화가 끝난 뒤 옷 무늬를 얹는다. 살(밝은 칸)만 바꾸고 먹은 그대로 둔다 —
+ * 그래야 어깨선·소매선이 무늬에 먹히지 않는다.
+ */
+function compositeWear(ctx: Ctx, team: TeamId | null, bottom: Bottom): void {
+  const mask = wearMask(bottom)
+  const body = bodyMask(bottom)
+  const img = ctx.getImageData(0, 0, FIGURE_W, FIGURE_H)
+  const d = img.data
+  const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < FIGURE_W && y < FIGURE_H
+  const worn = (x: number, y: number) => inside(x, y) && mask[y * FIGURE_W + x] === 1
+  const bare = (x: number, y: number) => inside(x, y) && body[y * FIGURE_W + x] === 1 && !worn(x, y)
+  const paint = (i: number, color: string) => {
+    const [r, g, b] = hex(color)
+    d[i] = r
+    d[i + 1] = g
+    d[i + 2] = b
+    d[i + 3] = 255
+  }
+  for (let y = 0; y < FIGURE_H; y++) {
+    for (let x = 0; x < FIGURE_W; x++) {
+      const at = y * FIGURE_W + x
+      const i = at * 4
+      if (!mask[at] || d[i + 3] === 0 || d[i] < 0x40) continue
+      // 옷과 맨살이 맞닿는 자리(깃·소맷부리·밑단)는 먹으로 한 줄 — 없으면
+      // 밝은 팀 옷이 살과 같은 톤이라 내복처럼 이어져 보인다.
+      const hem = N4.some(([dx, dy]) => bare(x + dx, y + dy))
+      paint(i, hem ? INK : wearTone(team, x, y))
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+/** 옷깃과 넥타이 — 무늬 위에 먹으로 또박또박. 이게 있어야 교복으로 읽힌다. */
+function drawCollar(ctx: Ctx): void {
+  ctx.fillStyle = INK
+  for (let i = 0; i < 4; i++) {
+    ctx.fillRect(CX - 4 + i, SHOULDER_Y + i, 1, 1)
+    ctx.fillRect(CX + 3 - i, SHOULDER_Y + i, 1, 1)
+  }
+  ctx.fillRect(CX - 1, SHOULDER_Y + 4, 2, 1)
+  ctx.fillStyle = MID
+  ctx.fillRect(CX - 1, SHOULDER_Y + 5, 2, 4)
+  ctx.fillStyle = INK
+  // 겨드랑이 솔기 — 소매와 몸통이 같은 무늬라 선이 없으면 팔이 몸에 먹힌다
+  for (const x of [CX - 8, CX + 7]) ctx.fillRect(x, SHOULDER_Y + 4, 1, SLEEVE_END - SHOULDER_Y - 5)
+  // 허리선 — 위아래 톤이 같은 팀에서도 아래옷이 갈려 보이게
+  ctx.fillRect(CX - 9, WAIST_Y - 1, 18, 1)
+}
+
+const figCache = new Map<string, HTMLCanvasElement>()
+
+/** 얼굴에서 몸까지 이어진 한 사람. 32×52. */
+export function figureSprite(look: AvatarLook, team: TeamId | null): HTMLCanvasElement {
+  const color = look.color ?? 0
+  const key = `${look.hair}-${look.face}-${color}-${team ?? '-'}`
+  const hit = figCache.get(key)
+  if (hit) return hit
+  const c = document.createElement('canvas')
+  c.width = FIGURE_W
+  c.height = FIGURE_H
+  const ctx = c.getContext('2d') as Ctx
+  const e = EXPR[look.face % EXPR.length]
+  const bottom = bottomOf(look.hair % STYLES.length)
+  drawBody(ctx, bottom)
+  drawEars(ctx)
+  drawHead(ctx)
+  drawFace(ctx, e)
+  quantize(ctx)
+  drawFaceAccents(ctx, e)
+  compositeHair(ctx, look.hair, color)
+  compositeWear(ctx, team, bottom)
+  drawCollar(ctx)
+  figCache.set(key, c)
   return c
 }
