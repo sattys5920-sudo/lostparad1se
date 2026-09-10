@@ -1,12 +1,16 @@
 import './EndingScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { endingByKey } from '../data/endings'
+import { finalScores } from '../engine/territory'
+import { TEAMS } from '../data/teams'
 
 export function EndingScreen() {
-  const { isHost, myPlayer, players, otherPlayerIds } = useSchoolGame()
+  const { isHost, myPlayer, players, otherPlayerIds, session } = useSchoolGame()
   const myEnding = myPlayer?.endingKey ? endingByKey[myPlayer.endingKey] : null
 
   const classmates = otherPlayerIds.map((id) => players[id]).filter(Boolean)
+  const scores = finalScores(session.territory)
+  const ranked = [...TEAMS].sort((a, b) => scores[b.id].total - scores[a.id].total)
 
   return (
     <div className="sc-ending">
@@ -14,6 +18,23 @@ export function EndingScreen() {
         <span className="sc-ending__eyebrow">DAY 5 · 닷새가 지났다</span>
         <h1>A가 사라지고 난 뒤,{'\n'}우리는 서로에게 어떤 사람이 되었나.</h1>
       </div>
+
+      <section className="sc-ending__roll">
+        <span className="sc-ending__label">최종 영역 정산</span>
+        <ul>
+          {ranked.map((t, i) => (
+            <li key={t.id}>
+              <span className="sc-ending__roll-name">
+                {i + 1}위 · {t.name}
+              </span>
+              <span className="sc-ending__roll-title">
+                {scores[t.id].total}점 (영역 {scores[t.id].territory} · 연결 {scores[t.id].connection} · 핵심{' '}
+                {scores[t.id].core} · 자원 {scores[t.id].resource} · 개발 {scores[t.id].development})
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {!isHost && (
         <section className="sc-ending__mine">

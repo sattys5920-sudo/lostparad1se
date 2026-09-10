@@ -10,6 +10,7 @@ import { EntryScreen } from './screens/EntryScreen'
 import { LobbyScreen } from './screens/LobbyScreen'
 import { RoleRevealScreen } from './screens/RoleRevealScreen'
 import { HomeScreen } from './screens/HomeScreen'
+import { TerritoryScreen } from './screens/TerritoryScreen'
 import { RosterScreen } from './screens/RosterScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
 import { HostPanelScreen } from './screens/HostPanelScreen'
@@ -30,6 +31,7 @@ function Shell() {
       </header>
       <main className="sc-shell__body">
         {activeTab === 'home' && (session.phase === 'ended' ? <EndingScreen /> : <HomeScreen />)}
+        {activeTab === 'territory' && <TerritoryScreen />}
         {activeTab === 'roster' && <RosterScreen />}
         {activeTab === 'profile' && !isHost && <ProfileScreen />}
         {activeTab === 'host' && isHost && <HostPanelScreen />}

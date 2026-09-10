@@ -89,7 +89,7 @@ export function LobbyScreen() {
           )}
           {error && <p className="sc-lobby__error">{error}</p>}
           <button className="sc-lobby__start" disabled={!canStart || busy} onClick={start}>
-            역할을 배정하고 시작한다
+            역할과 팀을 배정하고 시작한다
           </button>
           <button className="sc-lobby__reset" disabled={busy} onClick={reset}>
             {confirmReset ? '정말 명단을 비운다 (다시 누르면 실행)' : '명단 비우기'}

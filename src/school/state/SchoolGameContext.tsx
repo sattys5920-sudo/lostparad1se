@@ -5,6 +5,7 @@ import { computeRelationshipMatrix, type RelationshipMatrix } from '../engine/re
 import { createOriginRumor, retellRumor } from '../engine/rumors'
 import { revealText } from '../engine/reveals'
 import { evaluateMission, type MissionItemProgress } from '../engine/missionProgress'
+import { hasPlayerActedToday, initialTerritoryState } from '../engine/territory'
 import {
   addSchoolRumor,
   advanceSchoolDay,
@@ -26,17 +27,37 @@ import {
   setSchoolPhase,
   subscribeSchoolPlayers,
   subscribeSchoolSession,
+  territoryBreakAlliance,
+  territoryBuild,
+  territoryExpand,
+  territoryExplore,
+  territoryPlayCard,
+  territoryProduce,
+  territoryProposeAlliance,
+  territoryProposeTrade,
+  territoryRespondAlliance,
+  territoryRespondTrade,
+  territoryResearch,
+  territorySabotage,
+  territoryUpgrade,
+  territoryWithdrawTrade,
 } from '../sync'
 import type {
   ActionKind,
+  BuildingKind,
   ChatMessage,
   DmThread,
   EndingKey,
   PlayerProfile,
+  ResourceBundle,
   RevealKind,
   RoleSpec,
   RumorEntry,
+  SabotageEffectKind,
   SchoolSessionState,
+  TeamId,
+  TeamState,
+  TileId,
   VoteCategory,
 } from '../types'
 
@@ -58,6 +79,7 @@ const EMPTY_SESSION: SchoolSessionState = {
   revealLog: [],
   votes: [],
   activeEventCard: null,
+  territory: initialTerritoryState(),
   createdAtMs: Date.now(),
 }
 
@@ -84,6 +106,30 @@ interface SchoolGameValue {
   hostSetEventCard: (eventCard: string | null) => Promise<void>
   hostEndGame: () => Promise<void>
   hostResetSession: () => Promise<void>
+  myTeamId: TeamId | null
+  myTeam: TeamState | null
+  teammateIds: string[]
+  /** 오늘 우리 팀에서 내가 이미 영역 행동(확장/건설/...)을 했는지. */
+  hasActedToday: boolean
+  doExpand: (tileId: TileId) => Promise<void>
+  doBuild: (tileId: TileId, kind: BuildingKind) => Promise<void>
+  doUpgrade: (tileId: TileId, kind: BuildingKind) => Promise<void>
+  doResearch: () => Promise<void>
+  doExplore: () => Promise<void>
+  doProduce: () => Promise<void>
+  doSabotage: (targetTeam: TeamId, kind: SabotageEffectKind) => Promise<void>
+  doPlayCard: (cardId: string, targetTeam: TeamId | null) => Promise<void>
+  doProposeTrade: (
+    toTeam: TeamId,
+    offer: Partial<ResourceBundle>,
+    request: Partial<ResourceBundle>,
+    message: string | null,
+  ) => Promise<void>
+  doRespondTrade: (proposalId: string, accept: boolean) => Promise<void>
+  doWithdrawTrade: (proposalId: string) => Promise<void>
+  doProposeAlliance: (teamB: TeamId) => Promise<void>
+  doRespondAlliance: (allianceId: string, accept: boolean) => Promise<void>
+  doBreakAlliance: (allianceId: string) => Promise<void>
   sendGroupChat: (text: string) => Promise<void>
   dmThreads: Record<string, DmThread>
   dmWith: (otherId: string) => ChatMessage[]
@@ -171,6 +217,21 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     return { trust: findTarget('trust'), liking: findTarget('liking') }
   }, [session.votes, session.day, viewerId])
 
+  const myTeamId = myPlayer?.teamId ?? null
+  const myTeam = myTeamId ? session.territory.teams[myTeamId] : null
+  const teammateIds = useMemo(
+    () => Object.values(players).filter((p) => p.teamId && p.teamId === myTeamId).map((p) => p.id),
+    [players, myTeamId],
+  )
+  const hasActedToday = Boolean(viewerId) && hasPlayerActedToday(session.territory, session.day, viewerId as string)
+  const teamMemberCounts = useMemo<Record<TeamId, number>>(() => {
+    const counts: Record<TeamId, number> = { A: 0, B: 0, C: 0, D: 0 }
+    for (const p of Object.values(players)) {
+      if (p.teamId) counts[p.teamId] += 1
+    }
+    return counts
+  }, [players])
+
   async function joinAsPlayer(nick: string) {
     const trimmed = nick.trim()
     if (!trimmed) throw new Error('닉네임을 입력해라.')
@@ -221,7 +282,7 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
   }
 
   async function hostAdvanceDay(nextDay: number, eventCard: string | null) {
-    await advanceSchoolDay(nextDay, eventCard)
+    await advanceSchoolDay(nextDay, eventCard, teamMemberCounts)
   }
 
   async function hostSetEventCard(eventCard: string | null) {
@@ -366,6 +427,82 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     await setPlayerEnding(viewerId, key, note)
   }
 
+  function requireTeamContext(): { day: number; team: TeamId; playerId: string } {
+    if (!viewerId || !myTeamId) throw new Error('팀에 배정되지 않았다.')
+    return { day: session.day, team: myTeamId, playerId: viewerId }
+  }
+
+  async function doExpand(tileId: TileId) {
+    const { day, team, playerId } = requireTeamContext()
+    await territoryExpand(day, team, playerId, tileId)
+  }
+
+  async function doBuild(tileId: TileId, kind: BuildingKind) {
+    const { day, team, playerId } = requireTeamContext()
+    await territoryBuild(day, team, playerId, tileId, kind)
+  }
+
+  async function doUpgrade(tileId: TileId, kind: BuildingKind) {
+    const { day, team, playerId } = requireTeamContext()
+    await territoryUpgrade(day, team, playerId, tileId, kind)
+  }
+
+  async function doResearch() {
+    const { day, team, playerId } = requireTeamContext()
+    await territoryResearch(day, team, playerId)
+  }
+
+  async function doExplore() {
+    const { day, team, playerId } = requireTeamContext()
+    await territoryExplore(day, team, playerId)
+  }
+
+  async function doProduce() {
+    const { day, team, playerId } = requireTeamContext()
+    await territoryProduce(day, team, playerId)
+  }
+
+  async function doSabotage(targetTeam: TeamId, kind: SabotageEffectKind) {
+    const { day, team, playerId } = requireTeamContext()
+    await territorySabotage(day, team, playerId, targetTeam, kind)
+  }
+
+  async function doPlayCard(cardId: string, targetTeam: TeamId | null) {
+    const { day, team, playerId } = requireTeamContext()
+    await territoryPlayCard(day, team, playerId, cardId, targetTeam)
+  }
+
+  async function doProposeTrade(
+    toTeam: TeamId,
+    offer: Partial<ResourceBundle>,
+    request: Partial<ResourceBundle>,
+    message: string | null,
+  ) {
+    const { day, team } = requireTeamContext()
+    await territoryProposeTrade(day, team, toTeam, offer, request, message)
+  }
+
+  async function doRespondTrade(proposalId: string, accept: boolean) {
+    await territoryRespondTrade(proposalId, accept)
+  }
+
+  async function doWithdrawTrade(proposalId: string) {
+    await territoryWithdrawTrade(proposalId)
+  }
+
+  async function doProposeAlliance(teamB: TeamId) {
+    const { day, team } = requireTeamContext()
+    await territoryProposeAlliance(day, team, teamB)
+  }
+
+  async function doRespondAlliance(allianceId: string, accept: boolean) {
+    await territoryRespondAlliance(allianceId, accept)
+  }
+
+  async function doBreakAlliance(allianceId: string) {
+    await territoryBreakAlliance(allianceId)
+  }
+
   const value: SchoolGameValue = {
     ready: sessionLoaded && playersLoaded,
     viewerId,
@@ -388,6 +525,24 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     hostSetEventCard,
     hostEndGame,
     hostResetSession,
+    myTeamId,
+    myTeam,
+    teammateIds,
+    hasActedToday,
+    doExpand,
+    doBuild,
+    doUpgrade,
+    doResearch,
+    doExplore,
+    doProduce,
+    doSabotage,
+    doPlayCard,
+    doProposeTrade,
+    doRespondTrade,
+    doWithdrawTrade,
+    doProposeAlliance,
+    doRespondAlliance,
+    doBreakAlliance,
     sendGroupChat,
     dmThreads,
     dmWith,

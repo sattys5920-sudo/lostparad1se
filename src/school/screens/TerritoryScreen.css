@@ -1,0 +1,389 @@
+.sc-terr {
+  height: 100%;
+  overflow-y: auto;
+  padding: 20px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sc-terr__scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  font-size: 11.5px;
+  color: var(--sc-text-2);
+}
+
+.sc-terr__score {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-terr__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sc-terr__mine {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--sc-line);
+  border-bottom: 1px solid var(--sc-line);
+}
+
+.sc-terr__mine-label {
+  font-family: var(--sc-font-title);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sc-terr__resbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.sc-terr__res {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__res-value {
+  font-family: var(--sc-font-title);
+  font-size: 13px;
+  color: var(--sc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-terr__subnav {
+  display: flex;
+  gap: 6px;
+}
+
+.sc-terr__subtab {
+  flex: 1;
+  height: 36px;
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  font-size: 12px;
+  color: var(--sc-text-2);
+}
+
+.sc-terr__subtab.is-active {
+  background: var(--sc-text);
+  color: var(--sc-bg);
+}
+
+.sc-terr__error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sc-danger);
+}
+
+.sc-terr__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc-terr__bases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.sc-terr__base {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+  padding: 4px 8px;
+}
+
+.sc-terr__tile {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--sc-line);
+  background: transparent;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sc-terr__tile.is-mine {
+  border-color: var(--sc-text);
+}
+
+.sc-terr__tile-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sc-terr__tile-name {
+  font-family: var(--sc-font-title);
+  font-size: 14px;
+  color: var(--sc-text);
+}
+
+.sc-terr__tile-value {
+  font-size: 11px;
+  color: var(--sc-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-terr__tile-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11px;
+}
+
+.sc-terr__lock {
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__neutral {
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__buildings {
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sc-terr__hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__hint--host {
+  padding-top: 10px;
+  border-top: 1px solid var(--sc-line);
+}
+
+.sc-terr__action {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  font-size: 13px;
+  color: var(--sc-text);
+}
+
+.sc-terr__action:disabled {
+  opacity: 0.35;
+}
+
+.sc-terr__action-cost {
+  font-size: 10.5px;
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__sabotage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sc-line);
+}
+
+.sc-terr__label {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__sabotage-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.sc-terr__sabotage-row button {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--sc-line);
+  background: transparent;
+  font-size: 11px;
+  color: var(--sc-text-2);
+}
+
+.sc-terr__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sc-terr__card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--sc-line);
+  padding: 12px;
+}
+
+.sc-terr__card-name {
+  font-family: var(--sc-font-title);
+  font-size: 13.5px;
+  color: var(--sc-text);
+}
+
+.sc-terr__card-desc {
+  font-size: 11.5px;
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__card-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sc-terr__card button,
+.sc-terr__card-targets button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  font-size: 11.5px;
+  color: var(--sc-text-2);
+  align-self: flex-start;
+}
+
+.sc-terr__trade {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sc-terr__trade section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc-terr__trade-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc-terr__trade-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--sc-text-2);
+}
+
+.sc-terr__trade select,
+.sc-terr__trade input {
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--sc-text);
+}
+
+.sc-terr__trade input {
+  width: 64px;
+}
+
+.sc-terr__trade-form button {
+  height: 36px;
+  border: 1px solid var(--sc-text);
+  background: transparent;
+  font-size: 12px;
+  color: var(--sc-text);
+  align-self: flex-start;
+  padding: 0 14px;
+}
+
+.sc-terr__proposal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid var(--sc-line);
+  padding: 8px 10px;
+  font-size: 11.5px;
+  color: var(--sc-text-2);
+}
+
+.sc-terr__proposal button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  font-size: 11px;
+  color: var(--sc-text-2);
+  margin-left: 6px;
+}
+
+.sc-terr__sheet-value {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--sc-text-dim);
+}
+
+.sc-terr__building-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--sc-text-2);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sc-line);
+}
+
+.sc-terr__building-row button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  font-size: 10.5px;
+  color: var(--sc-text-2);
+}
+
+.sc-terr__build-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sc-terr__build-grid button {
+  text-align: left;
+  border: 1px solid var(--sc-line);
+  background: transparent;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

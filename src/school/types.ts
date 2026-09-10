@@ -202,6 +202,8 @@ export interface PlayerProfile {
   nickname: string
   joinedAtMs: number
   roleId: RoleId | null
+  /** 어느 팀 소속인지. 팀은 영역 점령 게임의 단위이고, 역할은 그 안에서 개인이 겪는 서사다. */
+  teamId: TeamId | null
   isHost: boolean
   /** 숨겨진 목표까지 마주해 결단을 내렸는지(선택 내용은 자유 텍스트로 남긴다). */
   hiddenGoalResolution: string | null
@@ -223,5 +225,240 @@ export interface SchoolSessionState {
   votes: VoteEntry[]
   /** 진행자가 오늘 공지한 사건. */
   activeEventCard: string | null
+  territory: TerritoryState
   createdAtMs: number
+}
+
+// ── 영역 점령 게임(팀 단위). 위의 역할·미션 시스템은 이 안에서 각 팀원이 겪는 개인 서사다. ──
+
+export type TeamId = 'A' | 'B' | 'C' | 'D'
+
+export interface TeamSpec {
+  id: TeamId
+  name: string
+  /** 지도·팀 화면에서 팀을 구분하는 데 쓰는 색. */
+  color: string
+  baseTileId: TileId
+}
+
+export type TileId =
+  | 'baseA'
+  | 'baseB'
+  | 'baseC'
+  | 'baseD'
+  | 'classroom' // 교실
+  | 'hallway' // 복도
+  | 'library' // 도서관
+  | 'gym' // 체육관
+  | 'scienceRoom' // 과학실
+  | 'artRoom' // 미술실
+  | 'musicRoom' // 음악실
+  | 'cafeteria' // 급식실
+  | 'rooftop' // 옥상
+  | 'clubRoom' // 동아리실
+  | 'garden' // 정원
+  | 'storage' // 창고
+  | 'oldBuilding' // 구관
+  | 'playground' // 운동장 — 핵심 지역
+  | 'auditorium' // 강당 — 핵심 지역
+  | 'broadcastRoom' // 방송실 — 핵심 지역
+  | 'studentCouncil' // 학생회실 — 핵심 지역
+  | 'centralPlaza' // 중앙광장 — 핵심 지역
+
+export interface TileSpec {
+  id: TileId
+  name: string
+  /** 건물을 얹기 전 기본 영역 가치. 기지는 0(빼앗을 수 없어 점수 경쟁에 넣지 않는다). */
+  baseValue: number
+  /** 이 타일이 어느 팀의 기지인지. 기지는 게임 중 절대 빼앗기지 않는다. */
+  homeOf: TeamId | null
+  /** 핵심 지역이면, 이 날짜가 되기 전에는 아무도 점령할 수 없다. */
+  coreUnlocksOnDay: number | null
+  /** 세울 수 있는 건물 슬롯 수. */
+  buildingSlots: number
+}
+
+export type BuildingCategory = 'commerce' | 'research' | 'culture' | 'defense' | 'special'
+
+export type BuildingKind =
+  | 'shop' // 매점
+  | 'store' // 상점
+  | 'cafe' // 카페
+  | 'lab' // 연구실
+  | 'archive' // 서고
+  | 'musicClub' // 음악반
+  | 'artClub' // 미술반
+  | 'stage' // 공연무대
+  | 'security' // 경비실
+  | 'watchtower' // 방어탑
+  | 'controlRoom' // 통제실
+  | 'broadcastStation' // 방송국
+  | 'hideout' // 비밀기지
+  | 'basement' // 지하실
+
+/** 팀이 공유하는 자원. 개인 자원은 없다. */
+export interface ResourceBundle {
+  money: number
+  food: number
+  knowledge: number
+  culture: number
+  influence: number
+  actionPoints: number
+}
+
+export interface BuildingSpec {
+  kind: BuildingKind
+  category: BuildingCategory
+  name: string
+  description: string
+  cost: ResourceBundle
+  /** 타일 가치에 더해지는 값(레벨만큼 곱해진다). */
+  valueBonus: number
+  /** 매일 정산 때 팀 자원에 더해지는 생산량(레벨만큼 곱해진다). */
+  produces: Partial<ResourceBundle>
+  /** 방어력에 더해지는 값(레벨만큼 곱해진다). 견제를 버티는 데 쓴다. */
+  defenseBonus: number
+}
+
+/** 지어진 건물 한 채. 업그레이드하면 레벨이 오르고 효과가 두 배가 된다. */
+export interface BuildingInstance {
+  kind: BuildingKind
+  level: 1 | 2
+}
+
+export interface TileState {
+  id: TileId
+  ownerTeam: TeamId | null
+  buildings: BuildingInstance[]
+}
+
+export type TerritoryActionKind =
+  | 'expand'
+  | 'build'
+  | 'upgrade'
+  | 'explore'
+  | 'produce'
+  | 'research'
+  | 'sabotage'
+  | 'trade'
+
+export type SabotageEffectKind =
+  | 'expandCostUp' // 상대 확장 비용 증가
+  | 'productionDown' // 상대 생산 감소
+  | 'tradeBlocked' // 상대 교역 차단
+
+export const SABOTAGE_LABEL: Record<SabotageEffectKind, string> = {
+  expandCostUp: '확장 비용 증가',
+  productionDown: '생산 감소',
+  tradeBlocked: '교역 차단',
+}
+
+/** 진행 중인 견제 효과. expiresAfterDay가 지나 다음 날이 시작되면 사라진다. */
+export interface SabotageEffect {
+  id: string
+  kind: SabotageEffectKind
+  fromTeam: TeamId
+  targetTeam: TeamId
+  expiresAfterDay: number
+  createdAtMs: number
+}
+
+export interface TerritoryActionLogEntry {
+  id: string
+  day: number
+  kind: TerritoryActionKind
+  team: TeamId
+  playerId: string
+  tileId: TileId | null
+  buildingKind: BuildingKind | null
+  detail: string | null
+  createdAtMs: number
+}
+
+export type TradeProposalStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn'
+
+export interface TradeProposal {
+  id: string
+  fromTeam: TeamId
+  toTeam: TeamId
+  offer: Partial<ResourceBundle>
+  request: Partial<ResourceBundle>
+  status: TradeProposalStatus
+  message: string | null
+  day: number
+  createdAtMs: number
+}
+
+export type AllianceStatus = 'proposed' | 'active' | 'broken'
+
+/** 강제력 없는 임시 동맹. 언제든 깨질 수 있다. */
+export interface AllianceEntry {
+  id: string
+  teams: [TeamId, TeamId]
+  status: AllianceStatus
+  day: number
+  createdAtMs: number
+}
+
+export type CardCategory = 'expand' | 'build' | 'produce' | 'sabotage' | 'diplomacy' | 'special'
+
+export type CardKind =
+  | 'fastExpand' // 빠른 확장
+  | 'chainOccupy' // 연속 점령
+  | 'pioneer' // 개척
+  | 'detour' // 우회 확장
+  | 'buildDiscount' // 건설 할인
+  | 'instantBuild' // 즉시 건설
+  | 'buildingBoost' // 건물 강화
+  | 'bonusProduction' // 추가 자원 생산
+  | 'doubleResource' // 특정 자원 2배
+  | 'raiseExpandCost' // 상대 확장 비용 증가
+  | 'cutProduction' // 상대 생산 감소
+  | 'blockTrade' // 교역 차단
+  | 'temporaryPact' // 일시적 협정
+  | 'tradeBonus' // 교역 보너스
+  | 'jointDevelopment' // 공동 개발
+  | 'hiddenPassage' // 숨겨진 통로
+  | 'secretSpace' // 비밀 공간 발견
+  | 'emergencyMobilization' // 긴급 동원
+  | 'majorProject' // 대규모 프로젝트
+
+export interface CardSpec {
+  kind: CardKind
+  category: CardCategory
+  name: string
+  description: string
+}
+
+/** 팀이 뽑아 들고 있는 카드 한 장. */
+export interface TeamCard {
+  id: string
+  kind: CardKind
+  drawnDay: number
+}
+
+export interface TeamState {
+  id: TeamId
+  resources: ResourceBundle
+  hand: TeamCard[]
+  /** 연구로 쌓은 개발 단계. 최종 개발 점수에 반영된다. */
+  researchTier: number
+}
+
+export interface TerritoryState {
+  tiles: Record<TileId, TileState>
+  teams: Record<TeamId, TeamState>
+  actionLog: TerritoryActionLogEntry[]
+  sabotageEffects: SabotageEffect[]
+  tradeProposals: TradeProposal[]
+  alliances: AllianceEntry[]
+}
+
+export interface TeamScoreBreakdown {
+  territory: number
+  connection: number
+  core: number
+  resource: number
+  development: number
+  total: number
 }

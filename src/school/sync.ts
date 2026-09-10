@@ -15,15 +15,40 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { assignRoles } from './engine/setup'
+import {
+  assignTeams,
+  breakAlliance,
+  dailyRollover,
+  initialTerritoryState,
+  performBuild,
+  performExpand,
+  performExplore,
+  performProduce,
+  performResearch,
+  performSabotage,
+  performUpgrade,
+  playCard,
+  proposeAlliance,
+  proposeTrade,
+  respondAlliance,
+  respondTrade,
+  withdrawTrade,
+} from './engine/territory'
 import type {
   ActionLogEntry,
+  BuildingKind,
   ChatMessage,
   DmThread,
   GamePhase,
   PlayerProfile,
+  ResourceBundle,
   RevealLogEntry,
   RumorEntry,
+  SabotageEffectKind,
   SchoolSessionState,
+  TeamId,
+  TerritoryState,
+  TileId,
   VoteEntry,
 } from './types'
 
@@ -65,6 +90,7 @@ const emptySession: SchoolSessionState = {
   revealLog: [],
   votes: [],
   activeEventCard: null,
+  territory: initialTerritoryState(),
   createdAtMs: Date.now(),
 }
 
@@ -133,6 +159,7 @@ export async function joinSchoolSession(playerId: string, nickname: string, isHo
     nickname,
     joinedAtMs: Date.now(),
     roleId: null,
+    teamId: null,
     isHost,
     hiddenGoalResolution: null,
     endingKey: null,
@@ -147,15 +174,19 @@ export async function removeSchoolPlayer(playerId: string): Promise<void> {
   await Promise.all([deleteDoc(playerRef(playerId)), ...threads.docs.map((d) => deleteDoc(d.ref))])
 }
 
-/** 진행자 전용: 지금 모인 인원으로 역할을 자동 배정하고 역할 공개 단계로 넘긴다. */
+/** 진행자 전용: 지금 모인 인원으로 역할과 팀을 자동 배정하고 역할 공개 단계로 넘긴다. */
 export async function assignRolesAndReveal(playerIds: string[]): Promise<void> {
-  const assignment = assignRoles(playerIds)
+  const roleAssignment = assignRoles(playerIds)
+  const teamAssignment = assignTeams(playerIds)
   await runTransaction(requireDb(), async (tx) => {
     for (const playerId of playerIds) {
-      const roleId = assignment[playerId]
-      tx.update(playerRef(playerId), { roleId })
+      tx.update(playerRef(playerId), { roleId: roleAssignment[playerId], teamId: teamAssignment[playerId] })
     }
-    tx.update(sessionRef(), { rolesAssigned: true, phase: 'roleReveal' satisfies GamePhase })
+    tx.update(sessionRef(), {
+      rolesAssigned: true,
+      phase: 'roleReveal' satisfies GamePhase,
+      territory: initialTerritoryState(),
+    })
   })
 }
 
@@ -163,8 +194,28 @@ export async function setSchoolPhase(phase: GamePhase): Promise<void> {
   await updateDoc(sessionRef(), { phase })
 }
 
-export async function advanceSchoolDay(nextDay: number, eventCard: string | null): Promise<void> {
-  await updateDoc(sessionRef(), { day: nextDay, activeEventCard: eventCard, phase: 'day' satisfies GamePhase })
+/**
+ * 다음 날로 넘어간다. 이미 진행 중이던 날(phase가 'day')에서 넘어가는 것이라면
+ * 그 날의 건물 생산·행동력 재충전·만료된 견제 효과 정리(dailyRollover)를 함께 처리한다.
+ * teamMemberCounts는 팀별 행동력을 팀원 수만큼 재충전하기 위해 필요하다(클라이언트가 이미 들고 있는 값).
+ */
+export async function advanceSchoolDay(
+  nextDay: number,
+  eventCard: string | null,
+  teamMemberCounts: Record<TeamId, number>,
+): Promise<void> {
+  await runTransaction(requireDb(), async (tx) => {
+    const snap = await tx.get(sessionRef())
+    const current: SchoolSessionState = { ...emptySession, ...(snap.data() as Partial<SchoolSessionState>) }
+    const territory =
+      current.phase === 'day' ? dailyRollover(current.territory, current.day, teamMemberCounts) : current.territory
+    tx.update(sessionRef(), {
+      day: nextDay,
+      activeEventCard: eventCard,
+      phase: 'day' satisfies GamePhase,
+      territory,
+    })
+  })
 }
 
 export async function setActiveEventCard(eventCard: string | null): Promise<void> {
@@ -193,6 +244,102 @@ export async function setHiddenGoalResolution(playerId: string, text: string): P
 
 export async function setPlayerEnding(playerId: string, endingKey: string, endingNote: string | null): Promise<void> {
   await updateDoc(playerRef(playerId), { endingKey, endingNote })
+}
+
+async function runTerritoryAction(mutate: (territory: TerritoryState) => TerritoryState): Promise<void> {
+  await runTransaction(requireDb(), async (tx) => {
+    const snap = await tx.get(sessionRef())
+    const current: SchoolSessionState = { ...emptySession, ...(snap.data() as Partial<SchoolSessionState>) }
+    const territory = mutate(current.territory)
+    tx.update(sessionRef(), { territory })
+  })
+}
+
+export async function territoryExpand(day: number, team: TeamId, playerId: string, tileId: TileId): Promise<void> {
+  await runTerritoryAction((t) => performExpand(t, day, team, playerId, tileId))
+}
+
+export async function territoryBuild(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  tileId: TileId,
+  kind: BuildingKind,
+): Promise<void> {
+  await runTerritoryAction((t) => performBuild(t, day, team, playerId, tileId, kind))
+}
+
+export async function territoryUpgrade(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  tileId: TileId,
+  kind: BuildingKind,
+): Promise<void> {
+  await runTerritoryAction((t) => performUpgrade(t, day, team, playerId, tileId, kind))
+}
+
+export async function territoryResearch(day: number, team: TeamId, playerId: string): Promise<void> {
+  await runTerritoryAction((t) => performResearch(t, day, team, playerId))
+}
+
+export async function territoryExplore(day: number, team: TeamId, playerId: string): Promise<void> {
+  await runTerritoryAction((t) => performExplore(t, day, team, playerId))
+}
+
+export async function territoryProduce(day: number, team: TeamId, playerId: string): Promise<void> {
+  await runTerritoryAction((t) => performProduce(t, day, team, playerId))
+}
+
+export async function territorySabotage(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  targetTeam: TeamId,
+  kind: SabotageEffectKind,
+): Promise<void> {
+  await runTerritoryAction((t) => performSabotage(t, day, team, playerId, targetTeam, kind))
+}
+
+export async function territoryPlayCard(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  cardId: string,
+  targetTeam: TeamId | null,
+): Promise<void> {
+  await runTerritoryAction((t) => playCard(t, day, team, playerId, cardId, targetTeam))
+}
+
+export async function territoryProposeTrade(
+  day: number,
+  fromTeam: TeamId,
+  toTeam: TeamId,
+  offer: Partial<ResourceBundle>,
+  request: Partial<ResourceBundle>,
+  message: string | null,
+): Promise<void> {
+  await runTerritoryAction((t) => proposeTrade(t, day, fromTeam, toTeam, offer, request, message))
+}
+
+export async function territoryRespondTrade(proposalId: string, accept: boolean): Promise<void> {
+  await runTerritoryAction((t) => respondTrade(t, proposalId, accept))
+}
+
+export async function territoryWithdrawTrade(proposalId: string): Promise<void> {
+  await runTerritoryAction((t) => withdrawTrade(t, proposalId))
+}
+
+export async function territoryProposeAlliance(day: number, teamA: TeamId, teamB: TeamId): Promise<void> {
+  await runTerritoryAction((t) => proposeAlliance(t, day, teamA, teamB))
+}
+
+export async function territoryRespondAlliance(allianceId: string, accept: boolean): Promise<void> {
+  await runTerritoryAction((t) => respondAlliance(t, allianceId, accept))
+}
+
+export async function territoryBreakAlliance(allianceId: string): Promise<void> {
+  await runTerritoryAction((t) => breakAlliance(t, allianceId))
 }
 
 /** 진행자 전용: 다음 회차를 위해 세션·참가자·대화방을 모두 지운다. */
