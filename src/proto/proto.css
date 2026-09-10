@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Gothic+A1:wght@300;400;500;700&family=Nanum+Myeongjo:wght@700&display=swap');
+
+* { box-sizing: border-box; }
+
+/* display를 지정한 요소에는 hidden 속성이 먹지 않는다. 투명한 판이 클릭을 다 먹어 버린다. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0d0f;
+  font-family: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif;
+  color: #eef0f2;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage {
+  display: block;
+  position: fixed;
+  inset: 0;
+  image-rendering: pixelated;
+}
+
+/* ── 입장 ─────────────────────────────── */
+#gate {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #eef0f2;
+  color: #0b0d0f;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  padding: 32px;
+  border-top: 8px solid #0b0d0f;
+}
+#gate h1 {
+  margin: 0;
+  font-family: 'Nanum Myeongjo', serif;
+  font-size: 26px;
+}
+#gate p { margin: 0; font-size: 13px; color: #5c646b; line-height: 1.7; max-width: 42ch; }
+#gate input {
+  height: 48px;
+  border: none;
+  border-bottom: 1px solid #0b0d0f;
+  background: transparent;
+  font-size: 16px;
+  font-family: inherit;
+  color: #0b0d0f;
+}
+#gate input:focus { outline: none; }
+#gate button {
+  height: 50px;
+  border: 1px solid #0b0d0f;
+  background: #0b0d0f;
+  color: #eef0f2;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+#offline {
+  border: 1px dashed #7a2620;
+  color: #7a2620;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+/* ── HUD ──────────────────────────────── */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+
+.topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 10px 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  background: linear-gradient(#0b0d0fdd, #0b0d0f00);
+}
+#room { font-family: 'Nanum Myeongjo', serif; font-size: 17px; }
+#here { font-size: 11px; color: #9aa1a7; }
+
+#log {
+  position: absolute;
+  left: 14px;
+  bottom: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: min(60vw, 320px);
+}
+.log__line {
+  font-size: 11.5px;
+  background: #0b0d0fcc;
+  padding: 3px 7px;
+  align-self: flex-start;
+}
+
+/* ── 조작 ─────────────────────────────── */
+#pad {
+  position: absolute;
+  left: 16px;
+  bottom: 22px;
+  width: 132px;
+  height: 132px;
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+  opacity: 0.85;
+}
+#pad button {
+  border: 1px solid #eef0f2;
+  background: #0b0d0fbb;
+  color: #eef0f2;
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: none;
+}
+#pad button:active { background: #eef0f2; color: #0b0d0f; }
+#pad .up { grid-area: 1 / 2; }
+#pad .left { grid-area: 2 / 1; }
+#pad .right { grid-area: 2 / 3; }
+#pad .down { grid-area: 3 / 2; }
+
+.chatbar {
+  position: absolute;
+  right: 16px;
+  bottom: 22px;
+  left: 164px;
+  pointer-events: auto;
+}
+#chat {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #eef0f2;
+  background: #0b0d0fdd;
+  color: #eef0f2;
+  font-family: inherit;
+  font-size: 14px;
+}
+#chat:focus { outline: none; background: #0b0d0f; }
+#chat::placeholder { color: #6b7278; }
+
+.hint {
+  position: absolute;
+  top: 46px;
+  left: 14px;
+  font-size: 10.5px;
+  color: #6b7278;
+}
+
+@media (min-width: 760px) {
+  #pad { display: none; }
+  .chatbar { left: auto; width: 360px; }
+  #log { left: 14px; bottom: 80px; }
+}
