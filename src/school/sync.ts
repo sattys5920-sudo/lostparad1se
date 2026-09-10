@@ -54,6 +54,7 @@ import type {
   TeamId,
   TerritoryState,
   TileId,
+  VoteCategory,
   VoteEntry,
 } from './types'
 
@@ -204,6 +205,101 @@ export async function joinSchoolSession(playerId: string, nickname: string, isHo
     endingNote: null,
   }
   await setDoc(playerRef(playerId), profile, { merge: true })
+}
+
+const TEST_NAMES = [
+  '지우', '서연', '민준', '하윤', '도윤', '시우', '예린',
+  '주원', '다은', '건우', '수아', '지호', '유나',
+]
+
+/**
+ * QA 전용: 사람이 모자랄 때 명단을 채운다. 실제 사람 수를 세서 목표 인원까지만 채우고,
+ * 넣은 참가자에는 isBot 표시를 남겨 나중에 한 번에 뺄 수 있게 한다.
+ */
+export async function seedTestPlayers(targetCount: number): Promise<number> {
+  const snap = await getDocs(playersCol())
+  const current = snap.docs.map((d) => d.data() as PlayerProfile).filter((p) => !p.isHost)
+  const missing = Math.max(0, targetCount - current.length)
+  if (missing === 0) return 0
+
+  const taken = new Set(current.map((p) => p.nickname))
+  const available = TEST_NAMES.filter((n) => !taken.has(n))
+  const now = Date.now()
+
+  await Promise.all(
+    Array.from({ length: missing }, (_, i) => {
+      const nickname = available[i] ?? `테스트${i + 1}`
+      const profile: PlayerProfile = {
+        id: `bot-${now}-${i}`,
+        nickname,
+        joinedAtMs: now + i,
+        roleId: null,
+        teamId: null,
+        isHost: false,
+        isBot: true,
+        hiddenGoalResolution: null,
+        endingKey: null,
+        endingNote: null,
+      }
+      return setDoc(playerRef(profile.id), profile)
+    }),
+  )
+  return missing
+}
+
+/** QA 전용: 테스트로 넣은 참가자만 골라 뺀다. 실제 사람은 건드리지 않는다. */
+export async function removeTestPlayers(): Promise<number> {
+  const snap = await getDocs(playersCol())
+  const bots = snap.docs.filter((d) => (d.data() as PlayerProfile).isBot)
+  await Promise.all(bots.map((d) => removeSchoolPlayer(d.id)))
+  return bots.length
+}
+
+/**
+ * QA 전용: 테스트 참가자들이 오늘 몫의 신뢰·호감·의심표를 한 번에 던진다.
+ * 영향력이 오직 표로만 들어오는 판이라, 이게 없으면 혼자서는 확장 이후를 시험할 수 없다.
+ * 표와 영향력 변동을 한 트랜잭션에 몰아 넣어 둘이 어긋나지 않게 한다.
+ */
+export async function simulateBotVotes(day: number): Promise<number> {
+  const snap = await getDocs(playersCol())
+  const everyone = snap.docs
+    .map((d) => d.data() as PlayerProfile)
+    .filter((p) => !p.isHost && p.teamId !== null)
+  const bots = everyone.filter((p) => p.isBot)
+  if (bots.length === 0) return 0
+
+  let cast = 0
+  await runTransaction(requireDb(), async (tx) => {
+    const sessionSnap = await tx.get(sessionRef())
+    const current: SchoolSessionState = { ...emptySession, ...(sessionSnap.data() as Partial<SchoolSessionState>) }
+    let territory = current.territory
+    const votes = [...current.votes]
+    cast = 0
+
+    for (const bot of bots) {
+      for (const category of ['trust', 'liking', 'suspicion'] as VoteCategory[]) {
+        const already = votes.some((v) => v.voterId === bot.id && v.day === day && v.category === category)
+        if (already) continue
+        // 같은 팀에는 줄 수 없다 — 사람이 지키는 규칙을 봇도 그대로 지킨다.
+        const candidates = everyone.filter((p) => p.teamId !== bot.teamId)
+        if (candidates.length === 0) continue
+        const target = candidates[Math.floor(Math.random() * candidates.length)]
+        const entry: VoteEntry = {
+          id: crypto.randomUUID(),
+          day,
+          category,
+          voterId: bot.id,
+          targetId: target.id,
+          createdAtMs: Date.now(),
+        }
+        territory = applyVote(territory, entry, bot.teamId as TeamId, target.teamId as TeamId, target.roleId)
+        votes.push(entry)
+        cast += 1
+      }
+    }
+    tx.update(sessionRef(), { votes, territory })
+  })
+  return cast
 }
 
 /** 진행자 전용: 중복 입장이나 유령 참가자를 명단에서 뺀다. 그 사람이 낀 대화방도 같이 지운다. */

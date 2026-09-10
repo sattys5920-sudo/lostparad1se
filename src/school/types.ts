@@ -232,6 +232,8 @@ export interface PlayerProfile {
   /** 어느 팀 소속인지. 팀은 영역 점령 게임의 단위이고, 역할은 그 안에서 개인이 겪는 서사다. */
   teamId: TeamId | null
   isHost: boolean
+  /** 사람이 모자랄 때 진행자가 채워 넣은 테스트용 참가자. 언제든 한 번에 뺄 수 있다. */
+  isBot?: boolean
   /** 숨겨진 목표까지 마주해 결단을 내렸는지(선택 내용은 자유 텍스트로 남긴다). */
   hiddenGoalResolution: string | null
   endingKey: EndingKey | null

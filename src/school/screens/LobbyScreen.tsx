@@ -5,9 +5,19 @@ import { MAX_PLAYERS, MIN_PLAYERS } from '../data/roles'
 import { withParticle } from '../lib/particle'
 
 export function LobbyScreen() {
-  const { isHost, players, hostAssignRoles, hostRemovePlayer, hostResetSession } = useSchoolGame()
+  const {
+    isHost,
+    players,
+    hostAssignRoles,
+    hostRemovePlayer,
+    hostResetSession,
+    hostSeedTestPlayers,
+    hostRemoveTestPlayers,
+    botCount,
+  } = useSchoolGame()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
 
   const roster = Object.values(players)
@@ -45,6 +55,34 @@ export function LobbyScreen() {
     }
   }
 
+  async function fillWithTestPlayers() {
+    setError('')
+    setNotice('')
+    setBusy(true)
+    try {
+      const added = await hostSeedTestPlayers(MAX_PLAYERS)
+      setNotice(added > 0 ? `테스트 인원 ${added}명을 채웠다.` : '이미 정원이 찼다.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '테스트 인원을 채우지 못했다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function clearTestPlayers() {
+    setError('')
+    setNotice('')
+    setBusy(true)
+    try {
+      const removed = await hostRemoveTestPlayers()
+      setNotice(`테스트 인원 ${removed}명을 뺐다.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '테스트 인원을 빼지 못했다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function kick(playerId: string, nickname: string) {
     setError('')
     try {
@@ -69,7 +107,10 @@ export function LobbyScreen() {
         {roster.map((p, i) => (
           <li key={p.id} className="sc-lobby__row">
             <span className="sc-lobby__index">{String(i + 1).padStart(2, '0')}</span>
-            <span className="sc-lobby__name">{p.nickname}</span>
+            <span className="sc-lobby__name">
+              {p.nickname}
+              {p.isBot && <span className="sc-lobby__bot">테스트</span>}
+            </span>
             {isHost && (
               <button className="sc-lobby__kick" onClick={() => kick(p.id, p.nickname)} aria-label={`${p.nickname} 내보내기`}>
                 내보내기
@@ -88,9 +129,26 @@ export function LobbyScreen() {
             </p>
           )}
           {error && <p className="sc-lobby__error">{error}</p>}
+          {notice && <p className="sc-lobby__notice">{notice}</p>}
           <button className="sc-lobby__start" disabled={!canStart || busy} onClick={start}>
             역할과 팀을 배정하고 시작한다
           </button>
+
+          <div className="sc-lobby__qa">
+            <span className="sc-lobby__qa-label">사람이 모자랄 때 · QA용</span>
+            <div className="sc-lobby__qa-row">
+              <button disabled={busy || count >= MAX_PLAYERS} onClick={fillWithTestPlayers}>
+                {MAX_PLAYERS}명까지 채우기
+              </button>
+              <button disabled={busy || botCount === 0} onClick={clearTestPlayers}>
+                테스트 인원 {botCount > 0 ? `${botCount}명 ` : ''}빼기
+              </button>
+            </div>
+            <p className="sc-lobby__qa-note">
+              채운 인원도 역할과 팀을 정상적으로 받는다. 진행 화면에서 이들의 표를 한 번에 던지게 할 수 있다.
+            </p>
+          </div>
+
           <button className="sc-lobby__reset" disabled={busy} onClick={reset}>
             {confirmReset ? '정말 명단을 비운다 (다시 누르면 실행)' : '명단 비우기'}
           </button>

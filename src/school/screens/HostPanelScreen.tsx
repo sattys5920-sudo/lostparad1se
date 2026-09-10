@@ -24,14 +24,31 @@ export function HostPanelScreen() {
     hostEndGame,
     hostResetSession,
     hostReleaseFragment,
+    hostSimulateBotVotes,
+    botCount,
   } = useSchoolGame()
   const [customCard, setCustomCard] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
   const [fragmentError, setFragmentError] = useState('')
+  const [botNotice, setBotNotice] = useState('')
+  const [botBusy, setBotBusy] = useState(false)
   const day = dayByNumber(session.day)
   const isLastDay = session.day >= DAYS.length
   const fragment = fragmentByDay[session.day]
   const alreadyReleased = session.territory.releasedFragments.includes(session.day)
+
+  async function runBotVotes() {
+    setBotNotice('')
+    setBotBusy(true)
+    try {
+      const cast = await hostSimulateBotVotes()
+      setBotNotice(cast > 0 ? `테스트 인원이 ${cast}표를 던졌다.` : '오늘 몫은 이미 다 던졌다.')
+    } catch (e) {
+      setBotNotice(e instanceof Error ? e.message : '표를 던지지 못했다.')
+    } finally {
+      setBotBusy(false)
+    }
+  }
 
   async function releaseFragment() {
     setFragmentError('')
@@ -170,6 +187,20 @@ export function HostPanelScreen() {
             ))}
         </ul>
       </section>
+
+      {botCount > 0 && session.phase === 'day' && (
+        <section className="sc-host__section">
+          <span className="sc-host__label">테스트 인원 {botCount}명 · QA용</span>
+          <p className="sc-host__hint">
+            영향력은 표로만 들어온다. 사람이 모자라면 이 버튼으로 오늘 몫의 신뢰·호감·의심표를 한 번에 던지게
+            해서 확장·견제까지 시험해 볼 수 있다.
+          </p>
+          {botNotice && <p className="sc-host__hint">{botNotice}</p>}
+          <button className="sc-host__advance" disabled={botBusy} onClick={runBotVotes}>
+            오늘 몫의 표를 던지게 한다
+          </button>
+        </section>
+      )}
 
       <section className="sc-host__section">
         <span className="sc-host__label">위험 구역</span>

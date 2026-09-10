@@ -33,6 +33,9 @@ import {
   setPlayerEnding,
   setSchoolPhase,
   releaseSchoolFragment,
+  removeTestPlayers,
+  seedTestPlayers,
+  simulateBotVotes,
   subscribeSchoolPlayers,
   subscribeSchoolSession,
   territoryBreakAlliance,
@@ -118,6 +121,14 @@ interface SchoolGameValue {
   hostSetEventCard: (eventCard: string | null) => Promise<void>
   hostEndGame: () => Promise<void>
   hostResetSession: () => Promise<void>
+  /** QA 전용: 사람이 모자랄 때 명단을 목표 인원까지 채운다. 넣은 수를 돌려준다. */
+  hostSeedTestPlayers: (targetCount: number) => Promise<number>
+  /** QA 전용: 테스트로 넣은 참가자만 뺀다. 뺀 수를 돌려준다. */
+  hostRemoveTestPlayers: () => Promise<number>
+  /** QA 전용: 테스트 참가자들이 오늘 몫의 표를 던진다. 던진 표 수를 돌려준다. */
+  hostSimulateBotVotes: () => Promise<number>
+  /** 테스트로 채워 넣은 참가자 수. */
+  botCount: number
   myTeamId: TeamId | null
   myTeam: TeamState | null
   teammateIds: string[]
@@ -258,6 +269,8 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     return { trust: findTarget('trust'), liking: findTarget('liking'), suspicion: findTarget('suspicion') }
   }, [session.votes, session.day, viewerId])
 
+  const botCount = useMemo(() => Object.values(players).filter((p) => p.isBot).length, [players])
+
   const myTeamId = myPlayer?.teamId ?? null
   const myTeam = myTeamId ? session.territory.teams[myTeamId] : null
   const teammateIds = useMemo(
@@ -362,6 +375,18 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
 
   async function hostResetSession() {
     await resetSchoolSession()
+  }
+
+  async function hostSeedTestPlayers(targetCount: number) {
+    return seedTestPlayers(targetCount)
+  }
+
+  async function hostRemoveTestPlayers() {
+    return removeTestPlayers()
+  }
+
+  async function hostSimulateBotVotes() {
+    return simulateBotVotes(session.day)
   }
 
   async function sendGroupChat(text: string) {
@@ -614,6 +639,10 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     hostSetEventCard,
     hostEndGame,
     hostResetSession,
+    hostSeedTestPlayers,
+    hostRemoveTestPlayers,
+    hostSimulateBotVotes,
+    botCount,
     myTeamId,
     myTeam,
     teammateIds,
