@@ -14,7 +14,6 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { roleById } from './data/roles'
 import { assignRoles } from './engine/setup'
 import type {
   ActionLogEntry,
@@ -25,6 +24,7 @@ import type {
   RevealLogEntry,
   RumorEntry,
   SchoolSessionState,
+  VoteEntry,
 } from './types'
 
 const SESSION_ID = 'live'
@@ -63,6 +63,7 @@ const emptySession: SchoolSessionState = {
   actionLog: [],
   rumors: [],
   revealLog: [],
+  votes: [],
   activeEventCard: null,
   createdAtMs: Date.now(),
 }
@@ -133,7 +134,6 @@ export async function joinSchoolSession(playerId: string, nickname: string, isHo
     joinedAtMs: Date.now(),
     roleId: null,
     isHost,
-    missionChecks: [],
     hiddenGoalResolution: null,
     endingKey: null,
     endingNote: null,
@@ -153,11 +153,7 @@ export async function assignRolesAndReveal(playerIds: string[]): Promise<void> {
   await runTransaction(requireDb(), async (tx) => {
     for (const playerId of playerIds) {
       const roleId = assignment[playerId]
-      const checklistLength = roleById[roleId].mission.checklist.length
-      tx.update(playerRef(playerId), {
-        roleId,
-        missionChecks: new Array(checklistLength).fill(false),
-      })
+      tx.update(playerRef(playerId), { roleId })
     }
     tx.update(sessionRef(), { rolesAssigned: true, phase: 'roleReveal' satisfies GamePhase })
   })
@@ -187,8 +183,8 @@ export async function addSchoolRumor(rumor: RumorEntry): Promise<void> {
   await updateDoc(sessionRef(), { rumors: arrayUnion(rumor) })
 }
 
-export async function setMissionChecks(playerId: string, missionChecks: boolean[]): Promise<void> {
-  await updateDoc(playerRef(playerId), { missionChecks })
+export async function castSchoolVote(entry: VoteEntry): Promise<void> {
+  await updateDoc(sessionRef(), { votes: arrayUnion(entry) })
 }
 
 export async function setHiddenGoalResolution(playerId: string, text: string): Promise<void> {

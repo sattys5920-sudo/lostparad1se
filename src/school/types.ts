@@ -16,9 +16,47 @@ export type RoleId =
   | 'exLover' // 전 애인
   | 'stranger' // 거의 모르는 학생
 
+/** 신뢰도 · 호감도 투표 항목. 하루에 한 번, 한 사람에게만 줄 수 있다. */
+export type VoteCategory = 'trust' | 'liking'
+
+/**
+ * 미션 하나를 무엇으로 판정하는지. 전부 실제 기록(행동 로그·공개 로그·소문·투표·1:1 대화 상대 수)에서
+ * 계산되는 값이라 진행자나 본인의 주관적 판단이 끼어들 여지가 없다.
+ */
+export type MissionMetric =
+  /** 내가 한(by) 또는 나를 대상으로 한(to) 행동의 횟수. distinct면 서로 다른 상대 수를 센다. */
+  | { kind: 'action'; action: ActionKind; direction: 'by' | 'to'; distinct?: boolean }
+  /** 나에게 해당 항목으로 투표한 서로 다른 사람 수. */
+  | { kind: 'vote'; category: VoteCategory }
+  /** 내가 공개한 횟수. revealKind를 지정하면 그 종류만 센다. */
+  | { kind: 'reveal'; revealKind?: RevealKind }
+  /** 1:1 대화를 나눈 서로 다른 상대 수. */
+  | { kind: 'dmPartners' }
+  /** 소문 관련: origin이면 내가 처음 퍼뜨린 소문 수, 아니면 내가 옮긴(재유포) 소문 수. */
+  | { kind: 'rumor'; origin: boolean }
+
+/** 신뢰도 · 호감도 투표 한 건. 하루에 카테고리당 한 명에게만 줄 수 있다. */
+export interface VoteEntry {
+  id: string
+  day: number
+  category: VoteCategory
+  voterId: string
+  targetId: string
+  createdAtMs: number
+}
+
+export interface MissionItem {
+  /** 화면에 보여줄 문구. */
+  text: string
+  /** 판정 기준. */
+  metric: MissionMetric
+  /** 이 수치에 도달하면 완료. */
+  threshold: number
+}
+
 export interface RoleMission {
-  /** 자기 눈에만 보이는 체크리스트. 시스템이 자동으로 판정하지 않고 본인이 직접 체크한다. */
-  checklist: string[]
+  /** 전부 수치로 자동 판정되는 개인 미션 4개. */
+  checklist: MissionItem[]
   /** 게임 중 언젠가 마주하게 되는, 정답이 없는 선택 하나. */
   hiddenGoal: string
 }
@@ -165,8 +203,6 @@ export interface PlayerProfile {
   joinedAtMs: number
   roleId: RoleId | null
   isHost: boolean
-  /** 본인이 스스로 체크한 미션 진행 상황. checklist와 같은 길이. */
-  missionChecks: boolean[]
   /** 숨겨진 목표까지 마주해 결단을 내렸는지(선택 내용은 자유 텍스트로 남긴다). */
   hiddenGoalResolution: string | null
   endingKey: EndingKey | null
@@ -184,6 +220,7 @@ export interface SchoolSessionState {
   actionLog: ActionLogEntry[]
   rumors: RumorEntry[]
   revealLog: RevealLogEntry[]
+  votes: VoteEntry[]
   /** 진행자가 오늘 공지한 사건. */
   activeEventCard: string | null
   createdAtMs: number

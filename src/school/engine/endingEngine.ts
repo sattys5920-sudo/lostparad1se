@@ -1,6 +1,6 @@
 import type { EndingKey, PlayerProfile } from '../types'
 import { countRelationshipsAbove, countRelationshipsBelow, type RelationshipMatrix } from './relationships'
-import { missionCompleteCount } from './missionProgress'
+import { missionCompleteCount, type MissionItemProgress } from './missionProgress'
 
 export interface EndingSuggestion {
   key: EndingKey
@@ -18,12 +18,13 @@ export function suggestEnding(
   player: PlayerProfile,
   matrix: RelationshipMatrix,
   otherPlayerIds: string[],
+  missionProgress: MissionItemProgress[],
   missionTotal: number,
 ): EndingSuggestion {
   const positive = countRelationshipsAbove(matrix, player.id, otherPlayerIds, 3)
   const negative = countRelationshipsBelow(matrix, player.id, otherPlayerIds, -3)
   const total = otherPlayerIds.length
-  const completed = missionCompleteCount(player)
+  const completed = missionCompleteCount(missionProgress)
   const facedHiddenGoal = Boolean(player.hiddenGoalResolution && player.hiddenGoalResolution.trim().length > 0)
 
   if (total > 0 && negative >= Math.ceil(total * 0.6)) {

@@ -9,10 +9,22 @@ export const ROLES: RoleSpec[] = [
     privateFact: '사실 A가 마지막으로 도움을 요청했을 때, 귀찮다는 이유로 거절했다.',
     mission: {
       checklist: [
-        '최소 5명의 플레이어에게 신뢰받기',
-        '누구와도 공개적인 싸움을 하지 않기',
-        '다른 사람의 문제를 2번 이상 해결해주기',
-        '마지막 날까지 반장다운 모습을 유지하기',
+        { text: '신뢰 투표 5명에게 받기', metric: { kind: 'vote', category: 'trust' }, threshold: 5 },
+        {
+          text: '부탁을 들어준 적 3회',
+          metric: { kind: 'action', action: 'grantFavor', direction: 'by' },
+          threshold: 3,
+        },
+        {
+          text: '공개적으로 지지하기 2회',
+          metric: { kind: 'action', action: 'publicSupport', direction: 'by' },
+          threshold: 2,
+        },
+        {
+          text: '서로 다른 6명과 대화하기',
+          metric: { kind: 'action', action: 'talk', direction: 'by', distinct: true },
+          threshold: 6,
+        },
       ],
       hiddenGoal: 'A에게 도움을 주지 않았다는 사실을 다른 플레이어가 알게 되지 않도록 한다.',
     },
@@ -25,10 +37,22 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 자신보다 높은 점수를 받았던 날, 다른 친구들에게 A에 대한 험담을 했다.',
     mission: {
       checklist: [
-        '시험/과제 관련 목표 달성하기',
-        '최소 3명에게 도움 요청받기',
-        '자신이 약한 모습을 한 번 보여주기',
-        '특정 플레이어 한 명과 경쟁 관계 유지하기',
+        {
+          text: '자신이 약한 모습을 한 번 공개하기',
+          metric: { kind: 'reveal', revealKind: 'privateFact' },
+          threshold: 1,
+        },
+        {
+          text: '다른 사람에게 도움 요청받기 3회',
+          metric: { kind: 'action', action: 'talk', direction: 'to' },
+          threshold: 3,
+        },
+        { text: '누군가를 무시하기 1회', metric: { kind: 'action', action: 'ignore', direction: 'by' }, threshold: 1 },
+        {
+          text: '단체 채팅에 글 쓰기 2회',
+          metric: { kind: 'action', action: 'groupPost', direction: 'by' },
+          threshold: 2,
+        },
       ],
       hiddenGoal: '누군가에게 처음으로 자신의 열등감을 털어놓는다.',
     },
@@ -41,10 +65,18 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 무리에서 자연스럽게 제외되도록 만든 적이 있다.',
     mission: {
       checklist: [
-        '최소 6명의 플레이어와 대화하기',
-        '최소 3명의 플레이어에게 호감 얻기',
-        '단체 행동을 한 번 주도하기',
-        '자신의 영향력으로 누군가의 선택을 바꾸기',
+        { text: '호감 투표 5명에게 받기', metric: { kind: 'vote', category: 'liking' }, threshold: 5 },
+        {
+          text: '단체 채팅에 글 쓰기 3회',
+          metric: { kind: 'action', action: 'groupPost', direction: 'by' },
+          threshold: 3,
+        },
+        {
+          text: '서로 다른 3명과 시간 보내기',
+          metric: { kind: 'action', action: 'spendTime', direction: 'by', distinct: true },
+          threshold: 3,
+        },
+        { text: '누군가를 무시하기 1회', metric: { kind: 'action', action: 'ignore', direction: 'by' }, threshold: 1 },
       ],
       hiddenGoal: '자신 때문에 누군가가 상처받았다는 사실을 인정하지 않는다.',
     },
@@ -57,10 +89,14 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A와 친했던 것 때문에 다른 학생들에게 자신도 이상한 사람으로 취급받을까 봐 일부러 거리를 뒀다.',
     mission: {
       checklist: [
-        '새로운 친구 2명 만들기',
-        '자신을 먼저 찾아오는 사람 만들기',
-        '특정 플레이어와 비밀 약속 만들기',
-        '마지막까지 그룹에서 완전히 배제되지 않기',
+        { text: '새로운 친구 2명 만들기', metric: { kind: 'dmPartners' }, threshold: 2 },
+        {
+          text: '자신을 먼저 찾아오는 사람 만들기',
+          metric: { kind: 'action', action: 'talk', direction: 'to' },
+          threshold: 1,
+        },
+        { text: '1:1 메시지 보내기 2회', metric: { kind: 'action', action: 'dm', direction: 'by' }, threshold: 2 },
+        { text: '호감 투표 2명에게 받기', metric: { kind: 'vote', category: 'liking' }, threshold: 2 },
       ],
       hiddenGoal: '"사실 나는 A를 좋아하지 않았다"는 말을 누군가에게 한다.',
     },
@@ -73,10 +109,22 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 지나치게 의존한다고 느껴 관계를 끊었다.',
     mission: {
       checklist: [
-        '최소 3명에게 A에 대한 이야기를 듣기',
-        'A에 대한 자신의 기억을 한 번 공개하기',
-        '특정 플레이어와 새로운 관계 만들기',
-        'A 이야기를 피하는 선택 2회 하기',
+        {
+          text: 'A에 대한 소문 확인하기 3회',
+          metric: { kind: 'action', action: 'checkRumor', direction: 'by' },
+          threshold: 3,
+        },
+        {
+          text: 'A에 대한 자신의 기억을 한 번 공개하기',
+          metric: { kind: 'reveal', revealKind: 'privateFact' },
+          threshold: 1,
+        },
+        { text: '서로 다른 2명과 1:1 대화 나누기', metric: { kind: 'dmPartners' }, threshold: 2 },
+        {
+          text: 'A 이야기를 피하는 선택 2회 하기',
+          metric: { kind: 'action', action: 'beAlone', direction: 'by' },
+          threshold: 2,
+        },
       ],
       hiddenGoal: 'A에 대해 자신이 나쁘게 생각했던 부분을 인정한다.',
     },
@@ -89,10 +137,18 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A에 대한 소문 중 하나를 자신이 처음 퍼뜨렸다.',
     mission: {
       checklist: [
-        '서로 다른 3개의 소문을 수집하기',
-        '소문 하나를 퍼뜨리기',
-        '소문 하나를 막기',
-        '누군가가 자신의 말을 믿게 만들기',
+        { text: '소문을 새로 퍼뜨리기 1회', metric: { kind: 'rumor', origin: true }, threshold: 1 },
+        { text: '떠도는 소문을 옮기기 2회', metric: { kind: 'rumor', origin: false }, threshold: 2 },
+        {
+          text: '서로 다른 3명에게 소문 퍼뜨리기',
+          metric: { kind: 'action', action: 'spreadRumor', direction: 'by', distinct: true },
+          threshold: 3,
+        },
+        {
+          text: '소문 확인하기 2회',
+          metric: { kind: 'action', action: 'checkRumor', direction: 'by' },
+          threshold: 2,
+        },
       ],
       hiddenGoal: '자신이 퍼뜨린 소문이 A와 관련되어 있었다는 사실을 숨긴다.',
     },
@@ -105,10 +161,18 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 다른 사람을 좋아한다고 생각해 포기했다.',
     mission: {
       checklist: [
-        '자신이 좋아하는 사람을 한 명 정하기',
-        '그 사람과 단둘이 대화하기',
-        '누군가에게 자신의 감정을 털어놓기',
-        '마지막까지 자신의 진짜 마음을 숨길지 선택하기',
+        { text: '1:1 메시지 5회 보내기', metric: { kind: 'action', action: 'dm', direction: 'by' }, threshold: 5 },
+        {
+          text: '감정을 솔직히 털어놓기 1회',
+          metric: { kind: 'action', action: 'tellTruth', direction: 'by' },
+          threshold: 1,
+        },
+        {
+          text: '직접 쓴 공개로 마음을 전하기',
+          metric: { kind: 'reveal', revealKind: 'custom' },
+          threshold: 1,
+        },
+        { text: '호감 투표 3명에게 받기', metric: { kind: 'vote', category: 'liking' }, threshold: 3 },
       ],
       hiddenGoal: '게임 종료 전 단 한 번은 솔직한 고백을 한다.',
     },
@@ -121,10 +185,26 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 괴롭힘을 당하는 것을 한 번 봤지만 그냥 지나쳤다.',
     mission: {
       checklist: [
-        '다른 플레이어 2명과 함께 행동하기',
-        '누군가를 한 번 도와주기',
-        '자신의 약점을 한 번 공개하기',
-        '다른 사람의 부탁을 한 번 거절하기',
+        {
+          text: '다른 플레이어 2명과 함께 행동하기',
+          metric: { kind: 'action', action: 'spendTime', direction: 'by', distinct: true },
+          threshold: 2,
+        },
+        {
+          text: '누군가를 한 번 도와주기',
+          metric: { kind: 'action', action: 'grantFavor', direction: 'by' },
+          threshold: 1,
+        },
+        {
+          text: '자신의 약점을 한 번 공개하기',
+          metric: { kind: 'reveal', revealKind: 'privateFact' },
+          threshold: 1,
+        },
+        {
+          text: '다른 사람의 부탁을 한 번 거절하기',
+          metric: { kind: 'action', action: 'rejectFavor', direction: 'by' },
+          threshold: 1,
+        },
       ],
       hiddenGoal: '자신이 봤던 일을 말할지 끝까지 고민한다.',
     },
@@ -137,10 +217,18 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 마지막으로 올린 게시물을 가장 먼저 봤지만 아무에게도 말하지 않았다.',
     mission: {
       checklist: [
-        '최소 3개의 정보를 SNS를 통해 얻기',
-        '누군가에게 정보를 공유하기',
-        '정보 하나를 숨기기',
-        '자신의 SNS 관련 비밀을 지키기',
+        {
+          text: '소문/정보 확인하기 3회',
+          metric: { kind: 'action', action: 'checkRumor', direction: 'by' },
+          threshold: 3,
+        },
+        { text: '1:1 메시지 보내기 2회', metric: { kind: 'action', action: 'dm', direction: 'by' }, threshold: 2 },
+        {
+          text: '단체 채팅에 글 쓰기 2회',
+          metric: { kind: 'action', action: 'groupPost', direction: 'by' },
+          threshold: 2,
+        },
+        { text: '호감 투표 4명에게 받기', metric: { kind: 'vote', category: 'liking' }, threshold: 4 },
       ],
       hiddenGoal: 'A의 마지막 게시물을 공개할지 결정한다.',
     },
@@ -153,10 +241,22 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 자신에게 했던 말을 다른 사람에게 전달한 적이 있다.',
     mission: {
       checklist: [
-        '다른 사람의 고민 2개 듣기',
-        '자신의 고민 1개 털어놓기',
-        '누군가에게 비밀을 맡기기',
-        '받은 비밀을 지킬지 선택하기',
+        {
+          text: '다른 사람에게 1:1 메시지 받기 2회',
+          metric: { kind: 'action', action: 'dm', direction: 'to' },
+          threshold: 2,
+        },
+        {
+          text: '진실을 말하기 1회',
+          metric: { kind: 'action', action: 'tellTruth', direction: 'by' },
+          threshold: 1,
+        },
+        {
+          text: '자신의 고민을 한 번 공개하기',
+          metric: { kind: 'reveal', revealKind: 'privateFact' },
+          threshold: 1,
+        },
+        { text: '신뢰 투표 3명에게 받기', metric: { kind: 'vote', category: 'trust' }, threshold: 3 },
       ],
       hiddenGoal: '자신이 배신했던 사람에게 사과할지 결정한다.',
     },
@@ -169,10 +269,22 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 자신을 믿어준 유일한 사람이라고 생각한다. 하지만 실제로 A는 그렇게까지 생각하지 않았다.',
     mission: {
       checklist: [
-        '최소 3번 도움을 요청받기',
-        '누군가를 도와주기',
-        '한 번은 싸움을 피하기',
-        '한 번은 자신의 감정을 솔직하게 표현하기',
+        {
+          text: '다른 사람이 먼저 다가와 대화하기 3회',
+          metric: { kind: 'action', action: 'talk', direction: 'to' },
+          threshold: 3,
+        },
+        {
+          text: '누군가를 도와주기 2회',
+          metric: { kind: 'action', action: 'grantFavor', direction: 'by' },
+          threshold: 2,
+        },
+        { text: '신뢰 투표 2명에게 받기', metric: { kind: 'vote', category: 'trust' }, threshold: 2 },
+        {
+          text: '진실을 말하기 1회',
+          metric: { kind: 'action', action: 'tellTruth', direction: 'by' },
+          threshold: 1,
+        },
       ],
       hiddenGoal: 'A가 자신을 특별하게 생각하지 않았다는 사실을 받아들인다.',
     },
@@ -185,10 +297,26 @@ export const ROLES: RoleSpec[] = [
     privateFact: '사실 A에게 특별한 관심이 없었고, 누구에게나 똑같이 행동했을 뿐이다.',
     mission: {
       checklist: [
-        '최소 5명에게 도움 주기',
-        '갈등 중재 1회 하기',
-        '누군가의 편을 공개적으로 들기',
-        '처음으로 누군가에게 거절당하기',
+        {
+          text: '서로 다른 5명에게 도움 주기',
+          metric: { kind: 'action', action: 'grantFavor', direction: 'by', distinct: true },
+          threshold: 5,
+        },
+        {
+          text: '누군가의 편을 공개적으로 들기',
+          metric: { kind: 'action', action: 'publicSupport', direction: 'by' },
+          threshold: 1,
+        },
+        {
+          text: '처음으로 누군가에게 거절당하기',
+          metric: { kind: 'action', action: 'rejectFavor', direction: 'to' },
+          threshold: 1,
+        },
+        {
+          text: '자신에 대해 한 번 솔직히 공개하기',
+          metric: { kind: 'reveal', revealKind: 'privateFact' },
+          threshold: 1,
+        },
       ],
       hiddenGoal: '모든 사람에게 좋은 사람이 될 수 없다는 사실을 받아들인다.',
     },
@@ -201,10 +329,18 @@ export const ROLES: RoleSpec[] = [
     privateFact: '헤어진 이유를 서로에게 제대로 말하지 않았다.',
     mission: {
       checklist: [
-        '관계를 숨기기',
-        '누군가에게 연애 상담하기',
-        '과거 관계를 한 번 언급하기',
-        '마지막 날까지 자신의 선택을 결정하기',
+        { text: '1:1 메시지 3회 보내기', metric: { kind: 'action', action: 'dm', direction: 'by' }, threshold: 3 },
+        {
+          text: '진실을 말하기 1회',
+          metric: { kind: 'action', action: 'tellTruth', direction: 'by' },
+          threshold: 1,
+        },
+        {
+          text: '직접 쓴 공개로 과거를 알리기',
+          metric: { kind: 'reveal', revealKind: 'custom' },
+          threshold: 1,
+        },
+        { text: '1:1 대화 상대 1명 만들기', metric: { kind: 'dmPartners' }, threshold: 1 },
       ],
       hiddenGoal: 'A와 헤어진 진짜 이유를 한 사람에게만 이야기한다.',
     },
@@ -217,10 +353,18 @@ export const ROLES: RoleSpec[] = [
     privateFact: 'A가 죽기 직전 자신에게 아주 사소한 부탁을 했었다. 하지만 별것 아니라고 생각해 잊어버렸다.',
     mission: {
       checklist: [
-        '최소 5명의 플레이어와 새로운 관계 만들기',
-        '자신의 이야기를 한 번 공개하기',
-        '다른 사람의 이야기를 한 번 비판하기',
-        '마지막 날까지 자신의 비밀 유지하기',
+        { text: '서로 다른 5명과 1:1 대화 나누기', metric: { kind: 'dmPartners' }, threshold: 5 },
+        {
+          text: '자신의 이야기를 한 번 공개하기',
+          metric: { kind: 'reveal', revealKind: 'custom' },
+          threshold: 1,
+        },
+        {
+          text: '소문 확인하기 1회',
+          metric: { kind: 'action', action: 'checkRumor', direction: 'by' },
+          threshold: 1,
+        },
+        { text: '혼자 있기 2회', metric: { kind: 'action', action: 'beAlone', direction: 'by' }, threshold: 2 },
       ],
       hiddenGoal: 'A의 마지막 부탁을 기억해내고 어떻게 처리할지 결정한다.',
     },

@@ -5,7 +5,7 @@ import { ENDINGS } from '../data/endings'
 import type { EndingKey } from '../types'
 
 export function ProfileScreen() {
-  const { nickname, myPlayer, myRole, session, toggleMyMissionCheck, submitHiddenGoalResolution, chooseEnding, logout } =
+  const { nickname, myPlayer, myRole, session, myMissionProgress, submitHiddenGoalResolution, chooseEnding, logout } =
     useSchoolGame()
   const [goalDraft, setGoalDraft] = useState(myPlayer?.hiddenGoalResolution ?? '')
   const [savedNotice, setSavedNotice] = useState(false)
@@ -47,18 +47,18 @@ export function ProfileScreen() {
 
       <section className="sc-profile__section">
         <span className="sc-profile__label">
-          개인 미션 · {myPlayer.missionChecks.filter(Boolean).length}/{myRole.mission.checklist.length}
+          개인 미션 · {myMissionProgress.filter((p) => p.done).length}/{myRole.mission.checklist.length}
         </span>
         <ul className="sc-profile__checklist">
-          {myRole.mission.checklist.map((item, i) => (
-            <li key={item}>
-              <button
-                className={`sc-profile__check ${myPlayer.missionChecks[i] ? 'is-done' : ''}`}
-                onClick={() => toggleMyMissionCheck(i)}
-              >
-                <span className="sc-profile__check-box">{myPlayer.missionChecks[i] ? '✓' : ''}</span>
-                {item}
-              </button>
+          {myMissionProgress.map((p) => (
+            <li key={p.item.text}>
+              <div className={`sc-profile__check ${p.done ? 'is-done' : ''}`}>
+                <span className="sc-profile__check-box">{p.done ? '✓' : ''}</span>
+                <span className="sc-profile__check-text">{p.item.text}</span>
+                <span className="sc-profile__check-count">
+                  {Math.min(p.current, p.item.threshold)}/{p.item.threshold}
+                </span>
+              </div>
             </li>
           ))}
         </ul>

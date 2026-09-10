@@ -88,6 +88,17 @@
   text-decoration: line-through;
 }
 
+.sc-profile__check-text {
+  flex-grow: 1;
+}
+
+.sc-profile__check-count {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--sc-text-dim);
+}
+
 .sc-profile__check-box {
   flex-shrink: 0;
   width: 18px;

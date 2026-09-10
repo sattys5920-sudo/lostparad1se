@@ -37,7 +37,9 @@ export function RoleRevealScreen() {
           <span className="sc-reveal__label">개인 미션</span>
           <ul>
             {myRole.mission.checklist.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item.text}>
+                {item.text} ({item.threshold})
+              </li>
             ))}
           </ul>
         </section>

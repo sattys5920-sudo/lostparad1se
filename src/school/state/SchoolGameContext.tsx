@@ -4,10 +4,12 @@ import { actionByKind } from '../data/actions'
 import { computeRelationshipMatrix, type RelationshipMatrix } from '../engine/relationships'
 import { createOriginRumor, retellRumor } from '../engine/rumors'
 import { revealText } from '../engine/reveals'
+import { evaluateMission, type MissionItemProgress } from '../engine/missionProgress'
 import {
   addSchoolRumor,
   advanceSchoolDay,
   assignRolesAndReveal,
+  castSchoolVote,
   ensureSchoolSessionInitialized,
   joinSchoolSession,
   logReveal,
@@ -20,7 +22,6 @@ import {
   resetSchoolSession,
   setActiveEventCard,
   setHiddenGoalResolution as setHiddenGoalResolutionSync,
-  setMissionChecks,
   setPlayerEnding,
   setSchoolPhase,
   subscribeSchoolPlayers,
@@ -36,6 +37,7 @@ import type {
   RoleSpec,
   RumorEntry,
   SchoolSessionState,
+  VoteCategory,
 } from '../types'
 
 const HOST_CODE = '821113'
@@ -54,6 +56,7 @@ const EMPTY_SESSION: SchoolSessionState = {
   actionLog: [],
   rumors: [],
   revealLog: [],
+  votes: [],
   activeEventCard: null,
   createdAtMs: Date.now(),
 }
@@ -89,7 +92,10 @@ interface SchoolGameValue {
   revealToClass: (kind: RevealKind, custom: string) => Promise<void>
   performAction: (kind: ActionKind, targetId: string | null, text: string | null) => Promise<void>
   spreadRumor: (targetId: string, text: string, parentRumorId: string | null) => Promise<void>
-  toggleMyMissionCheck: (index: number) => Promise<void>
+  myMissionProgress: MissionItemProgress[]
+  /** 오늘 신뢰/호감 투표를 이미 누구에게 줬는지. 아직이면 null. */
+  myVotesToday: Record<VoteCategory, string | null>
+  castVote: (targetId: string, category: VoteCategory) => Promise<void>
   submitHiddenGoalResolution: (text: string) => Promise<void>
   chooseEnding: (key: EndingKey, note: string | null) => Promise<void>
 }
@@ -145,6 +151,25 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     [players, viewerId],
   )
   const relationshipMatrix = useMemo(() => computeRelationshipMatrix(session.actionLog), [session.actionLog])
+
+  const myMissionProgress = useMemo<MissionItemProgress[]>(() => {
+    if (!viewerId || !myRole) return []
+    return evaluateMission(myRole, {
+      viewerId,
+      actionLog: session.actionLog,
+      revealLog: session.revealLog,
+      rumors: session.rumors,
+      votes: session.votes,
+      dmPartnerCount: Object.keys(dmThreads).length,
+    })
+  }, [viewerId, myRole, session.actionLog, session.revealLog, session.rumors, session.votes, dmThreads])
+
+  const myVotesToday = useMemo<Record<VoteCategory, string | null>>(() => {
+    const findTarget = (category: VoteCategory) =>
+      session.votes.find((v) => v.voterId === viewerId && v.day === session.day && v.category === category)
+        ?.targetId ?? null
+    return { trust: findTarget('trust'), liking: findTarget('liking') }
+  }, [session.votes, session.day, viewerId])
 
   async function joinAsPlayer(nick: string) {
     const trimmed = nick.trim()
@@ -318,11 +343,17 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     await performAction('spreadRumor', targetId, text)
   }
 
-  async function toggleMyMissionCheck(index: number) {
-    if (!viewerId || !myPlayer) return
-    const next = [...myPlayer.missionChecks]
-    next[index] = !next[index]
-    await setMissionChecks(viewerId, next)
+  async function castVote(targetId: string, category: VoteCategory) {
+    if (!viewerId || viewerId === targetId) return
+    if (myVotesToday[category] !== null) return
+    await castSchoolVote({
+      id: crypto.randomUUID(),
+      day: session.day,
+      category,
+      voterId: viewerId,
+      targetId,
+      createdAtMs: Date.now(),
+    })
   }
 
   async function submitHiddenGoalResolution(text: string) {
@@ -365,7 +396,9 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     revealToClass,
     performAction,
     spreadRumor,
-    toggleMyMissionCheck,
+    myMissionProgress,
+    myVotesToday,
+    castVote,
     submitHiddenGoalResolution,
     chooseEnding,
   }
