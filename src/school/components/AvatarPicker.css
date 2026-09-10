@@ -61,3 +61,21 @@
   display: block;
   image-rendering: pixelated;
 }
+
+/* 32칸 초상화가 주역이다. 옆의 작은 인형은 팀 옷이 어떻게 나오는지만 보여준다. */
+.sc-avatar__stage {
+  flex-wrap: wrap;
+}
+
+.sc-avatar__inGame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.sc-avatar__inGame span {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sc-text-dim);
+}

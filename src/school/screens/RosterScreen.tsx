@@ -31,7 +31,7 @@ export function RosterScreen() {
             const team = p.teamId ? teamById[p.teamId] : null
             return (
               <li key={p.id} className="sc-roster__row sc-roster__row--host">
-                <AvatarFace look={lookOf(p.id)} team={p.teamId} />
+                <AvatarFace look={lookOf(p.id)} />
                 <span className="sc-roster__name">{p.nickname}</span>
                 <span className="sc-roster__meta">
                   {team && (
@@ -81,7 +81,7 @@ export function RosterScreen() {
           return (
             <li key={p.id} className="sc-roster__item">
               <button className="sc-roster__row sc-roster__row--tap" onClick={() => setOpenChatId(p.id)}>
-                <AvatarFace look={lookOf(p.id)} team={p.teamId} />
+                <AvatarFace look={lookOf(p.id)} />
                 <span className="sc-roster__left">
                   <span className="sc-roster__name">
                     {p.nickname}

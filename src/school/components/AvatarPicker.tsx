@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
 import './AvatarPicker.css'
 import { ACTOR_H, ACTOR_W, actorSprite, FACE_NAMES, HAIR_NAMES, TEAM_WEAR } from '../map/avatar'
+import { PORTRAIT_SIZE, portraitSprite } from '../map/portrait'
 import type { AvatarLook, TeamId } from '../types'
 
-/** 도트를 그대로 확대해 보여준다. 흐려지면 표정이 뭉개진다. */
-function Sprite({ look, team, scale }: { look: AvatarLook; team: TeamId | null; scale: number }) {
+/** 지도 위를 걷는 몸 인형. 팀 옷이 어떻게 나오는지 볼 때만 쓴다. */
+function BodySprite({ look, team, scale }: { look: AvatarLook; team: TeamId | null; scale: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const canvas = ref.current
@@ -24,9 +25,33 @@ function Sprite({ look, team, scale }: { look: AvatarLook; team: TeamId | null; 
   )
 }
 
+/**
+ * 얼굴 초상화. 지도 인형(12칸 폭)과 달리 32칸 캔버스라 눈 하나 놓을 자리가
+ * 넉넉하다 — 머리·표정을 고를 때, 명단에 이름 옆 얼굴을 붙일 때는 이걸 쓴다.
+ */
+function Portrait({ look, scale }: { look: AvatarLook; scale: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+    ctx.imageSmoothingEnabled = false
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(portraitSprite(look), 0, 0, canvas.width, canvas.height)
+  }, [look, scale])
+  return (
+    <canvas
+      ref={ref}
+      width={PORTRAIT_SIZE * scale}
+      height={PORTRAIT_SIZE * scale}
+      style={{ width: PORTRAIT_SIZE * scale, height: PORTRAIT_SIZE * scale, imageRendering: 'pixelated' }}
+    />
+  )
+}
+
 /** 명단·대화처럼 이름 옆에 얼굴만 붙일 때. */
-export function AvatarFace({ look, team, scale = 2 }: { look: AvatarLook; team: TeamId | null; scale?: number }) {
-  return <Sprite look={look} team={team} scale={scale} />
+export function AvatarFace({ look, scale = 1.2 }: { look: AvatarLook; scale?: number }) {
+  return <Portrait look={look} scale={scale} />
 }
 
 export function AvatarPicker({
@@ -41,7 +66,11 @@ export function AvatarPicker({
   return (
     <div className="sc-avatar">
       <div className="sc-avatar__stage">
-        <Sprite look={look} team={team} scale={6} />
+        <Portrait look={look} scale={3} />
+        <div className="sc-avatar__inGame">
+          <BodySprite look={look} team={team} scale={3} />
+          <span>게임 속 모습</span>
+        </div>
         <div className="sc-avatar__caption">
           <span>{HAIR_NAMES[look.hair]}</span>
           <span>{FACE_NAMES[look.face]}</span>
@@ -58,7 +87,7 @@ export function AvatarPicker({
             title={name}
             onClick={() => onChange({ ...look, hair: i })}
           >
-            <Sprite look={{ hair: i, face: 0 }} team={team} scale={3} />
+            <Portrait look={{ hair: i, face: look.face }} scale={1.5} />
           </button>
         ))}
       </div>
@@ -72,7 +101,7 @@ export function AvatarPicker({
             title={name}
             onClick={() => onChange({ ...look, face: i })}
           >
-            <Sprite look={{ hair: look.hair, face: i }} team={team} scale={3} />
+            <Portrait look={{ hair: look.hair, face: i }} scale={1.5} />
           </button>
         ))}
       </div>
