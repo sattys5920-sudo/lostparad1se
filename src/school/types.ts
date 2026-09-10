@@ -255,12 +255,14 @@ export type RelationshipValue = -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5
 
 /** 아바타. 머리 모양과 표정은 본인이 고르고, 옷은 팀이 정한다. */
 export interface AvatarLook {
-  /** 머리 모양 0..29 — 0~14 남자 머리, 15~29 여자 머리 */
+  /** 머리 모양 0..14 */
   hair: number
-  /** 표정 0..9 */
+  /** 표정 0..14 */
   face: number
-  /** 머리색 0..4 — 흑발·적발·금발·백발·브릿지. 없으면 흑발. */
+  /** 머리색 0..14. 없으면 검정. */
   color?: number
+  /** 교복 0..14. 없으면 단정한 셔츠. */
+  uniform?: number
 }
 
 export interface PlayerProfile {

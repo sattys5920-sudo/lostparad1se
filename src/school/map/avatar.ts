@@ -7,14 +7,13 @@
 // 12칸 폭에는 머리 30종을 다 구분해 그릴 자리가 없다. 여기서는 열 가지 틀만
 // 두고, 초상화(portrait.ts)의 30종을 그중 가장 닮은 틀로 보낸다.
 import { PAL, type Dir } from './sprites'
-import { HAIR_COLORS, HAIR_GROUPS, HAIR_NAMES } from './portrait'
+import { defaultChar } from '../char/svg'
 import type { AvatarLook, TeamId } from '../types'
 
 export const ACTOR_W = 12
 export const ACTOR_H = 18
 
 export type { AvatarLook }
-export { HAIR_COLORS, HAIR_GROUPS, HAIR_NAMES }
 
 export const FACE_NAMES = [
   '무표정', '웃음', '활짝', '놀람', '찡그림',
@@ -462,11 +461,5 @@ export function drawPortrait(
 
 /** 참가자 id에서 기본 아바타를 뽑는다. 아무것도 고르지 않아도 서로 달라 보이게. */
 export function defaultLook(seed: string): AvatarLook {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  return {
-    hair: h % HAIR_NAMES.length,
-    face: Math.floor(h / 30) % FACE_NAMES.length,
-    color: Math.floor(h / 300) % HAIR_COLORS.length,
-  }
+  return defaultChar(seed)
 }
