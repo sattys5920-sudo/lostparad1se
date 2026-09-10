@@ -66,24 +66,42 @@ const BODY_UP = [
   '  3UUUUUU3  ',
 ]
 
-// 옆모습은 앞뒤로 얇다. 몸통 3칸에 이쪽 팔 하나만 보인다.
+// 옆모습은 앞모습을 좁힌 게 아니다. 도트 캐릭터의 옆얼굴에는 규칙이 있다 —
+// 뒤통수가 부풀고, 코가 한 칸 튀어나오고, 눈은 앞쪽 끝에 붙고,
+// 턱이 앞으로 나온 만큼 목은 뒤로 물러난다. 그 네 가지가 방향을 말해 준다.
+//
+// 머리통이 위에서 아래로 둥글게 나왔다가(3→9칸) 코에서 한 칸 더 나가고
+// 다시 턱으로 물러난다(9→8→7). 그 굴곡이 옆얼굴을 옆얼굴로 보이게 한다.
+// 코는 따로 찍지 않는다. 얼굴선을 눈썹·코 높이에서 한 칸 부풀렸다가
+// 인중-입-턱으로 물러나게 그리면 그 굴곡이 코가 된다.
+// 점 하나를 따로 찍으면 얼굴선이 톱니처럼 끊긴다.
+//   얼굴선 끝 칸:  8 → 9 → 9 → 8 → 8 → 7 → 7 → 6
+//        3333        정수리
+//       311113       뒤통수 ─ 이마
+//       3111113      이마가 나온다
+//       3111F13      눈(7) · 코 높이
+//       311113       인중에서 물러난다
+//       3111F3       입(7)
+//       31113        턱
+//        3113        턱끝
+//        313         목 — 턱보다 좁고 뒤에 선다
 const BODY_SIDE = [
   '            ',
   '    3333    ',
-  '   331113   ',
-  '   31FFF13  ',
-  '   31FFF13  ',
-  '   31FFF13  ',
-  '   31FFF13  ',
-  '    31113   ',
-  '    31113   ',
+  '   311113   ',
+  '   3111113  ',
+  '   3111F13  ',
+  '   311113   ',
+  '   3111F3   ',
+  '   31113    ',
   '    3113    ',
+  '    313     ',
   '    3UUU3   ',
   '    3UUA3   ',
   '    3UUA3   ',
   '    3UUA3   ',
   '    3UU13   ',
-  '    3UU3    ',
+  '    3UUU3   ',
 ]
 
 /** 다리는 앞뒤가 다르다. 옆모습은 앞뒤로 엇갈리게 딛는다. */
@@ -94,9 +112,9 @@ const LEGS_FRONT: Record<number, string[]> = {
 }
 
 const LEGS_SIDE: Record<number, string[]> = {
-  0: ['    333     ', '   33 33    '],
-  1: ['   33  3    ', '  33   33   '],
-  2: ['    3  33   ', '   33   33  '],
+  0: ['     33     ', '    3333    '],
+  1: ['    33 3    ', '   33  333  '],
+  2: ['     3 33   ', '   333  33  '],
 }
 
 // ── 머리 (앞모습) ───────────────────────────────────────────────
@@ -168,16 +186,28 @@ const HAIR_DOWN: string[][] = [
 /** 옆모습 머리 — 넷째 줄부터는 뒤통수 쪽(왼쪽)만 남긴다. 묶은 머리는 뒤로 넘어간다. */
 function hairSide(down: string[]): string[] {
   return down.map((row, y) => {
-    if (y <= 3) return row
+    // 정수리는 그대로 덮되 얼굴선(9칸)에는 손대지 않는다. 앞모습 머리를 그대로
+    // 얹으면 이마와 코까지 덮어 옆얼굴이 부리처럼 뾰족해진다.
+    if (y <= 3) {
+      // 정수리는 7칸까지, 이마 높이(2~3줄)는 6칸까지만 덮는다. 더 덮으면
+      // 앞머리가 얼굴을 대각선으로 잘라 「7」자처럼 보인다.
+      const edge = y <= 1 ? 7 : 6
+      let out = ''
+      for (let x = 0; x < ACTOR_W; x++) out += x <= edge ? row[x] : ' '
+      return out
+    }
+    // 그 아래는 뒤통수 쪽만 남긴다. 묶은 머리는 뒤로 넘어간다.
+    // 귀 높이(4줄)에는 구레나룻 두 칸을 남겨 머리선이 뚝 끊기지 않게 한다.
     let out = ''
     for (let x = 0; x < ACTOR_W; x++) {
       if (x > 5) {
         out += ' '
         continue
       }
+      const sideburn = y === 4 && (x === 3 || x === 4)
       const here = row[x]
       const mirrored = row[ACTOR_W - 1 - x]
-      out += here !== ' ' ? here : mirrored !== ' ' ? mirrored : ' '
+      out += sideburn ? '3' : here !== ' ' ? here : mirrored !== ' ' ? mirrored : ' '
     }
     return out
   })
@@ -312,10 +342,10 @@ function compose(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number)
     if (f.tear) put(grid, 8, 6, '2')
   } else if (dir !== 'up') {
     // 옆모습은 한쪽 눈과 입 오른쪽 절반만 보인다
-    ;[...f.browR].forEach((c, i) => put(grid, 6 + i, 3, c))
-    f.eyeR.forEach((row, ry) => [...row].forEach((c, i) => put(grid, 6 + i, 4 + ry, c)))
-    f.mouth.forEach((row, ry) => [...row.slice(2)].forEach((c, i) => put(grid, 6 + i, 6 + ry, c)))
-    if (f.tear) put(grid, 7, 6, '2')
+    // 옆얼굴은 눈도 입도 한 칸이다. 두 칸을 쓰면 얼굴선을 밀고 나간다.
+    f.eyeR.forEach((row, ry) => [...row.slice(0, 1)].forEach((c, i) => put(grid, 7 + i, 4 + ry, c)))
+    f.mouth.forEach((row, ry) => [...row.slice(1, 2)].forEach((c, i) => put(grid, 7 + i, 6 + ry, c)))
+    if (f.tear) put(grid, 8, 5, '2')
   }
 
   const legs = dir === 'down' || dir === 'up' ? LEGS_FRONT[frame] : LEGS_SIDE[frame]
