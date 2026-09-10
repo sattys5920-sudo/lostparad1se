@@ -316,9 +316,9 @@ function loop(now: number) {
 
   // 방 이름을 바닥에 눕혀 둔다
   for (const r of ROOMS) {
-    if (r.id === 'hallway') continue
-    const cx = ((r.x1 + r.x2 + 1) / 2) * TILE - camX
-    const cy = (r.y1 + 0.4) * TILE - camY
+    const rect = r.rects[0]
+    const cx = (rect.x + rect.w / 2) * TILE - camX
+    const cy = (rect.y + 0.4) * TILE - camY
     if (cx < -60 || cx > canvas.width + 60) continue
     ctx.font = '7px "Gothic A1", sans-serif'
     ctx.textAlign = 'center'

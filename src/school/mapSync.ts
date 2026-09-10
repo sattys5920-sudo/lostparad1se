@@ -14,7 +14,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { ROOMS } from './map/world'
+import { SPAWNABLE_TILES } from './map/world'
 import { FRAGMENTS } from './data/fragments'
 import type {
   MapFragment,
@@ -176,12 +176,13 @@ function fragmentText(day: number, seed: number): string {
 
 /** 진행자 전용: 하루치 조각을 무작위 구역에 뿌린다. */
 export async function spawnFragments(day: number, count = 4): Promise<number> {
-  const rooms = ROOMS.filter((r) => r.id !== 'hallway')
+  // 기지와 아직 잠긴 핵심 지역에는 떨어지지 않는다.
+  const rooms = SPAWNABLE_TILES
   const now = Date.now()
   const fresh: MapFragment[] = Array.from({ length: count }, (_, i) => ({
     id: crypto.randomUUID(),
     text: fragmentText(day, i),
-    roomId: rooms[Math.floor(Math.random() * rooms.length)].id,
+    roomId: rooms[Math.floor(Math.random() * rooms.length)],
     state: 'onFloor' as const,
     holderId: null,
     day,

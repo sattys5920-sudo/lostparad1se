@@ -7,13 +7,20 @@ import { revealText } from '../engine/reveals'
 import { evaluateMission, type MissionItemProgress } from '../engine/missionProgress'
 import {
   actionsUsedToday,
+  canExpand,
+  expandCost,
   hasPlayerActedToday,
   initialTerritoryState,
   MAX_ACTIONS_PER_PLAYER,
+  tileValue,
+  type Standing,
 } from '../engine/territory'
+import { lockedDoorKeys, spawnFor } from '../map/world'
 import { scorePlayer } from '../engine/playerScore'
 import { occupantsOf } from '../engine/presence'
 import { fragmentByDay } from '../data/fragments'
+import { teamById } from '../data/teams'
+import { tileById } from '../data/tiles'
 import {
   burnFragment,
   closeIntervals,
@@ -92,6 +99,7 @@ import type {
   TeamId,
   TeamState,
   TileId,
+  TileState,
   VoteCategory,
 } from '../types'
 
@@ -201,9 +209,9 @@ interface SchoolGameValue {
     aboutId?: string | null,
   ) => Promise<void>
   // ── 지도 ──
-  /** 내가 지금 서 있는 구역. */
-  myRoomId: string
-  setMyRoom: (roomId: string) => void
+  /** 내가 지금 서 있는 구역. 지도에 들어오기 전에는 null. */
+  myRoomId: TileId | null
+  setMyRoom: (roomId: TileId) => void
   /** 지금 나와 같은 방에 있는 사람들(나 제외). 목격자이자 대화 상대다. */
   roomOccupantIds: string[]
   intervals: PresenceInterval[]
@@ -222,6 +230,23 @@ interface SchoolGameValue {
   doLeaveNote: (text: string) => Promise<void>
   doReadNote: (noteId: string) => Promise<void>
   hostSpawnFragments: () => Promise<number>
+  // ── 지도 위의 영역 ──
+  /** 지금 서 있는 구역의 상태. 기지·핵심 지역까지 전부 여기서 본다. */
+  hereTile: TileState | null
+  /** 지금 이 구역의 주인. */
+  hereOwner: TeamId | null
+  /** 지금 이 구역의 값어치(건물·기록 보정 포함). */
+  hereValue: number
+  /** 지금 이 구역에서 나를 막고 서 있는 다른 팀들(동맹 제외). */
+  rivalTeamsHere: TeamId[]
+  /** 지금 여기를 차지할 수 있는지. */
+  canTakeHere: { ok: true } | { ok: false; reason: string }
+  /** 여기를 차지하는 데 드는 값. 차지할 수 없는 곳이면 null. */
+  hereExpandCost: ResourceBundle | null
+  /** 아직 A의 기록이 열지 않아 지나갈 수 없는 문들. "x,y" 형식. */
+  lockedDoors: Set<string>
+  /** 내가 지도에 처음 설 자리 — 우리 팀 기지. */
+  mySpawn: { x: number; y: number }
   /** 미션이 지정한 상대. 본인만 본다. */
   assignedTarget: PlayerProfile | null
   myMissionProgress: MissionItemProgress[]
@@ -253,7 +278,7 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
   const [intervals, setIntervals] = useState<PresenceInterval[]>([])
   const [spatialEvents, setSpatialEvents] = useState<SpatialEvent[]>([])
   const [notes, setNotes] = useState<MapNote[]>([])
-  const [myRoomId, setMyRoomIdState] = useState('hallway')
+  const [myRoomId, setMyRoomIdState] = useState<TileId | null>(null)
 
   useEffect(() => {
     ensureSchoolSessionInitialized().catch(() => {})
@@ -306,7 +331,7 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
 
   /** 지금 나와 같은 방에 있는 사람들. 목격자 판정도 대화 상대도 전부 여기서 나온다. */
   const roomOccupantIds = useMemo(
-    () => occupantsOf(intervals, myRoomId).filter((id) => id !== viewerId),
+    () => (myRoomId ? occupantsOf(intervals, myRoomId).filter((id) => id !== viewerId) : []),
     [intervals, myRoomId, viewerId],
   )
 
@@ -371,6 +396,57 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     : 0
   const hasActedToday = Boolean(viewerId) && hasPlayerActedToday(session.territory, session.day, viewerId as string)
   const amBlockedToday = Boolean(viewerId) && session.territory.blockedPlayerIds.includes(viewerId as string)
+
+  // ── 지도 위의 영역 ────────────────────────────────────────────
+  // 걷는 공간과 뺏는 공간이 같은 것이라, 지금 서 있는 칸이 곧 지금 손댈 수 있는 칸이다.
+
+  /** 지금 우리와 손잡고 있는 팀들. 같은 방에 있어도 서로를 막지 않는다. */
+  const alliedTeams = useMemo(() => {
+    const out = new Set<TeamId>()
+    if (!myTeamId) return out
+    for (const a of session.territory.alliances) {
+      if (a.status !== 'active' || !a.teams.includes(myTeamId)) continue
+      for (const t of a.teams) if (t !== myTeamId) out.add(t)
+    }
+    return out
+  }, [session.territory.alliances, myTeamId])
+
+  /** 지금 이 자리를 지키고 선 다른 팀. 한 명만 서 있어도 점령이 막힌다. */
+  const rivalTeamsHere = useMemo(() => {
+    const out = new Set<TeamId>()
+    for (const id of roomOccupantIds) {
+      const t = players[id]?.teamId
+      if (!t || t === myTeamId || alliedTeams.has(t)) continue
+      out.add(t)
+    }
+    return [...out]
+  }, [roomOccupantIds, players, myTeamId, alliedTeams])
+
+  const standing = useMemo<Standing>(() => ({ tileId: myRoomId, rivalTeamsHere }), [myRoomId, rivalTeamsHere])
+
+  const hereTile = myRoomId ? (session.territory.tiles[myRoomId] ?? null) : null
+  const hereOwner = hereTile?.ownerTeam ?? null
+  const hereValue = myRoomId ? tileValue(session.territory, myRoomId) : 0
+  const canTakeHere = useMemo<{ ok: true } | { ok: false; reason: string }>(() => {
+    if (!myRoomId) return { ok: false, reason: '지도 위에 없다.' }
+    if (!myTeamId) return { ok: false, reason: '아직 팀이 없다.' }
+    const base = canExpand(session.territory, myTeamId, myRoomId)
+    if (!base.ok) return base
+    if (rivalTeamsHere.length > 0) {
+      const names = rivalTeamsHere.map((t) => teamById[t].name).join('·')
+      return { ok: false, reason: `${names} 사람이 버티고 서 있다.` }
+    }
+    return { ok: true }
+  }, [session.territory, myTeamId, myRoomId, rivalTeamsHere])
+  const hereExpandCost =
+    myRoomId && myTeamId && !tileById[myRoomId].homeOf ? expandCost(session.territory, myTeamId, myRoomId) : null
+
+  /** 아직 열리지 않은 핵심 지역의 문. 지도에서 실제로 막힌다. */
+  const lockedDoors = useMemo(
+    () => lockedDoorKeys(session.territory.unlockedTiles),
+    [session.territory.unlockedTiles],
+  )
+  const mySpawn = useMemo(() => spawnFor(myTeamId), [myTeamId])
 
   /** 오늘 열린 A의 기록. 아직 진행자가 열지 않았으면 null. */
   const todaysFragment = useMemo(
@@ -621,7 +697,7 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
    * (안 열면 복도에서만 서성인 사람은 아예 존재하지 않는 것으로 계산된다.)
    * 중복 호출은 화면 쪽에서 막는다.
    */
-  function setMyRoom(roomId: string) {
+  function setMyRoom(roomId: TileId) {
     setMyRoomIdState(roomId)
     if (viewerId) void moveRoom(viewerId, roomId, session.day).catch(() => {})
   }
@@ -632,27 +708,27 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
   }
 
   async function doPickFragment(fragmentId: string) {
-    if (!viewerId) return
+    if (!viewerId || !myRoomId) return
     await pickFragment(fragmentId, viewerId, myRoomId, witnesses(), session.day)
   }
   async function doDropFragment(fragmentId: string) {
-    if (!viewerId) return
+    if (!viewerId || !myRoomId) return
     await dropFragment(fragmentId, viewerId, myRoomId, witnesses(), session.day)
   }
   async function doBurnFragment(fragmentId: string) {
-    if (!viewerId) return
+    if (!viewerId || !myRoomId) return
     await burnFragment(fragmentId, viewerId, myRoomId, witnesses(), session.day)
   }
   async function doGiveFragment(fragmentId: string, toPlayerId: string) {
-    if (!viewerId) return
+    if (!viewerId || !myRoomId) return
     await giveFragment(fragmentId, viewerId, toPlayerId, myRoomId, witnesses(), session.day)
   }
   async function doLeaveNote(text: string) {
-    if (!viewerId || !text.trim()) return
+    if (!viewerId || !myRoomId || !text.trim()) return
     await leaveNote(viewerId, myRoomId, text.trim(), witnesses(), session.day)
   }
   async function doReadNote(noteId: string) {
-    if (!viewerId) return
+    if (!viewerId || !myRoomId) return
     await readNote(noteId, viewerId, myRoomId, witnesses(), session.day)
   }
   async function hostSpawnFragments() {
@@ -681,37 +757,37 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
 
   async function doExpand(tileId: TileId) {
     const { day, team, playerId } = requireTeamContext()
-    await territoryExpand(day, team, playerId, tileId)
+    await territoryExpand(day, team, playerId, tileId, standing)
   }
 
   async function doBuild(tileId: TileId, kind: BuildingKind) {
     const { day, team, playerId } = requireTeamContext()
-    await territoryBuild(day, team, playerId, tileId, kind)
+    await territoryBuild(day, team, playerId, tileId, kind, standing)
   }
 
   async function doUpgrade(tileId: TileId, kind: BuildingKind) {
     const { day, team, playerId } = requireTeamContext()
-    await territoryUpgrade(day, team, playerId, tileId, kind)
+    await territoryUpgrade(day, team, playerId, tileId, kind, standing)
   }
 
   async function doResearch() {
     const { day, team, playerId } = requireTeamContext()
-    await territoryResearch(day, team, playerId)
+    await territoryResearch(day, team, playerId, standing)
   }
 
   async function doExplore() {
     const { day, team, playerId } = requireTeamContext()
-    await territoryExplore(day, team, playerId)
+    await territoryExplore(day, team, playerId, standing)
   }
 
   async function doProduce() {
     const { day, team, playerId } = requireTeamContext()
-    await territoryProduce(day, team, playerId)
+    await territoryProduce(day, team, playerId, standing)
   }
 
   async function doSabotage(targetTeam: TeamId, kind: SabotageEffectKind) {
     const { day, team, playerId } = requireTeamContext()
-    await territorySabotage(day, team, playerId, targetTeam, kind)
+    await territorySabotage(day, team, playerId, targetTeam, kind, standing)
   }
 
   async function doPlayCard(cardId: string, targetTeam: TeamId | null) {
@@ -826,6 +902,14 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     doLeaveNote,
     doReadNote,
     hostSpawnFragments,
+    hereTile,
+    hereOwner,
+    hereValue,
+    rivalTeamsHere,
+    canTakeHere,
+    hereExpandCost,
+    lockedDoors,
+    mySpawn,
     assignedTarget,
     myMissionProgress,
     myVotesToday,

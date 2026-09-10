@@ -80,6 +80,7 @@ const WALL_BODY = [
   '3333333333333333',
   '3333333333333333',
   '3333333333333333',
+  '2233223322332233',
   '3333333333333333',
   '3333333333333333',
   '3333333333333333',
@@ -87,8 +88,7 @@ const WALL_BODY = [
   '3333333333333333',
   '3333333333333333',
   '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
+  '3322332233223322',
   '3333333333333333',
   '3333333333333333',
   '3333333333333333',
@@ -290,6 +290,47 @@ const LEGS_IDLE = ['  33  33  ', '  33  33  ']
 const LEGS_A = ['  3333    ', '  33  33  ']
 const LEGS_B = ['    3333  ', '  33  33  ']
 
+// ── 점령된 바닥 ─────────────────────────────────────────────────
+// 흑백이라 색으로 팀을 구분할 수 없다. 바닥 무늬로 나눈다 —
+// 어느 구역에 들어선 순간 발밑을 보면 누구 땅인지 안다.
+
+function patternFloor(mark: (x: number, y: number) => boolean): string[] {
+  const rows: string[] = []
+  for (let y = 0; y < 16; y++) {
+    let row = ''
+    for (let x = 0; x < 16; x++) row += mark(x, y) ? '1' : '0'
+    rows.push(row)
+  }
+  return rows
+}
+
+const FLOOR_TEAM: Record<string, string[]> = {
+  A: patternFloor((x, y) => x % 4 === 0 && y % 4 === 0), // 점
+  B: patternFloor((x, y) => (x + y) % 5 === 0), // 오른쪽 사선
+  C: patternFloor((x, y) => (x - y + 16) % 5 === 0), // 왼쪽 사선
+  D: patternFloor((_x, y) => y % 4 === 0), // 가로줄
+}
+
+/** 아직 A의 기록이 열지 않은 문. 널빤지를 가로질러 박아 둔다. */
+const DOOR_LOCKED = [
+  '3333333333333333',
+  '3222222222222223',
+  '3211111111111123',
+  '3211111111111123',
+  '3333333333333333',
+  '3111111111111113',
+  '3111111111111113',
+  '3333333333333333',
+  '3211111111111123',
+  '3211111111111123',
+  '3333333333333333',
+  '3111111111111113',
+  '3111111111111113',
+  '3211111111111123',
+  '3222222222222223',
+  '3333333333333333',
+]
+
 export type Dir = 'down' | 'up' | 'left' | 'right'
 
 export type PropKind = 'desk' | 'shelf' | 'table' | 'plant' | 'box'
@@ -301,6 +342,8 @@ export interface SpriteSet {
     wall: HTMLCanvasElement
     wallBody: HTMLCanvasElement
     door: HTMLCanvasElement
+    doorLocked: HTMLCanvasElement
+    floorTeam: Record<string, HTMLCanvasElement>
   }
   props: Record<PropKind, HTMLCanvasElement>
   /** [방향][프레임] — 프레임 0은 서 있는 자세. */
@@ -332,6 +375,10 @@ export function buildSprites(): SpriteSet {
       wall: bake(WALL),
       wallBody: bake(WALL_BODY),
       door: bake(DOOR),
+      doorLocked: bake(DOOR_LOCKED),
+      floorTeam: Object.fromEntries(
+        Object.entries(FLOOR_TEAM).map(([team, rows]) => [team, bake(rows)]),
+      ),
     },
     props: {
       desk: bake(DESK),

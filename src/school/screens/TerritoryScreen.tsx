@@ -39,6 +39,7 @@ export function TerritoryScreen() {
     myTeamId,
     myTeam,
     hasActedToday,
+    myRoomId,
     doExpand,
     doBuild,
     doUpgrade,
@@ -55,6 +56,8 @@ export function TerritoryScreen() {
     doBreakAlliance,
   } = useSchoolGame()
   const territory = session.territory
+  /** 지금 서 있는 구역의 주인. 영역 행동은 전부 이 값으로 갈린다. */
+  const standingOwner = myRoomId ? territory.tiles[myRoomId].ownerTeam : null
   const [subview, setSubview] = useState<'map' | 'action' | 'trade' | 'card'>('map')
   const [openTile, setOpenTile] = useState<TileId | null>(null)
   const [busy, setBusy] = useState(false)
@@ -160,32 +163,49 @@ export function TerritoryScreen() {
 
       {subview === 'action' && myTeamId && myTeam && (
         <div className="sc-terr__actions">
+          <p className="sc-terr__hint">
+            영역 행동은 전부 그 자리에 서서 한다. 지금 있는 곳은{' '}
+            <strong>{myRoomId ? tileById[myRoomId].name : '지도 밖'}</strong>이다.
+            {standingOwner === myTeamId && myTeamId !== null
+              ? ' 우리 구역이라 거두거나 머리를 맞댈 수 있다.'
+              : standingOwner
+                ? ` ${teamById[standingOwner].name} 구역이라 둘러보거나 손을 쓸 수 있다.`
+                : ' 주인 없는 자리다. 「학교」에서 차지할 수 있다.'}
+          </p>
           {hasActedToday && <p className="sc-terr__hint">오늘은 이미 행동을 마쳤다. 내일 다시 할 수 있다.</p>}
           <button
             className="sc-terr__action"
-            disabled={busy || hasActedToday}
+            disabled={busy || hasActedToday || standingOwner !== myTeamId}
             onClick={() => run(doResearch)}
           >
-            <span>연구하기</span>
+            <span>연구하기 · 우리 구역에서</span>
             <span className="sc-terr__action-cost">지식 {2 + myTeam.researchTier} · 행동력 1</span>
           </button>
-          <button className="sc-terr__action" disabled={busy || hasActedToday} onClick={() => run(doExplore)}>
-            <span>탐색하기</span>
+          <button
+            className="sc-terr__action"
+            disabled={busy || hasActedToday || standingOwner === myTeamId || myRoomId === null}
+            onClick={() => run(doExplore)}
+          >
+            <span>탐색하기 · 남의 구역에서</span>
             <span className="sc-terr__action-cost">행동력 1</span>
           </button>
-          <button className="sc-terr__action" disabled={busy || hasActedToday} onClick={() => run(doProduce)}>
-            <span>생산하기</span>
+          <button
+            className="sc-terr__action"
+            disabled={busy || hasActedToday || standingOwner !== myTeamId}
+            onClick={() => run(doProduce)}
+          >
+            <span>생산하기 · 우리 구역에서</span>
             <span className="sc-terr__action-cost">행동력 1</span>
           </button>
           <div className="sc-terr__sabotage">
-            <span className="sc-terr__label">견제하기 · 영향력 2 · 행동력 1</span>
+            <span className="sc-terr__label">견제하기 · 영향력 2 · 그 팀 구역 안에서</span>
             {TEAMS.filter((t) => t.id !== myTeamId).map((t) => (
               <div key={t.id} className="sc-terr__sabotage-row">
                 <span style={{ color: t.color }}>{t.name}</span>
                 {(['expandCostUp', 'productionDown', 'tradeBlocked'] as SabotageEffectKind[]).map((kind) => (
                   <button
                     key={kind}
-                    disabled={busy || hasActedToday}
+                    disabled={busy || hasActedToday || standingOwner !== t.id}
                     onClick={() => run(() => doSabotage(t.id, kind))}
                   >
                     {{ expandCostUp: '확장 방해', productionDown: '생산 방해', tradeBlocked: '교역 차단' }[kind]}
@@ -255,6 +275,7 @@ export function TerritoryScreen() {
         <TileSheet
           tileId={openTile}
           myTeamId={myTeamId}
+          standingHere={myRoomId === openTile}
           territory={territory}
           busy={busy}
           onClose={() => setOpenTile(null)}
@@ -270,6 +291,7 @@ export function TerritoryScreen() {
 function TileSheet({
   tileId,
   myTeamId,
+  standingHere,
   territory,
   busy,
   onClose,
@@ -279,6 +301,8 @@ function TileSheet({
 }: {
   tileId: TileId
   myTeamId: TeamId | null
+  /** 지금 그 구역에 실제로 서 있는지. 아니면 아무것도 손댈 수 없다. */
+  standingHere: boolean
   territory: ReturnType<typeof useSchoolGame>['session']['territory']
   busy: boolean
   onClose: () => void
@@ -312,9 +336,13 @@ function TileSheet({
               {expandCheck.ok ? (
                 <>
                   <p>확장 비용 · {cost ? costLine(cost) : ''}</p>
-                  <button className="sc-sheet__submit" disabled={busy} onClick={onExpand}>
-                    확장한다
-                  </button>
+                  {standingHere ? (
+                    <button className="sc-sheet__submit" disabled={busy} onClick={onExpand}>
+                      확장한다
+                    </button>
+                  ) : (
+                    <p className="sc-terr__hint">「학교」에서 {spec.name}까지 걸어가야 차지할 수 있다.</p>
+                  )}
                 </>
               ) : (
                 <p className="sc-terr__hint">{expandCheck.reason}</p>
@@ -327,6 +355,7 @@ function TileSheet({
               <span className="sc-sheet__rumors-label">
                 건물 슬롯 {tileState.buildings.length}/{spec.buildingSlots}
               </span>
+              {!standingHere && <p className="sc-terr__hint">「학교」에서 {spec.name}에 가 있어야 손댈 수 있다.</p>}
               {tileState.buildings.map((b) => {
                 const bSpec = buildingByKind[b.kind]
                 return (
@@ -335,7 +364,7 @@ function TileSheet({
                       {bSpec.name} Lv.{b.level}
                     </span>
                     {b.level < 2 && (
-                      <button disabled={busy} onClick={() => onUpgrade(b.kind)}>
+                      <button disabled={busy || !standingHere} onClick={() => onUpgrade(b.kind)}>
                         업그레이드 · {costLine(bSpec.cost)}
                       </button>
                     )}
@@ -345,7 +374,7 @@ function TileSheet({
               {tileState.buildings.length < spec.buildingSlots && (
                 <div className="sc-terr__build-grid">
                   {BUILDINGS.filter((b) => !tileState.buildings.some((built) => built.kind === b.kind)).map((b) => (
-                    <button key={b.kind} disabled={busy} onClick={() => onBuild(b.kind)}>
+                    <button key={b.kind} disabled={busy || !standingHere} onClick={() => onBuild(b.kind)}>
                       <span className="sc-sheet__option-label">
                         {b.name} · {BUILDING_CATEGORY_LABEL[b.category]}
                       </span>

@@ -387,3 +387,10 @@
   flex-direction: column;
   gap: 4px;
 }
+
+/* 그 자리에 서 있지 않으면 누를 수 없다 — 눌러 볼 수 없다는 게 보여야 한다. */
+.sc-terr__sabotage-row button:disabled,
+.sc-terr__build-grid button:disabled,
+.sc-terr__building-row button:disabled {
+  opacity: 0.35;
+}

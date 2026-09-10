@@ -78,6 +78,28 @@ function assertFreeToAct(state: TerritoryState, day: number, playerId: string): 
   }
 }
 
+/**
+ * 지도 위에서 지금 어디에 서 있는지. 영역 행동은 전부 "거기까지 걸어가야" 할 수 있다.
+ * 그래서 팀 게임이 화면 속 표가 아니라 학교 안에서 벌어진다 —
+ * 뺏으려면 직접 가야 하고, 지키려면 그 자리에 버티고 서 있으면 된다.
+ */
+export interface Standing {
+  /** 지금 있는 구역. 문턱이거나 지도에 들어오지 않았으면 null. */
+  tileId: TileId | null
+  /** 지금 같은 구역에 함께 있는 다른 팀(동맹 제외). 점령을 막는다. */
+  rivalTeamsHere: TeamId[]
+}
+
+function assertStandingIn(standing: Standing, tileId: TileId, what: string): void {
+  if (standing.tileId === null) throw new Error('지도 위에 없다. 「학교」에서 직접 걸어가야 한다.')
+  if (standing.tileId !== tileId) throw new Error(`${tileById[tileId].name}까지 가서 서 있어야 ${what}.`)
+}
+
+/** 지금 서 있는 구역의 주인. */
+function ownerOfStanding(state: TerritoryState, standing: Standing): TeamId | null {
+  return standing.tileId ? state.tiles[standing.tileId].ownerTeam : null
+}
+
 /** 14명 기준 4/4/3/3. 인원이 다르면 최대한 고르게 나눈 뒤 앞 팀부터 한 명씩 더 준다. */
 export function assignTeams(playerIds: string[]): Record<string, TeamId> {
   const n = playerIds.length
@@ -217,8 +239,14 @@ export function performExpand(
   team: TeamId,
   playerId: string,
   targetTileId: TileId,
+  standing: Standing,
 ): TerritoryState {
   assertFreeToAct(state, day, playerId)
+  assertStandingIn(standing, targetTileId, '차지할 수 있다')
+  if (standing.rivalTeamsHere.length > 0) {
+    const names = standing.rivalTeamsHere.map((t) => teamById[t].name).join('·')
+    throw new Error(`${names} 사람이 버티고 서 있다. 비켜야 넘어간다.`)
+  }
   const check = canExpand(state, team, targetTileId)
   if (!check.ok) throw new Error(check.reason)
   const cost = expandCost(state, team, targetTileId)
@@ -256,8 +284,10 @@ export function performBuild(
   playerId: string,
   tileId: TileId,
   kind: BuildingKind,
+  standing: Standing,
 ): TerritoryState {
   assertFreeToAct(state, day, playerId)
+  assertStandingIn(standing, tileId, '지을 수 있다')
   const check = canBuild(state, team, tileId, kind)
   if (!check.ok) throw new Error(check.reason)
   const spec = buildingByKind[kind]
@@ -278,8 +308,10 @@ export function performUpgrade(
   playerId: string,
   tileId: TileId,
   kind: BuildingKind,
+  standing: Standing,
 ): TerritoryState {
   assertFreeToAct(state, day, playerId)
+  assertStandingIn(standing, tileId, '손볼 수 있다')
   const tile = state.tiles[tileId]
   if (!tile || tile.ownerTeam !== team) throw new Error('우리 팀 영역이 아니다.')
   const building = tile.buildings.find((b) => b.kind === kind)
@@ -301,8 +333,15 @@ function randomCardKind(): CardKind {
   return CARDS[Math.floor(Math.random() * CARDS.length)].kind
 }
 
-export function performResearch(state: TerritoryState, day: number, team: TeamId, playerId: string): TerritoryState {
+export function performResearch(
+  state: TerritoryState,
+  day: number,
+  team: TeamId,
+  playerId: string,
+  standing: Standing,
+): TerritoryState {
   assertFreeToAct(state, day, playerId)
+  if (ownerOfStanding(state, standing) !== team) throw new Error('우리 영역 안에서만 머리를 맞댈 수 있다.')
   const teamState = state.teams[team]
   const cost: Partial<ResourceBundle> = { knowledge: 2 + teamState.researchTier, actionPoints: 1 }
   if (!canAfford(teamState.resources, cost)) throw new Error('자원이 부족하다.')
@@ -316,8 +355,16 @@ export function performResearch(state: TerritoryState, day: number, team: TeamId
   return next
 }
 
-export function performExplore(state: TerritoryState, day: number, team: TeamId, playerId: string): TerritoryState {
+export function performExplore(
+  state: TerritoryState,
+  day: number,
+  team: TeamId,
+  playerId: string,
+  standing: Standing,
+): TerritoryState {
   assertFreeToAct(state, day, playerId)
+  if (standing.tileId === null) throw new Error('지도 위에 없다. 「학교」에서 직접 걸어가야 한다.')
+  if (ownerOfStanding(state, standing) === team) throw new Error('우리 땅에서는 새로 볼 것이 없다.')
   const teamState = state.teams[team]
   const cost: Partial<ResourceBundle> = { actionPoints: 1 }
   if (!canAfford(teamState.resources, cost)) throw new Error('행동력이 부족하다.')
@@ -331,8 +378,15 @@ export function performExplore(state: TerritoryState, day: number, team: TeamId,
   return next
 }
 
-export function performProduce(state: TerritoryState, day: number, team: TeamId, playerId: string): TerritoryState {
+export function performProduce(
+  state: TerritoryState,
+  day: number,
+  team: TeamId,
+  playerId: string,
+  standing: Standing,
+): TerritoryState {
   assertFreeToAct(state, day, playerId)
+  if (ownerOfStanding(state, standing) !== team) throw new Error('우리 영역 안에서만 거둘 수 있다.')
   const teamState = state.teams[team]
   const cost: Partial<ResourceBundle> = { actionPoints: 1 }
   if (!canAfford(teamState.resources, cost)) throw new Error('행동력이 부족하다.')
@@ -351,9 +405,13 @@ export function performSabotage(
   playerId: string,
   targetTeam: TeamId,
   kind: SabotageEffectKind,
+  standing: Standing,
 ): TerritoryState {
   assertFreeToAct(state, day, playerId)
   if (targetTeam === team) throw new Error('같은 팀을 견제할 수 없다.')
+  if (ownerOfStanding(state, standing) !== targetTeam) {
+    throw new Error(`${teamById[targetTeam].name} 구역 안에 들어가 있어야 손을 쓸 수 있다.`)
+  }
   const teamState = state.teams[team]
   const cost: Partial<ResourceBundle> = { influence: 2, actionPoints: 1 }
   if (!canAfford(teamState.resources, cost)) throw new Error('영향력이 부족하다. 표를 더 받아야 한다.')

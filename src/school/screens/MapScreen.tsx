@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import './MapScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
-import { isWalkable, MAP_H, MAP_W, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../map/world'
+import { isWalkable, MAP_H, MAP_W, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
 import { ACTOR_H, ACTOR_W, buildSprites, PAL, type Dir } from '../map/sprites'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
-import { SPATIAL_LABEL } from '../types'
+import { SABOTAGE_LABEL, SPATIAL_LABEL, type BuildingKind, type SabotageEffectKind, type TileId } from '../types'
+import { BUILDINGS } from '../data/buildings'
+import { teamById, TEAMS } from '../data/teams'
+import { tileById } from '../data/tiles'
 
 const STEP_MS = 160
 
@@ -17,6 +20,13 @@ interface Ghost {
   moving: boolean
   phase: number
   updatedAtMs: number
+}
+
+/** 자원 표기는 짧게. 「돈 3 · 영향력 4」 */
+function costText(cost: { money: number; influence: number }): string {
+  const parts = [`돈 ${cost.money}`]
+  if (cost.influence > 0) parts.push(`영향력 ${cost.influence}`)
+  return parts.join(' · ')
 }
 
 export function MapScreen() {
@@ -37,19 +47,48 @@ export function MapScreen() {
     doLeaveNote,
     doReadNote,
     spatialEvents,
+    // 영역
+    myTeamId,
+    myTeam,
+    hereTile,
+    hereOwner,
+    hereValue,
+    rivalTeamsHere,
+    canTakeHere,
+    hereExpandCost,
+    lockedDoors,
+    mySpawn,
+    actionsLeftToday,
+    amBlockedToday,
+    doExpand,
+    doBuild,
+    doUpgrade,
+    doProduce,
+    doExplore,
+    doResearch,
+    doSabotage,
   } = useSchoolGame()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [openNote, setOpenNote] = useState<string | null>(null)
   const [giveFor, setGiveFor] = useState<string | null>(null)
+  const [openBuild, setOpenBuild] = useState(false)
+  const [openSabotage, setOpenSabotage] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   // 게임 루프가 매 프레임 읽어야 하는 값들. 리렌더와 무관하게 최신값을 들고 있어야 한다.
   const roomRef = useRef(myRoomId)
   const setRoomRef = useRef(setMyRoom)
+  const lockedRef = useRef(lockedDoors)
+  const tilesRef = useRef(session.territory.tiles)
+  const spawnRef = useRef(mySpawn)
   roomRef.current = myRoomId
   setRoomRef.current = setMyRoom
+  lockedRef.current = lockedDoors
+  tilesRef.current = session.territory.tiles
+  spawnRef.current = mySpawn
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -57,9 +96,10 @@ export function MapScreen() {
     const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
     const sprites = buildSprites()
 
+    const start = spawnRef.current
     const me = {
-      px: SPAWN.x * TILE + TILE / 2,
-      py: SPAWN.y * TILE + TILE / 2,
+      px: start.x * TILE + TILE / 2,
+      py: start.y * TILE + TILE / 2,
       dir: 'down' as Dir,
       moving: false,
       phase: 0,
@@ -109,18 +149,26 @@ export function MapScreen() {
       }
     })
 
-    function currentRoom(): string {
-      return roomAt(Math.floor(me.px / TILE), Math.floor(me.py / TILE))?.id ?? 'hallway'
+    function currentRoom(): TileId | null {
+      return roomAt(Math.floor(me.px / TILE), Math.floor(me.py / TILE))?.id ?? null
     }
 
     function push(force = false) {
       sendPosition(
-        { id: viewerId as string, x: me.px, y: me.py, dir: me.dir, roomId: currentRoom(), updatedAtMs: Date.now() },
+        {
+          id: viewerId as string,
+          x: me.px,
+          y: me.py,
+          dir: me.dir,
+          roomId: currentRoom() ?? '',
+          updatedAtMs: Date.now(),
+        },
         force,
       )
     }
     push(true)
-    setRoomRef.current(currentRoom())
+    const first = currentRoom()
+    if (first) setRoomRef.current(first)
     const beat = window.setInterval(() => push(true), 4000)
 
     const KEY: Record<string, Dir> = {
@@ -176,7 +224,7 @@ export function MapScreen() {
           const tx = Math.round((me.px - TILE / 2) / TILE)
           const ty = Math.round((me.py - TILE / 2) / TILE)
           const [dx, dy] = DELTA[dir]
-          if (isWalkable(tx + dx, ty + dy)) {
+          if (isWalkable(tx + dx, ty + dy, lockedRef.current)) {
             step = { fromX: tx, fromY: ty, toX: tx + dx, toY: ty + dy, startedAt: now }
             me.moving = true
             push()
@@ -193,7 +241,7 @@ export function MapScreen() {
           me.moving = false
           push()
           const room = currentRoom()
-          if (room !== roomRef.current) setRoomRef.current(room)
+          if (room && room !== roomRef.current) setRoomRef.current(room)
         }
       }
 
@@ -224,16 +272,17 @@ export function MapScreen() {
       for (let y = y0; y <= y1; y++) {
         for (let x = x0; x <= x1; x++) {
           const kind = tileAt(x, y)
-          const img =
-            kind === 'wall'
-              ? tileAt(x, y - 1) === 'wall'
-                ? sprites.tiles.wallBody
-                : sprites.tiles.wall
-              : kind === 'door'
-                ? sprites.tiles.door
-                : roomAt(x, y)?.id === 'hallway'
-                  ? sprites.tiles.floorHall
-                  : sprites.tiles.floorRoom
+          let img
+          if (kind === 'wall') {
+            img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
+          } else if (kind === 'door') {
+            img = lockedRef.current.has(`${x},${y}`) ? sprites.tiles.doorLocked : sprites.tiles.door
+          } else {
+            // 발밑 무늬가 곧 소유권이다. 주인 없는 곳은 맨바닥.
+            const owner = roomAt(x, y)?.id
+            const team = owner ? tilesRef.current[owner]?.ownerTeam : null
+            img = team ? sprites.tiles.floorTeam[team] : sprites.tiles.floorRoom
+          }
           ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
           const prop = propAt(x, y)
           if (prop) ctx.drawImage(sprites.props[prop], x * TILE - camX, y * TILE - camY)
@@ -241,14 +290,16 @@ export function MapScreen() {
       }
 
       for (const r of ROOMS) {
-        if (r.id === 'hallway') continue
-        const cx = ((r.x1 + r.x2 + 1) / 2) * TILE - camX
-        const cy = (r.y1 + 0.3) * TILE - camY
+        const rect = r.rects[0]
+        const cx = (rect.x + rect.w / 2) * TILE - camX
+        const cy = (rect.y + 0.3) * TILE - camY
+        if (cx < -60 || cy < -20 || cx > canvas!.width + 60 || cy > canvas!.height + 20) continue
+        const team = tilesRef.current[r.id]?.ownerTeam
         ctx.font = '7px "Gothic A1", sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.fillStyle = PAL.mid
-        ctx.fillText(r.name, Math.round(cx), Math.round(cy))
+        ctx.fillText(team ? `${r.name} · ${team}` : r.name, Math.round(cx), Math.round(cy))
       }
 
       // 바닥에 놓인 조각 — 방 한가운데에 종잇조각으로
@@ -256,8 +307,9 @@ export function MapScreen() {
         if (f.state !== 'onFloor') continue
         const room = ROOMS.find((r) => r.id === f.roomId)
         if (!room) continue
-        const cx = ((room.x1 + room.x2 + 1) / 2) * TILE - camX
-        const cy = ((room.y1 + room.y2 + 1) / 2) * TILE - camY
+        const rect = room.rects[0]
+        const cx = (rect.x + rect.w / 2) * TILE - camX
+        const cy = (rect.y + rect.h / 2) * TILE - camY
         ctx.fillStyle = PAL.paper
         ctx.fillRect(Math.round(cx - 4), Math.round(cy - 3), 8, 6)
         ctx.fillStyle = PAL.ink
@@ -308,24 +360,34 @@ export function MapScreen() {
       unsubPositions()
       if (viewerId) clearPosition(viewerId)
     }
-    // 캔버스 루프는 한 번만 세운다. 방·조각 같은 변하는 값은 ref와 리렌더로 따라간다.
+    // 캔버스 루프는 한 번만 세운다. 방·조각·소유권 같은 변하는 값은 ref와 리렌더로 따라간다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewerId])
 
-  async function run(fn: () => Promise<void>) {
+  async function run(fn: () => Promise<void>, done?: string) {
     setError('')
+    setNotice('')
     try {
       await fn()
+      if (done) setNotice(done)
     } catch (e) {
       setError(e instanceof Error ? e.message : '할 수 없다.')
     }
   }
 
-  const roomName = ROOMS.find((r) => r.id === myRoomId)?.name ?? '복도'
+  const here = myRoomId ? tileById[myRoomId] : null
+  const roomName = here?.name ?? '문턱'
   const alone = roomOccupantIds.length === 0
   const recent = spatialEvents
     .filter((e) => e.witnessIds.includes(viewerId ?? '') && Date.now() - e.createdAtMs < 60_000)
     .slice(-3)
+
+  const isMine = hereOwner !== null && hereOwner === myTeamId
+  const canAct = actionsLeftToday > 0 && !amBlockedToday
+  const buildable = hereTile && here && isMine ? here.buildingSlots - hereTile.buildings.length : 0
+  const affordable = myTeam
+    ? BUILDINGS.filter((b) => b.cost.money <= myTeam.resources.money && b.cost.food <= myTeam.resources.food)
+    : []
 
   return (
     <div className="sc-map">
@@ -356,10 +418,128 @@ export function MapScreen() {
 
       <div className="sc-map__panel">
         {error && <p className="sc-map__error">{error}</p>}
+        {notice && <p className="sc-map__notice">{notice}</p>}
 
         <div className="sc-map__witness">
           {alone ? '지금 하는 일은 아무도 모른다.' : `${roomOccupantIds.length}명이 보고 있다.`}
         </div>
+
+        {/* ── 이 구역 ── 걷는 자리와 뺏는 자리가 같아서, 여기서 바로 손을 쓴다 */}
+        {here && (
+          <section className="sc-map__zone">
+            <span className="sc-map__label">
+              이 구역 · {hereOwner ? `${teamById[hereOwner].name} 차지` : '주인 없음'} · 값어치 {hereValue}
+            </span>
+            {rivalTeamsHere.length > 0 && (
+              <p className="sc-map__guard">
+                {rivalTeamsHere.map((t) => teamById[t].name).join('·')} 사람이 여기 서 있다. 비켜야 넘어간다.
+              </p>
+            )}
+            {hereTile && hereTile.buildings.length > 0 && (
+              <p className="sc-map__built">
+                {hereTile.buildings
+                  .map((b) => `${BUILDINGS.find((s) => s.kind === b.kind)?.name ?? b.kind}${b.level > 1 ? ' II' : ''}`)
+                  .join(' · ')}
+              </p>
+            )}
+
+            <div className="sc-map__acts">
+              {!isMine && !here.homeOf && (
+                <button
+                  disabled={!canAct || !canTakeHere.ok}
+                  title={canTakeHere.ok ? undefined : canTakeHere.reason}
+                  onClick={() => run(() => doExpand(myRoomId as TileId), '여기를 차지했다.')}
+                >
+                  차지한다{hereExpandCost ? ` (${costText(hereExpandCost)})` : ''}
+                </button>
+              )}
+              {isMine && buildable > 0 && (
+                <button disabled={!canAct} onClick={() => setOpenBuild((v) => !v)}>
+                  짓는다 · 자리 {buildable}
+                </button>
+              )}
+              {isMine && (
+                <button disabled={!canAct} onClick={() => run(() => doProduce(), '돈 2 · 식량 2를 거뒀다.')}>
+                  거둔다
+                </button>
+              )}
+              {isMine && (
+                <button disabled={!canAct} onClick={() => run(() => doResearch(), '카드를 한 장 얻었다.')}>
+                  머리를 맞댄다
+                </button>
+              )}
+              {!isMine && (
+                <button disabled={!canAct} onClick={() => run(() => doExplore(), '뭔가를 찾아냈다.')}>
+                  둘러본다
+                </button>
+              )}
+              {hereOwner && !isMine && (
+                <button disabled={!canAct} onClick={() => setOpenSabotage((v) => !v)}>
+                  손을 쓴다
+                </button>
+              )}
+            </div>
+
+            {openBuild && (
+              <div className="sc-map__menu">
+                {affordable.length === 0 && <p className="sc-map__muted">지금 지을 수 있는 게 없다.</p>}
+                {affordable.map((b) => (
+                  <button
+                    key={b.kind}
+                    onClick={() =>
+                      run(async () => {
+                        await doBuild(myRoomId as TileId, b.kind as BuildingKind)
+                        setOpenBuild(false)
+                      }, `${b.name}을(를) 세웠다.`)
+                    }
+                  >
+                    {b.name} · 돈 {b.cost.money}
+                    {b.cost.food > 0 ? ` · 식량 ${b.cost.food}` : ''}
+                  </button>
+                ))}
+                {hereTile?.buildings
+                  .filter((b) => b.level < 2)
+                  .map((b) => (
+                    <button
+                      key={`up-${b.kind}`}
+                      onClick={() =>
+                        run(async () => {
+                          await doUpgrade(myRoomId as TileId, b.kind)
+                          setOpenBuild(false)
+                        }, '한 단계 올렸다.')
+                      }
+                    >
+                      {BUILDINGS.find((s) => s.kind === b.kind)?.name} 올리기
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            {openSabotage && hereOwner && (
+              <div className="sc-map__menu">
+                {(Object.keys(SABOTAGE_LABEL) as SabotageEffectKind[]).map((kind) => (
+                  <button
+                    key={kind}
+                    onClick={() =>
+                      run(async () => {
+                        await doSabotage(hereOwner, kind)
+                        setOpenSabotage(false)
+                      }, `${teamById[hereOwner].name}에 손을 썼다.`)
+                    }
+                  >
+                    {SABOTAGE_LABEL[kind]} · 영향력 2
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p className="sc-map__muted">
+              {amBlockedToday
+                ? '약점을 잡혀 오늘은 움직일 수 없다.'
+                : `오늘 남은 행동 ${actionsLeftToday}회 · 우리 팀 ${TEAMS.length > 0 && myTeam ? myTeam.resources.actionPoints : 0}`}
+            </p>
+          </section>
+        )}
 
         {fragmentsHere.length > 0 && (
           <section>

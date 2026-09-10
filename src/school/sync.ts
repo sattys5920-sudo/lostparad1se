@@ -39,6 +39,7 @@ import {
   spendLeverage,
   withdrawTrade,
 } from './engine/territory'
+import type { Standing } from './engine/territory'
 import type {
   ActionLogEntry,
   BuildingKind,
@@ -437,8 +438,14 @@ async function runTerritoryAction(mutate: (territory: TerritoryState) => Territo
   })
 }
 
-export async function territoryExpand(day: number, team: TeamId, playerId: string, tileId: TileId): Promise<void> {
-  await runTerritoryAction((t) => performExpand(t, day, team, playerId, tileId))
+export async function territoryExpand(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  tileId: TileId,
+  standing: Standing,
+): Promise<void> {
+  await runTerritoryAction((t) => performExpand(t, day, team, playerId, tileId, standing))
 }
 
 export async function territoryBuild(
@@ -447,8 +454,9 @@ export async function territoryBuild(
   playerId: string,
   tileId: TileId,
   kind: BuildingKind,
+  standing: Standing,
 ): Promise<void> {
-  await runTerritoryAction((t) => performBuild(t, day, team, playerId, tileId, kind))
+  await runTerritoryAction((t) => performBuild(t, day, team, playerId, tileId, kind, standing))
 }
 
 export async function territoryUpgrade(
@@ -457,20 +465,36 @@ export async function territoryUpgrade(
   playerId: string,
   tileId: TileId,
   kind: BuildingKind,
+  standing: Standing,
 ): Promise<void> {
-  await runTerritoryAction((t) => performUpgrade(t, day, team, playerId, tileId, kind))
+  await runTerritoryAction((t) => performUpgrade(t, day, team, playerId, tileId, kind, standing))
 }
 
-export async function territoryResearch(day: number, team: TeamId, playerId: string): Promise<void> {
-  await runTerritoryAction((t) => performResearch(t, day, team, playerId))
+export async function territoryResearch(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  standing: Standing,
+): Promise<void> {
+  await runTerritoryAction((t) => performResearch(t, day, team, playerId, standing))
 }
 
-export async function territoryExplore(day: number, team: TeamId, playerId: string): Promise<void> {
-  await runTerritoryAction((t) => performExplore(t, day, team, playerId))
+export async function territoryExplore(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  standing: Standing,
+): Promise<void> {
+  await runTerritoryAction((t) => performExplore(t, day, team, playerId, standing))
 }
 
-export async function territoryProduce(day: number, team: TeamId, playerId: string): Promise<void> {
-  await runTerritoryAction((t) => performProduce(t, day, team, playerId))
+export async function territoryProduce(
+  day: number,
+  team: TeamId,
+  playerId: string,
+  standing: Standing,
+): Promise<void> {
+  await runTerritoryAction((t) => performProduce(t, day, team, playerId, standing))
 }
 
 export async function territorySabotage(
@@ -479,8 +503,9 @@ export async function territorySabotage(
   playerId: string,
   targetTeam: TeamId,
   kind: SabotageEffectKind,
+  standing: Standing,
 ): Promise<void> {
-  await runTerritoryAction((t) => performSabotage(t, day, team, playerId, targetTeam, kind))
+  await runTerritoryAction((t) => performSabotage(t, day, team, playerId, targetTeam, kind, standing))
 }
 
 export async function territoryPlayCard(
