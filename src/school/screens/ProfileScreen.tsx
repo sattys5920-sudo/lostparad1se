@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './ProfileScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
+import { AvatarPicker } from '../components/AvatarPicker'
 import { teamById } from '../data/teams'
 import type { MissionItemProgress } from '../engine/missionProgress'
 
@@ -35,6 +36,8 @@ export function ProfileScreen() {
     amBlockedToday,
     actionsLeftToday,
     submitHiddenGoalResolution,
+    myLook,
+    updateAvatar,
     logout,
   } = useSchoolGame()
   const [goalDraft, setGoalDraft] = useState(myPlayer?.hiddenGoalResolution ?? '')
@@ -78,6 +81,11 @@ export function ProfileScreen() {
           {amBlockedToday ? '약점을 잡혀 오늘은 움직일 수 없다' : `오늘 남은 행동 ${actionsLeftToday}회`}
         </span>
       </div>
+
+      <section className="sc-profile__section">
+        <span className="sc-profile__label">아바타</span>
+        <AvatarPicker look={myLook} team={myTeamId} onChange={(next) => void updateAvatar(next)} />
+      </section>
 
       <section className="sc-profile__section">
         <span className="sc-profile__label">공개적인 모습</span>

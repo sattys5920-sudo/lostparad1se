@@ -4,12 +4,14 @@ import { useSchoolGame } from '../state/SchoolGameContext'
 import { roleById } from '../data/roles'
 import { teamById } from '../data/teams'
 import { ChatScreen } from './ChatScreen'
+import { AvatarFace } from '../components/AvatarPicker'
 import { VOTE_LABEL, type VoteCategory } from '../types'
 
 const VOTE_ORDER: VoteCategory[] = ['trust', 'liking', 'suspicion']
 
 export function RosterScreen() {
-  const { isHost, viewerId, players, otherPlayerIds, dmWith, myVotesToday, castVote, myTeamId } = useSchoolGame()
+  const { isHost, viewerId, players, otherPlayerIds, dmWith, myVotesToday, castVote, myTeamId, lookOf } =
+    useSchoolGame()
   const [openChatId, setOpenChatId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
@@ -29,6 +31,7 @@ export function RosterScreen() {
             const team = p.teamId ? teamById[p.teamId] : null
             return (
               <li key={p.id} className="sc-roster__row sc-roster__row--host">
+                <AvatarFace look={lookOf(p.id)} team={p.teamId} />
                 <span className="sc-roster__name">{p.nickname}</span>
                 <span className="sc-roster__meta">
                   {team && (
@@ -78,6 +81,7 @@ export function RosterScreen() {
           return (
             <li key={p.id} className="sc-roster__item">
               <button className="sc-roster__row sc-roster__row--tap" onClick={() => setOpenChatId(p.id)}>
+                <AvatarFace look={lookOf(p.id)} team={p.teamId} />
                 <span className="sc-roster__left">
                   <span className="sc-roster__name">
                     {p.nickname}

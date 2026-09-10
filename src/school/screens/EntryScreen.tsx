@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import './EntryScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
+import { AvatarPicker } from '../components/AvatarPicker'
+import { defaultLook } from '../map/avatar'
+import type { AvatarLook } from '../types'
 
 export function EntryScreen() {
   const { joinAsPlayer, loginAsHost } = useSchoolGame()
@@ -9,12 +12,14 @@ export function EntryScreen() {
   const [hostCode, setHostCode] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // 팀은 아직 없다. 옷은 역할이 나눠질 때 저절로 갈아입는다.
+  const [look, setLook] = useState<AvatarLook>(() => defaultLook(crypto.randomUUID()))
 
   async function submitPlayer() {
     setError('')
     setBusy(true)
     try {
-      await joinAsPlayer(nickname)
+      await joinAsPlayer(nickname, look)
     } catch (e) {
       setError(e instanceof Error ? e.message : '알 수 없는 오류가 발생했다.')
     } finally {
@@ -49,6 +54,7 @@ export function EntryScreen() {
               onChange={(e) => setNickname(e.target.value)}
             />
           </label>
+          <AvatarPicker look={look} team={null} onChange={setLook} />
           {error && <p className="sc-entry__error">{error}</p>}
           <button className="sc-entry__submit" disabled={busy || !nickname.trim()} onClick={submitPlayer}>
             들어가기

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { roleById } from '../data/roles'
 import { actionByKind } from '../data/actions'
 import { computeRelationshipMatrix, type RelationshipMatrix } from '../engine/relationships'
@@ -18,6 +18,7 @@ import {
 import { lockedDoorKeys, spawnFor } from '../map/world'
 import { scorePlayer } from '../engine/playerScore'
 import { occupantsOf } from '../engine/presence'
+import { defaultLook } from '../map/avatar'
 import { fragmentByDay } from '../data/fragments'
 import { teamById } from '../data/teams'
 import { tileById } from '../data/tiles'
@@ -52,6 +53,7 @@ import {
   resetSchoolSession,
   setActiveEventCard,
   setHiddenGoalResolution as setHiddenGoalResolutionSync,
+  setPlayerAvatar,
   setPlayerEnding,
   setSchoolPhase,
   releaseSchoolFragment,
@@ -78,6 +80,7 @@ import {
 } from '../sync'
 import type {
   ActionKind,
+  AvatarLook,
   BuildingKind,
   ChatMessage,
   DmThread,
@@ -140,7 +143,7 @@ interface SchoolGameValue {
   /** 지금 내 역할을 이미 확인했는지 — 재배정(리셋 후 재시작) 시 새 역할을 다시 보여주기 위해 역할 id 자체로 비교한다. */
   roleAcked: boolean
   acknowledgeRole: () => void
-  joinAsPlayer: (nickname: string) => Promise<void>
+  joinAsPlayer: (nickname: string, avatar?: AvatarLook) => Promise<void>
   loginAsHost: (code: string) => void
   logout: () => void
   hostAssignRoles: () => Promise<void>
@@ -247,6 +250,11 @@ interface SchoolGameValue {
   lockedDoors: Set<string>
   /** 내가 지도에 처음 설 자리 — 우리 팀 기지. */
   mySpawn: { x: number; y: number }
+  /** 내 아바타. 아직 고르지 않았으면 id에서 뽑은 기본값. */
+  myLook: AvatarLook
+  updateAvatar: (look: AvatarLook) => Promise<void>
+  /** 그 사람의 아바타. 명단·지도 어디서든 같은 얼굴로 보여야 한다. */
+  lookOf: (playerId: string) => AvatarLook
   /** 미션이 지정한 상대. 본인만 본다. */
   assignedTarget: PlayerProfile | null
   myMissionProgress: MissionItemProgress[]
@@ -326,6 +334,12 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     [players, viewerId],
   )
   const relationshipMatrix = useMemo(() => computeRelationshipMatrix(session.actionLog), [session.actionLog])
+
+  const lookOf = useCallback(
+    (playerId: string) => players[playerId]?.avatar ?? defaultLook(playerId),
+    [players],
+  )
+  const myLook = viewerId ? lookOf(viewerId) : defaultLook('')
 
   const assignedTarget = myPlayer?.assignedTargetId ? (players[myPlayer.assignedTargetId] ?? null) : null
 
@@ -473,11 +487,11 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     [viewerId, myMissionProgress, session.votes, session.territory],
   )
 
-  async function joinAsPlayer(nick: string) {
+  async function joinAsPlayer(nick: string, avatar?: AvatarLook) {
     const trimmed = nick.trim()
     if (!trimmed) throw new Error('닉네임을 입력해라.')
     const id = viewerId ?? crypto.randomUUID()
-    await joinSchoolSession(id, trimmed, false)
+    await joinSchoolSession(id, trimmed, false, avatar)
     localStorage.setItem(LS.playerId, id)
     localStorage.setItem(LS.nickname, trimmed)
     localStorage.setItem(LS.isHost, 'false')
@@ -740,6 +754,12 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     await territorySpendLeverage(session.day, viewerId, myTeamId, leverageId, aboutId, mode)
   }
 
+  /** 아바타는 언제든 갈아입을 수 있다. 팀이 정해지면 옷은 저절로 바뀐다. */
+  async function updateAvatar(look: AvatarLook) {
+    if (!viewerId) return
+    await setPlayerAvatar(viewerId, look)
+  }
+
   async function submitHiddenGoalResolution(text: string) {
     if (!viewerId) return
     await setHiddenGoalResolutionSync(viewerId, text)
@@ -902,6 +922,9 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     doLeaveNote,
     doReadNote,
     hostSpawnFragments,
+    myLook,
+    updateAvatar,
+    lookOf,
     hereTile,
     hereOwner,
     hereValue,

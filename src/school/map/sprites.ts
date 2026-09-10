@@ -234,62 +234,6 @@ const BOX = [
   '                ',
 ]
 
-// ── 캐릭터 (10×14) ──────────────────────────────────────────────
-// 다리 두 줄만 갈아 끼워 걷는 티를 낸다.
-
-function body(head: string[], legs: string[]): string[] {
-  return [...head, ...legs]
-}
-
-const HEAD_DOWN = [
-  '   3333   ',
-  '  333333  ',
-  ' 33111133 ',
-  ' 31111113 ',
-  ' 31311313 ',
-  ' 31111113 ',
-  '  311113  ',
-  '   3333   ',
-  '  333333  ',
-  ' 33111133 ',
-  ' 31111113 ',
-  ' 31111113 ',
-]
-
-const HEAD_UP = [
-  '   3333   ',
-  '  333333  ',
-  ' 33333333 ',
-  ' 33333333 ',
-  ' 33333333 ',
-  ' 32333323 ',
-  '  322223  ',
-  '   3333   ',
-  '  333333  ',
-  ' 33111133 ',
-  ' 31111113 ',
-  ' 31111113 ',
-]
-
-const HEAD_SIDE = [
-  '   3333   ',
-  '  333333  ',
-  '  3311133 ',
-  '  3111313 ',
-  '  3111113 ',
-  '  3111113 ',
-  '   31113  ',
-  '   3333   ',
-  '   33333  ',
-  '  3311113 ',
-  '  3111113 ',
-  '  3111113 ',
-]
-
-const LEGS_IDLE = ['  33  33  ', '  33  33  ']
-const LEGS_A = ['  3333    ', '  33  33  ']
-const LEGS_B = ['    3333  ', '  33  33  ']
-
 // ── 점령된 바닥 ─────────────────────────────────────────────────
 // 흑백이라 색으로 팀을 구분할 수 없다. 바닥 무늬로 나눈다 —
 // 어느 구역에 들어선 순간 발밑을 보면 누구 땅인지 안다.
@@ -812,28 +756,11 @@ export interface SpriteSet {
   }
   props: Record<PropKind, HTMLCanvasElement>
   marks: Record<MarkKind, HTMLCanvasElement>
-  /** [방향][프레임] — 프레임 0은 서 있는 자세. */
-  actor: Record<Dir, HTMLCanvasElement[]>
   shadow: HTMLCanvasElement
 }
 
-function flip(src: HTMLCanvasElement): HTMLCanvasElement {
-  const c = document.createElement('canvas')
-  c.width = src.width
-  c.height = src.height
-  const ctx = c.getContext('2d') as CanvasRenderingContext2D
-  ctx.translate(src.width, 0)
-  ctx.scale(-1, 1)
-  ctx.drawImage(src, 0, 0)
-  return c
-}
 
 export function buildSprites(): SpriteSet {
-  const right = [
-    bake(body(HEAD_SIDE, LEGS_IDLE)),
-    bake(body(HEAD_SIDE, LEGS_A)),
-    bake(body(HEAD_SIDE, LEGS_B)),
-  ]
   return {
     tiles: {
       floorHall: bake(FLOOR_HALL),
@@ -879,15 +806,8 @@ export function buildSprites(): SpriteSet {
       candle: bake(CANDLE),
       stain: bake(STAIN),
     },
-    actor: {
-      down: [bake(body(HEAD_DOWN, LEGS_IDLE)), bake(body(HEAD_DOWN, LEGS_A)), bake(body(HEAD_DOWN, LEGS_B))],
-      up: [bake(body(HEAD_UP, LEGS_IDLE)), bake(body(HEAD_UP, LEGS_A)), bake(body(HEAD_UP, LEGS_B))],
-      right,
-      left: right.map(flip),
-    },
-    shadow: bake(['  222222  ', ' 22222222 ']),
+    // 사람은 아바타(map/avatar.ts)가 그린다. 여기서는 발밑 그림자만 낸다.
+    shadow: bake(['   222222   ', '  22222222  ']),
   }
 }
 
-export const ACTOR_W = 10
-export const ACTOR_H = 14

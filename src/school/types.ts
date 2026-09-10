@@ -253,9 +253,19 @@ export interface RevealLogEntry {
 /** -5(관계 단절) ~ +5(특별한 관계). 플레이어 화면에는 절대 숫자로 노출하지 않는다. */
 export type RelationshipValue = -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5
 
+/** 아바타. 머리 모양과 표정은 본인이 고르고, 옷은 팀이 정한다. */
+export interface AvatarLook {
+  /** 머리 모양 0..9 */
+  hair: number
+  /** 표정 0..9 */
+  face: number
+}
+
 export interface PlayerProfile {
   id: string
   nickname: string
+  /** 본인이 고른 아바타. 안 고르면 id에서 뽑아 준다. */
+  avatar?: AvatarLook
   joinedAtMs: number
   roleId: RoleId | null
   /** 어느 팀 소속인지. 팀은 영역 점령 게임의 단위이고, 역할은 그 안에서 개인이 겪는 서사다. */

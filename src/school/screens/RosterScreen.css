@@ -142,3 +142,11 @@
   border-color: var(--sc-danger);
   color: var(--sc-danger);
 }
+
+/* 이름 옆 얼굴 — 지도에서 본 그 사람과 같은 얼굴이어야 한다. */
+.sc-roster__row canvas {
+  display: block;
+  image-rendering: pixelated;
+  margin-right: 10px;
+  flex: 0 0 auto;
+}

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import './MapScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
-import { ACTOR_H, ACTOR_W, buildSprites, PAL, type Dir } from '../map/sprites'
+import { buildSprites, PAL, type Dir } from '../map/sprites'
+import { ACTOR_H, ACTOR_W, actorSprite } from '../map/avatar'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
 import { SABOTAGE_LABEL, SPATIAL_LABEL, type BuildingKind, type SabotageEffectKind, type TileId } from '../types'
 import { BUILDINGS } from '../data/buildings'
@@ -47,6 +48,7 @@ export function MapScreen() {
     doLeaveNote,
     doReadNote,
     spatialEvents,
+    lookOf,
     // 영역
     myTeamId,
     myTeam,
@@ -88,12 +90,17 @@ export function MapScreen() {
   const tilesRef = useRef(session.territory.tiles)
   const spawnRef = useRef(mySpawn)
   const setCamRoomRef = useRef(setCamRoom)
+  // 아바타와 팀은 사람마다 다르다. 루프가 매 프레임 최신값을 읽어야 한다.
+  const lookRef = useRef(lookOf)
+  const playersRef = useRef(players)
   roomRef.current = myRoomId
   setRoomRef.current = setMyRoom
   lockedRef.current = lockedDoors
   tilesRef.current = session.territory.tiles
   spawnRef.current = mySpawn
   setCamRoomRef.current = setCamRoom
+  lookRef.current = lookOf
+  playersRef.current = players
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -360,22 +367,33 @@ export function MapScreen() {
         ctx.fillText(text, Math.round(cx), Math.round(y + 1))
       }
 
-      const cast: { px: number; py: number; dir: Dir; moving: boolean; phase: number; name: string; me: boolean }[] = [
+      interface Cast {
+        px: number
+        py: number
+        dir: Dir
+        moving: boolean
+        phase: number
+        name: string
+        me: boolean
+        id: string
+      }
+      const cast: Cast[] = [
         ...[...ghosts.entries()].map(([id, g]) => ({
           px: g.px, py: g.py, dir: g.dir, moving: g.moving, phase: g.phase,
-          name: players[id]?.nickname ?? '???', me: false,
+          name: playersRef.current[id]?.nickname ?? '???', me: false, id,
         })),
         ...(watching
           ? []
-          : [{ px: me.px, py: me.py, dir: me.dir, moving: me.moving, phase: me.phase, name: '나', me: true }]),
+          : [{ px: me.px, py: me.py, dir: me.dir, moving: me.moving, phase: me.phase, name: '나', me: true, id: viewerId as string }]),
       ].sort((a, b) => a.py - b.py)
 
       for (const a of cast) {
         const frame = a.moving ? 1 + (Math.floor(a.phase) % 2) : 0
         const x = Math.round(a.px - camX - ACTOR_W / 2)
         const y = Math.round(a.py - camY - ACTOR_H + 4)
-        ctx.drawImage(sprites.shadow, x, y + ACTOR_H - 1)
-        ctx.drawImage(sprites.actor[a.dir][frame], x, y)
+        ctx.drawImage(sprites.shadow, x + 1, y + ACTOR_H - 1)
+        // 사람마다 자기 머리·표정으로, 옷은 자기 팀으로 그린다
+        ctx.drawImage(actorSprite(lookRef.current(a.id), playersRef.current[a.id]?.teamId ?? null, a.dir, frame), x, y)
         label(a.name, a.px - camX, y - 10, a.me)
       }
 

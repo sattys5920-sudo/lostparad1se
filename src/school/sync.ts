@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { assignRoles } from './engine/setup'
+import { defaultLook } from './map/avatar'
 import {
   applyRetoldRumor,
   applyVote,
@@ -42,6 +43,7 @@ import {
 import type { Standing } from './engine/territory'
 import type {
   ActionLogEntry,
+  AvatarLook,
   BuildingKind,
   ChatMessage,
   DmThread,
@@ -194,10 +196,16 @@ export function subscribeSchoolPlayers(cb: (players: Record<string, PlayerProfil
   })
 }
 
-export async function joinSchoolSession(playerId: string, nickname: string, isHost: boolean): Promise<void> {
+export async function joinSchoolSession(
+  playerId: string,
+  nickname: string,
+  isHost: boolean,
+  avatar?: AvatarLook,
+): Promise<void> {
   const profile: PlayerProfile = {
     id: playerId,
     nickname,
+    avatar: avatar ?? defaultLook(playerId),
     joinedAtMs: Date.now(),
     roleId: null,
     teamId: null,
@@ -207,6 +215,11 @@ export async function joinSchoolSession(playerId: string, nickname: string, isHo
     endingNote: null,
   }
   await setDoc(playerRef(playerId), profile, { merge: true })
+}
+
+/** 아바타만 바꾼다. 이미 들어와 있는 사람도 언제든 갈아입을 수 있다. */
+export async function setPlayerAvatar(playerId: string, avatar: AvatarLook): Promise<void> {
+  await updateDoc(playerRef(playerId), { avatar })
 }
 
 const TEST_NAMES = [
