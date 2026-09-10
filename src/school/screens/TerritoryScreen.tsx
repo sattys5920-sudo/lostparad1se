@@ -6,6 +6,7 @@ import { TILES, tileById } from '../data/tiles'
 import { TEAMS, teamById } from '../data/teams'
 import { BUILDING_CATEGORY_LABEL, BUILDINGS, buildingByKind } from '../data/buildings'
 import { cardByKind, TARGETED_CARDS } from '../data/cards'
+import { fragmentByDay } from '../data/fragments'
 import { canExpand, expandCost, finalScores, RESOURCE_LABEL, tileValue } from '../engine/territory'
 import type { BuildingKind, ResourceBundle, SabotageEffectKind, TeamId, TileId } from '../types'
 
@@ -120,7 +121,8 @@ export function TerritoryScreen() {
           {zoneTiles.map((spec) => {
             const tileState = territory.tiles[spec.id]
             const owner = tileState.ownerTeam ? teamById[tileState.ownerTeam] : null
-            const locked = spec.coreUnlocksOnDay !== null && session.day < spec.coreUnlocksOnDay
+            const locked = !territory.unlockedTiles.includes(spec.id)
+            const fragmentMarked = territory.releasedFragments.some((d) => fragmentByDay[d]?.tileId === spec.id)
             return (
               <button
                 key={spec.id}
@@ -128,12 +130,15 @@ export function TerritoryScreen() {
                 onClick={() => setOpenTile(spec.id)}
               >
                 <span className="sc-terr__tile-main">
-                  <span className="sc-terr__tile-name">{spec.name}</span>
+                  <span className="sc-terr__tile-name">
+                    {spec.name}
+                    {fragmentMarked && <span className="sc-terr__marked"> · A가 남긴 곳</span>}
+                  </span>
                   <span className="sc-terr__tile-value">가치 {tileValue(territory, spec.id)}</span>
                 </span>
                 <span className="sc-terr__tile-sub">
                   {locked ? (
-                    <span className="sc-terr__lock">DAY {spec.coreUnlocksOnDay}부터 개방</span>
+                    <span className="sc-terr__lock">A의 기록이 열어야 들어갈 수 있다</span>
                   ) : owner ? (
                     <span className="sc-terr__owner" style={{ color: owner.color }}>
                       {owner.name} 소유
@@ -250,7 +255,6 @@ export function TerritoryScreen() {
         <TileSheet
           tileId={openTile}
           myTeamId={myTeamId}
-          day={session.day}
           territory={territory}
           busy={busy}
           onClose={() => setOpenTile(null)}
@@ -266,7 +270,6 @@ export function TerritoryScreen() {
 function TileSheet({
   tileId,
   myTeamId,
-  day,
   territory,
   busy,
   onClose,
@@ -276,7 +279,6 @@ function TileSheet({
 }: {
   tileId: TileId
   myTeamId: TeamId | null
-  day: number
   territory: ReturnType<typeof useSchoolGame>['session']['territory']
   busy: boolean
   onClose: () => void
@@ -288,8 +290,8 @@ function TileSheet({
   const tileState = territory.tiles[tileId]
   const owner = tileState.ownerTeam ? teamById[tileState.ownerTeam] : null
   const isMine = myTeamId !== null && tileState.ownerTeam === myTeamId
-  const expandCheck = myTeamId ? canExpand(territory, day, myTeamId, tileId) : { ok: false as const, reason: '' }
-  const cost = myTeamId ? expandCost(territory, myTeamId) : null
+  const expandCheck = myTeamId ? canExpand(territory, myTeamId, tileId) : { ok: false as const, reason: '' }
+  const cost = myTeamId ? expandCost(territory, myTeamId, tileId) : null
 
   return (
     <div className="sc-sheet__backdrop" onClick={onClose}>

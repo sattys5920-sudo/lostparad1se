@@ -5,7 +5,14 @@ import { computeRelationshipMatrix, type RelationshipMatrix } from '../engine/re
 import { createOriginRumor, retellRumor } from '../engine/rumors'
 import { revealText } from '../engine/reveals'
 import { evaluateMission, type MissionItemProgress } from '../engine/missionProgress'
-import { hasPlayerActedToday, initialTerritoryState } from '../engine/territory'
+import {
+  actionsUsedToday,
+  hasPlayerActedToday,
+  initialTerritoryState,
+  MAX_ACTIONS_PER_PLAYER,
+} from '../engine/territory'
+import { scorePlayer } from '../engine/playerScore'
+import { fragmentByDay } from '../data/fragments'
 import {
   addSchoolRumor,
   advanceSchoolDay,
@@ -25,6 +32,7 @@ import {
   setHiddenGoalResolution as setHiddenGoalResolutionSync,
   setPlayerEnding,
   setSchoolPhase,
+  releaseSchoolFragment,
   subscribeSchoolPlayers,
   subscribeSchoolSession,
   territoryBreakAlliance,
@@ -39,6 +47,7 @@ import {
   territoryRespondTrade,
   territoryResearch,
   territorySabotage,
+  territorySpendLeverage,
   territoryUpgrade,
   territoryWithdrawTrade,
 } from '../sync'
@@ -48,7 +57,10 @@ import type {
   ChatMessage,
   DmThread,
   EndingKey,
+  FragmentSpec,
+  LeverageToken,
   PlayerProfile,
+  PlayerScoreBreakdown,
   ResourceBundle,
   RevealKind,
   RoleSpec,
@@ -109,8 +121,22 @@ interface SchoolGameValue {
   myTeamId: TeamId | null
   myTeam: TeamState | null
   teammateIds: string[]
-  /** 오늘 우리 팀에서 내가 이미 영역 행동(확장/건설/...)을 했는지. */
+  /** 오늘 내가 쓸 수 있는 영역 행동을 다 썼는지. */
   hasActedToday: boolean
+  /** 오늘 남은 내 영역 행동 횟수. */
+  actionsLeftToday: number
+  /** 약점을 잡혀 오늘 아무것도 못 하는 상태인지. */
+  amBlockedToday: boolean
+  /** 오늘 열린 A의 기록. 진행자가 아직 열지 않았으면 null. */
+  todaysFragment: FragmentSpec | null
+  /** 지금까지 열린 A의 기록 전부. */
+  releasedFragments: FragmentSpec[]
+  hostReleaseFragment: (day: number) => Promise<void>
+  /** 내가 쥐고 있는, 아직 쓰지 않은 약점들. */
+  myLeverage: LeverageToken[]
+  spendLeverageOn: (leverageId: string, aboutId: string, mode: 'block' | 'extort') => Promise<void>
+  /** 내 개인 점수. 팀 승패와 별개로 남는다. */
+  myScore: PlayerScoreBreakdown | null
   doExpand: (tileId: TileId) => Promise<void>
   doBuild: (tileId: TileId, kind: BuildingKind) => Promise<void>
   doUpgrade: (tileId: TileId, kind: BuildingKind) => Promise<void>
@@ -137,7 +163,12 @@ interface SchoolGameValue {
   revealToPerson: (targetId: string, kind: RevealKind, custom: string) => Promise<void>
   revealToClass: (kind: RevealKind, custom: string) => Promise<void>
   performAction: (kind: ActionKind, targetId: string | null, text: string | null) => Promise<void>
-  spreadRumor: (targetId: string, text: string, parentRumorId: string | null) => Promise<void>
+  spreadRumor: (
+    targetId: string,
+    text: string,
+    parentRumorId: string | null,
+    aboutId?: string | null,
+  ) => Promise<void>
   myMissionProgress: MissionItemProgress[]
   /** 오늘 신뢰/호감 투표를 이미 누구에게 줬는지. 아직이면 null. */
   myVotesToday: Record<VoteCategory, string | null>
@@ -207,14 +238,24 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
       rumors: session.rumors,
       votes: session.votes,
       dmPartnerCount: Object.keys(dmThreads).length,
+      territory: session.territory,
     })
-  }, [viewerId, myRole, session.actionLog, session.revealLog, session.rumors, session.votes, dmThreads])
+  }, [
+    viewerId,
+    myRole,
+    session.actionLog,
+    session.revealLog,
+    session.rumors,
+    session.votes,
+    session.territory,
+    dmThreads,
+  ])
 
   const myVotesToday = useMemo<Record<VoteCategory, string | null>>(() => {
     const findTarget = (category: VoteCategory) =>
       session.votes.find((v) => v.voterId === viewerId && v.day === session.day && v.category === category)
         ?.targetId ?? null
-    return { trust: findTarget('trust'), liking: findTarget('liking') }
+    return { trust: findTarget('trust'), liking: findTarget('liking'), suspicion: findTarget('suspicion') }
   }, [session.votes, session.day, viewerId])
 
   const myTeamId = myPlayer?.teamId ?? null
@@ -223,14 +264,36 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     () => Object.values(players).filter((p) => p.teamId && p.teamId === myTeamId).map((p) => p.id),
     [players, myTeamId],
   )
+  const actionsLeftToday = viewerId
+    ? Math.max(0, MAX_ACTIONS_PER_PLAYER - actionsUsedToday(session.territory, session.day, viewerId))
+    : 0
   const hasActedToday = Boolean(viewerId) && hasPlayerActedToday(session.territory, session.day, viewerId as string)
-  const teamMemberCounts = useMemo<Record<TeamId, number>>(() => {
-    const counts: Record<TeamId, number> = { A: 0, B: 0, C: 0, D: 0 }
-    for (const p of Object.values(players)) {
-      if (p.teamId) counts[p.teamId] += 1
-    }
-    return counts
-  }, [players])
+  const amBlockedToday = Boolean(viewerId) && session.territory.blockedPlayerIds.includes(viewerId as string)
+
+  /** 오늘 열린 A의 기록. 아직 진행자가 열지 않았으면 null. */
+  const todaysFragment = useMemo(
+    () => (session.territory.releasedFragments.includes(session.day) ? (fragmentByDay[session.day] ?? null) : null),
+    [session.territory.releasedFragments, session.day],
+  )
+  const releasedFragments = useMemo(
+    () =>
+      [...session.territory.releasedFragments]
+        .sort((a, b) => a - b)
+        .map((d) => fragmentByDay[d])
+        .filter((f): f is FragmentSpec => Boolean(f)),
+    [session.territory.releasedFragments],
+  )
+
+  /** 내가 쥐고 있는, 아직 쓰지 않은 약점들. */
+  const myLeverage = useMemo(
+    () => session.territory.leverage.filter((l) => l.holderId === viewerId && l.spentAs === null),
+    [session.territory.leverage, viewerId],
+  )
+
+  const myScore = useMemo<PlayerScoreBreakdown | null>(
+    () => (viewerId ? scorePlayer(viewerId, myMissionProgress, session.votes, session.territory) : null),
+    [viewerId, myMissionProgress, session.votes, session.territory],
+  )
 
   async function joinAsPlayer(nick: string) {
     const trimmed = nick.trim()
@@ -282,7 +345,11 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
   }
 
   async function hostAdvanceDay(nextDay: number, eventCard: string | null) {
-    await advanceSchoolDay(nextDay, eventCard, teamMemberCounts)
+    await advanceSchoolDay(nextDay, eventCard)
+  }
+
+  async function hostReleaseFragment(day: number) {
+    await releaseSchoolFragment(day)
   }
 
   async function hostSetEventCard(eventCard: string | null) {
@@ -343,15 +410,19 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
       revealKind: kind,
     }
     await sendDirectMessage(viewerId, targetId, message)
-    await logReveal({
-      id: crypto.randomUUID(),
-      actorId: viewerId,
-      revealKind: kind,
-      scope: 'person',
-      targetId,
-      day: session.day,
-      createdAtMs: Date.now(),
-    })
+    // 들은 사람만 내 약점을 쥔다.
+    await logReveal(
+      {
+        id: crypto.randomUUID(),
+        actorId: viewerId,
+        revealKind: kind,
+        scope: 'person',
+        targetId,
+        day: session.day,
+        createdAtMs: Date.now(),
+      },
+      [targetId],
+    )
   }
 
   async function revealToClass(kind: RevealKind, custom: string) {
@@ -367,15 +438,19 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
       kind: 'reveal',
       revealKind: kind,
     })
-    await logReveal({
-      id: crypto.randomUUID(),
-      actorId: viewerId,
-      revealKind: kind,
-      scope: 'class',
-      targetId: null,
-      day: session.day,
-      createdAtMs: Date.now(),
-    })
+    // 반 전체에 털어놓으면 영향력을 크게 얻지만, 모두가 내 약점을 쥐게 된다.
+    await logReveal(
+      {
+        id: crypto.randomUUID(),
+        actorId: viewerId,
+        revealKind: kind,
+        scope: 'class',
+        targetId: null,
+        day: session.day,
+        createdAtMs: Date.now(),
+      },
+      otherPlayerIds.filter((id) => !players[id]?.isHost),
+    )
   }
 
   async function performAction(kind: ActionKind, targetId: string | null, text: string | null) {
@@ -396,10 +471,19 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function spreadRumor(targetId: string, text: string, parentRumorId: string | null) {
+  /**
+   * targetId는 이 이야기를 들려주는 상대, aboutId는 이야기의 대상이다.
+   * 옮겨진 소문은 대상이 속한 팀의 영향력을 실제로 깎는다.
+   */
+  async function spreadRumor(
+    targetId: string,
+    text: string,
+    parentRumorId: string | null,
+    aboutId: string | null = null,
+  ) {
     if (!viewerId) return
     const parent = parentRumorId ? session.rumors.find((r) => r.id === parentRumorId) : null
-    const rumor: RumorEntry = parent ? retellRumor(parent, text, viewerId) : createOriginRumor(text, viewerId)
+    const rumor: RumorEntry = parent ? retellRumor(parent, text, viewerId) : createOriginRumor(text, viewerId, aboutId)
     await addSchoolRumor(rumor)
     await performAction('spreadRumor', targetId, text)
   }
@@ -415,6 +499,11 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
       targetId,
       createdAtMs: Date.now(),
     })
+  }
+
+  async function spendLeverageOn(leverageId: string, aboutId: string, mode: 'block' | 'extort') {
+    if (!viewerId || !myTeamId) throw new Error('팀에 배정되지 않았다.')
+    await territorySpendLeverage(session.day, viewerId, myTeamId, leverageId, aboutId, mode)
   }
 
   async function submitHiddenGoalResolution(text: string) {
@@ -529,6 +618,14 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     myTeam,
     teammateIds,
     hasActedToday,
+    actionsLeftToday,
+    amBlockedToday,
+    todaysFragment,
+    releasedFragments,
+    hostReleaseFragment,
+    myLeverage,
+    spendLeverageOn,
+    myScore,
     doExpand,
     doBuild,
     doUpgrade,

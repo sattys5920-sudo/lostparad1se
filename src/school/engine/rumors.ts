@@ -17,10 +17,11 @@ export function driftDistortion(previous: RumorDistortion): RumorDistortion {
   return options[Math.floor(Math.random() * options.length)]
 }
 
-export function createOriginRumor(text: string, tellerId: string): RumorEntry {
+export function createOriginRumor(text: string, tellerId: string, aboutId: string | null): RumorEntry {
   return {
     id: crypto.randomUUID(),
     text,
+    aboutId,
     tellerId,
     originId: tellerId,
     parentRumorId: null,
@@ -33,6 +34,8 @@ export function retellRumor(parent: RumorEntry, text: string, tellerId: string):
   return {
     id: crypto.randomUUID(),
     text,
+    // 옮겨질 때 대상은 바뀌지 않는다 — 내용만 흔들린다.
+    aboutId: parent.aboutId,
     tellerId,
     originId: parent.originId,
     parentRumorId: parent.id,

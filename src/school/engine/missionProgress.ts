@@ -5,6 +5,7 @@ import type {
   RevealLogEntry,
   RoleSpec,
   RumorEntry,
+  TerritoryState,
   VoteEntry,
 } from '../types'
 
@@ -15,6 +16,7 @@ export interface MissionContext {
   rumors: RumorEntry[]
   votes: VoteEntry[]
   dmPartnerCount: number
+  territory: TerritoryState
 }
 
 export interface MissionItemProgress {
@@ -49,12 +51,19 @@ function countMetric(metric: MissionMetric, ctx: MissionContext): number {
       return ctx.rumors.filter(
         (r) => r.tellerId === ctx.viewerId && (metric.origin ? r.parentRumorId === null : r.parentRumorId !== null),
       ).length
+    case 'leverageHeld':
+      return ctx.territory.leverage.filter((l) => l.holderId === ctx.viewerId && l.spentAs === null).length
+    case 'leverageUsed':
+      return ctx.territory.leverage.filter((l) => l.holderId === ctx.viewerId && l.spentAs !== null).length
+    case 'territoryAction':
+      return ctx.territory.actionLog.filter((e) => e.playerId === ctx.viewerId && e.kind === metric.action).length
   }
 }
 
 export function evaluateMissionItem(item: MissionItem, ctx: MissionContext): MissionItemProgress {
   const current = countMetric(item.metric, ctx)
-  return { item, current, done: current >= item.threshold }
+  const done = item.comparison === 'atMost' ? current <= item.threshold : current >= item.threshold
+  return { item, current, done }
 }
 
 export function evaluateMission(role: RoleSpec, ctx: MissionContext): MissionItemProgress[] {

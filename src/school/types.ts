@@ -16,8 +16,25 @@ export type RoleId =
   | 'exLover' // 전 애인
   | 'stranger' // 거의 모르는 학생
 
-/** 신뢰도 · 호감도 투표 항목. 하루에 한 번, 한 사람에게만 줄 수 있다. */
-export type VoteCategory = 'trust' | 'liking'
+/**
+ * 하루에 한 번, 한 사람에게만 줄 수 있다. 같은 팀에는 줄 수 없다 —
+ * 표를 받으려면 반드시 다른 팀 사람과 관계를 만들어야 한다.
+ * 받은 표는 그 사람이 속한 팀의 영향력이 된다(신뢰 +2, 호감 +1, 의심 -2).
+ */
+export type VoteCategory = 'trust' | 'liking' | 'suspicion'
+
+export const VOTE_LABEL: Record<VoteCategory, string> = {
+  trust: '신뢰',
+  liking: '호감',
+  suspicion: '의심',
+}
+
+/** 표 한 장이 대상 팀 영향력에 주는 값. */
+export const VOTE_INFLUENCE: Record<VoteCategory, number> = {
+  trust: 2,
+  liking: 1,
+  suspicion: -2,
+}
 
 /**
  * 미션 하나를 무엇으로 판정하는지. 전부 실제 기록(행동 로그·공개 로그·소문·투표·1:1 대화 상대 수)에서
@@ -34,6 +51,12 @@ export type MissionMetric =
   | { kind: 'dmPartners' }
   /** 소문 관련: origin이면 내가 처음 퍼뜨린 소문 수, 아니면 내가 옮긴(재유포) 소문 수. */
   | { kind: 'rumor'; origin: boolean }
+  /** 내가 쥐고 있는 남의 약점 수. */
+  | { kind: 'leverageHeld' }
+  /** 내가 실제로 써먹은 약점 수. */
+  | { kind: 'leverageUsed' }
+  /** 내가 직접 한 영역 행동(확장·건설 등)의 횟수 — 팀 게임과 개인 미션을 잇는 지점. */
+  | { kind: 'territoryAction'; action: TerritoryActionKind }
 
 /** 신뢰도 · 호감도 투표 한 건. 하루에 카테고리당 한 명에게만 줄 수 있다. */
 export interface VoteEntry {
@@ -50,8 +73,10 @@ export interface MissionItem {
   text: string
   /** 판정 기준. */
   metric: MissionMetric
-  /** 이 수치에 도달하면 완료. */
+  /** 이 수치에 도달하면(atMost면 이 수치 이하로 버티면) 완료. */
   threshold: number
+  /** 기본은 atLeast. atMost면 "이 이상 쌓이지 않게 버티는" 미션이다. */
+  comparison?: 'atLeast' | 'atMost'
 }
 
 export interface RoleMission {
@@ -138,6 +163,8 @@ export interface RumorEntry {
   id: string
   /** 지금 퍼지고 있는 형태의 문장. */
   text: string
+  /** 이 소문이 누구에 대한 것인지. 서로 다른 두 사람 이상이 옮기면 그 사람 팀의 영향력이 깎인다. */
+  aboutId: string | null
   /** 이 소문을 다시 퍼뜨린 사람. 최초 발화자는 originId가 자기 자신. */
   tellerId: string
   /** 이 갈래 소문의 뿌리(최초 발화자). */
@@ -272,8 +299,8 @@ export interface TileSpec {
   baseValue: number
   /** 이 타일이 어느 팀의 기지인지. 기지는 게임 중 절대 빼앗기지 않는다. */
   homeOf: TeamId | null
-  /** 핵심 지역이면, 이 날짜가 되기 전에는 아무도 점령할 수 없다. */
-  coreUnlocksOnDay: number | null
+  /** 핵심 지역이면 A의 기록이 열어 주기 전까지 아무도 점령할 수 없고, 확장에 영향력이 든다. */
+  isCore: boolean
   /** 세울 수 있는 건물 슬롯 수. */
   buildingSlots: number
 }
@@ -452,6 +479,65 @@ export interface TerritoryState {
   sabotageEffects: SabotageEffect[]
   tradeProposals: TradeProposal[]
   alliances: AllianceEntry[]
+  /** A의 기록이 열어 준 구역. 핵심 지역은 여기 들어오기 전까지 아무도 점령할 수 없다. */
+  unlockedTiles: TileId[]
+  /** 이미 공개된 A의 기록(일차). */
+  releasedFragments: number[]
+  /** 누가 누구의 약점을 쥐고 있는지. */
+  leverage: LeverageToken[]
+  /** 약점에 눌려 오늘 영역 행동을 못 하게 된 사람들. 날이 바뀌면 비워진다. */
+  blockedPlayerIds: string[]
+}
+
+/**
+ * A가 남긴 기록 한 조각. A는 직접 개입하지 않는다 — 다만 매일 한 조각씩 드러나면서
+ * 판을 흔든다. 조각은 (1) 구역 하나를 지목해 가치를 올리고, (2) 핵심 지역을 열고,
+ * (3) 역할 한둘을 은근히 가리킨다. 지목된 역할이 누구인지는 아무도 모른다.
+ */
+export interface FragmentSpec {
+  day: number
+  title: string
+  /** A가 남긴 문장 그대로. 반 전체가 같이 읽는다. */
+  text: string
+  /** A가 무언가를 남겨 둔 구역. 공개되는 순간 가치가 오른다. */
+  tileId: TileId
+  /** 이 조각으로 열리는 구역. */
+  unlocks: TileId[]
+  /** 이 조각이 가리키는 역할. 그 역할을 가진 사람을 의심하면 효과가 두 배가 된다. */
+  implicatedRoles: RoleId[]
+}
+
+/** A의 기록이 지목한 구역이 얻는 영구 가치 보너스. */
+export const FRAGMENT_TILE_BONUS = 2
+
+/**
+ * 남의 숨긴 사실을 알게 되면 손에 쥐는 약점. 공개(reveal)를 받거나
+ * A의 기록으로 알게 된다. 한 번 쓰면 사라진다.
+ */
+export interface LeverageToken {
+  id: string
+  /** 쥐고 있는 사람. */
+  holderId: string
+  /** 누구의 약점인지. */
+  aboutId: string
+  source: 'reveal' | 'fragment'
+  spentAs: 'block' | 'extort' | null
+  day: number
+  createdAtMs: number
+}
+
+export interface PlayerScoreBreakdown {
+  /** 달성한 개인 미션. */
+  missions: number
+  trust: number
+  liking: number
+  /** 받은 의심 — 음수로 들어간다. */
+  suspicion: number
+  /** 쥐거나 써먹은 약점. */
+  secrets: number
+  /** 내가 직접 한 영역 행동 — 팀에 실제로 기여한 몫. */
+  contribution: number
+  total: number
 }
 
 export interface TeamScoreBreakdown {

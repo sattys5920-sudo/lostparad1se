@@ -1,42 +1,57 @@
 import type { TileId, TileSpec } from '../types'
 
+/**
+ * 지도는 90도 회전에 대해 완전히 대칭이다. 네 팀 모두
+ *   기지 → 1구역 2칸(합 가치 4) → 관문 2곳 중 하나 → 핵심 지역 → 중앙광장
+ * 이라는 똑같은 거리와 똑같은 가치를 마주한다. 판의 유불리는 자리가 아니라
+ * 사람에게서 나와야 하기 때문이다.
+ *
+ *                       중앙광장
+ *              운동장   강당   방송실   학생회실   ← 핵심(A의 기록이 열어 준다)
+ *                        구관(교차로)
+ *          도서관    체육관    급식실    옥상        ← 관문(두 팀이 맞닿는다)
+ *        교실 복도  과학실 미술실  음악실 동아리실  정원 창고  ← 1구역
+ *          A기지      B기지      C기지      D기지
+ */
 function slotsFor(value: number): number {
   return value >= 5 ? 2 : 1
 }
 
-function tile(id: TileId, name: string, baseValue: number, coreUnlocksOnDay: number | null = null): TileSpec {
-  return { id, name, baseValue, homeOf: null, coreUnlocksOnDay, buildingSlots: slotsFor(baseValue) }
+function tile(id: TileId, name: string, baseValue: number, isCore = false): TileSpec {
+  return { id, name, baseValue, homeOf: null, isCore, buildingSlots: slotsFor(baseValue) }
 }
 
 export const TILES: TileSpec[] = [
-  { id: 'baseA', name: 'A팀 기지', baseValue: 0, homeOf: 'A', coreUnlocksOnDay: null, buildingSlots: 0 },
-  { id: 'baseB', name: 'B팀 기지', baseValue: 0, homeOf: 'B', coreUnlocksOnDay: null, buildingSlots: 0 },
-  { id: 'baseC', name: 'C팀 기지', baseValue: 0, homeOf: 'C', coreUnlocksOnDay: null, buildingSlots: 0 },
-  { id: 'baseD', name: 'D팀 기지', baseValue: 0, homeOf: 'D', coreUnlocksOnDay: null, buildingSlots: 0 },
+  { id: 'baseA', name: 'A팀 기지', baseValue: 0, homeOf: 'A', isCore: false, buildingSlots: 0 },
+  { id: 'baseB', name: 'B팀 기지', baseValue: 0, homeOf: 'B', isCore: false, buildingSlots: 0 },
+  { id: 'baseC', name: 'C팀 기지', baseValue: 0, homeOf: 'C', isCore: false, buildingSlots: 0 },
+  { id: 'baseD', name: 'D팀 기지', baseValue: 0, homeOf: 'D', isCore: false, buildingSlots: 0 },
 
-  // 1구역 — 각 팀 기지와 바로 맞닿은 구역
-  tile('classroom', '교실', 2),
+  // 1구역 — 팀마다 두 칸, 합쳐서 가치 4로 똑같다
+  tile('classroom', '교실', 3),
   tile('hallway', '복도', 1),
-  tile('scienceRoom', '과학실', 3),
-  tile('artRoom', '미술실', 3),
-  tile('musicRoom', '음악실', 3),
+  tile('scienceRoom', '과학실', 2),
+  tile('artRoom', '미술실', 2),
+  tile('musicRoom', '음악실', 2),
   tile('clubRoom', '동아리실', 2),
-  tile('garden', '정원', 2),
+  tile('garden', '정원', 3),
   tile('storage', '창고', 1),
 
-  // 2구역 — 팀 사이를 잇는 중간 지대
+  // 관문 — 이웃한 두 팀이 반드시 부딪히는 자리
   tile('library', '도서관', 4),
-  tile('gym', '체육관', 5),
-  tile('cafeteria', '급식실', 3),
+  tile('gym', '체육관', 4),
+  tile('cafeteria', '급식실', 4),
   tile('rooftop', '옥상', 4),
-  tile('oldBuilding', '구관', 3),
 
-  // 핵심 지역 — DAY 3부터 개방된다
-  tile('playground', '운동장', 6, 3),
-  tile('auditorium', '강당', 7, 3),
-  tile('broadcastRoom', '방송실', 5, 3),
-  tile('studentCouncil', '학생회실', 5, 3),
-  tile('centralPlaza', '중앙광장', 8, 3),
+  // 교차로 — 네 관문이 모두 만나는 한 칸
+  tile('oldBuilding', '구관', 5),
+
+  // 핵심 지역 — A의 기록이 열어 주기 전에는 아무도 들어갈 수 없다
+  tile('playground', '운동장', 6, true),
+  tile('auditorium', '강당', 6, true),
+  tile('broadcastRoom', '방송실', 6, true),
+  tile('studentCouncil', '학생회실', 6, true),
+  tile('centralPlaza', '중앙광장', 8, true),
 ]
 
 export const tileById: Record<TileId, TileSpec> = Object.fromEntries(TILES.map((t) => [t.id, t])) as Record<
@@ -55,14 +70,13 @@ const EDGES: [TileId, TileId][] = [
   ['baseD', 'garden'],
   ['baseD', 'storage'],
 
-  // 1구역끼리 — 옆 팀과 맞닿는 경계
+  // 1구역끼리 — 이웃 팀과 맞닿는 경계 (A-B-C-D-A 고리)
   ['hallway', 'scienceRoom'],
   ['artRoom', 'musicRoom'],
   ['clubRoom', 'garden'],
   ['storage', 'classroom'],
 
-  // 1구역 — 2구역
-  ['classroom', 'library'],
+  // 1구역 — 관문 (관문마다 두 팀이 한 칸씩)
   ['hallway', 'library'],
   ['scienceRoom', 'library'],
   ['artRoom', 'gym'],
@@ -70,28 +84,26 @@ const EDGES: [TileId, TileId][] = [
   ['clubRoom', 'cafeteria'],
   ['garden', 'cafeteria'],
   ['storage', 'rooftop'],
-  ['hallway', 'oldBuilding'],
-  ['storage', 'oldBuilding'],
+  ['classroom', 'rooftop'],
 
-  // 2구역끼리 — 안쪽 고리
-  ['library', 'gym'],
-  ['gym', 'cafeteria'],
-  ['cafeteria', 'rooftop'],
+  // 관문 — 교차로
+  ['library', 'oldBuilding'],
+  ['gym', 'oldBuilding'],
+  ['cafeteria', 'oldBuilding'],
   ['rooftop', 'oldBuilding'],
-  ['oldBuilding', 'library'],
 
-  // 2구역 — 핵심 지역
+  // 관문 — 핵심 지역
   ['library', 'playground'],
   ['gym', 'auditorium'],
   ['cafeteria', 'broadcastRoom'],
   ['rooftop', 'studentCouncil'],
-  ['oldBuilding', 'centralPlaza'],
 
-  // 중앙광장 — 나머지 핵심 지역
-  ['centralPlaza', 'playground'],
-  ['centralPlaza', 'auditorium'],
-  ['centralPlaza', 'broadcastRoom'],
-  ['centralPlaza', 'studentCouncil'],
+  // 핵심 지역 — 중앙광장
+  ['playground', 'centralPlaza'],
+  ['auditorium', 'centralPlaza'],
+  ['broadcastRoom', 'centralPlaza'],
+  ['studentCouncil', 'centralPlaza'],
+  ['oldBuilding', 'centralPlaza'],
 ]
 
 function buildAdjacency(edges: [TileId, TileId][]): Record<TileId, TileId[]> {
@@ -106,5 +118,5 @@ function buildAdjacency(edges: [TileId, TileId][]): Record<TileId, TileId[]> {
 
 export const ADJACENCY: Record<TileId, TileId[]> = buildAdjacency(EDGES)
 
-/** 핵심 지역이 실제로 열리는 날. */
-export const CORE_UNLOCK_DAY = 3
+/** 핵심 지역을 점령할 때 드는 영향력. 영향력은 오직 투표로만 들어온다. */
+export const CORE_INFLUENCE_COST = 4

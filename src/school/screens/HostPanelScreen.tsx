@@ -2,6 +2,9 @@ import { useState } from 'react'
 import './HostPanelScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { dayByNumber, DAYS } from '../data/days'
+import { fragmentByDay } from '../data/fragments'
+import { tileById } from '../data/tiles'
+import { roleById } from '../data/roles'
 import { REVEAL_LABEL } from '../engine/reveals'
 
 const DISTORTION_LABEL: Record<string, string> = {
@@ -13,11 +16,31 @@ const DISTORTION_LABEL: Record<string, string> = {
 }
 
 export function HostPanelScreen() {
-  const { session, players, hostAdvanceDay, hostSetEventCard, hostEndGame, hostResetSession } = useSchoolGame()
+  const {
+    session,
+    players,
+    hostAdvanceDay,
+    hostSetEventCard,
+    hostEndGame,
+    hostResetSession,
+    hostReleaseFragment,
+  } = useSchoolGame()
   const [customCard, setCustomCard] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
+  const [fragmentError, setFragmentError] = useState('')
   const day = dayByNumber(session.day)
   const isLastDay = session.day >= DAYS.length
+  const fragment = fragmentByDay[session.day]
+  const alreadyReleased = session.territory.releasedFragments.includes(session.day)
+
+  async function releaseFragment() {
+    setFragmentError('')
+    try {
+      await hostReleaseFragment(session.day)
+    } catch (e) {
+      setFragmentError(e instanceof Error ? e.message : '기록을 열 수 없다.')
+    }
+  }
 
   async function advance() {
     await hostAdvanceDay(Math.min(session.day + 1, DAYS.length), null)
@@ -41,6 +64,24 @@ export function HostPanelScreen() {
         </h1>
         <p>{day.focusPrompt}</p>
       </div>
+
+      {session.phase === 'day' && fragment && (
+        <section className="sc-host__section">
+          <span className="sc-host__label">A의 기록 · DAY {session.day}</span>
+          <p className="sc-host__hint">{fragment.text}</p>
+          <p className="sc-host__hint">
+            지목하는 구역: {tileById[fragment.tileId].name}
+            {fragment.unlocks.length > 0 && ` · 열리는 곳: ${fragment.unlocks.map((t) => tileById[t].name).join(', ')}`}
+          </p>
+          <p className="sc-host__hint">
+            가리키는 역할(진행자만 본다): {fragment.implicatedRoles.map((r) => roleById[r].name).join(', ')}
+          </p>
+          {fragmentError && <p className="sc-host__hint">{fragmentError}</p>}
+          <button className="sc-host__advance" disabled={alreadyReleased} onClick={releaseFragment}>
+            {alreadyReleased ? '이미 열었다' : '반 전체에 기록을 연다'}
+          </button>
+        </section>
+      )}
 
       {session.phase === 'day' && (
         <section className="sc-host__section">

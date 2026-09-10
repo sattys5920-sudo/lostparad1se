@@ -180,3 +180,36 @@
 .sc-home__send:disabled {
   color: var(--sc-text-dim);
 }
+
+/* A의 기록 — 반 전체가 같은 문장을 읽는 순간. 공개 카드와 같은 먹색 계열로 두되,
+   테두리를 남겨 "누가 말한 것"이 아니라 "남겨진 것"으로 보이게 한다. */
+.sc-home__fragment {
+  flex-shrink: 0;
+  margin: 0 20px 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--sc-text);
+  border-left: 3px solid var(--sc-bg);
+}
+
+.sc-home__fragment-label {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--sc-line);
+}
+
+.sc-home__fragment-text {
+  margin: 0;
+  font-family: var(--sc-font-title);
+  font-size: 14.5px;
+  line-height: 1.9;
+  color: var(--sc-bg);
+  text-wrap: pretty;
+}
+
+.sc-home__fragment-foot {
+  font-size: 10px;
+  color: var(--sc-line);
+}

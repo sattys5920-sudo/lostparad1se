@@ -8,7 +8,7 @@ import { REVEAL_LABEL } from '../engine/reveals'
 import { withParticle } from '../lib/particle'
 
 export function HomeScreen() {
-  const { session, players, viewerId, myRole, sendGroupChat, revealToClass } = useSchoolGame()
+  const { session, players, viewerId, myRole, sendGroupChat, revealToClass, todaysFragment } = useSchoolGame()
   const [draft, setDraft] = useState('')
   const [actionSheetOpen, setActionSheetOpen] = useState(false)
   const [revealOpen, setRevealOpen] = useState(false)
@@ -34,6 +34,14 @@ export function HomeScreen() {
         <p className="sc-home__desc">{day.description}</p>
         {session.activeEventCard && <span className="sc-home__event">오늘: {session.activeEventCard}</span>}
       </div>
+
+      {todaysFragment && (
+        <div className="sc-home__fragment">
+          <span className="sc-home__fragment-label">{todaysFragment.title}</span>
+          <p className="sc-home__fragment-text">{todaysFragment.text}</p>
+          <span className="sc-home__fragment-foot">A가 남긴 기록이다. 아무도 대답할 수 없다.</span>
+        </div>
+      )}
 
       <div className="sc-home__feed" ref={scrollRef}>
         {session.groupChat.length === 0 && <p className="sc-home__empty">아직 아무 말도 오가지 않았다.</p>}

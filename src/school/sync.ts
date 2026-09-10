@@ -16,9 +16,12 @@ import {
 import { db } from '../firebase'
 import { assignRoles } from './engine/setup'
 import {
+  applyRetoldRumor,
+  applyVote,
   assignTeams,
   breakAlliance,
   dailyRollover,
+  grantLeverage,
   initialTerritoryState,
   performBuild,
   performExpand,
@@ -30,8 +33,10 @@ import {
   playCard,
   proposeAlliance,
   proposeTrade,
+  releaseFragment,
   respondAlliance,
   respondTrade,
+  spendLeverage,
   withdrawTrade,
 } from './engine/territory'
 import type {
@@ -139,8 +144,41 @@ export async function sendDirectMessage(a: string, b: string, message: ChatMessa
   )
 }
 
-export async function logReveal(entry: RevealLogEntry): Promise<void> {
-  await updateDoc(sessionRef(), { revealLog: arrayUnion(entry) })
+/**
+ * 공개는 거래다. 털어놓은 쪽은 그 자리에서 영향력을 얻지만(취약함이 관계를 만든다),
+ * 들은 쪽은 그 사람의 약점을 손에 쥔다. 반 전체에 공개하면 더 크게 얻고, 더 많이 잡힌다.
+ */
+export async function logReveal(entry: RevealLogEntry, audienceIds: string[]): Promise<void> {
+  await runTransaction(requireDb(), async (tx) => {
+    const [sessionSnap, actorSnap] = await Promise.all([tx.get(sessionRef()), tx.get(playerRef(entry.actorId))])
+    const current: SchoolSessionState = { ...emptySession, ...(sessionSnap.data() as Partial<SchoolSessionState>) }
+    const actor = actorSnap.data() as PlayerProfile | undefined
+
+    let territory = current.territory
+    // 숨긴 사실을 밝힌 경우에만 약점이 생긴다. 역할이나 직접 쓴 글은 약점이 되지 않는다.
+    if (entry.revealKind === 'privateFact') {
+      for (const listenerId of audienceIds) {
+        territory = grantLeverage(territory, listenerId, entry.actorId, 'reveal', entry.day)
+      }
+      if (actor?.teamId) {
+        const gain = entry.scope === 'class' ? 6 : 3
+        territory = {
+          ...territory,
+          teams: {
+            ...territory.teams,
+            [actor.teamId]: {
+              ...territory.teams[actor.teamId],
+              resources: {
+                ...territory.teams[actor.teamId].resources,
+                influence: territory.teams[actor.teamId].resources.influence + gain,
+              },
+            },
+          },
+        }
+      }
+    }
+    tx.update(sessionRef(), { revealLog: arrayUnion(entry), territory })
+  })
 }
 
 export function subscribeSchoolPlayers(cb: (players: Record<string, PlayerProfile>) => void): Unsubscribe {
@@ -196,19 +234,13 @@ export async function setSchoolPhase(phase: GamePhase): Promise<void> {
 
 /**
  * 다음 날로 넘어간다. 이미 진행 중이던 날(phase가 'day')에서 넘어가는 것이라면
- * 그 날의 건물 생산·행동력 재충전·만료된 견제 효과 정리(dailyRollover)를 함께 처리한다.
- * teamMemberCounts는 팀별 행동력을 팀원 수만큼 재충전하기 위해 필요하다(클라이언트가 이미 들고 있는 값).
+ * 그 날의 건물 생산·행동력 재충전·만료된 견제와 족쇄 정리(dailyRollover)를 함께 처리한다.
  */
-export async function advanceSchoolDay(
-  nextDay: number,
-  eventCard: string | null,
-  teamMemberCounts: Record<TeamId, number>,
-): Promise<void> {
+export async function advanceSchoolDay(nextDay: number, eventCard: string | null): Promise<void> {
   await runTransaction(requireDb(), async (tx) => {
     const snap = await tx.get(sessionRef())
     const current: SchoolSessionState = { ...emptySession, ...(snap.data() as Partial<SchoolSessionState>) }
-    const territory =
-      current.phase === 'day' ? dailyRollover(current.territory, current.day, teamMemberCounts) : current.territory
+    const territory = current.phase === 'day' ? dailyRollover(current.territory, current.day) : current.territory
     tx.update(sessionRef(), {
       day: nextDay,
       activeEventCard: eventCard,
@@ -216,6 +248,11 @@ export async function advanceSchoolDay(
       territory,
     })
   })
+}
+
+/** 진행자 전용: 그날의 A의 기록을 반 전체에 연다. 구역이 열리고, 지목된 구역의 가치가 오른다. */
+export async function releaseSchoolFragment(day: number): Promise<void> {
+  await runTerritoryAction((t) => releaseFragment(t, day))
 }
 
 export async function setActiveEventCard(eventCard: string | null): Promise<void> {
@@ -230,12 +267,49 @@ export async function logSchoolAction(entry: ActionLogEntry): Promise<void> {
   await updateDoc(sessionRef(), { actionLog: arrayUnion(entry) })
 }
 
+/**
+ * 소문은 옮겨질 때 값이 생긴다. 처음 꺼낸 사람은 그냥 말한 것이지만,
+ * 두 번째 사람부터는 그 사람 팀의 영향력을 실제로 깎는다.
+ */
 export async function addSchoolRumor(rumor: RumorEntry): Promise<void> {
-  await updateDoc(sessionRef(), { rumors: arrayUnion(rumor) })
+  await runTransaction(requireDb(), async (tx) => {
+    const sessionSnap = await tx.get(sessionRef())
+    const current: SchoolSessionState = { ...emptySession, ...(sessionSnap.data() as Partial<SchoolSessionState>) }
+
+    let territory = current.territory
+    if (rumor.parentRumorId !== null && rumor.aboutId) {
+      const aboutSnap = await tx.get(playerRef(rumor.aboutId))
+      const about = aboutSnap.data() as PlayerProfile | undefined
+      if (about?.teamId) territory = applyRetoldRumor(territory, about.teamId)
+    }
+    tx.update(sessionRef(), { rumors: arrayUnion(rumor), territory })
+  })
 }
 
+/**
+ * 표를 던지면 그 자리에서 영향력이 움직인다. 표 기록과 영향력 변동은 반드시
+ * 같은 트랜잭션 안에서 처리해야 둘이 어긋나지 않는다.
+ */
 export async function castSchoolVote(entry: VoteEntry): Promise<void> {
-  await updateDoc(sessionRef(), { votes: arrayUnion(entry) })
+  await runTransaction(requireDb(), async (tx) => {
+    const [sessionSnap, voterSnap, targetSnap] = await Promise.all([
+      tx.get(sessionRef()),
+      tx.get(playerRef(entry.voterId)),
+      tx.get(playerRef(entry.targetId)),
+    ])
+    const current: SchoolSessionState = { ...emptySession, ...(sessionSnap.data() as Partial<SchoolSessionState>) }
+    const voter = voterSnap.data() as PlayerProfile | undefined
+    const target = targetSnap.data() as PlayerProfile | undefined
+    if (!voter?.teamId || !target?.teamId) throw new Error('아직 팀이 정해지지 않았다.')
+    if (voter.teamId === target.teamId) throw new Error('같은 팀에는 표를 줄 수 없다.')
+    const already = current.votes.some(
+      (v) => v.voterId === entry.voterId && v.day === entry.day && v.category === entry.category,
+    )
+    if (already) throw new Error('오늘 그 표는 이미 썼다.')
+
+    const territory = applyVote(current.territory, entry, voter.teamId, target.teamId, target.roleId)
+    tx.update(sessionRef(), { votes: arrayUnion(entry), territory })
+  })
 }
 
 export async function setHiddenGoalResolution(playerId: string, text: string): Promise<void> {
@@ -340,6 +414,25 @@ export async function territoryRespondAlliance(allianceId: string, accept: boole
 
 export async function territoryBreakAlliance(allianceId: string): Promise<void> {
   await runTerritoryAction((t) => breakAlliance(t, allianceId))
+}
+
+/** 쥐고 있던 약점을 쓴다. 상대가 어느 팀인지 알아야 해서 플레이어 문서를 함께 읽는다. */
+export async function territorySpendLeverage(
+  day: number,
+  holderId: string,
+  holderTeam: TeamId,
+  leverageId: string,
+  aboutId: string,
+  mode: 'block' | 'extort',
+): Promise<void> {
+  await runTransaction(requireDb(), async (tx) => {
+    const [sessionSnap, aboutSnap] = await Promise.all([tx.get(sessionRef()), tx.get(playerRef(aboutId))])
+    const current: SchoolSessionState = { ...emptySession, ...(sessionSnap.data() as Partial<SchoolSessionState>) }
+    const about = aboutSnap.data() as PlayerProfile | undefined
+    if (!about?.teamId) throw new Error('상대가 아직 팀에 없다.')
+    const territory = spendLeverage(current.territory, day, leverageId, holderId, mode, holderTeam, about.teamId)
+    tx.update(sessionRef(), { territory })
+  })
 }
 
 /** 진행자 전용: 다음 회차를 위해 세션·참가자·대화방을 모두 지운다. */

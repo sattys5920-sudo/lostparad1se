@@ -174,3 +174,74 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+.sc-profile__today {
+  font-size: 11px;
+  color: var(--sc-text-dim);
+}
+
+.sc-profile__muted {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--sc-text-dim);
+}
+
+.sc-profile__error {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--sc-danger);
+}
+
+.sc-profile__leverage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid var(--sc-line);
+  padding: 8px 10px;
+}
+
+.sc-profile__leverage-name {
+  font-family: var(--sc-font-title);
+  font-size: 13px;
+  color: var(--sc-text);
+}
+
+.sc-profile__leverage-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sc-profile__leverage-actions button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--sc-line-strong);
+  background: transparent;
+  font-size: 10.5px;
+  color: var(--sc-text-2);
+}
+
+.sc-profile__score {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-profile__score li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sc-line);
+  font-size: 12.5px;
+  color: var(--sc-text-2);
+}
+
+.sc-profile__score li span:last-child {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--sc-font-title);
+  color: var(--sc-text);
+}

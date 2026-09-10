@@ -93,3 +93,24 @@
 .sc-ending__roll-title {
   color: var(--sc-text-dim);
 }
+
+.sc-ending__derived {
+  font-size: 11px;
+  color: var(--sc-text-dim);
+  line-height: 1.7;
+}
+
+.sc-ending__keep {
+  align-self: flex-start;
+  margin-top: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--sc-text);
+  background: transparent;
+  font-size: 12px;
+  color: var(--sc-text);
+}
+
+.sc-ending__keep:disabled {
+  opacity: 0.4;
+}
