@@ -73,6 +73,9 @@ export function MapScreen() {
   const [noteDraft, setNoteDraft] = useState('')
   const [openNote, setOpenNote] = useState<string | null>(null)
   const [giveFor, setGiveFor] = useState<string | null>(null)
+  // 진행자는 몸이 없다(viewerId가 없다). 걸어 다니는 대신 학교를 내려다본다.
+  const spectating = !viewerId
+  const [camRoom, setCamRoom] = useState<string | null>(null)
   const [openBuild, setOpenBuild] = useState(false)
   const [openSabotage, setOpenSabotage] = useState(false)
   const [error, setError] = useState('')
@@ -84,19 +87,23 @@ export function MapScreen() {
   const lockedRef = useRef(lockedDoors)
   const tilesRef = useRef(session.territory.tiles)
   const spawnRef = useRef(mySpawn)
+  const setCamRoomRef = useRef(setCamRoom)
   roomRef.current = myRoomId
   setRoomRef.current = setMyRoom
   lockedRef.current = lockedDoors
   tilesRef.current = session.territory.tiles
   spawnRef.current = mySpawn
+  setCamRoomRef.current = setCamRoom
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !viewerId) return
+    if (!canvas) return
+    const watching = !viewerId
     const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
     const sprites = buildSprites()
 
-    const start = spawnRef.current
+    // 진행자의 시작점은 학교 한가운데다. 몸이 아니라 카메라라 벽 위에 있어도 된다.
+    const start = watching ? { x: MAP_W / 2, y: MAP_H / 2 } : spawnRef.current
     const me = {
       px: start.x * TILE + TILE / 2,
       py: start.y * TILE + TILE / 2,
@@ -154,6 +161,7 @@ export function MapScreen() {
     }
 
     function push(force = false) {
+      if (watching) return
       sendPosition(
         {
           id: viewerId as string,
@@ -168,8 +176,9 @@ export function MapScreen() {
     }
     push(true)
     const first = currentRoom()
-    if (first) setRoomRef.current(first)
-    const beat = window.setInterval(() => push(true), 4000)
+    if (first && !watching) setRoomRef.current(first)
+    if (watching) setCamRoomRef.current(first ? roomAt(Math.floor(me.px / TILE), Math.floor(me.py / TILE))!.name : null)
+    const beat = watching ? 0 : window.setInterval(() => push(true), 4000)
 
     const KEY: Record<string, Dir> = {
       ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
@@ -224,8 +233,13 @@ export function MapScreen() {
           const tx = Math.round((me.px - TILE / 2) / TILE)
           const ty = Math.round((me.py - TILE / 2) / TILE)
           const [dx, dy] = DELTA[dir]
-          if (isWalkable(tx + dx, ty + dy, lockedRef.current)) {
-            step = { fromX: tx, fromY: ty, toX: tx + dx, toY: ty + dy, startedAt: now }
+          const nx = tx + dx
+          const ny = ty + dy
+          const passable = watching
+            ? nx >= 0 && ny >= 0 && nx < MAP_W && ny < MAP_H
+            : isWalkable(nx, ny, lockedRef.current)
+          if (passable) {
+            step = { fromX: tx, fromY: ty, toX: nx, toY: ny, startedAt: now }
             me.moving = true
             push()
           }
@@ -241,7 +255,11 @@ export function MapScreen() {
           me.moving = false
           push()
           const room = currentRoom()
-          if (room && room !== roomRef.current) setRoomRef.current(room)
+          if (watching) {
+            setCamRoomRef.current(room ? roomAt(Math.floor(me.px / TILE), Math.floor(me.py / TILE))!.name : null)
+          } else if (room && room !== roomRef.current) {
+            setRoomRef.current(room)
+          }
         }
       }
 
@@ -333,7 +351,9 @@ export function MapScreen() {
           px: g.px, py: g.py, dir: g.dir, moving: g.moving, phase: g.phase,
           name: players[id]?.nickname ?? '???', me: false,
         })),
-        { px: me.px, py: me.py, dir: me.dir, moving: me.moving, phase: me.phase, name: '나', me: true },
+        ...(watching
+          ? []
+          : [{ px: me.px, py: me.py, dir: me.dir, moving: me.moving, phase: me.phase, name: '나', me: true }]),
       ].sort((a, b) => a.py - b.py)
 
       for (const a of cast) {
@@ -376,7 +396,7 @@ export function MapScreen() {
   }
 
   const here = myRoomId ? tileById[myRoomId] : null
-  const roomName = here?.name ?? '문턱'
+  const roomName = spectating ? (camRoom ?? '학교') : (here?.name ?? '문턱')
   const alone = roomOccupantIds.length === 0
   const recent = spatialEvents
     .filter((e) => e.witnessIds.includes(viewerId ?? '') && Date.now() - e.createdAtMs < 60_000)
@@ -396,7 +416,11 @@ export function MapScreen() {
         <div className="sc-map__top">
           <span className="sc-map__room">{roomName}</span>
           <span className="sc-map__here">
-            {alone ? '아무도 없다' : roomOccupantIds.map((id) => players[id]?.nickname ?? '???').join(', ')}
+            {spectating
+              ? '진행자 · 내려다보는 중'
+              : alone
+                ? '아무도 없다'
+                : roomOccupantIds.map((id) => players[id]?.nickname ?? '???').join(', ')}
           </span>
         </div>
         {recent.length > 0 && (
@@ -420,12 +444,16 @@ export function MapScreen() {
         {error && <p className="sc-map__error">{error}</p>}
         {notice && <p className="sc-map__notice">{notice}</p>}
 
-        <div className="sc-map__witness">
-          {alone ? '지금 하는 일은 아무도 모른다.' : `${roomOccupantIds.length}명이 보고 있다.`}
-        </div>
+        {spectating ? (
+          <div className="sc-map__witness">진행자는 학교를 내려다볼 뿐이다. 방향키로 둘러본다.</div>
+        ) : (
+          <div className="sc-map__witness">
+            {alone ? '지금 하는 일은 아무도 모른다.' : `${roomOccupantIds.length}명이 보고 있다.`}
+          </div>
+        )}
 
         {/* ── 이 구역 ── 걷는 자리와 뺏는 자리가 같아서, 여기서 바로 손을 쓴다 */}
-        {here && (
+        {!spectating && here && (
           <section className="sc-map__zone">
             <span className="sc-map__label">
               이 구역 · {hereOwner ? `${teamById[hereOwner].name} 차지` : '주인 없음'} · 값어치 {hereValue}
@@ -541,7 +569,7 @@ export function MapScreen() {
           </section>
         )}
 
-        {fragmentsHere.length > 0 && (
+        {!spectating && fragmentsHere.length > 0 && (
           <section>
             <span className="sc-map__label">바닥에 놓인 조각</span>
             {fragmentsHere.map((f) => (
@@ -552,7 +580,7 @@ export function MapScreen() {
           </section>
         )}
 
-        {myFragments.length > 0 && (
+        {!spectating && myFragments.length > 0 && (
           <section>
             <span className="sc-map__label">내가 쥔 조각 {myFragments.length}</span>
             {myFragments.map((f) => (
@@ -587,6 +615,7 @@ export function MapScreen() {
           </section>
         )}
 
+        {!spectating && (
         <section>
           <span className="sc-map__label">쪽지 {notesHere.length > 0 ? `· 이 방에 ${notesHere.length}장` : ''}</span>
           {notesHere.map((n) => (
@@ -627,6 +656,7 @@ export function MapScreen() {
             </button>
           </div>
         </section>
+        )}
       </div>
     </div>
   )

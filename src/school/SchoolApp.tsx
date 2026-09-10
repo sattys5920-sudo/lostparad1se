@@ -20,7 +20,8 @@ import { dayByNumber } from './data/days'
 
 function Shell() {
   const { isHost, session } = useSchoolGame()
-  const [activeTab, setActiveTab] = useState<SchoolTabId>('map')
+  // 진행자가 할 일은 진행이다. 지도로 떨어뜨리면 첫 화면이 남의 학교를 구경하는 화면이 된다.
+  const [activeTab, setActiveTab] = useState<SchoolTabId>(isHost ? 'host' : 'map')
   const day = dayByNumber(session.day)
 
   return (
