@@ -1,0 +1,82 @@
+/* 가입 계정 정리 — 대기실과 진행 화면에 같은 모습으로 붙는다. */
+.sc-acct {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px dashed var(--sc-line);
+  padding: 12px;
+}
+
+.sc-acct__label {
+  font-family: var(--sc-font-title);
+  font-size: 12px;
+  color: var(--sc-text);
+}
+
+.sc-acct__note,
+.sc-acct__notice {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--sc-text-dim);
+}
+
+.sc-acct__notice {
+  color: var(--sc-text);
+}
+
+.sc-acct__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sc-acct__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid var(--sc-line);
+  font-size: 12px;
+}
+
+.sc-acct__id {
+  font-family: var(--sc-font-title);
+  color: var(--sc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-acct__nick,
+.sc-acct__day {
+  color: var(--sc-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-acct__day { font-size: 10px; }
+
+.sc-acct__del,
+.sc-acct__refresh {
+  border: 1px solid var(--sc-line);
+  background: transparent;
+  color: var(--sc-text-dim);
+  font-size: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* 한 번 더 눌러야 지워진다는 걸 색으로 알린다 */
+.sc-acct__del.is-armed {
+  border-color: var(--sc-danger);
+  color: var(--sc-danger);
+}
+
+.sc-acct__del:disabled,
+.sc-acct__refresh:disabled { opacity: 0.5; }
+
+.sc-acct__refresh { align-self: flex-start; }

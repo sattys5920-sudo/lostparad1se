@@ -32,18 +32,31 @@ service cloud.firestore {
         allow read, write: if true;
       }
 
-      // 계정. 비밀번호는 소금을 섞은 해시로만 올라오고 원문은 오지 않는다.
-      // 목록은 막고 한 건 읽기만 연다 — 아이디를 모르면 남의 계정을 못 찾는다.
-      // 이미 있는 아이디를 덮어쓰는 것도 막는다.
+      // 계정. 비밀번호 원문은 오지 않고, 소금을 섞은 해시만 올라온다.
+      //
+      // 해시는 계정 문서가 아니라 그 아래 auth/secret에 둔다. 그래서 계정
+      // 목록을 펴 봐도(진행자가 정리하려면 필요하다) 해시는 딸려 나오지
+      // 않는다. 해시 문서는 목록 보기를 막아 아이디를 정확히 아는 사람만
+      // 한 건씩 읽을 수 있다.
       match /accounts/{accountId} {
-        allow get: if true;
-        allow list: if false;
+        // 닉네임·아바타뿐이라 열어 둔다. 진행자 화면이 이걸로 목록을 만든다
+        allow get, list: if true;
         allow create: if true;
-        // 닉네임과 아바타만 갈아 끼울 수 있다. 비밀번호 칸은 못 건드린다.
-        allow update: if !request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasAny(['salt', 'hash', 'createdAtMs']);
-        allow delete: if false;
+        // 계정 문서에 해시를 도로 심지 못하게 막는다. 고치고 난 문서에 해시가
+        // 남아 있으면 안 된다 — 걷어내는 것(예전 계정 옮기기)은 통과한다
+        allow update: if !request.resource.data.keys().hasAny(['salt', 'hash']);
+        // 진행자가 가입 데이터를 지운다
+        allow delete: if true;
+
+        match /auth/{docId} {
+          // 로그인할 때 한 건만 읽는다. 통째로 긁어 가지는 못한다
+          allow get: if true;
+          allow list: if false;
+          allow create: if true;
+          // 남의 비밀번호를 덮어써 계정을 가로채지 못하게 한다
+          allow update: if false;
+          allow delete: if true;
+        }
       }
 
       // 지도: 살아 있는 좌표, 방 출입 구간, 목격이 붙은 사건, 익명 쪽지

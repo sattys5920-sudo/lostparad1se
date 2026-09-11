@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './LobbyScreen.css'
+import { AccountAdmin } from '../components/AccountAdmin'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../data/roles'
 import { withParticle } from '../lib/particle'
@@ -149,6 +150,8 @@ export function LobbyScreen() {
               채운 인원도 역할과 팀을 정상적으로 받는다. 진행 화면에서 이들의 표를 한 번에 던지게 할 수 있다.
             </p>
           </div>
+
+          <AccountAdmin />
 
           <button className="sc-lobby__reset" disabled={busy} onClick={reset}>
             {confirmReset ? '정말 명단을 비운다 (다시 누르면 실행)' : '명단 비우기'}

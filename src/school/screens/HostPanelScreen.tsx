@@ -6,6 +6,7 @@ import { fragmentByDay } from '../data/fragments'
 import { tileById } from '../data/tiles'
 import { roleById } from '../data/roles'
 import { REVEAL_LABEL } from '../engine/reveals'
+import { AccountAdmin } from '../components/AccountAdmin'
 
 const DISTORTION_LABEL: Record<string, string> = {
   truth: '진실',
@@ -227,6 +228,10 @@ export function HostPanelScreen() {
           </button>
         </section>
       )}
+
+      <section className="sc-host__section">
+        <AccountAdmin />
+      </section>
 
       <section className="sc-host__section">
         <span className="sc-host__label">위험 구역</span>
