@@ -69,6 +69,23 @@ function requireDb(): Firestore {
   return db
 }
 
+/**
+ * Firestore가 규칙으로 막으면 "false for 'create' @ L41" 같은 말이 그대로
+ * 화면에 뜬다. 읽는 사람은 무엇을 해야 할지 알 수 없고, 정작 필요한 조치는
+ * 콘솔에 규칙을 다시 붙여넣는 것이다. 그 말을 대신 띄운다.
+ */
+function friendly(e: unknown): Error {
+  const raw = e instanceof Error ? e.message : String(e)
+  const code = (e as { code?: string })?.code
+  if (code === 'permission-denied' || /permission|false for/i.test(raw)) {
+    return new Error('서버가 요청을 막았다. 관리자가 Firestore 규칙을 최신으로 올려야 한다.')
+  }
+  if (code === 'unavailable' || /offline|network/i.test(raw)) {
+    return new Error('서버에 닿지 못했다. 연결을 확인해라.')
+  }
+  return e instanceof Error ? e : new Error(raw)
+}
+
 function accountsCol() {
   return collection(requireDb(), 'schoolSessions', 'live', 'accounts')
 }
@@ -137,12 +154,17 @@ export async function signUp(rawId: string, password: string): Promise<Account> 
   checkCredentials(id, password)
   const salt = randomSalt()
   const hash = await hashPassword(password, salt)
-  await runTransaction(requireDb(), async (tx) => {
-    const snap = await tx.get(accountRef(id))
-    if (snap.exists()) throw new Error('이미 있는 아이디다.')
-    tx.set(accountRef(id), { nickname: '', avatar: null, createdAtMs: Date.now() })
-    tx.set(secretRef(id), { salt, hash })
-  })
+  const taken = new Error('이미 있는 아이디다.')
+  try {
+    await runTransaction(requireDb(), async (tx) => {
+      const snap = await tx.get(accountRef(id))
+      if (snap.exists()) throw taken
+      tx.set(accountRef(id), { nickname: '', avatar: null, createdAtMs: Date.now() })
+      tx.set(secretRef(id), { salt, hash })
+    })
+  } catch (e) {
+    throw e === taken ? taken : friendly(e)
+  }
   return { id, nickname: '', avatar: null }
 }
 
@@ -168,7 +190,9 @@ export async function logIn(rawId: string, password: string): Promise<Account> {
   const id = normalizeId(rawId)
   const wrong = new Error('아이디나 비밀번호가 맞지 않는다.')
   if (!ID_RE.test(id) || password.length < MIN_PASSWORD) throw wrong
-  const snap = await getDoc(accountRef(id))
+  const snap = await getDoc(accountRef(id)).catch((e) => {
+    throw friendly(e)
+  })
   if (!snap.exists()) throw wrong
   const record = snap.data() as AccountDoc
   const secret = await readSecret(id, record)
@@ -187,7 +211,9 @@ export async function saveAccountCharacter(id: string, nickname: string, avatar:
 
 /** 가입한 계정을 전부 펴 본다. 소금·해시는 다른 문서에 있어 딸려 나오지 않는다. */
 export async function listAccounts(): Promise<AccountSummary[]> {
-  const snap = await getDocs(accountsCol())
+  const snap = await getDocs(accountsCol()).catch((e) => {
+    throw friendly(e)
+  })
   return snap.docs
     .map((d) => {
       const r = d.data() as AccountDoc
@@ -208,5 +234,7 @@ export async function deleteAccount(rawId: string): Promise<void> {
   const id = normalizeId(rawId)
   if (!ID_RE.test(id)) throw new Error('그런 아이디는 없다.')
   await deleteDoc(secretRef(id)).catch(() => {})
-  await deleteDoc(accountRef(id))
+  await deleteDoc(accountRef(id)).catch((e) => {
+    throw friendly(e)
+  })
 }
