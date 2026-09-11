@@ -19,6 +19,7 @@ import { ATHLETIC_MOVE_FACTOR, type TeamId } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { SCHEDULE_ORD, type FlagDoc, type ScheduleDoc, type TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
+import { openInterval } from './reveal'
 import { freshNow, myPawn, requireAwake, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
 
@@ -106,6 +107,8 @@ export const moveTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     detail: { steps: plan.walk.path.length },
   })
   await batch.commit()
+  // 떠나는 순간 그 칸의 체류가 끝난다. 걷는 동안은 어느 칸에도 없다
+  await openInterval(gameId, uid, null, nowMs, 'walking')
   await refreshViews(gameId)
   return { steps: plan.walk.path.length, arriveAtMs: arrivals(plan.walk).slice(-1)[0]?.atMs ?? firstAt }
 })

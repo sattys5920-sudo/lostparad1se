@@ -54,6 +54,7 @@ export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) 
     lastHours: false,
     invisibleId: null,
     invisibleByDay: {},
+    snow: { level: 5, stopped: false },
   }
   await ref.set(game)
   return { gameId, seats: 0, need: TOTAL_SEATS }
@@ -236,6 +237,19 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   })
 
   await batch.commit()
+
+  // 모두 기지에 선 것으로 체류 기록을 연다. 깨달음이 이걸로 센다
+  const iv = db.batch()
+  for (const s of seats) {
+    iv.set(ref.collection('secret').doc('intervals').collection('items').doc(), {
+      playerId: s.playerId,
+      tileId: BASE_OF[s.team] as TileId,
+      startMs: startedAtMs,
+      endMs: null,
+      state: 'standing',
+    })
+  }
+  await iv.commit()
 
   // 시작하자마자 각자 몫을 깎아 둔다. 첫 화면이 빈 view를 보면
   // 「아직 안 시작했나」로 보인다

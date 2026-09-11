@@ -75,6 +75,13 @@ export interface GameDoc {
   invisibleId: string | null
   /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
   invisibleByDay: Record<number, string | null>
+  /**
+   * 눈발. **단계와 그쳤는지만** 있다.
+   *
+   * 「깨달은 사람 여덟」이라고 알려 주면 남은 하나를 찾아 몰아붙이게
+   * 된다. 조건 숫자는 공개하지 않는다 — 눈발이 대신 알려 준다.
+   */
+  snow: { level: number; stopped: boolean }
 }
 
 /** games/{gameId}/tiles/{tileId} — 주인은 숨길 것이 없다. */

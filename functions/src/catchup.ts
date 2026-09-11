@@ -13,6 +13,7 @@ import { dueItems, type Due } from '../../shared/rules/catchup'
 import { accrueTokens, markComeback } from '../../shared/rules/tokens'
 import { dailyProduction, downgradeOnCapture, type TileState } from '../../shared/rules/buildings'
 import { flagCost, resolveFlag, type Standing } from '../../shared/rules/flag'
+import { openMemory, type MemoryOpened } from '../../shared/rules/memory'
 import { canPay, pay } from '../../shared/rules/buildings'
 import { releaseCommute } from '../../shared/rules/movement'
 import { publicScore, type TeamState } from '../../shared/rules/score'
@@ -47,6 +48,7 @@ import { arrivals } from '../../shared/rules/movement'
 import { SCHEDULE_ORD } from '../../shared/model'
 import { gameRef } from './index'
 import { refreshViews } from './views'
+import { openInterval, refreshAwakening } from './reveal'
 
 const db = getFirestore()
 
@@ -68,6 +70,14 @@ interface Ctx {
   game: GameDoc
   atMs: number
   day: number
+  /**
+   * 이번 따라잡기에서 칸에 선 말들. 체류 기록은 트랜잭션 **밖에서**
+   * 연다 — 도착 처리기는 이미 쓰기 단계에 있어서 더 읽을 수 없다.
+   *
+   * 모듈 바깥에 두면 안 된다. 두 요청이 동시에 따라잡으면 서로의
+   * 목록이 섞인다.
+   */
+  landed: { playerId: string; tileId: TileId; atMs: number }[]
 }
 
 /**
@@ -344,6 +354,8 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
 
   if (rest.length === 0) {
     c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null })
+    // 이 칸에 섰다. 체류 기록은 트랜잭션 밖에서 연다
+    c.landed.push({ playerId, tileId, atMs: c.atMs })
   } else {
     c.tx.update(pawnRef, { tileId: null, fromTile: tileId, path: rest, arriveAtMs: nextAtMs })
   }
@@ -376,11 +388,13 @@ async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> 
   const planterId = payload.planterId as string
 
   const flagRef = ref.collection('flags').doc(tileId)
-  const [flagSnap, pawnSnap, tileSnap, teamSnap] = await Promise.all([
+  const memRef = ref.collection('secret').doc('memories').collection('items')
+  const [flagSnap, pawnSnap, tileSnap, teamSnap, memSnap] = await Promise.all([
     c.tx.get(flagRef),
     c.tx.get(ref.collection('pawns')),
     c.tx.get(ref.collection('tiles')),
     c.tx.get(ref.collection('teams').doc(team)),
+    c.tx.get(memRef),
   ])
   // 이미 치워진 깃발이면 할 일이 없다
   if (!flagSnap.exists) return
@@ -447,6 +461,12 @@ async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> 
           detail: { to: team },
         })
       }
+
+      // A의 기억. **처음으로** 가져간 팀에게만 열린다 — 나중에 뺏은
+      // 팀에게는 열리지 않는다. 먼저 마주한 사람만 안다
+      const opened = memSnap.docs.map((d) => d.data() as MemoryOpened)
+      const fresh = openMemory({ tileId, team, atMs: c.atMs, opened })
+      if (fresh) c.tx.set(memRef.doc(tileId), fresh)
     }
   }
 
@@ -530,6 +550,7 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   })
 
   let applied = 0
+  const landed: Ctx['landed'] = []
   for (const item of dueItems(due, toMs)) {
     const handler = HANDLERS[item.kind]
     const payload = pending.docs.find((d) => d.id === item.id)?.data() as ScheduleDoc
@@ -548,6 +569,7 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
             game,
             atMs: item.dueAtMs,
             day: (payload.payload?.day as number) ?? game.day,
+            landed,
           },
           payload.payload ?? {},
         )
@@ -560,6 +582,11 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   // 토큰은 예정 이벤트가 아니라 한 번에 따라잡는다
   await accrueAll(gameId, toMs)
   await ref.update({ caughtUpToMs: toMs })
+
+  // 칸에 선 말의 체류 기록을 연다. 트랜잭션 안에서 하면 읽기·쓰기
+  // 순서에 걸린다 — 도착 처리기는 이미 쓰기 단계에 있다
+  for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs)
+  if (landed.length > 0) await refreshAwakening(gameId)
 
   // 세상이 바뀌었으면 각자 몫을 다시 깎는다. 틀린 안개는 새는 안개다
   if (applied > 0) await refreshViews(gameId)
