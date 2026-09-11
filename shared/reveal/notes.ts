@@ -6,7 +6,7 @@
 //
 // 운영자 대시보드에도 나가지 않는다. 남의 추리를 들여다보는 순간
 // 이 노트는 혼자 생각하는 자리가 아니게 된다.
-import { ROLE_IDS, type RoleId } from '../missions/roles'
+import { ROLE_IDS, type RoleId } from '../missions/roleNames'
 import { dayNumber } from '../rules/clock'
 
 /** 아직 모르겠다. 태그를 비워 두는 것과 「모름」을 고르는 것은 다르다. */

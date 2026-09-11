@@ -9,8 +9,16 @@
 //
 // 다섯 시의 창고는 여기 없다. 알아챈 사람만 피할 수 있어야 하고,
 // 알아챌 단서는 그날 아침 A의 마지막 메모에 이미 적혀 있다.
-import { ALLIANCE_CLEAR_DAY, CORE_OPENING, GOAL_REVEAL_DAY, LAST_HOURS_DAY, LAST_HOURS_START_HOUR, RUMOR_DECAY_DAY, TOTAL_DAYS } from '../rules/v2'
-import { CHOSEN_ONE_DAY } from '../missions/roles'
+import {
+  ALLIANCE_CLEAR_DAY,
+  CHOSEN_ONE_DAY,
+  CORE_OPENING,
+  GOAL_REVEAL_DAY,
+  LAST_HOURS_DAY,
+  LAST_HOURS_START_HOUR,
+  RUMOR_DECAY_DAY,
+  TOTAL_DAYS,
+} from '../rules/v2'
 import { TILE_BY_ID, type TileId } from '../rules/board'
 
 export const DAY_NAMES: Record<number, string> = {

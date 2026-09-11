@@ -16,8 +16,21 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const ROOT = new URL('..', import.meta.url).pathname
-const STORY = join(ROOT, 'functions/src/story')
 const DIST = join(ROOT, 'dist')
+
+/**
+ * 새어 나가면 안 되는 문장이 사는 곳.
+ *
+ * functions/src/story 는 처음부터 서버 전용이다. shared/missions/roles.ts
+ * 는 사정이 다르다 — 판정 엔진이 써야 해서 shared/ 에 있지만, 그 안에
+ * 열네 역할의 **숨긴 사실**이 들어 있다. 화면이 역할 이름 하나 때문에
+ * 이 파일을 부른 적이 있고, 그때 숨긴 사실 열넷이 통째로 번들에 실렸다.
+ * 이름만 필요하면 shared/missions/roleNames.ts 를 부른다.
+ */
+const SECRET_SOURCES = [
+  join(ROOT, 'functions/src/story'),
+  join(ROOT, 'shared/missions/roles.ts'),
+]
 
 /** 너무 짧은 문장은 우연히 맞을 수 있다. 이보다 짧으면 지문으로 안 쓴다. */
 const MIN_LEN = 12
@@ -52,14 +65,17 @@ function stringsIn(source: string): string[] {
 }
 
 function main(): void {
-  let storyFiles: string[]
-  try {
-    // 시험 파일은 배포되지 않는다. 단언문에 적힌 말까지 지문으로 삼으면
-    // 공개된 칸 이름이 줄줄이 걸린다
-    storyFiles = walk(STORY).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
-  } catch {
-    console.error(`서버 전용 폴더가 없다: ${STORY}`)
-    process.exit(1)
+  const storyFiles: string[] = []
+  for (const at of SECRET_SOURCES) {
+    try {
+      const files = statSync(at).isDirectory() ? walk(at) : [at]
+      // 시험 파일은 배포되지 않는다. 단언문에 적힌 말까지 지문으로 삼으면
+      // 공개된 칸 이름이 줄줄이 걸린다
+      storyFiles.push(...files.filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')))
+    } catch {
+      console.error(`서버 전용 자리가 없다: ${at}`)
+      process.exit(1)
+    }
   }
 
   // 화면 코드에 같은 말이 있으면 빼는 방식은 쓰지 않는다. 그러면 문장을
@@ -102,7 +118,8 @@ function main(): void {
       console.error(`    ← ${f.from}`)
       console.error(`    "${f.text.slice(0, 40)}${f.text.length > 40 ? '…' : ''}"`)
     }
-    console.error('\nsrc/ 에서 functions/src/story 를 import 하지 않았는지 확인해라.')
+    console.error('\nsrc/ 에서 서버 전용 파일을 import 하지 않았는지 확인해라.')
+    console.error('역할 이름만 필요하면 shared/missions/roleNames.ts 를 쓴다.')
     process.exit(1)
   }
 

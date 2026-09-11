@@ -13,21 +13,14 @@ import type { TeamId } from '../rules/v2'
 // ── 갈래와 역할 ─────────────────────────────────────────────────
 
 /** 팀의 길 · 사람의 길 · 밖의 길. 팀마다 팀의 길 하나와 밖의 길 하나를 받는다. */
-export type RolePath = 'team' | 'people' | 'outside'
+// 이름과 갈래는 공개다. roleNames.ts에 따로 두고 여기서 다시 내보낸다 —
+// 화면은 그쪽만 불러야 한다. 이 파일에는 숨긴 사실 열넷이 들어 있어서,
+// 화면이 이름 하나 때문에 이걸 부르면 전부 번들에 실린다.
+export type { RoleId, RolePath } from './roleNames'
+export { ROLE_NAMES, ROLE_PATH_LABEL, roleName } from './roleNames'
+import type { RoleId, RolePath } from './roleNames'
 
-export const ROLE_PATH_LABEL: Record<RolePath, string> = {
-  team: '팀의 길',
-  people: '사람의 길',
-  outside: '밖의 길',
-}
 
-export type RoleId =
-  // 팀의 길
-  | 'guard' | 'vanguard' | 'librarian' | 'shadow'
-  // 사람의 길
-  | 'buddy' | 'witness' | 'liar' | 'accuser' | 'notebook' | 'letter'
-  // 밖의 길
-  | 'leaver' | 'mediator' | 'transfer' | 'bystander'
 
 /** 팀마다 팀의 길에서 하나, 밖의 길에서 하나를 반드시 받는다. */
 export const REQUIRED_PATHS: readonly RolePath[] = ['team', 'outside']
@@ -514,10 +507,8 @@ export const MAX_PERSONAL_SCORE =
 
 // ── DAY 3·4의 선택 ──────────────────────────────────────────────
 
-/** 중요한 사람을 고르는 날. 고르지 않으면 종례 점수를 받을 수 없다. */
-export const CHOSEN_ONE_DAY = 3
-/** 무엇을 지킬지 고르는 날. */
-export const DAY4_CHOICE_DAY = 4
+// 날짜는 v2.ts의 시간표에 있다. 여기서 다시 내보내기만 한다
+export { CHOSEN_ONE_DAY, DAY4_CHOICE_DAY } from '../rules/v2'
 
 export type Day4Choice = 'team' | 'self' | 'bond'
 

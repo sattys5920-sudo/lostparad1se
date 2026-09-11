@@ -25,7 +25,8 @@ import {
   type DeductionNote,
   type Guess,
 } from '../../../shared/reveal/notes'
-import { ROLE_BY_ID } from '../../../shared/missions/roles'
+// 이름만 쓴다. roles.ts를 부르면 숨긴 사실 열넷이 번들에 실린다
+import { ROLE_NAMES } from '../../../shared/missions/roleNames'
 
 export interface ArchiveProps {
   items: readonly ArchiveItem[]
@@ -38,7 +39,7 @@ export interface ArchiveProps {
   onClose?: () => void
 }
 
-const guessLabel = (g: Guess): string => (g === UNKNOWN ? '모름' : ROLE_BY_ID[g].name)
+const guessLabel = (g: Guess): string => (g === UNKNOWN ? '모름' : ROLE_NAMES[g])
 
 export function Archive(props: ArchiveProps) {
   const [tab, setTab] = useState<ArchiveTab>('record')
