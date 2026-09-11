@@ -63,7 +63,9 @@ export function TerritoryScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  const scores = useMemo(() => finalScores(territory), [territory])
+  const ended = session.phase === 'ended'
+  /** 끝나기 전에는 계산조차 하지 않는다. 화면에 없는 값은 개발자도구에도 없다. */
+  const scores = useMemo(() => (ended ? finalScores(territory) : null), [territory, ended])
 
   async function run(fn: () => Promise<void>) {
     setError('')
@@ -84,14 +86,25 @@ export function TerritoryScreen() {
 
   return (
     <div className="sc-terr">
-      <div className="sc-terr__scores">
-        {TEAMS.map((t) => (
-          <span key={t.id} className="sc-terr__score">
-            <span className="sc-terr__dot" style={{ background: t.color }} />
-            {t.name} {scores[t.id].total}
-          </span>
-        ))}
-      </div>
+      {/*
+        점수판은 끝나야 열린다.
+
+        실시간으로 띄워 두면 숫자가 움직이는 것만 보고 남의 사정을 읽는다 —
+        저 팀이 방금 칸을 가져갔구나, 방금 표를 받았구나. 지도에 보이는 것과
+        대화로 들은 것 말고는 알 수 없어야 한다.
+      */}
+      {ended ? (
+        <div className="sc-terr__scores">
+          {TEAMS.map((t) => (
+            <span key={t.id} className="sc-terr__score">
+              <span className="sc-terr__dot" style={{ background: t.color }} />
+              {t.name} {scores?.[t.id].total ?? 0}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="sc-terr__scores sc-terr__scores--sealed">점수는 끝나야 열린다</div>
+      )}
 
       {myTeamId && myTeam && (
         <div className="sc-terr__mine">

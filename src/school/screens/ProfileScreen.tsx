@@ -5,6 +5,7 @@ import { CharacterCreator } from '../components/CharacterCreator'
 import type { AvatarLook } from '../types'
 import { teamById } from '../data/teams'
 import type { MissionItemProgress } from '../engine/missionProgress'
+import type { MissionMetric } from '../types'
 
 /** 초 단위로 재는 미션은 초로 보여주면 안 읽힌다. 300이 아니라 5분으로. */
 const TIME_METRICS = new Set(['aloneSeconds', 'roomSeconds', 'pairAloneWithTargetSeconds', 'withTargetSeconds'])
@@ -14,6 +15,19 @@ function asTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return s === 0 ? `${m}분` : `${m}분 ${s}초`
+}
+
+/**
+ * 남이 나에게 한 일에 걸린 항목인가.
+ *
+ * 이런 항목의 숫자를 실시간으로 띄우면 익명이 무너진다. 방금 누군가와
+ * 이야기를 마쳤는데 「받은 신뢰 2/3」이 3으로 바뀌면, 누가 줬는지 바로
+ * 안다. 표는 익명이어야 하므로 이 숫자는 끝나야 열린다.
+ */
+function dependsOnOthers(m: MissionMetric): boolean {
+  if (m.kind === 'vote') return true
+  if (m.kind === 'action' && m.direction === 'to') return true
+  return false
 }
 
 function formatProgress(p: MissionItemProgress): string {
@@ -30,6 +44,7 @@ export function ProfileScreen() {
     myRole,
     myTeamId,
     players,
+    session,
     myMissionProgress,
     myScore,
     myLeverage,
@@ -69,6 +84,9 @@ export function ProfileScreen() {
   }
 
   const myTeam = myTeamId ? teamById[myTeamId] : null
+  const ended = session.phase === 'ended'
+  const sealed = ended ? [] : myMissionProgress.filter((p) => dependsOnOthers(p.item.metric))
+  const open = myMissionProgress.filter((p) => ended || !dependsOnOthers(p.item.metric))
 
   return (
     <div className="sc-profile">
@@ -100,18 +118,24 @@ export function ProfileScreen() {
 
       <section className="sc-profile__section">
         <span className="sc-profile__label">
-          개인 미션 · {myMissionProgress.filter((p) => p.done).length}/{myRole.mission.checklist.length}
+          개인 미션 · {open.filter((p) => p.done).length}/{open.length}
+          {sealed.length > 0 && <span className="sc-profile__muted"> · {sealed.length}개는 끝나야 안다</span>}
         </span>
         <ul className="sc-profile__checklist">
-          {myMissionProgress.map((p) => (
-            <li key={p.item.text}>
-              <div className={`sc-profile__check ${p.done ? 'is-done' : ''}`}>
-                <span className="sc-profile__check-box">{p.done ? '✓' : ''}</span>
-                <span className="sc-profile__check-text">{p.item.text}</span>
-                <span className="sc-profile__check-count">{formatProgress(p)}</span>
-              </div>
-            </li>
-          ))}
+          {myMissionProgress.map((p) => {
+            const hide = !ended && dependsOnOthers(p.item.metric)
+            return (
+              <li key={p.item.text}>
+                <div className={`sc-profile__check ${!hide && p.done ? 'is-done' : ''}`}>
+                  <span className="sc-profile__check-box">{!hide && p.done ? '✓' : ''}</span>
+                  <span className="sc-profile__check-text">{p.item.text}</span>
+                  <span className="sc-profile__check-count">
+                    {hide ? '끝날 때 판정' : formatProgress(p)}
+                  </span>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       </section>
 
@@ -146,7 +170,12 @@ export function ProfileScreen() {
         ))}
       </section>
 
-      {myScore && (
+      {/*
+        점수도 끝나야 열린다. 받은 신뢰·호감·의심이 실시간으로 보이면
+        표가 익명이 아니게 된다 — 숫자가 오른 시각과 방금 만난 사람을
+        맞춰 보면 그만이다.
+      */}
+      {ended && myScore && (
         <section className="sc-profile__section">
           <span className="sc-profile__label">내 점수 · {myScore.total}</span>
           <ul className="sc-profile__score">
