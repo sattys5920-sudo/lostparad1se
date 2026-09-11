@@ -2,7 +2,8 @@ import './proto.css'
 import { firebaseConfigured } from '../firebase'
 import { floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../school/map/world'
 import { buildSprites, PAL, type Dir } from '../school/map/sprites'
-import { ACTOR_H, ACTOR_W, actorSprite, defaultLook } from '../school/map/avatar'
+import { PX, pixelFrame } from '../school/char/pixel'
+import { defaultLook } from '../school/char/look'
 import { leave, sendChat, sendPresence, STALE_MS, subscribeChat, subscribePresence, type ChatLine, type Presence } from './net'
 
 const STEP_MS = 160
@@ -270,10 +271,10 @@ function drawLabel(text: string, cx: number, y: number, inverted: boolean) {
 function drawActor(a: Actor, camX: number, camY: number, isMe: boolean) {
   const frame = a.moving ? 1 + (Math.floor(a.phase) % 2) : 0
   // 프로토타입에는 팀이 없다. 아바타는 id에서 뽑아 서로 달라 보이게만 한다.
-  const img = actorSprite(defaultLook(a.id), null, a.dir, frame)
-  const x = Math.round(a.px - camX - ACTOR_W / 2)
-  const y = Math.round(a.py - camY - ACTOR_H + 4)
-  ctx.drawImage(sprites.shadow, x + 1, y + ACTOR_H - 1)
+  const img = pixelFrame(defaultLook(a.id), null, a.dir, frame)
+  const x = Math.round(a.px - camX - PX / 2)
+  const y = Math.round(a.py - camY - PX + 4)
+  ctx.drawImage(sprites.shadow, x + 1, y + PX - 1)
   ctx.drawImage(img, x, y)
   drawLabel(a.nickname, a.px - camX, y - 10, isMe)
   if (a.bubble && a.bubble.until > Date.now()) {

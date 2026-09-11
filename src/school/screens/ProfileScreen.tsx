@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import './ProfileScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
-import { AvatarPicker } from '../components/AvatarPicker'
+import { CharacterCreator } from '../components/CharacterCreator'
+import type { AvatarLook } from '../types'
 import { teamById } from '../data/teams'
 import type { MissionItemProgress } from '../engine/missionProgress'
 
@@ -84,7 +85,7 @@ export function ProfileScreen() {
 
       <section className="sc-profile__section">
         <span className="sc-profile__label">아바타</span>
-        <AvatarPicker look={myLook} team={myTeamId} onChange={(next) => void updateAvatar(next)} />
+        <CharacterCreator look={myLook} team={myTeamId} onChange={(next: AvatarLook) => void updateAvatar(next)} />
       </section>
 
       <section className="sc-profile__section">

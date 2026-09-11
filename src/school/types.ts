@@ -253,15 +253,28 @@ export interface RevealLogEntry {
 /** -5(관계 단절) ~ +5(특별한 관계). 플레이어 화면에는 절대 숫자로 노출하지 않는다. */
 export type RelationshipValue = -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5
 
-/** 아바타. 머리 모양과 표정은 본인이 고르고, 옷은 팀이 정한다. */
+/**
+ * 아바타. 그림이 아니라 고른 값만 저장한다 — 지도든 채팅이든 이 값으로
+ * 스프라이트를 다시 그린다. 팀(완장)은 본인이 고르지 않으므로 여기 없다.
+ */
 export interface AvatarLook {
   /** 머리 모양 0..14 */
-  hair: number
-  /** 표정 0..14 */
-  face: number
-  /** 머리색 0..14. 없으면 검정. */
+  hairStyle: number
+  /** 머리색 0..8 */
+  hairColor: number
+  /** 표정 0..5 */
+  expression: number
+  /** 상의 0..5 */
+  outfit: number
+  /** 하의 — 0 바지, 1 치마 */
+  bottom: number
+}
+
+/** 예전 저장값. 필드 이름이 바뀌기 전 값도 계속 읽혀야 한다. */
+export interface LegacyAvatarLook {
+  hair?: number
+  face?: number
   color?: number
-  /** 교복 0..14. 없으면 단정한 셔츠. */
   uniform?: number
 }
 

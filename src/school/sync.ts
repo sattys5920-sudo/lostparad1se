@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { assignRoles } from './engine/setup'
-import { defaultLook } from './map/avatar'
+import { defaultLook } from './char/look'
 import {
   applyRetoldRumor,
   applyVote,

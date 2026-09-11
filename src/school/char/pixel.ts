@@ -11,7 +11,7 @@
 //
 // 테두리는 한 색이 아니다. 닿아 있는 색을 어둡게 한 값을 쓴다 —
 // 머리 테두리는 가장 어두운 머리색, 살 테두리는 진한 갈색.
-import { BAND_TONES, CLOTH, HAIR_COLORS, tone, type Tone } from './palette'
+import { BAND_TONES, BLUSH_TONE, CLOTH, HAIR_COLORS, MOUTH_TONE, SHOE_TONE, tone, type Tone } from './palette'
 import type { AvatarLook, TeamId } from '../types'
 
 export const PX = 32
@@ -25,10 +25,22 @@ export const WALK: readonly Pose[] = [0, 1, 0, 2]
 export const DIRS: readonly Dir[] = ['down', 'left', 'right', 'up']
 
 const SKIN = tone('#e6c9a8')
-const SHOE = tone('#2f3350')
-const EYE = '#3a3040'
+/** 눈은 살보다 훨씬 어두운 한 색. 표정 맵의 E 칸이다. */
+const EYE = tone('#3a3040')
 
-type Mat = 'skin' | 'hair' | 'shirt' | 'jacket' | 'accent' | 'bottom' | 'shoe' | 'eye' | 'band'
+type Mat =
+  | 'skin'
+  | 'hair'
+  | 'shirt'
+  | 'collar'
+  | 'stripe'
+  | 'accent'
+  | 'bottom'
+  | 'shoe'
+  | 'eye'
+  | 'mouth'
+  | 'blush'
+  | 'band'
 /**
  * 칸 하나가 쓸 색. 'auto'는 실루엣 둘레면 테두리, 아니면 바탕.
  * 맵에서 온 칸은 색을 직접 지정한다.
@@ -38,16 +50,23 @@ type Shade = 'auto' | 'base' | 'line' | 'light' | 'shade'
 /** [y, x0, x1] — 양끝 포함 */
 type Row = readonly [number, number, number]
 
+/**
+ * 레이어 순서. 뒷머리(0)는 몸보다 뒤, 머리통(8)은 옷보다 앞이다.
+ * 완장은 소매 위에 덮어 그려야 하므로 옷보다 위, 머리보다 아래에 둔다.
+ */
 const MAT_LAYER: Record<Mat, number> = {
   skin: 1,
   bottom: 2,
   shirt: 3,
-  jacket: 4,
+  collar: 4,
+  stripe: 4,
   shoe: 5,
   accent: 6,
-  eye: 7,
+  band: 7,
+  eye: 9,
+  mouth: 9,
+  blush: 9,
   hair: 8,
-  band: 9,
 }
 
 // ── 머리통 맵 ───────────────────────────────────────────────────
@@ -356,100 +375,117 @@ function tails(spec: HairSpec, dir: Dir): Row[] {
 }
 
 // ── 표정 ────────────────────────────────────────────────────────
+// 얼굴 눈 주변 8×4 칸만 통째로 갈아 끼운다. 머리통 맵은 건드리지 않으므로
+// 어떤 표정을 골라도 얼굴 크기와 눈 위치가 변하지 않는다.
+//
+//   S=피부  E=눈  M=입  P=볼터치
+//
+// 블록 왼쪽 위를 (12,14)에 놓으면 E가 맵의 눈 자리(x13·x18, y15·16)에
+// 정확히 얹힌다.
 
-type EyeKind = 'open' | 'happy' | 'angry' | 'sad' | 'closed'
+const FACE_X = HEAD_X + 3
+const FACE_Y = HEAD_Y + 7
 
-const EYE_OF: EyeKind[] = [
-  'open', 'happy', 'happy', 'open', 'angry',
-  'angry', 'sad', 'sad', 'open', 'open',
-  'happy', 'happy', 'closed', 'angry', 'open',
-]
-
-const EYE_Y = HEAD_Y + 8
-const EYE_L = HEAD_X + 4
-const EYE_R = HEAD_X + 9
-
-function eyeRows(kind: EyeKind, dir: Dir): { on: Row[]; off: Row[] } {
-  if (dir === 'up') return { on: [], off: [] }
-  if (dir === 'right') {
-    const x = HEAD_X + 11
-    const on: Row[] = kind === 'closed' ? [[EYE_Y + 1, x, x]] : [[EYE_Y, x, x], [EYE_Y + 1, x, x]]
-    return { on, off: [] }
-  }
-  const off: Row[] = []
-  const on: Row[] = []
-  for (const x of [EYE_L, EYE_R]) {
-    off.push([EYE_Y, x, x], [EYE_Y + 1, x, x])
-    const outward = x === EYE_L ? -1 : 1
-    switch (kind) {
-      case 'closed':
-        on.push([EYE_Y + 1, x, x])
-        break
-      case 'happy':
-        on.push([EYE_Y, x, x], [EYE_Y + 1, x - 1, x - 1], [EYE_Y + 1, x + 1, x + 1])
-        break
-      case 'angry':
-        on.push([EYE_Y, x, x], [EYE_Y + 1, x, x], [EYE_Y - 1, x + outward, x + outward])
-        break
-      case 'sad':
-        on.push([EYE_Y, x, x], [EYE_Y + 1, x, x], [EYE_Y - 1, x - outward, x - outward])
-        break
-      default:
-        on.push([EYE_Y, x, x], [EYE_Y + 1, x, x])
-    }
-  }
-  return { on, off }
+export interface ExpressionSpec {
+  name: string
+  map: string[]
 }
 
-// ── 교복 15종 ───────────────────────────────────────────────────
+export const EXPRESSIONS: ExpressionSpec[] = [
+  { name: '기본', map: ['SSSSSSSS', 'SESSSSES', 'SESSSSES', 'SSSSSSSS'] },
+  { name: '웃음', map: ['SSSSSSSS', 'SESSSSES', 'ESESSESE', 'PSSMMSSP'] },
+  { name: '화남', map: ['ESSSSSSE', 'SESSSSES', 'SESSSSES', 'SSSMMSSS'] },
+  { name: '졸림', map: ['SSSSSSSS', 'SSSSSSSS', 'SEESSEES', 'SSSSSSSS'] },
+  { name: '놀람', map: ['SSSSSSSS', 'SEESSEES', 'SEESSEES', 'SSSMMSSS'] },
+  { name: '시무룩', map: ['SSESSESS', 'SESSSSES', 'SESSSSES', 'SSSSSSSS'] },
+]
 
-type Bottom = 'pants' | 'skirt' | 'shorts'
+export const EXPRESSION_NAMES = EXPRESSIONS.map((e) => e.name)
+
+/** 옆얼굴에서 눈 한 칸이 앉는 자리 */
+const SIDE_EYE_X = HEAD_X + 11
+/** 표정 맵에서 오른쪽 눈이 있는 칸 */
+const RIGHT_EYE_COL = 6
+
+function facePix(expression: number, dir: Dir): Pix[] {
+  if (dir === 'up') return []
+  const spec = EXPRESSIONS[expression % EXPRESSIONS.length]
+  const out: Pix[] = []
+  for (let r = 0; r < spec.map.length; r++) {
+    for (let c = 0; c < spec.map[r].length; c++) {
+      const ch = spec.map[r][c]
+      if (dir === 'right') {
+        // 옆모습은 오른쪽 눈만 쓰고 입은 생략한다
+        if (ch !== 'E' || c < 4) continue
+        out.push({ x: SIDE_EYE_X - RIGHT_EYE_COL + c, y: FACE_Y + r, mat: 'eye', shade: 'base' })
+        continue
+      }
+      const x = FACE_X + c
+      const y = FACE_Y + r
+      if (ch === 'S') out.push({ x, y, mat: 'skin', shade: 'base' })
+      else if (ch === 'E') out.push({ x, y, mat: 'eye', shade: 'base' })
+      else if (ch === 'M') out.push({ x, y, mat: 'mouth', shade: 'base' })
+      else if (ch === 'P') out.push({ x, y, mat: 'blush', shade: 'base' })
+    }
+  }
+  return out
+}
+
+// ── 옷 6종 + 하의 토글 ──────────────────────────────────────────
+// 몸 실루엣 맵은 절대 건드리지 않는다. 색과 1픽셀 디테일만 바꾼다.
 
 interface OutfitSpec {
   name: string
-  shirt: Tone
-  jacket?: Tone
-  open?: boolean
-  vest?: boolean
+  /** 상의 바탕 */
+  top: Tone
+  /** 넥타이·스카프·단추 — 몸 맵의 T 칸 */
   accent?: Tone
+  /** 단추면 T 두 칸 중 왼쪽 한 칸만 쓴다 */
+  buttons?: boolean
+  /** 상의 맨 윗줄을 덮는 깃(세일러 두 줄, 후드 한 줄) */
+  collar?: Tone
+  collarRows?: number
+  /** 소매를 타고 내려가는 줄(체육복) */
+  stripe?: Tone
+  /** 아래옷 색 */
   bottom: Tone
-  kind: Bottom
-  long: boolean
 }
 
 export const OUTFITS: OutfitSpec[] = [
-  { name: '단정한 셔츠', shirt: CLOTH.shirt, accent: CLOTH.wine, bottom: CLOTH.charcoal, kind: 'pants', long: true },
-  { name: '니트 조끼', shirt: CLOTH.shirt, jacket: CLOTH.navy, vest: true, accent: CLOTH.wine, bottom: CLOTH.charcoal, kind: 'pants', long: true },
-  { name: '가디건', shirt: CLOTH.shirt, jacket: CLOTH.beige, open: true, accent: CLOTH.brown, bottom: CLOTH.charcoal, kind: 'pants', long: true },
-  { name: '재킷', shirt: CLOTH.shirt, jacket: CLOTH.navy, accent: CLOTH.red, bottom: CLOTH.navy, kind: 'pants', long: true },
-  { name: '풀어헤친 셔츠', shirt: CLOTH.shirt, bottom: CLOTH.charcoal, kind: 'pants', long: true },
-  { name: '느슨한 넥타이', shirt: CLOTH.shirt, accent: CLOTH.green, bottom: CLOTH.charcoal, kind: 'pants', long: false },
-  { name: '어깨에 걸친 재킷', shirt: CLOTH.shirt, jacket: CLOTH.charcoal, open: true, accent: CLOTH.navy, bottom: CLOTH.denim, kind: 'pants', long: false },
-  { name: '블레이저 + 리본', shirt: CLOTH.shirt, jacket: CLOTH.navy, accent: CLOTH.red, bottom: CLOTH.navy, kind: 'skirt', long: true },
-  { name: '조끼 + 스커트', shirt: CLOTH.shirt, jacket: CLOTH.wine, vest: true, accent: CLOTH.wine, bottom: CLOTH.charcoal, kind: 'skirt', long: false },
-  { name: '가디건 + 스커트', shirt: CLOTH.shirt, jacket: CLOTH.cream, open: true, accent: CLOTH.sky, bottom: CLOTH.grey, kind: 'skirt', long: true },
-  { name: '블레이저 + 넥타이', shirt: CLOTH.shirt, jacket: CLOTH.charcoal, accent: CLOTH.yellow, bottom: CLOTH.plaid, kind: 'skirt', long: true },
-  { name: '셔츠 + 리본', shirt: CLOTH.shirt, accent: CLOTH.red, bottom: CLOTH.navy, kind: 'skirt', long: false },
-  { name: '캐주얼 교복', shirt: CLOTH.cream, accent: CLOTH.sky, bottom: CLOTH.plaid, kind: 'skirt', long: false },
-  { name: '긴 가디건', shirt: CLOTH.shirt, jacket: CLOTH.grey, open: true, accent: CLOTH.wine, bottom: CLOTH.charcoal, kind: 'skirt', long: true },
-  { name: '체육복', shirt: CLOTH.shirt, accent: CLOTH.navy, bottom: CLOTH.navy, kind: 'shorts', long: false },
+  { name: '셔츠 + 넥타이', top: CLOTH.shirt, accent: CLOTH.wine, bottom: CLOTH.charcoal },
+  { name: '블레이저', top: CLOTH.navy, accent: CLOTH.red, collar: CLOTH.shirt, collarRows: 1, bottom: CLOTH.navy },
+  { name: '세일러복', top: CLOTH.shirt, accent: CLOTH.red, collar: CLOTH.navy, collarRows: 2, bottom: CLOTH.navy },
+  { name: '가디건', top: CLOTH.beige, accent: CLOTH.brown, buttons: true, bottom: CLOTH.charcoal },
+  { name: '후드티', top: CLOTH.grey, collar: CLOTH.charcoal, collarRows: 1, bottom: CLOTH.denim },
+  { name: '체육복', top: CLOTH.navy, stripe: CLOTH.shirt, bottom: CLOTH.navy },
 ]
 
 export const OUTFIT_NAMES = OUTFITS.map((o) => o.name)
 
 /** 몸 맵의 글자 하나를 재질과 색으로 바꾼다. */
-function roleOf(c: string, o: OutfitSpec, x: number, side: boolean): { mat: Mat; shade: Shade } | null {
+function roleOf(
+  c: string,
+  o: OutfitSpec,
+  x: number,
+  y: number,
+  side: boolean,
+  skirt: boolean,
+): { mat: Mat; shade: Shade } | null {
   const onArm = (side ? ARM_COLS_SIDE : ARM_COLS_FRONT).includes(x)
-  // 앞이 트인 옷(가디건)은 몸통 양 끝만, 조끼·재킷은 몸통 전체를 덮는다
-  const torso: Mat = o.jacket && !o.open ? 'jacket' : 'shirt'
-  const sleeve: Mat = o.jacket && !o.vest ? 'jacket' : 'shirt'
+  const onCollar = o.collar !== undefined && y < (o.collarRows ?? 1)
   switch (c) {
     case 'W':
-      return { mat: o.open && (x === 4 || x === 9) ? 'jacket' : torso, shade: 'base' }
+      if (onCollar) return { mat: 'collar', shade: 'base' }
+      return { mat: 'shirt', shade: 'base' }
     case 'w':
-      return { mat: onArm ? sleeve : torso, shade: 'shade' }
+      if (onArm && o.stripe) return { mat: 'stripe', shade: 'base' }
+      if (onCollar) return { mat: 'collar', shade: 'shade' }
+      return { mat: 'shirt', shade: 'shade' }
     case 'T':
-      return { mat: o.accent ? 'accent' : torso, shade: 'base' }
+      // 가디건 단추는 한 칸짜리 세로줄이다
+      if (o.buttons && x % 2 === 1) return { mat: 'shirt', shade: 'base' }
+      if (onCollar && o.collar) return { mat: 'collar', shade: 'base' }
+      return o.accent ? { mat: 'accent', shade: 'base' } : { mat: 'shirt', shade: 'base' }
     case 'K':
       return { mat: 'skin', shade: 'base' }
     case 'D':
@@ -457,7 +493,7 @@ function roleOf(c: string, o: OutfitSpec, x: number, side: boolean): { mat: Mat;
     case 'd':
       return { mat: 'bottom', shade: 'shade' }
     case 'L':
-      return { mat: o.kind === 'skirt' ? 'skin' : 'bottom', shade: 'base' }
+      return { mat: skirt ? 'skin' : 'bottom', shade: 'base' }
     case 'F':
       return { mat: 'shoe', shade: 'base' }
     default:
@@ -466,25 +502,21 @@ function roleOf(c: string, o: OutfitSpec, x: number, side: boolean): { mat: Mat;
 }
 
 /** 몸 맵을 칸 목록으로 편다. O는 이웃 글자를 보고 어느 색의 테두리인지 정한다. */
-function readBody(map: string[], o: OutfitSpec, side: boolean): Pix[] {
+function readBody(map: string[], o: OutfitSpec, side: boolean, skirt: boolean): Pix[] {
   const out: Pix[] = []
   const at = (x: number, y: number) => map[y]?.[x] ?? '.'
   for (let y = 0; y < map.length; y++) {
     for (let x = 0; x < map[y].length; x++) {
       const c = at(x, y)
       if (c === '.') continue
-      let cell = roleOf(c, o, x, side)
+      let cell = roleOf(c, o, x, y, side, skirt)
       if (c === 'O') {
         const near = [at(x, y - 1), at(x, y + 1), at(x - 1, y), at(x + 1, y)]
-          .map((n, i) => roleOf(n, o, i === 2 ? x - 1 : i === 3 ? x + 1 : x, side))
+          .map((n, i) => roleOf(n, o, i === 2 ? x - 1 : i === 3 ? x + 1 : x, y + (i === 0 ? -1 : i === 1 ? 1 : 0), side, skirt))
           .find((r) => r !== null)
         cell = { mat: near?.mat ?? 'shirt', shade: 'line' }
       }
       if (!cell) continue
-      // 반팔이면 소매 아래쪽은 맨팔이다
-      if (!o.long && c === 'w' && (side ? ARM_COLS_SIDE : ARM_COLS_FRONT).includes(x) && y >= 3) {
-        cell = { mat: 'skin', shade: 'base' }
-      }
       out.push({ x: BODY_X + x, y: BODY_Y + y, mat: cell.mat, shade: cell.shade })
     }
   }
@@ -524,25 +556,45 @@ class Grid {
 }
 
 function tonesFor(look: AvatarLook, team: TeamId | null): Record<Mat, Tone> {
-  const o = OUTFITS[(look.uniform ?? 0) % OUTFITS.length]
+  const o = OUTFITS[look.outfit % OUTFITS.length]
   return {
     skin: SKIN,
-    hair: HAIR_COLORS[(look.color ?? 0) % HAIR_COLORS.length].tone,
-    shirt: o.shirt,
-    jacket: o.jacket ?? o.shirt,
-    accent: o.accent ?? o.shirt,
+    hair: HAIR_COLORS[look.hairColor % HAIR_COLORS.length].tone,
+    shirt: o.top,
+    collar: o.collar ?? o.top,
+    stripe: o.stripe ?? o.top,
+    accent: o.accent ?? o.top,
     bottom: o.bottom,
-    shoe: SHOE,
-    eye: { base: EYE, shade: EYE, light: EYE, line: EYE },
-    band: team ? BAND_TONES[team] : SHOE,
+    shoe: SHOE_TONE,
+    eye: EYE,
+    mouth: MOUTH_TONE,
+    blush: BLUSH_TONE,
+    band: team ? BAND_TONES[team] : SHOE_TONE,
   }
+}
+
+/**
+ * 완장 — 위팔에 가로 3칸 세로 2칸, 소매 위에 덮어 그린다.
+ * 항상 "보이는 팔"에 붙인다. 왼쪽 방향은 오른쪽을 좌우 반전한 것이므로
+ * 오른쪽 기준으로 앞팔에 그려 두면 뒤집혀도 그대로 보인다.
+ */
+function bandRows(side: boolean, dir: Dir, bob = 0): Row[] {
+  // 정면은 화면 오른쪽 팔, 뒷모습은 화면 왼쪽 팔
+  const cols = side ? [5, 6, 7] : dir === 'up' ? [1, 2, 3] : [10, 11, 12]
+  const x0 = BODY_X + cols[0]
+  const x1 = BODY_X + cols[cols.length - 1]
+  return [
+    [BODY_Y + 2 + bob, x0, x1],
+    [BODY_Y + 3 + bob, x0, x1],
+  ]
 }
 
 function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Grid {
   const facing: Dir = dir === 'left' ? 'right' : dir
   const side = facing === 'right'
-  const spec = HAIR_SPECS[look.hair % HAIR_SPECS.length]
-  const o = OUTFITS[(look.uniform ?? 0) % OUTFITS.length]
+  const spec = HAIR_SPECS[look.hairStyle % HAIR_SPECS.length]
+  const o = OUTFITS[look.outfit % OUTFITS.length]
+  const skirt = look.bottom === 1
   const g = new Grid()
 
   // 몸 뒤로 흐르는 머리 먼저
@@ -550,14 +602,9 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
   g.paint(tails(spec, facing), 'hair', 'auto', 0)
 
   // 몸 — 맵 그대로
-  for (const p of readBody(bodyMap(facing, pose), o, side)) g.put(p, MAT_LAYER.shirt)
+  for (const p of readBody(bodyMap(facing, pose), o, side, skirt)) g.put(p, MAT_LAYER.shirt)
 
-  // 팀 완장 — 소매 위 두 줄
-  if (team) {
-    const x = BODY_X + (side ? ARM_COLS_SIDE[0] : ARM_COLS_FRONT[0])
-    const w = side ? 1 : 0
-    g.paint([[BODY_Y + 2, x, x + w], [BODY_Y + 3, x, x + w]], 'band', 'base', MAT_LAYER.band)
-  }
+  if (team) g.paint(bandRows(side, facing), 'band', 'base', MAT_LAYER.band)
 
   // 머리는 맨 마지막 — 목이 없으니 턱이 어깨 위에 바로 앉는다
   const head = facing === 'up' ? HEAD_BACK : side ? HEAD_SIDE : HEAD_FRONT
@@ -568,9 +615,8 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
   for (const [x, y] of side ? STRANDS_SIDE : STRANDS_FRONT) {
     if (g.at(x, y)?.mat === 'hair') g.paint([[y, x, x]], 'hair', 'shade', MAT_LAYER.hair)
   }
-  const e = eyeRows(EYE_OF[look.face % EYE_OF.length], facing)
-  g.paint(e.off, 'skin', 'base', MAT_LAYER.hair)
-  g.paint(e.on, 'eye', 'base', MAT_LAYER.eye + 2)
+  // 표정은 맨 마지막 — 앞머리가 덮는 자리가 아니라 얼굴 안쪽이다
+  for (const p of facePix(look.expression, facing)) g.put(p, MAT_LAYER[p.mat])
   return g
 }
 
@@ -610,7 +656,7 @@ function mirrored(src: HTMLCanvasElement): HTMLCanvasElement {
 
 /** 지도에 찍는 한 칸. 32×32. */
 export function pixelFrame(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number): HTMLCanvasElement {
-  const key = `${look.hair}-${look.color ?? 0}-${look.face}-${look.uniform ?? 0}-${team ?? '-'}-${dir}-${frame}`
+  const key = `${look.hairStyle}-${look.hairColor}-${look.expression}-${look.outfit}-${look.bottom}-${team ?? '-'}-${dir}-${frame}`
   const hit = cache.get(key)
   if (hit) return hit
   const drawn = paint(build(look, team, dir, WALK[frame % WALK.length]), tonesFor(look, team))

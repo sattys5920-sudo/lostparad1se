@@ -18,7 +18,7 @@ import {
 import { lockedDoorKeys, spawnFor } from '../map/world'
 import { scorePlayer } from '../engine/playerScore'
 import { occupantsOf } from '../engine/presence'
-import { defaultLook } from '../map/avatar'
+import { defaultLook, normalizeLook } from '../char/look'
 import { fragmentByDay } from '../data/fragments'
 import { teamById } from '../data/teams'
 import { tileById } from '../data/tiles'
@@ -336,7 +336,10 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
   const relationshipMatrix = useMemo(() => computeRelationshipMatrix(session.actionLog), [session.actionLog])
 
   const lookOf = useCallback(
-    (playerId: string) => players[playerId]?.avatar ?? defaultLook(playerId),
+    (playerId: string) => {
+      const saved = players[playerId]?.avatar
+      return saved ? normalizeLook(saved) : defaultLook(playerId)
+    },
     [players],
   )
   const myLook = viewerId ? lookOf(viewerId) : defaultLook('')

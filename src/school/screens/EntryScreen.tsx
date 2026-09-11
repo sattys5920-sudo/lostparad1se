@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import './EntryScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
-import { AvatarPicker } from '../components/AvatarPicker'
-import { defaultLook } from '../map/avatar'
+import { CharacterCreator } from '../components/CharacterCreator'
+import { defaultLook } from '../char/look'
 import type { AvatarLook } from '../types'
 
 export function EntryScreen() {
   const { joinAsPlayer, loginAsHost } = useSchoolGame()
   const [mode, setMode] = useState<'player' | 'host'>('player')
+  // 닉네임을 적고 나면 캐릭터를 만드는 화면으로 넘어간다
+  const [step, setStep] = useState<'name' | 'look'>('name')
   const [nickname, setNickname] = useState('')
   const [hostCode, setHostCode] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  // 팀은 아직 없다. 옷은 역할이 나눠질 때 저절로 갈아입는다.
+  // 팀(완장)은 아직 없다. 진행자가 시작할 때 정해진다.
   const [look, setLook] = useState<AvatarLook>(() => defaultLook(crypto.randomUUID()))
 
   async function submitPlayer() {
@@ -39,11 +41,15 @@ export function EntryScreen() {
   return (
     <div className="sc-entry">
       <div className="sc-entry__intro">
-        <span className="sc-entry__eyebrow">{mode === 'player' ? 'DAY 0 · 반이 다시 모인다' : 'DAY 0 · 진행자'}</span>
-        <h1>{mode === 'player' ? '당신은 누구입니까' : '진행자로 들어갑니다'}</h1>
+        <span className="sc-entry__eyebrow">
+          {mode === 'host' ? 'DAY 0 · 진행자' : step === 'name' ? 'DAY 0 · 반이 다시 모인다' : 'DAY 0 · 거울 앞에서'}
+        </span>
+        <h1>
+          {mode === 'host' ? '진행자로 들어갑니다' : step === 'name' ? '당신은 누구입니까' : '어떤 모습이었습니까'}
+        </h1>
       </div>
 
-      {mode === 'player' ? (
+      {mode === 'player' && step === 'name' ? (
         <>
           <label className="sc-entry__field">
             <span>닉네임</span>
@@ -54,13 +60,26 @@ export function EntryScreen() {
               onChange={(e) => setNickname(e.target.value)}
             />
           </label>
-          <AvatarPicker look={look} team={null} onChange={setLook} />
           {error && <p className="sc-entry__error">{error}</p>}
-          <button className="sc-entry__submit" disabled={busy || !nickname.trim()} onClick={submitPlayer}>
-            들어가기
+          <button className="sc-entry__submit" disabled={!nickname.trim()} onClick={() => setStep('look')}>
+            다음
           </button>
           <button className="sc-entry__switch sc-entry__switch--strong" onClick={() => setMode('host')}>
             진행자로 들어가기
+          </button>
+        </>
+      ) : mode === 'player' ? (
+        <>
+          <CharacterCreator
+            look={look}
+            team={null}
+            onChange={setLook}
+            onDone={() => void submitPlayer()}
+            doneLabel={busy ? '들어가는 중…' : '완성'}
+          />
+          {error && <p className="sc-entry__error">{error}</p>}
+          <button className="sc-entry__switch" onClick={() => setStep('name')}>
+            이름 다시 적기
           </button>
         </>
       ) : (

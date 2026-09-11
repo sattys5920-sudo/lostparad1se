@@ -4,7 +4,7 @@ import { useSchoolGame } from '../state/SchoolGameContext'
 import { roleById } from '../data/roles'
 import { teamById } from '../data/teams'
 import { ChatScreen } from './ChatScreen'
-import { AvatarFace } from '../components/AvatarPicker'
+import { AvatarFace } from '../components/CharacterCreator'
 import { VOTE_LABEL, type VoteCategory } from '../types'
 
 const VOTE_ORDER: VoteCategory[] = ['trust', 'liking', 'suspicion']
