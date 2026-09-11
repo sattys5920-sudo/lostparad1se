@@ -28,7 +28,6 @@ function iv(
   return { playerId, tileId, startMs: seoul(from), endMs: to === null ? null : seoul(to), state }
 }
 
-const DAY = ['2026-03-02T00:00:00', '2026-03-03T00:00:00'] as const
 const all = { from: seoul('2026-03-02T00:00:00'), to: seoul('2026-03-04T00:00:00') }
 
 describe('체류', () => {

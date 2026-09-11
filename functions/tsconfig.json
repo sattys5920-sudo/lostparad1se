@@ -3,6 +3,9 @@
     "target": "ES2022",
     "module": "commonjs",
     "moduleResolution": "node",
+    // node10 해석이 낡았다고 나오지만, Cloud Functions가 CommonJS로 돌아간다.
+    // 바꾸면 shared/ 를 그대로 못 읽는다 — TypeScript 7로 올릴 때 같이 본다.
+    "ignoreDeprecations": "6.0",
     "lib": ["ES2022"],
     "outDir": "lib",
     // 규칙 코드(shared/)를 화면과 서버가 같이 쓴다. 공통 조상을 rootDir로
