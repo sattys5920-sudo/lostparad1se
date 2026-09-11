@@ -25,6 +25,8 @@ export default defineConfig({
         archive: resolve(root, 'archive.html'),
         // 엔딩 열 장면 검수용
         ending: resolve(root, 'ending.html'),
+        // 회고 검수용
+        retro: resolve(root, 'retro.html'),
       },
     },
   },

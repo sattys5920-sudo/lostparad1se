@@ -956,3 +956,228 @@
   .sc-en__standee,
   .sc-en__lines li { animation: none; }
 }
+
+/* ── 회고 ─────────────────────────────────────────────────────── */
+
+.sc-rt {
+  position: relative;
+  min-height: 100vh;
+  background: #0d0f16;
+  color: #e6e8ee;
+  padding: 16px 14px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  /* 서리 비네팅. 내려놓으면 걷힌다 */
+  box-shadow: inset 0 0 90px 20px rgba(150, 175, 205, 0.12);
+  transition: box-shadow 1600ms ease-out, background 1600ms ease-out;
+}
+
+.sc-rt.is-retired {
+  background: #12151d;
+  box-shadow: none;
+}
+
+/* 운영자 안내 — 맨 위에 고정 */
+.sc-rt__notice {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 10px 12px;
+  border: 1px solid #2f3647;
+  border-radius: 6px;
+  background: #151924;
+}
+
+.sc-rt__notice-label {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: #6b7183;
+  border: 1px solid #2f3647;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.sc-rt__notice a {
+  color: #9db4d8;
+  margin-left: auto;
+}
+
+.sc-rt__stage {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 12px 0 4px;
+}
+
+/* 완장이 있는 나와 없는 나를 겹쳐 두고, 위엣것을 걷어 낸다 */
+.sc-rt__avatar {
+  position: relative;
+  width: 192px;
+  height: 192px;
+  margin: 0 auto 18px;
+}
+
+.sc-rt__avatar img {
+  position: absolute;
+  inset: 0;
+  image-rendering: pixelated;
+}
+
+/* 완장만 떨어진다. 여섯 칸짜리라 그냥 사라지면 보이지 않는다 */
+.sc-rt__band {
+  opacity: 1;
+  transform: none;
+  transition: opacity 900ms ease-in, transform 1100ms cubic-bezier(0.4, 0, 0.9, 0.6);
+}
+
+.sc-rt__avatar.is-retired .sc-rt__band {
+  opacity: 0;
+  transform: translateY(26px) rotate(-8deg);
+}
+
+.sc-rt__headline {
+  margin: 0 auto 18px;
+  max-width: 26em;
+  font-size: 15px;
+  line-height: 25px;
+  color: #dfe3ec;
+  text-wrap: balance;
+}
+
+.sc-rt__retire {
+  appearance: none;
+  border: 1px solid #3a4152;
+  background: #1c2331;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 14px;
+  padding: 12px 26px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sc-rt__retire:hover,
+.sc-rt__retire:focus-visible {
+  border-color: #55607a;
+}
+
+.sc-rt__after {
+  font-size: 12.5px;
+  color: #6b7183;
+}
+
+/* 게시판 */
+.sc-rt__board {
+  position: relative;
+  z-index: 1;
+}
+
+.sc-rt__board-hint {
+  display: block;
+  font-size: 11.5px;
+  color: #6b7183;
+  margin-bottom: 12px;
+}
+
+.sc-rt__board ul {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sc-rt__board li {
+  border-left: 2px solid #2b3140;
+  padding-left: 12px;
+}
+
+.sc-rt__board li.is-mine {
+  border-left-color: #55607a;
+}
+
+.sc-rt__post-name {
+  font-size: 11px;
+  color: #6b7183;
+}
+
+.sc-rt__board li p {
+  margin: 3px 0 0;
+  font-size: 13.5px;
+  line-height: 21px;
+  text-wrap: pretty;
+}
+
+.sc-rt__empty {
+  color: #6b7183;
+  font-size: 13px;
+  border-left-color: transparent !important;
+  padding-left: 0 !important;
+}
+
+.sc-rt__compose textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0d0f16;
+  border: 1px solid #262b38;
+  border-radius: 4px;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 13px;
+  padding: 9px 10px;
+  resize: vertical;
+}
+
+.sc-rt__compose-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+}
+
+.sc-rt__anon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #8b90a0;
+  cursor: pointer;
+}
+
+.sc-rt__compose-row button {
+  appearance: none;
+  border: 1px solid #2f3647;
+  background: #1c2331;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 18px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.sc-rt__compose-row button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sc-rt__locked,
+.sc-rt__error {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7183;
+}
+
+.sc-rt__error { color: #c08a86; margin-top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-rt,
+  .sc-rt__band { transition: none; }
+}

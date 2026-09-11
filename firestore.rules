@@ -124,6 +124,33 @@ service cloud.firestore {
       match /notes/{playerId} {
         allow read, write: if request.auth != null && request.auth.uid == playerId;
       }
+
+      // 역할을 내려놓은 사람. 자기 것만 만들 수 있고 되돌릴 수 없다.
+      match /retired/{playerId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == playerId;
+        allow update, delete: if false;
+      }
+
+      // 회고 게시판.
+      //
+      // 역할을 내려놓은 사람만 쓴다. 아직 역할 안에 있는 사람이 끼면
+      // 그 한 줄이 연기인지 아닌지 읽는 쪽이 알 수 없다.
+      //
+      // 익명 글에는 authorId를 **담지 못하게 막는다.** 담아 두고 화면에서
+      // 이름만 가리는 방식이면 문서를 직접 읽는 순간 누군지 보인다.
+      match /retro/{postId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && exists(/databases/$(database)/documents/games/$(gameId)/retired/$(request.auth.uid))
+          && (
+            request.resource.data.anonymous == true
+              ? !request.resource.data.keys().hasAny(['authorId'])
+              : request.resource.data.authorId == request.auth.uid
+          );
+        // 남긴 말은 고치지도 지우지도 않는다
+        allow update, delete: if false;
+      }
     }
 
     // 걸어 다니는 학교 프로토타입. 본 게임 트리와 완전히 분리해 둔다.
