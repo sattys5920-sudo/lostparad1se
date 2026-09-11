@@ -98,3 +98,6 @@ export { createGame, joinGame, leaveGame, startGame } from './lobby'
 // 따라잡기. 상시 서버가 없으므로 밀린 일을 다음 요청이 민다.
 export { catchUp } from './catchup'
 export { tick } from './tick'
+
+// 이동과 깃발. 걸음은 예정 이벤트로 적히고 따라잡기가 민다.
+export { moveTo, planCommute, plantFlag } from './move'

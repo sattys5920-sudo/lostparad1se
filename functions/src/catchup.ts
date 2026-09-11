@@ -11,21 +11,30 @@ import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 
 import { dueItems, type Due } from '../../shared/rules/catchup'
 import { accrueTokens, markComeback } from '../../shared/rules/tokens'
-import { dailyProduction, type TileState } from '../../shared/rules/buildings'
+import { dailyProduction, downgradeOnCapture, type TileState } from '../../shared/rules/buildings'
+import { flagCost, resolveFlag, type Standing } from '../../shared/rules/flag'
+import { canPay, pay } from '../../shared/rules/buildings'
+import { releaseCommute } from '../../shared/rules/movement'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { TEAMS } from '../../shared/rules/lobby'
-import { CORE_OPENING, type Resource, type TeamId } from '../../shared/rules/v2'
+import { ATHLETIC_MOVE_FACTOR, CORE_OPENING, type FlagTarget, type Resource, type TeamId } from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
 import type { Fragment } from '../../shared/rules/fragments'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import type {
+  CommutePlanDoc,
+  FlagDoc,
   GameDoc,
+  PawnDoc,
   ScheduleDoc,
   TeamDoc,
   TileDoc,
   TokenStateDoc,
 } from '../../shared/model'
+import { TILE_BY_ID } from '../../shared/rules/board'
+import { arrivals } from '../../shared/rules/movement'
+import { SCHEDULE_ORD } from '../../shared/model'
 import { gameRef } from './index'
 import { refreshViews } from './views'
 
@@ -63,9 +72,56 @@ async function dayStart(c: Ctx): Promise<void> {
   const openedTiles = [...new Set([...c.game.openedTiles, ...opens])]
   const boostedTiles = fragmentsUpTo(c.day).map((f) => f.spotTile)
 
-  const pawns = await c.tx.get(ref.collection('pawns'))
+  // 읽기를 먼저 전부 끝낸다. 트랜잭션은 쓰기 뒤에 읽지 못한다
+  const [pawns, plans] = await Promise.all([
+    c.tx.get(ref.collection('pawns')),
+    c.tx.get(ref.collection('secret').doc('plans').collection('items')),
+  ])
+  const planOf = new Map(plans.docs.map((d) => [d.id, d.data() as CommutePlanDoc]))
+
   for (const p of pawns.docs) {
     c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0 })
+  }
+
+  // 등교 예약이 한꺼번에 출발한다. 모든 팀이 같은 시각이다
+  for (const p of pawns.docs) {
+    const pawn = p.data() as PawnDoc
+    const plan = planOf.get(pawn.playerId)
+    const to = plan?.path?.[plan.path.length - 1]
+    if (!to || pawn.tileId === null) continue
+
+    const factor = pawn.title === 'athleticDirector' ? ATHLETIC_MOVE_FACTOR : 1
+    const walk = releaseCommute(
+      { playerId: pawn.playerId, to, flagOnArrival: plan.plantFlag === true },
+      pawn.tileId,
+      c.atMs,
+      factor,
+    )
+    // 밤사이 칸이 바뀌어 두 칸을 넘게 됐으면 예약은 조용히 버려진다
+    c.tx.delete(plans.docs.find((d) => d.id === pawn.playerId)!.ref)
+    if (!walk) continue
+
+    const steps = arrivals(walk)
+    steps.forEach((step, i) => {
+      c.tx.set(ref.collection('schedule').doc(), {
+        dueAtMs: step.atMs,
+        ord: SCHEDULE_ORD.arrive,
+        kind: 'arrive',
+        payload: {
+          playerId: pawn.playerId,
+          tileId: step.tileId,
+          rest: steps.slice(i + 1).map((x) => x.tileId),
+          nextAtMs: steps[i + 1]?.atMs ?? null,
+        },
+        doneAtMs: null,
+      })
+    })
+    c.tx.update(p.ref, {
+      tileId: null,
+      fromTile: pawn.tileId,
+      path: [...walk.path],
+      arriveAtMs: steps[0]?.atMs ?? c.atMs,
+    })
   }
 
   // 3인 팀 주장은 날마다 돈다
@@ -195,11 +251,158 @@ async function gameEnd(c: Ctx): Promise<void> {
   c.tx.set(ref.collection('events').doc(), { atMs: c.atMs, day: c.day, kind: 'gameEnd', detail: {} })
 }
 
-const HANDLERS: Partial<Record<ScheduleDoc['kind'], (c: Ctx) => Promise<void>>> = {
-  dayStart,
-  lastHours,
-  settlement,
-  gameEnd,
+/**
+ * 말이 한 칸 도착했다.
+ *
+ * 남은 경로가 있으면 계속 걷고, 없으면 그 칸에 선다. 다음 칸 도착은
+ * 이미 예정 이벤트로 적혀 있으므로 여기서 새로 걸지 않는다.
+ */
+async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
+  const ref = gameRef(c.gameId)
+  const playerId = payload.playerId as string
+  const tileId = payload.tileId as TileId
+  const rest = (payload.rest as TileId[]) ?? []
+  const nextAtMs = (payload.nextAtMs as number | null) ?? null
+
+  const pawnRef = ref.collection('pawns').doc(playerId)
+  const snap = await c.tx.get(pawnRef)
+  if (!snap.exists) return
+  const pawn = snap.data() as PawnDoc
+  // 길을 바꿨으면 옛 도착은 없던 것이다. 남은 경로로 알아본다
+  if (pawn.path[0] !== tileId) return
+
+  if (rest.length === 0) {
+    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null })
+  } else {
+    c.tx.update(pawnRef, { tileId: null, fromTile: tileId, path: rest, arriveAtMs: nextAtMs })
+  }
+  c.tx.set(ref.collection('events').doc(), {
+    atMs: c.atMs,
+    day: c.day,
+    kind: 'arrive',
+    playerId,
+    team: pawn.team,
+    tileId,
+    detail: { done: rest.length === 0 },
+  })
+}
+
+/**
+ * 깃발 시간이 다 찼다.
+ *
+ *   깃발 쪽(팀 + 동맹) > 나머지 전체    같으면 실패
+ *   핵심·중앙광장은 깃발 팀 실제 인원이 둘 이상
+ *   꽂은 사람이 떠났으면 그 자리에서 실패
+ *
+ * 자원은 **여기서** 낸다. 꽂을 때가 아니라 성공하는 순간이라, 그 사이에
+ * 칸이 늘었으면 더 비싸지고 모자라면 실패한다.
+ */
+async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> {
+  const ref = gameRef(c.gameId)
+  const tileId = payload.tileId as TileId
+  const team = payload.team as TeamId
+  const target = payload.target as FlagTarget
+  const planterId = payload.planterId as string
+
+  const flagRef = ref.collection('flags').doc(tileId)
+  const [flagSnap, pawnSnap, tileSnap, teamSnap] = await Promise.all([
+    c.tx.get(flagRef),
+    c.tx.get(ref.collection('pawns')),
+    c.tx.get(ref.collection('tiles')),
+    c.tx.get(ref.collection('teams').doc(team)),
+  ])
+  // 이미 치워진 깃발이면 할 일이 없다
+  if (!flagSnap.exists) return
+  const flag = flagSnap.data() as FlagDoc
+  if (flag.team !== team || flag.startedAtMs > c.atMs) return
+
+  const pawns = pawnSnap.docs.map((d) => d.data() as PawnDoc)
+  const standing: Standing[] = pawns
+    .filter((p) => p.tileId === tileId)
+    .map((p) => ({
+      playerId: p.playerId,
+      team: p.team,
+      captain: teamSnap.exists && (teamSnap.data() as TeamDoc).captainId === p.playerId,
+      // 투명인간은 5단계에서 붙는다. 그때까지는 아무도 지워지지 않는다
+      invisible: false,
+    }))
+
+  const teamDoc = teamSnap.data() as TeamDoc
+  const result = resolveFlag({
+    target,
+    flagTeam: team,
+    allies: teamDoc?.allyTeam ? [teamDoc.allyTeam] : [],
+    standing,
+    planterPresent: standing.some((s) => s.playerId === planterId),
+  })
+
+  let success = result.success
+  const tiles = tileSnap.docs.map((d) => {
+    const t = d.data() as TileDoc
+    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, buildings: t.buildings ?? [] }
+  })
+
+  // 성공했으면 그제야 값을 치른다
+  if (success) {
+    const owned = tiles.filter((t) => t.ownerTeam === team && TILE_BY_ID[t.tileId].tier !== 'base').length
+    const cost = flagCost({ target, ownedTiles: owned, expandCostUp: false })
+    if (!canPay(teamDoc.resources, cost)) {
+      success = false
+    } else {
+      c.tx.update(ref.collection('teams').doc(team), { resources: pay(teamDoc.resources, cost) })
+      const before = tiles.find((t) => t.tileId === tileId)
+      const lost = before?.ownerTeam ?? null
+      c.tx.update(ref.collection('tiles').doc(tileId), {
+        ownerTeam: team,
+        // 뺏긴 칸의 건물은 한 단계 내려간다
+        buildings: downgradeOnCapture(before?.buildings ?? []),
+      })
+      c.tx.set(ref.collection('events').doc(), {
+        atMs: c.atMs,
+        day: c.day,
+        kind: 'tileCaptured',
+        team,
+        tileId,
+        detail: { from: lost, cost },
+      })
+      if (lost) {
+        c.tx.set(ref.collection('events').doc(), {
+          atMs: c.atMs,
+          day: c.day,
+          kind: 'tileLost',
+          team: lost,
+          tileId,
+          detail: { to: team },
+        })
+      }
+    }
+  }
+
+  c.tx.delete(flagRef)
+  c.tx.set(ref.collection('events').doc(), {
+    atMs: c.atMs,
+    day: c.day,
+    kind: success ? 'flagSucceeded' : 'flagFailed',
+    team,
+    tileId,
+    playerId: planterId,
+    detail: {
+      forCount: result.forCount,
+      againstCount: result.againstCount,
+      // 지워진 사람이 있었다는 사실만 남긴다. 누구인지는 정산에서 이미 공개된 이름이다
+      ignored: result.ignored,
+      reason: result.reason,
+    },
+  })
+}
+
+const HANDLERS: Partial<Record<ScheduleDoc['kind'], (c: Ctx, payload: Record<string, unknown>) => Promise<void>>> = {
+  dayStart: (c) => dayStart(c),
+  lastHours: (c) => lastHours(c),
+  settlement: (c) => settlement(c),
+  gameEnd: (c) => gameEnd(c),
+  arrive,
+  flag: flagDue,
 }
 
 // ── 토큰 ────────────────────────────────────────────────────────
@@ -266,13 +469,16 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
       game = gameFresh.data() as GameDoc
 
       if (handler) {
-        await handler({
-          tx,
-          gameId,
-          game,
-          atMs: item.dueAtMs,
-          day: (payload.payload?.day as number) ?? game.day,
-        })
+        await handler(
+          {
+            tx,
+            gameId,
+            game,
+            atMs: item.dueAtMs,
+            day: (payload.payload?.day as number) ?? game.day,
+          },
+          payload.payload ?? {},
+        )
       }
       tx.update(itemRef, { doneAtMs: item.dueAtMs })
     })

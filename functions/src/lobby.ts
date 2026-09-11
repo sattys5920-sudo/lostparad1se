@@ -190,6 +190,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         team,
         title: ROLE_TITLES[i % ROLE_TITLES.length],
         tileId: BASE_OF[team] as TileId,
+        fromTile: null,
         path: [],
         arriveAtMs: null,
         asleep: false,

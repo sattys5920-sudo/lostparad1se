@@ -136,7 +136,14 @@ export interface PawnDoc {
   title: RoleTitle
   /** 지금 선 칸. 걷는 중이면 null — 걷는 말은 어느 칸 판정에도 세지 않는다. */
   tileId: TileId | null
-  /** 걷는 중이라면 남은 경로와 다음 칸 도착 시각. */
+  /** 걷는 중일 때 방금 떠난 칸. 서 있으면 null. */
+  fromTile: TileId | null
+  /**
+   * 걷는 중이라면 **남은** 경로. 앞이 바로 다음 칸이다.
+   *
+   * 목적지는 경로의 끝이라 이 배열에 들어 있다. 그래서 이 문서는
+   * 클라이언트가 읽지 못하고, views에는 다음 한 칸만 복사된다.
+   */
   path: TileId[]
   arriveAtMs: GameMs | null
   /** 앱을 닫아도 말은 남는다. 잠든 말도 판정에서 센다. */

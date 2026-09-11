@@ -82,8 +82,9 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       playerId: p.playerId,
       team: p.team,
       tileId: p.tileId,
-      // 걷는 중이면 경로의 앞이 다음 칸이다. 목적지는 담지 않는다
-      fromTile: p.tileId === null ? ((p as PawnDoc & { fromTile?: TileId }).fromTile ?? null) : null,
+      // 걷는 중이면 경로의 **앞 한 칸만** 담는다. 경로의 끝이 목적지라
+      // 통째로 넘기면 안개가 있으나 마나다
+      fromTile: p.tileId === null ? p.fromTile : null,
       toTile: p.tileId === null ? (p.path[0] ?? null) : null,
       asleep: p.asleep,
       hiddenUntilMs: p.hiddenUntilMs ?? null,
