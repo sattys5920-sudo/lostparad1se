@@ -209,8 +209,22 @@ export const RUMOR_DECAY_MULTIPLIER = 2
 
 // ── 털어놓기와 약점 ─────────────────────────────────────────────
 
-/** 비밀을 털어놓았을 때 우리 팀이 얻는 영향력. */
-export const REVEAL_INFLUENCE = { private: 3, class: 6 } as const
+/**
+ * 털어놓기로 얻는 영향력.
+ *
+ * 한 사람이 게임 전체에서 받을 수 있는 총량이 정해져 있다. 같은 이야기를
+ * 스무 명에게 떠들어 영향력을 긁어모을 수 없다 — 두 번째부터의 1:1은
+ * 영향력이 오르지 않고 나를 쥔 사람만 는다. 약점은 총량과 상관없이
+ * 듣는 사람마다 하나씩 생긴다.
+ *
+ * 계산은 revealInfluenceGain()에 있다.
+ */
+export const REVEAL_INFLUENCE_CAP = 6
+/** 첫 1:1 털어놓기로 얻는 몫. */
+export const REVEAL_INFLUENCE_FIRST_PRIVATE = 3
+
+/** 털어놓는 방식. */
+export type RevealScope = 'private' | 'class'
 
 /** 발 묶기 — 말이 움직이지도 행동하지도 못한다(게임 시계). */
 export const LEVERAGE_BIND_GAME_HOURS = 6

@@ -212,6 +212,37 @@ export interface PlayerViewDoc {
   peeked: { voteKind: VoteKind; voterNickname: string }[]
 }
 
+// ── 채팅 ────────────────────────────────────────────────────────
+
+/**
+ * games/{gameId}/chats/{room}/messages/{id}
+ *
+ * 손으로 친 말과 게임이 남긴 기록을 한 줄에 섞지 않는다.
+ *
+ *   say     사람이 친 말. **어떤 판정에도 쓰이지 않는다.**
+ *   reveal  털어놓기. 시스템 카드로 뜨고 「공인된 고백」이라 적힌다
+ *   alert   우리 칸에 깃발이 꽂혔다 같은 자동 경보
+ *
+ * "나 털어놓을게"라고 채팅에 쓰는 것과 실제로 털어놓는 것은 완전히
+ * 다른 일이다. 게임은 후자만 센다.
+ */
+export type ChatKind = 'say' | 'reveal' | 'alert'
+
+export interface ChatDoc {
+  kind: ChatKind
+  atMs: GameMs
+  /** say·reveal은 말한 사람. alert는 없다. */
+  playerId?: string
+  nickname?: string
+  team?: TeamId
+  /** say의 본문, 또는 털어놓기에 덧붙인 말. */
+  text: string
+  /** reveal일 때만 — 역할의 숨긴 사실 문장 그대로. */
+  secretText?: string
+  /** reveal일 때만 — 1:1인가 전체인가. */
+  scope?: 'private' | 'class'
+}
+
 // ── 기록 ────────────────────────────────────────────────────────
 
 /**
