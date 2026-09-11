@@ -23,6 +23,8 @@ export default defineConfig({
         morning: resolve(root, 'morning.html'),
         // 기록 보관함·추리 노트 검수용
         archive: resolve(root, 'archive.html'),
+        // 엔딩 열 장면 검수용
+        ending: resolve(root, 'ending.html'),
       },
     },
   },
