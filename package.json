@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:sql": "bash supabase/run-tests.sh"
+    "sim": "vite-node scripts/sim.ts"
   },
   "dependencies": {
     "firebase": "^12.17.1",
