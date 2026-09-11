@@ -27,6 +27,7 @@ import type {
   TokenStateDoc,
 } from '../../shared/model'
 import { gameRef } from './index'
+import { refreshViews } from './views'
 
 const db = getFirestore()
 
@@ -281,6 +282,9 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   // 토큰은 예정 이벤트가 아니라 한 번에 따라잡는다
   await accrueAll(gameId, toMs)
   await ref.update({ caughtUpToMs: toMs })
+
+  // 세상이 바뀌었으면 각자 몫을 다시 깎는다. 틀린 안개는 새는 안개다
+  if (applied > 0) await refreshViews(gameId)
 
   const last = (await ref.get()).data() as GameDoc
   return { applied, day: last.day, phase: last.phase }

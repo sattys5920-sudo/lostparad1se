@@ -17,6 +17,7 @@ import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, TEAM_SIZES, type TeamId 
 import { TEAMS, TOTAL_SEATS, canStart, openTeams, timedEvents } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
 import { gameRef, nowOf, requireUid } from './index'
+import { refreshViews } from './views'
 
 const db = getFirestore()
 
@@ -232,5 +233,9 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   })
 
   await batch.commit()
+
+  // 시작하자마자 각자 몫을 깎아 둔다. 첫 화면이 빈 view를 보면
+  // 「아직 안 시작했나」로 보인다
+  await refreshViews(req.data.gameId)
   return { startedAtMs, players: seats.length }
 })
