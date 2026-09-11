@@ -101,3 +101,9 @@ export { tick } from './tick'
 
 // 이동과 깃발. 걸음은 예정 이벤트로 적히고 따라잡기가 민다.
 export { moveTo, planCommute, plantFlag } from './move'
+
+// 토큰을 쓰는 행동.
+export { buildOn, upgradeOn, research, scout, produce, sabotage } from './act'
+
+// 교역과 동맹. 토큰이 들지 않는다.
+export { offerTrade, respondTrade, proposeAlliance, respondAlliance, breakAllianceNow } from './deal'

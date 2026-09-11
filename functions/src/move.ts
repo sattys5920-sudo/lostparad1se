@@ -11,41 +11,18 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { arrivals, checkCommutePlan, planWalk, type Walk } from '../../shared/rules/movement'
 import { addActiveSeconds } from '../../shared/rules/clock'
-import { ACTION_TOKEN_COST, canPlantFlag, checkGate, checkStand, ownerLookup } from '../../shared/rules/actions'
+import { ACTION_TOKEN_COST, canPlantFlag, checkStand, ownerLookup } from '../../shared/rules/actions'
 import { flagDurationSec, flagTargetOf } from '../../shared/rules/flag'
 import { defenseOf, type TileState } from '../../shared/rules/buildings'
 import { spendToken } from '../../shared/rules/tokens'
 import { ATHLETIC_MOVE_FACTOR, type TeamId } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
-import { SCHEDULE_ORD, type FlagDoc, type GameDoc, type PawnDoc, type ScheduleDoc, type TileDoc, type TokenStateDoc } from '../../shared/model'
-import { catchUp } from './catchup'
+import { SCHEDULE_ORD, type FlagDoc, type ScheduleDoc, type TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { gameRef, nowOf, requireUid } from './index'
+import { freshNow, myPawn, requireAwake, tileStates } from './turn'
+import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
-
-/** 판을 따라잡은 뒤의 지금. 행동은 전부 이 시각으로 판정한다. */
-async function freshNow(gameId: string): Promise<{ game: GameDoc; nowMs: number }> {
-  const first = await gameRef(gameId).get()
-  if (!first.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  await catchUp(gameId, nowOf(first.data() as GameDoc))
-  const snap = await gameRef(gameId).get()
-  const game = snap.data() as GameDoc
-  if (game.phase !== 'running') throw new HttpsError('failed-precondition', '지금은 움직일 수 없다.')
-  return { game, nowMs: nowOf(game) }
-}
-
-function tileStates(docs: { id: string; data: () => unknown }[]): TileState[] {
-  return docs.map((d) => {
-    const t = d.data() as TileDoc
-    return {
-      tileId: d.id as TileId,
-      ownerTeam: t.ownerTeam,
-      buildings: t.buildings ?? [],
-      ...(t.reinforcedBy ? { reinforced: t.reinforcedBy } : {}),
-    }
-  })
-}
 
 /** 그 사람의 아직 안 온 도착 예정을 지운다. 길을 바꾸면 옛 길은 없던 것이다. */
 async function clearArrivals(gameId: string, playerId: string): Promise<void> {
@@ -99,13 +76,8 @@ export const moveTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
   if (!TILE_BY_ID[tileId]) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
 
   const pawnRef = gameRef(gameId).collection('pawns').doc(uid)
-  const snap = await pawnRef.get()
-  if (!snap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
-  const pawn = snap.data() as PawnDoc
-
-  // 요청을 보냈으니 깨어 있다. 발 묶기만 본다
-  const gate = checkGate({ bound: (pawn.boundUntilMs ?? 0) > nowMs, asleep: false })
-  if (!gate.ok) throw new HttpsError('failed-precondition', '발이 묶여 있다.')
+  const pawn = await myPawn(gameId, uid)
+  requireAwake(pawn, nowMs)
   if (pawn.tileId === null) throw new HttpsError('failed-precondition', '이미 걷는 중이다.')
 
   const factor = pawn.title === 'athleticDirector' ? ATHLETIC_MOVE_FACTOR : 1
@@ -158,9 +130,7 @@ export const planCommute = onCall<{ gameId: string; tileId: TileId | null; plant
       return { cleared: true }
     }
 
-    const snap = await gameRef(gameId).collection('pawns').doc(uid).get()
-    if (!snap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
-    const pawn = snap.data() as PawnDoc
+    const pawn = await myPawn(gameId, uid)
     const from = pawn.tileId ?? pawn.path[pawn.path.length - 1] ?? null
     if (from === null) throw new HttpsError('failed-precondition', '지금 어디 있는지 알 수 없다.')
 
@@ -192,18 +162,14 @@ export const plantFlag = onCall<{ gameId: string; tileId: TileId }>(async (req) 
   if (!TILE_BY_ID[tileId]) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
 
   const ref = gameRef(gameId)
-  const [pawnSnap, tileSnap, flagSnap] = await Promise.all([
-    ref.collection('pawns').doc(uid).get(),
+  const [pawn, tileSnap, flagSnap] = await Promise.all([
+    myPawn(gameId, uid),
     ref.collection('tiles').get(),
     ref.collection('flags').doc(tileId).get(),
   ])
-  if (!pawnSnap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
-  const pawn = pawnSnap.data() as PawnDoc
   const tiles = tileStates(tileSnap.docs)
   const ownerOf = ownerLookup(tiles)
-
-  const gate = checkGate({ bound: (pawn.boundUntilMs ?? 0) > nowMs, asleep: false })
-  if (!gate.ok) throw new HttpsError('failed-precondition', '발이 묶여 있다.')
+  requireAwake(pawn, nowMs)
 
   const stand = checkStand({ kind: 'flag', standingOn: pawn.tileId, targetTile: tileId, team: pawn.team, ownerOf })
   if (!stand.ok) {

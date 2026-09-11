@@ -18,7 +18,14 @@ import { releaseCommute } from '../../shared/rules/movement'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { TEAMS } from '../../shared/rules/lobby'
-import { ATHLETIC_MOVE_FACTOR, CORE_OPENING, type FlagTarget, type Resource, type TeamId } from '../../shared/rules/v2'
+import {
+  ALLIANCE_CLEAR_DAY,
+  ATHLETIC_MOVE_FACTOR,
+  CORE_OPENING,
+  type FlagTarget,
+  type Resource,
+  type TeamId,
+} from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
 import type { Fragment } from '../../shared/rules/fragments'
 import { FRAGMENT_BY_DAY } from './story/fragments'
@@ -130,6 +137,20 @@ async function dayStart(c: Ctx): Promise<void> {
     if (members.length >= 4) continue
     const next = members[(c.day - 1) % members.length].playerId
     c.tx.update(ref.collection('teams').doc(team), { captainId: next })
+  }
+
+  // DAY 4 08:00 — 모든 동맹이 풀린다. 먼저 깬 것이 아니므로 아무도
+  // 값을 치르지 않고, 잠기지도 않는다
+  if (c.day === ALLIANCE_CLEAR_DAY) {
+    for (const team of TEAMS) {
+      c.tx.update(ref.collection('teams').doc(team), { allyTeam: null })
+    }
+    c.tx.set(ref.collection('events').doc(), {
+      atMs: c.atMs,
+      day: c.day,
+      kind: 'allianceCleared',
+      detail: {},
+    })
   }
 
   c.tx.update(ref, { day: c.day, openedTiles, boostedTiles })

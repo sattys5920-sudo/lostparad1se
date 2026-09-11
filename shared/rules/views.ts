@@ -65,6 +65,19 @@ export interface World {
   flagTruth: readonly { tileId: TileId; team: TeamId; fake: boolean }[]
   /** 정보부장이 들여다본 결과. 본 사람만 안다. */
   peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
+  /** 교역 제안. 관련된 두 팀만 본다. */
+  trades: readonly {
+    id: string
+    fromTeam: TeamId
+    toTeam: TeamId
+    give: Record<string, number>
+    want: Record<string, number>
+    note: string
+    status: string
+    createdAtMs: number
+  }[]
+  /** 동맹 제안. 관련된 두 팀만 본다. */
+  proposals: readonly { id: string; fromTeam: TeamId; toTeam: TeamId; status: string; createdAtMs: number }[]
   // ── 진상 공개 흐름 ──
   releasedDays: readonly number[]
   progress: readonly { playerId: string; handledDays: readonly number[]; readDays: readonly number[] }[]
@@ -86,6 +99,8 @@ export interface View {
   commutePlan: { path: TileId[]; plantFlag: boolean } | null
   fakeFlagTiles: TileId[]
   peeked: { voteKind: VoteKind; voterNickname: string }[]
+  trades: World['trades'][number][]
+  proposals: World['proposals'][number][]
   own: { roleId: string; bondId: string } | null
   handledDays: number[]
   readDays: number[]
@@ -127,6 +142,8 @@ export function projectView(world: World, viewerId: string): View {
       commutePlan: null,
       fakeFlagTiles: [],
       peeked: [],
+      trades: [],
+      proposals: [],
       own: null,
       handledDays: [],
       readDays: [],
@@ -178,6 +195,9 @@ export function projectView(world: World, viewerId: string): View {
     peeked: world.peeks
       .filter((p) => p.playerId === viewerId)
       .map((p) => ({ voteKind: p.voteKind, voterNickname: p.voterNickname })),
+    // 아직 답하지 않은 제안만. 남의 협상은 들어오지 않는다
+    trades: world.trades.filter((t) => t.fromTeam === team || t.toTeam === team),
+    proposals: world.proposals.filter((p) => p.fromTeam === team || p.toTeam === team),
     // 역할은 **자기 한 줄뿐이다.** 남의 것은 들어가지 않는다
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
 

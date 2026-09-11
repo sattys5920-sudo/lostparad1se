@@ -57,7 +57,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [pawns, tiles, roster, hands, goals, plans, flagTruth, peeks, progress, confessions, memories, awakened, notices] =
+  const [pawns, tiles, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, progress, confessions, memories, awakened, notices] =
     await Promise.all([
       sub(gameId, 'pawns').get(),
       sub(gameId, 'tiles').get(),
@@ -67,6 +67,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'plans').get(),
       secret(gameId, 'flagTruth').get(),
       secret(gameId, 'peeks').get(),
+      secret(gameId, 'trades').get(),
+      secret(gameId, 'alliances').get(),
       secret(gameId, 'progress').get(),
       secret(gameId, 'confessions').get(),
       secret(gameId, 'memories').get(),
@@ -118,6 +120,12 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { tileId: d.id as TileId, team: f.team, fake: f.fake }
     }),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'suspicion'; voterNickname: string }),
+    trades: trades.docs
+      .filter((d) => (d.data() as { status: string }).status === 'open')
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<World['trades'][number], 'id'>) })),
+    proposals: proposals.docs
+      .filter((d) => (d.data() as { status: string }).status === 'open')
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<World['proposals'][number], 'id'>) })),
     releasedDays: releasedDays(game.startedAtMs ?? null, nowMs),
     progress: progress.docs.map((d) => {
       const p = d.data() as ProgressDoc
