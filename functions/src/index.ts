@@ -85,3 +85,6 @@ export const setDevClock = onCall<{ gameId: string; anchorGameMs: number; speed:
     return { ok: true, clock }
   },
 )
+
+// A의 기록. 공개 시각 게이트가 여기 붙어 있다.
+export { fragmentOfDay, releasedFragments } from './fragments'

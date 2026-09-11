@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim": "vite-node scripts/sim.ts",
-    "check:bundle": "vite-node scripts/check-bundle.ts"
+    "check:bundle": "vite-node scripts/check-bundle.ts",
+    "fonts:sync": "cp node_modules/galmuri/dist/Galmuri11.woff2 public/fonts/ && cp node_modules/galmuri/ofl.md public/fonts/Galmuri-OFL.md"
   },
   "dependencies": {
     "firebase": "^12.17.1",
@@ -23,6 +24,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "galmuri": "^2.40.3",
     "oxlint": "^1.75.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
