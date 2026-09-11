@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>남겨진 아이들 · 스프라이트 검수</title>
+    <style>
+      body { margin: 0; padding: 16px; background: #f4f4f6; color: #1a1a20; font: 13px/1.5 system-ui, sans-serif; }
+      h1 { font-size: 16px; margin: 0 0 4px; }
+      h2 { font-size: 14px; margin: 24px 0 8px; border-bottom: 1px solid #c9c9d2; padding-bottom: 4px; }
+      canvas { image-rendering: pixelated; display: block; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; }
+      .cardbox { border: 1px solid #c9c9d2; background: #fff; padding: 4px; }
+      .cap { font-size: 10px; color: #55555f; text-align: center; margin-top: 2px; white-space: nowrap; }
+      #check { margin: 8px 0 0; padding: 8px 10px; border: 1px solid #c9c9d2; background: #fff; white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 11px; }
+      .bad { color: #b4322e; font-weight: 700; }
+      .ok { color: #23663f; }
+      label { margin-right: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>스프라이트 검수</h1>
+    <p>헤어 30종과 복장 6 × 착용 스타일 3을 네 방향으로 한 화면에 편다. 완장이 모든 조합에서 보이는지 픽셀을 세어 확인한다.</p>
+    <div>
+      <label><input type="radio" name="zoom" value="1" /> 1배율</label>
+      <label><input type="radio" name="zoom" value="3" checked /> 3배율</label>
+      <label>머리색 <select id="color"></select></label>
+      <label>팀 <select id="team"></select></label>
+    </div>
+    <div id="check"></div>
+    <div id="out"></div>
+    <script type="module" src="/src/debug/sprites.ts"></script>
+  </body>
+</html>

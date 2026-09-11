@@ -73,21 +73,43 @@ export const HAIR_COLORS: Named[] = [
   { name: '적갈', tone: tone('#9e4b45') },
 ]
 
-/** 교복에 쓰는 천 색. 옷 색은 사용자가 고르지 않고 디자인마다 정해져 있다. */
-export const CLOTH = {
-  shirt: tone('#e9e0cf'),
-  cream: tone('#efe6d2'),
-  navy: tone('#3a4664'),
-  charcoal: tone('#2f3350'),
-  grey: tone('#7d838c'),
-  wine: tone('#7a3340'),
-  green: tone('#3f6350'),
-  beige: tone('#cdb896'),
-  brown: tone('#6d523c'),
-  sky: tone('#8fb0d4'),
-  red: tone('#b4322e'),
-  plaid: tone('#8a6070'),
-  denim: tone('#5b6f92'),
+/**
+ * 교복 색. 전원 같은 학교를 다니므로 옷 색은 고르는 값이 아니다 — 여기 적힌
+ * 한 벌이 전부다. 복장·스타일이 늘어도 색은 이 표를 넘지 않는다.
+ *
+ * 그림자는 규칙으로 뽑지 않고 직접 적는다. 천마다 빛을 먹는 정도가 달라
+ * 일률적으로 20% 어둡게 하면 남색은 뭉치고 베이지는 뜬다.
+ */
+const SCHOOL = {
+  shirt: ['#e9e0cf', '#c8bba5'],
+  blazer: ['#2f3350', '#23263d'],
+  vest: ['#8c8272', '#6e6557'],
+  cardigan: ['#b9a98e', '#978871'],
+  hood: ['#7e8491', '#61667a'],
+  gym: ['#3e5a7a', '#2e4560'],
+  gymLine: ['#e9e0cf', '#c8bba5'],
+  skirt: ['#3a3f5c', '#2a2e44'],
+  neck: ['#b4322e', '#8a2522'],
+} as const
+
+/** 바탕·그림자는 표에서 그대로 쓰고, 빛과 테두리만 규칙으로 뽑는다. */
+function fixed([base, shade]: readonly [string, string]): Tone {
+  const rgb = parse(base)
+  return { base, shade, light: hex(mix(rgb, 0.2)), line: hex(cool(mix(rgb, -0.5), 1.4)) }
+}
+
+export const SCHOOL_PALETTE = {
+  shirt: fixed(SCHOOL.shirt),
+  /** 블레이저와 바지는 같은 감이다 */
+  blazer: fixed(SCHOOL.blazer),
+  trousers: fixed(SCHOOL.blazer),
+  vest: fixed(SCHOOL.vest),
+  cardigan: fixed(SCHOOL.cardigan),
+  hood: fixed(SCHOOL.hood),
+  gym: fixed(SCHOOL.gym),
+  gymLine: fixed(SCHOOL.gymLine),
+  skirt: fixed(SCHOOL.skirt),
+  neck: fixed(SCHOOL.neck),
 } as const
 
 export const SHOE_TONE = tone('#3a3d45')

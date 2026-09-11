@@ -156,3 +156,76 @@
   color: var(--sc-bg, #14151a);
   border-color: var(--sc-text);
 }
+
+/* 성별 — 목록의 기본값을 정하는 줄. 첫 단계라 탭보다 위에 둔다. */
+.sc-cc__sets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sc-cc__setBtn {
+  border: 1px solid var(--sc-line);
+  background: transparent;
+  color: var(--sc-text-dim);
+  font-family: var(--sc-font-title);
+  font-size: 13px;
+  width: 44px;
+  padding: 7px 0;
+  cursor: pointer;
+}
+
+.sc-cc__setBtn.is-on {
+  border-color: var(--sc-text);
+  background: var(--sc-line);
+  color: var(--sc-text);
+}
+
+.sc-cc__setNote {
+  font-size: 10px;
+  color: var(--sc-text-dim);
+}
+
+/* 옷 — 복장·스타일·하의·목 네 줄 */
+.sc-cc__wear {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sc-cc__seg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sc-cc__segLabel {
+  flex: 0 0 34px;
+  font-size: 11px;
+  color: var(--sc-text-dim);
+}
+
+.sc-cc__segRow {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sc-cc__segBtn {
+  flex: 1 1 auto;
+  min-width: 48px;
+  border: 1px solid var(--sc-line);
+  background: transparent;
+  color: var(--sc-text-dim);
+  padding: 7px 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sc-cc__segBtn.is-on {
+  border-color: var(--sc-text);
+  background: var(--sc-line);
+  color: var(--sc-text);
+}
