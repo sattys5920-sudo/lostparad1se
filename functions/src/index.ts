@@ -94,3 +94,7 @@ export { hostDashboard, hostTextAudit, hostNotice, noticeTemplates } from './adm
 
 // 로비. 역할은 시작할 때 나뉘고 secret에만 적힌다.
 export { createGame, joinGame, leaveGame, startGame } from './lobby'
+
+// 따라잡기. 상시 서버가 없으므로 밀린 일을 다음 요청이 민다.
+export { catchUp } from './catchup'
+export { tick } from './tick'

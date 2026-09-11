@@ -103,7 +103,13 @@ export interface FlagDoc {
 /** games/{gameId}/teams/{teamId} — 자원과 순위는 공개다. */
 export interface TeamDoc {
   resources: Record<Resource, number>
-  /** 팀 공용 행동 토큰. */
+  /**
+   * 팀 공용 행동 토큰. 남은 수만 여기 있다.
+   *
+   * 충전 상태(마지막 충전 시각·사람마다 쓴 수·밀린 만회 보너스)는
+   * secret/tokens에 있다. 사람마다 몇 개를 썼는지는 그 팀 안의 일이라
+   * 남이 알 까닭이 없다.
+   */
   tokens: number
   researchTier: number
   /** 손패는 장수만 공개한다. 내용은 secret에 있다. */
@@ -205,6 +211,20 @@ export interface RosterDoc {
   bondId: string
   /** 털어놓았는가. 방식과 시각까지. */
   reveal: { scope: 'class' | 'private'; atMs: GameMs; listenerIds: string[] } | null
+}
+
+/**
+ * games/{gameId}/secret/tokens/items/{teamId} — 토큰 충전 상태.
+ *
+ * shared/rules/tokens.ts의 TokenState 그대로다. 같은 계산을 두 번
+ * 돌려도 결과가 같다 — lastGrantMs를 넘긴 충전만 세기 때문이다.
+ * 따라잡기가 도중에 끊겨도 토큰이 두 배로 들어가지 않는다.
+ */
+export interface TokenStateDoc {
+  tokens: number
+  lastGrantMs: GameMs
+  usedToday: Record<string, number>
+  pendingComeback: number
 }
 
 /** games/{gameId}/secret/flagTruth/items/{tileId} — 가짜 깃발 여부. */

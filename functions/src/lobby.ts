@@ -11,8 +11,9 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
 import { BASE_OF, TILES, startingTiles, type TileId } from '../../shared/rules/board'
+import { FRAGMENT_BY_DAY } from './story/fragments'
 import { initialTokenState } from '../../shared/rules/tokens'
-import { ROLE_TITLES, STARTING_RESOURCES, TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
+import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canStart, openTeams, timedEvents } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
 import { gameRef, nowOf, requireUid } from './index'
@@ -156,12 +157,14 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     })
   }
 
-  // 팀 — 자원과 순위는 공개다
+  // 팀 — 자원과 순위는 공개다. 토큰 충전 상태만 secret으로 간다
   for (const team of TEAMS) {
     const members = seats.filter((s) => s.team === team)
+    const tokens = initialTokenState(startedAtMs)
+    batch.set(ref.collection('secret').doc('tokens').collection('items').doc(team), tokens)
     batch.set(ref.collection('teams').doc(team), {
       resources: { ...STARTING_RESOURCES },
-      tokens: initialTokenState(startedAtMs).tokens,
+      tokens: tokens.tokens,
       researchTier: 0,
       handCount: 0,
       // 3인 팀만 주장을 둔다. 4인 팀은 직책 넷이 다 찬다
@@ -215,11 +218,16 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     detail: { seats: seats.length },
   })
 
+  // DAY 1의 08:00은 시작 그 자체라 예정 이벤트가 없다. 그래서 첫날
+  // 열리는 핵심 칸과 가치가 오르는 칸을 여기서 직접 놓는다 —
+  // 따라잡기에 맡겨 두면 첫날 운동장과 방송실이 영영 안 열린다
   batch.update(ref, {
     phase: 'running',
     startedAtMs,
     caughtUpToMs: startedAtMs,
     day: 1,
+    openedTiles: [...(CORE_OPENING[1] ?? [])],
+    boostedTiles: FRAGMENT_BY_DAY[1] ? [FRAGMENT_BY_DAY[1].spotTile] : [],
     startedRealMs: FieldValue.serverTimestamp(),
   })
 
