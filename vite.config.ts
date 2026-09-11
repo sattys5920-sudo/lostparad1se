@@ -19,6 +19,8 @@ export default defineConfig({
         proto: resolve(root, 'proto.html'),
         // 스프라이트 검수용. 게임 화면과 섞이지 않는 개발용 페이지다
         sprites: resolve(root, 'sprites.html'),
+        // 아침 등교 시퀀스 검수용. 본문은 가짜다 — 진짜는 서버에만 있다
+        morning: resolve(root, 'morning.html'),
       },
     },
   },

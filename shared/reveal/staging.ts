@@ -37,3 +37,15 @@ export const SNOW_PARTICLES: readonly number[] = [0, 8, 18, 32, 50, 72]
 
 /** 움직임을 줄여 달라고 한 사람에게는 타자와 카메라를 건너뛴다. */
 export const REDUCED_MOTION_TYPE_MS = 0
+
+/**
+ * 종이 위 본문의 줄 높이(CSS px)와 확대 배율.
+ *
+ * 이 둘이 괘선 간격을 정한다. 줄 높이와 괘선이 어긋나면 글씨가 줄 위에
+ * 떠 있거나 파고들어서, 줄 노트로 보이지 않고 그냥 배경 무늬가 된다.
+ * 그래서 한곳에서만 정하고 캔버스와 CSS가 같이 읽는다.
+ */
+export const PAPER_SCALE = 2
+export const PAPER_LINE_H = 20
+/** 확대 전 괘선 간격. 줄 높이를 배율로 나눈 값이다. */
+export const PAPER_RULE_STEP = PAPER_LINE_H / PAPER_SCALE

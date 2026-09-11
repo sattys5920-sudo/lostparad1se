@@ -9,6 +9,7 @@
 // 흰색이 아니라 푸른 기가 도는 회백색이다.
 import { tone, type Tone } from '../char/palette'
 import type { PaperKind } from '../../../shared/reveal/paper'
+import { PAPER_RULE_STEP } from '../../../shared/reveal/staging'
 
 /** 겨울 팔레트. 눈 내리는 교실의 종이다. */
 export const PAPER_TONES: Record<PaperKind, Tone> = {
@@ -41,7 +42,7 @@ export interface PaperGeom {
 /** 종류마다 여백이 다르다. 일기장은 왼쪽에 구멍과 여백선이 있어 넓다. */
 export function geomOf(kind: PaperKind, w: number, h: number): PaperGeom {
   if (kind === 'diary') {
-    return { w, h, pad: { top: 9, right: 6, bottom: 7, left: 14 }, ruleStep: 9 }
+    return { w, h, pad: { top: 7, right: 6, bottom: 7, left: 14 }, ruleStep: PAPER_RULE_STEP }
   }
   if (kind === 'torn') {
     // 오른쪽이 찢겨 있다. 그쪽 여백을 더 준다
@@ -155,13 +156,26 @@ export function drawPaper(ctx: CanvasRenderingContext2D, o: DrawOptions): void {
   }
 
   if (o.kind === 'note') {
-    // 구긴 자국. 점선으로 흩뿌리면 때처럼 보인다 — 이어진 선으로 긋고,
-    // 위에 빛 아래에 그늘을 붙여야 접힌 것으로 읽힌다.
-    for (const at of [0.34, 0.66]) {
-      const fold = Math.round(h * at)
+    // 접힌 모서리. 메모라는 걸 한눈에 알려 주는 표시다 —
+    // 오른쪽 위는 글이 닿지 않는 자리라 언제나 안전하다
+    const ear = 7
+    ctx.fillStyle = '#0d0f16'
+    for (let i = 0; i < ear; i++) ctx.fillRect(w - 1 - i, 0, i + 1, 1 + i - i)
+    for (let y = 0; y < ear; y++) {
+      ctx.clearRect(w - ear + y, y, ear - y, 1)
+    }
+    ctx.fillStyle = t.shade
+    for (let y = 0; y < ear; y++) ctx.fillRect(w - ear + y, y, 1, 1)
+    ctx.fillStyle = t.line
+    for (let y = 0; y <= ear; y++) ctx.fillRect(w - ear + y - 1, y, 1, 1)
+
+    // 구긴 자국은 글이 없는 아래쪽에만 넣는다. 가운데에 그으면 12px
+    // 글씨를 가로질러서 읽기가 나빠진다
+    if (h >= 72) {
+      const fold = Math.round(h * 0.78)
       let y = fold
       for (let x = 1; x < w - 1; x++) {
-        const r = rand(seed + at, x)
+        const r = rand(seed, x)
         if (r > 0.86) y += 1
         else if (r < 0.14) y -= 1
         y = Math.max(fold - 2, Math.min(fold + 2, y))
