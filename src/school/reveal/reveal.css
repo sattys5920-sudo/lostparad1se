@@ -274,3 +274,244 @@
   .sc-rv__top { animation: none; }
   .sc-rv__sheet { transition: none; }
 }
+
+/* ── 기록 보관함 ─────────────────────────────────────────────── */
+
+.sc-ar {
+  min-height: 100%;
+  background: #101219;
+  color: #e6e8ee;
+  padding: 16px 14px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sc-ar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sc-ar__head h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sc-ar__close {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: #6b7183;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.sc-ar__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #222735;
+}
+
+.sc-ar__tab {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: #6b7183;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  cursor: pointer;
+  position: relative;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.sc-ar__tab.is-on {
+  color: #e6e8ee;
+  border-bottom-color: #8b90a0;
+}
+
+/* 안 읽은 조각이 있으면 점 하나. 숫자는 굳이 세어 주지 않는다 */
+.sc-ar__dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: #e0c98a;
+  vertical-align: 2px;
+}
+
+.sc-ar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sc-ar__item {
+  border: 1px solid #222735;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* 1:1로 들은 고백은 전체 고백과 확연히 달라야 한다 */
+.sc-ar__item.is-private {
+  border-color: #3b3350;
+  background: #15121d;
+}
+
+.sc-ar__row {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  text-align: left;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.sc-ar__title {
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.sc-ar__badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #b6a4d8;
+  border: 1px solid #3b3350;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.sc-ar__unread {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  color: #e0c98a;
+}
+
+.sc-ar__body {
+  padding: 0 12px 12px;
+  border-top: 1px solid #1b2028;
+}
+
+.sc-ar__body p {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: #c6cbd8;
+  text-wrap: pretty;
+}
+
+.sc-ar__memo {
+  display: block;
+  margin-top: 12px;
+}
+
+.sc-ar__memo span {
+  display: block;
+  font-size: 11px;
+  color: #6b7183;
+  margin-bottom: 4px;
+}
+
+.sc-ar__memo textarea,
+.sc-ar__person-note {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0d0f16;
+  border: 1px solid #262b38;
+  border-radius: 4px;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 8px;
+  resize: vertical;
+}
+
+.sc-ar__empty {
+  color: #6b7183;
+  font-size: 13px;
+  padding: 18px 2px;
+}
+
+/* 인물 보드 */
+.sc-ar__board-hint {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  color: #6b7183;
+  line-height: 17px;
+}
+
+.sc-ar__board ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc-ar__person {
+  border: 1px solid #222735;
+  border-radius: 6px;
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sc-ar__person-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sc-ar__person-name {
+  font-size: 13.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-ar__guess {
+  flex-shrink: 0;
+  background: #0d0f16;
+  border: 1px solid #2f3647;
+  border-radius: 4px;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 7px;
+}
+
+/* 아직 안 정한 것은 눈에 덜 띄게 */
+.sc-ar__guess.is-unknown {
+  color: #6b7183;
+  border-color: #222735;
+}
+
+@media (max-width: 400px) {
+  .sc-ar { padding: 14px 12px 28px; }
+  .sc-ar__tab { padding: 8px 7px; font-size: 12.5px; }
+}

@@ -21,6 +21,8 @@ export default defineConfig({
         sprites: resolve(root, 'sprites.html'),
         // 아침 등교 시퀀스 검수용. 본문은 가짜다 — 진짜는 서버에만 있다
         morning: resolve(root, 'morning.html'),
+        // 기록 보관함·추리 노트 검수용
+        archive: resolve(root, 'archive.html'),
       },
     },
   },

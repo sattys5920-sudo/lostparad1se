@@ -111,6 +111,19 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.uid == playerId;
         allow write: if false;
       }
+
+      // 추리 노트. 본인만 읽고 본인만 쓴다.
+      //
+      // 다른 문서와 달리 클라이언트가 직접 쓴다. 판정에 쓰이지 않는
+      // 개인 메모라 서버가 검사할 것이 없고, 서버를 거치게 하면 혼자
+      // 끄적이는 자리가 느려질 뿐이다.
+      //
+      // 운영자도 읽지 못한다. 대시보드에 남의 추리가 뜨는 순간
+      // 이 노트는 혼자 생각하는 자리가 아니게 된다. 그래서 여기에는
+      // 운영자 예외를 두지 않는다.
+      match /notes/{playerId} {
+        allow read, write: if request.auth != null && request.auth.uid == playerId;
+      }
     }
 
     // 걸어 다니는 학교 프로토타입. 본 게임 트리와 완전히 분리해 둔다.
