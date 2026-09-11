@@ -157,8 +157,9 @@ describe('진행도 공개 정책', () => {
 })
 
 describe('점수와 엔딩', () => {
-  it('최대 9점이다', () => {
-    expect(MAX_PERSONAL_SCORE).toBe(9)
+  it('최대 11점이다 — 깨달음과 눈 그침이 붙었다', () => {
+    // 눈이 그치지 않는 학교 8장이 개인 미션 v3의 9점을 11점으로 덮는다
+    expect(MAX_PERSONAL_SCORE).toBe(11)
   })
 
   it('DAY 4 선택은 셋이다', () => {
@@ -170,9 +171,9 @@ describe('점수와 엔딩', () => {
       const band = endingBandOf(s)
       expect(s >= band.min && s <= band.max, `${s}점`).toBe(true)
     }
-    expect(endingBandOf(9).id).toBe('stayed')
-    expect(endingBandOf(7).id).toBe('stayed')
-    expect(endingBandOf(6).id).toBe('passed')
+    expect(endingBandOf(11).id).toBe('stayed')
+    expect(endingBandOf(8).id).toBe('stayed')
+    expect(endingBandOf(7).id).toBe('passed')
     expect(endingBandOf(4).id).toBe('passed')
     expect(endingBandOf(3).id).toBe('left')
     expect(endingBandOf(0).id).toBe('left')

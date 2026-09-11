@@ -109,6 +109,10 @@ export interface GameLog {
   closingTogether: Record<string, boolean>
   /** 서로를 중요한 사람으로 골랐는가. */
   closingMutual: Record<string, boolean>
+  /** 그 자리에 서 봐서 A의 시선이 열렸는가. */
+  awakened: Record<string, boolean>
+  /** 눈이 그쳤는가. 열넷 모두가 함께 받는다. */
+  snowStopped: boolean
 }
 
 // ── 조항 하나의 진행도 ──────────────────────────────────────────
@@ -457,6 +461,8 @@ export interface PersonalResult {
   choiceMet: boolean
   closingTogether: boolean
   closingMutual: boolean
+  awakened: boolean
+  snowStopped: boolean
   score: number
   band: EndingBandSpec
 }
@@ -465,7 +471,8 @@ export interface PersonalResult {
  * 한 사람의 미션 판정. 남의 결과는 들어 있지 않다.
  *
  * 점수는 주 미션 3 · 인연 2 · DAY 4 선택 2 · 종례 동석 1 · 상호 선택 1
- * 로 최대 9다. 팀 점수와는 한 줄도 섞이지 않는다.
+ * · 깨달음 1 · 눈이 그친 아침 1로 최대 11이다.
+ * 팀 점수와는 한 줄도 섞이지 않는다.
  */
 export function judge(me: Assignment, log: GameLog): PersonalResult {
   const c: Ctx = { me, log, bondSameTeam: log.teamOf(me.bondId) === me.team }
@@ -475,13 +482,16 @@ export function judge(me: Assignment, log: GameLog): PersonalResult {
   const choiceMet = log.choiceMet[me.playerId] === true
   const together = log.closingTogether[me.playerId] === true
   const mutual = log.closingMutual[me.playerId] === true
+  const awakened = log.awakened[me.playerId] === true
 
   const score =
     (main.met ? SCORE.main : 0) +
     (bond.met ? SCORE.bond : 0) +
     (choiceMet ? SCORE.choice : 0) +
     (together ? SCORE.closingTogether : 0) +
-    (mutual ? SCORE.closingMutual : 0)
+    (mutual ? SCORE.closingMutual : 0) +
+    (awakened ? SCORE.awakening : 0) +
+    (log.snowStopped ? SCORE.snowStopped : 0)
 
   return {
     playerId: me.playerId,
@@ -491,6 +501,8 @@ export function judge(me: Assignment, log: GameLog): PersonalResult {
     choiceMet,
     closingTogether: together,
     closingMutual: mutual,
+    awakened,
+    snowStopped: log.snowStopped,
     score: Math.min(score, MAX_PERSONAL_SCORE),
     band: endingBandOf(score),
   }

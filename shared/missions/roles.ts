@@ -497,10 +497,20 @@ export const SCORE = {
   closingTogether: 1,
   /** 서로를 중요한 사람으로 골랐다. */
   closingMutual: 1,
+  /** 그 자리에 서 보고 A의 시선이 열렸다. */
+  awakening: 1,
+  /** 눈이 그친 아침. 열넷 모두가 함께 받는다. */
+  snowStopped: 1,
 } as const
 
 export const MAX_PERSONAL_SCORE =
-  SCORE.main + SCORE.bond + SCORE.choice + SCORE.closingTogether + SCORE.closingMutual
+  SCORE.main +
+  SCORE.bond +
+  SCORE.choice +
+  SCORE.closingTogether +
+  SCORE.closingMutual +
+  SCORE.awakening +
+  SCORE.snowStopped
 
 // ── DAY 3·4의 선택 ──────────────────────────────────────────────
 
@@ -539,8 +549,8 @@ export interface EndingBandSpec {
 }
 
 export const ENDING_BANDS: readonly EndingBandSpec[] = [
-  { id: 'stayed', min: 7, max: 9, name: '곁에 남은 아이', line: 'A가 사라진 뒤에도 누군가의 곁에 남았다' },
-  { id: 'passed', min: 4, max: 6, name: '지나간 아이', line: '무언가는 지켰고, 무언가는 흘려보냈다' },
+  { id: 'stayed', min: 8, max: 11, name: '곁에 남은 아이', line: 'A가 사라진 뒤에도 누군가의 곁에 남았다' },
+  { id: 'passed', min: 4, max: 7, name: '지나간 아이', line: '무언가는 지켰고, 무언가는 흘려보냈다' },
   { id: 'left', min: 0, max: 3, name: '남겨진 아이', line: '닷새가 끝났고, 여전히 혼자다' },
 ]
 

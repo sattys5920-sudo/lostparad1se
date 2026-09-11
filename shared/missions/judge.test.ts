@@ -38,6 +38,8 @@ function log(over: Partial<GameLog> = {}): GameLog {
     choiceMet: {},
     closingTogether: {},
     closingMutual: {},
+    awakened: {},
+    snowStopped: false,
     ...over,
   }
 }

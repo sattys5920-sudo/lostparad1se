@@ -107,6 +107,12 @@ export interface Standing {
   team: TeamId
   /** 3인 팀의 오늘 주장인가. 머릿수를 둘로 센다. */
   captain: boolean
+  /**
+   * 오늘 투명인간인가. 그 자리에 서 있어도 **없는 사람**이라 판정에서
+   * 빠진다. 개인 미션의 「서 있었다」에는 들어간다 — 그쪽은 이 함수를
+   * 거치지 않고 서 있던 명단을 그대로 쓴다.
+   */
+  invisible?: boolean
 }
 
 export interface ResolveInput {
@@ -114,7 +120,10 @@ export interface ResolveInput {
   flagTeam: TeamId
   /** 완료 시각 기준 깃발 팀의 동맹. 판정 직전에 깨질 수도 있다. */
   allies: readonly TeamId[]
-  /** 완료 시각에 그 칸에 서 있던 말 전부. 잠든 말·발 묶인 말·잠복 중인 말 모두 포함. */
+  /**
+   * 완료 시각에 그 칸에 서 있던 말 전부. 잠든 말·발 묶인 말·잠복 중인
+   * 말 모두 포함하고, 투명인간도 넣어서 보낸다 — 빼는 일은 여기서 한다.
+   */
   standing: readonly Standing[]
   /** 꽂은 사람이 아직 그 칸에 있는가. 떠났으면 그 자리에서 실패다. */
   planterPresent: boolean
@@ -122,6 +131,8 @@ export interface ResolveInput {
 
 export interface ResolveResult {
   success: boolean
+  /** 투명인간이라 세지 않은 말. 기록으로 남긴다. */
+  ignored: string[]
   /** 깃발 쪽 머릿수(주장 보정 포함). */
   forCount: number
   /** 나머지 전체 머릿수. */
@@ -144,8 +155,14 @@ export function resolveFlag(input: ResolveInput): ResolveResult {
   let forCount = 0
   let againstCount = 0
   let ownPresence = 0
+  const ignored: string[] = []
 
   for (const s of input.standing) {
+    // 지워진 사람은 그 자리에 서 있어도 없는 사람이다
+    if (s.invisible) {
+      ignored.push(s.playerId)
+      continue
+    }
     const heads = s.captain ? CAPTAIN_HEAD_COUNT : 1
     if (friendly.has(s.team)) forCount += heads
     else againstCount += heads
@@ -153,8 +170,9 @@ export function resolveFlag(input: ResolveInput): ResolveResult {
   }
 
   const needsPresence = input.target === 'core' || input.target === 'plaza'
-  const base = { forCount, againstCount, ownPresence }
+  const base = { forCount, againstCount, ownPresence, ignored }
 
+  // 꽂은 사람이 투명인간이면 그 깃발은 지킬 사람이 없는 것과 같다
   if (!input.planterPresent) {
     return { ...base, success: false, reason: '꽂은 사람이 칸을 떠났다' }
   }

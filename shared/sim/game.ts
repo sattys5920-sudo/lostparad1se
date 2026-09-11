@@ -356,6 +356,10 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     choiceMet: {},
     closingTogether: {},
     closingMutual: {},
+    // 봇은 그 자리를 모르고, 공동 목표도 노리지 않는다.
+    // 0단계에서는 자리만 만들어 두고 6단계 시뮬레이션에서 채운다.
+    awakened: {},
+    snowStopped: false,
   }
 
   const personal = assignments.map((a) => {

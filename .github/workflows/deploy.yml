@@ -52,7 +52,12 @@ jobs:
             echo "::error::시크릿 $missing 개가 비어 있다. 저장소 Settings → Secrets and variables → Actions 의 Repository secrets 를 확인해야 한다."
             exit 1
           fi
+      - run: npm test
       - run: npm run build
+      # 서버 전용 문장이 번들에 섞이면 개발자도구 하나로 닷새치 진상이
+      # 첫날 아침에 읽힌다. 되돌릴 수 없으므로 배포 전에 막는다.
+      - name: Check server-only story text did not leak into the bundle
+        run: npm run check:bundle
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

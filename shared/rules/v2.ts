@@ -485,3 +485,45 @@ export const CORE_OPENING: Record<number, readonly string[]> = {
 
 /** 마지막 여섯 시간이 시작되는 날. */
 export const LAST_HOURS_DAY = 5
+
+// ── 투명인간 (눈이 그치지 않는 학교 ①) ─────────────────────────
+
+/** 이만큼 받아야 투명인간이 된다. 한 장으로는 사람을 지우지 못한다. */
+export const INVISIBLE_MIN_SUSPICION = 2
+/**
+ * 같은 사람이 이틀 연속으로 투명인간이 되지는 않는다.
+ * A는 몇 주째였다. 우리는 하루면 된다.
+ */
+export const INVISIBLE_NO_REPEAT = true
+/** 투명인간인 날에는 그 자리 체류가 이만큼 빨리 쌓인다. */
+export const INVISIBLE_STAY_MULTIPLIER = 2
+/** 투명인간이 전체 채팅에 쓴 말은 남에게 이렇게 보인다. */
+export const INVISIBLE_CHAT_MASK = '…'
+
+// ── A의 기억 (②) ───────────────────────────────────────────────
+
+/** 기억이 묻힌 칸의 층위. 다툼이 벌어지는 곳에만 있다. */
+export const MEMORY_TIERS: readonly Tier[] = ['gate', 'cross', 'core', 'plaza']
+
+// ── 그 자리와 깨달음 (③) ───────────────────────────────────────
+
+/** 그 자리에 이만큼 머물면 A의 시선이 열린다(활동 시간). */
+export const AWAKENING_STAY_GAME_HOURS = 3
+
+// ── 눈이 그친 아침 (④) ─────────────────────────────────────────
+
+/** 눈이 그치려면 깨달음에 이른 사람이 이만큼 필요하다. */
+export const SNOW_AWAKENED_NEEDED = 9
+/** 그리고 어떤 형태로든 털어놓은 사람이 이만큼. */
+export const SNOW_REVEALED_NEEDED = 7
+/** 눈발 단계. 0이 그친 것이고 5가 가장 굵다. 수치 대신 이 값만 내려보낸다. */
+export const SNOW_LEVEL_MAX = 5
+/** 눈이 그치면 전원이 받는 개인 점수. */
+export const SNOW_STOPPED_SCORE = 1
+
+// ── 다섯 시의 창고 (⑤) ─────────────────────────────────────────
+
+export const STORAGE_TILE = 'storage'
+export const STORAGE_LOCK_DAY = 5
+export const STORAGE_LOCK_HOUR = 17
+export const STORAGE_UNLOCK_HOUR = 19

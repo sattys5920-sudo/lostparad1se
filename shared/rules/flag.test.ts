@@ -271,3 +271,73 @@ describe('주장 머릿수', () => {
     expect(out.success).toBe(false)
   })
 })
+
+describe('투명인간', () => {
+  const p = (playerId: string, team: Standing['team'], over: Partial<Standing> = {}): Standing => ({
+    playerId,
+    team,
+    captain: false,
+    ...over,
+  })
+
+  it('그 자리에 서 있어도 세지 않는다', () => {
+    const out = resolveFlag({
+      target: 'empty',
+      flagTeam: 'A',
+      allies: [],
+      standing: [p('a1', 'A'), p('b1', 'B', { invisible: true })],
+      planterPresent: true,
+    })
+    expect(out.againstCount).toBe(0)
+    expect(out.ignored).toEqual(['b1'])
+    expect(out.success).toBe(true)
+  })
+
+  it('우리 편이 지워지면 머릿수가 준다', () => {
+    const out = resolveFlag({
+      target: 'empty',
+      flagTeam: 'A',
+      allies: [],
+      standing: [p('a1', 'A'), p('a2', 'A', { invisible: true }), p('b1', 'B')],
+      planterPresent: true,
+    })
+    expect(out.forCount).toBe(1)
+    expect(out.againstCount).toBe(1)
+    expect(out.success).toBe(false)
+  })
+
+  it('지워진 주장은 둘도 하나도 아니다', () => {
+    const out = resolveFlag({
+      target: 'empty',
+      flagTeam: 'C',
+      allies: [],
+      standing: [p('c1', 'C', { captain: true, invisible: true }), p('a1', 'A')],
+      planterPresent: true,
+    })
+    expect(out.forCount).toBe(0)
+    expect(out.success).toBe(false)
+  })
+
+  it('핵심의 「둘 이상」에서도 빠진다', () => {
+    const out = resolveFlag({
+      target: 'core',
+      flagTeam: 'A',
+      allies: [],
+      standing: [p('a1', 'A'), p('a2', 'A', { invisible: true })],
+      planterPresent: true,
+    })
+    expect(out.ownPresence).toBe(1)
+    expect(out.success).toBe(false)
+  })
+
+  it('아무도 지워지지 않았으면 목록이 비어 있다', () => {
+    const out = resolveFlag({
+      target: 'empty',
+      flagTeam: 'A',
+      allies: [],
+      standing: [p('a1', 'A')],
+      planterPresent: true,
+    })
+    expect(out.ignored).toEqual([])
+  })
+})

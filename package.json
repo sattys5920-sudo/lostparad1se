@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sim": "vite-node scripts/sim.ts"
+    "sim": "vite-node scripts/sim.ts",
+    "check:bundle": "vite-node scripts/check-bundle.ts"
   },
   "dependencies": {
     "firebase": "^12.17.1",
