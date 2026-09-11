@@ -88,3 +88,6 @@ export const setDevClock = onCall<{ gameId: string; anchorGameMs: number; speed:
 
 // A의 기록. 공개 시각 게이트가 여기 붙어 있다.
 export { fragmentOfDay, releasedFragments } from './fragments'
+
+// 운영자 전용. 전부 읽기뿐이고, 확인은 커스텀 클레임으로 서버에서 한다.
+export { hostDashboard, hostTextAudit, hostNotice, noticeTemplates } from './admin'

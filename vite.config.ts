@@ -27,6 +27,8 @@ export default defineConfig({
         ending: resolve(root, 'ending.html'),
         // 회고 검수용
         retro: resolve(root, 'retro.html'),
+        // 운영자 도구 검수용
+        host: resolve(root, 'host.html'),
       },
     },
   },
