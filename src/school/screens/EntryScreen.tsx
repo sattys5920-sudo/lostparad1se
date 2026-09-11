@@ -3,7 +3,7 @@ import './EntryScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { CharacterCreator } from '../components/CharacterCreator'
 import { defaultLook } from '../char/look'
-import { loadAccount, logIn, saveAccountCharacter, signUp, type Account } from '../accounts'
+import { logIn, saveAccountCharacter, signUp, type Account } from '../accounts'
 import type { AvatarLook } from '../types'
 import type { EntryDoor } from './IntroScreen'
 
@@ -50,20 +50,17 @@ export function EntryScreen({ door }: { door: EntryDoor }) {
     setStep('character')
   }
 
-  // 지난번에 로그인해 둔 계정이 있으면 교문을 건너뛰고 바로 거울 앞으로 간다
+  // 지난번에 쓴 아이디를 아이디 칸에만 채워 둔다.
+  //
+  // 예전에는 여기서 곧장 캐릭터 화면으로 넘겨 버렸다. 그러면 표지에서
+  // 「가입」을 눌러도 화면이 로그인을 건너뛰고 지나가 버린다 — 누른 문과
+  // 다른 곳에 떨어지는 셈이다. 기억해 둔 계정은 편의를 위한 것이지
+  // 비밀번호를 대신하지 않는다.
   useEffect(() => {
+    if (door !== 'login') return
     const saved = localStorage.getItem(LS_ACCOUNT)
-    if (!saved) return
-    let alive = true
-    void loadAccount(saved)
-      .then((found) => {
-        if (alive && found) applyAccount(found)
-      })
-      .catch(() => localStorage.removeItem(LS_ACCOUNT))
-    return () => {
-      alive = false
-    }
-    // 첫 화면에서 한 번만 본다
+    if (saved) setAccountId(saved)
+    // 표지에서 고른 문은 화면이 열릴 때 한 번만 본다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -114,18 +114,6 @@ export async function logIn(rawId: string, password: string): Promise<Account> {
   }
 }
 
-/** 다시 들어왔을 때 지난번 모습을 그대로 꺼내 쓴다. */
-export async function loadAccount(id: string): Promise<Account | null> {
-  const snap = await getDoc(accountRef(id))
-  if (!snap.exists()) return null
-  const record = snap.data() as AccountDoc
-  return {
-    id,
-    nickname: typeof record.nickname === 'string' ? record.nickname : '',
-    avatar: record.avatar ? normalizeLook(record.avatar) : null,
-  }
-}
-
 /** 계정에 붙은 닉네임과 모습을 갱신한다. 비밀번호 칸은 건드리지 않는다. */
 export async function saveAccountCharacter(id: string, nickname: string, avatar: AvatarLook): Promise<void> {
   await setDoc(accountRef(id), { nickname, avatar }, { merge: true })
