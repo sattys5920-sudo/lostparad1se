@@ -25,7 +25,7 @@ const db = getFirestore()
 export const gameRef = (gameId: string) => db.doc(`games/${gameId}`)
 
 /** 로그인하지 않았으면 아무것도 못 한다. */
-function requireUid(auth: { uid?: string } | undefined): string {
+export function requireUid(auth: { uid?: string } | undefined): string {
   const uid = auth?.uid
   if (!uid) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
   return uid
@@ -91,3 +91,6 @@ export { fragmentOfDay, releasedFragments } from './fragments'
 
 // 운영자 전용. 전부 읽기뿐이고, 확인은 커스텀 클레임으로 서버에서 한다.
 export { hostDashboard, hostTextAudit, hostNotice, noticeTemplates } from './admin'
+
+// 로비. 역할은 시작할 때 나뉘고 secret에만 적힌다.
+export { createGame, joinGame, leaveGame, startGame } from './lobby'

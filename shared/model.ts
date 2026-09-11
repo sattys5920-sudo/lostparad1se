@@ -31,9 +31,25 @@ export type GameMs = number
 
 export type GamePhase = 'lobby' | 'running' | 'finished'
 
+/**
+ * 로비의 자리 하나.
+ *
+ * 누가 어느 팀인지는 숨길 것이 없다 — 팀은 원래 공개다. 그래서 따로
+ * 컬렉션을 두지 않고 판 문서 안에 열네 줄로 둔다. 역할은 여기 없다.
+ */
+export interface SeatEntry {
+  playerId: string
+  name: string
+  team: TeamId
+}
+
 /** games/{gameId} */
 export interface GameDoc {
   phase: GamePhase
+  /** 역할을 나눌 때 쓴 씨앗. 같은 명단·같은 씨앗이면 늘 같은 결과다. */
+  seed: string
+  /** 로비에 앉은 사람들. 시작하면 더 바뀌지 않는다. */
+  seats: SeatEntry[]
   /** 게임이 시작된 게임 속 시각. */
   startedAtMs: GameMs | null
   /** 개발용 시계. anchorRealMs가 0이면 실제 시각 그대로. */
@@ -175,6 +191,22 @@ export interface CommutePlanDoc {
   setAtMs: GameMs
 }
 
+/**
+ * games/{gameId}/secret/roster/items/{playerId} — 역할과 인연 대상.
+ *
+ * 남의 역할은 **어떤 경로로도 내려가지 않는다.** views에는 자기 것
+ * 한 줄만 복사되고, 엔딩 전까지 그 한 줄도 본인 것뿐이다.
+ */
+export interface RosterDoc {
+  playerId: string
+  team: TeamId
+  roleId: string
+  /** 인연 대상. 본인에게만 알려 준다. */
+  bondId: string
+  /** 털어놓았는가. 방식과 시각까지. */
+  reveal: { scope: 'class' | 'private'; atMs: GameMs; listenerIds: string[] } | null
+}
+
 /** games/{gameId}/secret/flagTruth/items/{tileId} — 가짜 깃발 여부. */
 export interface FlagTruthDoc {
   tileId: TileId
@@ -210,6 +242,34 @@ export interface PlayerViewDoc {
   fakeFlagTiles: TileId[]
   /** 정보부장이 들여다본 결과. */
   peeked: { voteKind: VoteKind; voterNickname: string }[]
+
+  // ── 진상 공개 흐름 ──
+  //
+  // 보관함은 **보는 사람마다 따로 만든다.** 전체 목록을 두고 「너는 이건
+  // 못 봐」 표시를 붙이지 않는다 — 그러면 남의 1:1 고백이 제목만이라도
+  // 실려 나간다. 여기에는 애초에 담지 않는다.
+
+  /** 내 역할 한 줄. 남의 것은 없다. */
+  own: { roleId: string; bondId: string } | null
+  /** 아침 시퀀스를 어디까지 처리했는가. 본 날과 건너뛴 날이 함께 들어간다. */
+  handledDays: number[]
+  /** 끝까지 본 날. 보관함이 「읽지 않음」을 가리는 데 쓴다. */
+  readDays: number[]
+  /** 내가 말했거나 내가 들은 고백만. */
+  confessions: {
+    id: string
+    speakerId: string
+    scope: 'class' | 'private'
+    listenerIds: string[]
+    text: string
+    atMs: GameMs
+  }[]
+  /** 우리 팀이 먼저 연 A의 기억. 끝나면 열셋 전부. */
+  memories: { tileId: TileId; team: TeamId; atMs: GameMs }[]
+  /** A의 시선. 깨달음에 이른 본인에게만. */
+  sightAtMs: GameMs | null
+  /** 나에게 온 운영자 공지. 전체 공지와 내 것만 섞여 있다. */
+  notices: { id: string; text: string; atMs: GameMs }[]
 }
 
 // ── 채팅 ────────────────────────────────────────────────────────
@@ -301,6 +361,69 @@ export const SCHEDULE_ORD: Record<ScheduleKind, number> = {
   settlement: 30,
   lastHours: 30,
   gameEnd: 30,
+}
+
+// ── 진상 공개 흐름 ──────────────────────────────────────────────
+//
+// 이 넷만 규칙이 클라이언트에게 직접 열어 준다. 나머지는 전부 서버를
+// 거친다. 여는 이유가 저마다 다르니 하나씩 적어 둔다.
+
+/**
+ * games/{gameId}/notes/{playerId} — 추리 노트.
+ *
+ * **본인만 읽고 본인만 쓴다. 운영자도 못 읽는다.** 판정에 쓰이지 않는
+ * 개인 메모라 서버가 검사할 것이 없고, 서버를 거치게 하면 혼자
+ * 끄적이는 자리가 느려질 뿐이다. 그래서 유일하게 클라이언트가 직접
+ * 쓰는 문서다.
+ *
+ * 모양은 shared/reveal/notes.ts의 DeductionNote 그대로다.
+ */
+export interface NoteDoc {
+  ownerId: string
+  entryNotes: Record<string, string>
+  board: { targetId: string; guess: string; note: string; updatedAtMs: number }[]
+  history: { targetId: string; from: string; to: string; atMs: number }[]
+}
+
+/**
+ * games/{gameId}/retired/{playerId} — 역할을 내려놓았다.
+ *
+ * 자기 것만 만들 수 있고 되돌릴 수 없다. 회고 게시판에 글을 쓰려면
+ * 이 문서가 있어야 한다 — 아직 역할 안에 있는 사람이 끼면 그 한 줄이
+ * 연기인지 아닌지 읽는 쪽이 알 수 없다.
+ */
+export interface RetiredDoc {
+  playerId: string
+  atMs: GameMs
+}
+
+/**
+ * games/{gameId}/retro/{postId} — 회고 게시판.
+ *
+ * 익명 글에는 authorId가 **아예 없다.** null도 아니고 빈 문자열도
+ * 아니다. 규칙이 그 열쇠가 들어 있으면 거절한다. 담아 두고 화면에서
+ * 이름만 가리면 문서를 직접 읽는 순간 누군지 보인다.
+ */
+export interface RetroDoc {
+  authorId?: string
+  anonymous: boolean
+  text: string
+  atMs: GameMs
+}
+
+/**
+ * games/{gameId}/notices/{noticeId} — 운영자 공지.
+ *
+ * 전원 공지와 한 사람 공지가 같은 자리에 쌓인다. 사람마다 보일 것이
+ * 다르므로 서버가 views에 따로 깎아 넣는다 — 이 컬렉션 자체는
+ * 클라이언트가 읽지 않는다.
+ */
+export interface NoticeDoc {
+  /** null이면 전원에게. */
+  toPlayerId: string | null
+  text: string
+  atMs: GameMs
+  byId: string
 }
 
 // ── 견제·약점처럼 기한이 붙는 것 ────────────────────────────────

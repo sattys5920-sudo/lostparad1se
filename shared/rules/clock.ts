@@ -169,3 +169,29 @@ export function dayNumber(startedAtMs: number, nowMs: number): number {
   const beforeDawnToday = secondsIntoSeoulDay(nowMs) < DAY_START_HOUR * HOUR
   return Math.max(1, dawnsPassed + 1 - (beforeDawnToday ? 1 : 0))
 }
+
+/**
+ * DAY n이 시작하는 시각. 그날 08:00이다. dayNumber의 역함수다.
+ *
+ * 예정 이벤트를 깔 때 쓴다. 「DAY 3 21:00에 정산」을 밀리초로 바꾸는
+ * 일이 서버 여기저기서 필요한데, 저마다 86400000을 곱하면 언젠가
+ * 한 군데가 틀린다.
+ */
+export function dayStartMs(startedAtMs: number, day: number): number {
+  const firstDawn = seoulTimeOn(startedAtMs, DAY_START_HOUR)
+  const origin = startedAtMs < firstDawn ? firstDawn - DAY * 1000 : firstDawn
+  return seoulTimeOn(origin + (day - 1) * DAY * 1000, DAY_START_HOUR)
+}
+
+/**
+ * DAY n의 h시.
+ *
+ * h가 24 이상이면 소등을 넘어간 시각이다 — DAY 3의 25시는 달력으로는
+ * 다음 날 새벽 한 시지만 게임에서는 아직 DAY 3이다. 그래서 그냥
+ * 더한다.
+ */
+export function dayHourMs(startedAtMs: number, day: number, hour: number): number {
+  const dawn = dayStartMs(startedAtMs, day)
+  if (hour < 24) return seoulTimeOn(dawn, hour)
+  return seoulTimeOn(dawn, DAY_START_HOUR) + (hour - DAY_START_HOUR) * HOUR * 1000
+}
