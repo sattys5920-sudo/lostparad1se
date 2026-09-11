@@ -52,6 +52,8 @@ export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) 
     spotlightTeams: [],
     comebackTeams: [],
     lastHours: false,
+    invisibleId: null,
+    invisibleByDay: {},
   }
   await ref.set(game)
   return { gameId, seats: 0, need: TOTAL_SEATS }

@@ -97,6 +97,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   return {
     nowMs,
     over: game.phase === 'finished',
+    invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,
     tiles: tiles.docs.map((d) => {
       const t = d.data() as TileDoc

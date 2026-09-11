@@ -54,6 +54,14 @@ export interface World {
   nowMs: number
   /** 끝났으면 A의 기억 열셋이 전원에게 열린다. */
   over: boolean
+  /**
+   * 오늘 지워진 사람. 없으면 null.
+   *
+   * 이름은 아침에 모두가 안다. 숨기는 것은 **위치**다. 안개보다
+   * 먼저 걸러서, 다른 사람에게는 위치 데이터 자체를 보내지 않는다 —
+   * 잠복은 「안 보인다」이고 투명인간은 「없는 사람」이다.
+   */
+  invisibleId: string | null
   pawns: readonly WorldPawn[]
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
@@ -131,6 +139,9 @@ export function projectView(world: World, viewerId: string): View {
   const me = world.roster.find((r) => r.playerId === viewerId) ?? null
   const team = me?.team ?? null
 
+  // 지워진 사람은 **남의 시야 계산에 들어가기 전에** 빠진다
+  const seenPawns = world.pawns.filter((p) => p.playerId === viewerId || p.playerId !== world.invisibleId)
+
   // 팀이 없으면 안개도 없다. 빈 view를 돌려준다
   if (team === null) {
     return {
@@ -154,7 +165,7 @@ export function projectView(world: World, viewerId: string): View {
     }
   }
 
-  const ours = world.pawns.filter((p) => p.team === team)
+  const ours = seenPawns.filter((p) => p.team === team)
   // 걷는 말은 다음 칸을 기준으로 본다. 목적지가 아니다
   const myPawnTiles = ours
     .map((p) => p.tileId ?? p.toTile)
@@ -175,7 +186,7 @@ export function projectView(world: World, viewerId: string): View {
     visiblePawns: visiblePawns({
       viewerId,
       viewerTeam: team,
-      pawns: world.pawns,
+      pawns: seenPawns,
       visible,
       nowMs: world.nowMs,
     }),

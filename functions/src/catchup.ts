@@ -17,6 +17,8 @@ import { canPay, pay } from '../../shared/rules/buildings'
 import { releaseCommute } from '../../shared/rules/movement'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
+import { applyInfluence, tallyVotes, type Vote } from '../../shared/rules/votes'
+import { teamHasBuilding } from '../../shared/rules/buildings'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   ALLIANCE_CLEAR_DAY,
@@ -38,6 +40,7 @@ import type {
   TeamDoc,
   TileDoc,
   TokenStateDoc,
+  VoteDoc,
 } from '../../shared/model'
 import { TILE_BY_ID } from '../../shared/rules/board'
 import { arrivals } from '../../shared/rules/movement'
@@ -153,7 +156,13 @@ async function dayStart(c: Ctx): Promise<void> {
     })
   }
 
-  c.tx.update(ref, { day: c.day, openedTiles, boostedTiles })
+  c.tx.update(ref, {
+    day: c.day,
+    openedTiles,
+    boostedTiles,
+    // 어제 21:00에 정해진 사람이 오늘 지워진다
+    invisibleId: c.game.invisibleByDay[c.day] ?? null,
+  })
   c.tx.set(ref.collection('events').doc(), {
     atMs: c.atMs,
     day: c.day,
@@ -183,10 +192,11 @@ async function settlement(c: Ctx): Promise<void> {
   const ref = gameRef(c.gameId)
   // 트랜잭션은 **읽기를 전부 끝낸 뒤에야** 쓸 수 있다. 그래서 나중에
   // 쓸 토큰 상자까지 여기서 미리 읽는다
-  const [tileSnap, teamSnap, tokenSnap] = await Promise.all([
+  const [tileSnap, teamSnap, tokenSnap, voteSnap] = await Promise.all([
     c.tx.get(ref.collection('tiles')),
     c.tx.get(ref.collection('teams')),
     c.tx.get(ref.collection('secret').doc('tokens').collection('items')),
+    c.tx.get(ref.collection('secret').doc('votes').collection('items')),
   ])
 
   const tiles: TileState[] = tileSnap.docs.map((d) => {
@@ -204,11 +214,47 @@ async function settlement(c: Ctx): Promise<void> {
     const res = { ...doc.resources }
     for (const [r, n] of Object.entries(got) as [Resource, number][]) res[r] += n
     after.set(team, res)
-    c.tx.update(ref.collection('teams').doc(team), { resources: res })
   }
 
-  // 2. 받은 표 → 영향력. 5단계에서 붙는다
-  const votes: never[] = []
+  // 2. 받은 표 → 영향력
+  //
+  // 오늘 던져진 것만 센다. 아직 정산 안 된 표를 날짜 상관없이 긁으면
+  // 따라잡기로 이틀이 한꺼번에 밀릴 때 어제 표가 오늘 또 들어간다
+  const todays = voteSnap.docs.filter((d) => {
+    const v = d.data() as VoteDoc
+    return !v.settled && v.day === c.day
+  })
+  const votes: Vote[] = todays.map((d) => {
+    const v = d.data() as VoteDoc
+    return {
+      voterId: v.voterId,
+      voterTeam: v.voterTeam,
+      targetId: v.targetId,
+      targetTeam: v.targetTeam,
+      kind: v.kind,
+      exactHit: v.exactHit,
+      atMs: v.castAtMs,
+    }
+  })
+
+  const tally = tallyVotes({
+    votes,
+    hasBroadcast: (team) => teamHasBuilding(tiles, team, 'broadcast'),
+    hasHideout: (team) => teamHasBuilding(tiles, team, 'hideout'),
+    spotlighted: c.game.spotlightTeams[0] ?? null,
+  })
+  for (const team of TEAMS) {
+    const res = after.get(team)
+    if (!res) continue
+    res.influence = applyInfluence(res.influence, tally[team].delta)
+  }
+
+  // 생산과 표를 한꺼번에 적는다
+  for (const team of TEAMS) {
+    const res = after.get(team)
+    if (res) c.tx.update(ref.collection('teams').doc(team), { resources: res })
+  }
+  for (const d of todays) c.tx.update(d.ref, { settled: true })
 
   // 3~4. 점수와 순위, 주목과 만회
   const fragments = fragmentsUpTo(c.day)
@@ -233,7 +279,8 @@ async function settlement(c: Ctx): Promise<void> {
     scores,
     influenceOf: (team) => after.get(team)?.influence ?? 0,
     votes,
-    yesterdayInvisibleId: null,
+    // 이틀 연속은 없다
+    yesterdayInvisibleId: c.game.invisibleByDay[c.day] ?? null,
   })
 
   // 마지막 여섯 시간에는 점수를 알리지 않는다
@@ -247,9 +294,12 @@ async function settlement(c: Ctx): Promise<void> {
   const lastBox = tokenSnap.docs.find((d) => d.id === result.comeback)
   if (lastBox) c.tx.set(lastBox.ref, markComeback(lastBox.data() as TokenStateDoc))
 
+  // 내일 지워지는 사람. 표가 갈렸으면 null이고, 그것도 그대로 알린다
+  const tomorrow = c.day + 1
   c.tx.update(ref, {
     spotlightTeams: [result.spotlighted],
     comebackTeams: [result.comeback],
+    [`invisibleByDay.${tomorrow}`]: result.invisible.playerId,
   })
   c.tx.set(ref.collection('events').doc(), {
     atMs: c.atMs,
@@ -344,8 +394,9 @@ async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> 
       playerId: p.playerId,
       team: p.team,
       captain: teamSnap.exists && (teamSnap.data() as TeamDoc).captainId === p.playerId,
-      // 투명인간은 5단계에서 붙는다. 그때까지는 아무도 지워지지 않는다
-      invisible: false,
+      // 그 자리에 서 있어도 없는 사람이라 머릿수에서 빠진다.
+      // 개인 미션의 「서 있었다」에는 들어간다 — 그쪽은 이 판정을 거치지 않는다
+      invisible: p.playerId === c.game.invisibleId,
     }))
 
   const teamDoc = teamSnap.data() as TeamDoc

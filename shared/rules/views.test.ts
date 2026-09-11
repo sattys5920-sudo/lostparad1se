@@ -32,10 +32,11 @@ const pawn = (playerId: string, team: TeamId, tileId: TileId | null, extra: Part
   ...extra,
 })
 
-function world(over = false): World {
+function world(over = false, invisibleId: string | null = null): World {
   return {
     nowMs: 1000,
     over,
+    invisibleId,
     pawns: ROSTER.map((r) => pawn(r.playerId, r.team, BASE_OF[r.team])),
     tiles: [
       { tileId: 'baseA', ownerTeam: 'A', buildings: [] },
@@ -197,6 +198,35 @@ describe('우리 팀 것', () => {
     expect(projectView(world(), 'A0').peeked).toHaveLength(1)
     expect(projectView(world(), 'A1').peeked).toEqual([])
     expect(json(projectView(world(), 'A1'))).not.toContain('누군가')
+  })
+})
+
+// 잠복은 「안 보인다」이고 투명인간은 「없는 사람」이다.
+// 위치 데이터가 아예 안 나간다
+describe('투명인간', () => {
+  it('남에게 보이지 않는다 — 같은 팀에게도', () => {
+    const all = projectAll(world(false, 'A1'))
+    for (const r of ROSTER) {
+      if (r.playerId === 'A1') continue
+      expect(all[r.playerId].visiblePawns.map((p) => p.playerId)).not.toContain('A1')
+    }
+  })
+
+  it('본인은 자기 말을 본다', () => {
+    expect(projectView(world(false, 'A1'), 'A1').visiblePawns.map((p) => p.playerId)).toContain('A1')
+  })
+
+  it('위치가 어느 몫에도 남지 않는다', () => {
+    const v = projectView(world(false, 'A1'), 'A0')
+    expect(json(v.visiblePawns)).not.toContain('A1')
+  })
+
+  // 지워진 사람이 우리 팀이어도 그 사람 자리의 시야는 살아 있다.
+  // 지워진 것은 남이 보는 일이지 그 사람이 눈을 감은 것이 아니다
+  it('지워져도 본인의 시야는 그대로다', () => {
+    const v = projectView(world(false, 'A0'), 'A0')
+    expect(v.visibleTiles.length).toBeGreaterThan(0)
+    expect(v.own).not.toBeNull()
   })
 })
 

@@ -66,6 +66,15 @@ export interface GameDoc {
   comebackTeams: TeamId[]
   /** DAY 5 15:00부터 true. 점수판이 가려지고 깃발이 절반이 된다. */
   lastHours: boolean
+  /**
+   * 오늘 지워진 사람. 없으면 null.
+   *
+   * 이름은 아침에 모두에게 알려진다 — 숨길 것이 아니라 겪을 것이다.
+   * 숨기는 것은 그 사람의 **위치**이고, 그건 views가 한다.
+   */
+  invisibleId: string | null
+  /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
+  invisibleByDay: Record<number, string | null>
 }
 
 /** games/{gameId}/tiles/{tileId} — 주인은 숨길 것이 없다. */
@@ -163,7 +172,13 @@ export interface PawnDoc {
 // ── 숨김: 서버만 ────────────────────────────────────────────────
 // 규칙에서 클라이언트 읽기를 전면 차단한다.
 
-/** games/{gameId}/secret/votes/items/{voteId} — 보낸 사람이 여기 있다. */
+/**
+ * games/{gameId}/secret/votes/items/{voteId} — **보낸 사람이 여기 있다.**
+ *
+ * 이 컬렉션은 어느 화면에도, 운영자 대시보드에도 내려가지 않는다.
+ * 정산에서 팀 합계로만 나간다. 네 명짜리 팀의 합계에서 누가 누구에게
+ * 줬는지는 되짚을 수 없다.
+ */
 export interface VoteDoc {
   day: number
   voterId: string
@@ -171,6 +186,13 @@ export interface VoteDoc {
   targetId: string
   targetTeam: TeamId
   kind: VoteKind
+  /**
+   * 그날 A의 기록이 가리킨 역할을 정확히 짚었는가. **서버만 안다.**
+   *
+   * 던진 사람에게도 알려 주지 않는다. 알려 주면 표 한 장으로 역할을
+   * 하나씩 찍어 볼 수 있다.
+   */
+  exactHit: boolean
   castAtMs: GameMs
   /** 21:00 정산에 반영됐는가. */
   settled: boolean

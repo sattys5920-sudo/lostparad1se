@@ -107,3 +107,6 @@ export { buildOn, upgradeOn, research, scout, produce, sabotage } from './act'
 
 // 교역과 동맹. 토큰이 들지 않는다.
 export { offerTrade, respondTrade, proposeAlliance, respondAlliance, breakAllianceNow } from './deal'
+
+// 표와 털어놓기. 표는 보낸 사람이 어디로도 나가지 않는다.
+export { castVote, revealSecret } from './vote'
