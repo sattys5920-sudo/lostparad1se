@@ -5,6 +5,7 @@ import {
   currentDay,
   done,
   pendingDays,
+  handledDays,
   readDays,
   shouldPlay,
   skipAll,
@@ -137,5 +138,32 @@ describe('다 본 뒤', () => {
     const s = skipAll(startMorning([1]))
     expect(advance(s, one)).toEqual(s)
     expect(skipDay(s)).toEqual(s)
+  })
+})
+
+describe('handledDays', () => {
+  it('본 날과 건너뛴 날을 함께 돌려준다', () => {
+    const before = [1, 2, 3]
+    let s = startMorning(before)
+    s = skipDay(s) // 1
+    for (let i = 0; i < 4; i++) s = advance(s, null) // 2
+    s = skipDay(s) // 3
+    expect(readDays(before, s)).toEqual([2])
+    expect(handledDays(before, s)).toEqual([1, 2, 3])
+  })
+
+  it('아직 안 본 날은 빠진다', () => {
+    const before = [1, 2, 3]
+    const s = skipDay(startMorning(before))
+    expect(handledDays(before, s)).toEqual([1])
+  })
+
+  // 이 둘을 갈라 놓고 readDays만 저장하면 건너뛴 아침이 매일 다시 뜬다.
+  // 봇 닷새 주행에서 실제로 그랬다.
+  it('건너뛴 날을 다시 재생하지 않는다', () => {
+    const before = [1, 2, 3]
+    const s = skipDay(startMorning(before))
+    expect(pendingDays([1, 2, 3], readDays(before, s))).toContain(1)
+    expect(pendingDays([1, 2, 3], handledDays(before, s))).not.toContain(1)
   })
 })

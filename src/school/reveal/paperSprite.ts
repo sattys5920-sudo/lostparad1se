@@ -39,14 +39,25 @@ export interface PaperGeom {
   ruleStep: number
 }
 
+/**
+ * 찢긴 면이 얼마나 깊이 들어가는가. 종이 너비에 따라 정한다.
+ *
+ * 고정 4픽셀로 두었더니 380px 화면에서 종이 너비의 2%밖에 안 됐다.
+ * 찢긴 자국이 아니라 화면 끝에 잘린 것처럼 보인다. 너비를 따라가되
+ * 너무 깊어지지 않게 위아래를 막는다.
+ */
+export function tornDepth(w: number): number {
+  return Math.max(6, Math.min(14, Math.round(w * 0.07)))
+}
+
 /** 종류마다 여백이 다르다. 일기장은 왼쪽에 구멍과 여백선이 있어 넓다. */
 export function geomOf(kind: PaperKind, w: number, h: number): PaperGeom {
   if (kind === 'diary') {
     return { w, h, pad: { top: 7, right: 6, bottom: 7, left: 14 }, ruleStep: PAPER_RULE_STEP }
   }
   if (kind === 'torn') {
-    // 오른쪽이 찢겨 있다. 그쪽 여백을 더 준다
-    return { w, h, pad: { top: 7, right: 11, bottom: 7, left: 7 }, ruleStep: 0 }
+    // 오른쪽이 찢겨 있다. 글이 찢긴 면에 닿지 않도록 그만큼 비운다
+    return { w, h, pad: { top: 7, right: tornDepth(w) + 6, bottom: 7, left: 7 }, ruleStep: 0 }
   }
   return { w, h, pad: { top: 7, right: 7, bottom: 7, left: 7 }, ruleStep: 0 }
 }
@@ -108,7 +119,7 @@ export function drawPaper(ctx: CanvasRenderingContext2D, o: DrawOptions): void {
   ctx.clearRect(0, 0, w, h)
 
   /** 찢긴 종이는 오른쪽 가장자리가 줄마다 조금씩 들어간다. */
-  const edge = o.kind === 'torn' ? tornEdge(seed, h, 4) : null
+  const edge = o.kind === 'torn' ? tornEdge(seed, h, tornDepth(w)) : null
   const rightAt = (y: number): number => (edge ? w - 1 - edge[y] : w - 1)
 
   // 바탕
@@ -119,19 +130,22 @@ export function drawPaper(ctx: CanvasRenderingContext2D, o: DrawOptions): void {
   }
 
   // 아래쪽과 오른쪽에 그늘 한 줄 — 종이가 바닥에서 살짝 뜬 느낌
+  //
+  // 가로선은 전부 rightAt()까지만 긋는다. 찢긴 종이에서 w까지 그으면
+  // 찢어진 자리 위로 선 한 줄이 튀어나와 종이가 다시 네모로 보인다
   ctx.fillStyle = t.shade
-  ctx.fillRect(0, h - 2, w, 1)
+  ctx.fillRect(0, h - 2, rightAt(h - 2) + 1, 1)
   if (!edge) for (let y = 0; y < h - 1; y++) ctx.fillRect(w - 2, y, 1, 1)
 
   // 위쪽에 빛 한 줄
   ctx.fillStyle = t.light
-  ctx.fillRect(0, 0, w - 1, 1)
+  ctx.fillRect(0, 0, rightAt(0), 1)
 
   // 테두리. 찢긴 쪽은 테두리를 그리지 않는다 — 찢어진 면에는 선이 없다
   ctx.fillStyle = t.line
   ctx.fillRect(0, 0, 1, h)
-  ctx.fillRect(0, 0, w, 1)
-  ctx.fillRect(0, h - 1, w, 1)
+  ctx.fillRect(0, 0, rightAt(0) + 1, 1)
+  ctx.fillRect(0, h - 1, rightAt(h - 1) + 1, 1)
   if (o.kind !== 'torn') ctx.fillRect(w - 1, 0, 1, h)
 
   if (o.kind === 'diary') {
@@ -169,10 +183,13 @@ export function drawPaper(ctx: CanvasRenderingContext2D, o: DrawOptions): void {
     ctx.fillStyle = t.line
     for (let y = 0; y <= ear; y++) ctx.fillRect(w - ear + y - 1, y, 1, 1)
 
-    // 구긴 자국은 글이 없는 아래쪽에만 넣는다. 가운데에 그으면 12px
-    // 글씨를 가로질러서 읽기가 나빠진다
+    // 구긴 자국은 **아래 여백 안에만** 넣는다.
+    //
+    // 처음에는 높이의 78% 자리에 그었다. 짧은 종이에서는 글 아래였지만,
+    // DAY 5처럼 맨 위가 열려 종이가 길어지면 그 자리가 마지막 줄 한복판이
+    // 된다. 가로지른 선은 구김이 아니라 찢긴 자국으로 보인다.
     if (h >= 72) {
-      const fold = Math.round(h * 0.78)
+      const fold = h - geomOf('note', w, h).pad.bottom + 2
       let y = fold
       for (let x = 1; x < w - 1; x++) {
         const r = rand(seed, x)

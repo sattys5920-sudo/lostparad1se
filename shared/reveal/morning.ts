@@ -42,16 +42,20 @@ export function done(s: MorningState): boolean {
 }
 
 /**
- * 아직 안 본 날. 열린 날 중에서 이미 본 것을 뺀다.
+ * 아직 재생하지 않은 날. 열린 날에서 이미 처리한 날을 뺀다.
  *
- * 건너뛴 날은 **다시 재생하지 않는다.** 건너뛰기를 누른 사람에게 다음
- * 접속 때 또 들이미는 건 건너뛰기가 아니다. 대신 보관함에 남는다.
+ * handled에는 **끝까지 본 날과 건너뛴 날이 함께** 들어간다. 건너뛴 날은
+ * 다시 재생하지 않는다 — 건너뛰기를 누른 사람에게 다음 접속 때 또
+ * 들이미는 건 건너뛰기가 아니다. 대신 보관함에 「읽지 않음」으로 남는다.
+ *
+ * 둘을 따로 들고 있다가 본 날만 넘기면 건너뛴 아침이 매일 다시 뜬다.
+ * 그러지 않도록 handledDays()가 둘을 합쳐 준다.
  */
 export function pendingDays(
   released: readonly number[],
-  seen: readonly number[],
+  handled: readonly number[],
 ): number[] {
-  const done = new Set(seen)
+  const done = new Set(handled)
   return [...released].filter((d) => !done.has(d)).sort((a, b) => a - b)
 }
 
@@ -106,11 +110,28 @@ export function skipAll(s: MorningState): MorningState {
   return { ...s, queue: [], scene: 'date', paperIndex: 0, topShown: false, skipped: [...s.skipped, ...s.queue] }
 }
 
-/** 이번에 끝까지 본 날. 서버에 「봤다」로 적을 목록이다. */
+/**
+ * 이번에 끝까지 본 날.
+ *
+ * 건너뛴 날은 여기 없다 — 보관함이 「읽지 않음」을 가리는 데 쓰기
+ * 때문이다. 다음 재생을 정하는 목록은 이게 아니라 handledDays()다.
+ */
 export function readDays(before: readonly number[], after: MorningState): number[] {
   const left = new Set(after.queue)
   const skipped = new Set(after.skipped)
   return before.filter((d) => !left.has(d) && !skipped.has(d))
+}
+
+/**
+ * 이번에 처리한 날 전부 — 본 날과 건너뛴 날.
+ *
+ * 서버에 적어 두었다가 다음 접속 때 pendingDays()에 그대로 넘긴다.
+ * 「봤다」와 「건너뛰었다」를 가르는 건 보관함 쪽 일이고, 재생 여부는
+ * 둘을 가르지 않는다.
+ */
+export function handledDays(before: readonly number[], after: MorningState): number[] {
+  const left = new Set(after.queue)
+  return before.filter((d) => !left.has(d))
 }
 
 // ── 언제 재생하나 ───────────────────────────────────────────────
@@ -121,6 +142,6 @@ export function readDays(before: readonly number[], after: MorningState): number
  * 두 경우를 굳이 가르지 않는다. 「열렸는데 아직 안 봤다」면 재생한다 —
  * 같은 조건이고, 접속 상태를 따로 추적할 필요가 없다.
  */
-export function shouldPlay(released: readonly number[], seen: readonly number[]): boolean {
-  return pendingDays(released, seen).length > 0
+export function shouldPlay(released: readonly number[], handled: readonly number[]): boolean {
+  return pendingDays(released, handled).length > 0
 }
