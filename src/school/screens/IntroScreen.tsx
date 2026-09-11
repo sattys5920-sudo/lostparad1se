@@ -1,6 +1,9 @@
 import './IntroScreen.css'
 
-export function IntroScreen({ onEnter }: { onEnter: () => void }) {
+/** 표지에서 고르는 문. 「들어가기」 한 단계를 거치지 않고 바로 갈린다. */
+export type EntryDoor = 'signup' | 'login'
+
+export function IntroScreen({ onEnter }: { onEnter: (door: EntryDoor) => void }) {
   return (
     <div className="sc-intro">
       <div className="sc-intro__body">
@@ -15,9 +18,14 @@ export function IntroScreen({ onEnter }: { onEnter: () => void }) {
           우리는 서로에게 어떤 사람이 될 것인가.
         </p>
       </div>
-      <button className="sc-intro__enter" onClick={onEnter}>
-        들어가기
-      </button>
+      <div className="sc-intro__doors">
+        <button className="sc-intro__enter" onClick={() => onEnter('signup')}>
+          가입
+        </button>
+        <button className="sc-intro__enter sc-intro__enter--ghost" onClick={() => onEnter('login')}>
+          로그인
+        </button>
+      </div>
     </div>
   )
 }

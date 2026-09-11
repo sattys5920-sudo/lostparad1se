@@ -48,3 +48,18 @@
   font-size: 13px;
   letter-spacing: 0.1em;
 }
+
+/* 가입과 로그인이 나란히 선다 */
+.sc-intro__doors {
+  display: flex;
+  gap: 8px;
+}
+
+.sc-intro__doors .sc-intro__enter {
+  flex: 1;
+}
+
+.sc-intro__enter--ghost {
+  background: transparent;
+  color: var(--sc-text);
+}

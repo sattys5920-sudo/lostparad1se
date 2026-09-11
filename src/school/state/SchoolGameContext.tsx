@@ -112,6 +112,7 @@ const LS = {
   nickname: 'school_nickname',
   isHost: 'school_isHost',
   roleAcked: 'school_roleAcked',
+  accountId: 'school_accountId',
 }
 
 const EMPTY_SESSION: SchoolSessionState = {
@@ -516,6 +517,7 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LS.nickname)
     localStorage.removeItem(LS.isHost)
     localStorage.removeItem(LS.roleAcked)
+    localStorage.removeItem(LS.accountId)
     setViewerId(null)
     setNickname('')
     setIsHost(false)

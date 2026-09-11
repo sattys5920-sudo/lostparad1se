@@ -4,7 +4,6 @@ import {
   DIRS,
   EXPRESSION_NAMES,
   HAIR_BY_ID,
-  HAIR_IDS,
   HAIR_IDS_F,
   HAIR_IDS_M,
   NECKWEAR_NAMES,
@@ -18,11 +17,6 @@ import { HAIR_COLORS, TEAMS } from '../char/palette'
 import { BOTTOM_NAMES, randomLook, withStyleSet } from '../char/look'
 import type { AvatarLook, StyleSet, TeamId } from '../types'
 
-/** 얼굴칸 둘레 — 표정 썸네일은 여기만 잘라 크게 띄운다. 8x4짜리 표정이
- *  머리통 전체에 파묻히면 여섯 개가 다 같아 보인다. */
-const FACE_BOX = { x: 9, y: 10, w: 14, h: 10 }
-/** 사람이 선 자리만. 빈 여백을 잘라내 작은 칸에서도 머리 모양이 보이게 한다. */
-const BODY_BOX = { x: 7, y: 6, w: 18, h: 26 }
 /** 머리 + 상반신 — 명단·대화 아이콘용 */
 export const BUST_BOX = { x: 8, y: 6, w: 16, h: 18 }
 
@@ -92,31 +86,19 @@ function WalkPreview({ look, team, dir, scale }: { look: AvatarLook; team: TeamI
   return <Sprite look={look} team={team} dir={dir} frame={frame} scale={scale} />
 }
 
-type TabId = 'hair' | 'color' | 'face' | 'outfit'
+/** 성별. 머리·하의 목록의 기본값을 정할 뿐 몸 픽셀 맵은 남녀가 같다. */
+const SET_IDS: StyleSet[] = ['M', 'F']
+const SET_NAMES = ['남', '여']
+const COLOR_NAMES = HAIR_COLORS.map((c) => c.name)
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'hair', label: '헤어' },
-  { id: 'color', label: '색' },
-  { id: 'face', label: '표정' },
-  { id: 'outfit', label: '옷' },
-]
-
-const SETS: { id: StyleSet; label: string }[] = [
-  { id: 'M', label: '남' },
-  { id: 'F', label: '여' },
-]
-
-/** 헤어 목록의 거름망 — 성별 둘과 「전체 보기」. 성별을 골라도 여기서 풀면 자유 조합이 된다. */
-type HairFilter = StyleSet | 'all'
-
-const HAIR_FILTERS: { id: HairFilter; label: string }[] = [
-  { id: 'M', label: '남' },
-  { id: 'F', label: '여' },
-  { id: 'all', label: '전체 보기' },
-]
-
-/** 줄 하나짜리 세그먼트 단추. 옷 탭이 네 줄이라 한 벌로 뽑아 둔다. */
-function Segment({
+/**
+ * 고르는 줄 하나 — 왼쪽 화살표, 지금 고른 것의 이름, 오른쪽 화살표.
+ *
+ * 격자에 썸네일을 깔면 서른 종을 한 화면에 욱여넣느라 칸이 작아지고,
+ * 탭을 달면 무엇을 고르는 중인지 늘 한 겹 가려진다. 줄마다 화살표만
+ * 두면 위에 있는 미리보기가 곧 결과다.
+ */
+function Row({
   label,
   names,
   value,
@@ -127,16 +109,20 @@ function Segment({
   value: number
   onPick: (i: number) => void
 }) {
+  const step = (d: number) => onPick(((value + d) % names.length + names.length) % names.length)
   return (
-    <div className="sc-cc__seg">
-      <span className="sc-cc__segLabel">{label}</span>
-      <div className="sc-cc__segRow">
-        {names.map((name, i) => (
-          <button key={name} className={`sc-cc__segBtn ${value === i ? 'is-on' : ''}`} onClick={() => onPick(i)}>
-            {name}
-          </button>
-        ))}
-      </div>
+    <div className="sc-cc__row">
+      <span className="sc-cc__rowLabel">{label}</span>
+      <button className="sc-cc__arrow" aria-label={`${label} 이전`} onClick={() => step(-1)}>
+        ‹
+      </button>
+      <span className="sc-cc__rowValue">{names[value]}</span>
+      <button className="sc-cc__arrow" aria-label={`${label} 다음`} onClick={() => step(1)}>
+        ›
+      </button>
+      <span className="sc-cc__rowCount">
+        {value + 1}/{names.length}
+      </span>
     </div>
   )
 }
@@ -154,40 +140,24 @@ export function CharacterCreator({
   onDone?: () => void
   doneLabel?: string
 }) {
-  const [tab, setTab] = useState<TabId>('hair')
   const [dir, setDir] = useState<Dir>('down')
-  const [hairFilter, setHairFilter] = useState<HairFilter>(look.styleSet)
 
   const turn = (step: number) => {
     const i = DIRS.indexOf(dir)
     setDir(DIRS[(i + step + DIRS.length) % DIRS.length])
   }
 
-  /** 성별은 목록의 기본값이다 — 바꾸면 머리도 같은 자리의 반대쪽 머리로 옮긴다. */
-  const pickSet = (set: StyleSet) => {
-    setHairFilter(set)
-    onChange(withStyleSet(look, set))
-  }
-
   const teamDef = team ? TEAMS.find((t) => t.id === team) : null
-  const hairIds = hairFilter === 'all' ? HAIR_IDS : hairFilter === 'M' ? HAIR_IDS_M : HAIR_IDS_F
 
-  const options: { key: string; label: string; patch: Partial<AvatarLook>; on: boolean }[] =
-    tab === 'hair'
-      ? hairIds.map((id) => ({
-          key: id,
-          label: HAIR_BY_ID[id].name,
-          patch: { hairStyle: id },
-          on: look.hairStyle === id,
-        }))
-      : tab === 'color'
-        ? HAIR_COLORS.map((c, i) => ({ key: c.name, label: c.name, patch: { hairColor: i }, on: look.hairColor === i }))
-        : EXPRESSION_NAMES.map((name, i) => ({
-            key: name,
-            label: name,
-            patch: { expression: i },
-            on: look.expression === i,
-          }))
+  // 고른 성별의 열다섯 종이 앞에 오고 반대쪽 열다섯 종이 뒤에 붙는다.
+  // 화살표로 끝까지 밀면 성별 너머의 머리까지 그대로 이어지므로 따로
+  // 「전체 보기」를 둘 필요가 없다.
+  const hairIds = look.styleSet === 'M' ? [...HAIR_IDS_M, ...HAIR_IDS_F] : [...HAIR_IDS_F, ...HAIR_IDS_M]
+  const hairNames = hairIds.map((id) => HAIR_BY_ID[id].name)
+  const hairAt = Math.max(0, hairIds.indexOf(look.hairStyle))
+
+  /** 성별은 목록의 기본값이다 — 바꾸면 머리도 같은 자리의 반대쪽 머리로 옮긴다. */
+  const pickSet = (i: number) => onChange(withStyleSet(look, SET_IDS[i]))
 
   return (
     <div className="sc-cc">
@@ -201,19 +171,6 @@ export function CharacterCreator({
         </button>
       </div>
 
-      <div className="sc-cc__sets">
-        {SETS.map((s) => (
-          <button
-            key={s.id}
-            className={`sc-cc__setBtn ${look.styleSet === s.id ? 'is-on' : ''}`}
-            onClick={() => pickSet(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
-        <span className="sc-cc__setNote">머리·교복 목록의 기본값일 뿐이다</span>
-      </div>
-
       <div className="sc-cc__band">
         <span className="sc-cc__lock" aria-hidden="true">
           🔒
@@ -224,70 +181,41 @@ export function CharacterCreator({
         </span>
       </div>
 
-      <div className="sc-cc__tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`sc-cc__tab ${tab === t.id ? 'is-on' : ''}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="sc-cc__rows">
+        <Row label="성별" names={SET_NAMES} value={SET_IDS.indexOf(look.styleSet)} onPick={pickSet} />
+        <Row
+          label="머리"
+          names={hairNames}
+          value={hairAt}
+          onPick={(i) => onChange({ ...look, hairStyle: hairIds[i] })}
+        />
+        <Row
+          label="머리색"
+          names={COLOR_NAMES}
+          value={look.hairColor}
+          onPick={(i) => onChange({ ...look, hairColor: i })}
+        />
+        <Row
+          label="표정"
+          names={EXPRESSION_NAMES}
+          value={look.expression}
+          onPick={(i) => onChange({ ...look, expression: i })}
+        />
+        <Row label="복장" names={OUTFIT_NAMES} value={look.outfit} onPick={(i) => onChange({ ...look, outfit: i })} />
+        <Row
+          label="착용"
+          names={WEAR_STYLE_NAMES}
+          value={look.wearStyle}
+          onPick={(i) => onChange({ ...look, wearStyle: i })}
+        />
+        <Row label="하의" names={BOTTOM_NAMES} value={look.bottom} onPick={(i) => onChange({ ...look, bottom: i })} />
+        <Row
+          label="목"
+          names={NECKWEAR_NAMES}
+          value={look.neckwear}
+          onPick={(i) => onChange({ ...look, neckwear: i })}
+        />
       </div>
-
-      {tab === 'hair' && (
-        <div className="sc-cc__toggle">
-          {HAIR_FILTERS.map((f) => (
-            <button
-              key={f.id}
-              className={`sc-cc__toggleBtn ${hairFilter === f.id ? 'is-on' : ''}`}
-              onClick={() => setHairFilter(f.id)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tab === 'outfit' ? (
-        <div className="sc-cc__wear">
-          <Segment label="복장" names={OUTFIT_NAMES} value={look.outfit} onPick={(i) => onChange({ ...look, outfit: i })} />
-          <Segment
-            label="스타일"
-            names={WEAR_STYLE_NAMES}
-            value={look.wearStyle}
-            onPick={(i) => onChange({ ...look, wearStyle: i })}
-          />
-          <Segment label="하의" names={BOTTOM_NAMES} value={look.bottom} onPick={(i) => onChange({ ...look, bottom: i })} />
-          <Segment
-            label="목"
-            names={NECKWEAR_NAMES}
-            value={look.neckwear}
-            onPick={(i) => onChange({ ...look, neckwear: i })}
-          />
-        </div>
-      ) : (
-        <div className="sc-cc__grid">
-          {options.map((o) => (
-            <button
-              key={o.key}
-              className={`sc-cc__opt ${o.on ? 'is-on' : ''}`}
-              title={o.label}
-              onClick={() => onChange({ ...look, ...o.patch })}
-            >
-              {tab === 'face' ? (
-                <Sprite look={{ ...look, ...o.patch }} team={team} scale={4} crop={FACE_BOX} />
-              ) : (
-                <Sprite look={{ ...look, ...o.patch }} team={team} scale={3} crop={BODY_BOX} />
-              )}
-              {tab === 'face' && <span className="sc-cc__optName">{o.label}</span>}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="sc-cc__actions">
         <button className="sc-cc__random" onClick={() => onChange(randomLook(look.styleSet))}>

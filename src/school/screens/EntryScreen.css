@@ -96,3 +96,17 @@
   color: var(--sc-text);
   text-decoration: none;
 }
+
+.sc-entry__lead {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--sc-text-dim);
+}
+
+/* 가입 옆에 나란히 서는 로그인 — 같은 크기지만 채우지 않는다 */
+.sc-entry__submit--ghost {
+  background: transparent;
+  color: var(--sc-text);
+  border: 1px solid var(--sc-line-strong);
+}

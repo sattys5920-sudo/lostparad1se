@@ -32,6 +32,20 @@ service cloud.firestore {
         allow read, write: if true;
       }
 
+      // 계정. 비밀번호는 소금을 섞은 해시로만 올라오고 원문은 오지 않는다.
+      // 목록은 막고 한 건 읽기만 연다 — 아이디를 모르면 남의 계정을 못 찾는다.
+      // 이미 있는 아이디를 덮어쓰는 것도 막는다.
+      match /accounts/{accountId} {
+        allow get: if true;
+        allow list: if false;
+        allow create: if true;
+        // 닉네임과 아바타만 갈아 끼울 수 있다. 비밀번호 칸은 못 건드린다.
+        allow update: if !request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasAny(['salt', 'hash', 'createdAtMs']);
+        allow delete: if false;
+      }
+
       // 지도: 살아 있는 좌표, 방 출입 구간, 목격이 붙은 사건, 익명 쪽지
       match /positions/{playerId} {
         allow read, write: if true;

@@ -5,7 +5,7 @@ import { SchoolGameProvider, useSchoolGame } from './state/SchoolGameContext'
 import { firebaseConfigured } from '../firebase'
 import { TabBar, type SchoolTabId } from './components/TabBar'
 import { FirebaseSetupNotice } from './screens/FirebaseSetupNotice'
-import { IntroScreen } from './screens/IntroScreen'
+import { IntroScreen, type EntryDoor } from './screens/IntroScreen'
 import { EntryScreen } from './screens/EntryScreen'
 import { LobbyScreen } from './screens/LobbyScreen'
 import { RoleRevealScreen } from './screens/RoleRevealScreen'
@@ -46,10 +46,11 @@ function Shell() {
 
 function Gate() {
   const { ready, viewerId, isHost, myPlayer, roleAcked, session } = useSchoolGame()
-  const [introSeen, setIntroSeen] = useState(false)
+  // 표지에서 가입·로그인 중 무엇을 눌렀는지 그대로 이어 간다
+  const [door, setDoor] = useState<EntryDoor | null>(null)
 
-  if (!introSeen) return <IntroScreen onEnter={() => setIntroSeen(true)} />
-  if (!viewerId && !isHost) return <EntryScreen />
+  if (!door) return <IntroScreen onEnter={setDoor} />
+  if (!viewerId && !isHost) return <EntryScreen door={door} />
   if (!ready) {
     return (
       <div className="sc-shell sc-shell--loading">
