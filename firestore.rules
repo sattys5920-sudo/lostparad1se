@@ -77,6 +77,42 @@ service cloud.firestore {
       }
     }
 
+    // ── 영역전 v2 ────────────────────────────────────────────────
+    //
+    // 판정은 전부 Cloud Functions가 한다. Admin SDK는 규칙을 거치지 않으므로
+    // 여기서는 클라이언트에게 "쓰기 전면 금지, 읽기는 봐도 되는 것만"으로
+    // 잠근다.
+    //
+    // 숨겨야 하는 것은 받은 뒤 화면에서 숨기지 않는다. 애초에 읽을 수 있는
+    // 자리에 두지 않는다.
+    match /games/{gameId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+
+      // 숨길 것이 없는 것들 — 주인, 깃발, 자원, 순위, 기록
+      match /tiles/{tileId}      { allow read: if request.auth != null; allow write: if false; }
+      match /flags/{tileId}      { allow read: if request.auth != null; allow write: if false; }
+      match /teams/{teamId}      { allow read: if request.auth != null; allow write: if false; }
+      match /sabotages/{id}      { allow read: if request.auth != null; allow write: if false; }
+      match /events/{eventId}    { allow read: if request.auth != null; allow write: if false; }
+
+      // 말의 위치는 안개 때문에 통째로 막는다. 각자 views로만 본다.
+      match /pawns/{playerId}    { allow read, write: if false; }
+
+      // 따라잡기용 내부 자료. 예정된 일을 미리 보면 작전이 새어 나간다.
+      match /schedule/{id}       { allow read, write: if false; }
+
+      // 서버만. 익명 표의 보낸 사람, 손패 내용, 비밀 목표, 등교 예약,
+      // 가짜 깃발 여부, 약점, 역할과 개인 미션이 전부 이 아래 있다.
+      match /secret/{document=**} { allow read, write: if false; }
+
+      // 서버가 그 사람 몫으로 깎아 둔 것. 본인만 읽는다.
+      match /views/{playerId} {
+        allow read: if request.auth != null && request.auth.uid == playerId;
+        allow write: if false;
+      }
+    }
+
     // 걸어 다니는 학교 프로토타입. 본 게임 트리와 완전히 분리해 둔다.
     match /protoRoom/{roomId} {
       allow read, write: if true;
