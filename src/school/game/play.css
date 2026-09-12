@@ -495,3 +495,65 @@
 .sc-ch__bar button:disabled { opacity: 0.4; cursor: default; }
 
 .sc-ch__note { margin: 0; font-size: 11px; color: #545a6b; }
+
+/* ── 운영자 ───────────────────────────────────────────────────── */
+
+.sc-pl__none { margin: 0; font-size: 12.5px; color: #8b90a0; text-wrap: pretty; }
+
+.sc-pl__hostlink {
+  appearance: none;
+  border: none;
+  background: none;
+  color: #545a6b;
+  font: inherit;
+  font-size: 11.5px;
+  padding: 6px 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.sc-pl__hostlink:hover { color: #8b90a0; }
+
+.sc-pl__hostgate { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.sc-pl__hostgate input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  border: 1px solid #2f3647;
+  background: #151924;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+
+.sc-pl__hostgate button,
+.sc-pl__hosttools button {
+  appearance: none;
+  border: 1px solid #2f3647;
+  background: #1b2130;
+  color: #d6dae4;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: none;
+}
+
+.sc-pl__hostgate button:disabled,
+.sc-pl__hosttools button:disabled { opacity: 0.4; cursor: default; }
+
+.sc-pl__hosttools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #222735;
+  padding-top: 10px;
+}
+
+.sc-pl__hosttools > span { font-size: 11px; color: #6b7183; }

@@ -63,6 +63,21 @@ jobs:
       - name: Build functions
         run: npm --prefix functions run build
 
+      # 운영자 코드. 저장소에는 없다 — 여기 적으면 깃허브를 보는 누구나
+      # 운영자가 된다. 배포할 때만 functions/.env 로 만들어 실어 보낸다
+      # (firebase CLI 가 이 파일을 함수 환경변수로 올린다). .env 는
+      # .gitignore 에 있어서 실수로 커밋될 일도 없다.
+      - name: Put the host code in the functions environment
+        env:
+          HOST_CODE: ${{ secrets.HOST_CODE }}
+        run: |
+          if [ -z "$HOST_CODE" ]; then
+            echo "::warning::HOST_CODE 시크릿이 없다. 운영자 코드 입력이 동작하지 않는다."
+          else
+            printf 'HOST_CODE=%s\n' "$HOST_CODE" > functions/.env
+            echo "운영자 코드: 실었다"
+          fi
+
       - name: Deploy
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

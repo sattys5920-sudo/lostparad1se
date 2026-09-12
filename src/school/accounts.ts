@@ -133,6 +133,27 @@ export async function logIn(rawId: string, password: string): Promise<Account> {
   return enter(await callServer<AuthReply>('logInAccount', { id, password }))
 }
 
+/**
+ * 운영자 코드를 맞히면 운영자가 된다.
+ *
+ * 표시만 붙여서는 안 된다. 지금 들고 있는 증표에는 그 표시가 없고,
+ * 증표를 새로 고쳐도 안 붙는다(만들 때 실은 클레임이 덮어쓴다).
+ * 그래서 서버가 새 증표를 만들어 주고 그걸로 다시 들어간다.
+ */
+export async function claimHost(code: string): Promise<void> {
+  if (!auth) throw new Error('서버에 연결되어 있지 않다.')
+  const reply = await callServer<{ token: string }>('claimHost', { code: code.trim() })
+  await signInWithCustomToken(auth, reply.token)
+}
+
+/** 지금 이 사람이 운영자인가. 증표 안에 적혀 온다. */
+export async function amHost(): Promise<boolean> {
+  const user = auth?.currentUser
+  if (!user) return false
+  const res = await user.getIdTokenResult()
+  return res.claims.admin === true
+}
+
 /** 지금 로그인한 사람의 Firebase uid. 게임 문서의 열쇠다. */
 export function myUid(): string | null {
   return auth?.currentUser?.uid ?? null

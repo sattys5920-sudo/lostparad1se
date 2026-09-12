@@ -109,6 +109,12 @@ export function gameActions(gameId: string) {
     /** 밀린 일을 따라잡는다. 화면이 열릴 때와 오래 있다가 돌아올 때. */
     tick: () => callServer('tick', g),
 
+    // ── 운영자만 ────────────────────────────────────────────────
+    // 화면에서 막지 않는다. 운영자가 아니면 서버가 거절한다.
+    createGame: (seed?: string) => callServer('createGame', { ...g, ...(seed ? { seed } : {}) }),
+    /** 닷새가 시작된다. 시각을 안 주면 지금부터다. */
+    startGame: (startAtMs?: number) => callServer('startGame', { ...g, startAtMs: startAtMs ?? Date.now() }),
+
     moveTo: (tileId: TileId) => callServer('moveTo', { ...g, tileId }),
     planCommute: (tileId: TileId | null, plantFlag = false) =>
       callServer('planCommute', { ...g, tileId, plantFlag }),

@@ -166,6 +166,12 @@ service cloud.firestore {
       }
     }
 
+    // 운영자 코드를 틀린 횟수. 아래 포괄 규칙으로도 막히지만, 여기
+    // 적어 두어야 나중에 이 문서를 찾는 사람이 의도를 안다.
+    match /hostGate/{docId} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

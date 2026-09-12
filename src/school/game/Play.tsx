@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
-import { logIn, signUp } from '../accounts'
+import { amHost, claimHost, logIn, signUp } from '../accounts'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
@@ -62,12 +62,117 @@ function Gate({ onIn }: { onIn: () => void }) {
   )
 }
 
+// ── 운영자 ──────────────────────────────────────────────────────
+
+/** 증표 안에 운영자 표시가 있는지 본다. 로그인이 바뀌면 다시 본다. */
+function useHost(): [boolean, () => void] {
+  const [host, setHost] = useState(false)
+  const [nonce, setNonce] = useState(0)
+  useEffect(() => {
+    let alive = true
+    void amHost().then((v) => alive && setHost(v))
+    return () => {
+      alive = false
+    }
+  }, [nonce])
+  return [host, () => setNonce((n) => n + 1)]
+}
+
+/**
+ * 운영자 코드 칸.
+ *
+ * 코드는 화면에도 번들에도 없다. 서버가 배포 환경변수로 들고 있고
+ * 여기서는 맞는지 물어보기만 한다. 틀린 횟수도 서버가 센다.
+ */
+function HostGate({ onIn }: { onIn: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function go() {
+    setBusy(true)
+    setError('')
+    try {
+      await claimHost(code)
+      setCode('')
+      setOpen(false)
+      onIn()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button className="sc-pl__hostlink" onClick={() => setOpen(true)}>
+        운영자로 들어가기
+      </button>
+    )
+  }
+  return (
+    <div className="sc-pl__hostgate">
+      <input
+        placeholder="운영자 코드"
+        type="password"
+        value={code}
+        autoComplete="off"
+        onChange={(e) => setCode(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) void go()
+        }}
+      />
+      <button disabled={busy || code.trim().length === 0} onClick={() => void go()}>
+        확인
+      </button>
+      {error && <p className="sc-pl__error">{error}</p>}
+    </div>
+  )
+}
+
+/** 판을 만들고 시작한다. 되는지 안 되는지는 서버가 말해 준다. */
+function HostTools({ gameId, hasGame, onSaid }: { gameId: string; hasGame: boolean; onSaid: (t: string) => void }) {
+  const act = useMemo(() => gameActions(gameId), [gameId])
+  const [busy, setBusy] = useState(false)
+
+  async function run(label: string, fn: () => Promise<unknown>) {
+    setBusy(true)
+    try {
+      await fn()
+      onSaid(`${label} 했다.`)
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="sc-pl__hosttools">
+      <span>운영자</span>
+      {!hasGame && (
+        <button disabled={busy} onClick={() => void run('판 만들기', () => act.createGame())}>
+          판 만들기
+        </button>
+      )}
+      {hasGame && (
+        <button disabled={busy} onClick={() => void run('시작', () => act.startGame())}>
+          닷새 시작
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── 로비 ────────────────────────────────────────────────────────
 
 function Lobby({ gameId }: { gameId: string }) {
   const state = useGame(gameId)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
+  const [host, recheckHost] = useHost()
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
   const mine = seats.find((s) => s.playerId === uid)
@@ -86,7 +191,20 @@ function Lobby({ gameId }: { gameId: string }) {
   )
 
   if (state.loading) return <p className="sc-pl__wait">불러오는 중</p>
-  if (!state.game) return <p className="sc-pl__wait">아직 열린 판이 없다. 운영자가 만들어야 한다.</p>
+  if (!state.game) {
+    return (
+      <div className="sc-pl__lobby">
+        <h1>남겨진 아이들</h1>
+        <p className="sc-pl__none">아직 열린 판이 없다. 운영자가 만들어야 한다.</p>
+        {host ? (
+          <HostTools gameId={gameId} hasGame={false} onSaid={setError} />
+        ) : (
+          <HostGate onIn={recheckHost} />
+        )}
+        {error && <p className="sc-pl__error">{error}</p>}
+      </div>
+    )
+  }
 
   return (
     <div className="sc-pl__lobby">
@@ -115,6 +233,7 @@ function Lobby({ gameId }: { gameId: string }) {
           </li>
         ))}
       </ul>
+      {host ? <HostTools gameId={gameId} hasGame onSaid={setError} /> : <HostGate onIn={recheckHost} />}
       {error && <p className="sc-pl__error">{error}</p>}
     </div>
   )
