@@ -39,6 +39,7 @@ import {
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import type { SabotageDoc, TeamDoc, TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
+import { drawForTeam, takePending } from './card'
 import { freshNow, myPawn, requireAwake, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
 
@@ -68,6 +69,8 @@ async function begin(
   kind: ActionKind,
   targetTile: TileId,
   precheck?: (c: { day: number; team: TeamId; tiles: TileState[] }) => Promise<void> | void,
+  /** 토큰을 몇 개 쓸 것인가. 급조처럼 공짜인 경우 0을 넘긴다. */
+  tokenCost?: number,
 ): Promise<{
   nowMs: number
   day: number
@@ -96,7 +99,7 @@ async function begin(
   if (precheck) await precheck({ day: game.day, team: pawn.team, tiles })
 
   const box = boxSnap.data() as TokenStateDoc
-  const spent = spendToken(box, uid, ACTION_TOKEN_COST[kind])
+  const spent = spendToken(box, uid, tokenCost ?? ACTION_TOKEN_COST[kind])
   if (!spent.ok) {
     throw new HttpsError(
       'failed-precondition',
@@ -136,7 +139,9 @@ function commit(
 export const buildOn = onCall<{ gameId: string; tileId: TileId; kind: BuildingKind }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, tileId, kind } = req.data
-  const c = await begin(gameId, uid, 'build', tileId)
+  // 급조가 걸려 있으면 값이 절반이고 토큰이 들지 않는다. 짓기 전에 본다
+  const quick = await takePending(gameId, (await myPawn(gameId, uid)).team, 'quickBuild')
+  const c = await begin(gameId, uid, 'build', tileId, undefined, quick ? 0 : undefined)
   const tile = c.tiles.find((t) => t.tileId === tileId) as TileState
 
   const pawn = await myPawn(gameId, uid)
@@ -146,6 +151,7 @@ export const buildOn = onCall<{ gameId: string; tileId: TileId; kind: BuildingKi
     kind,
     resources: c.teamDoc.resources,
     treasurer: pawn.title === 'treasurer',
+    quickBuild: quick,
   })
   if (!out.ok) {
     const why: Record<string, string> = {
@@ -233,8 +239,10 @@ export const research = onCall<{ gameId: string; tileId: TileId }>(async (req) =
   })
   batch.update(gameRef(gameId).collection('teams').doc(c.team), { researchTier: tier })
   await batch.commit()
+  // 연구는 카드 한 장을 준다. 손패가 차 있으면 그대로 사라진다
+  const card = await drawForTeam(gameId, c.team, uid, c.day)
   await refreshViews(gameId)
-  return { tier, cost }
+  return { tier, cost, card }
 })
 
 // ── 탐색 ────────────────────────────────────────────────────────

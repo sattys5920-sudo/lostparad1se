@@ -15,6 +15,7 @@ import { TEAMS } from '../../shared/rules/lobby'
 import type { SabotageDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn } from './turn'
+import { takePending } from './card'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -121,6 +122,13 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
   const pawn = await myPawn(gameId, uid)
   const ref = gameRef(gameId)
 
+  // 트랜잭션 밖에서 먼저 본다 — 안에서는 읽기 뒤에 쓸 수 없다
+  const peek = await tradesOf(gameId).doc(tradeId).get()
+  const accord =
+    peek.exists && req.data.accept
+      ? await takePending(gameId, (peek.data() as { fromTeam: TeamId }).fromTeam, 'accord')
+      : false
+
   return db.runTransaction(async (tx) => {
     const tradeRef = tradesOf(gameId).doc(tradeId)
     const snap = await tx.get(tradeRef)
@@ -148,8 +156,8 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
     const from = fromSnap.data() as TeamDoc
     const to = toSnap.data() as TeamDoc
 
-    // 받아들이는 순간 다시 센다
-    const out = acceptTrade(t, from.resources, to.resources)
+    // 협정서가 붙어 있으면 양쪽이 돈을 더 받는다. 보낸 쪽이 낸 카드다
+    const out = acceptTrade({ ...t, accord }, from.resources, to.resources)
     if (!out.ok) {
       throw new HttpsError(
         'failed-precondition',
@@ -165,7 +173,7 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       day: game.day,
       kind: 'tradeAccepted',
       team: pawn.team,
-      detail: { fromTeam: t.fromTeam, give: t.give, want: t.want },
+      detail: { fromTeam: t.fromTeam, give: t.give, want: t.want, accord },
     })
     return { accepted: true }
   }).then(async (r) => {

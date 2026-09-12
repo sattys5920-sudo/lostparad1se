@@ -20,6 +20,7 @@ import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { SCHEDULE_ORD, type FlagDoc, type ScheduleDoc, type TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { openInterval } from './reveal'
+import { takePending } from './card'
 import { freshNow, myPawn, requireAwake, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
 
@@ -210,6 +211,9 @@ export const plantFlag = onCall<{ gameId: string; tileId: TileId }>(async (req) 
     )
   }
 
+  // 기습이 걸려 있으면 깃발 시간이 절반이다. 다음 한 번만이라
+  // 여기서 쓰고 지운다
+  const ambush = await takePending(gameId, pawn.team, 'ambush')
   const target = flagTargetOf(tileId, ownerOf(tileId))
   const here = tiles.find((t) => t.tileId === tileId) as TileState
   const durationSec = flagDurationSec({
@@ -217,7 +221,7 @@ export const plantFlag = onCall<{ gameId: string; tileId: TileId }>(async (req) 
     defense: defenseOf(here),
     ownerSpotlighted: target === 'enemy' && game.spotlightTeams.includes(ownerOf(tileId) as TeamId),
     classPresident: pawn.title === 'classPresident',
-    ambush: false,
+    ambush,
     lastHours: game.lastHours,
   })
   // 소등을 건너뛰어 센다. 밤에는 깃발도 익지 않는다
@@ -255,5 +259,5 @@ export const plantFlag = onCall<{ gameId: string; tileId: TileId }>(async (req) 
   })
   await batch.commit()
   await refreshViews(gameId)
-  return { tileId, durationSec, dueAtMs }
+  return { tileId, durationSec, dueAtMs, ambush }
 })
