@@ -57,6 +57,22 @@ export interface GameDoc {
   /** 따라잡기가 여기까지 처리했다. 이 뒤로 밀린 일을 순서대로 민다. */
   caughtUpToMs: GameMs
   day: number
+  /**
+   * 지금 페이즈. 열려 있으면 점령전, 닫혀 있으면 자유 시간이다.
+   *
+   * 위의 phase 는 판의 일생(로비·진행·종료)이라 이름을 따로 쓴다.
+   *
+   * 관리자가 열고 닫는다. 자유 시간에는 마음껏 돌아다니고, 열리면
+   * 다들 직전 페이즈가 끝난 자리로 돌아온다.
+   */
+  phaseNow?: { no: number; day: number; open: boolean; openedAtMs: GameMs }
+  /** 지금까지 끝난 페이즈 수. 하루 10개, 닷새면 쉰 개다. */
+  phaseDone?: number
+  /** 지난 페이즈에 연구를 건 사람들. 다음 페이즈 끝에 로봇이 된다. */
+  pendingResearch?: string[]
+  /** 위장한 사람들과, 그 위장이 풀리는 페이즈 번호. */
+  disguised?: string[]
+  disguisedUntil?: number
   /** A의 기록이 열어 준 칸. */
   openedTiles: TileId[]
   /** 기록이 지목해 가치가 오른 칸. */
@@ -150,6 +166,15 @@ export interface PawnDoc {
   playerId: string
   team: TeamId
   title: RoleTitle
+  /**
+   * 전투 자리. **점령을 여기서 센다.**
+   *
+   * 자유 시간에 아무리 멀리 가도 이 값은 안 움직인다. 옮기는 길은
+   * 페이즈의 「이동」 행동 하나뿐이다.
+   */
+  postTile?: TileId | null
+  /** 세 명뿐인 팀의 주장. 점령 판정에서 둘로 센다. */
+  captain?: boolean
   /** 지금 선 칸. 걷는 중이면 null — 걷는 말은 어느 칸 판정에도 세지 않는다. */
   tileId: TileId | null
   /** 걷는 중일 때 방금 떠난 칸. 서 있으면 null. */

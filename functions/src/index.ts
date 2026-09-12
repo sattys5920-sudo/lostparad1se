@@ -134,3 +134,6 @@ export { claimHost } from './hostgate'
 
 // QA용 채우기. 운영자만, 로비에서만.
 export { seedPlayers } from './qa'
+
+// 페이즈 — 자유 시간과 점령전.
+export { openPhase, closePhase, submitAction, phaseReady, roamTo } from './phase'

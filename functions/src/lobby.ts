@@ -213,6 +213,11 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         team,
         title: ROLE_TITLES[i % ROLE_TITLES.length],
         tileId: BASE_OF[team] as TileId,
+        // 전투 자리. 처음에는 서 있는 자리와 같다
+        postTile: BASE_OF[team] as TileId,
+        // 세 명뿐인 팀의 첫 사람이 주장이다. 점령 판정에서 둘로 센다 —
+        // 네 명인 팀과 머릿수를 맞추는 유일한 장치다
+        captain: members.length < 4 && i === 0,
         fromTile: null,
         path: [],
         arriveAtMs: null,
