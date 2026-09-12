@@ -57,10 +57,11 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [pawns, tiles, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, awakened, notices] =
+  const [pawns, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, awakened, notices] =
     await Promise.all([
       sub(gameId, 'pawns').get(),
       sub(gameId, 'tiles').get(),
+      sub(gameId, 'robots').get(),
       secret(gameId, 'roster').get(),
       secret(gameId, 'hands').get(),
       secret(gameId, 'goals').get(),
@@ -102,6 +103,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     over: game.phase === 'finished',
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,
+    robots: robots.docs.map((d) => {
+      const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }
+      return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
+    }),
     tiles: tiles.docs.map((d) => {
       const t = d.data() as TileDoc
       return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, buildings: t.buildings ?? [] }

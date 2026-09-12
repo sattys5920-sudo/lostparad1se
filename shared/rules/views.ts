@@ -65,6 +65,8 @@ export interface World {
    */
   invisibleId: string | null
   pawns: readonly WorldPawn[]
+  /** 판 위의 로봇. 사람처럼 안개를 거친다 — 보이는 방의 것만 내려간다. */
+  robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
@@ -110,6 +112,8 @@ export interface World {
 export interface View {
   updatedAtMs: number
   visiblePawns: PawnView[]
+  /** 보이는 방에 있는 로봇. 머릿수로만 센다. */
+  visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
   visibleTiles: TileId[]
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
@@ -166,6 +170,7 @@ export function projectView(world: World, viewerId: string): View {
     return {
       updatedAtMs: world.nowMs,
       visiblePawns: [],
+      visibleRobots: [],
       visibleTiles: [],
       hand: [],
       goals: [],
@@ -204,6 +209,11 @@ export function projectView(world: World, viewerId: string): View {
   return {
     updatedAtMs: world.nowMs,
     // 안개 밖의 말은 목록에 없다. 목적지는 어느 말에도 붙지 않는다
+    // 로봇도 안개를 거친다. 보이지 않는 방의 로봇은 아예 안 보낸다
+    visibleRobots: (world.robots ?? [])
+      .filter((r) => visible.has(r.tileId))
+      .map((r) => ({ id: r.id, team: r.team, tileId: r.tileId })),
+
     visiblePawns: visiblePawns({
       viewerId,
       viewerTeam: team,

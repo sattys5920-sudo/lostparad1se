@@ -30,10 +30,22 @@ export interface GameState {
   view: PlayerViewDoc | null
   teams: Partial<Record<TeamId, TeamDoc>>
   tiles: Partial<Record<TileId, TileDoc>>
+  /** 페이즈가 끝날 때마다 한 줄씩. 무슨 일이 있었는지 여기 남는다. */
+  phaseLog: { no: number; day: number; lines: PhaseLogLine[] }[]
   error: string | null
 }
 
-const EMPTY: GameState = { loading: true, game: null, view: null, teams: {}, tiles: {}, error: null }
+export interface PhaseLogLine {
+  kind: string
+  playerId?: string
+  tileId?: TileId
+  team?: TeamId
+  targetPlayer?: string
+  targetRobot?: string
+  why?: string
+}
+
+const EMPTY: GameState = { loading: true, game: null, view: null, teams: {}, tiles: {}, phaseLog: [], error: null }
 
 /**
  * 판을 구독한다.
@@ -83,6 +95,18 @@ export function useGame(gameId: string | null): GameState {
         fail,
       ),
     )
+    stop.push(
+      onSnapshot(
+        collection(base, 'phaseLog'),
+        (snap) => {
+          const rows = snap.docs
+            .map((d) => d.data() as { no: number; day: number; lines: PhaseLogLine[] })
+            .sort((a, b) => a.no - b.no)
+          setState((s) => ({ ...s, phaseLog: rows }))
+        },
+        fail,
+      ),
+    )
     if (uid) {
       stop.push(
         onSnapshot(
@@ -112,6 +136,19 @@ export function gameActions(gameId: string) {
     // ── 운영자만 ────────────────────────────────────────────────
     // 화면에서 막지 않는다. 운영자가 아니면 서버가 거절한다.
     createGame: (seed?: string) => callServer('createGame', { ...g, ...(seed ? { seed } : {}) }),
+    // ── 페이즈 ──────────────────────────────────────────────────
+    /** 자유 시간에 옆방으로. 즉시 간다. 전선은 안 움직인다. */
+    roamTo: (tileId: TileId) => callServer('roamTo', { ...g, tileId }),
+    /** 이번 페이즈에 할 일. 닫히기 전까지는 바꿀 수 있다. */
+    submitAction: (
+      kind: string,
+      t: { targetTile?: TileId; targetPlayer?: string; targetRobot?: string } = {},
+    ) => callServer('submitAction', { ...g, kind, ...t }),
+    /** 몇 명이 냈는가. 무엇을 냈는지는 안 온다. */
+    phaseReady: () => callServer('phaseReady', g),
+    openPhase: () => callServer('openPhase', g),
+    closePhase: () => callServer('closePhase', g),
+
     /** 닷새가 시작된다. 시각을 안 주면 지금부터다. */
     startGame: (startAtMs?: number) => callServer('startGame', { ...g, startAtMs: startAtMs ?? Date.now() }),
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */

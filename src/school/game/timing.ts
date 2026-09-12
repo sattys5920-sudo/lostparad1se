@@ -15,3 +15,6 @@ export const STEP_MS = 160
  * 화면 주사율이 달라도 걸음걸이가 같아야 한다.
  */
 export const WALK_POSES_PER_SEC = 3.2
+
+/** 페이즈 중에 「몇 명 냈는지」를 다시 세는 간격. */
+export const PHASE_POLL_MS = 4000

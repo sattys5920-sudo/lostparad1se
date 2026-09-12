@@ -767,3 +767,73 @@
   padding: 0 2px;
   cursor: pointer;
 }
+
+/* ── 점령전 ───────────────────────────────────────────────────── */
+
+.sc-ph { display: flex; flex-direction: column; gap: 8px; }
+.sc-ph h2 { margin: 8px 0 0; font-size: 15px; display: flex; gap: 7px; align-items: baseline; }
+.sc-ph h2 span { font-size: 12px; color: var(--sc-text-dim); font-weight: 400; }
+.sc-ph__hint { margin: 0; font-size: 12px; color: var(--sc-text-dim); text-wrap: pretty; }
+.sc-ph__note { margin: 0; font-size: 11px; color: #6b7280; }
+.sc-ph__count { font-size: 11.5px; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+
+.sc-ph__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+
+.sc-ph__list > li > button {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  background: #f7f8f9;
+  color: var(--sc-text);
+  font: inherit;
+  text-align: left;
+  padding: 9px 11px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sc-ph__list > li > button strong { font-size: 13px; font-weight: 700; }
+.sc-ph__list > li > button span { font-size: 11.5px; color: var(--sc-text-dim); text-wrap: pretty; }
+.sc-ph__list > li > button:disabled { opacity: 0.45; cursor: default; }
+.sc-ph__list > li.is-picked > button { border-color: var(--sc-line-strong); background: var(--sc-surface); }
+
+.sc-ph__targets { display: flex; flex-wrap: wrap; gap: 5px; padding: 6px 0 2px 10px; }
+
+.sc-ph__targets button {
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-surface);
+  color: var(--sc-text-2);
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.sc-ph__targets button em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-ph__log { display: flex; flex-direction: column; gap: 6px; }
+.sc-ph__log h2 { margin: 8px 0 0; font-size: 15px; display: flex; gap: 7px; align-items: baseline; }
+.sc-ph__log h2 span { font-size: 11px; color: var(--sc-text-dim); font-weight: 400; }
+.sc-ph__log ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+
+.sc-ph__log li {
+  font-size: 12px;
+  color: var(--sc-text-2);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.sc-ph__log li.is-big { color: var(--sc-text); font-weight: 700; }

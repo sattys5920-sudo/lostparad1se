@@ -16,6 +16,9 @@ import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
 import { Walk } from './Walk'
+import { Phase, PhaseHost, PhaseLog } from './Phase'
+import { PHASE_POLL_MS } from './timing'
+import type { ActionKind } from '../../../shared/rules/occupy'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
@@ -378,6 +381,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [far, setFar] = useState<TileId | null>(null)
   const [said, setSaid] = useState('')
   const [overlay, setOverlay] = useState<'talk' | 'archive' | null>(null)
+  const [chosen, setChosen] = useState<ActionKind | null>(null)
+  const [ready, setReady] = useState<{ submitted: number; total: number } | null>(null)
+  const [host] = useHost()
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
@@ -399,6 +405,32 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     const t = setTimeout(() => setSaid(''), 3200)
     return () => clearTimeout(t)
   }, [said])
+
+  const phaseNo = state.game?.phaseNow?.no ?? 0
+  const phaseOpen = state.game?.phaseNow?.open === true
+
+  // 페이즈가 바뀌면 낸 것은 없던 일이 된다
+  useEffect(() => {
+    setChosen(null)
+  }, [phaseNo, phaseOpen])
+
+  // 몇 명이 냈는지. 무엇을 냈는지는 서버가 안 준다
+  const countReady = useCallback(() => {
+    void act
+      .phaseReady()
+      .then((r) => setReady(r as { submitted: number; total: number }))
+      .catch(() => {})
+  }, [act])
+
+  useEffect(() => {
+    if (!phaseOpen) {
+      setReady(null)
+      return
+    }
+    countReady()
+    const t = setInterval(countReady, PHASE_POLL_MS)
+    return () => clearInterval(t)
+  }, [phaseOpen, phaseNo, countReady])
 
   if (!game || !me) return <p className="sc-pl__wait">불러오는 중</p>
 
@@ -437,22 +469,45 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         onTapRoom={(id) => setFar(id === standingRoom ? null : id)}
       />
 
+      {phaseOpen ? (
+        <Phase
+          me={me}
+          postTile={standingOn}
+          seats={game.seats}
+          view={state.view}
+          chosen={chosen}
+          onChosen={(k) => {
+            setChosen(k)
+            // 바로 다시 센다. 기다리면 내가 낸 것이 한참 뒤에야 숫자에 든다
+            countReady()
+          }}
+          act={act}
+          onSaid={setSaid}
+        />
+      ) : (
+        <PhaseLog rows={state.phaseLog} seats={game.seats} />
+      )}
+
+      {host && <PhaseHost open={phaseOpen} no={phaseNo} ready={ready} act={act} onSaid={setSaid} />}
+
       <div className="sc-pl__quick">
         <button onClick={() => setOverlay('talk')}>말</button>
         <button onClick={() => setOverlay('archive')}>보관함</button>
       </div>
 
-      {/* 맵에서 먼 방을 눌렀을 때. 거기까지 걸어가거나 내일 아침을 예약한다 */}
-      {far && far !== standingRoom && (
+      {/* 자유 시간의 것들. 페이즈 중에는 자리를 지키는 것 말고 할 일이 없다 */}
+      {!phaseOpen && far && far !== standingRoom && (
         <Actions tileId={far} where="there" act={act} onSaid={setSaid} onClose={() => setFar(null)} />
       )}
 
-      {standingRoom && (
+      {!phaseOpen && standingRoom && (
         <Actions tileId={standingRoom} where="here" act={act} onSaid={setSaid}>
           <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
         </Actions>
       )}
 
+      {!phaseOpen && (
+        <>
       <People
         me={me}
         seats={game.seats}
@@ -466,7 +521,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         onSaid={setSaid}
       />
 
-      <Deals me={me} view={state.view} teams={state.teams} facingTeams={facingTeams} act={act} onSaid={setSaid} />
+        <Deals me={me} view={state.view} teams={state.teams} facingTeams={facingTeams} act={act} onSaid={setSaid} />
+        </>
+      )}
 
       {overlay === 'talk' && (
         <div className="sc-pl__sheet">

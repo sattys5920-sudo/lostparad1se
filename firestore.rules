@@ -96,8 +96,13 @@ service cloud.firestore {
       match /sabotages/{id}      { allow read: if request.auth != null; allow write: if false; }
       match /events/{eventId}    { allow read: if request.auth != null; allow write: if false; }
 
-      // 말의 위치는 안개 때문에 통째로 막는다. 각자 views로만 본다.
+      // 페이즈가 끝날 때마다 무슨 일이 있었는지. 모두 같은 것을 본다 —
+      // 점령전의 결과는 숨길 것이 아니라 다음 페이즈를 위한 재료다.
+      match /phaseLog/{no}       { allow read: if request.auth != null; allow write: if false; }
+
+      // 말과 로봇의 위치는 안개 때문에 통째로 막는다. 각자 views로만 본다.
       match /pawns/{playerId}    { allow read, write: if false; }
+      match /robots/{robotId}    { allow read, write: if false; }
 
       // 따라잡기용 내부 자료. 예정된 일을 미리 보면 작전이 새어 나간다.
       match /schedule/{id}       { allow read, write: if false; }
