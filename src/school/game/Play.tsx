@@ -189,6 +189,7 @@ function HostGate({ onIn }: { onIn: () => void }) {
 function HostTools({ gameId, hasGame, onSaid }: { gameId: string; hasGame: boolean; onSaid: (t: string) => void }) {
   const act = useMemo(() => gameActions(gameId), [gameId])
   const [busy, setBusy] = useState(false)
+  const [qaPw, setQaPw] = useState('')
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -211,9 +212,32 @@ function HostTools({ gameId, hasGame, onSaid }: { gameId: string; hasGame: boole
         </button>
       )}
       {hasGame && (
-        <button disabled={busy} onClick={() => void run('시작', () => act.startGame())}>
-          닷새 시작
-        </button>
+        <>
+          <button disabled={busy} onClick={() => void run('시작', () => act.startGame())}>
+            닷새 시작
+          </button>
+          {/* QA용. 비밀번호를 여기서 정하게 둔다 — 뻔한 값을 박아 두면
+              qa01 이 그대로 뒷문이 된다 */}
+          <input
+            className="sc-pl__qapw"
+            type="password"
+            placeholder="QA 비밀번호 (8자 이상)"
+            value={qaPw}
+            autoComplete="off"
+            onChange={(e) => setQaPw(e.target.value)}
+          />
+          <button
+            disabled={busy || qaPw.length < 8}
+            onClick={() =>
+              void run('열셋 채우기', async () => {
+                const r = (await act.seedPlayers(qaPw)) as { seated?: number }
+                onSaid(`${r.seated ?? 0}명이 앉았다. qa01~qa13 으로 들어갈 수 있다.`)
+              })
+            }
+          >
+            QA 채우기
+          </button>
+        </>
       )}
     </div>
   )

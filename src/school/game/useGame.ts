@@ -114,6 +114,9 @@ export function gameActions(gameId: string) {
     createGame: (seed?: string) => callServer('createGame', { ...g, ...(seed ? { seed } : {}) }),
     /** 닷새가 시작된다. 시각을 안 주면 지금부터다. */
     startGame: (startAtMs?: number) => callServer('startGame', { ...g, startAtMs: startAtMs ?? Date.now() }),
+    /** QA용으로 자리를 채운다. 로비에서만 먹는다. */
+    seedPlayers: (password: string, leaveSeats = 1) =>
+      callServer('seedPlayers', { ...g, password, leaveSeats }),
 
     moveTo: (tileId: TileId) => callServer('moveTo', { ...g, tileId }),
     planCommute: (tileId: TileId | null, plantFlag = false) =>

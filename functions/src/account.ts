@@ -118,6 +118,26 @@ interface AccountDoc {
   hash?: string
 }
 
+/**
+ * 계정 하나를 만든다. 이미 있으면 그대로 둔다.
+ *
+ * 가입과 QA용 채우기가 같은 길을 쓰게 하려고 꺼내 둔다. 두 벌이 되면
+ * 한쪽만 고쳐서 QA 계정만 못 들어오는 날이 온다.
+ */
+export async function createAccount(rawId: string, password: string, nickname = ''): Promise<string> {
+  const id = normalizeId(rawId)
+  check(id, password)
+  const salt = randomBytes(16).toString('hex')
+  const hash = await hashPassword(password, salt)
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(accountRef(id))
+    if (snap.exists) return
+    tx.set(accountRef(id), { nickname, avatar: null, createdAtMs: Date.now() })
+    tx.set(secretRef(id), { salt, hash })
+  })
+  return uidOf(id)
+}
+
 /** 가입. 같은 아이디가 있으면 거절한다 — 트랜잭션 안에서 본다. */
 export const signUpAccount = onCall<{ id: string; password: string }>(async (req) => {
   const id = normalizeId(req.data.id)
