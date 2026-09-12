@@ -14,7 +14,7 @@ import { ALLIANCE_BREAK_INFLUENCE_PENALTY, type Resource, type TeamId } from '..
 import { TEAMS } from '../../shared/rules/lobby'
 import type { SabotageDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn } from './turn'
+import { freshNow, myPawn, standingWith } from './turn'
 import { takePending } from './card'
 import { gameRef, requireUid } from './index'
 
@@ -56,6 +56,19 @@ async function sabotagesOn(gameId: string, team: TeamId, kind: SabotageDoc['kind
 
 // ── 교역 ────────────────────────────────────────────────────────
 
+/**
+ * 그 팀 사람과 **마주 서야** 건넬 수 있다.
+ *
+ * 교역도 동맹도 팀 대 팀이지만, 말을 꺼내는 것은 사람이다. 학교
+ * 반대편에서 제안이 날아오면 「뺏으려면 걸어가야 한다」가 자원에만
+ * 적용되고 말에는 적용되지 않는 셈이 된다.
+ */
+async function requireFacing(gameId: string, uid: string, team: TeamId, what: string): Promise<void> {
+  const { here } = await standingWith(gameId, uid)
+  for (const [, p] of here) if (p.team === team) return
+  throw new HttpsError('failed-precondition', `${team}팀 사람과 같은 자리에 서야 ${what}을 꺼낼 수 있다.`)
+}
+
 export const offerTrade = onCall<{ gameId: string; toTeam: TeamId; give: Bag; want: Bag; note?: string }>(
   async (req) => {
     const uid = requireUid(req.auth)
@@ -63,6 +76,7 @@ export const offerTrade = onCall<{ gameId: string; toTeam: TeamId; give: Bag; wa
     const { nowMs } = await freshNow(gameId)
     const pawn = await myPawn(gameId, uid)
     if (!TEAMS.includes(toTeam)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
+    await requireFacing(gameId, uid, toTeam, '교역')
 
     const give = cleanBag(req.data.give)
     const want = cleanBag(req.data.want)
@@ -190,6 +204,7 @@ export const proposeAlliance = onCall<{ gameId: string; withTeam: TeamId }>(asyn
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
   if (!TEAMS.includes(withTeam)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
+  await requireFacing(gameId, uid, withTeam, '동맹')
   const ref = gameRef(gameId)
 
   const [usSnap, themSnap] = await Promise.all([

@@ -7,6 +7,7 @@ import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { BASE_OF } from '../shared/rules/board'
 import { dayHourMs } from '../shared/rules/clock'
+import { meetAt } from './meet'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -195,6 +196,8 @@ async function main(): Promise<void> {
   console.log('\n── 교역 ──')
   await clock(dayHourMs(START, 2, 12))
   await must('tick', me.token, { gameId: GAME })
+  // 교역도 동맹도 그 팀 사람과 마주 서야 꺼낼 수 있다. 복도에 모인다
+  await meetAt(must, GAME, 'hallway', people, (ms) => clock(ms), dayHourMs(START, 2, 18))
   const badBag = await call('offerTrade', me.token, { gameId: GAME, toTeam: 'B', give: { money: -3 }, want: {} })
   check(badBag.code === 'INVALID_ARGUMENT', '음수 자원은 거절', badBag.message)
   const empty = await call('offerTrade', me.token, { gameId: GAME, toTeam: 'B', give: {}, want: {} })

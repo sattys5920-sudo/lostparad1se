@@ -13,6 +13,7 @@
 import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
+import { meetAt } from './meet'
 import { CHAT_MAX_LEN, INVISIBLE_CHAT_MASK } from '../shared/rules/v2'
 
 const PROJECT = 'demo-goei'
@@ -131,6 +132,8 @@ async function main(): Promise<void> {
   check(outLeaks === 0, '다른 팀 열에게는 한 글자도 안 간다', `${outLeaks}명`)
 
   console.log('\n── 지워진 하루 ──')
+  // 표는 그 자리에서 만나야 준다. 복도에 모은다
+  await meetAt(must, GAME, 'hallway', people, (ms) => clock(ms), dayHourMs(START, 1, 16))
   // C[0]이 의심표를 받아 내일 지워지게 한다
   await must('castVote', A[0].token, { gameId: GAME, targetId: C[0].uid, kind: 'suspicion' })
   await must('castVote', A[1].token, { gameId: GAME, targetId: C[0].uid, kind: 'suspicion' })

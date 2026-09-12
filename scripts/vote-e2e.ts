@@ -10,6 +10,7 @@
 import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
+import { meetAt } from './meet'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -120,11 +121,31 @@ async function main(): Promise<void> {
   await clock(dayHourMs(START, 1, 10))
   check(true, '판이 시작했다')
 
+
   const A = people.filter((p) => p.team === 'A')
   const B = people.filter((p) => p.team === 'B')
   const C = people.filter((p) => p.team === 'C')
   const game = () => getDoc(`games/${GAME}`) as Promise<{ invisibleId: string | null; invisibleByDay: Record<string, string | null>; day: number }>
   const team = async (t: TeamId) => (await getDoc(`games/${GAME}/teams/${t}`)) as { resources: Record<string, number> }
+
+  const A0 = people.filter((p) => p.team === 'A')
+  const B0 = people.filter((p) => p.team === 'B')
+
+  console.log('\n── 멀리 있으면 안 된다 ──')
+  // 시작하면 각자 자기 기지에 선다. A팀 기지와 B팀 기지는 다른 방이다
+  const far = await call('castVote', A0[0].token, { gameId: GAME, targetId: B0[0].uid, kind: 'trust' })
+  check(far.code === 'FAILED_PRECONDITION', '학교 반대편 사람에게는 표를 못 준다', far.message)
+  const farSay = await call('revealSecret', A0[0].token, { gameId: GAME, scope: 'private', listenerIds: [B0[0].uid] })
+  check(farSay.code === 'FAILED_PRECONDITION', '멀리 있는 사람에게는 못 털어놓는다', farSay.message)
+  const farDeal = await call('offerTrade', A0[0].token, { gameId: GAME, toTeam: 'B', give: { money: 1 }, want: { knowledge: 1 } })
+  check(farDeal.code === 'FAILED_PRECONDITION', '멀리 있는 팀에는 교역을 못 건다', farDeal.message)
+
+  // 표도 교역도 털어놓기도 그 자리에서 만나야 한다. 복도에 모인다
+  console.log('\n── 한자리에 모은다 ──')
+  await meetAt(must, GAME, 'hallway', people, (ms) => clock(ms), dayHourMs(START, 1, 16))
+  const standing = await getAll(`games/${GAME}/pawns`)
+  const atHall = standing.filter((p) => p.d.tileId === 'hallway').length
+  check(atHall === TOTAL_SEATS, '열넷이 복도에 섰다', `${atHall}명`)
 
   console.log('\n── 표 ──')
   check((await call('castVote', A[0].token, { gameId: GAME, targetId: A[0].uid, kind: 'trust' })).code === 'FAILED_PRECONDITION', '자기에게는 못 준다')

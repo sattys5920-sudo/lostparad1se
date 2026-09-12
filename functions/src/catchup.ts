@@ -582,11 +582,15 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   for (const item of dueItems(due, toMs)) {
     const handler = HANDLERS[item.kind]
     const payload = pending.docs.find((d) => d.id === item.id)?.data() as ScheduleDoc
-    await db.runTransaction(async (tx) => {
+    // **내가 정말로 밀었는지**를 트랜잭션이 돌려준다. 밖에서 그냥
+    // 세면, 남이 먼저 민 것을 건너뛰고도 센 것으로 친다. 열넷이 아침에
+    // 동시에 들어오면 같은 정산을 열넷이 「내가 했다」고 보고한다 —
+    // 실제로 한 번만 처리되니 자원은 맞는데, 세는 숫자만 거짓말을 한다.
+    const did = await db.runTransaction(async (tx) => {
       // 트랜잭션 안에서 다시 읽는다 — 다른 요청이 먼저 밀었을 수 있다
       const itemRef = ref.collection('schedule').doc(item.id)
       const [fresh, gameFresh] = await Promise.all([tx.get(itemRef), tx.get(ref)])
-      if (!fresh.exists || (fresh.data() as ScheduleDoc).doneAtMs !== null) return
+      if (!fresh.exists || (fresh.data() as ScheduleDoc).doneAtMs !== null) return false
       game = gameFresh.data() as GameDoc
 
       if (handler) {
@@ -603,8 +607,9 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
         )
       }
       tx.update(itemRef, { doneAtMs: item.dueAtMs })
+      return true
     })
-    applied += 1
+    if (did) applied += 1
   }
 
   // 토큰은 예정 이벤트가 아니라 한 번에 따라잡는다

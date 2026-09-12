@@ -21,6 +21,10 @@ export interface PeopleProps {
   invisibleId: string | null
   /** 내가 고른 중요한 사람. */
   chosenId: string | null
+  /** 지금 나와 같은 자리에 서 있는 사람들. 이들에게만 털어놓을 수 있다. */
+  hereIds: readonly string[]
+  /** 내가 선 방 이름. 걷는 중이면 null. */
+  hereName: string | null
   day4: string | null
   act: GameActions
   onSaid: (text: string) => void
@@ -35,7 +39,10 @@ export function People(props: PeopleProps) {
   const [confirmReveal, setConfirmReveal] = useState<'class' | 'private' | null>(null)
   const [listeners, setListeners] = useState<string[]>([])
 
-  const others = seats.filter((s) => s.playerId !== me.playerId)
+  // **여기 있는 사람만 보인다.** 명단을 통째로 펴 놓으면 학교
+  // 반대편 사람에게도 뭔가 할 수 있을 것처럼 보인다. 만나야 한다
+  const here = new Set(props.hereIds)
+  const others = seats.filter((s) => s.playerId !== me.playerId && here.has(s.playerId))
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -51,7 +58,12 @@ export function People(props: PeopleProps) {
 
   return (
     <div className="sc-pe">
-      <h2>사람</h2>
+      <h2>여기 있는 사람 <span>{others.length}명</span></h2>
+      {others.length === 0 && (
+        <p className="sc-pe__none">
+          {props.hereName ? `${props.hereName}에 아무도 없다. 걸어가서 만나야 한다.` : '걷는 중이다.'}
+        </p>
+      )}
       <ul className="sc-pe__list">
         {others.map((s) => (
           <li key={s.playerId} className={picked === s.playerId ? 'is-picked' : ''}>
@@ -73,18 +85,20 @@ export function People(props: PeopleProps) {
                     중요한 사람으로
                   </button>
                 )}
-                <label className="sc-pe__hear">
-                  <input
-                    type="checkbox"
-                    checked={listeners.includes(s.playerId)}
-                    onChange={(e) =>
-                      setListeners((ls) =>
-                        e.target.checked ? [...ls, s.playerId] : ls.filter((x) => x !== s.playerId),
-                      )
-                    }
-                  />
-                  들을 사람
-                </label>
+                {(
+                  <label className="sc-pe__hear">
+                    <input
+                      type="checkbox"
+                      checked={listeners.includes(s.playerId)}
+                      onChange={(e) =>
+                        setListeners((ls) =>
+                          e.target.checked ? [...ls, s.playerId] : ls.filter((x) => x !== s.playerId),
+                        )
+                      }
+                    />
+                    들을 사람
+                  </label>
+                )}
               </div>
             )}
           </li>
@@ -93,6 +107,11 @@ export function People(props: PeopleProps) {
 
       <h2>털어놓기</h2>
       <p className="sc-pe__warn">{REVEAL_PRIVATE_WARNING}</p>
+      <p className="sc-pe__warn">
+        {props.hereName
+          ? `1:1은 ${props.hereName}에 같이 있는 사람에게만 할 수 있다.`
+          : '걷는 중에는 1:1로 털어놓을 수 없다. 어딘가에 서야 한다.'}
+      </p>
       <div className="sc-ac__row">
         <button disabled={busy || listeners.length === 0} onClick={() => setConfirmReveal('private')}>
           1:1 ({listeners.length}명)

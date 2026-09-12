@@ -54,3 +54,30 @@ export function requireAwake(pawn: PawnDoc, nowMs: number): void {
 }
 
 export { requireUid }
+
+/**
+ * 같은 자리에 서 있는 사람들.
+ *
+ * 설계 원칙 4 — **모든 행동에는 몸이 있다.** 뺏으려면 걸어가야 하고
+ * 막으려면 서 있어야 한다. 사람과 사람 사이의 일도 마찬가지라,
+ * 표도 교역도 털어놓기도 그 자리에서 만나야 한다.
+ *
+ * 걷는 사람은 어느 자리에도 없다. 말하는 쪽도 듣는 쪽도 그렇다 —
+ * 문과 문 사이에 있는 사람과는 아무것도 할 수 없다.
+ */
+export async function standingWith(
+  gameId: string,
+  uid: string,
+): Promise<{ tileId: string; here: Map<string, { team: string }> }> {
+  const pawn = await myPawn(gameId, uid)
+  if (pawn.tileId === null) {
+    throw new HttpsError('failed-precondition', '걷는 중이다. 어딘가에 서야 한다.')
+  }
+  const all = await gameRef(gameId).collection('pawns').get()
+  const here = new Map<string, { team: string }>()
+  for (const d of all.docs) {
+    const p = d.data() as PawnDoc
+    if (d.id !== uid && p.tileId === pawn.tileId) here.set(d.id, { team: p.team })
+  }
+  return { tileId: pawn.tileId, here }
+}

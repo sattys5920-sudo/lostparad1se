@@ -15,7 +15,6 @@ import type { AvatarLook } from '../types'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
-import { Board } from './Board'
 import { Walk } from './Walk'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
@@ -314,12 +313,16 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
 
 // ── 닷새 ────────────────────────────────────────────────────────
 
-type Screen = 'map' | 'board' | 'people' | 'deals' | 'talk' | 'archive' | 'retro'
-
+/**
+ * 닷새. 끝나면 엔딩과 회고만 남는다.
+ *
+ * 진행 중에는 **화면이 하나다.** 탭을 두지 않는다 — 할 수 있는 일은
+ * 내가 선 자리에서 나오고, 그 자리는 맵이 정한다.
+ */
 function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
-  const [screen, setScreen] = useState<Screen>('map')
   const [morningDone, setMorningDone] = useState(false)
+  const [afterEnding, setAfterEnding] = useState(false)
 
   // 들어올 때마다 밀린 일을 따라잡는다. 아무도 없던 사이의 아침과
   // 정산이 여기서 처리된다
@@ -334,10 +337,10 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   if (game.phase === 'finished') {
     return (
       <div className="sc-pl">
-        {screen === 'retro' ? <LiveRetro gameId={gameId} /> : <LiveEnding gameId={gameId} />}
+        {afterEnding ? <LiveRetro gameId={gameId} /> : <LiveEnding gameId={gameId} />}
         <nav className="sc-pl__tabbar">
-          <button className={screen !== 'retro' ? 'is-on' : ''} onClick={() => setScreen('map')}>엔딩</button>
-          <button className={screen === 'retro' ? 'is-on' : ''} onClick={() => setScreen('retro')}>회고</button>
+          <button className={!afterEnding ? 'is-on' : ''} onClick={() => setAfterEnding(false)}>엔딩</button>
+          <button className={afterEnding ? 'is-on' : ''} onClick={() => setAfterEnding(true)}>회고</button>
         </nav>
       </div>
     )
@@ -350,46 +353,45 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 
   return (
     <div className="sc-pl">
-      {screen === 'archive' ? (
-        <LiveArchive gameId={gameId} onClose={() => setScreen('map')} />
-      ) : (
-        <Today gameId={gameId} screen={screen} look={look} />
-      )}
-      <nav className="sc-pl__tabbar">
-        <button className={screen === 'map' ? 'is-on' : ''} onClick={() => setScreen('map')}>학교</button>
-        <button className={screen === 'board' ? 'is-on' : ''} onClick={() => setScreen('board')}>판</button>
-        <button className={screen === 'people' ? 'is-on' : ''} onClick={() => setScreen('people')}>사람</button>
-        <button className={screen === 'deals' ? 'is-on' : ''} onClick={() => setScreen('deals')}>거래</button>
-        <button className={screen === 'talk' ? 'is-on' : ''} onClick={() => setScreen('talk')}>말</button>
-        <button className={screen === 'archive' ? 'is-on' : ''} onClick={() => setScreen('archive')}>보관함</button>
-      </nav>
+      <Today gameId={gameId} look={look} />
     </div>
   )
 }
 
 /**
- * 오늘 화면 — 지도 · 사람 · 거래.
+ * 오늘 하루. **화면은 하나다.**
  *
- * 무엇을 할 수 있는지는 **화면이 판단하지 않는다.** 단추는 다 보이고,
- * 안 되는 것은 서버가 거절하며 그 이유를 말해 준다. 화면이 미리 막으면
- * 규칙이 두 벌이 되고, 둘이 어긋나는 날 사람은 왜 안 되는지 알 수 없다.
+ * 탭으로 갈라 놓으면 「사람」 탭에 열세 명이 늘어서고, 학교 반대편
+ * 사람에게도 표를 줄 수 있을 것처럼 보인다. 이 게임은 그렇지 않다 —
+ * 표도 교역도 털어놓기도 **그 자리에서 만나야** 한다. 그래서 맵이
+ * 화면이고, 할 수 있는 일은 내가 선 자리와 거기 있는 사람에서 나온다.
+ *
+ * 무엇을 할 수 있는지는 여전히 화면이 판단하지 않는다. 안 되는 것은
+ * 서버가 거절하고 그 이유를 말해 준다.
  */
-function Today({ gameId, screen, look }: { gameId: string; screen: Screen; look: AvatarLook | null }) {
+function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
   const act = useMemo(() => gameActions(gameId), [gameId])
   const uid = auth?.currentUser?.uid ?? null
-  // 서 있는 방(학교 화면이 정한다)과 판에서 고른 먼 칸은 다른 것이다
-  const [picked, setPicked] = useState<TileId | null>(null)
+  const [standingRoom, setStandingRoom] = useState<TileId | null>(null)
+  /** 맵에서 누른 먼 방. 거기로 걸어가거나 내일 아침을 예약한다. */
   const [far, setFar] = useState<TileId | null>(null)
   const [said, setSaid] = useState('')
+  const [overlay, setOverlay] = useState<'talk' | 'archive' | null>(null)
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
   const invisibleName = game?.invisibleId
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null
-  // 내가 선 칸. 걷는 중이면 null이다
   const standingOn = (state.view?.visiblePawns.find((p) => p.playerId === uid)?.tileId ?? null) as TileId | null
+  // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
+  const hereNow = standingOn
+    ? (state.view?.visiblePawns ?? []).filter((p) => p.playerId !== uid && p.tileId === standingOn)
+    : []
+  const hereIds = hereNow.map((p) => p.playerId)
+  // 마주 선 팀. 교역도 동맹도 사람이 꺼내는 말이라 그 팀 사람이 앞에 있어야 한다
+  const facingTeams = [...new Set(hereNow.map((p) => p.team))].filter((t) => t !== me?.team)
 
   // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다
   useEffect(() => {
@@ -399,6 +401,8 @@ function Today({ gameId, screen, look }: { gameId: string; screen: Screen; look:
   }, [said])
 
   if (!game || !me) return <p className="sc-pl__wait">불러오는 중</p>
+
+  if (overlay === 'archive') return <LiveArchive gameId={gameId} onClose={() => setOverlay(null)} />
 
   return (
     <div className="sc-pl__today">
@@ -411,85 +415,65 @@ function Today({ gameId, screen, look }: { gameId: string; screen: Screen; look:
       {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
 
       <ul className="sc-pl__stat">
-        <li>
-          <span>토큰</span>
-          <span>{state.teams[me.team]?.tokens ?? '—'}</span>
-        </li>
-        <li>
-          <span>돈</span>
-          <span>{state.teams[me.team]?.resources.money ?? '—'}</span>
-        </li>
-        <li>
-          <span>지식</span>
-          <span>{state.teams[me.team]?.resources.knowledge ?? '—'}</span>
-        </li>
-        <li>
-          <span>영향력</span>
-          <span>{state.teams[me.team]?.resources.influence ?? '—'}</span>
-        </li>
+        <li><span>토큰</span><span>{state.teams[me.team]?.tokens ?? '—'}</span></li>
+        <li><span>돈</span><span>{state.teams[me.team]?.resources.money ?? '—'}</span></li>
+        <li><span>지식</span><span>{state.teams[me.team]?.resources.knowledge ?? '—'}</span></li>
+        <li><span>영향력</span><span>{state.teams[me.team]?.resources.influence ?? '—'}</span></li>
       </ul>
 
-      {screen === 'map' && (
-        <>
+      <Walk
+        me={{ playerId: me.playerId, team: me.team, look }}
+        game={game}
+        view={state.view}
+        tiles={state.tiles}
+        nowMs={Date.now()}
+        onCross={(to) => {
+          void act
+            .moveTo(to)
+            .then(() => setSaid(`${TILE_BY_ID[to].name} 쪽으로 간다.`))
+            .catch((e) => setSaid((e as Error).message))
+        }}
+        onRoom={setStandingRoom}
+        onTapRoom={(id) => setFar(id === standingRoom ? null : id)}
+      />
+
+      <div className="sc-pl__quick">
+        <button onClick={() => setOverlay('talk')}>말</button>
+        <button onClick={() => setOverlay('archive')}>보관함</button>
+      </div>
+
+      {/* 맵에서 먼 방을 눌렀을 때. 거기까지 걸어가거나 내일 아침을 예약한다 */}
+      {far && far !== standingRoom && (
+        <Actions tileId={far} where="there" act={act} onSaid={setSaid} onClose={() => setFar(null)} />
+      )}
+
+      {standingRoom && (
+        <Actions tileId={standingRoom} where="here" act={act} onSaid={setSaid}>
           <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
-          <Walk
-            me={{ playerId: me.playerId, team: me.team, look }}
-            game={game}
-            view={state.view}
-            tiles={state.tiles}
-            nowMs={Date.now()}
-            onCross={(to) => {
-              void act
-                .moveTo(to)
-                .then(() => setSaid(`${TILE_BY_ID[to].name} 쪽으로 간다.`))
-                .catch((e) => setSaid((e as Error).message))
-            }}
-            onRoom={setPicked}
-          />
-          {picked ? (
-            <Actions tileId={picked} where="here" act={act} onSaid={setSaid} />
-          ) : (
-            <p className="sc-pl__hint">복도다. 방에 들어가면 할 수 있는 일이 나온다.</p>
-          )}
-        </>
+        </Actions>
       )}
 
-      {screen === 'board' && (
-        <>
-          <Board
-            view={state.view}
-            tiles={state.tiles}
-            openedTiles={game.openedTiles}
-            boostedTiles={game.boostedTiles}
-            picked={far}
-            onPick={setFar}
-          />
-          {far ? (
-            <Actions tileId={far} where="there" act={act} onSaid={setSaid} />
-          ) : (
-            <p className="sc-pl__hint">칸을 누르면 거기로 걸어가거나 내일 아침을 예약할 수 있다.</p>
-          )}
-        </>
-      )}
+      <People
+        me={me}
+        seats={game.seats}
+        day={game.day}
+        hereIds={hereIds}
+        hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+        invisibleId={game.invisibleId}
+        chosenId={state.view?.myChoice?.chosenId ?? null}
+        day4={state.view?.myChoice?.day4 ?? null}
+        act={act}
+        onSaid={setSaid}
+      />
 
-      {screen === 'people' && (
-        <People
-          me={me}
-          seats={game.seats}
-          day={game.day}
-          invisibleId={game.invisibleId}
-          chosenId={state.view?.myChoice?.chosenId ?? null}
-          day4={state.view?.myChoice?.day4 ?? null}
-          act={act}
-          onSaid={setSaid}
-        />
-      )}
+      <Deals me={me} view={state.view} teams={state.teams} facingTeams={facingTeams} act={act} onSaid={setSaid} />
 
-      {screen === 'deals' && (
-        <Deals me={me} view={state.view} teams={state.teams} act={act} onSaid={setSaid} />
+      {overlay === 'talk' && (
+        <div className="sc-pl__sheet">
+          <button className="sc-pl__sheetClose" onClick={() => setOverlay(null)}>닫기</button>
+          <Chat me={me} act={act} onSaid={setSaid} />
+        </div>
       )}
-
-      {screen === 'talk' && <Chat me={me} act={act} onSaid={setSaid} />}
 
       {said && <p className="sc-pl__said">{said}</p>}
     </div>

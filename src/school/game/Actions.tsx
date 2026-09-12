@@ -4,7 +4,7 @@
 // 안 되는 것은 서버가 거절하며 그 이유를 말해 준다. 화면이 미리
 // 막으면 서버와 화면이 두 벌의 규칙을 갖게 되고, 둘이 어긋나는 날
 // 사람은 왜 안 되는지 알 수 없다.
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
@@ -23,6 +23,10 @@ export interface ActionsProps {
   where: 'here' | 'there'
   act: GameActions
   onSaid: (text: string) => void
+  /** 먼 방 패널에만 있다. 잘못 눌렀으면 닫는다. */
+  onClose?: () => void
+  /** 제목 바로 아래에 끼울 것. 선 자리의 연구·생산이 여기 들어온다. */
+  children?: ReactNode
 }
 
 /** 서버가 한 말을 그대로 올린다. 화면이 문구를 지어내지 않는다. */
@@ -55,9 +59,9 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
   const { busy, run } = useRun(onSaid)
   return (
     <div className="sc-ac__standing">
-      <span className="sc-ac__where">
-        {standingOn ? `${TILE_BY_ID[standingOn].name}에 서 있다` : '걷는 중'}
-      </span>
+      {/* 방 이름은 바로 위 제목이 이미 말한다. 여기서는 서 있는 자리에서만
+          되는 일이라는 것만 밝힌다 */}
+      <span className="sc-ac__where">{standingOn ? '선 자리에서' : '걷는 중'}</span>
       <button disabled={busy || !standingOn} onClick={() => run('연구', () => act.research(standingOn as TileId))}>
         연구 <em>{ACTION_TOKEN_COST.research}</em>
       </button>
@@ -68,7 +72,7 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
   )
 }
 
-export function Actions({ tileId, where, act, onSaid }: ActionsProps) {
+export function Actions({ tileId, where, act, onSaid, onClose, children }: ActionsProps) {
   const { busy, run } = useRun(onSaid)
   const [open, setOpen] = useState<'build' | 'sabotage' | null>(null)
   const spec = TILE_BY_ID[tileId]
@@ -77,7 +81,13 @@ export function Actions({ tileId, where, act, onSaid }: ActionsProps) {
     <div className="sc-ac">
       <h2>
         {spec.name} <span>{spec.value}점</span>
+        {onClose && (
+          <button className="sc-ac__close" onClick={onClose} aria-label="닫기">
+            ✕
+          </button>
+        )}
       </h2>
+      {children}
 
       {where === 'there' && (
         <div className="sc-ac__row">

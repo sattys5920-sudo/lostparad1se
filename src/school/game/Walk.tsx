@@ -42,6 +42,8 @@ export interface WalkProps {
   onCross: (to: TileId) => void
   /** 지금 선 방이 바뀌면 알려 준다. 행동 패널이 이걸 본다. */
   onRoom: (id: TileId | null) => void
+  /** 맵에서 방을 눌렀다. 먼 방이면 거기로 갈지 묻는다. */
+  onTapRoom: (id: TileId) => void
 }
 
 const DIR_OF: Record<string, Dir> = {
@@ -65,7 +67,7 @@ function acrossFrom(door: { a: TileId; b: TileId }, here: TileId | null): TileId
   return null
 }
 
-export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProps) {
+export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const padRef = useRef<HTMLDivElement | null>(null)
 
@@ -76,11 +78,13 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
   const lockedRef = useRef(lockedDoorKeys(asRooms(game.openedTiles)))
   const crossRef = useRef(onCross)
   const roomRef = useRef(onRoom)
+  const tapRef = useRef(onTapRoom)
   viewRef.current = view
   tilesRef.current = tiles
   lockedRef.current = lockedDoorKeys(asRooms(game.openedTiles))
   crossRef.current = onCross
   roomRef.current = onRoom
+  tapRef.current = onTapRoom
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
   const myPawn = view?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
@@ -164,6 +168,16 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)
 
+    /** 캔버스를 누르면 그 자리의 방을 고른다. 십자키 위는 뺀다 */
+    const onTap = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect()
+      const sx = ((e.clientX - r.left) / r.width) * canvas.width + camRef.x
+      const sy = ((e.clientY - r.top) / r.height) * canvas.height + camRef.y
+      const id = roomAt(Math.floor(sx / TILE), Math.floor(sy / TILE))?.id
+      if (id) tapRef.current(id)
+    }
+    canvas.addEventListener('pointerdown', onTap)
+
     function tryStep(d: Dir): void {
       const [dx, dy] = STEP[d]
       const nx = self.tx + dx
@@ -226,6 +240,8 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
      */
     let asked = false
     let lastServerTile: TileId | null = null
+    /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
+    const camRef = { x: 0, y: 0 }
 
     function frame(now: number) {
       raf = requestAnimationFrame(frame)
@@ -277,6 +293,8 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
       const h = canvas.height
       const camX = Math.round(Math.max(0, Math.min(MAP_W * TILE - w, self.px - w / 2)))
       const camY = Math.round(Math.max(0, Math.min(MAP_H * TILE - h, self.py - h / 2)))
+      camRef.x = camX
+      camRef.y = camY
 
       ctx.fillStyle = PAL.ink
       ctx.fillRect(0, 0, w, h)
@@ -291,6 +309,8 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
         for (let x = x0; x <= x1; x++) {
           const kind = tileAt(x, y)
           const room = roomAt(x, y)?.id ?? null
+          // 벽은 어느 방에도 속하지 않는다. 둘러싼 방을 찾아 같이 칠한다
+          const owner = ownerAround(x, y)
           let img: CanvasImageSource | null
           if (kind === 'wall') {
             img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
@@ -308,6 +328,14 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
             img = team ? sprites.tiles.floorTeam[team] : null
           }
           if (img) ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+          // 점령한 방은 흑백이 아니라 그 팀 색이다. 벽도 바닥도 같이
+          // 물든다 — 지나가다 벽 색만 봐도 누구 땅인지 안다
+          if (owner) {
+            ctx.globalCompositeOperation = 'multiply'
+            ctx.fillStyle = TEAM_WASH[owner]
+            ctx.fillRect(x * TILE - camX, y * TILE - camY, TILE, TILE)
+            ctx.globalCompositeOperation = 'source-over'
+          }
           const mark = markAt(x, y)
           if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
           const prop = propAt(x, y)
@@ -333,10 +361,15 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
         ctx.fillText(TILE_BY_ID[r.id].name, Math.round((rect.x + rect.w / 2) * TILE - camX), Math.round((rect.y + 0.3) * TILE - camY))
       }
 
-      // 남들. 방 한가운데에 선 것으로 그린다 — 서버가 아는 것도 거기까지다
+      // 남들. 방 한가운데에 선 것으로 그린다 — 서버가 아는 것도 거기까지다.
+      //
+      // **걷는 사람은 그리지 않는다.** 문과 문 사이에 있는 사람은 어느
+      // 방에도 없다. 규칙에서도 그렇다 — 걷는 말은 깃발 판정에 세지
+      // 않고, 표도 교역도 그 사람과는 할 수 없다. 화면에만 서 있으면
+      // 누를 수 있을 것처럼 보인다
       for (const p of viewRef.current?.visiblePawns ?? []) {
-        if (p.playerId === me.playerId) continue
-        const at = p.walking ? betweenDoor(asRoom(p.fromTile), asRoom(p.toTile)) : centerPx(asRoom(p.tileId))
+        if (p.playerId === me.playerId || p.walking) continue
+        const at = centerPx(asRoom(p.tileId))
         if (!at) continue
         dot(at.x - camX, at.y - camY, p.team as TeamId, p.asleep === true)
       }
@@ -351,6 +384,19 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
       }
     }
 
+    /**
+     * 이 칸을 쥔 팀. 벽과 문은 방에 속하지 않으므로 옆 칸을 본다 —
+     * 방과 방 사이 벽이면 양쪽이 다를 수 있는데, 그때는 칠하지 않는다.
+     */
+    function ownerAround(x: number, y: number): TeamId | null {
+      const own = (id: TileId | null | undefined) => (id ? (tilesRef.current[id]?.ownerTeam ?? null) : null)
+      const here = roomAt(x, y)?.id
+      if (here) return own(here) as TeamId | null
+      const around = [own(roomAt(x - 1, y)?.id), own(roomAt(x + 1, y)?.id), own(roomAt(x, y - 1)?.id), own(roomAt(x, y + 1)?.id)]
+      const teams = [...new Set(around.filter(Boolean))]
+      return teams.length === 1 ? (teams[0] as TeamId) : null
+    }
+
     function centerPx(id: TileId | null): { x: number; y: number } | null {
       if (!id) return null
       const r = ROOMS.find((x) => x.id === id)
@@ -359,12 +405,6 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
       return { x: (rect.x + rect.w / 2) * TILE, y: (rect.y + rect.h / 2) * TILE }
     }
 
-    /** 걷는 사람은 두 방 사이 문에 세운다. 실제로 거기에 있다. */
-    function betweenDoor(from: TileId | null, to: TileId | null): { x: number; y: number } | null {
-      if (!from || !to) return centerPx(to ?? from)
-      const d = DOORS.find((x) => (x.a === from && x.b === to) || (x.b === from && x.a === to))
-      return d ? { x: d.x * TILE + TILE / 2, y: d.y * TILE + TILE / 2 } : centerPx(to)
-    }
 
     function dot(x: number, y: number, team: TeamId, asleep: boolean): void {
       ctx.globalAlpha = asleep ? 0.5 : 1
@@ -382,6 +422,7 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
     raf = requestAnimationFrame(frame)
     return () => {
       cancelAnimationFrame(raf)
+      canvas.removeEventListener('pointerdown', onTap)
       ro.disconnect()
       window.removeEventListener('keydown', onDown)
       window.removeEventListener('keyup', onUp)
@@ -423,3 +464,16 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom }: WalkProp
 
 /** 완장 색. char/palette.ts 의 TEAMS 와 같다. */
 const TEAM_DOT: Record<TeamId, string> = { A: '#e0453f', B: '#3f7ae0', C: '#2fa866', D: '#e0a02a' }
+
+/**
+ * 점령한 방에 덧씌우는 색. 곱하기로 얹으므로 밝을수록 옅다.
+ *
+ * 완장 색을 그대로 곱하면 바닥 무늬가 다 죽어 한 덩어리 색판이 된다.
+ * 무늬가 비쳐야 「칠해진 교실」이지 「색칠된 사각형」이 아니다.
+ */
+const TEAM_WASH: Record<TeamId, string> = {
+  A: '#ffd8d6',
+  B: '#d6e2ff',
+  C: '#d2f0e0',
+  D: '#ffeccc',
+}

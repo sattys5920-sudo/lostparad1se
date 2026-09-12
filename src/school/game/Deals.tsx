@@ -12,6 +12,8 @@ import type { PlayerViewDoc, TeamDoc } from '../../../shared/model'
 
 export interface DealsProps {
   me: { playerId: string; team: TeamId }
+  /** 지금 나와 같은 자리에 서 있는 팀들. 이들에게만 말을 꺼낼 수 있다. */
+  facingTeams: readonly TeamId[]
   view: PlayerViewDoc | null
   teams: Partial<Record<TeamId, TeamDoc>>
   act: GameActions
@@ -20,7 +22,8 @@ export interface DealsProps {
 
 const RES_LABEL: Record<string, string> = { money: '돈', knowledge: '지식', influence: '영향력' }
 
-export function Deals({ me, view, teams, act, onSaid }: DealsProps) {
+export function Deals({ me, view, teams, facingTeams, act, onSaid }: DealsProps) {
+  const facing = new Set(facingTeams)
   const [busy, setBusy] = useState(false)
   const [to, setTo] = useState<TeamId>(TEAMS.find((t) => t !== me.team) as TeamId)
   const [give, setGive] = useState({ money: 0, knowledge: 0, influence: 0 })
@@ -59,13 +62,16 @@ export function Deals({ me, view, teams, act, onSaid }: DealsProps) {
       </ul>
 
       <h2>교역</h2>
+      {facing.size === 0 ? (
+        <p className="sc-dl__none">지금 같은 자리에 다른 팀 사람이 없다. 만나야 말을 꺼낼 수 있다.</p>
+      ) : null}
       <div className="sc-dl__trade">
         <label>
           <span>누구에게</span>
           <select value={to} onChange={(e) => setTo(e.target.value as TeamId)}>
             {TEAMS.filter((t) => t !== me.team).map((t) => (
-              <option key={t} value={t}>
-                {t}팀
+              <option key={t} value={t} disabled={!facing.has(t)}>
+                {t}팀{facing.has(t) ? '' : ' (여기 없다)'}
               </option>
             ))}
           </select>
@@ -141,7 +147,7 @@ export function Deals({ me, view, teams, act, onSaid }: DealsProps) {
       ) : (
         <div className="sc-ac__row">
           {TEAMS.filter((t) => t !== me.team).map((t) => (
-            <button key={t} disabled={busy} onClick={() => run('제안', () => act.proposeAlliance(t))}>
+            <button key={t} disabled={busy || !facing.has(t)} onClick={() => run('제안', () => act.proposeAlliance(t))}>
               {t}팀에
             </button>
           ))}

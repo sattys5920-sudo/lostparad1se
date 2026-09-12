@@ -47,6 +47,10 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
   if (!target.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
   const you = target.data() as PawnDoc
 
+  // 그 사람 앞에 서야 준다. 믿는다고 말하려면 걸어가야 한다
+  if (me.tileId === null) throw new HttpsError('failed-precondition', '걷는 중에는 표를 줄 수 없다.')
+  if (you.tileId !== me.tileId) throw new HttpsError('failed-precondition', '같은 자리에 있는 사람에게만 줄 수 있다.')
+
   // 지워진 사람은 표를 받지 않는다. 없는 사람이다
   if (game.invisibleId === targetId) throw new HttpsError('failed-precondition', '지금은 그 사람에게 줄 수 없다.')
 
@@ -135,9 +139,24 @@ export const revealSecret = onCall<{ gameId: string; scope: RevealScope; listene
     } else {
       listenerIds = [...new Set((req.data.listenerIds ?? []).filter((id) => id !== uid))]
       if (listenerIds.length === 0) throw new HttpsError('invalid-argument', '들을 사람을 골라야 한다.')
+
+      // **같은 방에 있는 사람에게만.** 문서 9장은 「그 자리에서 들은
+      // 사람 전원」이라고 적는다. 학교 반대편 사람에게 비밀을 털어놓을
+      // 수는 없다 — 그러면 「뺏으려면 걸어가야 한다」는 원칙이 고백에만
+      // 적용되지 않는 셈이 된다.
+      //
+      // 걷는 중인 사람은 어느 방에도 없다. 말하는 쪽도 듣는 쪽도 그렇다.
+      if (me.tileId === null) {
+        throw new HttpsError('failed-precondition', '걷는 중에는 털어놓을 수 없다. 어딘가에 서야 한다.')
+      }
       const pawns = await ref.collection('pawns').get()
-      const known = new Set(pawns.docs.map((d) => d.id))
-      if (listenerIds.some((id) => !known.has(id))) throw new HttpsError('not-found', '그런 사람이 없다.')
+      const where = new Map(pawns.docs.map((d) => [d.id, (d.data() as PawnDoc).tileId]))
+      for (const id of listenerIds) {
+        if (!where.has(id)) throw new HttpsError('not-found', '그런 사람이 없다.')
+        if (where.get(id) !== me.tileId) {
+          throw new HttpsError('failed-precondition', '같은 자리에 있는 사람에게만 털어놓을 수 있다.')
+        }
+      }
     }
 
     const gained = (await ref.collection('secret').doc('reveals').collection('items').doc(uid).get()).data() as
