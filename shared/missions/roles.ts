@@ -510,22 +510,15 @@ export const MAX_PERSONAL_SCORE =
 // 날짜는 v2.ts의 시간표에 있다. 여기서 다시 내보내기만 한다
 export { CHOSEN_ONE_DAY, DAY4_CHOICE_DAY } from '../rules/v2'
 
-export type Day4Choice = 'team' | 'self' | 'bond'
-
-export interface Day4ChoiceSpec {
-  id: Day4Choice
-  label: string
-  text: string
-}
-
-export const DAY4_CHOICES: readonly Day4ChoiceSpec[] = [
-  { id: 'team', label: '팀을 지킨다', text: '우리 팀이 최종 2위 이내' },
-  { id: 'self', label: '나를 지킨다', text: '내 주 미션 달성' },
-  { id: 'bond', label: '그 사람을 지킨다', text: '내 인연 미션 달성' },
-]
-
-/** 「팀을 지킨다」가 성립하는 순위. 공동 2위도 성공이다. */
-export const DAY4_TEAM_RANK_WITHIN = 2
+// 선택지는 shared/rules/choices.ts에 있다. 화면이 라벨 세 줄 때문에
+// 숨긴 사실 열넷을 불러오지 않도록 갈라 두었다
+export {
+  DAY4_CHOICES,
+  DAY4_CHOICE_IDS,
+  DAY4_TEAM_RANK_WITHIN,
+  type Day4Choice,
+  type Day4ChoiceSpec,
+} from '../rules/choices'
 
 // ── 엔딩 ────────────────────────────────────────────────────────
 

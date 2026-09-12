@@ -86,6 +86,13 @@ export interface World {
   }[]
   /** 동맹 제안. 관련된 두 팀만 본다. */
   proposals: readonly { id: string; fromTeam: TeamId; toTeam: TeamId; status: string; createdAtMs: number }[]
+  /**
+   * DAY 3·4의 선택. **본인 것만 나간다.**
+   *
+   * 「누가 나를 중요한 사람으로 골랐나」가 보이면 그걸 노리고 서로
+   * 붙어 다니게 된다. 고르는 일이 마음이 아니라 수가 된다.
+   */
+  choices: readonly { playerId: string; chosenId: string | null; day4: string | null }[]
   // ── 진상 공개 흐름 ──
   releasedDays: readonly number[]
   progress: readonly { playerId: string; handledDays: readonly number[]; readDays: readonly number[] }[]
@@ -109,6 +116,8 @@ export interface View {
   peeked: { voteKind: VoteKind; voterNickname: string }[]
   trades: World['trades'][number][]
   proposals: World['proposals'][number][]
+  /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
+  myChoice: { chosenId: string | null; day4: string | null } | null
   own: { roleId: string; bondId: string } | null
   handledDays: number[]
   readDays: number[]
@@ -155,6 +164,7 @@ export function projectView(world: World, viewerId: string): View {
       peeked: [],
       trades: [],
       proposals: [],
+      myChoice: null,
       own: null,
       handledDays: [],
       readDays: [],
@@ -209,6 +219,10 @@ export function projectView(world: World, viewerId: string): View {
     // 아직 답하지 않은 제안만. 남의 협상은 들어오지 않는다
     trades: world.trades.filter((t) => t.fromTeam === team || t.toTeam === team),
     proposals: world.proposals.filter((p) => p.fromTeam === team || p.toTeam === team),
+    myChoice: (() => {
+      const c = world.choices.find((x) => x.playerId === viewerId)
+      return c ? { chosenId: c.chosenId, day4: c.day4 } : null
+    })(),
     // 역할은 **자기 한 줄뿐이다.** 남의 것은 들어가지 않는다
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
 

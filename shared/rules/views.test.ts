@@ -78,6 +78,10 @@ function world(over = false, invisibleId: string | null = null): World {
       { id: 'a-AC', fromTeam: 'A', toTeam: 'C', status: 'open', createdAtMs: 7 },
       { id: 'a-BD', fromTeam: 'B', toTeam: 'D', status: 'open', createdAtMs: 8 },
     ],
+    choices: [
+      { playerId: 'A0', chosenId: 'B0', day4: 'bond' },
+      { playerId: 'B0', chosenId: 'A0', day4: 'team' },
+    ],
     releasedDays: [1, 2],
     progress: [
       { playerId: 'A0', handledDays: [1, 2], readDays: [1] },
@@ -203,6 +207,33 @@ describe('우리 팀 것', () => {
 
 // 잠복은 「안 보인다」이고 투명인간은 「없는 사람」이다.
 // 위치 데이터가 아예 안 나간다
+// 「누가 나를 중요한 사람으로 골랐나」가 보이면 그걸 노리고 서로
+// 붙어 다니게 된다. 고르는 일이 마음이 아니라 수가 된다
+describe('선택', () => {
+  it('내가 고른 것은 내 몫에 있다', () => {
+    expect(projectView(world(), 'A0').myChoice).toEqual({ chosenId: 'B0', day4: 'bond' })
+  })
+
+  it('안 고른 사람은 비어 있다', () => {
+    expect(projectView(world(), 'A1').myChoice).toBeNull()
+  })
+
+  it('남이 무엇을 골랐는지는 어느 몫에도 없다', () => {
+    const all = projectAll(world())
+    for (const r of ROSTER) {
+      if (r.playerId === 'B0') continue
+      expect(json(all[r.playerId])).not.toContain('"day4":"team"')
+    }
+  })
+
+  it('누가 나를 골랐는지도 안 보인다', () => {
+    // B0이 A0을 골랐다. A0의 몫에는 그 사실이 없다
+    const v = projectView(world(), 'A0')
+    expect(v.myChoice?.chosenId).toBe('B0')
+    expect(json(v).match(/"chosenId"/g)?.length).toBe(1)
+  })
+})
+
 describe('투명인간', () => {
   it('남에게 보이지 않는다 — 같은 팀에게도', () => {
     const all = projectAll(world(false, 'A1'))

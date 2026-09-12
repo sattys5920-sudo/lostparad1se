@@ -113,3 +113,6 @@ export { castVote, revealSecret } from './vote'
 
 // 진상 공개 흐름. 아침 진행 · 체류 · 깨달음 · 눈발.
 export { markMorning, snowNow } from './reveal'
+
+// DAY 3 중요한 사람, DAY 4 무엇을 지킬 것인가.
+export { chooseImportant, chooseDay4 } from './choice'
