@@ -1,0 +1,81 @@
+# 서버(Cloud Functions)와 Firestore 규칙을 올린다.
+#
+# **손으로 눌러야만 돈다.** deploy.yml(화면)은 push할 때마다 자동으로
+# 도는데 이쪽은 아니다. 화면은 잘못 올려도 다시 올리면 그만이지만
+# 서버는 판이 돌고 있는 중에 갈아끼우면 그 판이 깨진다. 언제 올릴지는
+# 사람이 정한다.
+#
+# 규칙도 여기서 같이 올린다. 콘솔에 손으로 붙여넣던 것을 그만두는
+# 것이다 — 저장소의 firestore.rules 가 유일한 정본이 된다.
+#
+# 필요한 시크릿 둘 (Settings → Secrets and variables → Actions)
+#   PROJECTID                  이미 등록돼 있다. 화면 빌드가 쓰던 것
+#   FIREBASE_SERVICE_ACCOUNT   서비스 계정 열쇠(JSON) 통째로
+name: Deploy functions
+
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: 무엇을 올릴까
+        required: true
+        default: functions,firestore:rules
+        type: choice
+        options:
+          - functions,firestore:rules
+          - functions
+          - firestore:rules
+
+permissions:
+  contents: read
+
+concurrency:
+  group: functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 값은 찍지 않는다. 무엇이 비었는지만 남긴다
+      - name: Check the deploy key is present
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT: ${{ secrets.PROJECTID }}
+        run: |
+          missing=0
+          [ -n "$PROJECT" ] && echo "PROJECTID: 설정됨" || { echo "PROJECTID: 비어 있음"; missing=1; }
+          [ -n "$SA" ] && echo "FIREBASE_SERVICE_ACCOUNT: 설정됨" || { echo "FIREBASE_SERVICE_ACCOUNT: 비어 있음"; missing=1; }
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::시크릿이 비어 있다. Settings → Secrets and variables → Actions 를 확인해야 한다."
+            exit 1
+          fi
+
+      - run: npm ci --prefix functions
+
+      # 올리기 전에 서버 코드가 컴파일되는지 본다. firebase.json 의 predeploy
+      # 훅도 같은 것을 돌리지만, 거기서 깨지면 절반 올라간 상태가 될 수 있다
+      - name: Build functions
+        run: npm --prefix functions run build
+
+      - name: Deploy
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT: ${{ secrets.PROJECTID }}
+          WHAT: ${{ inputs.what }}
+        run: |
+          # 열쇠를 명령줄이 아니라 파일로 건넨다. 명령줄에 두면 따옴표
+          # 하나에 깨지고, 실패한 명령이 로그에 통째로 찍힐 수 있다
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          npx -y firebase-tools@13 deploy \
+            --only "$WHAT" \
+            --project "$PROJECT" \
+            --non-interactive \
+            --force
