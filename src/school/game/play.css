@@ -630,3 +630,89 @@
   padding: 8px 10px;
   border-radius: 4px;
 }
+
+/* ── 걸어 다니는 학교 ─────────────────────────────────────────── */
+
+.sc-wk { position: relative; }
+
+.sc-wk__canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 56vh;
+  image-rendering: pixelated;
+  border: 1px solid var(--sc-line);
+  border-radius: 5px;
+  background: #0c0e12;
+  touch-action: none;
+}
+
+/* 문을 넘는 동안. 몸은 이미 두 방 사이에 있고 되돌릴 수 없다 */
+.sc-wk__transit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(12, 14, 18, 0.82);
+  border-radius: 5px;
+}
+
+.sc-wk__transit img {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  animation: sc-wk-bob 0.5s steps(2) infinite;
+}
+
+.sc-wk__transit p { margin: 0; font-size: 14px; color: #f2f3f4; }
+.sc-wk__transit span { font-size: 11.5px; color: #aeb4c2; font-variant-numeric: tabular-nums; }
+
+@keyframes sc-wk-bob {
+  from { transform: translateY(0); }
+  to { transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-wk__transit img { animation: none; }
+}
+
+.sc-wk__here {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--sc-text-2);
+  text-align: center;
+}
+
+/* 방향키. 손가락으로 하는 게 먼저다 */
+.sc-wk__pad {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.sc-wk__pad > div { display: flex; gap: 3px; }
+
+.sc-wk__pad button {
+  appearance: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(242, 243, 244, 0.35);
+  background: rgba(12, 14, 18, 0.55);
+  color: #f2f3f4;
+  font: inherit;
+  font-size: 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.sc-wk__pad button:active { background: rgba(242, 243, 244, 0.25); }
+.sc-wk__pad[aria-hidden='true'] { opacity: 0.3; pointer-events: none; }

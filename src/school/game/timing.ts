@@ -7,3 +7,11 @@
 
 /** 채팅을 다시 가져오는 간격. */
 export const CHAT_POLL_MS = 2500
+
+/** 한 칸(16px)을 걷는 데 걸리는 시간. 방 안 걸음이다. */
+export const STEP_MS = 160
+/**
+ * 걷기 자세가 1초에 몇 번 바뀌는지. 프레임 수가 아니라 시간으로 센다 —
+ * 화면 주사율이 달라도 걸음걸이가 같아야 한다.
+ */
+export const WALK_POSES_PER_SEC = 3.2

@@ -279,13 +279,24 @@ export interface FlagTruthDoc {
  */
 export interface PlayerViewDoc {
   updatedAtMs: GameMs
-  /** 지금 보이는 다른 말들. */
+  /** 지금 보이는 다른 말들. 목적지는 여기 없다 — 다음 한 칸까지다. */
   visiblePawns: {
     playerId: string
     team: TeamId
-    tileId: TileId
+    /** 서 있는 칸. 걷는 중이면 null. */
+    tileId: TileId | null
+    /** 걷는 중일 때 방금 떠난 칸. */
+    fromTile: TileId | null
+    /** 걷는 중일 때 바로 다음 칸. */
+    toTile: TileId | null
     asleep: boolean
+    walking: boolean
   }[]
+  /**
+   * 내 말이 걷는 중이면 도착 시각. **내 것만 실린다** — 남이 언제
+   * 도착하는지까지 알면 문 앞에서 기다렸다 덮치는 것이 계산이 된다.
+   */
+  myArriveAtMs: number | null
   /** 안개가 걷힌 칸. 나머지는 어둡게 덮는다. */
   visibleTiles: TileId[]
   /** 우리 팀 손패. 내용까지 보인다. */

@@ -13,6 +13,14 @@ import type { GameActions } from './useGame'
 
 export interface ActionsProps {
   tileId: TileId
+  /**
+   * 'here' 는 내가 서 있는 방, 'there' 는 판에서 고른 먼 칸이다.
+   *
+   * 서 있는 방에 「걸어가기」를 두면 제자리걸음을 시키는 단추가 된다.
+   * 반대로 먼 칸에 「짓기」를 두면 거기 가 있지도 않은데 지을 수
+   * 있는 것처럼 보인다. 할 수 있는 일이 자리마다 다르다.
+   */
+  where: 'here' | 'there'
   act: GameActions
   onSaid: (text: string) => void
 }
@@ -60,7 +68,7 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
   )
 }
 
-export function Actions({ tileId, act, onSaid }: ActionsProps) {
+export function Actions({ tileId, where, act, onSaid }: ActionsProps) {
   const { busy, run } = useRun(onSaid)
   const [open, setOpen] = useState<'build' | 'sabotage' | null>(null)
   const spec = TILE_BY_ID[tileId]
@@ -71,14 +79,16 @@ export function Actions({ tileId, act, onSaid }: ActionsProps) {
         {spec.name} <span>{spec.value}점</span>
       </h2>
 
-      <div className="sc-ac__row">
-        <button disabled={busy} onClick={() => run('이동', () => act.moveTo(tileId))}>
-          걸어가기
-        </button>
-        <button disabled={busy} onClick={() => run('예약', () => act.planCommute(tileId))}>
-          등교 예약
-        </button>
-      </div>
+      {where === 'there' && (
+        <div className="sc-ac__row">
+          <button disabled={busy} onClick={() => run('이동', () => act.moveTo(tileId))}>
+            걸어가기
+          </button>
+          <button disabled={busy} onClick={() => run('예약', () => act.planCommute(tileId))}>
+            등교 예약
+          </button>
+        </div>
+      )}
 
       <div className="sc-ac__row">
         <button disabled={busy} onClick={() => run('깃발', () => act.plantFlag(tileId))}>

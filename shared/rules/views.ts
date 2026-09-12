@@ -26,6 +26,8 @@ import { noticesFor, type Notice } from '../reveal/notice'
 export interface WorldPawn extends PawnPosition {
   /** 정보부장이면 우리 팀 시야가 한 겹 넓어진다. */
   intelOfficer: boolean
+  /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
+  arriveAtMs?: number | null
 }
 
 export interface WorldTile {
@@ -119,6 +121,14 @@ export interface View {
   /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
   myChoice: { chosenId: string | null; day4: string | null } | null
   own: { roleId: string; bondId: string } | null
+  /**
+   * 내 말이 걷는 중이면 도착 시각. 서 있으면 null.
+   *
+   * **내 것만 넣는다.** 남이 언제 도착하는지까지 알면, 문 앞에서
+   * 기다렸다 덮치는 것이 추측이 아니라 계산이 된다. 걷고 있다는
+   * 사실은 보이지만(visiblePawns.walking) 몇 분 남았는지는 안 보인다.
+   */
+  myArriveAtMs: number | null
   handledDays: number[]
   readDays: number[]
   confessions: WorldConfession[]
@@ -166,6 +176,7 @@ export function projectView(world: World, viewerId: string): View {
       proposals: [],
       myChoice: null,
       own: null,
+      myArriveAtMs: null,
       handledDays: [],
       readDays: [],
       confessions: [],
@@ -225,6 +236,7 @@ export function projectView(world: World, viewerId: string): View {
     })(),
     // 역할은 **자기 한 줄뿐이다.** 남의 것은 들어가지 않는다
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
+    myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
 
     // 진상 공개 흐름
     handledDays: [...(world.progress.find((p) => p.playerId === viewerId)?.handledDays ?? [])].sort((a, b) => a - b),

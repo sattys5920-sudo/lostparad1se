@@ -16,11 +16,12 @@ import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
 import { Board } from './Board'
+import { Walk } from './Walk'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
-import type { TileId } from '../../../shared/rules/board'
+import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import './play.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
@@ -313,9 +314,9 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
 
 // ── 닷새 ────────────────────────────────────────────────────────
 
-type Screen = 'map' | 'people' | 'deals' | 'talk' | 'archive' | 'retro'
+type Screen = 'map' | 'board' | 'people' | 'deals' | 'talk' | 'archive' | 'retro'
 
-function Running({ gameId }: { gameId: string }) {
+function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
   const [screen, setScreen] = useState<Screen>('map')
   const [morningDone, setMorningDone] = useState(false)
@@ -352,10 +353,11 @@ function Running({ gameId }: { gameId: string }) {
       {screen === 'archive' ? (
         <LiveArchive gameId={gameId} onClose={() => setScreen('map')} />
       ) : (
-        <Today gameId={gameId} screen={screen} />
+        <Today gameId={gameId} screen={screen} look={look} />
       )}
       <nav className="sc-pl__tabbar">
-        <button className={screen === 'map' ? 'is-on' : ''} onClick={() => setScreen('map')}>지도</button>
+        <button className={screen === 'map' ? 'is-on' : ''} onClick={() => setScreen('map')}>학교</button>
+        <button className={screen === 'board' ? 'is-on' : ''} onClick={() => setScreen('board')}>판</button>
         <button className={screen === 'people' ? 'is-on' : ''} onClick={() => setScreen('people')}>사람</button>
         <button className={screen === 'deals' ? 'is-on' : ''} onClick={() => setScreen('deals')}>거래</button>
         <button className={screen === 'talk' ? 'is-on' : ''} onClick={() => setScreen('talk')}>말</button>
@@ -372,11 +374,13 @@ function Running({ gameId }: { gameId: string }) {
  * 안 되는 것은 서버가 거절하며 그 이유를 말해 준다. 화면이 미리 막으면
  * 규칙이 두 벌이 되고, 둘이 어긋나는 날 사람은 왜 안 되는지 알 수 없다.
  */
-function Today({ gameId, screen }: { gameId: string; screen: Screen }) {
+function Today({ gameId, screen, look }: { gameId: string; screen: Screen; look: AvatarLook | null }) {
   const state = useGame(gameId)
   const act = useMemo(() => gameActions(gameId), [gameId])
   const uid = auth?.currentUser?.uid ?? null
+  // 서 있는 방(학교 화면이 정한다)과 판에서 고른 먼 칸은 다른 것이다
   const [picked, setPicked] = useState<TileId | null>(null)
+  const [far, setFar] = useState<TileId | null>(null)
   const [said, setSaid] = useState('')
 
   const game = state.game
@@ -428,18 +432,42 @@ function Today({ gameId, screen }: { gameId: string; screen: Screen }) {
       {screen === 'map' && (
         <>
           <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
+          <Walk
+            me={{ playerId: me.playerId, team: me.team, look }}
+            game={game}
+            view={state.view}
+            tiles={state.tiles}
+            nowMs={Date.now()}
+            onCross={(to) => {
+              void act
+                .moveTo(to)
+                .then(() => setSaid(`${TILE_BY_ID[to].name} 쪽으로 간다.`))
+                .catch((e) => setSaid((e as Error).message))
+            }}
+            onRoom={setPicked}
+          />
+          {picked ? (
+            <Actions tileId={picked} where="here" act={act} onSaid={setSaid} />
+          ) : (
+            <p className="sc-pl__hint">복도다. 방에 들어가면 할 수 있는 일이 나온다.</p>
+          )}
+        </>
+      )}
+
+      {screen === 'board' && (
+        <>
           <Board
             view={state.view}
             tiles={state.tiles}
             openedTiles={game.openedTiles}
             boostedTiles={game.boostedTiles}
-            picked={picked}
-            onPick={setPicked}
+            picked={far}
+            onPick={setFar}
           />
-          {picked ? (
-            <Actions tileId={picked} act={act} onSaid={setSaid} />
+          {far ? (
+            <Actions tileId={far} where="there" act={act} onSaid={setSaid} />
           ) : (
-            <p className="sc-pl__hint">칸을 누르면 거기서 할 수 있는 일이 나온다.</p>
+            <p className="sc-pl__hint">칸을 누르면 거기로 걸어가거나 내일 아침을 예약할 수 있다.</p>
           )}
         </>
       )}
@@ -509,6 +537,6 @@ export function Play() {
   }
 
   const phase = state.game?.phase
-  if (phase === 'running' || phase === 'finished') return <Running gameId={GAME_ID} />
+  if (phase === 'running' || phase === 'finished') return <Running gameId={GAME_ID} look={me.avatar} />
   return <Lobby gameId={GAME_ID} me={me} />
 }
