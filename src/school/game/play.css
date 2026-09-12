@@ -837,3 +837,80 @@
 }
 
 .sc-ph__log li.is-big { color: var(--sc-text); font-weight: 700; }
+
+/* ── 미니맵 ───────────────────────────────────────────────────── */
+
+.sc-mm {
+  display: grid;
+  grid-template-columns: repeat(var(--mm-grid, 5), 1fr);
+  gap: 2px;
+  aspect-ratio: 1;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.sc-mm__cell {
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  background: #f7f8f9;
+  color: var(--sc-text-2);
+  font: inherit;
+  border-radius: 3px;
+  padding: 2px 1px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sc-mm__name {
+  font-size: 8.5px;
+  line-height: 10px;
+  text-align: center;
+  word-break: keep-all;
+  color: inherit;
+}
+
+.sc-mm__row { display: flex; align-items: center; gap: 3px; }
+.sc-mm__kind { font-style: normal; font-size: 8px; color: #6b7280; }
+
+.sc-mm__row b {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.sc-mm__row b.is-full { color: var(--sc-danger); }
+.sc-mm__row b i { font-style: normal; font-size: 7px; color: #6b7280; }
+
+/* 주인. 완장 색 그대로 — 걸어 다니는 학교와 같은 색이다 */
+.sc-mm__cell.is-a { background: var(--pl-a-fill); border-color: var(--pl-a); }
+.sc-mm__cell.is-b { background: var(--pl-b-fill); border-color: var(--pl-b); }
+.sc-mm__cell.is-c { background: var(--pl-c-fill); border-color: var(--pl-c); }
+.sc-mm__cell.is-d { background: var(--pl-d-fill); border-color: var(--pl-d); }
+
+/* 안개. 이름만 남고 숫자는 아예 안 온다 */
+.sc-mm__cell.is-fog { background: #f2f3f4; border-color: #e2e5e7; color: #9aa0a6; }
+
+/* 지금 내가 있는 방 */
+.sc-mm__cell.is-here { outline: 2px solid var(--sc-line-strong); outline-offset: -2px; }
+.sc-mm__me {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sc-line-strong);
+}
+
+/* 전투 자리. 자유 시간에 떨어져 있으면 여기로 돌아간다 */
+.sc-mm__cell.is-post { outline: 2px dashed var(--sc-text-dim); outline-offset: -2px; }

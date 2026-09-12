@@ -16,6 +16,7 @@ import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
 import { Walk } from './Walk'
+import { MiniMap } from './MiniMap'
 import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { PHASE_POLL_MS } from './timing'
 import type { ActionKind } from '../../../shared/rules/occupy'
@@ -391,6 +392,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null
   const standingOn = (state.view?.visiblePawns.find((p) => p.playerId === uid)?.tileId ?? null) as TileId | null
+  // 전투 자리. 자유 시간에 여기서 떨어져 있으면 미니맵이 둘 다 보인다
+  const myPost = (state.view?.myPost ?? null) as TileId | null
   // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
   const hereNow = standingOn
     ? (state.view?.visiblePawns ?? []).filter((p) => p.playerId !== uid && p.tileId === standingOn)
@@ -452,6 +455,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <li><span>지식</span><span>{state.teams[me.team]?.resources.knowledge ?? '—'}</span></li>
         <li><span>영향력</span><span>{state.teams[me.team]?.resources.influence ?? '—'}</span></li>
       </ul>
+
+      {/* 판 전체. 걸어 다니는 학교는 한 방밖에 안 보여서 위에 얹는다 */}
+      <MiniMap
+        here={standingOn}
+        post={myPost}
+        view={state.view}
+        tiles={state.tiles}
+        onPick={(id) => setFar(id === standingRoom ? null : id)}
+      />
 
       <Walk
         me={{ playerId: me.playerId, team: me.team, look }}

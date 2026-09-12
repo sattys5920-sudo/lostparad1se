@@ -322,8 +322,12 @@ export interface PlayerViewDoc {
    * 도착하는지까지 알면 문 앞에서 기다렸다 덮치는 것이 계산이 된다.
    */
   myArriveAtMs: number | null
+  /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
+  myPost: TileId | null
   /** 보이는 방에 있는 로봇. 사람처럼 안개를 거친다. */
   visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
+  /** 방마다 내게 보이는 머릿수. 위장이 이미 반영돼 있다. */
+  roomCounts: Record<TileId, number>
   /** 안개가 걷힌 칸. 나머지는 어둡게 덮는다. */
   visibleTiles: TileId[]
   /** 우리 팀 손패. 내용까지 보인다. */

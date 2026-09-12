@@ -95,6 +95,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       intelOfficer: p.title === 'intelOfficer',
       // 투영이 본인 몫에만 싣는다. 여기서는 그냥 들고만 간다
       arriveAtMs: p.arriveAtMs ?? null,
+      postTile: p.postTile ?? null,
     }
   })
 
@@ -103,6 +104,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     over: game.phase === 'finished',
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,
+    // 위장은 그 페이즈가 지나면 풀린다
+    disguised: (game.disguisedUntil ?? 0) >= (game.phaseNow?.no ?? 0) ? (game.disguised ?? []) : [],
     robots: robots.docs.map((d) => {
       const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }
       return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }

@@ -15,6 +15,7 @@
 //   3. 걷는 말의 **목적지는 어느 view에도 없다.** 본인 팀 것도.
 //
 // 순수 함수다. Firestore를 모른다 — 그래야 시험할 수 있다.
+import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { CardKind, GoalKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type TileId } from './board'
@@ -28,6 +29,8 @@ export interface WorldPawn extends PawnPosition {
   intelOfficer: boolean
   /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
   arriveAtMs?: number | null
+  /** 전투 자리. 본인 몫에만 실린다 — 남의 전선 계획까지 보일 이유가 없다. */
+  postTile?: TileId | null
 }
 
 export interface WorldTile {
@@ -67,6 +70,8 @@ export interface World {
   pawns: readonly WorldPawn[]
   /** 판 위의 로봇. 사람처럼 안개를 거친다 — 보이는 방의 것만 내려간다. */
   robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
+  /** 지금 위장하고 있는 사람들. 남에게 보이는 숫자를 서버가 부풀린다. */
+  disguised?: readonly string[]
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
@@ -114,6 +119,14 @@ export interface View {
   visiblePawns: PawnView[]
   /** 보이는 방에 있는 로봇. 머릿수로만 센다. */
   visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
+  /**
+   * 방마다 **내게 보이는** 머릿수. 미니맵이 이 숫자를 그대로 쓴다.
+   *
+   * 위장이 여기서 산다. 남의 팀 사람이 위장했으면 둘로 세어 보낸다 —
+   * 진짜 수를 보내 놓고 화면에서 부풀리면 개발자도구로 다 보인다.
+   * 우리 팀 사람은 위장해도 내게는 하나다.
+   */
+  roomCounts: Record<TileId, number>
   visibleTiles: TileId[]
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
@@ -133,12 +146,41 @@ export interface View {
    * 사실은 보이지만(visiblePawns.walking) 몇 분 남았는지는 안 보인다.
    */
   myArriveAtMs: number | null
+  /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
+  myPost: TileId | null
   handledDays: number[]
   readDays: number[]
   confessions: WorldConfession[]
   memories: { tileId: TileId; team: TeamId; atMs: number }[]
   sightAtMs: number | null
   notices: { id: string; text: string; atMs: number }[]
+}
+
+/**
+ * 방마다 보이는 머릿수. 안 보이는 방은 아예 넣지 않는다.
+ *
+ * 걷는 사람은 어느 방에도 없다. 위장한 남은 둘로 센다 — 판정이 아니라
+ * **보이는 숫자**라서, 여기만 거짓말을 한다.
+ */
+function countRooms(
+  pawns: readonly { playerId: string; team: TeamId; tileId: TileId | null }[],
+  robots: readonly { team: TeamId; tileId: TileId }[],
+  visible: ReadonlySet<TileId>,
+  viewerTeam: TeamId,
+  disguised: readonly string[],
+): Record<TileId, number> {
+  const wearing = new Set(disguised)
+  const out: Record<TileId, number> = {}
+  for (const p of pawns) {
+    if (p.tileId === null || !visible.has(p.tileId)) continue
+    const n = p.team !== viewerTeam && wearing.has(p.playerId) ? DISGUISE_SHOWN_AS : 1
+    out[p.tileId] = (out[p.tileId] ?? 0) + n
+  }
+  for (const r of robots) {
+    if (!visible.has(r.tileId)) continue
+    out[r.tileId] = (out[r.tileId] ?? 0) + 1
+  }
+  return out
 }
 
 /** 관측소를 찾는다. 개조하면 사거리가 두 배다. */
@@ -171,6 +213,7 @@ export function projectView(world: World, viewerId: string): View {
       updatedAtMs: world.nowMs,
       visiblePawns: [],
       visibleRobots: [],
+      roomCounts: {},
       visibleTiles: [],
       hand: [],
       goals: [],
@@ -182,6 +225,7 @@ export function projectView(world: World, viewerId: string): View {
       myChoice: null,
       own: null,
       myArriveAtMs: null,
+      myPost: null,
       handledDays: [],
       readDays: [],
       confessions: [],
@@ -209,6 +253,8 @@ export function projectView(world: World, viewerId: string): View {
   return {
     updatedAtMs: world.nowMs,
     // 안개 밖의 말은 목록에 없다. 목적지는 어느 말에도 붙지 않는다
+    roomCounts: countRooms(seenPawns, world.robots ?? [], visible, team, world.disguised ?? []),
+
     // 로봇도 안개를 거친다. 보이지 않는 방의 로봇은 아예 안 보낸다
     visibleRobots: (world.robots ?? [])
       .filter((r) => visible.has(r.tileId))
@@ -247,6 +293,7 @@ export function projectView(world: World, viewerId: string): View {
     // 역할은 **자기 한 줄뿐이다.** 남의 것은 들어가지 않는다
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
     myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
+    myPost: world.pawns.find((p) => p.playerId === viewerId)?.postTile ?? null,
 
     // 진상 공개 흐름
     handledDays: [...(world.progress.find((p) => p.playerId === viewerId)?.handledDays ?? [])].sort((a, b) => a - b),
