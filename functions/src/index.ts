@@ -125,3 +125,6 @@ export { endingData } from './ending'
 
 // 계정. 비밀번호 검사가 서버에 있고, 통과하면 로그인 증표를 만들어 준다.
 export { signUpAccount, logInAccount, saveCharacter } from './account'
+
+// 채팅. 어떤 판정에도 쓰이지 않는다.
+export { say, chatLines } from './chat'

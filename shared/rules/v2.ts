@@ -509,6 +509,8 @@ export const INVISIBLE_NO_REPEAT = true
 export const INVISIBLE_STAY_MULTIPLIER = 2
 /** 투명인간이 전체 채팅에 쓴 말은 남에게 이렇게 보인다. */
 export const INVISIBLE_CHAT_MASK = '…'
+/** 한 줄에 칠 수 있는 글자 수. 서버와 화면이 같은 값을 본다. */
+export const CHAT_MAX_LEN = 300
 
 // ── A의 기억 (②) ───────────────────────────────────────────────
 

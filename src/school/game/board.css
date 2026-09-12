@@ -1,0 +1,77 @@
+/* 5×5 판. 안개 밖은 어둡게 덮는다 */
+.sc-bd {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 3px;
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.sc-bd__tile {
+  appearance: none;
+  border: 1px solid #222735;
+  background: #151924;
+  color: #aeb4c2;
+  font: inherit;
+  border-radius: 3px;
+  padding: 3px 2px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sc-bd__name {
+  font-size: 9.5px;
+  line-height: 11px;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.sc-bd__value {
+  font-size: 9px;
+  color: #6b7183;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-bd__value b { color: #d8c28a; font-weight: 700; }
+.sc-bd__built { font-size: 8px; color: #8b90a0; letter-spacing: 0.05em; }
+
+/* 안개. 이름만 남기고 나머지는 받지 않았다 */
+.sc-bd__tile.is-fog { background: #0e1017; color: #3a3f4d; border-color: #171b25; }
+.sc-bd__tile.is-fog .sc-bd__name { opacity: 0.55; }
+
+/* 아직 안 열린 핵심·중앙광장 */
+.sc-bd__tile.is-closed { border-style: dashed; }
+.sc-bd__tile.is-base { border-color: #2f3647; }
+.sc-bd__tile.is-picked { outline: 2px solid #8b90a0; outline-offset: -2px; }
+
+/* 주인 */
+.sc-bd__tile.is-a { background: #17202b; border-color: #2b4358; }
+.sc-bd__tile.is-b { background: #1d1a26; border-color: #413156; }
+.sc-bd__tile.is-c { background: #1a2119; border-color: #33502f; }
+.sc-bd__tile.is-d { background: #241c1a; border-color: #59372f; }
+
+/* 말 */
+.sc-bd__pawns { display: flex; gap: 2px; align-items: center; margin-top: 1px; }
+
+.sc-bd__pawns i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: block;
+  background: #8b90a0;
+}
+
+.sc-bd__pawns i.is-a { background: #6fa8d6; }
+.sc-bd__pawns i.is-b { background: #a98ad6; }
+.sc-bd__pawns i.is-c { background: #86c48a; }
+.sc-bd__pawns i.is-d { background: #d69a7a; }
+.sc-bd__pawns i.is-asleep { opacity: 0.4; }
+.sc-bd__pawns em { font-size: 7.5px; color: #6b7183; font-style: normal; }

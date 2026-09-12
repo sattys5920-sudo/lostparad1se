@@ -4,15 +4,21 @@
 //
 // 여기서 게임 규칙을 판단하지 않는다. 무엇을 할 수 있는지도 서버가
 // 정하고, 화면은 서버가 거절하면 그 말을 그대로 보인다.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
 import { logIn, signUp } from '../accounts'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
+import { Actions, Standing } from './Actions'
+import { Board } from './Board'
+import { Chat } from './Chat'
+import { Deals } from './Deals'
+import { People } from './People'
 import { TEAMS, TOTAL_SEATS, seatsLeft } from '../../../shared/rules/lobby'
 import type { TeamId } from '../../../shared/rules/v2'
+import type { TileId } from '../../../shared/rules/board'
 import './play.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
@@ -116,7 +122,7 @@ function Lobby({ gameId }: { gameId: string }) {
 
 // ── 닷새 ────────────────────────────────────────────────────────
 
-type Screen = 'map' | 'archive' | 'retro'
+type Screen = 'map' | 'people' | 'deals' | 'talk' | 'archive' | 'retro'
 
 function Running({ gameId }: { gameId: string }) {
   const state = useGame(gameId)
@@ -155,54 +161,118 @@ function Running({ gameId }: { gameId: string }) {
       {screen === 'archive' ? (
         <LiveArchive gameId={gameId} onClose={() => setScreen('map')} />
       ) : (
-        <Today gameId={gameId} />
+        <Today gameId={gameId} screen={screen} />
       )}
       <nav className="sc-pl__tabbar">
-        <button className={screen === 'map' ? 'is-on' : ''} onClick={() => setScreen('map')}>오늘</button>
+        <button className={screen === 'map' ? 'is-on' : ''} onClick={() => setScreen('map')}>지도</button>
+        <button className={screen === 'people' ? 'is-on' : ''} onClick={() => setScreen('people')}>사람</button>
+        <button className={screen === 'deals' ? 'is-on' : ''} onClick={() => setScreen('deals')}>거래</button>
+        <button className={screen === 'talk' ? 'is-on' : ''} onClick={() => setScreen('talk')}>말</button>
         <button className={screen === 'archive' ? 'is-on' : ''} onClick={() => setScreen('archive')}>보관함</button>
       </nav>
     </div>
   )
 }
 
-/** 오늘 화면. 미니맵과 행동은 아직이라 지금은 판의 상태만 보인다. */
-function Today({ gameId }: { gameId: string }) {
+/**
+ * 오늘 화면 — 지도 · 사람 · 거래.
+ *
+ * 무엇을 할 수 있는지는 **화면이 판단하지 않는다.** 단추는 다 보이고,
+ * 안 되는 것은 서버가 거절하며 그 이유를 말해 준다. 화면이 미리 막으면
+ * 규칙이 두 벌이 되고, 둘이 어긋나는 날 사람은 왜 안 되는지 알 수 없다.
+ */
+function Today({ gameId, screen }: { gameId: string; screen: Screen }) {
   const state = useGame(gameId)
+  const act = useMemo(() => gameActions(gameId), [gameId])
   const uid = auth?.currentUser?.uid ?? null
+  const [picked, setPicked] = useState<TileId | null>(null)
+  const [said, setSaid] = useState('')
+
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
   const invisibleName = game?.invisibleId
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null
+  // 내가 선 칸. 걷는 중이면 null이다
+  const standingOn = (state.view?.visiblePawns.find((p) => p.playerId === uid)?.tileId ?? null) as TileId | null
+
+  // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다
+  useEffect(() => {
+    if (!said) return
+    const t = setTimeout(() => setSaid(''), 3200)
+    return () => clearTimeout(t)
+  }, [said])
+
+  if (!game || !me) return <p className="sc-pl__wait">불러오는 중</p>
 
   return (
     <div className="sc-pl__today">
-      <h1>DAY {game?.day}</h1>
-      {me && (
-        <p className="sc-pl__me">
+      <header className="sc-pl__head">
+        <h1>DAY {game.day}</h1>
+        <span className="sc-pl__me">
           {me.name} · {me.team}팀
-        </p>
-      )}
+        </span>
+      </header>
       {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
+
       <ul className="sc-pl__stat">
         <li>
-          <span>남은 토큰</span>
-          <span>{me ? (state.teams[me.team]?.tokens ?? '—') : '—'}</span>
+          <span>토큰</span>
+          <span>{state.teams[me.team]?.tokens ?? '—'}</span>
         </li>
         <li>
           <span>돈</span>
-          <span>{me ? (state.teams[me.team]?.resources.money ?? '—') : '—'}</span>
+          <span>{state.teams[me.team]?.resources.money ?? '—'}</span>
         </li>
         <li>
           <span>지식</span>
-          <span>{me ? (state.teams[me.team]?.resources.knowledge ?? '—') : '—'}</span>
+          <span>{state.teams[me.team]?.resources.knowledge ?? '—'}</span>
         </li>
         <li>
           <span>영향력</span>
-          <span>{me ? (state.teams[me.team]?.resources.influence ?? '—') : '—'}</span>
+          <span>{state.teams[me.team]?.resources.influence ?? '—'}</span>
         </li>
       </ul>
-      <p className="sc-pl__note">미니맵과 행동은 아직 붙지 않았다.</p>
+
+      {screen === 'map' && (
+        <>
+          <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
+          <Board
+            view={state.view}
+            tiles={state.tiles}
+            openedTiles={game.openedTiles}
+            boostedTiles={game.boostedTiles}
+            picked={picked}
+            onPick={setPicked}
+          />
+          {picked ? (
+            <Actions tileId={picked} act={act} onSaid={setSaid} />
+          ) : (
+            <p className="sc-pl__hint">칸을 누르면 거기서 할 수 있는 일이 나온다.</p>
+          )}
+        </>
+      )}
+
+      {screen === 'people' && (
+        <People
+          me={me}
+          seats={game.seats}
+          day={game.day}
+          invisibleId={game.invisibleId}
+          chosenId={state.view?.myChoice?.chosenId ?? null}
+          day4={state.view?.myChoice?.day4 ?? null}
+          act={act}
+          onSaid={setSaid}
+        />
+      )}
+
+      {screen === 'deals' && (
+        <Deals me={me} view={state.view} teams={state.teams} act={act} onSaid={setSaid} />
+      )}
+
+      {screen === 'talk' && <Chat me={me} act={act} onSaid={setSaid} />}
+
+      {said && <p className="sc-pl__said">{said}</p>}
     </div>
   )
 }

@@ -27,6 +27,7 @@ import { AFTERMATH, AFTERMATH_CLOSING } from './story/aftermath'
 import { COMMON_ENDING, MIRROR } from './story/mirror'
 import { SIGHTS } from './story/sights'
 import { TORN_LINES, tornIntro } from './story/torn'
+import { unheardLines } from './chat'
 import { gameRef, nowOf, requireUid } from './index'
 import type { ChoiceDoc } from './choice'
 
@@ -280,8 +281,8 @@ export const endingData = onCall<{ gameId: string }>(async (req) => {
     })),
     aftermathClosing: AFTERMATH_CLOSING,
     mirror: MIRROR,
-    // 지워진 동안 「…」로만 보였던 말. 채팅이 붙으면 채워진다
-    unheard: [],
+    // 지워진 동안 「…」로만 보였던 말. 여기서 원문으로 돌아온다
+    unheard: await unheardLines(gameId),
     // A의 시선 열넷. 끝났으니 전원이 다 본다
     aWords: SIGHTS.map((s) => {
       const who = roster.find((r) => r.roleId === s.role)

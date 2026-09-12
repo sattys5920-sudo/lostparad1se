@@ -298,6 +298,26 @@ export interface PlayerViewDoc {
   fakeFlagTiles: TileId[]
   /** 정보부장이 들여다본 결과. */
   peeked: { voteKind: VoteKind; voterNickname: string }[]
+  /** 교역 제안. **관련된 두 팀만** 본다 — 네 팀이 서로의 제안을 다 보면 협상이 아니다. */
+  trades: {
+    id: string
+    fromTeam: TeamId
+    toTeam: TeamId
+    give: Record<string, number>
+    want: Record<string, number>
+    note: string
+    status: string
+    createdAtMs: GameMs
+  }[]
+  /** 동맹 제안. 관련된 두 팀만. */
+  proposals: { id: string; fromTeam: TeamId; toTeam: TeamId; status: string; createdAtMs: GameMs }[]
+  /**
+   * DAY 3·4에 내가 고른 것. **남이 무엇을 골랐는지는 없다.**
+   *
+   * 「누가 나를 중요한 사람으로 골랐나」가 보이면 그걸 노리고 서로
+   * 붙어 다니게 된다. 고르는 일이 마음이 아니라 수가 된다.
+   */
+  myChoice: { chosenId: string | null; day4: string | null } | null
 
   // ── 진상 공개 흐름 ──
   //

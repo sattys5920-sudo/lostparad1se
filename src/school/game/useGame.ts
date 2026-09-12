@@ -141,6 +141,11 @@ export function gameActions(gameId: string) {
     chooseImportant: (targetId: string) => callServer('chooseImportant', { ...g, targetId }),
     chooseDay4: (choice: 'team' | 'self' | 'bond') => callServer('chooseDay4', { ...g, choice }),
 
+    /** 한 줄 친다. 어떤 판정에도 쓰이지 않는다. */
+    say: (room: 'class' | 'team', text: string) => callServer('say', { ...g, room, text }),
+    /** 그 뒤로 올라온 줄들. 지워진 사람의 전체 채팅은 이미 가려져 온다. */
+    chatLines: (sinceMs: number) => callServer('chatLines', { ...g, sinceMs }),
+
     /** 아침 시퀀스를 어디까지 봤는지 적는다. */
     markMorning: (read: number[], skipped: number[]) => callServer('markMorning', { ...g, read, skipped }),
     /** A의 기록 한 조각. 공개 시각 전에는 서버가 거절한다. */
