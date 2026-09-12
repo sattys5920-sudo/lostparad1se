@@ -1,0 +1,210 @@
+/* v2 진입 화면. 아침 시퀀스와 같은 겨울 톤을 쓴다. */
+.sc-pl {
+  min-height: 100vh;
+  background: #0d0f16;
+  color: #e6e8ee;
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-pl__wait,
+.sc-pl__problem {
+  padding: 40px 16px;
+  text-align: center;
+  color: #8b90a0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.sc-pl__error {
+  color: #d89a9a;
+  font-size: 12px;
+  margin: 0;
+}
+
+/* 로그인 */
+.sc-pl__gate {
+  min-height: 100vh;
+  background: #0d0f16;
+  color: #e6e8ee;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  padding: 24px 20px;
+}
+
+.sc-pl__gate h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+
+.sc-pl__tabs { display: flex; gap: 6px; }
+
+.sc-pl__tabs button {
+  appearance: none;
+  border: 1px solid #2f3647;
+  background: none;
+  color: #6b7183;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sc-pl__tabs button.is-on { color: #e6e8ee; border-color: #545a6b; }
+
+.sc-pl__gate input,
+.sc-pl__lobby input {
+  appearance: none;
+  border: 1px solid #2f3647;
+  background: #151924;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 14px;
+  padding: 11px 12px;
+  border-radius: 5px;
+}
+
+.sc-pl__go {
+  appearance: none;
+  border: 1px solid #3c4356;
+  background: #1b2130;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 14px;
+  padding: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.sc-pl__go:disabled { opacity: 0.4; cursor: default; }
+
+/* 로비 */
+.sc-pl__lobby {
+  min-height: 100vh;
+  background: #0d0f16;
+  color: #e6e8ee;
+  padding: 24px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sc-pl__lobby h1 { margin: 0; font-size: 20px; }
+.sc-pl__count { margin: 0; color: #8b90a0; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.sc-pl__teams { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.sc-pl__teams li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #222735;
+  border-radius: 5px;
+  padding: 9px 11px;
+  font-size: 13px;
+}
+
+.sc-pl__team { font-weight: 600; }
+.sc-pl__left { color: #6b7183; font-size: 12px; flex: 1; }
+
+.sc-pl__teams button {
+  appearance: none;
+  border: 1px solid #2f3647;
+  background: none;
+  color: #aeb4c2;
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 11px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sc-pl__teams button:disabled { opacity: 0.35; cursor: default; }
+
+.sc-pl__seated { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+
+.sc-pl__seated li {
+  font-size: 11.5px;
+  color: #aeb4c2;
+  border: 1px solid #1b2028;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.sc-pl__seated li.is-me { color: #e6e8ee; border-color: #454b5c; }
+.sc-pl__seated li span { color: #6b7183; margin-left: 4px; }
+
+/* 오늘 */
+.sc-pl__today { flex: 1; padding: 28px 16px; display: flex; flex-direction: column; gap: 10px; }
+.sc-pl__today h1 { margin: 0; font-size: 24px; letter-spacing: 0.04em; }
+.sc-pl__me { margin: 0; color: #8b90a0; font-size: 13px; }
+
+.sc-pl__invisible {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #9db4d8;
+  border-left: 2px solid #3a4460;
+  padding-left: 9px;
+}
+
+.sc-pl__stat { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.sc-pl__stat li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 7px 11px;
+  border: 1px solid #1b2028;
+  border-radius: 4px;
+}
+
+.sc-pl__stat li span:last-child { font-variant-numeric: tabular-nums; }
+.sc-pl__note { margin-top: auto; color: #545a6b; font-size: 11.5px; }
+
+/* 보관함과 엔딩은 남은 자리를 다 쓴다. 안 그러면 탭바가 화면
+   가운데에 뜨고 그 아래가 검게 빈다 */
+.sc-pl > .sc-ar,
+.sc-pl > .sc-en,
+.sc-pl > .sc-rt {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 엔딩의 「이전·다음」은 혼자 띄울 때를 생각해 화면에 붙여(fixed)
+   두었다. 여기서는 아래 탭이 그 자리를 차지하므로 스크롤 안쪽에
+   붙게 바꾼다 — 안 그러면 탭바가 다음 단추를 덮어 눌리지 않는다 */
+.sc-pl .sc-en__nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
+
+/* 아래 탭 */
+.sc-pl__tabbar {
+  display: flex;
+  position: relative;
+  z-index: 4;
+  border-top: 1px solid #222735;
+  background: #101219;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sc-pl__tabbar button {
+  flex: 1;
+  appearance: none;
+  border: 0;
+  background: none;
+  color: #6b7183;
+  font: inherit;
+  font-size: 13px;
+  padding: 13px 0;
+  cursor: pointer;
+}
+
+.sc-pl__tabbar button.is-on { color: #e6e8ee; }

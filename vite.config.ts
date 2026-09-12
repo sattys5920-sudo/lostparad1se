@@ -15,6 +15,8 @@ export default defineConfig({
       input: {
         // 본 게임
         main: resolve(root, 'index.html'),
+        // v2 — 진짜 서버에 붙은 판. 로그인 → 자리 → 닷새
+        play: resolve(root, 'play.html'),
         // 걸어 다니는 학교 프로토타입 — 본 게임과 코드도 데이터도 섞이지 않는다
         proto: resolve(root, 'proto.html'),
         // 스프라이트 검수용. 게임 화면과 섞이지 않는 개발용 페이지다

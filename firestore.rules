@@ -48,14 +48,14 @@ service cloud.firestore {
         // 진행자가 가입 데이터를 지운다
         allow delete: if true;
 
+        // 소금과 해시. **서버만 읽고 쓴다.**
+        //
+        // 전에는 한 건 읽기를 열어 두었다. 브라우저가 해시를 비교했기
+        // 때문인데, 그 말은 개발자도구로 비교를 건너뛸 수 있었다는 뜻이다.
+        // 검사를 서버로 옮겼으니 이 문서도 닫는다 — Admin SDK는 규칙을
+        // 거치지 않으므로 서버는 그대로 읽는다.
         match /auth/{docId} {
-          // 로그인할 때 한 건만 읽는다. 통째로 긁어 가지는 못한다
-          allow get: if true;
-          allow list: if false;
-          allow create: if true;
-          // 남의 비밀번호를 덮어써 계정을 가로채지 못하게 한다
-          allow update: if false;
-          allow delete: if true;
+          allow read, write: if false;
         }
       }
 
