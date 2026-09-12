@@ -16,6 +16,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { timingSafeEqual } from 'node:crypto'
 
 import { HOST_GATE_LOCK_MS, HOST_GATE_MAX_MISSES, HOST_GATE_MIN_CODE } from '../../shared/rules/v2'
+import { mintToken } from './account'
 import { requireUid } from './index'
 
 const db = getFirestore()
@@ -82,7 +83,7 @@ export const claimHost = onCall<{ code: string }>(async (req) => {
   const accountId = (req.auth?.token as Record<string, unknown> | undefined)?.accountId
   return {
     admin: true,
-    token: await getAuth().createCustomToken(uid, {
+    token: await mintToken(uid, {
       ...(typeof accountId === 'string' ? { accountId } : {}),
       admin: true,
     }),
