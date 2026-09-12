@@ -557,3 +557,37 @@
 }
 
 .sc-pl__hosttools > span { font-size: 11px; color: #6b7183; }
+
+/* ── 나를 만든다 ──────────────────────────────────────────────── */
+
+.sc-pl__setup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 16px 40px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.sc-pl__setup h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+
+.sc-pl__setup > input {
+  appearance: none;
+  border: 1px solid #2f3647;
+  background: #151924;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 14px;
+  padding: 11px 12px;
+  border-radius: 5px;
+}
+
+/* 캐릭터 만들기는 낮의 학교에서 온 밝은 판이다. 어두운 배경 위에
+   그대로 얹으면 떠 보여서, 종이 한 장 올린 것처럼 테두리를 준다 */
+.sc-pl__setup .sc-cc {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sc-pl__mine { margin: 0; font-size: 13px; color: #d6dae4; }
+.sc-pl__mine strong { color: #fff; }

@@ -17,6 +17,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   type Firestore,
 } from 'firebase/firestore'
@@ -152,6 +153,27 @@ export async function amHost(): Promise<boolean> {
   if (!user) return false
   const res = await user.getIdTokenResult()
   return res.claims.admin === true
+}
+
+/**
+ * 지금 로그인한 사람의 계정. 새로고침하고 들어와도 읽을 수 있어야 한다.
+ *
+ * 어느 계정인지는 증표에 적혀 있다(accountId). 아이디를 받지 않는 이유는
+ * 남의 아이디를 넣어 보내는 길을 두지 않기 위해서다.
+ */
+export async function myAccount(): Promise<Account | null> {
+  const user = auth?.currentUser
+  if (!user || !db) return null
+  const accountId = (await user.getIdTokenResult()).claims.accountId
+  if (typeof accountId !== 'string') return null
+  const snap = await getDoc(accountRef(accountId))
+  if (!snap.exists()) return null
+  const r = snap.data() as AccountDoc
+  return {
+    id: accountId,
+    nickname: typeof r.nickname === 'string' ? r.nickname : '',
+    avatar: r.avatar ? normalizeLook(r.avatar) : null,
+  }
 }
 
 /** 지금 로그인한 사람의 Firebase uid. 게임 문서의 열쇠다. */

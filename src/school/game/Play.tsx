@@ -8,7 +8,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
-import { amHost, claimHost, logIn, signUp } from '../accounts'
+import { amHost, claimHost, logIn, myAccount, saveAccountCharacter, signUp } from '../accounts'
+import { CharacterCreator } from '../components/CharacterCreator'
+import { randomLook } from '../char/look'
+import type { AvatarLook } from '../types'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
@@ -16,8 +19,7 @@ import { Board } from './Board'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
-import { TEAMS, TOTAL_SEATS, seatsLeft } from '../../../shared/rules/lobby'
-import type { TeamId } from '../../../shared/rules/v2'
+import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import type { TileId } from '../../../shared/rules/board'
 import './play.css'
 
@@ -57,6 +59,57 @@ function Gate({ onIn }: { onIn: () => void }) {
       {error && <p className="sc-pl__error">{error}</p>}
       <button className="sc-pl__go" disabled={busy || !id || !pw} onClick={go}>
         {mode === 'up' ? '가입하기' : '들어가기'}
+      </button>
+    </div>
+  )
+}
+
+// ── 나를 만든다 ─────────────────────────────────────────────────
+
+/**
+ * 가입하고 나면 제일 먼저 나를 만든다.
+ *
+ * 팀은 아직 없다. 팀은 고르는 것이 아니라 판에 들어갈 때 받는 것이라,
+ * 교복 색도 그때 정해진다. 여기서는 얼굴과 이름만 정한다.
+ */
+function Setup({ first, onDone }: { first: { nickname: string; avatar: AvatarLook | null }; onDone: () => void }) {
+  // 처음 여는 사람에게 빈 화면 대신 아무나 하나 보여 준다. 바꾸면 된다
+  const [look, setLook] = useState<AvatarLook>(() => first.avatar ?? randomLook(Math.random() < 0.5 ? 'F' : 'M'))
+  const [nickname, setNickname] = useState(first.nickname)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function go() {
+    const name = nickname.trim()
+    if (name.length === 0 || name.length > 12) {
+      setError('이름은 1~12자다.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      await saveAccountCharacter('', name, look)
+      onDone()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="sc-pl__setup">
+      <h1>나</h1>
+      <input
+        placeholder="이름 (1~12자)"
+        value={nickname}
+        maxLength={12}
+        onChange={(e) => setNickname(e.target.value)}
+      />
+      <CharacterCreator look={look} team={null} onChange={setLook} />
+      {error && <p className="sc-pl__error">{error}</p>}
+      <button className="sc-pl__go" disabled={busy || nickname.trim().length === 0} onClick={() => void go()}>
+        이걸로 하기
       </button>
     </div>
   )
@@ -168,27 +221,28 @@ function HostTools({ gameId, hasGame, onSaid }: { gameId: string; hasGame: boole
 
 // ── 로비 ────────────────────────────────────────────────────────
 
-function Lobby({ gameId }: { gameId: string }) {
+function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
   const state = useGame(gameId)
-  const [name, setName] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const [host, recheckHost] = useHost()
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
   const mine = seats.find((s) => s.playerId === uid)
-  const left = seatsLeft(seats)
 
-  const join = useCallback(
-    async (team?: TeamId) => {
-      setError('')
-      try {
-        await callServer('joinGame', { gameId, name: name || mine?.name || '이름없음', team })
-      } catch (e) {
-        setError((e as Error).message)
-      }
-    },
-    [gameId, name, mine?.name],
-  )
+  // 팀을 안 보낸다. 어느 반인지는 서버가 정해서 알려 준다 —
+  // 고르게 두면 친구끼리 한 팀으로 몰리고 그러면 게임이 아니다
+  async function join() {
+    setBusy(true)
+    setError('')
+    try {
+      await callServer('joinGame', { gameId, name: me.nickname })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (state.loading) return <p className="sc-pl__wait">불러오는 중</p>
   if (!state.game) {
@@ -196,11 +250,7 @@ function Lobby({ gameId }: { gameId: string }) {
       <div className="sc-pl__lobby">
         <h1>남겨진 아이들</h1>
         <p className="sc-pl__none">아직 열린 판이 없다. 운영자가 만들어야 한다.</p>
-        {host ? (
-          <HostTools gameId={gameId} hasGame={false} onSaid={setError} />
-        ) : (
-          <HostGate onIn={recheckHost} />
-        )}
+        {host ? <HostTools gameId={gameId} hasGame={false} onSaid={setError} /> : <HostGate onIn={recheckHost} />}
         {error && <p className="sc-pl__error">{error}</p>}
       </div>
     )
@@ -208,24 +258,21 @@ function Lobby({ gameId }: { gameId: string }) {
 
   return (
     <div className="sc-pl__lobby">
-      <h1>자리</h1>
+      <h1>교실</h1>
       <p className="sc-pl__count">
         {seats.length} / {TOTAL_SEATS}
       </p>
-      {!mine && (
-        <input placeholder="이름 (1~12자)" value={name} maxLength={12} onChange={(e) => setName(e.target.value)} />
+
+      {mine ? (
+        <p className="sc-pl__mine">
+          너는 <strong>{mine.team}팀</strong>이다. 다 모이면 시작한다.
+        </p>
+      ) : (
+        <button className="sc-pl__go" disabled={busy} onClick={() => void join()}>
+          들어가기
+        </button>
       )}
-      <ul className="sc-pl__teams">
-        {TEAMS.map((t) => (
-          <li key={t}>
-            <span className="sc-pl__team">{t}팀</span>
-            <span className="sc-pl__left">{left[t]}자리</span>
-            <button disabled={left[t] === 0 && mine?.team !== t} onClick={() => join(t)}>
-              {mine?.team === t ? '여기 앉아 있다' : '앉기'}
-            </button>
-          </li>
-        ))}
-      </ul>
+
       <ul className="sc-pl__seated">
         {seats.map((s) => (
           <li key={s.playerId} className={s.playerId === uid ? 'is-me' : ''}>
@@ -233,6 +280,7 @@ function Lobby({ gameId }: { gameId: string }) {
           </li>
         ))}
       </ul>
+
       {host ? <HostTools gameId={gameId} hasGame onSaid={setError} /> : <HostGate onIn={recheckHost} />}
       {error && <p className="sc-pl__error">{error}</p>}
     </div>
@@ -401,6 +449,8 @@ function Today({ gameId, screen }: { gameId: string; screen: Screen }) {
 export function Play() {
   const [ready, setReady] = useState(false)
   const [signedIn, setSignedIn] = useState(false)
+  // 계정을 아직 못 읽었으면 undefined. 없으면 null
+  const [me, setMe] = useState<{ nickname: string; avatar: AvatarLook | null } | null | undefined>(undefined)
   const state = useGame(signedIn ? GAME_ID : null)
 
   useEffect(() => {
@@ -414,11 +464,27 @@ export function Play() {
     })
   }, [])
 
+  const loadMe = useCallback(() => {
+    setMe(undefined)
+    void myAccount().then(setMe).catch(() => setMe(null))
+  }, [])
+
+  useEffect(() => {
+    if (signedIn) loadMe()
+    else setMe(null)
+  }, [signedIn, loadMe])
+
   if (!firebaseConfigured) return <p className="sc-pl__wait">firebase 설정이 없다.</p>
   if (!ready) return null
   if (!signedIn) return <Gate onIn={() => setSignedIn(true)} />
+  if (me === undefined) return <p className="sc-pl__wait">불러오는 중</p>
+
+  // 가입 다음은 나를 만드는 자리다. 이름이 없으면 아직 안 만든 것이다
+  if (!me || !me.nickname) {
+    return <Setup first={me ?? { nickname: '', avatar: null }} onDone={loadMe} />
+  }
 
   const phase = state.game?.phase
   if (phase === 'running' || phase === 'finished') return <Running gameId={GAME_ID} />
-  return <Lobby gameId={GAME_ID} />
+  return <Lobby gameId={GAME_ID} me={me} />
 }

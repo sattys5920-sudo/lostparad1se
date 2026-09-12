@@ -28,6 +28,26 @@ function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | u
   return uid
 }
 
+/**
+ * 팀은 고르는 것이 아니라 **받는 것**이다.
+ *
+ * 빈 팀 중 첫 번째를 주면 A가 찰 때까지 A만 준다. 같이 들어온 친구들이
+ * 한 팀에 몰리고, 그러면 팀 사이의 거래도 의심도 처음부터 김이 빠진다.
+ *
+ * 씨앗에 사람을 섞어 고른다. 같은 사람이 다시 들어와도 같은 팀이다 —
+ * 새로고침할 때마다 팀이 바뀌면 그게 더 이상하다.
+ */
+function randomOpenTeam(others: readonly SeatEntry[], seed: string): TeamId | undefined {
+  const open = openTeams(others)
+  if (open.length === 0) return undefined
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return open[Math.abs(h) % open.length]
+}
+
 // ── 판 만들기 ───────────────────────────────────────────────────
 
 export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) => {
@@ -89,7 +109,7 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
 
     // 이미 앉아 있으면 이름·팀만 고친다
     const others = seats.filter((s) => s.playerId !== uid)
-    const team = wanted ?? (mine >= 0 ? seats[mine].team : openTeams(others)[0])
+    const team = wanted ?? (mine >= 0 ? seats[mine].team : randomOpenTeam(others, game.seed + uid))
     if (!team) throw new HttpsError('resource-exhausted', '자리가 없다.')
     if (others.filter((s) => s.team === team).length >= TEAM_SIZES[team]) {
       throw new HttpsError('resource-exhausted', `${team}팀은 다 찼다.`)
