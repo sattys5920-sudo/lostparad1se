@@ -1,17 +1,23 @@
-// 채팅.
+// 말.
 //
-// **어떤 판정에도 쓰이지 않는다.** 「나 털어놓을게」라고 치는 것과
-// 실제로 털어놓는 것은 완전히 다른 일이고, 게임은 후자만 센다.
+// **말은 방에 남는다.** 옆 방에서 무슨 이야기가 오갔는지는 알 수 없고,
+// 늦게 들어간 사람은 앞서 나눈 말을 볼 수 없다. 그 자리에 없었으면
+// 못 들은 것이다.
 //
-// 지워진 사람의 전체 채팅은 「…」로만 간다. 본인에게는 원문이 보인다 —
-// 자기가 무슨 말을 했는지는 안다. 다만 아무도 듣지 않았다.
+// 그래서 「누가 누구와 같이 있었는가」가 정보가 된다. 복도에서 마주친
+// 두 사람이 무슨 말을 했는지는 거기 있던 사람만 안다.
 //
-// 원문은 서버가 그대로 쥐고 있다가 엔딩 6번 장면에서 되돌려 준다.
+// 그리고 **어떤 판정에도 쓰이지 않는다.** 「나 털어놓을게」라고 치는
+// 것과 실제로 털어놓는 것은 완전히 다른 일이고, 게임은 후자만 센다.
+//
+// 지워진 사람의 말은 「…」로만 간다. 본인에게는 원문이 보인다 —
+// 자기가 무슨 말을 했는지는 안다. 다만 아무도 듣지 않았다. 원문은
+// 서버가 그대로 쥐고 있다가 엔딩 6번 장면에서 되돌려 준다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { CHAT_MAX_LEN } from '../../shared/rules/v2'
 import { maskClassChat } from '../../shared/rules/invisible'
-import type { GameDoc } from '../../shared/model'
+import type { TileId } from '../../shared/rules/board'
 import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
 
@@ -19,7 +25,8 @@ export const CHAT_MAX = CHAT_MAX_LEN
 
 /** games/{gameId}/secret/chat/items/{id} — 원문은 서버만 쥔다. */
 export interface ChatDocRaw {
-  room: 'class' | TeamRoom
+  /** 어느 방에서 한 말인가. 그 방에 **그때** 있던 사람만 듣는다. */
+  tileId: TileId
   playerId: string
   name: string
   team: string
@@ -31,12 +38,29 @@ export interface ChatDocRaw {
   invisible: boolean
 }
 
-type TeamRoom = `team:${string}`
-
 const chatOf = (gameId: string) => gameRef(gameId).collection('secret').doc('chat').collection('items')
 
-/** 한 줄 친다. 전체 방과 팀 방 둘뿐이다. */
-export const say = onCall<{ gameId: string; room: 'class' | 'team'; text: string }>(async (req) => {
+/**
+ * 내가 지금 이 방에 **언제 들어왔는지**.
+ *
+ * 체류 기록이 이미 그 시각을 들고 있다. 걸어 들어올 때마다 새 칸이
+ * 열리므로, 아직 안 닫힌 칸의 시작 시각이 곧 도착 시각이다. 기록이
+ * 없으면 아무것도 못 듣는다 — 없는 것보다 안전한 쪽으로 기운다.
+ */
+async function arrivedAtMs(gameId: string, uid: string): Promise<number> {
+  const open = await gameRef(gameId)
+    .collection('secret')
+    .doc('intervals')
+    .collection('items')
+    .where('playerId', '==', uid)
+    .where('endMs', '==', null)
+    .get()
+  const starts = open.docs.map((d) => Number((d.data() as { startMs: number }).startMs ?? 0))
+  return starts.length > 0 ? Math.max(...starts) : Number.POSITIVE_INFINITY
+}
+
+/** 한 줄 친다. 내가 선 방에 남는다. */
+export const say = onCall<{ gameId: string; text: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const text = String(req.data.text ?? '').trim()
@@ -45,10 +69,14 @@ export const say = onCall<{ gameId: string; room: 'class' | 'team'; text: string
 
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
+  // 문과 문 사이에서 한 말은 어느 방에도 남지 않는다
+  if (pawn.tileId === null) {
+    throw new HttpsError('failed-precondition', '걷는 중이다. 어딘가에 서야 말할 수 있다.')
+  }
   const seat = game.seats.find((s) => s.playerId === uid)
 
   const row: ChatDocRaw = {
-    room: req.data.room === 'team' ? (`team:${pawn.team}` as TeamRoom) : 'class',
+    tileId: pawn.tileId,
     playerId: uid,
     name: seat?.name ?? '',
     team: pawn.team,
@@ -63,40 +91,45 @@ export const say = onCall<{ gameId: string; room: 'class' | 'team'; text: string
 })
 
 /**
- * 내가 볼 수 있는 줄들.
+ * 내가 들을 수 있는 줄들.
  *
- * 전체 방은 모두, 팀 방은 우리 팀만. 지워진 사람의 전체 채팅은
- * 본인 말고는 「…」로 바뀌어 나간다 — 가리는 것이 아니라 **바뀐
- * 글자만** 나가는 것이다. 원문은 서버에 남아 엔딩에서 돌아온다.
+ * **내가 선 방에서, 내가 들어온 뒤에** 나온 말만이다. 옆 방 이야기는
+ * 오지 않고, 늦게 들어갔으면 앞서 나눈 말도 오지 않는다 — 화면에서
+ * 가리는 것이 아니라 애초에 보내지 않는다. 보내 놓고 가리면
+ * 개발자도구로 다 보인다.
  */
 export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const snap = await gameRef(gameId).get()
-  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  const game = snap.data() as GameDoc
+  const { game } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
+  if (pawn.tileId === null) return { lines: [], day: game.day, here: null }
 
-  const since = Number(req.data.sinceMs ?? 0)
-  const all = await chatOf(gameId).where('atMs', '>', since).orderBy('atMs').limit(300).get()
+  const arrived = await arrivedAtMs(gameId, uid)
+  if (!Number.isFinite(arrived)) return { lines: [], day: game.day, here: pawn.tileId }
+  const since = Math.max(Number(req.data.sinceMs ?? 0), arrived)
+
+  const all = await chatOf(gameId)
+    .where('tileId', '==', pawn.tileId)
+    .where('atMs', '>', since)
+    .orderBy('atMs')
+    .limit(300)
+    .get()
 
   const lines = all.docs
     .map((d) => d.data() as ChatDocRaw)
-    .filter((c) => c.room === 'class' || c.room === `team:${pawn.team}`)
     .map((c) => ({
-      room: c.room === 'class' ? 'class' : 'team',
       playerId: c.playerId,
       name: c.name,
       team: c.team,
       atMs: c.atMs,
-      // 전체 방에서만 가린다. 팀 방은 지워져도 팀원에게 들린다
-      text: c.room === 'class' ? maskClassChat(c.text, c.invisible, c.playerId === uid) : c.text,
+      text: maskClassChat(c.text, c.invisible, c.playerId === uid),
       // 「이 줄은 전해지지 않았다」. 누가 투명인간인지는 이미 모두가
       // 아는 사실이라 이 표시로 새어 나가는 것은 없다
-      muted: c.room === 'class' && c.invisible,
+      muted: c.invisible,
     }))
 
-  return { lines, day: game.day }
+  return { lines, day: game.day, here: pawn.tileId }
 })
 
 /**
@@ -109,6 +142,5 @@ export async function unheardLines(gameId: string): Promise<{ name: string; day:
   const snap = await chatOf(gameId).where('invisible', '==', true).orderBy('atMs').get()
   return snap.docs
     .map((d) => d.data() as ChatDocRaw)
-    .filter((c) => c.room === 'class')
     .map((c) => ({ name: c.name, day: c.day, text: c.text }))
 }

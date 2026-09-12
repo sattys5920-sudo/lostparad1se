@@ -439,21 +439,7 @@
 
 .sc-ch { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 
-.sc-ch__rooms { display: flex; gap: 6px; }
-
-.sc-ch__rooms button {
-  appearance: none;
-  border: 1px solid var(--sc-line);
-  background: #f7f8f9;
-  color: var(--sc-text-dim);
-  font: inherit;
-  font-size: 12px;
-  padding: 6px 13px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.sc-ch__rooms button.is-on { color: var(--sc-text); border-color: var(--sc-line-strong); background: var(--sc-surface); }
+.sc-ch__head { margin: 0; font-size: 15px; letter-spacing: -0.01em; }
 
 .sc-ch__log {
   border: 1px solid #d8dcdf;

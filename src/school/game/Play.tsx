@@ -471,7 +471,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {overlay === 'talk' && (
         <div className="sc-pl__sheet">
           <button className="sc-pl__sheetClose" onClick={() => setOverlay(null)}>닫기</button>
-          <Chat me={me} act={act} onSaid={setSaid} />
+          <Chat
+            me={me}
+            hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+            act={act}
+            onSaid={setSaid}
+          />
         </div>
       )}
 

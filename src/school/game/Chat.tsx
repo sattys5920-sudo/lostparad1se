@@ -1,12 +1,14 @@
 // 말.
 //
-// 여기서 한 말은 **어떤 판정에도 쓰이지 않는다.** 「나 털어놓을게」라고
-// 치는 것과 실제로 털어놓는 것은 다른 일이고, 게임은 후자만 센다. 그래서
-// 이 화면은 점수와 아무 상관이 없다 — 그런데도 사람들은 여기서 제일 오래
-// 머문다.
+// **이 방에서, 내가 들어온 뒤에 나온 말만 보인다.** 옆 방 이야기는 오지
+// 않고, 늦게 들어왔으면 앞서 나눈 말도 오지 않는다. 그 자리에 없었으면
+// 못 들은 것이다 — 서버가 애초에 보내지 않는다.
 //
-// 지워진 사람의 전체 채팅은 서버가 「…」로 바꿔 보낸다. 본인 화면에만
-// 원문이 남는다. 자기가 무슨 말을 했는지는 안다. 다만 아무도 듣지 않았다.
+// 여기서 한 말은 **어떤 판정에도 쓰이지 않는다.** 「나 털어놓을게」라고
+// 치는 것과 실제로 털어놓는 것은 다른 일이고, 게임은 후자만 센다.
+//
+// 지워진 사람의 말은 서버가 「…」로 바꿔 보낸다. 본인 화면에만 원문이
+// 남는다. 자기가 무슨 말을 했는지는 안다. 다만 아무도 듣지 않았다.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CHAT_MAX_LEN } from '../../../shared/rules/v2'
@@ -14,7 +16,6 @@ import { CHAT_POLL_MS } from './timing'
 import type { GameActions } from './useGame'
 
 export interface ChatLine {
-  room: 'class' | 'team'
   playerId: string
   name: string
   team: string
@@ -26,12 +27,13 @@ export interface ChatLine {
 
 export interface ChatProps {
   me: { playerId: string; team: string }
+  /** 지금 선 방 이름. 걷는 중이면 null. */
+  hereName: string | null
   act: GameActions
   onSaid: (text: string) => void
 }
 
-export function Chat({ me, act, onSaid }: ChatProps) {
-  const [room, setRoom] = useState<'class' | 'team'>('class')
+export function Chat({ me, hereName, act, onSaid }: ChatProps) {
   const [lines, setLines] = useState<ChatLine[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -68,14 +70,14 @@ export function Chat({ me, act, onSaid }: ChatProps) {
 
   useEffect(() => {
     tailRef.current?.scrollIntoView({ block: 'end' })
-  }, [lines.length, room])
+  }, [lines.length])
 
   async function send() {
     const text = draft.trim()
     if (!text) return
     setBusy(true)
     try {
-      const res = (await act.say(room, text)) as { heard?: boolean }
+      const res = (await act.say(text)) as { heard?: boolean }
       setDraft('')
       // 들리지 않았다는 것만은 알려 준다. 허공에 대고 친 줄 모르면
       // 대답이 없는 이유를 영영 알 수 없다
@@ -88,23 +90,18 @@ export function Chat({ me, act, onSaid }: ChatProps) {
     }
   }
 
-  const shown = lines.filter((l) => l.room === room)
-
   return (
     <div className="sc-ch">
-      <div className="sc-ch__rooms">
-        <button className={room === 'class' ? 'is-on' : ''} onClick={() => setRoom('class')}>
-          전체
-        </button>
-        <button className={room === 'team' ? 'is-on' : ''} onClick={() => setRoom('team')}>
-          {me.team}팀
-        </button>
-      </div>
+      <h2 className="sc-ch__head">{hereName ?? '걷는 중'}</h2>
 
       <div className="sc-ch__log">
-        {shown.length === 0 && <p className="sc-ch__none">아직 아무도 말하지 않았다.</p>}
+        {lines.length === 0 && (
+          <p className="sc-ch__none">
+            {hereName ? '여기서는 아직 아무 말도 없다.' : '걷는 중에는 말할 수 없다.'}
+          </p>
+        )}
         <ul>
-          {shown.map((l, i) => (
+          {lines.map((l, i) => (
             <li
               key={`${l.atMs}-${l.playerId}-${i}`}
               className={[l.playerId === me.playerId ? 'is-me' : '', l.muted ? 'is-muted' : '']
@@ -124,7 +121,8 @@ export function Chat({ me, act, onSaid }: ChatProps) {
         <input
           value={draft}
           maxLength={CHAT_MAX_LEN}
-          placeholder={room === 'class' ? '반 전체에게' : '우리 팀에게'}
+          placeholder={hereName ? `${hereName}에서` : '걷는 중'}
+          disabled={!hereName}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) void send()
@@ -134,7 +132,10 @@ export function Chat({ me, act, onSaid }: ChatProps) {
           보내기
         </button>
       </div>
-      <p className="sc-ch__note">여기서 한 말은 점수에 들어가지 않는다.</p>
+      <p className="sc-ch__note">
+        이 방에서 한 말이다. 옆 방에는 가지 않고, 나중에 들어온 사람은 보지 못한다.
+        점수에도 들어가지 않는다.
+      </p>
     </div>
   )
 }

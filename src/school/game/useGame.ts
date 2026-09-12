@@ -150,9 +150,9 @@ export function gameActions(gameId: string) {
     chooseImportant: (targetId: string) => callServer('chooseImportant', { ...g, targetId }),
     chooseDay4: (choice: 'team' | 'self' | 'bond') => callServer('chooseDay4', { ...g, choice }),
 
-    /** 한 줄 친다. 어떤 판정에도 쓰이지 않는다. */
-    say: (room: 'class' | 'team', text: string) => callServer('say', { ...g, room, text }),
-    /** 그 뒤로 올라온 줄들. 지워진 사람의 전체 채팅은 이미 가려져 온다. */
+    /** 한 줄 친다. 내가 선 방에 남는다. 어떤 판정에도 쓰이지 않는다. */
+    say: (text: string) => callServer('say', { ...g, text }),
+    /** 내가 선 방에서 내가 들어온 뒤에 나온 줄들. */
     chatLines: (sinceMs: number) => callServer('chatLines', { ...g, sinceMs }),
 
     /** 아침 시퀀스를 어디까지 봤는지 적는다. */
