@@ -10,9 +10,9 @@
 
 .sc-bd__tile {
   appearance: none;
-  border: 1px solid #222735;
-  background: #151924;
-  color: #aeb4c2;
+  border: 1px solid #d8dcdf;
+  background: #f7f8f9;
+  color: var(--sc-text-2);
   font: inherit;
   border-radius: 3px;
   padding: 3px 2px;
@@ -36,27 +36,30 @@
 
 .sc-bd__value {
   font-size: 9px;
-  color: #6b7183;
+  color: var(--sc-text-dim);
   font-variant-numeric: tabular-nums;
 }
 
-.sc-bd__value b { color: #d8c28a; font-weight: 700; }
-.sc-bd__built { font-size: 8px; color: #8b90a0; letter-spacing: 0.05em; }
+.sc-bd__value b { color: #9a7318; font-weight: 700; }
+.sc-bd__built { font-size: 8px; color: var(--sc-text-dim); letter-spacing: 0.05em; }
 
 /* 안개. 이름만 남기고 나머지는 받지 않았다 */
-.sc-bd__tile.is-fog { background: #0e1017; color: #3a3f4d; border-color: #171b25; }
+/* 안개. 어두운 판에서는 덮어서 감췄는데, 밝은 판에서는 비워서
+   감춘다 — 이름만 흐리게 남고 나머지는 아예 오지 않았다 */
+.sc-bd__tile.is-fog { background: #f2f3f4; color: #9aa0a6; border-color: #e2e5e7; }
 .sc-bd__tile.is-fog .sc-bd__name { opacity: 0.55; }
 
 /* 아직 안 열린 핵심·중앙광장 */
 .sc-bd__tile.is-closed { border-style: dashed; }
-.sc-bd__tile.is-base { border-color: #2f3647; }
-.sc-bd__tile.is-picked { outline: 2px solid #8b90a0; outline-offset: -2px; }
+.sc-bd__tile.is-base { border-color: var(--sc-line); }
+.sc-bd__tile.is-picked { outline: 2px solid var(--sc-text-dim); outline-offset: -2px; }
 
-/* 주인 */
-.sc-bd__tile.is-a { background: #17202b; border-color: #2b4358; }
-.sc-bd__tile.is-b { background: #1d1a26; border-color: #413156; }
-.sc-bd__tile.is-c { background: #1a2119; border-color: #33502f; }
-.sc-bd__tile.is-d { background: #241c1a; border-color: #59372f; }
+/* 주인. 완장 색 그대로다 — 판 위의 색과 입고 있는 색이 다르면
+   누구 땅인지 매번 다시 외워야 한다 */
+.sc-bd__tile.is-a { background: var(--pl-a-fill); border-color: var(--pl-a); }
+.sc-bd__tile.is-b { background: var(--pl-b-fill); border-color: var(--pl-b); }
+.sc-bd__tile.is-c { background: var(--pl-c-fill); border-color: var(--pl-c); }
+.sc-bd__tile.is-d { background: var(--pl-d-fill); border-color: var(--pl-d); }
 
 /* 말 */
 .sc-bd__pawns { display: flex; gap: 2px; align-items: center; margin-top: 1px; }
@@ -66,12 +69,12 @@
   height: 5px;
   border-radius: 50%;
   display: block;
-  background: #8b90a0;
+  background: var(--sc-text-dim);
 }
 
-.sc-bd__pawns i.is-a { background: #6fa8d6; }
-.sc-bd__pawns i.is-b { background: #a98ad6; }
-.sc-bd__pawns i.is-c { background: #86c48a; }
-.sc-bd__pawns i.is-d { background: #d69a7a; }
+.sc-bd__pawns i.is-a { background: var(--pl-a); }
+.sc-bd__pawns i.is-b { background: var(--pl-b); }
+.sc-bd__pawns i.is-c { background: var(--pl-c); }
+.sc-bd__pawns i.is-d { background: var(--pl-d); }
 .sc-bd__pawns i.is-asleep { opacity: 0.4; }
-.sc-bd__pawns em { font-size: 7.5px; color: #6b7183; font-style: normal; }
+.sc-bd__pawns em { font-size: 7.5px; color: var(--sc-text-dim); font-style: normal; }
