@@ -119,3 +119,6 @@ export { chooseImportant, chooseDay4 } from './choice'
 
 // 카드. 손패 내용은 우리 팀만 안다.
 export { playOne } from './card'
+
+// 엔딩. 종례가 끝난 뒤에만 내려간다.
+export { endingData } from './ending'

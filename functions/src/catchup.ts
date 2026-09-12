@@ -506,6 +506,12 @@ async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> 
       // 지워진 사람이 있었다는 사실만 남긴다. 누구인지는 정산에서 이미 공개된 이름이다
       ignored: result.ignored,
       reason: result.reason,
+      target,
+      ownerBefore: tiles.find((t) => t.tileId === tileId)?.ownerTeam ?? null,
+      // 개인 미션 판정이 「그 자리에 서 있었는가」를 여기서 읽는다.
+      // 지워진 사람도 들어간다 — 깃발 머릿수에서만 빠지는 것이지
+      // 그 자리에 없었던 것은 아니다
+      standing: standing.map((s) => s.playerId),
     },
   })
 }
