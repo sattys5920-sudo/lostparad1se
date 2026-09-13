@@ -18,3 +18,6 @@ export const WALK_POSES_PER_SEC = 3.2
 
 /** 페이즈 중에 「몇 명 냈는지」를 다시 세는 간격. */
 export const PHASE_POLL_MS = 4000
+
+/** 미니맵을 켜 뒀는지. 이 기기에만 남는다. */
+export const MINIMAP_ON_KEY = 'lostparad1se.minimap'

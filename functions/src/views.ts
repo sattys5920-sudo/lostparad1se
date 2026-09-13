@@ -96,6 +96,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       // 투영이 본인 몫에만 싣는다. 여기서는 그냥 들고만 간다
       arriveAtMs: p.arriveAtMs ?? null,
       postTile: p.postTile ?? null,
+      visitedTiles: p.visitedTiles ?? [],
     }
   })
 

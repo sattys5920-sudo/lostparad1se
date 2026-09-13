@@ -914,3 +914,156 @@
 
 /* 전투 자리. 자유 시간에 떨어져 있으면 여기로 돌아간다 */
 .sc-mm__cell.is-post { outline: 2px dashed var(--sc-text-dim); outline-offset: -2px; }
+
+/* ── 전개도 ───────────────────────────────────────────────────── */
+
+.sc-mp { display: block; width: 100%; height: 100%; }
+.sc-mp__hall { stroke: var(--sc-line); stroke-width: 3; }
+.sc-mp__room rect { fill: #f7f8f9; stroke: var(--sc-line); stroke-width: 2; }
+.sc-mp__room.is-dark rect { fill: #1b2028; stroke: #2f3647; }
+.sc-mp__room.is-here rect { stroke-width: 4; }
+.sc-mp__room.is-picked rect { fill: var(--sc-surface); }
+
+.sc-mp__name {
+  text-anchor: middle;
+  font-size: 9px;
+  fill: var(--sc-text);
+  font-family: inherit;
+}
+
+.sc-mp__kind { text-anchor: middle; font-size: 10px; fill: var(--sc-text-dim); }
+.sc-mp__unknown { text-anchor: middle; font-size: 16px; fill: #545a6b; font-weight: 700; }
+
+.sc-mp__count {
+  text-anchor: middle;
+  font-size: 9px;
+  fill: var(--sc-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-mp__count.is-full { fill: var(--sc-danger); font-weight: 700; }
+.sc-mp__more { text-anchor: end; font-size: 9px; fill: #f2f3f4; font-weight: 700; }
+.sc-mp__me { fill: #fff; stroke: #0b0d0f; stroke-width: 1.5; }
+
+/* 작게 그릴 때는 어두운 판 위다 */
+.sc-mp--small .sc-mp__hall { stroke: rgba(242, 243, 244, 0.3); stroke-width: 4; }
+.sc-mp--small .sc-mp__room rect { fill: rgba(242, 243, 244, 0.16); stroke: rgba(242, 243, 244, 0.4); }
+.sc-mp--small .sc-mp__room.is-dark rect { fill: rgba(0, 0, 0, 0.55); stroke: rgba(242, 243, 244, 0.15); }
+.sc-mp--small .sc-mp__room.is-here rect { stroke: #fff; stroke-width: 3; }
+
+/* ── 미니맵 ───────────────────────────────────────────────────── */
+
+/* 미니맵 한 변. 자리를 비워 두는 쪽에서도 같은 값을 쓴다 */
+.sc-pl__today { --sc-mini: clamp(100px, 25vw, 160px); }
+
+/*
+ * 미니맵이 켜져 있으면 오른쪽 위는 미니맵 자리다. 띄워 놓기만 하면
+ * 토큰 숫자가 그 밑에 깔려 안 보인다. 실제로 그랬다
+ */
+.sc-pl__today.has-mini > .sc-pl__head,
+.sc-pl__today.has-mini > .sc-pl__stat {
+  padding-right: calc(var(--sc-mini) + 14px);
+}
+
+.sc-mini {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 30;
+  width: var(--sc-mini, clamp(100px, 25vw, 160px));
+  aspect-ratio: 1;
+  padding: 4px;
+  appearance: none;
+  border: 1px solid rgba(242, 243, 244, 0.35);
+  border-radius: 6px;
+  background: rgba(12, 14, 18, 0.72);
+  cursor: pointer;
+}
+
+/* 점이 부드럽게 따라간다. 툭 튀면 누가 움직였는지 못 본다 */
+.sc-mini circle { transition: cx 0.35s ease-out, cy 0.35s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-mini circle { transition: none; }
+}
+
+/* ── 전체 맵 ──────────────────────────────────────────────────── */
+
+.sc-atlas {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(12, 14, 18, 0.74);
+  display: flex;
+  align-items: stretch;
+  animation: sc-atlas-in 0.16s ease-out;
+}
+
+@keyframes sc-atlas-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-atlas { animation: none; }
+}
+
+.sc-atlas__sheet {
+  flex: 1;
+  margin: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  background: var(--sc-bg);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sc-atlas__sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 6px;
+}
+
+.sc-atlas__sheet h2 { margin: 0; font-size: 16px; }
+
+.sc-atlas__x {
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-surface);
+  color: var(--sc-text-2);
+  font: inherit;
+  font-size: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.sc-atlas__box {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  display: grid;
+  place-items: center;
+}
+
+.sc-atlas__inner { width: 100%; height: 100%; transform-origin: center; }
+
+.sc-atlas__card {
+  border-top: 1px solid var(--sc-line);
+  padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sc-atlas__card h3 { margin: 0; font-size: 14px; display: flex; gap: 7px; align-items: baseline; }
+.sc-atlas__card h3 span { font-size: 11px; color: var(--sc-text-dim); font-weight: 400; }
+.sc-atlas__card p { margin: 0; font-size: 12px; color: var(--sc-text-dim); text-wrap: pretty; }
+.sc-atlas__card dl { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.sc-atlas__card dl > div { display: flex; gap: 6px; align-items: baseline; }
+.sc-atlas__card dt { font-size: 11px; color: var(--sc-text-dim); }
+.sc-atlas__card dd { margin: 0; font-size: 12.5px; color: var(--sc-text); font-variant-numeric: tabular-nums; }
+.sc-atlas__why { font-size: 11px; color: #6b7280; }

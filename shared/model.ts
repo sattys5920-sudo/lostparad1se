@@ -175,6 +175,13 @@ export interface PawnDoc {
   postTile?: TileId | null
   /** 세 명뿐인 팀의 주장. 점령 판정에서 둘로 센다. */
   captain?: boolean
+  /**
+   * 한 번이라도 발을 들인 방. 사람마다 따로 쌓인다.
+   *
+   * 지도가 채워지는 것은 개인의 기록이다 — 남이 다녀온 곳은 내
+   * 지도에 그려지지 않는다.
+   */
+  visitedTiles?: TileId[]
   /** 지금 선 칸. 걷는 중이면 null — 걷는 말은 어느 칸 판정에도 세지 않는다. */
   tileId: TileId | null
   /** 걷는 중일 때 방금 떠난 칸. 서 있으면 null. */
@@ -324,6 +331,8 @@ export interface PlayerViewDoc {
   myArriveAtMs: number | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
+  /** 내가 가 본 방. 지도가 채워지는 것은 개인의 기록이다. */
+  visitedTiles: TileId[]
   /** 보이는 방에 있는 로봇. 사람처럼 안개를 거친다. */
   visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
   /** 방마다 내게 보이는 머릿수. 위장이 이미 반영돼 있다. */

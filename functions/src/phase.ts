@@ -218,8 +218,17 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   const batch = db.batch()
 
   // 전투 자리와 지금 자리를 함께 옮긴다. 페이즈 직후에는 둘이 같다
+  const wasThere = new Map(
+    (await ref.collection('pawns').get()).docs.map((d) => [d.id, (d.data() as PawnDoc).visitedTiles ?? []]),
+  )
   for (const p of out.next.people) {
-    batch.update(ref.collection('pawns').doc(p.playerId), { postTile: p.tileId, tileId: p.tileId })
+    const been = new Set(wasThere.get(p.playerId) ?? [])
+    been.add(p.tileId)
+    batch.update(ref.collection('pawns').doc(p.playerId), {
+      postTile: p.tileId,
+      tileId: p.tileId,
+      visitedTiles: [...been],
+    })
   }
   // 로봇은 통째로 다시 쓴다. 열몇 기뿐이라 견줄 이유가 없다
   const had = await robotsOf(gameId).get()
@@ -296,8 +305,11 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     if (seats + 1 > capacityOf(tileId)) {
       throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name}이(가) 꽉 찼다.`)
     }
-    // postTile 은 건드리지 않는다. 자유 시간은 전선을 옮기지 못한다
-    tx.update(mine.ref, { tileId, fromTile: here, arriveAtMs: null, path: [] })
+    // postTile 은 건드리지 않는다. 자유 시간은 전선을 옮기지 못한다.
+    // 다만 **발은 들였으니** 지도에는 남는다
+    const been = new Set(p.visitedTiles ?? [])
+    been.add(tileId)
+    tx.update(mine.ref, { tileId, fromTile: here, arriveAtMs: null, path: [], visitedTiles: [...been] })
   })
   await refreshViews(gameId)
   return { tileId }

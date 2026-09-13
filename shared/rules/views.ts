@@ -31,6 +31,8 @@ export interface WorldPawn extends PawnPosition {
   arriveAtMs?: number | null
   /** 전투 자리. 본인 몫에만 실린다 — 남의 전선 계획까지 보일 이유가 없다. */
   postTile?: TileId | null
+  /** 가 본 방. 본인 몫에만 실린다. */
+  visitedTiles?: readonly TileId[]
 }
 
 export interface WorldTile {
@@ -148,6 +150,14 @@ export interface View {
   myArriveAtMs: number | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
+  /**
+   * 내가 가 본 방. **한 번도 안 간 방은 지도에 검게 남는다.**
+   *
+   * 지금 보이는 방(visibleTiles)과는 다르다. 관측소로 멀리 보는 것과
+   * 발을 들여 본 것은 다른 일이라, 지도는 둘을 합쳐서 「아는 방」으로
+   * 친다 — 어느 쪽도 아니면 서버가 그 방 숫자를 아예 안 보낸다.
+   */
+  visitedTiles: TileId[]
   handledDays: number[]
   readDays: number[]
   confessions: WorldConfession[]
@@ -226,6 +236,7 @@ export function projectView(world: World, viewerId: string): View {
       own: null,
       myArriveAtMs: null,
       myPost: null,
+      visitedTiles: [],
       handledDays: [],
       readDays: [],
       confessions: [],
@@ -294,6 +305,7 @@ export function projectView(world: World, viewerId: string): View {
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
     myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
     myPost: world.pawns.find((p) => p.playerId === viewerId)?.postTile ?? null,
+    visitedTiles: [...(world.pawns.find((p) => p.playerId === viewerId)?.visitedTiles ?? [])].sort(),
 
     // 진상 공개 흐름
     handledDays: [...(world.progress.find((p) => p.playerId === viewerId)?.handledDays ?? [])].sort((a, b) => a - b),

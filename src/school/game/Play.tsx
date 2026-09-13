@@ -16,7 +16,7 @@ import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
 import { Walk } from './Walk'
-import { MiniMap } from './MiniMap'
+import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { PHASE_POLL_MS } from './timing'
 import type { ActionKind } from '../../../shared/rules/occupy'
@@ -385,6 +385,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [chosen, setChosen] = useState<ActionKind | null>(null)
   const [ready, setReady] = useState<{ submitted: number; total: number } | null>(null)
   const [host] = useHost()
+  const [atlas, setAtlas] = useState(false)
+  const [miniOn, setMiniOn] = useMiniMapOn()
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
@@ -392,8 +394,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null
   const standingOn = (state.view?.visiblePawns.find((p) => p.playerId === uid)?.tileId ?? null) as TileId | null
-  // 전투 자리. 자유 시간에 여기서 떨어져 있으면 미니맵이 둘 다 보인다
-  const myPost = (state.view?.myPost ?? null) as TileId | null
   // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
   const hereNow = standingOn
     ? (state.view?.visiblePawns ?? []).filter((p) => p.playerId !== uid && p.tileId === standingOn)
@@ -440,7 +440,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   if (overlay === 'archive') return <LiveArchive gameId={gameId} onClose={() => setOverlay(null)} />
 
   return (
-    <div className="sc-pl__today">
+    <div className={miniOn ? 'sc-pl__today has-mini' : 'sc-pl__today'}>
       <header className="sc-pl__head">
         <h1>DAY {game.day}</h1>
         <span className="sc-pl__me">
@@ -456,14 +456,19 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <li><span>영향력</span><span>{state.teams[me.team]?.resources.influence ?? '—'}</span></li>
       </ul>
 
-      {/* 판 전체. 걸어 다니는 학교는 한 방밖에 안 보여서 위에 얹는다 */}
-      <MiniMap
-        here={standingOn}
-        post={myPost}
-        view={state.view}
-        tiles={state.tiles}
-        onPick={(id) => setFar(id === standingRoom ? null : id)}
-      />
+      {/* 걸어 다니는 학교는 한 방밖에 안 보인다. 구석에 판 전체를 얹는다 */}
+      {miniOn && (
+        <MiniMap
+          facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
+          onOpen={() => setAtlas(true)}
+        />
+      )}
+      {atlas && (
+        <FullMap
+          facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
+          onClose={() => setAtlas(false)}
+        />
+      )}
 
       <Walk
         me={{ playerId: me.playerId, team: me.team, look }}
@@ -505,6 +510,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       <div className="sc-pl__quick">
         <button onClick={() => setOverlay('talk')}>말</button>
         <button onClick={() => setOverlay('archive')}>보관함</button>
+        <button onClick={() => setMiniOn(!miniOn)}>{miniOn ? '미니맵 끄기' : '미니맵 켜기'}</button>
       </div>
 
       {/* 자유 시간의 것들. 페이즈 중에는 자리를 지키는 것 말고 할 일이 없다 */}
