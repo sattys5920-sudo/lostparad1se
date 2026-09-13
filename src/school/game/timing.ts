@@ -21,3 +21,14 @@ export const PHASE_POLL_MS = 4000
 
 /** 미니맵을 켜 뒀는지. 이 기기에만 남는다. */
 export const MINIMAP_ON_KEY = 'lostparad1se.minimap'
+
+/**
+ * 걸어 다니는 학교를 몇 배로 그리는가. 도트를 키워야 휴대폰에서 보인다.
+ *
+ * 이 값이 방 크기를 정한다 — 배율이 높을수록 화면에 들어오는 칸이 줄고,
+ * 방과 양옆 벽이 한 화면에 안 들어오면 제 방의 문이 안 보인다.
+ */
+export const CANVAS_SCALE = 2
+
+/** 가장 좁은 화면. 여기서 되면 어디서나 된다. */
+export const NARROW_PX = 380

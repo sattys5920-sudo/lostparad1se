@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   DOORS,
+  type Door,
   MAP_H,
   MAP_W,
   ROOMS,
@@ -28,7 +29,7 @@ import {
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { pixelFrame } from '../char/pixel'
 import { TILE_BY_ID } from '../../../shared/rules/board'
-import { STEP_MS, WALK_POSES_PER_SEC } from './timing'
+import { CANVAS_SCALE, STEP_MS, WALK_POSES_PER_SEC } from './timing'
 import type { AvatarLook, TeamId, TileId } from '../types'
 import type { GameDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 
@@ -160,20 +161,64 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
     const resize = () => {
       const w = canvas.clientWidth
       const h = canvas.clientHeight
-      canvas.width = Math.round(w / 2)
-      canvas.height = Math.round(h / 2)
+      canvas.width = Math.round(w / CANVAS_SCALE)
+      canvas.height = Math.round(h / CANVAS_SCALE)
       ctx.imageSmoothingEnabled = false
     }
     resize()
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)
 
-    /** 캔버스를 누르면 그 자리의 방을 고른다. 십자키 위는 뺀다 */
+    /**
+     * 캔버스를 누르면 거기로 걸어간다.
+     *
+     * 옆방을 누르면 **그 방으로 간다** — 사이의 문까지 걸어가서 넘는다.
+     * 사람은 「과학실에 가야지」라고 생각하지 「문이 저기 있으니 세 칸
+     * 위로 가서 왼쪽으로」라고 생각하지 않는다. 십자키만 있던 동안은
+     * 문보다 한 칸 옆에 서면 위를 눌러도 아무 일이 없었다.
+     *
+     * 옆방이 아닌 먼 방을 누르면 걸어가지 않고 고르기만 한다 — 거기에
+     * 할 일을 시키는 자리다.
+     */
     const onTap = (e: PointerEvent) => {
+      if (walkingRef.current) return
       const r = canvas.getBoundingClientRect()
       const sx = ((e.clientX - r.left) / r.width) * canvas.width + camRef.x
       const sy = ((e.clientY - r.top) / r.height) * canvas.height + camRef.y
-      const id = roomAt(Math.floor(sx / TILE), Math.floor(sy / TILE))?.id
+      const tx = Math.floor(sx / TILE)
+      const ty = Math.floor(sy / TILE)
+      const here = roomAt(self.tx, self.ty)?.id ?? null
+      const id = roomAt(tx, ty)?.id ?? null
+
+      // 옆방(또는 그 방으로 가는 문)을 눌렀다 — 문까지 걸어가서 넘는다
+      const toward = id && id !== here ? id : (doorHere(tx, ty) ? acrossFrom(doorHere(tx, ty) as Door, here) : null)
+      if (here && toward && toward !== here) {
+        const gate = DOORS.find(
+          (d) => (d.a === here && d.b === toward) || (d.b === here && d.a === toward),
+        )
+        if (gate) {
+          for (const t of gate.tiles) {
+            const found = pathTo(t.x, t.y)
+            if (found.length > 0) {
+              autoPath = found
+              return
+            }
+          }
+        }
+      }
+
+      // 지금 방 안이다 — 그 자리로 걸어간다. 정확히 그 칸이 막혀 있으면
+      // 바로 옆 칸이라도 간다. 손가락은 한 칸을 정확히 못 짚는다
+      if (id === here) {
+        for (const [dx, dy] of [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+          const found = pathTo(tx + dx, ty + dy)
+          if (found.length > 0) {
+            autoPath = found
+            return
+          }
+        }
+        return
+      }
       if (id) tapRef.current(id)
     }
     canvas.addEventListener('pointerdown', onTap)
@@ -200,6 +245,60 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
       self.ty = ny
       self.moving = true
       stepLeft = STEP_MS
+    }
+
+    /**
+     * 저절로 걸어갈 길. 화면을 누르면 거기까지, 문으로 들어오면 방
+     * 한가운데까지 이것으로 간다.
+     *
+     * **십자키만으로는 못 쓴다.** 방은 열한 칸인데 문은 벽 한가운데
+     * 세 칸이다. 방을 가로질러 온 사람은 문보다 몇 칸 옆에 서 있기 쉽고,
+     * 그 자리에서 위를 누르면 벽에 막혀 아무 일도 안 일어난다. 게임이
+     * 고장 난 것처럼 보인다 — 실제로 그랬다. 그래서 가고 싶은 곳을
+     * 누르면 알아서 걸어가게 한다.
+     */
+    let autoPath: { x: number; y: number }[] = []
+
+    /**
+     * 저기까지 가는 가장 짧은 길. 가구와 벽을 피해 돌아간다.
+     *
+     * 문 너머까지는 찾지 않는다 — 문을 밟는 순간 서버가 방을 옮기고,
+     * 그쪽 길은 도착한 뒤에 새로 찾는다
+     */
+    function pathTo(gx: number, gy: number): { x: number; y: number }[] {
+      const startKey = `${self.tx},${self.ty}`
+      const goal = `${gx},${gy}`
+      if (startKey === goal) return []
+      const prev = new Map<string, string>()
+      const seen = new Set([startKey])
+      let edge = [{ x: self.tx, y: self.ty }]
+      while (edge.length > 0) {
+        const next: { x: number; y: number }[] = []
+        for (const cur of edge) {
+          for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = cur.x + dx
+            const ny = cur.y + dy
+            const k = `${nx},${ny}`
+            if (seen.has(k)) continue
+            const onDoor = doorHere(nx, ny) !== null
+            if (onDoor ? lockedRef.current.has(k) : !isWalkable(nx, ny, lockedRef.current)) continue
+            seen.add(k)
+            prev.set(k, `${cur.x},${cur.y}`)
+            if (k === goal) {
+              const out: { x: number; y: number }[] = []
+              for (let at = goal; at !== startKey; at = prev.get(at) as string) {
+                const [px, py] = at.split(',').map(Number)
+                out.unshift({ x: px, y: py })
+              }
+              return out
+            }
+            // 문 너머로는 더 안 뻗는다. 거기서 방이 바뀐다
+            if (!onDoor) next.push({ x: nx, y: ny })
+          }
+        }
+        edge = next
+      }
+      return []
     }
 
     /** 서버가 「너는 이 방에 있다」고 하면 그 방 안으로 옮겨 놓는다. */
@@ -230,6 +329,9 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
       self.py = y * TILE + TILE / 2
       self.moving = false
       stepLeft = 0
+      // 문 앞에 섰으면 방 한가운데까지 마저 걸어 들어간다. 한가운데는
+      // 그 방의 모든 문과 일직선이라, 거기서는 어느 쪽을 눌러도 문으로 간다
+      autoPath = pathTo(rect.x + Math.floor(rect.w / 2), rect.y + Math.floor(rect.h / 2))
     }
 
     /**
@@ -273,12 +375,32 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
         } else {
           const d = [...held][held.size - 1]
           if (d) {
+            // 손이 움직이면 저절로 걷던 것은 그만둔다. 조작을 빼앗기면 안 된다
+            autoPath = []
             self.dir = d
             tryStep(d)
+          } else if (autoPath.length > 0) {
+            const to = autoPath[0]
+            const wantX = to.x - self.tx
+            const wantY = to.y - self.ty
+            if (wantX === 0 && wantY === 0) {
+              autoPath.shift()
+            } else {
+              const dir: Dir = wantX !== 0 ? (wantX > 0 ? 'right' : 'left') : wantY > 0 ? 'down' : 'up'
+              const was = `${self.tx},${self.ty}`
+              self.dir = dir
+              tryStep(dir)
+              // 한 칸도 못 갔다. 길이 막혔거나 문 앞이다 — 더 밀어도 소용없다
+              if (`${self.tx},${self.ty}` === was) autoPath = []
+              else autoPath.shift()
+            }
           }
         }
       }
 
+      // 내가 선 칸. 화면에는 안 쓰고 주행 시험이 읽는다 — 「방은 맞는데
+      // 문에서 한 칸 옆」 같은 것은 방 이름만 봐서는 알 수가 없다
+      canvas.dataset.at = `${self.tx},${self.ty}`
       const room = roomAt(self.tx, self.ty)?.id ?? null
       if (room !== lastRoom) {
         lastRoom = room

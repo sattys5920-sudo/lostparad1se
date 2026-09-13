@@ -29,8 +29,15 @@ export type { PropKind, MarkKind } from './sprites'
 
 export const TILE = 16
 
-/** 방 한 변과 방 사이 벽 한 줄. 판 크기가 전부 여기서 나온다. */
-const ROOM = 11
+/**
+ * 방 한 변과 방 사이 벽 한 줄. 판 크기가 전부 여기서 나온다.
+ *
+ * **화면에 들어오는 크기여야 한다.** 캔버스는 한 변이 380px 쯤이고 2배로
+ * 그리니 열한 칸이 보인다. 방이 아홉 칸이면 방과 양옆 벽이 딱 들어와서,
+ * 선 자리에서 제 방의 문 네 개가 전부 보인다. 열한 칸짜리 방을 썼을 때는
+ * 문이 화면 밖에 있었다 — 어디로 나가야 하는지 보이지도 않았다.
+ */
+const ROOM = 9
 const CELL = ROOM + 1
 const MARGIN = 2
 const GRID = 5
@@ -39,6 +46,9 @@ const N = MARGIN * 2 + GRID * CELL - 1
 
 export const MAP_W = N
 export const MAP_H = N
+
+/** 방 한 변(칸). 화면에 몇 칸이 들어오는지와 맞물린다 — world.test.ts 가 지킨다. */
+export const ROOM_TILES = ROOM
 
 interface Rect {
   x: number
@@ -94,11 +104,26 @@ ROOMS.forEach((room, i) => {
 })
 
 export interface Door {
+  /** 문 한가운데. 문은 이 칸을 포함해 DOOR_WIDE 칸이다. */
   x: number
   y: number
   a: TileId
   b: TileId
+  /** 문을 이루는 칸 전부. 어느 칸으로 지나든 같은 문이다. */
+  tiles: readonly { x: number; y: number }[]
 }
+
+/**
+ * 문 너비. **한 칸이면 안 된다.**
+ *
+ * 한 칸짜리 문은 손가락으로 하는 조작과 맞지 않는다. 방을 가로질러 온
+ * 사람은 문보다 한 칸 옆에 서 있기 쉽고, 그 자리에서 위를 누르면 아무 일도
+ * 안 일어난다. 벽에 막힌 것인지 게임이 고장 난 것인지 알 길이 없다.
+ * 실제로 그랬다 — A팀 기지에서 위를 아무리 눌러도 복도로 못 갔다.
+ *
+ * 세 칸이면 방 한가운데 줄을 타고 온 사람은 언제나 문에 닿는다.
+ */
+export const DOOR_WIDE = 3
 
 /**
  * 두 방 사이 벽 한 줄 가운데에 문을 뚫는다. 격자라 이웃은 언제나 벽 한 줄을
@@ -108,10 +133,25 @@ function carveDoor(a: TileId, b: TileId): Door {
   const ra = TILE_BY_ID[a]
   const rb = TILE_BY_ID[b]
   const half = Math.floor(ROOM / 2)
+  const arm = Math.floor(DOOR_WIDE / 2)
   /** 두 칸 사이 벽 줄의 좌표. */
   const wall = (p: number, q: number) => MARGIN + Math.min(p, q) * CELL + ROOM
-  if (ra.row === rb.row) return { x: wall(ra.col, rb.col), y: MARGIN + ra.row * CELL + half, a, b }
-  if (ra.col === rb.col) return { x: MARGIN + ra.col * CELL + half, y: wall(ra.row, rb.row), a, b }
+  const spread = (x: number, y: number, alongX: boolean) => {
+    const out: { x: number; y: number }[] = []
+    for (let i = -arm; i <= arm; i++) out.push(alongX ? { x: x + i, y } : { x, y: y + i })
+    return out
+  }
+  if (ra.row === rb.row) {
+    const x = wall(ra.col, rb.col)
+    const y = MARGIN + ra.row * CELL + half
+    // 세로 벽이니 문은 위아래로 넓어진다
+    return { x, y, a, b, tiles: spread(x, y, false) }
+  }
+  if (ra.col === rb.col) {
+    const x = MARGIN + ra.col * CELL + half
+    const y = wall(ra.row, rb.row)
+    return { x, y, a, b, tiles: spread(x, y, true) }
+  }
   throw new Error(`맞닿지 않은 두 방에 문을 놓으려 한다: ${a} ↔ ${b}`)
 }
 
@@ -127,10 +167,10 @@ const CONNECTIONS: [TileId, TileId][] = (() => {
 })()
 
 export const DOORS: Door[] = CONNECTIONS.map(([a, b]) => carveDoor(a, b))
-for (const d of DOORS) kinds[idx(d.x, d.y)] = 2
+for (const d of DOORS) for (const t of d.tiles) kinds[idx(t.x, t.y)] = 2
 
 const doorAt = new Map<string, Door>()
-for (const d of DOORS) doorAt.set(`${d.x},${d.y}`, d)
+for (const d of DOORS) for (const t of d.tiles) doorAt.set(`${t.x},${t.y}`, d)
 
 export function tileAt(x: number, y: number): TileKind {
   if (x < 0 || y < 0 || x >= N || y >= N) return 'wall'
@@ -161,7 +201,7 @@ const key = (x: number, y: number) => `${x},${y}`
 
 /** 문 앞 한 칸은 비워 둔다. 막으면 방이 잠긴다. */
 function nearDoor(x: number, y: number): boolean {
-  return DOORS.some((d) => Math.abs(d.x - x) <= 1 && Math.abs(d.y - y) <= 1)
+  return DOORS.some((d) => d.tiles.some((t) => Math.abs(t.x - x) <= 1 && Math.abs(t.y - y) <= 1))
 }
 
 /** 격자가 90도 돌면 (row,col) 은 (col, GRID-1-row) 로 간다. */
@@ -169,6 +209,10 @@ const rotCell = (row: number, col: number): [number, number] => [col, GRID - 1 -
 
 /** 방 한가운데 줄. 문과 문을 잇는 길이라 가구를 놓지 않는다. */
 const CENTER = Math.floor(ROOM / 2)
+
+/** 가구를 못 놓는 한가운데 띠. 문이 세 칸이니 길도 세 칸이어야 한다. */
+const KEEP_CLEAR = new Set<number>()
+for (let i = -Math.floor(DOOR_WIDE / 2); i <= Math.floor(DOOR_WIDE / 2); i++) KEEP_CLEAR.add(CENTER + i)
 
 /** 방 안의 자리도 같이 돈다. 방이 정사각이라 (lx,ly) → (ROOM-1-ly, lx) 다. */
 const rotSlot = ([lx, ly]: [number, number]): [number, number] => [ROOM - 1 - ly, lx]
@@ -213,7 +257,9 @@ function furnish(ring: TileId[], slots: Slot[], pick: (id: TileId, group: number
   // 돌려 쓰는 자리라 (lx,ly) → (ROOM-1-ly, lx) 로 돌아간다. 네 번 다
   // 십자를 비키려면 lx 도 ly 도 한가운데가 아니면 된다
   for (const [lx, ly] of slots) {
-    if (lx === CENTER || ly === CENTER) throw new Error(`가구가 방 한가운데 십자를 막는다: ${lx},${ly}`)
+    if (KEEP_CLEAR.has(lx) || KEEP_CLEAR.has(ly)) {
+      throw new Error(`가구가 방 한가운데 길(${[...KEEP_CLEAR].join(',')})을 막는다: ${lx},${ly}`)
+    }
   }
   let cur = slots
   for (const id of ring) {
@@ -232,32 +278,36 @@ function furnish(ring: TileId[], slots: Slot[], pick: (id: TileId, group: number
   }
 }
 
+/**
+ * 가구 자리. 방이 아홉 칸이고 가운데 세 줄(3·4·5)은 길이라, 쓸 수 있는
+ * 것은 네 귀퉁이의 3×3 뿐이다. 좁아 보이지만 방 하나에 여덟아홉 개면
+ * 「무슨 방인지」는 충분히 말한다.
+ */
 /** 기지 — 사물함 벽과 앉을 자리. */
 const BASE_SLOTS: Slot[] = [
-  [1, 1, 0], [2, 1, 0], [3, 1, 0], [7, 1, 0], [8, 1, 0], [9, 1, 0],
-  [1, 9, 1], [2, 9, 1], [8, 9, 1], [9, 9, 1],
+  [0, 0, 0], [1, 0, 0], [2, 0, 0], [6, 0, 0], [7, 0, 0], [8, 0, 0],
+  [0, 8, 1], [1, 8, 1], [7, 8, 1], [8, 8, 1],
 ]
-/** 1구역 — 가운데를 비우고 벽을 따라 둔다. */
+/** 1구역 — 벽을 따라 두 줄. */
 const ZONE1_SLOTS: Slot[] = [
-  [1, 2, 0], [3, 2, 0], [7, 2, 0], [9, 2, 0],
-  [1, 8, 1], [3, 8, 1], [7, 8, 1], [9, 8, 1],
-  [4, 3, 2],
+  [1, 1, 0], [2, 1, 0], [6, 1, 0], [7, 1, 0],
+  [1, 7, 1], [2, 7, 1], [6, 7, 1], [7, 7, 1],
+  [0, 2, 2], [8, 6, 2],
 ]
 /**
- * 관문 — 정원이 둘뿐인 좁은 방이다. 가구로 실제로 좁게 만든다.
+ * 관문 — 정원이 둘뿐인 좁은 방이다. 귀퉁이를 꽉 채워 실제로 좁게 만든다.
  * 숫자로만 좁다고 하면 걸어 보는 사람은 알 수가 없다.
  */
 const GATE_SLOTS: Slot[] = [
-  [1, 2, 0], [2, 2, 0], [3, 2, 0], [7, 2, 0], [8, 2, 0], [9, 2, 0],
-  // 한가운데 길 양옆으로만 세운다. 길 위에 세우면 방을 못 지나간다
-  [2, 4, 1], [3, 4, 1], [7, 4, 1], [8, 4, 1],
-  [2, 6, 1], [3, 6, 1], [7, 6, 1], [8, 6, 1],
-  [1, 8, 2], [3, 8, 2], [7, 8, 2], [9, 8, 2],
+  [0, 0, 0], [1, 0, 0], [2, 0, 0], [6, 0, 0], [7, 0, 0], [8, 0, 0],
+  [0, 1, 1], [1, 1, 1], [7, 1, 1], [8, 1, 1],
+  [0, 7, 1], [1, 7, 1], [7, 7, 1], [8, 7, 1],
+  [0, 8, 2], [2, 8, 2], [6, 8, 2], [8, 8, 2],
 ]
 /** 교차로 — 지나가는 곳이라 네 귀퉁이만 쓴다. */
-const CROSS_SLOTS: Slot[] = [[1, 1, 0], [9, 1, 0], [1, 9, 1], [9, 9, 1], [4, 2, 2]]
+const CROSS_SLOTS: Slot[] = [[0, 0, 0], [8, 0, 0], [0, 8, 1], [8, 8, 1], [2, 2, 2]]
 /** 핵심 지역 — 몇 개만. 여기서 무슨 일이 있었는지가 중요하지 가구가 아니다. */
-const CORE_SLOTS: Slot[] = [[3, 3, 0], [7, 3, 0], [4, 8, 1]]
+const CORE_SLOTS: Slot[] = [[2, 2, 0], [6, 2, 0], [2, 6, 1]]
 
 const PROPS: Partial<Record<TileId, PropKind[]>> = {
   baseA: ['locker', 'bench'],
@@ -310,8 +360,8 @@ for (const ring of orbitsOf('core')) furnish(ring, CORE_SLOTS, pickProp)
     if (!nearDoor(r.x + lx, r.y + ly)) props.set(key(r.x + lx, r.y + ly), kind)
   }
   for (const [lx, ly, kind] of [
-    [3, 3, 'plant'],
-    [4, 2, 'statue'],
+    [2, 2, 'plant'],
+    [1, 0, 'statue'],
   ] as [number, number, PropKind][]) {
     let p: [number, number] = [lx, ly]
     for (let i = 0; i < 4; i++) {
@@ -412,7 +462,9 @@ export function lockedDoorKeys(unlocked: TileId[]): Set<string> {
   const out = new Set<string>()
   for (const d of DOORS) {
     const gated = [d.a, d.b].filter((id) => CORE_TILES.has(id))
-    if (gated.length > 0 && gated.some((id) => !open.has(id))) out.add(`${d.x},${d.y}`)
+    if (gated.length === 0 || gated.every((id) => open.has(id))) continue
+    // 문이 세 칸이다. 한 칸만 잠그면 옆으로 돌아 들어간다
+    for (const t of d.tiles) out.add(`${t.x},${t.y}`)
   }
   return out
 }
