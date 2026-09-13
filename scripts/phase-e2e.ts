@@ -118,12 +118,29 @@ async function main(): Promise<void> {
   const far = await call('roamTo', a0.token, { gameId: GAME, tileId: 'baseB' })
   check(far.code === 'FAILED_PRECONDITION', '옆방이 아니면 못 간다', far.message)
 
-  console.log('\n── 페이즈를 열면 제자리로 ──')
+  const openedAt = dayHourMs(START, 1, 10)
+  await must('setDevClock', host, { gameId: GAME, anchorGameMs: openedAt, speed: 1 })
+
+  console.log('\n── 페이즈를 열면 걸어서 제자리로 ──')
+  // 값은 여기서 치른다. 자유 시간의 이동은 공짜지만, 종이 울렸을 때
+  // 멀리 있었으면 그만큼 걸어 돌아와야 한다
   const opened = await must('openPhase', host, { gameId: GAME })
   check(opened.no === 1, '첫 페이즈가 열렸다', `${opened.no}번`)
   now = (await pawnsNow())[a0.uid]
-  check(now.tileId === 'baseA', '돌아다니던 사람이 제자리로 돌아왔다', String(now.tileId))
+  check(now.tileId === null, '멀리 있던 사람은 **걸어서** 돌아온다', String(now.tileId))
+  check(now.postTile === 'baseA', '전투 자리는 벌써 제자리다', String(now.postTile))
+  check(Number(now.arriveAtMs) > openedAt, '도착 시각이 미래다', `${Number(now.arriveAtMs) - openedAt}ms 뒤`)
   check(Number(opened.returned) === 1, '돌아온 사람 수를 센다', `${opened.returned}명`)
+  check(Number(opened.allInAtMs) >= Number(now.arriveAtMs), '다 모이는 시각을 알려 준다')
+
+  const stayed = Object.entries(await pawnsNow()).filter(([uid]) => uid !== a0.uid)
+  check(stayed.every(([, p]) => p.tileId !== null), '제자리에 있던 사람은 걷지 않는다')
+
+  // 시계를 도착 시각으로 밀면 들어온다
+  await must('setDevClock', host, { gameId: GAME, anchorGameMs: Number(opened.allInAtMs), speed: 1 })
+  await must('tick', a0.token, { gameId: GAME })
+  now = (await pawnsNow())[a0.uid]
+  check(now.tileId === 'baseA', '걸어서 제자리에 닿았다', String(now.tileId))
 
   const roamNow = await call('roamTo', a0.token, { gameId: GAME, tileId: 'classroom' })
   check(roamNow.code === 'FAILED_PRECONDITION', '페이즈 중에는 함부로 못 움직인다')

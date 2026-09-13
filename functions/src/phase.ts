@@ -26,9 +26,12 @@ import {
   type Robot,
 } from '../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
+import { arrivals, planWalk } from '../../shared/rules/movement'
 import { SHORT_HANDED_TEAMS, TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc, TileDoc } from '../../shared/model'
 import { freshNow } from './turn'
+import { clearArrivals, writeWalk } from './move'
+import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 
@@ -96,6 +99,14 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
  *
  * 자유 시간에 어디까지 갔든 상관없다. 그 시간은 사람을 만나라고 있는
  * 것이지 전선을 옮기라고 있는 것이 아니다.
+ *
+ * **돌아오는 데는 시간이 걸린다.** 멀리 나가 있었으면 그만큼 걸어야
+ * 하고, 걷는 동안은 맵에서 사라진다 — 자유 시간에 어디까지 나갈지가
+ * 그래서 도박이 된다. 돌아다니는 것 자체는 공짜다(roamTo). 값을 치르는
+ * 것은 종이 울렸을 때 멀리 있었다는 사실 쪽이다.
+ *
+ * 점령은 postTile 로 센다. 아직 걷는 중이어도 전선에서 빠지지는
+ * 않는다 — 걸음은 누구를 만날 수 있는지만 바꾼다.
  */
 export const openPhase = onCall<{ gameId: string }>(async (req) => {
   requireHost(req.auth)
@@ -114,12 +125,47 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   const stale = await actionsOf(gameId).get()
   for (const d of stale.docs) batch.delete(d.ref)
 
-  let returned = 0
+  // 걸어서 돌아와야 하는 사람들. 옛 도착 예정을 먼저 걷어낸다 —
+  // 자유 시간에 찍어 둔 길이 남아 있으면 돌아오는 길과 엉킨다
+  const marching: { ref: FirebaseFirestore.DocumentReference; from: TileId; post: TileId }[] = []
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
     const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
-    if (p.tileId !== post) returned += 1
-    batch.update(d.ref, { tileId: post, postTile: post, fromTile: null, path: [], arriveAtMs: null })
+    if (p.tileId !== null && p.tileId !== post) marching.push({ ref: d.ref, from: p.tileId as TileId, post })
+  }
+  await Promise.all(marching.map((m) => clearArrivals(gameId, m.ref.id)))
+
+  let returned = 0
+  let allInAtMs = nowMs
+  for (const d of pawns.docs) {
+    const p = d.data() as PawnDoc
+    const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
+    const march = marching.find((m) => m.ref.id === d.id)
+    if (!march) {
+      // 제자리에 있었거나 이미 걷는 중이다. 걷는 중이면 그 걸음이
+      // 끝나기를 기다린다 — 여기서 자리를 빼앗으면 도착 예정과 어긋난다
+      batch.update(d.ref, { postTile: post, ...(p.tileId === post ? { fromTile: null, path: [], arriveAtMs: null } : {}) })
+      continue
+    }
+    returned += 1
+    const plan = planWalk(d.id, march.from, post, nowMs, 1)
+    if (!plan.ok || !plan.walk) {
+      // 길이 없다. 억지로 세우느니 그냥 세워 둔다
+      batch.update(d.ref, { tileId: post, postTile: post, fromTile: null, path: [], arriveAtMs: null })
+      continue
+    }
+    const firstAt = writeWalk(gameId, plan.walk, batch)
+    // 운영자가 「언제쯤 다 모이나」를 알아야 닫을 때를 안다
+    const lastAt = arrivals(plan.walk).slice(-1)[0]?.atMs ?? firstAt
+    if (lastAt > allInAtMs) allInAtMs = lastAt
+    batch.update(d.ref, {
+      tileId: null,
+      postTile: post,
+      fromTile: march.from,
+      path: [...plan.walk.path],
+      arriveAtMs: firstAt,
+      asleep: false,
+    })
   }
 
   const no = (game.phaseDone ?? 0) + 1
@@ -127,8 +173,11 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     phaseNow: { no, day: Math.floor((no - 1) / PHASES_PER_DAY) + 1, open: true, openedAtMs: nowMs },
   })
   await batch.commit()
+  // 떠나는 순간 그 방의 체류가 끝난다. 걷는 동안은 어느 방에도 없다 —
+  // 안 그러면 떠난 방의 말이 계속 들린다
+  await Promise.all(marching.map((m) => openInterval(gameId, m.ref.id, null, nowMs, 'walking')))
   await refreshViews(gameId)
-  return { no, returned }
+  return { no, returned, allInAtMs }
 })
 
 // ── 각자: 이번 페이즈에 할 일 ───────────────────────────────────
@@ -282,7 +331,7 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
   const uid = requireUid(req.auth)
   const { gameId, tileId } = req.data
   if (!TILE_BY_ID[tileId]) throw new HttpsError('invalid-argument', '그런 방은 없다.')
-  const { game } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
   if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '페이즈 중에는 함부로 못 움직인다.')
 
   const ref = gameRef(gameId)
@@ -311,6 +360,10 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     been.add(tileId)
     tx.update(mine.ref, { tileId, fromTile: here, arriveAtMs: null, path: [], visitedTiles: [...been] })
   })
+  // 방을 옮긴 순간 앞 방의 체류가 끝나고 이 방의 체류가 시작된다.
+  // 이것이 없으면 옮겨 다녀도 채팅은 처음 방에 머문다 — 늦게 들어온
+  // 방의 지난 말까지 읽히거나, 떠난 방의 말이 계속 들린다
+  await openInterval(gameId, uid, tileId, nowMs)
   await refreshViews(gameId)
   return { tileId }
 })

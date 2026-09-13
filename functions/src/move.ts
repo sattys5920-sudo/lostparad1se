@@ -27,7 +27,7 @@ import { gameRef, requireUid } from './index'
 const db = getFirestore()
 
 /** 그 사람의 아직 안 온 도착 예정을 지운다. 길을 바꾸면 옛 길은 없던 것이다. */
-async function clearArrivals(gameId: string, playerId: string): Promise<void> {
+export async function clearArrivals(gameId: string, playerId: string): Promise<void> {
   const snap = await gameRef(gameId)
     .collection('schedule')
     .where('kind', '==', 'arrive')
@@ -43,7 +43,7 @@ async function clearArrivals(gameId: string, playerId: string): Promise<void> {
 }
 
 /** 걸음을 예정 이벤트로 적는다. 칸마다 한 건이다. */
-function writeWalk(gameId: string, walk: Walk, batch: FirebaseFirestore.WriteBatch): number {
+export function writeWalk(gameId: string, walk: Walk, batch: FirebaseFirestore.WriteBatch): number {
   const steps = arrivals(walk)
   steps.forEach((step, i) => {
     const item: ScheduleDoc = {
