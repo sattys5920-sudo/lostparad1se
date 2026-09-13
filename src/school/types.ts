@@ -357,6 +357,9 @@ export type TileId =
   | 'broadcastRoom' // 방송실 — 핵심 지역
   | 'studentCouncil' // 학생회실 — 핵심 지역
   | 'centralPlaza' // 중앙광장 — 핵심 지역
+  | 'mainBuilding' // 본관 — 교차로
+  | 'newBuilding' // 신관 — 교차로
+  | 'annex' // 별관 — 교차로
 
 export interface TileSpec {
   id: TileId
