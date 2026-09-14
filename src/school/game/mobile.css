@@ -598,3 +598,43 @@
   color: var(--sc-bg);
   font-size: 13px;
 }
+
+/* 서버가 거절한 말. **저절로 사라지지 않는다** — 걷다가 놓치면
+   「아무 일도 안 일어났다」와 구별이 안 된다 */
+.sc-pl__said.is-bad {
+  background: var(--sc-danger);
+  color: #fff;
+  border-color: var(--sc-danger);
+}
+.sc-pl__said.is-bad::after {
+  content: ' (눌러서 닫기)';
+  opacity: 0.75;
+  font-size: 0.85em;
+}
+
+/* 「지금 상태」. 안 움직인다는 말만으로는 어디가 막혔는지 모른다 */
+.sc-pl__why summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--sc-text-dim);
+  cursor: pointer;
+}
+.sc-pl__why ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sc-pl__why li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+}
+.sc-pl__why li span:first-child { color: var(--sc-text-dim); flex: 0 0 auto; }
+.sc-pl__why li span:last-child { text-align: right; word-break: keep-all; }

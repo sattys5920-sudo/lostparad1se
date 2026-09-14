@@ -28,7 +28,7 @@ import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
-import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
+import { ADJACENCY, TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { MOVE_MINUTES } from '../../../shared/rules/occupy'
 import './play.css'
 
@@ -400,6 +400,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   /** 맵에서 누른 먼 방. 거기로 걸어가거나 내일 아침을 예약한다. */
   const [far, setFar] = useState<TileId | null>(null)
   const [said, setSaid] = useState('')
+  /** 서버가 거절한 말인가. 거절은 눌러서 지울 때까지 남는다. */
+  const [bad, setBad] = useState(false)
+  const say = useCallback((text: string) => { setBad(false); setSaid(text) }, [])
+  const refuse = useCallback((text: string) => { setBad(true); setSaid(text) }, [])
   const [tab, setTab] = useState<Tab>('map')
   const [sheet, setSheet] = useState<SheetId | null>(null)
   const [archive, setArchive] = useState(false)
@@ -430,12 +434,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // 마주 선 팀. 교역도 동맹도 사람이 꺼내는 말이라 그 팀 사람이 앞에 있어야 한다
   const facingTeams = [...new Set(hereNow.map((p) => p.team))].filter((t) => t !== me?.team)
 
-  // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다
+  // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다.
+  //
+  // **거절은 안 지운다.** 3.2초는 걷다가 놓치기 딱 좋은 시간이고,
+  // 놓치면 「아무 일도 안 일어났다」와 구별이 안 된다 — 문에 대고
+  // 걸었는데 왜 안 가는지 모르는 채로 남는다. 누르면 지워진다
   useEffect(() => {
-    if (!said) return
+    if (!said || bad) return
     const t = setTimeout(() => setSaid(''), 3200)
     return () => clearTimeout(t)
-  }, [said])
+  }, [said, bad])
 
   // **판마다 시계가 따로 돈다.** 서버와 같은 함수로 잰다
   const nowMs = useGameNow(state.game?.clock)
@@ -513,7 +521,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               return go
                 .then((r) => {
                   const left = (r as { tokens?: number }).tokens
-                  setSaid(
+                  say(
                     phaseOpen
                       ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
                       : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
@@ -521,7 +529,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   return true
                 })
                 .catch((e) => {
-                  setSaid((e as Error).message)
+                  refuse((e as Error).message)
                   return false
                 })
             }}
@@ -765,6 +773,29 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             </button>
             <button onClick={() => { closeSheet(); setArchive(true) }}>보관함</button>
           </div>
+          {/* **한 장으로 상태를 다 보이게 한다.** 「안 움직여요」만으로는
+              어디가 막혔는지 알 수 없어서, 판이 지금 어떤 상태인지를
+              그대로 적어 둔다. 숨긴 값은 없다 — 전부 내 화면이 이미
+              아는 것들이다 */}
+          <details className="sc-pl__why">
+            <summary>지금 상태</summary>
+            <ul>
+              <li><span>날짜</span><span>DAY {game.day}</span></li>
+              <li><span>시간</span><span>{phaseOpen ? `${phaseNo}교시` : '자유 시간'}</span></li>
+              <li><span>선 방</span><span>{standingOn ? TILE_BY_ID[standingOn].name : '걷는 중'}</span></li>
+              <li><span>내 칸</span><span>{standingRoom ? TILE_BY_ID[standingRoom].name : '복도'}</span></li>
+              <li>
+                <span>옆방</span>
+                <span>
+                  {standingOn ? (ADJACENCY[standingOn] ?? []).map((n) => TILE_BY_ID[n].name).join(' · ') : '—'}
+                </span>
+              </li>
+              <li><span>도착 대기</span><span>{arriveAtMs == null ? '없다' : `${Math.max(0, Math.ceil((arriveAtMs - nowMs) / 60000))}분`}</span></li>
+              <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
+              <li><span>마지막 응답</span><span>{said || '없다'}</span></li>
+            </ul>
+          </details>
+
           {host && (
             <div className="sc-pl__more">
               {/* 시험용. 본래는 A의 기록이 날마다 두 칸씩 연다 */}
@@ -787,7 +818,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
 
       {asking}
-      {said && <p className="sc-pl__said">{said}</p>}
+      {said && (
+        <p
+          className={bad ? 'sc-pl__said is-bad' : 'sc-pl__said'}
+          onClick={() => setSaid('')}
+        >
+          {said}
+        </p>
+      )}
     </div>
   )
 }
