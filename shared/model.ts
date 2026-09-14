@@ -371,17 +371,22 @@ export interface PlayerViewDoc {
    * 전에는 games/{id}/teams/{t} 를 누구나 읽을 수 있어서 네 팀 금고가
    * 다 보였다. 받아서 화면에서 가리는 것이 아니라 **보내지 않는다.**
    */
-  myVault: { money: number; knowledge: number }
+  /**
+   * **없을 수 있다.** 서버를 갈아끼우기 전에 쓰인 문서에는 이 칸이
+   * 없다 — 화면 배포와 서버 배포 사이에 몇 분이 있고, 그 사이에
+   * 들어온 사람은 옛 문서를 본다. 한 번 검은 화면으로 겪었다
+   */
+  myVault?: { money: number; knowledge: number }
   /** 우리 팀 로봇 수. 남의 팀 총수는 안 온다. */
-  myTeamRobots: number
+  myTeamRobots?: number
   /** 내가 데리고 다니는 로봇 수. */
-  myCarriedRobots: number
+  myCarriedRobots?: number
   /** 이번 페이즈에 내가 부순 로봇 수. 남의 것은 안 온다. */
-  mySmashes: number
+  mySmashes?: number
   /** 오늘 내가 적은 사람. **남이 누구를 적었는지는 안 온다.** */
-  myBallot: string | null
+  myBallot?: string | null
   /** 보이는 방마다 서 있는 로봇 수. 정원과 별개다. */
-  robotCounts: Record<TileId, number>
+  robotCounts?: Record<TileId, number>
   /**
    * 내가 선 방 바닥에 있는 쪽지. **한 장 있다는 것까지만이다.**
    *
@@ -394,7 +399,7 @@ export interface PlayerViewDoc {
    * 내가 선 방의 문제 종이. 안 펼친 것은 「한 장 있다」까지다.
    * **정답과 해설은 어떤 경로로도 오지 않는다.**
    */
-  quizzesHere: {
+  quizzesHere?: {
     id: string
     kind: 'choice' | 'short'
     prompt: string | null

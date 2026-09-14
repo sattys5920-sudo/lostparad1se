@@ -437,8 +437,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
       <ul className="sc-pl__stat">
         <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
-        <li><span>돈</span><span>{state.view?.myVault.money ?? '—'}</span></li>
-        <li><span>지식</span><span>{state.view?.myVault.knowledge ?? '—'}</span></li>
+        <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
+        <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
       </ul>
 
       {/* 걸어 다니는 학교는 한 방밖에 안 보인다. 구석에 판 전체를 얹는다 */}

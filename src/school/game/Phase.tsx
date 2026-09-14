@@ -115,7 +115,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, act, onS
       if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
       const need = researchKnowledge(hasPlant)
-      if ((view?.myVault.knowledge ?? 0) < need) return `지식이 모자란다. ${need}점이 든다.`
+      if ((view?.myVault?.knowledge ?? 0) < need) return `지식이 모자란다. ${need}점이 든다.`
       if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`
     }
     if (kind === 'summon' && teammates.length === 0) return '부를 팀원이 없다.'
@@ -217,7 +217,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, act, onS
       <p className="sc-ph__note">
         연구 한 번에 토큰 {ACT_COST.research} · 지식 <b>{researchKnowledge(hasPlant)}</b>
         {hasPlant && ' (발전소를 쥐어 한 점 싸다)'}
-        {' · '}금고의 지식 {view?.myVault.knowledge ?? 0}
+        {' · '}금고의 지식 {view?.myVault?.knowledge ?? 0}
       </p>
       <p className="sc-ph__note">
         우리 팀 로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b>
