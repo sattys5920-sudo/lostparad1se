@@ -281,7 +281,8 @@
   min-height: 100%;
   background: #101219;
   color: #e6e8ee;
-  padding: 16px 14px 32px;
+  /* 노치와 홈 바만큼은 비워 둔다. 제목이 노치에 물리면 안 된다 */
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 14px calc(32px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -308,6 +309,9 @@
   color: #6b7183;
   font-size: 16px;
   cursor: pointer;
+  /* 손가락은 커서가 아니다 */
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 6px;
 }
 
@@ -324,6 +328,9 @@
   color: #6b7183;
   font: inherit;
   font-size: 13px;
+  /* 손가락은 커서가 아니다. 가로도 44px 을 지킨다 */
+  min-width: 44px;
+  min-height: 44px;
   padding: 8px 10px;
   cursor: pointer;
   position: relative;

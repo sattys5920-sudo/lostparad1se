@@ -168,8 +168,8 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
      *
      * 소수 배율이면 한 픽셀이 1.4픽셀이 되어 어떤 줄은 굵고 어떤 줄은
      * 가늘어진다. 도트 그림에서는 그게 바로 뭉개져 보인다. 그래서
-     * 들어갈 수 있는 가장 큰 정수 배율을 골라 그리고, 남는 자리는
-     * 바탕색으로 둔다 — 늘리는 것보다 여백이 낫다.
+     * 들어갈 수 있는 가장 큰 정수 배율을 고르고, 그 배율에서 화면에
+     * 들어가는 만큼을 그린다. 남는 자리는 바탕색으로 둔다.
      */
     const resize = () => {
       const box = canvas.parentElement
@@ -177,13 +177,17 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
       const h = box?.clientHeight ?? canvas.clientHeight
       if (w <= 0 || h <= 0) return
       // 논리 화소 기준으로 몇 배까지 들어가는가
+      // **정수 배율만 쓴다.** 소수 배율은 픽셀을 뭉갠다
       const fit = Math.min(w / MIN_VIEW_PX, h / MIN_VIEW_PX)
       const scale = Math.max(1, Math.min(MAX_SCALE, Math.floor(fit)))
-      const side = MIN_VIEW_PX * scale
-      canvas.width = MIN_VIEW_PX
-      canvas.height = MIN_VIEW_PX
-      canvas.style.width = `${side}px`
-      canvas.style.height = `${side}px`
+      // 배율을 정한 뒤에는 남는 자리를 검게 두지 않고 **방을 더 보여 준다.**
+      // 160×160 을 고집하면 위아래로 손가락만 한 검은 띠가 남는다
+      const vw = Math.max(MIN_VIEW_PX, Math.floor(w / scale))
+      const vh = Math.max(MIN_VIEW_PX, Math.floor(h / scale))
+      canvas.width = vw
+      canvas.height = vh
+      canvas.style.width = `${vw * scale}px`
+      canvas.style.height = `${vh * scale}px`
       ctx.imageSmoothingEnabled = false
     }
     resize()

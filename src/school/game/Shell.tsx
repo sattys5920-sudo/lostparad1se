@@ -159,3 +159,21 @@ function ShareHint() {
     </figure>
   )
 }
+
+// ── 서비스 워커 ─────────────────────────────────────────────────
+
+/**
+ * 정적 파일만 미리 쥔다. **게임 상태는 절대 캐시하지 않는다.**
+ *
+ * 붙이는 자리를 화면 쪽에 두는 것은, 에뮬레이터로 띄운 판에까지
+ * 워커가 끼어들면 고친 것을 고친 대로 못 보기 때문이다.
+ */
+export function useStaticCache(): void {
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return
+    void navigator.serviceWorker.register('/lostparad1se/sw.js', { scope: '/lostparad1se/' }).catch(() => {
+      // 못 붙어도 게임은 그대로 돌아간다. 캐시는 덤이다
+    })
+  }, [])
+}

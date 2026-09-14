@@ -21,7 +21,7 @@ import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { Slips } from './Slips'
 import { Quiz, QuizHost } from './Quiz'
 import { Ballot } from './Ballot'
-import { AddToHome, OfflineBar, TurnNotice, useOnline, useWakeUp } from './Shell'
+import { AddToHome, OfflineBar, TurnNotice, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
@@ -641,8 +641,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
 
       {/* ── 시트 ─────────────────────────────────────────────── */}
+      {/* 방 이름은 안쪽 머리글이 이미 말한다. 시트 머리에 또 쓰면
+          같은 말이 두 줄 선다 */}
       {sheet === 'act' && (
-        <Sheet title={phaseOpen ? '자리 차지하기' : (standingRoom ? TILE_BY_ID[standingRoom].name : '행동')} onClose={closeSheet}>
+        <Sheet title={phaseOpen ? '자리 차지하기' : '행동'} onClose={closeSheet}>
           {phaseOpen ? (
             <Phase
               me={me}
@@ -784,6 +786,8 @@ function useTyping(): boolean {
 // ── 묶기 ────────────────────────────────────────────────────────
 
 export function Play() {
+  // 껍데기만 미리 쥔다. 지하철에서 앱을 다시 켜도 흰 화면이 안 뜬다
+  useStaticCache()
   const [ready, setReady] = useState(false)
   const [signedIn, setSignedIn] = useState(false)
   // 계정을 아직 못 읽었으면 undefined. 없으면 null

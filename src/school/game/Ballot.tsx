@@ -39,7 +39,7 @@ export function Ballot({ me, seats, captainIds, invisibleId, day, view, act, onS
   async function write(targetId: string, name: string) {
     // 바꿀 수 있다고 해도, 이름 하나를 적는 일이 손가락이 스친 것만으로
     // 일어나서는 안 된다
-    if (!(await ask(`${name}(이)라고 적는다.`))) return
+    if (!(await ask(`「${name}」라고 적는다.`))) return
     setBusy(true)
     try {
       await act.castBallot(targetId)

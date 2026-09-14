@@ -48,15 +48,18 @@
   opacity: 0.75;
 }
 
-/* 최소 터치 영역. 손가락은 커서가 아니다 */
+/* 최소 터치 영역. 손가락은 커서가 아니다 — 세로만 재면 짧은 이름
+   단추가 43px 로 남는다. 가로도 같이 잰다 */
 .sc-pl-root button,
 .sc-pl-root select {
+  min-width: 44px;
   min-height: 44px;
   touch-action: manipulation;
 }
 /* 줄 안에 끼어 있는 작은 단추까지 44px 로 밀면 줄이 터진다.
    대신 보이지 않는 여백으로 손가락 자리를 넓힌다 */
 .sc-pl-root .is-inline {
+  min-width: 0;
   min-height: 0;
   position: relative;
 }
@@ -86,7 +89,17 @@
 .sc-turn p { margin: 0; font-size: 14px; }
 .sc-turn small { color: var(--sc-text-dim); font-size: 12px; }
 
-@media (orientation: landscape) and (max-height: 500px) {
+/*
+ * **키보드가 올라온 것을 가로로 돌린 것으로 착각하면 안 된다.**
+ *
+ * interactive-widget=resizes-content 라 키보드가 뜨면 레이아웃 뷰포트가
+ * 그만큼 줄어든다. 375×667 이 375×360 이 되면 그것도 「가로」다 —
+ * 글을 쓰려고 입력창을 눌렀는데 "세로로 돌려 주세요"가 뜬다. 실제로 그랬다.
+ *
+ * 진짜 가로는 폭이 넓다(667·844·915). 키보드로 줄어든 세로는 폭이
+ * 그대로 375~412 다. 폭으로 가른다.
+ */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 560px) {
   .sc-turn { display: flex; }
 }
 
@@ -150,6 +163,11 @@
 .sc-pl__tab[hidden] { display: none !important; }
 
 /* 구르는 것은 이 안에서만. 앱 전체는 구르지 않는다 */
+/* **구르는 칸 안의 것은 눌리지 않는다.** overflow 를 쓴 상자는 저절로
+   min-height:0 이 되어, flex 가 그것부터 납작하게 만든다 — 실제로
+   자원 표가 선 두 줄로 찌그러졌다 */
+.sc-pl__scroll > * { flex: 0 0 auto; }
+
 .sc-pl__scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -251,6 +269,7 @@
   grid-template-rows: repeat(2, var(--key));
 }
 .sc-pl__pad button {
+  min-width: 0;
   width: var(--key);
   height: var(--key);
   min-height: 0;
@@ -276,6 +295,7 @@
   gap: 4px;
 }
 .sc-pl__acts button {
+  min-width: 0;
   min-height: 0;
   padding: 0 4px;
   font-size: 12px;
@@ -434,8 +454,8 @@
 }
 .sc-sheet__head h2 { margin: 0; font-size: 14px; letter-spacing: 0.03em; }
 .sc-sheet__head button {
-  min-height: 0;
-  padding: 6px 10px;
+  min-height: 44px;
+  padding: 0 14px;
   appearance: none;
   border: 1px solid var(--sc-line);
   border-radius: 6px;
@@ -539,14 +559,14 @@
 }
 .sc-atlas__sheet {
   position: relative;
-  width: 100%;
+  margin: 0;
   max-width: 500px;
-  height: 100dvh;
-  max-height: none;
   border-radius: 0;
   padding-top: var(--sa-top);
-  padding-bottom: calc(var(--sa-bottom) + 8px);
+  padding-bottom: var(--sa-bottom);
 }
+/* 엄지 단추가 방 설명을 덮지 않게 오른쪽을 비운다 */
+.sc-atlas .sc-atlas__card { padding-right: 116px; }
 .sc-atlas__box { touch-action: none; }
 
 /* 엄지가 닿는 자리. 오른쪽 위의 ✕ 와 같은 일을 한다 */
