@@ -357,7 +357,25 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
         }
         return
       }
-      if (!isWalkable(nx, ny)) return
+      if (!isWalkable(nx, ny)) {
+        // **문 옆 한 칸에서 벽을 밀면 문 쪽으로 비켜 준다.**
+        //
+        // 문이 한 칸이라 방을 가로질러 온 사람은 문보다 한 칸 옆에
+        // 서 있기 쉽다. 그 자리에서 밀면 벽이고, 아무 일도 안 일어나면
+        // 게임이 고장 난 것처럼 보인다 — 전에 그래서 문을 세 칸으로
+        // 넓혔었다. 이번에는 문 대신 걸음을 비켜 준다
+        const side: [number, number][] = d === 'up' || d === 'down' ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]]
+        for (const [sx, sy] of side) {
+          if (!doorHere(nx + sx, ny + sy)) continue
+          if (!isWalkable(self.tx + sx, self.ty + sy)) continue
+          self.tx += sx
+          self.ty += sy
+          self.moving = true
+          stepLeft = STEP_MS
+          return
+        }
+        return
+      }
       self.tx = nx
       self.ty = ny
       self.moving = true

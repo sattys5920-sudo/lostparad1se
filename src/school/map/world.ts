@@ -104,7 +104,7 @@ ROOMS.forEach((room, i) => {
 })
 
 export interface Door {
-  /** 문 한가운데. 문은 이 칸을 포함해 DOOR_WIDE 칸이다. */
+  /** 문 자리. 문은 이 칸을 포함해 DOOR_WIDE 칸이다. */
   x: number
   y: number
   a: TileId
@@ -114,16 +114,30 @@ export interface Door {
 }
 
 /**
- * 문 너비. **한 칸이면 안 된다.**
+ * 문 너비. 한 칸이다.
  *
- * 한 칸짜리 문은 손가락으로 하는 조작과 맞지 않는다. 방을 가로질러 온
- * 사람은 문보다 한 칸 옆에 서 있기 쉽고, 그 자리에서 위를 누르면 아무 일도
- * 안 일어난다. 벽에 막힌 것인지 게임이 고장 난 것인지 알 길이 없다.
- * 실제로 그랬다 — A팀 기지에서 위를 아무리 눌러도 복도로 못 갔다.
+ * 전에는 세 칸이었다. 한 칸짜리 문은 손가락 조작과 안 맞는다는 것이
+ * 이유였다 — 방을 가로질러 온 사람은 문보다 한 칸 옆에 서 있기 쉽고,
+ * 그 자리에서 위를 누르면 아무 일도 안 일어난다. 벽에 막힌 것인지
+ * 게임이 고장 난 것인지 알 길이 없다. 실제로 그랬다.
  *
- * 세 칸이면 방 한가운데 줄을 타고 온 사람은 언제나 문에 닿는다.
+ * 그래서 좁히면서 그 구멍을 두 가지로 막았다.
+ *
+ *   1. 가구를 못 놓는 한가운데 길은 그대로 세 칸이다(AISLE_WIDE).
+ *      문은 좁아도 다가가는 길은 안 좁힌다
+ *   2. 문 옆 한 칸에서 벽을 밀면 문 쪽으로 비켜 준다(Walk 의 tryStep)
+ *
+ * 그리고 지금은 옆방을 눌러 저절로 걸어가는 길도 있다.
  */
-export const DOOR_WIDE = 3
+export const DOOR_WIDE = 1
+
+/**
+ * 가구를 못 놓는 한가운데 길의 너비.
+ *
+ * **문 너비와 따로 둔다.** 문을 한 칸으로 좁혔다고 길까지 한 칸으로
+ * 좁히면, 좁은 문 바로 앞에 책상이 놓여 다가갈 수조차 없게 된다.
+ */
+export const AISLE_WIDE = 3
 
 /**
  * 두 방 사이 벽 한 줄 가운데에 문을 뚫는다. 격자라 이웃은 언제나 벽 한 줄을
@@ -222,9 +236,9 @@ const rotCell = (row: number, col: number): [number, number] => [col, GRID - 1 -
 /** 방 한가운데 줄. 문과 문을 잇는 길이라 가구를 놓지 않는다. */
 const CENTER = Math.floor(ROOM / 2)
 
-/** 가구를 못 놓는 한가운데 띠. 문이 세 칸이니 길도 세 칸이어야 한다. */
+/** 가구를 못 놓는 한가운데 띠. 문보다 넓다 — 좁은 문일수록 길은 넓어야 한다. */
 const KEEP_CLEAR = new Set<number>()
-for (let i = -Math.floor(DOOR_WIDE / 2); i <= Math.floor(DOOR_WIDE / 2); i++) KEEP_CLEAR.add(CENTER + i)
+for (let i = -Math.floor(AISLE_WIDE / 2); i <= Math.floor(AISLE_WIDE / 2); i++) KEEP_CLEAR.add(CENTER + i)
 
 /** 방 안의 자리도 같이 돈다. 방이 정사각이라 (lx,ly) → (ROOM-1-ly, lx) 다. */
 const rotSlot = ([lx, ly]: [number, number]): [number, number] => [ROOM - 1 - ly, lx]
