@@ -10,6 +10,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { TOTAL_SEATS, openTeams } from '../../shared/rules/lobby'
+import { TILES } from '../../shared/rules/board'
 import { STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, SeatEntry } from '../../shared/model'
 import { createAccount } from './account'
@@ -78,3 +79,29 @@ function pickTeam(seats: readonly SeatEntry[]): TeamId | undefined {
     return n(t) < n(best) ? t : best
   }, open[0])
 }
+
+/**
+ * 핵심 칸을 전부 연다. **시험용이다.**
+ *
+ * 본래는 A의 기록이 날마다 두 칸씩 열어 준다(CORE_OPENING). 닷새를
+ * 기다리지 않고 확인하려면 그 문을 미리 열어야 한다 — 열리지 않은
+ * 핵심에는 깃발을 못 꽂아서, 점령전의 절반이 잠겨 있는 셈이 된다.
+ *
+ * **규칙을 바꾸지 않는다.** openedTiles 에 넣어 줄 뿐이라, 아침마다
+ * 도는 정산이 그날 몫을 또 넣어도 겹칠 뿐 아무 일도 안 일어난다.
+ * 되돌리려면 판을 새로 만든다.
+ */
+export const openAllTiles = onCall<{ gameId: string }>(async (req) => {
+  requireUid(req.auth)
+  if (req.auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
+
+  const ref = gameRef(req.data.gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+
+  const all = TILES.filter((t) => t.tier === 'core' || t.tier === 'plaza').map((t) => t.id)
+  const now = (snap.data() as GameDoc).openedTiles ?? []
+  const openedTiles = [...new Set([...now, ...all])]
+  await ref.update({ openedTiles })
+  return { openedTiles, added: openedTiles.length - now.length }
+})

@@ -182,6 +182,8 @@ export function gameActions(gameId: string) {
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */
     seedPlayers: (password: string, leaveSeats = 1) =>
       callServer('seedPlayers', { ...g, password, leaveSeats }),
+    /** 시험용. 핵심 칸을 미리 다 연다 — 닷새를 기다리지 않고 본다 */
+    openAllTiles: () => callServer('openAllTiles', { ...g }),
 
     moveTo: (tileId: TileId) => callServer('moveTo', { ...g, tileId }),
     planCommute: (tileId: TileId | null, plantFlag = false) =>

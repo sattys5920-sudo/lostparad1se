@@ -751,6 +751,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             </button>
             <button onClick={() => { closeSheet(); setArchive(true) }}>보관함</button>
           </div>
+          {host && (
+            <div className="sc-pl__more">
+              {/* 시험용. 본래는 A의 기록이 날마다 두 칸씩 연다 */}
+              <button
+                onClick={() =>
+                  void act
+                    .openAllTiles()
+                    .then((r) => setSaid(`핵심 칸을 다 열었다. ${(r as { added?: number }).added ?? 0}칸 추가.`))
+                    .catch((e) => setSaid((e as Error).message))
+                }
+              >
+                방 다 열기
+              </button>
+            </div>
+          )}
           {host && <PhaseHost open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} act={act} onSaid={setSaid} />}
           {/* 문제 등록. 정답과 해설은 이 화면에서만 보인다 */}
           {host && <QuizHost act={act} onSaid={setSaid} />}

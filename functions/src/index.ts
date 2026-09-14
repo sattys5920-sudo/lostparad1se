@@ -133,7 +133,7 @@ export { say, chatLines } from './chat'
 export { claimHost } from './hostgate'
 
 // QA용 채우기. 운영자만, 로비에서만.
-export { seedPlayers } from './qa'
+export { seedPlayers, openAllTiles } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
 export { openPhase, closePhase, phaseAct, phaseNow, roamTo } from './phase'
