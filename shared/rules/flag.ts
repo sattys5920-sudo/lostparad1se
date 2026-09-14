@@ -8,7 +8,7 @@ import {
   FLAG_BASE_GAME_MIN,
   FLAG_CLASS_PRESIDENT_FACTOR,
   FLAG_CORE_MIN_PRESENCE,
-  FLAG_COST_INFLUENCE,
+  FLAG_COST_KNOWLEDGE,
   FLAG_COST_MONEY,
   FLAG_COST_TILES_PER_STEP,
   FLAG_DEFENSE_GAME_MIN,
@@ -95,8 +95,8 @@ export function flagCost(input: CostInput): Partial<Record<Resource, number>> {
   const step = Math.floor(Math.max(0, input.ownedTiles) / FLAG_COST_TILES_PER_STEP)
   const money =
     FLAG_COST_MONEY[input.target] + step + (input.expandCostUp ? SABOTAGE_EXTRA_FLAG_MONEY : 0)
-  const influence = FLAG_COST_INFLUENCE[input.target]
-  return influence > 0 ? { money, influence } : { money }
+  const knowledge = FLAG_COST_KNOWLEDGE[input.target]
+  return knowledge > 0 ? { money, knowledge } : { money }
 }
 
 // ── 판정 ────────────────────────────────────────────────────────

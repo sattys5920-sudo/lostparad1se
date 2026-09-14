@@ -40,7 +40,7 @@ describe('의심표 세기', () => {
 })
 
 describe('하루 정산', () => {
-  const base = { scores: SCORES, influenceOf: () => 0 }
+  const base = { scores: SCORES, knowledgeOf: () => 0 }
 
   it('순위·주목·만회는 그대로 나온다', () => {
     const out = settleDay({ ...base, votes: [] })
@@ -84,7 +84,7 @@ describe('화면에 내려보내는 것', () => {
   it('표에 관해 나가는 것은 투명인간 하나뿐이다', () => {
     const out = settleDay({
       scores: SCORES,
-      influenceOf: () => 0,
+      knowledgeOf: () => 0,
       votes: [vote('a1', 'b1', 'suspicion'), vote('a2', 'b1', 'suspicion'), vote('a3', 'c1', 'suspicion')],
     })
     const view = settlementView(out)
@@ -99,7 +99,7 @@ describe('화면에 내려보내는 것', () => {
   })
 
   it('아무도 지워지지 않은 날도 그대로 알린다', () => {
-    const view = settlementView(settleDay({ scores: SCORES, influenceOf: () => 0, votes: [] }))
+    const view = settlementView(settleDay({ scores: SCORES, knowledgeOf: () => 0, votes: [] }))
     expect(view.invisibleId).toBe(null)
   })
 })

@@ -313,7 +313,7 @@ export const produce = onCall<{ gameId: string; tileId: TileId }>(async (req) =>
 // ── 견제 ────────────────────────────────────────────────────────
 
 /**
- * 남의 칸에 서서 그 팀을 방해한다. 영향력을 낸다.
+ * 남의 칸에 서서 그 팀을 방해한다. 지식을 낸다.
  *
  * 걸린 견제는 공개다 — 누가 걸었는지까지 보인다. 익명이 아니다.
  */
@@ -327,10 +327,10 @@ export const sabotage = onCall<{ gameId: string; tileId: TileId; kind: SabotageK
 
   const out = checkSabotage({ kind, targetTeam, team: c.team, resources: c.teamDoc.resources })
   if (!out.ok) {
-    throw new HttpsError('failed-precondition', out.reason === 'ownTeam' ? '우리 팀이다.' : '영향력이 모자라다.')
+    throw new HttpsError('failed-precondition', out.reason === 'ownTeam' ? '우리 팀이다.' : '지식이 모자라다.')
   }
   if (!canPay(c.teamDoc.resources, SABOTAGE_COST)) {
-    throw new HttpsError('failed-precondition', '영향력이 모자라다.')
+    throw new HttpsError('failed-precondition', '지식이 모자라다.')
   }
 
   const hours = SABOTAGE_REAL_HOURS[kind]

@@ -1,15 +1,14 @@
 // 약점 — 털어놓기가 남기는 것.
 //
 // 숨긴 사실을 밝히면 들은 사람 전원이 나에 대한 약점 하나를 쥔다.
-// 영향력은 상한이 있지만 약점은 없다 — 두 번째부터의 1:1이 순수하게
+// 털어놓기는 얻는 것이 없고 약점만 남긴다 — 1:1 한 번 한 번이 순수하게
 // 손해인 이유가 여기 있다.
 //
 // 역할을 밝히거나 채팅에 글을 쓰는 것으로는 약점이 생기지 않는다.
 // 「공인된 고백」 카드로 올라간 털어놓기만 센다. 손으로 친 말은 어떤
 // 판정에도 쓰이지 않는다.
-import { LEVERAGE_BIND_GAME_HOURS, LEVERAGE_EXTORT_INFLUENCE, type RevealScope } from './v2'
+import { LEVERAGE_BIND_GAME_HOURS, LEVERAGE_EXTORT_MONEY, type RevealScope } from './v2'
 import { addActiveSeconds } from './clock'
-import { revealInfluenceGain } from './reveal'
 
 /** 누가 누구의 약점을 쥐고 있는가. */
 export interface Leverage {
@@ -40,20 +39,16 @@ export interface RevealInput {
 }
 
 export interface RevealResult {
-  /** 이번에 오르는 영향력. 말하는 사람 팀으로 간다. */
-  influence: number
   /** 새로 생기는 약점. 이미 쥐고 있는 사람에게는 늘지 않는다. */
   gained: Leverage[]
 }
 
 /**
- * 털어놓기 한 번의 결과.
+ * 털어놓기 한 번의 결과. **생기는 것은 약점뿐이다.**
  *
- * 영향력은 총량 6에 걸리지만 약점은 걸리지 않는다. 이미 나에 대한
- * 약점을 쥔 사람은 또 쥐지 않는다 — 한 번에 하나다.
+ * 이미 나에 대한 약점을 쥔 사람은 또 쥐지 않는다 — 한 번에 하나다.
  */
 export function reveal(input: RevealInput): RevealResult {
-  const influence = revealInfluenceGain(input.alreadyGained, input.scope)
   const gained: Leverage[] = []
   for (const listenerId of input.listenerIds) {
     if (listenerId === input.speakerId) continue
@@ -61,7 +56,7 @@ export function reveal(input: RevealInput): RevealResult {
     if (gained.some((g) => g.holderId === listenerId)) continue
     gained.push({ holderId: listenerId, aboutId: input.speakerId, gainedAtMs: input.atMs, spentAtMs: null })
   }
-  return { influence, gained }
+  return { gained }
 }
 
 // ── 쓰는 법 ─────────────────────────────────────────────────────
@@ -76,14 +71,14 @@ export function bindUntilMs(nowMs: number): number {
 export interface ExtortResult {
   /** 실제로 옮겨진 양. 상대에게 3이 없으면 있는 만큼만 간다. */
   moved: number
-  fromInfluence: number
-  toInfluence: number
+  fromMoney: number
+  toMoney: number
 }
 
-/** 갈취. 영향력은 0 아래로 내려가지 않으므로 없는 것은 뜯지 못한다. */
-export function extort(fromInfluence: number, toInfluence: number): ExtortResult {
-  const moved = Math.max(0, Math.min(LEVERAGE_EXTORT_INFLUENCE, fromInfluence))
-  return { moved, fromInfluence: fromInfluence - moved, toInfluence: toInfluence + moved }
+/** 갈취. 없는 것은 뜯지 못하므로 금고에 있는 만큼만 간다. */
+export function extort(fromMoney: number, toMoney: number): ExtortResult {
+  const moved = Math.max(0, Math.min(LEVERAGE_EXTORT_MONEY, fromMoney))
+  return { moved, fromMoney: fromMoney - moved, toMoney: toMoney + moved }
 }
 
 export type UseRefusal = 'noLeverage' | 'alreadySpent'

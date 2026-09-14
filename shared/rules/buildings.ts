@@ -54,8 +54,8 @@ export function pay(have: Record<Resource, number>, cost: Bag): Record<Resource,
 export function gain(have: Record<Resource, number>, bag: Bag): Record<Resource, number> {
   const out = { ...have }
   for (const r of RESOURCES) out[r] += bag[r] ?? 0
-  // 영향력은 0 아래로 내려가지 않는다
-  if (out.influence < 0) out.influence = 0
+  // 금고는 0 아래로 내려가지 않는다
+  for (const r of RESOURCES) if (out[r] < 0) out[r] = 0
   return out
 }
 
@@ -204,7 +204,7 @@ export function dailyProduction(input: ProduceInput): Record<Resource, number> {
   )
   const factor = maintenanceFactor(ours.length) * (input.productionDown ? SABOTAGE_PRODUCTION_FACTOR : 1)
 
-  const raw: Record<Resource, number> = { money: 0, knowledge: 0, influence: 0 }
+  const raw: Record<Resource, number> = { money: 0, knowledge: 0 }
   for (const t of ours) {
     for (const b of t.buildings) {
       for (const [r, n] of Object.entries(BUILDING_BY_KIND[b.kind].produces) as [Resource, number][]) {
@@ -215,6 +215,5 @@ export function dailyProduction(input: ProduceInput): Record<Resource, number> {
   return {
     money: Math.floor(raw.money * factor),
     knowledge: Math.floor(raw.knowledge * factor),
-    influence: Math.floor(raw.influence * factor),
   }
 }

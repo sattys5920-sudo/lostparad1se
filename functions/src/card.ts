@@ -12,7 +12,6 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { CARD_BY_KIND, HAND_LIMIT, type CardKind, type TeamId } from '../../shared/rules/v2'
 import { cardEffect, checkPlay, drawCard, playCard } from '../../shared/rules/cards'
 import { gain } from '../../shared/rules/buildings'
-import { applyInfluence } from '../../shared/rules/votes'
 import { rngFrom } from '../../shared/missions/assign'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import type { CardDoc, PawnDoc, TeamDoc } from '../../shared/model'
@@ -134,12 +133,12 @@ export const playOne = onCall<{
     batch.update(ref.collection('teams').doc(pawn.team), { resources: gain(team.resources, effect.gain) })
   }
 
-  // 대상 팀 영향력이 깎인다
-  if (effect.influenceHit) {
-    const t = effect.influenceHit.team
+  // 대상 팀 금고에서 돈이 깎인다. 0 아래로는 안 내려간다
+  if (effect.moneyHit) {
+    const t = effect.moneyHit.team
     const doc = (await ref.collection('teams').doc(t).get()).data() as TeamDoc
     batch.update(ref.collection('teams').doc(t), {
-      resources: { ...doc.resources, influence: applyInfluence(doc.resources.influence, -effect.influenceHit.amount) },
+      resources: { ...doc.resources, money: Math.max(0, doc.resources.money - effect.moneyHit.amount) },
     })
   }
 

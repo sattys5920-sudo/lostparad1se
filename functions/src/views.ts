@@ -60,10 +60,11 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
+      sub(gameId, 'teams').get(),
       sub(gameId, 'tiles').get(),
       sub(gameId, 'robots').get(),
       secret(gameId, 'roster').get(),
@@ -109,6 +110,13 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   return {
     nowMs,
     over: game.phase === 'finished',
+    // 금고. 투영이 내 팀 것만 떼어 보낸다 — 여기서는 통째로 들고만 간다
+    vaults: Object.fromEntries(
+      teams.docs.map((d) => {
+        const t = d.data() as { resources?: { money?: number; knowledge?: number } }
+        return [d.id, { money: t.resources?.money ?? 0, knowledge: t.resources?.knowledge ?? 0 }]
+      }),
+    ),
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,
     // 위장은 secret 에만 있다. 판 문서는 누구나 읽을 수 있어서, 거기

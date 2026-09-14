@@ -12,7 +12,6 @@ import {
   type TradeOffer,
 } from './diplomacy'
 import {
-  ALLIANCE_BREAK_INFLUENCE_PENALTY,
   ALLIANCE_BREAK_LOCK_REAL_HOURS,
   TRADE_PENDING_LIMIT,
   type Resource,
@@ -22,7 +21,6 @@ import {
 const res = (over: Partial<Record<Resource, number>> = {}): Record<Resource, number> => ({
   money: 10,
   knowledge: 5,
-  influence: 3,
   ...over,
 })
 
@@ -103,7 +101,6 @@ describe('동맹', () => {
 
   it('먼저 깬 팀은 12시간 잠긴다', () => {
     const out = breakAlliance(0)
-    expect(out.influencePenalty).toBe(ALLIANCE_BREAK_INFLUENCE_PENALTY)
     expect(out.breaker.lockUntilRealMs).toBe(ALLIANCE_BREAK_LOCK_REAL_HOURS * 3_600_000)
     expect(out.other.lockUntilRealMs).toBe(null)
   })

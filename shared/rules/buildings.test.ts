@@ -38,8 +38,8 @@ describe('자원 셈', () => {
     expect(pay(res({ money: 5 }), { money: 2 })?.money).toBe(3)
   })
 
-  it('영향력은 0 아래로 내려가지 않는다', () => {
-    expect(gain(res({ influence: 1 }), { influence: -5 }).influence).toBe(0)
+  it('금고는 0 아래로 내려가지 않는다', () => {
+    expect(gain(res({ money: 1 }), { money: -5 }).money).toBe(0)
   })
 })
 
@@ -171,7 +171,7 @@ describe('생산', () => {
       tile({ tileId: 'classroom', buildings: [{ kind: 'shop', level: 1 }] }),
       tile({ tileId: 'garden', buildings: [{ kind: 'archive', level: 1 }] }),
     ]
-    expect(dailyProduction({ tiles, team: 'A' })).toEqual({ money: 2, knowledge: 2, influence: 0 })
+    expect(dailyProduction({ tiles, team: 'A' })).toEqual({ money: 2, knowledge: 2 })
   })
 
   it('개조하면 두 배다', () => {

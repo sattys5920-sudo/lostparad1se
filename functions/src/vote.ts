@@ -6,15 +6,13 @@
 // 털어놓기는 반대다. 스스로 입을 여는 일이라 공인된 고백으로 남고,
 // 들은 사람은 그 사람의 약점을 쥔다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { canCast } from '../../shared/rules/votes'
-import { revealInfluenceGain } from '../../shared/rules/reveal'
-import { applyInfluence } from '../../shared/rules/votes'
-import { REVEAL_INFLUENCE_CAP, type RevealScope, type VoteKind } from '../../shared/rules/v2'
+import type { RevealScope, VoteKind } from '../../shared/rules/v2'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
 import { FRAGMENT_BY_DAY } from './story/fragments'
-import type { LeverageDoc, PawnDoc, RosterDoc, TeamDoc, VoteDoc } from '../../shared/model'
+import type { LeverageDoc, PawnDoc, RosterDoc, VoteDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
@@ -107,11 +105,13 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
 // ── 털어놓기 ────────────────────────────────────────────────────
 
 /**
- * 숨긴 사실을 털어놓는다.
+ * 숨긴 사실을 털어놓는다. **얻는 것은 없다.**
  *
- *   첫 1:1        영향력 +3, 들은 사람이 약점을 쥔다
- *   그다음 1:1    영향력 0   — 약점만 늘어난다
- *   전체          남은 만큼을 6까지 채운다. 아무도 약점을 쥐지 않는다
+ *   1:1   들은 사람마다 나에 대한 약점을 쥔다
+ *   전체  아무도 약점을 쥐지 않는다
+ *
+ * 전에는 영향력이 올랐다. 영향력을 걷어내면서 그 보상도 없앴다 — 값을
+ * 치르지 않는 신뢰는 신뢰가 아니라서, 이 행동은 보상이 없어야 제값을 한다.
  *
  * 「나 털어놓을게」라고 채팅에 쓰는 것과 실제로 털어놓는 것은 완전히
  * 다른 일이다. 게임은 후자만 센다.
@@ -159,15 +159,6 @@ export const revealSecret = onCall<{ gameId: string; scope: RevealScope; listene
       }
     }
 
-    const gained = (await ref.collection('secret').doc('reveals').collection('items').doc(uid).get()).data() as
-      | { gained: number }
-      | undefined
-    const already = gained?.gained ?? 0
-    const gain = revealInfluenceGain(already, scope)
-
-    const teamSnap = await ref.collection('teams').doc(me.team).get()
-    const teamDoc = teamSnap.data() as TeamDoc
-
     const batch = db.batch()
     batch.set(ref.collection('secret').doc('confessions').collection('items').doc(), {
       speakerId: uid,
@@ -177,12 +168,13 @@ export const revealSecret = onCall<{ gameId: string; scope: RevealScope; listene
       text: secretText,
       atMs: nowMs,
     })
-    batch.set(ref.collection('secret').doc('reveals').collection('items').doc(uid), {
-      gained: Math.min(REVEAL_INFLUENCE_CAP, already + gain),
-    })
-    batch.update(ref.collection('teams').doc(me.team), {
-      resources: { ...teamDoc.resources, influence: applyInfluence(teamDoc.resources.influence, gain) },
-    })
+    // 몇 번 털어놓았는지는 남긴다. 보상은 없어도 「이 사람은 이미 두 번
+    // 털어놓았다」가 개인 미션 판정의 재료가 된다
+    batch.set(
+      ref.collection('secret').doc('reveals').collection('items').doc(uid),
+      { gained: FieldValue.increment(1) },
+      { merge: true },
+    )
     batch.update(ref.collection('secret').doc('roster').collection('items').doc(uid), {
       reveal: { scope, atMs: nowMs, listenerIds },
     })
@@ -206,10 +198,10 @@ export const revealSecret = onCall<{ gameId: string; scope: RevealScope; listene
       kind: 'reveal',
       team: me.team,
       playerId: uid,
-      detail: { scope, listeners: listenerIds.length, gain },
+      detail: { scope, listeners: listenerIds.length },
     })
     await batch.commit()
     await refreshViews(gameId)
-    return { scope, listeners: listenerIds.length, gain }
+    return { scope, listeners: listenerIds.length }
   },
 )

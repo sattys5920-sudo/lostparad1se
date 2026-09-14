@@ -72,7 +72,7 @@ describe('카드가 하는 일', () => {
   })
 
   it('헛소문은 대상 팀 영향력을 2 깎는다', () => {
-    expect(play('falseRumor', { targetTeam: 'B' }).influenceHit).toEqual({ team: 'B', amount: 2 })
+    expect(play('falseRumor', { targetTeam: 'B' }).moneyHit).toEqual({ team: 'B', amount: 2 })
   })
 
   it('보강은 실제 시계로 24시간이다', () => {

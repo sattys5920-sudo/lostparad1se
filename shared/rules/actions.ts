@@ -10,7 +10,7 @@ import {
   FLAG_TOKEN_COST,
   PRODUCE_MONEY,
   RESEARCH_BASE_KNOWLEDGE,
-  SABOTAGE_INFLUENCE,
+  SABOTAGE_KNOWLEDGE,
   SCOUT_GAIN,
   SCOUT_RESOURCES,
   type Resource,
@@ -161,14 +161,14 @@ export const PRODUCE_YIELD: Bag = { money: PRODUCE_MONEY }
 
 // ── 견제 ────────────────────────────────────────────────────────
 
-export const SABOTAGE_COST: Bag = { influence: SABOTAGE_INFLUENCE }
+export const SABOTAGE_COST: Bag = { knowledge: SABOTAGE_KNOWLEDGE }
 
 export interface SabotageInput {
   kind: SabotageKind
   targetTeam: TeamId
   team: TeamId
   resources: Record<Resource, number>
-  /** 카드로 걸면 자리에 들어가지 않아도 되고 영향력도 들지 않는다. */
+  /** 카드로 걸면 자리에 들어가지 않아도 되고 지식도 들지 않는다. */
   byCard?: boolean
 }
 

@@ -426,10 +426,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
 
       <ul className="sc-pl__stat">
-        <li><span>토큰</span><span>{state.teams[me.team]?.tokens ?? '—'}</span></li>
-        <li><span>돈</span><span>{state.teams[me.team]?.resources.money ?? '—'}</span></li>
-        <li><span>지식</span><span>{state.teams[me.team]?.resources.knowledge ?? '—'}</span></li>
-        <li><span>영향력</span><span>{state.teams[me.team]?.resources.influence ?? '—'}</span></li>
+        <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
+        <li><span>돈</span><span>{state.view?.myVault.money ?? '—'}</span></li>
+        <li><span>지식</span><span>{state.view?.myVault.knowledge ?? '—'}</span></li>
       </ul>
 
       {/* 걸어 다니는 학교는 한 방밖에 안 보인다. 구석에 판 전체를 얹는다 */}

@@ -16,7 +16,6 @@ import {
   GOAL_REVEAL_DAY,
   LAST_HOURS_DAY,
   LAST_HOURS_START_HOUR,
-  RUMOR_DECAY_DAY,
   TOTAL_DAYS,
 } from '../rules/v2'
 import { TILE_BY_ID, type TileId } from '../rules/board'
@@ -74,9 +73,6 @@ export function todayItems(input: TodayInput): TodayItem[] {
     out.push({ kind: 'invisible', text: `오늘의 투명인간 · ${input.invisibleName}` })
   }
 
-  if (day === RUMOR_DECAY_DAY) {
-    out.push({ kind: 'rumor', text: '소문으로 깎이는 영향력이 두 배' })
-  }
   if (day === GOAL_REVEAL_DAY) {
     out.push({ kind: 'goal', text: '팀마다 비밀 목표 한 장을 골라 공개' })
   }

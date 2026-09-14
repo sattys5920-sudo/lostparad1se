@@ -1,7 +1,7 @@
 // 약점 — 털어놓기가 남기는 것.
 import { describe, expect, it } from 'vitest'
 import { bindUntilMs, canUse, extort, holdsOn, reveal, spend, type Leverage } from './leverage'
-import { REVEAL_INFLUENCE_CAP, LEVERAGE_EXTORT_INFLUENCE } from './v2'
+import { LEVERAGE_EXTORT_MONEY } from './v2'
 
 const seoul = (iso: string) => new Date(`${iso}+09:00`).getTime()
 const AT = seoul('2026-03-02T10:00:00')
@@ -18,12 +18,11 @@ describe('털어놓기', () => {
       atMs: AT,
       existing: [],
     })
-    expect(out.influence).toBe(3)
     expect(out.gained).toHaveLength(1)
     expect(out.gained[0]).toMatchObject({ holderId: 'p1', aboutId: 'p0' })
   })
 
-  it('두 번째 1:1은 약점만 는다', () => {
+  it('두 번째 1:1도 약점이 는다', () => {
     const out = reveal({
       speakerId: 'p0',
       scope: 'private',
@@ -32,29 +31,7 @@ describe('털어놓기', () => {
       atMs: AT,
       existing: [],
     })
-    expect(out.influence).toBe(0)
     expect(out.gained).toHaveLength(1)
-  })
-
-  it('전체 털어놓기는 남은 만큼 채운다', () => {
-    const fresh = reveal({
-      speakerId: 'p0',
-      scope: 'class',
-      listenerIds: CLASSMATES,
-      alreadyGained: 0,
-      atMs: AT,
-      existing: [],
-    })
-    expect(fresh.influence).toBe(REVEAL_INFLUENCE_CAP)
-    const after = reveal({
-      speakerId: 'p0',
-      scope: 'class',
-      listenerIds: CLASSMATES,
-      alreadyGained: 3,
-      atMs: AT,
-      existing: [],
-    })
-    expect(after.influence).toBe(3)
   })
 
   it('전체 털어놓기는 자기를 뺀 열세 명에게 약점을 준다', () => {
@@ -97,17 +74,6 @@ describe('털어놓기', () => {
     expect(out.gained).toHaveLength(1)
   })
 
-  it('총량을 넘겨도 영향력이 음수가 되지 않는다', () => {
-    const out = reveal({
-      speakerId: 'p0',
-      scope: 'class',
-      listenerIds: ['p1'],
-      alreadyGained: 99,
-      atMs: AT,
-      existing: [],
-    })
-    expect(out.influence).toBe(0)
-  })
 })
 
 describe('쥐고 있는가', () => {
@@ -150,13 +116,13 @@ describe('발 묶기', () => {
 })
 
 describe('갈취', () => {
-  it('영향력 3을 옮긴다', () => {
+  it('돈 3을 옮긴다', () => {
     const out = extort(5, 2)
-    expect(out).toEqual({ moved: LEVERAGE_EXTORT_INFLUENCE, fromInfluence: 2, toInfluence: 5 })
+    expect(out).toEqual({ moved: LEVERAGE_EXTORT_MONEY, fromMoney: 2, toMoney: 5 })
   })
 
   it('없는 것은 뜯지 못한다', () => {
-    expect(extort(1, 0)).toEqual({ moved: 1, fromInfluence: 0, toInfluence: 1 })
-    expect(extort(0, 4)).toEqual({ moved: 0, fromInfluence: 0, toInfluence: 4 })
+    expect(extort(1, 0)).toEqual({ moved: 1, fromMoney: 0, toMoney: 1 })
+    expect(extort(0, 4)).toEqual({ moved: 0, fromMoney: 0, toMoney: 4 })
   })
 })

@@ -128,10 +128,10 @@ describe('비용', () => {
     expect(flagCost({ target: 'enemy', ...zero })).toEqual({ money: 4 })
   })
 
-  it('핵심과 중앙광장은 영향력도 든다', () => {
+  it('핵심과 중앙광장은 지식도 든다', () => {
     const zero = { ownedTiles: 0, expandCostUp: false }
-    expect(flagCost({ target: 'core', ...zero })).toEqual({ money: 4, influence: 4 })
-    expect(flagCost({ target: 'plaza', ...zero })).toEqual({ money: 4, influence: 6 })
+    expect(flagCost({ target: 'core', ...zero })).toEqual({ money: 4, knowledge: 4 })
+    expect(flagCost({ target: 'plaza', ...zero })).toEqual({ money: 4, knowledge: 6 })
   })
 
   it('가진 칸 셋마다 돈이 1 비싸진다', () => {

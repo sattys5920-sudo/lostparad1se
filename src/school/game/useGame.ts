@@ -73,17 +73,29 @@ export function useGame(gameId: string | null): GameState {
         fail,
       ),
     )
-    stop.push(
-      onSnapshot(
-        collection(base, 'teams'),
-        (snap) => {
-          const teams: Partial<Record<TeamId, TeamDoc>> = {}
-          snap.forEach((d) => (teams[d.id as TeamId] = d.data() as TeamDoc))
-          setState((s) => ({ ...s, teams }))
-        },
-        fail,
-      ),
-    )
+    // 팀 문서는 **우리 팀 것 하나만** 본다.
+    //
+    // 전에는 네 팀을 통째로 구독했다. 금고와 오늘의 주장이 여기 있어서,
+    // 그 구독 하나로 남의 돈·지식·주장이 다 보였다. 규칙에서 남의 팀
+    // 문서를 닫았으므로 목록 읽기는 이제 거절당한다 — 내 것만 청한다.
+    if (uid) {
+      let stopTeam: (() => void) | null = null
+      let watching: TeamId | null = null
+      stop.push(
+        onSnapshot(base, (snap) => {
+          const mine = (snap.data() as GameDoc | undefined)?.seats.find((x) => x.playerId === uid)?.team ?? null
+          if (!mine || mine === watching) return
+          watching = mine
+          stopTeam?.()
+          stopTeam = onSnapshot(
+            doc(base, 'teams', mine),
+            (d) => setState((s) => ({ ...s, teams: { [mine]: d.data() as TeamDoc } })),
+            fail,
+          )
+        }, fail),
+      )
+      stop.push(() => stopTeam?.())
+    }
     stop.push(
       onSnapshot(
         collection(base, 'tiles'),

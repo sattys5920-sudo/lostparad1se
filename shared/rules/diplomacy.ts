@@ -1,10 +1,9 @@
 // 교역과 동맹.
 //
 // 동맹은 깃발 판정에서 우리 편으로 센다 — 이게 동맹의 실질적인 힘이고,
-// 그래서 판정 직전에 깨질 수도 있다. 깨는 값은 영향력 2와 12시간이다.
-// 그 12시간은 실제 시계다. 밤새 잠긴 채로 아침을 맞아야 아프다.
+// 그래서 판정 직전에 깨질 수도 있다. 깨는 값은 12시간이다 — 그 12시간은
+// 실제 시계다. 밤새 잠긴 채로 아침을 맞아야 아프다.
 import {
-  ALLIANCE_BREAK_INFLUENCE_PENALTY,
   ALLIANCE_BREAK_LOCK_REAL_HOURS,
   ALLIANCE_CLEAR_DAY,
   RESOURCES,
@@ -183,11 +182,14 @@ export interface BreakResult {
   breaker: AllianceState
   /** 당한 쪽. 아무것도 잃지 않는다. */
   other: AllianceState
-  /** 먼저 깬 팀이 잃는 영향력. */
-  influencePenalty: number
 }
 
-/** 먼저 깬 팀은 영향력 2를 잃고 12시간 동안 새 동맹을 못 맺는다. */
+/**
+ * 먼저 깬 팀은 12시간 동안 새 동맹을 못 맺는다.
+ *
+ * 전에는 영향력 2도 같이 잃었다. 영향력이 없어진 지금 값은 시간
+ * 하나뿐이다 — 그리고 시간이야말로 이 게임에서 제일 비싼 것이다.
+ */
 export function breakAlliance(realNowMs: number): BreakResult {
   return {
     breaker: {
@@ -195,7 +197,6 @@ export function breakAlliance(realNowMs: number): BreakResult {
       lockUntilRealMs: realNowMs + ALLIANCE_BREAK_LOCK_REAL_HOURS * HOUR_MS,
     },
     other: { allyTeam: null, lockUntilRealMs: null },
-    influencePenalty: ALLIANCE_BREAK_INFLUENCE_PENALTY,
   }
 }
 

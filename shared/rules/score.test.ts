@@ -21,7 +21,7 @@ import { GOAL_BY_KIND, type GoalKind, type TeamId } from './v2'
 
 const team = (over: Partial<TeamState> = {}): TeamState => ({
   team: 'A',
-  resources: { money: 0, knowledge: 0, influence: 0 },
+  resources: { money: 0, knowledge: 0 },
   researchTier: 0,
   allyTeam: null,
   goals: [],
@@ -104,8 +104,8 @@ describe('핵심', () => {
 
 describe('자원과 발전', () => {
   it('자원은 다 더해 5로 나누고 버린다', () => {
-    expect(resourceScore(input({ team: team({ resources: { money: 7, knowledge: 3, influence: 4 } }) }))).toBe(2)
-    expect(resourceScore(input({ team: team({ resources: { money: 4, knowledge: 0, influence: 0 } }) }))).toBe(0)
+    expect(resourceScore(input({ team: team({ resources: { money: 7, knowledge: 7 } }) }))).toBe(2)
+    expect(resourceScore(input({ team: team({ resources: { money: 4, knowledge: 0 } }) }))).toBe(0)
   })
 
   it('발전은 건물 단계 합에 연구 단계 두 배를 더한다', () => {
@@ -176,7 +176,7 @@ describe('비밀 목표', () => {
   it('학구파·알부자는 문턱값이다', () => {
     expect(goalAchieved({ kind: 'scholars' }, input({ team: team({ researchTier: 4 }) }))).toBe(true)
     expect(
-      goalAchieved({ kind: 'moneyed' }, input({ team: team({ resources: { money: 15, knowledge: 0, influence: 0 } }) })),
+      goalAchieved({ kind: 'moneyed' }, input({ team: team({ resources: { money: 15, knowledge: 0 } }) })),
     ).toBe(true)
   })
 

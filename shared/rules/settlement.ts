@@ -5,7 +5,7 @@
 // 다 세고 나서 정해지는 것이니까.
 //
 //   1. 건물 생산
-//   2. 받은 표 → 영향력
+//   2. 받은 표를 센다
 //   3. 점수와 순위
 //   4. 주목과 만회
 //   5. 내일의 투명인간
@@ -21,7 +21,7 @@ import type { Vote } from './votes'
 export interface SettlementInput {
   /** 생산과 표를 이미 반영한 점수. */
   scores: readonly ScoreBreakdown[]
-  influenceOf: (team: TeamId) => number
+  knowledgeOf: (team: TeamId) => number
   /** 그날 던져진 표 전부. */
   votes: readonly Vote[]
   /** 어제 투명인간이었던 사람. 이틀 연속은 없다. */
@@ -51,7 +51,7 @@ export function suspicionCounts(votes: readonly Vote[]): SuspicionCount[] {
  * 고른 결과만 돌려준다.
  */
 export function settleDay(input: SettlementInput): DailySettlement {
-  const base = settle(input.scores, input.influenceOf)
+  const base = settle(input.scores, input.knowledgeOf)
   const invisible = pickInvisible({
     counts: suspicionCounts(input.votes),
     yesterdayId: input.yesterdayInvisibleId ?? null,

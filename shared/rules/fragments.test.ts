@@ -99,11 +99,6 @@ describe('칸 가치', () => {
 })
 
 describe('날마다 일어나는 일', () => {
-  it('DAY 2는 소문이 두 배다', () => {
-    expect(eventsOn(2).rumorDoubled).toBe(true)
-    expect(eventsOn(1).rumorDoubled).toBe(false)
-  })
-
   it('DAY 3에 비밀 목표 한 장을 공개한다', () => {
     expect(eventsOn(3).goalReveal).toBe(true)
   })

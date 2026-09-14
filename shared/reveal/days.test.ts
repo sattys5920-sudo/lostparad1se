@@ -19,10 +19,9 @@ describe('그날의 시스템 사건', () => {
     expect(texts.some((t) => t.includes('운동장') && t.includes('방송실'))).toBe(true)
   })
 
-  it('DAY 2는 강당·학생회실과 소문 두 배', () => {
+  it('DAY 2는 강당·학생회실이 열린다', () => {
     const kinds = todayItems({ day: 2 }).map((i) => i.kind)
     expect(kinds).toContain('open')
-    expect(kinds).toContain('rumor')
   })
 
   it('DAY 3은 비밀 목표 공개와 중요한 사람', () => {

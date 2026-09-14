@@ -217,17 +217,17 @@ export interface Ranked extends ScoreBreakdown {
 }
 
 /**
- * 동점이면 영향력이 많은 팀, 그래도 같으면 핵심을 많이 가진 팀이 앞이다.
+ * 동점이면 지식이 많은 팀, 그래도 같으면 핵심을 많이 가진 팀이 앞이다.
  * 그마저 같으면 팀 이름 순으로 둔다 — 어딘가에서는 갈라야 한다.
  */
 export function rankTeams(
   scores: readonly ScoreBreakdown[],
-  influenceOf: (team: TeamId) => number,
+  knowledgeOf: (team: TeamId) => number,
 ): Ranked[] {
   const sorted = [...scores].sort(
     (a, b) =>
       b.total - a.total ||
-      influenceOf(b.team) - influenceOf(a.team) ||
+      knowledgeOf(b.team) - knowledgeOf(a.team) ||
       b.core - a.core ||
       a.team.localeCompare(b.team),
   )
@@ -240,7 +240,6 @@ export function rankTeams(
  * 정산은 이 순서다. 순서를 바꾸면 답이 달라진다.
  *
  *   1. 건물 생산이 들어온다
- *   2. 받은 표가 영향력에 반영된다
  *   3. 그 결과로 점수와 순위가 정해진다
  *   4. 1위는 주목, 꼴찌는 만회
  *
@@ -259,9 +258,9 @@ export interface SettlementResult {
 
 export function settle(
   scores: readonly ScoreBreakdown[],
-  influenceOf: (team: TeamId) => number,
+  knowledgeOf: (team: TeamId) => number,
 ): SettlementResult {
-  const ranked = rankTeams(scores, influenceOf)
+  const ranked = rankTeams(scores, knowledgeOf)
   return {
     ranked,
     spotlighted: ranked[0].team,

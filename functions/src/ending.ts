@@ -157,7 +157,7 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
     }
     return publicScore({ tiles, fragments: [], team: state })
   })
-  const ranked = rankTeams(scores, (team) => teamDocs.get(team)?.resources.influence ?? 0)
+  const ranked = rankTeams(scores, (team) => teamDocs.get(team)?.resources.knowledge ?? 0)
   const teamRank = Object.fromEntries(ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>
 
   const choices = new Map(choiceS.docs.map((d) => [d.id, d.data() as ChoiceDoc]))

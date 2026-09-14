@@ -76,6 +76,14 @@ export interface WorldSlip {
 
 export interface World {
   nowMs: number
+  /**
+   * 팀마다의 금고. **투영이 내 팀 것만 떼어 보낸다.**
+   *
+   * 전에는 games/{id}/teams/{t} 를 누구나 읽을 수 있어서 남의 돈과
+   * 지식이 그대로 보였다. 「저 팀 지식이 4니까 곧 로봇이 나온다」가
+   * 추측이 아니라 계산이 되면 숨길 것이 하나도 남지 않는다.
+   */
+  vaults?: Readonly<Partial<Record<TeamId, { money: number; knowledge: number }>>>
   /** 끝났으면 A의 기억 열셋이 전원에게 열린다. */
   over: boolean
   /**
@@ -171,6 +179,8 @@ export interface View {
   myPost: TileId | null
   /** 이번 페이즈에 내게 남은 토큰. 남의 것은 안 보낸다. */
   myTokens: number
+  /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
+  myVault: { money: number; knowledge: number }
   /**
    * 내가 가 본 방. **한 번도 안 간 방은 지도에 검게 남는다.**
    *
@@ -266,6 +276,7 @@ export function projectView(world: World, viewerId: string): View {
       myArriveAtMs: null,
       myPost: null,
       myTokens: 0,
+      myVault: { money: 0, knowledge: 0 },
       visitedTiles: [],
       handledDays: [],
       readDays: [],
@@ -342,6 +353,7 @@ export function projectView(world: World, viewerId: string): View {
     // **내 것만이다.** 남이 토큰을 얼마나 남겼는지 보이면 언제 밀고
     // 들어올지가 읽힌다 — 그게 이 게임의 절반이다
     myTokens: world.pawns.find((p) => p.playerId === viewerId)?.tokens ?? 0,
+    myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     visitedTiles: [...(world.pawns.find((p) => p.playerId === viewerId)?.visitedTiles ?? [])].sort(),
 
     // 진상 공개 흐름

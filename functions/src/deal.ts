@@ -3,7 +3,7 @@
 // 토큰이 들지 않는다. 대신 **받아들이는 순간** 양쪽 자원을 다시 센다 —
 // 제안할 때가 아니라. 그 사이에 한쪽이 다 써 버렸으면 성립하지 않는다.
 //
-// 동맹은 한 번에 하나다. 먼저 깬 팀은 영향력을 잃고 열두 시간 동안 새
+// 동맹은 한 번에 하나다. 먼저 깬 팀은 열두 시간 동안 새
 // 동맹을 못 맺는다. DAY 4 08:00에는 모든 동맹이 그냥 풀린다 — 먼저 깬
 // 것이 아니므로 아무도 값을 치르지 않는다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
@@ -19,7 +19,7 @@ import {
   type TradeOffer,
 } from '../../shared/rules/diplomacy'
 import { MAX_CARRIED_ROBOTS, TRADE_COST } from '../../shared/rules/occupy'
-import { ALLIANCE_BREAK_INFLUENCE_PENALTY, type Resource, type TeamId } from '../../shared/rules/v2'
+import type { Resource, TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { PawnDoc, SabotageDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
@@ -66,7 +66,7 @@ function cleanBag(bag: unknown): Bag {
   const out: Bag = {}
   if (!bag || typeof bag !== 'object') return out
   for (const [k, v] of Object.entries(bag as Record<string, unknown>)) {
-    if (k !== 'money' && k !== 'knowledge' && k !== 'influence') continue
+    if (k !== 'money' && k !== 'knowledge') continue
     const n = Number(v)
     if (!Number.isInteger(n) || n < 0) throw new HttpsError('invalid-argument', '자원 수가 이상하다.')
     if (n > 0) out[k] = n
@@ -399,7 +399,7 @@ export const respondAlliance = onCall<{ gameId: string; proposalId: string; acce
   return result
 })
 
-/** 먼저 깬다. 영향력 2를 잃고 열두 시간 동안 새 동맹을 못 맺는다. */
+/** 먼저 깬다. 열두 시간 동안 새 동맹을 못 맺는다. */
 export const breakAllianceNow = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
@@ -420,11 +420,6 @@ export const breakAllianceNow = onCall<{ gameId: string }>(async (req) => {
     tx.update(usRef, {
       allyTeam: null,
       allianceLockUntilRealMs: out.breaker.lockUntilRealMs,
-      resources: {
-        ...us.resources,
-        // 영향력은 0 아래로 내려가지 않는다
-        influence: Math.max(0, us.resources.influence - ALLIANCE_BREAK_INFLUENCE_PENALTY),
-      },
     })
     // 당한 쪽은 아무것도 잃지 않고 잠기지도 않는다
     tx.update(themRef, { allyTeam: null })
@@ -433,10 +428,10 @@ export const breakAllianceNow = onCall<{ gameId: string }>(async (req) => {
       day: game.day,
       kind: 'allianceBroken',
       team: pawn.team,
-      detail: { with: us.allyTeam, penalty: out.influencePenalty },
+      detail: { with: us.allyTeam },
     })
-    return { broke: us.allyTeam, penalty: out.influencePenalty, theirResources: them.resources }
+    return { broke: us.allyTeam, theirResources: them.resources }
   })
   await refreshViews(gameId)
-  return { broke: result.broke, penalty: result.penalty }
+  return { broke: result.broke }
 })

@@ -13,7 +13,7 @@ import {
   type ActionKind,
 } from './actions'
 import type { TileState } from './buildings'
-import { RESEARCH_BASE_KNOWLEDGE, SABOTAGE_INFLUENCE, SCOUT_GAIN, type TeamId } from './v2'
+import { RESEARCH_BASE_KNOWLEDGE, SABOTAGE_KNOWLEDGE, SCOUT_GAIN, type TeamId } from './v2'
 
 /** A는 기지와 1구역, B는 동아리실 하나. 나머지는 빈 칸이다. */
 const OWNERS: Record<string, TeamId | null> = {
@@ -135,12 +135,12 @@ describe('탐색', () => {
 })
 
 describe('견제', () => {
-  const have = { money: 0, knowledge: 0, influence: 3 }
+  const have = { money: 0, knowledge: 3 }
 
-  it('영향력 2가 든다', () => {
+  it('지식 2가 든다', () => {
     const out = checkSabotage({ kind: 'productionDown', targetTeam: 'B', team: 'A', resources: have })
     expect(out.ok).toBe(true)
-    expect(out.cost).toEqual({ influence: SABOTAGE_INFLUENCE })
+    expect(out.cost).toEqual({ knowledge: SABOTAGE_KNOWLEDGE })
   })
 
   it('우리 팀에는 못 건다', () => {
@@ -149,15 +149,15 @@ describe('견제', () => {
     ).toBe('ownTeam')
   })
 
-  it('영향력이 모자라면 막는다', () => {
-    const poor = { money: 9, knowledge: 9, influence: 1 }
+  it('지식이 모자라면 막는다', () => {
+    const poor = { money: 9, knowledge: 1 }
     expect(
       checkSabotage({ kind: 'tradeBlocked', targetTeam: 'B', team: 'A', resources: poor }).reason,
     ).toBe('cannotAfford')
   })
 
-  it('카드로 걸면 영향력이 들지 않는다', () => {
-    const broke = { money: 0, knowledge: 0, influence: 0 }
+  it('카드로 걸면 지식이 들지 않는다', () => {
+    const broke = { money: 0, knowledge: 0 }
     const out = checkSabotage({ kind: 'tradeBlocked', targetTeam: 'B', team: 'A', resources: broke, byCard: true })
     expect(out.ok).toBe(true)
     expect(out.cost).toEqual({})

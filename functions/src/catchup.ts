@@ -19,8 +19,7 @@ import { releaseCommute } from '../../shared/rules/movement'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
-import { applyInfluence, tallyVotes, type Vote } from '../../shared/rules/votes'
-import { teamHasBuilding } from '../../shared/rules/buildings'
+import { tallyVotes, type Vote } from '../../shared/rules/votes'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   ALLIANCE_CLEAR_DAY,
@@ -227,7 +226,9 @@ async function settlement(c: Ctx): Promise<void> {
     after.set(team, res)
   }
 
-  // 2. 받은 표 → 영향력
+  // 2. 받은 표
+  //
+  // **표는 금고를 움직이지 않는다.** 받은 장수만 세어 목표 판정에 쓴다
   //
   // 오늘 던져진 것만 센다. 아직 정산 안 된 표를 날짜 상관없이 긁으면
   // 따라잡기로 이틀이 한꺼번에 밀릴 때 어제 표가 오늘 또 들어간다
@@ -248,19 +249,9 @@ async function settlement(c: Ctx): Promise<void> {
     }
   })
 
-  const tally = tallyVotes({
-    votes,
-    hasBroadcast: (team) => teamHasBuilding(tiles, team, 'broadcast'),
-    hasHideout: (team) => teamHasBuilding(tiles, team, 'hideout'),
-    spotlighted: c.game.spotlightTeams[0] ?? null,
-  })
-  for (const team of TEAMS) {
-    const res = after.get(team)
-    if (!res) continue
-    res.influence = applyInfluence(res.influence, tally[team].delta)
-  }
+  tallyVotes({ votes })
 
-  // 생산과 표를 한꺼번에 적는다
+  // 생산을 적는다
   for (const team of TEAMS) {
     const res = after.get(team)
     if (res) c.tx.update(ref.collection('teams').doc(team), { resources: res })
@@ -288,7 +279,7 @@ async function settlement(c: Ctx): Promise<void> {
 
   const result = settleDay({
     scores,
-    influenceOf: (team) => after.get(team)?.influence ?? 0,
+    knowledgeOf: (team) => after.get(team)?.knowledge ?? 0,
     votes,
     // 이틀 연속은 없다
     yesterdayInvisibleId: c.game.invisibleByDay[c.day] ?? null,

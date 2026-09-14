@@ -32,7 +32,7 @@ import { canPlantFlag, ownerLookup, researchCost, scoutYield } from '../rules/ac
 import { flagCost, flagDurationSec, flagTargetOf, halveRemaining, resolveFlag } from '../rules/flag'
 import { coreOpen, inLastHours } from '../rules/fragments'
 import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenState } from '../rules/tokens'
-import { applyInfluence, tallyVotes, type Vote } from '../rules/votes'
+import { tallyVotes, type Vote } from '../rules/votes'
 import { reveal, type Leverage } from '../rules/leverage'
 import { acceptTrade, breakAlliance, canAlly, clearAlliances, type AllianceState } from '../rules/diplomacy'
 import { finalScore, publicScore, settle, territoryScore, type ScoreBreakdown, type TeamState } from '../rules/score'
@@ -332,7 +332,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   const scores = TEAM_IDS.map((team) =>
     finalScore({ tiles: tileList, fragments, team: finalTeam(team) }, territoryOf),
   )
-  const ranked = settle(scores, (t) => teams[t].resources.influence)
+  const ranked = settle(scores, (t) => teams[t].resources.knowledge)
 
   const gameLog: GameLog = {
     startedAtMs: startMs,
@@ -415,9 +415,8 @@ export function simulateGame(seed: string, startMs: number): SimResult {
         speakerId: p.id, scope, listenerIds: listeners, alreadyGained: p.revealGained,
         atMs: nowMs, existing: leverages,
       })
-      p.revealGained += out.influence
+      p.revealGained += 1
       leverages.push(...out.gained)
-      team.resources = gain(team.resources, { influence: out.influence })
       team.revealed = true
       reveals.push({ speakerId: p.id, scope, listenerIds: listeners, day, atMs: nowMs })
       return
@@ -440,7 +439,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       const target0 = flagTargetOf(p.tileId, here.ownerTeam)
       const need = flagCost({ target: target0, ownedTiles: ownedCount(p.team), expandCostUp: false })
       const spent = (need.money ?? 0) <= team.resources.money &&
-        (need.influence ?? 0) <= team.resources.influence
+        (need.knowledge ?? 0) <= team.resources.knowledge
         ? spendToken(team.tokens, p.id)
         : { ok: false, state: team.tokens, reason: null as null }
       if (spent.ok) {
@@ -538,7 +537,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
         team.alliance = broke.breaker
         teams[ally].alliance = broke.other
         team.brokeAlliance = true
-        team.resources = { ...team.resources, influence: applyInfluence(team.resources.influence, -broke.influencePenalty) }
       }
       return
     }
@@ -588,18 +586,8 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     }
     // 2. 표
     const todays = votes.filter((v) => dayNumber(startMs, v.atMs) === day)
-    const tally = tallyVotes({
-      votes: todays,
-      hasBroadcast: (t) => [...tiles.values()].some((x) => x.ownerTeam === t && x.buildings.some((b) => b.kind === 'broadcast')),
-      hasHideout: (t) => [...tiles.values()].some((x) => x.ownerTeam === t && x.buildings.some((b) => b.kind === 'hideout')),
-      spotlighted: TEAM_IDS.find((t) => teams[t].spotlighted) ?? null,
-    })
-    for (const team of TEAM_IDS) {
-      teams[team].resources = {
-        ...teams[team].resources,
-        influence: applyInfluence(teams[team].resources.influence, tally[team].delta),
-      }
-    }
+    // 표는 금고를 움직이지 않는다. 받은 장수만 세어 목표 판정에 쓴다
+    tallyVotes({ votes: todays })
     // 3. 점수와 순위
     const list = [...tiles.values()]
     const open = TEAM_IDS.map((team) =>
@@ -615,7 +603,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       }),
     )
     // 4. 주목과 만회
-    const out = settle(open, (t) => teams[t].resources.influence)
+    const out = settle(open, (t) => teams[t].resources.knowledge)
     for (const t of TEAM_IDS) teams[t].spotlighted = t === out.spotlighted
     teams[out.comeback].tokens = markComeback(teams[out.comeback].tokens)
   }

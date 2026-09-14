@@ -14,7 +14,6 @@ import {
   GOAL_REVEAL_DAY,
   LAST_HOURS_DAY,
   LAST_HOURS_START_HOUR,
-  RUMOR_DECAY_DAY,
   TOTAL_DAYS,
   type TeamId,
 } from './v2'
@@ -59,8 +58,6 @@ export interface DayEvents {
   day: number
   /** 오늘 열리는 칸. */
   opens: readonly TileId[]
-  /** 소문으로 깎이는 영향력이 두 배인가. */
-  rumorDoubled: boolean
   /** 비밀 목표 한 장을 공개해야 하는 날인가. */
   goalReveal: boolean
   /** 모든 동맹이 풀리는 날인가. */
@@ -73,7 +70,6 @@ export function eventsOn(day: number): DayEvents {
   return {
     day,
     opens: openedOn(day),
-    rumorDoubled: day === RUMOR_DECAY_DAY,
     goalReveal: day === GOAL_REVEAL_DAY,
     allianceCleared: day === ALLIANCE_CLEAR_DAY,
     hasLastHours: day === LAST_HOURS_DAY,

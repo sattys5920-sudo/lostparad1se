@@ -10,7 +10,7 @@ import {
   CARD_ACCORD_MONEY,
   CARD_BLOCKADE_GAME_HOURS,
   CARD_CRAMMING_KNOWLEDGE,
-  CARD_FALSE_RUMOR_INFLUENCE,
+  CARD_FALSE_RUMOR_MONEY,
   CARD_FORCED_MARCH_TILES,
   CARD_HIDE_GAME_HOURS,
   CARD_REINFORCE_DEFENSE,
@@ -64,8 +64,8 @@ export interface CardEffect {
   kind: CardKind
   /** 자원이 바로 들어온다. */
   gain?: Bag
-  /** 대상 팀 영향력이 깎인다. */
-  influenceHit?: { team: TeamId; amount: number }
+  /** 대상 팀 금고에서 돈이 깎인다. */
+  moneyHit?: { team: TeamId; amount: number }
   /** 칸에 붙는 것. */
   tile?: { tileId: TileId; reinforce?: number; blockedUntilMs?: number; untilRealMs?: number }
   /** 말에 붙는 것. */
@@ -106,8 +106,8 @@ export function cardEffect(input: PlayInput): CardEffect {
     case 'falseRumor':
       return {
         kind: k,
-        influenceHit: input.targetTeam
-          ? { team: input.targetTeam, amount: CARD_FALSE_RUMOR_INFLUENCE }
+        moneyHit: input.targetTeam
+          ? { team: input.targetTeam, amount: CARD_FALSE_RUMOR_MONEY }
           : undefined,
       }
     case 'reinforce':

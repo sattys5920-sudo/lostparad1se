@@ -91,19 +91,27 @@ export const TOKEN_COMEBACK_BONUS = 2
 
 // ── 자원 ────────────────────────────────────────────────────────
 
-export type Resource = 'money' | 'knowledge' | 'influence'
-export const RESOURCES: readonly Resource[] = ['money', 'knowledge', 'influence']
+/**
+ * 팀 금고에 쌓이는 것. **둘뿐이다.**
+ *
+ * 영향력이 있었다. 평판을 숫자로 들고 다니는 값이었는데, 표를 받으면
+ * 오르고 소문이 돌면 내리는 식이라 「무엇에 쓰는가」가 끝내 생기지
+ * 않았다. 쓸 데가 없는 숫자는 금고에 있을 이유가 없다.
+ *
+ * 남은 둘은 쓸 데가 분명하다 — 지식은 연구로 로봇이 되고, 돈은
+ * 상점에서 물건이 된다. 둘 다 팀 공용이고 둘 다 거래할 수 있다.
+ */
+export type Resource = 'money' | 'knowledge'
+export const RESOURCES: readonly Resource[] = ['money', 'knowledge']
 
 export const RESOURCE_LABEL: Record<Resource, string> = {
   money: '돈',
   knowledge: '지식',
-  influence: '영향력',
 }
 
 export const STARTING_RESOURCES: Record<Resource, number> = {
   money: 8,
   knowledge: 4,
-  influence: 0,
 }
 
 /**
@@ -150,8 +158,8 @@ export const FLAG_COST_MONEY: Record<FlagTarget, number> = {
 }
 /** 가진 칸 몇 개마다 돈이 1 비싸지는가. */
 export const FLAG_COST_TILES_PER_STEP = 3
-/** 핵심·중앙광장에 추가로 드는 영향력. */
-export const FLAG_COST_INFLUENCE: Record<FlagTarget, number> = {
+/** 핵심·중앙광장에 추가로 드는 지식. */
+export const FLAG_COST_KNOWLEDGE: Record<FlagTarget, number> = {
   empty: 0,
   enemy: 0,
   core: 4,
@@ -175,23 +183,13 @@ export const VOTE_LABEL: Record<VoteKind, string> = {
   suspicion: '의심',
 }
 
-/** 대상 팀 영향력에 주는 값. */
-export const VOTE_INFLUENCE: Record<VoteKind, number> = {
-  trust: 2,
-  liking: 1,
-  suspicion: -2,
-}
-
-/** 방송국이 있으면 받는 신뢰·호감 한 표마다 더 얻는 영향력. */
-export const BROADCAST_VOTE_BONUS = 1
-/** 비밀기지가 있으면 받는 의심표 타격이 이만큼 줄어든다. */
-export const HIDEOUT_SUSPICION_RELIEF = 1
-/** 의심표를 던진 팀도 잃는 영향력. */
-export const SUSPICION_SELF_COST = 1
-/** A의 기록이 가리킨 역할을 정확히 짚었을 때의 배수. */
-export const FRAGMENT_HIT_MULTIPLIER = 2
-/** 주목받는 팀이 더 크게 맞는 의심 타격. */
-export const SPOTLIGHT_SUSPICION_EXTRA = 1
+/**
+ * 표는 이제 **금고를 움직이지 않는다.**
+ *
+ * 영향력이 있을 때는 신뢰 +2 의심 −2 하는 식으로 값이 붙었다. 영향력을
+ * 걷어내면서 그 값도 같이 없앴다 — 받은 표 수는 그대로 세고, 그 수가
+ * 「모두의 신뢰」 같은 목표를 판정한다. 표는 점수로 가지 금고로 가지 않는다.
+ */
 
 /** 표를 줄 수 있는 시간. */
 export const VOTE_OPEN_HOUR = DAY_START_HOUR
@@ -201,35 +199,24 @@ export const VOTE_PER_PLAYER_DAILY = 1
 /** 정보부장이 보낸 사람을 볼 수 있는 횟수(하루). */
 export const INTEL_VOTE_PEEK_DAILY = 1
 
-/** 소문이 한 번 옮겨질 때마다 깎이는 영향력. */
-export const RUMOR_DECAY = 1
-/** DAY 2에는 두 배. */
-export const RUMOR_DECAY_DAY = 2
-export const RUMOR_DECAY_MULTIPLIER = 2
-
 // ── 털어놓기와 약점 ─────────────────────────────────────────────
 
 /**
- * 털어놓기로 얻는 영향력.
+ * 털어놓기는 **얻는 것이 없다.** 잃는 것만 있다.
  *
- * 한 사람이 게임 전체에서 받을 수 있는 총량이 정해져 있다. 같은 이야기를
- * 스무 명에게 떠들어 영향력을 긁어모을 수 없다 — 두 번째부터의 1:1은
- * 영향력이 오르지 않고 나를 쥔 사람만 는다. 약점은 총량과 상관없이
- * 듣는 사람마다 하나씩 생긴다.
- *
- * 계산은 revealInfluenceGain()에 있다.
+ * 영향력이 있을 때는 처음 한 번 +3을 받았다. 그 보상이 없어진 지금,
+ * 털어놓기는 순수하게 「듣는 사람마다 나에 대한 약점이 하나 생기는」
+ * 행동이다 — 그런데도 하는 이유는 상대가 나를 믿게 만들기 위해서다.
+ * 값을 치르지 않는 신뢰는 신뢰가 아니다.
  */
-export const REVEAL_INFLUENCE_CAP = 6
-/** 첫 1:1 털어놓기로 얻는 몫. */
-export const REVEAL_INFLUENCE_FIRST_PRIVATE = 3
 
 /** 털어놓는 방식. */
 export type RevealScope = 'private' | 'class'
 
 /** 발 묶기 — 말이 움직이지도 행동하지도 못한다(게임 시계). */
 export const LEVERAGE_BIND_GAME_HOURS = 6
-/** 갈취로 옮기는 영향력. */
-export const LEVERAGE_EXTORT_INFLUENCE = 3
+/** 갈취로 뜯어 오는 돈. 영향력이 없어진 자리를 돈이 받았다. */
+export const LEVERAGE_EXTORT_MONEY = 3
 
 // ── 팀 직책 ─────────────────────────────────────────────────────
 
@@ -263,8 +250,8 @@ export const SCOUT_RESOURCES: readonly Resource[] = ['money', 'knowledge']
 export const SCOUT_PER_TILE_DAILY = 1
 /** 연구 비용 = 이 값 + 지금 연구 단계. */
 export const RESEARCH_BASE_KNOWLEDGE = 2
-/** 견제에 드는 영향력. */
-export const SABOTAGE_INFLUENCE = 2
+/** 견제에 드는 지식. */
+export const SABOTAGE_KNOWLEDGE = 2
 
 // ── 견제 ────────────────────────────────────────────────────────
 
@@ -297,8 +284,6 @@ export const SABOTAGE_REAL_HOURS: Record<SabotageKind, number | 'nextSettlement'
 export const TRADE_PENDING_LIMIT = 3
 /** 한 팀이 동시에 맺을 수 있는 동맹 수. */
 export const ALLIANCE_LIMIT = 1
-/** 먼저 깬 팀이 잃는 영향력. */
-export const ALLIANCE_BREAK_INFLUENCE_PENALTY = 2
 /** 먼저 깬 팀이 새 동맹을 못 맺는 시간(실제 시계). */
 export const ALLIANCE_BREAK_LOCK_REAL_HOURS = 12
 /** 이날 08:00에 모든 동맹이 풀린다. */
@@ -330,7 +315,7 @@ export const BUILDINGS: readonly BuildingSpec[] = [
   { kind: 'lab', name: '연구실', cost: { knowledge: 3 }, value: 2, produces: { knowledge: 3 }, defense: 0 },
   { kind: 'security', name: '경비실', cost: { money: 2 }, value: 1, produces: {}, defense: 1 },
   { kind: 'barricade', name: '바리케이드', cost: { money: 3, knowledge: 1 }, value: 1, produces: {}, defense: 2 },
-  { kind: 'controlRoom', name: '통제실', cost: { knowledge: 2, influence: 1 }, value: 2, produces: {}, defense: 3 },
+  { kind: 'controlRoom', name: '통제실', cost: { knowledge: 3 }, value: 2, produces: {}, defense: 3 },
   { kind: 'observatory', name: '관측소', cost: { money: 2, knowledge: 1 }, value: 1, produces: {}, defense: 0 },
   { kind: 'broadcast', name: '방송국', cost: { money: 3, knowledge: 2 }, value: 3, produces: {}, defense: 0 },
   { kind: 'hideout', name: '비밀기지', cost: { money: 3, knowledge: 1 }, value: 2, produces: {}, defense: 1 },
@@ -373,7 +358,7 @@ export const CARDS: readonly CardSpec[] = [
   { kind: 'reinforce', name: '보강', group: '건설', text: '우리 칸 하나의 방어 +2, 24시간.', needsTile: true },
   { kind: 'windfall', name: '특별 매출', group: '생산', text: '돈 +4.' },
   { kind: 'cramming', name: '벼락치기', group: '생산', text: '지식 +4.' },
-  { kind: 'falseRumor', name: '헛소문', group: '견제', text: '대상 팀 영향력 −2.', needsTeam: true },
+  { kind: 'falseRumor', name: '헛소문', group: '견제', text: '대상 팀 돈 −2.', needsTeam: true },
   { kind: 'blockade', name: '봉쇄', group: '견제', text: '칸 하나에 여섯 시간 동안 새 깃발을 못 꽂고, 꽂힌 깃발은 멈춘다.', needsTile: true },
   { kind: 'secretLetter', name: '밀서', group: '외교', text: '다른 팀 한 명과 한 시간짜리 비밀 대화방을 연다.' },
   { kind: 'accord', name: '협정서', group: '외교', text: '다음 교역이 성립하면 양쪽 팀 모두 돈 +2.' },
@@ -393,7 +378,7 @@ export const CARD_REINFORCE_DEFENSE = 2
 export const CARD_REINFORCE_REAL_HOURS = 24
 export const CARD_WINDFALL_MONEY = 4
 export const CARD_CRAMMING_KNOWLEDGE = 4
-export const CARD_FALSE_RUMOR_INFLUENCE = 2
+export const CARD_FALSE_RUMOR_MONEY = 2
 export const CARD_BLOCKADE_GAME_HOURS = 6
 export const CARD_SECRET_LETTER_REAL_HOURS = 1
 export const CARD_ACCORD_MONEY = 2
