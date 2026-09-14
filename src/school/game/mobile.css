@@ -638,3 +638,27 @@
 }
 .sc-pl__why li span:first-child { color: var(--sc-text-dim); flex: 0 0 auto; }
 .sc-pl__why li span:last-child { text-align: right; word-break: keep-all; }
+
+/* 기다리다 늦어졌을 때. **막다른 길을 만들지 않는다** */
+.sc-wait {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px calc(20px + env(safe-area-inset-right, 0px)) calc(24px + var(--sa-bottom)) calc(20px + env(safe-area-inset-left, 0px));
+  text-align: center;
+}
+.sc-wait__what { margin: 0; font-size: 15px; color: var(--sc-text); }
+.sc-wait__why { margin: 0; font-size: 12px; line-height: 19px; color: var(--sc-text-dim); }
+.sc-wait__row { display: flex; gap: 8px; }
+.sc-wait__row button {
+  flex: 1;
+  appearance: none;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 6px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 13px;
+}

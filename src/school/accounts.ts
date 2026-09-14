@@ -67,7 +67,7 @@ function friendly(e: unknown): Error {
   if (code === 'permission-denied' || /permission|false for/i.test(raw)) {
     return new Error('서버가 요청을 막았다. 관리자가 Firestore 규칙을 최신으로 올려야 한다.')
   }
-  if (code === 'unavailable' || /offline|network/i.test(raw)) {
+  if (code === 'unavailable' || /offline|network|client is offline/i.test(raw)) {
     return new Error('서버에 닿지 못했다. 연결을 확인해라.')
   }
   return e instanceof Error ? e : new Error(raw)
@@ -166,7 +166,15 @@ export async function myAccount(): Promise<Account | null> {
   if (!user || !db) return null
   const accountId = (await user.getIdTokenResult()).claims.accountId
   if (typeof accountId !== 'string') return null
-  const snap = await getDoc(accountRef(accountId))
+  // **서버가 왜 안 주는지를 우리 말로 옮긴다.** 그대로 두면
+  // "Failed to get document because the client is offline." 이
+  // 화면에 그대로 뜬다
+  let snap
+  try {
+    snap = await getDoc(accountRef(accountId))
+  } catch (e) {
+    throw friendly(e)
+  }
   if (!snap.exists()) return null
   const r = snap.data() as AccountDoc
   return {

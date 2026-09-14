@@ -21,7 +21,7 @@ import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { Slips } from './Slips'
 import { Quiz, QuizHost } from './Quiz'
 import { Ballot } from './Ballot'
-import { AddToHome, OfflineBar, TurnNotice, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
+import { AddToHome, OfflineBar, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
@@ -277,7 +277,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
     }
   }
 
-  if (state.loading) return <p className="sc-pl__wait">불러오는 중</p>
+  if (state.loading || state.error) return <Waiting what="판" error={state.error} />
   if (!state.game) {
     return (
       <div className="sc-pl__lobby">
@@ -340,7 +340,8 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   }, [gameId])
 
   const game = state.game
-  if (!game) return <p className="sc-pl__wait">불러오는 중</p>
+  // **거절을 삼키지 않는다.** 여태 여기서 그냥 「불러오는 중」이었다
+  if (!game) return <Waiting what="판" error={state.error} />
 
   // 종례가 끝났으면 엔딩과 회고만 남는다
   if (game.phase === 'finished') {
@@ -462,7 +463,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const phaseOpen = state.game?.phaseNow?.open === true
   const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
 
-  if (!game || !me) return <p className="sc-pl__wait">불러오는 중</p>
+  if (!game || !me) return <Waiting what={game ? '내 자리' : '판'} error={state.error} />
 
   if (archive) return <LiveArchive gameId={gameId} onClose={() => setArchive(false)} />
 
@@ -907,9 +908,33 @@ export function Play() {
     })
   }, [])
 
+  /** 계정을 못 읽은 까닭. 읽는 중이면 null. */
+  const [meError, setMeError] = useState<string | null>(null)
+
   const loadMe = useCallback(() => {
     setMe(undefined)
-    void myAccount().then(setMe).catch(() => setMe(null))
+    setMeError(null)
+    // **영영 기다리지 않는다.** 서버에 못 닿으면 getDoc 은 대답도
+    // 거절도 없이 계속 기다린다 — 화면은 「불러오는 중」에 굳는다
+    let done = false
+    const late = setTimeout(() => {
+      if (!done) setMeError('서버가 대답하지 않는다.')
+    }, 8000)
+    void myAccount()
+      .then((a) => {
+        done = true
+        clearTimeout(late)
+        setMe(a)
+      })
+      .catch((e) => {
+        done = true
+        clearTimeout(late)
+        // 계정이 없는 것과 못 읽은 것은 다르다. 없으면 만들러 가고,
+        // 못 읽었으면 그 말을 보인다
+        const why = (e as Error).message
+        if (/없|not-found/i.test(why)) setMe(null)
+        else setMeError(why)
+      })
   }, [])
 
   useEffect(() => {
@@ -920,7 +945,8 @@ export function Play() {
   if (!firebaseConfigured) return <p className="sc-pl__wait">firebase 설정이 없다.</p>
   if (!ready) return null
   if (!signedIn) return <Gate onIn={() => setSignedIn(true)} />
-  if (me === undefined) return <p className="sc-pl__wait">불러오는 중</p>
+  if (meError !== null) return <Waiting what="내 계정" error={meError} onRetry={loadMe} />
+  if (me === undefined) return <Waiting what="내 계정" error={null} onRetry={loadMe} />
 
   // 가입 다음은 나를 만드는 자리다. 이름이 없으면 아직 안 만든 것이다
   if (!me || !me.nickname) {

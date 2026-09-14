@@ -4,6 +4,7 @@
 // 않고, 앱을 전환하지도 않고, 지하철에 들어가지도 않는다.
 import { useEffect, useState } from 'react'
 
+import { logOut } from '../accounts'
 import { gameNow } from '../../../shared/rules/clock'
 import type { GameDoc } from '../../../shared/model'
 
@@ -203,4 +204,57 @@ export function useGameNow(clock: DevClock | undefined, everyMs = 1000): number 
     return () => clearInterval(t)
   }, [everyMs])
   return gameNow(clock, realNow)
+}
+
+// ── 기다리는 화면 ───────────────────────────────────────────────
+
+/**
+ * 「불러오는 중」. **영영 그대로 두지 않는다.**
+ *
+ * 여태 이 자리는 글자 한 줄이었다. 서버가 대답을 안 하거나 규칙이
+ * 막으면 그 줄에서 멈춘 채 아무 말도 없었다 — 무엇을 기다리는지도,
+ * 무엇이 잘못됐는지도, 어떻게 빠져나가는지도 없었다. 앱이 죽은 것과
+ * 구별이 안 된다.
+ *
+ * 몇 초가 지나면 기다리는 것을 밝히고, 다시 해 볼 길과 나갈 길을 준다.
+ */
+export function Waiting({
+  what,
+  error,
+  onRetry,
+  afterMs = 6000,
+}: {
+  /** 무엇을 기다리는가. 늦어질 때만 보인다. */
+  what: string
+  /** 서버가 거절했으면 그 말. **삼키지 않는다.** */
+  error?: string | null
+  onRetry?: () => void
+  afterMs?: number
+}) {
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setLate(true), afterMs)
+    return () => clearTimeout(t)
+  }, [afterMs])
+
+  if (!late && !error) return <p className="sc-pl__wait">불러오는 중</p>
+
+  return (
+    <div className="sc-wait">
+      <p className="sc-wait__what">{error ? '서버가 거절했다.' : `${what}을(를) 기다리고 있다.`}</p>
+      {error && <p className="sc-wait__why">{error}</p>}
+      {!error && <p className="sc-wait__why">연결이 느리거나, 서버가 대답하지 않는다.</p>}
+      <div className="sc-wait__row">
+        <button onClick={() => (onRetry ? onRetry() : location.reload())}>다시 해 본다</button>
+        <button
+          onClick={() => {
+            void logOut().finally(() => location.reload())
+          }}
+        >
+          로그아웃
+        </button>
+      </div>
+      <p className="sc-wait__why">그래도 안 되면 앱을 완전히 닫았다 열어라.</p>
+    </div>
+  )
 }
