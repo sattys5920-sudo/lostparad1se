@@ -58,11 +58,6 @@ export interface WalkProps {
   /** 맵에서 방을 눌렀다. 먼 방이면 거기로 갈지 묻는다. */
   onTapRoom: (id: TileId) => void
   /**
-   * 문을 넘는 것이 즉시인가. 자유 시간에는 공짜고 즉시라 걸음을
-   * 먼저 옮겨도 되고, 페이즈 중에는 토큰이 들고 10분이 걸려서 안 된다.
-   */
-  instantCross: boolean
-  /**
    * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
    * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
    * 단추의 data-dir 만 보고 붙으므로 생김새는 부모가 정한다.
@@ -98,7 +93,7 @@ function acrossFrom(door: { a: TileId; b: TileId }, here: TileId | null): TileId
   return null
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef, instantCross }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -122,8 +117,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
   viewRef.current = view
   tilesRef.current = tiles
   crossRef.current = onCross
-  const instantRef = useRef(instantCross)
-  instantRef.current = instantCross
   roomRef.current = onRoom
   tapRef.current = onTapRoom
 
@@ -199,27 +192,38 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
     for (const btn of Array.from(padRef.current?.querySelectorAll('button') ?? [])) {
       const d = btn.dataset.dir as Dir
       let timer = 0
-      const press = (e: Event) => {
+      const press = (e: PointerEvent) => {
         e.preventDefault()
+        // **손가락을 이 단추에 묶는다.** 안 묶으면 단추가 손가락
+        // 밑에서 조금만 움직여도 pointerleave 가 와서 걸음이 끊겼다 —
+        // 문을 넘으면 방 이름이 바뀌고 그만큼 아래가 밀리는데, 손은
+        // 가만히 있는데도 문 위에서 딱 멈춰 섰다. 실제로 그랬다
+        btn.setPointerCapture(e.pointerId)
         tap = d
         clearTimeout(timer)
         timer = window.setTimeout(() => held.add(d), PAD_HOLD_MS)
       }
-      // 손가락이 미끄러져 단추 밖으로 나가도 멈춘다. 안 그러면 화면에서
-      // 손을 뗀 뒤에도 혼자 걸어간다
       const release = () => {
         clearTimeout(timer)
         held.delete(d)
       }
+      // 손가락이 미끄러져 단추 밖으로 나가면 멈춘다. 안 그러면 화면에서
+      // 손을 뗀 뒤에도 혼자 걸어간다. **손이 움직였을 때만 본다** —
+      // 화면이 밀려서 벌어진 일은 손을 뗀 것이 아니다
+      const slid = (e: PointerEvent) => {
+        const r = btn.getBoundingClientRect()
+        const out = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom
+        if (out) release()
+      }
       btn.addEventListener('pointerdown', press)
+      btn.addEventListener('pointermove', slid)
       btn.addEventListener('pointerup', release)
-      btn.addEventListener('pointerleave', release)
       btn.addEventListener('pointercancel', release)
       offPad.push(() => {
         clearTimeout(timer)
         btn.removeEventListener('pointerdown', press)
+        btn.removeEventListener('pointermove', slid)
         btn.removeEventListener('pointerup', release)
-        btn.removeEventListener('pointerleave', release)
         btn.removeEventListener('pointercancel', release)
       })
     }
@@ -357,15 +361,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
           crossedTo = to
           // 되돌릴 자리. 서버가 아니라고 하면 여기로 돌아온다
           const back = { x: self.tx, y: self.ty }
-          // **자유 시간에는 먼저 들어선다.** 공짜고 즉시인 걸음을
-          // 왕복 한 번 기다리느라 문턱에서 멈추면 어색하다
-          if (instantRef.current) {
-            const spot = doorSpot(to, door)
-            if (spot) {
-              standAt(spot.x, spot.y)
-              movedAheadTo = to
-            }
-          }
           const said = crossRef.current(to)
           // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
           // 영영 못 움직인다
@@ -375,16 +370,15 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
               asked = false
               crossedVia = null
               crossedTo = null
-              // 먼저 들어섰던 것을 되돌린다
-              if (movedAheadTo !== null) {
-                movedAheadTo = null
-                autoPath = []
-                standAt(back.x, back.y)
-              }
+              autoPath = []
+              standAt(back.x, back.y)
             })
           }
         }
-        return
+        // **문 칸도 그냥 걸어 들어간다.** 여기서 멈춰 세우고 건너편에
+        // 세워 주면 두 칸을 한 번에 건너뛰어 톡 튄다 — 문이 없는
+        // 것처럼 보일 만큼 빨라도 튀는 건 튀는 것이다.
+        // 한 칸씩 걸어 문을 지나면 걸음이 끊기지 않는다
       }
       if (!isWalkable(nx, ny)) {
         // **문 옆 한 칸에서 벽을 밀면 문 쪽으로 비켜 준다.**
@@ -520,6 +514,41 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
     }
 
     /**
+     * 다음 한 칸을 뗀다. 눌린 방향이 있으면 그리로, 없으면 저절로
+     * 걸어가던 길을 따라. 갈 데가 없으면 아무 일도 안 하고 돌아온다.
+     *
+     * 한 칸이 끝난 바로 그 프레임에서 불린다 — 걸음과 걸음 사이를
+     * 비우지 않으려고 따로 뺐다.
+     */
+    function nextStep(): void {
+      const d = [...held][held.size - 1] ?? tap
+      if (d) {
+        // 눌린 한 번은 여기서 쓴다. 남겨 두면 손을 떼도 계속 걷는다
+        tap = null
+        // 손이 움직이면 저절로 걷던 것은 그만둔다. 조작을 빼앗기면 안 된다
+        autoPath = []
+        self.dir = d
+        tryStep(d)
+        return
+      }
+      if (autoPath.length === 0) return
+      const to = autoPath[0]
+      const wantX = to.x - self.tx
+      const wantY = to.y - self.ty
+      if (wantX === 0 && wantY === 0) {
+        autoPath.shift()
+        return
+      }
+      const dir: Dir = wantX !== 0 ? (wantX > 0 ? 'right' : 'left') : wantY > 0 ? 'down' : 'up'
+      const was = `${self.tx},${self.ty}`
+      self.dir = dir
+      tryStep(dir)
+      // 한 칸도 못 갔다. 길이 막혔거나 문 앞이다 — 더 밀어도 소용없다
+      if (`${self.tx},${self.ty}` === was) autoPath = []
+      else autoPath.shift()
+    }
+
+    /**
      * 문을 넘자고 서버에 말한 순간부터, 서버가 「걷는 중」이라고
      * 대답할 때까지의 틈. 이 틈을 안 막으면 방향키를 누르고 있는
      * 동안 같은 요청이 몇 번이고 나가고, 서버는 「이미 걷는 중이다」를
@@ -541,14 +570,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
      */
     let crossedVia: Door | null = null
     let crossedTo: TileId | null = null
-    /**
-     * 서버 대답을 기다리지 않고 먼저 들어선 방.
-     *
-     * 자유 시간의 걸음은 공짜고 즉시다. 그런데도 대답을 기다리느라
-     * 문턱에서 한 박자 멈췄다 — 걷다가 문마다 걸리는 것이 어색했다.
-     * 먼저 들어서고, 서버가 아니라고 하면 그때 되돌린다.
-     */
-    let movedAheadTo: TileId | null = null
     let lastServerTile: TileId | null = null
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
@@ -568,11 +589,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const pawn = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
       const serverTile = asRoom(pawn?.tileId)
       if (serverTile && serverTile !== lastServerTile) {
-        // 먼저 들어서 둔 방이면 그대로 둔다. 여기서 또 옮기면 그 사이
-        // 걸어간 만큼을 문 앞으로 도로 끌어당긴다 — 없애려던 멈칫거림이
-        // 되레 커진다
-        if (movedAheadTo !== serverTile) placeIn(serverTile)
-        movedAheadTo = null
+        // **이미 제 발로 가 있으면 건드리지 않는다.**
+        //
+        // 걸어서 넘는 동안 대답이 온다. 그때 또 세우면 그 사이 걸어간
+        // 만큼을 문 앞으로 도로 끌어당긴다 — 없애려던 튐이 되레 커진다.
+        // 방금 넘은 문 위에 서 있는 것도 「가는 중」이라 그냥 둔다
+        const standing = roomAt(self.tx, self.ty)?.id ?? null
+        const onCrossed = crossedVia !== null && doorHere(self.tx, self.ty) === crossedVia
+        if (standing !== serverTile && !onCrossed) placeIn(serverTile)
         lastServerTile = serverTile
         // 도착했다. 다음 문을 넘을 수 있다
         asked = false
@@ -583,9 +607,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       if (
         serverTile &&
         !asked &&
-        movedAheadTo === null &&
         !self.moving &&
         !walkingRef.current &&
+        // 문 위는 어느 방도 아니다. 지나가는 중인 사람을 되돌리면 안 된다
+        !doorHere(self.tx, self.ty) &&
         roomAt(self.tx, self.ty)?.id !== serverTile
       ) {
         placeIn(serverTile)
@@ -595,42 +620,31 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
 
       // 걷는 중에는 조작을 받지 않는다. 몸은 이미 문 사이에 있다
       if (!walkingRef.current) {
-        if (self.moving) {
-          stepLeft -= dt
-          const t = Math.max(0, stepLeft) / STEP_MS
-          const cx = self.tx * TILE + TILE / 2
-          const cy = self.ty * TILE + TILE / 2
-          const [dx, dy] = STEP[self.dir]
-          self.px = cx - dx * TILE * t
-          self.py = cy - dy * TILE * t
-          self.phase += (dt / 1000) * WALK_POSES_PER_SEC
-          if (stepLeft <= 0) self.moving = false
-        } else {
-          const d = [...held][held.size - 1] ?? tap
-          if (d) {
-            // 눌린 한 번은 여기서 쓴다. 남겨 두면 손을 떼도 계속 걷는다
-            tap = null
-            // 손이 움직이면 저절로 걷던 것은 그만둔다. 조작을 빼앗기면 안 된다
-            autoPath = []
-            self.dir = d
-            tryStep(d)
-          } else if (autoPath.length > 0) {
-            const to = autoPath[0]
-            const wantX = to.x - self.tx
-            const wantY = to.y - self.ty
-            if (wantX === 0 && wantY === 0) {
-              autoPath.shift()
-            } else {
-              const dir: Dir = wantX !== 0 ? (wantX > 0 ? 'right' : 'left') : wantY > 0 ? 'down' : 'up'
-              const was = `${self.tx},${self.ty}`
-              self.dir = dir
-              tryStep(dir)
-              // 한 칸도 못 갔다. 길이 막혔거나 문 앞이다 — 더 밀어도 소용없다
-              if (`${self.tx},${self.ty}` === was) autoPath = []
-              else autoPath.shift()
-            }
+        // **한 칸이 끝난 그 프레임에서 다음 칸을 바로 시작한다.**
+        //
+        // 전에는 끝난 프레임에서는 멈추기만 하고 다음 칸은 그다음
+        // 프레임에 떠났다. 한 칸이 160ms 니까 열 프레임에 한 프레임씩
+        // 걸음이 비었다 — 누르고만 있어도 한 칸 걸러 한 번씩 튀었다.
+        // 남은 시간도 버리지 않고 다음 칸으로 넘긴다. 그래야 몇
+        // 칸을 걸어도 한 칸에 딱 160ms 다
+        let budget = dt
+        for (let guard = 0; guard < 8 && budget > 0; guard++) {
+          if (!self.moving) {
+            nextStep()
+            // 갈 데가 없다. 남은 시간은 그냥 버린다
+            if (!self.moving) break
           }
+          const use = Math.min(budget, stepLeft)
+          stepLeft -= use
+          budget -= use
+          self.phase += (use / 1000) * WALK_POSES_PER_SEC
+          if (stepLeft <= 0) self.moving = false
         }
+        // 선 자리는 늘 칸 한가운데. 걷는 중이면 남은 만큼만 뒤로 물린다
+        const t = self.moving ? Math.max(0, stepLeft) / STEP_MS : 0
+        const [dx, dy] = STEP[self.dir]
+        self.px = self.tx * TILE + TILE / 2 - dx * TILE * t
+        self.py = self.ty * TILE + TILE / 2 - dy * TILE * t
       }
 
       // 내가 선 칸. 화면에는 안 쓰고 주행 시험이 읽는다 — 「방은 맞는데
