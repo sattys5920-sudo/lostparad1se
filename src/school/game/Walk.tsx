@@ -64,6 +64,13 @@ const DIR_OF: Record<string, Dir> = {
 }
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
+/** 지금 글을 쓰고 있는 자리인가. 거기서는 방향키를 가져가지 않는다. */
+function isTyping(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  const tag = el?.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable === true
+}
+
 /**
  * 규칙 쪽 TileId 는 그냥 string 이고 지도 쪽은 스물다섯 개 유니온이다.
  * 같은 스물다섯 개를 가리키지만 타입은 남남이라, 넘어오는 자리를
@@ -129,12 +136,25 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
     }
     let lastRoom: TileId | null = null
 
+    /**
+     * 한 번 누른 것. 십자키도 방향키도 여기로 들어온다.
+     *
+     * **톡 누르고 떼면 keyup 이 다음 프레임보다 먼저 온다.** 그러면
+     * 누르고 있는 것만 보는 쪽은 이미 빈 손이라 한 칸도 안 간다 —
+     * 방향키를 아무리 눌러도 꿈쩍 않는 것처럼 보였다. 실제로 그랬다.
+     */
+    let tap: Dir | null = null
+
     const held = new Set<Dir>()
     const onDown = (e: KeyboardEvent) => {
+      // **글을 쓰는 중이면 방향키는 글자 사이를 오가는 키다.** 뺏으면
+      // 쪽지도 시험지 답도 가운데를 고칠 수가 없다
+      if (isTyping(e.target)) return
       const d = DIR_OF[e.key]
       if (!d) return
       e.preventDefault()
       held.add(d)
+      tap = d
     }
     const onUp = (e: KeyboardEvent) => {
       const d = DIR_OF[e.key]
@@ -145,8 +165,8 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
 
     // **십자키는 한 번 누르면 한 칸이다.** 길게 눌러도 이어 걷지 않는다 —
     // 손가락은 키보드가 아니라서, 누르고 있는 시간으로 거리를 재면
-    // 열에 아홉은 지나친다. 먼 데는 지도에서 방을 눌러 간다
-    let tap: Dir | null = null
+    // 열에 아홉은 지나친다. 먼 데는 지도에서 방을 눌러 간다.
+    // 방향키는 눌러 두면 이어 걷는다 — 키보드는 뗄 때를 정확히 안다
     const offPad: (() => void)[] = []
     for (const btn of Array.from(padRef.current?.querySelectorAll('button') ?? [])) {
       const d = btn.dataset.dir as Dir

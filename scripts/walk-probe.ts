@@ -79,6 +79,43 @@ async function main(): Promise<void> {
     console.log(`  ${dir}: ${was} → ${now} ${was === now ? '✗ 안 움직였다' : '✓'}`)
   }
 
+  console.log('\n── 키보드 방향키 ──')
+  for (const key of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a']) {
+    const was = await at()
+    await page.keyboard.press(key)
+    await page.waitForTimeout(500)
+    const now = await at()
+    console.log(`  ${key}: ${was} → ${now} ${was === now ? '✗ 안 움직였다' : '✓'}`)
+  }
+  console.log('  — 누르고 있으면 이어 걷는가')
+  const held0 = await at()
+  await page.keyboard.down('ArrowRight')
+  await page.waitForTimeout(1200)
+  await page.keyboard.up('ArrowRight')
+  await page.waitForTimeout(300)
+  console.log(`  1.2초 누르고 있기: ${held0} → ${await at()}`)
+
+  console.log('\n── 글 쓰는 중에 방향키 ──')
+  await page.locator('.sc-pl__acts button:nth-child(3)').click({ force: true })
+  await page.waitForTimeout(600)
+  const box0 = page.locator('.sc-sheet__body input, .sc-sheet__body textarea').first()
+  if ((await box0.count()) > 0) {
+    await box0.fill('가나다라')
+    await box0.focus()
+    const wasAt = await at()
+    // 글 가운데로 커서를 옮기려고 왼쪽을 누른다
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForTimeout(400)
+    const caret = await box0.evaluate((el) => (el as HTMLInputElement).selectionStart)
+    console.log(`  커서 자리: ${caret} (4면 방향키를 화면이 가로챘다)`)
+    console.log(`  사람: ${wasAt} → ${await at()} ${wasAt === (await at()) ? '✓ 안 움직였다' : '✗ 글 쓰는데 걸어갔다'}`)
+  } else {
+    console.log('  입력창을 못 찾았다')
+  }
+  await page.locator('.sc-sheet__head button').first().click({ force: true }).catch(() => undefined)
+  await page.waitForTimeout(400)
+
   console.log('\n── 캔버스를 눌러 걷기 ──')
   const box = await page.locator('.sc-wk__canvas').boundingBox()
   if (box) {
