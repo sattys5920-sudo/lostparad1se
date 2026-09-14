@@ -433,14 +433,32 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const dt = Math.min(64, now - last)
       last = now
 
-      // 서버가 새 방으로 옮겼으면 따라간다
+      // 서버가 말하는 방으로 따라간다.
+      //
+      // **처음 한 번도 빼먹지 않는다.** 전에는 첫 번째만 건너뛰었다 —
+      // 화면을 열면 아바타는 늘 우리 팀 출발 자리에 섰고, 서버는
+      // 그 사이 걸어간 방을 기억하고 있었다. 둘이 어긋난 채로
+      // 문을 넘으려 하면 「이미 그 방이다」가 뜬다. 내가 선 방으로
+      // 가자고 말하고 있었으니까. DAY 3쯤 되면 어느 문도 안 열린다
       const pawn = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
       const serverTile = asRoom(pawn?.tileId)
       if (serverTile && serverTile !== lastServerTile) {
-        if (lastServerTile !== null) placeIn(serverTile)
+        placeIn(serverTile)
         lastServerTile = serverTile
         // 도착했다. 다음 문을 넘을 수 있다
         asked = false
+      }
+
+      // 그래도 어긋났으면 서버 쪽으로 맞춘다. **어긋난 채로 두면
+      // 어느 문도 안 열리는데 이유는 아무 데도 안 나온다**
+      if (
+        serverTile &&
+        !asked &&
+        !self.moving &&
+        !walkingRef.current &&
+        roomAt(self.tx, self.ty)?.id !== serverTile
+      ) {
+        placeIn(serverTile)
       }
       // 대답이 영영 안 오면 스스로 푼다
       if (asked && performance.now() - askedAtMs > CROSS_TIMEOUT_MS) asked = false
