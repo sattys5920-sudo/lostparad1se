@@ -13,17 +13,20 @@
 // 다섯 번째만 여기 있고 나머지는 score.ts에 있다. 굳이 가른 이유는,
 // 투명인간이 영역전이 아니라 「눈이 그치지 않는 학교」의 규칙이기
 // 때문이다. 영역전만 돌려 보고 싶을 때 이 파일을 떼면 된다.
-import { pickInvisible, type PickResult, type SuspicionCount } from './invisible'
+import { countBallots, pickInvisible, type Ballot, type PickResult } from './invisible'
 import { settle, type ScoreBreakdown, type SettlementResult } from './score'
 import type { TeamId } from './v2'
-import type { Vote } from './votes'
 
 export interface SettlementInput {
   /** 생산과 표를 이미 반영한 점수. */
   scores: readonly ScoreBreakdown[]
   knowledgeOf: (team: TeamId) => number
-  /** 그날 던져진 표 전부. */
-  votes: readonly Vote[]
+  /**
+   * 그날 던져진 **투명인간 투표** 전부.
+   *
+   * 신뢰·호감 표가 아니다. 그쪽은 개인 점수로만 가고 여기 안 온다.
+   */
+  ballots?: readonly Ballot[]
   /** 어제 투명인간이었던 사람. 이틀 연속은 없다. */
   yesterdayInvisibleId?: string | null
 }
@@ -33,27 +36,17 @@ export interface DailySettlement extends SettlementResult {
   invisible: PickResult
 }
 
-/** 사람마다 그날 받은 의심표 수. 보낸 사람은 세지 않는다 — 셀 필요도 없다. */
-export function suspicionCounts(votes: readonly Vote[]): SuspicionCount[] {
-  const tally = new Map<string, number>()
-  for (const v of votes) {
-    if (v.kind !== 'suspicion') continue
-    tally.set(v.targetId, (tally.get(v.targetId) ?? 0) + 1)
-  }
-  return [...tally].map(([playerId, count]) => ({ playerId, count }))
-}
-
 /**
- * 21:00. 순위를 내고, 주목·만회를 정하고, 내일의 투명인간을 고른다.
+ * 하루의 끝. 순위를 내고, 주목·만회를 정하고, 내일의 투명인간을 고른다.
  *
- * **표에 관해 공개되는 정보는 투명인간 하나뿐이다.** 받은 의심표 수도,
- * 보낸 사람도 나가지 않는다. 그래서 이 함수는 수를 돌려주지 않고
+ * **투표에 관해 공개되는 정보는 투명인간 하나뿐이다.** 몇 장 받았는지도,
+ * 누가 적었는지도 나가지 않는다. 그래서 이 함수는 수를 돌려주지 않고
  * 고른 결과만 돌려준다.
  */
 export function settleDay(input: SettlementInput): DailySettlement {
   const base = settle(input.scores, input.knowledgeOf)
   const invisible = pickInvisible({
-    counts: suspicionCounts(input.votes),
+    counts: countBallots(input.ballots ?? []),
     yesterdayId: input.yesterdayInvisibleId ?? null,
   })
   return { ...base, invisible }

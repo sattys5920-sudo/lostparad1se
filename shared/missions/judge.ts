@@ -33,7 +33,6 @@ export interface JudgeVote {
   kind: VoteKind
   day: number
   /** 그날 A의 기록이 가리킨 역할을 정확히 짚었는가. */
-  exactHit?: boolean
   atMs: number
 }
 
@@ -279,31 +278,17 @@ function measure(clause: Clause, c: Ctx): { have: number; unit: Unit } {
     // ── 받은 표 ──
     case 'trustReceived':
       return { unit: 'count', have: votesToMe(c, 'trust').length }
-    case 'suspicionReceivedAtMost':
-      return { unit: 'count', have: votesToMe(c, 'suspicion').length }
-    case 'suspicionAfterRevealAtMost': {
-      const at = myFirstRevealMs(c)
-      if (at === null) return { unit: 'count', have: 0 }
-      return { unit: 'count', have: votesToMe(c, 'suspicion').filter((v) => v.atMs >= at).length }
-    }
     case 'voteReceivedFromBond':
       return { unit: 'count', have: votesToMe(c).filter((v) => v.voterId === bond).length }
     case 'trustReceivedFromBond':
       return { unit: 'count', have: votesToMe(c, 'trust').filter((v) => v.voterId === bond).length }
-    case 'bondSuspicionReceivedAtMost':
-      return {
-        unit: 'count',
-        have: log.votes.filter((v) => v.targetId === bond && v.kind === 'suspicion').length,
-      }
 
     // ── 준 표 ──
     case 'trustGivenToBond':
       return { unit: 'count', have: votesFromMe(c, 'trust').filter((v) => v.targetId === bond).length }
     case 'trustLikingGivenToBond':
-      return {
-        unit: 'count',
-        have: votesFromMe(c).filter((v) => v.targetId === bond && v.kind !== 'suspicion').length,
-      }
+      // 표는 이제 신뢰와 호감뿐이라 종류를 가릴 것이 없다
+      return { unit: 'count', have: votesFromMe(c).filter((v) => v.targetId === bond).length }
     case 'trustGivenToBondOnDays': {
       const days = new Set(clause.days ?? [])
       return {
@@ -320,12 +305,6 @@ function measure(clause: Clause, c: Ctx): { have: number; unit: Unit } {
       if (!chosen) return { unit: 'count', have: 0 }
       return { unit: 'count', have: votesFromMe(c, 'trust').filter((v) => v.targetId === chosen).length }
     }
-    case 'noSuspicionCast':
-      return { unit: 'flag', have: votesFromMe(c, 'suspicion').length === 0 ? 1 : 0 }
-    case 'hitSuspicion':
-      return { unit: 'count', have: votesFromMe(c, 'suspicion').filter((v) => v.exactHit).length }
-    case 'missSuspicionAtMost':
-      return { unit: 'count', have: votesFromMe(c, 'suspicion').filter((v) => !v.exactHit).length }
 
     // ── 털어놓기 ──
     case 'classRevealAfterDay':

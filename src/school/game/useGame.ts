@@ -166,6 +166,10 @@ export function gameActions(gameId: string) {
     openQuiz: (paperId: string) => callServer('openQuiz', { ...g, paperId }),
     /** 답을 낸다. 채점은 서버가 한다 — 화면은 정답을 모른다. */
     answerQuiz: (paperId: string, given: string) => callServer('answerQuiz', { ...g, paperId, given }),
+    /** 오늘의 투명인간 투표. 한 명을 적는다 — 기권은 없다. */
+    castBallot: (targetId: string) => callServer('castBallot', { ...g, targetId }),
+    /** 운영자가 오늘의 투명인간을 푼다. 사유를 남긴다. */
+    clearInvisible: (reason: string) => callServer('clearInvisible', { ...g, reason }),
     /** 문제 은행을 본다. **운영자만** — 정답과 해설이 여기서만 나온다. */
     hostQuizList: () => callServer('hostQuizList', g),
     hostQuizUpsert: (quiz: unknown, id?: string) => callServer('hostQuizUpsert', { ...g, id, quiz }),

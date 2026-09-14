@@ -11,27 +11,15 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { canCast } from '../../shared/rules/votes'
 import type { RevealScope, VoteKind } from '../../shared/rules/v2'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
-import { FRAGMENT_BY_DAY } from './story/fragments'
 import type { LeverageDoc, PawnDoc, RosterDoc, VoteDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn } from './turn'
+import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
 
-const VOTE_KINDS: VoteKind[] = ['trust', 'liking', 'suspicion']
-
-/**
- * 그날 A의 기록이 가리킨 역할을 정확히 짚었는가.
- *
- * **서버에서만 본다.** 가리켜진 역할 목록을 내려보내면 「정확히
- * 짚으면 두 배」가 추리가 아니라 조회가 된다.
- */
-function isExactHit(day: number, targetRole: string | undefined): boolean {
-  if (!targetRole) return false
-  const implicated = FRAGMENT_BY_DAY[day]?.implicated ?? []
-  return implicated.includes(targetRole as (typeof implicated)[number])
-}
+// 표는 호의뿐이다. 배제는 투명인간 투표가 따로 맡는다(ballot.ts)
+const VOTE_KINDS: VoteKind[] = ['trust', 'liking']
 
 /** 하루 한 장. 같은 팀에는 못 준다. 08:00~21:00. */
 export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKind }>(async (req) => {
@@ -41,6 +29,7 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
   const { game, nowMs } = await freshNow(gameId)
   const ref = gameRef(gameId)
 
+  refuseIfInvisible(game.invisibleId, uid, targetId, '표를 줄')
   const [me, target] = await Promise.all([myPawn(gameId, uid), ref.collection('pawns').doc(targetId).get()])
   if (!target.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
   const you = target.data() as PawnDoc
@@ -70,11 +59,6 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
     throw new HttpsError('failed-precondition', why[out.reason as string] ?? '던질 수 없다.')
   }
 
-  // 역할은 명단에서만 본다. 이 값은 응답에 담지 않는다
-  const roleSnap = await ref.collection('secret').doc('roster').collection('items').doc(targetId).get()
-  const targetRole = (roleSnap.data() as RosterDoc | undefined)?.roleId
-  const exactHit = kind === 'suspicion' && isExactHit(game.day, targetRole)
-
   const vote: VoteDoc = {
     day: game.day,
     voterId: uid,
@@ -82,7 +66,6 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
     targetId,
     targetTeam: you.team,
     kind,
-    exactHit,
     castAtMs: nowMs,
     settled: false,
   }

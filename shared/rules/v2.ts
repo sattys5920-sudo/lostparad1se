@@ -193,12 +193,18 @@ export const CAPTURE_BUILDING_DOWNGRADE = 1
 
 // ── 표 ──────────────────────────────────────────────────────────
 
-export type VoteKind = 'trust' | 'liking' | 'suspicion'
+/**
+ * 표는 호의뿐이다. **의심표는 없앴다.**
+ *
+ * 배제는 투명인간 투표가 맡는다(invisible.ts) — 만나지 않고 하는
+ * 별개의 투표다. 「좋아한다」와 「지워라」가 같은 저울에 오르면
+ * 둘 다 뜻이 흐려진다.
+ */
+export type VoteKind = 'trust' | 'liking'
 
 export const VOTE_LABEL: Record<VoteKind, string> = {
   trust: '신뢰',
   liking: '호감',
-  suspicion: '의심',
 }
 
 /**
@@ -502,8 +508,24 @@ export const DAY4_CHOICE_DAY = 4
 
 // ── 투명인간 (눈이 그치지 않는 학교 ①) ─────────────────────────
 
-/** 이만큼 받아야 투명인간이 된다. 한 장으로는 사람을 지우지 못한다. */
-export const INVISIBLE_MIN_SUSPICION = 2
+/**
+ * 이만큼 받아야 투명인간이 된다.
+ *
+ * 한 장이면 된다 — 대신 **동률이면 아무도 안 된다.** 누군가를 지우려면
+ * 여러 사람이 같은 이름을 적어야 한다는 것은 그쪽 규칙이 맡는다.
+ */
+export const INVISIBLE_MIN_VOTES = 1
+
+/**
+ * 투명인간이 나온 팀이 그날 팀 전체로 더 받는 토큰.
+ *
+ * 세 명짜리 팀에서 한 명이 빠지면 판정 머릿수가 넷(주장 둘 + 하나)에서
+ * 둘로 반토막 난다. 지워진 것은 한 사람인데 팀이 무너지면, 투표가
+ * 사람을 겨누는 것이 아니라 팀을 겨누는 것이 된다.
+ *
+ * **이때만 보유 한도를 넘는다.** 넘긴 것은 그다음 지급에서 깎인다.
+ */
+export const INVISIBLE_TEAM_TOKEN_BONUS = 4
 /**
  * 같은 사람이 이틀 연속으로 투명인간이 되지는 않는다.
  * A는 몇 주째였다. 우리는 하루면 된다.

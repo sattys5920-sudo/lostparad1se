@@ -15,7 +15,6 @@ import {
   NEVER_HINTED,
   ROLES,
   ROLES_BY_PATH,
-  ROLE_BY_ID,
   ROLE_IDS,
   endingBandOf,
   validateBondRing,
@@ -122,12 +121,6 @@ describe('진행도 공개 정책', () => {
     }
   })
 
-  it('고발자의 적중·헛짚음은 끝까지 숨긴다', () => {
-    for (const c of ROLE_BY_ID.accuser.main.clauses) {
-      expect(c.disclosure).toBe('hidden')
-    }
-  })
-
   it('순위·종료 소유·동맹은 끝날 때 판정이다', () => {
     const atEnd = ['teamRankNotFirst', 'bondTeamRankHigher', 'alliedWithBondAtEnd',
                    'ownFragmentTilesAtEnd', 'holdLeverageOnBondAtEnd']
@@ -141,9 +134,14 @@ describe('진행도 공개 정책', () => {
   })
 
   it('뒤집힐 수 있는 조항에는 실패 확정을 붙이지 않는다', () => {
-    // 목격자의 「털어놓은 뒤 의심표 1장 이하」는 마지막까지 모른다
-    const clause = ROLE_BY_ID.witness.main.clauses.find((c) => c.kind === 'suspicionAfterRevealAtMost')
-    expect(clause?.failsOnBreak).toBeUndefined()
+    // 「받은 표」에 걸린 조항은 마지막까지 뒤집힐 수 있다
+    for (const role of ROLES) {
+      for (const c of role.main.clauses) {
+        if (c.kind === 'trustReceived' || c.kind === 'voteReceivedFromBond') {
+          expect(c.failsOnBreak).toBeUndefined()
+        }
+      }
+    }
   })
 
   it('되돌릴 수 없는 조항에만 실패 확정을 붙였다', () => {
@@ -151,7 +149,7 @@ describe('진행도 공개 정책', () => {
       [...r.main.clauses, ...r.bond.clauses].filter((c) => c.failsOnBreak).map((c) => c.kind),
     )
     expect([...new Set(definite)].sort()).toEqual(
-      ['neverRevealed', 'neverSpentLeverage', 'noRevealUntilDay', 'noSuspicionCast'].sort(),
+      ['neverRevealed', 'neverSpentLeverage', 'noRevealUntilDay'].sort(),
     )
   })
 })

@@ -30,7 +30,8 @@ export interface PeopleProps {
   onSaid: (text: string) => void
 }
 
-const VOTES: VoteKind[] = ['trust', 'liking', 'suspicion']
+// 표는 호의뿐이다. 배제는 투명인간 투표가 따로 맡는다
+const VOTES: VoteKind[] = ['trust', 'liking']
 
 export function People(props: PeopleProps) {
   const { me, seats, act, onSaid } = props
@@ -42,6 +43,8 @@ export function People(props: PeopleProps) {
   // **여기 있는 사람만 보인다.** 명단을 통째로 펴 놓으면 학교
   // 반대편 사람에게도 뭔가 할 수 있을 것처럼 보인다. 만나야 한다
   const here = new Set(props.hereIds)
+  // 마주 선 사람만. **투명인간은 여기 없다** — 서버가 위치를 아예
+  // 안 보내므로 here 에 들어오지 않는다. 화면이 거르는 것이 아니다
   const others = seats.filter((s) => s.playerId !== me.playerId && here.has(s.playerId))
 
   async function run(label: string, fn: () => Promise<unknown>) {

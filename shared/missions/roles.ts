@@ -61,12 +61,11 @@ export type ClauseKind =
   | 'fragmentTileStayDays' | 'stayInRivalTeamTiles' | 'tilesVisited'
   | 'coStayWithBond' | 'coStayWithChosen'
   // 표 — 받은 것
-  | 'trustReceived' | 'suspicionReceivedAtMost' | 'suspicionAfterRevealAtMost'
-  | 'voteReceivedFromBond' | 'trustReceivedFromBond' | 'bondSuspicionReceivedAtMost'
+  | 'trustReceived'
+  | 'voteReceivedFromBond' | 'trustReceivedFromBond'
   // 표 — 준 것
   | 'trustGivenToBond' | 'trustLikingGivenToBond' | 'trustGivenToBondOnDays'
-  | 'trustGivenToChosen' | 'noSuspicionCast'
-  | 'hitSuspicion' | 'missSuspicionAtMost'
+  | 'trustGivenToChosen'
   // 털어놓기
   | 'classRevealAfterDay' | 'classRevealOnDay' | 'neverRevealed'
   | 'noRevealUntilDay' | 'heardPrivateRevealFrom'
@@ -251,7 +250,6 @@ export const ROLES: readonly RoleSpec[] = [
         { kind: 'noRevealUntilDay', text: 'DAY 2까지 털어놓지 않음', day: 2, disclosure: 'realtime', failsOnBreak: true },
         { kind: 'classRevealAfterDay', text: 'DAY 3 이후 전체 털어놓기', day: 3, disclosure: 'realtime' },
         // 마지막 순간까지 뒤집힐 수 있다. 실패로 확정하지 않는다
-        { kind: 'suspicionAfterRevealAtMost', text: '털어놓은 뒤 받은 의심표', limit: 1, disclosure: 'settlement' },
       ],
     },
     bond: {
@@ -270,7 +268,6 @@ export const ROLES: readonly RoleSpec[] = [
       text: '신뢰표를 3장 이상 받고, 의심표는 2장 이하로 받고, 끝까지 털어놓지 않는다.',
       clauses: [
         { kind: 'trustReceived', text: '받은 신뢰표', need: 3, disclosure: 'settlement' },
-        { kind: 'suspicionReceivedAtMost', text: '받은 의심표', limit: 2, disclosure: 'settlement' },
         { kind: 'neverRevealed', text: '끝까지 털어놓지 않음', disclosure: 'realtime', failsOnBreak: true },
       ],
     },
@@ -288,18 +285,19 @@ export const ROLES: readonly RoleSpec[] = [
     path: 'people',
     flavor: 'A의 일에 누군가 책임이 있다고 믿는 아이.',
     secret: 'A는 요즘 누가 무섭다고 털어놓은 적이 있다. 그 말을 듣고도 흘려들었다.',
+    // **이 두 미션은 임시다.** 원래 의심표에 얹혀 있었는데 의심표를
+    // 없앴다. 배제는 투명인간 투표가 맡고 그쪽은 누가 적었는지를
+    // 끝까지 안 내보내므로, 개인 미션의 재료로 쓸 수 없다. 역할 열넷을
+    // 통째로 새로 쓸 때 이 자리도 같이 바뀐다 — 그때까지 데이터가
+    // 깨지지 않도록 남아 있는 조항으로 채워 둔다
     main: {
-      text: '적중 의심 1회 이상, 헛짚은 의심 2회 이하.',
-      clauses: [
-        // 적중 여부를 알려 주면 그날 힌트 역할을 역산할 수 있다. 끝까지 숨긴다
-        { kind: 'hitSuspicion', text: '적중 의심', need: 1, disclosure: 'hidden' },
-        { kind: 'missSuspicionAtMost', text: '헛짚은 의심', limit: 2, disclosure: 'hidden' },
-      ],
+      text: '닷새 동안 신뢰표를 2장 이상 받는다. [교체 예정]',
+      clauses: [{ kind: 'trustReceived', text: '받은 신뢰표', need: 2, disclosure: 'settlement' }],
     },
     bond: {
-      text: '인연 대상이 닷새 동안 받은 의심표가 2장 이하.',
+      text: '인연 대상에게 신뢰표를 준다. [교체 예정]',
       clauses: [
-        { kind: 'bondSuspicionReceivedAtMost', text: '인연 대상이 받은 의심표', limit: 2, disclosure: 'endOnly' },
+        { kind: 'trustGivenToBond', text: '인연 대상에게 준 신뢰표', need: 1, disclosure: 'realtime' },
       ],
     },
     hintDay: 3,
@@ -429,12 +427,10 @@ export const ROLES: readonly RoleSpec[] = [
     flavor: '모든 걸 보고도 아무 말도 하지 않은 아이.',
     secret: 'A가 혼자 남겨지는 걸 여러 번 봤지만, 한 번도 말을 걸지 않았다.',
     main: {
-      text: '의심표를 한 장도 던지지 않고, DAY 4까지 누구에게도 털어놓지 않다가, DAY 5에 전체 털어놓기를 한다. 받은 의심표는 2장 이하.',
+      text: 'DAY 4까지 누구에게도 털어놓지 않다가, DAY 5에 전체 털어놓기를 한다.',
       clauses: [
-        { kind: 'noSuspicionCast', text: '의심표를 던지지 않음', disclosure: 'realtime', failsOnBreak: true },
         { kind: 'noRevealUntilDay', text: 'DAY 4까지 털어놓지 않음', day: 4, disclosure: 'realtime', failsOnBreak: true },
         { kind: 'classRevealOnDay', text: 'DAY 5에 전체 털어놓기', day: 5, disclosure: 'realtime' },
-        { kind: 'suspicionReceivedAtMost', text: '받은 의심표', limit: 2, disclosure: 'settlement' },
       ],
     },
     bond: {

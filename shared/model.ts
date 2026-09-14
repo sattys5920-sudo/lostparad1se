@@ -104,6 +104,13 @@ export interface GameDoc {
   /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
   invisibleByDay: Record<number, string | null>
   /**
+   * 오늘 투명인간이 나온 팀. 그날 토큰을 더 받는다.
+   *
+   * 투명인간이 누구인지는 어차피 아침에 다 알므로 팀도 공개다 —
+   * 숨기는 것은 **위치**지 이름이 아니다.
+   */
+  invisibleTeam?: TeamId | null
+  /**
    * 눈발. **단계와 그쳤는지만** 있다.
    *
    * 「깨달은 사람 여덟」이라고 알려 주면 남은 하나를 찾아 몰아붙이게
@@ -257,7 +264,6 @@ export interface VoteDoc {
    * 던진 사람에게도 알려 주지 않는다. 알려 주면 표 한 장으로 역할을
    * 하나씩 찍어 볼 수 있다.
    */
-  exactHit: boolean
   castAtMs: GameMs
   /** 21:00 정산에 반영됐는가. */
   settled: boolean
@@ -372,6 +378,8 @@ export interface PlayerViewDoc {
   myCarriedRobots: number
   /** 이번 페이즈에 내가 부순 로봇 수. 남의 것은 안 온다. */
   mySmashes: number
+  /** 오늘 내가 적은 사람. **남이 누구를 적었는지는 안 온다.** */
+  myBallot: string | null
   /** 보이는 방마다 서 있는 로봇 수. 정원과 별개다. */
   robotCounts: Record<TileId, number>
   /**

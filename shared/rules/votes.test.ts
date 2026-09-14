@@ -55,14 +55,14 @@ describe('합계', () => {
     expect(out.A.received.trust).toBe(0)
   })
 
-  it('의심표도 받은 쪽에만 센다 — 금고는 아무도 안 움직인다', () => {
-    const out = tallyVotes({ votes: [vote('suspicion', 'B')] })
-    expect(out.B.received.suspicion).toBe(1)
-    expect(out.A.received.suspicion).toBe(0)
+  it('표는 받은 쪽에만 센다 — 금고는 아무도 안 움직인다', () => {
+    const out = tallyVotes({ votes: [vote('liking', 'B')] })
+    expect(out.B.received.liking).toBe(1)
+    expect(out.A.received.liking).toBe(0)
   })
 
   it('합계에는 보낸 사람이 들어 있지 않다', () => {
-    const out = tallyVotes({ votes: [vote('trust', 'B'), vote('suspicion', 'C')] })
+    const out = tallyVotes({ votes: [vote('trust', 'B'), vote('liking', 'C')] })
     const text = JSON.stringify(out)
     expect(text).not.toContain('a1')
     expect(text).not.toContain('voterId')
@@ -77,7 +77,7 @@ describe('합계', () => {
 })
 
 describe('정보부장 열람', () => {
-  const votes = [vote('trust', 'B'), vote('suspicion', 'C', { voterId: 'd1', voterTeam: 'D' })]
+  const votes = [vote('trust', 'B'), vote('liking', 'C', { voterId: 'd1', voterTeam: 'D' })]
 
   it('우리 팀이 받은 표에서만 고른다', () => {
     expect(peekVoter(votes, 'B', 0)).toBe('a1')

@@ -17,7 +17,7 @@ import { SLIP_TEXTS } from './story/slips'
 import { TILES, type TileId } from '../../shared/rules/board'
 import { rngFrom } from '../../shared/missions/assign'
 import type { GameDoc, PawnDoc } from '../../shared/model'
-import { freshNow } from './turn'
+import { freshNow, refuseIfInvisible } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -219,6 +219,9 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
   if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
   const here = await whereAmI(gameId, uid)
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 건넬 수 있다.')
+  // **두는 것은 되고 건네는 것은 안 된다.** 손에서 손으로 가는 일이라
+  // 사람과 얽히는 행동이다 — 바닥에 두는 쪽이 유일한 통로로 남는다
+  refuseIfInvisible((await freshNow(gameId)).game.invisibleId, uid, toPlayerId, '건넬')
 
   let subject = ''
   let toTeam: PawnDoc['team'] = 'A'

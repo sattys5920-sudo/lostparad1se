@@ -265,6 +265,13 @@ export interface PhaseState {
    */
   actedBy: readonly string[]
   /**
+   * 오늘 지워진 사람. 없으면 null.
+   *
+   * **사람과 얽히는 일의 대상이 되지 않는다** — 호출도 방해도 이 사람을
+   * 지나친다. 점령 판정에서도 0명이다. 대신 데리고 있는 짝은 부술 수 있다.
+   */
+  invisibleId?: string | null
+  /**
    * 팀마다의 금고. **연구가 지식을 여기서 뺀다.**
    *
    * 순수 함수로 두려면 금고도 상태의 일부여야 한다. 서버가 팀 문서에서
@@ -524,6 +531,9 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       const target = act.targetPlayer ? byId.get(act.targetPlayer) : undefined
       if (!target) return no('그런 사람이 없다.')
       if (target.team !== mine.team) return no('같은 팀만 부를 수 있다.')
+      // 보이지 않는 사람은 부를 수 없다. 부르는 쪽도 못 부른다
+      if (state.invisibleId === playerId) return no('보이지 않는 동안에는 부를 수 없다.')
+      if (state.invisibleId === target.playerId) return no('그런 사람이 없다.')
       if (target.tileId === null) return no('그 사람은 걷는 중이다.')
       if (target.tileId === mine.tileId) return no('이미 같은 방에 있다.')
       const next = stepToward(target.tileId, mine.tileId)
@@ -541,6 +551,8 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (act.targetPlayer) {
         const t = byId.get(act.targetPlayer)
         if (!t || t.tileId !== mine.tileId || t.team === mine.team) return no('그 사람이 같은 방에 없다.')
+        // 없는 사람은 방해할 수 없다. 이미 없는 것으로 세어진다
+        if (state.invisibleId === t.playerId) return no('그 사람이 같은 방에 없다.')
         if (state.zeroedPeople.includes(t.playerId)) return no('이미 방해받고 있다.')
         log = { kind: 'disturbed', playerId, targetPlayer: t.playerId, tileId: mine.tileId }
         return {
@@ -718,6 +730,8 @@ export function settle(state: PhaseState): SettleResult {
     for (const p of state.people) {
       // 걷는 중인 사람은 어느 방에도 없다. 마지막 순간의 이동은 도박이다
       if (p.tileId !== t.id || zeroedPeople.has(p.playerId)) continue
+      // 투명인간은 서 있어도 0명이다
+      if (state.invisibleId === p.playerId) continue
       w[p.team] = (w[p.team] ?? 0) + headOf(p)
     }
     for (const r of state.robots) {

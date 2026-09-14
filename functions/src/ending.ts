@@ -124,7 +124,7 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
 
   const votes: JudgeVote[] = voteS.docs.map((d) => {
     const v = d.data() as VoteDoc
-    return { voterId: v.voterId, targetId: v.targetId, kind: v.kind, day: v.day, exactHit: v.exactHit, atMs: v.castAtMs }
+    return { voterId: v.voterId, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }
   })
   const reveals: RevealRecord[] = roster
     .filter((r) => r.reveal)

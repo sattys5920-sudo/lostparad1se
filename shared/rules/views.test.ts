@@ -76,7 +76,7 @@ function world(over = false, invisibleId: string | null = null): World {
     ],
     peeks: [
       { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
-      { playerId: 'B0', voteKind: 'suspicion', voterNickname: '다른누군가' },
+      { playerId: 'B0', voteKind: 'liking', voterNickname: '다른누군가' },
     ],
     trades: [
       { id: 't-AB', fromTeam: 'A', toTeam: 'B', give: { money: 2 }, want: { knowledge: 1 }, note: 'A와 B 사이', status: 'open', createdAtMs: 5 },

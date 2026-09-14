@@ -120,6 +120,13 @@ export interface World {
   disguised?: readonly string[]
   /** 이번 페이즈에 로봇을 부순 사람. 투영이 내 것만 세어 보낸다. */
   smashedBy?: readonly string[]
+  /**
+   * 사람마다 오늘 적은 이름. **투영이 본인 것만 떼어 보낸다.**
+   *
+   * 여기까지는 서버 안이라 전부 들고 있어도 되지만, 밖으로 나가는
+   * 것은 자기가 적은 한 줄뿐이다.
+   */
+  myBallots?: Readonly<Record<string, string>>
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
@@ -233,6 +240,14 @@ export interface View {
    * 한 사람 한 기라서 화면이 버튼을 미리 잠그려면 이 수가 필요하다.
    */
   mySmashes: number
+  /**
+   * 오늘 내가 투명인간 투표에서 적은 사람. 아직 안 적었으면 null.
+   *
+   * **남이 무엇을 적었는지는 어떤 경로로도 안 온다.** 득표수도 안 온다 —
+   * 「몇 표였다」가 새면 누가 적었는지를 좁혀 나갈 수 있고, 그러면
+   * 이 투표가 무기명이라는 말이 거짓이 된다.
+   */
+  myBallot: string | null
   /**
    * 보이는 방마다 서 있는 로봇 수. 안 보이는 방은 아예 넣지 않는다.
    *
@@ -355,6 +370,7 @@ export function projectView(world: World, viewerId: string): View {
       myTeamRobots: 0,
       myCarriedRobots: 0,
       mySmashes: 0,
+      myBallot: null,
       robotCounts: {},
       visitedTiles: [],
       handledDays: [],
@@ -451,6 +467,7 @@ export function projectView(world: World, viewerId: string): View {
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
     mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,
+    myBallot: world.myBallots?.[viewerId] ?? null,
     robotCounts: Object.fromEntries(
       [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.tileId === t).length]),
     ) as Record<TileId, number>,

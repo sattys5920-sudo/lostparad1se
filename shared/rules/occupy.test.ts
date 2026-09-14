@@ -607,6 +607,64 @@ describe('판이 네 팀에게 공평하다', () => {
   })
 })
 
+describe('투명인간은 없는 사람이다', () => {
+  it('점령 판정에서 0명으로 센다', () => {
+    // 파랑 둘 중 하나가 지워지면 빨강 하나와 같아져 주인이 안 바뀐다
+    const s = board({
+      people: [person('b1', 'B', 'library'), person('b2', 'B', 'library'), person('a1', 'A', 'library')],
+      owners: { library: null },
+      invisibleId: 'b2',
+    })
+    expect(settle(s).next.owners.library).toBe(null)
+  })
+
+  it('지워진 사람은 부를 수 없다', () => {
+    const s = board({
+      people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')],
+      invisibleId: 'b',
+    })
+    const out = doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('그런 사람이 없다')
+  })
+
+  it('지워진 사람은 부르지도 못한다', () => {
+    const s = board({
+      people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')],
+      invisibleId: 'a',
+    })
+    const out = doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('보이지 않는')
+  })
+
+  it('지워진 사람은 방해의 대상이 안 된다', () => {
+    const s = board({
+      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
+      invisibleId: 'b',
+    })
+    expect(doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
+  })
+
+  it('그래도 데리고 있는 짝은 부술 수 있다', () => {
+    // 사람은 없는 것으로 치지만 짝은 그 자리에 서 있다
+    const s = board({
+      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
+      robots: [robot('r1', 'B', 'library', 'b')],
+      invisibleId: 'b',
+    })
+    expect(doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' }).ok).toBe(true)
+  })
+
+  it('혼자 하는 일은 그대로 된다 — 걷기·짝 만들기', () => {
+    const lab3 = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
+    const s = board({ people: [person('a', 'A', lab3.id)], invisibleId: 'a' })
+    expect(doAct(s, 'a', { kind: 'research' }).ok).toBe(true)
+    const w = board({ people: [person('a', 'A', 'baseA')], invisibleId: 'a' })
+    expect(doAct(w, 'a', { kind: 'move', targetTile: 'classroom' }).ok).toBe(true)
+  })
+})
+
 describe('토큰 지급', () => {
   it('네 명이면 4, 모자란 팀은 한 사람당 하나 더', () => {
     expect(grantFor(4)).toBe(TOKENS_PER_PHASE)

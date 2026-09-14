@@ -35,7 +35,7 @@ interface RobotMove {
   toTeam: TeamId
 }
 import { refreshViews } from './views'
-import { freshNow, myPawn, standingWith } from './turn'
+import { freshNow, myPawn, refuseIfInvisible, standingWith } from './turn'
 import { takePending } from './card'
 import { gameRef, requireUid } from './index'
 
@@ -134,6 +134,7 @@ export const offerTrade = onCall<{
     if (!theirSnap.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
     const their = theirSnap.data() as PawnDoc
     if (their.tileId !== pawn.tileId) throw new HttpsError('failed-precondition', '같은 방에 있어야 한다.')
+    refuseIfInvisible(game.invisibleId, uid, toPlayerId, '거래할')
     const toTeam = their.team
 
     const give = cleanBag(req.data.give)
@@ -227,6 +228,7 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       wantPurse?: Partial<Purse>
     }
     if (t.status !== 'open') throw new HttpsError('failed-precondition', '이미 끝난 제안이다.')
+    refuseIfInvisible(game.invisibleId, uid, t.byId, '거래할')
     // **마주 선 그 사람에게만 온 말이다.** 팀의 아무나가 받을 수 없다
     if (t.toPlayerId && t.toPlayerId !== uid) {
       throw new HttpsError('permission-denied', '나에게 온 제안이 아니다.')

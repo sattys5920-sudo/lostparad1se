@@ -210,11 +210,13 @@ describe('점수', () => {
 })
 
 describe('공개 정책', () => {
+  // 받은 표에 걸린 조항이 있는 역할을 쓴다. 그 숫자는 진행 중에
+  // 나가면 안 된다 — 방금 누가 나에게 표를 줬는지가 역산된다
   const result = judge(
-    me('witness'),
+    me('accuser'),
     log({
       votes: [
-        { voterId: 'x', targetId: 'me', kind: 'suspicion', day: 2, atMs: NOW },
+        { voterId: 'x', targetId: 'me', kind: 'liking', day: 2, atMs: NOW },
         { voterId: 'y', targetId: 'me', kind: 'trust', day: 2, atMs: NOW },
       ],
       reveals: [{ speakerId: 'me', scope: 'class', listenerIds: ['x', 'y'], day: 3, atMs: START }],
@@ -268,22 +270,12 @@ describe('공개 정책', () => {
     if (view.main.clauses.some((c) => !c.shown)) expect(view.main.met).toBe(null)
   })
 
-  it('고발자의 적중은 끝까지 숫자가 나가지 않는다', () => {
-    const accuser = judge(
-      me('accuser'),
-      log({ votes: [{ voterId: 'me', targetId: 'x', kind: 'suspicion', day: 1, exactHit: true, atMs: NOW }] }),
-    )
-    for (const phase of ['live', 'settlement'] as const) {
-      const view = discloseFor(accuser, phase)
-      for (const c of view.main.clauses) expect(c.have).toBe(null)
-    }
-  })
 })
 
 describe('새면 안 되는 것', () => {
   const result = judge(
     me('witness'),
-    log({ votes: [{ voterId: 'x', targetId: 'me', kind: 'suspicion', day: 2, atMs: NOW }] }),
+    log({ votes: [{ voterId: 'x', targetId: 'me', kind: 'trust', day: 2, atMs: NOW }] }),
   )
 
   it('내려보내는 문서에 표를 보낸 사람이 없다', () => {

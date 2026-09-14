@@ -55,7 +55,7 @@ import {
 import type { Interval } from '../rules/presence'
 import { assignRoles, rngFrom, type Assignment, type Player } from '../missions/assign'
 import { judge, type FlagRecord, type GameLog, type JudgeVote, type RevealRecord, type ScoutRecord, type TradeRecord } from '../missions/judge'
-import { HINT_SCHEDULE, ROLE_BY_ID } from '../missions/roles'
+import { ROLE_BY_ID } from '../missions/roles'
 
 const TICK_SEC = MOVE_GAME_MIN_PER_TILE * 60
 
@@ -391,14 +391,12 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     if (!p.votedToday && rnd() < 0.15 && secondsIntoSeoulDay(nowMs) < SETTLEMENT_HOUR * 3600) {
       const others = assignments.filter((x) => x.team !== p.team)
       const target = pick(others)
-      const kind = rnd() < 0.5 ? 'trust' : rnd() < 0.6 ? 'liking' : 'suspicion'
-      const hinted = HINT_SCHEDULE[day] ?? []
-      const exactHit = kind === 'suspicion' && hinted.includes(target.roleId)
+      const kind = rnd() < 0.5 ? 'trust' : 'liking'
       votes.push({
         voterId: p.id, voterTeam: p.team, targetId: target.playerId, targetTeam: target.team,
-        kind, exactHit, atMs: nowMs,
+        kind, atMs: nowMs,
       })
-      judgeVotes.push({ voterId: p.id, targetId: target.playerId, kind, day, exactHit, atMs: nowMs })
+      judgeVotes.push({ voterId: p.id, targetId: target.playerId, kind, day, atMs: nowMs })
       if (kind === 'trust') teams[target.team].trustFrom.add(p.team)
       p.votedToday = true
       return

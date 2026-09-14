@@ -42,7 +42,7 @@ import {
 } from '../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
-import { TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
+import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
 import { freshNow } from './turn'
@@ -51,6 +51,8 @@ import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { scatterSlips } from './slips'
 import { foldQuizzes, scatterQuizzes } from './quiz'
+import { settleBallots } from './ballot'
+import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { note, noteAll } from './records'
 import { gameRef, requireUid } from './index'
 
@@ -185,6 +187,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
+      invisibleId: game.invisibleId ?? null,
     },
   }
 }
@@ -233,6 +236,18 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // 지금 인원. 상수를 읽지 않는다 — 이적하면 4·4·3·3이 아니다
   const sizes = teamSizesOf(pawns.docs.map((d) => d.data() as PawnDoc))
 
+  /**
+   * 투명인간이 나온 팀이 한 사람당 더 받는 몫.
+   *
+   * 팀 전체로 INVISIBLE_TEAM_TOKEN_BONUS 만큼이라, 사람 수로 나눠
+   * 얹는다. 세 명짜리 팀에서 한 명이 빠지면 판정 머릿수가 반토막
+   * 나는데, 지워진 것은 한 사람인데 팀이 무너지면 이 투표가 사람이
+   * 아니라 팀을 겨누는 것이 된다
+   */
+  const invisibleShare = game.invisibleTeam
+    ? Math.floor(INVISIBLE_TEAM_TOKEN_BONUS / Math.max(1, sizes[game.invisibleTeam]))
+    : 0
+
   let returned = 0
   let allInAtMs = nowMs
   for (const d of pawns.docs) {
@@ -249,7 +264,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
       tokens: nextTokens({
         held: p.tokens ?? 0,
         teamSize: sizes[p.team],
-        refund: p.pendingRefund ?? 0,
+        // 결석 보정에 투명인간 보정을 더한다. 둘 다 이때만 한도를
+        // 넘고, 넘긴 것은 그다음 지급에서 정리된다
+        refund: (p.pendingRefund ?? 0) + (p.team === game.invisibleTeam ? invisibleShare : 0),
       }),
       // 보정은 한 번만 쓰인다
       pendingRefund: 0,
@@ -387,6 +404,7 @@ export const phaseAct = onCall<{
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
+      invisibleId: game.invisibleId ?? null,
     }
 
     const out = doAct(before, uid, act)
@@ -576,6 +594,7 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 
   await batch.commit()
+  const batch2 = db.batch()
   // 한 페이즈가 지날 때마다 쪽지가 몇 장 더 떨어진다. 자유 시간에
   // 주우러 다닐 것이 있어야 자유 시간이 시간이 된다
   // 걸어 둔 연구가 이제 로봇이 됐다. 지금 난 것도 만든 것이다 —
@@ -598,6 +617,26 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
         }
       }),
   )
+
+  // 그날 마지막 페이즈면 내일의 투명인간을 고른다. **득표수는 남기지
+  // 않는다** — 발표되는 것은 결과 한 줄뿐이다
+  const erased = await settleBallots(gameId, game, no)
+  if (erased) {
+    const name = game.seats.find((s) => s.playerId === erased.invisibleId)?.name ?? null
+    batch2.set(ref.collection('notices').doc(), {
+      toPlayerId: null,
+      text: name ? announceInvisible(name) : ANNOUNCE_NOBODY,
+      atMs: nowMs,
+    })
+    if (erased.invisibleId) {
+      batch2.set(ref.collection('notices').doc(), {
+        toPlayerId: erased.invisibleId,
+        text: INVISIBLE_NOTICE,
+        atMs: nowMs,
+      })
+    }
+    await batch2.commit()
+  }
 
   const dropped = await scatterSlips(gameId, no, nowMs)
   // 펴 둔 문제는 도로 접히고, 새 종이가 몇 장 떨어진다

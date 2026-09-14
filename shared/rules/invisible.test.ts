@@ -5,6 +5,8 @@
 // 그러면 이 게임이 하려는 말이 사라진다.
 import { describe, expect, it } from 'vitest'
 import {
+  canName,
+  countBallots,
   countableForFlag,
   INVISIBLE_CAN,
   INVISIBLE_CANNOT,
@@ -12,7 +14,7 @@ import {
   maskClassChat,
   pickInvisible,
 } from './invisible'
-import { INVISIBLE_CHAT_MASK, INVISIBLE_MIN_SUSPICION } from './v2'
+import { INVISIBLE_CHAT_MASK, INVISIBLE_MIN_VOTES } from './v2'
 
 const counts = (o: Record<string, number>) =>
   Object.entries(o).map(([playerId, count]) => ({ playerId, count }))
@@ -23,11 +25,17 @@ describe('내일의 투명인간', () => {
     expect(out).toEqual({ playerId: 'a', reason: 'picked' })
   })
 
-  it('두 장 미만이면 아무도 아니다', () => {
+  it('한 장만 받아도 최다면 지워진다', () => {
+    // 최소선은 한 장이다. 「여러 사람이 같은 이름을 적어야 한다」는
+    // 최소선이 아니라 **동률 무효**가 맡는다
+    expect(INVISIBLE_MIN_VOTES).toBe(1)
+    expect(pickInvisible({ counts: counts({ a: 1 }) }).playerId).toBe('a')
+  })
+
+  it('한 장씩 갈리면 아무도 아니다', () => {
     const out = pickInvisible({ counts: counts({ a: 1, b: 1 }) })
     expect(out.playerId).toBe(null)
-    expect(out.reason).toBe('tooFew')
-    expect(INVISIBLE_MIN_SUSPICION).toBe(2)
+    expect(out.reason).toBe('tie')
   })
 
   it('최다가 둘이면 아무도 지워지지 않는다', () => {
@@ -104,5 +112,46 @@ describe('깃발 판정에서 빼기', () => {
 
   it('없으면 그대로다', () => {
     expect(countableForFlag(standing, null)).toHaveLength(3)
+  })
+})
+
+describe('표를 세면 누가 줬는지가 사라진다', () => {
+  it('받은 사람별 장수만 남는다', () => {
+    const out = countBallots([
+      { voterId: 'a1', targetId: 'b1', atMs: 0 },
+      { voterId: 'a2', targetId: 'b1', atMs: 0 },
+      { voterId: 'a3', targetId: 'c1', atMs: 0 },
+    ])
+    expect(out).toEqual([
+      { playerId: 'b1', count: 2 },
+      { playerId: 'c1', count: 1 },
+    ])
+    expect(JSON.stringify(out)).not.toContain('a1')
+  })
+
+  it('아무도 안 적으면 빈 목록이다', () => {
+    expect(countBallots([])).toEqual([])
+  })
+})
+
+describe('누구를 적을 수 있는가', () => {
+  const base = { voterId: 'me', captainIds: ['cap'] as string[] }
+
+  it('나 자신은 못 적는다', () => {
+    expect(canName({ ...base, targetId: 'me' }).reason).toBe('self')
+  })
+
+  it('팀장은 못 적는다', () => {
+    expect(canName({ ...base, targetId: 'cap' }).reason).toBe('captain')
+  })
+
+  it('어제 지워진 사람은 못 적는다 — 방어 코드다', () => {
+    expect(canName({ ...base, targetId: 'x', yesterdayId: 'x' }).reason).toBe('repeat')
+  })
+
+  it('같은 팀 사람도 적을 수 있다', () => {
+    // 팀을 가르지 않는다. 이 투표는 호의가 아니라 배제라서,
+    // 「우리 편은 못 적는다」가 붙으면 규칙이 무뎌진다
+    expect(canName({ ...base, targetId: 'mate' }).ok).toBe(true)
   })
 })

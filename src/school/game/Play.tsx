@@ -20,6 +20,7 @@ import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { Slips } from './Slips'
 import { Quiz, QuizHost } from './Quiz'
+import { Ballot } from './Ballot'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
@@ -398,6 +399,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     ? (state.view?.visiblePawns ?? []).filter((p) => p.playerId !== uid && p.tileId === standingOn)
     : []
   const hereIds = hereNow.map((p) => p.playerId)
+  /** 오늘 지워진 사람. 나라면 화면이 반투명해진다 */
+  const iAmInvisible = game?.invisibleId === uid
   // 마주 선 팀. 교역도 동맹도 사람이 꺼내는 말이라 그 팀 사람이 앞에 있어야 한다
   const facingTeams = [...new Set(hereNow.map((p) => p.team))].filter((t) => t !== me?.team)
 
@@ -417,7 +420,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   if (overlay === 'archive') return <LiveArchive gameId={gameId} onClose={() => setOverlay(null)} />
 
   return (
-    <div className={miniOn ? 'sc-pl__today has-mini' : 'sc-pl__today'}>
+    <div
+      className={
+        (miniOn ? 'sc-pl__today has-mini' : 'sc-pl__today') + (iAmInvisible ? ' is-invisible' : '')
+      }
+    >
+      {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
+      {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
       <header className="sc-pl__head">
         <h1>DAY {game.day}</h1>
         <span className="sc-pl__me">
@@ -513,6 +522,22 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {/* 쪽지. 페이즈 중에는 점령전 말고 할 일이 없다 */}
       {!phaseOpen && uid && (
         <Slips view={state.view} seats={game.seats} hereIds={hereIds} meId={uid} act={act} onSaid={setSaid} />
+      )}
+
+      {/* 오늘의 투명인간. 만나지 않고 하는 투표라 어디서든 열린다 */}
+      {!phaseOpen && (
+        <Ballot
+          me={me}
+          seats={game.seats}
+          captainIds={Object.values(state.teams)
+            .map((t) => t?.captainId ?? null)
+            .filter((id): id is string => typeof id === 'string')}
+          invisibleId={game.invisibleId ?? null}
+          day={game.day}
+          view={state.view}
+          act={act}
+          onSaid={setSaid}
+        />
       )}
 
       {/* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이

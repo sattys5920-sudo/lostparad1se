@@ -245,7 +245,6 @@ async function settlement(c: Ctx): Promise<void> {
       targetId: v.targetId,
       targetTeam: v.targetTeam,
       kind: v.kind,
-      exactHit: v.exactHit,
       atMs: v.castAtMs,
     }
   })
@@ -281,7 +280,9 @@ async function settlement(c: Ctx): Promise<void> {
   const result = settleDay({
     scores,
     knowledgeOf: (team) => after.get(team)?.knowledge ?? 0,
-    votes,
+    // 투명인간은 이제 전용 투표로 정한다(ballot.ts). 하루 정산이
+    // 아니라 그날 마지막 페이즈가 닫힐 때 골라진다
+    ballots: [],
     // 이틀 연속은 없다
     yesterdayInvisibleId: c.game.invisibleByDay[c.day] ?? null,
   })

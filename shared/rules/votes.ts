@@ -28,7 +28,6 @@ export interface Vote {
    * 역할 판정은 개인 미션 쪽에서 하고, 여기에는 답만 들어온다 —
    * 표 계산이 역할 데이터를 알 필요는 없다.
    */
-  exactHit?: boolean
   atMs: number
 }
 
@@ -73,7 +72,7 @@ export interface TallyRow {
 export function tallyVotes(input: TallyInput): Record<TeamId, TallyRow> {
   const out = {} as Record<TeamId, TallyRow>
   for (const team of TEAM_IDS) {
-    out[team] = { team, received: { trust: 0, liking: 0, suspicion: 0 } }
+    out[team] = { team, received: { trust: 0, liking: 0 } }
   }
   for (const v of input.votes) out[v.targetTeam].received[v.kind] += 1
   return out

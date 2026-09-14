@@ -62,7 +62,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -82,6 +82,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'confessions').get(),
       secret(gameId, 'memories').get(),
       secret(gameId, 'slips').get(),
+      gameRef(gameId).collection('secret').doc('ballots').collection('items').get(),
       gameRef(gameId).collection('secret').doc('quiz').collection('bank').get(),
       gameRef(gameId).collection('secret').doc('quiz').collection('floor').get(),
       secret(gameId, 'awakened').get(),
@@ -128,6 +129,14 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 페이즈가 닫히면 서버가 지우므로 여기서 기한을 따질 것이 없다
     disguised: ((hiddenPhase.data() as { disguised?: string[] } | undefined)?.disguised ?? []),
     smashedBy: ((hiddenPhase.data() as { smashedBy?: string[] } | undefined)?.smashedBy ?? []),
+    // 오늘 적은 표. **투영이 본인 것만 떼어 보낸다** — 여기까지는
+    // 서버 안이라 전부 들고 있어도 된다
+    myBallots: Object.fromEntries(
+      ballots.docs
+        .map((d) => d.data() as { day: number; voterId: string; targetId: string })
+        .filter((b) => b.day === (game.phaseNow?.day ?? game.day))
+        .map((b) => [b.voterId, b.targetId]),
+    ),
     robots: robots.docs.map((d) => {
       const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }
       return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
@@ -153,7 +162,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       const f = d.data() as FlagTruthDoc & { team: 'A' | 'B' | 'C' | 'D'; fake: boolean }
       return { tileId: d.id as TileId, team: f.team, fake: f.fake }
     }),
-    peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'suspicion'; voterNickname: string }),
+    peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
     // 지금의 범위. 투영이 페이즈 경계를 넘은 말을 이걸로 가른다
     tradeEpoch: tradeEpoch(game),
     trades: trades.docs

@@ -65,6 +65,32 @@ export { requireUid }
  * 걷는 사람은 어느 자리에도 없다. 말하는 쪽도 듣는 쪽도 그렇다 —
  * 문과 문 사이에 있는 사람과는 아무것도 할 수 없다.
  */
+/**
+ * 투명인간은 이 일을 할 수 없다. **양쪽 다 막는다.**
+ *
+ * 사람과 얽히는 일이 전부 막힌다 — 거래, 표, 쪽지 건네기, 호출.
+ * 내가 투명인간이어도 막히고, 상대가 투명인간이어도 막힌다. 한쪽만
+ * 막으면 「말을 걸 수는 없는데 받을 수는 있는」 이상한 자리가 생긴다.
+ *
+ * 혼자 하는 일은 그대로 된다 — 걷기, 짝 만들기, 시험지, 쪽지를 줍고
+ * 읽고 찢고 **바닥에 두는 것.** 두고 가는 것만은 되는데, 그것이
+ * 보이지 않는 사람이 남에게 무언가를 남기는 유일한 통로다.
+ */
+export function refuseIfInvisible(
+  invisibleId: string | null | undefined,
+  meId: string,
+  otherId: string | null,
+  what: string,
+): void {
+  if (!invisibleId) return
+  if (invisibleId === meId) {
+    throw new HttpsError('failed-precondition', `보이지 않는 동안에는 ${what} 수 없다.`)
+  }
+  if (otherId && invisibleId === otherId) {
+    throw new HttpsError('failed-precondition', '그런 사람이 없다.')
+  }
+}
+
 export async function standingWith(
   gameId: string,
   uid: string,

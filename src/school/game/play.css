@@ -1205,3 +1205,37 @@
 .sc-qzh__tag { color: var(--sc-quiz-mark); }
 .sc-qzh__prompt { flex: 1; min-width: 120px; }
 .sc-qzh__ans { color: var(--sc-text-dim); }
+
+/* ── 오늘의 투명인간 ────────────────────────────────────────────
+   신뢰·호감 표와 다른 화면이다. 호의가 아니라 배제라, 색을 빼고
+   테두리도 지운다 — 단추처럼 보이면 가볍게 눌린다 */
+.sc-bl {
+  margin: 12px 0 0;
+  padding: 12px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-bl h2 { margin: 0 0 4px; font-size: 13px; font-weight: 400; }
+.sc-bl__guide { margin: 0 0 10px; font-size: 12px; color: var(--sc-text-dim); }
+.sc-bl__names { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-bl__names button { font-size: 12px; padding: 5px 10px; }
+.sc-bl__names button.is-on { border-color: var(--sc-text); color: var(--sc-text); }
+.sc-bl__none { margin: 8px 0 0; font-size: 11px; color: var(--sc-text-dim); }
+/* 날마다 한 줄씩 늘어난다 */
+.sc-bl__murmur { margin-top: 14px; }
+.sc-bl__murmur p { margin: 0 0 3px; font-size: 11px; color: #9aa1a7; }
+
+/* 오늘 지워진 사람의 화면. 남에게는 위치 자체가 안 간다 */
+.sc-pl__today.is-invisible { opacity: 0.82; }
+.sc-pl__today.is-invisible::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 44px rgba(120, 132, 144, 0.35);
+}
+.sc-pl__ghost {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: var(--sc-text-dim);
+  letter-spacing: 0.04em;
+}
