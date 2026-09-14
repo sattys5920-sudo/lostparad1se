@@ -25,6 +25,7 @@ import { TILES, type TileId } from '../../shared/rules/board'
 import { rngFrom } from '../../shared/missions/assign'
 import type { PawnDoc, TeamDoc } from '../../shared/model'
 import { freshNow } from './turn'
+import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 
@@ -202,6 +203,14 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
     return { correct: true as const, explain: quiz.explain || null }
   })
 
+  // 맞힌 것만 남긴다. **전교 1등의 「문제를 5개 이상 맞힌다」가
+  // 이 줄을 센다** — 팀이 아니라 본인이 맞혀야 한다
+  if (out.correct) {
+    await note(gameId, 'quizSolved', Date.now(), { id: uid, team: pawn.team }, {
+      tileId: here,
+      subjectId: paperId,
+    })
+  }
   await refreshViews(gameId)
   return out
 })

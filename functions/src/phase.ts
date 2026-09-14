@@ -51,6 +51,7 @@ import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { scatterSlips } from './slips'
 import { foldQuizzes, scatterQuizzes } from './quiz'
+import { note, noteAll } from './records'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -352,6 +353,17 @@ export const phaseAct = onCall<{
   /** 내가 방을 떠났다면 그 방. 체류 기록을 닫아야 한다. */
   let leftFor: TileId | null = null
   let left = 0
+  /**
+   * 이번 행동으로 난 로봇·부서진 로봇. **트랜잭션 밖에서 기록한다** —
+   * 안에서 적으면 재시도될 때마다 같은 줄이 두 번 쌓인다.
+   *
+   * 한 덩이로 묶은 것은 타입 때문이다. 그냥 let 으로 두면 콜백 안의
+   * 대입을 컴파일러가 못 보고 바깥에서 never 로 좁혀 버린다.
+   */
+  const bot: {
+    made: { id: string; team: TeamId; tileId: TileId } | null
+    smashed: { id: string; byTeam: TeamId; tileId: TileId } | null
+  } = { made: null, smashed: null }
   await db.runTransaction(async (tx) => {
     const [pawns, bots, tiles, hidden, teams] = await Promise.all([
       tx.get(ref.collection('pawns')),
@@ -379,6 +391,16 @@ export const phaseAct = onCall<{
 
     const out = doAct(before, uid, act)
     if (!out.ok) throw new HttpsError('failed-precondition', out.why)
+    bot.made = null
+    bot.smashed = null
+    if (out.log.kind === 'researchDone' && out.log.tileId) {
+      const fresh = out.next.robots.find((r) => !before.robots.some((b) => b.id === r.id))
+      if (fresh) bot.made = { id: fresh.id, team: fresh.team, tileId: fresh.tileId }
+    }
+    if (out.log.kind === 'robotSmashed' && out.log.targetRobot && out.log.tileId) {
+      const who = before.people.find((p) => p.playerId === uid) as Person
+      bot.smashed = { id: out.log.targetRobot, byTeam: who.team, tileId: out.log.tileId }
+    }
 
     // 사람 — 바뀐 것만 쓴다
     const arriveAt = nowMs + MOVE_MINUTES * 60_000
@@ -435,6 +457,23 @@ export const phaseAct = onCall<{
       actedBy: out.next.actedBy,
     })
   })
+
+  // 로봇이 나거나 부서졌으면 한 줄 남긴다. **개인 미션이 이것을 본다** —
+  // 과학부의 「3기 이상 만든다」와 기술부의 「3기 이상 부순다」,
+  // 심부름꾼의 「내가 만든 로봇이 남의 팀에」가 전부 여기서 나온다
+  if (bot.made) {
+    await note(gameId, 'robotBorn', nowMs, { id: uid, team: bot.made.team }, {
+      tileId: bot.made.tileId,
+      subjectId: bot.made.id,
+      ownerId: uid,
+    })
+  }
+  if (bot.smashed) {
+    await note(gameId, 'robotSmashed', nowMs, { id: uid, team: bot.smashed.byTeam }, {
+      tileId: bot.smashed.tileId,
+      subjectId: bot.smashed.id,
+    })
+  }
 
   // 떠나는 순간 그 방의 체류가 끝난다. 걷는 10분 동안은 어느 방에도
   // 없고, 도착하면 따라잡기가 새 방의 체류를 연다
@@ -539,6 +578,27 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   await batch.commit()
   // 한 페이즈가 지날 때마다 쪽지가 몇 장 더 떨어진다. 자유 시간에
   // 주우러 다닐 것이 있어야 자유 시간이 시간이 된다
+  // 걸어 둔 연구가 이제 로봇이 됐다. 지금 난 것도 만든 것이다 —
+  // 그 자리에서 난 것만 세면 발전소 없는 팀의 과학부는 영영 못 채운다
+  await noteAll(
+    gameId,
+    out.log
+      .filter((l) => l.kind === 'researchDone' && l.playerId)
+      .map((l) => {
+        const who = state.people.find((p) => p.playerId === l.playerId) as Person
+        const fresh = out.next.robots.find((r) => !state.robots.some((b) => b.id === r.id) && r.team === who.team)
+        return {
+          kind: 'robotBorn' as const,
+          atMs: nowMs,
+          actorId: l.playerId as string,
+          actorTeam: who.team,
+          tileId: l.tileId ?? null,
+          subjectId: fresh?.id ?? null,
+          ownerId: l.playerId as string,
+        }
+      }),
+  )
+
   const dropped = await scatterSlips(gameId, no, nowMs)
   // 펴 둔 문제는 도로 접히고, 새 종이가 몇 장 떨어진다
   await foldQuizzes(gameId)

@@ -22,6 +22,17 @@ import { MAX_CARRIED_ROBOTS, TRADE_COST } from '../../shared/rules/occupy'
 import type { Resource, TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { PawnDoc, SabotageDoc, TeamDoc } from '../../shared/model'
+import type { TileId } from '../../shared/rules/board'
+import { note, noteAll } from './records'
+
+/** 거래로 손을 바꾼 로봇 한 기. 기록에 쓰려고 트랜잭션 밖으로 들고 나간다. */
+interface RobotMove {
+  robotId: string
+  fromId: string
+  fromTeam: TeamId
+  toId: string
+  toTeam: TeamId
+}
 import { refreshViews } from './views'
 import { freshNow, myPawn, standingWith } from './turn'
 import { takePending } from './card'
@@ -214,7 +225,7 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
         team: pawn.team,
         detail: { fromTeam: t.fromTeam },
       })
-      return { accepted: false }
+      return { accepted: false, offerer: '', fromTeam: t.fromTeam, moved: [] as RobotMove[] }
     }
 
     const offerer = t.byId as string
@@ -275,13 +286,18 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
     tx.update(mineSnap.ref, { tokens: moved.from.tokens })
     tx.update(theirsSnap.ref, { tokens: moved.to.tokens })
     // 로봇은 주인만 바뀐다. 팀도 함께 바뀐다 — 넘겨받은 로봇은 우리 머릿수다
+    const handed: RobotMove[] = []
     for (const d of mineBots.docs.slice(0, givePurse.robots ?? 0)) {
       tx.update(d.ref, { carriedBy: uid, team: t.toTeam })
+      handed.push({ robotId: d.id, fromId: offerer, fromTeam: t.fromTeam, toId: uid, toTeam: t.toTeam })
     }
     for (const d of theirBots.docs.slice(0, wantPurse.robots ?? 0)) {
       tx.update(d.ref, { carriedBy: offerer, team: t.fromTeam })
+      handed.push({ robotId: d.id, fromId: uid, fromTeam: t.toTeam, toId: offerer, toTeam: t.fromTeam })
     }
     tx.update(tradeRef, { status: 'accepted', closedAtMs: nowMs })
+    // 기록에 쓸 이름들을 밖으로 들고 나간다 — 트랜잭션 안에서 쓰면
+    // 재시도될 때마다 같은 줄이 두 번 적힌다
     tx.set(ref.collection('events').doc(), {
       atMs: nowMs,
       day: game.day,
@@ -289,10 +305,34 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       team: pawn.team,
       detail: { fromTeam: t.fromTeam, give: t.give, want: t.want, accord },
     })
-    return { accepted: true }
+    return { accepted: true, offerer, fromTeam: t.fromTeam, moved: handed }
   }).then(async (r) => {
+    // 거래 한 줄. **개인 미션이 이것만 본다** — 「세 팀 모두와 한 번씩」도
+    // 「다른 팀과 세 번」도 여기서 나온다. 양쪽을 한 줄에 적어 두면
+    // 받기만 한 사람도 거래한 것으로 세어진다
+    if (r.accepted) {
+      await note(gameId, 'trade', nowMs, { id: r.offerer, team: r.fromTeam }, {
+        otherId: uid,
+        otherTeam: pawn.team,
+        tileId: (pawn.tileId ?? null) as TileId | null,
+      })
+      // 로봇이 손을 바꿨으면 따로 한 줄. 심부름꾼의 「내가 만든 로봇이
+      // 끝날 때 다른 팀 소유」가 이 줄들을 따라간다
+      await noteAll(
+        gameId,
+        r.moved.map((m) => ({
+          kind: 'robotOwner' as const,
+          atMs: nowMs,
+          actorId: m.toId,
+          actorTeam: m.toTeam,
+          otherId: m.fromId,
+          otherTeam: m.fromTeam,
+          subjectId: m.robotId,
+        })),
+      )
+    }
     await refreshViews(gameId)
-    return r
+    return { accepted: r.accepted }
   })
 })
 

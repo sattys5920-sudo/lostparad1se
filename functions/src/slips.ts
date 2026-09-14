@@ -18,6 +18,7 @@ import { TILES, type TileId } from '../../shared/rules/board'
 import { rngFrom } from '../../shared/missions/assign'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import { freshNow } from './turn'
+import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 
@@ -87,9 +88,15 @@ export async function scatterSlips(gameId: string, phaseNo: number, nowMs: numbe
 
 /** 지금 내가 선 방. 걷는 중이면 null 이다. */
 async function whereAmI(gameId: string, uid: string): Promise<TileId | null> {
+  return (await me(gameId, uid)).tileId
+}
+
+/** 나. 기록에 팀이 들어가므로 자리와 팀을 같이 가져온다. */
+async function me(gameId: string, uid: string): Promise<{ tileId: TileId | null; team: PawnDoc['team'] }> {
   const snap = await gameRef(gameId).collection('pawns').doc(uid).get()
   if (!snap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
-  return ((snap.data() as PawnDoc).tileId ?? null) as TileId | null
+  const p = snap.data() as PawnDoc
+  return { tileId: (p.tileId ?? null) as TileId | null, team: p.team }
 }
 
 /** 바닥에서 줍는다. **그 방에 서 있어야 한다.** */
@@ -99,6 +106,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const here = await whereAmI(gameId, uid)
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 주울 수 있다.')
 
+  let subject = ''
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
@@ -107,6 +115,12 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     // 먼저 주운 사람만 가진다. 둘이 같은 쪽지를 노리면 여기서 갈린다
     if (s.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 쪽지다.')
     tx.update(ref, { tileId: null, heldBy: uid })
+    subject = s.subjectId
+  })
+  await note(gameId, 'slipTake', Date.now(), { id: uid, team: (await me(gameId, uid)).team }, {
+    tileId: here,
+    subjectId: slipId,
+    ownerId: subject,
   })
   await refreshViews(gameId)
   return { slipId }
@@ -121,6 +135,8 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
 export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
+  let first = false
+  let subject = ''
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
@@ -129,7 +145,17 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     if (s.heldBy !== uid) throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
     if (s.readBy.includes(uid)) return
     tx.update(ref, { readBy: [...s.readBy, uid] })
+    first = true
+    subject = s.subjectId
   })
+  // 두 번째부터는 안 적는다. 「세 장을 읽는다」가 한 장을 세 번 읽어서
+  // 채워지면 안 된다
+  if (first) {
+    await note(gameId, 'slipRead', Date.now(), { id: uid, team: (await me(gameId, uid)).team }, {
+      subjectId: slipId,
+      ownerId: subject,
+    })
+  }
   await refreshViews(gameId)
   return { slipId }
 })
@@ -159,6 +185,7 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
   const { nowMs } = await freshNow(gameId)
+  let subject = ''
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
@@ -168,6 +195,13 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     }
     // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다
     tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, atMs: nowMs })
+    subject = (snap.data() as SlipDoc).subjectId
+  })
+  // **누구의 쪽지를 찢었는지가 판정의 전부다.** 미화부의 「내 비밀이
+  // 적힌 쪽지를 찾아 찢는다」가 ownerId 로 갈린다
+  await note(gameId, 'slipTear', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
+    subjectId: slipId,
+    ownerId: subject,
   })
   await refreshViews(gameId)
   return { torn: true }
@@ -186,6 +220,8 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
   const here = await whereAmI(gameId, uid)
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 건넬 수 있다.')
 
+  let subject = ''
+  let toTeam: PawnDoc['team'] = 'A'
   await db.runTransaction(async (tx) => {
     const slipRef = slipsOf(gameId).doc(slipId)
     const [snap, other] = await Promise.all([
@@ -200,6 +236,15 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
       throw new HttpsError('failed-precondition', '같은 방에 있어야 건넨다.')
     }
     tx.update(slipRef, { heldBy: toPlayerId })
+    subject = (snap.data() as SlipDoc).subjectId
+    toTeam = (other.data() as PawnDoc).team
+  })
+  await note(gameId, 'slipGive', Date.now(), { id: uid, team: (await me(gameId, uid)).team }, {
+    otherId: toPlayerId,
+    otherTeam: toTeam,
+    tileId: here,
+    subjectId: slipId,
+    ownerId: subject,
   })
   await refreshViews(gameId)
   return { toPlayerId }

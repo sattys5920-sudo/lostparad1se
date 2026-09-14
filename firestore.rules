@@ -124,6 +124,11 @@ service cloud.firestore {
 
       // 서버만. 익명 표의 보낸 사람, 손패 내용, 비밀 목표, 등교 예약,
       // 가짜 깃발 여부, 약점, 역할과 개인 미션이 전부 이 아래 있다.
+      //
+      // 판정에 쓰이는 다섯 기록(secret/records, secret/intervals)과
+      // 문제 은행(secret/quiz)도 여기 있다. 기록을 통째로 읽을 수 있으면
+      // 남이 무엇을 하려는지 역산된다 — 판정은 서버가 하고, 각자에게는
+      // 자기 진행도만 views 로 간다.
       match /secret/{document=**} { allow read, write: if false; }
 
       // 서버가 그 사람 몫으로 깎아 둔 것. 본인만 읽는다.
