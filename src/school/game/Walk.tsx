@@ -58,6 +58,11 @@ export interface WalkProps {
   /** 맵에서 방을 눌렀다. 먼 방이면 거기로 갈지 묻는다. */
   onTapRoom: (id: TileId) => void
   /**
+   * 문을 넘는 것이 즉시인가. 자유 시간에는 공짜고 즉시라 걸음을
+   * 먼저 옮겨도 되고, 페이즈 중에는 토큰이 들고 10분이 걸려서 안 된다.
+   */
+  instantCross: boolean
+  /**
    * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
    * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
    * 단추의 data-dir 만 보고 붙으므로 생김새는 부모가 정한다.
@@ -93,7 +98,7 @@ function acrossFrom(door: { a: TileId; b: TileId }, here: TileId | null): TileId
   return null
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef, instantCross }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -117,6 +122,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
   viewRef.current = view
   tilesRef.current = tiles
   crossRef.current = onCross
+  const instantRef = useRef(instantCross)
+  instantRef.current = instantCross
   roomRef.current = onRoom
   tapRef.current = onTapRoom
 
@@ -348,6 +355,17 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
           askedAtMs = performance.now()
           crossedVia = door
           crossedTo = to
+          // 되돌릴 자리. 서버가 아니라고 하면 여기로 돌아온다
+          const back = { x: self.tx, y: self.ty }
+          // **자유 시간에는 먼저 들어선다.** 공짜고 즉시인 걸음을
+          // 왕복 한 번 기다리느라 문턱에서 멈추면 어색하다
+          if (instantRef.current) {
+            const spot = doorSpot(to, door)
+            if (spot) {
+              standAt(spot.x, spot.y)
+              movedAheadTo = to
+            }
+          }
           const said = crossRef.current(to)
           // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
           // 영영 못 움직인다
@@ -357,6 +375,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
               asked = false
               crossedVia = null
               crossedTo = null
+              // 먼저 들어섰던 것을 되돌린다
+              if (movedAheadTo !== null) {
+                movedAheadTo = null
+                autoPath = []
+                standAt(back.x, back.y)
+              }
             })
           }
         }
@@ -441,6 +465,26 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       return []
     }
 
+    /** 그 문의 이 방 쪽 한 칸. 문을 넘어 들어서는 자리다. */
+    function doorSpot(id: TileId, door: Door): { x: number; y: number } | null {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const cx = door.x + dx
+        const cy = door.y + dy
+        if (roomAt(cx, cy)?.id === id && isWalkable(cx, cy)) return { x: cx, y: cy }
+      }
+      return null
+    }
+
+    /** 그 자리에 세운다. 걷던 것은 멈춘다. */
+    function standAt(x: number, y: number): void {
+      self.tx = x
+      self.ty = y
+      self.px = x * TILE + TILE / 2
+      self.py = y * TILE + TILE / 2
+      self.moving = false
+      stepLeft = 0
+    }
+
     /** 서버가 「너는 이 방에 있다」고 하면 그 방 안으로 옮겨 놓는다. */
     function placeIn(id: TileId): void {
       const r = ROOMS.find((x) => x.id === id)
@@ -458,25 +502,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
         (from ? DOORS.find((d) => (d.a === id && d.b === from) || (d.b === id && d.a === from)) : null)
       crossedVia = null
       crossedTo = null
-      let x = rect.x + Math.floor(rect.w / 2)
-      let y = rect.y + Math.floor(rect.h / 2)
-      if (door) {
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const cx = door.x + dx
-          const cy = door.y + dy
-          if (roomAt(cx, cy)?.id === id && isWalkable(cx, cy)) {
-            x = cx
-            y = cy
-            break
-          }
-        }
-      }
-      self.tx = x
-      self.ty = y
-      self.px = x * TILE + TILE / 2
-      self.py = y * TILE + TILE / 2
-      self.moving = false
-      stepLeft = 0
+      const spot = door ? doorSpot(id, door) : null
+      standAt(
+        spot ? spot.x : rect.x + Math.floor(rect.w / 2),
+        spot ? spot.y : rect.y + Math.floor(rect.h / 2),
+      )
       // **여기서 더 걷게 하지 않는다.**
       //
       // 전에는 들어서자마자 방 한가운데까지 저절로 걸어갔다. 한가운데가
@@ -511,6 +541,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
      */
     let crossedVia: Door | null = null
     let crossedTo: TileId | null = null
+    /**
+     * 서버 대답을 기다리지 않고 먼저 들어선 방.
+     *
+     * 자유 시간의 걸음은 공짜고 즉시다. 그런데도 대답을 기다리느라
+     * 문턱에서 한 박자 멈췄다 — 걷다가 문마다 걸리는 것이 어색했다.
+     * 먼저 들어서고, 서버가 아니라고 하면 그때 되돌린다.
+     */
+    let movedAheadTo: TileId | null = null
     let lastServerTile: TileId | null = null
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
@@ -530,7 +568,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const pawn = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
       const serverTile = asRoom(pawn?.tileId)
       if (serverTile && serverTile !== lastServerTile) {
-        placeIn(serverTile)
+        // 먼저 들어서 둔 방이면 그대로 둔다. 여기서 또 옮기면 그 사이
+        // 걸어간 만큼을 문 앞으로 도로 끌어당긴다 — 없애려던 멈칫거림이
+        // 되레 커진다
+        if (movedAheadTo !== serverTile) placeIn(serverTile)
+        movedAheadTo = null
         lastServerTile = serverTile
         // 도착했다. 다음 문을 넘을 수 있다
         asked = false
@@ -541,6 +583,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       if (
         serverTile &&
         !asked &&
+        movedAheadTo === null &&
         !self.moving &&
         !walkingRef.current &&
         roomAt(self.tx, self.ty)?.id !== serverTile

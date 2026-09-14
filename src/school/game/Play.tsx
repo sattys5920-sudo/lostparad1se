@@ -509,6 +509,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             tiles={state.tiles}
             nowMs={nowMs}
             padRef={padRef}
+            instantCross={!phaseOpen}
             onCross={(to) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
               // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
