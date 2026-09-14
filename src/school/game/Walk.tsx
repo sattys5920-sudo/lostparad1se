@@ -29,7 +29,7 @@ import {
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { pixelFrame } from '../char/pixel'
 import { TILE_BY_ID } from '../../../shared/rules/board'
-import { CANVAS_SCALE, STEP_MS, WALK_POSES_PER_SEC } from './timing'
+import { CANVAS_SCALE, CROSS_TIMEOUT_MS, STEP_MS, WALK_POSES_PER_SEC } from './timing'
 import type { AvatarLook, TeamId, TileId } from '../types'
 import type { GameDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 
@@ -40,7 +40,12 @@ export interface WalkProps {
   tiles: Partial<Record<TileId, TileDoc>>
   nowMs: number
   /** 문을 넘었다. 여기서부터는 서버가 15분을 센다. */
-  onCross: (to: TileId) => void
+  /**
+   * 문을 넘자고 서버에 말한다. **거절당하면 반드시 알려 줘야 한다** —
+   * 성공했는지 모르면 화면이 「아직 대답을 기다리는 중」에 갇히고,
+   * 그 뒤로는 어느 문도 못 넘는다. 실제로 그렇게 막혔다.
+   */
+  onCross: (to: TileId) => Promise<boolean> | void
   /** 지금 선 방이 바뀌면 알려 준다. 행동 패널이 이걸 본다. */
   onRoom: (id: TileId | null) => void
   /** 맵에서 방을 눌렀다. 먼 방이면 거기로 갈지 묻는다. */
@@ -236,7 +241,15 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
         const to = acrossFrom(door, here)
         if (to && !asked) {
           asked = true
-          crossRef.current(to)
+          askedAtMs = performance.now()
+          const said = crossRef.current(to)
+          // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
+          // 영영 못 움직인다
+          if (said && typeof said.then === 'function') {
+            void said.then((ok) => {
+              if (!ok) asked = false
+            })
+          }
         }
         return
       }
@@ -341,6 +354,12 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
      * 그만큼 돌려준다
      */
     let asked = false
+    /**
+     * 언제 말을 걸었나. 대답이 아예 안 오는 경우(끊긴 연결, 잃어버린
+     * 응답)를 대비한 마지막 그물이다 — 이게 없으면 한 번 놓친 대답이
+     * 그 판 내내 문을 잠근다.
+     */
+    let askedAtMs = 0
     let lastServerTile: TileId | null = null
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
@@ -359,6 +378,8 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
         // 도착했다. 다음 문을 넘을 수 있다
         asked = false
       }
+      // 대답이 영영 안 오면 스스로 푼다
+      if (asked && performance.now() - askedAtMs > CROSS_TIMEOUT_MS) asked = false
 
       // 걷는 중에는 조작을 받지 않는다. 몸은 이미 문 사이에 있다
       if (!walkingRef.current) {

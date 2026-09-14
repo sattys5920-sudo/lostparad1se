@@ -468,7 +468,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           // 페이즈 중에는 들어가는 데 토큰이 들고 10분이 걸린다.
           // 자유 시간에는 공짜고 즉시다
           const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to)
-          void go
+          // **됐는지 안 됐는지를 돌려준다.** 안 돌려주면 화면이 대답을
+          // 기다리는 채로 굳어서, 한 번 거절당한 뒤로는 어느 문도
+          // 못 넘는다 — 실제로 그렇게 막혔다
+          return go
             .then((r) => {
               const left = (r as { tokens?: number }).tokens
               setSaid(
@@ -476,8 +479,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
                   : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
               )
+              return true
             })
-            .catch((e) => setSaid((e as Error).message))
+            .catch((e) => {
+              setSaid((e as Error).message)
+              return false
+            })
         }}
         onRoom={setStandingRoom}
         onTapRoom={(id) => setFar(id === standingRoom ? null : id)}

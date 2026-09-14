@@ -670,10 +670,9 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
 
   const ref = gameRef(gameId)
   await db.runTransaction(async (tx) => {
-    const [mine, pawns, bots] = await Promise.all([
+    const [mine, pawns] = await Promise.all([
       tx.get(ref.collection('pawns').doc(uid)),
       tx.get(ref.collection('pawns')),
-      tx.get(robotsOf(gameId)),
     ])
     if (!mine.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
     const p = mine.data() as PawnDoc
@@ -682,9 +681,11 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     const here = (p.tileId ?? p.postTile) as TileId
     if (!ADJACENCY[here]?.includes(tileId)) throw new HttpsError('failed-precondition', '옆방이 아니다.')
 
-    const seats =
-      pawns.docs.filter((d) => d.id !== uid && (d.data() as PawnDoc).tileId === tileId).length +
-      bots.docs.filter((d) => (d.data() as Robot).tileId === tileId).length
+    // **정원은 사람만 센다.** 로봇은 방마다 따로 헤아린다 — 여기서
+    // 같이 세면 로봇 둘이 선 좁은 방에 아무도 못 들어가고, 들어가야
+    // 부술 수 있으니 그 방이 영영 그 팀 것이 된다. 규칙 쪽은 고쳤는데
+    // 자유 시간 걸음만 옛 셈이 남아 있었다
+    const seats = pawns.docs.filter((d) => d.id !== uid && (d.data() as PawnDoc).tileId === tileId).length
     if (seats + 1 > capacityOf(tileId)) {
       throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name}이(가) 꽉 찼다.`)
     }

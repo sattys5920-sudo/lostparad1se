@@ -27,5 +27,14 @@ export const MINIMAP_ON_KEY = 'lostparad1se.minimap'
  */
 export const CANVAS_SCALE = 2
 
+/**
+ * 문을 넘자고 말한 뒤 대답을 기다리는 한도(밀리초).
+ *
+ * 이 시간이 지나면 화면이 스스로 푼다. 대답이 아예 안 오는 경우 —
+ * 끊긴 연결, 잃어버린 응답 — 에 이게 없으면 그 판 내내 어느 문도
+ * 못 넘는다. 실제로 한 번 그렇게 막혔다.
+ */
+export const CROSS_TIMEOUT_MS = 4000
+
 /** 가장 좁은 화면. 여기서 되면 어디서나 된다. */
 export const NARROW_PX = 380

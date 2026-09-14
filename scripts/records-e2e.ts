@@ -302,6 +302,28 @@ async function main(): Promise<void> {
   check(born !== undefined, '로봇이 난 것이 한 줄 남았다')
   check(born?.actorId === A[1].uid && born?.ownerId === A[1].uid, '만든 사람이 적힌다 — 심부름꾼이 이걸 본다')
 
+  console.log('\n── 짝이 서 있어도 문은 열린다 ──')
+  // 로봇 둘이 선 방에 걸어 들어갈 수 있어야 한다. 정원은 사람만
+  // 세기 때문이다 — 여기서 막히면 로봇으로 문을 막는 짓이 되살아난다
+  await land(11)
+  const standing = (await pawnsNow())[A[0].uid].tileId as string
+  const nextDoor = stepToward(standing, 'centralPlaza') as string
+  for (const id of ['blockA', 'blockB']) {
+    await fetch(`${FS}/games/${GAME}/robots/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...ADMIN },
+      body: JSON.stringify({
+        fields: {
+          team: { stringValue: 'D' },
+          tileId: { stringValue: nextDoor },
+          carriedBy: { nullValue: null },
+        },
+      }),
+    })
+  }
+  const through = await call('roamTo', A[0].token, { gameId: GAME, tileId: nextDoor })
+  check(through.ok, `짝 둘이 선 ${nextDoor} 에 들어간다`, through.ok ? '' : `${through.code} ${through.message}`)
+
   console.log('\n── 판정 재료가 응답에 안 섞인다 ──')
   const views = await getAll(`games/${GAME}/views`)
   for (const v of views) {
