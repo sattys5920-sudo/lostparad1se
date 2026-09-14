@@ -94,6 +94,17 @@ function acrossFrom(door: { a: TileId; b: TileId }, here: TileId | null): TileId
 
 export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  /**
+   * 글자만 따로 그리는 겹판.
+   *
+   * 지도는 도트를 정수 배로 키워 그리므로 속살이 186화소밖에 안 된다.
+   * 거기에 7px 글자를 찍으면 **기기 화소로는 여섯 배로 부푼 뭉개진
+   * 덩어리**가 된다 — 방 이름이 글자로 안 보였다. 실제로 그랬다.
+   *
+   * 그래서 글자는 기기 해상도 그대로인 판에 따로 찍는다. 지도는
+   * 도트대로, 글자는 또렷하게.
+   */
+  const labelRef = useRef<HTMLCanvasElement | null>(null)
 
   // 그리기 루프가 매 프레임 읽는 것들. state로 두면 프레임마다 다시
   // 그려져서 걸음이 끊긴다
@@ -211,6 +222,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
     let raf = 0
 
     /**
+     * 지금 쓰는 배율과 기기 화소비. 글자 겹판이 이걸 본다.
+     *
+     * **resize 보다 먼저 만든다.** resize 는 정의하자마자 한 번 도는데,
+     * 그때 아직 없는 값을 읽으면 화면이 통째로 터진다. 실제로 그랬다
+     */
+    const screen = { scale: 2, dpr: 1 }
+
+    /**
      * 캔버스를 방 화면 크기에 맞춘다. **배율은 정수만 쓴다.**
      *
      * 소수 배율이면 한 픽셀이 1.4픽셀이 되어 어떤 줄은 굵고 어떤 줄은
@@ -236,6 +255,18 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       canvas.style.width = `${vw * scale}px`
       canvas.style.height = `${vh * scale}px`
       ctx.imageSmoothingEnabled = false
+
+      // 글자 겹판은 **기기 화소 그대로** 잡는다. 지도와 겹쳐 놓되
+      // 속살은 여섯 배 촘촘하다
+      screen.scale = scale
+      screen.dpr = Math.min(3, Math.max(1, Math.round(devicePixelRatio || 1)))
+      const lab = labelRef.current
+      if (lab) {
+        lab.style.width = `${vw * scale}px`
+        lab.style.height = `${vh * scale}px`
+        lab.width = Math.round(vw * scale * screen.dpr)
+        lab.height = Math.round(vh * scale * screen.dpr)
+      }
     }
     resize()
     const ro = new ResizeObserver(resize)
@@ -587,16 +618,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
         }
       }
 
-      // 방 이름
-      ctx.font = '7px "Gothic A1", sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'top'
-      for (const r of ROOMS) {
-        if (!seen.has(r.id)) continue
-        const rect = r.rects[0]
-        ctx.fillStyle = PAL.mid
-        ctx.fillText(TILE_BY_ID[r.id].name, Math.round((rect.x + rect.w / 2) * TILE - camX), Math.round((rect.y + 0.3) * TILE - camY))
-      }
+      // 방 이름은 겹판에. **여기 찍으면 뭉개진다**
+      drawLabels(camX, camY, seen)
 
       // 남들. 방 한가운데에 선 것으로 그린다 — 서버가 아는 것도 거기까지다.
       //
@@ -654,6 +677,34 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
     }
 
 
+    /**
+     * 방 이름. 기기 화소 그대로인 겹판에 찍는다.
+     *
+     * 지도 좌표를 화면 좌표로 옮길 때 배율을 곱한다 — 지도 한 도트가
+     * 화면에서는 scale 화소이고, 겹판은 거기에 dpr 배 더 촘촘하다.
+     */
+    function drawLabels(camX: number, camY: number, seen: Set<TileId>): void {
+      const lab = labelRef.current
+      const lx = lab?.getContext('2d')
+      if (!lab || !lx) return
+      lx.setTransform(1, 0, 0, 1, 0, 0)
+      lx.clearRect(0, 0, lab.width, lab.height)
+      const k = screen.scale * screen.dpr
+      lx.font = `600 ${Math.round(6 * k)}px "Gothic A1", sans-serif`
+      lx.textAlign = 'center'
+      lx.textBaseline = 'top'
+      lx.fillStyle = PAL.mid
+      for (const r of ROOMS) {
+        if (!seen.has(r.id)) continue
+        const rect = r.rects[0]
+        lx.fillText(
+          TILE_BY_ID[r.id].name,
+          Math.round(((rect.x + rect.w / 2) * TILE - camX) * k),
+          Math.round(((rect.y + 0.3) * TILE - camY) * k),
+        )
+      }
+    }
+
     function dot(x: number, y: number, team: TeamId, asleep: boolean): void {
       ctx.globalAlpha = asleep ? 0.5 : 1
       ctx.fillStyle = PAL.paper
@@ -686,6 +737,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
   return (
     <div className="sc-wk">
       <canvas ref={canvasRef} className="sc-wk__canvas" />
+      {/* 글자만 또렷하게. 누르는 것은 아래 지도가 받는다 */}
+      <canvas ref={labelRef} className="sc-wk__labels" aria-hidden="true" />
 
       {walking && (
         <div className="sc-wk__transit">
