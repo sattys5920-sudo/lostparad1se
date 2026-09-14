@@ -619,16 +619,26 @@
 
 /* ── 걸어 다니는 학교 ─────────────────────────────────────────── */
 
-.sc-wk { position: relative; }
+/* 방 화면. **남는 공간 전부**를 가져가되 260px 아래로는 안 내려간다.
+   캔버스는 그 안에서 정수 배율로만 커진다 — 남는 자리는 바탕색이다 */
+.sc-wk {
+  position: relative;
+  flex: 1;
+  min-height: var(--room-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c0e12;
+  border: 1px solid var(--sc-line);
+  border-radius: 5px;
+  overflow: hidden;
+}
 
 .sc-wk__canvas {
   display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  max-height: 56vh;
+  /* 크기는 그리는 쪽이 정한다(Walk.tsx). 여기서 100% 를 주면
+     정수 배율로 맞춰 놓은 것을 CSS 가 도로 늘린다 */
   image-rendering: pixelated;
-  border: 1px solid var(--sc-line);
-  border-radius: 5px;
   background: #0c0e12;
   touch-action: none;
 }

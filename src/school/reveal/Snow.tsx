@@ -16,6 +16,23 @@ interface Flake {
   size: number
 }
 
+/** 눈을 끄고 켠 것. 끄면 루프 자체를 안 돌린다 — 저사양 기기에서. */
+const SNOW_OFF_KEY = 'sc.snow.off'
+export const snowIsOff = (): boolean => {
+  try {
+    return localStorage.getItem(SNOW_OFF_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+export const setSnowOff = (off: boolean): void => {
+  try {
+    localStorage.setItem(SNOW_OFF_KEY, off ? '1' : '0')
+  } catch {
+    // 시크릿 모드에서는 저장이 막힌다. 그때는 그냥 켜진 채로 둔다
+  }
+}
+
 export function Snow({ level }: { level: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
@@ -28,7 +45,9 @@ export function Snow({ level }: { level: number }) {
     const reduced =
       typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
     const at = Math.max(0, Math.min(SNOW_PARTICLES.length - 1, Math.round(level)))
-    const count = SNOW_PARTICLES[at] ?? 0
+    // 껐으면 한 톨도 안 그리고 루프도 안 돈다. 「보이지 않게」가
+    // 아니라 「돌지 않게」여야 배터리가 산다
+    const count = snowIsOff() ? 0 : (SNOW_PARTICLES[at] ?? 0)
 
     let w = (canvas.width = canvas.offsetWidth)
     let h = (canvas.height = canvas.offsetHeight)
@@ -78,8 +97,24 @@ export function Snow({ level }: { level: number }) {
     }
     raf = requestAnimationFrame(draw)
 
+    /**
+     * 화면이 안 보이면 멈춘다. **배터리 때문이다.**
+     *
+     * 브라우저가 알아서 멈춰 주는 경우도 있지만 안 멈추는 기기가 있고,
+     * 그런 기기가 대개 배터리가 약한 기기다.
+     */
+    const onVisible = () => {
+      cancelAnimationFrame(raf)
+      if (document.visibilityState === 'visible') {
+        last = performance.now()
+        raf = requestAnimationFrame(draw)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
     return () => {
       cancelAnimationFrame(raf)
+      document.removeEventListener('visibilitychange', onVisible)
       removeEventListener('resize', onResize)
     }
   }, [level])

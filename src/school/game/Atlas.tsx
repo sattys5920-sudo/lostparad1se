@@ -180,6 +180,12 @@ export function FullMap({ facts, onClose }: { facts: MapFacts; onClose: () => vo
         </div>
 
         {one && <RoomCard room={one} myTeam={facts.myTeam} />}
+
+        {/* 오른쪽 위의 ✕ 는 한 손으로 쥐면 엄지가 안 닿는다.
+            닿는 자리에 하나 더 둔다 */}
+        <button className="sc-atlas__done" onClick={onClose}>
+          닫기
+        </button>
       </div>
     </div>
   )

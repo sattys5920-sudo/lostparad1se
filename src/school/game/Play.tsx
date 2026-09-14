@@ -4,7 +4,7 @@
 //
 // 여기서 게임 규칙을 판단하지 않는다. 무엇을 할 수 있는지도 서버가
 // 정하고, 화면은 서버가 거절하면 그 말을 그대로 보인다.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
@@ -21,6 +21,9 @@ import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { Slips } from './Slips'
 import { Quiz, QuizHost } from './Quiz'
 import { Ballot } from './Ballot'
+import { AddToHome, OfflineBar, TurnNotice, useOnline, useWakeUp } from './Shell'
+import { Sheet, useAsk } from './Sheet'
+import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
@@ -364,13 +367,22 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   )
 }
 
+/** 아래 탭바의 세 칸. 화면은 세 장뿐이고, 나머지는 전부 시트다. */
+type Tab = 'map' | 'me' | 'note'
+
+/** 컨트롤 바의 「더보기」에서 열리는 것들. */
+type SheetId = 'act' | 'talk' | 'more' | 'deal'
+
 /**
- * 오늘 하루. **화면은 하나다.**
+ * 오늘 하루. **맵이 화면이다.**
  *
- * 탭으로 갈라 놓으면 「사람」 탭에 열세 명이 늘어서고, 학교 반대편
- * 사람에게도 표를 줄 수 있을 것처럼 보인다. 이 게임은 그렇지 않다 —
- * 표도 교역도 털어놓기도 **그 자리에서 만나야** 한다. 그래서 맵이
- * 화면이고, 할 수 있는 일은 내가 선 자리와 거기 있는 사람에서 나온다.
+ * 세로로 네 층이다 — 방 화면(남는 공간 전부) · 자원 줄 44 · 컨트롤 바
+ * 104 · 탭바 56. 높이를 %로 나누면 주소창이 줄었다 늘었다 할 때마다
+ * 탭바가 화면 밖으로 밀려 나간다. flex 로 나누고 dvh 로 잰다.
+ *
+ * 탭은 세 장이지만 **만나야 하는 일은 여전히 맵에서만 일어난다.**
+ * 「나」는 내 것만 보고, 「수첩」은 지나간 것만 본다 — 거기서 학교
+ * 반대편 사람에게 말을 걸 수는 없다.
  *
  * 무엇을 할 수 있는지는 여전히 화면이 판단하지 않는다. 안 되는 것은
  * 서버가 거절하고 그 이유를 말해 준다.
@@ -378,15 +390,29 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
   const act = useMemo(() => gameActions(gameId), [gameId])
+  const online = useOnline()
+  // **앱이 돌아오면 서버에 다시 묻는다.** 화면을 껐다 켜는 사이에
+  // 페이즈가 열렸을 수도 닫혔을 수도 있다 — 옛 화면에 대고 단추를
+  // 누르게 두면 안 된다
+  useWakeUp(useCallback(() => { void act.tick() }, [act]))
   const uid = auth?.currentUser?.uid ?? null
   const [standingRoom, setStandingRoom] = useState<TileId | null>(null)
   /** 맵에서 누른 먼 방. 거기로 걸어가거나 내일 아침을 예약한다. */
   const [far, setFar] = useState<TileId | null>(null)
   const [said, setSaid] = useState('')
-  const [overlay, setOverlay] = useState<'talk' | 'archive' | null>(null)
+  const [tab, setTab] = useState<Tab>('map')
+  const [sheet, setSheet] = useState<SheetId | null>(null)
+  const [archive, setArchive] = useState(false)
   const [host] = useHost()
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
+  const [snowOff, setSnowOffState] = useState(snowIsOff)
+  // 십자키는 컨트롤 바에 있고 그림은 위에 있다. 자리만 건네준다
+  const padRef = useRef<HTMLDivElement | null>(null)
+  const [asking, ask] = useAsk()
+  // 글을 쓰는 동안에는 탭바를 감춘다. 키보드 위에 얹혀 있으면
+  // 입력창이 그만큼 가려진다
+  const typing = useTyping()
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
@@ -417,37 +443,196 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
   if (!game || !me) return <p className="sc-pl__wait">불러오는 중</p>
 
-  if (overlay === 'archive') return <LiveArchive gameId={gameId} onClose={() => setOverlay(null)} />
+  if (archive) return <LiveArchive gameId={gameId} onClose={() => setArchive(false)} />
+
+  const closeSheet = () => setSheet(null)
 
   return (
     <div
       className={
-        (miniOn ? 'sc-pl__today has-mini' : 'sc-pl__today') + (iAmInvisible ? ' is-invisible' : '')
+        'sc-pl__today' +
+        (miniOn ? ' has-mini' : '') +
+        (iAmInvisible ? ' is-invisible' : '') +
+        (online ? '' : ' is-offline') +
+        (typing ? ' is-typing' : '')
       }
     >
-      {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
-      {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
-      <header className="sc-pl__head">
-        <h1>DAY {game.day}</h1>
-        <span className="sc-pl__me">
-          {me.name} · {me.team}팀
-        </span>
-      </header>
-      {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
+      <TurnNotice />
+      {/* 한 번만 권한다. 주소창이 있으면 방 화면이 그만큼 작다 */}
+      <AddToHome />
+      {/* 끊긴 동안 누른 행동이 나중에 한꺼번에 나가면 안 된다.
+          띠를 띄우고 행동 단추는 CSS 로 잠근다 */}
+      {!online && <OfflineBar />}
 
-      <ul className="sc-pl__stat">
-        <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
-        <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
-        <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
-      </ul>
+      {/* ── 맵 탭 ─────────────────────────────────────────────
+          숨길 때도 떼지 않는다. 떼면 걷던 자리가 처음으로 돌아간다 */}
+      <section className="sc-pl__tab sc-pl__map" hidden={tab !== 'map'}>
+        <div className="sc-pl__room">
+          <Walk
+            me={{ playerId: me.playerId, team: me.team, look }}
+            game={game}
+            view={state.view}
+            tiles={state.tiles}
+            nowMs={Date.now()}
+            padRef={padRef}
+            onCross={(to) => {
+              // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
+              // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
+              // 아무도 안 움직인다. 값은 페이즈가 열릴 때 한 번 치른다
+              // 페이즈 중에는 들어가는 데 토큰이 들고 10분이 걸린다.
+              // 자유 시간에는 공짜고 즉시다
+              const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to)
+              // **됐는지 안 됐는지를 돌려준다.** 안 돌려주면 화면이 대답을
+              // 기다리는 채로 굳어서, 한 번 거절당한 뒤로는 어느 문도
+              // 못 넘는다 — 실제로 그렇게 막혔다
+              return go
+                .then((r) => {
+                  const left = (r as { tokens?: number }).tokens
+                  setSaid(
+                    phaseOpen
+                      ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
+                      : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
+                  )
+                  return true
+                })
+                .catch((e) => {
+                  setSaid((e as Error).message)
+                  return false
+                })
+            }}
+            onRoom={setStandingRoom}
+            onTapRoom={(id) => setFar(id === standingRoom ? null : id)}
+          />
 
-      {/* 걸어 다니는 학교는 한 방밖에 안 보인다. 구석에 판 전체를 얹는다 */}
-      {miniOn && (
-        <MiniMap
-          facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
-          onOpen={() => setAtlas(true)}
-        />
-      )}
+          {/* 방 위에 얹는 것들. 줄을 따로 내주면 방이 그만큼 작아진다.
+              **타이머는 시트가 올라와도 보여야 해서 여기 둔다** —
+              시트는 화면의 70%까지만 올라온다 */}
+          <header className="sc-pl__head">
+            <span className="sc-pl__day">DAY {game.day}</span>
+            <PhaseClock open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} />
+            <span className="sc-pl__me">{me.name} · {me.team}팀</span>
+          </header>
+          {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
+          {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
+          {miniOn && (
+            <MiniMap
+              facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
+              onOpen={() => setAtlas(true)}
+            />
+          )}
+        </div>
+
+        <ul className="sc-pl__stat">
+          <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
+          <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
+          <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
+        </ul>
+
+        <div className="sc-pl__ctl">
+          {/* 한 번 누르면 한 칸. 길게 눌러도 이어 걷지 않는다 */}
+          <div className="sc-pl__pad" ref={padRef}>
+            <button data-dir="up" aria-label="위">↑</button>
+            <button data-dir="left" aria-label="왼쪽">←</button>
+            <button data-dir="down" aria-label="아래">↓</button>
+            <button data-dir="right" aria-label="오른쪽">→</button>
+          </div>
+          <div className="sc-pl__acts">
+            <button onClick={() => setSheet('act')}>{phaseOpen ? '자리' : '행동'}</button>
+            <button onClick={() => setAtlas(true)}>전체 맵</button>
+            <button onClick={() => setSheet('talk')}>말</button>
+            <button onClick={() => setSheet('more')}>더보기</button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 나 탭 ─────────────────────────────────────────────
+          내 것만 본다. 여기서 남에게 말을 걸 수는 없다 */}
+      <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'me'}>
+        <header className="sc-pl__paneHead">
+          <h2>{me.name}</h2>
+          <span>{me.team}팀 · DAY {game.day}</span>
+        </header>
+        {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
+
+        <ul className="sc-pl__mine">
+          <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
+          <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
+          <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
+          <li><span>든 짝</span><span>{state.view?.myCarriedRobots ?? '—'}</span></li>
+          <li><span>우리 짝</span><span>{state.view?.myTeamRobots ?? '—'}</span></li>
+          <li><span>이번 페이즈 부순 수</span><span>{state.view?.mySmashes ?? '—'}</span></li>
+        </ul>
+
+        {/* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이
+            떨어진 사람이 한 시간 동안 할 수 있는 유일한 일이기도 하다 */}
+        <Quiz view={state.view} act={act} onSaid={setSaid} />
+
+        {/* 쪽지. 페이즈 중에는 점령전 말고 할 일이 없다 */}
+        {!phaseOpen && uid && (
+          <Slips
+            view={state.view}
+            seats={game.seats}
+            hereIds={hereIds}
+            meId={uid}
+            act={act}
+            onSaid={setSaid}
+            ask={ask}
+          />
+        )}
+
+        {/* 오늘의 투명인간. 만나지 않고 하는 투표라 어디서든 열린다 */}
+        {!phaseOpen && (
+          <Ballot
+            me={me}
+            seats={game.seats}
+            captainIds={Object.values(state.teams)
+              .map((t) => t?.captainId ?? null)
+              .filter((id): id is string => typeof id === 'string')}
+            invisibleId={game.invisibleId ?? null}
+            day={game.day}
+            view={state.view}
+            act={act}
+            onSaid={setSaid}
+            ask={ask}
+          />
+        )}
+
+        {!phaseOpen && (
+          <People
+            me={me}
+            seats={game.seats}
+            day={game.day}
+            hereIds={hereIds}
+            hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+            invisibleId={game.invisibleId}
+            chosenId={state.view?.myChoice?.chosenId ?? null}
+            day4={state.view?.myChoice?.day4 ?? null}
+            act={act}
+            onSaid={setSaid}
+          />
+        )}
+      </section>
+
+      {/* ── 수첩 탭 ───────────────────────────────────────────
+          지나간 것만 본다 */}
+      <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'note'}>
+        <header className="sc-pl__paneHead">
+          <h2>수첩</h2>
+          <span>지난 페이즈</span>
+        </header>
+        <PhaseLog rows={state.phaseLog} seats={game.seats} />
+        <button className="sc-pl__wide" onClick={() => setArchive(true)}>보관함 열기</button>
+      </section>
+
+      {/* ── 탭바 ─────────────────────────────────────────────── */}
+      <nav className="sc-pl__tabbar">
+        <button className={tab === 'map' ? 'is-on' : ''} onClick={() => setTab('map')}>맵</button>
+        <button className={tab === 'me' ? 'is-on' : ''} onClick={() => setTab('me')}>나</button>
+        <button className={tab === 'note' ? 'is-on' : ''} onClick={() => setTab('note')}>수첩</button>
+      </nav>
+
+      {/* ── 전체 맵 ───────────────────────────────────────────
+          전체 화면 오버레이. 여기만 두 손가락 확대를 허용한다 */}
       {atlas && (
         <FullMap
           facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
@@ -455,148 +640,145 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         />
       )}
 
-      <Walk
-        me={{ playerId: me.playerId, team: me.team, look }}
-        game={game}
-        view={state.view}
-        tiles={state.tiles}
-        nowMs={Date.now()}
-        onCross={(to) => {
-          // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
-          // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
-          // 아무도 안 움직인다. 값은 페이즈가 열릴 때 한 번 치른다
-          // 페이즈 중에는 들어가는 데 토큰이 들고 10분이 걸린다.
-          // 자유 시간에는 공짜고 즉시다
-          const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to)
-          // **됐는지 안 됐는지를 돌려준다.** 안 돌려주면 화면이 대답을
-          // 기다리는 채로 굳어서, 한 번 거절당한 뒤로는 어느 문도
-          // 못 넘는다 — 실제로 그렇게 막혔다
-          return go
-            .then((r) => {
-              const left = (r as { tokens?: number }).tokens
-              setSaid(
-                phaseOpen
-                  ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
-                  : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
-              )
-              return true
-            })
-            .catch((e) => {
-              setSaid((e as Error).message)
-              return false
-            })
-        }}
-        onRoom={setStandingRoom}
-        onTapRoom={(id) => setFar(id === standingRoom ? null : id)}
-      />
-
-      {phaseOpen ? (
-        <Phase
-          me={me}
-          here={standingOn}
-          seats={game.seats}
-          view={state.view}
-          tiles={state.tiles}
-          endsAtMs={phaseEndsAtMs}
-          act={act}
-          onSaid={setSaid}
-        />
-      ) : (
-        <PhaseLog rows={state.phaseLog} seats={game.seats} />
+      {/* ── 시트 ─────────────────────────────────────────────── */}
+      {sheet === 'act' && (
+        <Sheet title={phaseOpen ? '자리 차지하기' : (standingRoom ? TILE_BY_ID[standingRoom].name : '행동')} onClose={closeSheet}>
+          {phaseOpen ? (
+            <Phase
+              me={me}
+              here={standingOn}
+              seats={game.seats}
+              view={state.view}
+              tiles={state.tiles}
+              endsAtMs={phaseEndsAtMs}
+              act={act}
+              onSaid={setSaid}
+              ask={ask}
+            />
+          ) : (
+            <>
+              {standingRoom ? (
+                <Actions tileId={standingRoom} where="here" act={act} onSaid={setSaid}>
+                  <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
+                </Actions>
+              ) : (
+                <p className="sc-pl__none">복도에서는 할 것이 없다.</p>
+              )}
+              {far && far !== standingRoom && (
+                <Actions tileId={far} where="there" act={act} onSaid={setSaid} onClose={() => setFar(null)} />
+              )}
+            </>
+          )}
+        </Sheet>
       )}
 
-      {host && <PhaseHost open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} act={act} onSaid={setSaid} />}
-      {/* 문제 등록. 정답과 해설은 이 화면에서만 보인다 */}
-      {host && <QuizHost act={act} onSaid={setSaid} />}
-
-      <div className="sc-pl__quick">
-        <button onClick={() => setOverlay('talk')}>말</button>
-        <button onClick={() => setOverlay('archive')}>보관함</button>
-        <button onClick={() => setMiniOn(!miniOn)}>{miniOn ? '미니맵 끄기' : '미니맵 켜기'}</button>
-      </div>
-
-      {/* 자유 시간의 것들. 페이즈 중에는 자리를 지키는 것 말고 할 일이 없다 */}
-      {!phaseOpen && far && far !== standingRoom && (
-        <Actions tileId={far} where="there" act={act} onSaid={setSaid} onClose={() => setFar(null)} />
-      )}
-
-      {!phaseOpen && standingRoom && (
-        <Actions tileId={standingRoom} where="here" act={act} onSaid={setSaid}>
-          <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
-        </Actions>
-      )}
-
-      {/* 쪽지. 페이즈 중에는 점령전 말고 할 일이 없다 */}
-      {!phaseOpen && uid && (
-        <Slips view={state.view} seats={game.seats} hereIds={hereIds} meId={uid} act={act} onSaid={setSaid} />
-      )}
-
-      {/* 오늘의 투명인간. 만나지 않고 하는 투표라 어디서든 열린다 */}
-      {!phaseOpen && (
-        <Ballot
-          me={me}
-          seats={game.seats}
-          captainIds={Object.values(state.teams)
-            .map((t) => t?.captainId ?? null)
-            .filter((id): id is string => typeof id === 'string')}
-          invisibleId={game.invisibleId ?? null}
-          day={game.day}
-          view={state.view}
-          act={act}
-          onSaid={setSaid}
-        />
-      )}
-
-      {/* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이
-          떨어진 사람이 한 시간 동안 할 수 있는 유일한 일이기도 하다 */}
-      <Quiz view={state.view} act={act} onSaid={setSaid} />
-
-      {!phaseOpen && (
-        <>
-      <People
-        me={me}
-        seats={game.seats}
-        day={game.day}
-        hereIds={hereIds}
-        hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
-        invisibleId={game.invisibleId}
-        chosenId={state.view?.myChoice?.chosenId ?? null}
-        day4={state.view?.myChoice?.day4 ?? null}
-        act={act}
-        onSaid={setSaid}
-      />
-
-        <Deals
-          me={me}
-          view={state.view}
-          teams={state.teams}
-          facingTeams={facingTeams}
-          herePeople={hereNow.map((p) => ({
-            playerId: p.playerId,
-            name: game.seats.find((s) => s.playerId === p.playerId)?.name ?? '누군가',
-            team: p.team,
-          }))}
-          act={act}
-          onSaid={setSaid}
-        />
-        </>
-      )}
-
-      {overlay === 'talk' && (
-        <div className="sc-pl__sheet">
-          <button className="sc-pl__sheetClose" onClick={() => setOverlay(null)}>닫기</button>
+      {sheet === 'talk' && (
+        <Sheet title="말" onClose={closeSheet}>
           <Chat
             me={me}
             hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
             act={act}
             onSaid={setSaid}
           />
-        </div>
+        </Sheet>
       )}
 
+      {sheet === 'deal' && (
+        <Sheet title="거래" onClose={closeSheet}>
+          <Deals
+            me={me}
+            view={state.view}
+            teams={state.teams}
+            facingTeams={facingTeams}
+            herePeople={hereNow.map((p) => ({
+              playerId: p.playerId,
+              name: game.seats.find((s) => s.playerId === p.playerId)?.name ?? '누군가',
+              team: p.team,
+            }))}
+            act={act}
+            onSaid={setSaid}
+            ask={ask}
+          />
+        </Sheet>
+      )}
+
+      {sheet === 'more' && (
+        <Sheet title="더보기" onClose={closeSheet}>
+          <div className="sc-pl__more">
+            <button onClick={() => setSheet('deal')} disabled={phaseOpen}>거래</button>
+            <button onClick={() => setMiniOn(!miniOn)}>{miniOn ? '미니맵 끄기' : '미니맵 켜기'}</button>
+            <button
+              onClick={() => {
+                const next = !snowOff
+                setSnowOff(next)
+                setSnowOffState(next)
+              }}
+            >
+              {snowOff ? '눈 켜기' : '눈 끄기'}
+            </button>
+            <button onClick={() => { closeSheet(); setArchive(true) }}>보관함</button>
+          </div>
+          {host && <PhaseHost open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} act={act} onSaid={setSaid} />}
+          {/* 문제 등록. 정답과 해설은 이 화면에서만 보인다 */}
+          {host && <QuizHost act={act} onSaid={setSaid} />}
+        </Sheet>
+      )}
+
+      {asking}
       {said && <p className="sc-pl__said">{said}</p>}
     </div>
   )
+}
+
+/**
+ * 남은 시간. **1초에 한 번만 갱신한다** — 매 프레임 다시 그리면
+ * 그것만으로 배터리가 눈에 띄게 준다.
+ */
+function PhaseClock({ open, no, endsAtMs }: { open: boolean; no: number; endsAtMs: number | null }) {
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    if (!open || endsAtMs == null) return
+    const t = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [open, endsAtMs])
+
+  if (!open || endsAtMs == null) return <span className="sc-pl__clock">자유 시간</span>
+  const left = Math.max(0, endsAtMs - nowMs)
+  const mm = Math.floor(left / 60000)
+  const ss = Math.floor((left % 60000) / 1000)
+  return (
+    <span className="sc-pl__clock is-on">
+      {no}교시 {mm}:{String(ss).padStart(2, '0')}
+    </span>
+  )
+}
+
+/**
+ * 지금 글을 쓰고 있는가. 키보드가 올라오면 화면이 그만큼 줄어드는데,
+ * 거기에 탭바까지 얹혀 있으면 입력창이 가려진다.
+ */
+function useTyping(): boolean {
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const on = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null
+      const tag = el?.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA') return
+      setTyping(true)
+      // **키보드가 입력창을 가리면 안 된다.** 뷰포트가 줄어드는 것은
+      // 키보드가 다 올라온 뒤라, 바로 밀면 밀기 전 높이로 계산해서
+      // 한 뼘 모자란다
+      setTimeout(() => el?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 260)
+    }
+    const off = () => setTyping(false)
+    window.addEventListener('focusin', on)
+    window.addEventListener('focusout', off)
+    return () => {
+      window.removeEventListener('focusin', on)
+      window.removeEventListener('focusout', off)
+    }
+  }, [])
+  return typing
 }
 
 // ── 묶기 ────────────────────────────────────────────────────────

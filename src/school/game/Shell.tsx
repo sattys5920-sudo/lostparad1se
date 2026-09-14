@@ -1,0 +1,161 @@
+// 모바일 틀 — 가로 안내, 연결 끊김, 돌아왔을 때 다시 맞추기.
+//
+// 세 가지 다 「모바일이라 생기는 일」이다. 데스크톱에서는 창을 돌리지도
+// 않고, 앱을 전환하지도 않고, 지하철에 들어가지도 않는다.
+import { useEffect, useState } from 'react'
+
+/** 가로로 돌렸을 때. 세로 전용이라 안내만 띄운다. */
+export function TurnNotice() {
+  return (
+    <div className="sc-turn">
+      <p>세로로 돌려 주세요.</p>
+      <small>가로 화면은 지원하지 않습니다.</small>
+    </div>
+  )
+}
+
+/**
+ * 지금 서버에 닿는가.
+ *
+ * navigator.onLine 은 「랜선이 꽂혀 있는가」에 가깝고 실제로 닿는지는
+ * 모른다. 그래도 끊긴 것은 확실히 알려 주므로, 여기서는 그것만 쓴다 —
+ * 서버에 맞는지 아닌지는 요청이 실패할 때 알게 된다.
+ */
+export function useOnline(): boolean {
+  const [online, setOnline] = useState(() => navigator.onLine)
+  useEffect(() => {
+    const up = () => setOnline(true)
+    const down = () => setOnline(false)
+    window.addEventListener('online', up)
+    window.addEventListener('offline', down)
+    return () => {
+      window.removeEventListener('online', up)
+      window.removeEventListener('offline', down)
+    }
+  }, [])
+  return online
+}
+
+export function OfflineBar() {
+  return <div className="sc-offline">연결이 끊겼습니다. 다시 이어지면 계속할 수 있습니다.</div>
+}
+
+/**
+ * 앱이 돌아왔을 때 서버 상태를 다시 받아온다.
+ *
+ * **모바일은 앱 전환이 잦다.** 화면을 껐다 켜는 사이에 페이즈가 열렸을
+ * 수도, 닫혔을 수도 있다. 돌아와서 옛 화면을 그대로 보여 주면 있지도
+ * 않은 페이즈에 대고 단추를 누르게 된다.
+ */
+export function useWakeUp(onWake: () => void): void {
+  useEffect(() => {
+    const wake = () => {
+      if (document.visibilityState === 'visible') onWake()
+    }
+    document.addEventListener('visibilitychange', wake)
+    window.addEventListener('focus', wake)
+    window.addEventListener('online', wake)
+    return () => {
+      document.removeEventListener('visibilitychange', wake)
+      window.removeEventListener('focus', wake)
+      window.removeEventListener('online', wake)
+    }
+  }, [onWake])
+}
+
+/**
+ * 이 탭이 지금 보이는가. **애니메이션이 이걸 본다.**
+ *
+ * 백그라운드에서 눈을 계속 그리면 배터리만 먹는다. 브라우저가
+ * requestAnimationFrame 을 알아서 멈추는 경우도 있지만, 멈추지 않는
+ * 기기가 있고 그쪽이 대개 배터리가 약한 기기다.
+ */
+export function useVisible(): boolean {
+  const [visible, setVisible] = useState(() => document.visibilityState === 'visible')
+  useEffect(() => {
+    const on = () => setVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', on)
+    return () => document.removeEventListener('visibilitychange', on)
+  }, [])
+  return visible
+}
+
+// ── 홈 화면에 추가 ──────────────────────────────────────────────
+//
+// 주소창이 있는 채로 하면 화면 높이가 60px 쯤 깎인다. 네 층으로 나눈
+// 화면에서 60px 은 방 화면 한 칸이다. 그래서 한 번은 권한다 —
+// **한 번만.** 닫으면 다시 뜨지 않는다.
+
+const ADDED_KEY = 'sc.home.asked'
+
+/** 이미 홈 화면에서 띄운 앱인가. */
+function standalone(): boolean {
+  if (window.matchMedia('(display-mode: standalone)').matches) return true
+  // iOS 사파리는 display-mode 를 안 쓴다
+  return (navigator as { standalone?: boolean }).standalone === true
+}
+
+export function AddToHome() {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    if (standalone()) return
+    try {
+      if (localStorage.getItem(ADDED_KEY)) return
+    } catch {
+      // 사파리 사생활 보호 모드에서는 읽기부터 막힌다. 그러면 그냥 안 띄운다
+      return
+    }
+    setShow(true)
+  }, [])
+
+  if (!show) return null
+
+  const close = () => {
+    try {
+      localStorage.setItem(ADDED_KEY, '1')
+    } catch {
+      // 저장이 안 되면 다음에 또 뜬다. 안 뜨는 것보다는 낫다
+    }
+    setShow(false)
+  }
+
+  return (
+    <div className="sc-home" role="dialog" aria-label="홈 화면에 추가">
+      <div className="sc-home__panel">
+        <h2>홈 화면에 추가</h2>
+        <p>
+          주소창 없이 전체 화면으로 열립니다. 닷새 동안 자주 켜게 되니
+          한 번 해 두는 편이 낫습니다.
+        </p>
+        <ShareHint />
+        <button onClick={close}>알겠습니다</button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * iOS 공유 버튼 경로. **그림으로 안내한다** — 「공유」라고만 쓰면
+ * 아이폰에서 그 단추가 어디 있는지 못 찾는 사람이 실제로 많다.
+ */
+function ShareHint() {
+  return (
+    <figure className="sc-home__hint">
+      <svg viewBox="0 0 200 56" role="img" aria-label="아래 공유 단추를 누르고 홈 화면에 추가를 고릅니다">
+        {/* 공유 단추 */}
+        <rect x="6" y="10" width="36" height="36" rx="7" fill="none" stroke="currentColor" />
+        <path d="M24 34V16" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M18 22l6-6 6 6" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M16 28v10h16V28" fill="none" stroke="currentColor" strokeWidth="2" />
+        {/* 화살표 */}
+        <path d="M50 28h22" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M68 24l6 4-6 4" fill="none" stroke="currentColor" strokeWidth="2" />
+        {/* 홈 화면에 추가 */}
+        <rect x="82" y="10" width="112" height="36" rx="7" fill="none" stroke="currentColor" />
+        <text x="94" y="33" fontSize="12" fill="currentColor">홈 화면에 추가</text>
+      </svg>
+      <figcaption>아이폰은 아래 공유 단추 → 「홈 화면에 추가」.</figcaption>
+    </figure>
+  )
+}

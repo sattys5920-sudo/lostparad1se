@@ -7,7 +7,7 @@
 // 화면은 남의 픽셀 위치를 모른다. 서버가 아는 것은 「누가 어느 방에
 // 있는가」뿐이고, 그보다 자세한 것을 주고받으면 안개가 의미를 잃는다.
 // 그래서 남은 방 한가운데에 선 것으로 그린다.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 
 import {
   DOORS,
@@ -29,7 +29,7 @@ import {
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { pixelFrame } from '../char/pixel'
 import { TILE_BY_ID } from '../../../shared/rules/board'
-import { CANVAS_SCALE, CROSS_TIMEOUT_MS, STEP_MS, WALK_POSES_PER_SEC } from './timing'
+import { CROSS_TIMEOUT_MS, MAX_SCALE, MIN_VIEW_PX, STEP_MS, WALK_POSES_PER_SEC } from './timing'
 import type { AvatarLook, TeamId, TileId } from '../types'
 import type { GameDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 
@@ -50,6 +50,12 @@ export interface WalkProps {
   onRoom: (id: TileId | null) => void
   /** 맵에서 방을 눌렀다. 먼 방이면 거기로 갈지 묻는다. */
   onTapRoom: (id: TileId) => void
+  /**
+   * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
+   * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
+   * 단추의 data-dir 만 보고 붙으므로 생김새는 부모가 정한다.
+   */
+  padRef: RefObject<HTMLDivElement | null>
 }
 
 const DIR_OF: Record<string, Dir> = {
@@ -73,9 +79,8 @@ function acrossFrom(door: { a: TileId; b: TileId }, here: TileId | null): TileId
   return null
 }
 
-export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom }: WalkProps) {
+export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const padRef = useRef<HTMLDivElement | null>(null)
 
   // 그리기 루프가 매 프레임 읽는 것들. state로 두면 프레임마다 다시
   // 그려져서 걸음이 끊긴다
@@ -138,24 +143,19 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
 
+    // **십자키는 한 번 누르면 한 칸이다.** 길게 눌러도 이어 걷지 않는다 —
+    // 손가락은 키보드가 아니라서, 누르고 있는 시간으로 거리를 재면
+    // 열에 아홉은 지나친다. 먼 데는 지도에서 방을 눌러 간다
+    let tap: Dir | null = null
     const offPad: (() => void)[] = []
     for (const btn of Array.from(padRef.current?.querySelectorAll('button') ?? [])) {
       const d = btn.dataset.dir as Dir
       const press = (e: Event) => {
         e.preventDefault()
-        held.add(d)
+        tap = d
       }
-      const release = () => held.delete(d)
       btn.addEventListener('pointerdown', press)
-      btn.addEventListener('pointerup', release)
-      btn.addEventListener('pointerleave', release)
-      btn.addEventListener('pointercancel', release)
-      offPad.push(() => {
-        btn.removeEventListener('pointerdown', press)
-        btn.removeEventListener('pointerup', release)
-        btn.removeEventListener('pointerleave', release)
-        btn.removeEventListener('pointercancel', release)
-      })
+      offPad.push(() => btn.removeEventListener('pointerdown', press))
     }
 
     /** 걷는 동안 쌓인 걸음. 한 칸을 STEP_MS에 걷는다. */
@@ -163,16 +163,32 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
     let last = performance.now()
     let raf = 0
 
+    /**
+     * 캔버스를 방 화면 크기에 맞춘다. **배율은 정수만 쓴다.**
+     *
+     * 소수 배율이면 한 픽셀이 1.4픽셀이 되어 어떤 줄은 굵고 어떤 줄은
+     * 가늘어진다. 도트 그림에서는 그게 바로 뭉개져 보인다. 그래서
+     * 들어갈 수 있는 가장 큰 정수 배율을 골라 그리고, 남는 자리는
+     * 바탕색으로 둔다 — 늘리는 것보다 여백이 낫다.
+     */
     const resize = () => {
-      const w = canvas.clientWidth
-      const h = canvas.clientHeight
-      canvas.width = Math.round(w / CANVAS_SCALE)
-      canvas.height = Math.round(h / CANVAS_SCALE)
+      const box = canvas.parentElement
+      const w = box?.clientWidth ?? canvas.clientWidth
+      const h = box?.clientHeight ?? canvas.clientHeight
+      if (w <= 0 || h <= 0) return
+      // 논리 화소 기준으로 몇 배까지 들어가는가
+      const fit = Math.min(w / MIN_VIEW_PX, h / MIN_VIEW_PX)
+      const scale = Math.max(1, Math.min(MAX_SCALE, Math.floor(fit)))
+      const side = MIN_VIEW_PX * scale
+      canvas.width = MIN_VIEW_PX
+      canvas.height = MIN_VIEW_PX
+      canvas.style.width = `${side}px`
+      canvas.style.height = `${side}px`
       ctx.imageSmoothingEnabled = false
     }
     resize()
     const ro = new ResizeObserver(resize)
-    ro.observe(canvas)
+    ro.observe(canvas.parentElement ?? canvas)
 
     /**
      * 캔버스를 누르면 거기로 걸어간다.
@@ -394,8 +410,10 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
           self.phase += (dt / 1000) * WALK_POSES_PER_SEC
           if (stepLeft <= 0) self.moving = false
         } else {
-          const d = [...held][held.size - 1]
+          const d = [...held][held.size - 1] ?? tap
           if (d) {
+            // 눌린 한 번은 여기서 쓴다. 남겨 두면 손을 떼도 계속 걷는다
+            tap = null
             // 손이 움직이면 저절로 걷던 것은 그만둔다. 조작을 빼앗기면 안 된다
             autoPath = []
             self.dir = d
@@ -589,15 +607,6 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom 
           {leftMin != null && <span>{leftMin}분 남았다</span>}
         </div>
       )}
-
-      <div className="sc-wk__pad" ref={padRef} aria-hidden={walking}>
-        <button data-dir="up" aria-label="위">↑</button>
-        <div>
-          <button data-dir="left" aria-label="왼쪽">←</button>
-          <button data-dir="down" aria-label="아래">↓</button>
-          <button data-dir="right" aria-label="오른쪽">→</button>
-        </div>
-      </div>
 
       {!ready && <p className="sc-pl__wait">지도를 그리는 중</p>}
       {standingOn && !walking && <p className="sc-wk__here">{TILE_BY_ID[standingOn].name}</p>}

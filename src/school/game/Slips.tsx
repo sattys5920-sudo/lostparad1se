@@ -16,9 +16,11 @@ export interface SlipsProps {
   meId: string
   act: GameActions
   onSaid: (text: string) => void
+  /** 되돌릴 수 없는 것은 한 번 묻는다. */
+  ask: (text: string) => Promise<boolean>
 }
 
-export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
+export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsProps) {
   const [busy, setBusy] = useState(false)
   const [giving, setGiving] = useState<string | null>(null)
 
@@ -94,7 +96,16 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
                 >
                   {others.length === 0 ? '건넬 사람이 없다' : '건네기'}
                 </button>
-                <button className="sc-sl__tear" disabled={busy} onClick={() => void run('찢었다.', () => act.tearSlip(s.id))}>
+                {/* 찢은 쪽지는 영영 사라진다. 한 번 묻는다 */}
+                <button
+                  className="sc-sl__tear"
+                  disabled={busy}
+                  onClick={() => {
+                    void ask('이 쪽지를 찢는다. 영영 사라진다.').then((ok) => {
+                      if (ok) void run('찢었다.', () => act.tearSlip(s.id))
+                    })
+                  }}
+                >
                   찢기
                 </button>
               </div>

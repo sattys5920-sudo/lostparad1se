@@ -23,9 +23,11 @@ export interface BallotProps {
   view: PlayerViewDoc | null
   act: GameActions
   onSaid: (text: string) => void
+  /** 이름 하나를 적기 전에 한 번 묻는다. */
+  ask: (text: string) => Promise<boolean>
 }
 
-export function Ballot({ me, seats, captainIds, invisibleId, day, view, act, onSaid }: BallotProps) {
+export function Ballot({ me, seats, captainIds, invisibleId, day, view, act, onSaid, ask }: BallotProps) {
   const [busy, setBusy] = useState(false)
   const mine = view?.myBallot ?? null
 
@@ -34,7 +36,10 @@ export function Ballot({ me, seats, captainIds, invisibleId, day, view, act, onS
     (s) => s.playerId !== me.playerId && !captainIds.includes(s.playerId) && s.playerId !== invisibleId,
   )
 
-  async function write(targetId: string) {
+  async function write(targetId: string, name: string) {
+    // 바꿀 수 있다고 해도, 이름 하나를 적는 일이 손가락이 스친 것만으로
+    // 일어나서는 안 된다
+    if (!(await ask(`${name}(이)라고 적는다.`))) return
     setBusy(true)
     try {
       await act.castBallot(targetId)
@@ -57,7 +62,7 @@ export function Ballot({ me, seats, captainIds, invisibleId, day, view, act, onS
             <button
               className={mine === s.playerId ? 'is-on' : ''}
               disabled={busy}
-              onClick={() => void write(s.playerId)}
+              onClick={() => void write(s.playerId, s.name)}
             >
               {s.name}
             </button>

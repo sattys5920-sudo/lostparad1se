@@ -2,10 +2,38 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- 모바일 전용이다. 데스크톱은 고려하지 않는다.
+         user-scalable=no 는 두 손가락 확대를 막는다 — 전체 맵만 자기
+         손으로 확대를 처리하고, 나머지 화면이 늘어나면 레이아웃이 깨진다.
+         interactive-widget 은 키보드가 올라올 때 화면을 밀어 올린다 -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="남겨진 아이들" />
+    <link rel="manifest" href="/lostparad1se/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/lostparad1se/icon-192.png" />
     <meta name="theme-color" content="#0d0f16" />
     <title>남겨진 아이들</title>
-    <style>html,body{margin:0;background:#0d0f16;font-family:'Pretendard','Apple SD Gothic Neo',system-ui,sans-serif}</style>
+    <style>
+      html, body {
+        margin: 0;
+        background: #0d0f16;
+        font-family: 'Pretendard', 'Apple SD Gothic Neo', system-ui, sans-serif;
+        /* 앱 바깥은 안 움직인다. 고무줄 스크롤이 있으면 캔버스를
+           끌 때마다 화면 전체가 따라 늘어난다 */
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        /* 더블탭 확대를 막는다. 연타가 확대로 새면 조작이 안 된다 */
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+      }
+      #root { height: 100%; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

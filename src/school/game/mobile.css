@@ -1,0 +1,567 @@
+/* 모바일 전용 틀.
+ *
+ * 기준은 iPhone SE(375×667)다. 거기서 스크롤 없이 다 들어와야 하고,
+ * 더 큰 화면에서는 방 화면이 그만큼 커진다. 데스크톱은 고려하지 않는다 —
+ * 최대 폭 500px 안에 세워 두고 가운데 놓는다.
+ *
+ * 높이는 dvh 로 잰다. vh 는 주소창이 줄었다 늘었다 할 때 값이 안 바뀌어서,
+ * 아래쪽 탭바가 화면 밖으로 밀려 나갔다가 돌아온다.
+ */
+
+.sc-pl-root {
+  /* 안전 영역. 노치와 홈 바만큼은 비워 둔다 */
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* 다섯 층의 높이. 한곳에서 고친다 */
+  --row-stat: 44px;
+  --row-ctl: 104px;
+  --row-tab: 56px;
+  /* 방 화면이 이보다 작아지면 컨트롤 바를 줄인다 */
+  --room-min: 260px;
+
+  height: 100dvh;
+  min-height: 0;
+  max-width: 500px;
+  margin: 0 auto;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  /* 길게 눌러도 글자가 잡히지 않는다. 십자키를 연타하면 늘 걸린다 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 글을 쓰는 자리만 고를 수 있게 되돌린다 */
+.sc-pl-root input,
+.sc-pl-root textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  /* 16px 미만이면 iOS 가 포커스할 때 화면을 확대해 버린다 */
+  font-size: 16px;
+}
+
+/* 누르는 순간 보이는 반응. 모바일에는 hover 가 없다 */
+.sc-pl-root button:active:not(:disabled) {
+  transform: translateY(1px);
+  opacity: 0.75;
+}
+
+/* 최소 터치 영역. 손가락은 커서가 아니다 */
+.sc-pl-root button,
+.sc-pl-root select {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+/* 줄 안에 끼어 있는 작은 단추까지 44px 로 밀면 줄이 터진다.
+   대신 보이지 않는 여백으로 손가락 자리를 넓힌다 */
+.sc-pl-root .is-inline {
+  min-height: 0;
+  position: relative;
+}
+.sc-pl-root .is-inline::after {
+  content: '';
+  position: absolute;
+  inset: -11px -8px;
+}
+
+/* ── 가로로 돌렸을 때 ─────────────────────────────────────────
+   세로 전용이다. 가로는 지원하지 않는다 — 다섯 층이 들어갈 높이가
+   안 나오고, 억지로 넣으면 방 화면이 손톱만 해진다 */
+.sc-turn {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: var(--sc-bg);
+  color: var(--sc-text);
+}
+.sc-turn p { margin: 0; font-size: 14px; }
+.sc-turn small { color: var(--sc-text-dim); font-size: 12px; }
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .sc-turn { display: flex; }
+}
+
+/* ── 연결이 끊겼을 때 ─────────────────────────────────────────
+   얇은 띠 하나. 끊긴 동안 누른 행동이 나중에 한꺼번에 나가면 안 되므로
+   행동 단추는 화면 쪽에서 잠근다 */
+.sc-offline {
+  position: fixed;
+  top: var(--sa-top);
+  left: 0;
+  right: 0;
+  z-index: 80;
+  padding: 4px 10px;
+  font-size: 11px;
+  text-align: center;
+  background: var(--sc-danger);
+  color: #fff;
+  letter-spacing: 0.03em;
+}
+
+/* 끊긴 동안은 행동을 잠근다. 나중에 한꺼번에 나가면 안 된다 */
+.sc-pl__today.is-offline button:not(.sc-pl__tabbar button) {
+  pointer-events: none;
+  opacity: 0.45;
+}
+/* 띠가 가리지 않게 위를 비운다 */
+.sc-pl__today.is-offline { padding-top: calc(var(--sa-top) + 22px); }
+
+/* ═══ 네 층 ═══════════════════════════════════════════════════
+ *
+ * 방 화면(남는 공간 전부) · 자원 줄 44 · 컨트롤 바 104 · 탭바 56.
+ * play.css 는 이 페이지가 평범하게 구르는 줄 알고 쓰여 있어서,
+ * 틀에 관한 것만 여기서 다시 잡는다 — mobile.css 가 나중에 온다.
+ */
+
+.sc-pl-root { min-height: 0; }
+
+.sc-pl {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-pl__today {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 탭은 숨겨도 떼지 않는다. 떼면 걷던 자리가 처음으로 돌아간다 */
+.sc-pl__tab {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sc-pl__tab[hidden] { display: none !important; }
+
+/* 구르는 것은 이 안에서만. 앱 전체는 구르지 않는다 */
+.sc-pl__scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  gap: 12px;
+  padding: 12px 14px calc(12px + var(--sa-bottom));
+}
+
+/* ── 방 화면 ──────────────────────────────────────────────── */
+
+.sc-pl__room {
+  position: relative;
+  flex: 1;
+  min-height: var(--room-min);
+  display: flex;
+  flex-direction: column;
+}
+
+/* DAY·타이머·이름은 방 위에 얹는다. 줄을 따로 내주면 방이 그만큼 작다 */
+.sc-pl__today .sc-pl__head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: calc(var(--sa-top) + 5px) 10px 10px;
+  font-size: 11px;
+  line-height: 14px;
+  color: #f2f3f4;
+  background: linear-gradient(rgba(6, 8, 11, 0.82), rgba(6, 8, 11, 0));
+  pointer-events: none;
+}
+.sc-pl__today.has-mini .sc-pl__head { padding-right: calc(var(--sc-mini) + 14px); }
+.sc-pl__day { letter-spacing: 0.08em; }
+.sc-pl__today .sc-pl__me { color: #c9ced2; font-size: 11px; }
+.sc-pl__clock { font-variant-numeric: tabular-nums; color: #c9ced2; }
+.sc-pl__clock.is-on { color: #fff; font-size: 13px; letter-spacing: 0.04em; }
+
+.sc-pl__today .sc-pl__ghost {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 5px 10px;
+  text-align: center;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+/* ── 자원 줄 ──────────────────────────────────────────────── */
+
+.sc-pl__map .sc-pl__stat {
+  flex: 0 0 var(--row-stat);
+  height: var(--row-stat);
+  margin: 0;
+  padding: 0 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-pl__map .sc-pl__stat li {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 11px;
+}
+.sc-pl__map .sc-pl__stat li span:last-child { font-size: 15px; }
+
+/* ── 컨트롤 바 ────────────────────────────────────────────── */
+
+.sc-pl__ctl {
+  flex: 0 0 var(--row-ctl);
+  height: var(--row-ctl);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-top: 1px solid var(--sc-line);
+}
+
+.sc-pl__pad {
+  --key: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, var(--key));
+  grid-template-rows: repeat(2, var(--key));
+}
+.sc-pl__pad button {
+  width: var(--key);
+  height: var(--key);
+  min-height: 0;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+}
+.sc-pl__pad button[data-dir='up'] { grid-area: 1 / 2; border-radius: 6px 6px 0 0; }
+.sc-pl__pad button[data-dir='left'] { grid-area: 2 / 1; border-radius: 6px 0 0 6px; }
+.sc-pl__pad button[data-dir='down'] { grid-area: 2 / 2; }
+.sc-pl__pad button[data-dir='right'] { grid-area: 2 / 3; border-radius: 0 6px 6px 0; }
+
+.sc-pl__acts {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 44px 44px;
+  gap: 4px;
+}
+.sc-pl__acts button {
+  min-height: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 방 화면이 260px 을 못 채우는 낮은 화면. 컨트롤 바를 줄이되
+   **터치 영역 44px 은 건드리지 않는다** — 대신 사이를 좁힌다 */
+@media (max-height: 620px) {
+  .sc-pl-root { --row-ctl: 96px; --row-stat: 40px; --row-tab: 50px; }
+  .sc-pl__acts { grid-template-rows: 44px 44px; gap: 2px; }
+}
+
+/* ── 탭바 ─────────────────────────────────────────────────── */
+
+.sc-pl__tabbar {
+  flex: 0 0 auto;
+  display: flex;
+  padding-bottom: var(--sa-bottom);
+  border-top: 1px solid var(--sc-line);
+  background: var(--sc-bg-2);
+}
+.sc-pl__tabbar button {
+  flex: 1;
+  min-height: var(--row-tab);
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--sc-text-dim);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+.sc-pl__tabbar button.is-on {
+  color: var(--sc-text);
+  box-shadow: inset 0 2px 0 var(--sc-accent);
+}
+/* 글을 쓰는 동안에는 감춘다. 키보드 위에 얹히면 입력창이 가려진다 */
+.sc-pl__today.is-typing .sc-pl__tabbar { display: none; }
+
+/* ── 나 탭 · 수첩 탭 ──────────────────────────────────────── */
+
+.sc-pl__paneHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sc-pl__paneHead h2 { margin: 0; font-size: 17px; letter-spacing: 0.03em; }
+.sc-pl__paneHead span { color: var(--sc-text-dim); font-size: 12px; }
+
+.sc-pl__mine {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--sc-line);
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sc-pl__mine li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--sc-bg);
+  font-size: 11px;
+  color: var(--sc-text-dim);
+}
+.sc-pl__mine li span:last-child {
+  font-size: 15px;
+  color: var(--sc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-pl__wide {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 13px;
+}
+
+.sc-pl__none { margin: 0; color: var(--sc-text-dim); font-size: 12px; }
+
+.sc-pl__more { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sc-pl__more button {
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 12px;
+}
+
+/* ── 바텀시트 ─────────────────────────────────────────────── */
+
+.sc-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+/* 시트 밖은 전부 닫기 자리다. **위쪽 30%는 비워 둔다** —
+   거기 페이즈 타이머가 떠 있어야 한다 */
+.sc-sheet__back {
+  flex: 1;
+  min-height: 30dvh;
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: rgba(6, 8, 11, 0.5);
+}
+.sc-sheet__panel {
+  max-height: 70dvh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: var(--sa-bottom);
+  background: var(--sc-bg);
+  border-top: 1px solid var(--sc-line-strong);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -8px 24px rgba(6, 8, 11, 0.28);
+  transition: transform 0.16s ease-out;
+}
+.sc-sheet__grip {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: 9px 0 5px;
+  /* 끌어내리는 손잡이. 여기서는 화면이 구르면 안 된다 */
+  touch-action: none;
+}
+.sc-sheet__grip span { width: 38px; height: 4px; border-radius: 2px; background: var(--sc-line); }
+.sc-sheet__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px 6px;
+}
+.sc-sheet__head h2 { margin: 0; font-size: 14px; letter-spacing: 0.03em; }
+.sc-sheet__head button {
+  min-height: 0;
+  padding: 6px 10px;
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 12px;
+}
+.sc-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 12px calc(12px + var(--sa-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── 한 번 묻기 ───────────────────────────────────────────── */
+
+.sc-ask {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 8, 11, 0.6);
+}
+.sc-ask__panel {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--sc-bg);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 10px;
+}
+.sc-ask__panel p { margin: 0; font-size: 13px; line-height: 20px; }
+.sc-ask__row { display: flex; gap: 8px; }
+.sc-ask__row button {
+  flex: 1;
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 13px;
+}
+.sc-ask__row .is-go {
+  border-color: var(--sc-danger);
+  background: var(--sc-danger);
+  color: #fff;
+}
+
+/* ── 홈 화면에 추가 ───────────────────────────────────────── */
+
+.sc-home {
+  position: fixed;
+  inset: 0;
+  z-index: 96;
+  display: flex;
+  align-items: flex-end;
+  padding: 16px calc(16px + env(safe-area-inset-right, 0px)) calc(16px + var(--sa-bottom)) calc(16px + env(safe-area-inset-left, 0px));
+  background: rgba(6, 8, 11, 0.6);
+}
+.sc-home__panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--sc-bg);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 12px;
+}
+.sc-home__panel h2 { margin: 0; font-size: 15px; letter-spacing: 0.03em; }
+.sc-home__panel p { margin: 0; font-size: 12px; line-height: 19px; color: var(--sc-text-dim); }
+.sc-home__panel > button {
+  appearance: none;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 6px;
+  background: var(--sc-accent);
+  color: var(--sc-bg);
+  font-size: 13px;
+}
+.sc-home__hint { margin: 0; display: flex; flex-direction: column; gap: 6px; color: var(--sc-text-2); }
+.sc-home__hint svg { width: 100%; max-width: 220px; height: auto; }
+.sc-home__hint figcaption { font-size: 11px; color: var(--sc-text-dim); }
+
+/* ── 전체 맵 ──────────────────────────────────────────────── */
+
+.sc-atlas {
+  /* 전체 화면 오버레이. **여기만 두 손가락 확대를 허용한다** */
+  touch-action: none;
+  padding: 0;
+}
+.sc-atlas__sheet {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  padding-top: var(--sa-top);
+  padding-bottom: calc(var(--sa-bottom) + 8px);
+}
+.sc-atlas__box { touch-action: none; }
+
+/* 엄지가 닿는 자리. 오른쪽 위의 ✕ 와 같은 일을 한다 */
+.sc-atlas__done {
+  position: absolute;
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  bottom: calc(14px + var(--sa-bottom));
+  z-index: 5;
+  min-width: 88px;
+  padding: 0 16px;
+  appearance: none;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 22px;
+  background: var(--sc-accent);
+  color: var(--sc-bg);
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(6, 8, 11, 0.35);
+}

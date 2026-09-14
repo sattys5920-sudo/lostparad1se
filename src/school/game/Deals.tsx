@@ -20,11 +20,13 @@ export interface DealsProps {
   teams: Partial<Record<TeamId, TeamDoc>>
   act: GameActions
   onSaid: (text: string) => void
+  /** 되돌릴 수 없는 것은 한 번 묻는다. */
+  ask: (text: string) => Promise<boolean>
 }
 
 const RES_LABEL: Record<string, string> = { money: '돈', knowledge: '지식' }
 
-export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid }: DealsProps) {
+export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid, ask }: DealsProps) {
   const facing = new Set(facingTeams)
   const [busy, setBusy] = useState(false)
   const [to, setTo] = useState<string>('')
@@ -88,6 +90,7 @@ export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid }:
               준다
               <input
                 type="number"
+                inputMode="numeric"
                 min={0}
                 value={give[r]}
                 onChange={(e) => setGive({ ...give, [r]: Math.max(0, Number(e.target.value) || 0) })}
@@ -97,6 +100,7 @@ export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid }:
               받는다
               <input
                 type="number"
+                inputMode="numeric"
                 min={0}
                 value={want[r]}
                 onChange={(e) => setWant({ ...want, [r]: Math.max(0, Number(e.target.value) || 0) })}
@@ -149,7 +153,11 @@ export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid }:
 
       <h2>동맹 {ally && <span>{ally}팀과</span>}</h2>
       {ally ? (
-        <button className="is-danger" disabled={busy} onClick={() => run('파기', () => act.breakAlliance())}>
+        <button className="is-danger" disabled={busy} onClick={() => {
+            void ask('동맹을 파기한다. 되돌릴 수 없다.').then((ok) => {
+              if (ok) void run('파기', () => act.breakAlliance())
+            })
+          }}>
           먼저 깬다 (열두 시간 동안 새 동맹을 못 맺는다)
         </button>
       ) : (

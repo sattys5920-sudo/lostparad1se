@@ -42,6 +42,8 @@ export interface PhaseProps {
   endsAtMs: number | null
   act: GameActions
   onSaid: (text: string) => void
+  /** 되돌릴 수 없는 것은 한 번 묻는다. */
+  ask: (text: string) => Promise<boolean>
 }
 
 const LABEL: Record<ActionKind, string> = {
@@ -73,7 +75,7 @@ function leftText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, act, onSaid }: PhaseProps) {
+export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, act, onSaid, ask }: PhaseProps) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<ActionKind | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -132,6 +134,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, act, onS
   }
 
   async function send(kind: ActionKind, t: { targetPlayer?: string; targetRobot?: string } = {}) {
+    // 부순 로봇은 돌아오지 않는다. 손가락이 스친 것만으로 일어나면 안 된다
+    if (kind === 'smashRobot' && !(await ask('로봇을 부순다. 되돌릴 수 없다.'))) return
     setBusy(true)
     try {
       const out = (await act.phaseAct(kind, t)) as { tokens?: number }
