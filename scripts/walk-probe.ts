@@ -79,6 +79,34 @@ async function main(): Promise<void> {
     console.log(`  ${dir}: ${was} → ${now} ${was === now ? '✗ 안 움직였다' : '✓'}`)
   }
 
+  console.log('\n── 십자키 꾹 누르기 ──')
+  {
+    const btn = page.locator('.sc-pl__pad button[data-dir="right"]')
+    const b = await btn.boundingBox()
+    if (b) {
+      const cx = b.x + b.width / 2
+      const cy = b.y + b.height / 2
+      // 톡 — 한 칸이어야 한다
+      const t0 = await at()
+      await page.mouse.move(cx, cy)
+      await page.mouse.down()
+      await page.mouse.up()
+      await page.waitForTimeout(600)
+      console.log(`  톡: ${t0} → ${await at()} (한 칸이어야 한다)`)
+      // 꾹 — 이어 걸어야 한다
+      const h0 = await at()
+      await page.mouse.down()
+      await page.waitForTimeout(1400)
+      await page.mouse.up()
+      await page.waitForTimeout(400)
+      const h1 = await at()
+      console.log(`  꾹 1.4초: ${h0} → ${h1}`)
+      // 떼고 나서도 혼자 가는지
+      await page.waitForTimeout(900)
+      console.log(`  뗀 뒤 0.9초: ${h1} → ${await at()} (같아야 한다)`)
+    }
+  }
+
   console.log('\n── 키보드 방향키 ──')
   for (const key of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a']) {
     const was = await at()

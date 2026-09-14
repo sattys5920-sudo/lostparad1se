@@ -29,7 +29,7 @@ import {
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { pixelFrame } from '../char/pixel'
 import { TILE_BY_ID } from '../../../shared/rules/board'
-import { CROSS_TIMEOUT_MS, MAX_SCALE, MIN_VIEW_PX, STEP_MS, WALK_POSES_PER_SEC } from './timing'
+import { CROSS_TIMEOUT_MS, MAX_SCALE, MIN_VIEW_PX, PAD_HOLD_MS, STEP_MS, WALK_POSES_PER_SEC } from './timing'
 import type { AvatarLook, TeamId, TileId } from '../types'
 import type { GameDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 
@@ -163,19 +163,42 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
 
-    // **십자키는 한 번 누르면 한 칸이다.** 길게 눌러도 이어 걷지 않는다 —
-    // 손가락은 키보드가 아니라서, 누르고 있는 시간으로 거리를 재면
-    // 열에 아홉은 지나친다. 먼 데는 지도에서 방을 눌러 간다.
-    // 방향키는 눌러 두면 이어 걷는다 — 키보드는 뗄 때를 정확히 안다
+    // 십자키는 두 가지로 쓴다.
+    //
+    //   톡 누르면 **한 칸.** 지나치지 않게
+    //   꾹 누르면 **이어 걷는다.** 방을 가로지르는 데 열 번 두드리지
+    //   않게
+    //
+    // 가르는 것은 시간뿐이다. 손가락이 단추에서 떨어지기 전에
+    // PAD_HOLD_MS 가 지나면 그때부터 이어 걷는다 — 그 전에 떼면
+    // 처음에 준 한 칸으로 끝난다
     const offPad: (() => void)[] = []
     for (const btn of Array.from(padRef.current?.querySelectorAll('button') ?? [])) {
       const d = btn.dataset.dir as Dir
+      let timer = 0
       const press = (e: Event) => {
         e.preventDefault()
         tap = d
+        clearTimeout(timer)
+        timer = window.setTimeout(() => held.add(d), PAD_HOLD_MS)
+      }
+      // 손가락이 미끄러져 단추 밖으로 나가도 멈춘다. 안 그러면 화면에서
+      // 손을 뗀 뒤에도 혼자 걸어간다
+      const release = () => {
+        clearTimeout(timer)
+        held.delete(d)
       }
       btn.addEventListener('pointerdown', press)
-      offPad.push(() => btn.removeEventListener('pointerdown', press))
+      btn.addEventListener('pointerup', release)
+      btn.addEventListener('pointerleave', release)
+      btn.addEventListener('pointercancel', release)
+      offPad.push(() => {
+        clearTimeout(timer)
+        btn.removeEventListener('pointerdown', press)
+        btn.removeEventListener('pointerup', release)
+        btn.removeEventListener('pointerleave', release)
+        btn.removeEventListener('pointercancel', release)
+      })
     }
 
     /** 걷는 동안 쌓인 걸음. 한 칸을 STEP_MS에 걷는다. */
