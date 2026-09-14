@@ -137,3 +137,4 @@ export { seedPlayers } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
 export { openPhase, closePhase, phaseAct, phaseNow, roamTo } from './phase'
+export { takeSlip, readSlip, dropSlip, tearSlip, giveSlip } from './slips'

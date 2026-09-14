@@ -18,6 +18,7 @@ import { Actions, Standing } from './Actions'
 import { Walk } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseHost, PhaseLog } from './Phase'
+import { Slips } from './Slips'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
@@ -504,6 +505,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <Actions tileId={standingRoom} where="here" act={act} onSaid={setSaid}>
           <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
         </Actions>
+      )}
+
+      {/* 쪽지. 페이즈 중에는 점령전 말고 할 일이 없다 */}
+      {!phaseOpen && uid && (
+        <Slips view={state.view} seats={game.seats} hereIds={hereIds} meId={uid} act={act} onSaid={setSaid} />
       )}
 
       {!phaseOpen && (

@@ -8,6 +8,12 @@ import { projectAll, projectView, type World, type WorldPawn } from './views'
 import { BASE_OF, type TileId } from './board'
 import type { TeamId } from './v2'
 
+/** 쪽지에 적힌 것. 투영을 통과하면 안 되는 문장들이다. */
+const SLIP_FLOOR = '바닥에 떨어져 있는 문장'
+const SLIP_HELD = '주워서 읽은 문장'
+const SLIP_BLIND = '주웠지만 아직 안 읽은 문장'
+const SLIP_TORN = '찢겨서 사라진 문장'
+
 const TEAMS: TeamId[] = ['A', 'B', 'C', 'D']
 const SIZES: Record<TeamId, number> = { A: 4, B: 4, C: 3, D: 3 }
 
@@ -90,6 +96,13 @@ function world(over = false, invisibleId: string | null = null): World {
     confessions: [
       { id: 'c1', speakerId: 'C0', scope: 'private', listenerIds: ['A0'], text: '조용히 한 말', atMs: 10 },
       { id: 'c2', speakerId: 'D0', scope: 'class', listenerIds: [], text: '모두 앞에서 한 말', atMs: 20 },
+    ],
+    // 쪽지 — A0 가 선 기지 바닥에 한 장, A1 이 주워서 읽은 것 한 장
+    slips: [
+      { id: 'sFloor', subjectId: 'C0', line: SLIP_FLOOR, tileId: BASE_OF.A, heldBy: null, readBy: [] },
+      { id: 'sHeld', subjectId: 'D0', line: SLIP_HELD, tileId: null, heldBy: 'A1', readBy: ['A1'] },
+      { id: 'sBlind', subjectId: 'C1', line: SLIP_BLIND, tileId: null, heldBy: 'B0', readBy: [] },
+      { id: 'sTorn', subjectId: 'D1', line: SLIP_TORN, tileId: null, heldBy: null, readBy: ['A0'] },
     ],
     memories: [
       { tileId: 'library', team: 'A', atMs: 30 },
@@ -369,6 +382,63 @@ describe('열넷 몫을 통째로 훑는다', () => {
     for (const r of ROSTER) {
       const v = all[r.playerId]
       expect(v.own?.bondId).toBe(ROSTER.find((x) => x.playerId === r.playerId)?.bondId)
+    }
+  })
+})
+
+describe('쪽지 — 주워서 읽어야 안다', () => {
+  it('같은 방이면 **한 장 있다는 것까지만** 안다', () => {
+    // A0 는 A기지에 서 있고 거기 한 장이 떨어져 있다
+    const v = projectView(world(), 'A0')
+    expect(v.slipsHere.map((s) => s.id)).toEqual(['sFloor'])
+    // 적힌 것도, 누구 것인지도 안 온다
+    expect(JSON.stringify(v)).not.toContain(SLIP_FLOOR)
+    expect(JSON.stringify(v.slipsHere)).not.toContain('C0')
+  })
+
+  it('다른 방 사람에게는 있다는 것조차 안 간다', () => {
+    const v = projectView(world(), 'B0')
+    expect(v.slipsHere).toEqual([])
+    expect(JSON.stringify(v)).not.toContain(SLIP_FLOOR)
+  })
+
+  it('들고만 있고 안 읽었으면 문장이 안 온다', () => {
+    const v = projectView(world(), 'B0')
+    const mine = v.mySlips.find((s) => s.id === 'sBlind')
+    expect(mine?.read).toBe(false)
+    expect(mine?.line).toBeNull()
+    expect(mine?.subjectId).toBeNull()
+    expect(JSON.stringify(v)).not.toContain(SLIP_BLIND)
+  })
+
+  it('읽었으면 문장과 주인이 온다', () => {
+    const v = projectView(world(), 'A1')
+    const mine = v.mySlips.find((s) => s.id === 'sHeld')
+    expect(mine?.line).toBe(SLIP_HELD)
+    expect(mine?.subjectId).toBe('D0')
+  })
+
+  it('**남이 읽은 쪽지는 나에게 안 온다**', () => {
+    for (const who of ['A0', 'B0', 'C0', 'D0']) {
+      const v = projectView(world(), who)
+      if (who === 'A1') continue
+      expect(JSON.stringify(v)).not.toContain(SLIP_HELD)
+    }
+  })
+
+  it('찢긴 쪽지는 읽었던 사람에게도 안 온다', () => {
+    const v = projectView(world(), 'A0')
+    expect(v.mySlips.some((s) => s.id === 'sTorn')).toBe(false)
+    expect(JSON.stringify(v)).not.toContain(SLIP_TORN)
+  })
+
+  it('열넷 누구에게도 남의 쪽지 문장이 안 간다', () => {
+    for (const r of ROSTER) {
+      const j = JSON.stringify(projectView(world(), r.playerId))
+      if (r.playerId !== 'A1') expect(j).not.toContain(SLIP_HELD)
+      expect(j).not.toContain(SLIP_FLOOR)
+      expect(j).not.toContain(SLIP_BLIND)
+      expect(j).not.toContain(SLIP_TORN)
     }
   })
 })

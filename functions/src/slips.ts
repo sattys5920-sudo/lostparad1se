@@ -1,0 +1,206 @@
+// 쪽지 — 바닥에 떨어진 종이 한 장을 줍고, 읽고, 처리한다.
+//
+// **적힌 것은 끝까지 secret 아래에만 둔다.** 바닥에 놓인 쪽지는 그 방에
+// 선 사람에게 「한 장 있다」까지만 보이고, 문장은 주워서 읽은 사람에게만
+// 간다. 문서를 통째로 내려보내고 화면에서 가리면 개발자도구로 다 보인다.
+//
+// 처리는 셋이다.
+//
+//   찢기    영영 사라진다. 내 비밀이 적힌 쪽지를 주웠을 때 할 일이다
+//   두기    선 방에 놓는다. 다음에 그 방에 온 사람이 줍는다
+//   건네기  마주 선 사람에게 준다. 값을 부르려면 교역에 실어 보낸다(deal.ts)
+import { HttpsError, onCall } from 'firebase-functions/v2/https'
+import { getFirestore } from 'firebase-admin/firestore'
+
+import { SLIPS_ON_FLOOR_MAX, SLIPS_PER_PHASE } from '../../shared/reveal/slips'
+import { SLIP_TEXTS } from './story/slips'
+import { TILES, type TileId } from '../../shared/rules/board'
+import { rngFrom } from '../../shared/missions/assign'
+import type { GameDoc, PawnDoc } from '../../shared/model'
+import { freshNow } from './turn'
+import { refreshViews } from './views'
+import { gameRef, requireUid } from './index'
+
+const db = getFirestore()
+
+/**
+ * 쪽지 한 장. **secret 아래에 있다.**
+ *
+ * 바닥에 있으면 tileId 가 차고, 누가 들고 있으면 heldBy 가 찬다.
+ * 둘 다 null 인 쪽지는 찢긴 것이다 — 지우지 않고 남겨 둔다. 누가
+ * 무엇을 없앴는지가 나중에 이야기가 된다.
+ */
+export interface SlipDoc {
+  textId: string
+  /** 누구의 비밀인가. 뿌려질 때 정해진다. */
+  subjectId: string
+  tileId: TileId | null
+  heldBy: string | null
+  /** 한 번이라도 읽은 사람들. 넘겨줘도 읽은 것은 안 잊는다. */
+  readBy: string[]
+  tornBy: string | null
+  atMs: number
+}
+
+const slipsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('slips').collection('items')
+
+/** 쪽지가 떨어질 수 있는 방. 기지와 핵심 지역은 뺀다. */
+const DROP_TILES: TileId[] = TILES.filter((t) => t.homeOf === null && t.tier !== 'core' && t.tier !== 'plaza').map(
+  (t) => t.id,
+)
+
+/**
+ * 쪽지를 뿌린다. 페이즈가 닫힐 때 서버가 부른다.
+ *
+ * 같은 씨앗이면 같은 결과가 나오게 판 아이디와 페이즈 번호로 뽑는다 —
+ * 다시 돌려 봐야 할 때 같은 판이 나와야 한다.
+ */
+export async function scatterSlips(gameId: string, phaseNo: number, nowMs: number): Promise<number> {
+  const [seats, onFloor] = await Promise.all([
+    gameRef(gameId).get(),
+    slipsOf(gameId).where('tileId', '!=', null).get(),
+  ])
+  const game = seats.data() as GameDoc
+  const room = Math.max(0, SLIPS_ON_FLOOR_MAX - onFloor.size)
+  const howMany = Math.min(SLIPS_PER_PHASE, room)
+  if (howMany === 0 || game.seats.length === 0) return 0
+
+  const rng = rngFrom(`${gameId}:slips:${phaseNo}`)
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)] as T
+
+  const batch = db.batch()
+  for (let i = 0; i < howMany; i++) {
+    const doc: SlipDoc = {
+      textId: pick(SLIP_TEXTS).id,
+      subjectId: pick(game.seats).playerId,
+      tileId: pick(DROP_TILES),
+      heldBy: null,
+      readBy: [],
+      tornBy: null,
+      atMs: nowMs,
+    }
+    batch.set(slipsOf(gameId).doc(), doc)
+  }
+  await batch.commit()
+  return howMany
+}
+
+/** 지금 내가 선 방. 걷는 중이면 null 이다. */
+async function whereAmI(gameId: string, uid: string): Promise<TileId | null> {
+  const snap = await gameRef(gameId).collection('pawns').doc(uid).get()
+  if (!snap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
+  return ((snap.data() as PawnDoc).tileId ?? null) as TileId | null
+}
+
+/** 바닥에서 줍는다. **그 방에 서 있어야 한다.** */
+export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId, slipId } = req.data
+  const here = await whereAmI(gameId, uid)
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 주울 수 있다.')
+
+  await db.runTransaction(async (tx) => {
+    const ref = slipsOf(gameId).doc(slipId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    const s = snap.data() as SlipDoc
+    // 먼저 주운 사람만 가진다. 둘이 같은 쪽지를 노리면 여기서 갈린다
+    if (s.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 쪽지다.')
+    tx.update(ref, { tileId: null, heldBy: uid })
+  })
+  await refreshViews(gameId)
+  return { slipId }
+})
+
+/**
+ * 읽는다. 들고 있어야 하고, **읽은 것은 기록에 남는다.**
+ *
+ * 넘겨주고 나서도 읽었다는 사실은 안 사라진다. 쪽지를 돌려도 이미
+ * 아는 사람은 계속 아는 것이 맞다.
+ */
+export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId, slipId } = req.data
+  await db.runTransaction(async (tx) => {
+    const ref = slipsOf(gameId).doc(slipId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    const s = snap.data() as SlipDoc
+    if (s.heldBy !== uid) throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
+    if (s.readBy.includes(uid)) return
+    tx.update(ref, { readBy: [...s.readBy, uid] })
+  })
+  await refreshViews(gameId)
+  return { slipId }
+})
+
+/** 선 방에 두고 간다. 다음에 그 방에 온 사람이 줍는다. */
+export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId, slipId } = req.data
+  const here = await whereAmI(gameId, uid)
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 놓을 수 있다.')
+
+  await db.runTransaction(async (tx) => {
+    const ref = slipsOf(gameId).doc(slipId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    if ((snap.data() as SlipDoc).heldBy !== uid) {
+      throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
+    }
+    tx.update(ref, { tileId: here, heldBy: null })
+  })
+  await refreshViews(gameId)
+  return { tileId: here }
+})
+
+/** 찢는다. **영영 사라진다.** 내 비밀이 적힌 쪽지를 주웠을 때 할 일이다. */
+export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId, slipId } = req.data
+  const { nowMs } = await freshNow(gameId)
+  await db.runTransaction(async (tx) => {
+    const ref = slipsOf(gameId).doc(slipId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    if ((snap.data() as SlipDoc).heldBy !== uid) {
+      throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
+    }
+    // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다
+    tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, atMs: nowMs })
+  })
+  await refreshViews(gameId)
+  return { torn: true }
+})
+
+/**
+ * 마주 선 사람에게 그냥 건넨다.
+ *
+ * 값을 부르려면 이것이 아니라 교역에 실어 보낸다(offerTrade). 여기서는
+ * 대가 없이 넘기는 것만 한다 — 「그냥 가져가」가 있어야 협박이 협박이 된다.
+ */
+export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId, slipId, toPlayerId } = req.data
+  if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
+  const here = await whereAmI(gameId, uid)
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 건넬 수 있다.')
+
+  await db.runTransaction(async (tx) => {
+    const slipRef = slipsOf(gameId).doc(slipId)
+    const [snap, other] = await Promise.all([
+      tx.get(slipRef),
+      tx.get(gameRef(gameId).collection('pawns').doc(toPlayerId)),
+    ])
+    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    if ((snap.data() as SlipDoc).heldBy !== uid) {
+      throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
+    }
+    if (!other.exists || (other.data() as PawnDoc).tileId !== here) {
+      throw new HttpsError('failed-precondition', '같은 방에 있어야 건넨다.')
+    }
+    tx.update(slipRef, { heldBy: toPlayerId })
+  })
+  await refreshViews(gameId)
+  return { toPlayerId }
+})

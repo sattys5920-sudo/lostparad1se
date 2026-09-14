@@ -59,6 +59,21 @@ export interface WorldConfession {
   atMs: number
 }
 
+/**
+ * 판 위의 쪽지 하나. **서버만 통째로 본다.**
+ *
+ * line 은 서버가 이미 이름까지 끼워 넣은 문장이다. 문장 표는
+ * functions/src/story/slips.ts 에 있고 번들에 실리지 않는다.
+ */
+export interface WorldSlip {
+  id: string
+  subjectId: string
+  line: string
+  tileId: TileId | null
+  heldBy: string | null
+  readBy: readonly string[]
+}
+
 export interface World {
   nowMs: number
   /** 끝났으면 A의 기억 열셋이 전원에게 열린다. */
@@ -110,6 +125,8 @@ export interface World {
   releasedDays: readonly number[]
   progress: readonly { playerId: string; handledDays: readonly number[]; readDays: readonly number[] }[]
   confessions: readonly WorldConfession[]
+  /** 판 위의 쪽지 전부. 투영이 여기서 **거의 다 잘라낸다.** */
+  slips?: readonly WorldSlip[]
   memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
   /** 깨달음에 이른 시각. A의 시선이 그때 열린다. */
   awakenedAtMs: Readonly<Record<string, number>>
@@ -165,6 +182,14 @@ export interface View {
   handledDays: number[]
   readDays: number[]
   confessions: WorldConfession[]
+  /**
+   * 내가 선 방 바닥에 있는 쪽지. **한 장 있다는 것까지만이다.**
+   *
+   * 무엇이 적혔는지도, 누구의 비밀인지도 안 온다. 주워서 읽어야 안다.
+   */
+  slipsHere: { id: string }[]
+  /** 내가 들고 있는 쪽지. 읽은 것만 문장이 실린다. */
+  mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   memories: { tileId: TileId; team: TeamId; atMs: number }[]
   sightAtMs: number | null
   notices: { id: string; text: string; atMs: number }[]
@@ -245,6 +270,8 @@ export function projectView(world: World, viewerId: string): View {
       handledDays: [],
       readDays: [],
       confessions: [],
+      slipsHere: [],
+      mySlips: [],
       memories: [],
       sightAtMs: null,
       notices: noticesFor(world.notices, viewerId).map((n) => ({ id: n.id, text: n.text, atMs: n.atMs })),
@@ -265,6 +292,8 @@ export function projectView(world: World, viewerId: string): View {
   })
 
   const plan = world.plans.find((p) => p.playerId === viewerId) ?? null
+  // 내가 선 방. 걷는 중이면 어느 방에도 없다 — 바닥의 쪽지도 안 보인다
+  const here = seenPawns.find((p) => p.playerId === viewerId)?.tileId ?? null
 
   return {
     updatedAtMs: world.nowMs,
@@ -322,6 +351,21 @@ export function projectView(world: World, viewerId: string): View {
     confessions: world.confessions
       .filter((c) => canSeeConfession(c, viewerId))
       .map((c) => ({ ...c, listenerIds: [...c.listenerIds] })),
+    // **바닥의 쪽지는 「한 장 있다」까지만.** 무엇이 적혔는지도, 누구의
+    // 비밀인지도 안 간다 — 주워서 읽어야 안다
+    slipsHere: (world.slips ?? [])
+      .filter((s) => here !== null && s.tileId === here)
+      .map((s) => ({ id: s.id })),
+    // 들고 있는 것. **읽은 것만 문장이 실린다** — 주웠다고 저절로
+    // 읽히면 「읽는다」가 아무 일도 아닌 것이 된다
+    mySlips: (world.slips ?? [])
+      .filter((s) => s.heldBy === viewerId)
+      .map((s) => {
+        const read = s.readBy.includes(viewerId)
+        // **읽어야 문장이 온다.** 안 읽었으면 적힌 것도, 누구의
+        // 비밀인지도 안 간다
+        return { id: s.id, read, line: read ? s.line : null, subjectId: read ? s.subjectId : null }
+      }),
     // 먼저 가져간 팀만. 끝나면 전원
     memories: world.memories.filter((m) => canSeeMemory(m, team, world.over)),
     // A의 시선은 깨달음에 이른 본인에게만

@@ -145,6 +145,11 @@ export function gameActions(gameId: string) {
       t: { targetTile?: TileId; targetPlayer?: string; targetRobot?: string } = {},
     ) => callServer('phaseAct', { ...g, kind, ...t }),
     phaseNow: () => callServer('phaseNow', g),
+    takeSlip: (slipId: string) => callServer('takeSlip', { ...g, slipId }),
+    readSlip: (slipId: string) => callServer('readSlip', { ...g, slipId }),
+    dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
+    tearSlip: (slipId: string) => callServer('tearSlip', { ...g, slipId }),
+    giveSlip: (slipId: string, toPlayerId: string) => callServer('giveSlip', { ...g, slipId, toPlayerId }),
     openPhase: () => callServer('openPhase', g),
     closePhase: () => callServer('closePhase', g),
 

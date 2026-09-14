@@ -43,6 +43,7 @@ import { freshNow } from './turn'
 import { clearArrivals, writeWalk } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
+import { scatterSlips } from './slips'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -437,8 +438,16 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 
   await batch.commit()
+  // 한 페이즈가 지날 때마다 쪽지가 몇 장 더 떨어진다. 자유 시간에
+  // 주우러 다닐 것이 있어야 자유 시간이 시간이 된다
+  const dropped = await scatterSlips(gameId, no, nowMs)
   await refreshViews(gameId)
-  return { no, captured: out.log.filter((l) => l.kind === 'captured').length, lines: out.log.length }
+  return {
+    no,
+    captured: out.log.filter((l) => l.kind === 'captured').length,
+    lines: out.log.length,
+    slips: dropped,
+  }
 })
 
 // ── 자유 시간의 걸음 ────────────────────────────────────────────

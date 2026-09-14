@@ -22,6 +22,9 @@ import type {
   TileDoc,
 } from '../../shared/model'
 import { releasedDays } from '../../shared/reveal/release'
+import { fillSubject } from '../../shared/reveal/slips'
+import { rawLine } from './story/slips'
+import type { SlipDoc } from './slips'
 import { gameRef, nowOf } from './index'
 
 const db = getFirestore()
@@ -57,7 +60,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, awakened, notices] =
+  const [hiddenPhase, pawns, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -75,6 +78,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'progress').get(),
       secret(gameId, 'confessions').get(),
       secret(gameId, 'memories').get(),
+      secret(gameId, 'slips').get(),
       secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
     ])
@@ -153,6 +157,20 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { playerId: p.playerId ?? d.id, handledDays: p.handledDays ?? [], readDays: p.readDays ?? [] }
     }),
     confessions: confessions.docs.map((d) => ({ ...(d.data() as ConfessionDoc), id: d.id })),
+    // 쪽지는 서버가 이름까지 끼워 넣어 들고 온다. **문장 표는 여기까지만
+    // 온다** — shared 에 두면 번들에 실려 열넷이 통째로 읽힌다
+    slips: slips.docs.map((d) => {
+      const s2 = d.data() as SlipDoc
+      const who = game.seats.find((x) => x.playerId === s2.subjectId)?.name ?? null
+      return {
+        id: d.id,
+        subjectId: s2.subjectId,
+        line: fillSubject(rawLine(s2.textId), who),
+        tileId: s2.tileId ?? null,
+        heldBy: s2.heldBy ?? null,
+        readBy: s2.readBy ?? [],
+      }
+    }),
     memories: memories.docs.map((d) => d.data() as MemoryDoc),
     awakenedAtMs: Object.fromEntries(awakened.docs.map((d) => [d.id, (d.data() as { atMs: number }).atMs])),
     notices: notices.docs.map((d) => {

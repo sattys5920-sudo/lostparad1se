@@ -342,6 +342,14 @@ export interface PlayerViewDoc {
   myPost: TileId | null
   /** 이번 페이즈에 내게 남은 토큰. */
   myTokens: number
+  /**
+   * 내가 선 방 바닥에 있는 쪽지. **한 장 있다는 것까지만이다.**
+   *
+   * 무엇이 적혔는지도 누구의 비밀인지도 안 온다 — 주워서 읽어야 안다.
+   */
+  slipsHere: { id: string }[]
+  /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
+  mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /** 내가 가 본 방. 지도가 채워지는 것은 개인의 기록이다. */
   visitedTiles: TileId[]
   /** 보이는 방에 있는 로봇. 사람처럼 안개를 거친다. */
