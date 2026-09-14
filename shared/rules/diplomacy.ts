@@ -7,7 +7,6 @@ import {
   ALLIANCE_BREAK_LOCK_REAL_HOURS,
   ALLIANCE_CLEAR_DAY,
   RESOURCES,
-  TRADE_PENDING_LIMIT,
   type Resource,
   type TeamId,
 } from './v2'
@@ -43,15 +42,13 @@ export interface Purse {
   robots: number
 }
 
-export type OfferRefusal = 'ownTeam' | 'tooManyPending' | 'blocked' | 'empty'
+export type OfferRefusal = 'ownTeam' | 'blocked' | 'empty'
 
 export interface OfferInput {
   fromTeam: TeamId
   toTeam: TeamId
   give: Bag
   want: Bag
-  /** 답을 못 받은 내 제안 수. */
-  pending: number
   /** 교역 차단 견제를 맞고 있는가. */
   tradeBlocked?: boolean
   /** 사람끼리 오가는 것 — 토큰과 데리고 있는 로봇. */
@@ -59,11 +56,17 @@ export interface OfferInput {
   wantPurse?: Partial<Purse>
 }
 
-/** 제안할 수 있는가. 답 없는 제안이 셋을 넘으면 더 못 보낸다. */
+/**
+ * 제안할 수 있는가.
+ *
+ * **답 없는 제안이라는 것이 없다.** 거래는 마주 선 자리에서 말을 꺼내고
+ * 그 자리에서 끝난다 — 상대가 수락하면 성립하고, 거절하거나 둘 중
+ * 하나가 방을 떠나거나 페이즈가 닫히면 그냥 사라진다. 다음으로
+ * 넘어가지 않으므로 「몇 개까지」를 셀 것도 없다.
+ */
 export function canOffer(input: OfferInput): { ok: boolean; reason: OfferRefusal | null } {
   if (input.fromTeam === input.toTeam) return { ok: false, reason: 'ownTeam' }
   if (input.tradeBlocked) return { ok: false, reason: 'blocked' }
-  if (input.pending >= TRADE_PENDING_LIMIT) return { ok: false, reason: 'tooManyPending' }
   const any =
     RESOURCES.some((r) => (input.give[r] ?? 0) > 0 || (input.want[r] ?? 0) > 0) ||
     (input.givePurse?.tokens ?? 0) > 0 ||
@@ -72,6 +75,17 @@ export function canOffer(input: OfferInput): { ok: boolean; reason: OfferRefusal
     (input.wantPurse?.robots ?? 0) > 0
   if (!any) return { ok: false, reason: 'empty' }
   return { ok: true, reason: null }
+}
+
+/**
+ * 지금이 어느 「자리」인가. **제안이 살아 있는 범위다.**
+ *
+ * 페이즈가 열릴 때와 닫힐 때 값이 바뀐다. 제안에 이 값을 적어 두고
+ * 수락할 때 다시 견주면, 페이즈 경계를 넘은 제안은 저절로 죽는다 —
+ * 따로 쓸어 담는 일을 만들지 않아도 된다.
+ */
+export function tradeEpoch(game: { phaseNow?: { no: number; open: boolean }; phaseDone?: number }): string {
+  return game.phaseNow?.open ? `p${game.phaseNow.no}` : `f${game.phaseDone ?? 0}`
 }
 
 export type PurseRefusal = 'senderNoTokens' | 'senderNoRobots' | 'receiverNoTokens' | 'receiverNoRobots'

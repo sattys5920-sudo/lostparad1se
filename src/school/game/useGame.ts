@@ -191,8 +191,9 @@ export function gameActions(gameId: string) {
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),
     sabotage: (tileId: TileId, kind: string) => callServer('sabotage', { ...g, tileId, kind }),
 
-    offerTrade: (toTeam: TeamId, give: Record<string, number>, want: Record<string, number>, note = '') =>
-      callServer('offerTrade', { ...g, toTeam, give, want, note }),
+    /** 마주 선 사람에게 말을 꺼낸다. 수락하면 그 자리에서 끝난다. */
+    offerTrade: (toPlayerId: string, give: Record<string, number>, want: Record<string, number>, note = '') =>
+      callServer('offerTrade', { ...g, toPlayerId, give, want, note }),
     respondTrade: (tradeId: string, accept: boolean) => callServer('respondTrade', { ...g, tradeId, accept }),
     proposeAlliance: (withTeam: TeamId) => callServer('proposeAlliance', { ...g, withTeam }),
     respondAlliance: (proposalId: string, accept: boolean) =>

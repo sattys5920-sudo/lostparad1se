@@ -417,6 +417,9 @@ export interface PlayerViewDoc {
     id: string
     fromTeam: TeamId
     toTeam: TeamId
+    /** 마주 선 그 사람. 팀의 아무나가 아니다. */
+    toPlayerId?: string | null
+    byId?: string | null
     give: Record<string, number>
     want: Record<string, number>
     note: string

@@ -1,4 +1,5 @@
 // 교역과 동맹.
+import { tradeEpoch } from './diplomacy'
 import { describe, expect, it } from 'vitest'
 import {
   acceptTrade,
@@ -13,7 +14,6 @@ import {
 } from './diplomacy'
 import {
   ALLIANCE_BREAK_LOCK_REAL_HOURS,
-  TRADE_PENDING_LIMIT,
   type Resource,
   type TeamId,
 } from './v2'
@@ -35,15 +35,17 @@ const offer = (over: Partial<TradeOffer> = {}): TradeOffer => ({
 })
 
 describe('교역 제안', () => {
-  const base = { fromTeam: 'A' as TeamId, toTeam: 'B' as TeamId, give: { money: 1 }, want: {}, pending: 0 }
+  const base = { fromTeam: 'A' as TeamId, toTeam: 'B' as TeamId, give: { money: 1 }, want: {} }
 
   it('우리 팀에는 못 보낸다', () => {
     expect(canOffer({ ...base, toTeam: 'A' }).reason).toBe('ownTeam')
   })
 
-  it('답 없는 제안이 셋을 넘으면 못 보낸다', () => {
-    expect(canOffer({ ...base, pending: TRADE_PENDING_LIMIT - 1 }).ok).toBe(true)
-    expect(canOffer({ ...base, pending: TRADE_PENDING_LIMIT }).reason).toBe('tooManyPending')
+  it('제안 수에 한도가 없다 — 남는 제안이 아예 없으므로', () => {
+    // 마주 선 자리에서 꺼내고 그 자리에서 끝난다. 쌓이지 않으니
+    // 「몇 개까지」를 셀 일이 없다
+    expect(canOffer({ ...base }).ok).toBe(true)
+    expect(canOffer({ ...base }).ok).toBe(true)
   })
 
   it('교역 차단을 맞으면 못 보낸다', () => {
@@ -170,7 +172,27 @@ describe('토큰과 로봇은 사람끼리 오간다', () => {
   })
 
   it('토큰이나 로봇만 걸어도 빈 제안이 아니다', () => {
-    const out = canOffer({ fromTeam: 'A', toTeam: 'B', give: {}, want: {}, givePurse: { tokens: 1 }, pending: 0 })
+    const out = canOffer({ fromTeam: 'A', toTeam: 'B', give: {}, want: {}, givePurse: { tokens: 1 } })
     expect(out.ok).toBe(true)
+  })
+})
+
+describe('말이 살아 있는 범위', () => {
+  it('페이즈가 열리고 닫힐 때마다 바뀐다', () => {
+    const openP3 = tradeEpoch({ phaseNow: { no: 3, open: true }, phaseDone: 2 })
+    const shutP3 = tradeEpoch({ phaseNow: { no: 3, open: false }, phaseDone: 3 })
+    const openP4 = tradeEpoch({ phaseNow: { no: 4, open: true }, phaseDone: 3 })
+    expect(openP3).not.toBe(shutP3)
+    expect(shutP3).not.toBe(openP4)
+  })
+
+  it('같은 페이즈 안에서는 안 바뀐다 — 한 자리에서 여러 번 주고받는다', () => {
+    expect(tradeEpoch({ phaseNow: { no: 3, open: true }, phaseDone: 2 })).toBe(
+      tradeEpoch({ phaseNow: { no: 3, open: true }, phaseDone: 2 }),
+    )
+  })
+
+  it('판이 막 시작해 아직 아무 페이즈도 없을 때도 값이 있다', () => {
+    expect(tradeEpoch({})).toBe('f0')
   })
 })

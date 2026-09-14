@@ -298,8 +298,9 @@ export const SABOTAGE_REAL_HOURS: Record<SabotageKind, number | 'nextSettlement'
 
 // ── 교역과 동맹 ─────────────────────────────────────────────────
 
-/** 답을 못 받은 제안이 이보다 많으면 더 보낼 수 없다. */
-export const TRADE_PENDING_LIMIT = 3
+// 답 없는 제안이라는 것이 없어졌다. 거래는 마주 선 자리에서 끝난다 —
+// 수락하면 성립하고, 거절하거나 자리를 뜨거나 페이즈가 닫히면 사라진다.
+// 그래서 「몇 개까지 보낼 수 있는가」를 셀 일이 없다.
 /** 한 팀이 동시에 맺을 수 있는 동맹 수. */
 export const ALLIANCE_LIMIT = 1
 /** 먼저 깬 팀이 새 동맹을 못 맺는 시간(실제 시계). */

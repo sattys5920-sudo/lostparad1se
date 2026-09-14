@@ -9,6 +9,7 @@
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { projectAll, type World, type WorldPawn } from '../../shared/rules/views'
+import { tradeEpoch } from '../../shared/rules/diplomacy'
 import type { TileId } from '../../shared/rules/board'
 import type {
   CardDoc,
@@ -153,6 +154,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { tileId: d.id as TileId, team: f.team, fake: f.fake }
     }),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'suspicion'; voterNickname: string }),
+    // 지금의 범위. 투영이 페이즈 경계를 넘은 말을 이걸로 가른다
+    tradeEpoch: tradeEpoch(game),
     trades: trades.docs
       .filter((d) => (d.data() as { status: string }).status === 'open')
       .map((d) => ({ id: d.id, ...(d.data() as Omit<World['trades'][number], 'id'>) })),

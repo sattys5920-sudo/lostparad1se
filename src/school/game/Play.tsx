@@ -534,7 +534,19 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         onSaid={setSaid}
       />
 
-        <Deals me={me} view={state.view} teams={state.teams} facingTeams={facingTeams} act={act} onSaid={setSaid} />
+        <Deals
+          me={me}
+          view={state.view}
+          teams={state.teams}
+          facingTeams={facingTeams}
+          herePeople={hereNow.map((p) => ({
+            playerId: p.playerId,
+            name: game.seats.find((s) => s.playerId === p.playerId)?.name ?? '누군가',
+            team: p.team,
+          }))}
+          act={act}
+          onSaid={setSaid}
+        />
         </>
       )}
 

@@ -18,6 +18,7 @@ import {
   type Purse,
   type TradeOffer,
 } from '../../shared/rules/diplomacy'
+import { tradeEpoch } from '../../shared/rules/diplomacy'
 import { MAX_CARRIED_ROBOTS, TRADE_COST } from '../../shared/rules/occupy'
 import type { Resource, TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
@@ -112,7 +113,8 @@ async function requireFacing(gameId: string, uid: string, team: TeamId, what: st
 
 export const offerTrade = onCall<{
   gameId: string
-  toTeam: TeamId
+  /** 마주 선 그 사람. 팀이 아니라 사람에게 건넨다. */
+  toPlayerId: string
   give: Bag
   want: Bag
   givePurse?: Partial<Purse>
@@ -121,11 +123,18 @@ export const offerTrade = onCall<{
 }>(
   async (req) => {
     const uid = requireUid(req.auth)
-    const { gameId, toTeam } = req.data
-    const { nowMs } = await freshNow(gameId)
+    const { gameId, toPlayerId } = req.data
+    const { game, nowMs } = await freshNow(gameId)
     const pawn = await myPawn(gameId, uid)
-    if (!TEAMS.includes(toTeam)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
-    await requireFacing(gameId, uid, toTeam, '교역')
+    if (pawn.tileId === null) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 말을 꺼낸다.')
+    if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
+
+    // **마주 선 사람에게만.** 목록에서 고르는 원격 제안은 없다
+    const theirSnap = await gameRef(gameId).collection('pawns').doc(toPlayerId).get()
+    if (!theirSnap.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
+    const their = theirSnap.data() as PawnDoc
+    if (their.tileId !== pawn.tileId) throw new HttpsError('failed-precondition', '같은 방에 있어야 한다.')
+    const toTeam = their.team
 
     const give = cleanBag(req.data.give)
     const want = cleanBag(req.data.want)
@@ -135,8 +144,6 @@ export const offerTrade = onCall<{
       throw new HttpsError('invalid-argument', `한 사람이 데리고 다니는 로봇은 ${MAX_CARRIED_ROBOTS}기까지다.`)
     }
     const ref = gameRef(gameId)
-    const pending = (await tradesOf(gameId).where('fromTeam', '==', pawn.team).where('status', '==', 'open').get())
-      .size
 
     const out = canOffer({
       fromTeam: pawn.team,
@@ -145,13 +152,11 @@ export const offerTrade = onCall<{
       want,
       givePurse,
       wantPurse,
-      pending,
       tradeBlocked: await sabotagesOn(gameId, pawn.team, 'tradeBlocked'),
     })
     if (!out.ok) {
       const why: Record<string, string> = {
         ownTeam: '우리 팀이다.',
-        tooManyPending: '답 없는 제안이 너무 많다.',
         blocked: '교역이 막혀 있다.',
         empty: '주고받을 것이 없다.',
       }
@@ -161,6 +166,11 @@ export const offerTrade = onCall<{
     const doc = await tradesOf(gameId).add({
       fromTeam: pawn.team,
       toTeam,
+      // **마주 선 그 사람에게만.** 팀의 아무나가 아니다
+      toPlayerId,
+      // 제안이 살아 있는 범위. 그 방을 뜨거나 페이즈가 바뀌면 죽는다
+      tileId: pawn.tileId,
+      epoch: tradeEpoch(game),
       give,
       want,
       givePurse,
@@ -208,13 +218,30 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
     const t = snap.data() as TradeOffer & {
       toTeam: TeamId
       fromTeam: TeamId
+      toPlayerId?: string
+      tileId?: string
+      epoch?: string
       status: string
       byId: string
       givePurse?: Partial<Purse>
       wantPurse?: Partial<Purse>
     }
     if (t.status !== 'open') throw new HttpsError('failed-precondition', '이미 끝난 제안이다.')
-    if (t.toTeam !== pawn.team) throw new HttpsError('permission-denied', '우리에게 온 제안이 아니다.')
+    // **마주 선 그 사람에게만 온 말이다.** 팀의 아무나가 받을 수 없다
+    if (t.toPlayerId && t.toPlayerId !== uid) {
+      throw new HttpsError('permission-denied', '나에게 온 제안이 아니다.')
+    }
+    if (!t.toPlayerId && t.toTeam !== pawn.team) {
+      throw new HttpsError('permission-denied', '우리에게 온 제안이 아니다.')
+    }
+    // **자리를 뜨거나 페이즈가 바뀌면 그 말은 사라진 것이다.**
+    // 따로 쓸어 담지 않는다 — 여기서 견주면 저절로 죽는다
+    if (t.epoch && t.epoch !== tradeEpoch(game)) {
+      throw new HttpsError('failed-precondition', '그 말은 이미 지나갔다.')
+    }
+    if (t.tileId && pawn.tileId !== t.tileId) {
+      throw new HttpsError('failed-precondition', '그 자리를 떴다.')
+    }
 
     if (!req.data.accept) {
       tx.update(tradeRef, { status: 'declined', closedAtMs: nowMs })
@@ -229,6 +256,12 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
     }
 
     const offerer = t.byId as string
+    // 말을 꺼낸 쪽도 아직 거기 있어야 한다. 한 사람만 남은 자리에서
+    // 성립하면 「마주 서서 주고받는다」가 아니게 된다
+    const offererPawn = await tx.get(ref.collection('pawns').doc(offerer))
+    if (!offererPawn.exists || (offererPawn.data() as PawnDoc).tileId !== pawn.tileId) {
+      throw new HttpsError('failed-precondition', '상대가 그 자리를 떴다.')
+    }
     const [fromSnap, toSnap, mineSnap, theirsSnap, mineBots, theirBots] = await Promise.all([
       tx.get(ref.collection('teams').doc(t.fromTeam)),
       tx.get(ref.collection('teams').doc(t.toTeam)),

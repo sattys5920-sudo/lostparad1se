@@ -80,6 +80,7 @@ const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 const M = 60_000
 
 const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/pawns`)).map((p) => [p.id, p.d]))
+const viewOf = async (uid: string) => (await getAll(`games/${GAME}/views`)).find((v) => v.id === uid)?.d ?? {}
 /** 서버만 보는 기록. 시험이 확인하는 데만 쓴다. */
 const recordsNow = async () =>
   (await getAll(`games/${GAME}/secret/records/items`)).map((r) => r.d as unknown as GameRecord)
@@ -204,7 +205,7 @@ async function main(): Promise<void> {
   console.log('\n── 거래 한 줄 ──')
   const offered = await must('offerTrade', A[0].token, {
     gameId: GAME,
-    toTeam: 'B',
+    toPlayerId: B[0].uid,
     give: { money: 1 },
     want: {},
   })
@@ -216,6 +217,37 @@ async function main(): Promise<void> {
   // 받기만 한 사람도 거래한 것으로 세어져야 한다
   check(tradedTeams(afterTrade, B[0].uid).includes('A'), '**받은 쪽도 거래한 것으로 센다**')
   check(tradedTeams(afterTrade, A[0].uid).includes('B'), '제안한 쪽도 센다')
+
+  console.log('\n── 말은 그 자리에서 끝난다 ──')
+  // 둘 다 baseA 에 서 있다. 여기서 꺼낸 말은 여기서만 산다
+  const live = await must('offerTrade', A[0].token, {
+    gameId: GAME,
+    toPlayerId: B[0].uid,
+    give: { money: 1 },
+    want: {},
+  })
+  // B0 가 자리를 뜬다
+  const away = stepToward((await pawnsNow())[B[0].uid].tileId as string, 'baseB') as string
+  await must('roamTo', B[0].token, { gameId: GAME, tileId: away })
+  const gone = await call('respondTrade', B[0].token, { gameId: GAME, tradeId: live.id, accept: true })
+  check(gone.code === 'FAILED_PRECONDITION', '**자리를 뜨면 말이 사라진다**', String(gone.code))
+  check(
+    !((await viewOf(A[0].uid)).trades as unknown[]).some((t) => (t as { id: string }).id === live.id),
+    '화면 목록에서도 사라진다 — 대기 중인 제안이라는 것이 없다',
+  )
+
+  // 남에게 온 말은 받을 수 없다
+  await walk(B[0].token, B[0].uid, (await pawnsNow())[A[0].uid].tileId as string, land)
+  const mine2 = await must('offerTrade', A[0].token, {
+    gameId: GAME,
+    toPlayerId: B[0].uid,
+    give: { money: 1 },
+    want: {},
+  })
+  const notMine = await call('respondTrade', A[1].token, { gameId: GAME, tradeId: mine2.id, accept: true })
+  check(notMine.code === 'PERMISSION_DENIED', '나에게 온 말이 아니면 못 받는다', String(notMine.code))
+  await must('respondTrade', B[0].token, { gameId: GAME, tradeId: mine2.id, accept: true })
+  check(true, '마주 선 그 사람은 받는다')
 
   console.log('\n── 쪽지 처리 ──')
   await must('openPhase', host, { gameId: GAME })

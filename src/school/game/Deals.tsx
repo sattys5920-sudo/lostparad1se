@@ -12,22 +12,24 @@ import type { PlayerViewDoc, TeamDoc } from '../../../shared/model'
 
 export interface DealsProps {
   me: { playerId: string; team: TeamId }
-  /** 지금 나와 같은 자리에 서 있는 팀들. 이들에게만 말을 꺼낼 수 있다. */
+  /** 지금 나와 같은 자리에 서 있는 팀들. 동맹은 팀끼리라 이걸 쓴다. */
   facingTeams: readonly TeamId[]
+  /** 지금 나와 마주 선 사람들. **거래는 이 목록에서만 고른다.** */
+  herePeople: readonly { playerId: string; name: string; team: TeamId }[]
   view: PlayerViewDoc | null
   teams: Partial<Record<TeamId, TeamDoc>>
   act: GameActions
   onSaid: (text: string) => void
 }
 
-const RES_LABEL: Record<string, string> = { money: '돈', knowledge: '지식', influence: '영향력' }
+const RES_LABEL: Record<string, string> = { money: '돈', knowledge: '지식' }
 
-export function Deals({ me, view, teams, facingTeams, act, onSaid }: DealsProps) {
+export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid }: DealsProps) {
   const facing = new Set(facingTeams)
   const [busy, setBusy] = useState(false)
-  const [to, setTo] = useState<TeamId>(TEAMS.find((t) => t !== me.team) as TeamId)
-  const [give, setGive] = useState({ money: 0, knowledge: 0, influence: 0 })
-  const [want, setWant] = useState({ money: 0, knowledge: 0, influence: 0 })
+  const [to, setTo] = useState<string>('')
+  const [give, setGive] = useState({ money: 0, knowledge: 0 })
+  const [want, setWant] = useState({ money: 0, knowledge: 0 })
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -62,21 +64,24 @@ export function Deals({ me, view, teams, facingTeams, act, onSaid }: DealsProps)
       </ul>
 
       <h2>교역</h2>
-      {facing.size === 0 ? (
-        <p className="sc-dl__none">지금 같은 자리에 다른 팀 사람이 없다. 만나야 말을 꺼낼 수 있다.</p>
+      {herePeople.length === 0 ? (
+        <p className="sc-dl__none">지금 같은 자리에 아무도 없다. 마주 서야 말을 꺼낼 수 있다.</p>
       ) : null}
       <div className="sc-dl__trade">
         <label>
           <span>누구에게</span>
-          <select value={to} onChange={(e) => setTo(e.target.value as TeamId)}>
-            {TEAMS.filter((t) => t !== me.team).map((t) => (
-              <option key={t} value={t} disabled={!facing.has(t)}>
-                {t}팀{facing.has(t) ? '' : ' (여기 없다)'}
+          {/* **마주 선 사람 중에서만 고른다.** 목록에서 고르는 원격
+              제안은 없앴다 — 거래는 그 자리에서 시작하고 그 자리에서 끝난다 */}
+          <select value={to} onChange={(e) => setTo(e.target.value)}>
+            <option value="">고른다</option>
+            {herePeople.map((p) => (
+              <option key={p.playerId} value={p.playerId}>
+                {p.name} ({p.team}팀)
               </option>
             ))}
           </select>
         </label>
-        {(['money', 'knowledge', 'influence'] as const).map((r) => (
+        {(['money', 'knowledge'] as const).map((r) => (
           <div key={r} className="sc-dl__pair">
             <span>{RES_LABEL[r]}</span>
             <label>
@@ -99,9 +104,12 @@ export function Deals({ me, view, teams, facingTeams, act, onSaid }: DealsProps)
             </label>
           </div>
         ))}
-        <button disabled={busy} onClick={() => run('제안', () => act.offerTrade(to, give, want))}>
-          제안 보내기
+        <button disabled={busy || to === ''} onClick={() => run('제안', () => act.offerTrade(to, give, want))}>
+          말을 꺼낸다
         </button>
+        <p className="sc-dl__none">
+          수락하면 그 자리에서 끝난다. 거절하거나 둘 중 하나가 자리를 뜨거나 페이즈가 닫히면 그냥 사라진다.
+        </p>
       </div>
 
       {trades.length > 0 && (
@@ -124,7 +132,7 @@ export function Deals({ me, view, teams, facingTeams, act, onSaid }: DealsProps)
                   .join(' · ') || '없음'}
               </span>
               {t.note && <span className="sc-dl__note">{t.note}</span>}
-              {t.toTeam === me.team && (
+              {(t.toPlayerId ? t.toPlayerId === me.playerId : t.toTeam === me.team) && (
                 <div className="sc-ac__row">
                   <button disabled={busy} onClick={() => run('거절', () => act.respondTrade(t.id, false))}>
                     거절
@@ -142,7 +150,7 @@ export function Deals({ me, view, teams, facingTeams, act, onSaid }: DealsProps)
       <h2>동맹 {ally && <span>{ally}팀과</span>}</h2>
       {ally ? (
         <button className="is-danger" disabled={busy} onClick={() => run('파기', () => act.breakAlliance())}>
-          먼저 깬다 (영향력 2를 잃는다)
+          먼저 깬다 (열두 시간 동안 새 동맹을 못 맺는다)
         </button>
       ) : (
         <div className="sc-ac__row">
