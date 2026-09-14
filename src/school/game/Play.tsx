@@ -447,6 +447,19 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
   const closeSheet = () => setSheet(null)
 
+  /**
+   * 먼 방을 골랐다. **고르는 것만으로는 아무 일도 안 일어난다** —
+   * 「걸어가기」가 행동 시트 안에 있으므로 같이 열어 준다. 전에는
+   * 지도를 눌러도 지도만 닫히고 끝이라, 방에서 방으로 못 가는 것처럼
+   * 보였다. 실제로 그랬다
+   */
+  const goFar = (id: TileId) => {
+    setFar(id)
+    setAtlas(false)
+    setTab('map')
+    setSheet('act')
+  }
+
   return (
     <div
       className={
@@ -501,7 +514,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 })
             }}
             onRoom={setStandingRoom}
-            onTapRoom={(id) => setFar(id === standingRoom ? null : id)}
+            onTapRoom={(id) => {
+              if (id === standingRoom) {
+                setFar(null)
+                return
+              }
+              goFar(id)
+            }}
           />
 
           {/* 방 위에 얹는 것들. 줄을 따로 내주면 방이 그만큼 작아진다.
@@ -637,6 +656,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <FullMap
           facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
           onClose={() => setAtlas(false)}
+          onGo={goFar}
         />
       )}
 
@@ -644,7 +664,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {/* 방 이름은 안쪽 머리글이 이미 말한다. 시트 머리에 또 쓰면
           같은 말이 두 줄 선다 */}
       {sheet === 'act' && (
-        <Sheet title={phaseOpen ? '자리 차지하기' : '행동'} onClose={closeSheet}>
+        <Sheet
+          title={
+            phaseOpen
+              ? '자리 차지하기'
+              : far && far !== standingRoom
+                ? `${TILE_BY_ID[far].name}(으)로`
+                : '행동'
+          }
+          onClose={closeSheet}
+        >
           {phaseOpen ? (
             <Phase
               me={me}
@@ -659,15 +688,18 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             />
           ) : (
             <>
+              {/* **고른 방이 먼저다.** 「저기로 가자」고 눌러서 열었는데
+                  걸어가기가 선 자리 행동들 밑에 깔려 있으면, 시트를
+                  굴려 내려가야 찾는다 */}
+              {far && far !== standingRoom && (
+                <Actions tileId={far} where="there" act={act} onSaid={setSaid} onClose={() => setFar(null)} />
+              )}
               {standingRoom ? (
                 <Actions tileId={standingRoom} where="here" act={act} onSaid={setSaid}>
                   <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
                 </Actions>
               ) : (
                 <p className="sc-pl__none">복도에서는 할 것이 없다.</p>
-              )}
-              {far && far !== standingRoom && (
-                <Actions tileId={far} where="there" act={act} onSaid={setSaid} onClose={() => setFar(null)} />
               )}
             </>
           )}

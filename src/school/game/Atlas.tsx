@@ -60,7 +60,19 @@ export function MiniMap({ facts, onOpen }: { facts: MapFacts; onOpen: () => void
 const ZOOM_MIN = 0.6
 const ZOOM_MAX = 3
 
-export function FullMap({ facts, onClose }: { facts: MapFacts; onClose: () => void }) {
+export function FullMap({
+  facts,
+  onClose,
+  onGo,
+}: {
+  facts: MapFacts
+  onClose: () => void
+  /**
+   * 누른 방으로 가겠다. **이게 없으면 전체 맵은 구경거리다** —
+   * 판을 다 펴 놓고 「저기로 가자」를 못 누르면 지도를 왜 여는지 모른다.
+   */
+  onGo?: (id: TileId) => void
+}) {
   const rooms = readMap(facts)
   const [picked, setPicked] = useState<TileId | null>((facts.here as TileId | null) ?? null)
   const [zoom, setZoom] = useState(1)
@@ -179,7 +191,13 @@ export function FullMap({ facts, onClose }: { facts: MapFacts; onClose: () => vo
           </div>
         </div>
 
-        {one && <RoomCard room={one} myTeam={facts.myTeam} />}
+        {one && (
+          <RoomCard
+            room={one}
+            myTeam={facts.myTeam}
+            onGo={one.id === facts.here || !onGo ? undefined : () => onGo(one.id)}
+          />
+        )}
 
         {/* 오른쪽 위의 ✕ 는 한 손으로 쥐면 엄지가 안 닿는다.
             닿는 자리에 하나 더 둔다 */}
@@ -192,12 +210,27 @@ export function FullMap({ facts, onClose }: { facts: MapFacts; onClose: () => vo
 }
 
 /** 누른 방의 속. 모르는 방은 모른다고만 말한다. */
-function RoomCard({ room, myTeam }: { room: RoomFacts; myTeam: TeamId }) {
+function RoomCard({
+  room,
+  myTeam,
+  onGo,
+}: {
+  room: RoomFacts
+  myTeam: TeamId
+  onGo?: () => void
+}) {
+  // 가 본 적 없는 방에도 갈 수는 있다. 모르니까 가 보는 것이다
+  const go = onGo && (
+    <button className="sc-atlas__go" onClick={onGo}>
+      여기로 간다
+    </button>
+  )
   if (!room.known) {
     return (
       <div className="sc-atlas__card">
         <h3>{roomName(room.id)}</h3>
         <p>아직 가 본 적이 없다. 안이 어떤지 모른다.</p>
+        {go}
       </div>
     )
   }
@@ -228,6 +261,7 @@ function RoomCard({ room, myTeam }: { room: RoomFacts; myTeam: TeamId }) {
         </div>
       </dl>
       <p className="sc-atlas__why">숫자는 위장이 섞여 있을 수 있다. 눈으로 센 것이 아니다.</p>
+      {go}
     </div>
   )
 }

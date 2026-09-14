@@ -585,3 +585,16 @@
   font-size: 13px;
   box-shadow: 0 4px 14px rgba(6, 8, 11, 0.35);
 }
+
+/* 전체 맵에서 고른 방으로 간다. 지도를 펴 놓고 갈 수가 없으면
+   지도를 왜 여는지 모른다 */
+.sc-atlas__go {
+  width: 100%;
+  margin-top: 8px;
+  appearance: none;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 6px;
+  background: var(--sc-accent);
+  color: var(--sc-bg);
+  font-size: 13px;
+}
