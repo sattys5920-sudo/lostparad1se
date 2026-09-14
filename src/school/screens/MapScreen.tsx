@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './MapScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
-import { floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
+import { doorIsHorizontal, floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
 import { buildSprites, PAL, type Dir } from '../map/sprites'
 import { PX, pixelFrame } from '../char/pixel'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
@@ -312,7 +312,11 @@ export function MapScreen() {
           if (kind === 'wall') {
             img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
           } else if (kind === 'door') {
-            img = lockedRef.current.has(`${x},${y}`) ? sprites.tiles.doorLocked : sprites.tiles.door
+            img = lockedRef.current.has(`${x},${y}`)
+              ? sprites.tiles.doorLocked
+              : doorIsHorizontal(x, y)
+                ? sprites.tiles.doorH
+                : sprites.tiles.doorV
           } else {
             // 바닥은 그 실이 어떤 곳인지를 말한다. 정원은 흙, 체육관은 마루, 복도는 통로.
             const room = roomAt(x, y)?.id

@@ -189,6 +189,18 @@ export function doorHere(x: number, y: number): Door | null {
   return doorAt.get(`${x},${y}`) ?? null
 }
 
+/**
+ * 그 문이 가로로 뻗은 벽에 났는가. 위아래로 지나가는 문이다.
+ *
+ * 문 그림을 고를 때 쓴다 — 벽이 누운 방향에 따라 널빤지도 눕거나 선다.
+ * 세 칸이 x 로 퍼졌으면 벽이 가로로 뻗은 것이다.
+ */
+export function doorIsHorizontal(x: number, y: number): boolean {
+  const d = doorAt.get(`${x},${y}`)
+  if (!d || d.tiles.length < 2) return true
+  return d.tiles[0].x !== d.tiles[1].x
+}
+
 // ── 가구와 흔적 ─────────────────────────────────────────────────
 // 방마다 다른 것을 놓는다. 이름표를 읽지 않아도 어느 실인지 알아야 한다.
 //

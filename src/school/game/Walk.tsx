@@ -17,6 +17,7 @@ import {
   ROOMS,
   TILE,
   doorHere,
+  doorIsHorizontal,
   floorOf,
   isWalkable,
   markAt,
@@ -582,8 +583,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
             img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
           } else if (kind === 'door') {
             // 잠긴 문 그림은 안 쓴다. 화면은 어느 문이 열렸는지 모른다 —
-            // 문을 넘어 보고 서버가 뭐라 하는지 듣는다
-            img = sprites.tiles.door
+            // 문을 넘어 보고 서버가 뭐라 하는지 듣는다.
+            // 벽이 누운 방향에 따라 널빤지도 눕거나 선다
+            img = doorIsHorizontal(x, y) ? sprites.tiles.doorH : sprites.tiles.doorV
           } else {
             const f = room ? floorOf(room) : 'room'
             img =

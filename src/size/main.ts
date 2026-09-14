@@ -15,6 +15,7 @@ import {
   MAP_W,
   TILE,
   ROOMS,
+  doorIsHorizontal,
   floorOf,
   markAt,
   propAt,
@@ -93,7 +94,7 @@ function panel(scale: number, charPx: number): HTMLCanvasElement {
       if (kind === 'wall') {
         img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
       } else if (kind === 'door') {
-        img = sprites.tiles.door
+        img = doorIsHorizontal(x, y) ? sprites.tiles.doorH : sprites.tiles.doorV
       } else {
         const f = room ? floorOf(room) : 'room'
         img =

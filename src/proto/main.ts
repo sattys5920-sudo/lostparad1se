@@ -1,6 +1,6 @@
 import './proto.css'
 import { firebaseConfigured } from '../firebase'
-import { floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../school/map/world'
+import { doorIsHorizontal, floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../school/map/world'
 import { buildSprites, PAL, type Dir } from '../school/map/sprites'
 import { PX, pixelFrame } from '../school/char/pixel'
 import { defaultLook } from '../school/char/look'
@@ -322,7 +322,9 @@ function loop(now: number) {
             ? sprites.tiles.wallBody
             : sprites.tiles.wall
           : kind === 'door'
-            ? sprites.tiles.door
+            ? doorIsHorizontal(x, y)
+              ? sprites.tiles.doorH
+              : sprites.tiles.doorV
             : floorTile(x, y)
       ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
       const mark = markAt(x, y)
