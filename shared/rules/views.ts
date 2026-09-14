@@ -74,6 +74,25 @@ export interface WorldSlip {
   readBy: readonly string[]
 }
 
+/**
+ * 바닥의 문제 종이 한 장. **정답은 여기에 없다.**
+ *
+ * 서버가 은행에서 문제와 보기만 떼어 실어 보낸다. 정답과 해설은 어떤
+ * 경로로도 나가지 않고, 채점은 서버가 한다.
+ */
+export interface WorldQuiz {
+  id: string
+  tileId: TileId
+  kind: 'choice' | 'short'
+  /** 펼쳐졌을 때만 찬다. 안 펼친 종이는 null 이다. */
+  prompt: string | null
+  choices: readonly string[]
+  openedBy: string | null
+  solvedTeam: TeamId | null
+  /** 틀린 사람들. 투영이 내 것만 본다. */
+  wrongBy: readonly string[]
+}
+
 export interface World {
   nowMs: number
   /**
@@ -137,6 +156,7 @@ export interface World {
   confessions: readonly WorldConfession[]
   /** 판 위의 쪽지 전부. 투영이 여기서 **거의 다 잘라낸다.** */
   slips?: readonly WorldSlip[]
+  quizzes?: readonly WorldQuiz[]
   memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
   /** 깨달음에 이른 시각. A의 시선이 그때 열린다. */
   awakenedAtMs: Readonly<Record<string, number>>
@@ -223,6 +243,22 @@ export interface View {
   slipsHere: { id: string }[]
   /** 내가 들고 있는 쪽지. 읽은 것만 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
+  /**
+   * 내가 선 방의 문제 종이. **안 펼친 것은 「한 장 있다」까지만이다.**
+   *
+   * 펼치면 그 방 사람 전원에게 문제와 보기가 간다 — 다른 팀 사람 앞에서
+   * 여는 것이 이 물건의 전부라, 여기서 팀을 가르면 규칙이 성립하지 않는다.
+   * 정답과 해설은 어느 쪽이든 안 온다.
+   */
+  quizzesHere: {
+    id: string
+    kind: 'choice' | 'short'
+    prompt: string | null
+    choices: string[]
+    opened: boolean
+    /** 내가 이미 틀렸는가. 남이 틀렸는지는 안 온다. */
+    iFailed: boolean
+  }[]
   memories: { tileId: TileId; team: TeamId; atMs: number }[]
   sightAtMs: number | null
   notices: { id: string; text: string; atMs: number }[]
@@ -309,6 +345,7 @@ export function projectView(world: World, viewerId: string): View {
       readDays: [],
       confessions: [],
       slipsHere: [],
+      quizzesHere: [],
       mySlips: [],
       memories: [],
       sightAtMs: null,
@@ -401,6 +438,25 @@ export function projectView(world: World, viewerId: string): View {
     slipsHere: (world.slips ?? [])
       .filter((s) => here !== null && s.tileId === here)
       .map((s) => ({ id: s.id })),
+    // **안 펼친 문제는 「한 장 있다」까지만.** 펼치면 그 방 사람
+    // 전원에게 문제와 보기가 간다 — 다른 팀 사람 앞에서 여는 것이
+    // 이 물건의 전부라, 여기서 팀을 가르면 규칙이 성립하지 않는다.
+    // 정답과 해설은 어느 쪽이든 안 간다
+    quizzesHere: (world.quizzes ?? [])
+      .filter((q) => here !== null && q.tileId === here && q.solvedTeam === null)
+      .map((q) => {
+        const opened = q.openedBy !== null
+        return {
+          id: q.id,
+          kind: q.kind,
+          prompt: opened ? q.prompt : null,
+          choices: opened ? [...q.choices] : [],
+          opened,
+          // 남이 틀렸는지는 안 간다. 「저 사람은 이미 틀렸다」를 알면
+          // 누가 무엇을 모르는지가 공개 정보가 된다
+          iFailed: q.wrongBy.includes(viewerId),
+        }
+      }),
     // 들고 있는 것. **읽은 것만 문장이 실린다** — 주웠다고 저절로
     // 읽히면 「읽는다」가 아무 일도 아닌 것이 된다
     mySlips: (world.slips ?? [])

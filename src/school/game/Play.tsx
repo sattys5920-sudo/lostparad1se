@@ -19,6 +19,7 @@ import { Walk } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { Slips } from './Slips'
+import { Quiz, QuizHost } from './Quiz'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
@@ -489,6 +490,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
 
       {host && <PhaseHost open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} act={act} onSaid={setSaid} />}
+      {/* 문제 등록. 정답과 해설은 이 화면에서만 보인다 */}
+      {host && <QuizHost act={act} onSaid={setSaid} />}
 
       <div className="sc-pl__quick">
         <button onClick={() => setOverlay('talk')}>말</button>
@@ -511,6 +514,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {!phaseOpen && uid && (
         <Slips view={state.view} seats={game.seats} hereIds={hereIds} meId={uid} act={act} onSaid={setSaid} />
       )}
+
+      {/* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이
+          떨어진 사람이 한 시간 동안 할 수 있는 유일한 일이기도 하다 */}
+      <Quiz view={state.view} act={act} onSaid={setSaid} />
 
       {!phaseOpen && (
         <>

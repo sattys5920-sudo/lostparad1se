@@ -382,6 +382,18 @@ export interface PlayerViewDoc {
   slipsHere: { id: string }[]
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
+  /**
+   * 내가 선 방의 문제 종이. 안 펼친 것은 「한 장 있다」까지다.
+   * **정답과 해설은 어떤 경로로도 오지 않는다.**
+   */
+  quizzesHere: {
+    id: string
+    kind: 'choice' | 'short'
+    prompt: string | null
+    choices: string[]
+    opened: boolean
+    iFailed: boolean
+  }[]
   /** 내가 가 본 방. 지도가 채워지는 것은 개인의 기록이다. */
   visitedTiles: TileId[]
   /** 보이는 방에 있는 로봇. 사람처럼 안개를 거친다. */

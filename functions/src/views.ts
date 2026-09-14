@@ -25,6 +25,7 @@ import { releasedDays } from '../../shared/reveal/release'
 import { fillSubject } from '../../shared/reveal/slips'
 import { rawLine } from './story/slips'
 import type { SlipDoc } from './slips'
+import type { QuizDoc, QuizPaperDoc } from './quiz'
 import { gameRef, nowOf } from './index'
 
 const db = getFirestore()
@@ -60,7 +61,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -80,6 +81,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'confessions').get(),
       secret(gameId, 'memories').get(),
       secret(gameId, 'slips').get(),
+      gameRef(gameId).collection('secret').doc('quiz').collection('bank').get(),
+      gameRef(gameId).collection('secret').doc('quiz').collection('floor').get(),
       secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
     ])
@@ -178,6 +181,25 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         tileId: s2.tileId ?? null,
         heldBy: s2.heldBy ?? null,
         readBy: s2.readBy ?? [],
+      }
+    }),
+    // 문제 종이. **정답과 해설은 아예 안 싣는다.**
+    //
+    // 문제와 보기는 싣는다 — 펼친 종이는 그 방 사람 전원에게 가야 해서
+    // 투영이 쥐고 있어야 한다. 그러나 정답과 해설은 투영조차 볼 일이
+    // 없으므로 여기서 끊는다. 안 실으면 실수로도 못 샌다
+    quizzes: quizFloor.docs.map((d) => {
+      const paper = d.data() as QuizPaperDoc
+      const quiz = quizBank.docs.find((b) => b.id === paper.quizId)?.data() as QuizDoc | undefined
+      return {
+        id: d.id,
+        tileId: paper.tileId,
+        kind: quiz?.kind ?? 'short',
+        prompt: quiz?.prompt ?? null,
+        choices: quiz?.choices ?? [],
+        openedBy: paper.openedBy ?? null,
+        solvedTeam: (paper.solvedTeam ?? null) as 'A' | 'B' | 'C' | 'D' | null,
+        wrongBy: paper.wrongBy ?? [],
       }
     }),
     memories: memories.docs.map((d) => d.data() as MemoryDoc),

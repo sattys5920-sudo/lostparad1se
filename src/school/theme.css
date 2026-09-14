@@ -15,6 +15,13 @@
   --sc-font-title: 'Nanum Myeongjo', serif;
   --sc-font-body: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif;
 
+  /* 바닥에 떨어진 두 가지. **눈으로 갈려야 한다** — 쪽지는 접힌
+     종이라 판 바탕색을 쓰고, 문제 종이는 시험지라 잉크색을 쓴다 */
+  --sc-slip-mark: #6b5a3a;
+  --sc-quiz-mark: #2f5d7a;
+  --sc-quiz-edge: #9db6c4;
+  --sc-quiz-bg: #e6edf1;
+
   --team-a: #2c3e6b;
   --team-b: #7c3b3b;
   --team-c: #4f6b3f;

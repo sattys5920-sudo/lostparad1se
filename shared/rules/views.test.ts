@@ -10,6 +10,8 @@ import type { TeamId } from './v2'
 
 /** 쪽지에 적힌 것. 투영을 통과하면 안 되는 문장들이다. */
 const SLIP_FLOOR = '바닥에 떨어져 있는 문장'
+const QUIZ_SHUT = '아직 안 펼친 문제의 본문'
+const QUIZ_OPEN = '펼쳐진 문제의 본문'
 const SLIP_HELD = '주워서 읽은 문장'
 const SLIP_BLIND = '주웠지만 아직 안 읽은 문장'
 const SLIP_TORN = '찢겨서 사라진 문장'
@@ -103,6 +105,40 @@ function world(over = false, invisibleId: string | null = null): World {
       { id: 'sHeld', subjectId: 'D0', line: SLIP_HELD, tileId: null, heldBy: 'A1', readBy: ['A1'] },
       { id: 'sBlind', subjectId: 'C1', line: SLIP_BLIND, tileId: null, heldBy: 'B0', readBy: [] },
       { id: 'sTorn', subjectId: 'D1', line: SLIP_TORN, tileId: null, heldBy: null, readBy: ['A0'] },
+    ],
+    quizzes: [
+      // A기지에 두 장 — 한 장은 접혀 있고 한 장은 B0 가 펼쳐 두었다
+      {
+        id: 'qShut',
+        tileId: BASE_OF.A,
+        kind: 'short' as const,
+        prompt: QUIZ_SHUT,
+        choices: [],
+        openedBy: null,
+        solvedTeam: null,
+        wrongBy: [],
+      },
+      {
+        id: 'qOpen',
+        tileId: BASE_OF.A,
+        kind: 'choice' as const,
+        prompt: QUIZ_OPEN,
+        choices: ['하나', '둘', '셋', '넷'],
+        openedBy: 'B0',
+        solvedTeam: null,
+        wrongBy: ['A1'],
+      },
+      // 이미 누가 가져간 종이. 아무에게도 안 보인다
+      {
+        id: 'qDone',
+        tileId: BASE_OF.A,
+        kind: 'short' as const,
+        prompt: '가져간 문제',
+        choices: [],
+        openedBy: 'A0',
+        solvedTeam: 'A' as const,
+        wrongBy: [],
+      },
     ],
     memories: [
       { tileId: 'library', team: 'A', atMs: 30 },
@@ -383,6 +419,53 @@ describe('열넷 몫을 통째로 훑는다', () => {
       const v = all[r.playerId]
       expect(v.own?.bondId).toBe(ROSTER.find((x) => x.playerId === r.playerId)?.bondId)
     }
+  })
+})
+
+describe('문제 종이 — 펼쳐야 보이고, 정답은 안 온다', () => {
+  it('안 펼친 것은 **한 장 있다는 것까지만** 안다', () => {
+    const v = projectView(world(), 'A0')
+    const shut = v.quizzesHere.find((q) => q.id === 'qShut')
+    expect(shut?.opened).toBe(false)
+    expect(shut?.prompt).toBeNull()
+    expect(shut?.choices).toEqual([])
+    // 본문이 어디에도 안 실린다
+    expect(JSON.stringify(v)).not.toContain(QUIZ_SHUT)
+  })
+
+  it('펼치면 그 방 사람 **전원**에게 본문이 간다 — 남의 팀도', () => {
+    // A기지에 B0 를 세워 둔다. 다른 팀 앞에서 여는 것이 이 물건의
+    // 전부라, 여기서 팀을 가르면 규칙이 성립하지 않는다
+    const shared = world()
+    const mixed = {
+      ...shared,
+      pawns: shared.pawns.map((p) => (p.playerId === 'B0' ? { ...p, tileId: BASE_OF.A } : p)),
+    }
+    for (const who of ['A0', 'A1', 'B0']) {
+      const q = projectView(mixed, who).quizzesHere.find((x) => x.id === 'qOpen')
+      expect(q?.opened).toBe(true)
+      expect(q?.prompt).toBe(QUIZ_OPEN)
+      expect(q?.choices).toHaveLength(4)
+    }
+  })
+
+  it('다른 방 사람에게는 있다는 것조차 안 간다', () => {
+    const v = projectView(world(), 'D0')
+    expect(v.quizzesHere).toEqual([])
+    expect(JSON.stringify(v)).not.toContain(QUIZ_OPEN)
+  })
+
+  it('이미 누가 가져간 종이는 사라진다', () => {
+    const ids = projectView(world(), 'A0').quizzesHere.map((q) => q.id)
+    expect(ids).not.toContain('qDone')
+  })
+
+  it('내가 틀렸는지만 오고, 남이 틀렸는지는 안 온다', () => {
+    // A1 이 틀렸다. 본인은 알고 남은 모른다 — 「저 사람은 이미
+    // 틀렸다」를 알면 누가 무엇을 모르는지가 공개 정보가 된다
+    expect(projectView(world(), 'A1').quizzesHere.find((q) => q.id === 'qOpen')?.iFailed).toBe(true)
+    expect(projectView(world(), 'A0').quizzesHere.find((q) => q.id === 'qOpen')?.iFailed).toBe(false)
+    expect(JSON.stringify(projectView(world(), 'A0').quizzesHere)).not.toContain('A1')
   })
 })
 

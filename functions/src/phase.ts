@@ -50,6 +50,7 @@ import { clearArrivals, writeWalk } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { scatterSlips } from './slips'
+import { foldQuizzes, scatterQuizzes } from './quiz'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -539,12 +540,16 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   // 한 페이즈가 지날 때마다 쪽지가 몇 장 더 떨어진다. 자유 시간에
   // 주우러 다닐 것이 있어야 자유 시간이 시간이 된다
   const dropped = await scatterSlips(gameId, no, nowMs)
+  // 펴 둔 문제는 도로 접히고, 새 종이가 몇 장 떨어진다
+  await foldQuizzes(gameId)
+  const papers = await scatterQuizzes(gameId, no, nowMs)
   await refreshViews(gameId)
   return {
     no,
     captured: out.log.filter((l) => l.kind === 'captured').length,
     lines: out.log.length,
     slips: dropped,
+    quizzes: papers,
   }
 })
 

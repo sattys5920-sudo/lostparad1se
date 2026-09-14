@@ -162,6 +162,14 @@ export function gameActions(gameId: string) {
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
     tearSlip: (slipId: string) => callServer('tearSlip', { ...g, slipId }),
     giveSlip: (slipId: string, toPlayerId: string) => callServer('giveSlip', { ...g, slipId, toPlayerId }),
+    /** 문제 종이를 펼친다. **그 방 사람 전원에게 보이게 된다.** */
+    openQuiz: (paperId: string) => callServer('openQuiz', { ...g, paperId }),
+    /** 답을 낸다. 채점은 서버가 한다 — 화면은 정답을 모른다. */
+    answerQuiz: (paperId: string, given: string) => callServer('answerQuiz', { ...g, paperId, given }),
+    /** 문제 은행을 본다. **운영자만** — 정답과 해설이 여기서만 나온다. */
+    hostQuizList: () => callServer('hostQuizList', g),
+    hostQuizUpsert: (quiz: unknown, id?: string) => callServer('hostQuizUpsert', { ...g, id, quiz }),
+    hostQuizRemove: (id: string) => callServer('hostQuizRemove', { ...g, id }),
     openPhase: () => callServer('openPhase', g),
     closePhase: () => callServer('closePhase', g),
 
