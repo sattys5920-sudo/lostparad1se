@@ -346,12 +346,17 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
         if (to && !asked) {
           asked = true
           askedAtMs = performance.now()
+          crossedVia = door
+          crossedTo = to
           const said = crossRef.current(to)
           // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
           // 영영 못 움직인다
           if (said && typeof said.then === 'function') {
             void said.then((ok) => {
-              if (!ok) asked = false
+              if (ok) return
+              asked = false
+              crossedVia = null
+              crossedTo = null
             })
           }
         }
@@ -441,10 +446,18 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const r = ROOMS.find((x) => x.id === id)
       if (!r) return
       const rect = r.rects[0]
-      // 그 방에서 온 문 쪽에 세운다 — 방 한가운데로 순간이동하면
-      // 걸어 들어온 것처럼 보이지 않는다
+      // **방금 넘은 문 바로 안쪽에 세운다.** 문으로 들어갔으면 문으로
+      // 나와야 한다 — 방 한가운데로 순간이동하면 걸어 들어온 것이 아니라
+      // 순간이동한 것이 된다
+      //
+      // 어느 문이었는지는 넘은 쪽이 기억해 둔 것을 먼저 믿는다. 서버의
+      // fromTile 은 비어 올 때가 있고, 비면 곧장 한가운데로 튀었다
       const from = asRoom(viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId)?.fromTile)
-      const door = from ? DOORS.find((d) => (d.a === id && d.b === from) || (d.b === id && d.a === from)) : null
+      const door =
+        (crossedTo === id ? crossedVia : null) ??
+        (from ? DOORS.find((d) => (d.a === id && d.b === from) || (d.b === id && d.a === from)) : null)
+      crossedVia = null
+      crossedTo = null
       let x = rect.x + Math.floor(rect.w / 2)
       let y = rect.y + Math.floor(rect.h / 2)
       if (door) {
@@ -464,9 +477,16 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       self.py = y * TILE + TILE / 2
       self.moving = false
       stepLeft = 0
-      // 문 앞에 섰으면 방 한가운데까지 마저 걸어 들어간다. 한가운데는
-      // 그 방의 모든 문과 일직선이라, 거기서는 어느 쪽을 눌러도 문으로 간다
-      autoPath = pathTo(rect.x + Math.floor(rect.w / 2), rect.y + Math.floor(rect.h / 2))
+      // **여기서 더 걷게 하지 않는다.**
+      //
+      // 전에는 들어서자마자 방 한가운데까지 저절로 걸어갔다. 한가운데가
+      // 그 방의 모든 문과 일직선이라 다음 문을 찾기 쉽다는 이유였는데,
+      // 밖에서 보면 문을 넘을 때마다 사람이 방 복판으로 끌려간다 —
+      // 걷는 게임이 아니라 방을 고르는 게임처럼 보인다.
+      //
+      // 문 옆에서 벽을 밀면 문으로 비켜 주므로 한가운데에 서 있을
+      // 이유도 없어졌다. 들어선 자리에서 그대로 걸으면 된다
+      autoPath = []
     }
 
     /**
@@ -482,6 +502,15 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
      * 그 판 내내 문을 잠근다.
      */
     let askedAtMs = 0
+    /**
+     * 방금 넘은 문과 가려던 방.
+     *
+     * **서버가 알려 주기를 기다리지 않는다.** 어느 문으로 나갔는지는
+     * 넘은 쪽이 제일 잘 안다 — 서버의 fromTile 이 비어 오면 그때마다
+     * 방 한가운데로 순간이동했다.
+     */
+    let crossedVia: Door | null = null
+    let crossedTo: TileId | null = null
     let lastServerTile: TileId | null = null
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
