@@ -1,0 +1,11 @@
+body { margin: 0; background: var(--sc-bg); color: var(--sc-text); }
+#root { padding: 20px 16px 60px; max-width: 1400px; margin: 0 auto; }
+.sz__head h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: 0.03em; }
+.sz__head p { margin: 0 0 18px; font-size: 13px; color: var(--sc-text-dim); }
+.sz__strip { margin: 0 0 28px; }
+.sz__strip h2 { margin: 0 0 4px; font-size: 15px; }
+.sz__strip p { margin: 0 0 10px; font-size: 12px; color: var(--sc-text-dim); }
+.sz__row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.sz__cell { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.sz__cell canvas { display: block; image-rendering: pixelated; border: 1px solid var(--sc-line); }
+.sz__cell figcaption { font-size: 11px; color: var(--sc-text-dim); text-align: center; }
