@@ -99,6 +99,8 @@ export interface World {
   robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
   /** 지금 위장하고 있는 사람들. 남에게 보이는 숫자를 서버가 부풀린다. */
   disguised?: readonly string[]
+  /** 이번 페이즈에 로봇을 부순 사람. 투영이 내 것만 세어 보낸다. */
+  smashedBy?: readonly string[]
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
@@ -189,6 +191,12 @@ export interface View {
   myTeamRobots: number
   /** 내가 데리고 다니는 로봇 수. 두고 갈 것을 미리 셈하는 데 쓴다. */
   myCarriedRobots: number
+  /**
+   * 이번 페이즈에 **내가** 부순 로봇 수. 남이 몇 기를 부쉈는지는 안 온다.
+   *
+   * 한 사람 한 기라서 화면이 버튼을 미리 잠그려면 이 수가 필요하다.
+   */
+  mySmashes: number
   /**
    * 보이는 방마다 서 있는 로봇 수. 안 보이는 방은 아예 넣지 않는다.
    *
@@ -294,6 +302,7 @@ export function projectView(world: World, viewerId: string): View {
       myVault: { money: 0, knowledge: 0 },
       myTeamRobots: 0,
       myCarriedRobots: 0,
+      mySmashes: 0,
       robotCounts: {},
       visitedTiles: [],
       handledDays: [],
@@ -374,6 +383,7 @@ export function projectView(world: World, viewerId: string): View {
     myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
+    mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,
     robotCounts: Object.fromEntries(
       [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.tileId === t).length]),
     ) as Record<TileId, number>,

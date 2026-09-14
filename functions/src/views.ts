@@ -123,6 +123,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 적으면 누가 위장했는지 개발자도구로 다 보인다 — 실제로 그랬다.
     // 페이즈가 닫히면 서버가 지우므로 여기서 기한을 따질 것이 없다
     disguised: ((hiddenPhase.data() as { disguised?: string[] } | undefined)?.disguised ?? []),
+    smashedBy: ((hiddenPhase.data() as { smashedBy?: string[] } | undefined)?.smashedBy ?? []),
     robots: robots.docs.map((d) => {
       const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }
       return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }

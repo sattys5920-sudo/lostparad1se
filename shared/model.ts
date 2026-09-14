@@ -353,6 +353,8 @@ export interface PlayerViewDoc {
   myTeamRobots: number
   /** 내가 데리고 다니는 로봇 수. */
   myCarriedRobots: number
+  /** 이번 페이즈에 내가 부순 로봇 수. 남의 것은 안 온다. */
+  mySmashes: number
   /** 보이는 방마다 서 있는 로봇 수. 정원과 별개다. */
   robotCounts: Record<TileId, number>
   /**

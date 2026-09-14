@@ -54,6 +54,7 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   zeroedPeople: [],
   zeroedRobots: [],
   disguised: [],
+  smashedBy: [],
   ...over,
 })
 
@@ -286,20 +287,54 @@ describe('로봇', () => {
     expect(settle(s).next.owners.library).toBe('A')
   })
 
-  it('상대가 같은 방에 있으면 로봇을 못 부순다', () => {
-    const s = board({
+  it('상대가 보고 있어도 부순다', () => {
+    // 전에는 막혀 있었다. 그래서 로봇만 남은 방이 교착됐다 — 부수러
+    // 가려면 아무도 없을 때 가야 하고, 뺏으려면 사람을 몰고 가야 했다
+    let s = board({
       people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
       robots: [robot('r1', 'B', 'library')],
     })
-    const out = doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('상대 팀 사람')
+    s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
+    expect(s.robots).toHaveLength(0)
   })
 
-  it('혼자면 부순다', () => {
+  it('혼자여도 부순다', () => {
     let s = board({ people: [person('a', 'A', 'library')], robots: [robot('r1', 'B', 'library')] })
     s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
     expect(s.robots).toHaveLength(0)
+  })
+
+  it('한 사람은 한 페이즈에 한 기까지다', () => {
+    let s = board({
+      people: [{ ...person('a', 'A', 'library'), tokens: 99 }],
+      robots: [robot('r1', 'B', 'library'), robot('r2', 'B', 'library')],
+    })
+    s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
+    const out = doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r2' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('이미 부쉈다')
+    // 거절은 값을 물리지 않는다
+    expect(at(s, 'a').tokens).toBe(99 - ACT_COST.smashRobot)
+  })
+
+  it('둘이 가면 두 기를 나눠 부순다 — 로봇 둘짜리 방은 혼자 못 뺏는다', () => {
+    let s = board({
+      people: [person('a', 'A', 'library'), person('a2', 'A', 'library')],
+      robots: [robot('r1', 'B', 'library'), robot('r2', 'B', 'library')],
+      owners: { library: 'B' },
+    })
+    s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
+    s = must(s, 'a2', { kind: 'smashRobot', targetRobot: 'r2' })
+    expect(s.robots).toHaveLength(0)
+    expect(settle(s).next.owners.library).toBe('A')
+  })
+
+  it('페이즈가 닫히면 부순 기록이 지워진다', () => {
+    const s = board({
+      people: [person('a', 'A', 'library')],
+      smashedBy: ['a'],
+    })
+    expect(settle(s).next.smashedBy).toEqual([])
   })
 })
 

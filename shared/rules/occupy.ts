@@ -94,6 +94,19 @@ export const ROBOTS_PER_ROOM = 2
  * 로봇은 머릿수로 세어지므로 그 순간 점령이 사람의 일이 아니게 된다.
  */
 export const ROBOTS_PER_TEAM = 6
+
+/**
+ * 한 사람이 한 페이즈에 부술 수 있는 로봇.
+ *
+ * 전에는 「그 방에 상대 팀 사람이 없어야」 부술 수 있었다. 그래서
+ * 로봇만 남은 방이 교착됐다 — 부수러 가려면 아무도 없을 때 가야 하고,
+ * 방을 뺏으려면 사람을 몰고 가야 하는데 둘을 동시에 할 수가 없었다.
+ *
+ * 그 조건을 없애고 대신 사람마다 한 기로 묶는다. 로봇 두 기가 선 방을
+ * 뺏으려면 **여럿이 같이 가서 나눠 부숴야 한다** — 혼자서는 안 된다는
+ * 것이 요점이고, 그것이 원래 점령전이 시키려던 일이다.
+ */
+export const SMASHES_PER_PHASE = 1
 /** 위장한 사람이 남에게 보이는 머릿수. 판정은 이 값을 쓰지 않는다. */
 export const DISGUISE_SHOWN_AS = 2
 /** 연구가 로봇이 되기까지 걸리는 페이즈. 발전소를 쥐면 그 자리에서 된다. */
@@ -176,6 +189,8 @@ export interface PhaseState {
   zeroedRobots: readonly string[]
   /** 이번 페이즈에 위장한 사람. 남에게 보이는 숫자만 바뀐다. */
   disguised: readonly string[]
+  /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
+  smashedBy: readonly string[]
 }
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
@@ -442,14 +457,20 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
 
     case 'smashRobot': {
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
-      if (people.some((q) => q.tileId === mine.tileId && q.team !== mine.team)) {
-        return no('이 방에 상대 팀 사람이 있다.')
-      }
+      // **상대가 보고 있어도 부순다.** 남의 눈을 피해야 한다는 조건을
+      // 없앤 대신, 한 사람은 한 페이즈에 한 기까지다
+      const done = state.smashedBy.filter((id) => id === playerId).length
+      if (done >= SMASHES_PER_PHASE) return no('이번 페이즈에는 이미 부쉈다.')
       const bot = robots.find((r) => r.id === act.targetRobot && r.tileId === mine.tileId && r.team !== mine.team)
       if (!bot) return no('그 로봇이 여기 없다.')
       robots = robots.filter((r) => r.id !== bot.id)
-      log = { kind: 'robotSmashed', playerId, tileId: mine.tileId, targetRobot: bot.id }
-      break
+      mine.tokens -= cost
+      return {
+        ok: true,
+        spent: cost,
+        log: { kind: 'robotSmashed', playerId, tileId: mine.tileId, targetRobot: bot.id },
+        next: { ...state, people, robots, smashedBy: [...state.smashedBy, playerId] },
+      }
     }
 
     case 'research': {
@@ -585,6 +606,7 @@ export function settle(state: PhaseState): SettleResult {
       zeroedPeople: [],
       zeroedRobots: [],
       disguised: [],
+      smashedBy: [],
     },
     log,
   }

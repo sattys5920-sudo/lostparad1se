@@ -73,9 +73,17 @@ interface HiddenPhase {
   zeroedPeople: string[]
   zeroedRobots: string[]
   pendingResearch: string[]
+  /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
+  smashedBy: string[]
 }
 
-const EMPTY_HIDDEN: HiddenPhase = { disguised: [], zeroedPeople: [], zeroedRobots: [], pendingResearch: [] }
+const EMPTY_HIDDEN: HiddenPhase = {
+  disguised: [],
+  zeroedPeople: [],
+  zeroedRobots: [],
+  pendingResearch: [],
+  smashedBy: [],
+}
 
 /** 운영자만. 화면이 하는 말을 믿지 않는다. */
 function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): string {
@@ -136,6 +144,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       zeroedPeople: h.zeroedPeople,
       zeroedRobots: h.zeroedRobots,
       disguised: h.disguised,
+      smashedBy: h.smashedBy,
     },
   }
 }
@@ -295,6 +304,7 @@ export const phaseAct = onCall<{
       zeroedPeople: h.zeroedPeople,
       zeroedRobots: h.zeroedRobots,
       disguised: h.disguised,
+      smashedBy: h.smashedBy,
     }
 
     const out = doAct(before, uid, act)
@@ -348,6 +358,7 @@ export const phaseAct = onCall<{
       zeroedPeople: out.next.zeroedPeople,
       zeroedRobots: out.next.zeroedRobots,
       pendingResearch: out.next.pendingResearch,
+      smashedBy: out.next.smashedBy,
     })
   })
 
