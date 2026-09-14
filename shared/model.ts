@@ -349,6 +349,12 @@ export interface PlayerViewDoc {
    * 다 보였다. 받아서 화면에서 가리는 것이 아니라 **보내지 않는다.**
    */
   myVault: { money: number; knowledge: number }
+  /** 우리 팀 로봇 수. 남의 팀 총수는 안 온다. */
+  myTeamRobots: number
+  /** 내가 데리고 다니는 로봇 수. */
+  myCarriedRobots: number
+  /** 보이는 방마다 서 있는 로봇 수. 정원과 별개다. */
+  robotCounts: Record<TileId, number>
   /**
    * 내가 선 방 바닥에 있는 쪽지. **한 장 있다는 것까지만이다.**
    *

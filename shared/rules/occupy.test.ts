@@ -7,13 +7,19 @@ import { describe, expect, it } from 'vitest'
 import {
   ACT_COST,
   MAX_CARRIED_ROBOTS,
+  ROBOTS_PER_ROOM,
+  ROBOTS_PER_TEAM,
   ROOM_CAPACITY,
   ROOM_KIND,
   TOKENS_PER_PHASE,
   arrive,
   capacityOf,
   doAct,
+  leftBehindCount,
   ownerOf,
+  robotsIn,
+  robotsLeftBehind,
+  robotsOfTeam,
   settle,
   shownCount,
   stepToward,
@@ -144,13 +150,60 @@ describe('움직임', () => {
     expect(s1.robots[0].tileId).toBe('classroom')
   })
 
-  it('로봇까지 들어갈 자리가 없으면 못 간다', () => {
+  it('로봇은 정원을 차지하지 않는다 — 사람만 센다', () => {
+    // 급식실은 정원 2. 로봇이 둘 서 있어도 사람 자리는 그대로 둘이다.
+    // 전에는 로봇이 자리를 먹어서, 좁은 방에 로봇 둘을 세워 두면
+    // 아무도 못 들어갔고 들어가야 부술 수 있으니 영영 그 팀 것이었다
     const s = board({
-      people: [person('x', 'A', 'cafeteria'), person('a', 'B', 'storage')],
-      robots: [robot('r1', 'B', 'storage', 'a')],
+      people: [person('a', 'B', 'storage')],
+      robots: [robot('r1', 'A', 'cafeteria'), robot('r2', 'A', 'cafeteria')],
     })
-    // 급식실 정원 2 · 이미 하나 · 나와 로봇이 둘이라 넘친다
-    expect(doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' }).ok).toBe(false)
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    expect(out.ok).toBe(true)
+  })
+
+  it('사람으로 꽉 찬 방에는 로봇이 없어도 못 간다', () => {
+    const s = board({
+      people: [person('x', 'A', 'cafeteria'), person('y', 'A', 'cafeteria'), person('a', 'B', 'storage')],
+    })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    expect(out.ok).toBe(false)
+  })
+
+  it('저쪽 로봇 자리가 모자라면 넘치는 로봇만 두고 간다', () => {
+    const s0 = board({
+      people: [person('a', 'B', 'storage')],
+      robots: [
+        robot('r1', 'B', 'storage', 'a'),
+        robot('r2', 'B', 'storage', 'a'),
+        robot('mine', 'A', 'cafeteria'),
+      ],
+    })
+    // 급식실에 이미 한 기 — 자리는 하나뿐이라 둘 중 하나만 따라간다
+    expect(robotsLeftBehind(s0, 'a', 'cafeteria')).toBe(1)
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    const went = s1.robots.filter((r) => r.carriedBy === 'a')
+    const stayed = s1.robots.filter((r) => r.team === 'B' && r.carriedBy === null)
+    expect(went).toHaveLength(1)
+    expect(went[0].tileId).toBe('cafeteria')
+    expect(stayed).toHaveLength(1)
+    // 두고 온 것은 떠난 방에 선다. 걷는 사람을 따라 허공에 뜨지 않는다
+    expect(stayed[0].tileId).toBe('storage')
+  })
+
+  it('로봇이 꽉 찬 방으로도 사람은 간다 — 로봇만 남는다', () => {
+    const s0 = board({
+      people: [person('a', 'B', 'storage')],
+      robots: [
+        robot('r1', 'B', 'storage', 'a'),
+        robot('x1', 'A', 'cafeteria'),
+        robot('x2', 'A', 'cafeteria'),
+      ],
+    })
+    const s1 = land(must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
+    expect(at(s1, 'a').tileId).toBe('cafeteria')
+    expect(robotsIn(s1, 'cafeteria')).toBe(ROBOTS_PER_ROOM)
+    expect(s1.robots.find((r) => r.id === 'r1')?.tileId).toBe('storage')
   })
 })
 
@@ -274,14 +327,89 @@ describe('연구', () => {
     expect(s.pendingResearch).toEqual([])
   })
 
-  it('두 기까지만 데리고 다닌다', () => {
+  it('한 방에 두 기까지다 — 셋째는 설 자리가 없다', () => {
     let s = board({
       people: [{ ...person('a', 'A', lab.id), tokens: 99 }],
       owners: { [plant.id]: 'A' },
     })
-    for (let i = 0; i < 3; i++) s = must(s, 'a', { kind: 'research' })
+    for (let i = 0; i < ROBOTS_PER_ROOM; i++) s = must(s, 'a', { kind: 'research' })
+    expect(robotsIn(s, lab.id)).toBe(ROBOTS_PER_ROOM)
     expect(s.robots.filter((r) => r.carriedBy === 'a')).toHaveLength(MAX_CARRIED_ROBOTS)
-    expect(s.robots.filter((r) => r.carriedBy === null)).toHaveLength(1)
+    const out = doAct(s, 'a', { kind: 'research' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain(`${ROBOTS_PER_ROOM}기`)
+  })
+
+  it('팀 한도에 걸리면 연구를 고를 수 없다 — 토큰도 안 든다', () => {
+    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+    const s = board({ people: [person('a', 'A', lab.id)], robots: full })
+    expect(robotsOfTeam(s, 'A')).toBe(ROBOTS_PER_TEAM)
+    const out = doAct(s, 'a', { kind: 'research' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('팀당')
+    // 거절된 행동은 토큰을 먹지 않는다
+    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+  })
+
+  it('걸어 둔 연구도 자리를 잡는다 — 넷이 한꺼번에 걸어 한도를 넘지 못한다', () => {
+    const almost = Array.from({ length: ROBOTS_PER_TEAM - 1 }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+    const s = board({
+      people: [person('a', 'A', lab.id), person('b', 'A', lab.id)],
+      robots: almost,
+      pendingResearch: ['a'],
+    })
+    const out = doAct(s, 'b', { kind: 'research' })
+    expect(out.ok).toBe(false)
+  })
+
+  it('한도에 걸려 불발되면 토큰을 돌려준다', () => {
+    // 연구를 건 뒤 같은 팀이 먼저 채워 버린 판. 내 잘못이 아니라 환불한다
+    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+    const s = board({
+      people: [{ ...person('a', 'A', lab.id), tokens: 1 }],
+      robots: full,
+      pendingResearch: ['a'],
+    })
+    const done = settle(s)
+    expect(done.next.robots).toHaveLength(ROBOTS_PER_TEAM)
+    expect(done.log.some((l) => l.kind === 'researchFizzled' && l.playerId === 'a')).toBe(true)
+    expect(done.next.people.find((p) => p.playerId === 'a')?.tokens).toBe(1 + ACT_COST.research)
+    // 불발은 미뤄 두지 않는다. 한도는 다음 페이즈에도 그대로다
+    expect(done.next.pendingResearch).toEqual([])
+  })
+})
+
+describe('로봇 두고 가기', () => {
+  it('방에 이미 두 기면 못 둔다 — 토큰도 안 든다', () => {
+    const s = board({
+      people: [person('a', 'A', 'storage')],
+      robots: [
+        robot('mine', 'A', 'storage', 'a'),
+        robot('x1', 'B', 'storage'),
+        robot('x2', 'B', 'storage'),
+      ],
+    })
+    const out = doAct(s, 'a', { kind: 'dropRobot' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain(`${ROBOTS_PER_ROOM}기`)
+  })
+
+  it('내가 데리고 온 것이면 수가 늘지 않으므로 둘 수 있다', () => {
+    const s = board({
+      people: [person('a', 'A', 'storage')],
+      robots: [robot('m1', 'A', 'storage', 'a'), robot('m2', 'A', 'storage', 'a')],
+    })
+    const out = doAct(s, 'a', { kind: 'dropRobot' })
+    expect(out.ok).toBe(true)
+  })
+})
+
+describe('두고 가게 될 로봇 셈', () => {
+  it('자리가 남으면 0, 모자란 만큼만 남는다', () => {
+    expect(leftBehindCount(0, 0)).toBe(0)
+    expect(leftBehindCount(2, 0)).toBe(0)
+    expect(leftBehindCount(2, 1)).toBe(1)
+    expect(leftBehindCount(2, ROBOTS_PER_ROOM)).toBe(2)
   })
 })
 

@@ -401,8 +401,12 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     // 걷는 중이었으면 자리가 없다. 떠난 방을 전선으로 남긴다 —
     // 문 사이에서 페이즈가 끝나면 아무 방도 못 가져간다
     const where = p.tileId ?? (p.toTile as TileId | null)
-    if (!where) continue
-    batch.update(ref.collection('pawns').doc(p.playerId), { postTile: where })
+    const was = state.people.find((q) => q.playerId === p.playerId)
+    // 불발된 연구는 값을 돌려준다. settle 이 사람 위에 얹어 두었다
+    const patch: Record<string, unknown> = {}
+    if (was && was.tokens !== p.tokens) patch.tokens = p.tokens
+    if (where) patch.postTile = where
+    if (Object.keys(patch).length > 0) batch.update(ref.collection('pawns').doc(p.playerId), patch)
   }
   const had = await robotsOf(gameId).get()
   for (const d of had.docs) batch.delete(d.ref)

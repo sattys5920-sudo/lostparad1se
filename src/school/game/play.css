@@ -776,6 +776,9 @@
 .sc-ph__hint { margin: 0; font-size: 12px; color: var(--sc-text-dim); text-wrap: pretty; }
 .sc-ph__hint b { color: var(--sc-text); font-weight: 700; }
 .sc-ph__note { margin: 0; font-size: 11px; color: #6b7280; }
+.sc-ph__note b { color: var(--sc-text); font-variant-numeric: tabular-nums; }
+/* 두고 가게 되는 로봇. 누르기 전에 보여야 뜻이 있다 */
+.sc-ph__warn { font-style: normal; color: #b45309; }
 .sc-ph__count { font-size: 11.5px; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
 
 /* 남은 토큰과 남은 시간. 이 둘이 페이즈 내내 보는 전부다 */

@@ -74,6 +74,26 @@ export const TRADE_COST = 1
 
 /** 사람 한 명이 데리고 다닐 수 있는 로봇. */
 export const MAX_CARRIED_ROBOTS = 2
+
+/**
+ * 한 방에 설 수 있는 로봇. **정원과는 별도로 센다.**
+ *
+ * 전에는 로봇이 사람과 같은 자리를 차지했다. 그래서 정원 둘짜리 관문에
+ * 로봇 두 기를 세워 두면 아무도 못 들어갔고, 부수려면 들어가야 하는데
+ * 들어갈 수가 없으니 그 방은 영영 그 팀 것이었다. 문을 막는 것이
+ * 점령보다 싸면 아무도 점령을 안 한다.
+ *
+ * 이제 정원은 사람만 센다. 로봇은 방마다 따로 이 수까지다.
+ */
+export const ROBOTS_PER_ROOM = 2
+
+/**
+ * 한 팀이 동시에 가질 수 있는 로봇.
+ *
+ * 연구를 막을 것이 없으면 지식이 도는 팀이 로봇을 무한히 찍어낸다.
+ * 로봇은 머릿수로 세어지므로 그 순간 점령이 사람의 일이 아니게 된다.
+ */
+export const ROBOTS_PER_TEAM = 6
 /** 위장한 사람이 남에게 보이는 머릿수. 판정은 이 값을 쓰지 않는다. */
 export const DISGUISE_SHOWN_AS = 2
 /** 연구가 로봇이 되기까지 걸리는 페이즈. 발전소를 쥐면 그 자리에서 된다. */
@@ -191,6 +211,7 @@ export type LogKind =
   | 'robotSmashed'
   | 'researchStarted'
   | 'researchDone'
+  | 'researchFizzled'
   | 'captured'
 
 export interface LogLine {
@@ -210,14 +231,36 @@ export const headOf = (p: Person): number => (p.captain ? CAPTAIN_HEAD_COUNT : 1
 /** 세 명뿐인 팀인가. 주장을 두는 쪽이다. */
 export const isShortHanded = (team: TeamId): boolean => SHORT_HANDED_TEAMS.includes(team)
 
-/** 방을 차지하는 자리 수. 사람도 로봇도 하나씩이다 — 정원은 머릿수가 아니라 자리다. */
+/** 방의 정원을 차지하는 수. **사람만 센다** — 로봇은 따로 헤아린다. */
 export function seatsUsed(state: PhaseState, tileId: TileId): number {
-  return (
-    // 걸어오는 중인 사람도 한 자리를 잡아 둔다. 안 그러면 정원 둘짜리
-    // 방에 셋이 동시에 출발해서 셋 다 들어간다
-    state.people.filter((p) => p.tileId === tileId || p.toTile === tileId).length +
-    state.robots.filter((r) => r.tileId === tileId).length
-  )
+  // 걸어오는 중인 사람도 한 자리를 잡아 둔다. 안 그러면 정원 둘짜리
+  // 방에 셋이 동시에 출발해서 셋 다 들어간다
+  return state.people.filter((p) => p.tileId === tileId || p.toTile === tileId).length
+}
+
+/** 그 방에 서 있는 로봇 수. 정원과 별개로 ROBOTS_PER_ROOM 까지다. */
+export function robotsIn(state: PhaseState, tileId: TileId): number {
+  return state.robots.filter((r) => r.tileId === tileId).length
+}
+
+/** 그 팀이 지금 가진 로봇 수. ROBOTS_PER_TEAM 이 한도다. */
+export function robotsOfTeam(state: PhaseState, team: TeamId): number {
+  return state.robots.filter((r) => r.team === team).length
+}
+
+/**
+ * 지금 저 방으로 옮기면 두고 가게 되는 로봇.
+ *
+ * **화면이 누르기 전에 경고하려고 부른다.** 수를 화면에 다시 적으면
+ * 규칙을 고칠 때 경고만 옛말이 된다 — 같은 함수가 답해야 한다.
+ */
+export function robotsLeftBehind(state: PhaseState, playerId: string, to: TileId): number {
+  return leftBehindCount(state.robots.filter((r) => r.carriedBy === playerId).length, robotsIn(state, to))
+}
+
+/** 위와 같은 셈을 수만으로. 화면이 안개 너머를 못 볼 때 쓴다. */
+export function leftBehindCount(carried: number, botsAtDest: number): number {
+  return Math.max(0, carried - Math.max(0, ROBOTS_PER_ROOM - botsAtDest))
 }
 
 /**
@@ -266,10 +309,9 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
   const byId = new Map(people.map((p) => [p.playerId, p]))
   const mine = byId.get(playerId) as Person
 
-  // 걸어오는 중인 사람도 한 자리를 잡아 둔다
-  const seats = (tileId: TileId) =>
-    people.filter((p) => p.tileId === tileId || p.toTile === tileId).length +
-    robots.filter((r) => r.tileId === tileId).length
+  // 걸어오는 중인 사람도 한 자리를 잡아 둔다. **로봇은 정원에 안 든다**
+  const seats = (tileId: TileId) => people.filter((p) => p.tileId === tileId || p.toTile === tileId).length
+  const botsAt = (tileId: TileId) => robots.filter((r) => r.tileId === tileId).length
   const carriedOf = (id: string) => robots.filter((r) => r.carriedBy === id)
 
   /**
@@ -282,15 +324,26 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
   function step(p: Person, to: TileId): string | null {
     if (p.tileId === null) return '이미 걷는 중이다.'
     if (!ADJACENCY[p.tileId]?.includes(to)) return '옆방이 아니다.'
-    const party = 1 + carriedOf(p.playerId).length
     const room = capacityOf(to)
-    if (seats(to) + party > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
-    const moving = carriedOf(p.playerId)
+    if (seats(to) + 1 > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
+    const from = p.tileId
+    const carried = carriedOf(p.playerId)
+    // 저쪽 방에 로봇 자리가 모자라면 **사람은 간다.** 넘치는 로봇만
+    // 떠난 방에 남는다 — 로봇 때문에 사람이 못 가면 로봇으로 문을
+    // 막는 짓이 다시 생긴다. 화면은 누르기 전에 robotsLeftBehind()로 경고한다
+    const spare = Math.max(0, ROBOTS_PER_ROOM - botsAt(to))
     p.tileId = null
     p.toTile = to
-    // 데리고 가는 로봇은 미리 그 방에 놓는다. 판정에는 사람이 도착해야
-    // 끼지만, 자리는 지금부터 잡아야 남이 새치기하지 못한다
-    for (const r of moving) r.tileId = to
+    for (const [i, r] of carried.entries()) {
+      if (i < spare) {
+        // 데리고 가는 로봇은 미리 그 방에 놓는다. 판정에는 사람이
+        // 도착해야 끼지만, 자리는 지금부터 잡아야 남이 새치기하지 못한다
+        r.tileId = to
+      } else {
+        r.tileId = from
+        r.carriedBy = null
+      }
+    }
     return null
   }
 
@@ -377,6 +430,11 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const held = carriedOf(playerId)
       if (held.length === 0) return no('데리고 있는 로봇이 없다.')
+      // 데리고 있는 것도 이 방에 서 있는 것으로 세어진다. 손을 놓는
+      // 것뿐이라 수가 늘지는 않지만, 남의 로봇으로 이미 찼으면 못 둔다
+      if (botsAt(mine.tileId) - held.length + 1 > ROBOTS_PER_ROOM) {
+        return no(`이 방에 로봇이 ${ROBOTS_PER_ROOM}기까지다.`)
+      }
       held[0].carriedBy = null
       log = { kind: 'robotLeft', playerId, tileId: mine.tileId, targetRobot: held[0].id }
       break
@@ -398,6 +456,12 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       if (ROOM_KIND[mine.tileId] !== 'lab') return no('연구실에서만 연구할 수 있다.')
       if (state.pendingResearch.includes(playerId)) return no('이미 연구를 걸어 두었다.')
+      // 걸어 둔 연구도 자리를 잡아 둔다. 안 그러면 넷이 한꺼번에 걸고
+      // 넷 다 완성되어 한도를 넘는다
+      const coming = state.pendingResearch.filter((id) => state.people.find((q) => q.playerId === id)?.team === mine.team)
+      if (robotsOfTeam(state, mine.team) + coming.length >= ROBOTS_PER_TEAM) {
+        return no(`로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`)
+      }
       // 발전소를 쥔 팀은 그 자리에서 로봇이 나온다
       const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && state.owners[t.id] === mine.team)
       if (!hasPlant) {
@@ -409,7 +473,7 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
           next: { ...state, people, robots, pendingResearch: [...state.pendingResearch, playerId] },
         }
       }
-      if (seats(mine.tileId) + 1 > capacityOf(mine.tileId)) return no('방이 꽉 차 로봇이 설 자리가 없다.')
+      if (botsAt(mine.tileId) + 1 > ROBOTS_PER_ROOM) return no(`이 방에 로봇이 ${ROBOTS_PER_ROOM}기까지다.`)
       robots = [...robots, born(mine, robots, `now-${playerId}-${state.robots.length}`, mine.tileId)]
       log = { kind: 'researchDone', playerId, tileId: mine.tileId }
       break
@@ -485,22 +549,36 @@ export function settle(state: PhaseState): SettleResult {
 
   // 지난 페이즈의 연구가 이제 로봇이 된다
   let robots = [...state.robots]
-  const seats = (tileId: TileId) =>
-    state.people.filter((p) => p.tileId === tileId).length + robots.filter((r) => r.tileId === tileId).length
+  const botsAt = (tileId: TileId) => robots.filter((r) => r.tileId === tileId).length
+  const botsOf = (team: TeamId) => robots.filter((r) => r.team === team).length
+  /** 불발된 연구에 돌려주는 토큰. 사람별로 모았다가 한 번에 얹는다. */
+  const refund = new Map<string, number>()
   let made = 0
   for (const id of state.pendingResearch) {
     const p = state.people.find((q) => q.playerId === id)
     // 연구를 건 사람이 걷는 중이면 로봇이 설 자리가 없다. 다음으로 미룬다
     if (!p || p.tileId === null) continue
-    if (seats(p.tileId) + 1 > capacityOf(p.tileId)) continue
+    // **한도에 걸리면 불발이고 값을 돌려준다.** 같은 팀 사람이 먼저
+    // 완성해서 막힌 것이라 이 사람의 잘못이 아니다. 자리가 없는 것과
+    // 달라서 다음으로 미루지도 않는다 — 한도는 다음 페이즈에도 그대로다
+    if (botsOf(p.team) >= ROBOTS_PER_TEAM || botsAt(p.tileId) + 1 > ROBOTS_PER_ROOM) {
+      refund.set(id, (refund.get(id) ?? 0) + ACT_COST.research)
+      log.push({ kind: 'researchFizzled', playerId: id, tileId: p.tileId })
+      continue
+    }
     made += 1
     robots = [...robots, born(p, robots, `${id}-${made}`, p.tileId)]
     log.push({ kind: 'researchDone', playerId: id, tileId: p.tileId })
   }
 
+  const people =
+    refund.size === 0
+      ? state.people
+      : state.people.map((p) => (refund.has(p.playerId) ? { ...p, tokens: p.tokens + (refund.get(p.playerId) as number) } : p))
+
   return {
     next: {
-      people: state.people,
+      people,
       robots,
       owners,
       pendingResearch: [],

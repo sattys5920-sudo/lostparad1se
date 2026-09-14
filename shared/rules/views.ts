@@ -182,6 +182,21 @@ export interface View {
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
   myVault: { money: number; knowledge: number }
   /**
+   * 우리 팀 로봇 수. 한도(ROBOTS_PER_TEAM)를 보여 주려면 안개 밖의
+   * 것까지 세어야 한다 — 우리 것이므로 다 알아도 된다. 남의 팀 총수는
+   * 안 보낸다.
+   */
+  myTeamRobots: number
+  /** 내가 데리고 다니는 로봇 수. 두고 갈 것을 미리 셈하는 데 쓴다. */
+  myCarriedRobots: number
+  /**
+   * 보이는 방마다 서 있는 로봇 수. 안 보이는 방은 아예 넣지 않는다.
+   *
+   * 정원과 별개라 roomCounts 와 따로 간다 — 화면이 「사람 3/6 · 로봇 1/2」
+   * 을 그대로 그리고, 옮기기 전에 몇 기를 두고 가는지도 여기서 센다.
+   */
+  robotCounts: Record<TileId, number>
+  /**
    * 내가 가 본 방. **한 번도 안 간 방은 지도에 검게 남는다.**
    *
    * 지금 보이는 방(visibleTiles)과는 다르다. 관측소로 멀리 보는 것과
@@ -277,6 +292,9 @@ export function projectView(world: World, viewerId: string): View {
       myPost: null,
       myTokens: 0,
       myVault: { money: 0, knowledge: 0 },
+      myTeamRobots: 0,
+      myCarriedRobots: 0,
+      robotCounts: {},
       visitedTiles: [],
       handledDays: [],
       readDays: [],
@@ -354,6 +372,11 @@ export function projectView(world: World, viewerId: string): View {
     // 들어올지가 읽힌다 — 그게 이 게임의 절반이다
     myTokens: world.pawns.find((p) => p.playerId === viewerId)?.tokens ?? 0,
     myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
+    myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
+    myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
+    robotCounts: Object.fromEntries(
+      [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.tileId === t).length]),
+    ) as Record<TileId, number>,
     visitedTiles: [...(world.pawns.find((p) => p.playerId === viewerId)?.visitedTiles ?? [])].sort(),
 
     // 진상 공개 흐름

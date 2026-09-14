@@ -9,7 +9,16 @@
 // 왜 없는지 알 수 없고, 이유 없이 막으면 왜 안 되는지 알 수 없다.
 import { useEffect, useState } from 'react'
 
-import { ACT_COST, ENTER_MINUTES, EXIT_MINUTES, MAX_CARRIED_ROBOTS, ROOM_KIND } from '../../../shared/rules/occupy'
+import {
+  ACT_COST,
+  ENTER_MINUTES,
+  EXIT_MINUTES,
+  MAX_CARRIED_ROBOTS,
+  ROBOTS_PER_ROOM,
+  ROBOTS_PER_TEAM,
+  ROOM_KIND,
+  leftBehindCount,
+} from '../../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID } from '../../../shared/rules/board'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
@@ -191,8 +200,29 @@ export function Phase({ me, here: hereIn, seats, view, endsAtMs, act, onSaid }: 
         })}
       </ul>
 
-      <p className="sc-ph__note">데리고 다닐 수 있는 로봇은 {MAX_CARRIED_ROBOTS}기까지다.</p>
-      {here && <p className="sc-ph__note">옆방: {(ADJACENCY[here] ?? []).map((n) => TILE_BY_ID[n].name).join(' · ')}</p>}
+      <p className="sc-ph__note">
+        우리 팀 로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b>
+        {' · '}데리고 있는 것 {view?.myCarriedRobots ?? 0}기(최대 {MAX_CARRIED_ROBOTS})
+        {' · '}한 방에 {ROBOTS_PER_ROOM}기까지
+      </p>
+      {here && (
+        <p className="sc-ph__note">
+          옆방:{' '}
+          {(ADJACENCY[here] ?? []).map((n, i) => {
+            // **옮기기 전에 알려 준다.** 저쪽에 로봇 자리가 모자라면
+            // 사람은 가고 넘치는 로봇만 이 방에 남는다
+            const seen = view?.robotCounts?.[asRoom(n)]
+            const drop = seen === undefined ? 0 : leftBehindCount(view?.myCarriedRobots ?? 0, seen)
+            return (
+              <span key={n}>
+                {i > 0 && ' · '}
+                {TILE_BY_ID[n].name}
+                {drop > 0 && <em className="sc-ph__warn"> 로봇 {drop}기를 두고 간다</em>}
+              </span>
+            )
+          })}
+        </p>
+      )}
     </div>
   )
 }
