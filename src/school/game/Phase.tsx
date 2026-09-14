@@ -18,9 +18,10 @@ import {
   ROBOTS_PER_TEAM,
   ROOM_KIND,
   SMASHES_PER_PHASE,
+  researchKnowledge,
   leftBehindCount,
 } from '../../../shared/rules/occupy'
-import { ADJACENCY, TILE_BY_ID } from '../../../shared/rules/board'
+import { ADJACENCY, TILE_BY_ID, TILES } from '../../../shared/rules/board'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
@@ -35,6 +36,8 @@ export interface PhaseProps {
   here: string | null
   seats: readonly SeatEntry[]
   view: PlayerViewDoc | null
+  /** 방 주인. 발전소를 쥐었는지 보려고 받는다 — 주인은 어차피 공개다. */
+  tiles: Partial<Record<string, { ownerTeam: TeamId | null }>>
   /** 페이즈가 끝나는 게임 시각. */
   endsAtMs: number | null
   act: GameActions
@@ -70,7 +73,7 @@ function leftText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function Phase({ me, here: hereIn, seats, view, endsAtMs, act, onSaid }: PhaseProps) {
+export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, act, onSaid }: PhaseProps) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<ActionKind | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -83,6 +86,9 @@ export function Phase({ me, here: hereIn, seats, view, endsAtMs, act, onSaid }: 
 
   const here: TileId | null = hereIn ? asRoom(hereIn) : null
   const hereName = here ? TILE_BY_ID[here].name : '걷는 중'
+  // 발전소를 쥐면 연구가 한 점 싸고 그 자리에서 로봇이 나온다.
+  // 방 주인은 누구나 보이는 값이라 화면이 직접 세도 새는 것이 없다
+  const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && tiles[t.id]?.ownerTeam === me.team)
   const tokens = view?.myTokens ?? 0
   const pawns = view?.visiblePawns ?? []
   const robots = view?.visibleRobots ?? []
@@ -105,7 +111,13 @@ export function Phase({ me, here: hereIn, seats, view, endsAtMs, act, onSaid }: 
     if (overAt) return '이 페이즈는 시간이 끝났다.'
     if (!here) return '걷는 중이다. 도착해야 할 수 있다.'
     if (tokens < ACT_COST[kind]) return `토큰이 모자란다. ${ACT_COST[kind]}개가 든다.`
-    if (kind === 'research' && ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
+    if (kind === 'research') {
+      if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
+      // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
+      const need = researchKnowledge(hasPlant)
+      if ((view?.myVault.knowledge ?? 0) < need) return `지식이 모자란다. ${need}점이 든다.`
+      if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`
+    }
     if (kind === 'summon' && teammates.length === 0) return '부를 팀원이 없다.'
     if (kind === 'disturb' && enemiesHere.length === 0 && enemyRobotsHere.length === 0) {
       return '이 방에 상대가 없다.'
@@ -202,6 +214,11 @@ export function Phase({ me, here: hereIn, seats, view, endsAtMs, act, onSaid }: 
         })}
       </ul>
 
+      <p className="sc-ph__note">
+        연구 한 번에 토큰 {ACT_COST.research} · 지식 <b>{researchKnowledge(hasPlant)}</b>
+        {hasPlant && ' (발전소를 쥐어 한 점 싸다)'}
+        {' · '}금고의 지식 {view?.myVault.knowledge ?? 0}
+      </p>
       <p className="sc-ph__note">
         우리 팀 로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b>
         {' · '}데리고 있는 것 {view?.myCarriedRobots ?? 0}기(최대 {MAX_CARRIED_ROBOTS})

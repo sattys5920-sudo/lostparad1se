@@ -165,6 +165,20 @@ export const DISGUISE_SHOWN_AS = 2
 export const RESEARCH_PHASES = 1
 export const RESEARCH_PHASES_WITH_PLANT = 0
 
+/**
+ * 연구 한 번에 드는 **팀 금고의 지식.** 토큰과 별개로 든다.
+ *
+ * 토큰은 사람마다 나오지만 지식은 팀이 함께 번다 — 문제 종이를 풀어야
+ * 는다. 그래서 로봇을 뽑는 일이 개인의 부지런함이 아니라 팀의 살림이
+ * 된다. 발전소를 쥐면 한 점 싸진다.
+ */
+export const KNOWLEDGE_PER_RESEARCH = 2
+export const KNOWLEDGE_PER_RESEARCH_WITH_PLANT = 1
+
+/** 이번 연구에 드는 지식. 발전소를 쥐고 있으면 한 점 싸다. */
+export const researchKnowledge = (hasPlant: boolean): number =>
+  hasPlant ? KNOWLEDGE_PER_RESEARCH_WITH_PLANT : KNOWLEDGE_PER_RESEARCH
+
 export type RoomKind = 'normal' | 'narrow' | 'lab' | 'plant'
 
 /** 방에 들어갈 수 있는 머릿수. 로봇도 한 자리를 차지한다. */
@@ -250,7 +264,25 @@ export interface PhaseState {
    * 한 시간을 통째로 잃은 것이다.
    */
   actedBy: readonly string[]
+  /**
+   * 팀마다의 금고. **연구가 지식을 여기서 뺀다.**
+   *
+   * 순수 함수로 두려면 금고도 상태의 일부여야 한다. 서버가 팀 문서에서
+   * 읽어 넣고, 바뀐 것을 도로 적는다.
+   */
+  vaults: Readonly<Partial<Record<TeamId, Vault>>>
 }
+
+/** 팀 금고. 돈과 지식 둘뿐이다. */
+export interface Vault {
+  money: number
+  knowledge: number
+}
+
+const EMPTY_VAULT: Vault = { money: 0, knowledge: 0 }
+
+/** 그 팀 금고. 없으면 빈 것으로 친다. */
+export const vaultOf = (state: PhaseState, team: TeamId): Vault => state.vaults[team] ?? EMPTY_VAULT
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
 
@@ -594,21 +626,40 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (robotsOfTeam(state, mine.team) + coming.length >= ROBOTS_PER_TEAM) {
         return no(`로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`)
       }
-      // 발전소를 쥔 팀은 그 자리에서 로봇이 나온다
+      // 발전소를 쥔 팀은 한 점 싸고, 그 자리에서 로봇이 나온다
       const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && state.owners[t.id] === mine.team)
+      // **지식이 모자라면 고를 수 없다.** 토큰도 안 든다
+      const need = researchKnowledge(hasPlant)
+      const purse = vaultOf(state, mine.team)
+      if (purse.knowledge < need) return no(`지식이 모자란다. ${need}점이 든다.`)
+      // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 금고로 셋이
+      // 더 걸어서 없는 지식으로 넷이 연구한 판이 된다
+      const paid = { ...state.vaults, [mine.team]: { ...purse, knowledge: purse.knowledge - need } }
+
       if (!hasPlant) {
         mine.tokens -= cost
         return {
           ok: true,
           spent: cost,
           log: { kind: 'researchStarted', playerId, tileId: mine.tileId },
-          next: { ...state, people, robots, pendingResearch: [...state.pendingResearch, playerId] },
+          next: {
+            ...state,
+            people,
+            robots,
+            vaults: paid,
+            pendingResearch: [...state.pendingResearch, playerId],
+          },
         }
       }
       if (botsAt(mine.tileId) + 1 > ROBOTS_PER_ROOM) return no(`이 방에 로봇이 ${ROBOTS_PER_ROOM}기까지다.`)
       robots = [...robots, born(mine, robots, `now-${playerId}-${state.robots.length}`, mine.tileId)]
-      log = { kind: 'researchDone', playerId, tileId: mine.tileId }
-      break
+      mine.tokens -= cost
+      return {
+        ok: true,
+        spent: cost,
+        log: { kind: 'researchDone', playerId, tileId: mine.tileId },
+        next: { ...state, people, robots, vaults: paid },
+      }
     }
   }
 
@@ -685,6 +736,11 @@ export function settle(state: PhaseState): SettleResult {
   const botsOf = (team: TeamId) => robots.filter((r) => r.team === team).length
   /** 불발된 연구에 돌려주는 토큰. 사람별로 모았다가 한 번에 얹는다. */
   const refund = new Map<string, number>()
+  /** 불발이면 지식도 같이 돌려준다. 걸 때 뺐으므로 도로 넣어야 한다. */
+  const vaults: Partial<Record<TeamId, Vault>> = { ...state.vaults }
+  /** 발전소를 쥔 팀인가. 걸 때와 같은 값으로 돌려줘야 액수가 맞는다. */
+  const plantOf = (team: TeamId) =>
+    TILES.some((t) => ROOM_KIND[t.id] === 'plant' && state.owners[t.id] === team)
   let made = 0
   for (const id of state.pendingResearch) {
     const p = state.people.find((q) => q.playerId === id)
@@ -695,6 +751,10 @@ export function settle(state: PhaseState): SettleResult {
     // 달라서 다음으로 미루지도 않는다 — 한도는 다음 페이즈에도 그대로다
     if (botsOf(p.team) >= ROBOTS_PER_TEAM || botsAt(p.tileId) + 1 > ROBOTS_PER_ROOM) {
       refund.set(id, (refund.get(id) ?? 0) + ACT_COST.research)
+      // 지식도 돌려준다. **걸 때와 같은 발전소 상태로 센다** — 그
+      // 사이에 발전소를 뺏겼다고 덜 돌려주면 남의 일로 손해를 본다
+      const back = vaults[p.team] ?? EMPTY_VAULT
+      vaults[p.team] = { ...back, knowledge: back.knowledge + researchKnowledge(plantOf(p.team)) }
       log.push({ kind: 'researchFizzled', playerId: id, tileId: p.tileId })
       continue
     }
@@ -712,6 +772,7 @@ export function settle(state: PhaseState): SettleResult {
     next: {
       people,
       robots,
+      vaults,
       owners,
       pendingResearch: [],
       zeroedPeople: [],

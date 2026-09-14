@@ -479,6 +479,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           here={standingOn}
           seats={game.seats}
           view={state.view}
+          tiles={state.tiles}
           endsAtMs={phaseEndsAtMs}
           act={act}
           onSaid={setSaid}

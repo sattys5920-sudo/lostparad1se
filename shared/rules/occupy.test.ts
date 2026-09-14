@@ -9,6 +9,8 @@ import {
   MAX_CARRIED_ROBOTS,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
+  KNOWLEDGE_PER_RESEARCH,
+  KNOWLEDGE_PER_RESEARCH_WITH_PLANT,
   ROOM_CAPACITY,
   SHORT_TEAM_BONUS,
   TOKEN_CAP,
@@ -26,6 +28,8 @@ import {
   roomsOf,
   teamRanks,
   robotsLeftBehind,
+  researchKnowledge,
+  vaultOf,
   robotsOfTeam,
   settle,
   shownCount,
@@ -63,6 +67,8 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   disguised: [],
   smashedBy: [],
   actedBy: [],
+  // 시험에서는 금고가 넉넉하다고 본다. 지식이 모자란 경우는 따로 쓴다
+  vaults: Object.fromEntries(TEAM_IDS.map((t) => [t, { money: 99, knowledge: 99 }])),
   ...over,
 })
 
@@ -419,6 +425,68 @@ describe('연구', () => {
     expect(done.next.people.find((p) => p.playerId === 'a')?.tokens).toBe(1 + ACT_COST.research)
     // 불발은 미뤄 두지 않는다. 한도는 다음 페이즈에도 그대로다
     expect(done.next.pendingResearch).toEqual([])
+  })
+})
+
+describe('연구에 드는 지식', () => {
+  const lab2 = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
+  const plant2 = TILES.find((t) => ROOM_KIND[t.id] === 'plant') as (typeof TILES)[number]
+  const withVault = (knowledge: number, over: Partial<PhaseState> = {}) =>
+    board({
+      people: [person('a', 'A', lab2.id)],
+      vaults: { A: { money: 0, knowledge } },
+      ...over,
+    })
+
+  it('발전소가 없으면 2, 있으면 1이다', () => {
+    expect(researchKnowledge(false)).toBe(KNOWLEDGE_PER_RESEARCH)
+    expect(researchKnowledge(true)).toBe(KNOWLEDGE_PER_RESEARCH_WITH_PLANT)
+  })
+
+  it('걸 때 바로 뺀다 — 완성될 때 빼면 없는 지식으로 넷이 연구한다', () => {
+    const s = must(withVault(5), 'a', { kind: 'research' })
+    expect(vaultOf(s, 'A').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
+    expect(s.pendingResearch).toEqual(['a'])
+  })
+
+  it('발전소를 쥐면 한 점만 든다', () => {
+    const s = must(withVault(5, { owners: { [plant2.id]: 'A' } }), 'a', { kind: 'research' })
+    expect(vaultOf(s, 'A').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH_WITH_PLANT)
+  })
+
+  it('지식이 모자라면 고를 수 없다 — 토큰도 안 든다', () => {
+    const s = withVault(KNOWLEDGE_PER_RESEARCH - 1)
+    const out = doAct(s, 'a', { kind: 'research' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('지식이 모자란다')
+    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+    expect(vaultOf(s, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH - 1)
+  })
+
+  it('불발되면 토큰과 지식을 함께 돌려준다', () => {
+    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+    const s = board({
+      people: [{ ...person('a', 'A', lab2.id), tokens: 1 }],
+      robots: full,
+      pendingResearch: ['a'],
+      vaults: { A: { money: 0, knowledge: 0 } },
+    })
+    const done = settle(s)
+    expect(done.next.people.find((p) => p.playerId === 'a')?.tokens).toBe(1 + ACT_COST.research)
+    expect(vaultOf(done.next, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH)
+  })
+
+  it('불발 환불은 걸 때와 같은 발전소 상태로 센다', () => {
+    // 그 사이에 발전소를 뺏겼다고 덜 돌려주면 남의 일로 손해를 본다
+    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+    const s = board({
+      people: [person('a', 'A', lab2.id)],
+      robots: full,
+      pendingResearch: ['a'],
+      owners: { [plant2.id]: 'A' },
+      vaults: { A: { money: 0, knowledge: 0 } },
+    })
+    expect(vaultOf(settle(s).next, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH_WITH_PLANT)
   })
 })
 

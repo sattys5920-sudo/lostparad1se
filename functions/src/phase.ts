@@ -38,6 +38,7 @@ import {
   type PhaseState,
   type Person,
   type Robot,
+  type Vault,
 } from '../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
@@ -122,14 +123,41 @@ function personOf(id: string, p: PawnDoc): Person {
   }
 }
 
+/** 팀 문서에서 금고만 떼어 온다. */
+function vaultsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamId, Vault>> {
+  const out: Partial<Record<TeamId, Vault>> = {}
+  for (const d of teams.docs) {
+    const t = d.data() as { resources?: Partial<Vault> }
+    out[d.id as TeamId] = { money: t.resources?.money ?? 0, knowledge: t.resources?.knowledge ?? 0 }
+  }
+  return out
+}
+
+/** 바뀐 금고만 적는다. 안 바뀐 팀 문서는 건드리지 않는다. */
+function writeVaults(
+  w: { update: (ref: FirebaseFirestore.DocumentReference, data: Record<string, unknown>) => unknown },
+  ref: FirebaseFirestore.DocumentReference,
+  before: Readonly<Partial<Record<TeamId, Vault>>>,
+  after: Readonly<Partial<Record<TeamId, Vault>>>,
+): void {
+  for (const team of TEAMS) {
+    const a = after[team]
+    const b = before[team]
+    if (!a || !b) continue
+    if (a.money === b.money && a.knowledge === b.knowledge) continue
+    w.update(ref.collection('teams').doc(team), { resources: { money: a.money, knowledge: a.knowledge } })
+  }
+}
+
 async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: GameDoc }> {
   const ref = gameRef(gameId)
-  const [snap, pawns, tiles, bots, hidden] = await Promise.all([
+  const [snap, pawns, tiles, bots, hidden, teams] = await Promise.all([
     ref.get(),
     ref.collection('pawns').get(),
     ref.collection('tiles').get(),
     robotsOf(gameId).get(),
     hiddenOf(gameId).get(),
+    ref.collection('teams').get(),
   ])
   const game = snap.data() as GameDoc
   const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
@@ -154,6 +182,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       disguised: h.disguised,
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
+      vaults: vaultsOf(teams),
     },
   }
 }
@@ -323,11 +352,12 @@ export const phaseAct = onCall<{
   let leftFor: TileId | null = null
   let left = 0
   await db.runTransaction(async (tx) => {
-    const [pawns, bots, tiles, hidden] = await Promise.all([
+    const [pawns, bots, tiles, hidden, teams] = await Promise.all([
       tx.get(ref.collection('pawns')),
       tx.get(robotsOf(gameId)),
       tx.get(ref.collection('tiles')),
       tx.get(hiddenOf(gameId)),
+      tx.get(ref.collection('teams')),
     ])
     const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
     const before: PhaseState = {
@@ -343,6 +373,7 @@ export const phaseAct = onCall<{
       disguised: h.disguised,
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
+      vaults: vaultsOf(teams),
     }
 
     const out = doAct(before, uid, act)
@@ -385,6 +416,9 @@ export const phaseAct = onCall<{
         leftFor = was.tileId
       }
     }
+
+    // 금고 — 연구가 지식을 뺐으면 여기서 적는다
+    writeVaults(tx, ref, before.vaults, out.next.vaults)
 
     // 로봇 — 통째로 다시 쓴다. 열몇 기뿐이라 견줄 이유가 없다
     const now = new Set(out.next.robots.map((r) => r.id))
@@ -465,6 +499,9 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     if (back > 0) patch.pendingRefund = back
     if (Object.keys(patch).length > 0) batch.update(ref.collection('pawns').doc(p.playerId), patch)
   }
+  // 불발된 연구는 지식을 도로 넣는다
+  writeVaults(batch, ref, state.vaults, out.next.vaults)
+
   const had = await robotsOf(gameId).get()
   for (const d of had.docs) batch.delete(d.ref)
   for (const r of out.next.robots) batch.set(robotsOf(gameId).doc(r.id), { ...r })
