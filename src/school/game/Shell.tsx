@@ -4,6 +4,11 @@
 // 않고, 앱을 전환하지도 않고, 지하철에 들어가지도 않는다.
 import { useEffect, useState } from 'react'
 
+import { gameNow } from '../../../shared/rules/clock'
+import type { GameDoc } from '../../../shared/model'
+
+type DevClock = GameDoc['clock']
+
 /** 가로로 돌렸을 때. 세로 전용이라 안내만 띄운다. */
 export function TurnNotice() {
   return (
@@ -176,4 +181,26 @@ export function useStaticCache(): void {
       // 못 붙어도 게임은 그대로 돌아간다. 캐시는 덤이다
     })
   }, [])
+}
+
+// ── 게임 속 시각 ────────────────────────────────────────────────
+
+/**
+ * 지금 게임 속으로 몇 시인가.
+ *
+ * **Date.now() 를 쓰면 안 된다.** 판마다 시계가 따로 돈다 — 개발용
+ * 시계를 걸면 3월 1일 밤 열한 시에 서 있고, 배속이 걸리면 흐르는
+ * 속도까지 다르다. 그 시각과 실제 시각을 맞대면 값이 몇 달씩 어긋난다.
+ *
+ * 실제로 어긋났다. 페이즈 타이머가 열자마자 0:00 이었고, 「이동 중」이
+ * 늘 「0분 남았다」였다. 서버는 gameNow 로 재고 화면은 Date.now() 로
+ * 재고 있었다 — **같은 함수로 재야 같은 값이 나온다.**
+ */
+export function useGameNow(clock: DevClock | undefined, everyMs = 1000): number {
+  const [realNow, setRealNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setRealNow(Date.now()), everyMs)
+    return () => clearInterval(t)
+  }, [everyMs])
+  return gameNow(clock, realNow)
 }

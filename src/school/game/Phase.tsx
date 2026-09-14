@@ -40,6 +40,8 @@ export interface PhaseProps {
   tiles: Partial<Record<string, { ownerTeam: TeamId | null }>>
   /** 페이즈가 끝나는 게임 시각. */
   endsAtMs: number | null
+  /** 게임 속 지금. **실제 시각이 아니다** — 판마다 시계가 따로 돈다. */
+  nowMs: number
   act: GameActions
   onSaid: (text: string) => void
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
@@ -75,16 +77,9 @@ function leftText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, act, onSaid, ask }: PhaseProps) {
+export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: now, act, onSaid, ask }: PhaseProps) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<ActionKind | null>(null)
-  const [now, setNow] = useState(() => Date.now())
-
-  // 남은 시간은 초마다 다시 그린다. 판이 바뀔 때만 그리면 시계가 멈춘다
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
 
   const here: TileId | null = hereIn ? asRoom(hereIn) : null
   const hereName = here ? TILE_BY_ID[here].name : '걷는 중'

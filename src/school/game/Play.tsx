@@ -21,7 +21,7 @@ import { Phase, PhaseHost, PhaseLog } from './Phase'
 import { Slips } from './Slips'
 import { Quiz, QuizHost } from './Quiz'
 import { Ballot } from './Ballot'
-import { AddToHome, OfflineBar, TurnNotice, useOnline, useStaticCache, useWakeUp } from './Shell'
+import { AddToHome, OfflineBar, TurnNotice, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
@@ -437,6 +437,19 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     return () => clearTimeout(t)
   }, [said])
 
+  // **판마다 시계가 따로 돈다.** 서버와 같은 함수로 잰다
+  const nowMs = useGameNow(state.game?.clock)
+
+  // 걷는 동안에는 서버를 두드려 준다. 도착은 따라잡기가 처리하는데,
+  // 아무도 부르지 않으면 영영 안 돈다 — 문을 넘어 놓고 「이동 중」에
+  // 갇혀서, 밖에서 보기에는 방에서 방으로 못 건너가는 것과 같다
+  const arriveAtMs = state.view?.myArriveAtMs ?? null
+  useEffect(() => {
+    if (arriveAtMs == null) return
+    const t = setInterval(() => void act.tick().catch(() => {}), 4000)
+    return () => clearInterval(t)
+  }, [arriveAtMs, act])
+
   const phaseNo = state.game?.phaseNow?.no ?? 0
   const phaseOpen = state.game?.phaseNow?.open === true
   const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
@@ -485,7 +498,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             me={{ playerId: me.playerId, team: me.team, look }}
             view={state.view}
             tiles={state.tiles}
-            nowMs={Date.now()}
+            nowMs={nowMs}
             padRef={padRef}
             onCross={(to) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
@@ -527,7 +540,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               시트는 화면의 70%까지만 올라온다 */}
           <header className="sc-pl__head">
             <span className="sc-pl__day">DAY {game.day}</span>
-            <PhaseClock open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} />
+            <PhaseClock open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} nowMs={nowMs} />
             <span className="sc-pl__me">{me.name} · {me.team}팀</span>
           </header>
           {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
@@ -681,6 +694,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               view={state.view}
               tiles={state.tiles}
               endsAtMs={phaseEndsAtMs}
+              nowMs={nowMs}
               act={act}
               onSaid={setSaid}
               ask={ask}
@@ -779,17 +793,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 }
 
 /**
- * 남은 시간. **1초에 한 번만 갱신한다** — 매 프레임 다시 그리면
- * 그것만으로 배터리가 눈에 띄게 준다.
+ * 남은 시간. 게임 속 시계로 잰다. 1초에 한 번만 갱신한다 — 매 프레임
+ * 다시 그리면 그것만으로 배터리가 눈에 띄게 준다.
  */
-function PhaseClock({ open, no, endsAtMs }: { open: boolean; no: number; endsAtMs: number | null }) {
-  const [nowMs, setNowMs] = useState(() => Date.now())
-  useEffect(() => {
-    if (!open || endsAtMs == null) return
-    const t = setInterval(() => setNowMs(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [open, endsAtMs])
-
+function PhaseClock({
+  open,
+  no,
+  endsAtMs,
+  nowMs,
+}: {
+  open: boolean
+  no: number
+  endsAtMs: number | null
+  /** 게임 속 지금. 실제 시각이 아니다 — 판마다 시계가 따로 돈다 */
+  nowMs: number
+}) {
   if (!open || endsAtMs == null) return <span className="sc-pl__clock">자유 시간</span>
   const left = Math.max(0, endsAtMs - nowMs)
   const mm = Math.floor(left / 60000)
