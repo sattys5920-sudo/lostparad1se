@@ -375,7 +375,10 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
   if (pawn.path[0] !== tileId) return
 
   if (rest.length === 0) {
-    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null })
+    // 발을 들였으니 지도에 남는다. 사람마다 따로 쌓인다
+    const been = new Set(pawn.visitedTiles ?? [])
+    been.add(tileId)
+    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, visitedTiles: [...been] })
     // 이 칸에 섰다. 체류 기록은 트랜잭션 밖에서 연다
     c.landed.push({ playerId, tileId, atMs: c.atMs })
   } else {

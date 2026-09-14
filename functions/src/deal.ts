@@ -9,10 +9,19 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
-import { acceptTrade, breakAlliance, canAlly, canOffer, type TradeOffer } from '../../shared/rules/diplomacy'
+import {
+  acceptTrade,
+  breakAlliance,
+  canAlly,
+  canOffer,
+  movePurse,
+  type Purse,
+  type TradeOffer,
+} from '../../shared/rules/diplomacy'
+import { MAX_CARRIED_ROBOTS, TRADE_COST } from '../../shared/rules/occupy'
 import { ALLIANCE_BREAK_INFLUENCE_PENALTY, type Resource, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
-import type { SabotageDoc, TeamDoc } from '../../shared/model'
+import type { PawnDoc, SabotageDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, standingWith } from './turn'
 import { takePending } from './card'
@@ -30,6 +39,27 @@ const tradesOf = (gameId: string) => gameRef(gameId).collection('secret').doc('t
 const proposalsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('alliances').collection('items')
 
 type Bag = Partial<Record<Resource, number>>
+
+/**
+ * 사람이 들고 있는 것 — 토큰과 데리고 있는 로봇.
+ *
+ * 재화는 팀 금고에서 오가지만 이 둘은 **마주 선 두 사람** 사이에서만
+ * 오간다. 토큰은 페이즈마다 받는 행동 횟수고 로봇은 끌고 다니는 것이라,
+ * 팀 금고를 거치면 학교 반대편에서도 건넬 수 있게 된다.
+ */
+function cleanPurse(v: unknown): Partial<Purse> {
+  const out: Partial<Purse> = {}
+  if (!v || typeof v !== 'object') return out
+  for (const k of ['tokens', 'robots'] as const) {
+    const n = Number((v as Record<string, unknown>)[k])
+    if (!Number.isInteger(n) || n < 0) {
+      if ((v as Record<string, unknown>)[k] === undefined) continue
+      throw new HttpsError('invalid-argument', '수가 이상하다.')
+    }
+    if (n > 0) out[k] = n
+  }
+  return out
+}
 
 /** 숫자가 아니거나 음수면 거절한다. 화면을 믿지 않는다. */
 function cleanBag(bag: unknown): Bag {
@@ -69,7 +99,15 @@ async function requireFacing(gameId: string, uid: string, team: TeamId, what: st
   throw new HttpsError('failed-precondition', `${team}팀 사람과 같은 자리에 서야 ${what}을 꺼낼 수 있다.`)
 }
 
-export const offerTrade = onCall<{ gameId: string; toTeam: TeamId; give: Bag; want: Bag; note?: string }>(
+export const offerTrade = onCall<{
+  gameId: string
+  toTeam: TeamId
+  give: Bag
+  want: Bag
+  givePurse?: Partial<Purse>
+  wantPurse?: Partial<Purse>
+  note?: string
+}>(
   async (req) => {
     const uid = requireUid(req.auth)
     const { gameId, toTeam } = req.data
@@ -80,6 +118,11 @@ export const offerTrade = onCall<{ gameId: string; toTeam: TeamId; give: Bag; wa
 
     const give = cleanBag(req.data.give)
     const want = cleanBag(req.data.want)
+    const givePurse = cleanPurse(req.data.givePurse)
+    const wantPurse = cleanPurse(req.data.wantPurse)
+    if ((wantPurse.robots ?? 0) > MAX_CARRIED_ROBOTS) {
+      throw new HttpsError('invalid-argument', `한 사람이 데리고 다니는 로봇은 ${MAX_CARRIED_ROBOTS}기까지다.`)
+    }
     const ref = gameRef(gameId)
     const pending = (await tradesOf(gameId).where('fromTeam', '==', pawn.team).where('status', '==', 'open').get())
       .size
@@ -89,6 +132,8 @@ export const offerTrade = onCall<{ gameId: string; toTeam: TeamId; give: Bag; wa
       toTeam,
       give,
       want,
+      givePurse,
+      wantPurse,
       pending,
       tradeBlocked: await sabotagesOn(gameId, pawn.team, 'tradeBlocked'),
     })
@@ -107,6 +152,8 @@ export const offerTrade = onCall<{ gameId: string; toTeam: TeamId; give: Bag; wa
       toTeam,
       give,
       want,
+      givePurse,
+      wantPurse,
       // 덧붙인 말은 판정에 쓰이지 않는다. 손으로 친 말은 세지 않는다
       note: typeof req.data.note === 'string' ? req.data.note.slice(0, 200) : '',
       byId: uid,
@@ -147,7 +194,14 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
     const tradeRef = tradesOf(gameId).doc(tradeId)
     const snap = await tx.get(tradeRef)
     if (!snap.exists) throw new HttpsError('not-found', '그런 제안이 없다.')
-    const t = snap.data() as TradeOffer & { toTeam: TeamId; fromTeam: TeamId; status: string }
+    const t = snap.data() as TradeOffer & {
+      toTeam: TeamId
+      fromTeam: TeamId
+      status: string
+      byId: string
+      givePurse?: Partial<Purse>
+      wantPurse?: Partial<Purse>
+    }
     if (t.status !== 'open') throw new HttpsError('failed-precondition', '이미 끝난 제안이다.')
     if (t.toTeam !== pawn.team) throw new HttpsError('permission-denied', '우리에게 온 제안이 아니다.')
 
@@ -163,9 +217,14 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       return { accepted: false }
     }
 
-    const [fromSnap, toSnap] = await Promise.all([
+    const offerer = t.byId as string
+    const [fromSnap, toSnap, mineSnap, theirsSnap, mineBots, theirBots] = await Promise.all([
       tx.get(ref.collection('teams').doc(t.fromTeam)),
       tx.get(ref.collection('teams').doc(t.toTeam)),
+      tx.get(ref.collection('pawns').doc(offerer)),
+      tx.get(ref.collection('pawns').doc(uid)),
+      tx.get(ref.collection('robots').where('carriedBy', '==', offerer)),
+      tx.get(ref.collection('robots').where('carriedBy', '==', uid)),
     ])
     const from = fromSnap.data() as TeamDoc
     const to = toSnap.data() as TeamDoc
@@ -179,8 +238,49 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       )
     }
 
+    // 토큰과 로봇은 사람끼리 오간다. **마주 서 있어야 한다** — 제안할
+    // 때 마주 섰어도 답할 때 떨어져 있으면 손에서 손으로 건넬 수가 없다
+    const givePurse = (t.givePurse ?? {}) as Partial<Purse>
+    const wantPurse = (t.wantPurse ?? {}) as Partial<Purse>
+    const personal =
+      (givePurse.tokens ?? 0) + (givePurse.robots ?? 0) + (wantPurse.tokens ?? 0) + (wantPurse.robots ?? 0) > 0
+    const mine = mineSnap.data() as PawnDoc | undefined
+    const theirs = theirsSnap.data() as PawnDoc | undefined
+    if (!mine || !theirs) throw new HttpsError('failed-precondition', '한쪽이 판에 없다.')
+    if (personal && (mine.tileId === null || mine.tileId !== theirs.tileId)) {
+      throw new HttpsError('failed-precondition', '토큰과 로봇은 같은 방에서만 건넨다.')
+    }
+
+    const moved = movePurse(
+      { tokens: mine.tokens ?? 0, robots: mineBots.size },
+      { tokens: theirs.tokens ?? 0, robots: theirBots.size },
+      givePurse,
+      wantPurse,
+      // **값은 제안한 쪽이 낸다.** 거절당하면 안 낸다 — 제안만 뿌리고
+      // 다니는 것을 막으려면 값이 제안 쪽에 붙되 성립할 때만이어야 한다
+      TRADE_COST,
+    )
+    if (!moved.ok) {
+      const why: Record<string, string> = {
+        senderNoTokens: '보낸 쪽 토큰이 모자라다.',
+        senderNoRobots: '보낸 쪽이 데리고 있는 로봇이 모자라다.',
+        receiverNoTokens: '우리 토큰이 모자라다.',
+        receiverNoRobots: '우리가 데리고 있는 로봇이 모자라다.',
+      }
+      throw new HttpsError('failed-precondition', why[moved.reason])
+    }
+
     tx.update(ref.collection('teams').doc(t.fromTeam), { resources: out.fromResources })
     tx.update(ref.collection('teams').doc(t.toTeam), { resources: out.toResources })
+    tx.update(mineSnap.ref, { tokens: moved.from.tokens })
+    tx.update(theirsSnap.ref, { tokens: moved.to.tokens })
+    // 로봇은 주인만 바뀐다. 팀도 함께 바뀐다 — 넘겨받은 로봇은 우리 머릿수다
+    for (const d of mineBots.docs.slice(0, givePurse.robots ?? 0)) {
+      tx.update(d.ref, { carriedBy: uid, team: t.toTeam })
+    }
+    for (const d of theirBots.docs.slice(0, wantPurse.robots ?? 0)) {
+      tx.update(d.ref, { carriedBy: offerer, team: t.fromTeam })
+    }
     tx.update(tradeRef, { status: 'accepted', closedAtMs: nowMs })
     tx.set(ref.collection('events').doc(), {
       atMs: nowMs,

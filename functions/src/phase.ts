@@ -21,9 +21,11 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import {
   ACT_COST,
+  MOVE_MINUTES,
   PHASES_PER_DAY,
   PHASE_MINUTES,
   TOKENS_PER_PHASE,
+  TOKEN_CAP,
   capacityOf,
   doAct,
   settle,
@@ -36,7 +38,7 @@ import {
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
 import { SHORT_HANDED_TEAMS, TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
-import type { GameDoc, PawnDoc, TileDoc } from '../../shared/model'
+import { SCHEDULE_ORD, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
 import { freshNow } from './turn'
 import { clearArrivals, writeWalk } from './move'
 import { openInterval } from './reveal'
@@ -94,8 +96,10 @@ function personOf(id: string, p: PawnDoc): Person {
   return {
     playerId: id,
     team: p.team,
-    // **지금 서 있는 자리다.** 페이즈 중에는 이것이 곧 전선이다
-    tileId: (p.tileId ?? p.postTile ?? `base${p.team}`) as TileId,
+    // 지금 서 있는 자리. **걷는 중이면 null 이다** — 여기서 postTile 로
+    // 메우면 문 사이에 있는 사람이 전선에 서 있는 것으로 세어진다
+    tileId: (p.tileId ?? null) as TileId | null,
+    toTile: (p.path?.[0] ?? null) as TileId | null,
     captain: p.captain === true,
     tokens: p.tokens ?? 0,
   }
@@ -147,8 +151,9 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
  * 하고, 걷는 동안은 맵에서 사라진다 — 그 시간은 한 시간에서 그냥
  * 깎인다. 자유 시간에 어디까지 나갈지가 그래서 도박이 된다.
  *
- * 토큰은 여기서 준다. 남은 것은 없다 — 아껴 두는 전략이 생기면
- * 「지금 갈 것인가」가 질문이 아니게 된다.
+ * 토큰은 여기서 **더해** 준다(TOKEN_CAP 까지). 남은 것을 태우지 않는다 —
+ * 토큰은 거래할 수 있는 물건이고, 페이즈마다 사라지면 「토큰을 받고
+ * 무엇을 준다」가 성립하지 않는다.
  */
 export const openPhase = onCall<{ gameId: string }>(async (req) => {
   requireHost(req.auth)
@@ -179,7 +184,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     const p = d.data() as PawnDoc
     const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
     const march = marching.find((m) => m.ref.id === d.id)
-    const purse = { tokens: TOKENS_PER_PHASE }
+    // **더해 준다.** 남은 토큰을 태우면 거래할 물건이 못 된다.
+    // 다만 한도가 있다 — 안 쓰고 쌓아 두기만 하면 나중에 값이 없어진다
+    const purse = { tokens: Math.min((p.tokens ?? 0) + TOKENS_PER_PHASE, TOKEN_CAP) }
     if (!march) {
       // 제자리에 있었거나 이미 걷는 중이다. 걷는 중이면 그 걸음이
       // 끝나기를 기다린다 — 여기서 자리를 빼앗으면 도착 예정과 어긋난다
@@ -231,7 +238,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // 안 그러면 떠난 방의 말이 계속 들린다
   await Promise.all(marching.map((m) => openInterval(gameId, m.ref.id, null, nowMs, 'walking')))
   await refreshViews(gameId)
-  return { no, returned, endsAtMs, allInAtMs, tokens: TOKENS_PER_PHASE }
+  return { no, returned, endsAtMs, allInAtMs, granted: TOKENS_PER_PHASE, cap: TOKEN_CAP }
 })
 
 // ── 각자: 지금 당장 하는 행동 ───────────────────────────────────
@@ -265,7 +272,8 @@ export const phaseAct = onCall<{
     ...(req.data.targetRobot ? { targetRobot: req.data.targetRobot } : {}),
   }
 
-  let moved: TileId | null = null
+  /** 내가 방을 떠났다면 그 방. 체류 기록을 닫아야 한다. */
+  let leftFor: TileId | null = null
   let left = 0
   await db.runTransaction(async (tx) => {
     const [pawns, bots, tiles, hidden] = await Promise.all([
@@ -292,22 +300,40 @@ export const phaseAct = onCall<{
     if (!out.ok) throw new HttpsError('failed-precondition', out.why)
 
     // 사람 — 바뀐 것만 쓴다
+    const arriveAt = nowMs + MOVE_MINUTES * 60_000
     const wasAt = new Map(before.people.map((p) => [p.playerId, p]))
     for (const p of out.next.people) {
       const was = wasAt.get(p.playerId) as Person
-      if (was.tileId === p.tileId && was.tokens === p.tokens) continue
+      const sameSpot = was.tileId === p.tileId && (was.toTile ?? null) === (p.toTile ?? null)
+      if (sameSpot && was.tokens === p.tokens) continue
       const doc = pawns.docs.find((d) => d.id === p.playerId)
       if (!doc) continue
-      const been = new Set((doc.data() as PawnDoc).visitedTiles ?? [])
-      been.add(p.tileId)
+      if (sameSpot) {
+        tx.update(doc.ref, { tokens: p.tokens })
+        if (p.playerId === uid) left = p.tokens
+        continue
+      }
+      // 문을 넘었다. 나가는 데 5분, 들어가는 데 5분 — 그동안 어느 방에도 없다
+      const to = p.toTile as TileId
       tx.update(doc.ref, {
-        tileId: p.tileId,
+        tileId: null,
+        fromTile: was.tileId,
+        path: [to],
+        arriveAtMs: arriveAt,
         tokens: p.tokens,
-        ...(was.tileId === p.tileId ? {} : { fromTile: was.tileId, visitedTiles: [...been] }),
+        asleep: false,
+      })
+      // 도착은 따라잡기가 시킨다. 앱을 꺼도 도착한다
+      tx.set(ref.collection('schedule').doc(), {
+        dueAtMs: arriveAt,
+        ord: SCHEDULE_ORD.arrive,
+        kind: 'arrive',
+        payload: { playerId: p.playerId, tileId: to, rest: [], nextAtMs: null },
+        doneAtMs: null,
       })
       if (p.playerId === uid) {
         left = p.tokens
-        if (was.tileId !== p.tileId) moved = p.tileId
+        leftFor = was.tileId
       }
     }
 
@@ -324,11 +350,11 @@ export const phaseAct = onCall<{
     })
   })
 
-  // 방을 옮겼으면 앞 방의 체류가 끝나고 이 방의 체류가 시작된다.
-  // 채팅이 방을 따라가는 것이 여기에 걸려 있다
-  if (moved) await openInterval(gameId, uid, moved, nowMs)
+  // 떠나는 순간 그 방의 체류가 끝난다. 걷는 10분 동안은 어느 방에도
+  // 없고, 도착하면 따라잡기가 새 방의 체류를 연다
+  if (leftFor) await openInterval(gameId, uid, null, nowMs, 'walking')
   await refreshViews(gameId)
-  return { kind, tokens: left, tileId: moved }
+  return { kind, tokens: left, walking: leftFor !== null }
 })
 
 /** 페이즈가 지금 어떤지. **무엇을 했는지는 안 나간다.** */
@@ -369,9 +395,13 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   const batch = db.batch()
 
   // 전투 자리를 지금 자리로 옮긴다. 다음 자유 시간에 아무리 멀리 가도
-  // 다음 페이즈에는 여기로 돌아온다
+  // 다음 페이즈에는 여기로 돌아온다. **토큰은 그대로 둔다** — 들고 간다
   for (const p of out.next.people) {
-    batch.update(ref.collection('pawns').doc(p.playerId), { postTile: p.tileId, tileId: p.tileId, tokens: 0 })
+    // 걷는 중이었으면 자리가 없다. 떠난 방을 전선으로 남긴다 —
+    // 문 사이에서 페이즈가 끝나면 아무 방도 못 가져간다
+    const where = p.tileId ?? (p.toTile as TileId | null)
+    if (!where) continue
+    batch.update(ref.collection('pawns').doc(p.playerId), { postTile: where })
   }
   const had = await robotsOf(gameId).get()
   for (const d of had.docs) batch.delete(d.ref)

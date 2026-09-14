@@ -10,6 +10,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
+import { TOKENS_PER_PHASE } from '../../shared/rules/occupy'
 import { BASE_OF, TILES, startingTiles, type TileId } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { initialTokenState } from '../../shared/rules/tokens'
@@ -225,6 +226,9 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         arriveAtMs: null,
         asleep: false,
         tokensUsedToday: 0,
+        // 첫 페이즈가 열리기 전에도 거래는 한다. 빈손으로 시작하면
+        // 첫날 아침에는 아무도 아무것도 못 건넨다
+        tokens: TOKENS_PER_PHASE,
         votedToday: false,
         peeksToday: 0,
       })

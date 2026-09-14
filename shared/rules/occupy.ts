@@ -36,14 +36,41 @@ export const PHASE_MINUTES = 60
 /**
  * 페이즈가 열릴 때 한 사람에게 주는 토큰.
  *
- * 이것이 한 페이즈에 할 수 있는 일의 전부다. 한 칸 움직이는 데 하나,
- * 행동에 따라 하나나 둘. 남은 토큰은 페이즈가 닫히면 사라진다 —
- * 아껴 두는 전략이 생기면 「지금 갈 것인가」가 질문이 아니게 된다.
+ * **남으면 그대로 간다.** 토큰은 거래할 수 있는 물건이라, 페이즈가
+ * 닫힐 때 태워 버리면 「토큰을 받고 무엇을 준다」가 성립하지 않는다.
+ * 아껴 두었다가 자유 시간에 남에게 넘길 수도 있다.
  */
 export const TOKENS_PER_PHASE = 6
 
-/** 옆방으로 한 칸. */
-export const MOVE_COST = 1
+/**
+ * 들고 다닐 수 있는 토큰의 한도.
+ *
+ * 남는 것을 그대로 두면 쉰 페이즈 동안 쌓여서 나중에는 아무 값도
+ * 아니게 된다. 한편 한 푼도 못 남기면 거래할 물건이 못 된다. 그래서
+ * 「두 페이즈치까지」로 둔다 — **플레이테스트에서 제일 먼저 볼 값이다.**
+ */
+export const TOKEN_CAP = TOKENS_PER_PHASE * 2
+
+/**
+ * 다른 방에 **들어갈 때** 드는 토큰. 나갈 때는 안 든다.
+ *
+ * 방 안을 걸어 다니는 것은 공짜다. 값이 붙는 것은 문을 넘는 일 하나뿐이다.
+ */
+export const ENTER_COST = 1
+
+/**
+ * 나가는 데 5분, 들어가는 데 5분. **토큰과 별개로 시간이 든다.**
+ *
+ * 그래서 한 방 옮기는 데 열 시간분이 아니라 10분이 통째로 사라지고,
+ * 그동안은 어느 방에도 없다 — 그때 페이즈가 닫히면 아무 데도 못 센다.
+ * 토큰이 남아도 시계가 안 남으면 못 움직이는 것이 이 게임의 조임쇠다.
+ */
+export const EXIT_MINUTES = 5
+export const ENTER_MINUTES = 5
+export const MOVE_MINUTES = EXIT_MINUTES + ENTER_MINUTES
+
+/** 마주 선 사람과 거래 한 번. 거래할 수 있는 것은 토큰·재화·데리고 있는 로봇이다. */
+export const TRADE_COST = 1
 
 /** 사람 한 명이 데리고 다닐 수 있는 로봇. */
 export const MAX_CARRIED_ROBOTS = 2
@@ -94,10 +121,18 @@ export const capacityOf = (id: TileId): number => ROOM_CAPACITY[ROOM_KIND[id]]
 export interface Person {
   playerId: string
   team: TeamId
-  tileId: TileId
+  /**
+   * 지금 선 방. **걷는 중이면 null 이다.**
+   *
+   * 문을 넘는 10분 동안은 어느 방에도 없다. 그때 페이즈가 닫히면
+   * 어느 방에도 안 세어진다 — 마지막 순간의 이동은 도박이다.
+   */
+  tileId: TileId | null
+  /** 걷는 중이라면 가는 곳. 서 있으면 null. */
+  toTile?: TileId | null
   /** 세 명뿐인 팀의 주장. 점령 판정에서 둘로 센다. */
   captain: boolean
-  /** 이번 페이즈에 남은 토큰. */
+  /** 들고 있는 토큰. 페이즈마다 받고, 남으면 그대로 간다 — 거래할 수 있다. */
   tokens: number
 }
 
@@ -125,9 +160,9 @@ export interface PhaseState {
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
 
-/** 행동에 드는 토큰. 이동은 MOVE_COST 다. */
+/** 행동에 드는 토큰. 이동은 **들어가는 값**이다 — 나가는 데는 안 든다. */
 export const ACT_COST: Record<ActionKind, number> = {
-  move: MOVE_COST,
+  move: ENTER_COST,
   research: 2,
   summon: 1,
   disturb: 1,
@@ -178,7 +213,9 @@ export const isShortHanded = (team: TeamId): boolean => SHORT_HANDED_TEAMS.inclu
 /** 방을 차지하는 자리 수. 사람도 로봇도 하나씩이다 — 정원은 머릿수가 아니라 자리다. */
 export function seatsUsed(state: PhaseState, tileId: TileId): number {
   return (
-    state.people.filter((p) => p.tileId === tileId).length +
+    // 걸어오는 중인 사람도 한 자리를 잡아 둔다. 안 그러면 정원 둘짜리
+    // 방에 셋이 동시에 출발해서 셋 다 들어간다
+    state.people.filter((p) => p.tileId === tileId || p.toTile === tileId).length +
     state.robots.filter((r) => r.tileId === tileId).length
   )
 }
@@ -229,18 +266,30 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
   const byId = new Map(people.map((p) => [p.playerId, p]))
   const mine = byId.get(playerId) as Person
 
+  // 걸어오는 중인 사람도 한 자리를 잡아 둔다
   const seats = (tileId: TileId) =>
-    people.filter((p) => p.tileId === tileId).length + robots.filter((r) => r.tileId === tileId).length
+    people.filter((p) => p.tileId === tileId || p.toTile === tileId).length +
+    robots.filter((r) => r.tileId === tileId).length
   const carriedOf = (id: string) => robots.filter((r) => r.carriedBy === id)
 
-  /** 사람 하나를 옆방으로 옮긴다. 데리고 있는 로봇도 같이 간다. */
+  /**
+   * 사람 하나를 문 밖으로 내보낸다. **바로 도착하지 않는다.**
+   *
+   * 나가는 데 5분, 들어가는 데 5분. 그동안은 어느 방에도 없고, 데리고
+   * 있는 로봇도 함께 사라진다. 도착은 서버의 시계가 시킨다 — 이 함수는
+   * 「떠났다」까지만 안다.
+   */
   function step(p: Person, to: TileId): string | null {
+    if (p.tileId === null) return '이미 걷는 중이다.'
     if (!ADJACENCY[p.tileId]?.includes(to)) return '옆방이 아니다.'
     const party = 1 + carriedOf(p.playerId).length
     const room = capacityOf(to)
     if (seats(to) + party > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
     const moving = carriedOf(p.playerId)
-    p.tileId = to
+    p.tileId = null
+    p.toTile = to
+    // 데리고 가는 로봇은 미리 그 방에 놓는다. 판정에는 사람이 도착해야
+    // 끼지만, 자리는 지금부터 잡아야 남이 새치기하지 못한다
     for (const r of moving) r.tileId = to
     return null
   }
@@ -258,11 +307,13 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
     }
 
     case 'summon': {
-      // 같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 멀리 있는 사람을
-      // 부르는 데 여러 페이즈가 걸린다 — 그래서 뭉치는 것이 비싸다
+      // 같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 부르는 것도 걸음이라
+      // 끌려오는 사람은 10분 동안 어느 방에도 없다
+      if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const target = act.targetPlayer ? byId.get(act.targetPlayer) : undefined
       if (!target) return no('그런 사람이 없다.')
       if (target.team !== mine.team) return no('같은 팀만 부를 수 있다.')
+      if (target.tileId === null) return no('그 사람은 걷는 중이다.')
       if (target.tileId === mine.tileId) return no('이미 같은 방에 있다.')
       const next = stepToward(target.tileId, mine.tileId)
       if (!next) return no('길이 없다.')
@@ -273,6 +324,7 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
     }
 
     case 'disturb': {
+      if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       // 같은 방의 상대 하나를 이번 페이즈 점령 판정에서 0으로 만든다.
       // 쫓아내지는 못한다 — 사람은 그대로 서 있고 숫자만 빠진다
       if (act.targetPlayer) {
@@ -322,6 +374,7 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
     }
 
     case 'dropRobot': {
+      if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const held = carriedOf(playerId)
       if (held.length === 0) return no('데리고 있는 로봇이 없다.')
       held[0].carriedBy = null
@@ -330,6 +383,7 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
     }
 
     case 'smashRobot': {
+      if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       if (people.some((q) => q.tileId === mine.tileId && q.team !== mine.team)) {
         return no('이 방에 상대 팀 사람이 있다.')
       }
@@ -341,6 +395,7 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
     }
 
     case 'research': {
+      if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       if (ROOM_KIND[mine.tileId] !== 'lab') return no('연구실에서만 연구할 수 있다.')
       if (state.pendingResearch.includes(playerId)) return no('이미 연구를 걸어 두었다.')
       // 발전소를 쥔 팀은 그 자리에서 로봇이 나온다
@@ -355,7 +410,7 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
         }
       }
       if (seats(mine.tileId) + 1 > capacityOf(mine.tileId)) return no('방이 꽉 차 로봇이 설 자리가 없다.')
-      robots = [...robots, born(mine, robots, `now-${playerId}-${state.robots.length}`)]
+      robots = [...robots, born(mine, robots, `now-${playerId}-${state.robots.length}`, mine.tileId)]
       log = { kind: 'researchDone', playerId, tileId: mine.tileId }
       break
     }
@@ -366,14 +421,27 @@ export function doAct(state: PhaseState, playerId: string, act: Act): ActResult 
 }
 
 /** 새로 나온 로봇 하나. 두 기까지만 데리고 다닌다 — 넘치면 그 자리에 선다. */
-function born(owner: Person, robots: readonly Robot[], id: string): Robot {
+function born(owner: Person, robots: readonly Robot[], id: string, at: TileId): Robot {
   const carried = robots.filter((r) => r.carriedBy === owner.playerId).length
   return {
     id: `bot-${id}`,
     team: owner.team,
-    tileId: owner.tileId,
+    tileId: at,
     carriedBy: carried < MAX_CARRIED_ROBOTS ? owner.playerId : null,
   }
+}
+
+/**
+ * 걷던 사람이 도착했다. 서버의 시계가 부른다.
+ *
+ * 자리를 다시 보지 않는다 — 떠날 때 이미 잡아 두었다. 여기서 또 보면
+ * 「출발은 됐는데 도착을 못 하는」 사람이 생긴다.
+ */
+export function arrive(state: PhaseState, playerId: string): PhaseState {
+  const people = state.people.map((p) =>
+    p.playerId === playerId && p.toTile ? { ...p, tileId: p.toTile, toTile: null } : p,
+  )
+  return { ...state, people }
 }
 
 // ── 페이즈 닫기 ─────────────────────────────────────────────────
@@ -401,6 +469,7 @@ export function settle(state: PhaseState): SettleResult {
   for (const t of TILES) {
     const w: Partial<Record<TeamId, number>> = {}
     for (const p of state.people) {
+      // 걷는 중인 사람은 어느 방에도 없다. 마지막 순간의 이동은 도박이다
       if (p.tileId !== t.id || zeroedPeople.has(p.playerId)) continue
       w[p.team] = (w[p.team] ?? 0) + headOf(p)
     }
@@ -421,10 +490,11 @@ export function settle(state: PhaseState): SettleResult {
   let made = 0
   for (const id of state.pendingResearch) {
     const p = state.people.find((q) => q.playerId === id)
-    if (!p) continue
+    // 연구를 건 사람이 걷는 중이면 로봇이 설 자리가 없다. 다음으로 미룬다
+    if (!p || p.tileId === null) continue
     if (seats(p.tileId) + 1 > capacityOf(p.tileId)) continue
     made += 1
-    robots = [...robots, born(p, robots, `${id}-${made}`)]
+    robots = [...robots, born(p, robots, `${id}-${made}`, p.tileId)]
     log.push({ kind: 'researchDone', playerId: id, tileId: p.tileId })
   }
 
@@ -484,7 +554,8 @@ export function shownCount(
   const wearing = new Set(disguised)
   let n = 0
   for (const p of state.people) {
-    if (p.tileId !== tileId) continue
+    // 걷는 중인 사람은 안 보인다
+    if (p.tileId === null || p.tileId !== tileId) continue
     n += p.team !== viewerTeam && wearing.has(p.playerId) ? DISGUISE_SHOWN_AS : 1
   }
   n += state.robots.filter((r) => r.tileId === tileId).length

@@ -23,6 +23,7 @@ import { Deals } from './Deals'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
+import { MOVE_MINUTES } from '../../../shared/rules/occupy'
 import './play.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
@@ -454,14 +455,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
           // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
           // 아무도 안 움직인다. 값은 페이즈가 열릴 때 한 번 치른다
-          // 페이즈 중에는 같은 걸음에 토큰이 든다. 자유 시간에는 공짜다
+          // 페이즈 중에는 들어가는 데 토큰이 들고 10분이 걸린다.
+          // 자유 시간에는 공짜고 즉시다
           const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to)
           void go
             .then((r) => {
               const left = (r as { tokens?: number }).tokens
               setSaid(
                 phaseOpen
-                  ? `${TILE_BY_ID[to].name}(으)로. 토큰 ${left ?? '?'}개 남았다.`
+                  ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
                   : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
               )
             })

@@ -33,6 +33,17 @@ export interface TradeOffer {
   accord?: boolean
 }
 
+/**
+ * 사람이 들고 있어서 사람끼리 오가는 것. 재화는 팀 것이고 이 둘은 개인 것이다.
+ *
+ * 토큰은 페이즈마다 받는 행동 횟수고, 로봇은 데리고 다니는 것이다.
+ * 둘 다 **마주 선 두 사람 사이에서만** 움직인다 — 팀 금고를 거치지 않는다.
+ */
+export interface Purse {
+  tokens: number
+  robots: number
+}
+
 export type OfferRefusal = 'ownTeam' | 'tooManyPending' | 'blocked' | 'empty'
 
 export interface OfferInput {
@@ -44,6 +55,9 @@ export interface OfferInput {
   pending: number
   /** 교역 차단 견제를 맞고 있는가. */
   tradeBlocked?: boolean
+  /** 사람끼리 오가는 것 — 토큰과 데리고 있는 로봇. */
+  givePurse?: Partial<Purse>
+  wantPurse?: Partial<Purse>
 }
 
 /** 제안할 수 있는가. 답 없는 제안이 셋을 넘으면 더 못 보낸다. */
@@ -51,9 +65,44 @@ export function canOffer(input: OfferInput): { ok: boolean; reason: OfferRefusal
   if (input.fromTeam === input.toTeam) return { ok: false, reason: 'ownTeam' }
   if (input.tradeBlocked) return { ok: false, reason: 'blocked' }
   if (input.pending >= TRADE_PENDING_LIMIT) return { ok: false, reason: 'tooManyPending' }
-  const any = RESOURCES.some((r) => (input.give[r] ?? 0) > 0 || (input.want[r] ?? 0) > 0)
+  const any =
+    RESOURCES.some((r) => (input.give[r] ?? 0) > 0 || (input.want[r] ?? 0) > 0) ||
+    (input.givePurse?.tokens ?? 0) > 0 ||
+    (input.givePurse?.robots ?? 0) > 0 ||
+    (input.wantPurse?.tokens ?? 0) > 0 ||
+    (input.wantPurse?.robots ?? 0) > 0
   if (!any) return { ok: false, reason: 'empty' }
   return { ok: true, reason: null }
+}
+
+export type PurseRefusal = 'senderNoTokens' | 'senderNoRobots' | 'receiverNoTokens' | 'receiverNoRobots'
+
+/**
+ * 토큰과 로봇이 실제로 오갈 수 있는가. **받아들이는 순간** 센다.
+ *
+ * 값(TRADE_COST)은 제안한 쪽이 낸다. 제안만 뿌리고 다니는 것을 막으려면
+ * 값이 제안하는 쪽에 붙어야 한다 — 다만 성립할 때만이다.
+ */
+export function movePurse(
+  from: Purse,
+  to: Purse,
+  give: Partial<Purse>,
+  want: Partial<Purse>,
+  cost: number,
+): { ok: true; from: Purse; to: Purse } | { ok: false; reason: PurseRefusal } {
+  const giveT = give.tokens ?? 0
+  const giveR = give.robots ?? 0
+  const wantT = want.tokens ?? 0
+  const wantR = want.robots ?? 0
+  if (from.tokens < giveT + cost) return { ok: false, reason: 'senderNoTokens' }
+  if (from.robots < giveR) return { ok: false, reason: 'senderNoRobots' }
+  if (to.tokens < wantT) return { ok: false, reason: 'receiverNoTokens' }
+  if (to.robots < wantR) return { ok: false, reason: 'receiverNoRobots' }
+  return {
+    ok: true,
+    from: { tokens: from.tokens - giveT - cost + wantT, robots: from.robots - giveR + wantR },
+    to: { tokens: to.tokens - wantT + giveT, robots: to.robots - wantR + giveR },
+  }
 }
 
 export type AcceptRefusal = 'senderShort' | 'receiverShort'

@@ -9,7 +9,7 @@
 // 왜 없는지 알 수 없고, 이유 없이 막으면 왜 안 되는지 알 수 없다.
 import { useEffect, useState } from 'react'
 
-import { ACT_COST, MAX_CARRIED_ROBOTS, ROOM_KIND } from '../../../shared/rules/occupy'
+import { ACT_COST, ENTER_MINUTES, EXIT_MINUTES, MAX_CARRIED_ROBOTS, ROOM_KIND } from '../../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID } from '../../../shared/rules/board'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
@@ -42,7 +42,7 @@ const LABEL: Record<ActionKind, string> = {
 }
 
 const WHAT: Record<ActionKind, string> = {
-  move: '옆방으로 한 칸. 맵에서 걸어서 간다.',
+  move: `옆방으로 한 칸. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다.`,
   research: '다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
   summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다.',
   disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
@@ -132,7 +132,8 @@ export function Phase({ me, here: hereIn, seats, view, endsAtMs, act, onSaid }: 
         {endsAtMs != null && <em>{overAt ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}</em>}
       </p>
       <p className="sc-ph__hint">
-        걸어서 한 칸 옮기는 데 토큰 {ACT_COST.move}개. 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
+        다른 방에 <b>들어갈 때</b> 토큰 {ACT_COST.move}개. 나가는 데 {EXIT_MINUTES}분, 들어가는 데 {ENTER_MINUTES}분이
+        걸리고 그동안은 어느 방에도 없다. 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
       </p>
 
       <ul className="sc-ph__list">

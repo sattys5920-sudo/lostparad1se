@@ -7,6 +7,7 @@ import {
   canAlly,
   canOffer,
   clearAlliances,
+  movePurse,
   type AllianceState,
   type TradeOffer,
 } from './diplomacy'
@@ -136,5 +137,43 @@ describe('동맹', () => {
   it('깃발 판정에 넘길 목록을 만든다', () => {
     expect(alliesOf({ allyTeam: 'B', lockUntilRealMs: null })).toEqual(['B'])
     expect(alliesOf(free)).toEqual([])
+  })
+})
+
+describe('토큰과 로봇은 사람끼리 오간다', () => {
+  const cost = 1
+  it('주고받은 만큼 옮겨 가고, 값은 제안한 쪽이 낸다', () => {
+    const out = movePurse({ tokens: 5, robots: 2 }, { tokens: 1, robots: 0 }, { tokens: 2 }, { robots: 0 }, cost)
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    // 준 둘 + 값 하나
+    expect(out.from.tokens).toBe(2)
+    expect(out.to.tokens).toBe(3)
+  })
+
+  it('로봇도 손에서 손으로 간다', () => {
+    const out = movePurse({ tokens: 3, robots: 2 }, { tokens: 0, robots: 1 }, { robots: 2 }, { robots: 1 }, cost)
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.from.robots).toBe(1)
+    expect(out.to.robots).toBe(2)
+  })
+
+  it('**값까지 낼 토큰이 있어야 한다**', () => {
+    // 둘을 주려면 값 하나까지 셋이 있어야 한다. 둘뿐이면 성립하지 않는다
+    const out = movePurse({ tokens: 2, robots: 0 }, { tokens: 9, robots: 0 }, { tokens: 2 }, {}, cost)
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.reason).toBe('senderNoTokens')
+  })
+
+  it('없는 것은 못 받는다', () => {
+    const out = movePurse({ tokens: 9, robots: 0 }, { tokens: 0, robots: 0 }, {}, { robots: 1 }, cost)
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.reason).toBe('receiverNoRobots')
+  })
+
+  it('토큰이나 로봇만 걸어도 빈 제안이 아니다', () => {
+    const out = canOffer({ fromTeam: 'A', toTeam: 'B', give: {}, want: {}, givePurse: { tokens: 1 }, pending: 0 })
+    expect(out.ok).toBe(true)
   })
 })

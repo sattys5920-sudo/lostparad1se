@@ -10,6 +10,7 @@ import {
   ROOM_CAPACITY,
   ROOM_KIND,
   TOKENS_PER_PHASE,
+  arrive,
   capacityOf,
   doAct,
   ownerOf,
@@ -58,21 +59,36 @@ function must(state: PhaseState, playerId: string, act: Act): PhaseState {
 }
 
 const at = (s: PhaseState, id: string) => s.people.find((p) => p.playerId === id) as Person
+
+/** 문을 넘고 10분 뒤 — 서버의 시계가 하는 일을 시험에서 손으로 한다. */
+const land = (s: PhaseState, ...ids: string[]) => ids.reduce(arrive, s)
 const lab = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
 const plant = TILES.find((t) => ROOM_KIND[t.id] === 'plant') as (typeof TILES)[number]
 
 describe('토큰이 한 페이즈의 전부다', () => {
-  it('한 칸 움직이면 토큰이 하나 준다', () => {
+  it('다른 방에 들어가면 토큰이 하나 준다', () => {
     const s0 = board({ people: [person('a', 'A', 'baseA')] })
     const s1 = must(s0, 'a', { kind: 'move', targetTile: 'classroom' })
-    expect(at(s1, 'a').tileId).toBe('classroom')
+    // **바로 도착하지 않는다.** 나가는 데 5분, 들어가는 데 5분
+    expect(at(s1, 'a').tileId).toBeNull()
+    expect(at(s1, 'a').toTile).toBe('classroom')
     expect(at(s1, 'a').tokens).toBe(TOKENS_PER_PHASE - ACT_COST.move)
+    const s2 = land(s1, 'a')
+    expect(at(s2, 'a').tileId).toBe('classroom')
+    expect(at(s2, 'a').toTile).toBeNull()
+  })
+
+  it('걷는 중에는 아무 방에도 없다 — 그때 닫히면 아무 데도 못 센다', () => {
+    let s = board({ people: [person('a', 'A', 'library')], owners: { library: null } })
+    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(settle(s).next.owners.library).toBeNull()
+    expect(settle(s).next.owners.classroom).toBeNull()
   })
 
   it('토큰이 떨어지면 더는 못 움직인다', () => {
     let s = board({ people: [{ ...person('a', 'A', 'baseA'), tokens: 2 }] })
-    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
-    s = must(s, 'a', { kind: 'move', targetTile: 'library' })
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'classroom' }), 'a')
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'library' }), 'a')
     expect(at(s, 'a').tokens).toBe(0)
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'artRoom' })
     expect(out.ok).toBe(false)
@@ -113,9 +129,9 @@ describe('움직임', () => {
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('꽉 찼다')
-    // 하나가 비키면 들어간다
+    // 하나가 비키면 들어간다. 나가는 순간 자리가 난다
     s = must(s, 'y', { kind: 'move', targetTile: 'musicRoom' })
-    s = must(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
     expect(at(s, 'a').tileId).toBe('cafeteria')
   })
 
@@ -141,7 +157,7 @@ describe('움직임', () => {
 describe('호출', () => {
   it('같은 팀 하나를 내 쪽으로 한 칸 끌어온다', () => {
     const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')] })
-    const s1 = must(s0, 'a', { kind: 'summon', targetPlayer: 'b' })
+    const s1 = land(must(s0, 'a', { kind: 'summon', targetPlayer: 'b' }), 'b')
     expect(at(s1, 'b').tileId).toBe(stepToward('library', 'baseA'))
     expect(at(s1, 'a').tokens).toBe(TOKENS_PER_PHASE - ACT_COST.summon)
   })
@@ -211,7 +227,7 @@ describe('로봇', () => {
     })
     s = must(s, 'a', { kind: 'dropRobot' })
     expect(s.robots[0].carriedBy).toBeNull()
-    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'classroom' }), 'a')
     expect(s.robots[0].tileId).toBe('library')
     // 사람은 떠났지만 로봇이 남아 도서관을 가져간다
     expect(settle(s).next.owners.library).toBe('A')
