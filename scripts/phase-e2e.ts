@@ -8,10 +8,10 @@
 //   머릿수가 많은 팀이 방을 가져가고, 동점이면 안 바뀐다
 //
 //   HOST_CODE=... npx vite-node scripts/phase-e2e.ts
-import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { ACT_COST, MOVE_MINUTES, ROOM_KIND, TOKEN_CAP, capacityOf, stepToward } from '../shared/rules/occupy'
+import { ACT_COST, MOVE_MINUTES, ROOM_KIND, capacityOf, grantFor, nextTokens, stepToward } from '../shared/rules/occupy'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -86,7 +86,7 @@ async function main(): Promise<void> {
   await setAdmin(he)
   const host = (await auth(he)).token
   const want: TeamId[] = []
-  for (const [t, n] of Object.entries(TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
   await must('createGame', host, { gameId: GAME, seed: 'phase' })
   const people: { uid: string; token: string; team: TeamId }[] = []
   for (let i = 0; i < TOTAL_SEATS; i++) {
@@ -146,8 +146,11 @@ async function main(): Promise<void> {
   check(roamNow.code === 'FAILED_PRECONDITION', '페이즈 중에는 토큰을 써서 움직인다')
 
   console.log('\n── 토큰이 한 페이즈의 전부다 ──')
-  // 판이 시작할 때 한 벌, 페이즈가 열릴 때 또 한 벌 — 한도까지 쌓인다
-  check(now.tokens === TOKEN_CAP, '열릴 때 토큰을 더 받았다', `${now.tokens}개 (한도 ${TOKEN_CAP})`)
+  // 판이 시작할 때 한 벌, 페이즈가 열릴 때 또 한 벌. 인원수만큼 받는다 —
+  // A팀은 넷이라 4씩이다. 상수 4·4·3·3을 읽지 않고 명단을 센다
+  const aSize = STARTING_TEAM_SIZES.A
+  const wantTokens = nextTokens({ held: grantFor(aSize), teamSize: aSize })
+  check(now.tokens === wantTokens, '열릴 때 인원수만큼 더 받았다', `${now.tokens}개 (바란 값 ${wantTokens})`)
 
   /**
    * 게임 시계를 민다. 걷는 10분이 지나야 도착한다.
@@ -167,7 +170,7 @@ async function main(): Promise<void> {
   }
 
   const step = await must('phaseAct', a0.token, { gameId: GAME, kind: 'move', targetTile: 'classroom' })
-  check(Number(step.tokens) === TOKEN_CAP - ACT_COST.move, '들어갈 때 토큰 하나', `${step.tokens}개 남음`)
+  check(Number(step.tokens) === wantTokens - ACT_COST.move, '들어갈 때 토큰 하나', `${step.tokens}개 남음`)
   check(step.walking === true, '**바로 도착하지 않는다**')
   let mid = (await pawnsNow())[a0.uid]
   check(mid.tileId === null, '나가는 5분 · 들어가는 5분 동안은 어느 방에도 없다', String(mid.tileId))

@@ -20,6 +20,7 @@ import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
+import { isShortHanded } from '../../shared/rules/occupy'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   ALLIANCE_CLEAR_DAY,
@@ -144,10 +145,10 @@ async function dayStart(c: Ctx): Promise<void> {
     })
   }
 
-  // 3인 팀 주장은 날마다 돈다
+  // 머릿수가 모자란 팀의 주장은 날마다 돈다
   for (const team of TEAMS) {
     const members = c.game.seats.filter((s) => s.team === team)
-    if (members.length >= 4) continue
+    if (!isShortHanded(members.length)) continue
     const next = members[(c.day - 1) % members.length].playerId
     c.tx.update(ref.collection('teams').doc(team), { captainId: next })
   }

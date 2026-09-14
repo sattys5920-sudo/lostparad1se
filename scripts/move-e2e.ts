@@ -6,7 +6,7 @@
 //   npx -y -p firebase-tools firebase emulators:start \
 //     --only firestore,functions,auth --project demo-goei
 //   npx vite-node scripts/move-e2e.ts
-import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { BASE_OF, pathBetween } from '../shared/rules/board'
 import { dayHourMs } from '../shared/rules/clock'
@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   const host = (await auth(he)).token
 
   const want: TeamId[] = []
-  for (const [t, n] of Object.entries(TEAM_SIZES) as [TeamId, number][]) {
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) {
     for (let i = 0; i < n; i++) want.push(t)
   }
   await must('createGame', host, { gameId: GAME, seed: 'move' })

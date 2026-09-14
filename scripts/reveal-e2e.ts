@@ -5,7 +5,7 @@
 //   npx -y -p firebase-tools firebase emulators:start \
 //     --only firestore,functions,auth --project demo-goei
 //   npx vite-node scripts/reveal-e2e.ts
-import { AWAKENING_STAY_GAME_HOURS, TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { AWAKENING_STAY_GAME_HOURS, STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { MEMORY_TILES } from '../shared/rules/memory'
 import { dayHourMs } from '../shared/rules/clock'
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
   await setAdmin(he)
   const host = (await auth(he)).token
   const want: TeamId[] = []
-  for (const [t, n] of Object.entries(TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
   await must('createGame', host, { gameId: GAME, seed: 'rev' })
   const people: { uid: string; token: string; team: TeamId }[] = []
   for (let i = 0; i < TOTAL_SEATS; i++) {

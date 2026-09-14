@@ -2,7 +2,7 @@
 //
 // 제일 중요한 확인은 **종례 전에는 한 줄도 안 나가는 것**이다.
 // A의 시선 열넷이 먼저 새면 닷새가 무너진다.
-import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
   const he = await signUp(`h-${GAME}@x.test`); await setAdmin(he)
   const host = (await auth(he)).token
   const want: TeamId[] = []
-  for (const [t, n] of Object.entries(TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
   await must('createGame', host, { gameId: GAME, seed: 'end' })
   const people: { uid: string; token: string; team: TeamId }[] = []
   for (let i = 0; i < TOTAL_SEATS; i++) {

@@ -10,11 +10,11 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
-import { TOKENS_PER_PHASE } from '../../shared/rules/occupy'
+import { grantFor, isShortHanded } from '../../shared/rules/occupy'
 import { BASE_OF, TILES, startingTiles, type TileId } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { initialTokenState } from '../../shared/rules/tokens'
-import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
+import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canStart, openTeams, timedEvents } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
 import { gameRef, nowOf, requireUid } from './index'
@@ -112,7 +112,7 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     const others = seats.filter((s) => s.playerId !== uid)
     const team = wanted ?? (mine >= 0 ? seats[mine].team : randomOpenTeam(others, game.seed + uid))
     if (!team) throw new HttpsError('resource-exhausted', '자리가 없다.')
-    if (others.filter((s) => s.team === team).length >= TEAM_SIZES[team]) {
+    if (others.filter((s) => s.team === team).length >= STARTING_TEAM_SIZES[team]) {
       throw new HttpsError('resource-exhausted', `${team}팀은 다 찼다.`)
     }
 
@@ -218,7 +218,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         postTile: BASE_OF[team] as TileId,
         // 세 명뿐인 팀의 첫 사람이 주장이다. 점령 판정에서 둘로 센다 —
         // 네 명인 팀과 머릿수를 맞추는 유일한 장치다
-        captain: members.length < 4 && i === 0,
+        captain: isShortHanded(members.length) && i === 0,
         // 기지는 이미 가 본 곳이다. 지도는 여기서부터 채워진다
         visitedTiles: [BASE_OF[team] as TileId],
         fromTile: null,
@@ -228,7 +228,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         tokensUsedToday: 0,
         // 첫 페이즈가 열리기 전에도 거래는 한다. 빈손으로 시작하면
         // 첫날 아침에는 아무도 아무것도 못 건넨다
-        tokens: TOKENS_PER_PHASE,
+        tokens: grantFor(members.length),
         votedToday: false,
         peeksToday: 0,
       })

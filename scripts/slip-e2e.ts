@@ -7,7 +7,7 @@
 // 문장 표가 번들에 안 실리는지는 check:bundle 이 따로 본다.
 //
 //   npx vite-node scripts/slip-e2e.ts
-import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { SLIPS_PER_PHASE } from '../shared/reveal/slips'
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   await setAdmin(he)
   const host = (await auth(he)).token
   const want: TeamId[] = []
-  for (const [t, n] of Object.entries(TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
   await must('createGame', host, { gameId: GAME, seed: 'slip' })
   const people: { uid: string; token: string; team: TeamId }[] = []
   for (let i = 0; i < TOTAL_SEATS; i++) {

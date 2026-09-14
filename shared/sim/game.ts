@@ -45,7 +45,7 @@ import {
   SETTLEMENT_HOUR,
   STARTING_RESOURCES,
   TEAM_IDS,
-  TEAM_SIZES,
+  STARTING_TEAM_SIZES,
   TOTAL_DAYS,
   type BuildingKind,
   type GoalKind,
@@ -120,7 +120,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]
 
   // 명단
-  const roster: Player[] = (Object.entries(TEAM_SIZES) as [TeamId, number][]).flatMap(([team, n]) =>
+  const roster: Player[] = (Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]).flatMap(([team, n]) =>
     Array.from({ length: n }, (_, i) => ({ id: `${team}${i + 1}`, team })),
   )
   const assignments = assignRoles(roster, seed)

@@ -11,7 +11,7 @@
 //   npx -y -p firebase-tools firebase emulators:start \
 //     --only firestore,functions,auth --project demo-goei
 //   npx vite-node scripts/chat-e2e.ts
-import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { meetAt } from './meet'
@@ -95,7 +95,7 @@ async function main(): Promise<void> {
   await setAdmin(he)
   const host = (await auth(he)).token
   const want: TeamId[] = []
-  for (const [t, n] of Object.entries(TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
   await must('createGame', host, { gameId: GAME, seed: 'chat' })
   const people: { uid: string; token: string; team: TeamId }[] = []
   for (let i = 0; i < TOTAL_SEATS; i++) {

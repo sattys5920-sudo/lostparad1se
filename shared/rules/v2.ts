@@ -19,12 +19,30 @@ export const TOTAL_DAYS = 5
 export type TeamId = 'A' | 'B' | 'C' | 'D'
 export const TEAM_IDS: readonly TeamId[] = ['A', 'B', 'C', 'D']
 
-/** 14명을 4/4/3/3으로 나눈다. */
-export const TEAM_SIZES: Record<TeamId, number> = { A: 4, B: 4, C: 3, D: 3 }
-/** 주장을 두는 팀 — 머릿수가 모자란 쪽이다. */
-export const SHORT_HANDED_TEAMS: readonly TeamId[] = ['C', 'D']
-/** 주장은 깃발 판정에서 이만큼으로 센다. */
+/**
+ * **판을 시작할 때** 14명을 4/4/3/3으로 나눈다.
+ *
+ * 이것은 자리 배정표지 현재 인원이 아니다. 이적이 생기면 C팀이 넷이
+ * 되고 A팀이 셋이 된다 — 그러니 「지금 저 팀이 몇 명인가」를 여기서
+ * 읽으면 안 된다. 그때는 명단을 세야 한다(teamSizesOf).
+ *
+ * 전에는 SHORT_HANDED_TEAMS = ['C','D'] 라는 것이 있었다. 이름 자체가
+ * 「C와 D는 영원히 세 명」이라는 틀린 전제를 담고 있어서 걷어냈다.
+ */
+export const STARTING_TEAM_SIZES: Record<TeamId, number> = { A: 4, B: 4, C: 3, D: 3 }
+
+/** 주장을 두는 팀의 인원. 이보다 적은 팀이 주장을 둔다. */
+export const FULL_TEAM_SIZE = 4
+
+/** 주장은 점령 판정에서 이만큼으로 센다. */
 export const CAPTAIN_HEAD_COUNT = 2
+
+/** 지금 팀마다 몇 명인가. **명단을 센다** — 상수를 읽지 않는다. */
+export function teamSizesOf(roster: readonly { team: TeamId }[]): Record<TeamId, number> {
+  const out = Object.fromEntries(TEAM_IDS.map((t) => [t, 0])) as Record<TeamId, number>
+  for (const r of roster) out[r.team] += 1
+  return out
+}
 
 export type Tier = 'base' | 'zone1' | 'gate' | 'cross' | 'core' | 'plaza'
 

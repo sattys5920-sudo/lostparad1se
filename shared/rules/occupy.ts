@@ -15,7 +15,7 @@
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 같은 입력에 늘 같은 결과라, 서버가 돌리든 시험이 돌리든 같다.
 import { ADJACENCY, TILE_BY_ID, TILES, type TileId } from './board'
-import { CAPTAIN_HEAD_COUNT, SHORT_HANDED_TEAMS, type TeamId, type Tier } from './v2'
+import { CAPTAIN_HEAD_COUNT, FULL_TEAM_SIZE, type TeamId, type Tier } from './v2'
 
 // ── 수치 ────────────────────────────────────────────────────────
 //
@@ -40,16 +40,68 @@ export const PHASE_MINUTES = 60
  * 닫힐 때 태워 버리면 「토큰을 받고 무엇을 준다」가 성립하지 않는다.
  * 아껴 두었다가 자유 시간에 남에게 넘길 수도 있다.
  */
-export const TOKENS_PER_PHASE = 6
+export const TOKENS_PER_PHASE = 4
+
+/**
+ * 머릿수가 모자란 팀이 한 사람당 더 받는 몫.
+ *
+ * 세 명짜리 팀은 1인당 5를 받아 팀 총합 15, 네 명짜리 팀은 4씩 16이
+ * 된다. 사람 수만큼 손이 모자란 것은 어차피 그대로고, 여기서 맞추는
+ * 것은 **팀이 한 페이즈에 낼 수 있는 행동의 총량**이다.
+ *
+ * 인원은 페이즈가 열리는 순간에 센다. 이적이 걸려 있으면 그날 아침에
+ * 이미 발효돼 있으므로, 옮겨 간 사람은 새 팀 인원수로 받는다.
+ */
+export const SHORT_TEAM_BONUS = 1
+
+/** 그 인원의 팀에서 한 사람이 받는 토큰. */
+export function grantFor(teamSize: number): number {
+  return teamSize < FULL_TEAM_SIZE ? TOKENS_PER_PHASE + SHORT_TEAM_BONUS : TOKENS_PER_PHASE
+}
 
 /**
  * 들고 다닐 수 있는 토큰의 한도.
  *
  * 남는 것을 그대로 두면 쉰 페이즈 동안 쌓여서 나중에는 아무 값도
- * 아니게 된다. 한편 한 푼도 못 남기면 거래할 물건이 못 된다. 그래서
- * 「두 페이즈치까지」로 둔다 — **플레이테스트에서 제일 먼저 볼 값이다.**
+ * 아니게 된다. 한편 한 푼도 못 남기면 거래할 물건이 못 된다.
+ * **두 페이즈치까지** — 플레이테스트에서 제일 먼저 볼 값이다.
  */
-export const TOKEN_CAP = TOKENS_PER_PHASE * 2
+export const TOKEN_CAP = 8
+
+/**
+ * 결석 보정 — 직전 페이즈에 **한 명도 움직이지 않은 팀**에게.
+ *
+ * 아무도 안 들어온 팀은 토큰만 쌓인 채 한 시간을 통째로 잃는다. 다음
+ * 페이즈에 그 팀원들이 안 쓴 토큰의 절반(내림)을 얹어 준다 — 못 한
+ * 일을 돌려주지는 못해도, 접속한 날 조금 더 움직일 수는 있게 한다.
+ *
+ * **이때만 한도를 넘는다.** 넘긴 것은 그다음 지급에서 한도까지 깎인다 —
+ * 안 그러면 계속 결석해서 쌓아 두는 쪽이 이득이 된다.
+ */
+export const ABSENCE_REFUND_NUMERATOR = 1
+export const ABSENCE_REFUND_DENOMINATOR = 2
+
+/** 결석한 팀이 다음 페이즈에 더 받는 몫. 안 쓴 토큰의 절반을 내림. */
+export function absenceRefund(unusedTokens: number): number {
+  return Math.floor((unusedTokens * ABSENCE_REFUND_NUMERATOR) / ABSENCE_REFUND_DENOMINATOR)
+}
+
+/**
+ * 이번 페이즈에 이 사람이 갖게 될 토큰.
+ *
+ * 순서가 중요하다 — **먼저 한도까지 깎고, 그 뒤에 지급과 보정을 얹는다.**
+ * 결석 보정으로 한도를 넘긴 사람은 여기서 정리된다. 얹은 다음에 깎으면
+ * 보정이 그 자리에서 사라져 아무 뜻이 없어진다.
+ */
+export function nextTokens(input: {
+  held: number
+  teamSize: number
+  /** 이 사람 몫의 결석 보정. 없으면 0. */
+  refund?: number
+}): number {
+  const trimmed = Math.min(input.held, TOKEN_CAP)
+  return trimmed + grantFor(input.teamSize) + (input.refund ?? 0)
+}
 
 /**
  * 다른 방에 **들어갈 때** 드는 토큰. 나갈 때는 안 든다.
@@ -191,6 +243,13 @@ export interface PhaseState {
   disguised: readonly string[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: readonly string[]
+  /**
+   * 이번 페이즈에 무엇이든 한 사람.
+   *
+   * 결석 보정이 이것을 본다 — 한 팀에서 아무도 여기 없으면 그 팀은
+   * 한 시간을 통째로 잃은 것이다.
+   */
+  actedBy: readonly string[]
 }
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
@@ -243,8 +302,8 @@ export interface LogLine {
 /** 점령 판정에서 이 사람이 몇으로 세는가. 주장은 둘이다. */
 export const headOf = (p: Person): number => (p.captain ? CAPTAIN_HEAD_COUNT : 1)
 
-/** 세 명뿐인 팀인가. 주장을 두는 쪽이다. */
-export const isShortHanded = (team: TeamId): boolean => SHORT_HANDED_TEAMS.includes(team)
+/** 머릿수가 모자란 팀인가. 주장을 두는 쪽이다. **명단을 세서 판단한다.** */
+export const isShortHanded = (teamSize: number): boolean => teamSize < FULL_TEAM_SIZE
 
 /** 방의 정원을 차지하는 수. **사람만 센다** — 로봇은 따로 헤아린다. */
 export function seatsUsed(state: PhaseState, tileId: TileId): number {
@@ -345,6 +404,12 @@ export type ActResult =
 
 const no = (why: string): ActResult => ({ ok: false, why })
 
+/** 움직인 사람으로 적어 둔다. 결석 보정이 이 목록을 본다. */
+function marked(out: ActResult, playerId: string): ActResult {
+  if (!out.ok || out.next.actedBy.includes(playerId)) return out
+  return { ...out, next: { ...out.next, actedBy: [...out.next.actedBy, playerId] } }
+}
+
 /**
  * 행동 하나를 지금 당장 처리한다.
  *
@@ -355,6 +420,10 @@ const no = (why: string): ActResult => ({ ok: false, why })
  * 경우에만 깎는다. 반쯤 되고 토큰만 빠지는 일은 없어야 한다.
  */
 export function doAct(state: PhaseState, playerId: string, act: Act): ActResult {
+  return marked(runAct(state, playerId, act), playerId)
+}
+
+function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   const me = state.people.find((p) => p.playerId === playerId)
   if (!me) return no('이 판에 없는 사람이다.')
 
@@ -649,9 +718,32 @@ export function settle(state: PhaseState): SettleResult {
       zeroedRobots: [],
       disguised: [],
       smashedBy: [],
+      actedBy: [],
     },
     log,
   }
+}
+
+/**
+ * 결석 보정 — 한 명도 움직이지 않은 팀의 사람마다 돌려줄 토큰.
+ *
+ * **팀 단위로 본다.** 한 사람만 접속해서 움직였으면 그 팀은 결석이
+ * 아니다 — 남은 사람이 대신 움직일 수 있었다는 뜻이라서, 개인의
+ * 사정까지 메워 주면 안 들어오는 편이 이득이 된다.
+ */
+export function absenceRefunds(state: PhaseState, teams: readonly TeamId[]): Record<string, number> {
+  const acted = new Set(state.actedBy)
+  const out: Record<string, number> = {}
+  for (const team of teams) {
+    const members = state.people.filter((p) => p.team === team)
+    if (members.length === 0) continue
+    if (members.some((p) => acted.has(p.playerId))) continue
+    for (const p of members) {
+      const back = absenceRefund(p.tokens)
+      if (back > 0) out[p.playerId] = back
+    }
+  }
+  return out
 }
 
 /**

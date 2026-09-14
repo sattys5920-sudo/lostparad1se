@@ -21,7 +21,7 @@ import {
   validateBondRing,
   type BondAssignment,
 } from './roles'
-import { TEAM_SIZES, type TeamId } from '../rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
 
 describe('역할 14종', () => {
   it('열네 개다', () => {
@@ -40,7 +40,7 @@ describe('역할 14종', () => {
     expect(ROLES_BY_PATH.team).toHaveLength(4)
     expect(ROLES_BY_PATH.outside).toHaveLength(4)
     // 남은 자리를 사람의 길로 채운다
-    const total = Object.values(TEAM_SIZES).reduce((a, b) => a + b, 0)
+    const total = Object.values(STARTING_TEAM_SIZES).reduce((a, b) => a + b, 0)
     expect(total).toBe(14)
     expect(total - 4 - 4).toBe(ROLES_BY_PATH.people.length)
   })

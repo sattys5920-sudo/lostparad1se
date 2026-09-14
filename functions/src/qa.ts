@@ -10,7 +10,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { TOTAL_SEATS, openTeams } from '../../shared/rules/lobby'
-import { TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, SeatEntry } from '../../shared/model'
 import { createAccount } from './account'
 import { gameRef, requireUid } from './index'
@@ -74,7 +74,7 @@ function pickTeam(seats: readonly SeatEntry[]): TeamId | undefined {
   const open = openTeams(seats)
   if (open.length === 0) return undefined
   return open.reduce((best, t) => {
-    const n = (x: TeamId) => seats.filter((s) => s.team === x).length / TEAM_SIZES[x]
+    const n = (x: TeamId) => seats.filter((s) => s.team === x).length / STARTING_TEAM_SIZES[x]
     return n(t) < n(best) ? t : best
   }, open[0])
 }

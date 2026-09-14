@@ -8,12 +8,12 @@ import {
   timedEvents,
   type Seat,
 } from './lobby'
-import { TEAM_SIZES, TOTAL_DAYS, type TeamId } from './v2'
+import { STARTING_TEAM_SIZES, TOTAL_DAYS, type TeamId } from './v2'
 import { dayNumber, secondsIntoSeoulDay } from './clock'
 
 const full = (): Seat[] =>
   TEAMS.flatMap((t) =>
-    Array.from({ length: TEAM_SIZES[t] }, (_, i) => ({ playerId: `${t}${i}`, team: t })),
+    Array.from({ length: STARTING_TEAM_SIZES[t] }, (_, i) => ({ playerId: `${t}${i}`, team: t })),
   )
 
 describe('자리', () => {

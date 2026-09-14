@@ -8,15 +8,15 @@ import {
   LAST_HOURS_DAY,
   LAST_HOURS_START_HOUR,
   SETTLEMENT_HOUR,
-  TEAM_SIZES,
+  STARTING_TEAM_SIZES,
   TOTAL_DAYS,
   type TeamId,
 } from './v2'
 
-export const TEAMS = Object.keys(TEAM_SIZES) as TeamId[]
+export const TEAMS = Object.keys(STARTING_TEAM_SIZES) as TeamId[]
 
 /** 열넷이 다 앉아야 시작한다. */
-export const TOTAL_SEATS = Object.values(TEAM_SIZES).reduce((a, b) => a + b, 0)
+export const TOTAL_SEATS = Object.values(STARTING_TEAM_SIZES).reduce((a, b) => a + b, 0)
 
 export interface Seat {
   playerId: string
@@ -26,7 +26,7 @@ export interface Seat {
 /** 팀마다 몇 자리 남았는가. */
 export function seatsLeft(seats: readonly Seat[]): Record<TeamId, number> {
   return Object.fromEntries(
-    TEAMS.map((t) => [t, TEAM_SIZES[t] - seats.filter((s) => s.team === t).length]),
+    TEAMS.map((t) => [t, STARTING_TEAM_SIZES[t] - seats.filter((s) => s.team === t).length]),
   ) as Record<TeamId, number>
 }
 
@@ -44,7 +44,7 @@ export function canStart(seats: readonly Seat[]): { ok: boolean; reason: string 
   }
   for (const t of TEAMS) {
     const got = seats.filter((s) => s.team === t).length
-    if (got !== TEAM_SIZES[t]) return { ok: false, reason: `${t}팀은 ${TEAM_SIZES[t]}명이어야 한다 (${got}명).` }
+    if (got !== STARTING_TEAM_SIZES[t]) return { ok: false, reason: `${t}팀은 ${STARTING_TEAM_SIZES[t]}명이어야 한다 (${got}명).` }
   }
   return { ok: true, reason: null }
 }

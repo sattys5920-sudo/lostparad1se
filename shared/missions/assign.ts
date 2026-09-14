@@ -7,7 +7,7 @@
 // 씨앗을 받아 같은 씨앗이면 같은 결과가 나오게 했다. 판을 다시 열어도
 // 역할이 바뀌지 않아야 하고(한 번 배정하면 끝이다), 시험에서 천 번을
 // 돌려 보려면 재현이 돼야 한다.
-import { TEAM_SIZES, type TeamId } from '../rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
 import {
   BOND_RING_SIZE,
   FILLER_PATH,
@@ -72,7 +72,7 @@ function checkRoster(players: readonly Player[]): void {
   if (new Set(players.map((p) => p.id)).size !== players.length) {
     throw new Error('같은 아이디가 두 번 들어 있다')
   }
-  for (const [team, size] of Object.entries(TEAM_SIZES) as [TeamId, number][]) {
+  for (const [team, size] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) {
     const got = players.filter((p) => p.team === team).length
     if (got !== size) throw new Error(`${team}팀은 ${size}명이어야 한다 (${got}명)`)
   }
@@ -91,7 +91,7 @@ function dealRoles(players: readonly Player[], rnd: () => number): Map<string, R
   }
 
   const out = new Map<string, RoleId>()
-  const teams = shuffled(Object.keys(TEAM_SIZES) as TeamId[], rnd)
+  const teams = shuffled(Object.keys(STARTING_TEAM_SIZES) as TeamId[], rnd)
 
   for (const team of teams) {
     const members = shuffled(
@@ -123,9 +123,9 @@ function dealRoles(players: readonly Player[], rnd: () => number): Map<string, R
  * 4·4·3·3이면 가장 많은 팀이 절반을 넘지 않으므로 늘 답이 있다.
  */
 function teamCycle(rnd: () => number): TeamId[] | null {
-  const left: Record<string, number> = { ...TEAM_SIZES }
+  const left: Record<string, number> = { ...STARTING_TEAM_SIZES }
   const out: TeamId[] = []
-  const first = shuffled(Object.keys(TEAM_SIZES) as TeamId[], rnd)[0]
+  const first = shuffled(Object.keys(STARTING_TEAM_SIZES) as TeamId[], rnd)[0]
 
   for (let i = 0; i < BOND_RING_SIZE; i++) {
     const prev = out[out.length - 1]
@@ -147,7 +147,7 @@ function teamCycle(rnd: () => number): TeamId[] | null {
 /** 팀 순서에 사람을 끼워 넣어 고리를 만든다. */
 function bondRing(players: readonly Player[], rnd: () => number): BondAssignment[] {
   const byTeam = new Map<TeamId, string[]>()
-  for (const t of Object.keys(TEAM_SIZES) as TeamId[]) {
+  for (const t of Object.keys(STARTING_TEAM_SIZES) as TeamId[]) {
     byTeam.set(
       t,
       shuffled(

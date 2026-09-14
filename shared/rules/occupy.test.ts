@@ -10,12 +10,17 @@ import {
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
   ROOM_CAPACITY,
+  SHORT_TEAM_BONUS,
+  TOKEN_CAP,
   ROOM_KIND,
   TOKENS_PER_PHASE,
   arrive,
   capacityOf,
   doAct,
   leftBehindCount,
+  absenceRefunds,
+  grantFor,
+  nextTokens,
   ownerOf,
   robotsIn,
   roomsOf,
@@ -57,6 +62,7 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   zeroedRobots: [],
   disguised: [],
   smashedBy: [],
+  actedBy: [],
   ...over,
 })
 
@@ -530,6 +536,96 @@ describe('판이 네 팀에게 공평하다', () => {
       return n
     })
     expect(new Set(steps).size).toBe(1)
+  })
+})
+
+describe('토큰 지급', () => {
+  it('네 명이면 4, 모자란 팀은 한 사람당 하나 더', () => {
+    expect(grantFor(4)).toBe(TOKENS_PER_PHASE)
+    expect(grantFor(3)).toBe(TOKENS_PER_PHASE + SHORT_TEAM_BONUS)
+  })
+
+  it('팀 총합이 엇비슷해진다 — 4인 16 대 3인 15', () => {
+    expect(grantFor(4) * 4).toBe(16)
+    expect(grantFor(3) * 3).toBe(15)
+  })
+
+  it('이적으로 인원이 바뀌면 그 인원수로 받는다', () => {
+    // 상수를 읽지 않고 명단을 세므로, 넷이 된 팀은 4를 받는다
+    expect(grantFor(4)).toBe(TOKENS_PER_PHASE)
+  })
+
+  it('한도까지 깎은 **뒤에** 얹는다', () => {
+    // 순서가 뒤바뀌면 결석 보정이 그 자리에서 사라져 아무 뜻이 없다
+    expect(nextTokens({ held: TOKEN_CAP + 5, teamSize: 4 })).toBe(TOKEN_CAP + grantFor(4))
+    expect(nextTokens({ held: 2, teamSize: 4 })).toBe(2 + grantFor(4))
+  })
+
+  it('보정은 한도를 넘어서 얹힌다', () => {
+    const got = nextTokens({ held: TOKEN_CAP, teamSize: 3, refund: 3 })
+    expect(got).toBe(TOKEN_CAP + grantFor(3) + 3)
+    // 넘긴 것은 그다음 지급에서 한도까지 깎인다 — 안 그러면 계속
+    // 결석해서 쌓아 두는 쪽이 이득이 된다
+    expect(nextTokens({ held: got, teamSize: 3 })).toBe(TOKEN_CAP + grantFor(3))
+  })
+})
+
+describe('결석 보정', () => {
+  const idle = (over: Partial<PhaseState> = {}) =>
+    board({
+      people: [
+        { ...person('a1', 'A', 'baseA'), tokens: 7 },
+        { ...person('a2', 'A', 'baseA'), tokens: 4 },
+        { ...person('b1', 'B', 'baseB'), tokens: 6 },
+      ],
+      ...over,
+    })
+
+  it('안 쓴 토큰의 절반을 내림해서 돌려준다', () => {
+    const back = absenceRefunds(idle({ actedBy: ['b1'] }), TEAM_IDS)
+    expect(back.a1).toBe(3)
+    expect(back.a2).toBe(2)
+  })
+
+  it('한 명이라도 움직였으면 그 팀은 결석이 아니다', () => {
+    // 남은 사람이 대신 움직일 수 있었다는 뜻이다. 개인 사정까지
+    // 메워 주면 안 들어오는 편이 이득이 된다
+    const back = absenceRefunds(idle({ actedBy: ['a2'] }), TEAM_IDS)
+    expect(back.a1).toBeUndefined()
+    expect(back.a2).toBeUndefined()
+  })
+
+  it('움직인 팀에게는 아무것도 없다', () => {
+    expect(absenceRefunds(idle({ actedBy: ['b1'] }), TEAM_IDS).b1).toBeUndefined()
+  })
+
+  it('토큰이 1이면 절반이 0이라 아무것도 안 준다', () => {
+    const s = board({ people: [{ ...person('c1', 'C', 'baseC'), tokens: 1 }] })
+    expect(absenceRefunds(s, TEAM_IDS)).toEqual({})
+  })
+})
+
+describe('움직인 사람 기록', () => {
+  it('성공한 행동은 남고, 거절된 것은 안 남는다', () => {
+    const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'B', 'baseB')] })
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(s1.actedBy).toEqual(['a'])
+    // 옆방이 아니라 거절된다 — 움직인 것으로 치지 않는다
+    const bad = doAct(s1, 'b', { kind: 'move', targetTile: 'classroom' })
+    expect(bad.ok).toBe(false)
+  })
+
+  it('한 사람이 여러 번 해도 한 번만 적힌다', () => {
+    let s = board({ people: [{ ...person('a', 'A', 'baseA'), tokens: 99 }] })
+    s = must(s, 'a', { kind: 'disguise' })
+    const before = s.actedBy.length
+    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(s.actedBy).toHaveLength(before)
+  })
+
+  it('페이즈가 닫히면 지워진다', () => {
+    const s = board({ people: [person('a', 'A', 'baseA')], actedBy: ['a'] })
+    expect(settle(s).next.actedBy).toEqual([])
   })
 })
 

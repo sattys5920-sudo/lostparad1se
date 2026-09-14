@@ -26,7 +26,9 @@ import {
   PHASE_MINUTES,
   TOKENS_PER_PHASE,
   TOKEN_CAP,
+  absenceRefunds,
   capacityOf,
+  nextTokens,
   roomsOf,
   teamRanks,
   doAct,
@@ -39,7 +41,7 @@ import {
 } from '../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
-import { SHORT_HANDED_TEAMS, TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
+import { TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
 import { freshNow } from './turn'
@@ -78,6 +80,8 @@ interface HiddenPhase {
   pendingResearch: string[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: string[]
+  /** 이번 페이즈에 무엇이든 한 사람. 결석 보정이 이 목록을 본다. */
+  actedBy: string[]
 }
 
 const EMPTY_HIDDEN: HiddenPhase = {
@@ -86,6 +90,7 @@ const EMPTY_HIDDEN: HiddenPhase = {
   zeroedRobots: [],
   pendingResearch: [],
   smashedBy: [],
+  actedBy: [],
 }
 
 /** 운영자만. 화면이 하는 말을 믿지 않는다. */
@@ -148,6 +153,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       zeroedRobots: h.zeroedRobots,
       disguised: h.disguised,
       smashedBy: h.smashedBy,
+      actedBy: h.actedBy,
     },
   }
 }
@@ -193,6 +199,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   }
   await Promise.all(marching.map((m) => clearArrivals(gameId, m.ref.id)))
 
+  // 지금 인원. 상수를 읽지 않는다 — 이적하면 4·4·3·3이 아니다
+  const sizes = teamSizesOf(pawns.docs.map((d) => d.data() as PawnDoc))
+
   let returned = 0
   let allInAtMs = nowMs
   for (const d of pawns.docs) {
@@ -200,8 +209,20 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
     const march = marching.find((m) => m.ref.id === d.id)
     // **더해 준다.** 남은 토큰을 태우면 거래할 물건이 못 된다.
-    // 다만 한도가 있다 — 안 쓰고 쌓아 두기만 하면 나중에 값이 없어진다
-    const purse = { tokens: Math.min((p.tokens ?? 0) + TOKENS_PER_PHASE, TOKEN_CAP) }
+    //
+    // 인원은 지금 센다 — 이적이 그날 아침에 이미 발효돼 있으므로
+    // 옮겨 간 사람은 새 팀 인원수로 받는다. 한도는 얹기 **전에** 깎는다:
+    // 결석 보정으로 넘긴 사람이 여기서 정리되고, 얹은 다음에 깎으면
+    // 보정이 그 자리에서 사라져 아무 뜻이 없어진다
+    const purse = {
+      tokens: nextTokens({
+        held: p.tokens ?? 0,
+        teamSize: sizes[p.team],
+        refund: p.pendingRefund ?? 0,
+      }),
+      // 보정은 한 번만 쓰인다
+      pendingRefund: 0,
+    }
     if (!march) {
       // 제자리에 있었거나 이미 걷는 중이다. 걷는 중이면 그 걸음이
       // 끝나기를 기다린다 — 여기서 자리를 빼앗으면 도착 예정과 어긋난다
@@ -264,7 +285,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // 안 그러면 떠난 방의 말이 계속 들린다
   await Promise.all(marching.map((m) => openInterval(gameId, m.ref.id, null, nowMs, 'walking')))
   await refreshViews(gameId)
-  return { no, returned, endsAtMs, allInAtMs, granted: TOKENS_PER_PHASE, cap: TOKEN_CAP }
+  return { no, returned, endsAtMs, allInAtMs, granted: sizes, cap: TOKEN_CAP }
 })
 
 // ── 각자: 지금 당장 하는 행동 ───────────────────────────────────
@@ -321,6 +342,7 @@ export const phaseAct = onCall<{
       zeroedRobots: h.zeroedRobots,
       disguised: h.disguised,
       smashedBy: h.smashedBy,
+      actedBy: h.actedBy,
     }
 
     const out = doAct(before, uid, act)
@@ -375,6 +397,7 @@ export const phaseAct = onCall<{
       zeroedRobots: out.next.zeroedRobots,
       pendingResearch: out.next.pendingResearch,
       smashedBy: out.next.smashedBy,
+      actedBy: out.next.actedBy,
     })
   })
 
@@ -418,6 +441,8 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '열린 페이즈가 없다.')
 
   const { state } = await loadBoard(gameId)
+  // 보정은 settle 전에 센다 — settle 이 actedBy 를 비운다
+  const refunds = absenceRefunds(state, TEAMS)
   const out = settle(state)
   const ref = gameRef(gameId)
   const batch = db.batch()
@@ -433,6 +458,11 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     const patch: Record<string, unknown> = {}
     if (was && was.tokens !== p.tokens) patch.tokens = p.tokens
     if (where) patch.postTile = where
+    // 우리 팀에서 아무도 안 움직였으면 안 쓴 토큰의 절반을 다음
+    // 페이즈에 얹어 준다. 못 한 일을 돌려주지는 못해도, 접속한 날
+    // 조금 더 움직일 수는 있게 한다
+    const back = refunds[p.playerId] ?? 0
+    if (back > 0) patch.pendingRefund = back
     if (Object.keys(patch).length > 0) batch.update(ref.collection('pawns').doc(p.playerId), patch)
   }
   const had = await robotsOf(gameId).get()
@@ -530,10 +560,5 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
   await refreshViews(gameId)
   return { tileId }
 })
-
-/** 주장을 정한다. 세 명뿐인 팀에만 있다. */
-export function captainOf(team: TeamId, seatIndex: number): boolean {
-  return SHORT_HANDED_TEAMS.includes(team) && seatIndex === 0
-}
 
 export { ACT_COST, TOKENS_PER_PHASE }

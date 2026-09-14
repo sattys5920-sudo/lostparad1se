@@ -6,10 +6,10 @@
 import { describe, expect, it } from 'vitest'
 import { assignRoles, ownAssignment, rngFrom, type Player } from './assign'
 import { FILLER_PATH, REQUIRED_PATHS, ROLE_BY_ID, validateBondRing } from './roles'
-import { TEAM_SIZES, type TeamId } from '../rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
 
 /** 열네 명. 팀 크기는 4·4·3·3이다. */
-const ROSTER: Player[] = (Object.entries(TEAM_SIZES) as [TeamId, number][]).flatMap(([team, n]) =>
+const ROSTER: Player[] = (Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]).flatMap(([team, n]) =>
   Array.from({ length: n }, (_, i) => ({ id: `${team.toLowerCase()}${i + 1}`, team })),
 )
 
@@ -70,12 +70,12 @@ describe('천 번 돌려 보기', () => {
 
   it('팀마다 팀의 길 하나와 밖의 길 하나를 받는다', () => {
     for (const out of runs) {
-      for (const team of Object.keys(TEAM_SIZES) as TeamId[]) {
+      for (const team of Object.keys(STARTING_TEAM_SIZES) as TeamId[]) {
         const paths = out.filter((a) => a.team === team).map((a) => ROLE_BY_ID[a.roleId].path)
         for (const required of REQUIRED_PATHS) {
           expect(paths.filter((p) => p === required)).toHaveLength(1)
         }
-        expect(paths.filter((p) => p === FILLER_PATH)).toHaveLength(TEAM_SIZES[team] - 2)
+        expect(paths.filter((p) => p === FILLER_PATH)).toHaveLength(STARTING_TEAM_SIZES[team] - 2)
       }
     }
   })
