@@ -28,7 +28,15 @@ import {
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { pixelFrame } from '../char/pixel'
 import { TILE_BY_ID } from '../../../shared/rules/board'
-import { CROSS_TIMEOUT_MS, MAX_SCALE, MIN_VIEW_PX, PAD_HOLD_MS, STEP_MS, WALK_POSES_PER_SEC } from './timing'
+import {
+  CHAR_PX,
+  CROSS_TIMEOUT_MS,
+  MAX_SCALE,
+  MIN_VIEW_PX,
+  PAD_HOLD_MS,
+  STEP_MS,
+  WALK_POSES_PER_SEC,
+} from './timing'
 import type { AvatarLook, TeamId, TileId } from '../types'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 
@@ -607,7 +615,18 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const look = me.look
       if (look) {
         const img = pixelFrame(look, me.team, self.dir, self.moving ? Math.floor(self.phase) : 0)
-        ctx.drawImage(img, Math.round(self.px - camX - img.width / 2), Math.round(self.py - camY - img.height + 6))
+        // 한 칸 반으로 줄여 그린다. 발끝은 칸 바닥에 그대로 둔다 —
+        // 크기가 달라져도 서 있는 자리는 같아야 한다
+        const k = CHAR_PX / img.width
+        const dw = Math.round(img.width * k)
+        const dh = Math.round(img.height * k)
+        ctx.drawImage(
+          img,
+          Math.round(self.px - camX - dw / 2),
+          Math.round(self.py - camY - dh + 6 * k),
+          dw,
+          dh,
+        )
       } else {
         dot(self.px - camX, self.py - camY, me.team, false)
       }
