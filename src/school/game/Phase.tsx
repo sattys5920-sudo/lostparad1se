@@ -1,14 +1,15 @@
 // 점령전 한 페이즈.
 //
-// 페이즈가 열리면 모두 제자리로 돌아와 **행동 하나**를 고른다. 남이
-// 무엇을 골랐는지는 보이지 않는다 — 그래서 고르는 순간에는 늘 반쯤
-// 눈을 감고 있다.
+// **한 시간짜리 라이브 판이다.** 열려 있는 동안 토큰만큼 움직이고
+// 행동한다. 움직이는 것은 맵에서 걸어서 하고, 여기 있는 것은 그 자리에서
+// 쓰는 행동들이다. 누르면 바로 일어난다 — 기다렸다 한꺼번에 까는
+// 것이 아니다.
 //
 // 안 되는 행동은 감추지 않고 **이유를 적어 둔 채로** 보인다. 감추면
 // 왜 없는지 알 수 없고, 이유 없이 막으면 왜 안 되는지 알 수 없다.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { MAX_CARRIED_ROBOTS, ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
+import { ACT_COST, MAX_CARRIED_ROBOTS, ROOM_KIND } from '../../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID } from '../../../shared/rules/board'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
@@ -20,13 +21,12 @@ const asRoom = (id: string): TileId => id as TileId
 
 export interface PhaseProps {
   me: SeatEntry
-  /** 내 전투 자리. 페이즈 중에는 여기 서 있다. */
-  postTile: string | null
+  /** 지금 서 있는 방. 페이즈 중에는 이것이 곧 전선이다. */
+  here: string | null
   seats: readonly SeatEntry[]
   view: PlayerViewDoc | null
-  /** 이미 낸 행동. 닫히기 전까지는 바꿀 수 있다. */
-  chosen: ActionKind | null
-  onChosen: (kind: ActionKind) => void
+  /** 페이즈가 끝나는 게임 시각. */
+  endsAtMs: number | null
   act: GameActions
   onSaid: (text: string) => void
 }
@@ -42,8 +42,8 @@ const LABEL: Record<ActionKind, string> = {
 }
 
 const WHAT: Record<ActionKind, string> = {
-  move: '옆방으로 한 칸. 데리고 있는 로봇도 같이 간다.',
-  research: '이 페이즈를 쓴다. 다음 페이즈에 로봇 1기가 붙는다.',
+  move: '옆방으로 한 칸. 맵에서 걸어서 간다.',
+  research: '다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
   summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다.',
   disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
   disguise: '다른 팀에게 내 인원수가 2명으로 보인다. 판정은 그대로다.',
@@ -51,22 +51,39 @@ const WHAT: Record<ActionKind, string> = {
   smashRobot: '상대 로봇 1기를 부순다.',
 }
 
-export function Phase({ me, postTile, seats, view, chosen, onChosen, act, onSaid }: PhaseProps) {
+/** 그 자리에서 쓰는 것들. 이동은 여기 없다 — 맵에서 걸어서 한다. */
+const KINDS: ActionKind[] = ['research', 'summon', 'disturb', 'disguise', 'dropRobot', 'smashRobot']
+
+/** 남은 시간을 분·초로. 초까지 보여야 마지막 한 칸을 갈지 말지 정한다. */
+function leftText(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+export function Phase({ me, here: hereIn, seats, view, endsAtMs, act, onSaid }: PhaseProps) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<ActionKind | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
-  const here: TileId | null = postTile ? asRoom(postTile) : null
-  const hereName = here ? TILE_BY_ID[here].name : '어딘가'
+  // 남은 시간은 초마다 다시 그린다. 판이 바뀔 때만 그리면 시계가 멈춘다
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const here: TileId | null = hereIn ? asRoom(hereIn) : null
+  const hereName = here ? TILE_BY_ID[here].name : '걷는 중'
+  const tokens = view?.myTokens ?? 0
   const pawns = view?.visiblePawns ?? []
   const robots = view?.visibleRobots ?? []
+  const overAt = endsAtMs != null && now >= endsAtMs
 
-  // 같은 방 사람들. 페이즈 중에는 다들 전투 자리에 서 있다
+  // 같은 방 사람들
   const withMe = pawns.filter((p) => p.playerId !== me.playerId && p.tileId !== null && asRoom(p.tileId) === here)
   const enemiesHere = withMe.filter((p) => p.team !== me.team)
   const teammates = seats.filter((s) => s.playerId !== me.playerId && s.team === me.team)
   const enemyRobotsHere = robots.filter((r) => asRoom(r.tileId) === here && r.team !== me.team)
   const myRobots = robots.filter((r) => asRoom(r.tileId) === here && r.team === me.team)
-  const neighbours = here ? (ADJACENCY[here] ?? []).map(asRoom) : []
 
   /**
    * 왜 안 되는가. **null 이면 된다.**
@@ -75,7 +92,9 @@ export function Phase({ me, postTile, seats, view, chosen, onChosen, act, onSaid
    * 미리 보여 줄 뿐이고, 어긋나면 서버가 거절하고 그 말이 뜬다.
    */
   function why(kind: ActionKind): string | null {
-    if (!here) return '아직 자리가 정해지지 않았다.'
+    if (overAt) return '이 페이즈는 시간이 끝났다.'
+    if (!here) return '걷는 중이다. 도착해야 할 수 있다.'
+    if (tokens < ACT_COST[kind]) return `토큰이 모자란다. ${ACT_COST[kind]}개가 든다.`
     if (kind === 'research' && ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
     if (kind === 'summon' && teammates.length === 0) return '부를 팀원이 없다.'
     if (kind === 'disturb' && enemiesHere.length === 0 && enemyRobotsHere.length === 0) {
@@ -89,13 +108,12 @@ export function Phase({ me, postTile, seats, view, chosen, onChosen, act, onSaid
     return null
   }
 
-  async function send(kind: ActionKind, t: { targetTile?: TileId; targetPlayer?: string; targetRobot?: string } = {}) {
+  async function send(kind: ActionKind, t: { targetPlayer?: string; targetRobot?: string } = {}) {
     setBusy(true)
     try {
-      await act.submitAction(kind, t)
-      onChosen(kind)
+      const out = (await act.phaseAct(kind, t)) as { tokens?: number }
       setOpen(null)
-      onSaid(`${LABEL[kind]}을(를) 골랐다. 닫히기 전까지 바꿀 수 있다.`)
+      onSaid(`${LABEL[kind]}. 토큰 ${out.tokens ?? '?'}개 남았다.`)
     } catch (e) {
       onSaid((e as Error).message)
     } finally {
@@ -103,45 +121,35 @@ export function Phase({ me, postTile, seats, view, chosen, onChosen, act, onSaid
     }
   }
 
-  const kinds: ActionKind[] = ['move', 'research', 'summon', 'disturb', 'disguise', 'dropRobot', 'smashRobot']
-
   return (
     <div className="sc-ph">
       <h2>
         점령전 <span>{hereName}</span>
       </h2>
+
+      <p className="sc-ph__purse">
+        <strong>토큰 {tokens}</strong>
+        {endsAtMs != null && <em>{overAt ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}</em>}
+      </p>
       <p className="sc-ph__hint">
-        {chosen
-          ? `${LABEL[chosen]}을(를) 냈다. 관리자가 닫을 때까지 바꿀 수 있다.`
-          : '행동 하나를 고른다. 남이 무엇을 골랐는지는 보이지 않는다.'}
+        걸어서 한 칸 옮기는 데 토큰 {ACT_COST.move}개. 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
       </p>
 
       <ul className="sc-ph__list">
-        {kinds.map((k) => {
+        {KINDS.map((k) => {
           const no = why(k)
-          const picked = chosen === k
+          const fold = k === 'summon' || k === 'disturb' || k === 'dropRobot' || k === 'smashRobot'
           return (
-            <li key={k} className={picked ? 'is-picked' : ''}>
+            <li key={k}>
               <button
                 disabled={busy || no !== null}
-                onClick={() => (k === 'disguise' ? void send(k) : setOpen(open === k ? null : k))}
+                onClick={() => (fold ? setOpen(open === k ? null : k) : void send(k))}
               >
-                <strong>{LABEL[k]}</strong>
+                <strong>
+                  {LABEL[k]} <i>{ACT_COST[k]}</i>
+                </strong>
                 <span>{no ?? WHAT[k]}</span>
               </button>
-
-              {open === k && k === 'move' && (
-                <div className="sc-ph__targets">
-                  {neighbours.map((n) => (
-                    <button key={n} disabled={busy} onClick={() => void send('move', { targetTile: n })}>
-                      {TILE_BY_ID[n].name}
-                      <em>
-                        {countIn(n)} / {capacityOf(n)}
-                      </em>
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {open === k && k === 'summon' && (
                 <div className="sc-ph__targets">
@@ -182,18 +190,10 @@ export function Phase({ me, postTile, seats, view, chosen, onChosen, act, onSaid
         })}
       </ul>
 
-      <p className="sc-ph__note">
-        데리고 다닐 수 있는 로봇은 {MAX_CARRIED_ROBOTS}기까지다.
-      </p>
+      <p className="sc-ph__note">데리고 다닐 수 있는 로봇은 {MAX_CARRIED_ROBOTS}기까지다.</p>
+      {here && <p className="sc-ph__note">옆방: {(ADJACENCY[here] ?? []).map((n) => TILE_BY_ID[n].name).join(' · ')}</p>}
     </div>
   )
-
-  /** 그 방에 지금 몇 자리가 찼는가. 안 보이는 방은 물음표다. */
-  function countIn(id: TileId): string {
-    if (!(view?.visibleTiles ?? []).includes(id)) return '?'
-    const n = pawns.filter((p) => p.tileId !== null && asRoom(p.tileId) === id).length + robots.filter((r) => asRoom(r.tileId) === id).length
-    return String(n)
-  }
 }
 
 const nameOf = (seats: readonly SeatEntry[], id: string) => seats.find((s) => s.playerId === id)?.name ?? '누군가'
@@ -203,17 +203,22 @@ const nameOf = (seats: readonly SeatEntry[], id: string) => seats.find((s) => s.
 export function PhaseHost({
   open,
   no,
-  ready,
+  endsAtMs,
   act,
   onSaid,
 }: {
   open: boolean
   no: number
-  ready: { submitted: number; total: number } | null
+  endsAtMs: number | null
   act: GameActions
   onSaid: (t: string) => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
     try {
@@ -230,8 +235,9 @@ export function PhaseHost({
       <span>페이즈 {no}</span>
       {open ? (
         <>
+          {/* 몇 명이 무엇을 했는지는 운영자에게도 안 나간다. 시계만 본다 */}
           <span className="sc-ph__count">
-            {ready ? `${ready.submitted}/${ready.total} 냈다` : '세는 중'}
+            {endsAtMs == null ? '진행 중' : now >= endsAtMs ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}
           </span>
           <button disabled={busy} onClick={() => void run('닫기', () => act.closePhase())}>
             닫고 처리

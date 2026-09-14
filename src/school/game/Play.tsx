@@ -18,8 +18,6 @@ import { Actions, Standing } from './Actions'
 import { Walk } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseHost, PhaseLog } from './Phase'
-import { PHASE_POLL_MS } from './timing'
-import type { ActionKind } from '../../../shared/rules/occupy'
 import { Chat } from './Chat'
 import { Deals } from './Deals'
 import { People } from './People'
@@ -382,8 +380,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [far, setFar] = useState<TileId | null>(null)
   const [said, setSaid] = useState('')
   const [overlay, setOverlay] = useState<'talk' | 'archive' | null>(null)
-  const [chosen, setChosen] = useState<ActionKind | null>(null)
-  const [ready, setReady] = useState<{ submitted: number; total: number } | null>(null)
   const [host] = useHost()
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
@@ -411,29 +407,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
   const phaseNo = state.game?.phaseNow?.no ?? 0
   const phaseOpen = state.game?.phaseNow?.open === true
-
-  // 페이즈가 바뀌면 낸 것은 없던 일이 된다
-  useEffect(() => {
-    setChosen(null)
-  }, [phaseNo, phaseOpen])
-
-  // 몇 명이 냈는지. 무엇을 냈는지는 서버가 안 준다
-  const countReady = useCallback(() => {
-    void act
-      .phaseReady()
-      .then((r) => setReady(r as { submitted: number; total: number }))
-      .catch(() => {})
-  }, [act])
-
-  useEffect(() => {
-    if (!phaseOpen) {
-      setReady(null)
-      return
-    }
-    countReady()
-    const t = setInterval(countReady, PHASE_POLL_MS)
-    return () => clearInterval(t)
-  }, [phaseOpen, phaseNo, countReady])
+  const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
 
   if (!game || !me) return <p className="sc-pl__wait">불러오는 중</p>
 
@@ -480,13 +454,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
           // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
           // 아무도 안 움직인다. 값은 페이즈가 열릴 때 한 번 치른다
-          if (phaseOpen) {
-            setSaid('페이즈 중에는 자리를 지킨다. 옮기려면 「이동」을 내라.')
-            return
-          }
-          void act
-            .roamTo(to)
-            .then(() => setSaid(`${TILE_BY_ID[to].name}(으)로 들어갔다.`))
+          // 페이즈 중에는 같은 걸음에 토큰이 든다. 자유 시간에는 공짜다
+          const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to)
+          void go
+            .then((r) => {
+              const left = (r as { tokens?: number }).tokens
+              setSaid(
+                phaseOpen
+                  ? `${TILE_BY_ID[to].name}(으)로. 토큰 ${left ?? '?'}개 남았다.`
+                  : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
+              )
+            })
             .catch((e) => setSaid((e as Error).message))
         }}
         onRoom={setStandingRoom}
@@ -496,15 +474,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {phaseOpen ? (
         <Phase
           me={me}
-          postTile={standingOn}
+          here={standingOn}
           seats={game.seats}
           view={state.view}
-          chosen={chosen}
-          onChosen={(k) => {
-            setChosen(k)
-            // 바로 다시 센다. 기다리면 내가 낸 것이 한참 뒤에야 숫자에 든다
-            countReady()
-          }}
+          endsAtMs={phaseEndsAtMs}
           act={act}
           onSaid={setSaid}
         />
@@ -512,7 +485,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <PhaseLog rows={state.phaseLog} seats={game.seats} />
       )}
 
-      {host && <PhaseHost open={phaseOpen} no={phaseNo} ready={ready} act={act} onSaid={setSaid} />}
+      {host && <PhaseHost open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} act={act} onSaid={setSaid} />}
 
       <div className="sc-pl__quick">
         <button onClick={() => setOverlay('talk')}>말</button>

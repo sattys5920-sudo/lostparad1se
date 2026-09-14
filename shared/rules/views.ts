@@ -29,6 +29,8 @@ export interface WorldPawn extends PawnPosition {
   intelOfficer: boolean
   /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
   arriveAtMs?: number | null
+  /** 이번 페이즈에 남은 토큰. 투영이 본인 몫에만 싣는다. */
+  tokens?: number
   /** 전투 자리. 본인 몫에만 실린다 — 남의 전선 계획까지 보일 이유가 없다. */
   postTile?: TileId | null
   /** 가 본 방. 본인 몫에만 실린다. */
@@ -150,6 +152,8 @@ export interface View {
   myArriveAtMs: number | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
+  /** 이번 페이즈에 내게 남은 토큰. 남의 것은 안 보낸다. */
+  myTokens: number
   /**
    * 내가 가 본 방. **한 번도 안 간 방은 지도에 검게 남는다.**
    *
@@ -236,6 +240,7 @@ export function projectView(world: World, viewerId: string): View {
       own: null,
       myArriveAtMs: null,
       myPost: null,
+      myTokens: 0,
       visitedTiles: [],
       handledDays: [],
       readDays: [],
@@ -305,6 +310,9 @@ export function projectView(world: World, viewerId: string): View {
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
     myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
     myPost: world.pawns.find((p) => p.playerId === viewerId)?.postTile ?? null,
+    // **내 것만이다.** 남이 토큰을 얼마나 남겼는지 보이면 언제 밀고
+    // 들어올지가 읽힌다 — 그게 이 게임의 절반이다
+    myTokens: world.pawns.find((p) => p.playerId === viewerId)?.tokens ?? 0,
     visitedTiles: [...(world.pawns.find((p) => p.playerId === viewerId)?.visitedTiles ?? [])].sort(),
 
     // 진상 공개 흐름

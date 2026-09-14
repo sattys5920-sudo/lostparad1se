@@ -3,9 +3,14 @@
 // 깃발을 꽂아 시간을 채우던 방식을 걷어내고, **그 방에 서 있는 머릿수**로
 // 주인을 정한다. 뺏으려면 몰려가야 하고, 지키려면 남아 있어야 한다.
 //
-// 한 페이즈에 모두가 행동 하나를 고르고, 관리자가 페이즈를 닫으면
-// 한꺼번에 처리된다. 차례를 기다리지 않으므로 남이 무엇을 골랐는지
-// 모른 채 고른다 — 그래서 고른 것은 서버만 쥐고 있어야 한다.
+// **페이즈는 한 시간짜리 라이브 판이다.** 관리자가 열면 한 시간이 흐르고,
+// 그동안 각자 토큰만큼 움직이고 행동한다. 토큰을 다 쓰면 그 자리에 서
+// 있는 수밖에 없다. 한 시간이 끝난 순간 각 방에 서 있는 머릿수로 주인이
+// 정해진다 — 그래서 「어디에서 끝낼 것인가」가 유일한 질문이다.
+//
+// 전에는 모두가 행동 하나를 몰래 고르고 한꺼번에 까는 방식이었다. 그것도
+// 되는 게임이지만, 한 시간을 살아 움직이는 쪽을 골랐다. 판이 넓고 안개가
+// 있어서 남이 어디 있는지는 어차피 대부분 안 보인다.
 //
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 같은 입력에 늘 같은 결과라, 서버가 돌리든 시험이 돌리든 같다.
@@ -18,11 +23,33 @@ import { CAPTAIN_HEAD_COUNT, SHORT_HANDED_TEAMS, type TeamId, type Tier } from '
 
 /** 하루에 여는 페이즈 수. */
 export const PHASES_PER_DAY = 10
+
+/**
+ * 한 페이즈가 열려 있는 시간(분). 게임 시계로 잰다.
+ *
+ * 관리자가 이보다 일찍 닫을 수는 있어도 늦게까지 끌 수는 없다 — 시간이
+ * 지나면 아무도 더 못 움직인다. 안 그러면 늦게 닫히는 페이즈에서 토큰이
+ * 남은 사람만 계속 유리하다.
+ */
+export const PHASE_MINUTES = 60
+
+/**
+ * 페이즈가 열릴 때 한 사람에게 주는 토큰.
+ *
+ * 이것이 한 페이즈에 할 수 있는 일의 전부다. 한 칸 움직이는 데 하나,
+ * 행동에 따라 하나나 둘. 남은 토큰은 페이즈가 닫히면 사라진다 —
+ * 아껴 두는 전략이 생기면 「지금 갈 것인가」가 질문이 아니게 된다.
+ */
+export const TOKENS_PER_PHASE = 6
+
+/** 옆방으로 한 칸. */
+export const MOVE_COST = 1
+
 /** 사람 한 명이 데리고 다닐 수 있는 로봇. */
 export const MAX_CARRIED_ROBOTS = 2
 /** 위장한 사람이 남에게 보이는 머릿수. 판정은 이 값을 쓰지 않는다. */
 export const DISGUISE_SHOWN_AS = 2
-/** 연구에 걸리는 페이즈. 발전소를 쥐면 0이다. */
+/** 연구가 로봇이 되기까지 걸리는 페이즈. 발전소를 쥐면 그 자리에서 된다. */
 export const RESEARCH_PHASES = 1
 export const RESEARCH_PHASES_WITH_PLANT = 0
 
@@ -70,6 +97,8 @@ export interface Person {
   tileId: TileId
   /** 세 명뿐인 팀의 주장. 점령 판정에서 둘로 센다. */
   captain: boolean
+  /** 이번 페이즈에 남은 토큰. */
+  tokens: number
 }
 
 export interface Robot {
@@ -87,19 +116,28 @@ export interface PhaseState {
   owners: Readonly<Partial<Record<TileId, TeamId | null>>>
   /** 지난 페이즈에 연구를 건 사람들. 이번 페이즈 끝에 로봇이 된다. */
   pendingResearch: readonly string[]
+  /** 이번 페이즈에 방해당한 사람·로봇. 점령 판정에서 0으로 센다. */
+  zeroedPeople: readonly string[]
+  zeroedRobots: readonly string[]
+  /** 이번 페이즈에 위장한 사람. 남에게 보이는 숫자만 바뀐다. */
+  disguised: readonly string[]
 }
 
-export type ActionKind =
-  | 'move'
-  | 'research'
-  | 'summon'
-  | 'disturb'
-  | 'disguise'
-  | 'dropRobot'
-  | 'smashRobot'
+export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
 
-export interface Action {
-  playerId: string
+/** 행동에 드는 토큰. 이동은 MOVE_COST 다. */
+export const ACT_COST: Record<ActionKind, number> = {
+  move: MOVE_COST,
+  research: 2,
+  summon: 1,
+  disturb: 1,
+  disguise: 1,
+  // 들고 있던 것을 내려놓는 것뿐이다. 값을 물리면 아무도 안 둔다
+  dropRobot: 0,
+  smashRobot: 1,
+}
+
+export interface Act {
   kind: ActionKind
   /** 이동의 목적지. */
   targetTile?: TileId
@@ -107,29 +145,18 @@ export interface Action {
   targetPlayer?: string
   /** 방해·부수기의 대상이 로봇일 때. */
   targetRobot?: string
-  /**
-   * 낸 순서. 같은 것을 두 사람이 노리면 **먼저 낸 쪽만** 된다.
-   * 호출이 겹칠 때도, 꽉 찬 방에 둘이 들어가려 할 때도 이 값으로 가른다.
-   */
-  atMs: number
 }
 
 export type LogKind =
   | 'moved'
-  | 'moveBlocked'
   | 'summoned'
-  | 'summonFailed'
   | 'disturbed'
-  | 'disturbFailed'
   | 'disguised'
   | 'robotLeft'
   | 'robotSmashed'
-  | 'smashFailed'
   | 'researchStarted'
   | 'researchDone'
-  | 'researchFailed'
   | 'captured'
-  | 'held'
 
 export interface LogLine {
   kind: LogKind
@@ -138,15 +165,6 @@ export interface LogLine {
   team?: TeamId
   targetPlayer?: string
   targetRobot?: string
-  /** 안 된 이유. 화면이 한 줄로 보인다. */
-  why?: string
-}
-
-export interface PhaseResult {
-  next: PhaseState
-  log: readonly LogLine[]
-  /** 이번 페이즈에 위장한 사람. 화면이 이걸로 남에게 보일 숫자를 만든다. */
-  disguised: readonly string[]
 }
 
 // ── 머릿수 ──────────────────────────────────────────────────────
@@ -158,7 +176,7 @@ export const headOf = (p: Person): number => (p.captain ? CAPTAIN_HEAD_COUNT : 1
 export const isShortHanded = (team: TeamId): boolean => SHORT_HANDED_TEAMS.includes(team)
 
 /** 방을 차지하는 자리 수. 사람도 로봇도 하나씩이다 — 정원은 머릿수가 아니라 자리다. */
-function seatsIn(state: PhaseState, tileId: TileId): number {
+export function seatsUsed(state: PhaseState, tileId: TileId): number {
   return (
     state.people.filter((p) => p.tileId === tileId).length +
     state.robots.filter((r) => r.tileId === tileId).length
@@ -182,179 +200,211 @@ export function ownerOf(
   return leaders.length === 1 ? leaders[0][0] : before
 }
 
-// ── 페이즈 처리 ─────────────────────────────────────────────────
+// ── 행동 하나 ───────────────────────────────────────────────────
+
+export type ActResult =
+  | { ok: true; next: PhaseState; log: LogLine; spent: number }
+  | { ok: false; why: string }
+
+const no = (why: string): ActResult => ({ ok: false, why })
 
 /**
- * 한 페이즈를 한꺼번에 처리한다.
+ * 행동 하나를 지금 당장 처리한다.
  *
- * 순서가 규칙의 절반이다.
+ * 라이브라서 순서가 곧 먼저 한 사람 순이다. 꽉 찬 방에 둘이 들어가려 하면
+ * 먼저 누른 쪽만 들어간다 — 동시 제출 때처럼 낸 시각을 따로 견줄 필요가 없다.
  *
- *   1 이동      스스로 걷는 것이 먼저다
- *   2 호출      끌려가는 사람이 이미 움직였으면 불발
- *   3 로봇      두고 가기 · 부수기 — 점령을 세기 전에 끝나야 한다
- *   4 방해      자리를 잡은 뒤에 건다
- *   5 점령      여기서 주인이 정해진다
- *   6 연구 완료 새로 생긴 로봇은 이번 판정에 못 끼어든다
+ * **토큰이 모자라면 아무 일도 일어나지 않는다.** 먼저 되는지 보고, 되는
+ * 경우에만 깎는다. 반쯤 되고 토큰만 빠지는 일은 없어야 한다.
  */
-export function resolvePhase(state: PhaseState, actionsIn: readonly Action[]): PhaseResult {
-  const actions = [...actionsIn].sort((a, b) => a.atMs - b.atMs)
-  const log: LogLine[] = []
+export function doAct(state: PhaseState, playerId: string, act: Act): ActResult {
+  const me = state.people.find((p) => p.playerId === playerId)
+  if (!me) return no('이 판에 없는 사람이다.')
 
-  // 움직이는 동안 계속 바뀌므로 복사본을 들고 간다
+  const cost = ACT_COST[act.kind]
+  if (me.tokens < cost) return no(`토큰이 모자란다. ${cost}개가 든다.`)
+
   const people = state.people.map((p) => ({ ...p }))
   let robots = state.robots.map((r) => ({ ...r }))
   const byId = new Map(people.map((p) => [p.playerId, p]))
-  const act = new Map(actions.map((a) => [a.playerId, a]))
+  const mine = byId.get(playerId) as Person
 
-  const seats = new Map<TileId, number>()
-  for (const t of TILES) seats.set(t.id, 0)
-  const recount = () => {
-    for (const t of TILES) seats.set(t.id, 0)
-    for (const p of people) seats.set(p.tileId, (seats.get(p.tileId) ?? 0) + 1)
-    for (const r of robots) seats.set(r.tileId, (seats.get(r.tileId) ?? 0) + 1)
-  }
-  recount()
-
-  const carriedOf = (playerId: string) => robots.filter((r) => r.carriedBy === playerId)
+  const seats = (tileId: TileId) =>
+    people.filter((p) => p.tileId === tileId).length + robots.filter((r) => r.tileId === tileId).length
+  const carriedOf = (id: string) => robots.filter((r) => r.carriedBy === id)
 
   /** 사람 하나를 옆방으로 옮긴다. 데리고 있는 로봇도 같이 간다. */
-  function step(p: Person, to: TileId): { ok: true } | { ok: false; why: string } {
-    if (!ADJACENCY[p.tileId]?.includes(to)) return { ok: false, why: '옆방이 아니다.' }
+  function step(p: Person, to: TileId): string | null {
+    if (!ADJACENCY[p.tileId]?.includes(to)) return '옆방이 아니다.'
     const party = 1 + carriedOf(p.playerId).length
     const room = capacityOf(to)
-    if ((seats.get(to) ?? 0) + party > room) {
-      return { ok: false, why: `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.` }
-    }
-    const from = p.tileId
+    if (seats(to) + party > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
     const moving = carriedOf(p.playerId)
-    seats.set(from, (seats.get(from) ?? 0) - party)
-    seats.set(to, (seats.get(to) ?? 0) + party)
     p.tileId = to
     for (const r of moving) r.tileId = to
-    return { ok: true }
+    return null
   }
 
-  // 1 이동
-  for (const a of actions) {
-    if (a.kind !== 'move') continue
-    const p = byId.get(a.playerId)
-    if (!p || !a.targetTile) continue
-    const out = step(p, a.targetTile)
-    if (out.ok) log.push({ kind: 'moved', playerId: p.playerId, tileId: a.targetTile, team: p.team })
-    else log.push({ kind: 'moveBlocked', playerId: p.playerId, tileId: a.targetTile, why: out.why })
-  }
+  let log: LogLine
 
-  // 2 호출 — 같은 사람을 둘이 부르면 먼저 부른 쪽만
-  const pulled = new Set<string>()
-  for (const a of actions) {
-    if (a.kind !== 'summon') continue
-    const caller = byId.get(a.playerId)
-    const target = a.targetPlayer ? byId.get(a.targetPlayer) : undefined
-    if (!caller || !target) continue
-    const fail = (why: string) =>
-      log.push({ kind: 'summonFailed', playerId: caller.playerId, targetPlayer: a.targetPlayer, why })
-    if (target.team !== caller.team) {
-      fail('같은 팀만 부를 수 있다.')
-      continue
+  switch (act.kind) {
+    case 'move': {
+      const to = act.targetTile
+      if (!to || !TILE_BY_ID[to]) return no('그런 방은 없다.')
+      const bad = step(mine, to)
+      if (bad) return no(bad)
+      log = { kind: 'moved', playerId, tileId: to, team: mine.team }
+      break
     }
-    if (pulled.has(target.playerId)) {
-      fail('이미 다른 사람이 먼저 불렀다.')
-      continue
-    }
-    if (act.get(target.playerId)?.kind === 'move') {
-      fail('그 사람은 스스로 움직였다.')
-      continue
-    }
-    if (target.tileId === caller.tileId) {
-      fail('이미 같은 방에 있다.')
-      continue
-    }
-    const next = stepToward(target.tileId, caller.tileId)
-    if (!next) {
-      fail('길이 없다.')
-      continue
-    }
-    const out = step(target, next)
-    if (!out.ok) {
-      fail(out.why)
-      continue
-    }
-    pulled.add(target.playerId)
-    log.push({ kind: 'summoned', playerId: caller.playerId, targetPlayer: target.playerId, tileId: next })
-  }
 
-  // 3 로봇 — 두고 가기와 부수기. 점령을 세기 전에 끝난다
-  for (const a of actions) {
-    const p = byId.get(a.playerId)
-    if (!p) continue
-    if (a.kind === 'dropRobot') {
-      const mine = carriedOf(p.playerId)
-      if (mine.length === 0) {
-        log.push({ kind: 'smashFailed', playerId: p.playerId, why: '데리고 있는 로봇이 없다.' })
-        continue
-      }
-      mine[0].carriedBy = null
-      log.push({ kind: 'robotLeft', playerId: p.playerId, tileId: p.tileId, targetRobot: mine[0].id })
+    case 'summon': {
+      // 같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 멀리 있는 사람을
+      // 부르는 데 여러 페이즈가 걸린다 — 그래서 뭉치는 것이 비싸다
+      const target = act.targetPlayer ? byId.get(act.targetPlayer) : undefined
+      if (!target) return no('그런 사람이 없다.')
+      if (target.team !== mine.team) return no('같은 팀만 부를 수 있다.')
+      if (target.tileId === mine.tileId) return no('이미 같은 방에 있다.')
+      const next = stepToward(target.tileId, mine.tileId)
+      if (!next) return no('길이 없다.')
+      const bad = step(target, next)
+      if (bad) return no(bad)
+      log = { kind: 'summoned', playerId, targetPlayer: target.playerId, tileId: next }
+      break
     }
-    if (a.kind === 'smashRobot') {
-      const fail = (why: string) =>
-        log.push({ kind: 'smashFailed', playerId: p.playerId, targetRobot: a.targetRobot, why })
-      const enemyHere = people.some((q) => q.tileId === p.tileId && q.team !== p.team)
-      if (enemyHere) {
-        fail('이 방에 상대 팀 사람이 있다.')
-        continue
+
+    case 'disturb': {
+      // 같은 방의 상대 하나를 이번 페이즈 점령 판정에서 0으로 만든다.
+      // 쫓아내지는 못한다 — 사람은 그대로 서 있고 숫자만 빠진다
+      if (act.targetPlayer) {
+        const t = byId.get(act.targetPlayer)
+        if (!t || t.tileId !== mine.tileId || t.team === mine.team) return no('그 사람이 같은 방에 없다.')
+        if (state.zeroedPeople.includes(t.playerId)) return no('이미 방해받고 있다.')
+        log = { kind: 'disturbed', playerId, targetPlayer: t.playerId, tileId: mine.tileId }
+        return {
+          ok: true,
+          spent: cost,
+          log,
+          next: {
+            ...state,
+            people: people.map((p) => (p.playerId === playerId ? { ...p, tokens: p.tokens - cost } : p)),
+            zeroedPeople: [...state.zeroedPeople, t.playerId],
+          },
+        }
       }
-      const bot = robots.find((r) => r.id === a.targetRobot && r.tileId === p.tileId && r.team !== p.team)
-      if (!bot) {
-        fail('그 로봇이 여기 없다.')
-        continue
+      if (act.targetRobot) {
+        const bot = robots.find((r) => r.id === act.targetRobot && r.tileId === mine.tileId && r.team !== mine.team)
+        if (!bot) return no('그 로봇이 같은 방에 없다.')
+        if (state.zeroedRobots.includes(bot.id)) return no('이미 방해받고 있다.')
+        log = { kind: 'disturbed', playerId, targetRobot: bot.id, tileId: mine.tileId }
+        return {
+          ok: true,
+          spent: cost,
+          log,
+          next: {
+            ...state,
+            people: people.map((p) => (p.playerId === playerId ? { ...p, tokens: p.tokens - cost } : p)),
+            zeroedRobots: [...state.zeroedRobots, bot.id],
+          },
+        }
       }
+      return no('대상을 골라야 한다.')
+    }
+
+    case 'disguise': {
+      if (state.disguised.includes(playerId)) return no('이미 위장하고 있다.')
+      mine.tokens -= cost
+      return {
+        ok: true,
+        spent: cost,
+        log: { kind: 'disguised', playerId },
+        next: { ...state, people, robots, disguised: [...state.disguised, playerId] },
+      }
+    }
+
+    case 'dropRobot': {
+      const held = carriedOf(playerId)
+      if (held.length === 0) return no('데리고 있는 로봇이 없다.')
+      held[0].carriedBy = null
+      log = { kind: 'robotLeft', playerId, tileId: mine.tileId, targetRobot: held[0].id }
+      break
+    }
+
+    case 'smashRobot': {
+      if (people.some((q) => q.tileId === mine.tileId && q.team !== mine.team)) {
+        return no('이 방에 상대 팀 사람이 있다.')
+      }
+      const bot = robots.find((r) => r.id === act.targetRobot && r.tileId === mine.tileId && r.team !== mine.team)
+      if (!bot) return no('그 로봇이 여기 없다.')
       robots = robots.filter((r) => r.id !== bot.id)
-      seats.set(p.tileId, (seats.get(p.tileId) ?? 0) - 1)
-      log.push({ kind: 'robotSmashed', playerId: p.playerId, tileId: p.tileId, targetRobot: bot.id })
+      log = { kind: 'robotSmashed', playerId, tileId: mine.tileId, targetRobot: bot.id }
+      break
+    }
+
+    case 'research': {
+      if (ROOM_KIND[mine.tileId] !== 'lab') return no('연구실에서만 연구할 수 있다.')
+      if (state.pendingResearch.includes(playerId)) return no('이미 연구를 걸어 두었다.')
+      // 발전소를 쥔 팀은 그 자리에서 로봇이 나온다
+      const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && state.owners[t.id] === mine.team)
+      if (!hasPlant) {
+        mine.tokens -= cost
+        return {
+          ok: true,
+          spent: cost,
+          log: { kind: 'researchStarted', playerId, tileId: mine.tileId },
+          next: { ...state, people, robots, pendingResearch: [...state.pendingResearch, playerId] },
+        }
+      }
+      if (seats(mine.tileId) + 1 > capacityOf(mine.tileId)) return no('방이 꽉 차 로봇이 설 자리가 없다.')
+      robots = [...robots, born(mine, robots, `now-${playerId}-${state.robots.length}`)]
+      log = { kind: 'researchDone', playerId, tileId: mine.tileId }
+      break
     }
   }
 
-  // 4 방해 — 한 대상에 한 번. 둘이 걸어도 효과는 같다
-  const zeroedPeople = new Set<string>()
-  const zeroedRobots = new Set<string>()
-  for (const a of actions) {
-    if (a.kind !== 'disturb') continue
-    const p = byId.get(a.playerId)
-    if (!p) continue
-    const fail = (why: string) => log.push({ kind: 'disturbFailed', playerId: p.playerId, why })
-    if (a.targetPlayer) {
-      const t = byId.get(a.targetPlayer)
-      if (!t || t.tileId !== p.tileId || t.team === p.team) {
-        fail('그 사람이 같은 방에 없다.')
-        continue
-      }
-      zeroedPeople.add(t.playerId)
-      log.push({ kind: 'disturbed', playerId: p.playerId, targetPlayer: t.playerId, tileId: p.tileId })
-    } else if (a.targetRobot) {
-      const bot = robots.find((r) => r.id === a.targetRobot && r.tileId === p.tileId && r.team !== p.team)
-      if (!bot) {
-        fail('그 로봇이 같은 방에 없다.')
-        continue
-      }
-      zeroedRobots.add(bot.id)
-      log.push({ kind: 'disturbed', playerId: p.playerId, targetRobot: bot.id, tileId: p.tileId })
-    } else fail('대상을 골라야 한다.')
+  mine.tokens -= cost
+  return { ok: true, spent: cost, log, next: { ...state, people, robots } }
+}
+
+/** 새로 나온 로봇 하나. 두 기까지만 데리고 다닌다 — 넘치면 그 자리에 선다. */
+function born(owner: Person, robots: readonly Robot[], id: string): Robot {
+  const carried = robots.filter((r) => r.carriedBy === owner.playerId).length
+  return {
+    id: `bot-${id}`,
+    team: owner.team,
+    tileId: owner.tileId,
+    carriedBy: carried < MAX_CARRIED_ROBOTS ? owner.playerId : null,
   }
+}
 
-  // 위장은 판정을 바꾸지 않는다. 화면에 보이는 숫자만 바꾼다
-  const disguised = actions.filter((a) => a.kind === 'disguise').map((a) => a.playerId)
-  for (const id of disguised) log.push({ kind: 'disguised', playerId: id })
+// ── 페이즈 닫기 ─────────────────────────────────────────────────
 
-  // 5 점령
+export interface SettleResult {
+  next: PhaseState
+  log: readonly LogLine[]
+}
+
+/**
+ * 한 시간이 끝났다. **서 있는 자리로 주인을 정한다.**
+ *
+ * 행동은 이미 그때그때 처리됐다. 여기서 하는 일은 두 가지뿐이다 —
+ * 머릿수를 세는 것과, 지난 페이즈에 걸어 둔 연구를 로봇으로 만드는 것.
+ *
+ * 연구로 새로 난 로봇은 **이번 판정에 끼어들지 않는다.** 페이즈가 끝나는
+ * 순간에 머릿수가 하나 느는 것은 아무도 대응할 수 없다.
+ */
+export function settle(state: PhaseState): SettleResult {
+  const log: LogLine[] = []
+  const zeroedPeople = new Set(state.zeroedPeople)
+  const zeroedRobots = new Set(state.zeroedRobots)
+
   const owners: Partial<Record<TileId, TeamId | null>> = { ...state.owners }
   for (const t of TILES) {
     const w: Partial<Record<TeamId, number>> = {}
-    for (const p of people) {
+    for (const p of state.people) {
       if (p.tileId !== t.id || zeroedPeople.has(p.playerId)) continue
       w[p.team] = (w[p.team] ?? 0) + headOf(p)
     }
-    for (const r of robots) {
+    for (const r of state.robots) {
       if (r.tileId !== t.id || zeroedRobots.has(r.id)) continue
       w[r.team] = (w[r.team] ?? 0) + 1
     }
@@ -364,59 +414,31 @@ export function resolvePhase(state: PhaseState, actionsIn: readonly Action[]): P
     if (after !== before && after) log.push({ kind: 'captured', tileId: t.id, team: after })
   }
 
-  // 6 연구 완료 — 새 로봇은 이번 판정에 끼어들지 않는다
+  // 지난 페이즈의 연구가 이제 로봇이 된다
+  let robots = [...state.robots]
+  const seats = (tileId: TileId) =>
+    state.people.filter((p) => p.tileId === tileId).length + robots.filter((r) => r.tileId === tileId).length
   let made = 0
-  const spawn = (ownerId: string) => {
-    const p = byId.get(ownerId)
-    if (!p) return
-    const room = capacityOf(p.tileId)
-    if ((seats.get(p.tileId) ?? 0) + 1 > room) {
-      log.push({ kind: 'researchFailed', playerId: ownerId, tileId: p.tileId, why: '방이 꽉 차 로봇이 설 자리가 없다.' })
-      return
-    }
-    made += 1
-    const carried = carriedOf(ownerId).length
-    robots = [
-      ...robots,
-      {
-        id: `bot-${ownerId}-${state.pendingResearch.length}-${made}`,
-        team: p.team,
-        tileId: p.tileId,
-        // 두 기까지만 데리고 다닌다. 넘치면 그 자리에 선다
-        carriedBy: carried < MAX_CARRIED_ROBOTS ? ownerId : null,
-      },
-    ]
-    seats.set(p.tileId, (seats.get(p.tileId) ?? 0) + 1)
-    log.push({ kind: 'researchDone', playerId: ownerId, tileId: p.tileId })
-  }
-  for (const id of state.pendingResearch) spawn(id)
-
-  // 이번 페이즈의 연구. 발전소를 쥔 팀은 그 자리에서 끝난다
-  const plantOwner = new Map<TeamId, boolean>()
-  for (const t of TILES) {
-    if (ROOM_KIND[t.id] === 'plant' && owners[t.id]) plantOwner.set(owners[t.id] as TeamId, true)
-  }
-  const pendingResearch: string[] = []
-  for (const a of actions) {
-    if (a.kind !== 'research') continue
-    const p = byId.get(a.playerId)
+  for (const id of state.pendingResearch) {
+    const p = state.people.find((q) => q.playerId === id)
     if (!p) continue
-    if (ROOM_KIND[p.tileId] !== 'lab') {
-      log.push({ kind: 'researchFailed', playerId: p.playerId, tileId: p.tileId, why: '연구실에서만 연구할 수 있다.' })
-      continue
-    }
-    if (plantOwner.get(p.team)) {
-      spawn(p.playerId)
-      continue
-    }
-    pendingResearch.push(p.playerId)
-    log.push({ kind: 'researchStarted', playerId: p.playerId, tileId: p.tileId })
+    if (seats(p.tileId) + 1 > capacityOf(p.tileId)) continue
+    made += 1
+    robots = [...robots, born(p, robots, `${id}-${made}`)]
+    log.push({ kind: 'researchDone', playerId: id, tileId: p.tileId })
   }
 
   return {
-    next: { people, robots, owners, pendingResearch },
+    next: {
+      people: state.people,
+      robots,
+      owners,
+      pendingResearch: [],
+      zeroedPeople: [],
+      zeroedRobots: [],
+      disguised: [],
+    },
     log,
-    disguised,
   }
 }
 
@@ -447,9 +469,6 @@ export function stepToward(from: TileId, to: TileId): TileId | null {
   }
   return null
 }
-
-/** 이 방에 있는 자리 수. 화면이 정원과 나란히 보인다. */
-export const seatsUsed = (state: PhaseState, tileId: TileId): number => seatsIn(state, tileId)
 
 /**
  * 남에게 보이는 머릿수. **위장은 여기서만 산다.**

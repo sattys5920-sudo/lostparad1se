@@ -57,8 +57,9 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [pawns, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, awakened, notices] =
+  const [hiddenPhase, pawns, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, awakened, notices] =
     await Promise.all([
+      gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
       sub(gameId, 'tiles').get(),
       sub(gameId, 'robots').get(),
@@ -97,6 +98,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       arriveAtMs: p.arriveAtMs ?? null,
       postTile: p.postTile ?? null,
       visitedTiles: p.visitedTiles ?? [],
+      tokens: p.tokens ?? 0,
     }
   })
 
@@ -105,8 +107,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     over: game.phase === 'finished',
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,
-    // 위장은 그 페이즈가 지나면 풀린다
-    disguised: (game.disguisedUntil ?? 0) >= (game.phaseNow?.no ?? 0) ? (game.disguised ?? []) : [],
+    // 위장은 secret 에만 있다. 판 문서는 누구나 읽을 수 있어서, 거기
+    // 적으면 누가 위장했는지 개발자도구로 다 보인다 — 실제로 그랬다.
+    // 페이즈가 닫히면 서버가 지우므로 여기서 기한을 따질 것이 없다
+    disguised: ((hiddenPhase.data() as { disguised?: string[] } | undefined)?.disguised ?? []),
     robots: robots.docs.map((d) => {
       const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }
       return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }

@@ -1,15 +1,22 @@
+// 점령 규칙. 페이즈는 한 시간짜리 라이브 판이고, 행동은 그때그때 처리된다.
+//
+// 여기서 지키려는 것은 두 가지다. **토큰을 쓴 만큼만 움직인다**는 것과,
+// **끝나는 순간 서 있는 자리로만 주인이 정해진다**는 것.
 import { describe, expect, it } from 'vitest'
 
 import {
+  ACT_COST,
   MAX_CARRIED_ROBOTS,
   ROOM_CAPACITY,
   ROOM_KIND,
+  TOKENS_PER_PHASE,
   capacityOf,
+  doAct,
   ownerOf,
-  resolvePhase,
+  settle,
   shownCount,
   stepToward,
-  type Action,
+  type Act,
   type PhaseState,
   type Person,
   type Robot,
@@ -22,348 +29,334 @@ const person = (playerId: string, team: TeamId, tileId: string, captain = false)
   team,
   tileId,
   captain,
+  tokens: TOKENS_PER_PHASE,
 })
+
 const robot = (id: string, team: TeamId, tileId: string, carriedBy: string | null = null): Robot => ({
   id,
   team,
   tileId,
   carriedBy,
 })
-const state = (over: Partial<PhaseState> = {}): PhaseState => ({
+
+const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   people: [],
   robots: [],
   owners: {},
   pendingResearch: [],
-  ...over,
-})
-const doIt = (playerId: string, kind: Action['kind'], over: Partial<Action> = {}, atMs = 1): Action => ({
-  playerId,
-  kind,
-  atMs,
+  zeroedPeople: [],
+  zeroedRobots: [],
+  disguised: [],
   ...over,
 })
 
-describe('방 종류', () => {
-  it('좁은 방·연구실·발전소가 하나씩은 있다', () => {
-    const kinds = TILES.map((t) => ROOM_KIND[t.id])
-    expect(kinds).toContain('narrow')
-    expect(kinds).toContain('lab')
-    expect(kinds).toContain('plant')
+/** 될 줄 알고 쓴 행동이 안 됐으면 시험이 거짓말을 하고 있는 것이다. */
+function must(state: PhaseState, playerId: string, act: Act): PhaseState {
+  const out = doAct(state, playerId, act)
+  if (!out.ok) throw new Error(`${playerId} ${act.kind}: ${out.why}`)
+  return out.next
+}
+
+const at = (s: PhaseState, id: string) => s.people.find((p) => p.playerId === id) as Person
+const lab = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
+const plant = TILES.find((t) => ROOM_KIND[t.id] === 'plant') as (typeof TILES)[number]
+
+describe('토큰이 한 페이즈의 전부다', () => {
+  it('한 칸 움직이면 토큰이 하나 준다', () => {
+    const s0 = board({ people: [person('a', 'A', 'baseA')] })
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(at(s1, 'a').tileId).toBe('classroom')
+    expect(at(s1, 'a').tokens).toBe(TOKENS_PER_PHASE - ACT_COST.move)
   })
 
-  it('발전소는 한 곳뿐이고 네 기지에서 거리가 같다', () => {
-    const plants = TILES.filter((t) => ROOM_KIND[t.id] === 'plant')
-    expect(plants).toHaveLength(1)
-    const bases = TILES.filter((t) => t.homeOf !== null)
-    const walk = (from: string, to: string) => {
-      let at = from
-      let n = 0
-      while (at !== to && n < 20) {
-        at = stepToward(at, to) as string
-        n += 1
-      }
-      return n
-    }
-    const dists = bases.map((b) => walk(b.id, plants[0].id))
-    expect(new Set(dists).size).toBe(1)
+  it('토큰이 떨어지면 더는 못 움직인다', () => {
+    let s = board({ people: [{ ...person('a', 'A', 'baseA'), tokens: 2 }] })
+    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    s = must(s, 'a', { kind: 'move', targetTile: 'library' })
+    expect(at(s, 'a').tokens).toBe(0)
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'artRoom' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('토큰')
   })
 
-  it('연구실과 좁은 방도 네 팀에게 공평하다', () => {
-    const bases = TILES.filter((t) => t.homeOf !== null)
-    const walk = (from: string, to: string) => {
-      let at = from
-      let n = 0
-      while (at !== to && n < 20) {
-        at = stepToward(at, to) as string
-        n += 1
-      }
-      return n
-    }
-    for (const kind of ['lab', 'narrow'] as const) {
-      const rooms = TILES.filter((t) => ROOM_KIND[t.id] === kind)
-      // 각 기지에서 제일 가까운 그 종류의 방까지 거리가 모두 같아야 한다
-      const nearest = bases.map((b) => Math.min(...rooms.map((r) => walk(b.id, r.id))))
-      expect(new Set(nearest).size).toBe(1)
-    }
+  it('**안 되는 행동은 토큰도 안 먹는다**', () => {
+    // 반쯤 되고 토큰만 빠지면 그 페이즈를 통째로 날린다
+    const s = board({ people: [person('a', 'A', 'baseA')] })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'centralPlaza' })
+    expect(out.ok).toBe(false)
+    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+    expect(at(s, 'a').tileId).toBe('baseA')
   })
 
-  it('정원은 종류가 정한다', () => {
-    const narrow = TILES.find((t) => ROOM_KIND[t.id] === 'narrow') as (typeof TILES)[number]
-    expect(capacityOf(narrow.id)).toBe(ROOM_CAPACITY.narrow)
+  it('행동마다 값이 다르다', () => {
+    expect(ACT_COST.research).toBeGreaterThan(ACT_COST.move)
+    // 들고 있던 것을 내려놓는 것뿐이라 값이 없다
+    expect(ACT_COST.dropRobot).toBe(0)
   })
 })
 
-describe('주인 정하기', () => {
-  it('가장 많은 팀이 가져간다', () => {
-    expect(ownerOf({ A: 3, B: 1 }, null)).toBe('A')
+describe('움직임', () => {
+  it('옆방이 아니면 못 간다', () => {
+    const s = board({ people: [person('a', 'A', 'baseA')] })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'baseB' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('옆방')
   })
 
-  it('동점이면 주인이 안 바뀐다', () => {
-    expect(ownerOf({ A: 2, B: 2 }, 'C')).toBe('C')
-    expect(ownerOf({ A: 2, B: 2 }, null)).toBe(null)
-  })
-
-  it('아무도 없으면 주인이 그대로다', () => {
-    expect(ownerOf({}, 'D')).toBe('D')
-  })
-
-  it('주장은 둘로 세서 3인 팀이 4인 팀과 맞선다', () => {
-    const s = state({
-      people: [
-        person('a1', 'A', 'classroom'),
-        person('a2', 'A', 'classroom'),
-        person('c1', 'C', 'classroom', true),
-        person('c2', 'C', 'classroom'),
-      ],
+  it('꽉 찬 방에는 못 들어간다 — 먼저 누른 쪽만 들어간다', () => {
+    // 급식실은 관문이라 정원이 둘이다
+    expect(capacityOf('cafeteria')).toBe(ROOM_CAPACITY.narrow)
+    let s = board({
+      // 창고는 급식실 옆방이다. 정원은 붙어 있지 않다
+      people: [person('x', 'A', 'cafeteria'), person('y', 'A', 'cafeteria'), person('a', 'B', 'storage')],
     })
-    const out = resolvePhase(s, [])
-    // A 둘 대 C 셋(주장 2 + 1)
-    expect(out.next.owners.classroom).toBe('C')
-  })
-})
-
-describe('이동', () => {
-  it('옆방으로만 간다', () => {
-    const s = state({ people: [person('a1', 'A', 'baseA')] })
-    const far = resolvePhase(s, [doIt('a1', 'move', { targetTile: 'baseB' })])
-    expect(far.next.people[0].tileId).toBe('baseA')
-    expect(far.log.some((l) => l.kind === 'moveBlocked')).toBe(true)
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('꽉 찼다')
+    // 하나가 비키면 들어간다
+    s = must(s, 'y', { kind: 'move', targetTile: 'musicRoom' })
+    s = must(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    expect(at(s, 'a').tileId).toBe('cafeteria')
   })
 
-  it('데리고 있는 로봇도 같이 간다. 두고 간 로봇은 남는다', () => {
-    const s = state({
-      people: [person('a1', 'A', 'baseA')],
-      robots: [robot('r1', 'A', 'baseA', 'a1'), robot('r2', 'A', 'baseA', null)],
+  it('데리고 있는 로봇도 같이 간다', () => {
+    const s0 = board({
+      people: [person('a', 'A', 'baseA')],
+      robots: [robot('r1', 'A', 'baseA', 'a')],
     })
-    const out = resolvePhase(s, [doIt('a1', 'move', { targetTile: 'classroom' })])
-    expect(out.next.robots.find((r) => r.id === 'r1')?.tileId).toBe('classroom')
-    expect(out.next.robots.find((r) => r.id === 'r2')?.tileId).toBe('baseA')
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(s1.robots[0].tileId).toBe('classroom')
   })
 
-  it('꽉 찬 방에는 못 들어간다 — 좁은 방은 둘까지다', () => {
-    const narrow = TILES.find((t) => ROOM_KIND[t.id] === 'narrow') as (typeof TILES)[number]
-    const near = TILES.find((t) => t.id !== narrow.id && stepToward(t.id, narrow.id) === narrow.id)
-    const s = state({
-      people: [
-        person('a1', 'A', narrow.id),
-        person('a2', 'A', narrow.id),
-        person('b1', 'B', near?.id ?? 'centralPlaza'),
-      ],
+  it('로봇까지 들어갈 자리가 없으면 못 간다', () => {
+    const s = board({
+      people: [person('x', 'A', 'cafeteria'), person('a', 'B', 'storage')],
+      robots: [robot('r1', 'B', 'storage', 'a')],
     })
-    const out = resolvePhase(s, [doIt('b1', 'move', { targetTile: narrow.id })])
-    expect(out.next.people.find((p) => p.playerId === 'b1')?.tileId).not.toBe(narrow.id)
-    expect(out.log.find((l) => l.kind === 'moveBlocked')?.why).toContain('꽉 찼다')
-  })
-
-  it('먼저 낸 쪽이 마지막 자리를 가져간다', () => {
-    const narrow = TILES.find((t) => ROOM_KIND[t.id] === 'narrow') as (typeof TILES)[number]
-    const doors = TILES.filter((t) => stepToward(t.id, narrow.id) === narrow.id).slice(0, 2)
-    const s = state({
-      people: [person('a1', 'A', narrow.id), person('b1', 'B', doors[0].id), person('c1', 'C', doors[1].id)],
-    })
-    const out = resolvePhase(s, [
-      doIt('c1', 'move', { targetTile: narrow.id }, 200),
-      doIt('b1', 'move', { targetTile: narrow.id }, 100),
-    ])
-    expect(out.next.people.find((p) => p.playerId === 'b1')?.tileId).toBe(narrow.id)
-    expect(out.next.people.find((p) => p.playerId === 'c1')?.tileId).not.toBe(narrow.id)
+    // 급식실 정원 2 · 이미 하나 · 나와 로봇이 둘이라 넘친다
+    expect(doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' }).ok).toBe(false)
   })
 })
 
 describe('호출', () => {
-  it('한 칸 끌려온다. 옆방이면 내 방으로 들어온다', () => {
-    const s = state({ people: [person('a1', 'A', 'baseA'), person('a2', 'A', 'classroom')] })
-    const out = resolvePhase(s, [doIt('a1', 'summon', { targetPlayer: 'a2' })])
-    expect(out.next.people.find((p) => p.playerId === 'a2')?.tileId).toBe('baseA')
+  it('같은 팀 하나를 내 쪽으로 한 칸 끌어온다', () => {
+    const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')] })
+    const s1 = must(s0, 'a', { kind: 'summon', targetPlayer: 'b' })
+    expect(at(s1, 'b').tileId).toBe(stepToward('library', 'baseA'))
+    expect(at(s1, 'a').tokens).toBe(TOKENS_PER_PHASE - ACT_COST.summon)
   })
 
-  it('그 사람이 스스로 움직였으면 불발된다', () => {
-    const s = state({ people: [person('a1', 'A', 'baseA'), person('a2', 'A', 'classroom')] })
-    const out = resolvePhase(s, [
-      doIt('a1', 'summon', { targetPlayer: 'a2' }, 100),
-      doIt('a2', 'move', { targetTile: 'library' }, 200),
-    ])
-    expect(out.next.people.find((p) => p.playerId === 'a2')?.tileId).toBe('library')
-    expect(out.log.find((l) => l.kind === 'summonFailed')?.why).toContain('스스로')
+  it('남의 팀은 못 부른다', () => {
+    const s = board({ people: [person('a', 'A', 'baseA'), person('b', 'B', 'classroom')] })
+    const out = doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('같은 팀')
   })
 
-  it('둘이 같은 사람을 부르면 먼저 부른 쪽만', () => {
-    const s = state({
-      people: [person('a1', 'A', 'baseA'), person('a2', 'A', 'library'), person('a3', 'A', 'artRoom')],
-    })
-    const out = resolvePhase(s, [
-      doIt('a1', 'summon', { targetPlayer: 'a2' }, 100),
-      doIt('a3', 'summon', { targetPlayer: 'a2' }, 200),
-    ])
-    expect(out.log.filter((l) => l.kind === 'summoned')).toHaveLength(1)
-    expect(out.log.find((l) => l.kind === 'summonFailed')?.why).toContain('먼저')
-  })
-
-  it('다른 팀은 못 부른다', () => {
-    const s = state({ people: [person('a1', 'A', 'baseA'), person('b1', 'B', 'classroom')] })
-    const out = resolvePhase(s, [doIt('a1', 'summon', { targetPlayer: 'b1' })])
-    expect(out.next.people.find((p) => p.playerId === 'b1')?.tileId).toBe('classroom')
-    expect(out.log.find((l) => l.kind === 'summonFailed')?.why).toContain('같은 팀')
+  it('이미 같은 방이면 부를 것이 없다', () => {
+    const s = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'baseA')] })
+    expect(doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' }).ok).toBe(false)
   })
 })
 
-describe('방해', () => {
-  it('그 대상은 이번 판정에서 0으로 센다', () => {
-    const s = state({
-      people: [person('a1', 'A', 'classroom'), person('b1', 'B', 'classroom'), person('b2', 'B', 'classroom')],
+describe('방해 — 숫자만 빠지고 사람은 그대로 선다', () => {
+  it('같은 방 상대를 판정에서 0으로 만든다', () => {
+    let s = board({
+      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
+      owners: { library: null },
     })
-    // 방해 없으면 B가 둘로 가져간다
-    expect(resolvePhase(s, []).next.owners.classroom).toBe('B')
-    // b1을 지우면 1:1이라 동점 — 주인이 안 바뀐다
-    const out = resolvePhase(s, [doIt('a1', 'disturb', { targetPlayer: 'b1' })])
-    expect(out.next.owners.classroom).toBe(null)
+    s = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
+    expect(s.zeroedPeople).toContain('b')
+    // 방해당한 사람은 여전히 그 방에 서 있다
+    expect(at(s, 'b').tileId).toBe('library')
+    // 1대1이었는데 상대가 0이 되어 A가 가져간다
+    expect(settle(s).next.owners.library).toBe('A')
   })
 
-  it('둘이 같은 대상을 방해해도 효과는 같다', () => {
-    const s = state({
-      people: [
-        person('a1', 'A', 'classroom'),
-        person('a2', 'A', 'classroom'),
-        person('b1', 'B', 'classroom'),
-        person('b2', 'B', 'classroom'),
-        person('b3', 'B', 'classroom'),
-      ],
-    })
-    const one = resolvePhase(s, [doIt('a1', 'disturb', { targetPlayer: 'b1' }, 1)])
-    const two = resolvePhase(s, [
-      doIt('a1', 'disturb', { targetPlayer: 'b1' }, 1),
-      doIt('a2', 'disturb', { targetPlayer: 'b1' }, 2),
-    ])
-    expect(one.next.owners.classroom).toBe(two.next.owners.classroom)
+  it('다른 방 사람은 못 건드린다', () => {
+    const s = board({ people: [person('a', 'A', 'library'), person('b', 'B', 'classroom')] })
+    expect(doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
   })
 
-  it('같은 방에 없으면 불발된다', () => {
-    const s = state({ people: [person('a1', 'A', 'baseA'), person('b1', 'B', 'classroom')] })
-    const out = resolvePhase(s, [doIt('a1', 'disturb', { targetPlayer: 'b1' })])
-    expect(out.log.find((l) => l.kind === 'disturbFailed')?.why).toContain('같은 방')
-  })
-
-  it('로봇도 방해할 수 있다', () => {
-    const s = state({
-      people: [person('a1', 'A', 'classroom')],
-      robots: [robot('r1', 'B', 'classroom'), robot('r2', 'B', 'classroom')],
+  it('같은 사람을 두 번 방해하지 못한다 — 토큰만 나갈 일이다', () => {
+    let s = board({
+      people: [person('a', 'A', 'library'), person('c', 'A', 'library'), person('b', 'B', 'library')],
     })
-    const out = resolvePhase(s, [doIt('a1', 'disturb', { targetRobot: 'r1' })])
-    // B는 로봇 하나만 세고 A는 사람 하나 — 동점이라 주인이 안 바뀐다
-    expect(out.next.owners.classroom).toBe(null)
+    s = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
+    expect(doAct(s, 'c', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
+    expect(at(s, 'c').tokens).toBe(TOKENS_PER_PHASE)
+  })
+})
+
+describe('위장 — 판정은 그대로, 보이는 숫자만 바뀐다', () => {
+  it('남에게는 둘로 보이고 판정은 하나다', () => {
+    let s = board({
+      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
+      owners: { library: null },
+    })
+    s = must(s, 'a', { kind: 'disguise' })
+    expect(shownCount(s, 'library', 'B', s.disguised)).toBe(3)
+    expect(shownCount(s, 'library', 'A', s.disguised)).toBe(2)
+    // 1대1이라 주인이 안 바뀐다 — 위장은 판정을 못 바꾼다
+    expect(settle(s).next.owners.library).toBeNull()
   })
 })
 
 describe('로봇', () => {
-  it('사람만 부술 수 있고, 그 방에 상대 사람이 없어야 한다', () => {
-    const guarded = state({
-      people: [person('a1', 'A', 'classroom'), person('b1', 'B', 'classroom')],
-      robots: [robot('r1', 'B', 'classroom')],
+  it('두고 가면 그 방에 남고 점령에 센다', () => {
+    let s = board({
+      people: [person('a', 'A', 'library')],
+      robots: [robot('r1', 'A', 'library', 'a')],
+      owners: { library: null },
     })
-    const no = resolvePhase(guarded, [doIt('a1', 'smashRobot', { targetRobot: 'r1' })])
-    expect(no.next.robots).toHaveLength(1)
-    expect(no.log.find((l) => l.kind === 'smashFailed')?.why).toContain('상대 팀 사람')
-
-    const alone = state({
-      people: [person('a1', 'A', 'classroom')],
-      robots: [robot('r1', 'B', 'classroom')],
-    })
-    const yes = resolvePhase(alone, [doIt('a1', 'smashRobot', { targetRobot: 'r1' })])
-    expect(yes.next.robots).toHaveLength(0)
+    s = must(s, 'a', { kind: 'dropRobot' })
+    expect(s.robots[0].carriedBy).toBeNull()
+    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(s.robots[0].tileId).toBe('library')
+    // 사람은 떠났지만 로봇이 남아 도서관을 가져간다
+    expect(settle(s).next.owners.library).toBe('A')
   })
 
-  it('우리 팀 로봇은 못 부순다', () => {
-    const s = state({ people: [person('a1', 'A', 'classroom')], robots: [robot('r1', 'A', 'classroom')] })
-    const out = resolvePhase(s, [doIt('a1', 'smashRobot', { targetRobot: 'r1' })])
-    expect(out.next.robots).toHaveLength(1)
+  it('상대가 같은 방에 있으면 로봇을 못 부순다', () => {
+    const s = board({
+      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
+      robots: [robot('r1', 'B', 'library')],
+    })
+    const out = doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('상대 팀 사람')
   })
 
-  it('두고 간 로봇은 그 자리에서 계속 센다', () => {
-    const s = state({
-      people: [person('a1', 'A', 'classroom')],
-      robots: [robot('r1', 'A', 'classroom', 'a1')],
-    })
-    const out = resolvePhase(s, [doIt('a1', 'dropRobot')])
-    expect(out.next.robots[0].carriedBy).toBe(null)
-    expect(out.next.robots[0].tileId).toBe('classroom')
+  it('혼자면 부순다', () => {
+    let s = board({ people: [person('a', 'A', 'library')], robots: [robot('r1', 'B', 'library')] })
+    s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
+    expect(s.robots).toHaveLength(0)
   })
 })
 
 describe('연구', () => {
-  const lab = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
-  const plant = TILES.find((t) => ROOM_KIND[t.id] === 'plant') as (typeof TILES)[number]
-
-  it('연구실에서만 걸 수 있다', () => {
-    const s = state({ people: [person('a1', 'A', 'classroom')] })
-    const out = resolvePhase(s, [doIt('a1', 'research')])
-    expect(out.next.pendingResearch).toHaveLength(0)
-    expect(out.log.find((l) => l.kind === 'researchFailed')?.why).toContain('연구실')
+  it('연구실에서만 건다', () => {
+    const notLab = TILES.find((t) => ROOM_KIND[t.id] === 'normal') as (typeof TILES)[number]
+    expect(doAct(board({ people: [person('a', 'A', notLab.id)] }), 'a', { kind: 'research' }).ok).toBe(false)
+    expect(doAct(board({ people: [person('a', 'A', lab.id)] }), 'a', { kind: 'research' }).ok).toBe(true)
   })
 
-  it('한 페이즈 뒤에 로봇이 생긴다', () => {
-    const s = state({ people: [person('a1', 'A', lab.id)] })
-    const first = resolvePhase(s, [doIt('a1', 'research')])
-    expect(first.next.robots).toHaveLength(0)
-    expect(first.next.pendingResearch).toEqual(['a1'])
-
-    const second = resolvePhase(first.next, [])
-    expect(second.next.robots).toHaveLength(1)
-    expect(second.next.robots[0].carriedBy).toBe('a1')
+  it('건 다음 페이즈가 닫힐 때 로봇이 된다', () => {
+    let s = board({ people: [person('a', 'A', lab.id)] })
+    s = must(s, 'a', { kind: 'research' })
+    expect(s.robots).toHaveLength(0)
+    expect(s.pendingResearch).toEqual(['a'])
+    const done = settle(s)
+    expect(done.next.robots).toHaveLength(1)
+    expect(done.next.pendingResearch).toEqual([])
   })
 
-  it('발전소를 쥔 팀은 그 자리에서 끝난다', () => {
-    const s = state({ people: [person('a1', 'A', lab.id)], owners: { [plant.id]: 'A' } })
-    const out = resolvePhase(s, [doIt('a1', 'research')])
-    expect(out.next.robots).toHaveLength(1)
-    expect(out.next.pendingResearch).toHaveLength(0)
+  it('발전소를 쥔 팀은 그 자리에서 나온다', () => {
+    let s = board({ people: [person('a', 'A', lab.id)], owners: { [plant.id]: 'A' } })
+    s = must(s, 'a', { kind: 'research' })
+    expect(s.robots).toHaveLength(1)
+    expect(s.pendingResearch).toEqual([])
   })
 
-  it(`데리고 다니는 로봇은 ${MAX_CARRIED_ROBOTS}기까지. 넘치면 그 자리에 선다`, () => {
-    const s = state({
-      people: [person('a1', 'A', lab.id)],
-      robots: [robot('r1', 'A', lab.id, 'a1'), robot('r2', 'A', lab.id, 'a1')],
+  it('두 기까지만 데리고 다닌다', () => {
+    let s = board({
+      people: [{ ...person('a', 'A', lab.id), tokens: 99 }],
       owners: { [plant.id]: 'A' },
     })
-    const out = resolvePhase(s, [doIt('a1', 'research')])
-    const fresh = out.next.robots.filter((r) => r.id !== 'r1' && r.id !== 'r2')
-    expect(fresh).toHaveLength(1)
-    expect(fresh[0].carriedBy).toBe(null)
+    for (let i = 0; i < 3; i++) s = must(s, 'a', { kind: 'research' })
+    expect(s.robots.filter((r) => r.carriedBy === 'a')).toHaveLength(MAX_CARRIED_ROBOTS)
+    expect(s.robots.filter((r) => r.carriedBy === null)).toHaveLength(1)
   })
+})
 
-  it('새로 생긴 로봇은 이번 판정에 끼어들지 않는다', () => {
-    // 연구실에서 A 하나 대 B 하나. 로봇이 이번에 세어지면 A가 가져간다
-    const s = state({
-      people: [person('a1', 'A', lab.id), person('b1', 'B', lab.id)],
-      pendingResearch: ['a1'],
+describe('닫으면 서 있는 자리로 주인이 정해진다', () => {
+  it('많은 쪽이 가져간다 — 파랑 둘, 빨강 하나면 파랑', () => {
+    const s = board({
+      people: [person('b1', 'B', 'library'), person('b2', 'B', 'library'), person('a1', 'A', 'library')],
+      owners: { library: null },
     })
-    const out = resolvePhase(s, [])
-    expect(out.next.robots).toHaveLength(1)
-    expect(out.next.owners[lab.id]).toBe(null)
+    expect(settle(s).next.owners.library).toBe('B')
+  })
+
+  it('동점이면 주인이 그대로다', () => {
+    const held = board({
+      people: [person('a1', 'A', 'library'), person('b1', 'B', 'library')],
+      owners: { library: 'A' },
+    })
+    expect(settle(held).next.owners.library).toBe('A')
+    const empty = board({
+      people: [person('a1', 'A', 'library'), person('b1', 'B', 'library')],
+      owners: { library: null },
+    })
+    expect(settle(empty).next.owners.library).toBeNull()
+  })
+
+  it('아무도 없어도 주인은 남는다', () => {
+    expect(settle(board({ owners: { library: 'C' } })).next.owners.library).toBe('C')
+  })
+
+  it('주장은 둘로 센다', () => {
+    const s = board({
+      people: [person('c1', 'C', 'library', true), person('a1', 'A', 'library'), person('a2', 'A', 'library')],
+      owners: { library: null },
+    })
+    // 주장 하나(2) 대 둘(2) — 동점이라 안 바뀐다
+    expect(settle(s).next.owners.library).toBeNull()
+  })
+
+  it('닫으면 방해와 위장이 풀린다', () => {
+    let s = board({ people: [person('a', 'A', 'library'), person('b', 'B', 'library')] })
+    s = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
+    s = must(s, 'a', { kind: 'disguise' })
+    const done = settle(s)
+    expect(done.next.zeroedPeople).toEqual([])
+    expect(done.next.disguised).toEqual([])
+  })
+
+  it('닫을 때 난 로봇은 이번 판정에 안 낀다', () => {
+    // A 하나가 연구를 걸어 둔 방에 B 하나가 서 있다
+    const s = board({
+      people: [person('a', 'A', lab.id), person('b', 'B', lab.id)],
+      owners: { [lab.id]: null },
+      pendingResearch: ['a'],
+    })
+    const done = settle(s)
+    // 로봇이 끼었다면 A가 2대1로 가져갔을 것이다. 1대1이라 안 바뀐다
+    expect(done.next.owners[lab.id]).toBeNull()
+    expect(done.next.robots).toHaveLength(1)
   })
 })
 
-describe('위장', () => {
-  it('판정은 그대로고 남에게 보이는 숫자만 바뀐다', () => {
-    const s = state({ people: [person('a1', 'A', 'classroom'), person('b1', 'B', 'classroom')] })
-    const out = resolvePhase(s, [doIt('a1', 'disguise')])
-    expect(out.next.owners.classroom).toBe(null)
-    expect(out.disguised).toEqual(['a1'])
-    // 남에게는 둘로, 같은 팀에게는 하나로
-    expect(shownCount(out.next, 'classroom', 'B', out.disguised)).toBe(3)
-    expect(shownCount(out.next, 'classroom', 'A', out.disguised)).toBe(2)
+describe('판이 네 팀에게 공평하다', () => {
+  it('종류가 회전 대칭인 묶음째로 주어진다', () => {
+    const byTier = new Map<string, Set<string>>()
+    for (const t of TILES) {
+      const set = byTier.get(t.tier) ?? new Set<string>()
+      set.add(ROOM_KIND[t.id])
+      byTier.set(t.tier, set)
+    }
+    for (const [, kinds] of byTier) expect(kinds.size).toBe(1)
+  })
+
+  it('네 기지에서 중앙광장까지 걸음 수가 같다', () => {
+    const steps = TEAM_IDS.map((team) => {
+      let cur = `base${team}`
+      let n = 0
+      while (cur !== 'centralPlaza' && n < 20) {
+        cur = stepToward(cur, 'centralPlaza') as string
+        n += 1
+      }
+      return n
+    })
+    expect(new Set(steps).size).toBe(1)
   })
 })
 
-describe('판 전체', () => {
-  it('네 팀이 기지에서 시작하면 각자 자기 기지를 쥔다', () => {
-    const people = TEAM_IDS.map((t, i) => person(`p${i}`, t, `base${t}`))
-    const out = resolvePhase(state({ people }), [])
-    for (const t of TEAM_IDS) expect(out.next.owners[`base${t}`]).toBe(t)
-  })
-
-  it('행동을 안 낸 사람은 그 자리에 그대로 있다', () => {
-    const s = state({ people: [person('a1', 'A', 'classroom')] })
-    const out = resolvePhase(s, [])
-    expect(out.next.people[0].tileId).toBe('classroom')
+describe('ownerOf', () => {
+  it('가장 많은 팀이 하나뿐일 때만 바뀐다', () => {
+    expect(ownerOf({ A: 3, B: 1 }, null)).toBe('A')
+    expect(ownerOf({ A: 2, B: 2 }, 'C')).toBe('C')
+    expect(ownerOf({}, 'D')).toBe('D')
+    expect(ownerOf({ A: 0 }, null)).toBeNull()
   })
 })

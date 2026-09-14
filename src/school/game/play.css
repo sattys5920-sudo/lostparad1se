@@ -774,8 +774,42 @@
 .sc-ph h2 { margin: 8px 0 0; font-size: 15px; display: flex; gap: 7px; align-items: baseline; }
 .sc-ph h2 span { font-size: 12px; color: var(--sc-text-dim); font-weight: 400; }
 .sc-ph__hint { margin: 0; font-size: 12px; color: var(--sc-text-dim); text-wrap: pretty; }
+.sc-ph__hint b { color: var(--sc-text); font-weight: 700; }
 .sc-ph__note { margin: 0; font-size: 11px; color: #6b7280; }
 .sc-ph__count { font-size: 11.5px; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+
+/* 남은 토큰과 남은 시간. 이 둘이 페이즈 내내 보는 전부다 */
+.sc-ph__purse {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: 5px;
+  background: var(--sc-surface);
+}
+
+.sc-ph__purse strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.sc-ph__purse em {
+  font-style: normal;
+  font-size: 12.5px;
+  color: var(--sc-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 행동 이름 옆의 값. 누르기 전에 얼마가 드는지 보여야 한다 */
+.sc-ph__list > li > button strong i {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--sc-text-dim);
+  border: 1px solid var(--sc-line);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 4px;
+}
 
 .sc-ph__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 

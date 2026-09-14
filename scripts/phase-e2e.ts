@@ -11,7 +11,7 @@
 import { TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { ROOM_KIND, capacityOf } from '../shared/rules/occupy'
+import { ACT_COST, ROOM_KIND, TOKENS_PER_PHASE, capacityOf, stepToward } from '../shared/rules/occupy'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -143,59 +143,98 @@ async function main(): Promise<void> {
   check(now.tileId === 'baseA', '걸어서 제자리에 닿았다', String(now.tileId))
 
   const roamNow = await call('roamTo', a0.token, { gameId: GAME, tileId: 'classroom' })
-  check(roamNow.code === 'FAILED_PRECONDITION', '페이즈 중에는 함부로 못 움직인다')
+  check(roamNow.code === 'FAILED_PRECONDITION', '페이즈 중에는 토큰을 써서 움직인다')
 
-  console.log('\n── 고른 것이 새는가 ──')
-  await must('submitAction', a0.token, { gameId: GAME, kind: 'move', targetTile: 'classroom' })
-  const asPlayer = await fetch(`${FS}/games/${GAME}/secret/actions/items`, { headers: { Authorization: `Bearer ${B[0].token}` } })
-  check(asPlayer.status === 403, '남이 무엇을 골랐는지 못 읽는다', String(asPlayer.status))
-  const asHost = await fetch(`${FS}/games/${GAME}/secret/actions/items`, { headers: { Authorization: `Bearer ${host}` } })
+  console.log('\n── 토큰이 한 페이즈의 전부다 ──')
+  check(now.tokens === TOKENS_PER_PHASE, '열릴 때 토큰을 받았다', `${now.tokens}개`)
+  const step = await must('phaseAct', a0.token, { gameId: GAME, kind: 'move', targetTile: 'classroom' })
+  check(Number(step.tokens) === TOKENS_PER_PHASE - ACT_COST.move, '한 칸에 토큰 하나', `${step.tokens}개 남음`)
+  check((await pawnsNow())[a0.uid].tileId === 'classroom', '**바로 움직였다** — 닫힐 때까지 안 기다린다')
+
+  // 토큰이 떨어질 때까지 왔다 갔다 한다
+  let purse = Number(step.tokens)
+  for (let i = 0; purse > 0 && i < 20; i++) {
+    const to = i % 2 === 0 ? 'baseA' : 'classroom'
+    const r = await call('phaseAct', a0.token, { gameId: GAME, kind: 'move', targetTile: to })
+    if (!r.ok) break
+    purse = Number((r.data as { tokens: number }).tokens)
+  }
+  check(purse === 0, '토큰을 다 썼다', `${purse}개`)
+  const broke = await call('phaseAct', a0.token, { gameId: GAME, kind: 'move', targetTile: 'baseA' })
+  check(broke.code === 'FAILED_PRECONDITION' && String(broke.message).includes('토큰'), '떨어지면 더는 못 움직인다', broke.message)
+
+  console.log('\n── 감출 것은 secret 아래에만 ──')
+  await must('phaseAct', A[1].token, { gameId: GAME, kind: 'disguise' })
+  const gameDoc = await getAll(`games`)
+  check(!JSON.stringify(gameDoc).includes('disguised'), '**판 문서에 위장이 안 적힌다**')
+  const asPlayer = await fetch(`${FS}/games/${GAME}/secret/phase`, { headers: { Authorization: `Bearer ${B[0].token}` } })
+  check(asPlayer.status === 403, '남이 위장 목록을 못 읽는다', String(asPlayer.status))
+  const asHost = await fetch(`${FS}/games/${GAME}/secret/phase`, { headers: { Authorization: `Bearer ${host}` } })
   check(asHost.status === 403, '운영자도 못 읽는다', String(asHost.status))
-  const ready = await must('phaseReady', B[0].token, { gameId: GAME })
-  check(ready.submitted === 1 && ready.total === TOTAL_SEATS, '몇 명이 냈는지만 알려 준다', `${ready.submitted}/${ready.total}`)
-  check(!JSON.stringify(ready).includes('classroom'), '무엇을 골랐는지는 안 나간다')
 
-  console.log('\n── 닫으면 한꺼번에 ──')
-  // **주인 없는 칸으로 간다.** 교실은 A 기지에 붙어 있어 처음부터 A 것이라,
-  // 거기서 이겨 봐야 아무것도 확인하지 못한다. 도서관은 어느 기지에도
-  // 안 붙어 있어 비어 있다
+  console.log('\n── 시간이 끝나면 아무도 못 움직인다 ──')
+  const ends = Number(opened.endsAtMs)
+  check(ends > openedAt, '끝나는 시각이 정해졌다', `${(ends - openedAt) / 60000}분`)
+  await must('setDevClock', host, { gameId: GAME, anchorGameMs: ends + 1000, speed: 1 })
+  const late = await call('phaseAct', B[0].token, { gameId: GAME, kind: 'disguise' })
+  check(late.code === 'FAILED_PRECONDITION' && String(late.message).includes('시간'), '시간이 끝났다', late.message)
+  const info = await must('phaseNow', B[0].token, { gameId: GAME })
+  check(info.open === true && info.alive === false, '열려 있지만 살아 있지는 않다')
+  check(!JSON.stringify(info).includes('disguise'), '**누가 무엇을 했는지는 안 나간다**')
+
+  console.log('\n── 닫으면 서 있는 자리로 정해진다 ──')
   check((await ownerOfTile('library')) === null, '도서관은 처음에 주인이 없다', String(await ownerOfTile('library')))
-
-  await must('submitAction', A[1].token, { gameId: GAME, kind: 'move', targetTile: 'classroom' })
-  await must('submitAction', B[0].token, { gameId: GAME, kind: 'move', targetTile: 'artRoom' })
-  await must('submitAction', B[1].token, { gameId: GAME, kind: 'move', targetTile: 'artRoom' })
   const closed = await must('closePhase', host, { gameId: GAME })
   check(Number(closed.no) === 1, '1번 페이즈가 닫혔다')
-  const moved = await pawnsNow()
-  check(moved[a0.uid].postTile === 'classroom', '전선이 옮겨졌다', String(moved[a0.uid].postTile))
+  const after = await pawnsNow()
+  check(after[a0.uid].postTile === after[a0.uid].tileId, '전선이 선 자리로 옮겨졌다')
+  check(after[a0.uid].tokens === 0, '남은 토큰은 사라진다', `${after[a0.uid].tokens}개`)
+
+  // 페이즈를 열고 시계를 여유 있게 맞춘다
+  let clockAt = ends + 2000
+  const openWide = async () => {
+    await must('openPhase', host, { gameId: GAME })
+    clockAt += 1000
+    await must('setDevClock', host, { gameId: GAME, anchorGameMs: clockAt, speed: 1 })
+  }
+  /** 거기까지 걸어간다. 페이즈 중에는 한 칸씩 토큰을 쓴다. */
+  const walkTo = async (who: { uid: string; token: string }, goal: string) => {
+    for (let i = 0; i < 8; i++) {
+      const here = (await pawnsNow())[who.uid].tileId as string
+      if (here === goal) return
+      const next = stepToward(here, goal)
+      if (!next) return
+      const r = await call('phaseAct', who.token, { gameId: GAME, kind: 'move', targetTile: next })
+      if (!r.ok) return
+    }
+  }
 
   console.log('\n── 머릿수가 많은 팀이 가져간다 ──')
-  await must('openPhase', host, { gameId: GAME })
-  await must('submitAction', a0.token, { gameId: GAME, kind: 'move', targetTile: 'library' })
-  await must('submitAction', A[1].token, { gameId: GAME, kind: 'move', targetTile: 'library' })
-  await must('submitAction', B[0].token, { gameId: GAME, kind: 'move', targetTile: 'library' })
+  await openWide()
+  await walkTo(a0, 'library')
+  await walkTo(A[1], 'library')
+  await walkTo(B[0], 'library')
   await must('closePhase', host, { gameId: GAME })
   check((await ownerOfTile('library')) === 'A', 'A 둘이 B 하나를 이겼다', String(await ownerOfTile('library')))
   const log2 = await getAll(`games/${GAME}/phaseLog`)
   check(JSON.stringify(log2).includes('captured'), '점령이 로그에 남았다')
 
   console.log('\n── 동점이면 안 바뀐다 ──')
-  await must('openPhase', host, { gameId: GAME })
-  await must('submitAction', B[1].token, { gameId: GAME, kind: 'move', targetTile: 'library' })
+  await openWide()
+  await walkTo(B[1], 'library')
   await must('closePhase', host, { gameId: GAME })
   check((await ownerOfTile('library')) === 'A', '2대2가 되어도 주인이 그대로다')
 
   console.log('\n── 아무도 없어도 주인은 남는다 ──')
-  await must('openPhase', host, { gameId: GAME })
-  await must('submitAction', a0.token, { gameId: GAME, kind: 'move', targetTile: 'classroom' })
-  await must('submitAction', A[1].token, { gameId: GAME, kind: 'move', targetTile: 'classroom' })
-  await must('submitAction', B[0].token, { gameId: GAME, kind: 'move', targetTile: 'artRoom' })
-  await must('submitAction', B[1].token, { gameId: GAME, kind: 'move', targetTile: 'artRoom' })
+  await openWide()
+  await walkTo(a0, 'classroom')
+  await walkTo(A[1], 'classroom')
+  await walkTo(B[0], 'artRoom')
+  await walkTo(B[1], 'artRoom')
   await must('closePhase', host, { gameId: GAME })
   check((await ownerOfTile('library')) === 'A', '다 빠져나가도 A 것으로 남는다')
 
   console.log('\n── 주장은 둘로 센다 ──')
-  // C 주장 하나가 자기 기지 옆 칸에서 A 하나와 맞선다
   const cap = C.find((p) => (started[p.uid] as { captain?: boolean }).captain === true)
   check(cap !== undefined, '주장을 찾았다')
 
@@ -203,9 +242,9 @@ async function main(): Promise<void> {
   const narrow = Object.entries(ROOM_KIND).find(([, k]) => k === 'narrow')?.[0] as string
   check(capacityOf(narrow) === 2, `${narrow}은 정원 2다`)
 
-  console.log('\n── 페이즈가 아니면 못 낸다 ──')
-  const late = await call('submitAction', a0.token, { gameId: GAME, kind: 'disguise' })
-  check(late.code === 'FAILED_PRECONDITION', '닫힌 뒤에는 못 낸다', late.message)
+  console.log('\n── 페이즈가 아니면 못 한다 ──')
+  const shut = await call('phaseAct', a0.token, { gameId: GAME, kind: 'disguise' })
+  check(shut.code === 'FAILED_PRECONDITION', '닫힌 뒤에는 못 한다', shut.message)
   const notHost = await call('openPhase', a0.token, { gameId: GAME })
   check(notHost.code === 'PERMISSION_DENIED', '운영자만 페이즈를 연다')
 

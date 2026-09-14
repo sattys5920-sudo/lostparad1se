@@ -64,15 +64,17 @@ export interface GameDoc {
    *
    * 관리자가 열고 닫는다. 자유 시간에는 마음껏 돌아다니고, 열리면
    * 다들 직전 페이즈가 끝난 자리로 돌아온다.
+   *
+   * endsAtMs 를 넘기면 열려 있어도 아무도 못 움직인다. 늦게 닫히는
+   * 페이즈에서 토큰이 남은 사람만 유리해지면 안 된다.
    */
-  phaseNow?: { no: number; day: number; open: boolean; openedAtMs: GameMs }
+  phaseNow?: { no: number; day: number; open: boolean; openedAtMs: GameMs; endsAtMs?: GameMs }
   /** 지금까지 끝난 페이즈 수. 하루 10개, 닷새면 쉰 개다. */
   phaseDone?: number
   /** 지난 페이즈에 연구를 건 사람들. 다음 페이즈 끝에 로봇이 된다. */
   pendingResearch?: string[]
-  /** 위장한 사람들과, 그 위장이 풀리는 페이즈 번호. */
-  disguised?: string[]
-  disguisedUntil?: number
+  // 위장한 사람과 방해받은 사람은 **여기 없다.** 판 문서는 누구나
+  // 읽을 수 있어서 적는 순간 위장이 성립하지 않는다 — secret/phase 에 있다
   /** A의 기록이 열어 준 칸. */
   openedTiles: TileId[]
   /** 기록이 지목해 가치가 오른 칸. */
@@ -167,12 +169,19 @@ export interface PawnDoc {
   team: TeamId
   title: RoleTitle
   /**
-   * 전투 자리. **점령을 여기서 센다.**
+   * 전투 자리. 직전 페이즈가 끝난 곳이다.
    *
-   * 자유 시간에 아무리 멀리 가도 이 값은 안 움직인다. 옮기는 길은
-   * 페이즈의 「이동」 행동 하나뿐이다.
+   * 자유 시간에 아무리 멀리 가도 이 값은 안 움직인다. 페이즈가 열리면
+   * 여기로 걸어 돌아오고, 옮기려면 페이즈 안에서 토큰을 써야 한다.
    */
   postTile?: TileId | null
+  /**
+   * 이번 페이즈에 남은 토큰. 페이즈가 열릴 때 채워지고 닫힐 때 0이 된다.
+   *
+   * 한 칸 움직이는 데 하나, 행동에 따라 하나나 둘. **이것이 한 페이즈에
+   * 할 수 있는 일의 전부다.**
+   */
+  tokens?: number
   /** 세 명뿐인 팀의 주장. 점령 판정에서 둘로 센다. */
   captain?: boolean
   /**
@@ -331,6 +340,8 @@ export interface PlayerViewDoc {
   myArriveAtMs: number | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
+  /** 이번 페이즈에 내게 남은 토큰. */
+  myTokens: number
   /** 내가 가 본 방. 지도가 채워지는 것은 개인의 기록이다. */
   visitedTiles: TileId[]
   /** 보이는 방에 있는 로봇. 사람처럼 안개를 거친다. */

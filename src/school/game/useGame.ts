@@ -140,12 +140,11 @@ export function gameActions(gameId: string) {
     /** 자유 시간에 옆방으로. 즉시 간다. 전선은 안 움직인다. */
     roamTo: (tileId: TileId) => callServer('roamTo', { ...g, tileId }),
     /** 이번 페이즈에 할 일. 닫히기 전까지는 바꿀 수 있다. */
-    submitAction: (
+    phaseAct: (
       kind: string,
       t: { targetTile?: TileId; targetPlayer?: string; targetRobot?: string } = {},
-    ) => callServer('submitAction', { ...g, kind, ...t }),
-    /** 몇 명이 냈는가. 무엇을 냈는지는 안 온다. */
-    phaseReady: () => callServer('phaseReady', g),
+    ) => callServer('phaseAct', { ...g, kind, ...t }),
+    phaseNow: () => callServer('phaseNow', g),
     openPhase: () => callServer('openPhase', g),
     closePhase: () => callServer('closePhase', g),
 
