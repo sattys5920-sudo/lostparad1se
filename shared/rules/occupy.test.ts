@@ -18,6 +18,8 @@ import {
   leftBehindCount,
   ownerOf,
   robotsIn,
+  roomsOf,
+  teamRanks,
   robotsLeftBehind,
   robotsOfTeam,
   settle,
@@ -528,6 +530,53 @@ describe('판이 네 팀에게 공평하다', () => {
       return n
     })
     expect(new Set(steps).size).toBe(1)
+  })
+})
+
+describe('팀 점수는 방 개수다', () => {
+  it('기지는 세지 않는다 — 거저 받은 것으로 점수가 생기면 안 된다', () => {
+    const owners = { baseA: 'A', classroom: 'A', hallway: 'A' } as const
+    expect(roomsOf(owners, 'A')).toBe(2)
+  })
+
+  it('아무것도 없으면 0이다', () => {
+    expect(roomsOf({}, 'A')).toBe(0)
+  })
+
+  it('많이 가진 팀이 앞선다', () => {
+    const owners: Partial<Record<string, TeamId | null>> = {
+      classroom: 'A',
+      hallway: 'A',
+      storage: 'A',
+      musicRoom: 'B',
+      clubRoom: 'B',
+      artRoom: 'C',
+    }
+    const rank = teamRanks(owners, TEAM_IDS)
+    expect(rank.A).toBe(1)
+    expect(rank.B).toBe(2)
+    expect(rank.C).toBe(3)
+    expect(rank.D).toBe(4)
+  })
+
+  it('동순위는 같은 수를 갖고, 다음 자리는 건너뛴다', () => {
+    // 이적이 「동순위면 불가」를 판정하므로 같은 자리에 둘이 선 것이
+    // 구별돼야 한다. 억지로 순서를 매기면 안 되는 이적이 열린다
+    const owners: Partial<Record<string, TeamId | null>> = {
+      classroom: 'A',
+      musicRoom: 'B',
+      artRoom: 'C',
+    }
+    const rank = teamRanks(owners, TEAM_IDS)
+    expect(rank.A).toBe(1)
+    expect(rank.B).toBe(1)
+    expect(rank.C).toBe(1)
+    expect(rank.D).toBe(4)
+  })
+
+  it('전부 같으면 모두 1위다', () => {
+    const rank = teamRanks({}, TEAM_IDS)
+    expect(Object.values(rank)).toEqual([1, 1, 1, 1])
   })
 })
 

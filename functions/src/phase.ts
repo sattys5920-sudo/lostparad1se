@@ -27,6 +27,8 @@ import {
   TOKENS_PER_PHASE,
   TOKEN_CAP,
   capacityOf,
+  roomsOf,
+  teamRanks,
   doAct,
   settle,
   type Act,
@@ -38,6 +40,7 @@ import {
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
 import { SHORT_HANDED_TEAMS, TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
+import { TEAMS } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
 import { freshNow } from './turn'
 import { clearArrivals, writeWalk } from './move'
@@ -175,7 +178,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   }
 
   const ref = gameRef(gameId)
-  const pawns = await ref.collection('pawns').get()
+  const [pawns, tiles] = await Promise.all([ref.collection('pawns').get(), ref.collection('tiles').get()])
+  const owners: Partial<Record<TileId, TeamId | null>> = {}
+  for (const d of tiles.docs) owners[d.id as TileId] = (d.data() as TileDoc).ownerTeam ?? null
   const batch = db.batch()
 
   // 걸어서 돌아와야 하는 사람들. 옛 도착 예정을 먼저 걷어낸다 —
@@ -230,14 +235,25 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
 
   const no = (game.phaseDone ?? 0) + 1
   const endsAtMs = nowMs + PHASE_MINUTES * 60_000
+  const day = Math.floor((no - 1) / PHASES_PER_DAY) + 1
+
+  // 그날 첫 페이즈에 순위를 찍어 하루 동안 고정한다. 이적이 이 수를
+  // 보는데, 페이즈마다 움직이면 어제 합의한 이적이 오늘 아침 말없이
+  // 불발된다 — 협상해 놓고 조건이 사라지는 것은 규칙이 아니라 버그다
+  const freeze =
+    game.dayRanks?.day !== day
+      ? {
+          dayRanks: {
+            day,
+            rooms: Object.fromEntries(TEAMS.map((t) => [t, roomsOf(owners, t)])) as Record<TeamId, number>,
+            rank: teamRanks(owners, TEAMS),
+          },
+        }
+      : {}
+
   batch.update(ref, {
-    phaseNow: {
-      no,
-      day: Math.floor((no - 1) / PHASES_PER_DAY) + 1,
-      open: true,
-      openedAtMs: nowMs,
-      endsAtMs,
-    },
+    phaseNow: { no, day, open: true, openedAtMs: nowMs, endsAtMs },
+    ...freeze,
   })
   // 지난 페이즈의 위장·방해는 여기서 지운다. 연구 대기는 남긴다 —
   // 이번 페이즈가 닫힐 때 로봇이 될 것들이다

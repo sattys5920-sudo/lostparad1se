@@ -69,6 +69,16 @@ export interface GameDoc {
    * 페이즈에서 토큰이 남은 사람만 유리해지면 안 된다.
    */
   phaseNow?: { no: number; day: number; open: boolean; openedAtMs: GameMs; endsAtMs?: GameMs }
+  /**
+   * **그날 아침에 찍어 둔 팀 순위.** 하루 동안 움직이지 않는다.
+   *
+   * 이적이 이 수를 본다. 순위가 페이즈마다 바뀌면, 어제 마주 서서
+   * 합의한 이적이 오늘 아침 순위가 뒤집혔다는 이유로 말없이 불발된다 —
+   * 협상이 성립하는 시점과 조건이 판정되는 시점이 다른데 그 사이에
+   * 조건이 움직이면 협상 자체가 성립하지 않는다. 그래서 하루치를
+   * 그날 첫 페이즈가 열릴 때 한 번 찍고, 신청도 발효도 같은 수를 본다.
+   */
+  dayRanks?: { day: number; rooms: Record<TeamId, number>; rank: Record<TeamId, number> }
   /** 지금까지 끝난 페이즈 수. 하루 10개, 닷새면 쉰 개다. */
   phaseDone?: number
   /** 지난 페이즈에 연구를 건 사람들. 다음 페이즈 끝에 로봇이 된다. */

@@ -278,6 +278,48 @@ export function leftBehindCount(carried: number, botsAtDest: number): number {
   return Math.max(0, carried - Math.max(0, ROBOTS_PER_ROOM - botsAtDest))
 }
 
+// ── 팀 점수와 순위 ──────────────────────────────────────────────
+//
+// **팀은 방 개수로 이긴다.** 자원도 건물도 표도 팀 점수에 들어가지
+// 않는다 — 방 하나가 한 점이고 그게 전부다. 개인은 개인 미션으로
+// 따로 평가받는다. 둘은 별개다.
+//
+// 기지는 세지 않는다. 시작할 때 거저 받는 것이라 세면 아무것도
+// 안 한 팀이 점수를 갖게 된다.
+
+/** 그 팀이 쥐고 있는 방의 수. 이것이 곧 팀 점수다. */
+export function roomsOf(owners: Readonly<Partial<Record<TileId, TeamId | null>>>, team: TeamId): number {
+  return TILES.filter((t) => t.homeOf === null && owners[t.id] === team).length
+}
+
+/**
+ * 팀마다의 순위. **동순위는 같은 수를 갖는다**(1·2·2·4).
+ *
+ * 이적이 이 수를 본다. 「받는 팀이 보내는 팀보다 순위가 낮아야」를
+ * 판정하려면 같은 자리에 둘이 서 있는 경우가 구별돼야 한다 —
+ * 동순위면 이적이 막히므로, 억지로 순서를 매기면 안 되는 이적이 열린다.
+ */
+export function teamRanks(
+  owners: Readonly<Partial<Record<TileId, TeamId | null>>>,
+  teams: readonly TeamId[],
+): Record<TeamId, number> {
+  const rooms = teams.map((t) => [t, roomsOf(owners, t)] as const)
+  const sorted = [...rooms].sort((a, b) => b[1] - a[1])
+  const out = {} as Record<TeamId, number>
+  let rank = 0
+  let seen = 0
+  let last: number | null = null
+  for (const [team, n] of sorted) {
+    seen += 1
+    if (n !== last) {
+      rank = seen
+      last = n
+    }
+    out[team] = rank
+  }
+  return out
+}
+
 /**
  * 주인을 정한다. **가장 많은 팀이 하나뿐일 때만** 바뀐다.
  *
