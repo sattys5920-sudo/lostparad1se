@@ -483,7 +483,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <div className="sc-pl__room">
           <Walk
             me={{ playerId: me.playerId, team: me.team, look }}
-            game={game}
             view={state.view}
             tiles={state.tiles}
             nowMs={Date.now()}

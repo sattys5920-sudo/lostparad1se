@@ -19,7 +19,6 @@ import {
   doorHere,
   floorOf,
   isWalkable,
-  lockedDoorKeys,
   markAt,
   propAt,
   roomAt,
@@ -31,11 +30,10 @@ import { pixelFrame } from '../char/pixel'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import { CROSS_TIMEOUT_MS, MAX_SCALE, MIN_VIEW_PX, PAD_HOLD_MS, STEP_MS, WALK_POSES_PER_SEC } from './timing'
 import type { AvatarLook, TeamId, TileId } from '../types'
-import type { GameDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
+import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 
 export interface WalkProps {
   me: { playerId: string; team: TeamId; look: AvatarLook | null }
-  game: GameDoc
   view: PlayerViewDoc | null
   tiles: Partial<Record<TileId, TileDoc>>
   nowMs: number
@@ -86,20 +84,18 @@ function acrossFrom(door: { a: TileId; b: TileId }, here: TileId | null): TileId
   return null
 }
 
-export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   // 그리기 루프가 매 프레임 읽는 것들. state로 두면 프레임마다 다시
   // 그려져서 걸음이 끊긴다
   const viewRef = useRef(view)
   const tilesRef = useRef(tiles)
-  const lockedRef = useRef(lockedDoorKeys(asRooms(game.openedTiles)))
   const crossRef = useRef(onCross)
   const roomRef = useRef(onRoom)
   const tapRef = useRef(onTapRoom)
   viewRef.current = view
   tilesRef.current = tiles
-  lockedRef.current = lockedDoorKeys(asRooms(game.openedTiles))
   crossRef.current = onCross
   roomRef.current = onRoom
   tapRef.current = onTapRoom
@@ -297,10 +293,15 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
       const ny = self.ty + dy
       const here = roomAt(self.tx, self.ty)?.id ?? null
 
-      // 문이다. 여기서부터는 내가 걷는 것이 아니라 서버가 센다
+      // 문이다. 여기서부터는 내가 걷는 것이 아니라 서버가 센다.
+      //
+      // **여기서 문을 잠그지 않는다.** 전에는 아직 안 열린 핵심 방으로
+      // 가는 문을 화면이 막았는데, 서버는 그런 검사를 안 한다 —
+      // 「여기로 간다」로는 들어가지고 걸어서는 못 들어갔다. 게다가
+      // 막을 때 아무 말도 안 해서, 문에 대고 아무리 눌러도 감감무소식이었다.
+      // 무엇이 되는지는 서버가 정하고, 화면은 거절을 그대로 띄운다
       const door = doorHere(nx, ny)
       if (door) {
-        if (lockedRef.current.has(`${nx},${ny}`)) return
         const to = acrossFrom(door, here)
         if (to && !asked) {
           asked = true
@@ -316,7 +317,7 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
         }
         return
       }
-      if (!isWalkable(nx, ny, lockedRef.current)) return
+      if (!isWalkable(nx, ny)) return
       self.tx = nx
       self.ty = ny
       self.moving = true
@@ -357,7 +358,7 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
             const k = `${nx},${ny}`
             if (seen.has(k)) continue
             const onDoor = doorHere(nx, ny) !== null
-            if (onDoor ? lockedRef.current.has(k) : !isWalkable(nx, ny, lockedRef.current)) continue
+            if (!onDoor && !isWalkable(nx, ny)) continue
             seen.add(k)
             prev.set(k, `${cur.x},${cur.y}`)
             if (k === goal) {
@@ -392,7 +393,7 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const cx = door.x + dx
           const cy = door.y + dy
-          if (roomAt(cx, cy)?.id === id && isWalkable(cx, cy, lockedRef.current)) {
+          if (roomAt(cx, cy)?.id === id && isWalkable(cx, cy)) {
             x = cx
             y = cy
             break
@@ -523,7 +524,9 @@ export function Walk({ me, game, view, tiles, nowMs, onCross, onRoom, onTapRoom,
           if (kind === 'wall') {
             img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
           } else if (kind === 'door') {
-            img = lockedRef.current.has(`${x},${y}`) ? sprites.tiles.doorLocked : sprites.tiles.door
+            // 잠긴 문 그림은 안 쓴다. 화면은 어느 문이 열렸는지 모른다 —
+            // 문을 넘어 보고 서버가 뭐라 하는지 듣는다
+            img = sprites.tiles.door
           } else {
             const f = room ? floorOf(room) : 'room'
             img =

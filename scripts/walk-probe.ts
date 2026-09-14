@@ -66,7 +66,7 @@ async function main(): Promise<void> {
   await page.waitForTimeout(500)
 
   const at = () => page.locator('.sc-wk__canvas').getAttribute('data-at')
-  const room = () => page.locator('.sc-wk__here').textContent().catch(() => null)
+  const room = () => page.locator('.sc-wk__here').textContent({ timeout: 1500 }).catch(() => null)
 
   console.log('\n── 십자키 ──')
   const pad = await page.locator('.sc-pl__pad button').count()
@@ -165,6 +165,29 @@ async function main(): Promise<void> {
     const said = await page.locator('.sc-pl__said').textContent().catch(() => null)
     console.log(`  ${label}: ${was} → ${now}${said ? ` · 「${said}」` : ''}`)
     if (was !== now) break
+  }
+
+  console.log('\n── 십자키로 걸어서 문 넘기 ──')
+  {
+    // 쯔꾸르처럼. 문 쪽으로 계속 걸으면 저절로 옆방이어야 한다
+    const crossed: string[] = []
+    for (const dir of ['up', 'down', 'left', 'right', 'up', 'left', 'down', 'right']) {
+      const was = await room()
+      const wasAt = await at()
+      const btn = page.locator(`.sc-pl__pad button[data-dir="${dir}"]`)
+      const b = await btn.boundingBox()
+      if (!b) continue
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
+      await page.mouse.down()
+      await page.waitForTimeout(3000)
+      await page.mouse.up()
+      await page.waitForTimeout(1500)
+      const now = await room()
+      const said = await page.locator('.sc-pl__said').textContent().catch(() => null)
+      console.log(`  ${dir} 3초: ${was}(${wasAt}) → ${now}(${await at()})${said ? ` · 「${said}」` : ''}`)
+      if (was !== now && now) crossed.push(`${was}→${now}`)
+    }
+    console.log(`  걸어서 넘은 문 ${crossed.length}개: ${crossed.join(', ')}`)
   }
 
   console.log('\n── 먼 방을 눌렀을 때 ──')
