@@ -43,7 +43,7 @@ import {
   type Vault,
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
-import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, canRoamTo, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
@@ -769,7 +769,11 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     if (p.tileId === tileId) throw new HttpsError('failed-precondition', '이미 그 방이다.')
 
     const here = (p.tileId ?? p.postTile) as TileId
-    if (!ADJACENCY[here]?.includes(tileId)) throw new HttpsError('failed-precondition', '옆방이 아니다.')
+    // **복도로 닿으면 들어간다.** 옆방만 허용하면, 복도 한복판에서
+    // 눈앞의 문을 못 여는 일이 생긴다 — 복도는 층을 통째로 잇는다.
+    // 어차피 자유 시간 걸음은 공짜고 즉시라, 옆방씩 몇 번 눌러 가는
+    // 것과 결과가 같다
+    if (!canRoamTo(here, tileId)) throw new HttpsError('failed-precondition', '거기까지는 복도가 안 이어진다.')
 
     // **정원은 사람만 센다.** 로봇은 방마다 따로 헤아린다 — 여기서
     // 같이 세면 로봇 둘이 선 좁은 방에 아무도 못 들어가고, 들어가야

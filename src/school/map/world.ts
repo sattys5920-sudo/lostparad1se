@@ -20,6 +20,7 @@
 // 층의 짝 계단으로 옮겨 놓는다.
 import {
   ADJACENCY,
+  canRoamTo,
   FLOORS,
   HALLS,
   PLAN_H,
@@ -603,6 +604,54 @@ export const SPAWNABLE_TILES: TileId[] = BOARD.filter(
   (t) => !CORE_TILES.has(t.id as TileId) && t.tier !== 'base' && t.tier !== 'stair',
 ).map((t) => t.id as TileId)
 
+/**
+ * 복도만 밟고 닿을 수 있는 방들. **다른 방을 지나가지는 않는다.**
+ *
+ * 규칙이 들여보내 주는 범위(canRoamTo)와 이것이 어긋나면, 화면에서는
+ * 문이 열려 있는데 서버가 거절한다. 켤 때 맞춰 본다.
+ */
+function roamReach(from: TileId): Set<TileId> {
+  const out = new Set<TileId>()
+  const seen = new Uint8Array(N_W * N_H)
+  const queue: number[] = []
+  for (const d of DOORS) {
+    if (d.a !== from) continue
+    seen[idx(d.x, d.y)] = 1
+    queue.push(idx(d.x, d.y))
+  }
+  // 계단참은 문이 없다. 제 칸 어디서나 복도로 걸어 나간다
+  if (TILE_BY_ID[from]?.tier === 'stair') {
+    const r = ROOM_RECTS[from][0]
+    for (let y = r.y; y < r.y + r.h; y++) {
+      for (let x = r.x; x < r.x + r.w; x++) {
+        seen[idx(x, y)] = 1
+        queue.push(idx(x, y))
+      }
+    }
+  }
+  while (queue.length > 0) {
+    const cur = queue.pop() as number
+    const x = cur % N_W
+    const y = (cur - x) / N_W
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = x + dx
+      const ny = y + dy
+      if (nx < 0 || ny < 0 || nx >= N_W || ny >= N_H) continue
+      if (seen[idx(nx, ny)]) continue
+      if (tileAt(nx, ny) === 'wall') continue
+      const room = roomAt(nx, ny)?.id ?? null
+      // 다른 방에 닿았다. 들어가지는 않는다 — 방을 가로질러 가는 길은 없다
+      if (room && room !== from) {
+        out.add(room)
+        continue
+      }
+      seen[idx(nx, ny)] = 1
+      queue.push(idx(nx, ny))
+    }
+  }
+  return out
+}
+
 // ── 만들고 나서 확인 ────────────────────────────────────────────
 // 생성된 맵이라 한 군데만 어긋나도 방이 통째로 잠긴다. 켤 때 바로 터뜨린다.
 {
@@ -680,5 +729,19 @@ export const SPAWNABLE_TILES: TileId[] = BOARD.filter(
   // 계단이 닿는 곳이 규칙의 이웃과 같아야 한다
   for (const s of STAIRS) {
     if (!ADJACENCY[s.from]?.includes(s.to)) throw new Error(`규칙이 이웃으로 안 치는 계단: ${s.from} → ${s.to}`)
+  }
+
+  // **걸어서 닿는 방은 규칙도 들여보내야 한다.**
+  //
+  // 이쪽이 진짜 함정이었다. 「이웃한 방끼리 걸어서 닿는가」만 보고
+  // 그 반대를 안 봤더니, 복도가 층을 통째로 잇는 바람에 걸어서 닿는
+  // 방 짝 254개 중 181개를 서버가 거절했다 — 눈앞의 문 앞에 서서
+  // 못 들어간다.
+  for (const t of BOARD) {
+    for (const other of roamReach(t.id as TileId)) {
+      if (!canRoamTo(t.id as TileId, other)) {
+        throw new Error(`걸어서 닿는데 규칙이 막는다: ${t.id} → ${other}`)
+      }
+    }
   }
 }

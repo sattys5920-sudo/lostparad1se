@@ -11,6 +11,8 @@ import {
   TILES,
   TILE_BY_ID,
   connectedSize,
+  canRoamTo,
+  isAdjacent,
   pathBetween,
   rectsNear,
   stairIdOf,
@@ -192,6 +194,36 @@ describe('연구실', () => {
   it('네 팀 다 걸어서 닿는다', () => {
     for (const team of TEAM_IDS as TeamId[]) {
       expect(stepsBetween(BASE_OF[team], lab.id), team).toBeLessThan(Number.POSITIVE_INFINITY)
+    }
+  })
+})
+
+describe('복도로 닿는 곳', () => {
+  it('같은 층 복도에 붙은 방끼리는 오갈 수 있다 — 이웃이 아니어도', () => {
+    // 2-3 교실과 음악실은 2층 복도 양끝이다. 이웃은 아니지만 걸어서 간다
+    expect(isAdjacent('centralPlaza', 'musicRoom')).toBe(false)
+    expect(canRoamTo('centralPlaza', 'musicRoom')).toBe(true)
+  })
+
+  it('층이 다르면 복도로는 안 이어진다', () => {
+    expect(canRoamTo('centralPlaza', 'baseA')).toBe(false)
+  })
+
+  it('계단으로 층을 넘는 것은 이웃이 맡는다', () => {
+    expect(canRoamTo(stairIdOf('f2', 'w'), stairIdOf('f1', 'w'))).toBe(true)
+    expect(canRoamTo(stairIdOf('f2', 'w'), 'rooftop')).toBe(true)
+  })
+
+  it('계단참은 제 층 방들과 이어진다', () => {
+    for (const t of tilesOn('f2')) {
+      if (t.tier === 'stair') continue
+      expect(canRoamTo(stairIdOf('f2', 'w'), t.id), t.id).toBe(true)
+    }
+  })
+
+  it('이웃이면 언제나 갈 수 있다', () => {
+    for (const t of TILES) {
+      for (const n of ADJACENCY[t.id]) expect(canRoamTo(t.id, n), `${t.id}→${n}`).toBe(true)
     }
   })
 })

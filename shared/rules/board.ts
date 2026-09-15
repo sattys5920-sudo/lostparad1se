@@ -348,6 +348,99 @@ function buildAdjacency(): Record<TileId, TileId[]> {
   return out
 }
 
+// ── 복도로 닿는 곳 ──────────────────────────────────────────────
+//
+// **이웃과 오갈 수 있는 곳은 다른 것이다.**
+//
+// 이웃(ADJACENCY)은 「가까운 방」이다 — 안개가 보여 주는 범위, 시작
+// 땅, 이어 붙인 땅 점수가 이것을 본다. 페이즈에 토큰 한 개로 넘는
+// 것도 이것이다.
+//
+// 그런데 복도는 층 하나를 통째로 잇는다. 1층 서쪽 끝에서 동쪽 끝까지
+// 문 하나 안 지나고 걸어갈 수 있다. 그래서 「이웃이 아니면 못 들어간다」로
+// 두면, 눈앞의 문 앞에 서서 못 들어가는 일이 생긴다 — 걸어서 닿는
+// 방 짝 254개 중 181개가 그랬다.
+//
+// **자유 시간에는 복도로 닿으면 들어간다.** 어차피 공짜고 즉시라,
+// 이웃만 허용해 봐야 같은 자리에 몇 번 더 눌러 가는 것과 같다.
+
+interface HallRect {
+  floor: Floor
+  rect: Rect
+}
+
+/** 서로 맞닿은 복도 조각은 한 덩어리다. */
+const HALL_GROUP: number[] = (() => {
+  const g = HALLS.map((_, i) => i)
+  const find = (i: number): number => (g[i] === i ? i : (g[i] = find(g[i])))
+  const touches = (a: HallRect, b: HallRect) => {
+    if (a.floor !== b.floor) return false
+    const overX = Math.min(a.rect.x + a.rect.w, b.rect.x + b.rect.w) > Math.max(a.rect.x, b.rect.x)
+    const overY = Math.min(a.rect.y + a.rect.h, b.rect.y + b.rect.h) > Math.max(a.rect.y, b.rect.y)
+    const sideX = a.rect.x + a.rect.w === b.rect.x || b.rect.x + b.rect.w === a.rect.x
+    const sideY = a.rect.y + a.rect.h === b.rect.y || b.rect.y + b.rect.h === a.rect.y
+    return (sideX && overY) || (sideY && overX)
+  }
+  for (let i = 0; i < HALLS.length; i++) {
+    for (let j = i + 1; j < HALLS.length; j++) {
+      if (touches(HALLS[i], HALLS[j])) g[find(i)] = find(j)
+    }
+  }
+  return HALLS.map((_, i) => find(i))
+})()
+
+/**
+ * 그 칸이 닿는 복도 덩어리들.
+ *
+ * 방은 벽 하나를 사이에 두고 닿고(=문이 난다), 계단참은 복도에 그대로
+ * 열려 있다. 옥상처럼 복도가 없는 칸은 빈 집합이다.
+ */
+const HALLS_OF: Record<TileId, Set<number>> = (() => {
+  const out: Record<TileId, Set<number>> = {}
+  for (const t of TILES) {
+    const set = new Set<number>()
+    const r = t.plan
+    // 계단참은 붙어 있고, 방은 벽 한 줄을 사이에 둔다
+    const gap = t.tier === 'stair' ? 0 : 1
+    HALLS.forEach((h, i) => {
+      if (h.floor !== t.floor) return
+      const g = h.rect
+      const overX = Math.min(r.x + r.w, g.x + g.w) - Math.max(r.x, g.x)
+      const overY = Math.min(r.y + r.h, g.y + g.h) - Math.max(r.y, g.y)
+      const sideX = g.x + g.w + gap === r.x || r.x + r.w + gap === g.x
+      const sideY = g.y + g.h + gap === r.y || r.y + r.h + gap === g.y
+      if ((sideX && overY >= MIN_OVERLAP) || (sideY && overX >= MIN_OVERLAP)) set.add(HALL_GROUP[i])
+    })
+    out[t.id] = set
+  }
+  return out
+})()
+
+/**
+ * 복도로 이어져 있는가. **같은 복도에 붙은 방끼리는 오갈 수 있다.**
+ *
+ * 계단으로 층을 넘는 것은 여기 없다 — 그것은 이웃(계단 ↔ 계단)이
+ * 맡는다. 부르는 쪽이 둘을 함께 본다.
+ */
+export function sameHall(a: TileId, b: TileId): boolean {
+  if (a === b) return false
+  const x = HALLS_OF[a]
+  const y = HALLS_OF[b]
+  if (!x || !y) return false
+  for (const g of x) if (y.has(g)) return true
+  return false
+}
+
+/**
+ * 자유 시간에 걸어 들어갈 수 있는가.
+ *
+ * 복도로 닿거나, 이웃이거나(계단으로 층을 넘는 경우). **페이즈에는
+ * 이것을 쓰지 않는다** — 토큰 한 개는 옆방까지다.
+ */
+export function canRoamTo(from: TileId, to: TileId): boolean {
+  return sameHall(from, to) || isAdjacent(from, to)
+}
+
 /** 방에서 곧바로 갈 수 있는 곳. 복도를 지나는 것은 한 걸음으로 친다. */
 export const ADJACENCY: Record<TileId, readonly TileId[]> = buildAdjacency()
 
