@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
-import { amHost, claimHost, logIn, myAccount, saveAccountCharacter, signUp } from '../accounts'
+import { logIn, myAccount, saveAccountCharacter, signUp } from '../accounts'
 import { CharacterCreator } from '../components/CharacterCreator'
 import { randomLook } from '../char/look'
 import type { AvatarLook } from '../types'
@@ -17,9 +17,9 @@ import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Standing } from './Actions'
 import { Walk } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
-import { Phase, PhaseHost, PhaseLog } from './Phase'
+import { Phase, PhaseLog } from './Phase'
 import { Slips } from './Slips'
-import { Quiz, QuizHost } from './Quiz'
+import { Quiz } from './Quiz'
 import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
@@ -42,7 +42,6 @@ function Gate({ onIn }: { onIn: () => void }) {
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-
   async function go() {
     setBusy(true)
     setError('')
@@ -69,6 +68,17 @@ function Gate({ onIn }: { onIn: () => void }) {
       <button className="sc-pl__go" disabled={busy || !id || !pw} onClick={go}>
         {mode === 'up' ? '가입하기' : '들어가기'}
       </button>
+      {/*
+        관리자 입구.
+        **여기서 코드를 묻지 않는다.** 처음에는 이 화면에서 로그인까지
+        같이 하게 했는데, 코드를 틀리면 로그인만 먹고 그대로 게임
+        화면으로 넘어갔다 — 로그인이 성공한 순간 이 화면이 사라져서
+        「코드가 틀렸다」를 띄울 자리가 없어진다. 들어가는 문은 한
+        군데(admin.html)로 두고 여기서는 데려다 주기만 한다
+      */}
+      <a className="sc-pl__hostlink" href={`${import.meta.env.BASE_URL}admin.html${location.search}`}>
+        관리자로 들어가기
+      </a>
     </div>
   )
 }
@@ -124,141 +134,12 @@ function Setup({ first, onDone }: { first: { nickname: string; avatar: AvatarLoo
   )
 }
 
-// ── 운영자 ──────────────────────────────────────────────────────
-
-/** 증표 안에 운영자 표시가 있는지 본다. 로그인이 바뀌면 다시 본다. */
-function useHost(): [boolean, () => void] {
-  const [host, setHost] = useState(false)
-  const [nonce, setNonce] = useState(0)
-  useEffect(() => {
-    let alive = true
-    void amHost().then((v) => alive && setHost(v))
-    return () => {
-      alive = false
-    }
-  }, [nonce])
-  return [host, () => setNonce((n) => n + 1)]
-}
-
-/**
- * 운영자 코드 칸.
- *
- * 코드는 화면에도 번들에도 없다. 서버가 배포 환경변수로 들고 있고
- * 여기서는 맞는지 물어보기만 한다. 틀린 횟수도 서버가 센다.
- */
-function HostGate({ onIn }: { onIn: () => void }) {
-  const [open, setOpen] = useState(false)
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  async function go() {
-    setBusy(true)
-    setError('')
-    try {
-      await claimHost(code)
-      setCode('')
-      setOpen(false)
-      onIn()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (!open) {
-    return (
-      <button className="sc-pl__hostlink" onClick={() => setOpen(true)}>
-        운영자로 들어가기
-      </button>
-    )
-  }
-  return (
-    <div className="sc-pl__hostgate">
-      <input
-        placeholder="운영자 코드"
-        type="password"
-        value={code}
-        autoComplete="off"
-        onChange={(e) => setCode(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) void go()
-        }}
-      />
-      <button disabled={busy || code.trim().length === 0} onClick={() => void go()}>
-        확인
-      </button>
-      {error && <p className="sc-pl__error">{error}</p>}
-    </div>
-  )
-}
-
-/** 판을 만들고 시작한다. 되는지 안 되는지는 서버가 말해 준다. */
-function HostTools({ gameId, hasGame, onSaid }: { gameId: string; hasGame: boolean; onSaid: (t: string) => void }) {
-  const act = useMemo(() => gameActions(gameId), [gameId])
-  const [busy, setBusy] = useState(false)
-  const [qaPw, setQaPw] = useState('')
-
-  async function run(label: string, fn: () => Promise<unknown>) {
-    setBusy(true)
-    try {
-      await fn()
-      onSaid(`${label} 했다.`)
-    } catch (e) {
-      onSaid((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="sc-pl__hosttools">
-      <span>운영자</span>
-      {!hasGame && (
-        <button disabled={busy} onClick={() => void run('판 만들기', () => act.createGame())}>
-          판 만들기
-        </button>
-      )}
-      {hasGame && (
-        <>
-          <button disabled={busy} onClick={() => void run('시작', () => act.startGame())}>
-            닷새 시작
-          </button>
-          {/* QA용. 비밀번호를 여기서 정하게 둔다 — 뻔한 값을 박아 두면
-              qa01 이 그대로 뒷문이 된다 */}
-          <input
-            className="sc-pl__qapw"
-            type="password"
-            placeholder="QA 비밀번호 (8자 이상)"
-            value={qaPw}
-            autoComplete="off"
-            onChange={(e) => setQaPw(e.target.value)}
-          />
-          <button
-            disabled={busy || qaPw.length < 8}
-            onClick={() =>
-              void run('열셋 채우기', async () => {
-                const r = (await act.seedPlayers(qaPw)) as { seated?: number }
-                onSaid(`${r.seated ?? 0}명이 앉았다. qa01~qa13 으로 들어갈 수 있다.`)
-              })
-            }
-          >
-            QA 채우기
-          </button>
-        </>
-      )}
-    </div>
-  )
-}
-
 // ── 로비 ────────────────────────────────────────────────────────
 
 function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
   const state = useGame(gameId)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [host, recheckHost] = useHost()
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
   const mine = seats.find((s) => s.playerId === uid)
@@ -283,7 +164,6 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
       <div className="sc-pl__lobby">
         <h1>남겨진 아이들</h1>
         <p className="sc-pl__none">아직 열린 판이 없다. 운영자가 만들어야 한다.</p>
-        {host ? <HostTools gameId={gameId} hasGame={false} onSaid={setError} /> : <HostGate onIn={recheckHost} />}
         {error && <p className="sc-pl__error">{error}</p>}
       </div>
     )
@@ -314,7 +194,6 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
         ))}
       </ul>
 
-      {host ? <HostTools gameId={gameId} hasGame onSaid={setError} /> : <HostGate onIn={recheckHost} />}
       {error && <p className="sc-pl__error">{error}</p>}
     </div>
   )
@@ -408,7 +287,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [tab, setTab] = useState<Tab>('map')
   const [sheet, setSheet] = useState<SheetId | null>(null)
   const [archive, setArchive] = useState(false)
-  const [host] = useHost()
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
   const [snowOff, setSnowOffState] = useState(snowIsOff)
@@ -797,24 +675,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             </ul>
           </details>
 
-          {host && (
-            <div className="sc-pl__more">
-              {/* 시험용. 본래는 A의 기록이 날마다 두 칸씩 연다 */}
-              <button
-                onClick={() =>
-                  void act
-                    .openAllTiles()
-                    .then((r) => setSaid(`핵심 칸을 다 열었다. ${(r as { added?: number }).added ?? 0}칸 추가.`))
-                    .catch((e) => setSaid((e as Error).message))
-                }
-              >
-                방 다 열기
-              </button>
-            </div>
-          )}
-          {host && <PhaseHost open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} act={act} onSaid={setSaid} />}
-          {/* 문제 등록. 정답과 해설은 이 화면에서만 보인다 */}
-          {host && <QuizHost act={act} onSaid={setSaid} />}
         </Sheet>
       )}
 

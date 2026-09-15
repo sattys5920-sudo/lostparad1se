@@ -21,7 +21,7 @@ const db = getFirestore()
 // 표는 호의뿐이다. 배제는 투명인간 투표가 따로 맡는다(ballot.ts)
 const VOTE_KINDS: VoteKind[] = ['trust', 'liking']
 
-/** 하루 한 장. 같은 팀에는 못 준다. 08:00~21:00. */
+/** 하루 한 장. 같은 팀에는 못 준다. 자정~21:00. */
 export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKind }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, targetId, kind } = req.data

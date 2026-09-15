@@ -82,7 +82,7 @@ export interface PlayInput {
   kind: CardKind
   team: TeamId
   nowMs: number
-  /** 실제 시계. 견제·보강처럼 소등을 세는 것들이 쓴다. */
+  /** 실제 시계. 견제·보강처럼 판이 멈춰도 흐르는 것들이 쓴다. */
   realNowMs: number
   targetTeam?: TeamId
   targetTile?: TileId
@@ -93,8 +93,8 @@ export interface PlayInput {
  * 카드 한 장의 결과.
  *
  * 지속 시간의 기준이 카드마다 다르다. 보강(24시간)·밀서(1시간)는 실제
- * 시계, 봉쇄(6시간)·잠복(6시간)은 게임 시계다 — 소등 동안 깃발이 멈춰
- * 있으니 봉쇄도 같이 멈춰야 앞뒤가 맞는다.
+ * 시계, 봉쇄(6시간)·잠복(6시간)은 게임 시계다 — 깃발과 같은 시계를
+ * 봐야 앞뒤가 맞는다.
  */
 export function cardEffect(input: PlayInput): CardEffect {
   const k = input.kind

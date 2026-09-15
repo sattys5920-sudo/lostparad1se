@@ -1,7 +1,6 @@
-// 체류·동석·방문 — 소등을 빼고 세는지, 걷는 말을 빼는지 본다.
+// 체류·동석·방문 — 시간을 제대로 세는지, 걷는 말을 빼는지 본다.
 //
-// 단짝·목격자·편지가 전부 이 계산 위에 서 있다. 밤새 서 있던 것을 시간으로
-// 세면 아무도 움직이지 않고 미션을 깬다.
+// 단짝·목격자·편지가 전부 이 계산 위에 서 있다.
 import { describe, expect, it } from 'vitest'
 import {
   coStaySeconds,
@@ -45,15 +44,15 @@ describe('체류', () => {
     expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(1.5 * HOUR)
   })
 
-  it('소등은 빠진다', () => {
-    // 23:00부터 다음 날 09:00까지 서 있어도 1시간 + 1시간이다
+  // 멈추는 구간이 없어졌다. 밤도 그대로 센다
+  it('밤을 걸쳐도 그대로 센다', () => {
     const log = [iv('a', 'library', '2026-03-02T23:00:00', '2026-03-03T09:00:00')]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(2 * HOUR)
+    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(10 * HOUR)
   })
 
-  it('소등 중에만 서 있었으면 0이다', () => {
+  it('새벽에만 서 있어도 센다', () => {
     const log = [iv('a', 'library', '2026-03-03T01:00:00', '2026-03-03T05:00:00')]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(0)
+    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(4 * HOUR)
   })
 
   it('잠든 말도 그 자리에 있는 것으로 센다', () => {
@@ -114,12 +113,12 @@ describe('동석', () => {
     expect(coStaySeconds(log, 'a', 'b', all.from, all.to)).toBe(1.5 * HOUR)
   })
 
-  it('소등은 여기서도 빠진다', () => {
+  it('밤을 걸쳐도 여기서도 그대로 센다', () => {
     const log = [
       iv('a', 'library', '2026-03-02T23:00:00', '2026-03-03T09:00:00'),
       iv('b', 'library', '2026-03-02T23:00:00', '2026-03-03T09:00:00'),
     ]
-    expect(coStaySeconds(log, 'a', 'b', all.from, all.to)).toBe(2 * HOUR)
+    expect(coStaySeconds(log, 'a', 'b', all.from, all.to)).toBe(10 * HOUR)
   })
 
   it('한쪽이 걷는 중이면 만난 것이 아니다', () => {

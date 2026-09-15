@@ -86,7 +86,7 @@ const PLAY_REFUSAL: Record<string, string> = {
  * 한 장 낸다.
  *
  * 지속 시간의 기준이 카드마다 다르다. 보강·밀서는 실제 시계, 봉쇄·잠복은
- * 게임 시계다 — 소등 동안 깃발이 멈춰 있으니 봉쇄도 같이 멈춰야 앞뒤가
+ * 게임 시계다 — 깃발과 같은 시계를 봐야 앞뒤가
  * 맞는다. 그 계산은 cardEffect가 하고 여기서는 받아 적는다.
  */
 export const playOne = onCall<{

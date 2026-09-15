@@ -1,7 +1,11 @@
 // 게임 시계.
 //
-// 학교에는 소등이 있다(24:00~08:00). 그동안 말은 걷지 않고, 깃발 시간은
-// 멈추고, 토큰도 차지 않는다. 그래서 "30분 뒤"가 실제 30분 뒤가 아니다.
+// **하루는 자정부터 자정까지다.** 예전에는 08:00~24:00 만 흐르고
+// 나머지 여덟 시간은 소등이라 말도 깃발도 토큰도 멈췄다. 지금은
+// 멈추는 구간이 없어서 게임 시계와 실제 시계가 같다.
+//
+// 멈추는 구간을 다시 두려면 DAY_START_HOUR(v2.ts) 하나만 올리면
+// 된다. 아래 함수들은 그 구간을 빼고 세도록 그대로 쓰여 있다.
 //
 // 깃발·이동·발 묶기·잠복·봉쇄는 전부 이 파일의 함수로 계산한다. 반대로
 // 견제(24·12시간), 보강(24시간), 동맹 파기 제한(12시간)은 실제 시계다 —
@@ -96,13 +100,13 @@ export function seoulTimeOn(ms: number, hour: number, minute = 0): number {
   return seoulMidnight(ms) + (hour * HOUR + minute * 60) * 1000
 }
 
-/** 소등 중인가. 24:00~08:00. */
+/** 멈춰 있는 시각인가. **지금은 늘 false 다** — DAY_START_HOUR 가 0 이다. */
 export function isLightsOut(ms: number): boolean {
   const s = secondsIntoSeoulDay(ms)
   return s < DAY_START_HOUR * HOUR
 }
 
-/** 그 시각까지 그날 흘러간 활동 시간(초). 소등 부분은 0이다. */
+/** 그 시각까지 그날 흘러간 시간(초). 멈추는 구간이 있으면 그만큼 뺀다. */
 function activeSecondsIntoDay(ms: number): number {
   const s = secondsIntoSeoulDay(ms)
   const start = DAY_START_HOUR * HOUR
@@ -113,7 +117,8 @@ function activeSecondsIntoDay(ms: number): number {
 }
 
 /**
- * 두 시각 사이에 실제로 흐른 게임 시간(초). 소등은 빠진다.
+ * 두 시각 사이에 흐른 게임 시간(초). 멈추는 구간은 빠진다 —
+ * 지금은 멈추는 구간이 없어서 실제로 흐른 시간과 같다.
  *
  * 자정을 몇 번 넘든 하루치씩 더해 계산하므로, 며칠 앱을 꺼 뒀다가
  * 들어와도 한 번에 따라잡을 수 있다.
@@ -138,14 +143,14 @@ export function addActiveSeconds(fromMs: number, seconds: number): number {
   let cursor = fromMs
   let left = seconds
 
-  // 소등 중에 시작했으면 먼저 등교 시각까지 건너뛴다
+  // 멈춘 시간에 시작했으면 먼저 열리는 시각까지 건너뛴다
   if (isLightsOut(cursor)) cursor = seoulTimeOn(cursor, DAY_START_HOUR)
 
   for (;;) {
     const leftToday = ACTIVE_SECONDS_PER_DAY - activeSecondsIntoDay(cursor)
     if (left <= leftToday) return cursor + left * 1000
     left -= leftToday
-    // 다음 날 등교 시각으로
+    // 다음 날이 열리는 시각으로
     cursor = seoulTimeOn(cursor + DAY * 1000, DAY_START_HOUR)
   }
 }
@@ -160,7 +165,7 @@ export function activeSecondsUntil(nowMs: number, deadlineMs: number): number {
   return Math.ceil(activeSecondsBetween(nowMs, deadlineMs))
 }
 
-/** 게임 며칠째인가. 08:00에 날이 바뀐다 — 소등은 전날에 붙는다. */
+/** 게임 며칠째인가. **자정에 날이 바뀐다.** */
 export function dayNumber(startedAtMs: number, nowMs: number): number {
   const firstDawn = seoulTimeOn(startedAtMs, DAY_START_HOUR)
   // 첫날 08:00 전에 시작했으면 그날이 DAY 1이다
@@ -186,9 +191,8 @@ export function dayStartMs(startedAtMs: number, day: number): number {
 /**
  * DAY n의 h시.
  *
- * h가 24 이상이면 소등을 넘어간 시각이다 — DAY 3의 25시는 달력으로는
- * 다음 날 새벽 한 시지만 게임에서는 아직 DAY 3이다. 그래서 그냥
- * 더한다.
+ * h가 24 이상이면 그날을 넘어간 시각이다 — DAY 3의 25시는 달력으로는
+ * 다음 날 새벽 한 시다. 그래서 그냥 더한다.
  */
 export function dayHourMs(startedAtMs: number, day: number, hour: number): number {
   const dawn = dayStartMs(startedAtMs, day)

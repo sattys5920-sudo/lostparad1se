@@ -27,16 +27,19 @@ const state = (over: Partial<TokenState> = {}): TokenState => ({
 })
 
 describe('충전 시각', () => {
-  it('하루에 일곱 번이다 — 08시와 짝수 시각 여섯', () => {
-    const out = grantInstantsBetween(seoul('2026-03-02T00:00:00'), seoul('2026-03-02T23:59:59'))
+  // 하루가 자정에 열리니 그 몫도 자정에 들어온다
+  it('하루에 일곱 번이다 — 자정과 짝수 시각 여섯', () => {
+    const out = grantInstantsBetween(seoul('2026-03-01T23:59:59'), seoul('2026-03-02T23:59:59'))
     expect(out).toHaveLength(7)
     expect(out[0].kind).toBe('dawn')
     expect(out.filter((i) => i.kind === 'hourly')).toHaveLength(6)
   })
 
-  it('20시가 마지막이다 — 22시에는 차지 않는다', () => {
-    const out = grantInstantsBetween(seoul('2026-03-02T20:00:00'), seoul('2026-03-03T07:00:00'))
-    expect(out).toHaveLength(0)
+  it('20시가 짝수 시각의 마지막이다 — 그다음은 자정 몫이다', () => {
+    expect(grantInstantsBetween(seoul('2026-03-02T20:00:00'), seoul('2026-03-02T23:59:59'))).toHaveLength(0)
+    const over = grantInstantsBetween(seoul('2026-03-02T20:00:00'), seoul('2026-03-03T07:00:00'))
+    expect(over).toHaveLength(1)
+    expect(over[0].kind).toBe('dawn')
   })
 
   it('시작 시각은 빼고 끝 시각은 넣는다', () => {
@@ -57,8 +60,8 @@ describe('충전 시각', () => {
 })
 
 describe('충전', () => {
-  it('08:00에 두 개를 받는다', () => {
-    const out = accrueTokens(state({ lastGrantMs: seoul('2026-03-02T07:00:00') }), seoul('2026-03-02T08:30:00'))
+  it('자정에 두 개를 받는다', () => {
+    const out = accrueTokens(state({ lastGrantMs: seoul('2026-03-01T23:00:00') }), seoul('2026-03-02T00:30:00'))
     expect(out.state.tokens).toBe(2)
     expect(out.grants).toHaveLength(1)
     expect(out.grants[0].kind).toBe('dawn')
@@ -77,7 +80,7 @@ describe('충전', () => {
   })
 
   it('하루를 통째로 따라잡는다', () => {
-    const out = accrueTokens(state({ lastGrantMs: seoul('2026-03-02T07:00:00') }), seoul('2026-03-02T23:00:00'))
+    const out = accrueTokens(state({ lastGrantMs: seoul('2026-03-01T23:00:00') }), seoul('2026-03-02T23:00:00'))
     expect(out.grants).toHaveLength(7)
     expect(out.state.tokens).toBe(TOKEN_CAP)
   })
@@ -102,24 +105,25 @@ describe('충전', () => {
     expect(piece.lastGrantMs).toBe(whole.state.lastGrantMs)
   })
 
-  it('소등 동안은 아무것도 차지 않는다', () => {
-    const out = accrueTokens(state({ lastGrantMs: seoul('2026-03-02T20:00:00') }), seoul('2026-03-03T07:59:59'))
+  // 예전에는 20시 다음이 이튿날 08:00 이었다. 이제는 자정이다
+  it('20시와 자정 사이에는 아무것도 차지 않는다', () => {
+    const out = accrueTokens(state({ lastGrantMs: seoul('2026-03-02T20:00:00') }), seoul('2026-03-02T23:59:59'))
     expect(out.grants).toHaveLength(0)
     expect(out.state.tokens).toBe(0)
   })
 })
 
 describe('만회 보너스', () => {
-  it('다음 08:00에 두 개를 더 받는다', () => {
+  it('다음 자정에 두 개를 더 받는다', () => {
     const s = markComeback(state({ tokens: 0, lastGrantMs: seoul('2026-03-02T21:00:00') }))
-    const out = accrueTokens(s, seoul('2026-03-03T08:30:00'))
+    const out = accrueTokens(s, seoul('2026-03-03T00:30:00'))
     expect(out.state.tokens).toBe(4)
     expect(out.grants[0].comeback).toBe(2)
   })
 
   it('이때만 보관 한도를 넘는다', () => {
     const s = markComeback(state({ tokens: TOKEN_CAP, lastGrantMs: seoul('2026-03-02T21:00:00') }))
-    const out = accrueTokens(s, seoul('2026-03-03T08:30:00'))
+    const out = accrueTokens(s, seoul('2026-03-03T00:30:00'))
     expect(out.state.tokens).toBe(TOKEN_CAP + 2)
   })
 
@@ -190,8 +194,8 @@ describe('다음 충전까지', () => {
     expect(msUntilNextGrant(seoul('2026-03-02T09:30:00'))).toBe(30 * 60_000)
   })
 
-  it('20시를 넘기면 다음 날 08:00을 가리킨다', () => {
-    expect(msUntilNextGrant(seoul('2026-03-02T22:00:00'))).toBe(10 * 3600_000)
+  it('20시를 넘기면 자정을 가리킨다', () => {
+    expect(msUntilNextGrant(seoul('2026-03-02T22:00:00'))).toBe(2 * 3600_000)
   })
 })
 

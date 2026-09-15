@@ -9,9 +9,10 @@ const START = seoul('2026-03-02T08:00:00')
 const on = (day: number, hhmm: string) => seoul(`2026-03-0${1 + day}T${hhmm}:00`)
 
 describe('열리는 시각', () => {
-  it('그날 08:00에 열린다', () => {
-    expect(canRelease(2, START, on(2, '07:59')).ok).toBe(false)
-    expect(canRelease(2, START, on(2, '08:00')).ok).toBe(true)
+  // 하루가 자정에 바뀌니 그날 것도 자정에 열린다
+  it('그날 자정에 열린다', () => {
+    expect(canRelease(2, START, seoul('2026-03-02T23:59:00')).ok).toBe(false)
+    expect(canRelease(2, START, on(2, '00:00')).ok).toBe(true)
   })
 
   it('지난 날은 계속 열려 있다', () => {
@@ -24,13 +25,13 @@ describe('열리는 시각', () => {
     expect(out.reason).toBe('notYet')
   })
 
-  it('첫날 아침에 마지막 날을 달라고 해도 막는다', () => {
+  it('첫날에 마지막 날을 달라고 해도 막는다', () => {
     expect(canRelease(5, START, on(1, '08:00')).reason).toBe('notYet')
   })
 
-  it('소등 중에 미리 받아 갈 수 없다', () => {
-    // DAY 2 03:00은 아직 DAY 1이다
-    expect(canRelease(2, START, seoul('2026-03-03T03:00:00')).reason).toBe('notYet')
+  it('그 전날에는 못 받는다', () => {
+    // 3/3 03:00 은 이미 DAY 2 다 — DAY 3 을 달라면 막힌다
+    expect(canRelease(3, START, seoul('2026-03-03T03:00:00')).reason).toBe('notYet')
   })
 
   it('없는 날은 따로 답한다', () => {
@@ -55,10 +56,9 @@ describe('지금까지 열린 날', () => {
     expect(releasedDays(START, seoul('2026-03-20T12:00:00'))).toHaveLength(5)
   })
 
-  it('소등 중에도 어제까지는 읽을 수 있다', () => {
-    // DAY 2의 소등(3/4 07:00)에는 DAY 1·2가 이미 열려 있다.
-    // dayNumber가 08:00 경계를 보므로 이때가 아직 DAY 2다
-    expect(releasedDays(START, on(3, '07:00'))).toEqual([1, 2])
+  // 자정을 넘으면 그날 것이 바로 열린다. 예전에는 아침 8시까지 기다렸다
+  it('새벽에도 그날 것까지 읽을 수 있다', () => {
+    expect(releasedDays(START, on(3, '07:00'))).toEqual([1, 2, 3])
   })
 
   it('판이 시작하기 전에는 첫 조각도 없다', () => {

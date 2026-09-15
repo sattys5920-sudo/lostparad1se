@@ -1,4 +1,4 @@
-// 이동 — 소등에 멈추는지, 목적지가 새지 않는지.
+// 이동 — 자정을 넘어도 그냥 걷는지, 목적지가 새지 않는지.
 import { describe, expect, it } from 'vitest'
 import {
   arrivals,
@@ -59,15 +59,16 @@ describe('걷는 시간', () => {
     expect(walkEndsAtMs(w)).toBe(seoul('2026-03-02T11:00:00'))
   })
 
-  it('소등이 오면 멈췄다가 08:00에 마저 걷는다', () => {
-    // 23:50 출발, 네 칸이면 한 시간. 10분 걷고 멈춘 뒤 다음 날 08:50 도착
+  // 예전에는 소등에 걸려 문 앞에서 밤을 샜다. 이제는 그냥 걷는다
+  it('자정을 넘어도 멈추지 않는다', () => {
+    // 23:50 출발, 네 칸이면 한 시간 → 다음 날 00:50 도착
     const w = walk('baseA', 'centralPlaza', '2026-03-02T23:50:00')
-    expect(walkEndsAtMs(w)).toBe(seoul('2026-03-03T08:50:00'))
+    expect(walkEndsAtMs(w)).toBe(seoul('2026-03-03T00:50:00'))
   })
 
-  it('소등 중에 출발시키면 08:00부터 센다', () => {
+  it('새벽에 출발시켜도 그 자리에서 센다', () => {
     const w = walk('baseA', 'classroom', '2026-03-03T03:00:00')
-    expect(walkEndsAtMs(w)).toBe(seoul('2026-03-03T08:15:00'))
+    expect(walkEndsAtMs(w)).toBe(seoul('2026-03-03T03:15:00'))
   })
 })
 

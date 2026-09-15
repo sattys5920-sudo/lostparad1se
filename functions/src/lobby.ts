@@ -254,7 +254,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     detail: { seats: seats.length },
   })
 
-  // DAY 1의 08:00은 시작 그 자체라 예정 이벤트가 없다. 그래서 첫날
+  // DAY 1의 시작 시각은 시작 그 자체라 예정 이벤트가 없다. 그래서 첫날
   // 열리는 핵심 칸과 가치가 오르는 칸을 여기서 직접 놓는다 —
   // 따라잡기에 맡겨 두면 첫날 운동장과 방송실이 영영 안 열린다
   batch.update(ref, {

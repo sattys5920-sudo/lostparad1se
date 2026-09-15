@@ -4,7 +4,7 @@
 // 제안할 때가 아니라. 그 사이에 한쪽이 다 써 버렸으면 성립하지 않는다.
 //
 // 동맹은 한 번에 하나다. 먼저 깬 팀은 열두 시간 동안 새
-// 동맹을 못 맺는다. DAY 4 08:00에는 모든 동맹이 그냥 풀린다 — 먼저 깬
+// 동맹을 못 맺는다. DAY 4 가 열릴 때는 모든 동맹이 그냥 풀린다 — 먼저 깬
 // 것이 아니므로 아무도 값을 치르지 않는다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'

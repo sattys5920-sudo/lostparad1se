@@ -1,6 +1,6 @@
-// 게임 시계 — 소등을 건너뛰는지 본다.
+// 게임 시계 — 하루가 자정에 바뀌고 멈추는 구간이 없는지 본다.
 //
-// 여기가 틀리면 깃발이 밤새 익어 버리거나, 발 묶기가 아침에 안 풀린다.
+// 여기가 틀리면 깃발이 엉뚱한 때 익고, 새벽에 들어온 사람이 어제에 선다.
 import { describe, expect, it } from 'vitest'
 import {
   activeSecondsBetween,
@@ -33,12 +33,13 @@ describe('서울 시각 읽기', () => {
   })
 })
 
-describe('소등', () => {
-  it('24:00부터 08:00까지다', () => {
-    expect(isLightsOut(seoul('2026-03-02T00:30:00'))).toBe(true)
-    expect(isLightsOut(seoul('2026-03-02T07:59:59'))).toBe(true)
-    expect(isLightsOut(seoul('2026-03-02T08:00:00'))).toBe(false)
-    expect(isLightsOut(seoul('2026-03-02T23:59:59'))).toBe(false)
+describe('멈추는 구간', () => {
+  // 하루가 자정에 열리니 멈춰 있는 시각이 없다. 예전에는 24:00~08:00 이었다
+  it('없다 — 어느 시각에도 판은 돌고 있다', () => {
+    for (const t of ['00:00:00', '00:30:00', '07:59:59', '08:00:00', '23:59:59']) {
+      expect(isLightsOut(seoul(`2026-03-02T${t}`))).toBe(false)
+    }
+    expect(ACTIVE_SECONDS_PER_DAY).toBe(24 * HOUR)
   })
 })
 
@@ -49,17 +50,17 @@ describe('흐른 시간 세기', () => {
     expect(activeSecondsBetween(a, b)).toBe(2.5 * HOUR)
   })
 
-  it('소등 동안은 멈춘다', () => {
+  it('새벽에도 그대로 흐른다', () => {
     const a = seoul('2026-03-02T01:00:00')
     const b = seoul('2026-03-02T05:00:00')
-    expect(activeSecondsBetween(a, b)).toBe(0)
+    expect(activeSecondsBetween(a, b)).toBe(4 * HOUR)
   })
 
-  it('밤을 넘으면 소등만큼 빠진다', () => {
-    // 23:30 → 다음 날 08:30. 실제로는 9시간이지만 활동 시간은 1시간이다
+  it('밤을 넘어도 빠지는 것이 없다', () => {
+    // 23:30 → 다음 날 08:30. 실제로 9시간이고 게임 시계도 9시간이다
     const a = seoul('2026-03-02T23:30:00')
     const b = seoul('2026-03-03T08:30:00')
-    expect(activeSecondsBetween(a, b)).toBe(1 * HOUR)
+    expect(activeSecondsBetween(a, b)).toBe(9 * HOUR)
   })
 
   it('하루를 통째로 건너뛰어도 맞다', () => {
@@ -79,22 +80,21 @@ describe('활동 시간 더하기', () => {
     expect(addActiveMinutes(start, 30)).toBe(seoul('2026-03-02T10:30:00'))
   })
 
-  it('밤을 만나면 다음 날 아침으로 넘어간다', () => {
-    // 23:30에 60분짜리 깃발 → 30분은 오늘, 30분은 내일 08:00부터
+  it('자정을 넘어도 그냥 이어진다', () => {
+    // 23:30에 60분짜리 깃발 → 다음 날 00:30에 익는다
     const start = seoul('2026-03-02T23:30:00')
-    expect(addActiveMinutes(start, 60)).toBe(seoul('2026-03-03T08:30:00'))
+    expect(addActiveMinutes(start, 60)).toBe(seoul('2026-03-03T00:30:00'))
   })
 
-  it('소등 중에 시작하면 등교 시각부터 센다', () => {
+  it('새벽에 시작해도 그 자리에서 센다', () => {
     const start = seoul('2026-03-02T03:00:00')
-    expect(addActiveMinutes(start, 30)).toBe(seoul('2026-03-02T08:30:00'))
+    expect(addActiveMinutes(start, 30)).toBe(seoul('2026-03-02T03:30:00'))
   })
 
-  it('여러 밤을 넘겨도 맞다', () => {
+  it('며칠을 넘겨도 맞다', () => {
     const start = seoul('2026-03-02T20:00:00')
-    // 하루 활동 시간이 16시간. 20시부터 4시간 남았으니 4 + 16 + 4 = 24시간
     const end = addActiveSeconds(start, 24 * HOUR)
-    expect(end).toBe(seoul('2026-03-04T12:00:00'))
+    expect(end).toBe(seoul('2026-03-03T20:00:00'))
   })
 
   it('더한 만큼 다시 세면 그대로다', () => {
@@ -140,12 +140,10 @@ describe('며칠째인가', () => {
     expect(dayNumber(started, seoul('2026-03-02T23:59:00'))).toBe(1)
   })
 
-  it('소등은 전날에 붙는다', () => {
-    expect(dayNumber(started, seoul('2026-03-03T03:00:00'))).toBe(1)
-  })
-
-  it('08:00에 날이 바뀐다', () => {
-    expect(dayNumber(started, seoul('2026-03-03T08:00:00'))).toBe(2)
+  // 예전에는 새벽이 전날에 붙었다. 이제는 자정을 넘으면 다음 날이다
+  it('자정에 날이 바뀐다', () => {
+    expect(dayNumber(started, seoul('2026-03-03T00:00:00'))).toBe(2)
+    expect(dayNumber(started, seoul('2026-03-03T03:00:00'))).toBe(2)
     expect(dayNumber(started, seoul('2026-03-06T08:00:00'))).toBe(5)
   })
 })

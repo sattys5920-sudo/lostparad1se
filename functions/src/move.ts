@@ -2,7 +2,7 @@
 //
 // 서버는 걸음을 초 단위로 따라가지 않는다. 출발할 때 칸마다 도착 시각을
 // 예정 이벤트로 적어 두고, 따라잡기가 지난 것을 한꺼번에 민다. 앱을 꺼도
-// 말은 걷고, 소등이 오면 그 자리에서 멈췄다가 08:00에 마저 걷는다.
+// 말은 걷는다. 앱을 꺼 둬도 계속 걷는다.
 //
 // 깃발도 같다. 꽂는 순간 완료 시각을 적어 두고, 그 시각에 그 칸에 서
 // 있던 말로 판정한다.
@@ -115,7 +115,10 @@ export const moveTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
 })
 
 /**
- * 등교 예약. 소등 중에 찍어 두면 08:00에 모든 팀이 동시에 출발한다.
+ * 목적지 예약. 찍어 두면 하루가 열릴 때(자정) 모든 팀이 동시에 출발한다.
+ *
+ * **소등이 없어진 뒤로는 쓸 일이 줄었다.** 본래는 밤새 멈춰 있는
+ * 동안 찍어 두는 자리였다. 지금도 「자정에 함께 출발」로는 쓰인다.
  *
  * 예약 내용은 누구에게도 보이지 않는다 — secret에 두고, 걸음으로
  * 바뀐 뒤에야 안개 규칙대로 드러난다.
@@ -224,7 +227,7 @@ export const plantFlag = onCall<{ gameId: string; tileId: TileId }>(async (req) 
     ambush,
     lastHours: game.lastHours,
   })
-  // 소등을 건너뛰어 센다. 밤에는 깃발도 익지 않는다
+  // 게임 시계로 센다
   const dueAtMs = addActiveSeconds(nowMs, durationSec)
 
   const flag: FlagDoc = {

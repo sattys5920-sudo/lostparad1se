@@ -106,14 +106,14 @@ describe('닷새치 시간표', () => {
     }
   })
 
-  it('아침은 전부 08:00이고 그날이 맞다', () => {
+  it('하루의 시작은 전부 자정이고 그날이 맞다', () => {
     for (const e of kinds('dayStart')) {
-      expect(secondsIntoSeoulDay(e.dueAtMs) / 3600).toBe(8)
+      expect(secondsIntoSeoulDay(e.dueAtMs) / 3600).toBe(0)
       expect(dayNumber(start, e.dueAtMs)).toBe(e.day)
     }
   })
 
-  // 소등은 전날에 붙는다. DAY 5 24시는 아직 DAY 5다
+  // DAY 5 의 24시는 자정 직전까지 아직 DAY 5다
   it('끝나는 시각은 아직 DAY 5다', () => {
     const end = kinds('gameEnd')[0]
     expect(dayNumber(start, end.dueAtMs - 1)).toBe(5)

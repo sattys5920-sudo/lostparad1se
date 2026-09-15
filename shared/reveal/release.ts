@@ -32,8 +32,8 @@ export function canRelease(day: number, startedAtMs: number | null, nowMs: numbe
   // 시작 전에는 첫 조각도 없다
   if (nowMs < startedAtMs) return { ok: false, reason: 'notYet' }
 
-  // dayNumber가 08:00 경계를 이미 본다. 소등 중이면 어제를 돌려주므로
-  // 여기서 08:00을 또 따지면 안 된다 — 그러면 밤새 어제 조각까지 잠긴다.
+  // dayNumber가 날짜 경계를 이미 본다. 여기서 시각을 또 따지면 안 된다 —
+  // 그러면 하루의 일부 동안 어제 조각까지 잠긴다.
   const today = dayNumber(startedAtMs, nowMs)
   return day > today ? { ok: false, reason: 'notYet' } : { ok: true, reason: null }
 }

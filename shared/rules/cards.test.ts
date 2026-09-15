@@ -81,12 +81,12 @@ describe('카드가 하는 일', () => {
     expect(t?.untilRealMs).toBe(NOW + 24 * HOUR)
   })
 
-  it('봉쇄는 게임 시계로 여섯 시간이다 — 소등을 건너뛴다', () => {
+  it('봉쇄는 게임 시계로 여섯 시간이다 — 밤을 걸쳐도 여섯 시간이다', () => {
     const late = cardEffect({
       kind: 'blockade', team: 'A', nowMs: seoul('2026-03-02T22:00:00'),
       realNowMs: 0, targetTile: 'library',
     })
-    expect(late.tile?.blockedUntilMs).toBe(seoul('2026-03-03T12:00:00'))
+    expect(late.tile?.blockedUntilMs).toBe(seoul('2026-03-03T04:00:00'))
   })
 
   it('잠복도 게임 시계로 여섯 시간이다', () => {

@@ -82,7 +82,7 @@ interface Ctx {
 }
 
 /**
- * 아침 08:00.
+ * 하루가 열리는 자정.
  *
  * 날이 바뀌고, 오늘 열리는 핵심 칸이 열리고, 사람마다 쓴 토큰과 표가
  * 0으로 돌아간다. 3인 팀 주장도 돌아간다 — 하루씩 번갈아 맡는다.
@@ -104,7 +104,7 @@ async function dayStart(c: Ctx): Promise<void> {
     c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0 })
   }
 
-  // 등교 예약이 한꺼번에 출발한다. 모든 팀이 같은 시각이다
+  // 찍어 둔 목적지가 한꺼번에 출발한다. 모든 팀이 같은 시각이다
   for (const p of pawns.docs) {
     const pawn = p.data() as PawnDoc
     const plan = planOf.get(pawn.playerId)
@@ -153,7 +153,7 @@ async function dayStart(c: Ctx): Promise<void> {
     c.tx.update(ref.collection('teams').doc(team), { captainId: next })
   }
 
-  // DAY 4 08:00 — 모든 동맹이 풀린다. 먼저 깬 것이 아니므로 아무도
+  // DAY 4 가 열릴 때 — 모든 동맹이 풀린다. 먼저 깬 것이 아니므로 아무도
   // 값을 치르지 않고, 잠기지도 않는다
   if (c.day === ALLIANCE_CLEAR_DAY) {
     for (const team of TEAMS) {
@@ -295,7 +295,7 @@ async function settlement(c: Ctx): Promise<void> {
     })
   }
 
-  // 5. 꼴찌는 다음 08:00에 토큰을 더 받는다
+  // 5. 꼴찌는 다음 날이 열릴 때 토큰을 더 받는다
   const lastBox = tokenSnap.docs.find((d) => d.id === result.comeback)
   if (lastBox) c.tx.set(lastBox.ref, markComeback(lastBox.data() as TokenStateDoc))
 
@@ -321,7 +321,7 @@ async function settlement(c: Ctx): Promise<void> {
 }
 
 /**
- * DAY 5 소등 — 판이 끝난다.
+ * DAY 5 자정 — 판이 끝난다.
  *
  * 종례 순간의 두 가지를 여기서 굳힌다. 중요한 사람과 같은 칸에
  * 있었는가, 서로를 골랐는가. 나중에 다시 계산하면 「그 순간」이

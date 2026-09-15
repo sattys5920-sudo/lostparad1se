@@ -25,11 +25,12 @@ describe('던질 수 있는가', () => {
     votedToday: false,
   }
 
-  it('08:00부터 21:00까지다', () => {
-    expect(canCast({ ...base, atMs: seoul('2026-03-02T08:00:00') }).ok).toBe(true)
+  // 하루가 자정에 열리니 표도 자정부터 받는다
+  it('자정부터 21:00까지다', () => {
+    expect(canCast({ ...base, atMs: seoul('2026-03-02T00:00:00') }).ok).toBe(true)
+    expect(canCast({ ...base, atMs: seoul('2026-03-02T07:59:59') }).ok).toBe(true)
     expect(canCast({ ...base, atMs: seoul('2026-03-02T20:59:59') }).ok).toBe(true)
     expect(canCast({ ...base, atMs: seoul('2026-03-02T21:00:00') }).reason).toBe('closed')
-    expect(canCast({ ...base, atMs: seoul('2026-03-02T07:59:59') }).reason).toBe('closed')
   })
 
   it('같은 팀에는 못 준다', () => {

@@ -62,8 +62,8 @@ export interface TimedEvent {
 /**
  * 시작할 때 한 번에 깔아 두는 정시 이벤트.
  *
- * DAY 1의 08:00은 시작 그 자체라 따로 밀 것이 없다. 마지막은 DAY 5
- * 소등이다 — 24시를 넘겨 세는 건 dayHourMs가 맡는다.
+ * DAY 1의 시작 시각은 시작 그 자체라 따로 밀 것이 없다. 마지막은 DAY 5
+ * 자정이다 — 24시를 넘겨 세는 건 dayHourMs가 맡는다.
  */
 export function timedEvents(startedAtMs: number): TimedEvent[] {
   const out: TimedEvent[] = []

@@ -63,7 +63,7 @@ export function reveal(input: RevealInput): RevealResult {
 
 export type LeverageUse = 'bind' | 'extort'
 
-/** 발 묶기가 풀리는 시각. 여섯 시간이되 소등은 세지 않는다. */
+/** 발 묶기가 풀리는 시각. 게임 시계로 여섯 시간이다. */
 export function bindUntilMs(nowMs: number): number {
   return addActiveSeconds(nowMs, LEVERAGE_BIND_GAME_HOURS * 3600)
 }

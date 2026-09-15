@@ -5,8 +5,12 @@
 // 읽으면 된다. 규칙 원문은 docs/team_rules_v2.md다.
 //
 // 시간 단위에 두 종류가 있다는 점을 헷갈리지 않게 이름으로 갈라 둔다.
-//   ...GameMin / ...GameSec  게임 시계 — 소등(24:00~08:00)을 건너뛴다
-//   ...RealHours             실제 시계 — 소등도 그냥 흐른다
+//   ...GameMin / ...GameSec  게임 시계
+//   ...RealHours             실제 시계
+//
+// **지금은 둘이 같다.** 예전에는 게임 시계가 소등(24:00~08:00) 동안
+// 멈춰서 둘이 달랐다. 이름은 남겨 둔다 — 멈추는 시간을 다시 두게 되면
+// 갈라지는 자리가 여기라는 표시다
 
 /** 모든 시각은 한국 시간이다. */
 export const TIMEZONE = 'Asia/Seoul'
@@ -48,9 +52,19 @@ export type Tier = 'base' | 'zone1' | 'gate' | 'cross' | 'core' | 'plaza'
 
 // ── 시간표 ──────────────────────────────────────────────────────
 
-/** 등교 — 하루가 열린다. */
-export const DAY_START_HOUR = 8
-/** 소등 — 말도 깃발도 토큰도 멈춘다. */
+/**
+ * 하루가 열리는 시각. **자정이다.**
+ *
+ * 예전에는 08:00 이었고 24:00~08:00 은 소등이라 게임 시계가 아예
+ * 멈춰 있었다. 날짜가 아침에 넘어가니 새벽에 들어온 사람은 어제에
+ * 서 있었고, 밤에 걷던 말은 문 앞에서 여덟 시간을 섰다.
+ *
+ * 이제 하루는 자정부터 자정까지 스물네 시간이고 멈추는 구간이 없다.
+ * **이 값 하나로 갈린다** — 다시 0 이 아닌 값으로 두면 그 시각까지가
+ * 소등으로 되살아난다(clock.ts 가 전부 여기서 읽는다).
+ */
+export const DAY_START_HOUR = 0
+/** 하루가 닫히는 시각. */
 export const LIGHTS_OUT_HOUR = 24
 /** 방과후 정산. */
 export const SETTLEMENT_HOUR = 21
@@ -59,7 +73,7 @@ export const LAST_HOURS_START_HOUR = 15
 /** 종례 — 게임이 끝난다(DAY 5). */
 export const CLOSING_HOUR = SETTLEMENT_HOUR
 
-/** 하루 중 실제로 시간이 흐르는 길이(초). 08:00~24:00. */
+/** 하루 중 실제로 시간이 흐르는 길이(초). 지금은 하루 통째다. */
 export const ACTIVE_SECONDS_PER_DAY = (LIGHTS_OUT_HOUR - DAY_START_HOUR) * 3600
 
 /** 개발용 시계가 허용하는 배속 범위. */
