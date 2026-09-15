@@ -47,7 +47,19 @@ export interface Rect {
 
 export type StairEnd = 'w' | 'e'
 export const STAIR_ENDS: readonly StairEnd[] = ['w', 'e']
-export const stairIdOf = (floor: Floor, end: StairEnd): TileId => `stair_${floor}_${end}`
+/**
+ * 계단통. **칸이 아니라 복도다.**
+ *
+ * 문과 같다 — 지나가는 자리지 서 있는 자리가 아니다. 그래서 이름도
+ * 정원도 주인도 없고, 페이즈가 닫힐 때 거기 선 사람도 없다.
+ * 두 층의 복도를 하나로 잇는 구멍일 뿐이다.
+ */
+export interface Stairwell {
+  floor: Floor
+  end: StairEnd
+  /** 전개도 좌표. 그림판이 여기에 계단을 그린다. */
+  plan: Rect
+}
 
 export interface TileSpec {
   id: TileId
@@ -59,8 +71,6 @@ export interface TileSpec {
   tier: Tier
   /** 기지라면 어느 팀 것인가. */
   homeOf: TeamId | null
-  /** 계단참이면 어느 쪽 끝인가. */
-  stairEnd: StairEnd | null
   /** 층 안에서의 자리. */
   rect: Rect
   /** 건물 전체 전개도에서의 자리 — 층을 위아래로 쌓아 놓은 좌표다. */
@@ -79,7 +89,7 @@ interface FloorDef {
   floor: Floor
   /** 복도 조각들. 서로 맞닿아 한 덩어리를 이룬다. */
   halls: readonly Rect[]
-  /** 계단참. 복도에 바로 붙어 있어 문이 없다. */
+  /** 계단통. 복도의 일부다 — 여기서도 복도로 친다. */
   stairs: readonly { end: StairEnd; rect: Rect }[]
   rooms: readonly RoomDef[]
 }
@@ -228,10 +238,39 @@ const toPlan = (floor: Floor, r: Rect): Rect => ({
   h: r.h,
 })
 
-/** 복도 조각 전부. 전개도 좌표다. 그림판이 이걸 읽어 복도를 판다. */
-export const HALLS: readonly { floor: Floor; rect: Rect }[] = FLOORS.flatMap((floor) =>
-  PLAN_BY_FLOOR[floor].halls.map((rect) => ({ floor, rect: toPlan(floor, rect) })),
+/**
+ * 계단통. **복도 조각 목록의 뒤쪽 절반이 이것이다.**
+ *
+ * 층마다 서·동 하나씩. 층 복도에 그대로 맞닿아 있어서, 아래에서
+ * 복도 덩어리를 묶을 때 저절로 같은 덩어리가 된다.
+ */
+export const STAIRWELLS: readonly Stairwell[] = FLOORS.flatMap((floor) =>
+  PLAN_BY_FLOOR[floor].stairs.map(({ end, rect }) => ({ floor, end, plan: toPlan(floor, rect) })),
 )
+
+export const stairwellOf = (floor: Floor, end: StairEnd): Stairwell | null =>
+  STAIRWELLS.find((s) => s.floor === floor && s.end === end) ?? null
+
+/**
+ * 복도 조각 전부. 전개도 좌표다. 그림판이 이걸 읽어 복도를 판다.
+ *
+ * **계단통도 복도다.** 앞쪽이 층 복도, 뒤쪽이 계단통이고, 계단통의
+ * 자리는 STAIR_HALL_AT 이 알고 있다 — 층을 넘어 묶을 때 쓴다.
+ */
+export const HALLS: readonly { floor: Floor; rect: Rect }[] = [
+  ...FLOORS.flatMap((floor) =>
+    PLAN_BY_FLOOR[floor].halls.map((rect) => ({ floor, rect: toPlan(floor, rect) })),
+  ),
+  ...STAIRWELLS.map((s) => ({ floor: s.floor, rect: s.plan })),
+]
+
+/** HALLS 안에서 그 계단통이 몇 번째인가. */
+const STAIR_HALL_AT = (() => {
+  const base = FLOORS.reduce((n, f) => n + PLAN_BY_FLOOR[f].halls.length, 0)
+  const out = new Map<string, number>()
+  STAIRWELLS.forEach((s, i) => out.set(`${s.floor}_${s.end}`, base + i))
+  return out
+})()
 
 const ROOM_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
   PLAN_BY_FLOOR[floor].rooms.map(([id, name, value, tier, homeOf, rect]) => ({
@@ -242,39 +281,24 @@ const ROOM_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
     value,
     tier,
     homeOf,
-    stairEnd: null,
     rect,
     plan: toPlan(floor, rect),
   })),
 )
 
-const STAIR_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
-  PLAN_BY_FLOOR[floor].stairs.map(({ end, rect }) => ({
-    id: stairIdOf(floor, end),
-    name: `${FLOOR_NAME[floor]} ${end === 'w' ? '서쪽' : '동쪽'} 계단`,
-    shortName: '계단',
-    floor,
-    value: 0,
-    tier: 'stair' as Tier,
-    homeOf: null,
-    stairEnd: end,
-    rect,
-    plan: toPlan(floor, rect),
-  })),
-)
-
-/** 계단참이 있는 층. 옥상에는 없다 — 2층 계단이 곧장 올라온다. */
+/** 계단통이 있는 층. 옥상에는 없다 — 2층 계단이 곧장 올라온다. */
 export const STAIR_FLOORS: readonly Floor[] = FLOORS.filter(
   (f) => PLAN_BY_FLOOR[f].stairs.length > 0,
 )
 
-export const TILES: readonly TileSpec[] = [...ROOM_TILES, ...STAIR_TILES]
+/** 칸은 방뿐이다. **계단은 칸이 아니다.** */
+export const TILES: readonly TileSpec[] = ROOM_TILES
 
 export const TILE_BY_ID: Record<TileId, TileSpec> = Object.fromEntries(TILES.map((t) => [t.id, t]))
 
 export const TILE_IDS: readonly TileId[] = TILES.map((t) => t.id)
 
-/** 그 층의 칸들. 계단참까지 센다. */
+/** 그 층의 칸들. */
 export const tilesOn = (floor: Floor): readonly TileSpec[] => TILES.filter((t) => t.floor === floor)
 
 /** 기지는 팀마다 하나다. */
@@ -335,16 +359,18 @@ function buildAdjacency(): Record<TileId, TileId[]> {
     }
   }
 
-  // 계단은 바로 위아래 층의 같은 쪽 계단과 이어진다
-  for (let i = 1; i < STAIR_FLOORS.length; i++) {
-    for (const end of STAIR_ENDS) {
-      link(stairIdOf(STAIR_FLOORS[i - 1], end), stairIdOf(STAIR_FLOORS[i], end))
-    }
-  }
-  // 옥상에는 계단참이 없다. 맨 위 층 계단을 올라가면 곧 옥상이다
-  const top = STAIR_FLOORS[STAIR_FLOORS.length - 1]
-  for (const end of STAIR_ENDS) link(stairIdOf(top, end), 'rooftop')
-
+  // **층을 넘는 이웃은 없다.**
+  //
+  // 이웃은 「가까운 방」이지 「갈 수 있는 방」이 아니다 — 시작 땅,
+  // 안개, 이어 붙인 땅 점수가 이것을 본다. 계단이 칸이던 때에도 방과
+  // 방이 층을 넘어 이웃인 적은 없었다(사이에 계단이 있었다).
+  //
+  // 계단 양쪽 방들을 이어 주고 싶은 유혹이 있는데, 그러면 시작 땅이
+  // 무너진다: 계단 옆에 기지를 둔 팀은 위층 방까지 들고 시작하고,
+  // 안 그런 팀은 셋뿐이다. 실제로 해 봤더니 여덟 대 셋이었다.
+  //
+  // 옥상은 그래서 이웃이 없다. 그래도 달라지는 것은 없다 — 전에도
+  // 옥상의 이웃은 계단뿐이었고, 계단은 아무도 못 가졌다.
   return out
 }
 
@@ -387,22 +413,31 @@ const HALL_GROUP: number[] = (() => {
       if (touches(HALLS[i], HALLS[j])) g[find(i)] = find(j)
     }
   }
+  // **계단통은 위아래 층의 복도를 하나로 잇는다.** 좌표로는 층마다
+  // 따로 떨어져 있으니 여기서 손으로 묶는다
+  for (let i = 1; i < STAIR_FLOORS.length; i++) {
+    for (const end of STAIR_ENDS) {
+      const a = STAIR_HALL_AT.get(`${STAIR_FLOORS[i - 1]}_${end}`)
+      const b = STAIR_HALL_AT.get(`${STAIR_FLOORS[i]}_${end}`)
+      if (a !== undefined && b !== undefined) g[find(a)] = find(b)
+    }
+  }
   return HALLS.map((_, i) => find(i))
 })()
 
 /**
- * 그 칸이 닿는 복도 덩어리들.
+ * 그 방이 닿는 복도 덩어리들. 벽 하나를 사이에 두고 닿는다(=문이 난다).
  *
- * 방은 벽 하나를 사이에 두고 닿고(=문이 난다), 계단참은 복도에 그대로
- * 열려 있다. 옥상처럼 복도가 없는 칸은 빈 집합이다.
+ * 옥상에는 복도가 없다. 2층 계단통이 곧장 올라오므로 그 덩어리를
+ * 손으로 붙여 준다 — 안 붙이면 옥상만 섬이 된다.
  */
 const HALLS_OF: Record<TileId, Set<number>> = (() => {
   const out: Record<TileId, Set<number>> = {}
   for (const t of TILES) {
     const set = new Set<number>()
     const r = t.plan
-    // 계단참은 붙어 있고, 방은 벽 한 줄을 사이에 둔다
-    const gap = t.tier === 'stair' ? 0 : 1
+    // 방과 복도 사이에는 벽이 한 줄 있다. 그 자리에 문이 난다
+    const gap = 1
     HALLS.forEach((h, i) => {
       if (h.floor !== t.floor) return
       const g = h.rect
@@ -413,6 +448,12 @@ const HALLS_OF: Record<TileId, Set<number>> = (() => {
       if ((sideX && overY >= MIN_OVERLAP) || (sideY && overX >= MIN_OVERLAP)) set.add(HALL_GROUP[i])
     })
     out[t.id] = set
+  }
+  // 옥상은 2층 계단통에 그대로 올라붙는다
+  const top = STAIR_FLOORS[STAIR_FLOORS.length - 1]
+  for (const end of STAIR_ENDS) {
+    const at = STAIR_HALL_AT.get(`${top}_${end}`)
+    if (at !== undefined) out.rooftop.add(HALL_GROUP[at])
   }
   return out
 })()
@@ -435,12 +476,15 @@ export function sameHall(a: TileId, b: TileId): boolean {
 /**
  * 걸어 들어갈 수 있는가. **자유 시간과 페이즈가 같은 문을 쓴다.**
  *
- * 복도로 닿거나, 이웃이거나(계단으로 층을 넘는 경우). 규칙이 막는
- * 범위와 화면이 걸을 수 있는 범위는 하나여야 한다 — 어긋나면 문
- * 앞에 서서 못 들어간다. world.ts 가 불러올 때 둘을 맞춰 본다.
+ * 복도로 닿으면 들어간다. 계단통도 복도라, 이 학교는 통째로 한
+ * 덩어리다 — 어느 방에서든 어느 방으로든 문 하나면 닿는다.
+ *
+ * 그래도 이 함수를 지운 값으로 두지 않는다. 규칙이 막는 범위와
+ * 화면이 걸을 수 있는 범위는 하나여야 하고, world.ts 가 켜질 때
+ * 둘을 맞대 본다 — 언젠가 복도가 끊긴 별관이 생기면 여기가 잡는다.
  */
 export function canRoamTo(from: TileId, to: TileId): boolean {
-  return sameHall(from, to) || isAdjacent(from, to)
+  return sameHall(from, to)
 }
 
 
@@ -462,11 +506,11 @@ export const ROAM_TO: Record<TileId, readonly TileId[]> = (() => {
 })()
 
 /**
- * 걸어서 몇 걸음인가.
+ * 이웃으로 몇 다리인가. **걸음이 아니다.**
  *
- * **격자 거리가 아니라 실제로 세어 본 걸음이다.** 층이 생긴 뒤로는
- * 좌표를 빼서 구할 수가 없다 — 지하 창고와 옥상은 좌표로는 가까워도
- * 계단을 세 번 올라야 한다.
+ * 안개가 이것을 본다 — 「가까운 방의 가까운 방」까지 보이게 할 때.
+ * 이웃은 층을 안 넘으므로 층이 다르면 무한이다. 걸어서 몇 번
+ * 움직이는가는 pathBetween 이 안다(어디든 한 걸음이다).
  */
 const DIST = (() => {
   const out: Record<TileId, Record<TileId, number>> = {}
@@ -497,9 +541,7 @@ export function stepsBetween(a: TileId, b: TileId): number {
 /** 시작할 때 각 팀이 쥐고 있는 칸 — 기지와 붙어 있는 방들. */
 export function startingTiles(team: TeamId): readonly TileId[] {
   const base = BASE_OF[team]
-  // **계단은 빼놓는다.** 계단은 아무도 못 가지는 자리고, 넣어 두면
-  // 층이 다른 두 팀이 시작부터 같은 계단을 쥔 것이 된다
-  return [base, ...ADJACENCY[base].filter((n) => TILE_BY_ID[n].tier !== 'stair')]
+  return [base, ...ADJACENCY[base]]
 }
 
 /** 이 1구역 칸은 어느 팀 몫인가. 기지에 붙어 있는 쪽이 주인이다. */
@@ -545,7 +587,13 @@ export function connectedSize(team: TeamId, ownerOf: (id: TileId) => TeamId | nu
   return seen.size
 }
 
-/** 두 칸 사이 최단 경로. 이동은 칸마다 도착 이벤트를 만든다. */
+/**
+ * 두 칸 사이 최단 경로. 걸음 하나마다 도착 이벤트가 난다.
+ *
+ * **이웃이 아니라 걸어 갈 수 있는 곳(ROAM_TO)을 본다.** 이웃은
+ * 「가까운 방」이라 층을 안 넘는데, 걸음은 계단으로 넘는다 —
+ * 이웃으로 길을 찾으면 지하에서 옥상까지 길이 없다고 나온다.
+ */
 export function pathBetween(from: TileId, to: TileId): TileId[] {
   if (from === to) return []
   const prev = new Map<TileId, TileId>()
@@ -553,7 +601,7 @@ export function pathBetween(from: TileId, to: TileId): TileId[] {
   const queue: TileId[] = [from]
   while (queue.length > 0) {
     const cur = queue.shift() as TileId
-    for (const next of ADJACENCY[cur]) {
+    for (const next of ROAM_TO[cur]) {
       if (seen.has(next)) continue
       seen.add(next)
       prev.set(next, cur)

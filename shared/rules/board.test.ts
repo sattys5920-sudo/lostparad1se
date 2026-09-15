@@ -16,7 +16,9 @@ import {
   isAdjacent,
   pathBetween,
   rectsNear,
-  stairIdOf,
+  STAIRWELLS,
+  TILE_IDS,
+  stairwellOf,
   tilesOn,
   startingTiles,
   stepsBetween,
@@ -26,9 +28,8 @@ import { TEAM_IDS, type TeamId } from './v2'
 const byTier = (tier: string) => TILES.filter((t) => t.tier === tier)
 
 describe('판', () => {
-  it('방 스물다섯과 계단 여섯이다', () => {
-    expect(TILES.filter((t) => t.tier !== 'stair')).toHaveLength(25)
-    expect(byTier('stair')).toHaveLength(6)
+  it('방 스물다섯이다. **계단은 칸이 아니다**', () => {
+    expect(TILES).toHaveLength(25)
   })
 
   it('층위별 칸 수가 맞다', () => {
@@ -55,8 +56,12 @@ describe('판', () => {
     }
   })
 
-  it('외톨이 방이 없다', () => {
-    for (const t of TILES) expect(ADJACENCY[t.id].length).toBeGreaterThan(0)
+  it('이웃이 없는 방은 연구실과 옥상뿐이다', () => {
+    // 둘 다 계단으로만 드나든다. 계단이 칸이 아니게 되면서 「가까운
+    // 방」이 하나도 없어졌다 — 전에도 이웃이 계단뿐이었으니 달라진
+    // 것은 없다. 걸어서는 여전히 어디서든 닿는다(canRoamTo)
+    const alone = TILES.filter((t) => ADJACENCY[t.id].length === 0).map((t) => t.id)
+    expect(alone.sort()).toEqual(['labRoom', 'rooftop'])
   })
 })
 
@@ -90,9 +95,11 @@ describe('층과 복도', () => {
     }
   })
 
-  it('층마다 그 층 안에서 서로 다 닿는다 — 계단 없이도', () => {
+  it('층마다 그 층 안에서 이웃으로 다 이어진다 — 연구실만 빼고', () => {
+    // 연구실은 복도 끝 막다른 방이라 가까운 방이 없다. 걸어서는
+    // 닿지만(canRoamTo) 「이웃」은 아니다
     for (const floor of FLOORS) {
-      const here = tilesOn(floor).map((t) => t.id)
+      const here = tilesOn(floor).map((t) => t.id).filter((id) => id !== 'labRoom')
       const mine = new Set(here)
       const seen = new Set([here[0]])
       const queue = [here[0]]
@@ -108,44 +115,30 @@ describe('층과 복도', () => {
     }
   })
 
-  it('층이 다른 방끼리는 계단을 거치지 않고는 못 간다', () => {
+  it('이웃은 언제나 같은 층이다', () => {
+    // 이웃은 「가까운 방」이다. 층이 다르면 아무리 좌표가 겹쳐도
+    // 가깝지 않다 — 사이에 바닥이 있다
     for (const t of TILES) {
       for (const n of ADJACENCY[t.id]) {
-        if (TILE_BY_ID[t.id].floor === TILE_BY_ID[n].floor) continue
-        // 층을 넘는 이웃은 계단뿐이다(옥상으로 올라가는 계단 포함)
-        const one = TILE_BY_ID[t.id].tier === 'stair'
-        const two = TILE_BY_ID[n].tier === 'stair'
-        expect(one || two).toBe(true)
+        expect(TILE_BY_ID[n].floor, `${t.id} ↔ ${n}`).toBe(t.floor)
       }
     }
   })
 })
 
 describe('계단', () => {
-  it('층마다 서쪽·동쪽 하나씩이다. 옥상만 없다', () => {
+  it('칸이 아니다. 층마다 서·동 하나씩인 복도다', () => {
+    expect(STAIRWELLS).toHaveLength(6)
     for (const floor of ['b1', 'f1', 'f2'] as const) {
-      for (const end of ['w', 'e'] as const) {
-        expect(TILE_BY_ID[stairIdOf(floor, end)]).toBeDefined()
-      }
+      for (const end of ['w', 'e'] as const) expect(stairwellOf(floor, end)).not.toBeNull()
     }
+    // 옥상에는 계단통이 없다. 2층 계단이 곧장 올라온다
+    expect(stairwellOf('roof', 'w')).toBeNull()
   })
 
-  it('바로 위아래 층끼리만 이어진다 — 지하에서 옥상으로 바로 못 간다', () => {
-    for (const end of ['w', 'e'] as const) {
-      expect(ADJACENCY[stairIdOf('b1', end)]).toContain(stairIdOf('f1', end))
-      expect(ADJACENCY[stairIdOf('b1', end)]).not.toContain(stairIdOf('f2', end))
-      expect(ADJACENCY[stairIdOf('f2', end)]).toContain('rooftop')
-    }
-  })
-
-  it('서쪽 계단과 동쪽 계단은 서로 안 통한다', () => {
-    for (const floor of ['b1', 'f1', 'f2'] as const) {
-      expect(ADJACENCY[stairIdOf(floor, 'w')]).not.toContain(stairIdOf(floor, 'e'))
-    }
-  })
-
-  it('아무도 계단을 가질 수 없다', () => {
-    for (const t of byTier('stair')) expect(t.homeOf).toBeNull()
+  it('칸 목록에 없다 — 이름도 정원도 주인도 없다', () => {
+    expect(TILES.some((t) => t.name.includes('계단'))).toBe(false)
+    expect(TILE_IDS.some((id: string) => id.startsWith('stair'))).toBe(false)
   })
 })
 
@@ -160,16 +153,19 @@ describe('걸어서 닿는다', () => {
     }
   })
 
-  it('지하에서 옥상까지는 계단을 세 번 오른다', () => {
-    // 창고(지하) → 서쪽 계단 셋 → 옥상
-    expect(stepsBetween('storage', 'rooftop')).toBe(4)
+  it('지하에서 옥상까지도 한 걸음이다 — 계단은 세지 않는다', () => {
+    expect(pathBetween('storage', 'rooftop')).toEqual(['rooftop'])
   })
 
-  it('한 층을 가로지르는 데도 걸음이 든다', () => {
+  // **걸음과 다리는 다른 것이다.** 걸음은 문을 세고(어디든 하나),
+  // 다리는 「가까운 방」을 센다 — 안개가 이쪽을 본다
+  it('이웃으로 세는 다리는 층을 안 넘는다', () => {
     // 2-3 교실(2층 북서) → 과학실 → 도서관
     expect(stepsBetween('centralPlaza', 'library')).toBe(2)
     // 2-3 교실 → 미술실 → 무용실 → 방송실 → 학생회실
     expect(stepsBetween('centralPlaza', 'studentCouncil')).toBe(4)
+    // 층이 다르면 아무리 걸어서 가까워도 다리가 없다
+    expect(stepsBetween('centralPlaza', 'baseA')).toBe(Number.POSITIVE_INFINITY)
   })
 })
 
@@ -187,14 +183,15 @@ describe('연구실', () => {
     }
   })
 
-  it('계단 하나로만 드나든다 — 제 땅으로 감쌀 수 없는 막다른 방이다', () => {
-    expect(ADJACENCY[lab.id]).toHaveLength(1)
-    expect(TILE_BY_ID[ADJACENCY[lab.id][0]].tier).toBe('stair')
+  it('계단으로만 드나든다 — 제 땅으로 감쌀 수 없는 막다른 방이다', () => {
+    expect(ADJACENCY[lab.id]).toHaveLength(0)
+    // 그래도 걸어서는 닿는다. 값이 붙는 것은 문 하나뿐이다
+    expect(canRoamTo('centralPlaza', lab.id)).toBe(true)
   })
 
-  it('네 팀 다 걸어서 닿는다', () => {
+  it('네 팀 다 한 걸음에 닿는다', () => {
     for (const team of TEAM_IDS as TeamId[]) {
-      expect(stepsBetween(BASE_OF[team], lab.id), team).toBeLessThan(Number.POSITIVE_INFINITY)
+      expect(pathBetween(BASE_OF[team], lab.id), team).toEqual([lab.id])
     }
   })
 })
@@ -206,19 +203,14 @@ describe('복도로 닿는 곳', () => {
     expect(canRoamTo('centralPlaza', 'musicRoom')).toBe(true)
   })
 
-  it('층이 다르면 복도로는 안 이어진다', () => {
-    expect(canRoamTo('centralPlaza', 'baseA')).toBe(false)
-  })
-
-  it('계단으로 층을 넘는 것은 이웃이 맡는다', () => {
-    expect(canRoamTo(stairIdOf('f2', 'w'), stairIdOf('f1', 'w'))).toBe(true)
-    expect(canRoamTo(stairIdOf('f2', 'w'), 'rooftop')).toBe(true)
-  })
-
-  it('계단참은 제 층 방들과 이어진다', () => {
-    for (const t of tilesOn('f2')) {
-      if (t.tier === 'stair') continue
-      expect(canRoamTo(stairIdOf('f2', 'w'), t.id), t.id).toBe(true)
+  it('계단이 복도라 층도 이어진다 — 학교가 통째로 한 덩어리다', () => {
+    expect(canRoamTo('centralPlaza', 'baseA')).toBe(true)
+    expect(canRoamTo('storage', 'rooftop')).toBe(true)
+    for (const a of TILES) {
+      for (const b of TILES) {
+        if (a.id === b.id) continue
+        expect(canRoamTo(a.id, b.id), `${a.id}→${b.id}`).toBe(true)
+      }
     }
   })
 
@@ -242,15 +234,6 @@ describe('복도로 닿는 곳', () => {
     }
   })
 
-  it('층이 다르면 계단을 거쳐야 한다 — 방에서 방으로 곧장은 없다', () => {
-    for (const a of TILES) {
-      for (const b of ROAM_TO[a.id]) {
-        if (a.floor === TILE_BY_ID[b].floor) continue
-        // 층을 넘는 걸음은 계단이 한쪽 끝에 있다
-        expect(a.tier === 'stair' || TILE_BY_ID[b].tier === 'stair', `${a.id}→${b}`).toBe(true)
-      }
-    }
-  })
 })
 
 describe('시작 상태', () => {
@@ -258,12 +241,11 @@ describe('시작 상태', () => {
     expect(Object.keys(BASE_OF).sort()).toEqual([...TEAM_IDS].sort())
   })
 
-  it('시작할 때 쥐는 칸에 계단은 없다', () => {
-    for (const team of TEAM_IDS as TeamId[]) {
-      for (const id of startingTiles(team)) {
-        expect(TILE_BY_ID[id].tier).not.toBe('stair')
-      }
-    }
+  it('네 팀이 비슷하게 쥐고 시작한다', () => {
+    // 계단을 칸으로 두거나 계단 양쪽 방을 이웃으로 묶으면 여기가
+    // 무너진다 — 계단 옆에 기지를 둔 팀만 위층 방까지 들고 시작한다
+    const sizes = (TEAM_IDS as TeamId[]).map((t) => startingTiles(t).length)
+    expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1)
   })
 
   it('기지는 제 시작 칸에 들어 있다', () => {
@@ -286,7 +268,7 @@ describe('연결 점수', () => {
   })
 
   it('이어 붙이면 늘어난다', () => {
-    const next = ADJACENCY[BASE_OF.A].filter((id) => TILE_BY_ID[id].tier !== 'stair')
+    const next = ADJACENCY[BASE_OF.A]
     expect(connectedSize('A', owners([BASE_OF.A, ...next]))).toBe(next.length)
   })
 })

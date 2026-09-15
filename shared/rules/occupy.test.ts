@@ -8,8 +8,6 @@ import {
   ACT_COST,
   ENTER_COST,
   MAX_CARRIED_ROBOTS,
-  MOVE_MINUTES,
-  moveMinutes,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
   KNOWLEDGE_PER_RESEARCH,
@@ -20,7 +18,6 @@ import {
   ROOM_KIND,
   TOKENS_PER_PHASE,
   arrive,
-  costOf,
   capacityOf,
   doAct,
   leftBehindCount,
@@ -124,9 +121,12 @@ describe('토큰이 한 페이즈의 전부다', () => {
   })
 
   it('**안 되는 행동은 토큰도 안 먹는다**', () => {
-    // 반쯤 되고 토큰만 빠지면 그 페이즈를 통째로 날린다
-    const s = board({ people: [person('a', 'A', 'baseA')] })
-    const out = doAct(s, 'a', { kind: 'move', targetTile: 'centralPlaza' })
+    // 반쯤 되고 토큰만 빠지면 그 페이즈를 통째로 날린다.
+    // 급식실은 관문이라 정원이 둘이다 — 꽉 찬 방에 들어가려다 거절당한다
+    const s = board({
+      people: [person('a', 'A', 'baseA'), person('x', 'B', 'cafeteria'), person('y', 'B', 'cafeteria')],
+    })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(out.ok).toBe(false)
     expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
     expect(at(s, 'a').tileId).toBe('baseA')
@@ -150,49 +150,25 @@ describe('움직임', () => {
     if (out.ok) expect(at(out.next, 'a').toTile).toBe('baseB')
   })
 
-  it('복도가 안 이어지면 못 간다 — 층이 다르면 계단을 거친다', () => {
-    // 과학실은 2층이다. 1층 복도는 거기까지 안 간다
-    const s = board({ people: [person('a', 'A', 'baseA')] })
-    const out = doAct(s, 'a', { kind: 'move', targetTile: 'scienceRoom' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('복도')
-  })
 
-  it('계단은 값도 시간도 안 든다 — 걷는 중을 거치지 않고 곧바로 선다', () => {
-    // 2층 교실 → 서쪽 계단(0) → 1층 서쪽 계단(0) → 연구실(1)
-    let s = board({ people: [person('a', 'A', 'centralPlaza')] })
+  it('층을 넘어도 한 걸음이다 — 계단은 문이라 셈에 안 든다', () => {
+    // 2층 교실에서 1층 연구실까지. 사이에 계단이 둘 있지만 칸이 아니다
+    const s = board({ people: [person('a', 'A', 'centralPlaza')] })
     const before = at(s, 'a').tokens
-    for (const to of ['stair_f2_w', 'stair_f1_w'] as const) {
-      const out = doAct(s, 'a', { kind: 'move', targetTile: to })
-      expect(out.ok, to).toBe(true)
-      if (!out.ok) return
-      expect(out.spent, to).toBe(0)
-      // arrive() 를 부르지 않는다. 계단에는 이미 서 있어야 한다
-      expect(at(out.next, 'a').tileId, to).toBe(to)
-      expect(at(out.next, 'a').toTile ?? null, to).toBe(null)
-      s = out.next
-    }
-    expect(at(s, 'a').tokens).toBe(before)
-
-    // 방은 다르다. 값이 들고, 10분 동안 어느 방에도 없다
-    const last = doAct(s, 'a', { kind: 'move', targetTile: 'labRoom' })
-    expect(last.ok).toBe(true)
-    if (!last.ok) return
-    expect(at(last.next, 'a').tokens).toBe(before - ENTER_COST)
-    expect(at(last.next, 'a').tileId).toBe(null)
-    expect(at(arrive(last.next, 'a'), 'a').tileId).toBe('labRoom')
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'labRoom' })
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.spent).toBe(ENTER_COST)
+    expect(at(out.next, 'a').tokens).toBe(before - ENTER_COST)
+    expect(at(out.next, 'a').tileId).toBe(null)
+    expect(at(arrive(out.next, 'a'), 'a').tileId).toBe('labRoom')
   })
 
-  it('걸리는 시간도 방에만 붙는다', () => {
-    expect(moveMinutes('stair_f2_w')).toBe(0)
-    expect(moveMinutes('labRoom')).toBe(MOVE_MINUTES)
-  })
-
-  it('계단을 거쳐도 값은 옆방 하나와 같다', () => {
-    expect(costOf({ kind: 'move', targetTile: 'stair_f2_w' })).toBe(0)
-    expect(costOf({ kind: 'move', targetTile: 'labRoom' })).toBe(ENTER_COST)
-    // 계단 위에 서 있어도 부르는 값은 그대로다
-    expect(costOf({ kind: 'summon', targetTile: 'stair_f2_w' })).toBe(ACT_COST.summon)
+  it('지하에서 옥상까지도 값은 하나다', () => {
+    const s = board({ people: [person('a', 'A', 'storage')] })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'rooftop' })
+    expect(out.ok).toBe(true)
+    if (out.ok) expect(out.spent).toBe(ENTER_COST)
   })
 
   it('문 하나에 토큰 하나 — 복도를 길게 걸어도 같다', () => {
@@ -844,11 +820,18 @@ describe('결석 보정', () => {
 
 describe('움직인 사람 기록', () => {
   it('성공한 행동은 남고, 거절된 것은 안 남는다', () => {
-    const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'B', 'baseB')] })
-    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    const s0 = board({
+      people: [
+        person('a', 'A', 'baseA'),
+        person('b', 'B', 'baseB'),
+        person('x', 'C', 'cafeteria'),
+        person('y', 'C', 'cafeteria'),
+      ],
+    })
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'hallway' })
     expect(s1.actedBy).toEqual(['a'])
-    // 옆방이 아니라 거절된다 — 움직인 것으로 치지 않는다
-    const bad = doAct(s1, 'b', { kind: 'move', targetTile: 'musicRoom' })
+    // 급식실이 꽉 차 거절된다 — 움직인 것으로 치지 않는다
+    const bad = doAct(s1, 'b', { kind: 'move', targetTile: 'cafeteria' })
     expect(bad.ok).toBe(false)
   })
 
@@ -995,9 +978,14 @@ describe('기지와 계단은 판정 밖이다', () => {
     expect(settle(s).next.owners.baseA).toBe('A')
   })
 
-  it('계단은 서 있어도 아무도 못 가진다', () => {
-    const s = board({ people: [person('a', 'A', 'stair_f1_w')], owners: { stair_f1_w: null } })
-    expect(settle(s).next.owners.stair_f1_w).toBeNull()
+  it('계단에는 아예 설 수가 없다 — 칸이 아니다', () => {
+    // 전에는 계단이 칸이라 「서 있어도 아무도 못 가진다」를 재야 했다.
+    // 이제는 갈 수 있는 자리 목록에 없다
+    expect(TILES.some((t) => t.id.startsWith('stair'))).toBe(false)
+    const s = board({ people: [person('a', 'A', 'centralPlaza')] })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'stair_f1_w' as never })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('그런 방은 없다')
   })
 })
 

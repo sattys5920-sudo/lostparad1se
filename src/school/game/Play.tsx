@@ -30,7 +30,7 @@ import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
-import { moveMinutes } from '../../../shared/rules/occupy'
+import { MOVE_MINUTES } from '../../../shared/rules/occupy'
 import './play.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
@@ -403,12 +403,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               return go
                 .then((r) => {
                   const left = (r as { tokens?: number }).tokens
-                  const mins = moveMinutes(to)
                   say(
                     phaseOpen
-                      ? mins === 0
-                        ? `${TILE_BY_ID[to].name}에 섰다. 계단은 값도 시간도 안 든다 · 토큰 ${left ?? '?'}개 남았다.`
-                        : `${TILE_BY_ID[to].name}(으)로 간다. ${mins}분 · 토큰 ${left ?? '?'}개 남았다.`
+                      ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
                       : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
                   )
                   return true

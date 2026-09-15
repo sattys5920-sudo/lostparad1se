@@ -117,16 +117,16 @@ async function main(): Promise<void> {
   check(now.tileId === 'library', '자유 시간에는 즉시 걸어 다닌다', String(now.tileId))
   check(now.postTile === 'centralPlaza', '**전선은 그대로다**', String(now.postTile))
 
-  // 층이 다르면 복도가 안 이어진다. 계단을 거쳐야 한다
-  const far = await call('roamTo', a0.token, { gameId: GAME, tileId: 'labRoom' })
-  check(far.code === 'FAILED_PRECONDITION', '복도가 안 이어지면 못 간다', far.message)
+  // **계단은 문이라 층도 한 걸음이다.** 2층 도서관에서 1층 연구실로 곧장
+  await must('roamTo', a0.token, { gameId: GAME, tileId: 'labRoom' })
+  check((await pawnsNow())[a0.uid].tileId === 'labRoom', '층이 달라도 한 걸음에 간다')
+  const nowhere = await call('roamTo', a0.token, { gameId: GAME, tileId: 'stair_f1_w' })
+  check(nowhere.code === 'FAILED_PRECONDITION' || nowhere.code === 'INVALID_ARGUMENT',
+    '계단에는 설 수 없다 — 칸이 아니다', nowhere.message)
 
-  // **위장은 물건이 든다.** 자유 시간에 상점까지 걸어가서 사 둔다 —
-  // 계단은 공짜라, 2층 교실에서 1층 상점까지 문 하나 값도 안 든다.
+  // **위장은 물건이 든다.** 자유 시간에 상점까지 걸어가서 사 둔다.
   // 물건은 팀 주머니에 들어가므로 페이즈에 제자리로 끌려와도 남는다
-  for (const to of ['stair_f2_w', 'stair_f1_w', 'classroom'] as const) {
-    await must('roamTo', A[1].token, { gameId: GAME, tileId: to })
-  }
+  await must('roamTo', A[1].token, { gameId: GAME, tileId: 'classroom' })
   await must('buyShopItem', A[1].token, { gameId: GAME, itemId: 'nameTag' })
   check(true, '자유 시간에 남의 명찰을 샀다')
 

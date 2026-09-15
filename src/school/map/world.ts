@@ -19,7 +19,6 @@
 // 그려져 있어서 벽에 구멍을 낼 수가 없다 — 계단 칸을 밟으면 위아래
 // 층의 짝 계단으로 옮겨 놓는다.
 import {
-  ADJACENCY,
   canRoamTo,
   FLOORS,
   HALLS,
@@ -28,10 +27,11 @@ import {
   START_TILE,
   STAIR_ENDS,
   STAIR_FLOORS,
-  TILE_BY_ID,
   TILES as BOARD,
-  stairIdOf,
+  stairwellOf,
+  type Floor,
   type Rect,
+  type StairEnd,
 } from '../../../shared/rules/board'
 import type { Tier } from '../../../shared/rules/v2'
 import type { MarkKind, PropKind } from './sprites'
@@ -142,7 +142,6 @@ const DOORS_BUILD: Door[] = []
     [Math.max(a0, b0), Math.min(a1, b1)] as const
 
   for (const t of BOARD) {
-    if (t.tier === 'stair') continue // 계단참은 복도에 바로 붙어 있다
     const r = t.plan
     for (const h of HALLS) {
       if (h.floor !== t.floor) continue
@@ -180,14 +179,14 @@ export interface Stair {
   /** 밟는 자리. */
   x: number
   y: number
-  /** 이 칸이 속한 계단참. */
-  from: TileId
-  /** 옮겨 갈 방과 자리. */
-  to: TileId
+  /** 옮겨 갈 자리. */
   toX: number
   toY: number
   /** 올라가는가 내려가는가. 그림을 고를 때 쓴다. */
   up: boolean
+  /** 어디서 어디로. **칸 이름이 아니다** — 터뜨릴 때 읽을 이름이다. */
+  from: string
+  to: string
 }
 
 /**
@@ -198,24 +197,30 @@ export interface Stair {
  * 세로로 이어 놓으면 발판이 열둘이라 눈으로 바로 계단인 줄 안다.
  * 어느 칸을 밟든 같은 계단이다.
  *
- * 계단참 하나에 층계가 둘까지 놓인다 — 위로 가는 것과 아래로 가는 것.
- * 계단참은 세로로 길어서 오르는 층계는 위쪽, 내려가는 층계는 아래쪽에
- * 둔다. 밟으면 짝 계단참의 **계단이 아닌 칸**에 내려놓는다. 같은 칸에
+ * 계단통 하나에 층계가 둘까지 놓인다 — 위로 가는 것과 아래로 가는 것.
+ * 계단통은 세로로 길어서 오르는 층계는 위쪽, 내려가는 층계는 아래쪽에
+ * 둔다. 밟으면 짝 계단통의 **계단이 아닌 칸**에 내려놓는다. 같은 칸에
  * 놓으면 그 칸이 다시 계단이라 무한히 오르내린다.
+ *
+ * **계단통은 방이 아니라 복도다.** 그래서 내려놓은 자리는 어느 방도
+ * 아니고, 규칙에 「계단으로 갔다」고 말할 일도 없다 — 문 앞에 선
+ * 것과 같다. 거기서 다시 문을 넘어야 방에 들어간다.
  */
 export const STAIR_STEPS = 3
 
 const STAIRS_BUILD: Stair[] = []
 {
-  const landing = (id: TileId) => ROOM_RECTS[id][0]
-  /** 층계 한 벌. 계단참 안쪽 줄을 따라 세 칸이다. */
+  const wellOf = (floor: Floor, end: StairEnd) => {
+    const w = stairwellOf(floor, end)
+    if (!w) throw new Error(`계단통이 없다: ${floor} ${end}`)
+    return w.plan
+  }
+  const label = (floor: Floor, end: StairEnd) => `${floor}_${end}`
+  /** 층계 한 벌. 계단통 안쪽 줄을 따라 세 칸이다. */
   const flight = (r: Rect, top: number) =>
     Array.from({ length: STAIR_STEPS }, (_, i) => ({ x: r.x + 1, y: top + i }))
-  const upCells = (id: TileId) => flight(landing(id), landing(id).y + 1)
-  const downCells = (id: TileId) => {
-    const r = landing(id)
-    return flight(r, r.y + r.h - 1 - STAIR_STEPS)
-  }
+  const upCells = (r: Rect) => flight(r, r.y + 1)
+  const downCells = (r: Rect) => flight(r, r.y + r.h - 1 - STAIR_STEPS)
   /**
    * 내려놓는 자리.
    *
@@ -223,14 +228,14 @@ const STAIRS_BUILD: Stair[] = []
    * 반대편 층으로 간다 — 무한히 오르내린다. 오르내리는 칸이 왼쪽
    * 줄에 있으니 오른쪽 줄에 내려놓는다.
    */
-  const restFor = (id: TileId, arrivingUp: boolean) => {
-    const r = landing(id)
-    return { x: r.x + r.w - 2, y: arrivingUp ? r.y + 2 : r.y + r.h - 3 }
-  }
+  const restIn = (r: Rect, arrivingUp: boolean) => ({
+    x: r.x + r.w - 2,
+    y: arrivingUp ? r.y + 2 : r.y + r.h - 3,
+  })
 
   const roof = ROOM_RECTS.rooftop[0]
   /** 옥상에서 내려가는 층계. 올라온 자리 바로 그 자리다. */
-  const roofCells = (end: (typeof STAIR_ENDS)[number]) =>
+  const roofCells = (end: StairEnd) =>
     Array.from({ length: STAIR_STEPS }, (_, i) => ({
       x: end === 'w' ? roof.x + 1 : roof.x + roof.w - 2,
       y: roof.y + roof.h - 1 - STAIR_STEPS + i,
@@ -238,8 +243,8 @@ const STAIRS_BUILD: Stair[] = []
 
   const add = (
     cells: { x: number; y: number }[],
-    from: TileId,
-    to: TileId,
+    from: string,
+    to: string,
     rest: { x: number; y: number },
     up: boolean,
   ) => {
@@ -250,21 +255,20 @@ const STAIRS_BUILD: Stair[] = []
 
   for (let i = 0; i < STAIR_FLOORS.length; i++) {
     for (const end of STAIR_ENDS) {
-      const here = stairIdOf(STAIR_FLOORS[i], end) as TileId
-      const above = (
-        i + 1 < STAIR_FLOORS.length ? stairIdOf(STAIR_FLOORS[i + 1], end) : null
-      ) as TileId | null
-      const below = (i > 0 ? stairIdOf(STAIR_FLOORS[i - 1], end) : null) as TileId | null
-      if (above) {
-        add(upCells(here), here, above, restFor(above, true), true)
+      const here = wellOf(STAIR_FLOORS[i], end)
+      const name = label(STAIR_FLOORS[i], end)
+      const upFloor = i + 1 < STAIR_FLOORS.length ? STAIR_FLOORS[i + 1] : null
+      const downFloor = i > 0 ? STAIR_FLOORS[i - 1] : null
+      if (upFloor) {
+        add(upCells(here), name, label(upFloor, end), restIn(wellOf(upFloor, end), true), true)
       } else {
         // 맨 위 층의 계단은 옥상으로 나간다. 올라온 층계 옆에 내려놓는다
         const c = roofCells(end)[STAIR_STEPS - 1]
         const toX = end === 'w' ? c.x + 2 : c.x - 2
-        add(upCells(here), here, 'rooftop', { x: toX, y: c.y }, true)
+        add(upCells(here), name, 'rooftop', { x: toX, y: c.y }, true)
       }
-      if (below) {
-        add(downCells(here), here, below, restFor(below, false), false)
+      if (downFloor) {
+        add(downCells(here), name, label(downFloor, end), restIn(wellOf(downFloor, end), false), false)
       }
     }
   }
@@ -272,8 +276,7 @@ const STAIRS_BUILD: Stair[] = []
   {
     const top = STAIR_FLOORS[STAIR_FLOORS.length - 1]
     for (const end of STAIR_ENDS) {
-      const back = stairIdOf(top, end) as TileId
-      add(roofCells(end), 'rooftop', back, restFor(back, false), false)
+      add(roofCells(end), 'rooftop', label(top, end), restIn(wellOf(top, end), false), false)
     }
   }
 }
@@ -543,7 +546,6 @@ const FLOOR_OF: Partial<Record<TileId, FloorKind>> = {
 }
 
 export function floorOf(id: TileId): FloorKind {
-  if (TILE_BY_ID[id]?.tier === 'stair') return 'hall'
   return FLOOR_OF[id] ?? 'room'
 }
 
@@ -599,13 +601,16 @@ export function spawnFor(_team: TeamId | null): { x: number; y: number } {
 /** 팀이 정해지기 전 기본 자리. */
 export const SPAWN = spawnFor(null)
 
-/** 조각이 떨어질 수 있는 곳 — 기지·핵심 지역·계단은 뺀다. */
+/** 조각이 떨어질 수 있는 곳 — 기지와 핵심 지역은 뺀다. */
 export const SPAWNABLE_TILES: TileId[] = BOARD.filter(
-  (t) => !CORE_TILES.has(t.id as TileId) && t.tier !== 'base' && t.tier !== 'stair',
+  (t) => !CORE_TILES.has(t.id as TileId) && t.tier !== 'base',
 ).map((t) => t.id as TileId)
 
 /**
  * 복도만 밟고 닿을 수 있는 방들. **다른 방을 지나가지는 않는다.**
+ *
+ * **계단은 밟고 지나간다.** 계단통이 복도가 된 뒤로 층을 넘는 것도
+ * 걸음이라, 여기서 따라가지 않으면 이 확인이 한 층 안에서만 돈다.
  *
  * 규칙이 들여보내 주는 범위(canRoamTo)와 이것이 어긋나면, 화면에서는
  * 문이 열려 있는데 서버가 거절한다. 켤 때 맞춰 본다.
@@ -614,20 +619,34 @@ function roamReach(from: TileId): Set<TileId> {
   const out = new Set<TileId>()
   const seen = new Uint8Array(N_W * N_H)
   const queue: number[] = []
+  /**
+   * 그 칸을 밟는다. 남의 방이면 들어가지 않고 이름만 적는다 —
+   * 방을 가로질러 가는 길은 없다. 계단이면 짝 계단통까지 따라간다.
+   */
+  const enter = (x: number, y: number): void => {
+    if (seen[idx(x, y)]) return
+    const room = roomAt(x, y)?.id ?? null
+    if (room && room !== from) {
+      out.add(room)
+      return
+    }
+    seen[idx(x, y)] = 1
+    queue.push(idx(x, y))
+    const step = stairHere(x, y)
+    if (step) enter(step.toX, step.toY)
+  }
+
   for (const d of DOORS) {
     if (d.a !== from) continue
     seen[idx(d.x, d.y)] = 1
     queue.push(idx(d.x, d.y))
   }
-  // 계단참은 문이 없다. 제 칸 어디서나 복도로 걸어 나간다
-  if (TILE_BY_ID[from]?.tier === 'stair') {
-    const r = ROOM_RECTS[from][0]
-    for (let y = r.y; y < r.y + r.h; y++) {
-      for (let x = r.x; x < r.x + r.w; x++) {
-        seen[idx(x, y)] = 1
-        queue.push(idx(x, y))
-      }
-    }
+  // 옥상에는 문이 없다. 계단이 곧장 올라오므로 제 안의 계단 칸에서 나선다
+  for (const st of STAIRS) {
+    if (roomAt(st.x, st.y)?.id !== from) continue
+    seen[idx(st.x, st.y)] = 1
+    queue.push(idx(st.x, st.y))
+    enter(st.toX, st.toY)
   }
   while (queue.length > 0) {
     const cur = queue.pop() as number
@@ -637,16 +656,8 @@ function roamReach(from: TileId): Set<TileId> {
       const nx = x + dx
       const ny = y + dy
       if (nx < 0 || ny < 0 || nx >= N_W || ny >= N_H) continue
-      if (seen[idx(nx, ny)]) continue
       if (tileAt(nx, ny) === 'wall') continue
-      const room = roomAt(nx, ny)?.id ?? null
-      // 다른 방에 닿았다. 들어가지는 않는다 — 방을 가로질러 가는 길은 없다
-      if (room && room !== from) {
-        out.add(room)
-        continue
-      }
-      seen[idx(nx, ny)] = 1
-      queue.push(idx(nx, ny))
+      enter(nx, ny)
     }
   }
   return out
@@ -655,16 +666,15 @@ function roamReach(from: TileId): Set<TileId> {
 // ── 만들고 나서 확인 ────────────────────────────────────────────
 // 생성된 맵이라 한 군데만 어긋나도 방이 통째로 잠긴다. 켤 때 바로 터뜨린다.
 {
-  // 방마다 문이 적어도 하나. 옥상과 계단참은 복도에 바로 붙어 있어 문이 없다
+  // 방마다 문이 적어도 하나. 옥상은 계단이 곧장 올라오므로 문이 없다
   for (const t of BOARD) {
-    if (t.tier === 'stair' || t.floor === 'roof') continue
+    if (t.floor === 'roof') continue
     if (!DOORS.some((d) => d.a === (t.id as TileId))) throw new Error(`${t.id} 에 문이 없다.`)
   }
 
   // 방과 복도 사이에는 벽이 한 줄 있어야 한다. 붙여 놓으면 문 없이
   // 벽을 통과하는 방이 된다 — 규칙은 못 들어간다고 하는데 화면은 통과시킨다
   for (const t of BOARD) {
-    if (t.tier === 'stair') continue
     const r = t.plan
     for (const h of HALLS) {
       const g = h.rect
@@ -726,9 +736,16 @@ function roamReach(from: TileId): Set<TileId> {
     }
   }
 
-  // 계단이 닿는 곳이 규칙의 이웃과 같아야 한다
+  // **계단은 방이 아닌 자리에 내려놓는다.** 옥상만 빼고.
+  //
+  // 계단통이 복도가 된 뒤로 여기가 규칙과 화면을 잇는 자리다. 방
+  // 한복판에 내려놓으면 문을 안 지나고 방에 들어선 것이 되고, 서버는
+  // 그 방을 모르는데 화면만 안에 서 있게 된다
   for (const s of STAIRS) {
-    if (!ADJACENCY[s.from]?.includes(s.to)) throw new Error(`규칙이 이웃으로 안 치는 계단: ${s.from} → ${s.to}`)
+    const landed = roomAt(s.toX, s.toY)
+    if (landed && landed.id !== 'rooftop') {
+      throw new Error(`계단이 방 한복판에 내려놓는다: ${s.from} → ${s.to} (${landed.id})`)
+    }
   }
 
   // **걸어서 닿는 방은 규칙도 들여보내야 한다.**
@@ -737,10 +754,23 @@ function roamReach(from: TileId): Set<TileId> {
   // 그 반대를 안 봤더니, 복도가 층을 통째로 잇는 바람에 걸어서 닿는
   // 방 짝 254개 중 181개를 서버가 거절했다 — 눈앞의 문 앞에 서서
   // 못 들어간다.
+  //
+  // **양쪽을 다 본다.** 규칙이 들여보내는데 화면에 길이 없으면 누른
+  // 곳에 영영 못 가고, 화면에 길이 있는데 규칙이 막으면 문 앞에서
+  // 거절당한다. 계단이 복도가 된 뒤로는 이 두 확인이 「학교가 통째로
+  // 한 덩어리인가」를 재는 자리이기도 하다
   for (const t of BOARD) {
-    for (const other of roamReach(t.id as TileId)) {
+    const walk = roamReach(t.id as TileId)
+    for (const other of walk) {
       if (!canRoamTo(t.id as TileId, other)) {
         throw new Error(`걸어서 닿는데 규칙이 막는다: ${t.id} → ${other}`)
+      }
+    }
+    for (const other of BOARD) {
+      const to = other.id as TileId
+      if (to === t.id) continue
+      if (canRoamTo(t.id as TileId, to) && !walk.has(to)) {
+        throw new Error(`규칙은 들여보내는데 걸어갈 길이 없다: ${t.id} → ${to}`)
       }
     }
   }

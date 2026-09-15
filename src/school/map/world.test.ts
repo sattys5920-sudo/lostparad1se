@@ -33,7 +33,7 @@ describe('걸어 다니는 학교는 규칙과 같은 판이다', () => {
   })
 
   it('방마다 문이 적어도 하나 있다 — 복도로 난다', () => {
-    const rooms = TILES.filter((t) => t.tier !== 'stair' && t.floor !== 'roof')
+    const rooms = TILES.filter((t) => t.floor !== 'roof')
     for (const t of rooms) {
       expect(DOORS.filter((d) => d.a === t.id).length, t.id).toBeGreaterThan(0)
     }
@@ -48,21 +48,33 @@ describe('걸어 다니는 학교는 규칙과 같은 판이다', () => {
   })
 
   it('규칙이 이웃이라고 한 방끼리는 걸어서 닿는다', () => {
-    // 복도가 생긴 뒤로는 방과 방 사이에 문이 없다. 대신 **같은 층이면
-    // 복도를 지나 걸어서 닿아야** 한다. 층이 다른 쌍(계단)은 건너뛴다
+    // 복도가 생긴 뒤로는 방과 방 사이에 문이 없다. 대신 **복도를
+    // 지나 걸어서 닿아야** 한다. 이웃은 이제 언제나 같은 층이다
     const far: string[] = []
     for (const [a, ns] of Object.entries(ADJACENCY)) {
       for (const b of ns) {
         if (a >= b) continue
-        if (TILE_BY_ID[a].floor !== TILE_BY_ID[b].floor) continue
+        expect(TILE_BY_ID[a].floor, `${a} ↔ ${b}`).toBe(TILE_BY_ID[b].floor)
         if (!walkable(centerOf(a as TileId), centerOf(b as TileId))) far.push(pair(a, b))
       }
     }
     expect(far).toEqual([])
   })
 
-  it('계단은 규칙의 이웃으로 이어진다', () => {
-    for (const s of STAIRS) expect(ADJACENCY[s.from]).toContain(s.to)
+  it('계단은 방이 아닌 자리에 내려놓는다 — 옥상만 빼고', () => {
+    // 계단은 문이다. 방 한복판에 내려놓으면 문을 안 지나고 들어선
+    // 것이 되고, 서버는 그 방을 모르는데 화면만 안에 서 있게 된다
+    for (const st of STAIRS) {
+      const landed = roomAt(st.toX, st.toY)?.id ?? null
+      expect(landed === null || landed === 'rooftop', `${st.from}→${st.to}`).toBe(true)
+    }
+  })
+
+  it('계단 칸도 그 내려놓는 자리도 밟을 수 있다', () => {
+    for (const st of STAIRS) {
+      expect(isWalkable(st.x, st.y), `${st.from}→${st.to} 밟는 자리`).toBe(true)
+      expect(isWalkable(st.toX, st.toY), `${st.from}→${st.to} 내려놓는 자리`).toBe(true)
+    }
   })
 })
 
