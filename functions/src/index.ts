@@ -104,8 +104,19 @@ export { tick } from './tick'
 // 토큰을 쓰는 행동.
 export { produce, study, buyShopItem } from './act'
 
-// 교역과 동맹. 토큰이 들지 않는다.
-export { offerTrade, respondTrade, proposeAlliance, respondAlliance, breakAllianceNow } from './deal'
+// 동맹.
+export { proposeAlliance, respondAlliance, breakAllianceNow } from './deal'
+
+// 마주 보고 하는 거래. 양쪽이 각자 물건을 올리고, 성립할 때 값이 든다.
+export {
+  askDeal,
+  answerDeal,
+  stakeDeal,
+  readyDeal,
+  cancelDeal,
+  settleDeal,
+  dealNow,
+} from './deals'
 
 // 표와 털어놓기. 표는 보낸 사람이 어디로도 나가지 않는다.
 export { castVote, revealSecret } from './vote'

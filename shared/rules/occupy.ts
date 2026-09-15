@@ -326,7 +326,7 @@ export interface PhaseState {
   disguised: readonly string[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: readonly string[]
-  /** 팀이 함께 가진 물건. 방해와 위장이 여기서 하나씩 빠진다. */
+  /** 사람마다 가진 물건. 방해와 위장이 **쓰는 사람 것에서** 하나씩 빠진다. */
   satchels: Satchels
   /**
    * 팀이 함께 쓰는 토큰 상자. **한 팀에 하나다.**
@@ -550,14 +550,14 @@ function marked(out: ActResult, playerId: string): ActResult {
 }
 
 /** 물건 하나를 꺼내 쓴다. 되지 않은 행동은 아무것도 꺼내지 않는다. */
-function spent(out: ActResult, state: PhaseState, playerId: string, kind: ActionKind): ActResult {
+function spent(out: ActResult, playerId: string, kind: ActionKind): ActResult {
   const need = ITEM_FOR[kind]
   if (!out.ok || !need) return out
-  const team = state.people.find((p) => p.playerId === playerId)?.team
-  if (!team) return out
-  const left = takeItem(out.next.satchels[team], need)
+  // **쓰는 사람 주머니에서 나간다.** 팀 주머니이던 때에는 멀리 나간
+  // 사람이 사 온 것을 기지에 앉은 사람이 썼다
+  const left = takeItem(out.next.satchels[playerId], need)
   if (!left) return no(`${ITEM_BY_KIND[need].name}이(가) 없다. 상점에서 산다.`)
-  return { ...out, next: { ...out.next, satchels: { ...out.next.satchels, [team]: left } } }
+  return { ...out, next: { ...out.next, satchels: { ...out.next.satchels, [playerId]: left } } }
 }
 
 /**
@@ -571,7 +571,7 @@ function spent(out: ActResult, state: PhaseState, playerId: string, kind: Action
  */
 export function doAct(state: PhaseState, playerId: string, act: Act): ActResult {
   return marked(
-    charged(spent(runAct(state, playerId, act), state, playerId, act.kind), state, playerId),
+    charged(spent(runAct(state, playerId, act), playerId, act.kind), state, playerId),
     playerId,
   )
 }
@@ -601,7 +601,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
 
   // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다
   const needItem = ITEM_FOR[act.kind] ?? null
-  if (needItem && countOf(state.satchels[me.team], needItem) <= 0) {
+  if (needItem && countOf(state.satchels[playerId], needItem) <= 0) {
     return no(`${ITEM_BY_KIND[needItem].name}이(가) 없다. 상점에서 산다.`)
   }
 

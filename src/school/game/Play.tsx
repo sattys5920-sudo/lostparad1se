@@ -25,7 +25,10 @@ import { AddToHome, OfflineBar, TurnNotice, Waiting, useGameNow, useOnline, useS
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
-import { Deals } from './Deals'
+import { Hand } from './Hand'
+import { DealAsk } from './DealAsk'
+import { DealRoom } from './DealRoom'
+import { useDeal } from './useDeal'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../../shared/rules/board'
@@ -252,7 +255,7 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 type Tab = 'map' | 'me' | 'note'
 
 /** 컨트롤 바의 「더보기」에서 열리는 것들. */
-type SheetId = 'act' | 'talk' | 'more' | 'deal' | 'shop'
+type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -287,6 +290,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const refuse = useCallback((text: string) => { setBad(true); setSaid(text) }, [])
   const [tab, setTab] = useState<Tab>('map')
   const [sheet, setSheet] = useState<SheetId | null>(null)
+  /** 맵에서 짚은 사람. 거래는 여기서 시작한다. */
+  const [person, setPerson] = useState<string | null>(null)
   const [archive, setArchive] = useState(false)
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
@@ -313,6 +318,29 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const iAmInvisible = game?.invisibleId === uid
   // 마주 선 팀. 교역도 동맹도 사람이 꺼내는 말이라 그 팀 사람이 앞에 있어야 한다
   const facingTeams = [...new Set(hereNow.map((p) => p.team))].filter((t) => t !== me?.team)
+
+  /**
+   * 지금 앉아 있는 거래판. **views 가 아니라 거래판 문서를 직접 본다** —
+   * 상대가 물건을 올리는 것이 그 자리에서 보여야 흥정이다.
+   */
+  const { deal, dismiss: leaveDeal } = useDeal(gameId, uid)
+  /**
+   * 거래창을 닫는다. **살아 있는 판은 접고, 끝난 판은 치우기만 한다** —
+   * 끝난 판에 대고 또 접자고 하면 서버가 「그런 거래가 없다」로 답한다.
+   */
+  const closeDeal = useCallback(
+    (d: { id: string; status: string }) => {
+      if (d.status === 'asking' || d.status === 'open' || d.status === 'settling') {
+        void act.cancelDeal(d.id).catch(() => {})
+      }
+      leaveDeal()
+    },
+    [act, leaveDeal],
+  )
+  const nameOf = useCallback(
+    (id: string | null) => (id ? (game?.seats.find((s) => s.playerId === id)?.name ?? '누군가') : '누군가'),
+    [game],
+  )
 
   // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다.
   //
@@ -424,6 +452,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               }
               goFar(id)
             }}
+            onTapPerson={setPerson}
           />
 
           {/* 방 위에 얹는 것들. 줄을 따로 내주면 방이 그만큼 작아진다.
@@ -648,22 +677,82 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </Sheet>
       )}
 
-      {sheet === 'deal' && (
-        <Sheet title="거래" onClose={closeSheet}>
-          <Deals
+      {sheet === 'hand' && (
+        <Sheet title="손패" onClose={closeSheet}>
+          <Hand
             me={me}
             view={state.view}
             teams={state.teams}
             facingTeams={facingTeams}
-            herePeople={hereNow.map((p) => ({
-              playerId: p.playerId,
-              name: game.seats.find((s) => s.playerId === p.playerId)?.name ?? '누군가',
-              team: p.team,
-            }))}
             act={act}
             onSaid={setSaid}
             ask={ask}
-            phaseOpen={phaseOpen}
+          />
+        </Sheet>
+      )}
+
+      {/* ── 맵에서 짚은 사람 ────────────────────────────────
+          열세 명이 늘어선 목록은 없다. 눈앞에 선 사람 하나다 */}
+      {person && (
+        <Sheet title={nameOf(person)} onClose={() => setPerson(null)}>
+          <div className="sc-pr">
+            <p className="sc-pr__who">
+              {hereNow.find((p) => p.playerId === person)?.team ?? '?'}팀 · 같은 방에 서 있다
+            </p>
+            <button
+              className="sc-pr__go"
+              disabled={phaseOpen || deal !== null}
+              onClick={() => {
+                const who = person
+                setPerson(null)
+                act
+                  .askDeal(who)
+                  .then(() => say('거래하자고 했다. 열다섯 초 안에 답이 온다.'))
+                  .catch((e) => refuse((e as Error).message))
+              }}
+            >
+              거래하기
+              <span>
+                {phaseOpen
+                  ? '페이즈 중에는 흥정하지 않는다'
+                  : deal !== null
+                    ? '이미 거래 중이다'
+                    : `성립하면 개인 토큰 1개 · 오늘 ${state.view?.myDealTokens ?? 0}개 남았다`}
+              </span>
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* ── 거래 ────────────────────────────────────────────
+          청하는 동안은 띠 한 줄, 앉고 나면 창이 올라온다 */}
+      {deal?.status === 'asking' && deal.askedBy !== me.playerId && (
+        <DealAsk
+          fromName={nameOf(deal.askedBy)}
+          fromTeam={(deal.a.playerId === deal.askedBy ? deal.a.team : deal.b.team) as TeamId}
+          askedAtMs={deal.askedAtMs}
+          nowMs={nowMs}
+          onAnswer={(accept) => {
+            act.answerDeal(deal.id, accept).catch((e) => refuse((e as Error).message))
+          }}
+        />
+      )}
+      {deal?.status === 'asking' && deal.askedBy === me.playerId && (
+        <p className="sc-da__wait">
+          {nameOf(deal.a.playerId === me.playerId ? deal.b.playerId : deal.a.playerId)}의 답을 기다린다.
+        </p>
+      )}
+      {deal && deal.status !== 'asking' && (
+        <Sheet title="거래" onClose={() => closeDeal(deal)}>
+          <DealRoom
+            me={me}
+            deal={deal}
+            view={state.view}
+            otherName={nameOf(deal.a.playerId === me.playerId ? deal.b.playerId : deal.a.playerId)}
+            nowMs={nowMs}
+            act={act}
+            onSaid={refuse}
+            onClose={() => closeDeal(deal)}
           />
         </Sheet>
       )}

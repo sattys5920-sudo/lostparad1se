@@ -190,17 +190,18 @@ export function gameActions(gameId: string) {
     study: (tileId: TileId) => callServer('study', { ...g, tileId }),
     buyShopItem: (itemId: string) => callServer('buyShopItem', { ...g, itemId }),
 
-    /** 마주 선 사람에게 말을 꺼낸다. 수락하면 그 자리에서 끝난다. */
-    offerTrade: (
-      toPlayerId: string,
-      give: Record<string, number>,
-      want: Record<string, number>,
-      // 토큰과 짝은 자루가 아니라 주머니로 간다. 서버가 둘을 갈라 본다
-      givePurse: Record<string, number> = {},
-      wantPurse: Record<string, number> = {},
-      note = '',
-    ) => callServer('offerTrade', { ...g, toPlayerId, give, want, givePurse, wantPurse, note }),
-    respondTrade: (tradeId: string, accept: boolean) => callServer('respondTrade', { ...g, tradeId, accept }),
+    // ── 거래 ────────────────────────────────────────────────────
+    // 마주 앉아 양쪽이 각자 물건을 올린다. 값은 성립할 때 청한 쪽이 낸다.
+    /** 거래를 걸자고 청한다. 열다섯 초 안에 답이 없으면 사라진다. */
+    askDeal: (toPlayerId: string) => callServer('askDeal', { ...g, toPlayerId }),
+    answerDeal: (dealId: string, accept: boolean) => callServer('answerDeal', { ...g, dealId, accept }),
+    /** 탁자에 올린 것 전부를 한 번에 적는다. 바뀌면 양쪽 준비가 풀린다. */
+    stakeDeal: (dealId: string, stake: unknown) => callServer('stakeDeal', { ...g, dealId, stake }),
+    readyDeal: (dealId: string, ready: boolean) => callServer('readyDeal', { ...g, dealId, ready }),
+    cancelDeal: (dealId: string) => callServer('cancelDeal', { ...g, dealId }),
+    settleDeal: (dealId: string) => callServer('settleDeal', { ...g, dealId }),
+    /** 지금 내가 끼어 있는 거래. 시든 것을 접고 나서 답한다. */
+    dealNow: () => callServer('dealNow', g),
     proposeAlliance: (withTeam: TeamId) => callServer('proposeAlliance', { ...g, withTeam }),
     respondAlliance: (proposalId: string, accept: boolean) =>
       callServer('respondAlliance', { ...g, proposalId, accept }),

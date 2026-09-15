@@ -27,7 +27,7 @@ import { spendToken } from '../../shared/rules/tokens'
 import { type Resource, type TeamId } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { SHOP_TILE, shopItemById, shopPriceFor } from '../../shared/rules/shop'
-import { putItem } from '../../shared/rules/items'
+import { putItem, type Satchel } from '../../shared/rules/items'
 import type { TeamDoc, TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, requireAwake, tileStates } from './turn'
@@ -207,15 +207,23 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
   await db.runTransaction(async (tx) => {
     const mineRef = ref.collection('teams').doc(pawn.team)
     const hisRef = price.payTo ? ref.collection('teams').doc(price.payTo) : null
-    const [mineSnap, hisSnap] = await Promise.all([tx.get(mineRef), hisRef ? tx.get(hisRef) : null])
+    // **값은 팀 금고에서, 물건은 산 사람 주머니로.** 물건이 팀 것이던
+    // 때에는 상점에 다녀온 사람과 쓰는 사람이 달라도 됐다
+    const meRef = ref.collection('pawns').doc(uid)
+    const [mineSnap, hisSnap, meSnap] = await Promise.all([
+      tx.get(mineRef),
+      hisRef ? tx.get(hisRef) : null,
+      tx.get(meRef),
+    ])
     const mine = mineSnap.data() as TeamDoc
     const left = pay(mine.resources, price.cost)
     if (!left) throw new HttpsError('failed-precondition', '돈이 모자라다.')
 
-    tx.update(mineRef, {
-      resources: left,
-      ...(item.gives ? { items: putItem(mine.items, item.gives) } : {}),
-    })
+    tx.update(mineRef, { resources: left })
+    if (item.gives) {
+      const bag = (meSnap.data() as { items?: Satchel } | undefined)?.items
+      tx.update(meRef, { items: putItem(bag, item.gives) })
+    }
     // 낸 값은 사라지지 않는다. 상점 주인 팀 금고로 넘어간다
     if (hisRef && hisSnap) {
       const his = hisSnap.data() as TeamDoc

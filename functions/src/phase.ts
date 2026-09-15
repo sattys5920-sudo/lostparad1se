@@ -171,9 +171,10 @@ function vaultsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamId
 }
 
 /** 팀 주머니. 금고와 같은 자리에서 읽고 쓴다. */
-function satchelsOf(teams: FirebaseFirestore.QuerySnapshot): Satchels {
+/** 주머니는 **사람마다** 하나다. 말 문서에서 떼어 온다. */
+function satchelsOf(pawns: FirebaseFirestore.QuerySnapshot): Satchels {
   const out: Satchels = {}
-  for (const d of teams.docs) out[d.id as TeamId] = (d.data() as { items?: Satchel }).items ?? {}
+  for (const d of pawns.docs) out[d.id] = (d.data() as { items?: Satchel }).items ?? {}
   return out
 }
 
@@ -184,9 +185,9 @@ function writeSatchels(
   before: Satchels,
   after: Satchels,
 ): void {
-  for (const team of TEAMS) {
-    if (JSON.stringify(before[team] ?? {}) === JSON.stringify(after[team] ?? {})) continue
-    w.update(ref.collection('teams').doc(team), { items: after[team] ?? {} })
+  for (const id of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (JSON.stringify(before[id] ?? {}) === JSON.stringify(after[id] ?? {})) continue
+    w.update(ref.collection('pawns').doc(id), { items: after[id] ?? {} })
   }
 }
 
@@ -240,7 +241,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
-      satchels: satchelsOf(teams),
+      satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
@@ -467,7 +468,7 @@ export const phaseAct = onCall<{
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
-      satchels: satchelsOf(teams),
+      satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,

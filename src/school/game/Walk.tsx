@@ -32,6 +32,7 @@ import {
 } from '../map/world'
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { pixelFrame } from '../char/pixel'
+import { TEAM_COLOR } from './MapPlan'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import {
   CHAR_PX,
@@ -61,6 +62,11 @@ export interface WalkProps {
   onRoom: (id: TileId | null) => void
   /** 맵에서 방을 눌렀다. 먼 방이면 거기로 갈지 묻는다. */
   onTapRoom: (id: TileId) => void
+  /**
+   * 내 방에 선 사람을 눌렀다. **거래는 여기서 시작한다** — 열세 명이
+   * 늘어선 목록에서 고르는 것이 아니라, 눈앞에 선 사람을 짚는다.
+   */
+  onTapPerson: (playerId: string) => void
   /**
    * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
    * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
@@ -111,7 +117,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef, placeAtMs = null }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, padRef, placeAtMs = null }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -131,11 +137,13 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
   const crossRef = useRef(onCross)
   const roomRef = useRef(onRoom)
   const tapRef = useRef(onTapRoom)
+  const personRef = useRef(onTapPerson)
   viewRef.current = view
   tilesRef.current = tiles
   crossRef.current = onCross
   roomRef.current = onRoom
   tapRef.current = onTapRoom
+  personRef.current = onTapPerson
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
   const myPawn = view?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
@@ -303,6 +311,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const ty = Math.floor(sy / TILE)
       const here = roomAt(self.tx, self.ty)?.id ?? null
       const id = roomAt(tx, ty)?.id ?? null
+
+      // **사람이 먼저다.** 내 방에 선 사람을 짚었으면 걸음이 아니라
+      // 그 사람 쪽이 열린다 — 거래는 여기서 시작한다
+      const who = personAt(sx, sy, here)
+      if (who) {
+        personRef.current(who)
+        return
+      }
 
       // 옆방(또는 그 방으로 가는 문)을 눌렀다 — 문까지 걸어가서 넘는다
       const toward = id && id !== here ? id : (doorHere(tx, ty) ? acrossFrom(doorHere(tx, ty) as Door, here) : null)
@@ -747,11 +763,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       // 방에도 없다. 규칙에서도 그렇다 — 걷는 말은 깃발 판정에 세지
       // 않고, 표도 교역도 그 사람과는 할 수 없다. 화면에만 서 있으면
       // 누를 수 있을 것처럼 보인다
-      for (const p of viewRef.current?.visiblePawns ?? []) {
-        if (p.playerId === me.playerId || p.walking) continue
-        const at = centerPx(asRoom(p.tileId))
-        if (!at) continue
-        dot(at.x - camX, at.y - camY, p.team as TeamId, p.asleep === true)
+      const myRoom = roomAt(self.tx, self.ty)?.id ?? null
+      for (const p of standees()) {
+        if (p.playerId === me.playerId) continue
+        dot(p.x - camX, p.y - camY, p.team as TeamId, p.asleep, p.here === myRoom)
       }
 
       // 나
@@ -788,6 +803,65 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       return teams.length === 1 ? (teams[0] as TeamId) : null
     }
 
+    /** 여럿이 한 방에 설 때 벌려 세우는 반지름. 손끝이 짚을 만큼은 떨어진다. */
+    const RING_PX = 7
+    /** 이만큼 안을 누르면 그 사람을 짚은 것으로 본다. */
+    const GRAB_PX = 9
+
+    /**
+     * 지금 서 있는 사람들이 각자 어디에 서 있는가.
+     *
+     * 방 한가운데에 다 겹쳐 그리면 넷이 서 있어도 하나로 보이고, 손끝이
+     * 누구를 짚었는지도 알 수 없다. 아이디 순으로 작은 원에 벌려 세운다 —
+     * **그림과 손끝이 이 함수 하나를 같이 본다.** 자리를 따로 셈하면
+     * 보이는 곳과 눌리는 곳이 어긋난다.
+     *
+     * 나도 자리를 하나 차지한다. 그려지지는 않지만, 빼 두면 남들이 내가
+     * 서 있는 한가운데로 몰린다.
+     */
+    function standees(): { playerId: string; team: string; asleep: boolean; here: TileId; x: number; y: number }[] {
+      const byRoom = new Map<string, { playerId: string; team: string; asleep: boolean }[]>()
+      for (const p of viewRef.current?.visiblePawns ?? []) {
+        if (p.walking || !p.tileId) continue
+        const row = byRoom.get(p.tileId) ?? []
+        row.push({ playerId: p.playerId, team: p.team, asleep: p.asleep === true })
+        byRoom.set(p.tileId, row)
+      }
+      const out: { playerId: string; team: string; asleep: boolean; here: TileId; x: number; y: number }[] = []
+      for (const [tileId, mates] of byRoom) {
+        const at = centerPx(asRoom(tileId))
+        if (!at) continue
+        const order = [...mates].sort((a, b) => (a.playerId < b.playerId ? -1 : 1))
+        order.forEach((p, i) => {
+          const th = (i / order.length) * Math.PI * 2 - Math.PI / 2
+          const off = order.length > 1 ? RING_PX : 0
+          out.push({
+            ...p,
+            here: tileId as TileId,
+            x: at.x + Math.round(Math.cos(th) * off),
+            y: at.y + Math.round(Math.sin(th) * off),
+          })
+        })
+      }
+      return out
+    }
+
+    /** 손끝이 짚은 사람. **내 방에 선 사람만** — 먼 방 사람에게는 할 것이 없다. */
+    function personAt(sx: number, sy: number, here: TileId | null): string | null {
+      if (!here) return null
+      let best: string | null = null
+      let near = GRAB_PX
+      for (const p of standees()) {
+        if (p.playerId === me.playerId || p.here !== here) continue
+        const d = Math.hypot(p.x - sx, p.y - sy)
+        if (d <= near) {
+          near = d
+          best = p.playerId
+        }
+      }
+      return best
+    }
+
     function centerPx(id: TileId | null): { x: number; y: number } | null {
       if (!id) return null
       const r = ROOMS.find((x) => x.id === id)
@@ -797,13 +871,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
     }
 
 
-    function dot(x: number, y: number, team: TeamId, asleep: boolean): void {
+    function dot(x: number, y: number, team: TeamId, asleep: boolean, mine = false): void {
       ctx.globalAlpha = asleep ? 0.5 : 1
       ctx.fillStyle = PAL.paper
       ctx.beginPath()
       ctx.arc(Math.round(x), Math.round(y), 4, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = TEAM_DOT[team]
+      // 내 방 사람은 눌러서 말을 걸 수 있다. 테두리 한 겹으로 그것을 알린다
+      if (mine && !asleep) {
+        ctx.strokeStyle = PAL.paper
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(Math.round(x), Math.round(y), 6, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.fillStyle = TEAM_COLOR[team]
       ctx.beginPath()
       ctx.arc(Math.round(x), Math.round(y), 3, 0, Math.PI * 2)
       ctx.fill()
@@ -846,7 +928,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
 }
 
 /** 완장 색. char/palette.ts 의 TEAMS 와 같다. */
-const TEAM_DOT: Record<TeamId, string> = { A: '#e0453f', B: '#3f7ae0', C: '#2fa866', D: '#e0a02a' }
 
 /**
  * 점령한 방에 덧씌우는 색. 곱하기로 얹으므로 밝을수록 옅다.

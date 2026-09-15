@@ -38,6 +38,7 @@ import type {
 } from '../../shared/model'
 import { gameRef } from './index'
 import { refreshViews } from './views'
+import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
 
 const db = getFirestore()
@@ -436,6 +437,10 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   // 순서에 걸린다 — 도착 처리기는 이미 쓰기 단계에 있다
   for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs)
   if (landed.length > 0) await refreshAwakening(gameId)
+
+  // 시든 거래를 접는다. 답 없는 청, 자리를 뜬 사람, 열린 페이즈 —
+  // 물건은 선언만 해 두었으니 접기만 하면 그대로 돌아가 있다
+  await sweepDeals(gameId, toMs)
 
   // 세상이 바뀌었으면 각자 몫을 다시 깎는다. 틀린 안개는 새는 안개다
   if (applied > 0) await refreshViews(gameId)

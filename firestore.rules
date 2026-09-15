@@ -129,6 +129,18 @@ service cloud.firestore {
       // 자기 진행도만 views 로 간다.
       match /secret/{document=**} { allow read, write: if false; }
 
+      // 거래판. **마주 앉은 둘만 읽는다.**
+      //
+      // 흥정이 실시간이라 views 를 거치면 반 박자가 늦는다 — 상대가
+      // 물건을 올리는 것이 보여야 흥정이다. 그래서 문서를 직접 열되,
+      // 그 거래의 두 사람에게만 연다. 쪽지는 **장수만** 여기 적고
+      // 어느 쪽지인지는 secret 에 둔다 — 접힌 채로 건네는 것이 쪽지다.
+      match /deals/{dealId} {
+        allow read: if request.auth != null
+          && (request.auth.uid == resource.data.aId || request.auth.uid == resource.data.bId);
+        allow write: if false;
+      }
+
       // 서버가 그 사람 몫으로 깎아 둔 것. 본인만 읽는다.
       match /views/{playerId} {
         allow read: if request.auth != null && request.auth.uid == playerId;

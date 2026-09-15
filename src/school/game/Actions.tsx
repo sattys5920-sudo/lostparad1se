@@ -92,15 +92,17 @@ export interface QuickProps {
   act: GameActions
   onSaid: (text: string) => void
   /** 더 고를 것이 남은 일은 시트를 연다. */
-  onSheet: (id: 'act' | 'deal' | 'shop') => void
+  onSheet: (id: 'act' | 'hand' | 'shop') => void
 }
 
 /**
  * 맵 밑에 늘 떠 있는 행동 줄.
  *
  * **무엇을 할 수 있는지는 눌러 보기 전에 보여야 한다.** 전에는 전부
- * 「행동」 단추 뒤에 있어서, 처음 들어온 사람은 거래라는 것이 있는
- * 줄도 몰랐다 — 거래는 「더보기」 안의 또 한 겹 아래였다.
+ * 「행동」 단추 뒤에 있어서, 처음 들어온 사람은 손패라는 것이 있는
+ * 줄도 몰랐다 — 「더보기」 안의 또 한 겹 아래였다.
+ *
+ * 거래는 여기 없다. 마주 선 사람을 맵에서 짚어야 시작한다.
  *
  * 여기서도 화면이 되는지 안 되는지를 판단하지 않는다. 걷는 중이라
  * 선 방이 없을 때만 잠그고, 나머지는 서버가 거절하며 이유를 말한다.
@@ -139,7 +141,7 @@ export function QuickActions({
     return (
       <div className="sc-pl__quick" role="group" aria-label="할 수 있는 일">
         <button className="is-lead" onClick={() => onSheet('act')}>자리 차지하기</button>
-        <button onClick={() => onSheet('deal')}>거래</button>
+        <button onClick={() => onSheet('hand')}>손패</button>
       </div>
     )
   }
@@ -157,7 +159,7 @@ export function QuickActions({
           상점
         </button>
       )}
-      <button onClick={() => onSheet('deal')}>거래</button>
+      <button onClick={() => onSheet('hand')}>손패</button>
     </div>
   )
 }

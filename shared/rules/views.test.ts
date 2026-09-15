@@ -68,10 +68,6 @@ function world(over = false, invisibleId: string | null = null): World {
       { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
       { playerId: 'B0', voteKind: 'liking', voterNickname: '다른누군가' },
     ],
-    trades: [
-      { id: 't-AB', fromTeam: 'A', toTeam: 'B', give: { money: 2 }, want: { knowledge: 1 }, note: 'A와 B 사이', status: 'open', createdAtMs: 5 },
-      { id: 't-CD', fromTeam: 'C', toTeam: 'D', give: { money: 1 }, want: {}, note: 'C와 D 사이', status: 'open', createdAtMs: 6 },
-    ],
     proposals: [
       { id: 'a-AC', fromTeam: 'A', toTeam: 'C', status: 'open', createdAtMs: 7 },
       { id: 'a-BD', fromTeam: 'B', toTeam: 'D', status: 'open', createdAtMs: 8 },
@@ -284,21 +280,6 @@ describe('투명인간', () => {
 })
 
 describe('협상', () => {
-  // 네 팀이 서로의 제안을 다 보면 협상이 협상이 아니다
-  it('교역 제안은 관련된 두 팀만 본다', () => {
-    const all = projectAll(world())
-    for (const r of ROSTER) {
-      const ids = all[r.playerId].trades.map((t) => t.id)
-      expect(ids.includes('t-AB')).toBe(r.team === 'A' || r.team === 'B')
-      expect(ids.includes('t-CD')).toBe(r.team === 'C' || r.team === 'D')
-    }
-  })
-
-  it('남의 협상은 덧붙인 말까지 안 보인다', () => {
-    expect(json(projectView(world(), 'C0'))).not.toContain('A와 B 사이')
-    expect(json(projectView(world(), 'A0'))).not.toContain('C와 D 사이')
-  })
-
   it('동맹 제안도 관련된 두 팀만', () => {
     const all = projectAll(world())
     for (const r of ROSTER) {

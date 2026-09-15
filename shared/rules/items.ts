@@ -8,7 +8,6 @@
 // 물건은 상점에서만 나온다. 그래서 상점을 쥔 팀은 값을 받을 뿐
 // 아니라, 학교에서 방해와 위장이 몇 번 일어날지를 쥐게 된다.
 import type { ActionKind } from './occupy'
-import type { TeamId } from './v2'
 
 /** 학교에서 주울 만한 것들. 그럴듯한 물건이어야 쓸 때 말이 된다. */
 export type ItemKind = 'whistle' | 'nameTag'
@@ -36,6 +35,9 @@ export const ITEMS: readonly ItemSpec[] = [
     use: 'disguise',
   },
 ]
+
+/** 물건 종류를 한 줄로 훑을 때. 목록이 원본이라 빠뜨릴 수가 없다. */
+export const ITEM_KINDS: readonly ItemKind[] = ITEMS.map((i) => i.kind)
 
 export const ITEM_BY_KIND: Record<ItemKind, ItemSpec> = Object.fromEntries(
   ITEMS.map((i) => [i.kind, i]),
@@ -66,4 +68,12 @@ export function putItem(bag: Satchel | undefined, kind: ItemKind, n = 1): Satche
 }
 
 /** 팀별 주머니 전부. 페이즈 상태와 팀 문서가 같은 모양을 쓴다. */
-export type Satchels = Partial<Record<TeamId, Satchel>>
+/**
+ * 사람마다 하나인 주머니. **키는 사람이다.**
+ *
+ * 한때 팀마다 하나였다. 그러면 상점에 다녀온 사람과 물건을 쓰는
+ * 사람이 달라도 되어서, 멀리 나간 한 사람이 사 온 것을 기지에 앉은
+ * 사람이 쓴다. 산 사람이 가진다 — 물건을 쓰려면 그 사람이 거기
+ * 있어야 하고, 없으면 거래로 건네받아야 한다.
+ */
+export type Satchels = Partial<Record<string, Satchel>>

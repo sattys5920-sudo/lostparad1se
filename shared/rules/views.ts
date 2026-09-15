@@ -103,7 +103,7 @@ export interface World {
    * 추측이 아니라 계산이 되면 숨길 것이 하나도 남지 않는다.
    */
   vaults?: Readonly<Partial<Record<TeamId, { money: number; knowledge: number }>>>
-  /** 팀 주머니. 방해와 위장에 드는 물건이 여기 있다. */
+  /** 사람마다의 주머니. 방해와 위장에 드는 물건이 여기 있다. */
   satchels?: Readonly<Satchels>
   /** 팀마다 하나인 페이즈 토큰 상자. **자기 팀 것만 내려간다.** */
   wallets?: Readonly<Partial<Record<TeamId, number>>>
@@ -139,36 +139,6 @@ export interface World {
   /** 가짜 깃발. 꽂은 팀만 안다. */
   /** 정보부장이 들여다본 결과. 본 사람만 안다. */
   peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
-  /** 교역 제안. 관련된 두 팀만 본다. */
-  /**
-   * 오간 말. **마주 선 자리에서만 살아 있다.**
-   *
-   * 자리를 뜨거나 페이즈가 바뀌면 죽는다. 죽은 말은 투영이 아예 안
-   * 싣는다 — 남겨 두면 화면에 「대기 중인 제안」이 쌓이고, 그건
-   * 없애기로 한 바로 그것이다.
-   */
-  trades: readonly {
-    id: string
-    fromTeam: TeamId
-    toTeam: TeamId
-    /** 마주 선 그 사람. 팀의 아무나가 아니다. */
-    toPlayerId?: string | null
-    byId?: string | null
-    /** 말을 꺼낸 자리. */
-    tileId?: string | null
-    /** 살아 있는 범위. 지금 것과 다르면 죽은 말이다. */
-    epoch?: string | null
-    give: Record<string, number>
-    want: Record<string, number>
-    /** 손에서 손으로 가는 것 — 토큰과 데리고 있는 짝. */
-    givePurse?: Record<string, number> | null
-    wantPurse?: Record<string, number> | null
-    note: string
-    status: string
-    createdAtMs: number
-  }[]
-  /** 지금의 범위. 투영이 죽은 말을 가르는 데 쓴다. */
-  tradeEpoch?: string
   /** 동맹 제안. 관련된 두 팀만 본다. */
   proposals: readonly { id: string; fromTeam: TeamId; toTeam: TeamId; status: string; createdAtMs: number }[]
   /**
@@ -210,7 +180,6 @@ export interface View {
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
   peeked: { voteKind: VoteKind; voterNickname: string }[]
-  trades: World['trades'][number][]
   proposals: World['proposals'][number][]
   /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
   myChoice: { chosenId: string | null; day4: string | null } | null
@@ -242,6 +211,7 @@ export interface View {
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
   myVault: { money: number; knowledge: number }
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
+  /** **내 주머니.** 팀 것이 아니다 — 산 사람이 가진다. */
   myItems: Satchel
   /**
    * 우리 팀 로봇 수. 한도(ROBOTS_PER_TEAM)를 보여 주려면 안개 밖의
@@ -363,7 +333,6 @@ export function projectView(world: World, viewerId: string): View {
       hand: [],
       goals: [],
       peeked: [],
-      trades: [],
       proposals: [],
       myChoice: null,
       own: null,
@@ -437,22 +406,6 @@ export function projectView(world: World, viewerId: string): View {
     peeked: world.peeks
       .filter((p) => p.playerId === viewerId)
       .map((p) => ({ voteKind: p.voteKind, voterNickname: p.voterNickname })),
-    // 아직 답하지 않은 제안만. 남의 협상은 들어오지 않는다
-    // 죽은 말은 아예 안 싣는다. 「대기 중인 제안」이라는 것이 없다
-    trades: world.trades.filter((t) => {
-      if (t.status !== 'open') return false
-      if (t.epoch && world.tradeEpoch && t.epoch !== world.tradeEpoch) return false
-      // 꺼낸 사람과 받을 사람이 **둘 다 아직 그 자리**에 있어야 한다
-      if (t.tileId) {
-        const at = (id: string | null | undefined) =>
-          id ? (world.pawns.find((p) => p.playerId === id)?.tileId ?? null) : null
-        if (at(t.byId) !== t.tileId) return false
-        if (t.toPlayerId && at(t.toPlayerId) !== t.tileId) return false
-      }
-      // 나에게 온 말이거나 내가 꺼낸 말만
-      if (t.toPlayerId) return t.byId === viewerId || t.toPlayerId === viewerId
-      return t.fromTeam === team || t.toTeam === team
-    }),
     proposals: world.proposals.filter((p) => p.fromTeam === team || p.toTeam === team),
     myChoice: (() => {
       const c = world.choices.find((x) => x.playerId === viewerId)
@@ -467,7 +420,7 @@ export function projectView(world: World, viewerId: string): View {
     myTeamTokens: world.wallets?.[team] ?? 0,
     myDealTokens: world.pawns.find((p) => p.playerId === viewerId)?.dealTokens ?? 0,
     myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
-    myItems: world.satchels?.[team] ?? {},
+    myItems: world.satchels?.[viewerId] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
     mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,

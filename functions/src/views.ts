@@ -9,7 +9,6 @@
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { projectAll, type World, type WorldPawn } from '../../shared/rules/views'
-import { tradeEpoch } from '../../shared/rules/diplomacy'
 import type { TileId } from '../../shared/rules/board'
 import type {
   CardDoc,
@@ -60,7 +59,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, peeks, trades, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, peeks, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -71,7 +70,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'hands').get(),
       secret(gameId, 'goals').get(),
       secret(gameId, 'peeks').get(),
-      secret(gameId, 'trades').get(),
       secret(gameId, 'alliances').get(),
       secret(gameId, 'choices').get(),
       secret(gameId, 'progress').get(),
@@ -118,9 +116,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         return [d.id, { money: t.resources?.money ?? 0, knowledge: t.resources?.knowledge ?? 0 }]
       }),
     ),
-    // 주머니도 통째로 들고 간다. 투영이 내 팀 것만 떼어 보낸다
+    // 주머니도 통째로 들고 간다. **사람마다 하나다** — 투영이 내
+    // 것만 떼어 보낸다
     satchels: Object.fromEntries(
-      teams.docs.map((d) => [d.id, (d.data() as { items?: Record<string, number> }).items ?? {}]),
+      pawns.docs.map((d) => [d.id, (d.data() as { items?: Record<string, number> }).items ?? {}]),
     ),
     // 페이즈 토큰 상자도 마찬가지다. 남의 상자는 투영에서 걸러진다
     wallets: Object.fromEntries(
@@ -159,11 +158,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { id: d.id, team: g.team, kind: g.kind, ...(g.rivalTeam ? { rivalTeam: g.rivalTeam } : {}), revealed: g.revealed }
     }),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
-    // 지금의 범위. 투영이 페이즈 경계를 넘은 말을 이걸로 가른다
-    tradeEpoch: tradeEpoch(game),
-    trades: trades.docs
-      .filter((d) => (d.data() as { status: string }).status === 'open')
-      .map((d) => ({ id: d.id, ...(d.data() as Omit<World['trades'][number], 'id'>) })),
     proposals: proposals.docs
       .filter((d) => (d.data() as { status: string }).status === 'open')
       .map((d) => ({ id: d.id, ...(d.data() as Omit<World['proposals'][number], 'id'>) })),

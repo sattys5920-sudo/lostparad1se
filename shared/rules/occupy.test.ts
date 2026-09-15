@@ -74,7 +74,10 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   actedBy: [],
   // 시험에서는 금고도 주머니도 넉넉하다고 본다. 모자란 경우는 따로 쓴다
   vaults: Object.fromEntries(TEAM_IDS.map((t) => [t, { money: 99, knowledge: 99 }])),
-  satchels: Object.fromEntries(TEAM_IDS.map((t) => [t, { whistle: 9, nameTag: 9 }])),
+  // 주머니는 **사람마다**다. 시험에 나오는 이름을 넉넉히 채워 둔다
+  satchels: Object.fromEntries(
+    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { whistle: 9, nameTag: 9 }]),
+  ),
   // 상자도 한 사람 몫만큼 넣어 둔다. 모자란 경우는 따로 쓴다
   wallets: Object.fromEntries(TEAM_IDS.map((t) => [t, TOKENS_PER_PHASE])),
   // 시험은 따로 적지 않는 한 핵심이 다 열린 판으로 본다
@@ -967,7 +970,8 @@ describe('ownerOf', () => {
 })
 
 describe('방해와 위장에는 물건이 든다', () => {
-  const empty = { A: {}, B: {}, C: {}, D: {} }
+  /** 아무도 아무것도 안 가진 판. 주머니는 사람마다다. */
+  const empty = { a: {}, b: {}, c: {} }
 
   it('토큰은 안 든다', () => {
     expect(ACT_COST.disturb).toBe(0)
@@ -988,10 +992,10 @@ describe('방해와 위장에는 물건이 든다', () => {
   it('방해하면 호루라기가 하나 준다', () => {
     const s = board({
       people: [person('a', 'A', 'storage'), person('b', 'B', 'storage')],
-      satchels: { ...empty, A: { whistle: 2 } },
+      satchels: { ...empty, a: { whistle: 2 } },
     })
     const next = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
-    expect(next.satchels.A?.whistle).toBe(1)
+    expect(next.satchels.a?.whistle).toBe(1)
     expect(next.zeroedPeople).toContain('b')
   })
 
@@ -1003,22 +1007,36 @@ describe('방해와 위장에는 물건이 든다', () => {
   })
 
   it('위장하면 명찰이 하나 준다', () => {
-    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, A: { nameTag: 1 } } })
+    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, a: { nameTag: 1 } } })
     const next = must(s, 'a', { kind: 'disguise' })
-    expect(next.satchels.A?.nameTag).toBe(0)
+    expect(next.satchels.a?.nameTag).toBe(0)
     expect(next.disguised).toContain('a')
   })
 
   it('거절당한 방해는 물건을 먹지 않는다', () => {
-    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, A: { whistle: 1 } } })
+    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, a: { whistle: 1 } } })
     const out = doAct(s, 'a', { kind: 'disturb', targetPlayer: 'nobody' })
     expect(out.ok).toBe(false)
-    expect(s.satchels.A?.whistle).toBe(1)
+    expect(s.satchels.a?.whistle).toBe(1)
+  })
+
+  it('**같은 팀이라도 남의 물건은 못 쓴다**', () => {
+    // 주머니가 팀 것이던 때에는 상점에 다녀온 사람과 쓰는 사람이
+    // 달라도 됐다. 멀리 나가 사 온 것을 기지에 앉은 사람이 쓴다
+    const s = board({
+      people: [person('a', 'A', 'storage'), person('c', 'A', 'storage'), person('b', 'B', 'storage')],
+      satchels: { ...empty, a: { whistle: 1 } },
+    })
+    const out = doAct(s, 'c', { kind: 'disturb', targetPlayer: 'b' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('호루라기')
+    // a 는 제 것으로 할 수 있다
+    expect(doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(true)
   })
 
   it('물건은 페이즈를 넘어 남는다', () => {
-    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, A: { whistle: 3 } } })
-    expect(settle(s).next.satchels.A?.whistle).toBe(3)
+    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, a: { whistle: 3 } } })
+    expect(settle(s).next.satchels.a?.whistle).toBe(3)
   })
 })
 

@@ -163,8 +163,7 @@ export interface TeamDoc {
    * 나면 0으로 지운다 — 남겨 두면 매 페이즈 되풀이해서 얹힌다.
    */
   pendingRefund?: number
-  /** 팀이 함께 가진 물건. 상점에서 사 오면 여기 쌓인다. */
-  items?: Satchel
+
   researchTier: number
   /** 손패는 장수만 공개한다. 내용은 secret에 있다. */
   handCount: number
@@ -197,6 +196,8 @@ export interface PawnDoc {
   postTile?: TileId | null
   /** 머릿수가 모자란 팀의 주장. 점령 판정에서 둘로 센다. */
   captain?: boolean
+  /** 내 주머니. **산 사람이 가진다** — 상점에 다녀온 그 사람 것이다. */
+  items?: Satchel
   /**
    * 거래를 거는 데 쓰는 **개인 토큰**. 자정에 다시 찬다.
    *
@@ -407,23 +408,6 @@ export interface PlayerViewDoc {
   /** 우리가 꽂은 깃발 중 가짜인 것. 우리 팀만 안다. */
   /** 정보부장이 들여다본 결과. */
   peeked: { voteKind: VoteKind; voterNickname: string }[]
-  /** 교역 제안. **관련된 두 팀만** 본다 — 네 팀이 서로의 제안을 다 보면 협상이 아니다. */
-  trades: {
-    id: string
-    fromTeam: TeamId
-    toTeam: TeamId
-    /** 마주 선 그 사람. 팀의 아무나가 아니다. */
-    toPlayerId?: string | null
-    byId?: string | null
-    give: Record<string, number>
-    want: Record<string, number>
-    /** 손에서 손으로 가는 것 — 토큰과 데리고 있는 짝. */
-    givePurse?: Record<string, number> | null
-    wantPurse?: Record<string, number> | null
-    note: string
-    status: string
-    createdAtMs: GameMs
-  }[]
   /** 동맹 제안. 관련된 두 팀만. */
   proposals: { id: string; fromTeam: TeamId; toTeam: TeamId; status: string; createdAtMs: GameMs }[]
   /**
