@@ -1,21 +1,25 @@
 // 학교. 지하 · 1층 · 2층 · 옥상.
 //
-// **층마다 복도가 하나고, 방은 그 복도에 붙는다.** 복도 양끝에 계단이
-// 있고 계단으로 위아래 층에 간다. 전에는 스물다섯 방이 5×5 격자로
-// 서로 직통이었다 — 교무실 옆문을 열면 급식실이 나오는 식이라,
-// 학교라기보다 바둑판이었다.
+// **여기가 지도의 원본이다.** 방이 어디에 얼마나 크게 앉는지, 복도가
+// 어떻게 꺾이는지를 이 파일이 정하고, 그림(src/school/map/world.ts)은
+// 그걸 그대로 읽어 그린다. 두 벌로 두면 반드시 어긋난다 — 화면에서는
+// 걸어 들어가지는데 서버는 「이웃이 아니다」라고 하는 식이다.
 //
-// 이웃은 손으로 적지 않는다. 층·줄·자리에서 계산한다 — 서른 칸의
-// 이웃 관계를 손으로 적으면 반드시 어딘가 틀리고, 틀려도 한참 뒤에나
-// 드러난다.
+// 전에는 층마다 방이 일렬로 늘어서고 복도가 곧은 막대 하나였다.
+// 학교라기보다 복도 하나짜리 모델하우스였다. 지금은 층마다 복도가
+// 다르게 꺾이고, 방도 크기가 제각각이다 — 어느 층인지 모양만 봐도
+// 안다.
 //
-//   같은 줄에서 옆자리        102호 ↔ 103호
-//   복도 건너 마주 본 방      102호 ↔ 105호
-//   줄 끝 방 ↔ 그쪽 계단
-//   계단 ↔ 바로 위아래 층의 같은 쪽 계단
+// **이웃은 손으로 적지 않는다. 네모에서 계산한다.**
+//
+//   두 방 사이가 복도 하나(혹은 벽 하나)만큼 떨어져 있고
+//   맞닿은 변이 세 칸 넘게 겹치면 이웃이다.
+//
+// 그래서 방을 옮기면 이웃도 따라 바뀐다. 손으로 적은 목록이 남아
+// 조용히 거짓말하는 일이 없다.
 //
 // **복도 자체는 칸이 아니다.** 걸어서 지나는 자리일 뿐이라 점령도
-// 깃발도 없다. 규칙이 보는 것은 방과 계단뿐이다.
+// 깃발도 없다. 규칙이 보는 것은 방과 계단참뿐이다.
 import { type TeamId, type Tier } from './v2'
 
 export type TileId = string
@@ -23,7 +27,7 @@ export type TileId = string
 /** 층. 위에서부터 옥상 · 2층 · 1층 · 지하. */
 export type Floor = 'roof' | 'f2' | 'f1' | 'b1'
 
-/** 아래에서 위로. 지오메트리와 계단 잇기가 이 순서를 본다. */
+/** 아래에서 위로. 계단 잇기가 이 순서를 본다. */
 export const FLOORS: readonly Floor[] = ['b1', 'f1', 'f2', 'roof']
 
 export const FLOOR_NAME: Record<Floor, string> = {
@@ -33,158 +37,239 @@ export const FLOOR_NAME: Record<Floor, string> = {
   roof: '옥상',
 }
 
-/** 복도를 기준으로 어느 줄인가. 계단은 복도 끝에 선다. */
-export type Side = 'up' | 'down' | 'stair'
-
-export interface TileSpec {
-  id: TileId
-  name: string
-  floor: Floor
-  side: Side
-  /** 그 줄에서 왼쪽부터 몇 번째인가. 계단은 서쪽 0, 동쪽 1. */
-  slot: number
-  value: number
-  tier: Tier
-  /** 기지라면 어느 팀 것인가. */
-  homeOf: TeamId | null
-  /**
-   * 전개도에서의 자리.
-   *
-   * 한 층이 세 줄을 쓴다 — 위 줄 · 복도(계단) · 아래 줄. 위에서부터
-   * 옥상·2층·1층·지하 순이라, 그림만 봐도 어느 층인지 안다.
-   */
-  planRow: number
-  planCol: number
+/** 칸 네모. 층 안에서의 자리이고, 단위는 걸어 다니는 칸이다. */
+export interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
-/** 한 층이 전개도에서 차지하는 줄 수 — 위 줄 · 복도 · 아래 줄. */
-export const PLAN_ROWS_PER_FLOOR = 3
-/** 전개도의 칸 수. 서쪽 계단 + 방 다섯 + 동쪽 계단. */
-export const PLAN_COLS = 7
-
-/**
- * 층별 배치.
- *
- * up 은 복도 위쪽 줄, down 은 아래쪽 줄이다. 같은 자리끼리는 복도를
- * 사이에 두고 마주 본다.
- *
- *   지하   창고 · 기술실 / 경비실
- *   1층    교무실 · 급식실 · 양호실 · 화장실 · 상점
- *          가사실 · 체육관 · 강당 · 운동장 · 정원
- *   2층    2-3 교실 · 과학실 · 음악실 · 미술실 · 도서관
- *          무용실 · 시청각실 · 방송실 · 학생회실 · 동아리실
- *   옥상   옥상 한 칸
- *
- * 값과 등급은 예전 판에서 그대로 가져왔다 — 자리가 바뀌었을 뿐
- * 어느 방이 얼마나 값진지는 그대로다.
- */
-type Row = readonly (readonly [TileId, string, number, Tier, TeamId | null])[]
-
-const PLAN: readonly { floor: Floor; up: Row; down: Row }[] = [
-  {
-    floor: 'b1',
-    up: [
-      ['storage', '창고', 1, 'zone1', null],
-      ['baseC', '기술실', 0, 'base', 'C'],
-    ],
-    down: [['oldBuilding', '경비실', 5, 'cross', null]],
-  },
-  {
-    floor: 'f1',
-    up: [
-      ['baseA', '교무실', 0, 'base', 'A'],
-      ['cafeteria', '급식실', 4, 'gate', null],
-      ['annex', '양호실', 5, 'cross', null],
-      ['baseB', '화장실', 0, 'base', 'B'],
-      ['classroom', '상점', 3, 'zone1', null],
-    ],
-    down: [
-      ['hallway', '가사실', 1, 'zone1', null],
-      ['gym', '체육관', 4, 'gate', null],
-      ['auditorium', '강당', 6, 'core', null],
-      ['playground', '운동장', 6, 'core', null],
-      ['garden', '정원', 3, 'zone1', null],
-    ],
-  },
-  {
-    floor: 'f2',
-    up: [
-      ['centralPlaza', '2-3 교실', 8, 'plaza', null],
-      ['scienceRoom', '과학실', 3, 'zone1', null],
-      ['musicRoom', '음악실', 3, 'zone1', null],
-      ['artRoom', '미술실', 1, 'zone1', null],
-      ['library', '도서관', 4, 'gate', null],
-    ],
-    down: [
-      ['newBuilding', '무용실', 5, 'cross', null],
-      ['baseD', '시청각실', 0, 'base', 'D'],
-      ['broadcastRoom', '방송실', 6, 'core', null],
-      ['studentCouncil', '학생회실', 6, 'core', null],
-      ['clubRoom', '동아리실', 1, 'zone1', null],
-    ],
-  },
-  { floor: 'roof', up: [['rooftop', '옥상', 4, 'gate', null]], down: [] },
-]
-
-/**
- * 계단. 층마다 서쪽·동쪽 하나씩이다.
- *
- * **옥상에는 계단 칸이 없다.** 2층 계단을 올라가면 바로 옥상이다 —
- * 옥상은 한 칸짜리 열린 자리라 복도도 끝도 없다.
- */
-const STAIR_FLOORS: readonly Floor[] = ['b1', 'f1', 'f2']
 export type StairEnd = 'w' | 'e'
 export const STAIR_ENDS: readonly StairEnd[] = ['w', 'e']
 export const stairIdOf = (floor: Floor, end: StairEnd): TileId => `stair_${floor}_${end}`
 
-const bandOf = (floor: Floor) => FLOORS.length - 1 - FLOORS.indexOf(floor)
+export interface TileSpec {
+  id: TileId
+  name: string
+  /** 전개도처럼 좁은 데에 적는 이름. 계단참은 「계단」 두 자로 줄인다. */
+  shortName: string
+  floor: Floor
+  value: number
+  tier: Tier
+  /** 기지라면 어느 팀 것인가. */
+  homeOf: TeamId | null
+  /** 계단참이면 어느 쪽 끝인가. */
+  stairEnd: StairEnd | null
+  /** 층 안에서의 자리. */
+  rect: Rect
+  /** 건물 전체 전개도에서의 자리 — 층을 위아래로 쌓아 놓은 좌표다. */
+  plan: Rect
+}
 
-const STAIR_TILES: TileSpec[] = STAIR_FLOORS.flatMap((floor) =>
-  STAIR_ENDS.map((end, i) => ({
-    id: stairIdOf(floor, end),
-    name: `${FLOOR_NAME[floor]} ${end === 'w' ? '서쪽' : '동쪽'} 계단`,
+// ── 층별 배치 ───────────────────────────────────────────────────
+//
+// 좌표는 층 왼쪽 위가 (0,0)이다. 방과 복도 사이에는 **반드시 벽이 한
+// 줄** 있어야 한다 — 붙여 놓으면 문 없이 벽을 통과하는 방이 된다.
+// 그런 실수는 world.ts 가 켜질 때 바로 터뜨린다.
+
+type RoomDef = readonly [TileId, string, number, Tier, TeamId | null, Rect]
+
+interface FloorDef {
+  floor: Floor
+  /** 복도 조각들. 서로 맞닿아 한 덩어리를 이룬다. */
+  halls: readonly Rect[]
+  /** 계단참. 복도에 바로 붙어 있어 문이 없다. */
+  stairs: readonly { end: StairEnd; rect: Rect }[]
+  rooms: readonly RoomDef[]
+}
+
+/**
+ * 지하 — 짧은 복도 하나가 동쪽 끝에서 위로 꺾인다.
+ *
+ *   ┌창고──┐ ┌기술실───┐   ┌계단┐
+ *   └──────┘ └─────────┘   │   │
+ *   ══════════════════════╗ └───┘
+ *        ┌경비실─────┐    ║
+ *        └───────────┘    ╝
+ */
+const B1: FloorDef = {
+  floor: 'b1',
+  halls: [
+    { x: 8, y: 12, w: 30, h: 3 },
+    { x: 38, y: 4, w: 3, h: 11 },
+  ],
+  stairs: [
+    { end: 'w', rect: { x: 2, y: 8, w: 6, h: 11 } },
+    { end: 'e', rect: { x: 41, y: 2, w: 6, h: 11 } },
+  ],
+  rooms: [
+    ['storage', '창고', 1, 'zone1', null, { x: 9, y: 2, w: 11, h: 9 }],
+    ['baseC', '기술실', 0, 'base', 'C', { x: 22, y: 1, w: 13, h: 10 }],
+    ['oldBuilding', '경비실', 5, 'cross', null, { x: 10, y: 16, w: 18, h: 9 }],
+  ],
+}
+
+/**
+ * 1층 — 긴 복도 하나가 가운데에서 아래로 갈라지고, 그 끝에서 다시
+ * 좌우로 뻗는다. 갈라진 아래쪽에 정원과 화장실이 따로 떨어져 있다.
+ */
+const F1: FloorDef = {
+  floor: 'f1',
+  halls: [
+    { x: 8, y: 16, w: 48, h: 3 },
+    { x: 30, y: 19, w: 3, h: 12 },
+    { x: 18, y: 31, w: 30, h: 3 },
+  ],
+  stairs: [
+    { end: 'w', rect: { x: 2, y: 11, w: 6, h: 13 } },
+    { end: 'e', rect: { x: 56, y: 11, w: 6, h: 13 } },
+  ],
+  rooms: [
+    ['baseA', '교무실', 0, 'base', 'A', { x: 9, y: 5, w: 12, h: 10 }],
+    ['cafeteria', '급식실', 4, 'gate', null, { x: 23, y: 3, w: 10, h: 12 }],
+    ['annex', '양호실', 5, 'cross', null, { x: 35, y: 7, w: 8, h: 8 }],
+    ['classroom', '상점', 3, 'zone1', null, { x: 45, y: 4, w: 9, h: 11 }],
+    ['hallway', '가사실', 1, 'zone1', null, { x: 9, y: 20, w: 10, h: 8 }],
+    ['gym', '체육관', 4, 'gate', null, { x: 20, y: 20, w: 9, h: 10 }],
+    ['auditorium', '강당', 6, 'core', null, { x: 34, y: 20, w: 9, h: 10 }],
+    ['playground', '운동장', 6, 'core', null, { x: 44, y: 20, w: 11, h: 10 }],
+    ['garden', '정원', 3, 'zone1', null, { x: 19, y: 35, w: 10, h: 8 }],
+    ['baseB', '화장실', 0, 'base', 'B', { x: 33, y: 35, w: 11, h: 9 }],
+  ],
+}
+
+/**
+ * 2층 — 복도가 ㅁ 자로 돈다. 가운데 세 방은 사방이 복도라 문이 여럿
+ * 이고, 동아리실만 서쪽 복도 바깥에 혼자 붙어 있다.
+ */
+const F2: FloorDef = {
+  floor: 'f2',
+  halls: [
+    { x: 8, y: 10, w: 46, h: 3 },
+    { x: 10, y: 13, w: 3, h: 16 },
+    { x: 13, y: 26, w: 38, h: 3 },
+    { x: 51, y: 13, w: 3, h: 16 },
+  ],
+  stairs: [
+    { end: 'w', rect: { x: 2, y: 4, w: 6, h: 17 } },
+    { end: 'e', rect: { x: 54, y: 4, w: 6, h: 17 } },
+  ],
+  rooms: [
+    ['centralPlaza', '2-3 교실', 8, 'plaza', null, { x: 9, y: 1, w: 16, h: 8 }],
+    ['scienceRoom', '과학실', 3, 'zone1', null, { x: 27, y: 2, w: 10, h: 7 }],
+    ['musicRoom', '음악실', 3, 'zone1', null, { x: 39, y: 1, w: 13, h: 8 }],
+    ['artRoom', '미술실', 1, 'zone1', null, { x: 14, y: 14, w: 11, h: 11 }],
+    ['library', '도서관', 4, 'gate', null, { x: 27, y: 14, w: 11, h: 11 }],
+    ['baseD', '시청각실', 0, 'base', 'D', { x: 40, y: 14, w: 10, h: 11 }],
+    ['newBuilding', '무용실', 5, 'cross', null, { x: 14, y: 30, w: 12, h: 9 }],
+    ['broadcastRoom', '방송실', 6, 'core', null, { x: 28, y: 30, w: 11, h: 9 }],
+    ['studentCouncil', '학생회실', 6, 'core', null, { x: 41, y: 30, w: 10, h: 9 }],
+    ['clubRoom', '동아리실', 1, 'zone1', null, { x: 2, y: 22, w: 7, h: 12 }],
+  ],
+}
+
+/** 옥상 — 한 칸이다. 복도도 계단참도 없고, 2층 계단이 곧장 올라온다. */
+const ROOF: FloorDef = {
+  floor: 'roof',
+  halls: [],
+  stairs: [],
+  rooms: [['rooftop', '옥상', 4, 'gate', null, { x: 8, y: 2, w: 40, h: 12 }]],
+}
+
+const PLAN_BY_FLOOR: Record<Floor, FloorDef> = { b1: B1, f1: F1, f2: F2, roof: ROOF }
+
+/** 전개도 가장자리. */
+export const PLAN_MARGIN = 2
+/** 층과 층 사이. 벽으로 둔다 — 위층이 아래층에 붙어 보이면 안 된다. */
+export const PLAN_BAND_GAP = 3
+
+const allRects = (f: FloorDef): Rect[] => [
+  ...f.halls,
+  ...f.stairs.map((s) => s.rect),
+  ...f.rooms.map((r) => r[5]),
+]
+
+/** 그 층이 차지하는 높이. 가장 아래 네모 밑에 벽 한 줄을 남긴다. */
+const bandHeight = (f: FloorDef) => Math.max(...allRects(f).map((r) => r.y + r.h)) + 1
+
+/** 위에서부터 옥상 · 2층 · 1층 · 지하 순으로 쌓는다. */
+const STACK: readonly Floor[] = [...FLOORS].reverse()
+
+const BAND_TOP: Record<Floor, number> = (() => {
+  const out = {} as Record<Floor, number>
+  let y = PLAN_MARGIN
+  for (const floor of STACK) {
+    out[floor] = y
+    y += bandHeight(PLAN_BY_FLOOR[floor]) + PLAN_BAND_GAP
+  }
+  return out
+})()
+
+/** 전개도 전체 크기. 그림판이 이 크기로 잡힌다. */
+export const PLAN_W =
+  PLAN_MARGIN +
+  Math.max(...FLOORS.flatMap((f) => allRects(PLAN_BY_FLOOR[f]).map((r) => r.x + r.w))) +
+  1 +
+  PLAN_MARGIN
+export const PLAN_H =
+  BAND_TOP[FLOORS[0]] + bandHeight(PLAN_BY_FLOOR[FLOORS[0]]) + PLAN_MARGIN
+
+const toPlan = (floor: Floor, r: Rect): Rect => ({
+  x: r.x + PLAN_MARGIN,
+  y: r.y + BAND_TOP[floor],
+  w: r.w,
+  h: r.h,
+})
+
+/** 복도 조각 전부. 전개도 좌표다. 그림판이 이걸 읽어 복도를 판다. */
+export const HALLS: readonly { floor: Floor; rect: Rect }[] = FLOORS.flatMap((floor) =>
+  PLAN_BY_FLOOR[floor].halls.map((rect) => ({ floor, rect: toPlan(floor, rect) })),
+)
+
+const ROOM_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
+  PLAN_BY_FLOOR[floor].rooms.map(([id, name, value, tier, homeOf, rect]) => ({
+    id,
+    name,
+    shortName: name,
     floor,
-    side: 'stair' as Side,
-    slot: i,
-    value: 0,
-    tier: 'stair' as Tier,
-    homeOf: null,
-    planRow: bandOf(floor) * PLAN_ROWS_PER_FLOOR + 1,
-    planCol: i === 0 ? 0 : PLAN_COLS - 1,
+    value,
+    tier,
+    homeOf,
+    stairEnd: null,
+    rect,
+    plan: toPlan(floor, rect),
   })),
 )
 
-const ROOM_TILES_SPEC: TileSpec[] = PLAN.flatMap((f) =>
-  (['up', 'down'] as const).flatMap((side) =>
-    f[side].map(([id, name, value, tier, homeOf], slot) => ({
-      id,
-      name,
-      floor: f.floor,
-      side: side as Side,
-      slot,
-      value,
-      tier,
-      homeOf,
-      // **옥상은 제 층의 아래 줄에 앉힌다.** 위 줄에 두면 2층과의
-      // 사이에 빈 줄이 둘 생겨서, 전개도에 옥상만 멀찍이 떠 보인다
-      planRow:
-        bandOf(f.floor) * PLAN_ROWS_PER_FLOOR + (f.floor === 'roof' || side === 'down' ? 2 : 0),
-      planCol: f.floor === 'roof' ? Math.floor(PLAN_COLS / 2) : slot + 1,
-    })),
-  ),
+const STAIR_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
+  PLAN_BY_FLOOR[floor].stairs.map(({ end, rect }) => ({
+    id: stairIdOf(floor, end),
+    name: `${FLOOR_NAME[floor]} ${end === 'w' ? '서쪽' : '동쪽'} 계단`,
+    shortName: '계단',
+    floor,
+    value: 0,
+    tier: 'stair' as Tier,
+    homeOf: null,
+    stairEnd: end,
+    rect,
+    plan: toPlan(floor, rect),
+  })),
 )
 
-export const TILES: readonly TileSpec[] = [...ROOM_TILES_SPEC, ...STAIR_TILES]
-
-export const TILE_BY_ID: Record<TileId, TileSpec> = Object.fromEntries(
-  TILES.map((t) => [t.id, t]),
+/** 계단참이 있는 층. 옥상에는 없다 — 2층 계단이 곧장 올라온다. */
+export const STAIR_FLOORS: readonly Floor[] = FLOORS.filter(
+  (f) => PLAN_BY_FLOOR[f].stairs.length > 0,
 )
+
+export const TILES: readonly TileSpec[] = [...ROOM_TILES, ...STAIR_TILES]
+
+export const TILE_BY_ID: Record<TileId, TileSpec> = Object.fromEntries(TILES.map((t) => [t.id, t]))
 
 export const TILE_IDS: readonly TileId[] = TILES.map((t) => t.id)
 
-/** 그 층의 방들. 복도를 그릴 때와 이웃을 셀 때 둘 다 쓴다. */
-export const rowOf = (floor: Floor, side: 'up' | 'down'): readonly TileSpec[] =>
-  ROOM_TILES_SPEC.filter((t) => t.floor === floor && t.side === side).sort((a, b) => a.slot - b.slot)
+/** 그 층의 칸들. 계단참까지 센다. */
+export const tilesOn = (floor: Floor): readonly TileSpec[] => TILES.filter((t) => t.floor === floor)
 
 /** 기지는 팀마다 하나다. */
 export const BASE_OF: Record<TeamId, TileId> = Object.fromEntries(
@@ -192,7 +277,7 @@ export const BASE_OF: Record<TeamId, TileId> = Object.fromEntries(
 ) as Record<TeamId, TileId>
 
 /**
- * 모두가 여기서 시작한다. 2-3 교실 — 2층 복도 서쪽 끝 방이다.
+ * 모두가 여기서 시작한다. 2-3 교실 — 2층 북쪽의 제일 큰 교실이다.
  *
  * 기지는 그대로 남는다 — 점수는 여전히 네 방을 센다. 다만 아침은
  * 다 같이 한 교실에서 연다.
@@ -201,31 +286,46 @@ export const START_TILE: TileId = 'centralPlaza'
 
 // ── 이웃 ────────────────────────────────────────────────────────
 
+/**
+ * 두 네모 사이에 이만큼까지 벌어져 있으면 「바로 옆」으로 친다.
+ *
+ * 벽 하나면 1, 벽·복도(세 칸)·벽이면 5다. 여섯까지 봐 주는 건 복도를
+ * 네 칸으로 넓힌 데가 있어도 그대로 이웃이게 하려는 것이다.
+ */
+const MAX_GAP = 6
+/** 맞닿은 변이 이만큼은 겹쳐야 한다. 모서리만 스친 것은 이웃이 아니다. */
+const MIN_OVERLAP = 3
+
+const span = (a0: number, a1: number, b0: number, b1: number) =>
+  Math.min(a1, b1) - Math.max(a0, b0) + 1
+
+/** 두 네모가 한 뼘 거리인가. 가로로든 세로로든 한쪽이면 된다. */
+export function rectsNear(a: Rect, b: Rect): boolean {
+  const ox = span(a.x, a.x + a.w - 1, b.x, b.x + b.w - 1)
+  const oy = span(a.y, a.y + a.h - 1, b.y, b.y + b.h - 1)
+  if (ox > 0 && oy > 0) return false // 겹친 네모는 애초에 없어야 한다
+  if (oy >= MIN_OVERLAP && ox <= 0 && -ox <= MAX_GAP) return true
+  if (ox >= MIN_OVERLAP && oy <= 0 && -oy <= MAX_GAP) return true
+  return false
+}
+
 function buildAdjacency(): Record<TileId, TileId[]> {
-  const out: Record<TileId, TileId[]> = Object.fromEntries(TILE_IDS.map((id) => [id, [] as TileId[]]))
+  const out: Record<TileId, TileId[]> = Object.fromEntries(
+    TILE_IDS.map((id) => [id, [] as TileId[]]),
+  )
   const link = (a: TileId, b: TileId) => {
     if (a === b) return
     if (!out[a].includes(b)) out[a].push(b)
     if (!out[b].includes(a)) out[b].push(a)
   }
 
+  // 같은 층에서 한 뼘 거리인 칸끼리
   for (const floor of FLOORS) {
-    const up = rowOf(floor, 'up')
-    const down = rowOf(floor, 'down')
-    for (const row of [up, down]) {
-      // 같은 줄에서 옆자리
-      for (let i = 1; i < row.length; i++) link(row[i - 1].id, row[i].id)
-    }
-    // 복도를 사이에 두고 마주 본 방
-    for (let i = 0; i < Math.min(up.length, down.length); i++) link(up[i].id, down[i].id)
-
-    // 줄 끝 방과 그쪽 계단. 옥상에는 계단 칸이 없어 2층 계단이 대신 닿는다
-    const west = STAIR_FLOORS.includes(floor) ? stairIdOf(floor, 'w') : stairIdOf('f2', 'w')
-    const east = STAIR_FLOORS.includes(floor) ? stairIdOf(floor, 'e') : stairIdOf('f2', 'e')
-    for (const row of [up, down]) {
-      if (row.length === 0) continue
-      link(west, row[0].id)
-      link(east, row[row.length - 1].id)
+    const here = tilesOn(floor)
+    for (let i = 0; i < here.length; i++) {
+      for (let j = i + 1; j < here.length; j++) {
+        if (rectsNear(here[i].rect, here[j].rect)) link(here[i].id, here[j].id)
+      }
     }
   }
 
@@ -235,6 +335,10 @@ function buildAdjacency(): Record<TileId, TileId[]> {
       link(stairIdOf(STAIR_FLOORS[i - 1], end), stairIdOf(STAIR_FLOORS[i], end))
     }
   }
+  // 옥상에는 계단참이 없다. 맨 위 층 계단을 올라가면 곧 옥상이다
+  const top = STAIR_FLOORS[STAIR_FLOORS.length - 1]
+  for (const end of STAIR_ENDS) link(stairIdOf(top, end), 'rooftop')
+
   return out
 }
 

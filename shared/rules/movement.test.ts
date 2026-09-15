@@ -26,9 +26,9 @@ describe('경로', () => {
     expect(walk('baseA', 'cafeteria', '2026-03-02T10:00:00').path).toEqual(['cafeteria'])
   })
 
-  // 교무실(1층) → 급식실 → 양호실 → 화장실 → 상점. 복도를 따라 네 걸음
-  it('같은 층 복도 끝에서 끝까지 네 걸음이다', () => {
-    expect(walk('baseA', 'classroom', '2026-03-02T10:00:00').path).toHaveLength(4)
+  // 교무실(1층 서쪽) → 급식실 → 체육관 → 강당 → 운동장. 복도를 따라 네 걸음
+  it('같은 층을 가로지르면 네 걸음이다', () => {
+    expect(walk('baseA', 'playground', '2026-03-02T10:00:00').path).toHaveLength(4)
   })
 
   it('계단으로 층을 넘는 것도 한 걸음씩이다', () => {
@@ -61,7 +61,7 @@ describe('걷는 시간', () => {
   })
 
   it('칸마다 도착 시각이 찍힌다', () => {
-    const w = walk('baseA', 'classroom', '2026-03-02T10:00:00')
+    const w = walk('baseA', 'playground', '2026-03-02T10:00:00')
     const out = arrivals(w)
     expect(out).toHaveLength(4)
     expect(out[0].atMs).toBe(seoul('2026-03-02T10:15:00'))
@@ -72,7 +72,7 @@ describe('걷는 시간', () => {
   // 예전에는 소등에 걸려 문 앞에서 밤을 샜다. 이제는 그냥 걷는다
   it('자정을 넘어도 멈추지 않는다', () => {
     // 23:50 출발, 네 칸이면 한 시간 → 다음 날 00:50 도착
-    const w = walk('baseA', 'classroom', '2026-03-02T23:50:00')
+    const w = walk('baseA', 'playground', '2026-03-02T23:50:00')
     expect(walkEndsAtMs(w)).toBe(seoul('2026-03-03T00:50:00'))
   })
 

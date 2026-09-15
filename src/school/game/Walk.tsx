@@ -16,6 +16,7 @@ import {
   MAP_W,
   ROOMS,
   TILE,
+  centerOf,
   doorHere,
   doorIsHorizontal,
   floorOf,
@@ -313,17 +314,20 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       // 옆방(또는 그 방으로 가는 문)을 눌렀다 — 문까지 걸어가서 넘는다
       const toward = id && id !== here ? id : (doorHere(tx, ty) ? acrossFrom(doorHere(tx, ty) as Door, here) : null)
       if (here && toward && toward !== here) {
-        const gate = DOORS.find(
-          (d) => d.a === toward,
-        )
-        if (gate) {
-          for (const t of gate.tiles) {
-            const found = pathTo(t.x, t.y)
-            if (found.length > 0) {
-              autoPath = found
-              return
-            }
-          }
+        // **문이 여럿인 방이 있다.** 2층 가운데 방들은 사방이 복도라
+        // 문이 서넛이다 — 제일 가까운 문으로 간다.
+        // **계단참에는 문이 아예 없다.** 복도에 그대로 열려 있어서
+        // 뚫을 벽이 없다. 그럴 때는 그 칸 한가운데로 간다
+        const gates = DOORS.filter((d) => d.a === toward).flatMap((d) => d.tiles)
+        const marks = gates.length > 0 ? gates : [centerOf(toward)]
+        let best: { x: number; y: number }[] = []
+        for (const t of marks) {
+          const found = pathTo(t.x, t.y)
+          if (found.length > 0 && (best.length === 0 || found.length < best.length)) best = found
+        }
+        if (best.length > 0) {
+          autoPath = best
+          return
         }
       }
 
@@ -695,6 +699,16 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
             img = team ? sprites.tiles.floorTeam[team] : null
           }
           if (img) ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+          // 계단은 바닥 위에 층계를 덧그린다. 오르는 쪽과 내려가는 쪽이
+          // 화살표와 밝기로 갈린다 — 밟기 전에 어디로 가는지 보인다
+          const step = stairHere(x, y)
+          if (step) {
+            ctx.drawImage(
+              step.up ? sprites.tiles.stairUp : sprites.tiles.stairDown,
+              x * TILE - camX,
+              y * TILE - camY,
+            )
+          }
           // 점령한 방은 흑백이 아니라 그 팀 색이다. 벽도 바닥도 같이
           // 물든다 — 지나가다 벽 색만 봐도 누구 땅인지 안다
           if (owner) {

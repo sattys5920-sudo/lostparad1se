@@ -32,12 +32,11 @@ describe('걸어 다니는 학교는 규칙과 같은 판이다', () => {
     expect(ROOMS.map((r) => r.id).sort()).toEqual(TILES.map((t) => t.id).sort())
   })
 
-  it('방마다 문이 하나다 — 복도로 난다', () => {
+  it('방마다 문이 적어도 하나 있다 — 복도로 난다', () => {
     const rooms = TILES.filter((t) => t.tier !== 'stair' && t.floor !== 'roof')
     for (const t of rooms) {
-      expect(DOORS.filter((d) => d.a === t.id)).toHaveLength(1)
+      expect(DOORS.filter((d) => d.a === t.id).length, t.id).toBeGreaterThan(0)
     }
-    expect(DOORS).toHaveLength(rooms.length)
   })
 
   it('문 너머는 복도다 — 방과 방을 바로 잇지 않는다', () => {
@@ -120,15 +119,30 @@ describe('걸어서 갈 수 있다', () => {
 })
 
 describe('방을 곧장 지나갈 수 있다', () => {
-  it('문에서 방 한가운데까지 막히지 않는다', () => {
+  it('어느 문으로 들어와도 방 한가운데까지 간다', () => {
     const stuck: string[] = []
     for (const d of DOORS) {
       const c = centerOf(d.a)
-      // 문은 방 한가운데 세로줄에 뚫린다. 그 줄을 따라가면 곧장 닿아야 한다
-      const step = c.y > d.y ? 1 : -1
-      for (let y = d.y + step; y !== c.y + step; y += step) {
-        if (!isWalkable(d.x, y)) stuck.push(`${d.a} @ ${d.x},${y}`)
+      // 문에서 시작해 **그 방 안에서만** 걸어 한가운데에 닿는지 본다.
+      // 가구가 길을 막으면 여기서 걸린다 — 문은 열려 있는데 못 들어가는 방
+      const seen = new Set([`${d.x},${d.y}`])
+      const queue = [{ x: d.x, y: d.y }]
+      let ok = false
+      while (queue.length > 0 && !ok) {
+        const cur = queue.pop() as { x: number; y: number }
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+          const nx = cur.x + dx
+          const ny = cur.y + dy
+          const k = `${nx},${ny}`
+          if (seen.has(k)) continue
+          if (roomAt(nx, ny)?.id !== d.a) continue
+          if (!isWalkable(nx, ny)) continue
+          seen.add(k)
+          if (nx === c.x && ny === c.y) ok = true
+          queue.push({ x: nx, y: ny })
+        }
       }
+      if (!ok) stuck.push(`${d.a} @ ${d.x},${d.y}`)
     }
     expect(stuck).toEqual([])
   })

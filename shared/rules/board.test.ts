@@ -1,6 +1,6 @@
 // 학교가 층·복도 구조로 제대로 섰는지 본다.
 //
-// 이웃을 층·줄·자리에서 계산하므로 배치를 잘못 적으면 여기서 걸린다.
+// 이웃을 방 네모에서 계산하므로 배치를 잘못 적으면 여기서 걸린다.
 // 전에는 5×5 격자의 90도 회전 대칭을 확인했다 — 층이 생기면서 그
 // 대칭은 없어졌다. 대신 **학교로서 말이 되는지**를 본다.
 import { describe, expect, it } from 'vitest'
@@ -12,8 +12,9 @@ import {
   TILE_BY_ID,
   connectedSize,
   pathBetween,
-  rowOf,
+  rectsNear,
   stairIdOf,
+  tilesOn,
   startingTiles,
   stepsBetween,
 } from './board'
@@ -59,24 +60,46 @@ describe('층과 복도', () => {
     expect([...FLOORS]).toEqual(['b1', 'f1', 'f2', 'roof'])
   })
 
-  it('같은 층 같은 줄에서는 옆자리끼리 이웃이다', () => {
+  it('방끼리 겹치지 않는다', () => {
     for (const floor of FLOORS) {
-      for (const side of ['up', 'down'] as const) {
-        const row = rowOf(floor, side)
-        for (let i = 1; i < row.length; i++) {
-          expect(ADJACENCY[row[i - 1].id]).toContain(row[i].id)
+      const here = tilesOn(floor)
+      for (let i = 0; i < here.length; i++) {
+        for (let j = i + 1; j < here.length; j++) {
+          const a = here[i].rect
+          const b = here[j].rect
+          const over =
+            a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+          expect(over, `${here[i].id} ↔ ${here[j].id}`).toBe(false)
         }
       }
     }
   })
 
-  it('복도를 사이에 두고 마주 본 방끼리 이웃이다', () => {
-    for (const floor of FLOORS) {
-      const up = rowOf(floor, 'up')
-      const down = rowOf(floor, 'down')
-      for (let i = 0; i < Math.min(up.length, down.length); i++) {
-        expect(ADJACENCY[up[i].id]).toContain(down[i].id)
+  it('같은 층 이웃은 벽 하나나 복도 하나 사이다', () => {
+    for (const t of TILES) {
+      for (const n of ADJACENCY[t.id]) {
+        const o = TILE_BY_ID[n]
+        if (o.floor !== t.floor) continue
+        expect(rectsNear(t.rect, o.rect), `${t.id} ↔ ${n}`).toBe(true)
       }
+    }
+  })
+
+  it('층마다 그 층 안에서 서로 다 닿는다 — 계단 없이도', () => {
+    for (const floor of FLOORS) {
+      const here = tilesOn(floor).map((t) => t.id)
+      const mine = new Set(here)
+      const seen = new Set([here[0]])
+      const queue = [here[0]]
+      while (queue.length > 0) {
+        const cur = queue.shift() as string
+        for (const n of ADJACENCY[cur]) {
+          if (!mine.has(n) || seen.has(n)) continue
+          seen.add(n)
+          queue.push(n)
+        }
+      }
+      expect(seen.size, floor).toBe(here.length)
     }
   })
 
@@ -137,9 +160,11 @@ describe('걸어서 닿는다', () => {
     expect(stepsBetween('storage', 'rooftop')).toBe(4)
   })
 
-  it('같은 층 같은 줄의 양끝은 계단으로 돌아가는 편이 빠를 수도 있다', () => {
-    // 2층 위 줄 다섯 칸. 끝에서 끝은 복도를 따라 네 걸음, 계단으로도 네 걸음
-    expect(stepsBetween('centralPlaza', 'library')).toBe(4)
+  it('한 층을 가로지르는 데도 걸음이 든다', () => {
+    // 2-3 교실(2층 북서) → 과학실 → 도서관
+    expect(stepsBetween('centralPlaza', 'library')).toBe(2)
+    // 2-3 교실 → 미술실 → 무용실 → 방송실 → 학생회실
+    expect(stepsBetween('centralPlaza', 'studentCouncil')).toBe(4)
   })
 })
 

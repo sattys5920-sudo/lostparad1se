@@ -101,9 +101,9 @@ describe('토큰이 한 페이즈의 전부다', () => {
 
   it('걷는 중에는 아무 방에도 없다 — 그때 닫히면 아무 데도 못 센다', () => {
     let s = board({ people: [person('a', 'A', 'library')], owners: { library: null } })
-    s = must(s, 'a', { kind: 'move', targetTile: 'clubRoom' })
+    s = must(s, 'a', { kind: 'move', targetTile: 'artRoom' })
     expect(settle(s).next.owners.library).toBeNull()
-    expect(settle(s).next.owners.clubRoom).toBeNull()
+    expect(settle(s).next.owners.artRoom).toBeNull()
   })
 
   it('토큰이 떨어지면 더는 못 움직인다', () => {
@@ -295,7 +295,7 @@ describe('로봇', () => {
     })
     s = must(s, 'a', { kind: 'dropRobot' })
     expect(s.robots[0].carriedBy).toBeNull()
-    s = land(must(s, 'a', { kind: 'move', targetTile: 'clubRoom' }), 'a')
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'artRoom' }), 'a')
     expect(s.robots[0].tileId).toBe('library')
     // 사람은 떠났지만 로봇이 남아 도서관을 가져간다
     expect(settle(s).next.owners.library).toBe('A')

@@ -39,11 +39,11 @@ describe('열리는 칸', () => {
 
   // 전에는 5×5 격자라 「마주 보는 두 칸」이라는 말이 되었다. 층이
   // 생기면서 그 대칭은 없어졌다 — 대신 날마다 서로 다른 층에서
-  // 하나씩 열리는지를 본다
-  it('DAY 1·2에 열리는 두 칸은 같은 층 같은 줄이 아니다', () => {
+  // 하나씩 열리는지를 본다. 한 층에 둘이 열리면 그 층 사람만 이득이다
+  it('DAY 1·2에 열리는 두 칸은 서로 다른 층이다', () => {
     for (const day of [1, 2]) {
       const [a, b] = openedOn(day).map((id) => TILE_BY_ID[id])
-      expect(a.floor !== b.floor || a.side !== b.side, `DAY ${day}`).toBe(true)
+      expect(a.floor, `DAY ${day}`).not.toBe(b.floor)
     }
   })
 

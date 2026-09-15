@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './MapScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
-import { doorIsHorizontal, floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, TILE, tileAt } from '../map/world'
+import { doorIsHorizontal, floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, stairHere, TILE, tileAt } from '../map/world'
 import { buildSprites, PAL, type Dir } from '../map/sprites'
 import { PX, pixelFrame } from '../char/pixel'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
@@ -330,6 +330,15 @@ export function MapScreen() {
             img = team ? sprites.tiles.floorTeam[team] : null
           }
           if (img) ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+          // 계단은 바닥 위에 층계를 덧그린다
+          const step = stairHere(x, y)
+          if (step) {
+            ctx.drawImage(
+              step.up ? sprites.tiles.stairUp : sprites.tiles.stairDown,
+              x * TILE - camX,
+              y * TILE - camY,
+            )
+          }
           // 흔적은 바닥에 깔리고, 가구는 그 위에 선다
           const mark = markAt(x, y)
           if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)

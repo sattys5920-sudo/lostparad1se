@@ -121,6 +121,55 @@ const DOOR_H = [
   '3333333333333333',
 ]
 
+/**
+ * 계단.
+ *
+ * **세로로 이어 찍는다.** 계단 한 칸은 계단으로 안 보인다 — 발판이
+ * 하나뿐이라 그냥 줄무늬 바닥이다. 그래서 계단은 세 칸짜리 층계로
+ * 놓고, 이 그림을 위아래로 이어 붙여도 이음매가 안 보이게 짰다.
+ * 네 줄이 발판 하나이고, 열여섯 줄이면 발판 넷이다.
+ *
+ * 화살표는 발판마다 하나씩 들어간다. 오르는 계단은 위를, 내려가는
+ * 계단은 아래를 가리키고, 내려가는 쪽은 발판도 어둡다.
+ */
+const STAIR_UP = [
+  '3333333333333333',
+  '3000000000000003',
+  '3000003333000003',
+  '3000333333330003',
+  '3333333333333333',
+  '3111111111111113',
+  '3111111111111113',
+  '3111111111111113',
+  '3333333333333333',
+  '3000000000000003',
+  '3000003333000003',
+  '3000333333330003',
+  '3333333333333333',
+  '3111111111111113',
+  '3111111111111113',
+  '3111111111111113',
+]
+
+const STAIR_DOWN = [
+  '3333333333333333',
+  '3222222222222223',
+  '3220000000000223',
+  '3222200000022223',
+  '3333333333333333',
+  '3111111111111113',
+  '3111111111111113',
+  '3111111111111113',
+  '3333333333333333',
+  '3222222222222223',
+  '3220000000000223',
+  '3222200000022223',
+  '3333333333333333',
+  '3111111111111113',
+  '3111111111111113',
+  '3111111111111113',
+]
+
 /** 세로로 뻗은 벽에 난 문. 좌우로 지나간다. */
 const DOOR_V = Array.from({ length: 16 }, () => '3211211111121123')
 
@@ -750,6 +799,8 @@ export interface SpriteSet {
     doorH: HTMLCanvasElement
     doorV: HTMLCanvasElement
     doorLocked: HTMLCanvasElement
+    stairUp: HTMLCanvasElement
+    stairDown: HTMLCanvasElement
     floorTeam: Record<string, HTMLCanvasElement>
   }
   props: Record<PropKind, HTMLCanvasElement>
@@ -770,6 +821,8 @@ export function buildSprites(): SpriteSet {
       doorH: bake(DOOR_H),
       doorV: bake(DOOR_V),
       doorLocked: bake(DOOR_LOCKED),
+      stairUp: bake(STAIR_UP),
+      stairDown: bake(STAIR_DOWN),
       floorTeam: Object.fromEntries(
         Object.entries(FLOOR_TEAM).map(([team, rows]) => [team, bake(rows)]),
       ),

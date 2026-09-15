@@ -4,8 +4,9 @@
 // 맵에서는 안 바뀐 채로 며칠 굴러가는 식이다. 그래서 그리는 함수는
 // 하나고, 「어느 방까지」와 「얼마나 크게」만 다르다.
 //
-// 좌표는 이미 판 데이터에 있다(board.ts 의 row·col). 3D도 원근도 없이
-// 격자 그대로 편다 — 이 학교는 실제로 5×5 격자다.
+// 좌표는 이미 판 데이터에 있다(board.ts 의 plan 네모). 3D도 원근도 없이
+// 도면 그대로 편다 — 걸어 다니는 지도와 같은 네모, 같은 크기다. 방이
+// 다 같은 정사각형이던 때에는 도서관도 창고도 똑같아 보였다.
 //
 // **안 아는 방은 서버가 숫자를 안 보낸다.** 여기서 감추는 것이 아니라
 // 애초에 없다. 받아다 가리면 개발자도구로 다 보인다.
@@ -14,10 +15,10 @@ import { OPEN_TILES, ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
 
-/** 방 네모 한 변과 방 사이 간격. 전개도의 모든 크기가 여기서 나온다. */
-export const ROOM_BOX = 40
-export const ROOM_GAP = 22
-const STEP = ROOM_BOX + ROOM_GAP
+/** 걸어 다니는 칸 하나를 전개도에서 몇으로 그리는가. */
+export const PLAN_SCALE = 6
+/** 전개도 가장자리 여백. */
+export const PLAN_PAD = 10
 
 /** 한 방에 점을 이만큼까지 그리고, 넘으면 +N 으로 적는다. */
 export const DOTS_MAX = 3
@@ -45,8 +46,8 @@ export interface MapFacts {
 export interface RoomFacts {
   id: TileId
   name: string
-  row: number
-  col: number
+  /** 전개도에서의 네모. 걸어 다니는 지도와 같은 자리, 같은 크기다. */
+  box: { x: number; y: number; w: number; h: number }
   owner: TeamId | null
   /** 가 봤거나 지금 보이는 방. 어느 쪽도 아니면 지도에 검게 남는다. */
   known: boolean
@@ -86,9 +87,13 @@ export function readMap(f: MapFacts): RoomFacts[] {
     dots.sort((a, b) => Number(b.me) - Number(a.me))
     return {
       id,
-      name: t.name,
-      row: t.planRow,
-      col: t.planCol,
+      name: t.shortName,
+      box: {
+        x: t.plan.x * PLAN_SCALE,
+        y: t.plan.y * PLAN_SCALE,
+        w: t.plan.w * PLAN_SCALE,
+        h: t.plan.h * PLAN_SCALE,
+      },
       owner: (f.tiles[id]?.ownerTeam ?? null) as TeamId | null,
       known,
       count: known ? (counts[id] ?? 0) : null,
@@ -132,17 +137,15 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
   const shown = only ? rooms.filter((r) => only.has(r.id)) : rooms
   if (shown.length === 0) return null
 
-  const xs = shown.map((r) => r.col)
-  const ys = shown.map((r) => r.row)
-  const pad = ROOM_GAP
-  const x0 = Math.min(...xs) * STEP - pad
-  const y0 = Math.min(...ys) * STEP - pad
-  const w = (Math.max(...xs) - Math.min(...xs)) * STEP + ROOM_BOX + pad * 2
-  const h = (Math.max(...ys) - Math.min(...ys)) * STEP + ROOM_BOX + pad * 2
+  const x0 = Math.min(...shown.map((r) => r.box.x)) - PLAN_PAD
+  const y0 = Math.min(...shown.map((r) => r.box.y)) - PLAN_PAD
+  const w = Math.max(...shown.map((r) => r.box.x + r.box.w)) + PLAN_PAD - x0
+  const h = Math.max(...shown.map((r) => r.box.y + r.box.h)) + PLAN_PAD - y0
   const inScope = new Set(shown.map((r) => r.id))
   const byId = new Map(rooms.map((r) => [r.id, r]))
 
-  const at = (r: RoomFacts) => ({ x: r.col * STEP, y: r.row * STEP })
+  /** 방 한가운데. 통로 선과 점이 여기를 기준으로 놓인다. */
+  const mid = (r: RoomFacts) => ({ x: r.box.x + r.box.w / 2, y: r.box.y + r.box.h / 2 })
 
   return (
     <svg
@@ -157,22 +160,23 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
         .map(([a, b]) => {
           const ra = byId.get(a) as RoomFacts
           const rb = byId.get(b) as RoomFacts
-          const pa = at(ra)
-          const pb = at(rb)
+          const pa = mid(ra)
+          const pb = mid(rb)
           return (
             <line
               key={`${a}-${b}`}
-              x1={pa.x + ROOM_BOX / 2}
-              y1={pa.y + ROOM_BOX / 2}
-              x2={pb.x + ROOM_BOX / 2}
-              y2={pb.y + ROOM_BOX / 2}
+              x1={pa.x}
+              y1={pa.y}
+              x2={pb.x}
+              y2={pb.y}
               className="sc-mp__hall"
             />
           )
         })}
 
       {shown.map((r) => {
-        const { x, y } = at(r)
+        const { x, y, w: bw, h: bh } = r.box
+        const c = mid(r)
         const isHere = r.id === here
         return (
           <g
@@ -191,34 +195,34 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
             <rect
               x={x}
               y={y}
-              width={ROOM_BOX}
-              height={ROOM_BOX}
-              rx={3}
+              width={bw}
+              height={bh}
+              rx={2}
               style={r.owner ? { stroke: TEAM_COLOR[r.owner] } : undefined}
             />
 
             {!r.known ? (
               // 가 본 적 없는 방. 이름도 숫자도 없다 — 서버가 안 보냈다
               !compact && (
-                <text x={x + ROOM_BOX / 2} y={y + ROOM_BOX / 2 + 4} className="sc-mp__unknown">
+                <text x={c.x} y={c.y + 4} className="sc-mp__unknown">
                   ?
                 </text>
               )
             ) : compact ? (
-              <Dots x={x} y={y} dots={r.dots} />
+              <Dots cx={c.x} cy={c.y} dots={r.dots} />
             ) : (
               <>
-                <text x={x + ROOM_BOX / 2} y={y + 13} className="sc-mp__name">
+                <text x={c.x} y={c.y - 4} className="sc-mp__name">
                   {r.name}
                 </text>
                 {KIND_MARK[r.kind] && (
-                  <text x={x + ROOM_BOX / 2} y={y + 25} className="sc-mp__kind">
+                  <text x={c.x} y={c.y + 8} className="sc-mp__kind">
                     {KIND_MARK[r.kind]}
                   </text>
                 )}
                 <text
-                  x={x + ROOM_BOX / 2}
-                  y={y + ROOM_BOX - 6}
+                  x={c.x}
+                  y={y + bh - 5}
                   className={`sc-mp__count${!r.open && (r.count ?? 0) >= r.capacity ? ' is-full' : ''}`}
                 >
                   {r.open ? `${r.count}명` : `${r.count} / ${r.capacity}`}
@@ -238,25 +242,25 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
  * 겹쳐 놓으면 둘인지 넷인지 알 수 없고, 미니맵은 숫자가 없으니
  * 점 개수가 곧 정보다.
  */
-function Dots({ x, y, dots }: { x: number; y: number; dots: RoomFacts['dots'] }) {
+function Dots({ cx, cy, dots }: { cx: number; cy: number; dots: RoomFacts['dots'] }) {
   const shown = dots.slice(0, DOTS_MAX)
   const extra = dots.length - shown.length
   const gap = 9
-  const startX = x + ROOM_BOX / 2 - ((shown.length - 1) * gap) / 2
+  const startX = cx - ((shown.length - 1) * gap) / 2
   return (
     <>
       {shown.map((d, i) => (
         <circle
           key={d.key}
           cx={startX + i * gap}
-          cy={y + ROOM_BOX / 2}
+          cy={cy}
           r={d.robot ? 2.4 : 4}
           className={d.me ? 'sc-mp__me' : 'sc-mp__dot'}
           style={d.me ? undefined : { fill: TEAM_COLOR[d.team] }}
         />
       ))}
       {extra > 0 && (
-        <text x={x + ROOM_BOX - 5} y={y + ROOM_BOX - 5} className="sc-mp__more">
+        <text x={cx + 14} y={cy + 12} className="sc-mp__more">
           +{extra}
         </text>
       )}

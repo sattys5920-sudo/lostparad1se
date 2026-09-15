@@ -32,9 +32,9 @@ describe('보이는 칸', () => {
   it('말이 선 칸과 그 이웃이 보인다', () => {
     const out = visibleTiles({ ownedTiles: [], myPawnTiles: ['centralPlaza'] })
     expect(out.has('centralPlaza')).toBe(true)
-    // 2-3 교실의 이웃 — 옆자리, 복도 건너, 서쪽 계단
+    // 2-3 교실의 이웃 — 옆 교실, 복도 건너, 서쪽 계단
     expect(out.has('scienceRoom')).toBe(true)
-    expect(out.has('newBuilding')).toBe(true)
+    expect(out.has('artRoom')).toBe(true)
     // 두 칸 떨어진 곳은 안 보인다
     expect(out.has('musicRoom')).toBe(false)
   })
@@ -44,7 +44,7 @@ describe('보이는 칸', () => {
     expect(INTEL_VISION_BONUS).toBe(1)
     expect(out.has('musicRoom')).toBe(true)
     // 세 칸은 여전히 안 보인다
-    expect(out.has('library')).toBe(false)
+    expect(out.has('baseD')).toBe(false)
   })
 
   it('없는 칸은 무시한다', () => {
