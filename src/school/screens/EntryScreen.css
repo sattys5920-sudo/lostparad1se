@@ -22,7 +22,7 @@
 
 .sc-entry__intro h1 {
   margin: 0;
-  font-family: var(--sc-font-title);
+  font-family: var(--sc-font-serif);
   font-weight: 700;
   font-size: 26px;
   color: var(--sc-text);

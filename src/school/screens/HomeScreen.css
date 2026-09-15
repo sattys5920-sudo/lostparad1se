@@ -22,7 +22,7 @@
 
 .sc-home__banner h1 {
   margin: 2px 0 4px;
-  font-family: var(--sc-font-title);
+  font-family: var(--sc-font-serif);
   font-weight: 700;
   font-size: 21px;
   color: var(--sc-text);

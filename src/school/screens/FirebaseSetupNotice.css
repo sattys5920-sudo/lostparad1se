@@ -15,7 +15,7 @@
 
 .sc-fb-notice h1 {
   margin: 0;
-  font-family: var(--sc-font-title);
+  font-family: var(--sc-font-serif);
   font-size: 21px;
   color: var(--sc-text);
 }

@@ -22,7 +22,7 @@
 .sc-ending__head h1 {
   margin: 0;
   white-space: pre-line;
-  font-family: var(--sc-font-title);
+  font-family: var(--sc-font-serif);
   font-weight: 700;
   font-size: 22px;
   line-height: 1.6;

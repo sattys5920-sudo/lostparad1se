@@ -24,7 +24,7 @@
 
 .sc-host__status h1 {
   margin: 4px 0 0;
-  font-family: var(--sc-font-title);
+  font-family: var(--sc-font-serif);
   font-size: 20px;
   color: var(--sc-text);
 }

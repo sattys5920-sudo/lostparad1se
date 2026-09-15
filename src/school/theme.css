@@ -1,4 +1,23 @@
-@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Gothic+A1:wght@200;300;400;500;700&display=swap');
+/*
+ * 글꼴.
+ *
+ * **본문은 Pretendard 다.** 전에는 Gothic A1 300 이었다 — 자소가
+ * 옆으로 퍼지고 획이 가늘어서, 14px 짜리 글이 죄다 납작하고 흐릿했다.
+ * Pretendard 는 속공간이 좁고 세로로 서 있어서 같은 크기에서 훨씬
+ * 또렷하다. 굵기도 300 에서 400 으로 올린다.
+ *
+ * 두 군데서 받는다. **한쪽이 막혀도 글씨가 안 무너진다.**
+ *   Pretendard          jsdelivr. 쓰는 글자만 받아 가는 조각 배포라 가볍다
+ *   IBM Plex Sans KR    구글. 원래 쓰던 곳이고 이쪽도 세로로 선 글꼴이다
+ * 둘 다 못 받아도 그다음이 Apple SD Gothic Neo 다 — 아이폰에 기본으로
+ * 있고 이미 충분히 또렷하다. 이 게임이 보는 화면이 거기다.
+ *
+ * 명조는 큰 제목에만 남긴다(--sc-font-serif). 11~13px 짜리 UI 글씨에
+ * 명조를 깔아 두었던 것이 「폰트가 별로」의 절반이었다 — 가는 세리프는
+ * 작을수록 뭉갠다.
+ */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Myeongjo:wght@400;700;800&display=swap');
 
 .school-root {
   --sc-bg: #eef0f2;
@@ -12,8 +31,13 @@
   --sc-accent-dim: #4d545a;
   --sc-danger: #7a2620;
   --sc-surface: #e2e5e7;
-  --sc-font-title: 'Nanum Myeongjo', serif;
-  --sc-font-body: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif;
+  --sc-font-body:
+    'Pretendard Variable', Pretendard, 'IBM Plex Sans KR', 'Apple SD Gothic Neo',
+    system-ui, sans-serif;
+  /* 제목도 같은 한 벌이다. 굵기와 자간으로 가른다 */
+  --sc-font-title: var(--sc-font-body);
+  /* 큰 제목 전용. 20px 아래로는 쓰지 않는다 */
+  --sc-font-serif: 'Nanum Myeongjo', serif;
 
   /* 바닥에 떨어진 두 가지. **눈으로 갈려야 한다** — 쪽지는 접힌
      종이라 판 바탕색을 쓰고, 문제 종이는 시험지라 잉크색을 쓴다 */
@@ -43,12 +67,30 @@
     radial-gradient(circle at 38% 93%, #ffffff 0 1.8px, transparent 2.4px);
   color: var(--sc-text);
   font-family: var(--sc-font-body);
-  font-weight: 300;
+  font-weight: 400;
   font-size: 14px;
+  /* 한글은 자간을 조금 좁혀야 덩어리로 읽힌다. 라틴 숫자는 표에서
+     자리가 흔들리지 않게 따로 고정한다(쓰는 곳에서 tabular-nums) */
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .school-root * {
   box-sizing: border-box;
+}
+
+/*
+ * 큰 제목만 명조다.
+ *
+ * 이 앱의 h1 은 전부 17px 이상이다 — 「남겨진 아이들」, 「DAY 3」,
+ * 엔딩의 머리말. 거기서는 명조가 이야기의 목소리를 낸다. 그 아래
+ * 작은 글씨(탭·라벨·아이디)에는 안 쓴다
+ */
+.school-root h1 {
+  font-family: var(--sc-font-serif);
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .school-root button {

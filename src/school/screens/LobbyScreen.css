@@ -22,7 +22,7 @@
 
 .sc-lobby__head h1 {
   margin: 0;
-  font-family: var(--sc-font-title);
+  font-family: var(--sc-font-serif);
   font-size: 24px;
   font-weight: 700;
   color: var(--sc-text);
