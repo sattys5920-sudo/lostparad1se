@@ -1151,10 +1151,12 @@
 /* 층과 층 사이 — 여기로 오르내린다. 층계 모양으로 또렷하게 */
 .sc-at__stair {
   position: absolute;
-  background-image: repeating-linear-gradient(to bottom, #6f76a0 0 1px, transparent 1px 3px);
+  background-image: repeating-linear-gradient(to bottom, #6f76a0 0 1px, transparent 1px 4px);
   border-left: 1px solid #6f76a0;
   border-right: 1px solid #6f76a0;
 }
+/* 이름이 다 들어가므로 두 줄까지 쓴다 */
+.sc-at__nm { position: relative; top: 1px; white-space: nowrap; }
 
 /* 방 — 어두운 바탕 위에 뜬 밝은 면. 모서리는 안 굴린다 */
 .sc-at__room {

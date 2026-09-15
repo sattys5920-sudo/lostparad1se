@@ -3,14 +3,12 @@
 // 그림은 MapPlan 하나가 그린다. 여기서는 **어디에 띄우고 어떻게
 // 만지는지**만 다룬다 — 미니맵은 구석에 떠 있고, 전체 맵은 화면을
 // 덮고 손가락으로 넓혔다 줄였다 한다.
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   MapPlan,
-  PLAN_SCALE,
   TEAM_COLOR,
   floorCells,
-  hallCells,
   nearbyOf,
   readMap,
   roomName,
@@ -18,7 +16,7 @@ import {
   type MapFacts,
   type RoomFacts,
 } from './MapPlan'
-import { PLAN_H, PLAN_W, STAIRWELLS, TILE_BY_ID } from '../../../shared/rules/board'
+import { TILES, TILE_BY_ID } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
@@ -82,6 +80,18 @@ export function MiniMap({ facts, onOpen }: { facts: MapFacts; onOpen: () => void
 
 /** 왼쪽에 층 이름이 앉는 자리. */
 const GUTTER = 26
+/** 한 줄에 이만큼까지. 더 늘리면 칸이 좁아져 이름이 잘린다. */
+const MAX_COLS = 4
+/** 칸 사이. */
+const TILE_GAP = 5
+/** 같은 층의 줄 사이 — 여기에 복도가 깔린다. */
+const ROW_GAP = 11
+/** 층과 층 사이 — 여기에 계단이 놓인다. */
+const FLOOR_GAP = 22
+/** 도면 가장자리. */
+const PAD = 6
+/** 칸은 정사각형에 가깝게. 가로가 세로의 이만큼을 못 넘는다. */
+const TILE_RATIO = 1.3
 /** 픽셀 글꼴이 또렷한 크기. 갈무리11 은 이름 그대로 11px 이다. */
 const NAME_PX = 11
 
@@ -92,6 +102,121 @@ const NAME_PX = 11
  * 들어가는데도 잘린다. 갈무리는 그런 글자를 반폭으로 그린다.
  */
 const charPx = (ch: string) => (/[\uac00-\ud7a3\u3130-\u318f]/.test(ch) ? NAME_PX : NAME_PX / 2)
+
+/**
+ * 한 층을 **실제 도면의 줄 순서대로** 늘어놓는다.
+ *
+ * 도면 그대로 그리면 방 모양이 제각각이라 좁은 방은 이름이 잘린다.
+ * 그렇다고 아무렇게나 늘어놓으면 어디가 어딘지 모른다. 그래서
+ * 「위아래로 겹치는 방끼리 한 줄」로 묶고 줄 안에서는 왼쪽부터 —
+ * 실제 학교를 걸으며 보는 순서 그대로다. 줄과 자리는 판 데이터에서
+ * 나오므로 방을 옮기면 여기도 저절로 따라온다.
+ */
+function floorRows(floor: string): TileId[][] {
+  const here = TILES.filter((t) => t.floor === floor)
+    .slice()
+    .sort((a, b) => a.plan.y - b.plan.y || a.plan.x - b.plan.x)
+  // **줄의 기준은 맨 처음 방 하나다.** 「아무 방이든 겹치면 같은 줄」로
+  // 두었더니 위아래에 걸친 방(동아리실) 하나가 두 줄을 이어 붙여
+  // 일곱 칸짜리 줄이 나왔다. 그러면 이름이 도로 잘린다
+  const rows: (typeof here)[] = []
+  for (const t of here) {
+    const row = rows.find(
+      (r) => r[0].plan.y < t.plan.y + t.plan.h && t.plan.y < r[0].plan.y + r[0].plan.h,
+    )
+    if (row) row.push(t)
+    else rows.push([t])
+  }
+  const out: TileId[][] = []
+  for (const r of rows) {
+    const line = r
+      .slice()
+      .sort((a, b) => a.plan.x - b.plan.x)
+      .map((t) => t.id as TileId)
+    // 그래도 넘치면 접는다. 한 줄이 길어질수록 칸이 좁아진다
+    for (let i = 0; i < line.length; i += MAX_COLS) out.push(line.slice(i, i + MAX_COLS))
+  }
+  return out
+}
+
+/** 위층부터 아래층까지. 층마다 몇 줄인지까지 여기서 정해진다. */
+function schematic(): { floor: string; name: string; rows: TileId[][] }[] {
+  return [...floorCells()]
+    .sort((a, b) => a.y - b.y)
+    .map((f) => ({ floor: f.floor, name: f.name, rows: floorRows(f.floor) }))
+}
+
+export interface Placed {
+  id: TileId
+  x: number
+  y: number
+  w: number
+  h: number
+}
+interface Laid {
+  w: number
+  h: number
+  tiles: Placed[]
+  /** 층 띠 — 이름과 구분선이 여기에 붙는다. */
+  bands: { name: string; y: number; h: number }[]
+  /** 복도. 같은 층 줄과 줄 사이에 깔린다. */
+  lanes: Cell[]
+  /** 계단. 층과 층 사이 양끝에 놓인다. */
+  stairs: Cell[]
+}
+
+/**
+ * 도면을 화면에 앉힌다. **남은 자리를 재서 칸 크기를 정한다** —
+ * 스물다섯 칸이 한 화면에 다 들어와야 하므로 크기는 고르는 것이
+ * 아니라 나오는 것이다. 정수로 내림해 화소 격자에 맞춘다.
+ */
+function layout(boxW: number, boxH: number, zoom: number): Laid {
+  const plan = schematic()
+  const rowCount = plan.reduce((n, f) => n + f.rows.length, 0)
+  const cols = Math.max(...plan.flatMap((f) => f.rows.map((r) => r.length)))
+  const innerGaps = rowCount - plan.length
+  const availW = boxW - GUTTER - PAD * 2
+  const availH = boxH - PAD * 2 - (plan.length - 1) * FLOOR_GAP - innerGaps * ROW_GAP
+  const wideMax = Math.floor((availW - (cols - 1) * TILE_GAP) / cols)
+  const tallMax = Math.floor(availH / rowCount)
+  // 넓히면 **가로 세로가 같이** 커진다. 세로만 키우면 칸이 길쭉해진다
+  const grow = 1 + zoom * 0.6
+  const base = Math.min(tallMax, wideMax)
+  const tileH = Math.max(18, Math.floor(base * grow))
+  const tileW = Math.max(24, Math.floor(Math.min(wideMax * grow, tileH * TILE_RATIO)))
+
+  const tiles: Placed[] = []
+  const bands: Laid['bands'] = []
+  const lanes: Cell[] = []
+  const stairs: Cell[] = []
+  const gridW = cols * tileW + (cols - 1) * TILE_GAP
+  const left = GUTTER + PAD
+  let y = PAD
+  plan.forEach((f, fi) => {
+    const top = y
+    f.rows.forEach((row, ri) => {
+      if (ri > 0) {
+        lanes.push({ x: left, y: y - ROW_GAP, w: gridW, h: ROW_GAP })
+      }
+      // 줄이 짧으면 가운데로 모은다. 왼쪽에 붙이면 층마다 들쭉날쭉하다
+      const rowW = row.length * tileW + (row.length - 1) * TILE_GAP
+      const x0 = left + Math.floor((gridW - rowW) / 2)
+      row.forEach((id, ci) => {
+        tiles.push({ id, x: x0 + ci * (tileW + TILE_GAP), y, w: tileW, h: tileH })
+      })
+      y += tileH + (ri + 1 < f.rows.length ? ROW_GAP : 0)
+    })
+    bands.push({ name: f.name, y: top, h: y - top })
+    if (fi + 1 < plan.length) {
+      // 층 사이 — 서·동 양끝에 계단 하나씩
+      for (const side of [0, 1]) {
+        stairs.push({ x: side === 0 ? left : left + gridW - 18, y, w: 18, h: FLOOR_GAP })
+      }
+      y += FLOOR_GAP
+    }
+  })
+  return { w: left + gridW + PAD, h: y + PAD, tiles, bands, lanes, stairs }
+}
 
 /** 그 너비에 들어가는 만큼만 남긴다. 나머지는 넓혀야 보인다. */
 function clipName(name: string, px: number): string {
@@ -166,15 +291,13 @@ export function FullMap({
 }) {
   const rooms = readMap(facts)
   const [picked, setPicked] = useState<TileId | null>(null)
-  const [fit, setFit] = useState(4)
-  const [room, setRoom] = useState({ w: 0, h: 0 })
+  const [room, setRoom] = useState({ w: 360, h: 600 })
   const [zoom, setZoom] = useState(0)
   const [pan, setPan] = useState({ x: 0, y: 0 })
+  const laid = useMemo(() => layout(room.w, room.h, zoom), [room.w, room.h, zoom])
+  const byId = useMemo(() => new Map(rooms.map((r) => [r.id, r])), [rooms])
   const boxRef = useRef<HTMLDivElement | null>(null)
   const sheetRef = useRef<HTMLDivElement | null>(null)
-
-  /** 한 칸을 몇 화소로. **정수로만 둔다** — 반 화소는 픽셀 그림을 뭉갠다. */
-  const cell = Math.max(2, Math.round(fit * (1 + zoom * 0.6)))
 
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -205,11 +328,8 @@ export function FullMap({
     const box = boxRef.current
     if (!box) return
     const measure = () => {
-      const w = box.clientWidth - GUTTER - 8
-      const h = box.clientHeight - 8
-      if (w <= 0 || h <= 0) return
+      if (box.clientWidth <= 0 || box.clientHeight <= 0) return
       setRoom({ w: box.clientWidth, h: box.clientHeight })
-      setFit(Math.max(2, Math.floor(Math.min(w / PLAN_W, h / PLAN_H))))
     }
     measure()
     const ro = new ResizeObserver(measure)
@@ -227,14 +347,14 @@ export function FullMap({
     const box = boxRef.current
     const sheet = sheetRef.current
     if (!box || !sheet || !picked) return
-    const r = rooms.find((x) => x.id === picked)
+    const r = laid.tiles.find((x) => x.id === picked)
     if (!r) return
-    const bottom = mid.y + pan.y + ((r.box.y + r.box.h) / PLAN_SCALE) * cell
-    const room = box.clientHeight - sheet.offsetHeight - 6
-    if (bottom > room) setPan((p) => ({ ...p, y: p.y - (bottom - room) }))
+    const bottom = mid.y + pan.y + r.y + r.h
+    const free = box.clientHeight - sheet.offsetHeight - 6
+    if (bottom > free) setPan((p) => ({ ...p, y: p.y - (bottom - free) }))
     // 누른 방이 바뀔 때만 본다. pan 을 의존성에 넣으면 스스로를 다시 민다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picked, cell])
+  }, [picked, laid])
 
   // 두 손가락으로 넓히고 끌어서 옮긴다
   useEffect(() => {
@@ -296,11 +416,9 @@ export function FullMap({
 
   // 도면이 상자보다 작으면 한가운데에 둔다. 왼쪽 위로 몰아 두면
   // 오른쪽이 통째로 빈 채로 남는다
-  const planW = PLAN_W * cell + GUTTER
-  const planH = PLAN_H * cell
   const mid = {
-    x: Math.max(0, (room.w - planW) / 2),
-    y: Math.max(0, (room.h - planH) / 2),
+    x: Math.max(0, (room.w - laid.w) / 2),
+    y: Math.max(0, (room.h - laid.h) / 2),
   }
 
   const one = rooms.find((r) => r.id === picked) ?? null
@@ -331,50 +449,45 @@ export function FullMap({
         <div
           className="sc-at__plan"
           style={{
-            width: planW,
-            height: planH,
+            width: laid.w,
+            height: laid.h,
             // **정수 화소로만 옮긴다.** 반 화소면 픽셀 글꼴이 뭉개진다
             transform: `translate(${Math.round(mid.x + pan.x)}px, ${Math.round(mid.y + pan.y)}px)`,
           }}
         >
-          {floorCells().map((f) => (
-            <div key={f.floor}>
+          {laid.bands.map((f) => (
+            <div key={f.name}>
               {/* 층을 가르는 굵은 선과 왼쪽에 세워 붙인 이름 */}
-              <div className="sc-at__rule" style={{ top: f.y * cell - 2, width: PLAN_W * cell + GUTTER }} />
-              <div className="sc-at__floor" style={{ top: f.y * cell, height: f.h * cell }}>
+              <div className="sc-at__rule" style={{ top: f.y - 3, width: laid.w }} />
+              <div className="sc-at__floor" style={{ top: f.y, height: f.h }}>
                 {f.name}
               </div>
             </div>
           ))}
 
-          {hallCells().map((g, i) => (
+          {/* 복도 — 같은 층의 줄과 줄을 잇는다 */}
+          {laid.lanes.map((g, i) => (
             <div
               key={i}
-              className={g.stair ? 'sc-at__hall is-stair' : 'sc-at__hall'}
-              style={{
-                left: GUTTER + g.x * cell,
-                top: g.y * cell,
-                width: g.w * cell,
-                height: g.h * cell,
-                backgroundSize: `${cell}px ${cell}px`,
-              }}
+              className="sc-at__hall"
+              style={{ left: g.x, top: g.y, width: g.w, height: g.h, backgroundSize: '5px 5px' }}
             />
           ))}
 
-          {stairLinks().map((l, i) => (
+          {/* 계단 — 층과 층 사이 양끝 */}
+          {laid.stairs.map((l, i) => (
             <div
               key={i}
               className="sc-at__stair"
-              style={{ left: GUTTER + l.x * cell, top: l.y * cell, width: l.w * cell, height: l.h * cell }}
+              style={{ left: l.x, top: l.y, width: l.w, height: l.h }}
               aria-hidden="true"
             />
           ))}
 
-          {rooms.map((r) => {
-            const w = r.box.w / PLAN_SCALE
-            const h = r.box.h / PLAN_SCALE
-            const px = w * cell
-            const label = clipName(r.name, px - 5)
+          {laid.tiles.map((box) => {
+            const r = byId.get(box.id)
+            if (!r) return null
+            const label = clipName(r.name, box.w - 8)
             return (
               <button
                 key={r.id}
@@ -387,12 +500,7 @@ export function FullMap({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                style={{
-                  left: GUTTER + (r.box.x / PLAN_SCALE) * cell,
-                  top: (r.box.y / PLAN_SCALE) * cell,
-                  width: px,
-                  height: h * cell,
-                }}
+                style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
                 onClick={(e) => {
                   e.stopPropagation()
                   setPicked(r.id)
@@ -401,8 +509,8 @@ export function FullMap({
                 {/* 완장. **테두리가 아니라 위에 두른 띠다** */}
                 <i className="sc-at__band" style={r.owner ? { background: TEAM_COLOR[r.owner] } : undefined} />
                 {label.length > 0 && <span className="sc-at__nm">{label}</span>}
-                {/* **가리는 것은 머릿수뿐이다.** 이름도 자리도 정원도
-                    차지한 팀도 판에 드러난 것이라 처음부터 보인다 */}
+                {/* **가리는 것은 머릿수뿐이다.** 이름도 정원도 차지한
+                    팀도 판에 드러난 것이라 처음부터 보인다 */}
                 {r.known ? <Seats room={r} /> : <span className="sc-at__q">?</span>}
                 {KIND_DOT[r.kind] && <i className={`sc-at__kind ${KIND_DOT[r.kind]}`} />}
                 {r.id === facts.here && <i className="sc-at__me" />}
@@ -424,31 +532,6 @@ export function FullMap({
   )
 }
 
-/**
- * 층과 층 사이 계단. **어디로 오르내리는지**를 그 틈에 그린다.
- *
- * 계단통은 층마다 제자리에 있는데, 도면에서는 층이 위아래로 떨어져
- * 있어서 그 사이가 비어 있었다. 비어 있으면 위층과 아래층이 남남으로
- * 보인다. 칸 단위다.
- */
-function stairLinks(): Cell[] {
-  // **위에서 아래로 줄을 세운다.** FLOORS 는 지하부터라, 그대로 두면
-  // 「윗층」과 「아랫층」이 뒤집혀 틈이 음수가 되고 한 줄도 안 그려진다
-  const bands = [...floorCells()].sort((a, b) => a.y - b.y)
-  const out: Cell[] = []
-  for (let i = 0; i + 1 < bands.length; i++) {
-    const upper = bands[i]
-    const lower = bands[i + 1]
-    const top = upper.y + upper.h
-    const gap = lower.y - top
-    if (gap <= 0) continue
-    for (const w of STAIRWELLS) {
-      if (w.floor !== lower.floor) continue
-      out.push({ x: w.plan.x + 1, y: top, w: Math.max(1, w.plan.w - 2), h: gap })
-    }
-  }
-  return out
-}
 
 /**
  * 누른 방. **맵 위에 떠오르는 시트다** — 맵을 밀어내지 않는다.
