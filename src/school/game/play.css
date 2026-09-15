@@ -295,8 +295,6 @@
 
 .sc-ac__menu button span { color: var(--sc-text-dim); font-size: 10.5px; }
 .sc-ac__menu button.is-on { border-color: #6b7280; background: var(--sc-surface); }
-.sc-ac__up { flex: 0 0 auto !important; }
-
 /* 내가 선 자리에서 하는 일 — 연구와 생산 */
 .sc-ac__standing {
   display: flex;

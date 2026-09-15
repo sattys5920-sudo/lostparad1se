@@ -12,7 +12,7 @@ import {
   scoutYield,
   type ActionKind,
 } from './actions'
-import type { TileState } from './buildings'
+import type { TileState } from './resources'
 import { RESEARCH_BASE_KNOWLEDGE, SABOTAGE_KNOWLEDGE, SCOUT_GAIN, type TeamId } from './v2'
 
 /** A는 기지와 1구역, B는 동아리실 하나. 나머지는 빈 칸이다. */
@@ -138,14 +138,14 @@ describe('견제', () => {
   const have = { money: 0, knowledge: 3 }
 
   it('지식 2가 든다', () => {
-    const out = checkSabotage({ kind: 'productionDown', targetTeam: 'B', team: 'A', resources: have })
+    const out = checkSabotage({ kind: 'expandCostUp', targetTeam: 'B', team: 'A', resources: have })
     expect(out.ok).toBe(true)
     expect(out.cost).toEqual({ knowledge: SABOTAGE_KNOWLEDGE })
   })
 
   it('우리 팀에는 못 건다', () => {
     expect(
-      checkSabotage({ kind: 'productionDown', targetTeam: 'A', team: 'A', resources: have }).reason,
+      checkSabotage({ kind: 'expandCostUp', targetTeam: 'A', team: 'A', resources: have }).reason,
     ).toBe('ownTeam')
   })
 
@@ -166,7 +166,7 @@ describe('견제', () => {
 
 describe('주인 찾기', () => {
   it('칸 목록에서 주인을 짚는다', () => {
-    const tiles: TileState[] = [{ tileId: 'classroom', ownerTeam: 'A', buildings: [] }]
+    const tiles: TileState[] = [{ tileId: 'classroom', ownerTeam: 'A' }]
     const look = ownerLookup(tiles)
     expect(look('classroom')).toBe('A')
     expect(look('library')).toBe(null)

@@ -5,8 +5,7 @@ import { doorIsHorizontal, floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, ro
 import { buildSprites, PAL, type Dir } from '../map/sprites'
 import { PX, pixelFrame } from '../char/pixel'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
-import { SABOTAGE_LABEL, SPATIAL_LABEL, type BuildingKind, type SabotageEffectKind, type TileId } from '../types'
-import { BUILDINGS } from '../data/buildings'
+import { SABOTAGE_LABEL, SPATIAL_LABEL, type SabotageEffectKind, type TileId } from '../types'
 import { teamById, TEAMS } from '../data/teams'
 import { tileById } from '../data/tiles'
 
@@ -58,7 +57,6 @@ export function MapScreen() {
     // 영역
     myTeamId,
     myTeam,
-    hereTile,
     hereOwner,
     hereValue,
     rivalTeamsHere,
@@ -69,8 +67,6 @@ export function MapScreen() {
     actionsLeftToday,
     amBlockedToday,
     doExpand,
-    doBuild,
-    doUpgrade,
     doProduce,
     doExplore,
     doResearch,
@@ -84,7 +80,6 @@ export function MapScreen() {
   // 진행자는 몸이 없다(viewerId가 없다). 걸어 다니는 대신 학교를 내려다본다.
   const spectating = !viewerId
   const [camRoom, setCamRoom] = useState<string | null>(null)
-  const [openBuild, setOpenBuild] = useState(false)
   const [openSabotage, setOpenSabotage] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -452,10 +447,6 @@ export function MapScreen() {
 
   const isMine = hereOwner !== null && hereOwner === myTeamId
   const canAct = actionsLeftToday > 0 && !amBlockedToday
-  const buildable = hereTile && here && isMine ? here.buildingSlots - hereTile.buildings.length : 0
-  const affordable = myTeam
-    ? BUILDINGS.filter((b) => b.cost.money <= myTeam.resources.money && b.cost.food <= myTeam.resources.food)
-    : []
 
   return (
     <div className="sc-map">
@@ -511,13 +502,6 @@ export function MapScreen() {
                 {rivalTeamsHere.map((t) => teamById[t].name).join('·')} 사람이 여기 서 있다. 비켜야 넘어간다.
               </p>
             )}
-            {hereTile && hereTile.buildings.length > 0 && (
-              <p className="sc-map__built">
-                {hereTile.buildings
-                  .map((b) => `${BUILDINGS.find((s) => s.kind === b.kind)?.name ?? b.kind}${b.level > 1 ? ' II' : ''}`)
-                  .join(' · ')}
-              </p>
-            )}
 
             <div className="sc-map__acts">
               {!isMine && !here.homeOf && (
@@ -527,11 +511,6 @@ export function MapScreen() {
                   onClick={() => run(() => doExpand(myRoomId as TileId), '여기를 차지했다.')}
                 >
                   차지한다{hereExpandCost ? ` (${costText(hereExpandCost)})` : ''}
-                </button>
-              )}
-              {isMine && buildable > 0 && (
-                <button disabled={!canAct} onClick={() => setOpenBuild((v) => !v)}>
-                  짓는다 · 자리 {buildable}
                 </button>
               )}
               {isMine && (
@@ -555,41 +534,6 @@ export function MapScreen() {
                 </button>
               )}
             </div>
-
-            {openBuild && (
-              <div className="sc-map__menu">
-                {affordable.length === 0 && <p className="sc-map__muted">지금 지을 수 있는 게 없다.</p>}
-                {affordable.map((b) => (
-                  <button
-                    key={b.kind}
-                    onClick={() =>
-                      run(async () => {
-                        await doBuild(myRoomId as TileId, b.kind as BuildingKind)
-                        setOpenBuild(false)
-                      }, `${b.name}을(를) 세웠다.`)
-                    }
-                  >
-                    {b.name} · 돈 {b.cost.money}
-                    {b.cost.food > 0 ? ` · 식량 ${b.cost.food}` : ''}
-                  </button>
-                ))}
-                {hereTile?.buildings
-                  .filter((b) => b.level < 2)
-                  .map((b) => (
-                    <button
-                      key={`up-${b.kind}`}
-                      onClick={() =>
-                        run(async () => {
-                          await doUpgrade(myRoomId as TileId, b.kind)
-                          setOpenBuild(false)
-                        }, '한 단계 올렸다.')
-                      }
-                    >
-                      {BUILDINGS.find((s) => s.kind === b.kind)?.name} 올리기
-                    </button>
-                  ))}
-              </div>
-            )}
 
             {openSabotage && hereOwner && (
               <div className="sc-map__menu">

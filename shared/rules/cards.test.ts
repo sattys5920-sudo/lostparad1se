@@ -102,9 +102,8 @@ describe('카드가 하는 일', () => {
     expect(play('secretLetter').roomUntilRealMs).toBe(NOW + HOUR)
   })
 
-  it('기습·급조·협정서는 다음 한 번을 위해 표시만 남긴다', () => {
+  it('기습·협정서는 다음 한 번을 위해 표시만 남긴다', () => {
     expect(play('ambush').pending).toBe('ambush')
-    expect(play('quickBuild').pending).toBe('quickBuild')
     expect(play('accord').pending).toBe('accord')
   })
 

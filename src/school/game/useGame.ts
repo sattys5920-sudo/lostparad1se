@@ -10,7 +10,7 @@
 //   games/{id}              날·눈발·투명인간처럼 모두가 아는 것
 //   games/{id}/views/{uid}  **내 몫.** 안개를 거쳐 깎인 것
 //   games/{id}/teams/{t}    자원과 순위
-//   games/{id}/tiles/{t}    칸 주인과 건물
+//   games/{id}/tiles/{t}    칸 주인
 //
 // 말의 위치도, 남의 손패도, 표도 여기 없다. 규칙이 막아서가 아니라
 // 서버가 애초에 담지 않아서다.
@@ -190,8 +190,6 @@ export function gameActions(gameId: string) {
       callServer('planCommute', { ...g, tileId, plantFlag }),
     plantFlag: (tileId: TileId) => callServer('plantFlag', { ...g, tileId }),
 
-    build: (tileId: TileId, kind: string) => callServer('buildOn', { ...g, tileId, kind }),
-    upgrade: (tileId: TileId, kind: string) => callServer('upgradeOn', { ...g, tileId, kind }),
     research: (tileId: TileId) => callServer('research', { ...g, tileId }),
     scout: (tileId: TileId) => callServer('scout', { ...g, tileId }),
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),

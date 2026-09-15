@@ -72,6 +72,5 @@ describe('여러 판', () => {
 
   it('닷새 동안 깃발이 실제로 오간다 — 판이 얼어붙지 않는다', () => {
     expect(report.perGame.flagsSucceeded).toBeGreaterThan(0)
-    expect(report.perGame.buildings).toBeGreaterThan(0)
   })
 })

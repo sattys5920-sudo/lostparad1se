@@ -46,16 +46,6 @@ export function teamSizesOf(roster: readonly { team: TeamId }[]): Record<TeamId,
 
 export type Tier = 'base' | 'zone1' | 'gate' | 'cross' | 'core' | 'plaza'
 
-/** 층위별 건물 슬롯. 가치 5 이상인 칸만 둘이다. */
-export const SLOTS_BY_TIER: Record<Tier, number> = {
-  base: 0,
-  zone1: 1,
-  gate: 1,
-  cross: 2,
-  core: 2,
-  plaza: 2,
-}
-
 // ── 시간표 ──────────────────────────────────────────────────────
 
 /** 등교 — 하루가 열린다. */
@@ -89,8 +79,6 @@ export const COMMUTE_MAX_TILES = 2
 export const VISION_RANGE = 1
 /** 정보부장은 한 겹 더 본다. */
 export const INTEL_VISION_BONUS = 1
-/** 관측소가 걷어 주는 안개 범위. 개조하면 두 배. */
-export const OBSERVATORY_RANGE = 2
 
 // ── 행동 토큰 ───────────────────────────────────────────────────
 
@@ -131,16 +119,6 @@ export const STARTING_RESOURCES: Record<Resource, number> = {
   money: 8,
   knowledge: 4,
 }
-
-/**
- * 넓을수록 덜 거둔다. 기지를 뺀 보유 칸 수로 건물 생산에 곱한다.
- * 위에서부터 처음 맞는 칸을 쓴다.
- */
-export const MAINTENANCE_TIERS: readonly { upTo: number; factor: number }[] = [
-  { upTo: 5, factor: 1 },
-  { upTo: 10, factor: 0.8 },
-  { upTo: Infinity, factor: 0.6 },
-]
 
 // ── 깃발 ────────────────────────────────────────────────────────
 
@@ -187,9 +165,6 @@ export const FLAG_COST_KNOWLEDGE: Record<FlagTarget, number> = {
 export const FLAG_CORE_MIN_PRESENCE = 2
 /** 깃발 하나에 드는 토큰. */
 export const FLAG_TOKEN_COST = 1
-
-/** 소유가 바뀌면 건물이 내려가는 단계. 1단계는 무너진다. */
-export const CAPTURE_BUILDING_DOWNGRADE = 1
 
 // ── 표 ──────────────────────────────────────────────────────────
 
@@ -260,9 +235,6 @@ export const ROLE_TITLE_LABEL: Record<RoleTitle, string> = {
   athleticDirector: '체육부장',
 }
 
-/** 총무가 건설·개조에서 깎아 주는 돈. */
-export const TREASURER_BUILD_DISCOUNT = 1
-
 // ── 그 밖의 행동 ────────────────────────────────────────────────
 
 /** 생산 한 번에 얻는 돈. */
@@ -279,26 +251,22 @@ export const SABOTAGE_KNOWLEDGE = 2
 
 // ── 견제 ────────────────────────────────────────────────────────
 
-export type SabotageKind = 'expandCostUp' | 'productionDown' | 'tradeBlocked'
+// **생산 감소는 없앴다.** 깎을 것이 건물 생산뿐이었는데 건물이
+// 없어졌다. 아무 일도 안 하는 견제를 목록에 남겨 두면, 낸 지식만
+// 날리고 왜 아무 일도 없는지는 어디에도 안 나온다
+export type SabotageKind = 'expandCostUp' | 'tradeBlocked'
 
 export const SABOTAGE_LABEL: Record<SabotageKind, string> = {
   expandCostUp: '확장 비용 증가',
-  productionDown: '생산 감소',
   tradeBlocked: '교역 차단',
 }
 
 /** 상대 깃발 성공 비용에 더 붙는 돈. */
 export const SABOTAGE_EXTRA_FLAG_MONEY = 2
-/** 생산 감소가 곱하는 값. */
-export const SABOTAGE_PRODUCTION_FACTOR = 0.5
 
-/**
- * 지속. 실제 시계 기준이다. productionDown만 시간이 아니라
- * "다음 정산 한 번"이라 따로 표시한다.
- */
-export const SABOTAGE_REAL_HOURS: Record<SabotageKind, number | 'nextSettlement'> = {
+/** 지속. 실제 시계 기준이다. */
+export const SABOTAGE_REAL_HOURS: Record<SabotageKind, number> = {
   expandCostUp: 24,
-  productionDown: 'nextSettlement',
   tradeBlocked: 12,
 }
 
@@ -314,50 +282,11 @@ export const ALLIANCE_BREAK_LOCK_REAL_HOURS = 12
 /** 이날 08:00에 모든 동맹이 풀린다. */
 export const ALLIANCE_CLEAR_DAY = 4
 
-// ── 건물 ────────────────────────────────────────────────────────
-
-export type BuildingKind =
-  | 'shop' | 'store' | 'archive' | 'lab'
-  | 'security' | 'barricade' | 'controlRoom'
-  | 'observatory' | 'broadcast' | 'hideout'
-
-export interface BuildingSpec {
-  kind: BuildingKind
-  name: string
-  cost: Partial<Record<Resource, number>>
-  /** 칸 가치에 더해지는 값. 개조해도 늘지 않는다. */
-  value: number
-  /** 21:00 정산 때 나오는 자원. 개조하면 두 배. */
-  produces: Partial<Record<Resource, number>>
-  /** 방어 1당 이 칸을 뺏는 깃발이 30분 길어진다. 개조하면 두 배. */
-  defense: number
-}
-
-export const BUILDINGS: readonly BuildingSpec[] = [
-  { kind: 'shop', name: '매점', cost: { money: 2 }, value: 1, produces: { money: 2 }, defense: 0 },
-  { kind: 'store', name: '상점', cost: { money: 4 }, value: 2, produces: { money: 3 }, defense: 0 },
-  { kind: 'archive', name: '서고', cost: { money: 2 }, value: 1, produces: { knowledge: 2 }, defense: 0 },
-  { kind: 'lab', name: '연구실', cost: { knowledge: 3 }, value: 2, produces: { knowledge: 3 }, defense: 0 },
-  { kind: 'security', name: '경비실', cost: { money: 2 }, value: 1, produces: {}, defense: 1 },
-  { kind: 'barricade', name: '바리케이드', cost: { money: 3, knowledge: 1 }, value: 1, produces: {}, defense: 2 },
-  { kind: 'controlRoom', name: '통제실', cost: { knowledge: 3 }, value: 2, produces: {}, defense: 3 },
-  { kind: 'observatory', name: '관측소', cost: { money: 2, knowledge: 1 }, value: 1, produces: {}, defense: 0 },
-  { kind: 'broadcast', name: '방송국', cost: { money: 3, knowledge: 2 }, value: 3, produces: {}, defense: 0 },
-  { kind: 'hideout', name: '비밀기지', cost: { money: 3, knowledge: 1 }, value: 2, produces: {}, defense: 1 },
-]
-
-export const BUILDING_BY_KIND: Record<BuildingKind, BuildingSpec> = Object.fromEntries(
-  BUILDINGS.map((b) => [b.kind, b]),
-) as Record<BuildingKind, BuildingSpec>
-
-/** 건물은 1·2단계가 전부다. */
-export const BUILDING_MAX_LEVEL = 2
-
 // ── 카드 ────────────────────────────────────────────────────────
 
 export type CardKind =
   | 'forcedMarch' | 'ambush'
-  | 'quickBuild' | 'reinforce'
+  | 'reinforce'
   | 'windfall' | 'cramming'
   | 'falseRumor' | 'blockade'
   | 'secretLetter' | 'accord'
@@ -366,7 +295,7 @@ export type CardKind =
 export interface CardSpec {
   kind: CardKind
   name: string
-  group: '확장' | '건설' | '생산' | '견제' | '외교' | '특수'
+  group: '확장' | '방어' | '생산' | '견제' | '외교' | '특수'
   text: string
   /** 대상 팀을 골라야 하는가. */
   needsTeam?: boolean
@@ -379,8 +308,7 @@ export interface CardSpec {
 export const CARDS: readonly CardSpec[] = [
   { kind: 'forcedMarch', name: '강행군', group: '확장', text: '우리 말 하나의 다음 이동이 즉시 끝난다(최대 두 칸).', needsPawn: true },
   { kind: 'ambush', name: '기습', group: '확장', text: '다음에 꽂는 깃발 하나의 시간이 절반.' },
-  { kind: 'quickBuild', name: '급조', group: '건설', text: '건물 하나를 토큰 없이 비용 절반(버림)으로 짓는다.', needsTile: true },
-  { kind: 'reinforce', name: '보강', group: '건설', text: '우리 칸 하나의 방어 +2, 24시간.', needsTile: true },
+  { kind: 'reinforce', name: '보강', group: '방어', text: '우리 칸 하나의 방어 +2, 24시간.', needsTile: true },
   { kind: 'windfall', name: '특별 매출', group: '생산', text: '돈 +4.' },
   { kind: 'cramming', name: '벼락치기', group: '생산', text: '지식 +4.' },
   { kind: 'falseRumor', name: '헛소문', group: '견제', text: '대상 팀 돈 −2.', needsTeam: true },
@@ -415,7 +343,7 @@ export const CARD_QUICK_BUILD_COST_FACTOR = 0.5
 export type GoalKind =
   | 'gateGuard' | 'theMiddle' | 'twoHearts' | 'crossroadLord' | 'unbrokenPath'
   | 'fortress' | 'raider' | 'distantFriend' | 'noBetrayal' | 'everyonesTrust'
-  | 'tightLipped' | 'scholars' | 'architect' | 'broadcastClub' | 'moneyed' | 'rival'
+  | 'tightLipped' | 'scholars' | 'moneyed' | 'rival'
 
 export interface GoalSpec {
   kind: GoalKind
@@ -439,8 +367,6 @@ export const GOALS: readonly GoalSpec[] = [
   { kind: 'everyonesTrust', name: '모두의 신뢰', text: '다른 세 팀 모두에게서 신뢰표를 받았다', points: 5 },
   { kind: 'tightLipped', name: '입 무거운 반', text: '우리 팀 누구도 비밀을 털어놓지 않았다', points: 4 },
   { kind: 'scholars', name: '학구파', text: '연구 4단계 이상이다', points: 5 },
-  { kind: 'architect', name: '건축가', text: '2단계 건물이 세 개 이상이다', points: 5 },
-  { kind: 'broadcastClub', name: '방송부', text: '방송국과 비밀기지를 둘 다 가지고 있다', points: 4 },
   { kind: 'moneyed', name: '알부자', text: '돈이 15 이상 남아 있다', points: 4 },
   { kind: 'rival', name: '라이벌', text: '적힌 팀보다 영역 점수가 높다', points: 6, needsRivalTeam: true },
 ]
@@ -462,7 +388,6 @@ export const GOAL_THRESHOLD = {
   connection: 9,
   raidSuccesses: 3,
   researchTier: 4,
-  level2Buildings: 3,
   money: 15,
 } as const
 

@@ -6,7 +6,6 @@
 // 6점 안쪽이면 아직 아무것도 정해지지 않은 것이다 — 그래서 공개 점수와
 // 최종 점수를 다른 함수로 갈라 둔다. 섞이면 목표가 새어 나간다.
 import {
-  BUILDING_BY_KIND,
   GOAL_BY_KIND,
   GOAL_THRESHOLD,
   RESOURCES,
@@ -21,7 +20,7 @@ import {
 } from './v2'
 import { BASE_OF, TILE_BY_ID, areNeighborTeams, connectedSize, type TileId } from './board'
 import { tileValue, type Fragment } from './fragments'
-import type { TileState } from './buildings'
+import type { TileState } from './resources'
 
 /** 한 팀의 지금 모습. 점수를 내는 데 필요한 전부. */
 export interface TeamState {
@@ -54,12 +53,11 @@ export interface ScoreInput {
 const oursExcludingBase = (tiles: readonly TileState[], team: TeamId) =>
   tiles.filter((t) => t.ownerTeam === team && TILE_BY_ID[t.tileId].tier !== 'base')
 
-/** 가진 칸의 가치 합. 건물 보너스와 A의 기록 보너스를 포함한다. */
+/** 가진 칸의 가치 합. A의 기록 보너스를 포함한다. */
 export function territoryScore(input: ScoreInput): number {
   let total = 0
   for (const t of oursExcludingBase(input.tiles, input.team.team)) {
     total += tileValue(t.tileId, input.fragments)
-    for (const b of t.buildings) total += BUILDING_BY_KIND[b.kind].value
   }
   return total
 }
@@ -87,13 +85,15 @@ export function resourceScore(input: ScoreInput): number {
   return Math.floor(sum / SCORE_RESOURCE_DIVISOR)
 }
 
-/** 건물 단계의 합 + 연구 단계 × 2. */
+/**
+ * 연구 단계 × 2.
+ *
+ * **건물 단계는 빠졌다.** 건물을 걷어냈으니 발전은 연구뿐이다 —
+ * 이름은 그대로 둔다. 점수판의 한 줄이고, 바꾸면 지난 판의 기록과
+ * 말이 안 맞는다
+ */
 export function developmentScore(input: ScoreInput): number {
-  let levels = 0
-  for (const t of oursExcludingBase(input.tiles, input.team.team)) {
-    for (const b of t.buildings) levels += b.level
-  }
-  return levels + input.team.researchTier * SCORE_RESEARCH_MULTIPLIER
+  return input.team.researchTier * SCORE_RESEARCH_MULTIPLIER
 }
 
 // ── 비밀 목표 ───────────────────────────────────────────────────
@@ -102,12 +102,6 @@ function tilesOfTier(input: ScoreInput, tier: string): number {
   return oursExcludingBase(input.tiles, input.team.team).filter(
     (t) => TILE_BY_ID[t.tileId].tier === tier,
   ).length
-}
-
-function hasBuilding(input: ScoreInput, kind: 'broadcast' | 'hideout'): boolean {
-  return oursExcludingBase(input.tiles, input.team.team).some((t) =>
-    t.buildings.some((b) => b.kind === kind),
-  )
 }
 
 /**
@@ -146,15 +140,6 @@ export function goalAchieved(
       return !t.revealed
     case 'scholars':
       return t.researchTier >= GOAL_THRESHOLD.researchTier
-    case 'architect':
-      return (
-        oursExcludingBase(input.tiles, t.team).reduce(
-          (a, x) => a + x.buildings.filter((b) => b.level >= 2).length,
-          0,
-        ) >= GOAL_THRESHOLD.level2Buildings
-      )
-    case 'broadcastClub':
-      return hasBuilding(input, 'broadcast') && hasBuilding(input, 'hideout')
     case 'moneyed':
       return (t.resources.money ?? 0) >= GOAL_THRESHOLD.money
     case 'rival':
@@ -239,7 +224,9 @@ export function rankTeams(
 /**
  * 정산은 이 순서다. 순서를 바꾸면 답이 달라진다.
  *
- *   1. 건물 생산이 들어온다
+ *   1. 생산이 들어온다 — 건물을 걷어낸 뒤로는 들어오는 것이 없다.
+ *      자리는 남겨 둔다. 다른 수입이 생기면 여기다
+ *   2. 그날 받은 표를 센다
  *   3. 그 결과로 점수와 순위가 정해진다
  *   4. 1위는 주목, 꼴찌는 만회
  *

@@ -40,7 +40,6 @@ export interface WorldPawn extends PawnPosition {
 export interface WorldTile {
   tileId: TileId
   ownerTeam: TeamId | null
-  buildings: readonly { kind: string; level: number }[]
 }
 
 export interface WorldRoster {
@@ -322,17 +321,6 @@ function countRooms(
   return out
 }
 
-/** 관측소를 찾는다. 개조하면 사거리가 두 배다. */
-function observatoriesOf(tiles: readonly WorldTile[], team: TeamId) {
-  return tiles
-    .filter((t) => t.ownerTeam === team)
-    .flatMap((t) =>
-      t.buildings
-        .filter((b) => b.kind === 'observatory')
-        .map((b) => ({ tileId: t.tileId, level: b.level })),
-    )
-}
-
 /**
  * 한 사람 몫.
  *
@@ -394,7 +382,6 @@ export function projectView(world: World, viewerId: string): View {
   const visible = visibleTiles({
     ownedTiles: world.tiles.filter((t) => t.ownerTeam === team).map((t) => t.tileId),
     myPawnTiles,
-    observatories: observatoriesOf(world.tiles, team),
     intelOfficer: ours.some((p) => p.intelOfficer),
   })
 

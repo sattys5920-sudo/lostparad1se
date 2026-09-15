@@ -202,7 +202,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   // 칸 — 기지와 1구역 두 칸을 쥐고 시작한다
   for (const tile of TILES) {
     const owner = TEAMS.find((t) => startingTiles(t).includes(tile.id)) ?? null
-    batch.set(ref.collection('tiles').doc(tile.id), { ownerTeam: owner, buildings: [] })
+    batch.set(ref.collection('tiles').doc(tile.id), { ownerTeam: owner })
   }
 
   // 말은 모두 2-3 교실에 서 있다. 직책은 팀 안에서 순서대로

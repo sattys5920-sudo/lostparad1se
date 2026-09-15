@@ -31,7 +31,7 @@ export function flagTargetOf(tileId: TileId, ownerTeam: TeamId | null): FlagTarg
 
 export interface DurationInput {
   target: FlagTarget
-  /** 그 칸의 방어 합. 건물 단계와 보강 카드까지 더한 값. */
+  /** 그 칸의 방어. 지금은 보강 카드뿐이다. */
   defense: number
   /** 그 칸 주인이 주목받는 팀인가. 남의 칸일 때만 값이 내려간다. */
   ownerSpotlighted: boolean

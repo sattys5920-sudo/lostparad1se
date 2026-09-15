@@ -10,7 +10,7 @@ import {
   type Resource,
   type TeamId,
 } from './v2'
-import { canPay, type Bag } from './buildings'
+import { canPay, type Bag } from './resources'
 
 const HOUR_MS = 3_600_000
 

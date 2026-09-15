@@ -13,7 +13,6 @@
 // 안개·익명 표·비밀 목표·손패·등교 예약·가짜 깃발 여부·잠복은 전부
 // secret에 있고, 각자에게 보여도 되는 만큼만 views에 복사된다.
 import type {
-  BuildingKind,
   CardKind,
   GoalKind,
   Resource,
@@ -122,7 +121,6 @@ export interface GameDoc {
 /** games/{gameId}/tiles/{tileId} — 주인은 숨길 것이 없다. */
 export interface TileDoc {
   ownerTeam: TeamId | null
-  buildings: { kind: BuildingKind; level: number }[]
   /** 보강 카드로 붙은 임시 방어. 실제 시계 기준. */
   reinforcedUntilRealMs?: number
   reinforcedBy?: number

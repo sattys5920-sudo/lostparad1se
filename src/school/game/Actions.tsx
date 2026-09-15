@@ -8,7 +8,7 @@ import { useState, type ReactNode } from 'react'
 
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
-import { BUILDINGS, SABOTAGE_LABEL, type BuildingKind, type SabotageKind } from '../../../shared/rules/v2'
+import { SABOTAGE_LABEL, type SabotageKind } from '../../../shared/rules/v2'
 import type { GameActions } from './useGame'
 
 export interface ActionsProps {
@@ -74,7 +74,7 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
 
 export function Actions({ tileId, where, act, onSaid, onClose, children }: ActionsProps) {
   const { busy, run } = useRun(onSaid)
-  const [open, setOpen] = useState<'build' | 'sabotage' | null>(null)
+  const [open, setOpen] = useState<'sabotage' | null>(null)
   const spec = TILE_BY_ID[tileId]
 
   return (
@@ -110,37 +110,10 @@ export function Actions({ tileId, where, act, onSaid, onClose, children }: Actio
       </div>
 
       <div className="sc-ac__row">
-        <button disabled={busy} onClick={() => setOpen(open === 'build' ? null : 'build')}>
-          짓기
-        </button>
         <button disabled={busy} onClick={() => setOpen(open === 'sabotage' ? null : 'sabotage')}>
           견제
         </button>
       </div>
-
-      {open === 'build' && (
-        <ul className="sc-ac__menu">
-          {BUILDINGS.map((b) => (
-            <li key={b.kind}>
-              <button disabled={busy} onClick={() => run(b.name, () => act.build(tileId, b.kind as BuildingKind))}>
-                {b.name}
-                <span>
-                  {Object.entries(b.cost)
-                    .map(([r, n]) => `${r === 'money' ? '돈' : r === 'knowledge' ? '지식' : '영향력'} ${n}`)
-                    .join(' · ')}
-                </span>
-              </button>
-              <button
-                className="sc-ac__up"
-                disabled={busy}
-                onClick={() => run(`${b.name} 개조`, () => act.upgrade(tileId, b.kind as BuildingKind))}
-              >
-                개조
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
 
       {open === 'sabotage' && (
         <ul className="sc-ac__menu">

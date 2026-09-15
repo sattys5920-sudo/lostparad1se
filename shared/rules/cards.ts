@@ -24,7 +24,7 @@ import {
 } from './v2'
 import { addActiveSeconds } from './clock'
 import type { TileId } from './board'
-import type { Bag } from './buildings'
+import type { Bag } from './resources'
 
 const HOUR_MS = 3_600_000
 
@@ -71,7 +71,7 @@ export interface CardEffect {
   /** 말에 붙는 것. */
   pawn?: { playerId: string; hiddenUntilMs?: number; jumpTiles?: number }
   /** 다음 한 번만 걸리는 표시. */
-  pending?: 'ambush' | 'quickBuild' | 'accord'
+  pending?: 'ambush' | 'accord'
   /** 비밀 대화방이 열리는 시각(실제 시계). */
   roomUntilRealMs?: number
   /** 가짜 깃발인가. 이 사실은 secret/에만 적는다. */
@@ -154,8 +154,6 @@ export function cardEffect(input: PlayInput): CardEffect {
       return { kind: k, fakeFlag: true, tile: input.targetTile ? { tileId: input.targetTile } : undefined }
     case 'ambush':
       return { kind: k, pending: 'ambush' }
-    case 'quickBuild':
-      return { kind: k, pending: 'quickBuild' }
     case 'accord':
       return { kind: k, pending: 'accord' }
   }

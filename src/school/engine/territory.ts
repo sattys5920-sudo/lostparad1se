@@ -1,12 +1,10 @@
 import { ADJACENCY, CORE_INFLUENCE_COST, TILES, tileById } from '../data/tiles'
 import { TEAMS, teamById } from '../data/teams'
-import { BUILDINGS, buildingByKind } from '../data/buildings'
 import { CARDS } from '../data/cards'
 import { fragmentByDay } from '../data/fragments'
 import { FRAGMENT_TILE_BONUS, VOTE_INFLUENCE } from '../types'
 import type {
   AllianceEntry,
-  BuildingKind,
   CardKind,
   LeverageToken,
   ResourceBundle,
@@ -58,10 +56,6 @@ function subtractResources(a: ResourceBundle, cost: Partial<ResourceBundle>): Re
 
 function isBaseTile(tileId: TileId): boolean {
   return tileById[tileId].homeOf !== null
-}
-
-function teamHasBuilding(state: TerritoryState, team: TeamId, kind: BuildingKind): boolean {
-  return Object.values(state.tiles).some((t) => t.ownerTeam === team && t.buildings.some((b) => b.kind === kind))
 }
 
 /**
@@ -130,7 +124,7 @@ export function assignTeams(playerIds: string[]): Record<string, TeamId> {
 export function initialTerritoryState(): TerritoryState {
   const tiles: Record<TileId, TileState> = {} as Record<TileId, TileState>
   for (const t of TILES) {
-    tiles[t.id] = { id: t.id, ownerTeam: t.homeOf, buildings: [] }
+    tiles[t.id] = { id: t.id, ownerTeam: t.homeOf }
   }
   const teams: Record<TeamId, TeamState> = {} as Record<TeamId, TeamState>
   for (const t of TEAMS) {
@@ -163,8 +157,7 @@ function fragmentBonusFor(state: TerritoryState, tileId: TileId): number {
 
 export function tileValue(state: TerritoryState, tileId: TileId): number {
   const spec = tileById[tileId]
-  const built = state.tiles[tileId].buildings.reduce((sum, b) => sum + buildingByKind[b.kind].valueBonus * b.level, 0)
-  return spec.baseValue + built + fragmentBonusFor(state, tileId)
+  return spec.baseValue + fragmentBonusFor(state, tileId)
 }
 
 export function ownedTiles(state: TerritoryState, team: TeamId): TileId[] {
@@ -258,74 +251,7 @@ export function performExpand(
   const next = clone(state)
   next.teams[team].resources = subtractResources(teamState.resources, cost)
   next.tiles[targetTileId].ownerTeam = team
-  pushLog(next, day, 'expand', team, playerId, targetTileId, null, null)
-  return next
-}
-
-export function canBuild(
-  state: TerritoryState,
-  team: TeamId,
-  tileId: TileId,
-  kind: BuildingKind,
-): { ok: true } | { ok: false; reason: string } {
-  const tile = state.tiles[tileId]
-  const spec = tileById[tileId]
-  if (!tile || tile.ownerTeam !== team) return { ok: false, reason: '우리 팀 영역이 아니다.' }
-  if (isBaseTile(tileId)) return { ok: false, reason: '기지에는 건물을 지을 수 없다.' }
-  if (tile.buildings.length >= spec.buildingSlots) return { ok: false, reason: '건물 슬롯이 가득 찼다.' }
-  if (tile.buildings.some((b) => b.kind === kind)) return { ok: false, reason: '이미 같은 건물이 있다.' }
-  return { ok: true }
-}
-
-export function performBuild(
-  state: TerritoryState,
-  day: number,
-  team: TeamId,
-  playerId: string,
-  tileId: TileId,
-  kind: BuildingKind,
-  standing: Standing,
-): TerritoryState {
-  assertFreeToAct(state, day, playerId)
-  assertStandingIn(standing, tileId, '지을 수 있다')
-  const check = canBuild(state, team, tileId, kind)
-  if (!check.ok) throw new Error(check.reason)
-  const spec = buildingByKind[kind]
-  const teamState = state.teams[team]
-  if (!canAfford(teamState.resources, spec.cost)) throw new Error('자원이 부족하다.')
-
-  const next = clone(state)
-  next.teams[team].resources = subtractResources(teamState.resources, spec.cost)
-  next.tiles[tileId].buildings.push({ kind, level: 1 })
-  pushLog(next, day, 'build', team, playerId, tileId, kind, spec.name)
-  return next
-}
-
-export function performUpgrade(
-  state: TerritoryState,
-  day: number,
-  team: TeamId,
-  playerId: string,
-  tileId: TileId,
-  kind: BuildingKind,
-  standing: Standing,
-): TerritoryState {
-  assertFreeToAct(state, day, playerId)
-  assertStandingIn(standing, tileId, '손볼 수 있다')
-  const tile = state.tiles[tileId]
-  if (!tile || tile.ownerTeam !== team) throw new Error('우리 팀 영역이 아니다.')
-  const building = tile.buildings.find((b) => b.kind === kind)
-  if (!building) throw new Error('그 건물이 없다.')
-  if (building.level >= 2) throw new Error('이미 최고 단계다.')
-  const spec = buildingByKind[kind]
-  const teamState = state.teams[team]
-  if (!canAfford(teamState.resources, spec.cost)) throw new Error('자원이 부족하다.')
-
-  const next = clone(state)
-  next.teams[team].resources = subtractResources(teamState.resources, spec.cost)
-  const nextBuilding = next.tiles[tileId].buildings.find((b) => b.kind === kind)
-  if (nextBuilding) nextBuilding.level = 2
-  pushLog(next, day, 'upgrade', team, playerId, tileId, kind, spec.name)
+  pushLog(next, day, 'expand', team, playerId, targetTileId, null)
   return next
 }
 
@@ -351,7 +277,7 @@ export function performResearch(
   next.teams[team].researchTier += 1
   const drawn = randomCardKind()
   next.teams[team].hand.push({ id: crypto.randomUUID(), kind: drawn, drawnDay: day })
-  pushLog(next, day, 'research', team, playerId, null, null, `카드 획득: ${cardName(drawn)}`)
+  pushLog(next, day, 'research', team, playerId, null, `카드 획득: ${cardName(drawn)}`)
   return next
 }
 
@@ -374,7 +300,7 @@ export function performExplore(
   const next = clone(state)
   next.teams[team].resources = subtractResources(teamState.resources, cost)
   next.teams[team].resources = addResources(next.teams[team].resources, { [bonusKey]: 2 })
-  pushLog(next, day, 'explore', team, playerId, null, null, `발견: ${RESOURCE_LABEL[bonusKey]} +2`)
+  pushLog(next, day, 'explore', team, playerId, null, `발견: ${RESOURCE_LABEL[bonusKey]} +2`)
   return next
 }
 
@@ -394,7 +320,7 @@ export function performProduce(
   const next = clone(state)
   next.teams[team].resources = subtractResources(teamState.resources, cost)
   next.teams[team].resources = addResources(next.teams[team].resources, { money: 2, food: 2 })
-  pushLog(next, day, 'produce', team, playerId, null, null, '돈 +2, 식량 +2')
+  pushLog(next, day, 'produce', team, playerId, null, '돈 +2, 식량 +2')
   return next
 }
 
@@ -426,7 +352,7 @@ export function performSabotage(
     expiresAfterDay: day + (kind === 'tradeBlocked' ? 1 : 2),
     createdAtMs: Date.now(),
   })
-  pushLog(next, day, 'sabotage', team, playerId, null, null, `${teamById[targetTeam].name} 대상 · ${kind}`)
+  pushLog(next, day, 'sabotage', team, playerId, null, `${teamById[targetTeam].name} 대상 · ${kind}`)
   return next
 }
 
@@ -442,12 +368,9 @@ export function fragmentImplicates(state: TerritoryState, day: number, roleId: R
 export function voteInfluenceDelta(
   state: TerritoryState,
   vote: VoteEntry,
-  targetTeam: TeamId,
   targetRoleId: RoleId | null,
 ): number {
   let delta = VOTE_INFLUENCE[vote.category]
-  if (delta > 0 && teamHasBuilding(state, targetTeam, 'broadcastStation')) delta += 1
-  if (delta < 0 && teamHasBuilding(state, targetTeam, 'hideout')) delta += 1
   // A의 기록이 가리킨 역할을 정확히 짚어 의심했다면 타격이 두 배가 된다.
   if (vote.category === 'suspicion' && targetRoleId && fragmentImplicates(state, vote.day, targetRoleId)) {
     delta *= 2
@@ -467,7 +390,7 @@ export function applyVote(
 ): TerritoryState {
   if (voterTeam === targetTeam) throw new Error('같은 팀에는 표를 줄 수 없다.')
   const next = clone(state)
-  const delta = voteInfluenceDelta(next, vote, targetTeam, targetRoleId)
+  const delta = voteInfluenceDelta(next, vote, targetRoleId)
   next.teams[targetTeam].resources.influence = Math.max(0, next.teams[targetTeam].resources.influence + delta)
   if (vote.category === 'suspicion') {
     next.teams[voterTeam].resources.influence = Math.max(
@@ -553,7 +476,7 @@ export function spendLeverage(
     next.teams[targetTeam].resources.influence -= taken
     next.teams[holderTeam].resources.influence += taken
   }
-  pushLog(next, day, 'sabotage', holderTeam, holderId, null, null, mode === 'block' ? '약점으로 발을 묶었다' : '약점으로 영향력을 뜯었다')
+  pushLog(next, day, 'sabotage', holderTeam, holderId, null, mode === 'block' ? '약점으로 발을 묶었다' : '약점으로 영향력을 뜯었다')
   return next
 }
 
@@ -673,12 +596,6 @@ function cardEffect(kind: CardKind): Partial<ResourceBundle> | null {
       return { knowledge: 2 }
     case 'detour':
       return { actionPoints: 1 }
-    case 'buildDiscount':
-      return { money: 2 }
-    case 'instantBuild':
-      return { actionPoints: 2 }
-    case 'buildingBoost':
-      return { knowledge: 1, culture: 1 }
     case 'bonusProduction':
       return { money: 2, food: 2, knowledge: 1, culture: 1 }
     case 'doubleResource':
@@ -746,27 +663,21 @@ export function playCard(
     if (effect) next.teams[team].resources = addResources(next.teams[team].resources, effect)
   }
 
-  pushLog(next, day, 'research', team, playerId, null, null, `카드 사용: ${cardName(card.kind)}`)
+  pushLog(next, day, 'research', team, playerId, null, `카드 사용: ${cardName(card.kind)}`)
   return next
 }
 
-/** 하루가 끝날 때: 건물 생산 정산, 행동력 재충전, 만료된 견제·족쇄 정리. */
+/** 하루가 끝날 때: 행동력 재충전, 만료된 견제·족쇄 정리. */
 export function dailyRollover(state: TerritoryState, endingDay: number): TerritoryState {
   const next = clone(state)
   for (const team of TEAMS) {
     const owned = ownedTiles(next, team.id)
     const multiplier = maintenanceMultiplier(owned.length)
     const debuffed = activeSabotage(next, team.id, 'productionDown')
-    let gross: ResourceBundle = { ...ZERO }
-    for (const tileId of owned) {
-      for (const b of next.tiles[tileId].buildings) {
-        const spec = buildingByKind[b.kind]
-        const scaled = Object.fromEntries(
-          Object.entries(spec.produces).map(([k, v]) => [k, (v ?? 0) * b.level]),
-        ) as Partial<ResourceBundle>
-        gross = addResources(gross, scaled)
-      }
-    }
+    // **건물 생산은 없어졌다.** 정산에 들어오던 것이 건물뿐이라
+    // 여기서 나오는 것은 이제 없다. 배율과 견제는 그대로 둔다 —
+    // 다른 수입이 생기면 그때 다시 곱하면 된다
+    const gross: ResourceBundle = { ...ZERO }
     const factor = multiplier * (debuffed ? 0.5 : 1)
     const net = Object.fromEntries(
       Object.entries(gross).map(([k, v]) => [k, Math.floor((v as number) * factor)]),
@@ -788,9 +699,7 @@ export function scoreTeam(state: TerritoryState, team: TeamId): TeamScoreBreakdo
   const core = owned.filter((id) => tileById[id].isCore).length * 3
   const r = state.teams[team].resources
   const resource = Math.floor((r.money + r.food + r.knowledge + r.culture + r.influence) / 5)
-  const development =
-    owned.reduce((sum, id) => sum + state.tiles[id].buildings.reduce((s, b) => s + b.level, 0), 0) +
-    state.teams[team].researchTier * 2
+  const development = state.teams[team].researchTier * 2
   return {
     territory,
     connection,
@@ -814,7 +723,6 @@ function pushLog(
   team: TeamId,
   playerId: string,
   tileId: TileId | null,
-  buildingKind: BuildingKind | null,
   detail: string | null,
 ): void {
   state.actionLog.push({
@@ -824,7 +732,6 @@ function pushLog(
     team,
     playerId,
     tileId,
-    buildingKind,
     detail,
     createdAtMs: Date.now(),
   })
@@ -838,4 +745,4 @@ export function hasPlayerActedToday(state: TerritoryState, day: number, playerId
   return actionsUsedToday(state, day, playerId) >= MAX_ACTIONS_PER_PLAYER
 }
 
-export { CORE_INFLUENCE_COST, BUILDINGS }
+export { CORE_INFLUENCE_COST }

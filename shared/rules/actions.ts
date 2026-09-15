@@ -18,7 +18,7 @@ import {
   type TeamId,
 } from './v2'
 import { ADJACENCY, TILE_BY_ID, type TileId } from './board'
-import { canPay, type Bag, type TileState } from './buildings'
+import { canPay, type Bag, type TileState } from './resources'
 
 export type ActionKind = 'flag' | 'build' | 'research' | 'scout' | 'sabotage' | 'produce'
 

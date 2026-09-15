@@ -41,8 +41,6 @@
 }
 
 .sc-bd__value b { color: #9a7318; font-weight: 700; }
-.sc-bd__built { font-size: 8px; color: var(--sc-text-dim); letter-spacing: 0.05em; }
-
 /* 안개. 이름만 남기고 나머지는 받지 않았다 */
 /* 안개. 어두운 판에서는 덮어서 감췄는데, 밝은 판에서는 비워서
    감춘다 — 이름만 흐리게 남고 나머지는 아예 오지 않았다 */

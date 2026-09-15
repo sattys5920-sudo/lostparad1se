@@ -4,11 +4,10 @@ import './ActionSheet.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
 import { TILES, tileById } from '../data/tiles'
 import { TEAMS, teamById } from '../data/teams'
-import { BUILDING_CATEGORY_LABEL, BUILDINGS, buildingByKind } from '../data/buildings'
 import { cardByKind, TARGETED_CARDS } from '../data/cards'
 import { fragmentByDay } from '../data/fragments'
 import { canExpand, expandCost, finalScores, RESOURCE_LABEL, tileValue } from '../engine/territory'
-import type { BuildingKind, ResourceBundle, SabotageEffectKind, TeamId, TileId } from '../types'
+import type { ResourceBundle, SabotageEffectKind, TeamId, TileId } from '../types'
 
 const RESOURCE_KEYS: (keyof ResourceBundle)[] = ['money', 'food', 'knowledge', 'culture', 'influence', 'actionPoints']
 
@@ -41,8 +40,6 @@ export function TerritoryScreen() {
     hasActedToday,
     myRoomId,
     doExpand,
-    doBuild,
-    doUpgrade,
     doResearch,
     doExplore,
     doProduce,
@@ -161,11 +158,6 @@ export function TerritoryScreen() {
                     </span>
                   ) : (
                     <span className="sc-terr__neutral">중립</span>
-                  )}
-                  {tileState.buildings.length > 0 && (
-                    <span className="sc-terr__buildings">
-                      {tileState.buildings.map((b) => `${buildingByKind[b.kind].name} Lv.${b.level}`).join(', ')}
-                    </span>
                   )}
                 </span>
               </button>
@@ -293,8 +285,6 @@ export function TerritoryScreen() {
           busy={busy}
           onClose={() => setOpenTile(null)}
           onExpand={() => run(() => doExpand(openTile))}
-          onBuild={(kind) => run(() => doBuild(openTile, kind))}
-          onUpgrade={(kind) => run(() => doUpgrade(openTile, kind))}
         />
       )}
     </div>
@@ -309,8 +299,6 @@ function TileSheet({
   busy,
   onClose,
   onExpand,
-  onBuild,
-  onUpgrade,
 }: {
   tileId: TileId
   myTeamId: TeamId | null
@@ -320,8 +308,6 @@ function TileSheet({
   busy: boolean
   onClose: () => void
   onExpand: () => void
-  onBuild: (kind: BuildingKind) => void
-  onUpgrade: (kind: BuildingKind) => void
 }) {
   const spec = tileById[tileId]
   const tileState = territory.tiles[tileId]
@@ -363,41 +349,6 @@ function TileSheet({
             </div>
           )}
 
-          {isMine && (
-            <div className="sc-sheet__form">
-              <span className="sc-sheet__rumors-label">
-                건물 슬롯 {tileState.buildings.length}/{spec.buildingSlots}
-              </span>
-              {!standingHere && <p className="sc-terr__hint">「학교」에서 {spec.name}에 가 있어야 손댈 수 있다.</p>}
-              {tileState.buildings.map((b) => {
-                const bSpec = buildingByKind[b.kind]
-                return (
-                  <div key={b.kind} className="sc-terr__building-row">
-                    <span>
-                      {bSpec.name} Lv.{b.level}
-                    </span>
-                    {b.level < 2 && (
-                      <button disabled={busy || !standingHere} onClick={() => onUpgrade(b.kind)}>
-                        업그레이드 · {costLine(bSpec.cost)}
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-              {tileState.buildings.length < spec.buildingSlots && (
-                <div className="sc-terr__build-grid">
-                  {BUILDINGS.filter((b) => !tileState.buildings.some((built) => built.kind === b.kind)).map((b) => (
-                    <button key={b.kind} disabled={busy || !standingHere} onClick={() => onBuild(b.kind)}>
-                      <span className="sc-sheet__option-label">
-                        {b.name} · {BUILDING_CATEGORY_LABEL[b.category]}
-                      </span>
-                      <span className="sc-sheet__option-desc">{costLine(b.cost)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

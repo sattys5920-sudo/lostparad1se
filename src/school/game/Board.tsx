@@ -1,14 +1,14 @@
 // 5×5 판.
 //
 // 안개 밖 칸은 **어둡게 덮는다.** 서버가 visibleTiles에 담아 준 것만
-// 밝다. 거기 없는 칸의 주인도 건물도 화면은 모른다 — 가리는 것이 아니라
+// 밝다. 거기 없는 칸의 주인을 화면은 모른다 — 가리는 것이 아니라
 // 받지 않은 것이다.
 //
 // 말도 같다. visiblePawns에 있는 것만 그린다.
 import { useMemo } from 'react'
 
 import { TILES, type TileId } from '../../../shared/rules/board'
-import { BUILDING_BY_KIND, type TeamId } from '../../../shared/rules/v2'
+import type { TeamId } from '../../../shared/rules/v2'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 import './board.css'
 
@@ -71,11 +71,6 @@ export function Board(props: BoardProps) {
                   {t.value}
                   {boosted && <b>+</b>}
                 </span>
-                {(tile?.buildings ?? []).length > 0 && (
-                  <span className="sc-bd__built">
-                    {(tile?.buildings ?? []).map((b) => BUILDING_BY_KIND[b.kind]?.name.slice(0, 1)).join('')}
-                  </span>
-                )}
               </>
             )}
             {here.length > 0 && (

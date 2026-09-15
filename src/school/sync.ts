@@ -24,13 +24,11 @@ import {
   dailyRollover,
   grantLeverage,
   initialTerritoryState,
-  performBuild,
   performExpand,
   performExplore,
   performProduce,
   performResearch,
   performSabotage,
-  performUpgrade,
   playCard,
   proposeAlliance,
   proposeTrade,
@@ -44,7 +42,6 @@ import type { Standing } from './engine/territory'
 import type {
   ActionLogEntry,
   AvatarLook,
-  BuildingKind,
   ChatMessage,
   DmThread,
   GamePhase,
@@ -356,7 +353,7 @@ export async function setSchoolPhase(phase: GamePhase): Promise<void> {
 
 /**
  * 다음 날로 넘어간다. 이미 진행 중이던 날(phase가 'day')에서 넘어가는 것이라면
- * 그 날의 건물 생산·행동력 재충전·만료된 견제와 족쇄 정리(dailyRollover)를 함께 처리한다.
+ * 행동력 재충전·만료된 견제와 족쇄 정리(dailyRollover)를 함께 처리한다.
  */
 export async function advanceSchoolDay(nextDay: number, eventCard: string | null): Promise<void> {
   await runTransaction(requireDb(), async (tx) => {
@@ -459,28 +456,6 @@ export async function territoryExpand(
   standing: Standing,
 ): Promise<void> {
   await runTerritoryAction((t) => performExpand(t, day, team, playerId, tileId, standing))
-}
-
-export async function territoryBuild(
-  day: number,
-  team: TeamId,
-  playerId: string,
-  tileId: TileId,
-  kind: BuildingKind,
-  standing: Standing,
-): Promise<void> {
-  await runTerritoryAction((t) => performBuild(t, day, team, playerId, tileId, kind, standing))
-}
-
-export async function territoryUpgrade(
-  day: number,
-  team: TeamId,
-  playerId: string,
-  tileId: TileId,
-  kind: BuildingKind,
-  standing: Standing,
-): Promise<void> {
-  await runTerritoryAction((t) => performUpgrade(t, day, team, playerId, tileId, kind, standing))
 }
 
 export async function territoryResearch(

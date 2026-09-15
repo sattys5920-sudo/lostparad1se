@@ -6,7 +6,7 @@ import { HttpsError } from 'firebase-functions/v2/https'
 import type { DocumentSnapshot } from 'firebase-admin/firestore'
 
 import { checkGate } from '../../shared/rules/actions'
-import type { TileState } from '../../shared/rules/buildings'
+import type { TileState } from '../../shared/rules/resources'
 import type { TileId } from '../../shared/rules/board'
 import type { GameDoc, PawnDoc, TileDoc } from '../../shared/model'
 import { catchUp } from './catchup'
@@ -29,7 +29,6 @@ export function tileStates(docs: readonly DocumentSnapshot[]): TileState[] {
     return {
       tileId: d.id as TileId,
       ownerTeam: t.ownerTeam,
-      buildings: t.buildings ?? [],
       ...(t.reinforcedBy ? { reinforced: t.reinforcedBy } : {}),
     }
   })

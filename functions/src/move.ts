@@ -13,7 +13,7 @@ import { arrivals, checkCommutePlan, planWalk, type Walk } from '../../shared/ru
 import { addActiveSeconds } from '../../shared/rules/clock'
 import { ACTION_TOKEN_COST, canPlantFlag, checkStand, ownerLookup } from '../../shared/rules/actions'
 import { flagDurationSec, flagTargetOf } from '../../shared/rules/flag'
-import { defenseOf, type TileState } from '../../shared/rules/buildings'
+import { defenseOf, type TileState } from '../../shared/rules/resources'
 import { spendToken } from '../../shared/rules/tokens'
 import { ATHLETIC_MOVE_FACTOR, type TeamId } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'

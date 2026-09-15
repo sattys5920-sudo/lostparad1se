@@ -6,7 +6,7 @@
 //
 // 걷는 말의 목적지는 어느 view에도 들어가지 않는다 — 본인 팀 것도.
 import { ADJACENCY, TILE_BY_ID, tileDistance, type TileId } from './board'
-import { INTEL_VISION_BONUS, OBSERVATORY_RANGE, VISION_RANGE, type TeamId } from './v2'
+import { INTEL_VISION_BONUS, VISION_RANGE, type TeamId } from './v2'
 
 /**
  * 잠복한 말을 같은 팀도 못 보는가.
@@ -48,8 +48,6 @@ export interface VisionInput {
   ownedTiles: Iterable<TileId>
   /** 우리 말이 선 칸. 걷는 중인 말은 다음 칸으로 넣는다. */
   myPawnTiles: Iterable<TileId>
-  /** 우리 관측소. 개조하면 사거리가 두 배다. */
-  observatories?: readonly { tileId: TileId; level: number }[]
   /** 정보부장이 있으면 말 시야가 한 겹 넓어진다. */
   intelOfficer?: boolean
 }
@@ -61,7 +59,7 @@ function spread(center: TileId, range: number, into: Set<TileId>): void {
     if (range >= 1) for (const n of ADJACENCY[center]) into.add(n)
     return
   }
-  // 두 칸 넘게 보는 것은 관측소뿐이다. 격자 거리로 잰다.
+  // 격자 거리로 잰다
   for (const id of Object.keys(ADJACENCY)) {
     if (tileDistance(center, id) <= range) into.add(id)
   }
@@ -72,7 +70,6 @@ function spread(center: TileId, range: number, into: Set<TileId>): void {
  *
  *   우리 칸은 늘 보인다
  *   우리 말이 선 칸과 그 이웃 (정보부장이 있으면 한 겹 더)
- *   관측소에서 두 칸 (개조하면 네 칸)
  */
 export function visibleTiles(input: VisionInput): Set<TileId> {
   const out = new Set<TileId>()
@@ -80,10 +77,6 @@ export function visibleTiles(input: VisionInput): Set<TileId> {
 
   const range = VISION_RANGE + (input.intelOfficer ? INTEL_VISION_BONUS : 0)
   for (const id of input.myPawnTiles) spread(id, range, out)
-
-  for (const obs of input.observatories ?? []) {
-    spread(obs.tileId, OBSERVATORY_RANGE * Math.max(1, obs.level), out)
-  }
   return out
 }
 

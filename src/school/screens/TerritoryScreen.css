@@ -165,11 +165,6 @@
 .sc-terr__neutral {
   color: var(--sc-text-dim);
 }
-
-.sc-terr__buildings {
-  color: var(--sc-text-dim);
-}
-
 .sc-terr__actions {
   display: flex;
   flex-direction: column;
@@ -359,45 +354,7 @@
   color: var(--sc-text-dim);
 }
 
-.sc-terr__building-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12.5px;
-  color: var(--sc-text-2);
-  padding: 6px 0;
-  border-bottom: 1px solid var(--sc-line);
-}
-
-.sc-terr__building-row button {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--sc-line-strong);
-  background: transparent;
-  font-size: 10.5px;
-  color: var(--sc-text-2);
-}
-
-.sc-terr__build-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.sc-terr__build-grid button {
-  text-align: left;
-  border: 1px solid var(--sc-line);
-  background: transparent;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 /* 그 자리에 서 있지 않으면 누를 수 없다 — 눌러 볼 수 없다는 게 보여야 한다. */
-.sc-terr__sabotage-row button:disabled,
-.sc-terr__build-grid button:disabled,
-.sc-terr__building-row button:disabled {
+.sc-terr__sabotage-row button:disabled {
   opacity: 0.35;
 }

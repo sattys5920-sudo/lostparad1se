@@ -4,7 +4,7 @@
 // 스물다섯 칸의 이웃 관계를 손으로 적으면 반드시 어딘가 틀리고, 틀려도
 // 한참 뒤에나 드러난다. 대신 규칙 원문이 말하는 구조(기지에서 중앙까지
 // 네 걸음, 관문마다 이웃 두 팀의 1구역, 90도 회전 대칭)를 시험으로 확인한다.
-import { GRID, SLOTS_BY_TIER, type TeamId, type Tier } from './v2'
+import { GRID, type TeamId, type Tier } from './v2'
 
 export type TileId = string
 
@@ -18,7 +18,6 @@ export interface TileSpec {
   tier: Tier
   /** 기지라면 어느 팀 것인가. */
   homeOf: TeamId | null
-  slots: number
 }
 
 /**
@@ -81,7 +80,6 @@ export const TILES: readonly TileSpec[] = LAYOUT.flatMap((rowCells, row) =>
     value,
     tier,
     homeOf,
-    slots: SLOTS_BY_TIER[tier],
   })),
 )
 

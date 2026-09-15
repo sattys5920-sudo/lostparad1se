@@ -11,10 +11,10 @@ import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 
 import { dueItems, type Due } from '../../shared/rules/catchup'
 import { accrueTokens, markComeback } from '../../shared/rules/tokens'
-import { dailyProduction, downgradeOnCapture, type TileState } from '../../shared/rules/buildings'
+import type { TileState } from '../../shared/rules/resources'
 import { flagCost, resolveFlag, type Standing } from '../../shared/rules/flag'
 import { openMemory, type MemoryOpened } from '../../shared/rules/memory'
-import { canPay, pay } from '../../shared/rules/buildings'
+import { canPay, pay } from '../../shared/rules/resources'
 import { releaseCommute } from '../../shared/rules/movement'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
@@ -212,19 +212,20 @@ async function settlement(c: Ctx): Promise<void> {
 
   const tiles: TileState[] = tileSnap.docs.map((d) => {
     const t = d.data() as TileDoc
-    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, buildings: t.buildings ?? [] }
+    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
   })
   const teamDocs = new Map(teamSnap.docs.map((d) => [d.id as TeamId, d.data() as TeamDoc]))
 
-  // 1. 건물 생산
+  // 1. 생산
+  //
+  // **여기서 나오던 것은 건물 생산뿐이었다.** 건물을 걷어냈으니
+  // 정산에서 금고에 붙는 것은 없다. 금고는 노동·탐색·카드·교역으로만
+  // 는다. 자리는 남겨 둔다 — 다른 수입이 생기면 여기로 들어온다
   const after = new Map<TeamId, Record<Resource, number>>()
   for (const team of TEAMS) {
     const doc = teamDocs.get(team)
     if (!doc) continue
-    const got = dailyProduction({ tiles, team })
-    const res = { ...doc.resources }
-    for (const [r, n] of Object.entries(got) as [Resource, number][]) res[r] += n
-    after.set(team, res)
+    after.set(team, { ...doc.resources })
   }
 
   // 2. 받은 표
@@ -443,7 +444,7 @@ async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> 
   let success = result.success
   const tiles = tileSnap.docs.map((d) => {
     const t = d.data() as TileDoc
-    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, buildings: t.buildings ?? [] }
+    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
   })
 
   // 성공했으면 그제야 값을 치른다
@@ -456,11 +457,7 @@ async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> 
       c.tx.update(ref.collection('teams').doc(team), { resources: pay(teamDoc.resources, cost) })
       const before = tiles.find((t) => t.tileId === tileId)
       const lost = before?.ownerTeam ?? null
-      c.tx.update(ref.collection('tiles').doc(tileId), {
-        ownerTeam: team,
-        // 뺏긴 칸의 건물은 한 단계 내려간다
-        buildings: downgradeOnCapture(before?.buildings ?? []),
-      })
+      c.tx.update(ref.collection('tiles').doc(tileId), { ownerTeam: team })
       c.tx.set(ref.collection('events').doc(), {
         atMs: c.atMs,
         day: c.day,

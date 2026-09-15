@@ -46,7 +46,7 @@ export interface Fragment {
   spotTile: TileId
 }
 
-/** 그 칸의 지금 가치. 기본값 + 기록 보너스. 건물은 점수 쪽에서 더한다. */
+/** 그 칸의 지금 가치. 기본값 + 기록 보너스. */
 export function tileValue(tileId: TileId, fragments: readonly Fragment[]): number {
   const bonus = fragments.filter((f) => f.spotTile === tileId).length * FRAGMENT_TILE_BONUS
   return TILE_BY_ID[tileId].value + bonus

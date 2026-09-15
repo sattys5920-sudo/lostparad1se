@@ -17,17 +17,7 @@ import {
   type TileId,
 } from '../rules/board'
 import { addActiveSeconds, dayNumber, secondsIntoSeoulDay, seoulTimeOn } from '../rules/clock'
-import {
-  build,
-  dailyProduction,
-  defenseOf,
-  downgradeOnCapture,
-  gain,
-  pay,
-  slotsOf,
-  type Placed,
-  type TileState,
-} from '../rules/buildings'
+import { defenseOf, gain, pay, type TileState } from '../rules/resources'
 import { canPlantFlag, ownerLookup, researchCost, scoutYield } from '../rules/actions'
 import { flagCost, flagDurationSec, flagTargetOf, halveRemaining, resolveFlag } from '../rules/flag'
 import { coreOpen, inLastHours } from '../rules/fragments'
@@ -37,7 +27,6 @@ import { reveal, type Leverage } from '../rules/leverage'
 import { acceptTrade, breakAlliance, canAlly, clearAlliances, type AllianceState } from '../rules/diplomacy'
 import { finalScore, publicScore, settle, territoryScore, type ScoreBreakdown, type TeamState } from '../rules/score'
 import {
-  BUILDINGS,
   DAY_START_HOUR,
   GOALS,
   GOALS_PER_TEAM,
@@ -47,7 +36,6 @@ import {
   TEAM_IDS,
   STARTING_TEAM_SIZES,
   TOTAL_DAYS,
-  type BuildingKind,
   type GoalKind,
   type Resource,
   type TeamId,
@@ -108,7 +96,6 @@ export interface SimResult {
   flagsSucceeded: number
   votesCast: number
   reveals: number
-  buildings: number
   /** 판이 멈추지 않고 끝까지 갔는가. */
   finished: boolean
 }
@@ -130,7 +117,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   // 판
   const tiles = new Map<TileId, TileState>()
   for (const id of TILE_IDS) {
-    tiles.set(id, { tileId: id, ownerTeam: TILE_BY_ID[id].homeOf, buildings: [] })
+    tiles.set(id, { tileId: id, ownerTeam: TILE_BY_ID[id].homeOf })
   }
   for (const team of TEAM_IDS) {
     for (const id of startingTiles(team)) {
@@ -191,7 +178,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
 
   let flagsPlanted = 0
   let flagsSucceeded = 0
-  let buildingsBuilt = 0
   let lastHoursApplied = false
 
   const owner = () => ownerLookup([...tiles.values()])
@@ -284,7 +270,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
           teams[f.team].raidSuccesses += 1
         }
         tile.ownerTeam = f.team
-        tile.buildings = downgradeOnCapture(tile.buildings)
         flagsSucceeded++
       }
       flagLog.push({
@@ -376,7 +361,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     flagsSucceeded,
     votesCast: votes.length,
     reveals: reveals.length,
-    buildings: buildingsBuilt,
     finished: true,
   }
 
@@ -461,22 +445,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       }
     }
 
-    // 건설
-    if (here.ownerTeam === p.team && here.buildings.length < slotsOf(p.tileId) && rnd() < 0.6) {
-      const kind = pick(BUILDINGS.map((b) => b.kind)) as BuildingKind
-      const out = build({ tile: here, team: p.team, kind, resources: team.resources })
-      if (out.ok) {
-        const spent = spendToken(team.tokens, p.id)
-        if (spent.ok) {
-          team.tokens = spent.state
-          team.resources = out.resources
-          here.buildings = [...here.buildings, { kind, level: 1 } as Placed]
-          buildingsBuilt++
-          return
-        }
-      }
-    }
-
     // 연구
     if (here.ownerTeam === p.team && rnd() < 0.15) {
       const cost = researchCost(team.researchTier)
@@ -545,15 +513,12 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       p.guardUntilMs = null
     }
 
-    // 걷는다 — 절반은 우리 땅으로 돌아가 짓고, 절반은 남의 땅을 노린다
+    // 걷는다 — 절반은 우리 땅으로 돌아가고, 절반은 남의 땅을 노린다
     if (p.path.length === 0 && rnd() < 0.4) {
       const goHome = rnd() < 0.4
       const wanted = goHome
         ? TILE_IDS.filter(
-            (id) =>
-              TILE_BY_ID[id].tier !== 'base' &&
-              look(id) === p.team &&
-              (tiles.get(id)?.buildings.length ?? 0) < slotsOf(id),
+            (id) => TILE_BY_ID[id].tier !== 'base' && look(id) === p.team,
           )
         : TILE_IDS.filter(
             (id) =>
@@ -577,12 +542,9 @@ export function simulateGame(seed: string, startMs: number): SimResult {
 
   // ── 21:00 ──
   function settlement(day: number): void {
-    // 1. 생산
-    for (const team of TEAM_IDS) {
-      const made = dailyProduction({ tiles: [...tiles.values()], team })
-      teams[team].resources = gain(teams[team].resources, made)
-    }
-    // 2. 표
+    // **생산은 없어졌다.** 21:00에 나오던 것은 건물 생산뿐이었다 —
+    // 이제 금고는 노동·탐색·카드·교역으로만 는다
+    // 1. 표
     const todays = votes.filter((v) => dayNumber(startMs, v.atMs) === day)
     // 표는 금고를 움직이지 않는다. 받은 장수만 세어 목표 판정에 쓴다
     tallyVotes({ votes: todays })
@@ -618,7 +580,7 @@ export interface SimReport {
   /** 역할마다 주 미션을 깬 비율. */
   mainRate: Record<string, number>
   bondRate: Record<string, number>
-  perGame: { flagsPlanted: number; flagsSucceeded: number; votes: number; reveals: number; buildings: number }
+  perGame: { flagsPlanted: number; flagsSucceeded: number; votes: number; reveals: number }
 }
 
 export function runGames(count: number, startMs: number, seedPrefix = 'sim'): SimReport {
@@ -631,7 +593,7 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
   const dist = Array.from({ length: 10 }, () => 0)
   const mainHit = new Map<string, { met: number; n: number }>()
   const bondHit = new Map<string, { met: number; n: number }>()
-  const sums = { flagsPlanted: 0, flagsSucceeded: 0, votes: 0, reveals: 0, buildings: 0 }
+  const sums = { flagsPlanted: 0, flagsSucceeded: 0, votes: 0, reveals: 0 }
 
   for (const r of results) {
     wins[r.winner] += 1
@@ -652,7 +614,6 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
     sums.flagsSucceeded += r.flagsSucceeded
     sums.votes += r.votesCast
     sums.reveals += r.reveals
-    sums.buildings += r.buildings
   }
 
   const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length)
@@ -671,7 +632,6 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
       flagsSucceeded: sums.flagsSucceeded / count,
       votes: sums.votes / count,
       reveals: sums.reveals / count,
-      buildings: sums.buildings / count,
     },
   }
 }

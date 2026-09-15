@@ -19,7 +19,6 @@ export const TILES: TileSpec[] = BOARD.map((t) => ({
   // 「핵심 지역」은 A의 기록이 열어 주기 전까지 잠긴 칸이다.
   // 규칙 쪽 등급으로는 core 와 plaza 가 그것이다
   isCore: t.tier === 'core' || t.tier === 'plaza',
-  buildingSlots: t.homeOf ? 0 : t.slots,
 }))
 
 export const tileById: Record<TileId, TileSpec> = Object.fromEntries(TILES.map((t) => [t.id, t])) as Record<

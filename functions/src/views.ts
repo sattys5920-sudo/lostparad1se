@@ -143,7 +143,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     }),
     tiles: tiles.docs.map((d) => {
       const t = d.data() as TileDoc
-      return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, buildings: t.buildings ?? [] }
+      return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
     }),
     roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: r.roleId, bondId: r.bondId })),
     hands: hands.docs.map((d) => {

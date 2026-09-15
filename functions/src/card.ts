@@ -11,7 +11,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { CARD_BY_KIND, HAND_LIMIT, type CardKind, type TeamId } from '../../shared/rules/v2'
 import { cardEffect, checkPlay, drawCard, playCard } from '../../shared/rules/cards'
-import { gain } from '../../shared/rules/buildings'
+import { gain } from '../../shared/rules/resources'
 import { rngFrom } from '../../shared/missions/assign'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import type { CardDoc, PawnDoc, TeamDoc } from '../../shared/model'
@@ -160,7 +160,7 @@ export const playOne = onCall<{
     }
   }
 
-  // 다음 한 번만 걸리는 표시 — 기습 · 급조 · 협정서
+  // 다음 한 번만 걸리는 표시 — 기습 · 협정서
   if (effect.pending) {
     batch.set(pendingOf(gameId).doc(`${pawn.team}-${effect.pending}`), {
       team: pawn.team,
@@ -206,13 +206,13 @@ export const playOne = onCall<{
 /**
  * 걸려 있으면 true를 돌려주고 **그 자리에서 지운다.**
  *
- * 기습·급조·협정서는 「다음 한 번」이다. 쓰고 나서 지우는 것을 잊으면
+ * 기습·협정서는 「다음 한 번」이다. 쓰고 나서 지우는 것을 잊으면
  * 한 장으로 닷새를 쓴다.
  */
 export async function takePending(
   gameId: string,
   team: TeamId,
-  kind: 'ambush' | 'quickBuild' | 'accord',
+  kind: 'ambush' | 'accord',
 ): Promise<boolean> {
   const ref = pendingOf(gameId).doc(`${team}-${kind}`)
   const snap = await ref.get()

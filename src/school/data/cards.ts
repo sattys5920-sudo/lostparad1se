@@ -6,10 +6,6 @@ export const CARDS: CardSpec[] = [
   { kind: 'pioneer', category: 'expand', name: '개척', description: '앞서 조사해 지식을 얻는다.' },
   { kind: 'detour', category: 'expand', name: '우회 확장', description: '막힌 길을 돌아갈 행동력을 얻는다.' },
 
-  { kind: 'buildDiscount', category: 'build', name: '건설 할인', description: '자재를 아껴 돈을 돌려받는다.' },
-  { kind: 'instantBuild', category: 'build', name: '즉시 건설', description: '행동력을 크게 보충한다.' },
-  { kind: 'buildingBoost', category: 'build', name: '건물 강화', description: '지식과 문화를 함께 얻는다.' },
-
   { kind: 'bonusProduction', category: 'produce', name: '추가 자원 생산', description: '모든 자원을 조금씩 더 얻는다.' },
   { kind: 'doubleResource', category: 'produce', name: '특정 자원 2배', description: '이번 생산에서 돈을 크게 얻는다.' },
 

@@ -364,33 +364,13 @@ export type TileId =
 export interface TileSpec {
   id: TileId
   name: string
-  /** 건물을 얹기 전 기본 영역 가치. 기지는 0(빼앗을 수 없어 점수 경쟁에 넣지 않는다). */
+  /** 기본 영역 가치. 기지는 0(빼앗을 수 없어 점수 경쟁에 넣지 않는다). */
   baseValue: number
   /** 이 타일이 어느 팀의 기지인지. 기지는 게임 중 절대 빼앗기지 않는다. */
   homeOf: TeamId | null
   /** 핵심 지역이면 A의 기록이 열어 주기 전까지 아무도 점령할 수 없고, 확장에 영향력이 든다. */
   isCore: boolean
-  /** 세울 수 있는 건물 슬롯 수. */
-  buildingSlots: number
 }
-
-export type BuildingCategory = 'commerce' | 'research' | 'culture' | 'defense' | 'special'
-
-export type BuildingKind =
-  | 'shop' // 매점
-  | 'store' // 상점
-  | 'cafe' // 카페
-  | 'lab' // 연구실
-  | 'archive' // 서고
-  | 'musicClub' // 음악반
-  | 'artClub' // 미술반
-  | 'stage' // 공연무대
-  | 'security' // 경비실
-  | 'watchtower' // 방어탑
-  | 'controlRoom' // 통제실
-  | 'broadcastStation' // 방송국
-  | 'hideout' // 비밀기지
-  | 'basement' // 지하실
 
 /** 팀이 공유하는 자원. 개인 자원은 없다. */
 export interface ResourceBundle {
@@ -402,36 +382,13 @@ export interface ResourceBundle {
   actionPoints: number
 }
 
-export interface BuildingSpec {
-  kind: BuildingKind
-  category: BuildingCategory
-  name: string
-  description: string
-  cost: ResourceBundle
-  /** 타일 가치에 더해지는 값(레벨만큼 곱해진다). */
-  valueBonus: number
-  /** 매일 정산 때 팀 자원에 더해지는 생산량(레벨만큼 곱해진다). */
-  produces: Partial<ResourceBundle>
-  /** 방어력에 더해지는 값(레벨만큼 곱해진다). 견제를 버티는 데 쓴다. */
-  defenseBonus: number
-}
-
-/** 지어진 건물 한 채. 업그레이드하면 레벨이 오르고 효과가 두 배가 된다. */
-export interface BuildingInstance {
-  kind: BuildingKind
-  level: 1 | 2
-}
-
 export interface TileState {
   id: TileId
   ownerTeam: TeamId | null
-  buildings: BuildingInstance[]
 }
 
 export type TerritoryActionKind =
   | 'expand'
-  | 'build'
-  | 'upgrade'
   | 'explore'
   | 'produce'
   | 'research'
@@ -466,7 +423,6 @@ export interface TerritoryActionLogEntry {
   team: TeamId
   playerId: string
   tileId: TileId | null
-  buildingKind: BuildingKind | null
   detail: string | null
   createdAtMs: number
 }
@@ -496,16 +452,13 @@ export interface AllianceEntry {
   createdAtMs: number
 }
 
-export type CardCategory = 'expand' | 'build' | 'produce' | 'sabotage' | 'diplomacy' | 'special'
+export type CardCategory = 'expand' | 'produce' | 'sabotage' | 'diplomacy' | 'special'
 
 export type CardKind =
   | 'fastExpand' // 빠른 확장
   | 'chainOccupy' // 연속 점령
   | 'pioneer' // 개척
   | 'detour' // 우회 확장
-  | 'buildDiscount' // 건설 할인
-  | 'instantBuild' // 즉시 건설
-  | 'buildingBoost' // 건물 강화
   | 'bonusProduction' // 추가 자원 생산
   | 'doubleResource' // 특정 자원 2배
   | 'raiseExpandCost' // 상대 확장 비용 증가

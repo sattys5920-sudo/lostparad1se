@@ -99,7 +99,7 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
 
   const tiles = tileS.docs.map((d) => {
     const t = d.data() as TileDoc
-    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, buildings: t.buildings ?? [] }
+    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
   })
   const ownerAt = new Map(tiles.map((t) => [t.tileId, t.ownerTeam]))
   const teamDocs = new Map(teamS.docs.map((d) => [d.id as TeamId, d.data() as TeamDoc]))

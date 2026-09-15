@@ -16,7 +16,7 @@ import {
   type TeamState,
 } from './score'
 import { startingTiles, TILE_BY_ID, TILE_IDS } from './board'
-import type { TileState } from './buildings'
+import type { TileState } from './resources'
 import { GOAL_BY_KIND, type GoalKind, type TeamId } from './v2'
 
 const team = (over: Partial<TeamState> = {}): TeamState => ({
@@ -34,7 +34,7 @@ const team = (over: Partial<TeamState> = {}): TeamState => ({
 })
 
 /** 판 전체. owned에 적은 칸만 그 팀 것이다. */
-function board(owned: Partial<Record<TeamId, string[]>>, buildings: Record<string, TileState['buildings']> = {}): TileState[] {
+function board(owned: Partial<Record<TeamId, string[]>>): TileState[] {
   const who = new Map<string, TeamId>()
   for (const [t, ids] of Object.entries(owned) as [TeamId, string[]][]) {
     for (const id of ids) who.set(id, t)
@@ -42,7 +42,6 @@ function board(owned: Partial<Record<TeamId, string[]>>, buildings: Record<strin
   return TILE_IDS.map((tileId) => ({
     tileId,
     ownerTeam: who.get(tileId) ?? TILE_BY_ID[tileId].homeOf,
-    buildings: buildings[tileId] ?? [],
   }))
 }
 
@@ -57,16 +56,6 @@ describe('영역', () => {
   it('가진 칸의 가치를 더한다 — 기지는 빼고', () => {
     // A의 1구역은 교실 3, 복도 1
     expect(territoryScore(input())).toBe(4)
-  })
-
-  it('건물 가치가 붙는다', () => {
-    const tiles = board({ A: [...startingTiles('A')] }, { classroom: [{ kind: 'store', level: 1 }] })
-    expect(territoryScore(input({ tiles }))).toBe(4 + 2)
-  })
-
-  it('개조해도 가치 보너스는 그대로다', () => {
-    const tiles = board({ A: [...startingTiles('A')] }, { classroom: [{ kind: 'store', level: 2 }] })
-    expect(territoryScore(input({ tiles }))).toBe(4 + 2)
   })
 
   it('A의 기록 보너스가 붙는다', () => {
@@ -108,12 +97,10 @@ describe('자원과 발전', () => {
     expect(resourceScore(input({ team: team({ resources: { money: 4, knowledge: 0 } }) }))).toBe(0)
   })
 
-  it('발전은 건물 단계 합에 연구 단계 두 배를 더한다', () => {
-    const tiles = board({ A: [...startingTiles('A')] }, {
-      classroom: [{ kind: 'shop', level: 2 }],
-      hallway: [{ kind: 'archive', level: 1 }],
-    })
-    expect(developmentScore(input({ tiles, team: team({ researchTier: 3 }) }))).toBe(2 + 1 + 6)
+  // 건물을 걷어내면서 발전에 더할 것은 연구뿐이 되었다
+  it('발전은 연구 단계의 두 배다', () => {
+    const tiles = board({ A: [...startingTiles('A')] })
+    expect(developmentScore(input({ tiles, team: team({ researchTier: 3 }) }))).toBe(6)
   })
 })
 
@@ -178,25 +165,6 @@ describe('비밀 목표', () => {
     expect(
       goalAchieved({ kind: 'moneyed' }, input({ team: team({ resources: { money: 15, knowledge: 0 } }) })),
     ).toBe(true)
-  })
-
-  it('건축가는 2단계 건물 셋이다', () => {
-    const three = board({ A: ['classroom', 'hallway', 'garden'] }, {
-      classroom: [{ kind: 'shop', level: 2 }],
-      hallway: [{ kind: 'archive', level: 2 }],
-      garden: [{ kind: 'security', level: 2 }],
-    })
-    expect(check('architect', { tiles: three })).toBe(true)
-  })
-
-  it('방송부는 둘 다 있어야 한다', () => {
-    const one = board({ A: ['classroom'] }, { classroom: [{ kind: 'broadcast', level: 1 }] })
-    expect(check('broadcastClub', { tiles: one })).toBe(false)
-    const both = board({ A: ['classroom', 'hallway'] }, {
-      classroom: [{ kind: 'broadcast', level: 1 }],
-      hallway: [{ kind: 'hideout', level: 1 }],
-    })
-    expect(check('broadcastClub', { tiles: both })).toBe(true)
   })
 
   it('라이벌은 적힌 팀보다 영역 점수가 높을 때다', () => {

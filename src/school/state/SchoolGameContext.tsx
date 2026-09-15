@@ -63,7 +63,6 @@ import {
   subscribeSchoolPlayers,
   subscribeSchoolSession,
   territoryBreakAlliance,
-  territoryBuild,
   territoryExpand,
   territoryExplore,
   territoryPlayCard,
@@ -75,13 +74,11 @@ import {
   territoryResearch,
   territorySabotage,
   territorySpendLeverage,
-  territoryUpgrade,
   territoryWithdrawTrade,
 } from '../sync'
 import type {
   ActionKind,
   AvatarLook,
-  BuildingKind,
   ChatMessage,
   DmThread,
   EndingKey,
@@ -181,8 +178,6 @@ interface SchoolGameValue {
   /** 내 개인 점수. 팀 승패와 별개로 남는다. */
   myScore: PlayerScoreBreakdown | null
   doExpand: (tileId: TileId) => Promise<void>
-  doBuild: (tileId: TileId, kind: BuildingKind) => Promise<void>
-  doUpgrade: (tileId: TileId, kind: BuildingKind) => Promise<void>
   doResearch: () => Promise<void>
   doExplore: () => Promise<void>
   doProduce: () => Promise<void>
@@ -239,7 +234,7 @@ interface SchoolGameValue {
   hereTile: TileState | null
   /** 지금 이 구역의 주인. */
   hereOwner: TeamId | null
-  /** 지금 이 구역의 값어치(건물·기록 보정 포함). */
+  /** 지금 이 구역의 값어치(기록 보정 포함). */
   hereValue: number
   /** 지금 이 구역에서 나를 막고 서 있는 다른 팀들(동맹 제외). */
   rivalTeamsHere: TeamId[]
@@ -785,16 +780,6 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     await territoryExpand(day, team, playerId, tileId, standing)
   }
 
-  async function doBuild(tileId: TileId, kind: BuildingKind) {
-    const { day, team, playerId } = requireTeamContext()
-    await territoryBuild(day, team, playerId, tileId, kind, standing)
-  }
-
-  async function doUpgrade(tileId: TileId, kind: BuildingKind) {
-    const { day, team, playerId } = requireTeamContext()
-    await territoryUpgrade(day, team, playerId, tileId, kind, standing)
-  }
-
   async function doResearch() {
     const { day, team, playerId } = requireTeamContext()
     await territoryResearch(day, team, playerId, standing)
@@ -890,8 +875,6 @@ export function SchoolGameProvider({ children }: { children: ReactNode }) {
     spendLeverageOn,
     myScore,
     doExpand,
-    doBuild,
-    doUpgrade,
     doResearch,
     doExplore,
     doProduce,

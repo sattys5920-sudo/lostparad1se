@@ -11,7 +11,7 @@ import {
   type PawnPosition,
 } from './fog'
 import { startingTiles } from './board'
-import { INTEL_VISION_BONUS, OBSERVATORY_RANGE } from './v2'
+import { INTEL_VISION_BONUS } from './v2'
 
 const pawn = (over: Partial<PawnPosition> & Pick<PawnPosition, 'playerId' | 'team'>): PawnPosition => ({
   tileId: null,
@@ -44,26 +44,6 @@ describe('보이는 칸', () => {
     expect(out.has('mainBuilding')).toBe(true)
     // 세 칸은 여전히 안 보인다
     expect(out.has('baseA')).toBe(false)
-  })
-
-  it('관측소는 두 칸을 걷어 낸다', () => {
-    const out = visibleTiles({
-      ownedTiles: [],
-      myPawnTiles: [],
-      observatories: [{ tileId: 'centralPlaza', level: 1 }],
-    })
-    expect(OBSERVATORY_RANGE).toBe(2)
-    expect(out.has('mainBuilding')).toBe(true)
-    expect(out.has('baseA')).toBe(false)
-  })
-
-  it('개조한 관측소는 네 칸이다', () => {
-    const out = visibleTiles({
-      ownedTiles: [],
-      myPawnTiles: [],
-      observatories: [{ tileId: 'centralPlaza', level: 2 }],
-    })
-    expect(out.has('baseA')).toBe(true)
   })
 
   it('없는 칸은 무시한다', () => {
