@@ -14,7 +14,7 @@ import { randomLook } from '../char/look'
 import type { AvatarLook } from '../types'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
-import { Actions, Standing } from './Actions'
+import { Actions, QuickActions, Standing } from './Actions'
 import { Walk } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog } from './Phase'
@@ -446,6 +446,19 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
         </ul>
 
+        {/* **할 수 있는 일은 눌러 보기 전에 보인다.** 전에는 전부
+            「행동」 뒤에 있어서, 처음 들어온 사람은 거래라는 것이
+            있는 줄도 몰랐다 */}
+        <QuickActions
+          standingOn={standingOn}
+          standingRoom={standingRoom}
+          phaseOpen={phaseOpen}
+          far={far}
+          act={act}
+          onSaid={setSaid}
+          onSheet={setSheet}
+        />
+
         <div className="sc-pl__ctl">
           {/* 한 번 누르면 한 칸. 길게 눌러도 이어 걷지 않는다 */}
           <div className="sc-pl__pad" ref={padRef}>
@@ -455,7 +468,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             <button data-dir="right" aria-label="오른쪽">→</button>
           </div>
           <div className="sc-pl__acts">
-            <button onClick={() => setSheet('act')}>{phaseOpen ? '자리' : '행동'}</button>
+            <button onClick={() => setSheet('act')}>{phaseOpen ? '자리' : '이 방'}</button>
             <button onClick={() => setAtlas(true)}>전체 맵</button>
             <button onClick={() => setSheet('talk')}>말</button>
             <button onClick={() => setSheet('more')}>더보기</button>
@@ -639,7 +652,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {sheet === 'more' && (
         <Sheet title="더보기" onClose={closeSheet}>
           <div className="sc-pl__more">
-            <button onClick={() => setSheet('deal')} disabled={phaseOpen}>거래</button>
             <button onClick={() => setMiniOn(!miniOn)}>{miniOn ? '미니맵 끄기' : '미니맵 켜기'}</button>
             <button
               onClick={() => {

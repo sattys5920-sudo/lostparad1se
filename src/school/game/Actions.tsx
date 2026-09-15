@@ -72,6 +72,89 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
   )
 }
 
+export interface QuickProps {
+  /** 서버가 아는 내가 선 방. 연구·생산·깃발·탐색이 전부 여기에 걸린다. */
+  standingOn: TileId | null
+  /** 화면에서 내가 선 방. 복도에 있으면 null 이다. */
+  standingRoom: TileId | null
+  phaseOpen: boolean
+  /** 판에서 고른 먼 방. 있으면 거기로 가는 것이 먼저다. */
+  far: TileId | null
+  act: GameActions
+  onSaid: (text: string) => void
+  /** 더 고를 것이 남은 일은 시트를 연다. */
+  onSheet: (id: 'act' | 'deal') => void
+}
+
+/**
+ * 맵 밑에 늘 떠 있는 행동 줄.
+ *
+ * **무엇을 할 수 있는지는 눌러 보기 전에 보여야 한다.** 전에는 전부
+ * 「행동」 단추 뒤에 있어서, 처음 들어온 사람은 거래라는 것이 있는
+ * 줄도 몰랐다 — 거래는 「더보기」 안의 또 한 겹 아래였다.
+ *
+ * 여기서도 화면이 되는지 안 되는지를 판단하지 않는다. 걷는 중이라
+ * 선 방이 없을 때만 잠그고, 나머지는 서버가 거절하며 이유를 말한다.
+ */
+export function QuickActions({
+  standingOn,
+  standingRoom,
+  phaseOpen,
+  far,
+  act,
+  onSaid,
+  onSheet,
+}: QuickProps) {
+  const { busy, run } = useRun(onSaid)
+  const walking = standingOn === null
+
+  // 먼 방을 골라 뒀다. 거기로 가는 것이 지금 제일 하고 싶은 일이다
+  if (far && far !== standingRoom) {
+    return (
+      <div className="sc-pl__quick" role="group" aria-label="할 수 있는 일">
+        <button className="is-lead" disabled={busy} onClick={() => run('이동', () => act.moveTo(far))}>
+          {TILE_BY_ID[far].name}(으)로
+        </button>
+        <button disabled={busy} onClick={() => run('예약', () => act.planCommute(far))}>
+          등교 예약
+        </button>
+        <button onClick={() => onSheet('act')}>더</button>
+      </div>
+    )
+  }
+
+  // 페이즈 중에는 자리 차지하기가 전부다. 토큰 계산이 붙어 있어
+  // 한 줄에 못 담는다 — 시트를 연다
+  if (phaseOpen) {
+    return (
+      <div className="sc-pl__quick" role="group" aria-label="할 수 있는 일">
+        <button className="is-lead" onClick={() => onSheet('act')}>자리 차지하기</button>
+        <button onClick={() => onSheet('deal')}>거래</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="sc-pl__quick" role="group" aria-label="할 수 있는 일">
+      <button disabled={busy || walking} onClick={() => run('연구', () => act.research(standingOn as TileId))}>
+        연구 <em>{ACTION_TOKEN_COST.research}</em>
+      </button>
+      <button disabled={busy || walking} onClick={() => run('생산', () => act.produce(standingOn as TileId))}>
+        생산 <em>{ACTION_TOKEN_COST.produce}</em>
+      </button>
+      <button disabled={busy || walking} onClick={() => run('깃발', () => act.plantFlag(standingOn as TileId))}>
+        깃발 <em>{ACTION_TOKEN_COST.flag}</em>
+      </button>
+      <button disabled={busy || walking} onClick={() => run('탐색', () => act.scout(standingOn as TileId))}>
+        탐색 <em>{ACTION_TOKEN_COST.scout}</em>
+      </button>
+      {/* 견제는 무엇으로 방해할지 고르는 메뉴가 붙는다 */}
+      <button disabled={walking} onClick={() => onSheet('act')}>견제</button>
+      <button onClick={() => onSheet('deal')}>거래</button>
+    </div>
+  )
+}
+
 export function Actions({ tileId, where, act, onSaid, onClose, children }: ActionsProps) {
   const { busy, run } = useRun(onSaid)
   const [open, setOpen] = useState<'sabotage' | null>(null)
