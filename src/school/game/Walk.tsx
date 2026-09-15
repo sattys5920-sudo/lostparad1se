@@ -65,6 +65,16 @@ export interface WalkProps {
    * 단추의 data-dir 만 보고 붙으므로 생김새는 부모가 정한다.
    */
   padRef: RefObject<HTMLDivElement | null>
+  /**
+   * 서버가 나를 **옮겨 세운** 시각. 페이즈가 열린 시각을 넘긴다.
+   *
+   * 종이 치면 자유 시간에 어디까지 갔든 전선으로 돌아간다. 그때는
+   * 화면도 군말 없이 따라가야 한다 — 평소의 맞추기는 「방 안에 있을
+   * 때만」이라 복도에 서 있던 사람을 안 옮긴다. 옮겨 세운 것을 모른
+   * 채로 두면 서버는 전선에, 아바타는 복도에 있고 그 뒤로 어느 문도
+   * 안 열린다.
+   */
+  placeAtMs?: number | null
 }
 
 const DIR_OF: Record<string, Dir> = {
@@ -99,7 +109,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef, placeAtMs = null }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -132,6 +142,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
   const walking = myPawn?.walking === true
   const walkingRef = useRef(walking)
   walkingRef.current = walking
+  const placeRef = useRef(placeAtMs)
+  placeRef.current = placeAtMs
 
   const [ready, setReady] = useState(false)
 
@@ -542,6 +554,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
      */
     let askedAtMs = 0
     let lastServerTile: TileId | null = null
+    // 옮겨 세운 것을 이미 따라갔는지. 처음 값은 지금 것이라, 화면을
+    // 켤 때 괜히 한 번 튀지 않는다
+    let lastPlaceAt: number | null = placeRef.current
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
 
@@ -559,6 +574,22 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       // 가자고 말하고 있었으니까. DAY 3쯤 되면 어느 문도 안 열린다
       const pawn = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
       const serverTile = asRoom(pawn?.tileId)
+
+      // **옮겨 세웠다. 군말 없이 따라간다.**
+      //
+      // 아래 맞추기들은 「방 안에 있을 때만」이라 복도에 선 사람을
+      // 그냥 둔다. 평소에는 그게 맞다 — 복도로 나서자마자 도로
+      // 방 안으로 튕기면 걸을 수가 없으니까. 그런데 종이 쳐서 서버가
+      // 사람을 통째로 옮긴 순간만은 예외다
+      if (placeRef.current !== lastPlaceAt) {
+        lastPlaceAt = placeRef.current
+        if (serverTile) {
+          placeIn(serverTile)
+          lastServerTile = serverTile
+          asked = false
+        }
+      }
+
       if (serverTile && serverTile !== lastServerTile) {
         // **이미 제 발로 가 있으면 건드리지 않는다.**
         //

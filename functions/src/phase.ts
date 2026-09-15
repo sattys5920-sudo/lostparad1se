@@ -44,12 +44,11 @@ import {
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, type TileId } from '../../shared/rules/board'
-import { arrivals, planWalk } from '../../shared/rules/movement'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type CaptureDoc, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
 import { freshNow } from './turn'
-import { clearArrivals, writeWalk } from './move'
+import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { scatterSlips } from './slips'
@@ -266,15 +265,24 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   for (const d of tiles.docs) owners[d.id as TileId] = (d.data() as TileDoc).ownerTeam ?? null
   const batch = db.batch()
 
-  // 걸어서 돌아와야 하는 사람들. 옛 도착 예정을 먼저 걷어낸다 —
-  // 자유 시간에 찍어 둔 길이 남아 있으면 돌아오는 길과 엉킨다
-  const marching: { ref: FirebaseFirestore.DocumentReference; from: TileId; post: TileId }[] = []
+  // **자유 시간에 어디까지 갔든 종이 치면 제자리다.**
+  //
+  // 전에는 걸어서 돌아왔다. 한 칸에 15분이라, 2층 끝에서 1층 끝까지
+  // 다섯 칸이면 75분 — 한 시간짜리 페이즈가 끝나고도 못 닿는다.
+  // 자유 시간에 멀리 가는 것이 그대로 그 페이즈를 버리는 일이 되니
+  // 아무도 제 전선을 안 떠났고, 돌아다니라고 만든 시간이 죽었다.
+  //
+  // 그래서 옮겨 세운다. 자유 시간은 만나는 시간이고, 페이즈는 서 있는
+  // 자리로 겨루는 시간이다 — 둘을 걸음으로 잇지 않는다.
+  const returning: { ref: FirebaseFirestore.DocumentReference; post: TileId }[] = []
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
     const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
-    if (p.tileId !== null && p.tileId !== post) marching.push({ ref: d.ref, from: p.tileId as TileId, post })
+    // 걷는 중(tileId === null)인 사람도 데려온다. 자유 시간에 찍어 둔
+    // 길이 남아 있으면 페이즈 한복판에 엉뚱한 도착이 떨어진다
+    if (p.tileId !== post) returning.push({ ref: d.ref, post })
   }
-  await Promise.all(marching.map((m) => clearArrivals(gameId, m.ref.id)))
+  await Promise.all(returning.map((m) => clearArrivals(gameId, m.ref.id)))
 
   // 지금 인원. 상수를 읽지 않는다 — 이적하면 4·4·3·3이 아니다
   const sizes = teamSizesOf(pawns.docs.map((d) => d.data() as PawnDoc))
@@ -292,11 +300,10 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     : 0
 
   let returned = 0
-  let allInAtMs = nowMs
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
     const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
-    const march = marching.find((m) => m.ref.id === d.id)
+    const came = returning.some((m) => m.ref.id === d.id)
     // **더해 준다.** 남은 토큰을 태우면 거래할 물건이 못 된다.
     //
     // 인원은 지금 센다 — 이적이 그날 아침에 이미 발효돼 있으므로
@@ -314,32 +321,18 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
       // 보정은 한 번만 쓰인다
       pendingRefund: 0,
     }
-    if (!march) {
-      // 제자리에 있었거나 이미 걷는 중이다. 걷는 중이면 그 걸음이
-      // 끝나기를 기다린다 — 여기서 자리를 빼앗으면 도착 예정과 어긋난다
-      batch.update(d.ref, {
-        postTile: post,
-        ...purse,
-        ...(p.tileId === post ? { fromTile: null, path: [], arriveAtMs: null } : {}),
-      })
+    if (!came) {
+      // 제 전선에 그대로 서 있었다. 자리는 안 건드리고 토큰만 얹는다
+      batch.update(d.ref, { postTile: post, fromTile: null, path: [], arriveAtMs: null, ...purse })
       continue
     }
     returned += 1
-    const plan = planWalk(d.id, march.from, post, nowMs, 1)
-    if (!plan.ok || !plan.walk) {
-      // 길이 없다. 억지로 세우느니 그냥 세워 둔다
-      batch.update(d.ref, { tileId: post, postTile: post, fromTile: null, path: [], arriveAtMs: null, ...purse })
-      continue
-    }
-    const firstAt = writeWalk(gameId, plan.walk, batch)
-    const lastAt = arrivals(plan.walk).slice(-1)[0]?.atMs ?? firstAt
-    if (lastAt > allInAtMs) allInAtMs = lastAt
     batch.update(d.ref, {
-      tileId: null,
+      tileId: post,
       postTile: post,
-      fromTile: march.from,
-      path: [...plan.walk.path],
-      arriveAtMs: firstAt,
+      fromTile: p.tileId ?? null,
+      path: [],
+      arriveAtMs: null,
       asleep: false,
       ...purse,
     })
@@ -372,11 +365,12 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
 
   await batch.commit()
-  // 떠나는 순간 그 방의 체류가 끝난다. 걷는 동안은 어느 방에도 없다 —
-  // 안 그러면 떠난 방의 말이 계속 들린다
-  await Promise.all(marching.map((m) => openInterval(gameId, m.ref.id, null, nowMs, 'walking')))
+  // 돌아다니던 방의 체류가 끝나고 전선의 체류가 열린다. 안 열면
+  // 페이즈 내내 아까 있던 방의 말이 계속 들린다
+  await Promise.all(returning.map((m) => openInterval(gameId, m.ref.id, m.post, nowMs)))
   await refreshViews(gameId)
-  return { no, returned, endsAtMs, allInAtMs, granted: sizes, cap: TOKEN_CAP }
+  // allInAtMs 는 남겨 둔다 — 이제는 늘 지금이다. 아무도 걷지 않는다
+  return { no, returned, endsAtMs, allInAtMs: nowMs, granted: sizes, cap: TOKEN_CAP }
 })
 
 // ── 각자: 지금 당장 하는 행동 ───────────────────────────────────

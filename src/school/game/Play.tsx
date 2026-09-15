@@ -388,6 +388,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             tiles={state.tiles}
             nowMs={nowMs}
             padRef={padRef}
+            /* 종이 치면 서버가 전선으로 옮겨 세운다. 화면도 그때 따라간다 */
+            placeAtMs={phaseOpen ? (state.game?.phaseNow?.openedAtMs ?? null) : null}
             onCross={(to) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
               // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
@@ -431,7 +433,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               시트는 화면의 70%까지만 올라온다 */}
           <header className="sc-pl__head">
             <span className="sc-pl__day">DAY {game.day}</span>
-            <PhaseClock open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} nowMs={nowMs} />
+            <PhaseClock
+              open={phaseOpen}
+              no={phaseNo}
+              endsAtMs={phaseEndsAtMs}
+              nowMs={nowMs}
+              post={(state.view?.myPost ?? null) as TileId | null}
+              standing={standingOn}
+            />
             <span className="sc-pl__me">{me.name} · {me.team}팀</span>
           </header>
           {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
@@ -728,14 +737,25 @@ function PhaseClock({
   no,
   endsAtMs,
   nowMs,
+  post,
+  standing,
 }: {
   open: boolean
   no: number
   endsAtMs: number | null
   /** 게임 속 지금. 실제 시각이 아니다 — 판마다 시계가 따로 돈다 */
   nowMs: number
+  /** 종이 치면 돌아갈 자리. 지난 페이즈가 끝날 때 서 있던 방이다. */
+  post: TileId | null
+  /** 지금 서 있는 방. 거기가 곧 전선이면 굳이 안 알려 준다. */
+  standing: TileId | null
 }) {
-  if (!open || endsAtMs == null) return <span className="sc-pl__clock">자유 시간</span>
+  if (!open || endsAtMs == null) {
+    // **어디까지 가도 된다는 것을 여기서 알려 준다.** 종이 치면
+    // 서버가 전선으로 옮겨 세우니, 돌아올 길을 계산할 필요가 없다
+    const back = post && post !== standing ? ` · 종이 치면 ${TILE_BY_ID[post].name}` : ''
+    return <span className="sc-pl__clock">자유 시간{back}</span>
+  }
   const left = Math.max(0, endsAtMs - nowMs)
   const mm = Math.floor(left / 60000)
   const ss = Math.floor((left % 60000) / 1000)
