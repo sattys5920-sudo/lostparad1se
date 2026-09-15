@@ -272,14 +272,6 @@ export interface GoalDoc {
   revealed: boolean
 }
 
-/** games/{gameId}/secret/plans/items/{playerId} — 등교 예약. */
-export interface CommutePlanDoc {
-  playerId: string
-  path: TileId[]
-  /** 도착하면 깃발을 꽂을까. 토큰·조건이 모자라면 취소된다. */
-  setAtMs: GameMs
-}
-
 /**
  * games/{gameId}/secret/roster/items/{playerId} — 역할과 인연 대상.
  *
@@ -398,8 +390,6 @@ export interface PlayerViewDoc {
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   /** 우리 팀 비밀 목표. */
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
-  /** 내 등교 예약. */
-  commutePlan: { path: TileId[] } | null
   /** 우리가 꽂은 깃발 중 가짜인 것. 우리 팀만 안다. */
   /** 정보부장이 들여다본 결과. */
   peeked: { voteKind: VoteKind; voterNickname: string }[]

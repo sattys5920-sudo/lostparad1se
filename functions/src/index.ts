@@ -100,7 +100,6 @@ export { catchUp } from './catchup'
 export { tick } from './tick'
 
 // 이동과 깃발. 걸음은 예정 이벤트로 적히고 따라잡기가 민다.
-export { moveTo, planCommute } from './move'
 
 // 토큰을 쓰는 행동.
 export { produce, study, buyShopItem } from './act'

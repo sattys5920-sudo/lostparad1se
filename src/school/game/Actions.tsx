@@ -17,13 +17,11 @@ export interface ActionsProps {
   /**
    * 'here' 는 내가 서 있는 방, 'there' 는 판에서 고른 먼 칸이다.
    *
-   * 서 있는 방에 「걸어가기」를 두면 제자리걸음을 시키는 단추가 된다.
-   * 반대로 먼 칸에 「짓기」를 두면 거기 가 있지도 않은데 지을 수
-   * 있는 것처럼 보인다. 할 수 있는 일이 자리마다 다르다.
+   * 먼 칸에서는 보여 주기만 한다 — 거기로 보내 주는 단추는 없앴다.
+   * 자유 시간에는 맵에서 그냥 걸어가면 되고, 페이즈에는 문을 넘을 때
+   * 값이 붙으므로 맵 쪽에서 치러야 한다.
    */
   where: 'here' | 'there'
-  act: GameActions
-  onSaid: (text: string) => void
   /** 먼 방 패널에만 있다. 잘못 눌렀으면 닫는다. */
   onClose?: () => void
   /** 제목 바로 아래에 끼울 것. 선 자리의 생산이 여기 들어온다. */
@@ -111,17 +109,18 @@ export function QuickActions({
   const { busy, run } = useRun(onSaid)
   const walking = standingOn === null
 
-  // 먼 방을 골라 뒀다. 거기로 가는 것이 지금 제일 하고 싶은 일이다
+  // **먼 방을 눌러도 여기서 보내 주지 않는다.**
+  //
+  // 전에는 「○○(으)로」와 「등교 예약」이 떴다. 칸마다 15분씩 여러
+  // 칸을 걷던 시절의 단추인데, 복도가 생기고 계단이 문이 된 뒤로는
+  // 어느 방이든 한 걸음이라 예약할 「두 칸」이 없어졌다. 자유 시간에는
+  // 그냥 맵에서 걸어가면 공짜고 즉시다
   if (far && far !== standingRoom) {
     return (
       <div className="sc-pl__quick" role="group" aria-label="할 수 있는 일">
-        <button className="is-lead" disabled={busy} onClick={() => run('이동', () => act.moveTo(far))}>
-          {TILE_BY_ID[far].name}(으)로
+        <button className="is-lead" onClick={() => onSheet('act')}>
+          {TILE_BY_ID[far].name} 보기
         </button>
-        <button disabled={busy} onClick={() => run('예약', () => act.planCommute(far))}>
-          등교 예약
-        </button>
-        <button onClick={() => onSheet('act')}>더</button>
       </div>
     )
   }
@@ -208,8 +207,7 @@ export function Shop({
   )
 }
 
-export function Actions({ tileId, where, act, onSaid, onClose, children }: ActionsProps) {
-  const { busy, run } = useRun(onSaid)
+export function Actions({ tileId, where, onClose, children }: ActionsProps) {
   const spec = TILE_BY_ID[tileId]
 
   return (
@@ -225,18 +223,8 @@ export function Actions({ tileId, where, act, onSaid, onClose, children }: Actio
       {children}
 
       {where === 'there' && (
-        <div className="sc-ac__row">
-          <button disabled={busy} onClick={() => run('이동', () => act.moveTo(tileId))}>
-            걸어가기
-          </button>
-          <button disabled={busy} onClick={() => run('예약', () => act.planCommute(tileId))}>
-            등교 예약
-          </button>
-        </div>
+        <p className="sc-ac__note">맵에서 걸어서 간다. 자유 시간에는 값도 시간도 안 든다.</p>
       )}
-
-      <div className="sc-ac__row">
-      </div>
 
     </div>
   )

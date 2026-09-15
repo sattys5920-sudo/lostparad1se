@@ -64,11 +64,6 @@ function world(over = false, invisibleId: string | null = null): World {
       { id: 'gA', team: 'A', kind: 'distantFriend', rivalTeam: 'C', revealed: false },
       { id: 'gB', team: 'B', kind: 'distantFriend', rivalTeam: 'D', revealed: false },
     ],
-    plans: [
-      { playerId: 'A0', path: ['classroom', 'library'] },
-      { playerId: 'A1', path: ['hallway'] },
-      { playerId: 'B0', path: ['artRoom'] },
-    ],
     peeks: [
       { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
       { playerId: 'B0', voteKind: 'liking', voterNickname: '다른누군가' },
@@ -204,21 +199,14 @@ describe('안개', () => {
     w.pawns = w.pawns.map((p) =>
       p.playerId === 'A0' ? { ...p, tileId: null, fromTile: 'baseA', toTile: 'classroom' } : p,
     )
-    w.plans = [{ playerId: 'A0', path: ['classroom', 'library', 'centralPlaza'] }]
     for (const other of ROSTER.filter((r) => r.playerId !== 'A0')) {
       const v = projectView(w, other.playerId)
       const walking = v.visiblePawns.find((p) => p.playerId === 'A0')
       if (!walking) continue
-      expect(walking.toTile).toBe('classroom') // 다음 칸까지만
-      expect(json(v)).not.toContain('centralPlaza') // 목적지는 없다
+      expect(walking.toTile).toBe('classroom') // 가는 칸까지만
     }
   })
 
-  it('같은 팀에게도 남의 등교 예약은 안 보인다', () => {
-    const v = projectView(world(), 'A1')
-    expect(v.commutePlan).toEqual({ path: ['hallway'] })
-    expect(json(v.commutePlan)).not.toContain('library')
-  })
 })
 
 describe('우리 팀 것', () => {
@@ -389,13 +377,6 @@ describe('열넷 몫을 통째로 훑는다', () => {
       const mine = json(all[r.playerId])
       if (r.team !== 'A') expect(mine).not.toContain('"gA"')
       if (r.team !== 'B') expect(mine).not.toContain('"gB"')
-    }
-  })
-
-  it('남의 등교 예약이 없다', () => {
-    for (const r of ROSTER) {
-      if (r.playerId === 'A0') continue
-      expect(all[r.playerId].commutePlan?.path ?? []).not.toContain('library')
     }
   })
 

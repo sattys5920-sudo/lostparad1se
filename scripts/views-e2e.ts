@@ -202,7 +202,6 @@ async function main(): Promise<void> {
       visibleTiles: string[]
       hand: unknown[]
       goals: unknown[]
-      commutePlan: unknown
       fakeFlagTiles: string[]
     }
   const myView = await readAdmin(`games/${GAME}/views/${me.uid}`)
@@ -211,8 +210,21 @@ async function main(): Promise<void> {
   check(visible.size > 0, '보이는 말이 있다', `${visible.size}개`)
   const teamMates = people.filter((p) => p.team === me.team).map((p) => p.uid)
   check(teamMates.every((u) => visible.has(u)), '같은 팀 넷은 다 보인다')
-  const farTeam = people.filter((p) => p.team === 'B').map((p) => p.uid)
-  check(!farTeam.some((u) => visible.has(u)), '먼 팀 말은 목록에 없다')
+  // **아침에는 열넷이 한 교실에 있다.** 그래서 여기서는 다 보이는 것이
+  // 맞다 — 「먼 팀은 안 보인다」를 여기서 잴 수가 없다(다들 2-3 교실에
+  // 있다). 대신 언제나 참인 것을 잰다: **보이는 칸 밖의 말은 안 실린다.**
+  // 멀어지면 사라지는지는 fog.test.ts 와 views.test.ts 가 본다
+  const lit = new Set(mineParsed.visibleTiles)
+  const where = new Map(
+    (await getAll(`games/${GAME}/pawns`)).map((d) => [d.id, (d.d as { tileId?: string }).tileId ?? null]),
+  )
+  check(
+    mineParsed.visiblePawns.every((p) => {
+      const at = where.get(p.playerId)
+      return at === null || at === undefined || lit.has(at)
+    }),
+    '보이는 칸 밖의 말은 안 실린다',
+  )
 
   // 내 기지와 이웃은 보이고 남의 기지는 안 보인다
   check(mineParsed.visibleTiles.includes(BASE_OF[me.team]), '내 기지가 보인다', mineParsed.visibleTiles.join(','))

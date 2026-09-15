@@ -12,7 +12,6 @@ import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 import { dueItems, type Due } from '../../shared/rules/catchup'
 import { accrueTokens, markComeback } from '../../shared/rules/tokens'
 import type { TileState } from '../../shared/rules/resources'
-import { releaseCommute } from '../../shared/rules/movement'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
@@ -21,7 +20,6 @@ import { isShortHanded } from '../../shared/rules/occupy'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   ALLIANCE_CLEAR_DAY,
-  ATHLETIC_MOVE_FACTOR,
   CORE_OPENING,
   type Resource,
   type TeamId,
@@ -30,7 +28,6 @@ import type { TileId } from '../../shared/rules/board'
 import type { Fragment } from '../../shared/rules/fragments'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import type {
-  CommutePlanDoc,
   GameDoc,
   PawnDoc,
   ScheduleDoc,
@@ -39,8 +36,6 @@ import type {
   TokenStateDoc,
   VoteDoc,
 } from '../../shared/model'
-import { arrivals } from '../../shared/rules/movement'
-import { SCHEDULE_ORD } from '../../shared/model'
 import { gameRef } from './index'
 import { refreshViews } from './views'
 import { openInterval, refreshAwakening } from './reveal'
@@ -87,56 +82,11 @@ async function dayStart(c: Ctx): Promise<void> {
   const openedTiles = [...new Set([...c.game.openedTiles, ...opens])]
   const boostedTiles = fragmentsUpTo(c.day).map((f) => f.spotTile)
 
-  // 읽기를 먼저 전부 끝낸다. 트랜잭션은 쓰기 뒤에 읽지 못한다
-  const [pawns, plans] = await Promise.all([
-    c.tx.get(ref.collection('pawns')),
-    c.tx.get(ref.collection('secret').doc('plans').collection('items')),
-  ])
-  const planOf = new Map(plans.docs.map((d) => [d.id, d.data() as CommutePlanDoc]))
-
+  // **등교 예약은 없앴다.** 밤새 멈춰 있던 시절의 규칙이고, 어디든
+  // 한 걸음이 된 뒤로는 자유 시간에 그냥 걸어가는 것과 같아졌다
+  const pawns = await c.tx.get(ref.collection('pawns'))
   for (const p of pawns.docs) {
     c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0 })
-  }
-
-  // 찍어 둔 목적지가 한꺼번에 출발한다. 모든 팀이 같은 시각이다
-  for (const p of pawns.docs) {
-    const pawn = p.data() as PawnDoc
-    const plan = planOf.get(pawn.playerId)
-    const to = plan?.path?.[plan.path.length - 1]
-    if (!to || pawn.tileId === null) continue
-
-    const factor = pawn.title === 'athleticDirector' ? ATHLETIC_MOVE_FACTOR : 1
-    const walk = releaseCommute(
-      { playerId: pawn.playerId, to },
-      pawn.tileId,
-      c.atMs,
-      factor,
-    )
-    // 밤사이 칸이 바뀌어 두 칸을 넘게 됐으면 예약은 조용히 버려진다
-    c.tx.delete(plans.docs.find((d) => d.id === pawn.playerId)!.ref)
-    if (!walk) continue
-
-    const steps = arrivals(walk)
-    steps.forEach((step, i) => {
-      c.tx.set(ref.collection('schedule').doc(), {
-        dueAtMs: step.atMs,
-        ord: SCHEDULE_ORD.arrive,
-        kind: 'arrive',
-        payload: {
-          playerId: pawn.playerId,
-          tileId: step.tileId,
-          rest: steps.slice(i + 1).map((x) => x.tileId),
-          nextAtMs: steps[i + 1]?.atMs ?? null,
-        },
-        doneAtMs: null,
-      })
-    })
-    c.tx.update(p.ref, {
-      tileId: null,
-      fromTile: pawn.tileId,
-      path: [...walk.path],
-      arriveAtMs: steps[0]?.atMs ?? c.atMs,
-    })
   }
 
   // 머릿수가 모자란 팀의 주장은 날마다 돈다

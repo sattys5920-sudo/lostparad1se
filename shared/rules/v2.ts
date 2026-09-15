@@ -88,12 +88,15 @@ export const DEV_CLOCK_SPEED_MAX = 120
 
 // ── 말과 이동 ───────────────────────────────────────────────────
 
-/** 이웃 칸 하나를 걷는 데 드는 게임 시간. */
+/**
+ * 봇 시뮬레이터의 한 틱. **더는 걸음 값이 아니다.**
+ *
+ * 본래는 「이웃 칸 하나를 걷는 데 드는 게임 시간」이었다. 복도가
+ * 생기고 계단이 문이 된 뒤로 어느 방이든 한 걸음이라 여러 칸을
+ * 걷는 일이 없어졌고, 걷기와 등교 예약을 같이 들어냈다.
+ * 페이즈의 걸음 값은 occupy.ts 의 MOVE_MINUTES(10분)다.
+ */
 export const MOVE_GAME_MIN_PER_TILE = 15
-/** 체육부장은 절반 — 칸당 7분 30초. */
-export const ATHLETIC_MOVE_FACTOR = 0.5
-/** 등교 예약으로 찍을 수 있는 최대 칸 수. */
-export const COMMUTE_MAX_TILES = 2
 
 /** 안개 — 내가 선 칸에서 이만큼 떨어진 칸까지 보인다(우리 칸은 항상 보인다). */
 export const VISION_RANGE = 1

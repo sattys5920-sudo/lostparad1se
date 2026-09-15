@@ -615,10 +615,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   걸어가기가 선 자리 행동들 밑에 깔려 있으면, 시트를
                   굴려 내려가야 찾는다 */}
               {far && far !== standingRoom && (
-                <Actions tileId={far} where="there" act={act} onSaid={setSaid} onClose={() => setFar(null)} />
+                <Actions tileId={far} where="there" onClose={() => setFar(null)} />
               )}
               {standingRoom ? (
-                <Actions tileId={standingRoom} where="here" act={act} onSaid={setSaid}>
+                <Actions tileId={standingRoom} where="here">
                   <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
                 </Actions>
               ) : (

@@ -134,7 +134,6 @@ export interface World {
   roster: readonly WorldRoster[]
   hands: readonly { id: string; team: TeamId; kind: CardKind; targetTeam?: TeamId }[]
   goals: readonly { id: string; team: TeamId; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
-  plans: readonly { playerId: string; path: readonly TileId[] }[]
   /** 가짜 깃발. 꽂은 팀만 안다. */
   /** 정보부장이 들여다본 결과. 본 사람만 안다. */
   peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
@@ -205,7 +204,6 @@ export interface View {
   visibleTiles: TileId[]
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
-  commutePlan: { path: TileId[] } | null
   peeked: { voteKind: VoteKind; voterNickname: string }[]
   trades: World['trades'][number][]
   proposals: World['proposals'][number][]
@@ -347,7 +345,6 @@ export function projectView(world: World, viewerId: string): View {
       visibleTiles: [],
       hand: [],
       goals: [],
-      commutePlan: null,
       peeked: [],
       trades: [],
       proposals: [],
@@ -388,7 +385,6 @@ export function projectView(world: World, viewerId: string): View {
     intelOfficer: ours.some((p) => p.intelOfficer),
   })
 
-  const plan = world.plans.find((p) => p.playerId === viewerId) ?? null
   // 내가 선 방. 걷는 중이면 어느 방에도 없다 — 바닥의 쪽지도 안 보인다
   const here = seenPawns.find((p) => p.playerId === viewerId)?.tileId ?? null
 
@@ -420,7 +416,6 @@ export function projectView(world: World, viewerId: string): View {
       .map((g) => ({ id: g.id, kind: g.kind, ...(g.rivalTeam ? { rivalTeam: g.rivalTeam } : {}), revealed: g.revealed })),
 
     // 내 것
-    commutePlan: plan ? { path: [...plan.path] } : null,
     peeked: world.peeks
       .filter((p) => p.playerId === viewerId)
       .map((p) => ({ voteKind: p.voteKind, voterNickname: p.voterNickname })),

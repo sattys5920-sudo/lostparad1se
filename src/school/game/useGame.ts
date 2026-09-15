@@ -185,8 +185,6 @@ export function gameActions(gameId: string) {
     /** 시험용. 핵심 칸을 미리 다 연다 — 닷새를 기다리지 않고 본다 */
     openAllTiles: () => callServer('openAllTiles', { ...g }),
 
-    moveTo: (tileId: TileId) => callServer('moveTo', { ...g, tileId }),
-    planCommute: (tileId: TileId | null) => callServer('planCommute', { ...g, tileId }),
 
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),
     study: (tileId: TileId) => callServer('study', { ...g, tileId }),
