@@ -9,6 +9,7 @@ import { useState, type ReactNode } from 'react'
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { SHOP_ITEMS, SHOP_TILE, shopPriceFor } from '../../../shared/rules/shop'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
+import { capacityOf } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
 import type { TeamId } from '../types'
 
@@ -22,6 +23,13 @@ export interface ActionsProps {
    * 값이 붙으므로 맵 쪽에서 치러야 한다.
    */
   where: 'here' | 'there'
+  /**
+   * 그 방을 차지한 팀. 없으면 null 이다.
+   *
+   * **안개가 가리지 않는다.** 누가 어디를 차지했는지는 판에 드러난
+   * 것이라 tiles 를 아무나 읽는다. 가려지는 것은 사람과 머릿수다.
+   */
+  owner?: TeamId | null
   /** 먼 방 패널에만 있다. 잘못 눌렀으면 닫는다. */
   onClose?: () => void
   /** 제목 바로 아래에 끼울 것. 선 자리의 생산이 여기 들어온다. */
@@ -207,13 +215,14 @@ export function Shop({
   )
 }
 
-export function Actions({ tileId, where, onClose, children }: ActionsProps) {
+export function Actions({ tileId, where, owner = null, onClose, children }: ActionsProps) {
   const spec = TILE_BY_ID[tileId]
 
   return (
     <div className="sc-ac">
       <h2>
-        {spec.name} <span>{spec.value}점</span>
+        {spec.name}
+        {where === 'here' && <span>{spec.value}점</span>}
         {onClose && (
           <button className="sc-ac__close" onClick={onClose} aria-label="닫기">
             ✕
@@ -222,10 +231,21 @@ export function Actions({ tileId, where, onClose, children }: ActionsProps) {
       </h2>
       {children}
 
+      {/* **먼 방은 두 가지만 알려 준다.** 누가 차지했는지와 정원.
+          거기로 보내 주는 단추도, 그 방에서 할 수 있는 일도 여기 없다 —
+          가서 서야 알 수 있는 것이다 */}
       {where === 'there' && (
-        <p className="sc-ac__note">맵에서 걸어서 간다. 자유 시간에는 값도 시간도 안 든다.</p>
+        <dl className="sc-ac__facts">
+          <div>
+            <dt>차지한 팀</dt>
+            <dd>{owner ? `${owner}팀` : '없다'}</dd>
+          </div>
+          <div>
+            <dt>정원</dt>
+            <dd>{capacityOf(tileId)}명</dd>
+          </div>
+        </dl>
       )}
-
     </div>
   )
 }

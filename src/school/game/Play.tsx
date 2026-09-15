@@ -349,10 +349,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const closeSheet = () => setSheet(null)
 
   /**
-   * 먼 방을 골랐다. **고르는 것만으로는 아무 일도 안 일어난다** —
-   * 「걸어가기」가 행동 시트 안에 있으므로 같이 열어 준다. 전에는
-   * 지도를 눌러도 지도만 닫히고 끝이라, 방에서 방으로 못 가는 것처럼
-   * 보였다. 실제로 그랬다
+   * 먼 방을 골랐다. **보여 주기만 한다** — 누가 차지했는지와 정원.
+   *
+   * 거기로 보내 주는 단추는 없다. 자유 시간에는 맵에서 걸어가면
+   * 공짜로 바로 가고, 페이즈에는 문을 넘을 때 값을 치른다 —
+   * 어느 쪽이든 발로 간다.
    */
   const goFar = (id: TileId) => {
     setFar(id)
@@ -578,7 +579,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <FullMap
           facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
           onClose={() => setAtlas(false)}
-          onGo={goFar}
         />
       )}
 
@@ -615,7 +615,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   걸어가기가 선 자리 행동들 밑에 깔려 있으면, 시트를
                   굴려 내려가야 찾는다 */}
               {far && far !== standingRoom && (
-                <Actions tileId={far} where="there" onClose={() => setFar(null)} />
+                <Actions
+                  tileId={far}
+                  where="there"
+                  owner={(state.tiles[far]?.ownerTeam ?? null) as TeamId | null}
+                  onClose={() => setFar(null)}
+                />
               )}
               {standingRoom ? (
                 <Actions tileId={standingRoom} where="here">

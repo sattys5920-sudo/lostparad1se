@@ -262,6 +262,12 @@
 .sc-ac h2 span { font-size: 11px; color: var(--sc-text-dim); font-weight: 400; }
 
 .sc-ac__row { display: flex; gap: 6px; }
+/* 먼 방 패널 — 차지한 팀과 정원 둘뿐이다 */
+.sc-ac__facts { margin: 2px 0 0; display: flex; gap: 18px; }
+.sc-ac__facts > div { display: flex; flex-direction: column; gap: 2px; }
+.sc-ac__facts dt { font-size: 10.5px; color: var(--sc-text-dim); letter-spacing: 0.04em; }
+.sc-ac__facts dd { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+
 
 .sc-ac__row button,
 .sc-ac__menu button {

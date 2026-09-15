@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { MapPlan, nearbyOf, readMap, roomName, type MapFacts, type RoomFacts } from './MapPlan'
 import { ROOM_KIND } from '../../../shared/rules/occupy'
 import { MINIMAP_ON_KEY } from './timing'
-import type { TeamId, TileId } from '../types'
+import type { TileId } from '../types'
 
 const KIND_NAME: Record<string, string> = {
   narrow: '좁은 방',
@@ -60,19 +60,14 @@ export function MiniMap({ facts, onOpen }: { facts: MapFacts; onOpen: () => void
 const ZOOM_MIN = 0.6
 const ZOOM_MAX = 3
 
-export function FullMap({
-  facts,
-  onClose,
-  onGo,
-}: {
-  facts: MapFacts
-  onClose: () => void
-  /**
-   * 누른 방으로 가겠다. **이게 없으면 전체 맵은 구경거리다** —
-   * 판을 다 펴 놓고 「저기로 가자」를 못 누르면 지도를 왜 여는지 모른다.
-   */
-  onGo?: (id: TileId) => void
-}) {
+/**
+ * 전체 맵. **보는 것이지 가는 것이 아니다.**
+ *
+ * 전에는 누른 방에 「여기로 간다」가 붙어 있었는데, 그 단추는 걷기가
+ * 있던 시절의 것이다. 지금은 맵에서 발로 걸어가면 되고, 여기서는
+ * 누가 차지했는지와 정원만 본다.
+ */
+export function FullMap({ facts, onClose }: { facts: MapFacts; onClose: () => void }) {
   const rooms = readMap(facts)
   const [picked, setPicked] = useState<TileId | null>((facts.here as TileId | null) ?? null)
   const [zoom, setZoom] = useState(1)
@@ -191,13 +186,7 @@ export function FullMap({
           </div>
         </div>
 
-        {one && (
-          <RoomCard
-            room={one}
-            myTeam={facts.myTeam}
-            onGo={one.id === facts.here || !onGo ? undefined : () => onGo(one.id)}
-          />
-        )}
+        {one && <RoomCard room={one} />}
 
         {/* 오른쪽 위의 ✕ 는 한 손으로 쥐면 엄지가 안 닿는다.
             닿는 자리에 하나 더 둔다 */}
@@ -210,33 +199,20 @@ export function FullMap({
 }
 
 /** 누른 방의 속. 모르는 방은 모른다고만 말한다. */
-function RoomCard({
-  room,
-  myTeam,
-  onGo,
-}: {
-  room: RoomFacts
-  myTeam: TeamId
-  onGo?: () => void
-}) {
-  // 가 본 적 없는 방에도 갈 수는 있다. 모르니까 가 보는 것이다
-  const go = onGo && (
-    <button className="sc-atlas__go" onClick={onGo}>
-      여기로 간다
-    </button>
-  )
+function RoomCard({ room }: { room: RoomFacts }) {
+  // **누른 방에 대해 말해 주는 것은 둘뿐이다.**
+  //
+  // 지금 누가 차지하고 있는지와 정원. 안에 몇이 있는지는 여기서
+  // 안 적는다 — 그건 지도에 그려진 점과 숫자로 보는 것이고, 글로
+  // 다시 적으면 위장이 섞인 수를 단정하는 말이 된다.
   if (!room.known) {
     return (
       <div className="sc-atlas__card">
         <h3>{roomName(room.id)}</h3>
         <p>아직 가 본 적이 없다. 안이 어떤지 모른다.</p>
-        {go}
       </div>
     )
   }
-  const mine = room.dots.filter((d) => d.team === myTeam && !d.robot).length
-  const others = room.dots.filter((d) => d.team !== myTeam && !d.robot).length
-  const bots = room.dots.filter((d) => d.robot).length
   return (
     <div className="sc-atlas__card">
       <h3>
@@ -244,24 +220,14 @@ function RoomCard({
       </h3>
       <dl>
         <div>
-          <dt>주인</dt>
+          <dt>차지한 팀</dt>
           <dd>{room.owner ? `${room.owner}팀` : '없다'}</dd>
         </div>
         <div>
-          <dt>사람</dt>
-          <dd>
-            {room.open ? `${room.count}명 (정원 없음)` : `${room.count} / ${room.capacity}`}
-          </dd>
-        </div>
-        <div>
-          <dt>보이는 것</dt>
-          <dd>
-            우리 {mine} · 남 {others} · 로봇 {bots}
-          </dd>
+          <dt>정원</dt>
+          <dd>{room.open ? '없다' : `${room.capacity}명`}</dd>
         </div>
       </dl>
-      <p className="sc-atlas__why">숫자는 위장이 섞여 있을 수 있다. 눈으로 센 것이 아니다.</p>
-      {go}
     </div>
   )
 }
