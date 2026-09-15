@@ -18,6 +18,7 @@ import {
   ROOM_KIND,
   TOKENS_PER_PHASE,
   arrive,
+  costOf,
   capacityOf,
   doAct,
   leftBehindCount,
@@ -153,6 +154,30 @@ describe('움직임', () => {
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'scienceRoom' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('복도')
+  })
+
+  it('계단은 공짜다 — 층을 넘어도 값은 도착한 방 하나치다', () => {
+    // 2층 교실 → 서쪽 계단(0) → 1층 서쪽 계단(0) → 연구실(1)
+    let s = board({ people: [person('a', 'A', 'centralPlaza')] })
+    const before = at(s, 'a').tokens
+    for (const to of ['stair_f2_w', 'stair_f1_w'] as const) {
+      const out = doAct(s, 'a', { kind: 'move', targetTile: to })
+      expect(out.ok, to).toBe(true)
+      if (!out.ok) return
+      expect(out.spent, to).toBe(0)
+      s = arrive(out.next, 'a')
+    }
+    expect(at(s, 'a').tokens).toBe(before)
+    const last = doAct(s, 'a', { kind: 'move', targetTile: 'labRoom' })
+    expect(last.ok).toBe(true)
+    if (last.ok) expect(at(last.next, 'a').tokens).toBe(before - ENTER_COST)
+  })
+
+  it('계단을 거쳐도 값은 옆방 하나와 같다', () => {
+    expect(costOf({ kind: 'move', targetTile: 'stair_f2_w' })).toBe(0)
+    expect(costOf({ kind: 'move', targetTile: 'labRoom' })).toBe(ENTER_COST)
+    // 계단 위에 서 있어도 부르는 값은 그대로다
+    expect(costOf({ kind: 'summon', targetTile: 'stair_f2_w' })).toBe(ACT_COST.summon)
   })
 
   it('문 하나에 토큰 하나 — 복도를 길게 걸어도 같다', () => {

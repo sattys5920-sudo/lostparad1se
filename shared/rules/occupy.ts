@@ -106,11 +106,16 @@ export function nextTokens(input: {
 }
 
 /**
- * 다른 방에 **들어갈 때** 드는 토큰. 나갈 때는 안 든다.
+ * **방에** 들어갈 때 드는 토큰. 나갈 때는 안 든다.
  *
- * 방 안을 걸어 다니는 것도, 복도를 걷는 것도 공짜다. 값이 붙는 것은
- * 문을 넘는 일 하나뿐이라, 복도 끝에서 끝까지 가도 토큰 하나다.
- * 대신 층을 바꾸려면 계단에 한 번 들어갔다 나와야 하니 문이 둘이다.
+ * 값이 붙는 것은 방에 들어서는 일 하나뿐이다. 방 안을 걸어 다니는
+ * 것도, 복도도, **계단도** 공짜다 — 셋 다 지나가는 곳이라 지나가는
+ * 값을 물리지 않는다. 계단을 물리면 위층 방 하나가 아래층 방 하나의
+ * 두 배가 되고, 그러면 아무도 층을 안 넘는다.
+ *
+ * 그래서 어디서 어디로 가든 값은 토큰 하나다. 조이는 것은 시계다 —
+ * 문 하나를 넘는 데 10분이라, 계단 둘을 거치는 길은 값이 아니라
+ * 시간이 비싸다.
  */
 export const ENTER_COST = 1
 
@@ -342,7 +347,10 @@ export const vaultOf = (state: PhaseState, team: TeamId): Vault => state.vaults[
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
 
-/** 행동에 드는 토큰. 이동은 **문 하나를 들어가는 값**이다 — 나가는 데는 안 든다. */
+/**
+ * 행동에 드는 토큰. **이 표는 방으로 가는 값이다** — 계단으로
+ * 가는 이동은 공짜라, 실제로 물릴 값은 costOf() 에 물어본다.
+ */
 export const ACT_COST: Record<ActionKind, number> = {
   move: ENTER_COST,
   research: 2,
@@ -353,6 +361,20 @@ export const ACT_COST: Record<ActionKind, number> = {
   // 들고 있던 것을 내려놓는 것뿐이다. 값을 물리면 아무도 안 둔다
   dropRobot: 0,
   smashRobot: 1,
+}
+
+/** 계단은 지나가는 곳이다. **드나드는 데 값을 안 물린다.** */
+export const isStair = (id: TileId): boolean => TILE_BY_ID[id]?.tier === 'stair'
+
+/**
+ * 이 행동에 실제로 드는 토큰.
+ *
+ * 계단으로 가는 걸음만 표와 다르다 — 공짜다. 그래서 층을 넘는 길도
+ * 값은 도착한 방 하나치, 토큰 하나다.
+ */
+export function costOf(act: Act): number {
+  if (act.kind === 'move' && act.targetTile && isStair(act.targetTile)) return 0
+  return ACT_COST[act.kind]
 }
 
 export interface Act {
@@ -535,7 +557,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   const me = state.people.find((p) => p.playerId === playerId)
   if (!me) return no('이 판에 없는 사람이다.')
 
-  const cost = ACT_COST[act.kind]
+  const cost = costOf(act)
   if (me.tokens < cost) return no(`토큰이 모자란다. ${cost}개가 든다.`)
 
   // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다
