@@ -10,15 +10,20 @@
 //
 // **안 아는 방은 서버가 숫자를 안 보낸다.** 여기서 감추는 것이 아니라
 // 애초에 없다. 받아다 가리면 개발자도구로 다 보인다.
-import { ADJACENCY, TILES, TILE_BY_ID } from '../../../shared/rules/board'
+import { ADJACENCY, FLOOR_NAME, FLOORS, HALLS, STAIRWELLS, TILES, TILE_BY_ID } from '../../../shared/rules/board'
 import { OPEN_TILES, ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
 
 /** 걸어 다니는 칸 하나를 전개도에서 몇으로 그리는가. */
 export const PLAN_SCALE = 6
-/** 전개도 가장자리 여백. */
-export const PLAN_PAD = 10
+/**
+ * 전개도 가장자리 여백.
+ *
+ * 층 이름이 바닥판 **위에** 앉으므로 그만큼은 비어 있어야 한다 —
+ * 좁게 두었더니 맨 위 층(옥상) 이름이 테두리에 잘렸다.
+ */
+export const PLAN_PAD = 20
 
 /** 한 방에 점을 이만큼까지 그리고, 넘으면 +N 으로 적는다. */
 export const DOTS_MAX = 3
@@ -105,15 +110,45 @@ export function readMap(f: MapFacts): RoomFacts[] {
   })
 }
 
-/** 서로 이웃한 방 쌍. 선을 두 번 긋지 않도록 한 번씩만 낸다. */
-export function corridors(): [TileId, TileId][] {
-  const out: [TileId, TileId][] = []
-  for (const t of TILES) {
-    for (const n of ADJACENCY[t.id] ?? []) {
-      if (t.id < n) out.push([t.id as TileId, n as TileId])
+/**
+ * 복도와 계단통. **선이 아니라 바닥이다.**
+ *
+ * 전에는 이웃한 방의 한가운데끼리 선을 그었다. 그러면 가계도지
+ * 배치도가 아니다 — 복도가 실제로 어디를 지나가는지, 어느 방이
+ * 같은 복도에 붙어 있는지가 안 보였다. 판 데이터에 복도 네모가
+ * 그대로 있으니 그것을 깐다.
+ */
+export function halls(): { x: number; y: number; w: number; h: number; stair: boolean }[] {
+  const stairAt = new Set(STAIRWELLS.map((w) => `${w.plan.x},${w.plan.y}`))
+  return HALLS.map((h) => ({
+    x: h.rect.x * PLAN_SCALE,
+    y: h.rect.y * PLAN_SCALE,
+    w: h.rect.w * PLAN_SCALE,
+    h: h.rect.h * PLAN_SCALE,
+    stair: stairAt.has(`${h.rect.x},${h.rect.y}`),
+  }))
+}
+
+/** 층마다의 바닥판. 쌓아 놓은 것이 한 건물로 읽히게 깔아 준다. */
+export function slabs(): { floor: string; name: string; x: number; y: number; w: number; h: number }[] {
+  return FLOORS.map((floor) => {
+    const boxes = [
+      ...TILES.filter((t) => t.floor === floor).map((t) => t.plan),
+      ...HALLS.filter((h) => h.floor === floor).map((h) => h.rect),
+    ]
+    const x = Math.min(...boxes.map((b) => b.x)) - 1
+    const y = Math.min(...boxes.map((b) => b.y)) - 1
+    const w = Math.max(...boxes.map((b) => b.x + b.w)) + 1 - x
+    const h = Math.max(...boxes.map((b) => b.y + b.h)) + 1 - y
+    return {
+      floor,
+      name: FLOOR_NAME[floor],
+      x: x * PLAN_SCALE,
+      y: y * PLAN_SCALE,
+      w: w * PLAN_SCALE,
+      h: h * PLAN_SCALE,
     }
-  }
-  return out
+  })
 }
 
 export interface PlanProps {
@@ -141,11 +176,12 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
   const y0 = Math.min(...shown.map((r) => r.box.y)) - PLAN_PAD
   const w = Math.max(...shown.map((r) => r.box.x + r.box.w)) + PLAN_PAD - x0
   const h = Math.max(...shown.map((r) => r.box.y + r.box.h)) + PLAN_PAD - y0
-  const inScope = new Set(shown.map((r) => r.id))
-  const byId = new Map(rooms.map((r) => [r.id, r]))
-
-  /** 방 한가운데. 통로 선과 점이 여기를 기준으로 놓인다. */
+  /** 방 한가운데. 이름과 점이 여기를 기준으로 놓인다. */
   const mid = (r: RoomFacts) => ({ x: r.box.x + r.box.w / 2, y: r.box.y + r.box.h / 2 })
+
+  /** 지금 그리는 테두리 안에 걸치는가. 미니맵은 둘레만 잘라 보여 준다. */
+  const inView = (b: { x: number; y: number; w: number; h: number }) =>
+    b.x < x0 + w && b.x + b.w > x0 && b.y < y0 + h && b.y + b.h > y0
 
   return (
     <svg
@@ -154,25 +190,32 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
       role="img"
       aria-label="학교 전개도"
     >
-      {/* 통로. 방보다 먼저 그려야 네모 밑으로 들어간다 */}
-      {corridors()
-        .filter(([a, b]) => inScope.has(a) && inScope.has(b))
-        .map(([a, b]) => {
-          const ra = byId.get(a) as RoomFacts
-          const rb = byId.get(b) as RoomFacts
-          const pa = mid(ra)
-          const pb = mid(rb)
-          return (
-            <line
-              key={`${a}-${b}`}
-              x1={pa.x}
-              y1={pa.y}
-              x2={pb.x}
-              y2={pb.y}
-              className="sc-mp__hall"
-            />
-          )
-        })}
+      {/* 층 바닥. 맨 밑에 깔아야 방과 복도가 그 위에 얹힌다 */}
+      {!compact &&
+        slabs()
+          .filter(inView)
+          .map((f) => (
+            <g key={f.floor} className="sc-mp__slab">
+              <rect x={f.x} y={f.y} width={f.w} height={f.h} rx={4} />
+              <text x={f.x + 4} y={f.y - 4} className="sc-mp__floor">
+                {f.name}
+              </text>
+            </g>
+          ))}
+
+      {/* 복도와 계단통. **선이 아니라 바닥이다** — 방보다 먼저 깐다 */}
+      {halls()
+        .filter(inView)
+        .map((g, i) => (
+          <rect
+            key={i}
+            x={g.x}
+            y={g.y}
+            width={g.w}
+            height={g.h}
+            className={g.stair ? 'sc-mp__hall is-stair' : 'sc-mp__hall'}
+          />
+        ))}
 
       {shown.map((r) => {
         const { x, y, w: bw, h: bh } = r.box
