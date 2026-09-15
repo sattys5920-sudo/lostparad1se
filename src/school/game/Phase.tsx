@@ -60,7 +60,7 @@ const LABEL: Record<ActionKind, string> = {
 }
 
 const WHAT: Record<ActionKind, string> = {
-  move: `복도로 닿는 방이면 어디든. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다. 계단은 공짜다.`,
+  move: `복도로 닿는 방이면 어디든. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다. 계단은 값도 시간도 안 든다.`,
   research: '연구실에서만. 다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
   summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다.',
   disturb: `${ITEM_BY_KIND.whistle.name} 하나. 같은 방 상대 하나를 이번 판정에서 0명으로 만든다.`,
@@ -163,9 +163,9 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         {endsAtMs != null && <em>{overAt ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}</em>}
       </p>
       <p className="sc-ph__hint">
-        <b>방에</b> 들어갈 때 토큰 {ACT_COST.move}개. 나가는 데는 안 들고 복도와 계단은 공짜라, 어디로 가든
-        값은 하나다. 대신 문 하나에 나가는 데 {EXIT_MINUTES}분, 들어가는 데 {ENTER_MINUTES}분이 걸리고
-        그동안은 어느 방에도 없다. 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
+        <b>방에</b> 들어설 때만 토큰 {ACT_COST.move}개와 {EXIT_MINUTES + ENTER_MINUTES}분이 든다. 나가는 것도
+        복도도 계단도 값이 없고 시간도 안 걸리니, 어디로 가든 토큰 하나에 {EXIT_MINUTES + ENTER_MINUTES}분이다.
+        들어가는 동안은 어느 방에도 없다 — 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
       </p>
 
       <ul className="sc-ph__list">

@@ -412,6 +412,8 @@ export const phaseAct = onCall<{
 
   /** 내가 방을 떠났다면 그 방. 체류 기록을 닫아야 한다. */
   let leftFor: TileId | null = null
+  // 계단으로 곧바로 선 자리. 0분이라 도착 예약 없이 여기서 끝난다
+  let steppedTo: TileId | null = null
   let left = 0
   /**
    * 이번 행동으로 난 로봇·부서진 로봇. **트랜잭션 밖에서 기록한다** —
@@ -479,6 +481,28 @@ export const phaseAct = onCall<{
         if (p.playerId === uid) left = p.tokens
         continue
       }
+      // 계단으로 갔다. **0분이라 걷는 중을 거치지 않는다** — 그 자리에
+      // 곧바로 서니 도착 예약도, 체류를 닫는 일도 없다. 발은 들였으니
+      // 지도에는 남는다
+      if (p.tileId !== null) {
+        const been = new Set((doc.data() as PawnDoc).visitedTiles ?? [])
+        been.add(p.tileId)
+        tx.update(doc.ref, {
+          tileId: p.tileId,
+          fromTile: was.tileId,
+          path: [],
+          arriveAtMs: null,
+          tokens: p.tokens,
+          asleep: false,
+          visitedTiles: [...been],
+        })
+        if (p.playerId === uid) {
+          left = p.tokens
+          steppedTo = p.tileId
+        }
+        continue
+      }
+
       // 문을 넘었다. 나가는 데 5분, 들어가는 데 5분 — 그동안 어느 방에도 없다
       const to = p.toTile as TileId
       tx.update(doc.ref, {
@@ -543,6 +567,9 @@ export const phaseAct = onCall<{
   // 떠나는 순간 그 방의 체류가 끝난다. 걷는 10분 동안은 어느 방에도
   // 없고, 도착하면 따라잡기가 새 방의 체류를 연다
   if (leftFor) await openInterval(gameId, uid, null, nowMs, 'walking')
+  // 계단은 0분이라 걷는 중이 없다. 앞 방의 체류를 닫고 계단의 체류를
+  // 곧바로 연다 — 안 열면 계단에 서서 떠난 방의 말을 계속 듣는다
+  if (steppedTo) await openInterval(gameId, uid, steppedTo, nowMs)
   await refreshViews(gameId)
   return { kind, tokens: left, walking: leftFor !== null }
 })

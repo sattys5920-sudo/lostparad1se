@@ -377,6 +377,18 @@ export function costOf(act: Act): number {
   return ACT_COST[act.kind]
 }
 
+/**
+ * 그 칸으로 넘어가는 데 드는 분. **계단은 0분이다.**
+ *
+ * 시간을 값과 같은 자리에 붙인다 — 토큰도 시간도 **방에 들어설 때만**
+ * 든다. 계단에 서 있는 것은 복도에 서 있는 것과 같아서, 들어가고
+ * 나오는 데 아무것도 안 든다. 그래서 위층 방으로 가든 옆방으로 가든
+ * 토큰 하나에 10분 하나다.
+ */
+export function moveMinutes(to: TileId): number {
+  return isStair(to) ? 0 : MOVE_MINUTES
+}
+
 export interface Act {
   kind: ActionKind
   /** 이동의 목적지. */
@@ -577,11 +589,13 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   const carriedOf = (id: string) => robots.filter((r) => r.carriedBy === id)
 
   /**
-   * 사람 하나를 문 밖으로 내보낸다. **바로 도착하지 않는다.**
+   * 사람 하나를 문 밖으로 내보낸다. **방으로는 바로 도착하지 않는다.**
    *
    * 나가는 데 5분, 들어가는 데 5분. 그동안은 어느 방에도 없고, 데리고
    * 있는 로봇도 함께 사라진다. 도착은 서버의 시계가 시킨다 — 이 함수는
    * 「떠났다」까지만 안다.
+   *
+   * **계단은 다르다.** 복도의 연장이라 0분이고, 그 자리에 곧바로 선다.
    */
   function step(p: Person, to: TileId): string | null {
     if (p.tileId === null) return '이미 걷는 중이다.'
@@ -596,8 +610,15 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     // 떠난 방에 남는다 — 로봇 때문에 사람이 못 가면 로봇으로 문을
     // 막는 짓이 다시 생긴다. 화면은 누르기 전에 robotsLeftBehind()로 경고한다
     const spare = Math.max(0, ROBOTS_PER_ROOM - botsAt(to))
-    p.tileId = null
-    p.toTile = to
+    if (moveMinutes(to) === 0) {
+      // 계단에는 곧바로 선다. 걷는 중을 거치지 않으니, 계단 위에서
+      // 페이즈가 닫혀도 「어느 방에도 없는 사람」이 되지 않는다
+      p.tileId = to
+      p.toTile = null
+    } else {
+      p.tileId = null
+      p.toTile = to
+    }
     for (const [i, r] of carried.entries()) {
       if (i < spare) {
         // 데리고 가는 로봇은 미리 그 방에 놓는다. 판정에는 사람이
@@ -624,8 +645,9 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     }
 
     case 'summon': {
-      // 같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 부르는 것도 걸음이라
-      // 끌려오는 사람은 10분 동안 어느 방에도 없다
+      // 같은 팀 한 명을 내 쪽으로 한 걸음 끌어온다. 부르는 것도 걸음이라
+      // 방으로 끌려오는 사람은 10분 동안 어느 방에도 없다. 계단으로
+      // 끌려오면 그 자리에 곧바로 선다
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const target = act.targetPlayer ? byId.get(act.targetPlayer) : undefined
       if (!target) return no('그런 사람이 없다.')

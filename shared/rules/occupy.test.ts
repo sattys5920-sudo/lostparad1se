@@ -8,6 +8,8 @@ import {
   ACT_COST,
   ENTER_COST,
   MAX_CARRIED_ROBOTS,
+  MOVE_MINUTES,
+  moveMinutes,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
   KNOWLEDGE_PER_RESEARCH,
@@ -156,7 +158,7 @@ describe('움직임', () => {
     if (!out.ok) expect(out.why).toContain('복도')
   })
 
-  it('계단은 공짜다 — 층을 넘어도 값은 도착한 방 하나치다', () => {
+  it('계단은 값도 시간도 안 든다 — 걷는 중을 거치지 않고 곧바로 선다', () => {
     // 2층 교실 → 서쪽 계단(0) → 1층 서쪽 계단(0) → 연구실(1)
     let s = board({ people: [person('a', 'A', 'centralPlaza')] })
     const before = at(s, 'a').tokens
@@ -165,12 +167,25 @@ describe('움직임', () => {
       expect(out.ok, to).toBe(true)
       if (!out.ok) return
       expect(out.spent, to).toBe(0)
-      s = arrive(out.next, 'a')
+      // arrive() 를 부르지 않는다. 계단에는 이미 서 있어야 한다
+      expect(at(out.next, 'a').tileId, to).toBe(to)
+      expect(at(out.next, 'a').toTile ?? null, to).toBe(null)
+      s = out.next
     }
     expect(at(s, 'a').tokens).toBe(before)
+
+    // 방은 다르다. 값이 들고, 10분 동안 어느 방에도 없다
     const last = doAct(s, 'a', { kind: 'move', targetTile: 'labRoom' })
     expect(last.ok).toBe(true)
-    if (last.ok) expect(at(last.next, 'a').tokens).toBe(before - ENTER_COST)
+    if (!last.ok) return
+    expect(at(last.next, 'a').tokens).toBe(before - ENTER_COST)
+    expect(at(last.next, 'a').tileId).toBe(null)
+    expect(at(arrive(last.next, 'a'), 'a').tileId).toBe('labRoom')
+  })
+
+  it('걸리는 시간도 방에만 붙는다', () => {
+    expect(moveMinutes('stair_f2_w')).toBe(0)
+    expect(moveMinutes('labRoom')).toBe(MOVE_MINUTES)
   })
 
   it('계단을 거쳐도 값은 옆방 하나와 같다', () => {
