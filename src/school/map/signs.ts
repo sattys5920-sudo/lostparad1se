@@ -64,15 +64,21 @@ const rgb = (hex: string): [number, number, number] => [
   parseInt(hex.slice(3, 5), 16),
   parseInt(hex.slice(5, 7), 16),
 ]
+const INK = rgb(PAL.ink)
+const MID = rgb(PAL.mid)
 
 /**
  * 팻말 한 장을 굽는다. 높이는 한 칸, 너비는 이름이 정한다.
  *
  * 어두운 방에서도 읽히도록 판 뒤에 아주 옅은 빛 판을 깐다.
  *
- * **글자는 찍고 나서 칼로 자른다.** 11px 갈무리도 브라우저가
- * 가장자리를 흐리게 문질러 놓는다 — 도트 그림 한복판에 뿌연 글씨가
- * 뜬다. 반투명한 점은 버리고 진한 점만 남겨서 두 색으로 만든다.
+ * **글자는 팔레트 세 톤으로 눌러 담는다.**
+ *
+ * 브라우저는 11px 갈무리도 가장자리를 흐리게 문지른다. 한때 그 반투명한
+ * 점을 통째로 버려 두 색으로 만들었더니 가는 획이 같이 날아갔다 —
+ * 도서관이 「도시관」이 되고 기술실이 「기슬실」이 됐다. 버리는 대신
+ * 진한 점은 윤곽색, 옅은 점은 중간색으로 내려놓는다. 획이 살아남고,
+ * 판 위에 도트 아닌 색이 섞이지도 않는다.
  */
 export function bakeSign(name: string): HTMLCanvasElement {
   const tiles = signTiles(name)
@@ -102,7 +108,7 @@ export function bakeSign(name: string): HTMLCanvasElement {
   g.fillRect(2, 3, 1, 1)
   g.fillRect(w - 3, 3, 1, 1)
 
-  // 글자를 따로 찍어 흐린 점을 걷어 내고 판에 새긴다
+  // 글자를 따로 찍어 세 톤으로 눌러 담는다
   const cut = document.createElement('canvas')
   cut.width = w
   cut.height = 16
@@ -115,17 +121,19 @@ export function bakeSign(name: string): HTMLCanvasElement {
   // 쓰고, 위의 반짝임(2줄)과 아래 그늘(14줄)에 닿지 않는다
   t.fillText(name, Math.round((w - signTextPx(name)) / 2), 13)
 
-  const [ir, ig, ib] = rgb(PAL.ink)
   const src = t.getImageData(0, 0, w, 16)
   const dst = g.getImageData(0, 0, w, 16)
   for (let i = 0; i < src.data.length; i += 4) {
-    if (src.data[i + 3] < 128) continue
-    dst.data[i] = ir
-    dst.data[i + 1] = ig
-    dst.data[i + 2] = ib
+    const a = src.data[i + 3]
+    if (a < 64) continue
+    const [r, gg, bb] = a >= 160 ? INK : MID
+    dst.data[i] = r
+    dst.data[i + 1] = gg
+    dst.data[i + 2] = bb
     dst.data[i + 3] = 255
   }
   g.putImageData(dst, 0, 0)
+
   return c
 }
 

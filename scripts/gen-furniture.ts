@@ -11,32 +11,39 @@ import { signTiles } from '../src/school/map/signs'
 import { centerOf, DOORS, inDoorLane, ROOMS, roomById, STAIRS } from '../src/school/map/world'
 import type { TileId } from '../src/school/types'
 
-/** 방마다 놓을 것. 다섯에서 여섯 — 비어 보이지도, 창고처럼 꽉 차지도 않는다. */
+/**
+ * 방마다 놓을 것. **큰 방일수록 많이 놓는다.**
+ *
+ * 한동안 어느 방이나 여섯이었다. 그랬더니 옥상(40×12)과 경비실(18×9)
+ * 이 텅 비어 보였다 — 같은 여섯이라도 예순네 칸에 놓인 여섯과 사백
+ * 여든 칸에 놓인 여섯은 다르다. 열여섯 칸에 하나꼴로 잡고, 여섯에서
+ * 열 사이로 자른다. 목록은 그보다 길어도 되고, 앞에서부터 쓴다.
+ */
 const PLAN: Partial<Record<TileId, PropKind[]>> = {
-  artRoom: ['bust', 'paintCan', 'brushJar', 'artFrame', 'ragPile', 'easel'],
+  artRoom: ['bust', 'paintCan', 'brushJar', 'artFrame', 'ragPile', 'easel', 'table', 'shelf'],
   scienceRoom: ['skeleton', 'beakers', 'microscope', 'burner', 'periodic', 'specimen'],
-  musicRoom: ['musicStand', 'guitar', 'scoreStack', 'metronome', 'composerFrame', 'piano'],
-  library: ['bookStack', 'readingStand', 'cardBox', 'returnBin', 'ladder', 'shelf'],
-  baseD: ['projector', 'screenWall', 'speaker', 'filmReel', 'seats', 'tapeBox'],
+  musicRoom: ['piano', 'musicStand', 'guitar', 'scoreStack', 'metronome', 'composerFrame', 'seats'],
+  library: ['shelf', 'bookStack', 'readingStand', 'cardBox', 'returnBin', 'ladder', 'shelf', 'table'],
+  baseD: ['screenWall', 'projector', 'speaker', 'filmReel', 'seats', 'tapeBox', 'seats'],
   clubRoom: ['sofa', 'corkBoard', 'cupStack', 'guitarCase', 'radio', 'crates'],
-  newBuilding: ['mirrorWall', 'balletBar', 'matRoll', 'towelBasket', 'slippers', 'plant'],
+  newBuilding: ['mirrorWall', 'balletBar', 'matRoll', 'towelBasket', 'slippers', 'plant', 'matRoll'],
   broadcastRoom: ['micStand', 'mixer', 'headphones', 'onAir', 'cameraTripod', 'console'],
   studentCouncil: ['suggestBox', 'whiteBoard', 'fileStack', 'trophyShelf', 'councilTable', 'locker'],
-  centralPlaza: ['blackboard', 'podium', 'timetable', 'cleanLocker', 'deskRow', 'desk'],
-  rooftop: ['vent', 'acUnit', 'waterTank', 'fenceRail', 'laundry', 'box'],
-  baseA: ['teacherDesk', 'rollShelf', 'coffeePot', 'deskPhone', 'wallClock', 'meetingTable'],
-  cafeteria: ['trayStack', 'foodCart', 'waterCooler', 'wasteBin', 'menuBoard', 'canteen'],
+  centralPlaza: ['blackboard', 'deskRow', 'deskRow', 'podium', 'cleanLocker', 'timetable', 'desk', 'desk'],
+  rooftop: ['acUnit', 'waterTank', 'fenceRail', 'laundry', 'vent', 'crates', 'bench', 'vent', 'box', 'box'],
+  baseA: ['teacherDesk', 'meetingTable', 'cabinet', 'rollShelf', 'coffeePot', 'deskPhone', 'wallClock', 'fileStack'],
+  cafeteria: ['canteen', 'foodCart', 'table', 'trayStack', 'waterCooler', 'wasteBin', 'menuBoard', 'trayStack'],
   annex: ['sickBed', 'curtain', 'medCabinet', 'scale', 'anatomyChart', 'bench'],
   classroom: ['displayRack', 'counter', 'ledger', 'hangRail', 'lostShoe', 'table'],
   hallway: ['cooktop', 'sink', 'potShelf', 'sewingMachine', 'apronHook', 'cuttingBoard'],
   gym: ['hoop', 'matPile', 'ballBasket', 'bleachers', 'wallBar', 'vault'],
   auditorium: ['stage', 'lightRig', 'lectern', 'banner', 'seatRow', 'statue'],
   playground: ['goalPost', 'pullUpBar', 'sandpit', 'platform', 'tireSteps', 'bench'],
-  labRoom: ['workbench', 'paperStack', 'oldUniform', 'shears', 'threadSpool', 'halfDoll'],
+  labRoom: ['workbench', 'labBench', 'paperStack', 'oldUniform', 'shears', 'threadSpool', 'halfDoll', 'crates'],
   garden: ['flowerBed', 'wateringCan', 'toolRack', 'sapling', 'stoneBench', 'tree'],
   baseB: ['sinkRow', 'stallDoor', 'mirrorSmall', 'mopBucket', 'paperRoll', 'box'],
-  baseC: ['viseBench', 'toolBoard', 'drillPress', 'lumberPile', 'sawdustBin', 'labBench'],
-  oldBuilding: ['keyRack', 'monitorStack', 'ledger', 'flashlight', 'umbrellaStand', 'plant'],
+  baseC: ['viseBench', 'toolBoard', 'labBench', 'lumberPile', 'drillPress', 'sawdustBin', 'crates', 'toolRack'],
+  oldBuilding: ['monitorStack', 'cabinet', 'table', 'keyRack', 'ledger', 'flashlight', 'umbrellaStand', 'bench', 'crates', 'plant'],
   // 창고는 문을 닫은 채 비워 둔다
   storage: [],
 }
@@ -55,12 +62,20 @@ function rng(seed: number): () => number {
 
 interface Placed { kind: PropKind; x: number; y: number }
 
+/** 한 칸당 소품 하나. 열여섯 칸에 하나꼴이고, 여섯에서 열 사이다. */
+const howMany = (w: number, h: number): number =>
+  Math.min(10, Math.max(6, Math.round((w * h) / 16)))
+
 const out: Record<string, { props: Placed[]; sign: { x: number; y: number } }> = {}
 const notes: string[] = []
 
 for (const room of ROOMS) {
   const r = roomById[room.id].rects[0]
-  const list = PLAN[room.id] ?? []
+  const want = room.id === 'storage' ? 0 : howMany(r.w, r.h)
+  const list = (PLAN[room.id] ?? []).slice(0, want)
+  if (list.length < want) {
+    throw new Error(`${room.name} 은 ${want}개가 필요한데 목록에 ${list.length}개뿐이다`)
+  }
 
   /** 아무것도 못 놓는 칸. 문 앞 길, 계단, 한가운데와 그 사방. */
   const keepClear = new Set<string>()

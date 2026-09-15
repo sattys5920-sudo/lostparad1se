@@ -259,12 +259,18 @@ describe('소품과 팻말이 길을 막지 않는다', () => {
     expect(cells).toBe(objects)
   })
 
-  it('방마다 소품이 다섯이나 여섯이다 — 창고만 비운다', () => {
+  it('큰 방일수록 소품이 많다 — 여섯에서 열, 창고만 비운다', () => {
+    // 같은 여섯이라도 예순네 칸에 놓인 여섯과 사백여든 칸에 놓인
+    // 여섯은 다르다. 열여섯 칸에 하나꼴로 잡는다
     for (const room of ROOMS) {
       const n = FURNITURE[room.id].props.length
-      if (room.id === 'storage') expect(n, room.name).toBe(0)
-      else expect(n, room.name).toBeGreaterThanOrEqual(5)
-      expect(n, room.name).toBeLessThanOrEqual(6)
+      if (room.id === 'storage') {
+        expect(n, room.name).toBe(0)
+        continue
+      }
+      const r = room.rects[0]
+      const want = Math.min(10, Math.max(6, Math.round((r.w * r.h) / 16)))
+      expect(n, room.name).toBe(want)
     }
   })
 
