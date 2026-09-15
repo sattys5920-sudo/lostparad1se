@@ -131,9 +131,8 @@ export interface World {
   roster: readonly WorldRoster[]
   hands: readonly { id: string; team: TeamId; kind: CardKind; targetTeam?: TeamId }[]
   goals: readonly { id: string; team: TeamId; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
-  plans: readonly { playerId: string; path: readonly TileId[]; plantFlag: boolean }[]
+  plans: readonly { playerId: string; path: readonly TileId[] }[]
   /** 가짜 깃발. 꽂은 팀만 안다. */
-  flagTruth: readonly { tileId: TileId; team: TeamId; fake: boolean }[]
   /** 정보부장이 들여다본 결과. 본 사람만 안다. */
   peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
   /** 교역 제안. 관련된 두 팀만 본다. */
@@ -203,8 +202,7 @@ export interface View {
   visibleTiles: TileId[]
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
-  commutePlan: { path: TileId[]; plantFlag: boolean } | null
-  fakeFlagTiles: TileId[]
+  commutePlan: { path: TileId[] } | null
   peeked: { voteKind: VoteKind; voterNickname: string }[]
   trades: World['trades'][number][]
   proposals: World['proposals'][number][]
@@ -345,7 +343,6 @@ export function projectView(world: World, viewerId: string): View {
       hand: [],
       goals: [],
       commutePlan: null,
-      fakeFlagTiles: [],
       peeked: [],
       trades: [],
       proposals: [],
@@ -415,10 +412,9 @@ export function projectView(world: World, viewerId: string): View {
     goals: world.goals
       .filter((g) => g.team === team)
       .map((g) => ({ id: g.id, kind: g.kind, ...(g.rivalTeam ? { rivalTeam: g.rivalTeam } : {}), revealed: g.revealed })),
-    fakeFlagTiles: world.flagTruth.filter((f) => f.team === team && f.fake).map((f) => f.tileId),
 
     // 내 것
-    commutePlan: plan ? { path: [...plan.path], plantFlag: plan.plantFlag } : null,
+    commutePlan: plan ? { path: [...plan.path] } : null,
     peeked: world.peeks
       .filter((p) => p.playerId === viewerId)
       .map((p) => ({ voteKind: p.voteKind, voterNickname: p.voterNickname })),

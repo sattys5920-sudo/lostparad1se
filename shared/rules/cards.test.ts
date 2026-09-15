@@ -75,12 +75,6 @@ describe('카드가 하는 일', () => {
     expect(play('falseRumor', { targetTeam: 'B' }).moneyHit).toEqual({ team: 'B', amount: 2 })
   })
 
-  it('보강은 실제 시계로 24시간이다', () => {
-    const t = play('reinforce', { targetTile: 'classroom' }).tile
-    expect(t?.reinforce).toBe(2)
-    expect(t?.untilRealMs).toBe(NOW + 24 * HOUR)
-  })
-
   it('봉쇄는 게임 시계로 여섯 시간이다 — 밤을 걸쳐도 여섯 시간이다', () => {
     const late = cardEffect({
       kind: 'blockade', team: 'A', nowMs: seoul('2026-03-02T22:00:00'),
@@ -105,12 +99,6 @@ describe('카드가 하는 일', () => {
   it('기습·협정서는 다음 한 번을 위해 표시만 남긴다', () => {
     expect(play('ambush').pending).toBe('ambush')
     expect(play('accord').pending).toBe('accord')
-  })
-
-  it('가짜 깃발은 가짜라는 표시를 남긴다', () => {
-    const out = play('fakeFlag', { targetTile: 'library' })
-    expect(out.fakeFlag).toBe(true)
-    expect(out.tile?.tileId).toBe('library')
   })
 
   it('협정서 보너스는 돈 2다', () => {

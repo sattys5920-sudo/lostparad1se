@@ -61,7 +61,14 @@ export function reveal(input: RevealInput): RevealResult {
 
 // ── 쓰는 법 ─────────────────────────────────────────────────────
 
-export type LeverageUse = 'bind' | 'extort'
+/**
+ * 쥔 약점으로 하는 일. 무엇을 하든 그 약점은 사라진다.
+ *
+ * **묻어 주기(bury)는 아무 일도 하지 않는 쓰임이다.** 얻는 것 없이
+ * 없애 버린다 — 그 사람의 비밀을 알면서 쓰지 않기로 하는 것이,
+ * 이 판에서 유일하게 값이 안 붙는 호의다.
+ */
+export type LeverageUse = 'bind' | 'extort' | 'bury'
 
 /** 발 묶기가 풀리는 시각. 게임 시계로 여섯 시간이다. */
 export function bindUntilMs(nowMs: number): number {

@@ -12,9 +12,6 @@ import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 import { dueItems, type Due } from '../../shared/rules/catchup'
 import { accrueTokens, markComeback } from '../../shared/rules/tokens'
 import type { TileState } from '../../shared/rules/resources'
-import { flagCost, resolveFlag, type Standing } from '../../shared/rules/flag'
-import { openMemory, type MemoryOpened } from '../../shared/rules/memory'
-import { canPay, pay } from '../../shared/rules/resources'
 import { releaseCommute } from '../../shared/rules/movement'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
@@ -26,7 +23,6 @@ import {
   ALLIANCE_CLEAR_DAY,
   ATHLETIC_MOVE_FACTOR,
   CORE_OPENING,
-  type FlagTarget,
   type Resource,
   type TeamId,
 } from '../../shared/rules/v2'
@@ -35,7 +31,6 @@ import type { Fragment } from '../../shared/rules/fragments'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import type {
   CommutePlanDoc,
-  FlagDoc,
   GameDoc,
   PawnDoc,
   ScheduleDoc,
@@ -44,7 +39,6 @@ import type {
   TokenStateDoc,
   VoteDoc,
 } from '../../shared/model'
-import { TILE_BY_ID } from '../../shared/rules/board'
 import { arrivals } from '../../shared/rules/movement'
 import { SCHEDULE_ORD } from '../../shared/model'
 import { gameRef } from './index'
@@ -113,7 +107,7 @@ async function dayStart(c: Ctx): Promise<void> {
 
     const factor = pawn.title === 'athleticDirector' ? ATHLETIC_MOVE_FACTOR : 1
     const walk = releaseCommute(
-      { playerId: pawn.playerId, to, flagOnArrival: plan.plantFlag === true },
+      { playerId: pawn.playerId, to },
       pawn.tileId,
       c.atMs,
       factor,
@@ -389,133 +383,12 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
   })
 }
 
-/**
- * 깃발 시간이 다 찼다.
- *
- *   깃발 쪽(팀 + 동맹) > 나머지 전체    같으면 실패
- *   핵심·중앙광장은 깃발 팀 실제 인원이 둘 이상
- *   꽂은 사람이 떠났으면 그 자리에서 실패
- *
- * 자원은 **여기서** 낸다. 꽂을 때가 아니라 성공하는 순간이라, 그 사이에
- * 칸이 늘었으면 더 비싸지고 모자라면 실패한다.
- */
-async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> {
-  const ref = gameRef(c.gameId)
-  const tileId = payload.tileId as TileId
-  const team = payload.team as TeamId
-  const target = payload.target as FlagTarget
-  const planterId = payload.planterId as string
-
-  const flagRef = ref.collection('flags').doc(tileId)
-  const memRef = ref.collection('secret').doc('memories').collection('items')
-  const [flagSnap, pawnSnap, tileSnap, teamSnap, memSnap] = await Promise.all([
-    c.tx.get(flagRef),
-    c.tx.get(ref.collection('pawns')),
-    c.tx.get(ref.collection('tiles')),
-    c.tx.get(ref.collection('teams').doc(team)),
-    c.tx.get(memRef),
-  ])
-  // 이미 치워진 깃발이면 할 일이 없다
-  if (!flagSnap.exists) return
-  const flag = flagSnap.data() as FlagDoc
-  if (flag.team !== team || flag.startedAtMs > c.atMs) return
-
-  const pawns = pawnSnap.docs.map((d) => d.data() as PawnDoc)
-  const standing: Standing[] = pawns
-    .filter((p) => p.tileId === tileId)
-    .map((p) => ({
-      playerId: p.playerId,
-      team: p.team,
-      captain: teamSnap.exists && (teamSnap.data() as TeamDoc).captainId === p.playerId,
-      // 그 자리에 서 있어도 없는 사람이라 머릿수에서 빠진다.
-      // 개인 미션의 「서 있었다」에는 들어간다 — 그쪽은 이 판정을 거치지 않는다
-      invisible: p.playerId === c.game.invisibleId,
-    }))
-
-  const teamDoc = teamSnap.data() as TeamDoc
-  const result = resolveFlag({
-    target,
-    flagTeam: team,
-    allies: teamDoc?.allyTeam ? [teamDoc.allyTeam] : [],
-    standing,
-    planterPresent: standing.some((s) => s.playerId === planterId),
-  })
-
-  let success = result.success
-  const tiles = tileSnap.docs.map((d) => {
-    const t = d.data() as TileDoc
-    return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
-  })
-
-  // 성공했으면 그제야 값을 치른다
-  if (success) {
-    const owned = tiles.filter((t) => t.ownerTeam === team && TILE_BY_ID[t.tileId].tier !== 'base').length
-    const cost = flagCost({ target, ownedTiles: owned })
-    if (!canPay(teamDoc.resources, cost)) {
-      success = false
-    } else {
-      c.tx.update(ref.collection('teams').doc(team), { resources: pay(teamDoc.resources, cost) })
-      const before = tiles.find((t) => t.tileId === tileId)
-      const lost = before?.ownerTeam ?? null
-      c.tx.update(ref.collection('tiles').doc(tileId), { ownerTeam: team })
-      c.tx.set(ref.collection('events').doc(), {
-        atMs: c.atMs,
-        day: c.day,
-        kind: 'tileCaptured',
-        team,
-        tileId,
-        detail: { from: lost, cost },
-      })
-      if (lost) {
-        c.tx.set(ref.collection('events').doc(), {
-          atMs: c.atMs,
-          day: c.day,
-          kind: 'tileLost',
-          team: lost,
-          tileId,
-          detail: { to: team },
-        })
-      }
-
-      // A의 기억. **처음으로** 가져간 팀에게만 열린다 — 나중에 뺏은
-      // 팀에게는 열리지 않는다. 먼저 마주한 사람만 안다
-      const opened = memSnap.docs.map((d) => d.data() as MemoryOpened)
-      const fresh = openMemory({ tileId, team, atMs: c.atMs, opened })
-      if (fresh) c.tx.set(memRef.doc(tileId), fresh)
-    }
-  }
-
-  c.tx.delete(flagRef)
-  c.tx.set(ref.collection('events').doc(), {
-    atMs: c.atMs,
-    day: c.day,
-    kind: success ? 'flagSucceeded' : 'flagFailed',
-    team,
-    tileId,
-    playerId: planterId,
-    detail: {
-      forCount: result.forCount,
-      againstCount: result.againstCount,
-      // 지워진 사람이 있었다는 사실만 남긴다. 누구인지는 정산에서 이미 공개된 이름이다
-      ignored: result.ignored,
-      reason: result.reason,
-      target,
-      ownerBefore: tiles.find((t) => t.tileId === tileId)?.ownerTeam ?? null,
-      // 개인 미션 판정이 「그 자리에 서 있었는가」를 여기서 읽는다.
-      // 지워진 사람도 들어간다 — 깃발 머릿수에서만 빠지는 것이지
-      // 그 자리에 없었던 것은 아니다
-      standing: standing.map((s) => s.playerId),
-    },
-  })
-}
-
 const HANDLERS: Partial<Record<ScheduleDoc['kind'], (c: Ctx, payload: Record<string, unknown>) => Promise<void>>> = {
   dayStart: (c) => dayStart(c),
   lastHours: (c) => lastHours(c),
   settlement: (c) => settlement(c),
   gameEnd: (c) => gameEnd(c),
   arrive,
-  flag: flagDue,
 }
 
 // ── 토큰 ────────────────────────────────────────────────────────

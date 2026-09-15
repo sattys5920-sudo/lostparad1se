@@ -186,11 +186,8 @@ export function gameActions(gameId: string) {
     openAllTiles: () => callServer('openAllTiles', { ...g }),
 
     moveTo: (tileId: TileId) => callServer('moveTo', { ...g, tileId }),
-    planCommute: (tileId: TileId | null, plantFlag = false) =>
-      callServer('planCommute', { ...g, tileId, plantFlag }),
-    plantFlag: (tileId: TileId) => callServer('plantFlag', { ...g, tileId }),
+    planCommute: (tileId: TileId | null) => callServer('planCommute', { ...g, tileId }),
 
-    scout: (tileId: TileId) => callServer('scout', { ...g, tileId }),
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),
     study: (tileId: TileId) => callServer('study', { ...g, tileId }),
 

@@ -57,22 +57,17 @@ function world(over = false, invisibleId: string | null = null): World {
     ],
     roster: ROSTER,
     hands: [
-      { id: 'cA', team: 'A', kind: 'reinforce' },
-      { id: 'cB', team: 'B', kind: 'reinforce' },
+      { id: 'cA', team: 'A', kind: 'windfall' },
+      { id: 'cB', team: 'B', kind: 'windfall' },
     ],
     goals: [
       { id: 'gA', team: 'A', kind: 'distantFriend', rivalTeam: 'C', revealed: false },
       { id: 'gB', team: 'B', kind: 'distantFriend', rivalTeam: 'D', revealed: false },
     ],
     plans: [
-      { playerId: 'A0', path: ['classroom', 'library'], plantFlag: true },
-      { playerId: 'A1', path: ['hallway'], plantFlag: false },
-      { playerId: 'B0', path: ['artRoom'], plantFlag: true },
-    ],
-    flagTruth: [
-      { tileId: 'library', team: 'A', fake: true },
-      { tileId: 'gym', team: 'B', fake: true },
-      { tileId: 'garden', team: 'A', fake: false },
+      { playerId: 'A0', path: ['classroom', 'library'] },
+      { playerId: 'A1', path: ['hallway'] },
+      { playerId: 'B0', path: ['artRoom'] },
     ],
     peeks: [
       { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
@@ -209,7 +204,7 @@ describe('안개', () => {
     w.pawns = w.pawns.map((p) =>
       p.playerId === 'A0' ? { ...p, tileId: null, fromTile: 'baseA', toTile: 'classroom' } : p,
     )
-    w.plans = [{ playerId: 'A0', path: ['classroom', 'library', 'centralPlaza'], plantFlag: true }]
+    w.plans = [{ playerId: 'A0', path: ['classroom', 'library', 'centralPlaza'] }]
     for (const other of ROSTER.filter((r) => r.playerId !== 'A0')) {
       const v = projectView(w, other.playerId)
       const walking = v.visiblePawns.find((p) => p.playerId === 'A0')
@@ -221,7 +216,7 @@ describe('안개', () => {
 
   it('같은 팀에게도 남의 등교 예약은 안 보인다', () => {
     const v = projectView(world(), 'A1')
-    expect(v.commutePlan).toEqual({ path: ['hallway'], plantFlag: false })
+    expect(v.commutePlan).toEqual({ path: ['hallway'] })
     expect(json(v.commutePlan)).not.toContain('library')
   })
 })
@@ -235,16 +230,6 @@ describe('우리 팀 것', () => {
   it('비밀 목표는 우리 것만', () => {
     expect(projectView(world(), 'A0').goals.map((g) => g.id)).toEqual(['gA'])
     expect(json(projectView(world(), 'C0'))).not.toContain('gA')
-  })
-
-  // 가짜 깃발은 꽂은 팀만 안다. 다른 팀에게는 진짜와 구별되지 않아야 한다
-  it('가짜 깃발은 꽂은 팀만 안다', () => {
-    expect(projectView(world(), 'A0').fakeFlagTiles).toEqual(['library'])
-    expect(projectView(world(), 'C0').fakeFlagTiles).toEqual([])
-  })
-
-  it('진짜 깃발은 우리 팀에게도 가짜 목록에 없다', () => {
-    expect(projectView(world(), 'A0').fakeFlagTiles).not.toContain('garden')
   })
 
   it('엿본 결과는 엿본 사람만', () => {

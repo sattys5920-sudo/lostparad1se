@@ -121,7 +121,6 @@ export interface GameDoc {
 export interface TileDoc {
   ownerTeam: TeamId | null
   /** 보강 카드로 붙은 임시 방어. 실제 시계 기준. */
-  reinforcedUntilRealMs?: number
   reinforcedBy?: number
   /** 봉쇄 카드. 게임 시계 기준. */
   blockedUntilMs?: GameMs
@@ -133,21 +132,6 @@ export interface TileDoc {
  * 가짜 깃발도 **진짜와 똑같은 모양으로** 여기 놓인다. 가짜라는 사실은
  * secret에만 있어서, 다른 팀은 네트워크 응답으로도 구분할 수 없다.
  */
-export interface FlagDoc {
-  tileId: TileId
-  team: TeamId
-  planterId: string
-  startedAtMs: GameMs
-  /** 보정까지 끝난 소요 시간(게임 초). */
-  durationSec: number
-  /** 봉쇄로 멈춰 있던 동안 쌓인 초. 완료 시각을 뒤로 민다. */
-  pausedSec: number
-  /** 봉쇄로 지금 멈춰 있다면 그 시각. */
-  pausedAtMs?: GameMs
-  /** 완료 예정 시각. 화면의 게이지가 이걸 쓴다. */
-  dueAtMs: GameMs
-}
-
 /** games/{gameId}/teams/{teamId} — 자원과 순위는 공개다. */
 export interface TeamDoc {
   resources: Record<Resource, number>
@@ -290,7 +274,6 @@ export interface CommutePlanDoc {
   playerId: string
   path: TileId[]
   /** 도착하면 깃발을 꽂을까. 토큰·조건이 모자라면 취소된다. */
-  plantFlag: boolean
   setAtMs: GameMs
 }
 
@@ -322,12 +305,6 @@ export interface TokenStateDoc {
   lastGrantMs: GameMs
   usedToday: Record<string, number>
   pendingComeback: number
-}
-
-/** games/{gameId}/secret/flagTruth/items/{tileId} — 가짜 깃발 여부. */
-export interface FlagTruthDoc {
-  tileId: TileId
-  fake: boolean
 }
 
 // ── 각자 몫 ─────────────────────────────────────────────────────
@@ -417,9 +394,8 @@ export interface PlayerViewDoc {
   /** 우리 팀 비밀 목표. */
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
   /** 내 등교 예약. */
-  commutePlan: { path: TileId[]; plantFlag: boolean } | null
+  commutePlan: { path: TileId[] } | null
   /** 우리가 꽂은 깃발 중 가짜인 것. 우리 팀만 안다. */
-  fakeFlagTiles: TileId[]
   /** 정보부장이 들여다본 결과. */
   peeked: { voteKind: VoteKind; voterNickname: string }[]
   /** 교역 제안. **관련된 두 팀만** 본다 — 네 팀이 서로의 제안을 다 보면 협상이 아니다. */
@@ -509,6 +485,25 @@ export interface ChatDoc {
 // ── 기록 ────────────────────────────────────────────────────────
 
 /**
+ * games/{gameId}/captures/{id} — 페이즈가 닫힐 때 방 하나의 주인이
+ * 정해진 기록.
+ *
+ * **공개다.** 누가 어디 서 있었는지는 그 자리에 있던 사람이면 다 본
+ * 것이고, 주인이 바뀐 것은 지도에 그대로 나온다. 개인 미션의
+ * 「방어 참여」·「공격 참여」가 이 기록만 본다.
+ */
+export interface CaptureDoc {
+  tileId: string
+  /** 닫힌 뒤의 주인. 아무도 안 섰으면 null. */
+  team: TeamId | null
+  ownerBefore: TeamId | null
+  standing: string[]
+  atMs: number
+  day: number
+  phaseNo: number
+}
+
+/**
  * games/{gameId}/events/{eventId} — 추가만 한다.
  *
  * 따라잡기의 근거이자 비밀 목표 판정의 근거다. 칸을 뺏긴 적,
@@ -518,8 +513,8 @@ export interface ChatDoc {
 export type EventKind =
   | 'gameStart' | 'dayStart' | 'settlement' | 'gameEnd'
   | 'move' | 'arrive'
-  | 'flagPlanted' | 'flagSucceeded' | 'flagFailed' | 'tileCaptured' | 'tileLost'
-  | 'research' | 'scout' | 'produce' | 'study'
+  | 'tileCaptured' | 'tileLost'
+  | 'research' | 'produce' | 'study'
   | 'vote' | 'rumor' | 'reveal' | 'leverageGained' | 'leverageSpent'
   | 'cardDrawn' | 'cardPlayed'
   | 'tradeProposed' | 'tradeAccepted' | 'tradeDeclined'
@@ -544,7 +539,7 @@ export interface EventDoc {
  * 순으로 따라잡는다. 정시 이벤트는 Cloud Scheduler가 있으면 제때
  * 돌고, 없어도 다음 요청에 함께 처리된다.
  */
-export type ScheduleKind = 'arrive' | 'flag' | 'dayStart' | 'tokenGrant' | 'settlement' | 'lastHours' | 'gameEnd'
+export type ScheduleKind = 'arrive' | 'dayStart' | 'tokenGrant' | 'settlement' | 'lastHours' | 'gameEnd'
 
 export interface ScheduleDoc {
   dueAtMs: GameMs
@@ -558,7 +553,6 @@ export interface ScheduleDoc {
 /** 같은 시각에 겹치면 이동 도착 → 깃발 판정 → 정시 이벤트 순이다. */
 export const SCHEDULE_ORD: Record<ScheduleKind, number> = {
   arrive: 10,
-  flag: 20,
   dayStart: 30,
   tokenGrant: 30,
   settlement: 30,

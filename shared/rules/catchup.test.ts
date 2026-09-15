@@ -31,10 +31,10 @@ describe('밀어야 할 것', () => {
   it('같은 시각이면 도착 → 깃발 → 정시', () => {
     const items = [
       d('x', 100, 'settlement'),
-      d('y', 100, 'flag'),
+      d('y', 100, 'arrive'),
       d('z', 100, 'arrive'),
     ]
-    expect(dueItems(items, 100).map((i) => i.kind)).toEqual(['arrive', 'flag', 'settlement'])
+    expect(dueItems(items, 100).map((i) => i.kind)).toEqual(['arrive', 'arrive', 'settlement'])
   })
 
   it('시각도 순서도 같으면 아이디로 가른다', () => {
@@ -44,7 +44,7 @@ describe('밀어야 할 것', () => {
 
   // 두 번 따라잡아도 같은 순서여야 한다 — 안 그러면 같은 판이 갈린다
   it('들어온 순서가 달라도 결과가 같다', () => {
-    const items = [d('a', 100, 'arrive'), d('b', 100, 'flag'), d('c', 200, 'dayStart')]
+    const items = [d('a', 100, 'arrive'), d('b', 100, 'arrive'), d('c', 200, 'dayStart')]
     const shuffled = [items[2], items[0], items[1]]
     expect(dueItems(items, 999).map((i) => i.id)).toEqual(dueItems(shuffled, 999).map((i) => i.id))
   })
@@ -57,7 +57,7 @@ describe('밀어야 할 것', () => {
 
 describe('다음 일', () => {
   it('아직 안 온 것 중 가장 이른 시각', () => {
-    const items = [d('a', 100, 'dayStart'), d('b', 300, 'settlement'), d('c', 200, 'flag')]
+    const items = [d('a', 100, 'dayStart'), d('b', 300, 'settlement'), d('c', 200, 'arrive')]
     expect(nextDueMs(items, 100)).toBe(200)
   })
 

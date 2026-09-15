@@ -20,13 +20,10 @@ import {
   STUDY_YIELD,
   checkStand,
   ownerLookup,
-  scoutAlreadyToday,
-  scoutYield,
   type ActionKind,
 } from '../../shared/rules/actions'
 import { gain, type TileState } from '../../shared/rules/resources'
 import { spendToken } from '../../shared/rules/tokens'
-import { rngFrom } from '../../shared/missions/assign'
 import { type Resource, type TeamId } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import type { TeamDoc, TokenStateDoc } from '../../shared/model'
@@ -123,49 +120,6 @@ function commit(
   batch.set(ref.collection('events').doc(), event)
   return batch
 }
-
-// ── 탐색 ────────────────────────────────────────────────────────
-
-/**
- * 남의 칸이나 빈 칸을 뒤진다.
- *
- * 무엇이 나오는지는 무작위지만 **씨앗이 팀·칸·날짜다.** 눌러 보고
- * 마음에 안 들어 다시 누르는 일이 없다 — 같은 칸 같은 날은 같은 답이고,
- * 애초에 하루 한 번뿐이다.
- */
-export const scout = onCall<{ gameId: string; tileId: TileId }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId, tileId } = req.data
-  const ref = gameRef(gameId)
-  const c = await begin(gameId, uid, 'scout', tileId, async ({ day, team }) => {
-    const doneSnap = await ref.collection('secret').doc('scouts').collection('items').get()
-    const done = doneSnap.docs
-      .map((d) => d.data() as { team: TeamId; tileId: TileId; day: number })
-      .filter((d) => d.day === day)
-    if (scoutAlreadyToday(done, team, tileId)) {
-      throw new HttpsError('failed-precondition', '오늘 이미 뒤진 칸이다.')
-    }
-  })
-
-  const got = scoutYield(rngFrom(`${gameId}:${c.team}:${tileId}:${c.day}`)())
-  const batch = commit(gameId, c.team, c.spentBox, gain(c.teamDoc.resources, got), {
-    atMs: c.nowMs,
-    day: c.day,
-    kind: 'scout',
-    team: c.team,
-    playerId: uid,
-    tileId,
-    detail: { got },
-  })
-  batch.set(ref.collection('secret').doc('scouts').collection('items').doc(`${c.team}-${tileId}-${c.day}`), {
-    team: c.team,
-    tileId,
-    day: c.day,
-  })
-  await batch.commit()
-  await refreshViews(gameId)
-  return { got }
-})
 
 // ── 생산 ────────────────────────────────────────────────────────
 

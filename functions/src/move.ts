@@ -10,18 +10,12 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { arrivals, checkCommutePlan, planWalk, type Walk } from '../../shared/rules/movement'
-import { addActiveSeconds } from '../../shared/rules/clock'
-import { ACTION_TOKEN_COST, canPlantFlag, checkStand, ownerLookup } from '../../shared/rules/actions'
-import { flagDurationSec, flagTargetOf } from '../../shared/rules/flag'
-import { defenseOf, type TileState } from '../../shared/rules/resources'
-import { spendToken } from '../../shared/rules/tokens'
-import { ATHLETIC_MOVE_FACTOR, type TeamId } from '../../shared/rules/v2'
+import { ATHLETIC_MOVE_FACTOR } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
-import { SCHEDULE_ORD, type FlagDoc, type ScheduleDoc, type TokenStateDoc } from '../../shared/model'
+import { SCHEDULE_ORD, type ScheduleDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { openInterval } from './reveal'
-import { takePending } from './card'
-import { freshNow, myPawn, requireAwake, tileStates } from './turn'
+import { freshNow, myPawn, requireAwake } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -123,7 +117,7 @@ export const moveTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
  * 예약 내용은 누구에게도 보이지 않는다 — secret에 두고, 걸음으로
  * 바뀐 뒤에야 안개 규칙대로 드러난다.
  */
-export const planCommute = onCall<{ gameId: string; tileId: TileId | null; plantFlag?: boolean }>(
+export const planCommute = onCall<{ gameId: string; tileId: TileId | null }>(
   async (req) => {
     const uid = requireUid(req.auth)
     const { gameId, tileId } = req.data
@@ -148,119 +142,8 @@ export const planCommute = onCall<{ gameId: string; tileId: TileId | null; plant
       throw new HttpsError('invalid-argument', why)
     }
 
-    await planRef.set({ playerId: uid, path: [tileId], plantFlag: req.data.plantFlag === true, atMs: nowMs })
+    await planRef.set({ playerId: uid, path: [tileId], atMs: nowMs })
     await refreshViews(gameId)
-    return { to: tileId, plantFlag: req.data.plantFlag === true }
+    return { to: tileId }
   },
 )
-
-// ── 깃발 ────────────────────────────────────────────────────────
-
-/**
- * 깃발을 꽂는다.
- *
- * 토큰은 꽂을 때 쓴다. 자원은 **성공하는 순간** 낸다 — 그 사이에 칸이
- * 늘었으면 더 비싸지고, 모자라면 실패한다. 토큰은 돌려받지 못한다.
- */
-export const plantFlag = onCall<{ gameId: string; tileId: TileId }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId, tileId } = req.data
-  const { game, nowMs } = await freshNow(gameId)
-  if (!TILE_BY_ID[tileId]) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
-
-  const ref = gameRef(gameId)
-  const [pawn, tileSnap, flagSnap] = await Promise.all([
-    myPawn(gameId, uid),
-    ref.collection('tiles').get(),
-    ref.collection('flags').doc(tileId).get(),
-  ])
-  const tiles = tileStates(tileSnap.docs)
-  const ownerOf = ownerLookup(tiles)
-  requireAwake(pawn, nowMs)
-
-  const stand = checkStand({ kind: 'flag', standingOn: pawn.tileId, targetTile: tileId, team: pawn.team, ownerOf })
-  if (!stand.ok) {
-    throw new HttpsError('failed-precondition', stand.reason === 'walking' ? '걷는 중이다.' : '그 칸에 서 있어야 한다.')
-  }
-
-  const tier = TILE_BY_ID[tileId].tier
-  const place = canPlantFlag({
-    tileId,
-    team: pawn.team,
-    ownerOf,
-    hasFlag: flagSnap.exists,
-    coreOpen: game.openedTiles.includes(tileId),
-    blockaded: false,
-  })
-  if (!place.ok) {
-    const why: Record<string, string> = {
-      baseTile: '기지에는 꽂을 수 없다.',
-      notTouchingUs: '우리 영역과 맞닿아 있어야 한다.',
-      flagHere: '이미 깃발이 있다.',
-      coreClosed: '아직 열리지 않은 칸이다.',
-      blockaded: '봉쇄되어 있다.',
-    }
-    throw new HttpsError('failed-precondition', why[place.reason as string] ?? '꽂을 수 없다.')
-  }
-
-  // 토큰은 꽂을 때 쓴다
-  const boxRef = ref.collection('secret').doc('tokens').collection('items').doc(pawn.team)
-  const box = await boxRef.get()
-  const spent = spendToken(box.data() as TokenStateDoc, uid, ACTION_TOKEN_COST.flag)
-  if (!spent.ok) {
-    throw new HttpsError(
-      'failed-precondition',
-      spent.reason === 'playerDailyLimit' ? '오늘 쓸 수 있는 몫을 다 썼다.' : '토큰이 모자라다.',
-    )
-  }
-
-  // 기습이 걸려 있으면 깃발 시간이 절반이다. 다음 한 번만이라
-  // 여기서 쓰고 지운다
-  const ambush = await takePending(gameId, pawn.team, 'ambush')
-  const target = flagTargetOf(tileId, ownerOf(tileId))
-  const here = tiles.find((t) => t.tileId === tileId) as TileState
-  const durationSec = flagDurationSec({
-    target,
-    defense: defenseOf(here),
-    ownerSpotlighted: target === 'enemy' && game.spotlightTeams.includes(ownerOf(tileId) as TeamId),
-    classPresident: pawn.title === 'classPresident',
-    ambush,
-    lastHours: game.lastHours,
-  })
-  // 게임 시계로 센다
-  const dueAtMs = addActiveSeconds(nowMs, durationSec)
-
-  const flag: FlagDoc = {
-    tileId,
-    team: pawn.team,
-    planterId: uid,
-    startedAtMs: nowMs,
-    durationSec,
-    pausedSec: 0,
-    dueAtMs,
-  }
-  const batch = db.batch()
-  batch.set(boxRef, spent.state)
-  batch.update(ref.collection('teams').doc(pawn.team), { tokens: spent.state.tokens })
-  batch.set(ref.collection('flags').doc(tileId), flag)
-  const item: ScheduleDoc = {
-    dueAtMs,
-    ord: SCHEDULE_ORD.flag,
-    kind: 'flag',
-    payload: { tileId, team: pawn.team, planterId: uid, target, tier },
-    doneAtMs: null,
-  }
-  batch.set(ref.collection('schedule').doc(), item)
-  batch.set(ref.collection('events').doc(), {
-    atMs: nowMs,
-    day: game.day,
-    kind: 'flagPlanted',
-    playerId: uid,
-    team: pawn.team,
-    tileId,
-    detail: { durationSec, dueAtMs },
-  })
-  await batch.commit()
-  await refreshViews(gameId)
-  return { tileId, durationSec, dueAtMs, ambush }
-})

@@ -13,8 +13,6 @@ import {
   CARD_FALSE_RUMOR_MONEY,
   CARD_FORCED_MARCH_TILES,
   CARD_HIDE_GAME_HOURS,
-  CARD_REINFORCE_DEFENSE,
-  CARD_REINFORCE_REAL_HOURS,
   CARD_SECRET_LETTER_REAL_HOURS,
   CARD_WINDFALL_MONEY,
   CARD_BY_KIND,
@@ -67,7 +65,7 @@ export interface CardEffect {
   /** 대상 팀 금고에서 돈이 깎인다. */
   moneyHit?: { team: TeamId; amount: number }
   /** 칸에 붙는 것. */
-  tile?: { tileId: TileId; reinforce?: number; blockedUntilMs?: number; untilRealMs?: number }
+  tile?: { tileId: TileId; blockedUntilMs?: number; untilRealMs?: number }
   /** 말에 붙는 것. */
   pawn?: { playerId: string; hiddenUntilMs?: number; jumpTiles?: number }
   /** 다음 한 번만 걸리는 표시. */
@@ -75,7 +73,6 @@ export interface CardEffect {
   /** 비밀 대화방이 열리는 시각(실제 시계). */
   roomUntilRealMs?: number
   /** 가짜 깃발인가. 이 사실은 secret/에만 적는다. */
-  fakeFlag?: boolean
 }
 
 export interface PlayInput {
@@ -110,17 +107,6 @@ export function cardEffect(input: PlayInput): CardEffect {
           ? { team: input.targetTeam, amount: CARD_FALSE_RUMOR_MONEY }
           : undefined,
       }
-    case 'reinforce':
-      return {
-        kind: k,
-        tile: input.targetTile
-          ? {
-              tileId: input.targetTile,
-              reinforce: CARD_REINFORCE_DEFENSE,
-              untilRealMs: input.realNowMs + CARD_REINFORCE_REAL_HOURS * HOUR_MS,
-            }
-          : undefined,
-      }
     case 'blockade':
       return {
         kind: k,
@@ -150,8 +136,6 @@ export function cardEffect(input: PlayInput): CardEffect {
       }
     case 'secretLetter':
       return { kind: k, roomUntilRealMs: input.realNowMs + CARD_SECRET_LETTER_REAL_HOURS * HOUR_MS }
-    case 'fakeFlag':
-      return { kind: k, fakeFlag: true, tile: input.targetTile ? { tileId: input.targetTile } : undefined }
     case 'ambush':
       return { kind: k, pending: 'ambush' }
     case 'accord':

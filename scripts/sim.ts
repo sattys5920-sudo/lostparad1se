@@ -39,6 +39,6 @@ for (const id of ids) {
 }
 
 console.log('\n한 판 평균')
-console.log(`  깃발 ${r.perGame.flagsPlanted.toFixed(1)} 꽂아 ${r.perGame.flagsSucceeded.toFixed(1)} 성공`)
+console.log(`  주인이 바뀐 횟수 ${r.perGame.captures.toFixed(1)}`)
 console.log(`  표 ${r.perGame.votes.toFixed(1)} · 털어놓기 ${r.perGame.reveals.toFixed(1)} · 건물 ${r.perGame.buildings.toFixed(1)}`)
 console.log()

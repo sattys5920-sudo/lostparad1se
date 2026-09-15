@@ -49,7 +49,7 @@ export type Disclosure = 'realtime' | 'settlement' | 'endOnly' | 'hidden'
 export type ClauseKind =
   // 깃발
   | 'defenseJoined' | 'attackJoined'
-  | 'bondFlagFailedHere' | 'capturedWhereBondStood'
+  | 'buriedBondSecretFirst' | 'capturedWhereBondStood'
   | 'teamNeverLostTile'
   // 소유·순위·동맹
   | 'ownFragmentTilesAtEnd' | 'teamRankNotFirst' | 'bondTeamRankHigher'
@@ -71,7 +71,7 @@ export type ClauseKind =
   | 'noRevealUntilDay' | 'heardPrivateRevealFrom'
   | 'bondPrivateRevealToMe' | 'privateRevealToBond'
   // 그 밖
-  | 'tradeWithEachRivalTeam' | 'bondTradeWithUs' | 'scoutCount'
+  | 'tradeWithEachRivalTeam' | 'bondTradeWithUs'
 
 export interface Clause {
   kind: ClauseKind
@@ -144,9 +144,9 @@ export const ROLES: readonly RoleSpec[] = [
       ],
     },
     bond: {
-      text: '인연 대상이 꽂은 깃발이 실패한 순간, 그 칸에 서 있었던 적이 1회 이상.',
+      text: '인연 대상의 비밀을 누구보다 먼저 찾아내고, 그 비밀을 묻어 준다.',
       clauses: [
-        { kind: 'bondFlagFailedHere', text: '인연 대상의 깃발을 막아섬', need: 1, disclosure: 'realtime' },
+        { kind: 'buriedBondSecretFirst', text: '인연 대상의 비밀을 먼저 찾아 묻어 줌', need: 1, disclosure: 'realtime' },
       ],
     },
     hintDay: null,
@@ -162,7 +162,7 @@ export const ROLES: readonly RoleSpec[] = [
       clauses: [{ kind: 'attackJoined', text: '공격 참여', need: 2, disclosure: 'realtime' }],
     },
     bond: {
-      text: '인연 대상이 판정 순간 서 있던 칸을 우리 팀 깃발로 가져간 적이 1회 이상.',
+      text: '인연 대상이 판정 순간 서 있던 칸을 우리 팀이 가져간 적이 1회 이상.',
       clauses: [
         { kind: 'capturedWhereBondStood', text: '인연 대상이 선 칸을 가져감', need: 1, disclosure: 'realtime' },
       ],
@@ -405,10 +405,11 @@ export const ROLES: readonly RoleSpec[] = [
     flavor: '이번 학기에 전학 온, 아직 학교가 낯선 아이.',
     secret: '전학 오기 전 학교에서 A를 알았다. 여기서 다시 만났을 때 둘 다 모르는 척했다.',
     main: {
-      text: '서로 다른 칸 15곳 이상 방문하고, 탐색 3회 이상.',
+      // 탐색이 없어지면서 「탐색 3회」 절이 빠졌다. 남은 한 절만으로도
+      // 전학생답다 — 학교를 다 돌아본 아이다
+      text: '서로 다른 칸 15곳 이상 방문.',
       clauses: [
         { kind: 'tilesVisited', text: '방문한 칸', need: 15, disclosure: 'realtime' },
-        { kind: 'scoutCount', text: '탐색', need: 3, disclosure: 'realtime' },
       ],
     },
     bond: {

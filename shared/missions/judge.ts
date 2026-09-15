@@ -23,7 +23,8 @@ import type { Assignment } from './assign'
 import { coStaySeconds, stayedSeconds, tilesStayedOver, visitedTiles, type Interval } from '../rules/presence'
 import { dayNumber } from '../rules/clock'
 import type { TileId } from '../rules/board'
-import type { FlagTarget, RevealScope, TeamId, VoteKind } from '../rules/v2'
+import type { RevealScope, TeamId, VoteKind } from '../rules/v2'
+import type { LeverageUse } from '../rules/leverage'
 
 // ── 기록 ────────────────────────────────────────────────────────
 
@@ -47,32 +48,38 @@ export interface RevealRecord {
 export interface LeverageUseRecord {
   holderId: string
   aboutId: string
-  use: 'bind' | 'extort'
+  use: LeverageUse
   atMs: number
 }
 
-export interface FlagRecord {
+/**
+ * 페이즈가 닫힐 때 방 하나의 주인이 정해진 기록.
+ *
+ * 깃발이 있던 시절에는 「누가 꽂았고 성공했는가」였다. 땅을 페이즈
+ * 끝의 머릿수로 정하게 되면서, 남는 사실은 **누가 서 있었고 누가
+ * 가져갔는가** 뿐이다.
+ */
+export interface CaptureRecord {
   tileId: TileId
-  team: TeamId
-  planterId: string
-  target: FlagTarget
-  success: boolean
-  /** 그 칸이 누구 것이었는가. 빈 칸이면 null. */
+  /** 닫힌 뒤의 주인. 아무도 안 섰으면 null. */
+  team: TeamId | null
+  /** 닫히기 전의 주인. */
   ownerBefore: TeamId | null
-  /** 판정 순간 그 칸에 서 있던 사람 전부. */
+  /** 판정 순간 그 방에 서 있던 사람 전부. */
   standing: readonly string[]
+  atMs: number
+}
+
+/** 약점 하나를 쥔 순간. **먼저 찾았는가**를 재려면 시각이 있어야 한다. */
+export interface LeverageGainRecord {
+  holderId: string
+  aboutId: string
   atMs: number
 }
 
 export interface TradeRecord {
   fromTeam: TeamId
   toTeam: TeamId
-  atMs: number
-}
-
-export interface ScoutRecord {
-  playerId: string
-  tileId: TileId
   atMs: number
 }
 
@@ -87,9 +94,9 @@ export interface GameLog {
   votes: readonly JudgeVote[]
   reveals: readonly RevealRecord[]
   leverageUses: readonly LeverageUseRecord[]
-  flags: readonly FlagRecord[]
+  captures: readonly CaptureRecord[]
+  leverageGains: readonly LeverageGainRecord[]
   trades: readonly TradeRecord[]
-  scouts: readonly ScoutRecord[]
   /** A의 기록이 지목한 칸. */
   fragmentTiles: readonly TileId[]
   /** 끝날 때 칸 주인. */
@@ -150,7 +157,7 @@ const myTeam = (c: Ctx) => c.me.team
 const bondTeam = (c: Ctx) => c.log.teamOf(c.me.bondId)
 
 /** 내가 판정 자리에 서 있던 깃발들. */
-const standingIn = (c: Ctx) => c.log.flags.filter((f) => f.standing.includes(c.me.playerId))
+const standingIn = (c: Ctx) => c.log.captures.filter((f) => f.standing.includes(c.me.playerId))
 
 function votesFromMe(c: Ctx, kind?: VoteKind) {
   return c.log.votes.filter((v) => v.voterId === c.me.playerId && (!kind || v.kind === kind))
@@ -181,27 +188,31 @@ function measure(clause: Clause, c: Ctx): { have: number; unit: Unit } {
   const log = c.log
 
   switch (clause.kind) {
-    // ── 깃발 ──
+    // ── 점령 ──
+    // 우리 칸에 서서 지켜냈다. 지키려고 서 있었다는 것이 보인다
     case 'defenseJoined':
       return {
         unit: 'count',
-        have: standingIn(c).filter((f) => f.team !== myTeam(c) && f.ownerBefore === myTeam(c) && !f.success)
-          .length,
+        have: standingIn(c).filter((f) => f.ownerBefore === myTeam(c) && f.team === myTeam(c)).length,
       }
+    // 남의 칸에 서서 빼앗았다
     case 'attackJoined':
       return {
         unit: 'count',
-        have: standingIn(c).filter((f) => f.team === myTeam(c) && f.success && f.target !== 'empty').length,
-      }
-    case 'bondFlagFailedHere':
-      return {
-        unit: 'count',
-        have: standingIn(c).filter((f) => f.planterId === bond && !f.success).length,
+        have: standingIn(c).filter(
+          (f) => f.team === myTeam(c) && f.ownerBefore !== null && f.ownerBefore !== myTeam(c),
+        ).length,
       }
     case 'capturedWhereBondStood':
       return {
         unit: 'count',
-        have: log.flags.filter((f) => f.planterId === me && f.success && f.standing.includes(bond)).length,
+        have: log.captures.filter(
+          (f) =>
+            f.team === myTeam(c) &&
+            f.ownerBefore !== myTeam(c) &&
+            f.standing.includes(me) &&
+            f.standing.includes(bond),
+        ).length,
       }
     case 'teamNeverLostTile':
       return { unit: 'flag', have: log.teamLostTile[myTeam(c)] ? 0 : 1 }
@@ -220,6 +231,17 @@ function measure(clause: Clause, c: Ctx): { have: number; unit: Unit } {
       return { unit: 'flag', have: log.allianceAtEnd[myTeam(c)] === bondTeam(c) ? 1 : 0 }
 
     // ── 약점 ──
+    // 인연 대상의 비밀을 **제일 먼저** 쥐었고, 그것을 묻어 주었다
+    case 'buriedBondSecretFirst': {
+      const onBond = log.leverageGains.filter((g) => g.aboutId === bond)
+      const mine = onBond.find((g) => g.holderId === me)
+      if (!mine) return { unit: 'flag', have: 0 }
+      const first = Math.min(...onBond.map((g) => g.atMs))
+      const buried = log.leverageUses.some(
+        (u) => u.holderId === me && u.aboutId === bond && u.use === 'bury',
+      )
+      return { unit: 'flag', have: mine.atMs === first && buried ? 1 : 0 }
+    }
     case 'leverageSpent':
       return { unit: 'count', have: log.leverageUses.filter((l) => l.holderId === me).length }
     case 'leverageSpentExtort':
@@ -374,8 +396,6 @@ function measure(clause: Clause, c: Ctx): { have: number; unit: Unit } {
             (t.toTeam === myTeam(c) && t.fromTeam === bondTeam(c)),
         ).length,
       }
-    case 'scoutCount':
-      return { unit: 'count', have: log.scouts.filter((s) => s.playerId === me).length }
   }
 }
 

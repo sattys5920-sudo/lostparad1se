@@ -7,32 +7,25 @@
 // 어느 행동이든 발이 묶인 말은 아무것도 못 한다. 판정에는 세지만
 // 움직이지도 행동하지도 못한다.
 import {
-  FLAG_TOKEN_COST,
   PRODUCE_MONEY,
-  SCOUT_GAIN,
-  SCOUT_RESOURCES,
   STUDY_KNOWLEDGE,
   type TeamId,
 } from './v2'
-import { ADJACENCY, TILE_BY_ID, type TileId } from './board'
+import { type TileId } from './board'
 import { type Bag, type TileState } from './resources'
 
-export type ActionKind = 'flag' | 'scout' | 'produce' | 'study'
+export type ActionKind = 'produce' | 'study'
 
 /** 어디에 서 있어야 하는가. */
 export type Stand = 'thatTile' | 'ourTile' | 'ourZone' | 'notOurTile' | 'enemyTile'
 
 export const ACTION_STAND: Record<ActionKind, Stand> = {
-  flag: 'thatTile',
-  scout: 'notOurTile',
   produce: 'ourZone',
   study: 'ourZone',
 }
 
 /** 토큰 한 개가 드는 행동. 이동·표·교역·카드에는 들지 않는다. */
 export const ACTION_TOKEN_COST: Record<ActionKind, number> = {
-  flag: FLAG_TOKEN_COST,
-  scout: 1,
   produce: 1,
   study: 1,
 }
@@ -83,67 +76,6 @@ export function checkStand(input: StandInput): { ok: boolean; reason: StandRefus
   return here !== null && here !== input.team
     ? { ok: true, reason: null }
     : { ok: false, reason: 'notEnemyTile' }
-}
-
-// ── 깃발을 꽂을 수 있는 칸인가 ──────────────────────────────────
-
-export type PlantRefusal =
-  | 'baseTile'
-  | 'notTouchingUs'
-  | 'flagHere'
-  | 'coreClosed'
-  | 'blockaded'
-
-export interface PlantInput {
-  tileId: TileId
-  team: TeamId
-  ownerOf: (tileId: TileId) => TeamId | null
-  /** 이미 깃발이 꽂힌 칸인가. 가짜 깃발도 자리를 차지한다. */
-  hasFlag: boolean
-  /** 핵심·중앙광장이 A의 기록으로 열렸는가. */
-  coreOpen: boolean
-  /** 봉쇄 카드가 걸려 있는가. */
-  blockaded?: boolean
-}
-
-/**
- * 깃발 네 조건 중 칸에 관한 것. 서 있는지와 토큰은 따로 본다.
- *
- * 기지에는 누구도 꽂을 수 없다. 핵심과 중앙광장은 A의 기록이 연 뒤에만.
- */
-export function canPlantFlag(input: PlantInput): { ok: boolean; reason: PlantRefusal | null } {
-  const tier = TILE_BY_ID[input.tileId].tier
-  // 기지와 계단에는 아무도 깃발을 못 꽂는다
-  if (tier === 'base' || tier === 'stair') return { ok: false, reason: 'baseTile' }
-  if ((tier === 'core' || tier === 'plaza') && !input.coreOpen) {
-    return { ok: false, reason: 'coreClosed' }
-  }
-  if (input.hasFlag) return { ok: false, reason: 'flagHere' }
-  if (input.blockaded) return { ok: false, reason: 'blockaded' }
-  // 우리 영역과 맞닿아 있어야 한다
-  const touches = ADJACENCY[input.tileId].some((n) => input.ownerOf(n) === input.team)
-  if (!touches) return { ok: false, reason: 'notTouchingUs' }
-  return { ok: true, reason: null }
-}
-
-// ── 탐색 ────────────────────────────────────────────────────────
-
-/**
- * 돈이냐 지식이냐는 무작위다. 씨앗을 받아 서버가 정한다 — 눌러 보고
- * 마음에 안 들면 다시 누르는 일이 없게, 같은 칸·같은 날은 같은 답이다.
- */
-export function scoutYield(roll: number): Bag {
-  const pick = SCOUT_RESOURCES[Math.floor(Math.max(0, Math.min(0.999999, roll)) * SCOUT_RESOURCES.length)]
-  return { [pick]: SCOUT_GAIN }
-}
-
-/** 같은 칸은 팀당 하루 한 번. 오늘 이 팀이 이 칸을 이미 뒤졌는가. */
-export function scoutAlreadyToday(
-  done: readonly { team: TeamId; tileId: TileId }[],
-  team: TeamId,
-  tileId: TileId,
-): boolean {
-  return done.some((d) => d.team === team && d.tileId === tileId)
 }
 
 // ── 생산 ────────────────────────────────────────────────────────

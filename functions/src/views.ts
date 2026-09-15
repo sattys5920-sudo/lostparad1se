@@ -14,7 +14,6 @@ import type { TileId } from '../../shared/rules/board'
 import type {
   CardDoc,
   CommutePlanDoc,
-  FlagTruthDoc,
   GameDoc,
   GoalDoc,
   NoticeDoc,
@@ -62,7 +61,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, plans, flagTruth, peeks, trades, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, plans, peeks, trades, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -73,7 +72,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'hands').get(),
       secret(gameId, 'goals').get(),
       secret(gameId, 'plans').get(),
-      secret(gameId, 'flagTruth').get(),
       secret(gameId, 'peeks').get(),
       secret(gameId, 'trades').get(),
       secret(gameId, 'alliances').get(),
@@ -156,11 +154,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     }),
     plans: plans.docs.map((d) => {
       const p = d.data() as CommutePlanDoc & { playerId: string }
-      return { playerId: p.playerId ?? d.id, path: p.path, plantFlag: p.plantFlag }
-    }),
-    flagTruth: flagTruth.docs.map((d) => {
-      const f = d.data() as FlagTruthDoc & { team: 'A' | 'B' | 'C' | 'D'; fake: boolean }
-      return { tileId: d.id as TileId, team: f.team, fake: f.fake }
+      return { playerId: p.playerId ?? d.id, path: p.path }
     }),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
     // 지금의 범위. 투영이 페이즈 경계를 넘은 말을 이걸로 가른다

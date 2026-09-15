@@ -8,7 +8,7 @@
 // 닷새가 무너진다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
-import { judge, type FlagRecord, type GameLog, type JudgeVote, type RevealRecord, type ScoutRecord, type TradeRecord } from '../../shared/missions/judge'
+import { judge, type CaptureRecord, type GameLog, type JudgeVote, type RevealRecord, type TradeRecord } from '../../shared/missions/judge'
 import { day4Met, type Day4Choice } from '../../shared/rules/choices'
 import { publicScore, rankTeams, type TeamState } from '../../shared/rules/score'
 import { snowStopped } from '../../shared/rules/snow'
@@ -21,7 +21,7 @@ import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
 import type { Interval } from '../../shared/rules/presence'
 import type { TeamId } from '../../shared/rules/v2'
-import type { EventDoc, GameDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
+import type { CaptureDoc, EventDoc, GameDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
 
 import { AFTERMATH, AFTERMATH_CLOSING } from './story/aftermath'
 import { COMMON_ENDING, MIRROR } from './story/mirror'
@@ -80,12 +80,12 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
   const nowMs = nowOf(game)
   const startedAtMs = game.startedAtMs ?? nowMs
 
-  const [rosterS, ivS, voteS, evS, scoutS, tileS, teamS, awakeS, choiceS, closingS] = await Promise.all([
+  const [rosterS, ivS, voteS, evS, capS, tileS, teamS, awakeS, choiceS, closingS] = await Promise.all([
     secret(gameId, 'roster').get(),
     secret(gameId, 'intervals').get(),
     secret(gameId, 'votes').get(),
     ref.collection('events').get(),
-    secret(gameId, 'scouts').get(),
+    ref.collection('captures').get(),
     ref.collection('tiles').get(),
     ref.collection('teams').get(),
     secret(gameId, 'awakened').get(),
@@ -105,18 +105,18 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
   const teamDocs = new Map(teamS.docs.map((d) => [d.id as TeamId, d.data() as TeamDoc]))
 
   const events = evS.docs.map((d) => d.data() as EventDoc)
-  const flags: FlagRecord[] = events
-    .filter((e) => e.kind === 'flagSucceeded' || e.kind === 'flagFailed')
-    .map((e) => ({
-      tileId: e.tileId as TileId,
-      team: e.team as TeamId,
-      planterId: e.playerId as string,
-      target: (e.detail?.target as FlagRecord['target']) ?? 'empty',
-      success: e.kind === 'flagSucceeded',
-      ownerBefore: (e.detail?.ownerBefore as TeamId | null) ?? null,
-      standing: (e.detail?.standing as string[]) ?? [],
-      atMs: e.atMs,
-    }))
+  // 페이즈가 닫힐 때마다 남긴 점령 기록. 개인 미션의 「방어 참여」·
+  // 「공격 참여」가 이것만 본다
+  const captures: CaptureRecord[] = capS.docs.map((d) => {
+    const c = d.data() as CaptureDoc
+    return {
+      tileId: c.tileId as TileId,
+      team: c.team,
+      ownerBefore: c.ownerBefore,
+      standing: c.standing,
+      atMs: c.atMs,
+    }
+  })
   const trades: TradeRecord[] = events
     .filter((e) => e.kind === 'tradeAccepted')
     .map((e) => ({ fromTeam: e.detail?.fromTeam as TeamId, toTeam: e.team as TeamId, atMs: e.atMs }))
@@ -135,10 +135,6 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
       day: dayNumber(startedAtMs, r.reveal!.atMs),
       atMs: r.reveal!.atMs,
     }))
-  const scouts: ScoutRecord[] = scoutS.docs.map((d) => {
-    const s = d.data() as { tileId: TileId; day: number; team: TeamId }
-    return { playerId: '', tileId: s.tileId, atMs: startedAtMs }
-  })
 
   // 최종 순위. 비밀 목표는 아직 안 넣는다 — 공개 점수로 낸다
   const scores = TEAMS.map((team) => {
@@ -150,7 +146,7 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
       allyTeam: doc.allyTeam,
       goals: [],
       lostTile: lostTile.has(team),
-      raidSuccesses: flags.filter((f) => f.team === team && f.success && f.ownerBefore !== null).length,
+      raidSuccesses: captures.filter((f) => f.team === team && f.ownerBefore !== null && f.ownerBefore !== team).length,
       brokeAlliance: events.some((e) => e.kind === 'allianceBroken' && e.team === team),
       trustFrom: [],
       revealed: roster.some((r) => r.team === team && r.reveal),
@@ -178,9 +174,9 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
     votes,
     reveals,
     leverageUses: [],
-    flags,
+    captures,
+    leverageGains: [],
     trades,
-    scouts,
     fragmentTiles: game.boostedTiles as TileId[],
     ownerAtEnd: (id) => ownerAt.get(id) ?? null,
     teamRank,

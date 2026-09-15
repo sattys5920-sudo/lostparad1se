@@ -46,7 +46,7 @@ import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
-import { SCHEDULE_ORD, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
+import { SCHEDULE_ORD, type CaptureDoc, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
 import { freshNow } from './turn'
 import { clearArrivals, writeWalk } from './move'
 import { openInterval } from './reveal'
@@ -605,6 +605,25 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     if ((state.owners[tileId as TileId] ?? null) !== (team ?? null)) {
       batch.update(ref.collection('tiles').doc(tileId), { ownerTeam: team ?? null })
     }
+  }
+
+  // **누가 어디 서서 무엇을 가져갔는지 남긴다.** 개인 미션의
+  // 「방어 참여」·「공격 참여」·「인연이 선 칸을 가져감」이 이것만
+  // 본다. 깃발이 있던 시절에는 깃발 기록이 그 자리였다
+  for (const [tileId, team] of Object.entries(out.next.owners)) {
+    const before = state.owners[tileId as TileId] ?? null
+    const standing = state.people.filter((p) => p.tileId === tileId).map((p) => p.playerId)
+    if (standing.length === 0 && (team ?? null) === before) continue
+    const rec: CaptureDoc = {
+      tileId,
+      team: team ?? null,
+      ownerBefore: before,
+      standing,
+      atMs: nowMs,
+      day: game.phaseNow.day,
+      phaseNo: game.phaseNow.no,
+    }
+    batch.set(ref.collection('captures').doc(`${game.phaseNow.no}-${tileId}`), rec)
   }
 
   const no = game.phaseNow.no

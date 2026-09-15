@@ -25,9 +25,9 @@ function log(over: Partial<GameLog> = {}): GameLog {
     votes: [],
     reveals: [],
     leverageUses: [],
-    flags: [],
+    captures: [],
+    leverageGains: [],
     trades: [],
-    scouts: [],
     fragmentTiles: [],
     ownerAtEnd: () => null,
     teamRank: { A: 2, B: 1, C: 3, D: 4 },
@@ -109,21 +109,19 @@ describe('세는 법 — 수첩', () => {
 })
 
 describe('세는 법 — 지킴이', () => {
-  const defended = (success: boolean) => ({
+  /** 우리 칸에 서서 지켜 낸 페이즈 하나. */
+  const held = (kept: boolean) => ({
     tileId: 'classroom',
-    team: 'B' as TeamId,
-    planterId: 'pal',
-    target: 'enemy' as const,
-    success,
+    team: (kept ? 'A' : 'B') as TeamId,
     ownerBefore: 'A' as TeamId,
     standing: ['me'],
     atMs: START,
   })
 
-  it('막아 낸 것만 방어 참여다', () => {
-    const won = judge(me('guard'), log({ flags: [defended(false), defended(false)] }))
+  it('우리 칸을 지켜 낸 것만 방어 참여다', () => {
+    const won = judge(me('guard'), log({ captures: [held(true), held(true)] }))
     expect(won.main.clauses[0].have).toBe(2)
-    const lost = judge(me('guard'), log({ flags: [defended(true), defended(true)] }))
+    const lost = judge(me('guard'), log({ captures: [held(false), held(false)] }))
     expect(lost.main.clauses[0].have).toBe(0)
   })
 
@@ -136,16 +134,45 @@ describe('세는 법 — 지킴이', () => {
   it('뺏겼으면 방어 횟수를 채워야 한다', () => {
     const out = judge(
       me('guard'),
-      log({ teamLostTile: { A: true, B: false, C: false, D: false }, flags: [defended(false)] }),
+      log({ teamLostTile: { A: true, B: false, C: false, D: false }, captures: [held(true)] }),
     )
     expect(out.main.met).toBe(false)
   })
 
-  it('인연 대상의 깃발을 막아선 것만 센다', () => {
-    const out = judge(me('guard'), log({ flags: [defended(false)] }))
+  // 인연 — 대상의 비밀을 **제일 먼저** 찾아내고 묻어 준다
+  const gain = (holderId: string, atMs: number) => ({ holderId, aboutId: 'pal', atMs })
+  const bury = { holderId: 'me', aboutId: 'pal', use: 'bury' as const, atMs: START + 10 }
+
+  it('먼저 찾아서 묻어 주면 달성이다', () => {
+    const out = judge(
+      me('guard'),
+      log({ leverageGains: [gain('me', START), gain('x', START + 5)], leverageUses: [bury] }),
+    )
     expect(out.bond.met).toBe(true)
-    const other = { ...defended(false), planterId: 'x' }
-    expect(judge(me('guard'), log({ flags: [other] })).bond.met).toBe(false)
+  })
+
+  it('남이 먼저 찾았으면 묻어 줘도 아니다', () => {
+    const out = judge(
+      me('guard'),
+      log({ leverageGains: [gain('x', START), gain('me', START + 5)], leverageUses: [bury] }),
+    )
+    expect(out.bond.met).toBe(false)
+  })
+
+  it('먼저 찾기만 하고 안 묻으면 아니다', () => {
+    const out = judge(me('guard'), log({ leverageGains: [gain('me', START)], leverageUses: [] }))
+    expect(out.bond.met).toBe(false)
+  })
+
+  it('쓰는 것은 묻는 것이 아니다', () => {
+    const out = judge(
+      me('guard'),
+      log({
+        leverageGains: [gain('me', START)],
+        leverageUses: [{ holderId: 'me', aboutId: 'pal', use: 'extort' as const, atMs: START + 10 }],
+      }),
+    )
+    expect(out.bond.met).toBe(false)
   })
 })
 
@@ -175,12 +202,8 @@ describe('점수', () => {
       me('guard'),
       log({
         teamLostTile: { A: false, B: false, C: false, D: false },
-        flags: [
-          {
-            tileId: 'classroom', team: 'B', planterId: 'pal', target: 'enemy', success: false,
-            ownerBefore: 'A', standing: ['me'], atMs: START,
-          },
-        ],
+        leverageGains: [{ holderId: 'me', aboutId: 'pal', atMs: START }],
+        leverageUses: [{ holderId: 'me', aboutId: 'pal', use: 'bury', atMs: START + 10 }],
         choiceMet: { me: true },
         closingTogether: { me: true },
         closingMutual: { me: true },

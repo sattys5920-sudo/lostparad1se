@@ -123,13 +123,13 @@ describe('등교 예약', () => {
 
   it('하루가 열릴 때 걸음으로 바뀐다', () => {
     const dawn = seoul('2026-03-03T08:00:00')
-    const w = releaseCommute({ playerId: 'a1', to: 'annex', flagOnArrival: true }, 'baseA', dawn)
+    const w = releaseCommute({ playerId: 'a1', to: 'annex' }, 'baseA', dawn)
     expect(w?.startedAtMs).toBe(dawn)
     expect(walkEndsAtMs(w as Walk)).toBe(dawn + 30 * MIN)
   })
 
   it('그 사이에 말이 옮겨져 두 칸을 넘으면 취소된다', () => {
-    const w = releaseCommute({ playerId: 'a1', to: 'classroom', flagOnArrival: false }, 'baseA', 0)
+    const w = releaseCommute({ playerId: 'a1', to: 'classroom' }, 'baseA', 0)
     expect(w).toBe(null)
   })
 })

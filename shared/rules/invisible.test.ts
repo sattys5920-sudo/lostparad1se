@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest'
 import {
   canName,
   countBallots,
-  countableForFlag,
   INVISIBLE_CAN,
   INVISIBLE_CANNOT,
   isInvisible,
@@ -75,9 +74,8 @@ describe('지워진 하루', () => {
     expect(INVISIBLE_CAN.castVote).toBe(true)
   })
 
-  it('보이지 않고, 세지 않고, 표를 받지 못한다', () => {
+  it('보이지 않고 표를 받지 못한다', () => {
     expect(INVISIBLE_CANNOT.beSeen).toBe(false)
-    expect(INVISIBLE_CANNOT.countInFlag).toBe(false)
     expect(INVISIBLE_CANNOT.receiveVote).toBe(false)
   })
 
@@ -103,17 +101,6 @@ describe('전체 채팅', () => {
   })
 })
 
-describe('깃발 판정에서 빼기', () => {
-  const standing = [{ playerId: 'a' }, { playerId: 'b' }, { playerId: 'c' }]
-
-  it('투명인간만 빠진다', () => {
-    expect(countableForFlag(standing, 'b').map((s) => s.playerId)).toEqual(['a', 'c'])
-  })
-
-  it('없으면 그대로다', () => {
-    expect(countableForFlag(standing, null)).toHaveLength(3)
-  })
-})
 
 describe('표를 세면 누가 줬는지가 사라진다', () => {
   it('받은 사람별 장수만 남는다', () => {

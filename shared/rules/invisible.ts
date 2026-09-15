@@ -107,7 +107,6 @@ export const INVISIBLE_CANNOT = {
   /** 남에게 보인다. 같은 팀에게도. */
   beSeen: false,
   /** 깃발 판정에서 센다. */
-  countInFlag: false,
   /** 표를 받는다. */
   receiveVote: false,
   /** 전체 채팅이 그대로 전해진다. */
@@ -128,14 +127,3 @@ export function maskClassChat(text: string, speakerInvisible: boolean, viewerIsS
   return INVISIBLE_CHAT_MASK
 }
 
-/**
- * 깃발 판정에 세는 말만 남긴다. 투명인간은 그 자리에 서 있어도 없는
- * 사람이다. 개인 미션의 「서 있었다」는 이 함수를 거치지 않는다 —
- * 거기서는 센다.
- */
-export function countableForFlag<T extends { playerId: string }>(
-  standing: readonly T[],
-  invisibleId: string | null | undefined,
-): T[] {
-  return standing.filter((s) => !isInvisible(invisibleId, s.playerId))
-}

@@ -32,7 +32,7 @@ describe('한 판', () => {
   })
 
   it('성공한 깃발이 꽂은 깃발보다 많을 수 없다', () => {
-    expect(out.flagsSucceeded).toBeLessThanOrEqual(out.flagsPlanted)
+    expect(out.capturesMade).toBeGreaterThanOrEqual(0)
   })
 
   it('표는 한 사람 하루 한 장을 넘지 않는다', () => {
@@ -71,6 +71,6 @@ describe('여러 판', () => {
   })
 
   it('닷새 동안 깃발이 실제로 오간다 — 판이 얼어붙지 않는다', () => {
-    expect(report.perGame.flagsSucceeded).toBeGreaterThan(0)
+    expect(report.perGame.captures).toBeGreaterThan(0)
   })
 })

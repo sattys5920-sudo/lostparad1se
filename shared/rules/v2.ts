@@ -140,52 +140,6 @@ export const STARTING_RESOURCES: Record<Resource, number> = {
   knowledge: 4,
 }
 
-// ── 깃발 ────────────────────────────────────────────────────────
-
-export type FlagTarget = 'empty' | 'enemy' | 'core' | 'plaza'
-
-/** 보정 전 기본 시간(게임 분). */
-export const FLAG_BASE_GAME_MIN: Record<FlagTarget, number> = {
-  empty: 30,
-  enemy: 60,
-  core: 120,
-  plaza: 180,
-}
-
-/** 방어 1당 늘어나는 시간. */
-export const FLAG_DEFENSE_GAME_MIN = 30
-/** 주목받는 팀의 칸은 기본 시간이 이것으로 내려간다. */
-export const FLAG_SPOTLIGHT_BASE_GAME_MIN = 30
-
-/**
- * 시간 보정은 반드시 이 순서로 곱한다.
- *   기본(+방어) → 반장 → 기습 → 마지막 여섯 시간
- */
-export const FLAG_CLASS_PRESIDENT_FACTOR = 0.75
-export const FLAG_AMBUSH_FACTOR = 0.5
-export const FLAG_LAST_HOURS_FACTOR = 0.5
-
-/** 성공할 때 내는 돈. 가진 칸 세 개마다 1씩 붙는다. */
-export const FLAG_COST_MONEY: Record<FlagTarget, number> = {
-  empty: 2,
-  enemy: 4,
-  core: 4,
-  plaza: 4,
-}
-/** 가진 칸 몇 개마다 돈이 1 비싸지는가. */
-export const FLAG_COST_TILES_PER_STEP = 3
-/** 핵심·중앙광장에 추가로 드는 지식. */
-export const FLAG_COST_KNOWLEDGE: Record<FlagTarget, number> = {
-  empty: 0,
-  enemy: 0,
-  core: 4,
-  plaza: 6,
-}
-/** 핵심·중앙광장은 깃발 팀 실제 인원이 이만큼 서 있어야 한다(주장도 1명). */
-export const FLAG_CORE_MIN_PRESENCE = 2
-/** 깃발 하나에 드는 토큰. */
-export const FLAG_TOKEN_COST = 1
-
 // ── 표 ──────────────────────────────────────────────────────────
 
 /**
@@ -261,11 +215,6 @@ export const ROLE_TITLE_LABEL: Record<RoleTitle, string> = {
 export const PRODUCE_MONEY = 3
 /** 공부 한 번에 버는 팀 금고의 지식. 생산의 짝이다. */
 export const STUDY_KNOWLEDGE = 2
-/** 탐색 한 번에 얻는 양. 돈과 지식 중 무작위로 하나. */
-export const SCOUT_GAIN = 2
-export const SCOUT_RESOURCES: readonly Resource[] = ['money', 'knowledge']
-/** 같은 칸 탐색은 팀당 하루 한 번. */
-export const SCOUT_PER_TILE_DAILY = 1
 // ── 교역과 동맹 ─────────────────────────────────────────────────
 
 // 답 없는 제안이라는 것이 없어졌다. 거래는 마주 선 자리에서 끝난다 —
@@ -282,11 +231,10 @@ export const ALLIANCE_CLEAR_DAY = 4
 
 export type CardKind =
   | 'forcedMarch' | 'ambush'
-  | 'reinforce'
   | 'windfall' | 'cramming'
   | 'falseRumor' | 'blockade'
   | 'secretLetter' | 'accord'
-  | 'fakeFlag' | 'ambushHide'
+  | 'ambushHide'
 
 export interface CardSpec {
   kind: CardKind
@@ -304,14 +252,12 @@ export interface CardSpec {
 export const CARDS: readonly CardSpec[] = [
   { kind: 'forcedMarch', name: '강행군', group: '확장', text: '우리 말 하나의 다음 이동이 즉시 끝난다(최대 두 칸).', needsPawn: true },
   { kind: 'ambush', name: '기습', group: '확장', text: '다음에 꽂는 깃발 하나의 시간이 절반.' },
-  { kind: 'reinforce', name: '보강', group: '방어', text: '우리 칸 하나의 방어 +2, 24시간.', needsTile: true },
   { kind: 'windfall', name: '특별 매출', group: '생산', text: '돈 +4.' },
   { kind: 'cramming', name: '벼락치기', group: '생산', text: '지식 +4.' },
   { kind: 'falseRumor', name: '헛소문', group: '견제', text: '대상 팀 돈 −2.', needsTeam: true },
   { kind: 'blockade', name: '봉쇄', group: '견제', text: '칸 하나에 여섯 시간 동안 새 깃발을 못 꽂고, 꽂힌 깃발은 멈춘다.', needsTile: true },
   { kind: 'secretLetter', name: '밀서', group: '외교', text: '다른 팀 한 명과 한 시간짜리 비밀 대화방을 연다.' },
   { kind: 'accord', name: '협정서', group: '외교', text: '다음 교역이 성립하면 양쪽 팀 모두 돈 +2.' },
-  { kind: 'fakeFlag', name: '가짜 깃발', group: '특수', text: '토큰 없이 깃발을 꽂는다. 진짜처럼 보이지만 아무 일도 없다.', needsTile: true },
   { kind: 'ambushHide', name: '잠복', group: '특수', text: '우리 말 하나가 여섯 시간 동안 누구에게도 보이지 않는다. 판정에서는 센다.', needsPawn: true },
 ]
 
@@ -323,8 +269,6 @@ export const CARD_BY_KIND: Record<CardKind, CardSpec> = Object.fromEntries(
 export const HAND_LIMIT = 4
 
 export const CARD_FORCED_MARCH_TILES = 2
-export const CARD_REINFORCE_DEFENSE = 2
-export const CARD_REINFORCE_REAL_HOURS = 24
 export const CARD_WINDFALL_MONEY = 4
 export const CARD_CRAMMING_KNOWLEDGE = 4
 export const CARD_FALSE_RUMOR_MONEY = 2
@@ -332,7 +276,6 @@ export const CARD_BLOCKADE_GAME_HOURS = 6
 export const CARD_SECRET_LETTER_REAL_HOURS = 1
 export const CARD_ACCORD_MONEY = 2
 export const CARD_HIDE_GAME_HOURS = 6
-export const CARD_QUICK_BUILD_COST_FACTOR = 0.5
 
 // ── 비밀 목표 ───────────────────────────────────────────────────
 
@@ -409,10 +352,6 @@ export const CORE_OPENING: Record<number, readonly string[]> = {
   2: ['auditorium', 'studentCouncil'],
   5: ['centralPlaza'],
 }
-
-// ── 주목과 만회 ─────────────────────────────────────────────────
-// 값은 위쪽 해당 항목에 있다(FLAG_SPOTLIGHT_BASE_GAME_MIN,
-// SPOTLIGHT_SUSPICION_EXTRA, TOKEN_COMEBACK_BONUS).
 
 /** 마지막 여섯 시간이 시작되는 날. */
 export const LAST_HOURS_DAY = 5

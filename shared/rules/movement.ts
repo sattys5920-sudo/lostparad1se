@@ -123,7 +123,6 @@ export interface CommutePlan {
   playerId: string
   to: TileId
   /** 도착하면 곧바로 깃발을 꽂는다. 토큰은 도착할 때 쓰고, 모자라면 취소된다. */
-  flagOnArrival: boolean
 }
 
 export type CommuteRefusal = WalkRefusal | 'tooFar'

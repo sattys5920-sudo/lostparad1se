@@ -143,12 +143,6 @@ export function QuickActions({
       <button disabled={busy || walking} onClick={() => run('공부', () => act.study(standingOn as TileId))}>
         공부 <em>{ACTION_TOKEN_COST.study}</em>
       </button>
-      <button disabled={busy || walking} onClick={() => run('깃발', () => act.plantFlag(standingOn as TileId))}>
-        깃발 <em>{ACTION_TOKEN_COST.flag}</em>
-      </button>
-      <button disabled={busy || walking} onClick={() => run('탐색', () => act.scout(standingOn as TileId))}>
-        탐색 <em>{ACTION_TOKEN_COST.scout}</em>
-      </button>
       <button onClick={() => onSheet('deal')}>거래</button>
     </div>
   )
@@ -182,12 +176,6 @@ export function Actions({ tileId, where, act, onSaid, onClose, children }: Actio
       )}
 
       <div className="sc-ac__row">
-        <button disabled={busy} onClick={() => run('깃발', () => act.plantFlag(tileId))}>
-          깃발 <em>{ACTION_TOKEN_COST.flag}</em>
-        </button>
-        <button disabled={busy} onClick={() => run('탐색', () => act.scout(tileId))}>
-          탐색 <em>{ACTION_TOKEN_COST.scout}</em>
-        </button>
       </div>
 
     </div>

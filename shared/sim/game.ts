@@ -17,10 +17,9 @@ import {
   type TileId,
 } from '../rules/board'
 import { addActiveSeconds, dayNumber, secondsIntoSeoulDay, seoulTimeOn } from '../rules/clock'
-import { defenseOf, gain, pay, type TileState } from '../rules/resources'
-import { canPlantFlag, ownerLookup, scoutYield } from '../rules/actions'
-import { ROOM_KIND, researchKnowledge } from '../rules/occupy'
-import { flagCost, flagDurationSec, flagTargetOf, halveRemaining, resolveFlag } from '../rules/flag'
+import { gain, pay, type TileState } from '../rules/resources'
+import { ownerLookup } from '../rules/actions'
+import { ROOM_KIND, ownerOf, researchKnowledge } from '../rules/occupy'
 import { coreOpen, inLastHours } from '../rules/fragments'
 import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenState } from '../rules/tokens'
 import { tallyVotes, type Vote } from '../rules/votes'
@@ -43,21 +42,12 @@ import {
 } from '../rules/v2'
 import type { Interval } from '../rules/presence'
 import { assignRoles, rngFrom, type Assignment, type Player } from '../missions/assign'
-import { judge, type FlagRecord, type GameLog, type JudgeVote, type RevealRecord, type ScoutRecord, type TradeRecord } from '../missions/judge'
+import { judge, type CaptureRecord, type GameLog, type JudgeVote, type RevealRecord, type TradeRecord } from '../missions/judge'
 import { ROLE_BY_ID } from '../missions/roles'
 
 const TICK_SEC = MOVE_GAME_MIN_PER_TILE * 60
 
 // ── 상태 ────────────────────────────────────────────────────────
-
-interface SimFlag {
-  tileId: TileId
-  team: TeamId
-  planterId: string
-  dueAtMs: number
-  target: ReturnType<typeof flagTargetOf>
-  ownerBefore: TeamId | null
-}
 
 interface SimTeam {
   resources: Record<Resource, number>
@@ -93,8 +83,8 @@ export interface SimResult {
   winner: TeamId
   /** 사람별 개인 점수. */
   personal: { playerId: string; roleId: string; score: number; main: boolean; bond: boolean }[]
-  flagsPlanted: number
-  flagsSucceeded: number
+  /** 주인이 바뀐 횟수. */
+  capturesMade: number
   votesCast: number
   reveals: number
   /** 판이 멈추지 않고 끝까지 갔는가. */
@@ -171,19 +161,14 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   const judgeVotes: JudgeVote[] = []
   const reveals: RevealRecord[] = []
   const leverages: Leverage[] = []
-  const flagLog: FlagRecord[] = []
+  const captureLog: CaptureRecord[] = []
   const trades: TradeRecord[] = []
-  const scouts: ScoutRecord[] = []
-  const activeFlags: SimFlag[] = []
   const fragments: { day: number; spotTile: TileId }[] = []
 
-  let flagsPlanted = 0
-  let flagsSucceeded = 0
-  let lastHoursApplied = false
+  let capturesMade = 0
+  let lastSettleHour = -1
 
   const owner = () => ownerLookup([...tiles.values()])
-  const ownedCount = (team: TeamId) =>
-    [...tiles.values()].filter((t) => t.ownerTeam === team && TILE_BY_ID[t.tileId].tier !== 'base').length
 
   /** 말을 옮긴 것으로 기록한다. 걷는 동안은 어느 칸에도 서 있지 않다. */
   function close(playerId: string, atMs: number) {
@@ -217,12 +202,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     // 토큰 충전
     for (const t of TEAM_IDS) teams[t].tokens = accrueTokens(teams[t].tokens, nowMs).state
 
-    // 마지막 여섯 시간 — 익고 있던 깃발이 반으로
-    if (!lastHoursApplied && inLastHours(startMs, nowMs)) {
-      lastHoursApplied = true
-      for (const f of activeFlags) f.dueAtMs = nowMs + halveRemaining((f.dueAtMs - nowMs) / 1000) * 1000
-    }
-
     // 도착
     for (const p of players.values()) {
       if (p.arriveAtMs !== null && nowMs >= p.arriveAtMs) {
@@ -242,47 +221,33 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       }
     }
 
-    // 깃발 완료
-    for (let i = activeFlags.length - 1; i >= 0; i--) {
-      const f = activeFlags[i]
-      if (nowMs < f.dueAtMs) continue
-      activeFlags.splice(i, 1)
-      const standing = [...players.values()]
-        .filter((p) => p.tileId === f.tileId)
-        .map((p) => ({ playerId: p.id, team: p.team, captain: false }))
-      const out = resolveFlag({
-        target: f.target,
-        flagTeam: f.team,
-        allies: teams[f.team].alliance.allyTeam ? [teams[f.team].alliance.allyTeam as TeamId] : [],
-        standing,
-        planterPresent: players.get(f.planterId)?.tileId === f.tileId,
-      })
-      let success = out.success
-      if (success) {
-        const cost = flagCost({ target: f.target, ownedTiles: ownedCount(f.team) })
-        const left = pay(teams[f.team].resources, cost)
-        if (left) teams[f.team].resources = left
-        else success = false
-      }
-      if (success) {
-        const tile = tiles.get(f.tileId) as TileState
-        if (tile.ownerTeam && tile.ownerTeam !== f.team) {
-          teams[tile.ownerTeam].lostTile = true
-          teams[f.team].raidSuccesses += 1
+    // 한 시간마다 점령을 판정한다. **서 있는 머릿수로만 정한다** —
+    // 페이즈가 닫힐 때 서버가 하는 일과 같은 셈이다
+    const hour = Math.floor(nowMs / 3_600_000)
+    if (hour !== lastSettleHour) {
+      lastSettleHour = hour
+      for (const tile of tiles.values()) {
+        if (TILE_BY_ID[tile.tileId].tier === 'base') continue
+        const standing = [...players.values()].filter((p) => p.tileId === tile.tileId)
+        const heads: Partial<Record<TeamId, number>> = {}
+        for (const p of standing) heads[p.team as TeamId] = (heads[p.team as TeamId] ?? 0) + 1
+        const before = tile.ownerTeam
+        const after = ownerOf(heads, before)
+        if (standing.length > 0 || after !== before) {
+          captureLog.push({
+            tileId: tile.tileId,
+            team: after,
+            ownerBefore: before,
+            standing: standing.map((p) => p.id),
+            atMs: nowMs,
+          })
         }
-        tile.ownerTeam = f.team
-        flagsSucceeded++
+        if (after === before) continue
+        if (before) teams[before as TeamId].lostTile = true
+        if (after && before) teams[after as TeamId].raidSuccesses += 1
+        tile.ownerTeam = after
+        capturesMade += 1
       }
-      flagLog.push({
-        tileId: f.tileId,
-        team: f.team,
-        planterId: f.planterId,
-        target: f.target,
-        success,
-        ownerBefore: f.ownerBefore,
-        standing: standing.map((s) => s.playerId),
-        atMs: nowMs,
-      })
     }
 
     // 사람마다 한 수
@@ -329,9 +294,9 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     votes: judgeVotes,
     reveals,
     leverageUses: [],
-    flags: flagLog,
+    captures: captureLog,
+    leverageGains: leverages.map((l) => ({ holderId: l.holderId, aboutId: l.aboutId, atMs: l.gainedAtMs })),
     trades,
-    scouts,
     fragmentTiles: fragments.map((f) => f.spotTile),
     ownerAtEnd: (id) => tiles.get(id)?.ownerTeam ?? null,
     teamRank: Object.fromEntries(ranked.ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>,
@@ -358,8 +323,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     teamScores: scores,
     winner: ranked.ranked[0].team,
     personal,
-    flagsPlanted,
-    flagsSucceeded,
+    capturesMade,
     votesCast: votes.length,
     reveals: reveals.length,
     finished: true,
@@ -409,42 +373,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     const here = tiles.get(p.tileId) as TileState
     const look = owner()
 
-    // 깃발
-    if (
-      here.ownerTeam !== p.team &&
-      !activeFlags.some((f) => f.tileId === p.tileId) &&
-      canPlantFlag({
-        tileId: p.tileId, team: p.team, ownerOf: look, hasFlag: false,
-        coreOpen: coreOpen(p.tileId, day),
-      }).ok
-    ) {
-      // 성공할 때 낼 돈이 없으면 꽂지 않는다. 실패하면 토큰만 잃는다
-      const target0 = flagTargetOf(p.tileId, here.ownerTeam)
-      const need = flagCost({ target: target0, ownedTiles: ownedCount(p.team) })
-      const spent = (need.money ?? 0) <= team.resources.money &&
-        (need.knowledge ?? 0) <= team.resources.knowledge
-        ? spendToken(team.tokens, p.id)
-        : { ok: false, state: team.tokens, reason: null as null }
-      if (spent.ok) {
-        team.tokens = spent.state
-        const target = target0
-        const sec = flagDurationSec({
-          target,
-          defense: defenseOf(here),
-          ownerSpotlighted: here.ownerTeam !== null && teams[here.ownerTeam].spotlighted,
-          classPresident: false,
-          ambush: false,
-          lastHours: inLastHours(startMs, nowMs),
-        })
-        activeFlags.push({
-          tileId: p.tileId, team: p.team, planterId: p.id,
-          dueAtMs: addActiveSeconds(nowMs, sec), target, ownerBefore: here.ownerTeam,
-        })
-        p.guardUntilMs = addActiveSeconds(nowMs, sec)
-        flagsPlanted++
-        return
-      }
-    }
 
     // 연구. **연구실에서만 한다.** 차지한 팀은 지식 한 점, 남은 두 점을
     // 주인 팀 금고에 낸다 — 판이 연구실 하나로 돌아가는지를 여기서 본다
@@ -466,16 +394,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       }
     }
 
-    // 탐색
-    if (here.ownerTeam !== p.team && rnd() < 0.2) {
-      const spent = spendToken(team.tokens, p.id)
-      if (spent.ok) {
-        team.tokens = spent.state
-        team.resources = gain(team.resources, scoutYield(rnd()))
-        scouts.push({ playerId: p.id, tileId: p.tileId, atMs: nowMs })
-        return
-      }
-    }
 
     // 교역 — 가끔
     if (rnd() < 0.02) {
@@ -586,7 +504,7 @@ export interface SimReport {
   /** 역할마다 주 미션을 깬 비율. */
   mainRate: Record<string, number>
   bondRate: Record<string, number>
-  perGame: { flagsPlanted: number; flagsSucceeded: number; votes: number; reveals: number }
+  perGame: { captures: number; votes: number; reveals: number }
 }
 
 export function runGames(count: number, startMs: number, seedPrefix = 'sim'): SimReport {
@@ -599,7 +517,7 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
   const dist = Array.from({ length: 10 }, () => 0)
   const mainHit = new Map<string, { met: number; n: number }>()
   const bondHit = new Map<string, { met: number; n: number }>()
-  const sums = { flagsPlanted: 0, flagsSucceeded: 0, votes: 0, reveals: 0 }
+  const sums = { captures: 0, votes: 0, reveals: 0 }
 
   for (const r of results) {
     wins[r.winner] += 1
@@ -616,8 +534,7 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
       if (p.bond) b.met++
       bondHit.set(p.roleId, b)
     }
-    sums.flagsPlanted += r.flagsPlanted
-    sums.flagsSucceeded += r.flagsSucceeded
+    sums.captures += r.capturesMade
     sums.votes += r.votesCast
     sums.reveals += r.reveals
   }
@@ -634,8 +551,7 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
     mainRate: rate(mainHit),
     bondRate: rate(bondHit),
     perGame: {
-      flagsPlanted: sums.flagsPlanted / count,
-      flagsSucceeded: sums.flagsSucceeded / count,
+      captures: sums.captures / count,
       votes: sums.votes / count,
       reveals: sums.reveals / count,
     },

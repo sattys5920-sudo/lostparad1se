@@ -142,11 +142,9 @@ export const playOne = onCall<{
     })
   }
 
-  // 칸에 붙는 것 — 보강과 봉쇄
+  // 칸에 붙는 것 — 봉쇄
   if (effect.tile) {
     const patch: Record<string, unknown> = {}
-    if (effect.tile.reinforce !== undefined) patch.reinforcedBy = effect.tile.reinforce
-    if (effect.tile.untilRealMs !== undefined) patch.reinforcedUntilRealMs = effect.tile.untilRealMs
     if (effect.tile.blockedUntilMs !== undefined) patch.blockedUntilMs = effect.tile.blockedUntilMs
     if (Object.keys(patch).length > 0) batch.update(ref.collection('tiles').doc(effect.tile.tileId), patch)
   }
@@ -171,12 +169,6 @@ export const playOne = onCall<{
 
   // 가짜 깃발. **이 사실은 secret에만 적는다** — 다른 팀에게는 진짜와
   // 네트워크 응답으로도 구분되지 않는다
-  if (effect.fakeFlag && effect.tile) {
-    batch.set(ref.collection('secret').doc('flagTruth').collection('items').doc(effect.tile.tileId), {
-      team: pawn.team,
-      fake: true,
-    })
-  }
 
   // 밀서 — 비밀 대화방
   if (effect.roomUntilRealMs && req.data.targetTeam) {
@@ -194,7 +186,7 @@ export const playOne = onCall<{
     playerId: uid,
     ...(effect.tile ? { tileId: effect.tile.tileId } : {}),
     // 가짜 깃발만은 어떤 카드였는지 남기지 않는다. 기록을 보면 들킨다
-    detail: effect.fakeFlag ? {} : { card: kind, targetTeam: req.data.targetTeam ?? null },
+    detail: { card: kind, targetTeam: req.data.targetTeam ?? null },
   })
   await batch.commit()
   await refreshViews(gameId)
