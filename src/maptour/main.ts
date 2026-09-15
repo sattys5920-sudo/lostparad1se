@@ -7,8 +7,8 @@
 //
 // 소품과 팻말을 손보고 나서 스물다섯 방을 훑어볼 때 쓴다.
 import {
-  MAP_H, MAP_W, TILE, doorIsHorizontal, drawPiece, floorOf, markAt,
-  propAt, roomAt, signAt, stairHere, tileAt,
+  MAP_H, MAP_W, TILE, doorIsHorizontal, drawPiece, markAt,
+  propAt, signAt, stairHere, tileAt,
 } from '../school/map/world'
 import { buildSprites } from '../school/map/sprites'
 import { loadSignFont, signSheet } from '../school/map/signs'
@@ -23,21 +23,13 @@ const sprites = buildSprites()
 await loadSignFont()
 const plates = signSheet()
 
-const FLOOR_IMG = {
-  room: sprites.tiles.floorRoom,
-  hall: sprites.tiles.floorHall,
-  outdoor: sprites.tiles.floorOutdoor,
-  wood: sprites.tiles.floorWood,
-}
-
 for (let y = 0; y < MAP_H; y++) {
   for (let x = 0; x < MAP_W; x++) {
     const kind = tileAt(x, y)
-    const room = roomAt(x, y)
     let img = sprites.tiles.wall
     if (kind === 'hall') img = sprites.tiles.floorHall
     else if (kind === 'door') img = doorIsHorizontal(x, y) ? sprites.tiles.doorH : sprites.tiles.doorV
-    else if (kind === 'floor') img = FLOOR_IMG[room ? floorOf(room.id) : 'room']
+    else if (kind === 'floor') img = sprites.tiles.floorRoom
     ctx.drawImage(img, x * TILE, y * TILE)
     const step = stairHere(x, y)
     if (step) ctx.drawImage(step.up ? sprites.tiles.stairUp : sprites.tiles.stairDown, x * TILE, y * TILE)

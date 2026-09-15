@@ -193,12 +193,6 @@ function grid(mark: (x: number, y: number) => string): string[] {
   return rows
 }
 
-/** 흙바닥 — 정원·운동장·옥상. 자잘한 알갱이만 흩어 둔다. */
-const FLOOR_OUTDOOR = FLOOR_FLAT
-
-/** 마루 — 체육관·강당. 바탕색만 다르다. */
-const FLOOR_WOOD = FLOOR_FLAT
-
 /**
  * 팀 무늬. **지금은 비어 있다.**
  *
@@ -414,8 +408,6 @@ export interface SpriteSet {
   tiles: {
     floorHall: HTMLCanvasElement
     floorRoom: HTMLCanvasElement
-    floorOutdoor: HTMLCanvasElement
-    floorWood: HTMLCanvasElement
     wall: HTMLCanvasElement
     wallBody: HTMLCanvasElement
     doorH: HTMLCanvasElement
@@ -436,8 +428,6 @@ export function buildSprites(): SpriteSet {
     tiles: {
       floorHall: bake(FLOOR_HALL),
       floorRoom: bake(FLOOR_ROOM),
-      floorOutdoor: bake(FLOOR_OUTDOOR),
-      floorWood: bake(FLOOR_WOOD),
       wall: bake(WALL),
       wallBody: bake(WALL_BODY),
       doorH: bake(DOOR_H),

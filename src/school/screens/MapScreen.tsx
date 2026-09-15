@@ -5,7 +5,6 @@ import { useSchoolGame } from '../state/SchoolGameContext'
 import {
   doorIsHorizontal,
   drawPiece,
-  floorOf,
   isWalkable,
   MAP_H,
   MAP_W,
@@ -330,18 +329,9 @@ export function MapScreen() {
                 ? sprites.tiles.doorH
                 : sprites.tiles.doorV
           } else {
-            // 바닥은 그 실이 어떤 곳인지를 말한다. 정원은 흙, 체육관은 마루, 복도는 통로.
+            // 방 바닥은 어디나 같은 흰색이다. 바닥이 말하는 것은 누구 땅인가뿐이다
             const room = roomAt(x, y)?.id
-            const kind = room ? floorOf(room) : 'room'
-            img =
-              kind === 'hall'
-                ? sprites.tiles.floorHall
-                : kind === 'outdoor'
-                  ? sprites.tiles.floorOutdoor
-                  : kind === 'wood'
-                    ? sprites.tiles.floorWood
-                    : sprites.tiles.floorRoom
-            ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+            ctx.drawImage(sprites.tiles.floorRoom, x * TILE - camX, y * TILE - camY)
             // 소유권은 그 위에 얹는다 — 어느 실인지와 누구 땅인지를 함께 보여야 한다.
             const team = room ? tilesRef.current[room]?.ownerTeam : null
             img = team ? sprites.tiles.floorTeam[team] : null

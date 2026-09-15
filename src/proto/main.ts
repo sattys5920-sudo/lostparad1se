@@ -4,7 +4,6 @@ import { firebaseConfigured } from '../firebase'
 import {
   doorIsHorizontal,
   drawPiece,
-  floorOf,
   isWalkable,
   MAP_H,
   MAP_W,
@@ -258,19 +257,9 @@ function resize() {
 }
 window.addEventListener('resize', resize)
 
-/** 그 실이 어떤 곳인지는 바닥이 말한다. 정원은 흙, 체육관은 마루, 복도는 통로. */
+/** 방 바닥은 어디나 같은 흰색이다. 복도만 통로 무늬다. */
 function floorTile(x: number, y: number) {
-  const room = roomAt(x, y)?.id
-  switch (room ? floorOf(room) : 'room') {
-    case 'hall':
-      return sprites.tiles.floorHall
-    case 'outdoor':
-      return sprites.tiles.floorOutdoor
-    case 'wood':
-      return sprites.tiles.floorWood
-    default:
-      return sprites.tiles.floorRoom
-  }
+  return roomAt(x, y) ? sprites.tiles.floorRoom : sprites.tiles.floorHall
 }
 
 function drawLabel(text: string, cx: number, y: number, inverted: boolean) {

@@ -158,6 +158,10 @@ const F1: FloorDef = {
 /**
  * 2층 — 복도가 ㅁ 자로 돈다. 가운데 세 방은 사방이 복도라 문이 여럿
  * 이고, 동아리실만 서쪽 복도 바깥에 혼자 붙어 있다.
+ *
+ * 동아리실은 한때 7×12 로 길쭉했다. 다른 방들이 대체로 네모난데
+ * 혼자만 복도처럼 생겨서, 서쪽 끝까지 밀어 붙이고 9×9 로 폈다 —
+ * 서쪽 계단으로 난 문과 동쪽 복도로 난 문은 그대로다.
  */
 const F2: FloorDef = {
   floor: 'f2',
@@ -181,7 +185,7 @@ const F2: FloorDef = {
     ['newBuilding', '무용실', 5, 'cross', null, { x: 14, y: 30, w: 12, h: 9 }],
     ['broadcastRoom', '방송실', 6, 'core', null, { x: 28, y: 30, w: 11, h: 9 }],
     ['studentCouncil', '학생회실', 6, 'core', null, { x: 41, y: 30, w: 10, h: 9 }],
-    ['clubRoom', '동아리실', 1, 'zone1', null, { x: 2, y: 22, w: 7, h: 12 }],
+    ['clubRoom', '동아리실', 1, 'zone1', null, { x: 0, y: 22, w: 9, h: 9 }],
   ],
 }
 

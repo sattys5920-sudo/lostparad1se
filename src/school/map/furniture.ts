@@ -302,14 +302,14 @@ export const FURNITURE: Readonly<Record<TileId, RoomFurniture>> = {
   // 동아리실
   clubRoom: {
     props: [
-      { kind: 'sofa', x: 5, y: 1 },
-      { kind: 'corkBoard', x: 0, y: 0 },
-      { kind: 'cupStack', x: 0, y: 3 },
-      { kind: 'guitarCase', x: 5, y: 3 },
-      { kind: 'radio', x: 2, y: 8 },
-      { kind: 'crates', x: 1, y: 7 },
+      { kind: 'sofa', x: 6, y: 6 },
+      { kind: 'corkBoard', x: 5, y: 0 },
+      { kind: 'cupStack', x: 6, y: 2 },
+      { kind: 'guitarCase', x: 2, y: 3 },
+      { kind: 'radio', x: 1, y: 3 },
+      { kind: 'crates', x: 2, y: 7 },
     ],
-    sign: { x: 3, y: 0 },
+    sign: { x: 0, y: 0 },
   },
   // 옥상
   rooftop: {

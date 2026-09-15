@@ -13,12 +13,10 @@
 import {
   doorIsHorizontal,
   drawPiece,
-  floorOf,
   MAP_H,
   MAP_W,
   markAt,
   propAt,
-  roomAt,
   ROOMS,
   signAt,
   TILE,
@@ -93,19 +91,13 @@ function panel(scale: number, charPx: number): HTMLCanvasElement {
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const kind = tileAt(x, y)
-      const room = roomAt(x, y)?.id ?? null
       let img: CanvasImageSource | null
       if (kind === 'wall') {
         img = tileAt(x, y - 1) === 'wall' ? sprites.tiles.wallBody : sprites.tiles.wall
       } else if (kind === 'door') {
         img = doorIsHorizontal(x, y) ? sprites.tiles.doorH : sprites.tiles.doorV
       } else {
-        const f = room ? floorOf(room) : 'room'
-        img =
-          f === 'hall' ? sprites.tiles.floorHall
-          : f === 'outdoor' ? sprites.tiles.floorOutdoor
-          : f === 'wood' ? sprites.tiles.floorWood
-          : sprites.tiles.floorRoom
+        img = sprites.tiles.floorRoom
       }
       if (img) ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
       const mark = markAt(x, y)

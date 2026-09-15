@@ -464,20 +464,13 @@ for (const [id, lx, ly, kind] of MARKS) {
   if (!props.has(k)) marks.set(k, kind)
 }
 
-/** 방마다 바닥이 다르다. 실외는 흙, 체육관·강당은 마루, 계단·복도는 통로. */
-export type FloorKind = 'room' | 'hall' | 'outdoor' | 'wood'
-
-const FLOOR_OF: Partial<Record<TileId, FloorKind>> = {
-  garden: 'outdoor',
-  playground: 'outdoor',
-  rooftop: 'outdoor',
-  gym: 'wood',
-  auditorium: 'wood',
-}
-
-export function floorOf(id: TileId): FloorKind {
-  return FLOOR_OF[id] ?? 'room'
-}
+// **방 바닥은 모두 같은 흰색이다.**
+//
+// 한때 정원과 운동장은 흙, 체육관과 강당은 마루로 따로 깔았다. 그런데
+// 바닥에는 이미 할 일이 있다 — 누구 땅인가. 점령한 팀 색이 바닥에
+// 물드는데 그 밑이 방마다 다르면 같은 팀 색이 방마다 달라 보인다.
+//
+// 어느 실인지는 소품과 팻말이 말한다. 바닥은 점령만 말한다.
 
 export function markAt(x: number, y: number): MarkKind | null {
   return marks.get(key(x, y)) ?? null

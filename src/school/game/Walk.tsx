@@ -16,7 +16,6 @@ import {
   doorIsHorizontal,
   DOORS,
   drawPiece,
-  floorOf,
   isWalkable,
   MAP_H,
   MAP_W,
@@ -702,13 +701,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
             // 벽이 누운 방향에 따라 널빤지도 눕거나 선다
             img = doorIsHorizontal(x, y) ? sprites.tiles.doorH : sprites.tiles.doorV
           } else {
-            const f = room ? floorOf(room) : 'room'
-            img =
-              f === 'hall' ? sprites.tiles.floorHall
-              : f === 'outdoor' ? sprites.tiles.floorOutdoor
-              : f === 'wood' ? sprites.tiles.floorWood
-              : sprites.tiles.floorRoom
-            ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+            // 방 바닥은 어디나 같은 흰색이다. 점령한 팀 색만 그 위에 얹는다
+            ctx.drawImage(sprites.tiles.floorRoom, x * TILE - camX, y * TILE - camY)
             const team = room ? tilesRef.current[room]?.ownerTeam : null
             img = team ? sprites.tiles.floorTeam[team] : null
           }
