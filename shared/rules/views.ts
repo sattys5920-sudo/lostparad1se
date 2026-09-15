@@ -19,6 +19,7 @@ import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { CardKind, GoalKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type TileId } from './board'
+import type { Satchel, Satchels } from './items'
 import { canSeeConfession, canSeeMemory } from '../reveal/archive'
 import { noticesFor, type Notice } from '../reveal/notice'
 
@@ -102,6 +103,8 @@ export interface World {
    * 추측이 아니라 계산이 되면 숨길 것이 하나도 남지 않는다.
    */
   vaults?: Readonly<Partial<Record<TeamId, { money: number; knowledge: number }>>>
+  /** 팀 주머니. 방해와 위장에 드는 물건이 여기 있다. */
+  satchels?: Readonly<Satchels>
   /** 끝났으면 A의 기억 열셋이 전원에게 열린다. */
   over: boolean
   /**
@@ -223,6 +226,8 @@ export interface View {
   myTokens: number
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
   myVault: { money: number; knowledge: number }
+  /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
+  myItems: Satchel
   /**
    * 우리 팀 로봇 수. 한도(ROBOTS_PER_TEAM)를 보여 주려면 안개 밖의
    * 것까지 세어야 한다 — 우리 것이므로 다 알아도 된다. 남의 팀 총수는
@@ -352,6 +357,7 @@ export function projectView(world: World, viewerId: string): View {
       myPost: null,
       myTokens: 0,
       myVault: { money: 0, knowledge: 0 },
+      myItems: {},
       myTeamRobots: 0,
       myCarriedRobots: 0,
       mySmashes: 0,
@@ -447,6 +453,7 @@ export function projectView(world: World, viewerId: string): View {
     // 들어올지가 읽힌다 — 그게 이 게임의 절반이다
     myTokens: world.pawns.find((p) => p.playerId === viewerId)?.tokens ?? 0,
     myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
+    myItems: world.satchels?.[team] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
     mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,

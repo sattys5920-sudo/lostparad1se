@@ -22,6 +22,7 @@ import {
   leftBehindCount,
 } from '../../../shared/rules/occupy'
 import { ADJACENCY, TILE_BY_ID, TILES } from '../../../shared/rules/board'
+import { ITEMS, ITEM_BY_KIND, ITEM_FOR } from '../../../shared/rules/items'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
@@ -62,8 +63,8 @@ const WHAT: Record<ActionKind, string> = {
   move: `옆방으로 한 칸. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다.`,
   research: '연구실에서만. 다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
   summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다.',
-  disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
-  disguise: '다른 팀에게 내 인원수가 2명으로 보인다. 판정은 그대로다.',
+  disturb: `${ITEM_BY_KIND.whistle.name} 하나. 같은 방 상대 하나를 이번 판정에서 0명으로 만든다.`,
+  disguise: `${ITEM_BY_KIND.nameTag.name} 하나. 다른 팀에게 내 인원수가 2명으로 보인다.`,
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 계속 1명으로 센다.',
   smashRobot: '상대 로봇 1기를 부순다.',
 }
@@ -111,6 +112,11 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     if (overAt) return '이 페이즈는 시간이 끝났다.'
     if (!here) return '걷는 중이다. 도착해야 할 수 있다.'
     if (tokens < ACT_COST[kind]) return `토큰이 모자란다. ${ACT_COST[kind]}개가 든다.`
+    // 물건이 드는 행동은 물건이 먼저다. 없으면 상점에 가야 한다
+    const need = ITEM_FOR[kind]
+    if (need && (view?.myItems?.[need] ?? 0) <= 0) {
+      return `${ITEM_BY_KIND[need].name}이(가) 없다. 상점에서 산다.`
+    }
     if (kind === 'research') {
       if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
@@ -224,6 +230,10 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
           ` (${labOwner}팀 연구실이다 — 낸 지식은 그 팀 금고로 간다)`
         : ''}
         {' · '}금고의 지식 {view?.myVault?.knowledge ?? 0}
+      </p>
+      <p className="sc-ph__note">
+        가진 물건{' '}
+        {ITEMS.map((i) => `${i.name} ${view?.myItems?.[i.kind] ?? 0}`).join(' · ')}
       </p>
       <p className="sc-ph__note">
         우리 팀 로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b>

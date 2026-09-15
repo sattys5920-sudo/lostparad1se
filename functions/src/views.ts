@@ -120,6 +120,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         return [d.id, { money: t.resources?.money ?? 0, knowledge: t.resources?.knowledge ?? 0 }]
       }),
     ),
+    // 주머니도 통째로 들고 간다. 투영이 내 팀 것만 떼어 보낸다
+    satchels: Object.fromEntries(
+      teams.docs.map((d) => [d.id, (d.data() as { items?: Record<string, number> }).items ?? {}]),
+    ),
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,
     // 위장은 secret 에만 있다. 판 문서는 누구나 읽을 수 있어서, 거기

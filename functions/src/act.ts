@@ -22,10 +22,12 @@ import {
   ownerLookup,
   type ActionKind,
 } from '../../shared/rules/actions'
-import { gain, type TileState } from '../../shared/rules/resources'
+import { gain, pay, type TileState } from '../../shared/rules/resources'
 import { spendToken } from '../../shared/rules/tokens'
 import { type Resource, type TeamId } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
+import { SHOP_TILE, shopItemById, shopPriceFor } from '../../shared/rules/shop'
+import { putItem } from '../../shared/rules/items'
 import type { TeamDoc, TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, requireAwake, tileStates } from './turn'
@@ -169,4 +171,67 @@ export const study = onCall<{ gameId: string; tileId: TileId }>(async (req) => {
   await batch.commit()
   await refreshViews(gameId)
   return { got: STUDY_YIELD }
+})
+
+// ── 상점 ────────────────────────────────────────────────────────
+
+/**
+ * 상점에서 물건을 산다. **상점에 서 있어야 한다.**
+ *
+ * 값은 상점을 누가 쥐고 있느냐로 갈린다 — 차지한 팀은 무엇이든
+ * 1코인이고 아무 데도 안 가지만, 나머지는 붙은 값을 그대로 **주인
+ * 팀 금고에** 낸다. 아무도 안 쥐고 있으면 값은 그대로지만 받을 팀이
+ * 없어 사라진다(shared/rules/shop.ts).
+ *
+ * 토큰은 들지 않는다. 사는 것은 시간을 쓰는 일이 아니라 돈을 쓰는
+ * 일이다 — 그 대신 상점까지 걸어가야 한다.
+ */
+export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId, itemId } = req.data
+  const item = shopItemById(itemId)
+  if (!item) throw new HttpsError('invalid-argument', '그런 물건은 없다.')
+
+  const { nowMs, game } = await freshNow(gameId)
+  const ref = gameRef(gameId)
+  const pawn = await myPawn(gameId, uid)
+  requireAwake(pawn, nowMs)
+  if (pawn.tileId !== SHOP_TILE) {
+    throw new HttpsError('failed-precondition', `${TILE_BY_ID[SHOP_TILE].name}에 서야 살 수 있다.`)
+  }
+
+  const shopSnap = await ref.collection('tiles').doc(SHOP_TILE).get()
+  const owner = (shopSnap.data() as { ownerTeam?: TeamId | null } | undefined)?.ownerTeam ?? null
+  const price = shopPriceFor(item, pawn.team, owner)
+
+  await db.runTransaction(async (tx) => {
+    const mineRef = ref.collection('teams').doc(pawn.team)
+    const hisRef = price.payTo ? ref.collection('teams').doc(price.payTo) : null
+    const [mineSnap, hisSnap] = await Promise.all([tx.get(mineRef), hisRef ? tx.get(hisRef) : null])
+    const mine = mineSnap.data() as TeamDoc
+    const left = pay(mine.resources, price.cost)
+    if (!left) throw new HttpsError('failed-precondition', '돈이 모자라다.')
+
+    tx.update(mineRef, {
+      resources: left,
+      ...(item.gives ? { items: putItem(mine.items, item.gives) } : {}),
+    })
+    // 낸 값은 사라지지 않는다. 상점 주인 팀 금고로 넘어간다
+    if (hisRef && hisSnap) {
+      const his = hisSnap.data() as TeamDoc
+      tx.update(hisRef, { resources: gain(his.resources, price.cost) })
+    }
+    tx.set(ref.collection('events').doc(), {
+      atMs: nowMs,
+      day: game.day,
+      kind: 'shopBought',
+      team: pawn.team,
+      playerId: uid,
+      tileId: SHOP_TILE,
+      detail: { item: item.id, paidTo: price.payTo, owned: price.owned },
+    })
+  })
+
+  await refreshViews(gameId)
+  return { item: item.id, cost: price.cost, paidTo: price.payTo, owned: price.owned }
 })

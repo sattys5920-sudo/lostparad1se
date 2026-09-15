@@ -7,8 +7,10 @@
 import { useState, type ReactNode } from 'react'
 
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
+import { SHOP_ITEMS, SHOP_TILE, shopPriceFor } from '../../../shared/rules/shop'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import type { GameActions } from './useGame'
+import type { TeamId } from '../types'
 
 export interface ActionsProps {
   tileId: TileId
@@ -84,7 +86,7 @@ export interface QuickProps {
   act: GameActions
   onSaid: (text: string) => void
   /** 더 고를 것이 남은 일은 시트를 연다. */
-  onSheet: (id: 'act' | 'deal') => void
+  onSheet: (id: 'act' | 'deal' | 'shop') => void
 }
 
 /**
@@ -143,7 +145,65 @@ export function QuickActions({
       <button disabled={busy || walking} onClick={() => run('공부', () => act.study(standingOn as TileId))}>
         공부 <em>{ACTION_TOKEN_COST.study}</em>
       </button>
+      {standingOn === SHOP_TILE && (
+        <button className="is-lead" onClick={() => onSheet('shop')}>
+          상점
+        </button>
+      )}
       <button onClick={() => onSheet('deal')}>거래</button>
+    </div>
+  )
+}
+
+/**
+ * 상점. **서 있어야 산다.**
+ *
+ * 값은 상점을 누가 쥐고 있느냐로 갈린다 — 차지한 팀은 무엇이든
+ * 1코인이고, 나머지는 붙은 값을 그대로 주인 팀에게 낸다. 화면이
+ * 미리 재 보이기만 하고, 되는지 안 되는지는 서버가 정한다.
+ */
+export function Shop({
+  myTeam,
+  owner,
+  money,
+  act,
+  onSaid,
+}: {
+  myTeam: TeamId
+  /** 상점을 쥔 팀. 아무도 안 쥐고 있으면 null. */
+  owner: TeamId | null
+  money: number
+  act: GameActions
+  onSaid: (text: string) => void
+}) {
+  const { busy, run } = useRun(onSaid)
+  return (
+    <div className="sc-shop">
+      <p className="sc-shop__who">
+        {owner === myTeam ?
+          '우리 상점이다. 무엇이든 1코인.'
+        : owner ?
+          `${owner}팀 상점이다. 낸 돈은 그 팀 금고로 간다.`
+        : '주인 없는 상점이다. 낸 돈은 아무 데도 가지 않는다.'}
+        {' · '}돈 {money}
+      </p>
+      {SHOP_ITEMS.length === 0 ?
+        <p className="sc-pl__none">아직 파는 것이 없다.</p>
+      : <ul className="sc-shop__list">
+          {SHOP_ITEMS.map((i) => {
+            const price = shopPriceFor(i, myTeam, owner)
+            return (
+              <li key={i.id}>
+                <button disabled={busy} onClick={() => run(`${i.name} 사기`, () => act.buyShopItem(i.id))}>
+                  <b>{i.name}</b>
+                  <span>{i.text}</span>
+                  <em>{price.cost.money ?? 0}코인</em>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      }
     </div>
   )
 }

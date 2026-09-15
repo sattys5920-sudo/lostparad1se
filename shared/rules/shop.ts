@@ -9,6 +9,7 @@
 // 살 수 있나)은 미리 적어 둔다.
 import type { Resource, TeamId } from './v2'
 import type { TileId } from './board'
+import { ITEM_BY_KIND, type ItemKind } from './items'
 
 /** 물건을 살 수 있는 방. 여기 서 있어야 산다. */
 export const SHOP_TILE: TileId = 'classroom'
@@ -20,12 +21,37 @@ export interface ShopItem {
   text: string
   /** 값. 팀 자원에서 빠진다. */
   cost: Partial<Record<Resource, number>>
+  /** 사면 팀 주머니에 들어가는 물건. 없으면 사도 아무것도 안 남는다. */
+  gives?: ItemKind
   /** 하루에 판 전체에서 이만큼까지만. 없으면 제한 없다. */
   stockPerDay?: number
 }
 
-/** [작성 예정] 파는 물건. 사용자가 채운다. */
-export const SHOP_ITEMS: readonly ShopItem[] = []
+/**
+ * 파는 물건.
+ *
+ * **값은 아직 임시다.** 방해와 위장이 물건 없이는 안 되게 바뀌면서,
+ * 물건이 하나도 없으면 그 두 행동이 판에서 아예 사라진다 — 그래서
+ * 두 가지만 먼저 얹어 뒀다. 값은 한 줄씩 고치면 된다.
+ *
+ * 나머지 품목은 사용자가 채운다.
+ */
+export const SHOP_ITEMS: readonly ShopItem[] = [
+  {
+    id: 'whistle',
+    name: ITEM_BY_KIND.whistle.name,
+    text: ITEM_BY_KIND.whistle.text,
+    cost: { money: 3 },
+    gives: 'whistle',
+  },
+  {
+    id: 'nameTag',
+    name: ITEM_BY_KIND.nameTag.name,
+    text: ITEM_BY_KIND.nameTag.text,
+    cost: { money: 3 },
+    gives: 'nameTag',
+  },
+]
 
 export const shopItemById = (id: string): ShopItem | null =>
   SHOP_ITEMS.find((i) => i.id === id) ?? null

@@ -15,6 +15,7 @@
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 같은 입력에 늘 같은 결과라, 서버가 돌리든 시험이 돌리든 같다.
 import { ADJACENCY, TILE_BY_ID, TILES, type TileId } from './board'
+import { ITEM_BY_KIND, ITEM_FOR, countOf, takeItem, type Satchels } from './items'
 import { TOTAL_SEATS } from './lobby'
 import { CAPTAIN_HEAD_COUNT, FULL_TEAM_SIZE, type TeamId, type Tier } from './v2'
 
@@ -296,6 +297,8 @@ export interface PhaseState {
   disguised: readonly string[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: readonly string[]
+  /** 팀이 함께 가진 물건. 방해와 위장이 여기서 하나씩 빠진다. */
+  satchels: Satchels
   /**
    * 이번 페이즈에 무엇이든 한 사람.
    *
@@ -337,8 +340,9 @@ export const ACT_COST: Record<ActionKind, number> = {
   move: ENTER_COST,
   research: 2,
   summon: 1,
-  disturb: 1,
-  disguise: 1,
+  // **방해와 위장은 토큰이 아니라 물건이 든다.** 물건은 상점에서만 난다
+  disturb: 0,
+  disguise: 0,
   // 들고 있던 것을 내려놓는 것뿐이다. 값을 물리면 아무도 안 둔다
   dropRobot: 0,
   smashRobot: 1,
@@ -496,6 +500,17 @@ function marked(out: ActResult, playerId: string): ActResult {
   return { ...out, next: { ...out.next, actedBy: [...out.next.actedBy, playerId] } }
 }
 
+/** 물건 하나를 꺼내 쓴다. 되지 않은 행동은 아무것도 꺼내지 않는다. */
+function spent(out: ActResult, state: PhaseState, playerId: string, kind: ActionKind): ActResult {
+  const need = ITEM_FOR[kind]
+  if (!out.ok || !need) return out
+  const team = state.people.find((p) => p.playerId === playerId)?.team
+  if (!team) return out
+  const left = takeItem(out.next.satchels[team], need)
+  if (!left) return no(`${ITEM_BY_KIND[need].name}이(가) 없다. 상점에서 산다.`)
+  return { ...out, next: { ...out.next, satchels: { ...out.next.satchels, [team]: left } } }
+}
+
 /**
  * 행동 하나를 지금 당장 처리한다.
  *
@@ -506,7 +521,7 @@ function marked(out: ActResult, playerId: string): ActResult {
  * 경우에만 깎는다. 반쯤 되고 토큰만 빠지는 일은 없어야 한다.
  */
 export function doAct(state: PhaseState, playerId: string, act: Act): ActResult {
-  return marked(runAct(state, playerId, act), playerId)
+  return marked(spent(runAct(state, playerId, act), state, playerId, act.kind), playerId)
 }
 
 function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
@@ -515,6 +530,12 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
 
   const cost = ACT_COST[act.kind]
   if (me.tokens < cost) return no(`토큰이 모자란다. ${cost}개가 든다.`)
+
+  // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다
+  const needItem = ITEM_FOR[act.kind] ?? null
+  if (needItem && countOf(state.satchels[me.team], needItem) <= 0) {
+    return no(`${ITEM_BY_KIND[needItem].name}이(가) 없다. 상점에서 산다.`)
+  }
 
   const people = state.people.map((p) => ({ ...p }))
   let robots = state.robots.map((r) => ({ ...r }))
@@ -861,6 +882,8 @@ export function settle(state: PhaseState): SettleResult {
       disguised: [],
       smashedBy: [],
       actedBy: [],
+      // 물건은 페이즈를 넘어 남는다. 산 것을 못 쓰고 잃으면 아무도 안 산다
+      satchels: state.satchels,
     },
     log,
   }

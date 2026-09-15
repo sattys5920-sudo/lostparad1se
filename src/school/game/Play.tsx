@@ -11,10 +11,10 @@ import { auth, callServer, firebaseConfigured } from '../../firebase'
 import { logIn, myAccount, saveAccountCharacter, signUp } from '../accounts'
 import { CharacterCreator } from '../components/CharacterCreator'
 import { randomLook } from '../char/look'
-import type { AvatarLook } from '../types'
+import type { AvatarLook, TeamId } from '../types'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
-import { Actions, QuickActions, Standing } from './Actions'
+import { Actions, QuickActions, Shop, Standing } from './Actions'
 import { Walk } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog } from './Phase'
@@ -29,6 +29,7 @@ import { Deals } from './Deals'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../../shared/rules/board'
+import { SHOP_TILE } from '../../../shared/rules/shop'
 import { MOVE_MINUTES } from '../../../shared/rules/occupy'
 import './play.css'
 
@@ -251,7 +252,7 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 type Tab = 'map' | 'me' | 'note'
 
 /** 컨트롤 바의 「더보기」에서 열리는 것들. */
-type SheetId = 'act' | 'talk' | 'more' | 'deal'
+type SheetId = 'act' | 'talk' | 'more' | 'deal' | 'shop'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -645,6 +646,18 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             act={act}
             onSaid={setSaid}
             ask={ask}
+          />
+        </Sheet>
+      )}
+
+      {sheet === 'shop' && (
+        <Sheet title="상점" onClose={closeSheet}>
+          <Shop
+            myTeam={me.team}
+            owner={(state.tiles[SHOP_TILE]?.ownerTeam ?? null) as TeamId | null}
+            money={state.view?.myVault?.money ?? 0}
+            act={act}
+            onSaid={setSaid}
           />
         </Sheet>
       )}

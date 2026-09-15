@@ -42,6 +42,7 @@ import {
   type Robot,
   type Vault,
 } from '../../shared/rules/occupy'
+import type { Satchel, Satchels } from '../../shared/rules/items'
 import { ADJACENCY, TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { arrivals, planWalk } from '../../shared/rules/movement'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
@@ -157,6 +158,26 @@ function vaultsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamId
   return out
 }
 
+/** 팀 주머니. 금고와 같은 자리에서 읽고 쓴다. */
+function satchelsOf(teams: FirebaseFirestore.QuerySnapshot): Satchels {
+  const out: Satchels = {}
+  for (const d of teams.docs) out[d.id as TeamId] = (d.data() as { items?: Satchel }).items ?? {}
+  return out
+}
+
+/** 바뀐 주머니만 적는다. */
+function writeSatchels(
+  w: { update: (ref: FirebaseFirestore.DocumentReference, data: Record<string, unknown>) => unknown },
+  ref: FirebaseFirestore.DocumentReference,
+  before: Satchels,
+  after: Satchels,
+): void {
+  for (const team of TEAMS) {
+    if (JSON.stringify(before[team] ?? {}) === JSON.stringify(after[team] ?? {})) continue
+    w.update(ref.collection('teams').doc(team), { items: after[team] ?? {} })
+  }
+}
+
 /** 바뀐 금고만 적는다. 안 바뀐 팀 문서는 건드리지 않는다. */
 function writeVaults(
   w: { update: (ref: FirebaseFirestore.DocumentReference, data: Record<string, unknown>) => unknown },
@@ -207,6 +228,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
+      satchels: satchelsOf(teams),
       invisibleId: game.invisibleId ?? null,
     },
   }
@@ -424,6 +446,7 @@ export const phaseAct = onCall<{
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
+      satchels: satchelsOf(teams),
       invisibleId: game.invisibleId ?? null,
     }
 
@@ -480,6 +503,7 @@ export const phaseAct = onCall<{
 
     // 금고 — 연구가 지식을 뺐으면 여기서 적는다
     writeVaults(tx, ref, before.vaults, out.next.vaults)
+    writeSatchels(tx, ref, before.satchels, out.next.satchels)
 
     // 로봇 — 통째로 다시 쓴다. 열몇 기뿐이라 견줄 이유가 없다
     const now = new Set(out.next.robots.map((r) => r.id))
@@ -596,6 +620,7 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   }
   // 불발된 연구는 지식을 도로 넣는다
   writeVaults(batch, ref, state.vaults, out.next.vaults)
+  writeSatchels(batch, ref, state.satchels, out.next.satchels)
 
   const had = await robotsOf(gameId).get()
   for (const d of had.docs) batch.delete(d.ref)

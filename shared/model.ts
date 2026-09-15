@@ -21,6 +21,7 @@ import type {
   VoteKind,
 } from './rules/v2'
 import type { TileId } from './rules/board'
+import type { Satchel } from './rules/items'
 
 /** 밀리초 타임스탬프. 게임 속 시각이다(개발용 시계가 걸려 있으면 그 시각). */
 export type GameMs = number
@@ -143,6 +144,8 @@ export interface TeamDoc {
    * 남이 알 까닭이 없다.
    */
   tokens: number
+  /** 팀이 함께 가진 물건. 상점에서 사 오면 여기 쌓인다. */
+  items?: Satchel
   researchTier: number
   /** 손패는 장수만 공개한다. 내용은 secret에 있다. */
   handCount: number
@@ -351,6 +354,8 @@ export interface PlayerViewDoc {
    * 들어온 사람은 옛 문서를 본다. 한 번 검은 화면으로 겪었다
    */
   myVault?: { money: number; knowledge: number }
+  /** 우리 팀 물건. 남의 팀 것은 안 온다. */
+  myItems?: Satchel
   /** 우리 팀 로봇 수. 남의 팀 총수는 안 온다. */
   myTeamRobots?: number
   /** 내가 데리고 다니는 로봇 수. */
@@ -514,7 +519,7 @@ export type EventKind =
   | 'gameStart' | 'dayStart' | 'settlement' | 'gameEnd'
   | 'move' | 'arrive'
   | 'tileCaptured' | 'tileLost'
-  | 'research' | 'produce' | 'study'
+  | 'research' | 'produce' | 'study' | 'shopBought'
   | 'vote' | 'rumor' | 'reveal' | 'leverageGained' | 'leverageSpent'
   | 'cardDrawn' | 'cardPlayed'
   | 'tradeProposed' | 'tradeAccepted' | 'tradeDeclined'

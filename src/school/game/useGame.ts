@@ -190,6 +190,7 @@ export function gameActions(gameId: string) {
 
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),
     study: (tileId: TileId) => callServer('study', { ...g, tileId }),
+    buyShopItem: (itemId: string) => callServer('buyShopItem', { ...g, itemId }),
 
     /** 마주 선 사람에게 말을 꺼낸다. 수락하면 그 자리에서 끝난다. */
     offerTrade: (toPlayerId: string, give: Record<string, number>, want: Record<string, number>, note = '') =>

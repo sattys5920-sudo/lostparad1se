@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { SHOP_ITEMS, SHOP_OWNER_PRICE, SHOP_TILE, shopItemById, shopPriceFor, type ShopItem } from './shop'
 import { TILE_BY_ID } from './board'
+import { ITEM_BY_KIND } from './items'
 
 /** 품목이 아직 비어 있어서 값 규칙은 가짜 물건으로 확인한다. */
 const pen: ShopItem = { id: 'pen', name: '볼펜', text: '[작성 예정]', cost: { money: 5 } }
@@ -13,8 +14,15 @@ describe('상점', () => {
     expect(TILE_BY_ID[SHOP_TILE].name).toBe('상점')
   })
 
-  it('품목은 아직 비어 있다 — 사용자가 채운다', () => {
-    expect(SHOP_ITEMS).toEqual([])
+  it('방해와 위장에 쓸 물건이 있다 — 없으면 그 두 행동이 판에서 사라진다', () => {
+    for (const kind of ['whistle', 'nameTag'] as const) {
+      const item = SHOP_ITEMS.find((i) => i.gives === kind)
+      expect(item, kind).toBeDefined()
+      expect(ITEM_BY_KIND[kind].use, kind).toBeTruthy()
+    }
+  })
+
+  it('없는 물건은 못 찾는다', () => {
     expect(shopItemById('pen')).toBeNull()
   })
 })

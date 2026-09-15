@@ -67,8 +67,9 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   disguised: [],
   smashedBy: [],
   actedBy: [],
-  // 시험에서는 금고가 넉넉하다고 본다. 지식이 모자란 경우는 따로 쓴다
+  // 시험에서는 금고도 주머니도 넉넉하다고 본다. 모자란 경우는 따로 쓴다
   vaults: Object.fromEntries(TEAM_IDS.map((t) => [t, { money: 99, knowledge: 99 }])),
+  satchels: Object.fromEntries(TEAM_IDS.map((t) => [t, { whistle: 9, nameTag: 9 }])),
   ...over,
 })
 
@@ -854,5 +855,61 @@ describe('ownerOf', () => {
   it('아무도 없으면 주인이 없어진다 — 전 주인도 남지 않는다', () => {
     expect(ownerOf({}, 'D')).toBeNull()
     expect(ownerOf({ A: 0 }, 'D')).toBeNull()
+  })
+})
+
+describe('방해와 위장에는 물건이 든다', () => {
+  const empty = { A: {}, B: {}, C: {}, D: {} }
+
+  it('토큰은 안 든다', () => {
+    expect(ACT_COST.disturb).toBe(0)
+    expect(ACT_COST.disguise).toBe(0)
+  })
+
+  it('호루라기가 없으면 방해를 못 한다 — 토큰도 안 든다', () => {
+    const s = board({
+      people: [person('a', 'A', 'storage'), person('b', 'B', 'storage')],
+      satchels: empty,
+    })
+    const out = doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('호루라기')
+    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+  })
+
+  it('방해하면 호루라기가 하나 준다', () => {
+    const s = board({
+      people: [person('a', 'A', 'storage'), person('b', 'B', 'storage')],
+      satchels: { ...empty, A: { whistle: 2 } },
+    })
+    const next = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
+    expect(next.satchels.A?.whistle).toBe(1)
+    expect(next.zeroedPeople).toContain('b')
+  })
+
+  it('명찰이 없으면 위장을 못 한다', () => {
+    const s = board({ people: [person('a', 'A', 'storage')], satchels: empty })
+    const out = doAct(s, 'a', { kind: 'disguise' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('명찰')
+  })
+
+  it('위장하면 명찰이 하나 준다', () => {
+    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, A: { nameTag: 1 } } })
+    const next = must(s, 'a', { kind: 'disguise' })
+    expect(next.satchels.A?.nameTag).toBe(0)
+    expect(next.disguised).toContain('a')
+  })
+
+  it('거절당한 방해는 물건을 먹지 않는다', () => {
+    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, A: { whistle: 1 } } })
+    const out = doAct(s, 'a', { kind: 'disturb', targetPlayer: 'nobody' })
+    expect(out.ok).toBe(false)
+    expect(s.satchels.A?.whistle).toBe(1)
+  })
+
+  it('물건은 페이즈를 넘어 남는다', () => {
+    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, A: { whistle: 3 } } })
+    expect(settle(s).next.satchels.A?.whistle).toBe(3)
   })
 })

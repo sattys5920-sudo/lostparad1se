@@ -103,7 +103,7 @@ export { tick } from './tick'
 export { moveTo, planCommute } from './move'
 
 // 토큰을 쓰는 행동.
-export { produce, study } from './act'
+export { produce, study, buyShopItem } from './act'
 
 // 교역과 동맹. 토큰이 들지 않는다.
 export { offerTrade, respondTrade, proposeAlliance, respondAlliance, breakAllianceNow } from './deal'
