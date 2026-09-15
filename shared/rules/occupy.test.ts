@@ -70,6 +70,8 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   // 시험에서는 금고도 주머니도 넉넉하다고 본다. 모자란 경우는 따로 쓴다
   vaults: Object.fromEntries(TEAM_IDS.map((t) => [t, { money: 99, knowledge: 99 }])),
   satchels: Object.fromEntries(TEAM_IDS.map((t) => [t, { whistle: 9, nameTag: 9 }])),
+  // 시험은 따로 적지 않는 한 핵심이 다 열린 판으로 본다
+  openedTiles: TILES.filter((t) => t.tier === 'core' || t.tier === 'plaza').map((t) => t.id),
   ...over,
 })
 
@@ -931,5 +933,41 @@ describe('기지와 계단은 판정 밖이다', () => {
   it('계단은 서 있어도 아무도 못 가진다', () => {
     const s = board({ people: [person('a', 'A', 'stair_f1_w')], owners: { stair_f1_w: null } })
     expect(settle(s).next.owners.stair_f1_w).toBeNull()
+  })
+})
+
+describe('A의 기록이 열기 전에는 핵심을 못 가진다', () => {
+  const shut = { openedTiles: [] as string[] }
+
+  it('열리지 않은 핵심은 아무리 서 있어도 안 넘어간다', () => {
+    const s = board({
+      people: [person('a', 'A', 'auditorium'), person('a2', 'A', 'auditorium')],
+      owners: { auditorium: null },
+      ...shut,
+    })
+    expect(settle(s).next.owners.auditorium).toBeNull()
+  })
+
+  it('첫날 아침 2-3 교실에 열넷이 서 있어도 주인이 안 생긴다', () => {
+    const s = board({
+      people: [person('a', 'A', 'centralPlaza'), person('a2', 'A', 'centralPlaza'), person('b', 'B', 'centralPlaza')],
+      owners: { centralPlaza: null },
+      ...shut,
+    })
+    expect(settle(s).next.owners.centralPlaza).toBeNull()
+  })
+
+  it('열린 뒤에는 보통 방과 같다', () => {
+    const s = board({
+      people: [person('a', 'A', 'auditorium')],
+      owners: { auditorium: null },
+      openedTiles: ['auditorium'],
+    })
+    expect(settle(s).next.owners.auditorium).toBe('A')
+  })
+
+  it('열리기 전이라도 이미 주인이 있으면 그대로 둔다', () => {
+    const s = board({ owners: { auditorium: 'B' }, ...shut })
+    expect(settle(s).next.owners.auditorium).toBe('B')
   })
 })

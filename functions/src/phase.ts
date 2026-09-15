@@ -229,6 +229,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
       satchels: satchelsOf(teams),
+      openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
     },
   }
@@ -447,6 +448,7 @@ export const phaseAct = onCall<{
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
       satchels: satchelsOf(teams),
+      openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
     }
 

@@ -300,6 +300,11 @@ export interface PhaseState {
   /** 팀이 함께 가진 물건. 방해와 위장이 여기서 하나씩 빠진다. */
   satchels: Satchels
   /**
+   * A의 기록이 열어 준 칸. **핵심과 2-3 교실은 열리기 전에는 아무도
+   * 못 가진다** — 서 있을 수는 있어도 주인이 되지는 않는다.
+   */
+  openedTiles: readonly TileId[]
+  /**
    * 이번 페이즈에 무엇이든 한 사람.
    *
    * 결석 보정이 이것을 본다 — 한 팀에서 아무도 여기 없으면 그 팀은
@@ -822,6 +827,13 @@ export function settle(state: PhaseState): SettleResult {
       owners[t.id] = null
       continue
     }
+    // **A의 기록이 열기 전에는 핵심도 2-3 교실도 못 가진다.** 서 있는
+    // 것은 막지 않는다 — 첫날 아침에 열넷이 서 있는 자리가 2-3 교실이다.
+    // 깃발이 있던 시절에는 「열린 뒤에만 꽂는다」가 이 자리를 지켰다
+    if ((t.tier === 'core' || t.tier === 'plaza') && !state.openedTiles.includes(t.id)) {
+      owners[t.id] = state.owners[t.id] ?? null
+      continue
+    }
     const w: Partial<Record<TeamId, number>> = {}
     for (const p of state.people) {
       // 걷는 중인 사람은 어느 방에도 없다. 마지막 순간의 이동은 도박이다
@@ -895,6 +907,7 @@ export function settle(state: PhaseState): SettleResult {
       actedBy: [],
       // 물건은 페이즈를 넘어 남는다. 산 것을 못 쓰고 잃으면 아무도 안 산다
       satchels: state.satchels,
+      openedTiles: state.openedTiles,
     },
     log,
   }
