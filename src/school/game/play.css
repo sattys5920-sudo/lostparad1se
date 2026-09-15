@@ -976,7 +976,11 @@
 .sc-mp__slab rect { fill: #fcfcfd; stroke: var(--sc-line); stroke-width: 1; stroke-dasharray: 3 4; }
 .sc-mp__floor { font-size: 9px; fill: var(--sc-text-dim); letter-spacing: 0.08em; }
 .sc-mp__room rect { fill: #f7f8f9; stroke: var(--sc-line); stroke-width: 2; }
-.sc-mp__room.is-dark rect { fill: #1b2028; stroke: #2f3647; }
+/* 아직 안 본 방. **가리는 것은 머릿수뿐이라** 살짝 흐리기만 한다 */
+.sc-mp__room.is-unseen rect { fill: #f1f2f4; stroke-dasharray: 4 3; }
+.sc-mp__room.is-unseen .sc-mp__name,
+.sc-mp__room.is-unseen .sc-mp__kind,
+.sc-mp__room.is-unseen .sc-mp__count { opacity: 0.55; }
 .sc-mp__room.is-here rect { stroke-width: 4; }
 .sc-mp__room.is-picked rect { fill: var(--sc-surface); }
 
@@ -988,7 +992,6 @@
 }
 
 .sc-mp__kind { text-anchor: middle; font-size: 10px; fill: var(--sc-text-dim); }
-.sc-mp__unknown { text-anchor: middle; font-size: 16px; fill: #545a6b; font-weight: 700; }
 
 .sc-mp__count {
   text-anchor: middle;
@@ -1005,7 +1008,7 @@
 .sc-mp--small .sc-mp__hall { fill: rgba(242, 243, 244, 0.22); stroke: none; }
 .sc-mp--small .sc-mp__hall.is-stair { fill: rgba(242, 243, 244, 0.3); }
 .sc-mp--small .sc-mp__room rect { fill: rgba(242, 243, 244, 0.16); stroke: rgba(242, 243, 244, 0.4); }
-.sc-mp--small .sc-mp__room.is-dark rect { fill: rgba(0, 0, 0, 0.55); stroke: rgba(242, 243, 244, 0.15); }
+.sc-mp--small .sc-mp__room.is-unseen rect { fill: rgba(242, 243, 244, 0.08); stroke-dasharray: 3 3; }
 .sc-mp--small .sc-mp__room.is-here rect { stroke: #fff; stroke-width: 3; }
 
 /* ── 미니맵 ───────────────────────────────────────────────────── */

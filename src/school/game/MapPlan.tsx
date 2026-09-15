@@ -226,7 +226,7 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
             key={r.id}
             className={[
               'sc-mp__room',
-              r.known ? '' : 'is-dark',
+              r.known ? '' : 'is-unseen',
               isHere ? 'is-here' : '',
               picked === r.id ? 'is-picked' : '',
             ]
@@ -244,14 +244,12 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
               style={r.owner ? { stroke: TEAM_COLOR[r.owner] } : undefined}
             />
 
-            {!r.known ? (
-              // 가 본 적 없는 방. 이름도 숫자도 없다 — 서버가 안 보냈다
-              !compact && (
-                <text x={c.x} y={c.y + 4} className="sc-mp__unknown">
-                  ?
-                </text>
-              )
-            ) : compact ? (
+            {/* **가리는 것은 안에 누가 있는지뿐이다.**
+                이름도 자리도 정원도 차지한 팀도 판에 드러난 것이라
+                처음부터 보인다. 전에는 안 가 본 방을 통째로 검게 칠해
+                「?」만 찍었는데, 그러면 배치도의 절반이 검은 네모라
+                어디가 어딘지 못 읽는다. 머릿수만 물음표로 남긴다 */}
+            {compact ? (
               <Dots cx={c.x} cy={c.y} dots={r.dots} />
             ) : (
               <>
@@ -266,9 +264,15 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
                 <text
                   x={c.x}
                   y={y + bh - 5}
-                  className={`sc-mp__count${!r.open && (r.count ?? 0) >= r.capacity ? ' is-full' : ''}`}
+                  className={`sc-mp__count${r.known && !r.open && (r.count ?? 0) >= r.capacity ? ' is-full' : ''}`}
                 >
-                  {r.open ? `${r.count}명` : `${r.count} / ${r.capacity}`}
+                  {!r.known
+                    ? r.open
+                      ? '?명'
+                      : `? / ${r.capacity}`
+                    : r.open
+                      ? `${r.count}명`
+                      : `${r.count} / ${r.capacity}`}
                 </text>
               </>
             )}

@@ -5,7 +5,7 @@
 // 덮고 손가락으로 넓혔다 줄였다 한다.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { MapPlan, nearbyOf, readMap, roomName, type MapFacts, type RoomFacts } from './MapPlan'
+import { MapPlan, nearbyOf, readMap, type MapFacts, type RoomFacts } from './MapPlan'
 import { ROOM_KIND } from '../../../shared/rules/occupy'
 import { MINIMAP_ON_KEY } from './timing'
 import type { TileId } from '../types'
@@ -205,14 +205,6 @@ function RoomCard({ room }: { room: RoomFacts }) {
   // 지금 누가 차지하고 있는지와 정원. 안에 몇이 있는지는 여기서
   // 안 적는다 — 그건 지도에 그려진 점과 숫자로 보는 것이고, 글로
   // 다시 적으면 위장이 섞인 수를 단정하는 말이 된다.
-  if (!room.known) {
-    return (
-      <div className="sc-atlas__card">
-        <h3>{roomName(room.id)}</h3>
-        <p>아직 가 본 적이 없다. 안이 어떤지 모른다.</p>
-      </div>
-    )
-  }
   return (
     <div className="sc-atlas__card">
       <h3>
@@ -228,6 +220,7 @@ function RoomCard({ room }: { room: RoomFacts }) {
           <dd>{room.open ? '없다' : `${room.capacity}명`}</dd>
         </div>
       </dl>
+      {!room.known && <p className="sc-atlas__why">아직 안을 본 적이 없다. 안에 누가 있는지는 모른다.</p>}
     </div>
   )
 }
