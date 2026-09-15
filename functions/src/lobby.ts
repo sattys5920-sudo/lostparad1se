@@ -190,6 +190,10 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     batch.set(ref.collection('teams').doc(team), {
       resources: { ...STARTING_RESOURCES },
       tokens: tokens.tokens,
+      // 페이즈 상자. **첫 페이즈가 열리기 전에도 거래는 한다** —
+      // 빈손으로 시작하면 첫날 아침에는 아무도 아무것도 못 건넨다
+      phaseTokens: grantFor(members.length) * members.length,
+      pendingRefund: 0,
       researchTier: 0,
       handCount: 0,
       // 3인 팀만 주장을 둔다. 4인 팀은 직책 넷이 다 찬다
@@ -226,9 +230,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         arriveAtMs: null,
         asleep: false,
         tokensUsedToday: 0,
-        // 첫 페이즈가 열리기 전에도 거래는 한다. 빈손으로 시작하면
-        // 첫날 아침에는 아무도 아무것도 못 건넨다
-        tokens: grantFor(members.length),
         votedToday: false,
         peeksToday: 0,
       })

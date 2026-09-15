@@ -90,7 +90,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
   /** 지금 선 연구실을 누가 쥐고 있는가. 값이 여기서 갈린다. */
   const labOwner = here && ROOM_KIND[here] === 'lab' ? (tiles[here]?.ownerTeam ?? null) : null
   const ownsLab = labOwner === me.team
-  const tokens = view?.myTokens ?? 0
+  const tokens = view?.myTeamTokens ?? 0
   const pawns = view?.visiblePawns ?? []
   const robots = view?.visibleRobots ?? []
   const overAt = endsAtMs != null && now >= endsAtMs
@@ -111,7 +111,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
   function why(kind: ActionKind): string | null {
     if (overAt) return '이 페이즈는 시간이 끝났다.'
     if (!here) return '걷는 중이다. 도착해야 할 수 있다.'
-    if (tokens < ACT_COST[kind]) return `토큰이 모자란다. ${ACT_COST[kind]}개가 든다.`
+    if (tokens < ACT_COST[kind]) return `팀 토큰이 모자란다. ${ACT_COST[kind]}개가 든다.`
     // 물건이 드는 행동은 물건이 먼저다. 없으면 상점에 가야 한다
     const need = ITEM_FOR[kind]
     if (need && (view?.myItems?.[need] ?? 0) <= 0) {
@@ -144,7 +144,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     try {
       const out = (await act.phaseAct(kind, t)) as { tokens?: number }
       setOpen(null)
-      onSaid(`${LABEL[kind]}. 토큰 ${out.tokens ?? '?'}개 남았다.`)
+      onSaid(`${LABEL[kind]}. 팀 토큰 ${out.tokens ?? '?'}개 남았다.`)
     } catch (e) {
       onSaid((e as Error).message)
     } finally {
@@ -159,10 +159,12 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       </h2>
 
       <p className="sc-ph__purse">
-        <strong>토큰 {tokens}</strong>
+        <strong>팀 토큰 {tokens}</strong>
         {endsAtMs != null && <em>{overAt ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}</em>}
       </p>
       <p className="sc-ph__hint">
+        <b>토큰은 넷이 한 주머니를 나눠 쓴다.</b> 먼저 쓰는 사람이 임자라, 누가 몇 번 움직일지를 말로
+        정하지 않으면 마지막 사람은 아무것도 못 한다.{' '}
         <b>방에</b> 들어설 때만 토큰 {ACT_COST.move}개와 {EXIT_MINUTES + ENTER_MINUTES}분이 든다. 나가는 것도
         복도도 계단도 값이 없으니, 지하든 옥상이든 어디로 가도 토큰 하나에 {EXIT_MINUTES + ENTER_MINUTES}분이다.
         들어가는 동안은 어느 방에도 없다 — 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.

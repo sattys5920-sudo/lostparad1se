@@ -23,7 +23,9 @@ import {
   leftBehindCount,
   absenceRefunds,
   grantFor,
-  nextTokens,
+  nextWallet,
+  walletCap,
+  walletOf,
   ownerOf,
   robotsIn,
   roomsOf,
@@ -48,8 +50,10 @@ const person = (playerId: string, team: TeamId, tileId: string, captain = false)
   team,
   tileId,
   captain,
-  tokens: TOKENS_PER_PHASE,
 })
+
+/** 그 팀 상자에 남은 토큰. **지갑은 팀에 하나다.** */
+const purse = (state: PhaseState, team: TeamId): number => walletOf(state, team)
 
 const robot = (id: string, team: TeamId, tileId: string, carriedBy: string | null = null): Robot => ({
   id,
@@ -71,6 +75,8 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   // 시험에서는 금고도 주머니도 넉넉하다고 본다. 모자란 경우는 따로 쓴다
   vaults: Object.fromEntries(TEAM_IDS.map((t) => [t, { money: 99, knowledge: 99 }])),
   satchels: Object.fromEntries(TEAM_IDS.map((t) => [t, { whistle: 9, nameTag: 9 }])),
+  // 상자도 한 사람 몫만큼 넣어 둔다. 모자란 경우는 따로 쓴다
+  wallets: Object.fromEntries(TEAM_IDS.map((t) => [t, TOKENS_PER_PHASE])),
   // 시험은 따로 적지 않는 한 핵심이 다 열린 판으로 본다
   openedTiles: TILES.filter((t) => t.tier === 'core' || t.tier === 'plaza').map((t) => t.id),
   ...over,
@@ -97,7 +103,7 @@ describe('토큰이 한 페이즈의 전부다', () => {
     // **바로 도착하지 않는다.** 나가는 데 5분, 들어가는 데 5분
     expect(at(s1, 'a').tileId).toBeNull()
     expect(at(s1, 'a').toTile).toBe('cafeteria')
-    expect(at(s1, 'a').tokens).toBe(TOKENS_PER_PHASE - ACT_COST.move)
+    expect(purse(s1, 'A')).toBe(TOKENS_PER_PHASE - ACT_COST.move)
     const s2 = land(s1, 'a')
     expect(at(s2, 'a').tileId).toBe('cafeteria')
     expect(at(s2, 'a').toTile).toBeNull()
@@ -110,11 +116,11 @@ describe('토큰이 한 페이즈의 전부다', () => {
     expect(settle(s).next.owners.artRoom).toBeNull()
   })
 
-  it('토큰이 떨어지면 더는 못 움직인다', () => {
-    let s = board({ people: [{ ...person('a', 'A', 'baseA'), tokens: 2 }] })
+  it('팀 상자가 떨어지면 더는 못 움직인다', () => {
+    let s = board({ people: [person('a', 'A', 'baseA')], wallets: { A: 2 } })
     s = land(must(s, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
     s = land(must(s, 'a', { kind: 'move', targetTile: 'annex' }), 'a')
-    expect(at(s, 'a').tokens).toBe(0)
+    expect(purse(s, 'A')).toBe(0)
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'baseB' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('토큰')
@@ -128,7 +134,7 @@ describe('토큰이 한 페이즈의 전부다', () => {
     })
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(out.ok).toBe(false)
-    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
     expect(at(s, 'a').tileId).toBe('baseA')
   })
 
@@ -154,12 +160,12 @@ describe('움직임', () => {
   it('층을 넘어도 한 걸음이다 — 계단은 문이라 셈에 안 든다', () => {
     // 2층 교실에서 1층 연구실까지. 사이에 계단이 둘 있지만 칸이 아니다
     const s = board({ people: [person('a', 'A', 'centralPlaza')] })
-    const before = at(s, 'a').tokens
+    const before = purse(s, 'A')
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'labRoom' })
     expect(out.ok).toBe(true)
     if (!out.ok) return
     expect(out.spent).toBe(ENTER_COST)
-    expect(at(out.next, 'a').tokens).toBe(before - ENTER_COST)
+    expect(purse(out.next, 'A')).toBe(before - ENTER_COST)
     expect(at(out.next, 'a').tileId).toBe(null)
     expect(at(arrive(out.next, 'a'), 'a').tileId).toBe('labRoom')
   })
@@ -179,8 +185,8 @@ describe('움직임', () => {
     const two = doAct(far, 'b', { kind: 'move', targetTile: 'baseB' })
     expect(one.ok && two.ok).toBe(true)
     if (one.ok && two.ok) {
-      expect(at(one.next, 'a').tokens).toBe(at(two.next, 'b').tokens)
-      expect(at(one.next, 'a').tokens).toBe(at(near, 'a').tokens - ENTER_COST)
+      expect(purse(one.next, 'A')).toBe(purse(two.next, 'A'))
+      expect(purse(one.next, 'A')).toBe(purse(near, 'A') - ENTER_COST)
     }
   })
 
@@ -271,7 +277,7 @@ describe('호출', () => {
     const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')] })
     const s1 = land(must(s0, 'a', { kind: 'summon', targetPlayer: 'b' }), 'b')
     expect(at(s1, 'b').tileId).toBe(stepToward('library', 'baseA'))
-    expect(at(s1, 'a').tokens).toBe(TOKENS_PER_PHASE - ACT_COST.summon)
+    expect(purse(s1, 'A')).toBe(TOKENS_PER_PHASE - ACT_COST.summon)
   })
 
   it('남의 팀은 못 부른다', () => {
@@ -306,13 +312,13 @@ describe('방해 — 숫자만 빠지고 사람은 그대로 선다', () => {
     expect(doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
   })
 
-  it('같은 사람을 두 번 방해하지 못한다 — 토큰만 나갈 일이다', () => {
+  it('같은 사람을 두 번 방해하지 못한다 — 팀 상자만 축날 일이다', () => {
     let s = board({
       people: [person('a', 'A', 'library'), person('c', 'A', 'library'), person('b', 'B', 'library')],
     })
     s = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
     expect(doAct(s, 'c', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
-    expect(at(s, 'c').tokens).toBe(TOKENS_PER_PHASE)
+    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
   })
 })
 
@@ -364,15 +370,16 @@ describe('로봇', () => {
 
   it('한 사람은 한 페이즈에 한 기까지다', () => {
     let s = board({
-      people: [{ ...person('a', 'A', 'library'), tokens: 99 }],
+      people: [person('a', 'A', 'library')],
       robots: [robot('r1', 'B', 'library'), robot('r2', 'B', 'library')],
+      wallets: { A: 99 },
     })
     s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
     const out = doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r2' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('이미 부쉈다')
     // 거절은 값을 물리지 않는다
-    expect(at(s, 'a').tokens).toBe(99 - ACT_COST.smashRobot)
+    expect(purse(s, 'A')).toBe(99 - ACT_COST.smashRobot)
   })
 
   it('둘이 가면 두 기를 나눠 부순다 — 로봇 둘짜리 방은 혼자 못 뺏는다', () => {
@@ -422,8 +429,9 @@ describe('연구', () => {
 
   it('한 방에 두 기까지다 — 셋째는 설 자리가 없다', () => {
     let s = board({
-      people: [{ ...person('a', 'A', lab.id), tokens: 99 }],
+      people: [person('a', 'A', lab.id)],
       owners: { [plant.id]: 'A' },
+      wallets: { A: 99 },
     })
     for (let i = 0; i < ROBOTS_PER_ROOM; i++) s = must(s, 'a', { kind: 'research' })
     expect(robotsIn(s, lab.id)).toBe(ROBOTS_PER_ROOM)
@@ -441,7 +449,7 @@ describe('연구', () => {
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('팀당')
     // 거절된 행동은 토큰을 먹지 않는다
-    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
   })
 
   it('걸어 둔 연구도 자리를 잡는다 — 넷이 한꺼번에 걸어 한도를 넘지 못한다', () => {
@@ -459,14 +467,16 @@ describe('연구', () => {
     // 연구를 건 뒤 같은 팀이 먼저 채워 버린 판. 내 잘못이 아니라 환불한다
     const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
     const s = board({
-      people: [{ ...person('a', 'A', lab.id), tokens: 1 }],
+      people: [person('a', 'A', lab.id)],
       robots: full,
       pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }],
+      wallets: { A: 1 },
     })
     const done = settle(s)
     expect(done.next.robots).toHaveLength(ROBOTS_PER_TEAM)
     expect(done.log.some((l) => l.kind === 'researchFizzled' && l.playerId === 'a')).toBe(true)
-    expect(done.next.people.find((p) => p.playerId === 'a')?.tokens).toBe(1 + ACT_COST.research)
+    // **팀 상자로 돌아온다.** 낸 사람이 아니라 팀이 낸 값이다
+    expect(purse(done.next, 'A')).toBe(1 + ACT_COST.research)
     // 불발은 미뤄 두지 않는다. 한도는 다음 페이즈에도 그대로다
     expect(done.next.pendingResearch).toEqual([])
   })
@@ -527,20 +537,21 @@ describe('연구에 드는 지식', () => {
     const out = doAct(s, 'a', { kind: 'research' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('지식이 모자란다')
-    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
     expect(vaultOf(s, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH - 1)
   })
 
   it('불발되면 토큰과 지식을 함께 돌려준다', () => {
     const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
     const s = board({
-      people: [{ ...person('a', 'A', lab2.id), tokens: 1 }],
+      people: [person('a', 'A', lab2.id)],
       robots: full,
       pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }],
       vaults: { A: { money: 0, knowledge: 0 } },
+      wallets: { A: 1 },
     })
     const done = settle(s)
-    expect(done.next.people.find((p) => p.playerId === 'a')?.tokens).toBe(1 + ACT_COST.research)
+    expect(purse(done.next, 'A')).toBe(1 + ACT_COST.research)
     expect(vaultOf(done.next, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH)
   })
 
@@ -752,6 +763,43 @@ describe('투명인간은 없는 사람이다', () => {
   })
 })
 
+describe('토큰은 팀이 한 주머니를 나눠 쓴다', () => {
+  it('한 사람이 쓰면 같은 팀 다른 사람이 쓸 것이 준다', () => {
+    const s0 = board({
+      people: [person('a1', 'A', 'baseA'), person('a2', 'A', 'baseA')],
+      wallets: { A: ENTER_COST * 2 },
+    })
+    const s1 = land(must(s0, 'a1', { kind: 'move', targetTile: 'cafeteria' }), 'a1')
+    expect(purse(s1, 'A')).toBe(ENTER_COST)
+    // a2 는 아무것도 안 했는데 쓸 것이 줄었다. **이게 이 규칙의 전부다**
+    const s2 = land(must(s1, 'a2', { kind: 'move', targetTile: 'hallway' }), 'a2')
+    expect(purse(s2, 'A')).toBe(0)
+    const out = doAct(s2, 'a2', { kind: 'move', targetTile: 'gym' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('팀 토큰')
+  })
+
+  it('남의 팀 상자는 안 건드린다', () => {
+    const s0 = board({
+      people: [person('a', 'A', 'baseA'), person('b', 'B', 'baseB')],
+      wallets: { A: 4, B: 4 },
+    })
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    expect(purse(s1, 'A')).toBe(4 - ENTER_COST)
+    expect(purse(s1, 'B')).toBe(4)
+  })
+
+  it('먼저 쓰는 사람이 임자다 — 상한이 없다', () => {
+    // 한 사람이 상자를 다 비울 수 있다. 막지 않는 것이 규칙이다 —
+    // 누가 몇 번 움직일지를 말로 정하라고 이렇게 뒀다
+    let s = board({ people: [person('a1', 'A', 'baseA'), person('a2', 'A', 'baseA')], wallets: { A: 2 } })
+    s = land(must(s, 'a1', { kind: 'move', targetTile: 'cafeteria' }), 'a1')
+    s = land(must(s, 'a1', { kind: 'move', targetTile: 'annex' }), 'a1')
+    expect(purse(s, 'A')).toBe(0)
+    expect(doAct(s, 'a2', { kind: 'move', targetTile: 'hallway' }).ok).toBe(false)
+  })
+})
+
 describe('토큰 지급', () => {
   it('네 명이면 4, 모자란 팀은 한 사람당 하나 더', () => {
     expect(grantFor(4)).toBe(TOKENS_PER_PHASE)
@@ -768,18 +816,30 @@ describe('토큰 지급', () => {
     expect(grantFor(4)).toBe(TOKENS_PER_PHASE)
   })
 
+  it('상자에는 사람 몫에 사람 수를 곱해서 넣는다 — 총량은 그대로다', () => {
+    expect(nextWallet({ held: 0, teamSize: 4 })).toBe(grantFor(4) * 4)
+    expect(nextWallet({ held: 0, teamSize: 3 })).toBe(grantFor(3) * 3)
+  })
+
   it('한도까지 깎은 **뒤에** 얹는다', () => {
     // 순서가 뒤바뀌면 결석 보정이 그 자리에서 사라져 아무 뜻이 없다
-    expect(nextTokens({ held: TOKEN_CAP + 5, teamSize: 4 })).toBe(TOKEN_CAP + grantFor(4))
-    expect(nextTokens({ held: 2, teamSize: 4 })).toBe(2 + grantFor(4))
+    const cap = walletCap(4)
+    expect(nextWallet({ held: cap + 5, teamSize: 4 })).toBe(cap + grantFor(4) * 4)
+    expect(nextWallet({ held: 2, teamSize: 4 })).toBe(2 + grantFor(4) * 4)
+  })
+
+  it('상자 한도는 사람 수만큼이다', () => {
+    expect(walletCap(4)).toBe(TOKEN_CAP * 4)
+    expect(walletCap(3)).toBe(TOKEN_CAP * 3)
   })
 
   it('보정은 한도를 넘어서 얹힌다', () => {
-    const got = nextTokens({ held: TOKEN_CAP, teamSize: 3, refund: 3 })
-    expect(got).toBe(TOKEN_CAP + grantFor(3) + 3)
+    const cap = walletCap(3)
+    const got = nextWallet({ held: cap, teamSize: 3, refund: 3 })
+    expect(got).toBe(cap + grantFor(3) * 3 + 3)
     // 넘긴 것은 그다음 지급에서 한도까지 깎인다 — 안 그러면 계속
     // 결석해서 쌓아 두는 쪽이 이득이 된다
-    expect(nextTokens({ held: got, teamSize: 3 })).toBe(TOKEN_CAP + grantFor(3))
+    expect(nextWallet({ held: got, teamSize: 3 })).toBe(cap + grantFor(3) * 3)
   })
 })
 
@@ -787,33 +847,31 @@ describe('결석 보정', () => {
   const idle = (over: Partial<PhaseState> = {}) =>
     board({
       people: [
-        { ...person('a1', 'A', 'baseA'), tokens: 7 },
-        { ...person('a2', 'A', 'baseA'), tokens: 4 },
-        { ...person('b1', 'B', 'baseB'), tokens: 6 },
+        person('a1', 'A', 'baseA'),
+        person('a2', 'A', 'baseA'),
+        person('b1', 'B', 'baseB'),
       ],
+      wallets: { A: 7, B: 6 },
       ...over,
     })
 
-  it('안 쓴 토큰의 절반을 내림해서 돌려준다', () => {
+  it('상자에 안 쓰고 남은 것의 절반을 내림해서 돌려준다', () => {
     const back = absenceRefunds(idle({ actedBy: ['b1'] }), TEAM_IDS)
-    expect(back.a1).toBe(3)
-    expect(back.a2).toBe(2)
+    expect(back.A).toBe(3)
   })
 
   it('한 명이라도 움직였으면 그 팀은 결석이 아니다', () => {
     // 남은 사람이 대신 움직일 수 있었다는 뜻이다. 개인 사정까지
     // 메워 주면 안 들어오는 편이 이득이 된다
-    const back = absenceRefunds(idle({ actedBy: ['a2'] }), TEAM_IDS)
-    expect(back.a1).toBeUndefined()
-    expect(back.a2).toBeUndefined()
+    expect(absenceRefunds(idle({ actedBy: ['a2'] }), TEAM_IDS).A).toBeUndefined()
   })
 
   it('움직인 팀에게는 아무것도 없다', () => {
-    expect(absenceRefunds(idle({ actedBy: ['b1'] }), TEAM_IDS).b1).toBeUndefined()
+    expect(absenceRefunds(idle({ actedBy: ['b1'] }), TEAM_IDS).B).toBeUndefined()
   })
 
-  it('토큰이 1이면 절반이 0이라 아무것도 안 준다', () => {
-    const s = board({ people: [{ ...person('c1', 'C', 'baseC'), tokens: 1 }] })
+  it('상자에 하나 남았으면 절반이 0이라 아무것도 안 준다', () => {
+    const s = board({ people: [person('c1', 'C', 'baseC')], wallets: { C: 1 } })
     expect(absenceRefunds(s, TEAM_IDS)).toEqual({})
   })
 })
@@ -836,7 +894,7 @@ describe('움직인 사람 기록', () => {
   })
 
   it('한 사람이 여러 번 해도 한 번만 적힌다', () => {
-    let s = board({ people: [{ ...person('a', 'A', 'baseA'), tokens: 99 }] })
+    let s = board({ people: [person('a', 'A', 'baseA')] })
     s = must(s, 'a', { kind: 'disguise' })
     const before = s.actedBy.length
     s = must(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
@@ -924,7 +982,7 @@ describe('방해와 위장에는 물건이 든다', () => {
     const out = doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('호루라기')
-    expect(at(s, 'a').tokens).toBe(TOKENS_PER_PHASE)
+    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
   })
 
   it('방해하면 호루라기가 하나 준다', () => {

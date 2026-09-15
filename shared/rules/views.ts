@@ -30,8 +30,6 @@ export interface WorldPawn extends PawnPosition {
   intelOfficer: boolean
   /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
   arriveAtMs?: number | null
-  /** 이번 페이즈에 남은 토큰. 투영이 본인 몫에만 싣는다. */
-  tokens?: number
   /** 전투 자리. 본인 몫에만 실린다 — 남의 전선 계획까지 보일 이유가 없다. */
   postTile?: TileId | null
   /** 가 본 방. 본인 몫에만 실린다. */
@@ -105,6 +103,8 @@ export interface World {
   vaults?: Readonly<Partial<Record<TeamId, { money: number; knowledge: number }>>>
   /** 팀 주머니. 방해와 위장에 드는 물건이 여기 있다. */
   satchels?: Readonly<Satchels>
+  /** 팀마다 하나인 페이즈 토큰 상자. **자기 팀 것만 내려간다.** */
+  wallets?: Readonly<Partial<Record<TeamId, number>>>
   /** 끝났으면 A의 기억 열셋이 전원에게 열린다. */
   over: boolean
   /**
@@ -220,8 +220,13 @@ export interface View {
   myArriveAtMs: number | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
-  /** 이번 페이즈에 내게 남은 토큰. 남의 것은 안 보낸다. */
-  myTokens: number
+  /**
+   * 이번 페이즈에 **우리 팀** 상자에 남은 토큰. 넷이 나눠 쓴다.
+   *
+   * 남의 팀 것은 안 보낸다 — 상대 상자가 보이면 언제 밀고 들어올지가
+   * 읽힌다. 그게 이 게임의 절반이다.
+   */
+  myTeamTokens: number
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
   myVault: { money: number; knowledge: number }
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
@@ -352,7 +357,7 @@ export function projectView(world: World, viewerId: string): View {
       own: null,
       myArriveAtMs: null,
       myPost: null,
-      myTokens: 0,
+      myTeamTokens: 0,
       myVault: { money: 0, knowledge: 0 },
       myItems: {},
       myTeamRobots: 0,
@@ -444,9 +449,9 @@ export function projectView(world: World, viewerId: string): View {
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
     myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
     myPost: world.pawns.find((p) => p.playerId === viewerId)?.postTile ?? null,
-    // **내 것만이다.** 남이 토큰을 얼마나 남겼는지 보이면 언제 밀고
-    // 들어올지가 읽힌다 — 그게 이 게임의 절반이다
-    myTokens: world.pawns.find((p) => p.playerId === viewerId)?.tokens ?? 0,
+    // **우리 팀 것만이다.** 남의 상자가 보이면 언제 밀고 들어올지가
+    // 읽힌다 — 그게 이 게임의 절반이다
+    myTeamTokens: world.wallets?.[team] ?? 0,
     myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[team] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,

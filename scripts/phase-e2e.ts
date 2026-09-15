@@ -11,7 +11,7 @@
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { ACT_COST, MOVE_MINUTES, ROOM_KIND, capacityOf, grantFor, nextTokens, stepToward } from '../shared/rules/occupy'
+import { ACT_COST, MOVE_MINUTES, ROOM_KIND, capacityOf, grantFor, nextWallet, stepToward } from '../shared/rules/occupy'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -77,6 +77,9 @@ const GAME = `ph${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
 const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/pawns`)).map((p) => [p.id, p.d]))
+/** 팀 상자. **토큰은 팀에 한 주머니다** — 사람 문서에는 없다. */
+const boxOf = async (team: string) =>
+  Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === team)?.d.phaseTokens ?? -1)
 const ownerOfTile = async (id: string) =>
   ((await getAll(`games/${GAME}/tiles`)).find((t) => t.id === id)?.d.ownerTeam ?? null) as string | null
 
@@ -153,12 +156,13 @@ async function main(): Promise<void> {
   const roamNow = await call('roamTo', a0.token, { gameId: GAME, tileId: 'artRoom' })
   check(roamNow.code === 'FAILED_PRECONDITION', '페이즈 중에는 토큰을 써서 움직인다')
 
-  console.log('\n── 토큰이 한 페이즈의 전부다 ──')
-  // 판이 시작할 때 한 벌, 페이즈가 열릴 때 또 한 벌. 인원수만큼 받는다 —
-  // A팀은 넷이라 4씩이다. 상수 4·4·3·3을 읽지 않고 명단을 센다
+  console.log('\n── 토큰은 팀이 한 주머니를 나눠 쓴다 ──')
+  // 판이 시작할 때 한 벌, 페이즈가 열릴 때 또 한 벌. 사람 몫에 사람
+  // 수를 곱해 상자에 넣는다 — 상수 4·4·3·3을 읽지 않고 명단을 센다
   const aSize = STARTING_TEAM_SIZES.A
-  const wantTokens = nextTokens({ held: grantFor(aSize), teamSize: aSize })
-  check(now.tokens === wantTokens, '열릴 때 인원수만큼 더 받았다', `${now.tokens}개 (바란 값 ${wantTokens})`)
+  const wantTokens = nextWallet({ held: grantFor(aSize) * aSize, teamSize: aSize })
+  const boxA = await boxOf('A')
+  check(boxA === wantTokens, '열릴 때 팀 상자가 인원수만큼 찬다', `${boxA}개 (바란 값 ${wantTokens})`)
 
   /**
    * 게임 시계를 민다. 걷는 10분이 지나야 도착한다.
@@ -179,6 +183,8 @@ async function main(): Promise<void> {
 
   const step = await must('phaseAct', a0.token, { gameId: GAME, kind: 'move', targetTile: 'artRoom' })
   check(Number(step.tokens) === wantTokens - ACT_COST.move, '들어갈 때 토큰 하나', `${step.tokens}개 남음`)
+  check((await boxOf('A')) === wantTokens - ACT_COST.move, '깎인 것은 **팀 상자**다')
+  check((await boxOf('B')) === wantTokens, '남의 팀 상자는 안 건드린다')
   check(step.walking === true, '**바로 도착하지 않는다**')
   let mid = (await pawnsNow())[a0.uid]
   check(mid.tileId === null, '나가는 5분 · 들어가는 5분 동안은 어느 방에도 없다', String(mid.tileId))
@@ -202,14 +208,20 @@ async function main(): Promise<void> {
   const asHost = await fetch(`${FS}/games/${GAME}/secret/phase`, { headers: { Authorization: `Bearer ${host}` } })
   check(asHost.status === 403, '운영자도 못 읽는다', String(asHost.status))
 
-  // 토큰이 떨어질 때까지 왔다 갔다 한다
-  let purse = Number(mid.tokens)
+  // 같은 팀 다른 사람이 쓴 것도 같은 상자에서 빠진다
+  const beforeMate = await boxOf('A')
+  await must('phaseAct', A[1].token, { gameId: GAME, kind: 'move', targetTile: 'library' })
+  check((await boxOf('A')) === beforeMate - ACT_COST.move, '**같은 팀 다른 사람이 써도 같은 상자가 준다**')
+  await tickOn(MOVE_MINUTES)
+
+  // 상자가 마를 때까지 왔다 갔다 한다
+  let purse = await boxOf('A')
   for (let i = 0; purse > 0 && i < 20; i++) {
     const to = i % 2 === 0 ? 'centralPlaza' : 'artRoom'
     const r = await call('phaseAct', a0.token, { gameId: GAME, kind: 'move', targetTile: to })
     if (!r.ok) break
     await tickOn(MOVE_MINUTES)
-    purse = Number((await pawnsNow())[a0.uid].tokens)
+    purse = await boxOf('A')
   }
   // **시계가 토큰보다 먼저 마른다.** 한 방에 10분이고 한 시간뿐이라,
   // 토큰 여섯 개를 다 쓰려면 딱 한 시간이 든다 — 돌아오는 걸음까지 치면
@@ -238,7 +250,7 @@ async function main(): Promise<void> {
   check(Number(closed.no) === 1, '1번 페이즈가 닫혔다')
   const after = await pawnsNow()
   check(after[a0.uid].postTile === after[a0.uid].tileId, '전선이 선 자리로 옮겨졌다')
-  check(after[A[1].uid].tokens > 0, '**남은 토큰은 들고 간다** — 거래할 물건이다', `${after[A[1].uid].tokens}개`)
+  check((await boxOf('A')) > 0, '**남은 토큰은 들고 간다** — 거래할 물건이다', `${await boxOf('A')}개`)
 
   const openWide = async () => {
     await must('openPhase', host, { gameId: GAME })

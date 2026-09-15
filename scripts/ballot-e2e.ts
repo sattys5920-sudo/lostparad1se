@@ -227,9 +227,12 @@ async function main(): Promise<void> {
   )
 
   console.log('\n── 팀 토큰 보정 ──')
-  const before = Number((await pawnsNow())[B[1].uid].tokens)
+  // 상자는 팀에 하나다. 보정도 통째로 상자에 들어간다
+  const boxOf = async (t: string) =>
+    Number((await getAll(`games/${GAME}/teams`)).find((x) => x.id === t)?.d.phaseTokens ?? 0)
+  const before = await boxOf('B')
   await must('openPhase', host, { gameId: GAME })
-  const after = Number((await pawnsNow())[B[1].uid].tokens)
+  const after = await boxOf('B')
   check(after > before, `투명인간이 나온 팀이 더 받는다 (팀 전체 ${INVISIBLE_TEAM_TOKEN_BONUS})`, `${before} → ${after}`)
   await must('closePhase', host, { gameId: GAME })
 

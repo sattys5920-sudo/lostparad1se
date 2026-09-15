@@ -83,26 +83,32 @@ export const TOKEN_CAP = 8
 export const ABSENCE_REFUND_NUMERATOR = 1
 export const ABSENCE_REFUND_DENOMINATOR = 2
 
-/** 결석한 팀이 다음 페이즈에 더 받는 몫. 안 쓴 토큰의 절반을 내림. */
+/** 결석한 팀이 다음 페이즈에 더 받는 몫. 상자에 안 쓰고 남은 것의 절반을 내림. */
 export function absenceRefund(unusedTokens: number): number {
   return Math.floor((unusedTokens * ABSENCE_REFUND_NUMERATOR) / ABSENCE_REFUND_DENOMINATOR)
 }
 
+/** 팀 상자가 들고 갈 수 있는 한도. 사람 수만큼 곱한다. */
+export const walletCap = (teamSize: number): number => TOKEN_CAP * teamSize
+
 /**
- * 이번 페이즈에 이 사람이 갖게 될 토큰.
+ * 이번 페이즈에 이 팀 상자가 갖게 될 토큰.
+ *
+ * **총량은 사람마다 지갑이던 때와 같다** — 사람 몫에 사람 수를 곱한다.
+ * 달라지는 것은 힘이 아니라 「누가 쓸 것인가」를 말로 정해야 한다는 점이다.
  *
  * 순서가 중요하다 — **먼저 한도까지 깎고, 그 뒤에 지급과 보정을 얹는다.**
- * 결석 보정으로 한도를 넘긴 사람은 여기서 정리된다. 얹은 다음에 깎으면
+ * 결석 보정으로 한도를 넘긴 팀은 여기서 정리된다. 얹은 다음에 깎으면
  * 보정이 그 자리에서 사라져 아무 뜻이 없어진다.
  */
-export function nextTokens(input: {
+export function nextWallet(input: {
   held: number
   teamSize: number
-  /** 이 사람 몫의 결석 보정. 없으면 0. */
+  /** 이 팀 몫의 결석 보정. 없으면 0. */
   refund?: number
 }): number {
-  const trimmed = Math.min(input.held, TOKEN_CAP)
-  return trimmed + grantFor(input.teamSize) + (input.refund ?? 0)
+  const trimmed = Math.min(input.held, walletCap(input.teamSize))
+  return trimmed + grantFor(input.teamSize) * input.teamSize + (input.refund ?? 0)
 }
 
 /**
@@ -261,9 +267,13 @@ export interface Person {
   toTile?: TileId | null
   /** 세 명뿐인 팀의 주장. 점령 판정에서 둘로 센다. */
   captain: boolean
-  /** 들고 있는 토큰. 페이즈마다 받고, 남으면 그대로 간다 — 거래할 수 있다. */
-  tokens: number
 }
+
+/** 팀마다 하나인 페이즈 토큰 상자. */
+export type Wallets = Readonly<Partial<Record<TeamId, number>>>
+
+/** 그 팀 상자에 남은 토큰. */
+export const walletOf = (state: PhaseState, team: TeamId): number => state.wallets[team] ?? 0
 
 export interface Robot {
   id: string
@@ -304,6 +314,15 @@ export interface PhaseState {
   smashedBy: readonly string[]
   /** 팀이 함께 가진 물건. 방해와 위장이 여기서 하나씩 빠진다. */
   satchels: Satchels
+  /**
+   * 팀이 함께 쓰는 토큰 상자. **한 팀에 하나다.**
+   *
+   * 예전에는 사람마다 지갑이 따로였다. 그때는 누가 얼마를 쓰든 남에게
+   * 지장이 없어서, 팀이라고 부르면서 실은 넷이 따로 놀았다. 이제 한
+   * 주머니를 넷이 나눠 쓴다 — 먼저 쓰는 사람이 임자다. 누가 몇 번
+   * 움직일지를 말로 정하지 않으면 마지막 사람은 아무것도 못 한다.
+   */
+  wallets: Wallets
   /**
    * A의 기록이 열어 준 칸. **핵심과 2-3 교실은 열리기 전에는 아무도
    * 못 가진다** — 서 있을 수는 있어도 주인이 되지는 않는다.
@@ -537,7 +556,26 @@ function spent(out: ActResult, state: PhaseState, playerId: string, kind: Action
  * 경우에만 깎는다. 반쯤 되고 토큰만 빠지는 일은 없어야 한다.
  */
 export function doAct(state: PhaseState, playerId: string, act: Act): ActResult {
-  return marked(spent(runAct(state, playerId, act), state, playerId, act.kind), playerId)
+  return marked(
+    charged(spent(runAct(state, playerId, act), state, playerId, act.kind), state, playerId),
+    playerId,
+  )
+}
+
+/**
+ * 값을 치른다. **상자에서 빼는 자리는 여기 하나뿐이다.**
+ *
+ * 예전에는 행동 갈래마다 제 손으로 지갑을 깎았다. 갈래가 일곱이라
+ * 하나를 빠뜨려도 아무도 모르고, 실제로 빠뜨린 적이 있다. 되는지는
+ * 갈래마다 보고, 무는 것은 여기서 한 번만 문다.
+ */
+function charged(out: ActResult, state: PhaseState, playerId: string): ActResult {
+  if (!out.ok || out.spent <= 0) return out
+  const team = state.people.find((p) => p.playerId === playerId)?.team
+  if (!team) return out
+  const left = walletOf(out.next, team) - out.spent
+  if (left < 0) return no('팀 토큰이 모자란다.')
+  return { ...out, next: { ...out.next, wallets: { ...out.next.wallets, [team]: left } } }
 }
 
 function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
@@ -545,7 +583,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   if (!me) return no('이 판에 없는 사람이다.')
 
   const cost = ACT_COST[act.kind]
-  if (me.tokens < cost) return no(`토큰이 모자란다. ${cost}개가 든다.`)
+  if (walletOf(state, me.team) < cost) return no(`팀 토큰이 모자란다. ${cost}개가 든다.`)
 
   // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다
   const needItem = ITEM_FOR[act.kind] ?? null
@@ -649,7 +687,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
           log,
           next: {
             ...state,
-            people: people.map((p) => (p.playerId === playerId ? { ...p, tokens: p.tokens - cost } : p)),
+            people,
             zeroedPeople: [...state.zeroedPeople, t.playerId],
           },
         }
@@ -665,7 +703,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
           log,
           next: {
             ...state,
-            people: people.map((p) => (p.playerId === playerId ? { ...p, tokens: p.tokens - cost } : p)),
+            people,
             zeroedRobots: [...state.zeroedRobots, bot.id],
           },
         }
@@ -675,7 +713,6 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
 
     case 'disguise': {
       if (state.disguised.includes(playerId)) return no('이미 위장하고 있다.')
-      mine.tokens -= cost
       return {
         ok: true,
         spent: cost,
@@ -707,7 +744,6 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       const bot = robots.find((r) => r.id === act.targetRobot && r.tileId === mine.tileId && r.team !== mine.team)
       if (!bot) return no('그 로봇이 여기 없다.')
       robots = robots.filter((r) => r.id !== bot.id)
-      mine.tokens -= cost
       return {
         ok: true,
         spent: cost,
@@ -754,8 +790,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       const queued: PendingResearch = { playerId, knowledge: need, paidTo }
 
       if (!hasPlant) {
-        mine.tokens -= cost
-        return {
+          return {
           ok: true,
           spent: cost,
           log: { kind: 'researchStarted', playerId, tileId: mine.tileId },
@@ -770,7 +805,6 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       }
       if (botsAt(mine.tileId) + 1 > ROBOTS_PER_ROOM) return no(`이 방에 로봇이 ${ROBOTS_PER_ROOM}기까지다.`)
       robots = [...robots, born(mine, robots, `now-${playerId}-${state.robots.length}`, mine.tileId)]
-      mine.tokens -= cost
       return {
         ok: true,
         spent: cost,
@@ -780,7 +814,6 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     }
   }
 
-  mine.tokens -= cost
   return { ok: true, spent: cost, log, next: { ...state, people, robots } }
 }
 
@@ -866,8 +899,8 @@ export function settle(state: PhaseState): SettleResult {
   let robots = [...state.robots]
   const botsAt = (tileId: TileId) => robots.filter((r) => r.tileId === tileId).length
   const botsOf = (team: TeamId) => robots.filter((r) => r.team === team).length
-  /** 불발된 연구에 돌려주는 토큰. 사람별로 모았다가 한 번에 얹는다. */
-  const refund = new Map<string, number>()
+  /** 불발된 연구에 돌려주는 토큰. **팀 상자로 돌아간다.** */
+  const refund = new Map<TeamId, number>()
   /** 불발이면 지식도 같이 돌려준다. 걸 때 뺐으므로 도로 넣어야 한다. */
   const vaults: Partial<Record<TeamId, Vault>> = { ...state.vaults }
   let made = 0
@@ -880,7 +913,7 @@ export function settle(state: PhaseState): SettleResult {
     // 완성해서 막힌 것이라 이 사람의 잘못이 아니다. 자리가 없는 것과
     // 달라서 다음으로 미루지도 않는다 — 한도는 다음 페이즈에도 그대로다
     if (botsOf(p.team) >= ROBOTS_PER_TEAM || botsAt(p.tileId) + 1 > ROBOTS_PER_ROOM) {
-      refund.set(id, (refund.get(id) ?? 0) + ACT_COST.research)
+      refund.set(p.team, (refund.get(p.team) ?? 0) + ACT_COST.research)
       // 지식도 **걸 때 적어 둔 액수 그대로** 돌린다. 지금 값으로 세면
       // 그사이 연구실 주인이 바뀐 만큼 남의 일로 손해를 본다.
       // 주인에게 냈던 것이면 주인 금고에서 도로 빼서 돌려준다
@@ -898,14 +931,13 @@ export function settle(state: PhaseState): SettleResult {
     log.push({ kind: 'researchDone', playerId: id, tileId: p.tileId })
   }
 
-  const people =
-    refund.size === 0
-      ? state.people
-      : state.people.map((p) => (refund.has(p.playerId) ? { ...p, tokens: p.tokens + (refund.get(p.playerId) as number) } : p))
+  const wallets: Partial<Record<TeamId, number>> = { ...state.wallets }
+  for (const [team, back] of refund) wallets[team] = (wallets[team] ?? 0) + back
 
   return {
     next: {
-      people,
+      people: state.people,
+      wallets,
       robots,
       vaults,
       owners,
@@ -930,17 +962,18 @@ export function settle(state: PhaseState): SettleResult {
  * 아니다 — 남은 사람이 대신 움직일 수 있었다는 뜻이라서, 개인의
  * 사정까지 메워 주면 안 들어오는 편이 이득이 된다.
  */
-export function absenceRefunds(state: PhaseState, teams: readonly TeamId[]): Record<string, number> {
+export function absenceRefunds(
+  state: PhaseState,
+  teams: readonly TeamId[],
+): Partial<Record<TeamId, number>> {
   const acted = new Set(state.actedBy)
-  const out: Record<string, number> = {}
+  const out: Partial<Record<TeamId, number>> = {}
   for (const team of teams) {
     const members = state.people.filter((p) => p.team === team)
     if (members.length === 0) continue
     if (members.some((p) => acted.has(p.playerId))) continue
-    for (const p of members) {
-      const back = absenceRefund(p.tokens)
-      if (back > 0) out[p.playerId] = back
-    }
+    const back = absenceRefund(walletOf(state, team))
+    if (back > 0) out[team] = back
   }
   return out
 }

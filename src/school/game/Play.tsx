@@ -452,7 +452,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </div>
 
         <ul className="sc-pl__stat">
-          <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
+          <li><span>팀 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
           <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
           <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
         </ul>
@@ -497,7 +497,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
 
         <ul className="sc-pl__mine">
-          <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
+          {/* **토큰은 팀에 한 주머니다.** 넷이 나눠 쓴다 */}
+          <li><span>팀 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
           <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
           <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
           <li><span>든 짝</span><span>{state.view?.myCarriedRobots ?? '—'}</span></li>
@@ -711,7 +712,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 </span>
               </li>
               <li><span>도착 대기</span><span>{arriveAtMs == null ? '없다' : `${Math.max(0, Math.ceil((arriveAtMs - nowMs) / 60000))}분`}</span></li>
-              <li><span>토큰</span><span>{state.view?.myTokens ?? '—'}</span></li>
+              <li><span>팀 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
               <li><span>마지막 응답</span><span>{said || '없다'}</span></li>
             </ul>
           </details>

@@ -225,11 +225,13 @@ async function main(): Promise<void> {
   check((await call('respondTrade', B[0].token, { gameId: GAME, tradeId, accept: true })).code === 'FAILED_PRECONDITION', '끝난 제안에 또 답 못 한다')
 
   console.log('\n── 거래에는 토큰이 든다 · 토큰과 로봇도 건넨다 ──')
-  const purseOf = async (uid: string) =>
-    Number(((await getDoc(`games/${GAME}/pawns/${uid}`)) as { tokens?: number } | null)?.tokens ?? 0)
-  const myBefore = await purseOf(me.uid)
-  const theirBefore = await purseOf(B[0].uid)
-  check(myBefore > 0, '판이 시작할 때 토큰을 들고 있다', `${myBefore}개`)
+  // **건네는 것은 사람 손이지만 주머니는 팀에 하나다.** 마주 서 있어야
+  // 하는 것은 그대로고, 드나드는 곳이 팀 상자로 바뀌었다
+  const purseOf = async (t: TeamId) =>
+    Number(((await getDoc(`games/${GAME}/teams/${t}`)) as { phaseTokens?: number } | null)?.phaseTokens ?? 0)
+  const myBefore = await purseOf('A')
+  const theirBefore = await purseOf('B')
+  check(myBefore > 0, '판이 시작할 때 팀 상자에 토큰이 있다', `${myBefore}개`)
 
   // 토큰 둘을 건넨다. 값 하나까지 셋이 빠진다
   const give2 = await must('offerTrade', me.token, {
@@ -241,11 +243,11 @@ async function main(): Promise<void> {
   })
   await must('respondTrade', B[0].token, { gameId: GAME, tradeId: String(give2.id), accept: true })
   check(
-    (await purseOf(me.uid)) === myBefore - 2 - TRADE_COST,
+    (await purseOf('A')) === myBefore - 2 - TRADE_COST,
     `준 2 + 값 ${TRADE_COST}만큼 빠졌다`,
-    `${myBefore} → ${await purseOf(me.uid)}`,
+    `${myBefore} → ${await purseOf('A')}`,
   )
-  check((await purseOf(B[0].uid)) === theirBefore + 2, '받은 쪽은 2가 늘었다', `${await purseOf(B[0].uid)}개`)
+  check((await purseOf('B')) === theirBefore + 2, '받은 쪽 상자가 2 늘었다', `${await purseOf('B')}개`)
 
   // 없는 것은 못 준다
   const tooMuch = await must('offerTrade', me.token, {
@@ -257,7 +259,7 @@ async function main(): Promise<void> {
   })
   const nope = await call('respondTrade', B[0].token, { gameId: GAME, tradeId: String(tooMuch.id), accept: true })
   check(nope.code === 'FAILED_PRECONDITION' && String(nope.message).includes('토큰'), '없는 토큰은 못 준다', nope.message)
-  check((await purseOf(me.uid)) === myBefore - 2 - TRADE_COST, '**안 된 거래는 값도 안 든다**')
+  check((await purseOf('A')) === myBefore - 2 - TRADE_COST, '**안 된 거래는 값도 안 든다**')
 
   console.log('\n── 동맹 ──')
   check((await call('proposeAlliance', me.token, { gameId: GAME, withTeam: 'A' })).code === 'FAILED_PRECONDITION', '우리 팀과는 못 맺는다')

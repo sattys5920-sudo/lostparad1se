@@ -29,7 +29,7 @@ import {
   TOKEN_CAP,
   absenceRefunds,
   capacityOf,
-  nextTokens,
+  nextWallet,
   roomsOf,
   teamRanks,
   doAct,
@@ -46,7 +46,14 @@ import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, type TileId } from '../../shared/rules/board'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
-import { SCHEDULE_ORD, type CaptureDoc, type GameDoc, type PawnDoc, type TileDoc } from '../../shared/model'
+import {
+  SCHEDULE_ORD,
+  type CaptureDoc,
+  type GameDoc,
+  type PawnDoc,
+  type TeamDoc,
+  type TileDoc,
+} from '../../shared/model'
 import { freshNow } from './turn'
 import { clearArrivals } from './move'
 import { openInterval } from './reveal'
@@ -143,8 +150,14 @@ function personOf(id: string, p: PawnDoc): Person {
     tileId: (p.tileId ?? null) as TileId | null,
     toTile: (p.path?.[0] ?? null) as TileId | null,
     captain: p.captain === true,
-    tokens: p.tokens ?? 0,
   }
+}
+
+/** 팀 문서에서 페이즈 토큰 상자만 떼어 온다. */
+function walletsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamId, number>> {
+  const out: Partial<Record<TeamId, number>> = {}
+  for (const d of teams.docs) out[d.id as TeamId] = (d.data() as TeamDoc).phaseTokens ?? 0
+  return out
 }
 
 /** 팀 문서에서 금고만 떼어 온다. */
@@ -228,6 +241,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
       satchels: satchelsOf(teams),
+      wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
     },
@@ -260,7 +274,11 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   }
 
   const ref = gameRef(gameId)
-  const [pawns, tiles] = await Promise.all([ref.collection('pawns').get(), ref.collection('tiles').get()])
+  const [pawns, tiles, teams] = await Promise.all([
+    ref.collection('pawns').get(),
+    ref.collection('tiles').get(),
+    ref.collection('teams').get(),
+  ])
   const owners: Partial<Record<TileId, TeamId | null>> = {}
   for (const d of tiles.docs) owners[d.id as TileId] = (d.data() as TileDoc).ownerTeam ?? null
   const batch = db.batch()
@@ -288,42 +306,23 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   const sizes = teamSizesOf(pawns.docs.map((d) => d.data() as PawnDoc))
 
   /**
-   * 투명인간이 나온 팀이 한 사람당 더 받는 몫.
+   * 투명인간이 나온 팀이 더 받는 몫. **상자에 통째로 들어간다.**
    *
-   * 팀 전체로 INVISIBLE_TEAM_TOKEN_BONUS 만큼이라, 사람 수로 나눠
-   * 얹는다. 세 명짜리 팀에서 한 명이 빠지면 판정 머릿수가 반토막
-   * 나는데, 지워진 것은 한 사람인데 팀이 무너지면 이 투표가 사람이
-   * 아니라 팀을 겨누는 것이 된다
+   * 세 명짜리 팀에서 한 명이 빠지면 판정 머릿수가 반토막 나는데,
+   * 지워진 것은 한 사람인데 팀이 무너지면 이 투표가 사람이 아니라
+   * 팀을 겨누는 것이 된다. 지갑이 사람마다이던 때에는 사람 수로
+   * 나눠 얹느라 나머지가 버려졌다 — 상자 하나가 되면서 그 문제도 없다
    */
-  const invisibleShare = game.invisibleTeam
-    ? Math.floor(INVISIBLE_TEAM_TOKEN_BONUS / Math.max(1, sizes[game.invisibleTeam]))
-    : 0
+  const invisibleShare = game.invisibleTeam ? INVISIBLE_TEAM_TOKEN_BONUS : 0
 
   let returned = 0
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
     const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
     const came = returning.some((m) => m.ref.id === d.id)
-    // **더해 준다.** 남은 토큰을 태우면 거래할 물건이 못 된다.
-    //
-    // 인원은 지금 센다 — 이적이 그날 아침에 이미 발효돼 있으므로
-    // 옮겨 간 사람은 새 팀 인원수로 받는다. 한도는 얹기 **전에** 깎는다:
-    // 결석 보정으로 넘긴 사람이 여기서 정리되고, 얹은 다음에 깎으면
-    // 보정이 그 자리에서 사라져 아무 뜻이 없어진다
-    const purse = {
-      tokens: nextTokens({
-        held: p.tokens ?? 0,
-        teamSize: sizes[p.team],
-        // 결석 보정에 투명인간 보정을 더한다. 둘 다 이때만 한도를
-        // 넘고, 넘긴 것은 그다음 지급에서 정리된다
-        refund: (p.pendingRefund ?? 0) + (p.team === game.invisibleTeam ? invisibleShare : 0),
-      }),
-      // 보정은 한 번만 쓰인다
-      pendingRefund: 0,
-    }
     if (!came) {
-      // 제 전선에 그대로 서 있었다. 자리는 안 건드리고 토큰만 얹는다
-      batch.update(d.ref, { postTile: post, fromTile: null, path: [], arriveAtMs: null, ...purse })
+      // 제 전선에 그대로 서 있었다. 자리는 안 건드린다
+      batch.update(d.ref, { postTile: post, fromTile: null, path: [], arriveAtMs: null })
       continue
     }
     returned += 1
@@ -334,7 +333,32 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
       path: [],
       arriveAtMs: null,
       asleep: false,
-      ...purse,
+    })
+  }
+
+  /**
+   * 팀 상자를 채운다. **팀에 하나다.**
+   *
+   * **더해 준다.** 남은 토큰을 태우면 거래할 물건이 못 된다.
+   *
+   * 인원은 지금 센다 — 이적이 그날 아침에 이미 발효돼 있으므로 옮겨
+   * 간 사람은 새 팀 인원수로 친다. 한도는 얹기 **전에** 깎는다: 결석
+   * 보정으로 넘긴 팀이 여기서 정리되고, 얹은 다음에 깎으면 보정이 그
+   * 자리에서 사라져 아무 뜻이 없어진다
+   */
+  for (const d of teams.docs) {
+    const team = d.id as TeamId
+    const t = d.data() as TeamDoc
+    batch.update(d.ref, {
+      phaseTokens: nextWallet({
+        held: t.phaseTokens ?? 0,
+        teamSize: sizes[team],
+        // 결석 보정에 투명인간 보정을 더한다. 둘 다 이때만 한도를
+        // 넘고, 넘긴 것은 그다음 지급에서 정리된다
+        refund: (t.pendingRefund ?? 0) + (team === game.invisibleTeam ? invisibleShare : 0),
+      }),
+      // 보정은 한 번만 쓰인다
+      pendingRefund: 0,
     })
   }
 
@@ -444,6 +468,7 @@ export const phaseAct = onCall<{
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
       satchels: satchelsOf(teams),
+      wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
     }
@@ -467,14 +492,10 @@ export const phaseAct = onCall<{
     for (const p of out.next.people) {
       const was = wasAt.get(p.playerId) as Person
       const sameSpot = was.tileId === p.tileId && (was.toTile ?? null) === (p.toTile ?? null)
-      if (sameSpot && was.tokens === p.tokens) continue
+      // 토큰은 팀 상자에 있다. 사람 문서는 자리가 바뀔 때만 쓴다
+      if (sameSpot) continue
       const doc = pawns.docs.find((d) => d.id === p.playerId)
       if (!doc) continue
-      if (sameSpot) {
-        tx.update(doc.ref, { tokens: p.tokens })
-        if (p.playerId === uid) left = p.tokens
-        continue
-      }
       // 계단으로 갔다. **0분이라 걷는 중을 거치지 않는다** — 그 자리에
       // 곧바로 서니 도착 예약도, 체류를 닫는 일도 없다. 발은 들였으니
       // 지도에는 남는다
@@ -486,14 +507,10 @@ export const phaseAct = onCall<{
           fromTile: was.tileId,
           path: [],
           arriveAtMs: null,
-          tokens: p.tokens,
           asleep: false,
           visitedTiles: [...been],
         })
-        if (p.playerId === uid) {
-          left = p.tokens
-          steppedTo = p.tileId
-        }
+        if (p.playerId === uid) steppedTo = p.tileId
         continue
       }
 
@@ -504,7 +521,6 @@ export const phaseAct = onCall<{
         fromTile: was.tileId,
         path: [to],
         arriveAtMs: arriveAt,
-        tokens: p.tokens,
         asleep: false,
       })
       // 도착은 따라잡기가 시킨다. 앱을 꺼도 도착한다
@@ -515,11 +531,17 @@ export const phaseAct = onCall<{
         payload: { playerId: p.playerId, tileId: to, rest: [], nextAtMs: null },
         doneAtMs: null,
       })
-      if (p.playerId === uid) {
-        left = p.tokens
-        leftFor = was.tileId
-      }
+      if (p.playerId === uid) leftFor = was.tileId
     }
+
+    // 팀 상자 — 값을 치른 팀만 쓴다
+    for (const d of teams.docs) {
+      const team = d.id as TeamId
+      const after = out.next.wallets[team] ?? 0
+      if (after === (before.wallets[team] ?? 0)) continue
+      tx.update(d.ref, { phaseTokens: after })
+    }
+    left = out.next.wallets[(before.people.find((p) => p.playerId === uid) as Person).team] ?? 0
 
     // 금고 — 연구가 지식을 뺐으면 여기서 적는다
     writeVaults(tx, ref, before.vaults, out.next.vaults)
@@ -629,17 +651,21 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     // 걷는 중이었으면 자리가 없다. 떠난 방을 전선으로 남긴다 —
     // 문 사이에서 페이즈가 끝나면 아무 방도 못 가져간다
     const where = p.tileId ?? (p.toTile as TileId | null)
-    const was = state.people.find((q) => q.playerId === p.playerId)
-    // 불발된 연구는 값을 돌려준다. settle 이 사람 위에 얹어 두었다
+    if (where) batch.update(ref.collection('pawns').doc(p.playerId), { postTile: where })
+  }
+
+  // 팀 상자 — 불발된 연구가 값을 돌려주고, 결석한 팀은 보정을 예약한다.
+  //
+  // 우리 팀에서 아무도 안 움직였으면 안 쓴 토큰의 절반을 다음 페이즈에
+  // 얹어 준다. 못 한 일을 돌려주지는 못해도, 접속한 날 조금 더 움직일
+  // 수는 있게 한다
+  for (const team of TEAMS) {
     const patch: Record<string, unknown> = {}
-    if (was && was.tokens !== p.tokens) patch.tokens = p.tokens
-    if (where) patch.postTile = where
-    // 우리 팀에서 아무도 안 움직였으면 안 쓴 토큰의 절반을 다음
-    // 페이즈에 얹어 준다. 못 한 일을 돌려주지는 못해도, 접속한 날
-    // 조금 더 움직일 수는 있게 한다
-    const back = refunds[p.playerId] ?? 0
+    const after = out.next.wallets[team] ?? 0
+    if (after !== (state.wallets[team] ?? 0)) patch.phaseTokens = after
+    const back = refunds[team] ?? 0
     if (back > 0) patch.pendingRefund = back
-    if (Object.keys(patch).length > 0) batch.update(ref.collection('pawns').doc(p.playerId), patch)
+    if (Object.keys(patch).length > 0) batch.update(ref.collection('teams').doc(team), patch)
   }
   // 불발된 연구는 지식을 도로 넣는다
   writeVaults(batch, ref, state.vaults, out.next.vaults)

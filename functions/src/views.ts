@@ -104,7 +104,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       arriveAtMs: p.arriveAtMs ?? null,
       postTile: p.postTile ?? null,
       visitedTiles: p.visitedTiles ?? [],
-      tokens: p.tokens ?? 0,
     }
   })
 
@@ -121,6 +120,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 주머니도 통째로 들고 간다. 투영이 내 팀 것만 떼어 보낸다
     satchels: Object.fromEntries(
       teams.docs.map((d) => [d.id, (d.data() as { items?: Record<string, number> }).items ?? {}]),
+    ),
+    // 페이즈 토큰 상자도 마찬가지다. 남의 상자는 투영에서 걸러진다
+    wallets: Object.fromEntries(
+      teams.docs.map((d) => [d.id, (d.data() as { phaseTokens?: number }).phaseTokens ?? 0]),
     ),
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,

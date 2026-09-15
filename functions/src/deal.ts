@@ -285,9 +285,11 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       throw new HttpsError('failed-precondition', '토큰과 로봇은 같은 방에서만 건넨다.')
     }
 
+    // **토큰은 팀 상자에서 나가 팀 상자로 들어간다.** 건네는 것은 사람
+    // 손이라 마주 서 있어야 하지만, 주머니는 팀에 하나뿐이다
     const moved = movePurse(
-      { tokens: mine.tokens ?? 0, robots: mineBots.size },
-      { tokens: theirs.tokens ?? 0, robots: theirBots.size },
+      { tokens: from.phaseTokens ?? 0, robots: mineBots.size },
+      { tokens: to.phaseTokens ?? 0, robots: theirBots.size },
       givePurse,
       wantPurse,
       // **값은 제안한 쪽이 낸다.** 거절당하면 안 낸다 — 제안만 뿌리고
@@ -304,10 +306,14 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       throw new HttpsError('failed-precondition', why[moved.reason])
     }
 
-    tx.update(ref.collection('teams').doc(t.fromTeam), { resources: out.fromResources })
-    tx.update(ref.collection('teams').doc(t.toTeam), { resources: out.toResources })
-    tx.update(mineSnap.ref, { tokens: moved.from.tokens })
-    tx.update(theirsSnap.ref, { tokens: moved.to.tokens })
+    tx.update(ref.collection('teams').doc(t.fromTeam), {
+      resources: out.fromResources,
+      phaseTokens: moved.from.tokens,
+    })
+    tx.update(ref.collection('teams').doc(t.toTeam), {
+      resources: out.toResources,
+      phaseTokens: moved.to.tokens,
+    })
     // 로봇은 주인만 바뀐다. 팀도 함께 바뀐다 — 넘겨받은 로봇은 우리 머릿수다
     const handed: RobotMove[] = []
     for (const d of mineBots.docs.slice(0, givePurse.robots ?? 0)) {
