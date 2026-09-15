@@ -811,6 +811,17 @@ export function settle(state: PhaseState): SettleResult {
 
   const owners: Partial<Record<TileId, TeamId | null>> = { ...state.owners }
   for (const t of TILES) {
+    // **기지는 판정하지 않는다.** 제 팀 것으로 못 박혀 있다 — 아무도
+    // 안 서 있다고 기지를 잃으면 시작 땅도 연결 점수도 근거가 없어진다
+    if (t.homeOf) {
+      owners[t.id] = t.homeOf
+      continue
+    }
+    // **계단은 아무도 못 가진다.** 지나다니는 자리지 차지하는 자리가 아니다
+    if (t.tier === 'stair') {
+      owners[t.id] = null
+      continue
+    }
     const w: Partial<Record<TeamId, number>> = {}
     for (const p of state.people) {
       // 걷는 중인 사람은 어느 방에도 없다. 마지막 순간의 이동은 도박이다

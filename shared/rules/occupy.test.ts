@@ -913,3 +913,23 @@ describe('방해와 위장에는 물건이 든다', () => {
     expect(settle(s).next.satchels.A?.whistle).toBe(3)
   })
 })
+
+describe('기지와 계단은 판정 밖이다', () => {
+  it('아무도 안 서 있어도 기지는 제 팀 것이다', () => {
+    const out = settle(board({ owners: { baseA: 'A' } })).next.owners
+    expect(out.baseA).toBe('A')
+  })
+
+  it('남이 기지에 몰려 서도 안 뺏긴다', () => {
+    const s = board({
+      people: [person('b1', 'B', 'baseA'), person('b2', 'B', 'baseA'), person('b3', 'B', 'baseA')],
+      owners: { baseA: 'A' },
+    })
+    expect(settle(s).next.owners.baseA).toBe('A')
+  })
+
+  it('계단은 서 있어도 아무도 못 가진다', () => {
+    const s = board({ people: [person('a', 'A', 'stair_f1_w')], owners: { stair_f1_w: null } })
+    expect(settle(s).next.owners.stair_f1_w).toBeNull()
+  })
+})
