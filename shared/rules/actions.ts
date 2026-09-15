@@ -9,7 +9,6 @@
 import {
   FLAG_TOKEN_COST,
   PRODUCE_MONEY,
-  RESEARCH_BASE_KNOWLEDGE,
   SABOTAGE_KNOWLEDGE,
   SCOUT_GAIN,
   SCOUT_RESOURCES,
@@ -20,7 +19,7 @@ import {
 import { ADJACENCY, TILE_BY_ID, type TileId } from './board'
 import { canPay, type Bag, type TileState } from './resources'
 
-export type ActionKind = 'flag' | 'build' | 'research' | 'scout' | 'sabotage' | 'produce'
+export type ActionKind = 'flag' | 'build' | 'scout' | 'sabotage' | 'produce'
 
 /** 어디에 서 있어야 하는가. */
 export type Stand = 'thatTile' | 'ourTile' | 'ourZone' | 'notOurTile' | 'enemyTile'
@@ -28,7 +27,6 @@ export type Stand = 'thatTile' | 'ourTile' | 'ourZone' | 'notOurTile' | 'enemyTi
 export const ACTION_STAND: Record<ActionKind, Stand> = {
   flag: 'thatTile',
   build: 'ourTile',
-  research: 'ourZone',
   scout: 'notOurTile',
   sabotage: 'enemyTile',
   produce: 'ourZone',
@@ -38,7 +36,6 @@ export const ACTION_STAND: Record<ActionKind, Stand> = {
 export const ACTION_TOKEN_COST: Record<ActionKind, number> = {
   flag: FLAG_TOKEN_COST,
   build: 1,
-  research: 1,
   scout: 1,
   sabotage: 1,
   produce: 1,
@@ -60,7 +57,11 @@ export type StandRefusal = 'walking' | 'notThere' | 'notOurTile' | 'notOurZone' 
  * 서 있는 자리가 맞는가.
  *
  * 「우리 영역 안」은 우리 칸 위이거나 우리 칸에 맞닿은 곳이 아니라,
- * 우리 칸 위를 말한다 — 연구와 생산은 우리 땅에서만 한다.
+ * 우리 칸 위를 말한다 — 생산은 우리 땅에서만 한다.
+ *
+ * **연구는 여기 없다.** 연구는 페이즈에만, 연구실에서만 한다
+ * (shared/rules/occupy.ts). 자유 시간에 제 땅 아무 데서나 되던
+ * 시절에는 연구실이 있으나 마나였다.
  */
 export function checkStand(input: StandInput): { ok: boolean; reason: StandRefusal | null } {
   if (input.standingOn === null) return { ok: false, reason: 'walking' }
@@ -127,13 +128,6 @@ export function canPlantFlag(input: PlantInput): { ok: boolean; reason: PlantRef
   const touches = ADJACENCY[input.tileId].some((n) => input.ownerOf(n) === input.team)
   if (!touches) return { ok: false, reason: 'notTouchingUs' }
   return { ok: true, reason: null }
-}
-
-// ── 연구 ────────────────────────────────────────────────────────
-
-/** 다음 단계로 올리는 데 드는 지식. 단계가 오를수록 비싸진다. */
-export function researchCost(currentTier: number): Bag {
-  return { knowledge: RESEARCH_BASE_KNOWLEDGE + Math.max(0, currentTier) }
 }
 
 // ── 탐색 ────────────────────────────────────────────────────────

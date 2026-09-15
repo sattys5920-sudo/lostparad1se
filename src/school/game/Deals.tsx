@@ -53,7 +53,7 @@ export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid, a
   return (
     <div className="sc-dl">
       <h2>손패 <span>{hand.length}장</span></h2>
-      {hand.length === 0 && <p className="sc-dl__none">연구를 하면 한 장 들어온다.</p>}
+      {hand.length === 0 && <p className="sc-dl__none">페이즈에 연구실에서 연구를 하면 한 장 들어온다.</p>}
       <ul className="sc-ac__menu">
         {hand.map((c) => (
           <li key={c.id}>

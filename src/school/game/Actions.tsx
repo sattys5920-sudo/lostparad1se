@@ -25,7 +25,7 @@ export interface ActionsProps {
   onSaid: (text: string) => void
   /** 먼 방 패널에만 있다. 잘못 눌렀으면 닫는다. */
   onClose?: () => void
-  /** 제목 바로 아래에 끼울 것. 선 자리의 연구·생산이 여기 들어온다. */
+  /** 제목 바로 아래에 끼울 것. 선 자리의 생산이 여기 들어온다. */
   children?: ReactNode
 }
 
@@ -49,11 +49,13 @@ function useRun(onSaid: (t: string) => void) {
 }
 
 /**
- * 연구와 생산은 **내가 선 자리**에서 한다. 고른 칸과 상관없다.
+ * 생산은 **내가 선 자리**에서 한다. 고른 칸과 상관없다.
  *
- * 처음에는 이 둘도 칸 패널에 넣었는데, 「교실」을 골라 두고 생산을
+ * 처음에는 이것도 칸 패널에 넣었는데, 「교실」을 골라 두고 생산을
  * 누르면 교실에서 무언가 나는 것처럼 보였다. 실제로는 내가 선 칸이
  * 우리 땅이기만 하면 된다. 자리를 갈라 놓는다.
+ *
+ * **연구는 여기 없다.** 페이즈에, 연구실에서만 한다.
  */
 export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | null; act: GameActions; onSaid: (t: string) => void }) {
   const { busy, run } = useRun(onSaid)
@@ -62,9 +64,6 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
       {/* 방 이름은 바로 위 제목이 이미 말한다. 여기서는 서 있는 자리에서만
           되는 일이라는 것만 밝힌다 */}
       <span className="sc-ac__where">{standingOn ? '선 자리에서' : '걷는 중'}</span>
-      <button disabled={busy || !standingOn} onClick={() => run('연구', () => act.research(standingOn as TileId))}>
-        연구 <em>{ACTION_TOKEN_COST.research}</em>
-      </button>
       <button disabled={busy || !standingOn} onClick={() => run('생산', () => act.produce(standingOn as TileId))}>
         생산 <em>{ACTION_TOKEN_COST.produce}</em>
       </button>
@@ -73,7 +72,7 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
 }
 
 export interface QuickProps {
-  /** 서버가 아는 내가 선 방. 연구·생산·깃발·탐색이 전부 여기에 걸린다. */
+  /** 서버가 아는 내가 선 방. 생산·깃발·탐색이 전부 여기에 걸린다. */
   standingOn: TileId | null
   /** 화면에서 내가 선 방. 복도에 있으면 null 이다. */
   standingRoom: TileId | null
@@ -136,9 +135,6 @@ export function QuickActions({
 
   return (
     <div className="sc-pl__quick" role="group" aria-label="할 수 있는 일">
-      <button disabled={busy || walking} onClick={() => run('연구', () => act.research(standingOn as TileId))}>
-        연구 <em>{ACTION_TOKEN_COST.research}</em>
-      </button>
       <button disabled={busy || walking} onClick={() => run('생산', () => act.produce(standingOn as TileId))}>
         생산 <em>{ACTION_TOKEN_COST.produce}</em>
       </button>

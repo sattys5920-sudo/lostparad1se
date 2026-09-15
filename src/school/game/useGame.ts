@@ -190,7 +190,6 @@ export function gameActions(gameId: string) {
       callServer('planCommute', { ...g, tileId, plantFlag }),
     plantFlag: (tileId: TileId) => callServer('plantFlag', { ...g, tileId }),
 
-    research: (tileId: TileId) => callServer('research', { ...g, tileId }),
     scout: (tileId: TileId) => callServer('scout', { ...g, tileId }),
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),
     sabotage: (tileId: TileId, kind: string) => callServer('sabotage', { ...g, tileId, kind }),

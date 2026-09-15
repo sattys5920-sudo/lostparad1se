@@ -174,11 +174,18 @@ export const RESEARCH_PHASES_WITH_PLANT = 0
  * 된다. 발전소를 쥐면 한 점 싸진다.
  */
 export const KNOWLEDGE_PER_RESEARCH = 2
-export const KNOWLEDGE_PER_RESEARCH_WITH_PLANT = 1
+export const KNOWLEDGE_PER_RESEARCH_OWNER = 1
 
-/** 이번 연구에 드는 지식. 발전소를 쥐고 있으면 한 점 싸다. */
-export const researchKnowledge = (hasPlant: boolean): number =>
-  hasPlant ? KNOWLEDGE_PER_RESEARCH_WITH_PLANT : KNOWLEDGE_PER_RESEARCH
+/**
+ * 이번 연구에 드는 지식.
+ *
+ * **연구실을 차지한 팀은 한 점, 남은 두 점이다.** 그리고 남이 낸 두
+ * 점은 사라지지 않고 **연구실 주인 팀의 금고로 들어간다** — 연구실을
+ * 쥔다는 것은 남의 연구로 먹고산다는 뜻이다. 아무도 안 쥐고 있으면
+ * 받을 팀이 없어 그냥 사라진다.
+ */
+export const researchKnowledge = (ownsLab: boolean): number =>
+  ownsLab ? KNOWLEDGE_PER_RESEARCH_OWNER : KNOWLEDGE_PER_RESEARCH
 
 export type RoomKind = 'normal' | 'narrow' | 'lab' | 'plant'
 
@@ -205,7 +212,10 @@ export const KIND_BY_TIER: Record<Tier, RoomKind> = {
   base: 'normal',
   zone1: 'normal',
   gate: 'narrow',
-  cross: 'lab',
+  // 교차로는 지나다니는 길목이라 넓다. 전에는 여기가 연구실이었는데,
+  // 연구실을 따로 한 칸 만들면서 셋 다 평범한 방으로 돌아갔다
+  cross: 'normal',
+  lab: 'lab',
   core: 'normal',
   plaza: 'plant',
   // 계단은 좁다. 둘이 서면 길이 막힌다
@@ -258,12 +268,27 @@ export interface Robot {
   carriedBy: string | null
 }
 
+/**
+ * 걸어 둔 연구 한 건.
+ *
+ * **낸 값을 그대로 적어 둔다.** 불발되면 돌려줘야 하는데, 그사이
+ * 연구실 주인이 바뀌면 지금 값으로는 얼마를 누구에게 돌려줄지 알
+ * 수가 없다 — 남의 일로 손해를 보거나 이득을 본다.
+ */
+export interface PendingResearch {
+  playerId: string
+  /** 걸 때 낸 지식. */
+  knowledge: number
+  /** 그 지식을 받은 팀. 우리 연구실이었으면 아무도 안 받았다. */
+  paidTo: TeamId | null
+}
+
 export interface PhaseState {
   people: readonly Person[]
   robots: readonly Robot[]
   owners: Readonly<Partial<Record<TileId, TeamId | null>>>
   /** 지난 페이즈에 연구를 건 사람들. 이번 페이즈 끝에 로봇이 된다. */
-  pendingResearch: readonly string[]
+  pendingResearch: readonly PendingResearch[]
   /** 이번 페이즈에 방해당한 사람·로봇. 점령 판정에서 0으로 센다. */
   zeroedPeople: readonly string[]
   zeroedRobots: readonly string[]
@@ -645,22 +670,39 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     case 'research': {
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       if (ROOM_KIND[mine.tileId] !== 'lab') return no('연구실에서만 연구할 수 있다.')
-      if (state.pendingResearch.includes(playerId)) return no('이미 연구를 걸어 두었다.')
+      if (state.pendingResearch.some((r) => r.playerId === playerId)) {
+        return no('이미 연구를 걸어 두었다.')
+      }
       // 걸어 둔 연구도 자리를 잡아 둔다. 안 그러면 넷이 한꺼번에 걸고
       // 넷 다 완성되어 한도를 넘는다
-      const coming = state.pendingResearch.filter((id) => state.people.find((q) => q.playerId === id)?.team === mine.team)
+      const coming = state.pendingResearch.filter(
+        (r) => state.people.find((q) => q.playerId === r.playerId)?.team === mine.team,
+      )
       if (robotsOfTeam(state, mine.team) + coming.length >= ROBOTS_PER_TEAM) {
         return no(`로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`)
       }
-      // 발전소를 쥔 팀은 한 점 싸고, 그 자리에서 로봇이 나온다
+      // 발전소를 쥔 팀은 그 자리에서 로봇이 나온다. 값과는 상관없다
       const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && state.owners[t.id] === mine.team)
+      // 값은 **이 연구실을 누가 쥐고 있느냐**로 갈린다
+      const landlord = state.owners[mine.tileId] ?? null
+      const ownsLab = landlord === mine.team
       // **지식이 모자라면 고를 수 없다.** 토큰도 안 든다
-      const need = researchKnowledge(hasPlant)
+      const need = researchKnowledge(ownsLab)
       const purse = vaultOf(state, mine.team)
       if (purse.knowledge < need) return no(`지식이 모자란다. ${need}점이 든다.`)
       // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 금고로 셋이
       // 더 걸어서 없는 지식으로 넷이 연구한 판이 된다
-      const paid = { ...state.vaults, [mine.team]: { ...purse, knowledge: purse.knowledge - need } }
+      const paidTo = ownsLab ? null : landlord
+      let paid: Partial<Record<TeamId, Vault>> = {
+        ...state.vaults,
+        [mine.team]: { ...purse, knowledge: purse.knowledge - need },
+      }
+      // 남의 연구실이면 낸 값이 주인 팀 금고로 들어간다
+      if (paidTo) {
+        const his = paid[paidTo] ?? EMPTY_VAULT
+        paid = { ...paid, [paidTo]: { ...his, knowledge: his.knowledge + need } }
+      }
+      const queued: PendingResearch = { playerId, knowledge: need, paidTo }
 
       if (!hasPlant) {
         mine.tokens -= cost
@@ -673,7 +715,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
             people,
             robots,
             vaults: paid,
-            pendingResearch: [...state.pendingResearch, playerId],
+            pendingResearch: [...state.pendingResearch, queued],
           },
         }
       }
@@ -766,11 +808,9 @@ export function settle(state: PhaseState): SettleResult {
   const refund = new Map<string, number>()
   /** 불발이면 지식도 같이 돌려준다. 걸 때 뺐으므로 도로 넣어야 한다. */
   const vaults: Partial<Record<TeamId, Vault>> = { ...state.vaults }
-  /** 발전소를 쥔 팀인가. 걸 때와 같은 값으로 돌려줘야 액수가 맞는다. */
-  const plantOf = (team: TeamId) =>
-    TILES.some((t) => ROOM_KIND[t.id] === 'plant' && state.owners[t.id] === team)
   let made = 0
-  for (const id of state.pendingResearch) {
+  for (const r of state.pendingResearch) {
+    const id = r.playerId
     const p = state.people.find((q) => q.playerId === id)
     // 연구를 건 사람이 걷는 중이면 로봇이 설 자리가 없다. 다음으로 미룬다
     if (!p || p.tileId === null) continue
@@ -779,10 +819,15 @@ export function settle(state: PhaseState): SettleResult {
     // 달라서 다음으로 미루지도 않는다 — 한도는 다음 페이즈에도 그대로다
     if (botsOf(p.team) >= ROBOTS_PER_TEAM || botsAt(p.tileId) + 1 > ROBOTS_PER_ROOM) {
       refund.set(id, (refund.get(id) ?? 0) + ACT_COST.research)
-      // 지식도 돌려준다. **걸 때와 같은 발전소 상태로 센다** — 그
-      // 사이에 발전소를 뺏겼다고 덜 돌려주면 남의 일로 손해를 본다
+      // 지식도 **걸 때 적어 둔 액수 그대로** 돌린다. 지금 값으로 세면
+      // 그사이 연구실 주인이 바뀐 만큼 남의 일로 손해를 본다.
+      // 주인에게 냈던 것이면 주인 금고에서 도로 빼서 돌려준다
       const back = vaults[p.team] ?? EMPTY_VAULT
-      vaults[p.team] = { ...back, knowledge: back.knowledge + researchKnowledge(plantOf(p.team)) }
+      vaults[p.team] = { ...back, knowledge: back.knowledge + r.knowledge }
+      if (r.paidTo) {
+        const his = vaults[r.paidTo] ?? EMPTY_VAULT
+        vaults[r.paidTo] = { ...his, knowledge: Math.max(0, his.knowledge - r.knowledge) }
+      }
       log.push({ kind: 'researchFizzled', playerId: id, tileId: p.tileId })
       continue
     }

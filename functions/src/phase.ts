@@ -21,6 +21,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import {
   ACT_COST,
+  KNOWLEDGE_PER_RESEARCH,
   MOVE_MINUTES,
   PHASES_PER_DAY,
   PHASE_MINUTES,
@@ -35,6 +36,7 @@ import {
   settle,
   type Act,
   type ActionKind,
+  type PendingResearch,
   type PhaseState,
   type Person,
   type Robot,
@@ -53,6 +55,7 @@ import { scatterSlips } from './slips'
 import { foldQuizzes, scatterQuizzes } from './quiz'
 import { settleBallots } from './ballot'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
+import { drawForTeam } from './card'
 import { note, noteAll } from './records'
 import { gameRef, requireUid } from './index'
 
@@ -82,11 +85,28 @@ interface HiddenPhase {
   disguised: string[]
   zeroedPeople: string[]
   zeroedRobots: string[]
-  pendingResearch: string[]
+  pendingResearch: PendingResearch[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: string[]
   /** 이번 페이즈에 무엇이든 한 사람. 결석 보정이 이 목록을 본다. */
   actedBy: string[]
+}
+
+/**
+ * 걸어 둔 연구를 읽어 온다.
+ *
+ * **옛 판은 사람 이름만 적어 두었다.** 연구값이 연구실 주인에 따라
+ * 갈리기 전에는 값을 적을 필요가 없었다. 그때 저장된 것을 만나면
+ * 「아무에게도 안 낸 두 점」으로 친다 — 그래야 불발 환급이 터지지
+ * 않는다.
+ */
+function queued(raw: unknown): PendingResearch[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((r) =>
+    typeof r === 'string' ?
+      { playerId: r, knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }
+    : (r as PendingResearch),
+  )
 }
 
 const EMPTY_HIDDEN: HiddenPhase = {
@@ -180,7 +200,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       people,
       robots,
       owners,
-      pendingResearch: h.pendingResearch,
+      pendingResearch: queued(h.pendingResearch),
       zeroedPeople: h.zeroedPeople,
       zeroedRobots: h.zeroedRobots,
       disguised: h.disguised,
@@ -326,7 +346,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   })
   // 지난 페이즈의 위장·방해는 여기서 지운다. 연구 대기는 남긴다 —
   // 이번 페이즈가 닫힐 때 로봇이 될 것들이다
-  batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: game.pendingResearch ?? [] })
+  batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
 
   await batch.commit()
   // 떠나는 순간 그 방의 체류가 끝난다. 걷는 동안은 어느 방에도 없다 —
@@ -397,7 +417,7 @@ export const phaseAct = onCall<{
         return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
       }),
       owners: Object.fromEntries(tiles.docs.map((d) => [d.id, (d.data() as TileDoc).ownerTeam ?? null])),
-      pendingResearch: h.pendingResearch,
+      pendingResearch: queued(h.pendingResearch),
       zeroedPeople: h.zeroedPeople,
       zeroedRobots: h.zeroedRobots,
       disguised: h.disguised,
@@ -485,6 +505,7 @@ export const phaseAct = onCall<{
       subjectId: bot.made.id,
       ownerId: uid,
     })
+    await researchLanded(gameId, bot.made.team, uid, game.phaseNow.day)
   }
   if (bot.smashed) {
     await note(gameId, 'robotSmashed', nowMs, { id: uid, team: bot.smashed.byTeam }, {
@@ -499,6 +520,22 @@ export const phaseAct = onCall<{
   await refreshViews(gameId)
   return { kind, tokens: left, walking: leftFor !== null }
 })
+
+/**
+ * 연구가 하나 끝났다. **팀의 연구 단계를 올리고 카드를 한 장 준다.**
+ *
+ * 전에는 이 둘이 자유 시간의 연구에 붙어 있었다. 연구를 페이즈로
+ * 옮기면서 같이 왔다 — 안 옮겼으면 연구 단계는 영영 0이고(점수판의
+ * 「발전」 줄과 「학구파」 목표가 죽는다) 카드는 나올 데가 없어진다.
+ */
+async function researchLanded(gameId: string, team: TeamId, playerId: string, day: number) {
+  const ref = gameRef(gameId).collection('teams').doc(team)
+  const snap = await ref.get()
+  const tier = ((snap.data()?.researchTier as number | undefined) ?? 0) + 1
+  await ref.update({ researchTier: tier })
+  // 손패가 차 있으면 그대로 사라진다
+  await drawForTeam(gameId, team, playerId, day)
+}
 
 /** 페이즈가 지금 어떤지. **무엇을 했는지는 안 나간다.** */
 export const phaseNow = onCall<{ gameId: string }>(async (req) => {
@@ -617,6 +654,13 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
         }
       }),
   )
+
+  // 걸어 둔 연구가 끝났다. 단계를 올리고 카드를 준다
+  for (const l of out.log) {
+    if (l.kind !== 'researchDone' || !l.playerId) continue
+    const who = state.people.find((p) => p.playerId === l.playerId)
+    if (who) await researchLanded(gameId, who.team, l.playerId, game.phaseNow.day)
+  }
 
   // 그날 마지막 페이즈면 내일의 투명인간을 고른다. **득표수는 남기지
   // 않는다** — 발표되는 것은 결과 한 줄뿐이다

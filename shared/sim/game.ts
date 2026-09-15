@@ -18,7 +18,8 @@ import {
 } from '../rules/board'
 import { addActiveSeconds, dayNumber, secondsIntoSeoulDay, seoulTimeOn } from '../rules/clock'
 import { defenseOf, gain, pay, type TileState } from '../rules/resources'
-import { canPlantFlag, ownerLookup, researchCost, scoutYield } from '../rules/actions'
+import { canPlantFlag, ownerLookup, scoutYield } from '../rules/actions'
+import { ROOM_KIND, researchKnowledge } from '../rules/occupy'
 import { flagCost, flagDurationSec, flagTargetOf, halveRemaining, resolveFlag } from '../rules/flag'
 import { coreOpen, inLastHours } from '../rules/fragments'
 import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenState } from '../rules/tokens'
@@ -445,16 +446,21 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       }
     }
 
-    // 연구
-    if (here.ownerTeam === p.team && rnd() < 0.15) {
-      const cost = researchCost(team.researchTier)
-      const left = pay(team.resources, cost)
+    // 연구. **연구실에서만 한다.** 차지한 팀은 지식 한 점, 남은 두 점을
+    // 주인 팀 금고에 낸다 — 판이 연구실 하나로 돌아가는지를 여기서 본다
+    if (ROOM_KIND[p.tileId] === 'lab' && rnd() < 0.5) {
+      const owner = here.ownerTeam
+      const need = researchKnowledge(owner === p.team)
+      const left = pay(team.resources, { knowledge: need })
       if (left) {
         const spent = spendToken(team.tokens, p.id)
         if (spent.ok) {
           team.tokens = spent.state
           team.resources = left
           team.researchTier += 1
+          if (owner && owner !== p.team) {
+            teams[owner].resources = gain(teams[owner].resources, { knowledge: need })
+          }
           return
         }
       }

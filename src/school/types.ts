@@ -339,8 +339,8 @@ export type TileId =
   | 'baseB'
   | 'baseC'
   | 'baseD'
-  | 'classroom' // 교실
-  | 'hallway' // 복도
+  | 'classroom' // 상점
+  | 'hallway' // 가사실
   | 'library' // 도서관
   | 'gym' // 체육관
   | 'scienceRoom' // 과학실
@@ -351,15 +351,15 @@ export type TileId =
   | 'clubRoom' // 동아리실
   | 'garden' // 정원
   | 'storage' // 창고
-  | 'oldBuilding' // 구관
+  | 'oldBuilding' // 경비실
+  | 'labRoom' // 연구실 — 학교에 하나뿐이다
   | 'playground' // 운동장 — 핵심 지역
   | 'auditorium' // 강당 — 핵심 지역
   | 'broadcastRoom' // 방송실 — 핵심 지역
   | 'studentCouncil' // 학생회실 — 핵심 지역
-  | 'centralPlaza' // 중앙광장 — 핵심 지역
-  | 'mainBuilding' // 본관 — 교차로
-  | 'newBuilding' // 신관 — 교차로
-  | 'annex' // 별관 — 교차로
+  | 'centralPlaza' // 2-3 교실 — 핵심 지역
+  | 'newBuilding' // 무용실 — 교차로
+  | 'annex' // 양호실 — 교차로
 
 export interface TileSpec {
   id: TileId

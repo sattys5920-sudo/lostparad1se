@@ -23,8 +23,8 @@ import { TEAM_IDS, type TeamId } from './v2'
 const byTier = (tier: string) => TILES.filter((t) => t.tier === tier)
 
 describe('판', () => {
-  it('방 스물넷과 계단 여섯이다', () => {
-    expect(TILES.filter((t) => t.tier !== 'stair')).toHaveLength(24)
+  it('방 스물다섯과 계단 여섯이다', () => {
+    expect(TILES.filter((t) => t.tier !== 'stair')).toHaveLength(25)
     expect(byTier('stair')).toHaveLength(6)
   })
 
@@ -34,6 +34,8 @@ describe('판', () => {
     expect(byTier('gate')).toHaveLength(4)
     expect(byTier('cross')).toHaveLength(3)
     expect(byTier('plaza')).toHaveLength(1)
+    // 연구실은 학교에 하나뿐이다. 연구가 여기서만 되므로 둘이면 판이 갈린다
+    expect(byTier('lab')).toHaveLength(1)
   })
 
   it('id 가 겹치지 않는다', () => {
@@ -165,6 +167,32 @@ describe('걸어서 닿는다', () => {
     expect(stepsBetween('centralPlaza', 'library')).toBe(2)
     // 2-3 교실 → 미술실 → 무용실 → 방송실 → 학생회실
     expect(stepsBetween('centralPlaza', 'studentCouncil')).toBe(4)
+  })
+})
+
+describe('연구실', () => {
+  const lab = TILES.find((t) => t.tier === 'lab') as (typeof TILES)[number]
+
+  it('학교에 하나뿐이다', () => {
+    expect(TILES.filter((t) => t.tier === 'lab')).toHaveLength(1)
+    expect(lab.name).toBe('연구실')
+  })
+
+  it('어느 팀도 시작부터 쥐고 있지 않다', () => {
+    for (const team of TEAM_IDS as TeamId[]) {
+      expect(startingTiles(team), team).not.toContain(lab.id)
+    }
+  })
+
+  it('계단 하나로만 드나든다 — 제 땅으로 감쌀 수 없는 막다른 방이다', () => {
+    expect(ADJACENCY[lab.id]).toHaveLength(1)
+    expect(TILE_BY_ID[ADJACENCY[lab.id][0]].tier).toBe('stair')
+  })
+
+  it('네 팀 다 걸어서 닿는다', () => {
+    for (const team of TEAM_IDS as TeamId[]) {
+      expect(stepsBetween(BASE_OF[team], lab.id), team).toBeLessThan(Number.POSITIVE_INFINITY)
+    }
   })
 })
 

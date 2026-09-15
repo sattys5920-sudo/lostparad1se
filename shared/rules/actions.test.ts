@@ -7,13 +7,12 @@ import {
   checkSabotage,
   checkStand,
   ownerLookup,
-  researchCost,
   scoutAlreadyToday,
   scoutYield,
   type ActionKind,
 } from './actions'
 import type { TileState } from './resources'
-import { RESEARCH_BASE_KNOWLEDGE, SABOTAGE_KNOWLEDGE, SCOUT_GAIN, type TeamId } from './v2'
+import { SABOTAGE_KNOWLEDGE, SCOUT_GAIN, type TeamId } from './v2'
 
 /** A는 기지와 1구역, B는 동아리실 하나. 나머지는 빈 칸이다. */
 const OWNERS: Record<string, TeamId | null> = {
@@ -44,11 +43,15 @@ describe('서 있어야 할 곳', () => {
     expect(stand('build', 'clubRoom', 'clubRoom').reason).toBe('notOurTile')
   })
 
-  it('연구와 생산은 우리 땅 아무 데서나 한다', () => {
-    expect(stand('research', 'hallway', 'hallway').ok).toBe(true)
+  // 연구는 여기 없다. 페이즈에, 연구실에서만 한다(occupy.ts)
+  it('생산은 우리 땅 아무 데서나 한다', () => {
     // 대상 칸이 달라도 우리 땅 위면 된다
     expect(stand('produce', 'classroom', 'hallway').ok).toBe(true)
     expect(stand('produce', 'library', 'library').reason).toBe('notOurZone')
+  })
+
+  it('자유 시간에 걸 수 있는 행동에 연구는 없다', () => {
+    expect(Object.keys(ACTION_TOKEN_COST)).not.toContain('research')
   })
 
   it('탐색은 우리 땅이 아닌 곳에서 한다', () => {
@@ -105,13 +108,6 @@ describe('깃발을 꽂을 수 있는 칸', () => {
 
   it('봉쇄된 칸에는 못 꽂는다', () => {
     expect(plant('library', { blockaded: true }).reason).toBe('blockaded')
-  })
-})
-
-describe('연구', () => {
-  it('단계가 오를수록 비싸진다', () => {
-    expect(researchCost(0)).toEqual({ knowledge: RESEARCH_BASE_KNOWLEDGE })
-    expect(researchCost(3)).toEqual({ knowledge: RESEARCH_BASE_KNOWLEDGE + 3 })
   })
 })
 

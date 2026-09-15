@@ -416,6 +416,14 @@ const SLOTS_BY_TIER: Partial<Record<Tier, Gen>> = {
     ...along(h - 2, w, 3, 1, 1),
     ...along(h - 1, w, 2, 2),
   ],
+  /** 연구실 — 실험대가 줄지어 선다. 학교에서 하나뿐인 방이라 눈에 띄어야 한다. */
+  lab: (w, h) => [
+    ...along(1, w, 3, 0, 1),
+    ...along(Math.floor(h / 2), w, 3, 0, 1),
+    ...along(h - 2, w, 3, 1, 1),
+    ...down(0, h, 3, 2),
+    ...down(w - 1, h, 3, 2),
+  ],
   /** 교차로 — 지나가는 곳이라 네 귀퉁이만 쓴다. */
   cross: (w, h) => [
     [0, 0, 0],
@@ -472,6 +480,7 @@ const PROPS: Partial<Record<TileId, PropKind[]>> = {
   broadcastRoom: ['console', 'cabinet'],
   studentCouncil: ['meetingTable', 'shelf'],
   centralPlaza: ['desk', 'desk', 'plant'],
+  labRoom: ['labBench', 'cabinet', 'tank'],
 }
 
 const pickProp = (id: TileId, g: number): PropKind => PROPS[id]?.[g] ?? 'box'
@@ -509,6 +518,7 @@ const MARKS: [TileId, number, number, MarkKind][] = [
   ['auditorium', 6, 5, 'stain'],
   ['broadcastRoom', 6, 5, 'stain'],
   ['studentCouncil', 6, 5, 'crack'],
+  ['labRoom', 6, 4, 'stain'],
   ['centralPlaza', 6, 4, 'candle'],
   ['centralPlaza', 6, 6, 'flowers'],
 ]

@@ -21,7 +21,6 @@ import {
   checkSabotage,
   checkStand,
   ownerLookup,
-  researchCost,
   scoutAlreadyToday,
   scoutYield,
   type ActionKind,
@@ -38,7 +37,6 @@ import {
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import type { SabotageDoc, TeamDoc, TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { drawForTeam } from './card'
 import { freshNow, myPawn, requireAwake, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
 
@@ -132,35 +130,6 @@ function commit(
   batch.set(ref.collection('events').doc(), event)
   return batch
 }
-
-// ── 연구 ────────────────────────────────────────────────────────
-
-/** 우리 땅 어디서나. 단계가 오를수록 비싸진다. */
-export const research = onCall<{ gameId: string; tileId: TileId }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId, tileId } = req.data
-  const c = await begin(gameId, uid, 'research', tileId)
-
-  const cost = researchCost(c.teamDoc.researchTier)
-  const left = pay(c.teamDoc.resources, cost)
-  if (!left) throw new HttpsError('failed-precondition', '지식이 모자라다.')
-
-  const tier = c.teamDoc.researchTier + 1
-  const batch = commit(gameId, c.team, c.spentBox, left, {
-    atMs: c.nowMs,
-    day: c.day,
-    kind: 'research',
-    team: c.team,
-    playerId: uid,
-    detail: { tier, cost },
-  })
-  batch.update(gameRef(gameId).collection('teams').doc(c.team), { researchTier: tier })
-  await batch.commit()
-  // 연구는 카드 한 장을 준다. 손패가 차 있으면 그대로 사라진다
-  const card = await drawForTeam(gameId, c.team, uid, c.day)
-  await refreshViews(gameId)
-  return { tier, cost, card }
-})
 
 // ── 탐색 ────────────────────────────────────────────────────────
 

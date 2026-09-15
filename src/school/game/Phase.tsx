@@ -60,7 +60,7 @@ const LABEL: Record<ActionKind, string> = {
 
 const WHAT: Record<ActionKind, string> = {
   move: `옆방으로 한 칸. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다.`,
-  research: '다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
+  research: '연구실에서만. 다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
   summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다.',
   disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
   disguise: '다른 팀에게 내 인원수가 2명으로 보인다. 판정은 그대로다.',
@@ -83,9 +83,12 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
 
   const here: TileId | null = hereIn ? asRoom(hereIn) : null
   const hereName = here ? TILE_BY_ID[here].name : '걷는 중'
-  // 발전소를 쥐면 연구가 한 점 싸고 그 자리에서 로봇이 나온다.
+  // 발전소를 쥐면 연구한 로봇이 그 자리에서 바로 나온다.
   // 방 주인은 누구나 보이는 값이라 화면이 직접 세도 새는 것이 없다
   const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && tiles[t.id]?.ownerTeam === me.team)
+  /** 지금 선 연구실을 누가 쥐고 있는가. 값이 여기서 갈린다. */
+  const labOwner = here && ROOM_KIND[here] === 'lab' ? (tiles[here]?.ownerTeam ?? null) : null
+  const ownsLab = labOwner === me.team
   const tokens = view?.myTokens ?? 0
   const pawns = view?.visiblePawns ?? []
   const robots = view?.visibleRobots ?? []
@@ -111,7 +114,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     if (kind === 'research') {
       if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
-      const need = researchKnowledge(hasPlant)
+      const need = researchKnowledge(ownsLab)
       if ((view?.myVault?.knowledge ?? 0) < need) return `지식이 모자란다. ${need}점이 든다.`
       if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`
     }
@@ -214,12 +217,17 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       </ul>
 
       <p className="sc-ph__note">
-        연구 한 번에 토큰 {ACT_COST.research} · 지식 <b>{researchKnowledge(hasPlant)}</b>
-        {hasPlant && ' (발전소를 쥐어 한 점 싸다)'}
+        연구 한 번에 토큰 {ACT_COST.research} · 지식 <b>{researchKnowledge(ownsLab)}</b>
+        {ownsLab ?
+          ' (우리 연구실이라 한 점)'
+        : labOwner ?
+          ` (${labOwner}팀 연구실이다 — 낸 지식은 그 팀 금고로 간다)`
+        : ''}
         {' · '}금고의 지식 {view?.myVault?.knowledge ?? 0}
       </p>
       <p className="sc-ph__note">
         우리 팀 로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b>
+        {hasPlant && ' · 발전소를 쥐어 그 자리에서 바로 난다'}
         {' · '}데리고 있는 것 {view?.myCarriedRobots ?? 0}기(최대 {MAX_CARRIED_ROBOTS})
         {' · '}한 방에 {ROBOTS_PER_ROOM}기까지
       </p>
