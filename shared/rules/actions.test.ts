@@ -86,9 +86,9 @@ describe('깃발을 꽂을 수 있는 칸', () => {
   })
 
   it('우리 영역과 맞닿아야 한다', () => {
-    // 교실(A) 옆 도서관은 맞닿아 있다
-    expect(plant('library').ok).toBe(true)
-    // 반대편 과학실은 닿지 않는다
+    // 상점(A 시작 칸) 옆 정원은 맞닿아 있다
+    expect(plant('garden').ok).toBe(true)
+    // 다른 층의 과학실은 닿지 않는다
     expect(plant('scienceRoom').reason).toBe('notTouchingUs')
   })
 

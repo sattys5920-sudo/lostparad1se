@@ -15,9 +15,8 @@ import {
   LAST_HOURS_DAY,
   LAST_HOURS_START_HOUR,
   TOTAL_DAYS,
-  type TeamId,
 } from './v2'
-import { ADJACENCY, TILE_BY_ID, zoneOwner, type TileId } from './board'
+import { TILE_BY_ID, type TileId } from './board'
 import { dayNumber, secondsIntoSeoulDay, seoulTimeOn } from './clock'
 
 /** 그날 열리는 칸. 아직 열리지 않은 핵심에는 깃발을 꽂을 수 없다. */
@@ -94,25 +93,3 @@ export function isOver(startedAtMs: number, nowMs: number): boolean {
 
 // ── 개방 구조 확인용 ────────────────────────────────────────────
 
-/**
- * 그날 열린 핵심 중 그 팀의 교차로와 맞닿은 것이 있는가.
- *
- * 규칙 원문이 "어느 날이든 모든 팀이 열린 핵심 하나씩과 맞닿는다"고
- * 말한다. 시험이 이걸로 확인한다.
- */
-export function touchesOpenCore(team: TeamId, day: number): boolean {
-  const open = openTilesBy(day)
-  return [...open].some((core) =>
-    ADJACENCY[core].some((n) => TILE_BY_ID[n].tier === 'cross' && crossOwner(n) === team),
-  )
-}
-
-/** 그 교차로는 어느 팀 몫인가. 붙어 있는 1구역의 주인을 따른다. */
-export function crossOwner(tileId: TileId): TeamId | null {
-  if (TILE_BY_ID[tileId].tier !== 'cross') return null
-  for (const n of ADJACENCY[tileId]) {
-    const owner = zoneOwner(n)
-    if (owner) return owner
-  }
-  return null
-}

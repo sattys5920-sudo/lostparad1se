@@ -148,12 +148,12 @@ describe('A의 시선과 그 자리', () => {
 })
 
 describe('A의 기억', () => {
-  it('규칙이 세는 열세 칸과 정확히 같다', () => {
+  it('규칙이 세는 열두 칸과 정확히 같다', () => {
     expect([...MEMORY_TILE_IDS].sort()).toEqual([...MEMORY_TILES].sort())
   })
 
-  it('열세 장면 모두 문장이 있다', () => {
-    expect(Object.keys(MEMORIES)).toHaveLength(13)
+  it('열두 장면 모두 문장이 있다', () => {
+    expect(Object.keys(MEMORIES)).toHaveLength(12)
     for (const [tile, text] of Object.entries(MEMORIES)) {
       expect(text.length, tile).toBeGreaterThan(10)
     }

@@ -116,7 +116,8 @@ export interface PlantInput {
  */
 export function canPlantFlag(input: PlantInput): { ok: boolean; reason: PlantRefusal | null } {
   const tier = TILE_BY_ID[input.tileId].tier
-  if (tier === 'base') return { ok: false, reason: 'baseTile' }
+  // 기지와 계단에는 아무도 깃발을 못 꽂는다
+  if (tier === 'base' || tier === 'stair') return { ok: false, reason: 'baseTile' }
   if ((tier === 'core' || tier === 'plaza') && !input.coreOpen) {
     return { ok: false, reason: 'coreClosed' }
   }

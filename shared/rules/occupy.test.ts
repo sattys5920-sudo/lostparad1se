@@ -89,29 +89,29 @@ const plant = TILES.find((t) => ROOM_KIND[t.id] === 'plant') as (typeof TILES)[n
 describe('토큰이 한 페이즈의 전부다', () => {
   it('다른 방에 들어가면 토큰이 하나 준다', () => {
     const s0 = board({ people: [person('a', 'A', 'baseA')] })
-    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'classroom' })
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
     // **바로 도착하지 않는다.** 나가는 데 5분, 들어가는 데 5분
     expect(at(s1, 'a').tileId).toBeNull()
-    expect(at(s1, 'a').toTile).toBe('classroom')
+    expect(at(s1, 'a').toTile).toBe('cafeteria')
     expect(at(s1, 'a').tokens).toBe(TOKENS_PER_PHASE - ACT_COST.move)
     const s2 = land(s1, 'a')
-    expect(at(s2, 'a').tileId).toBe('classroom')
+    expect(at(s2, 'a').tileId).toBe('cafeteria')
     expect(at(s2, 'a').toTile).toBeNull()
   })
 
   it('걷는 중에는 아무 방에도 없다 — 그때 닫히면 아무 데도 못 센다', () => {
     let s = board({ people: [person('a', 'A', 'library')], owners: { library: null } })
-    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    s = must(s, 'a', { kind: 'move', targetTile: 'clubRoom' })
     expect(settle(s).next.owners.library).toBeNull()
-    expect(settle(s).next.owners.classroom).toBeNull()
+    expect(settle(s).next.owners.clubRoom).toBeNull()
   })
 
   it('토큰이 떨어지면 더는 못 움직인다', () => {
     let s = board({ people: [{ ...person('a', 'A', 'baseA'), tokens: 2 }] })
-    s = land(must(s, 'a', { kind: 'move', targetTile: 'classroom' }), 'a')
-    s = land(must(s, 'a', { kind: 'move', targetTile: 'library' }), 'a')
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'annex' }), 'a')
     expect(at(s, 'a').tokens).toBe(0)
-    const out = doAct(s, 'a', { kind: 'move', targetTile: 'artRoom' })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'baseB' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('토큰')
   })
@@ -144,14 +144,14 @@ describe('움직임', () => {
     // 급식실은 관문이라 정원이 둘이다
     expect(capacityOf('cafeteria')).toBe(ROOM_CAPACITY.narrow)
     let s = board({
-      // 창고는 급식실 옆방이다. 정원은 붙어 있지 않다
-      people: [person('x', 'A', 'cafeteria'), person('y', 'A', 'cafeteria'), person('a', 'B', 'storage')],
+      // 체육관은 복도 건너 급식실 맞은편이다
+      people: [person('x', 'A', 'cafeteria'), person('y', 'A', 'cafeteria'), person('a', 'B', 'gym')],
     })
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('꽉 찼다')
     // 하나가 비키면 들어간다. 나가는 순간 자리가 난다
-    s = must(s, 'y', { kind: 'move', targetTile: 'musicRoom' })
+    s = must(s, 'y', { kind: 'move', targetTile: 'annex' })
     s = land(must(s, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
     expect(at(s, 'a').tileId).toBe('cafeteria')
   })
@@ -161,8 +161,8 @@ describe('움직임', () => {
       people: [person('a', 'A', 'baseA')],
       robots: [robot('r1', 'A', 'baseA', 'a')],
     })
-    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'classroom' })
-    expect(s1.robots[0].tileId).toBe('classroom')
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
+    expect(s1.robots[0].tileId).toBe('cafeteria')
   })
 
   it('로봇은 정원을 차지하지 않는다 — 사람만 센다', () => {
@@ -170,7 +170,7 @@ describe('움직임', () => {
     // 전에는 로봇이 자리를 먹어서, 좁은 방에 로봇 둘을 세워 두면
     // 아무도 못 들어갔고 들어가야 부술 수 있으니 영영 그 팀 것이었다
     const s = board({
-      people: [person('a', 'B', 'storage')],
+      people: [person('a', 'B', 'gym')],
       robots: [robot('r1', 'A', 'cafeteria'), robot('r2', 'A', 'cafeteria')],
     })
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
@@ -179,7 +179,7 @@ describe('움직임', () => {
 
   it('사람으로 꽉 찬 방에는 로봇이 없어도 못 간다', () => {
     const s = board({
-      people: [person('x', 'A', 'cafeteria'), person('y', 'A', 'cafeteria'), person('a', 'B', 'storage')],
+      people: [person('x', 'A', 'cafeteria'), person('y', 'A', 'cafeteria'), person('a', 'B', 'gym')],
     })
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(out.ok).toBe(false)
@@ -187,10 +187,10 @@ describe('움직임', () => {
 
   it('저쪽 로봇 자리가 모자라면 넘치는 로봇만 두고 간다', () => {
     const s0 = board({
-      people: [person('a', 'B', 'storage')],
+      people: [person('a', 'B', 'gym')],
       robots: [
-        robot('r1', 'B', 'storage', 'a'),
-        robot('r2', 'B', 'storage', 'a'),
+        robot('r1', 'B', 'gym', 'a'),
+        robot('r2', 'B', 'gym', 'a'),
         robot('mine', 'A', 'cafeteria'),
       ],
     })
@@ -203,14 +203,14 @@ describe('움직임', () => {
     expect(went[0].tileId).toBe('cafeteria')
     expect(stayed).toHaveLength(1)
     // 두고 온 것은 떠난 방에 선다. 걷는 사람을 따라 허공에 뜨지 않는다
-    expect(stayed[0].tileId).toBe('storage')
+    expect(stayed[0].tileId).toBe('gym')
   })
 
   it('로봇이 꽉 찬 방으로도 사람은 간다 — 로봇만 남는다', () => {
     const s0 = board({
-      people: [person('a', 'B', 'storage')],
+      people: [person('a', 'B', 'gym')],
       robots: [
-        robot('r1', 'B', 'storage', 'a'),
+        robot('r1', 'B', 'gym', 'a'),
         robot('x1', 'A', 'cafeteria'),
         robot('x2', 'A', 'cafeteria'),
       ],
@@ -218,7 +218,7 @@ describe('움직임', () => {
     const s1 = land(must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
     expect(at(s1, 'a').tileId).toBe('cafeteria')
     expect(robotsIn(s1, 'cafeteria')).toBe(ROBOTS_PER_ROOM)
-    expect(s1.robots.find((r) => r.id === 'r1')?.tileId).toBe('storage')
+    expect(s1.robots.find((r) => r.id === 'r1')?.tileId).toBe('gym')
   })
 })
 
@@ -295,7 +295,7 @@ describe('로봇', () => {
     })
     s = must(s, 'a', { kind: 'dropRobot' })
     expect(s.robots[0].carriedBy).toBeNull()
-    s = land(must(s, 'a', { kind: 'move', targetTile: 'classroom' }), 'a')
+    s = land(must(s, 'a', { kind: 'move', targetTile: 'clubRoom' }), 'a')
     expect(s.robots[0].tileId).toBe('library')
     // 사람은 떠났지만 로봇이 남아 도서관을 가져간다
     expect(settle(s).next.owners.library).toBe('A')
@@ -593,17 +593,18 @@ describe('판이 네 팀에게 공평하다', () => {
     for (const [, kinds] of byTier) expect(kinds.size).toBe(1)
   })
 
-  it('네 기지에서 중앙광장까지 걸음 수가 같다', () => {
-    const steps = TEAM_IDS.map((team) => {
+  // 전에는 5×5 격자라 네 기지에서 중앙까지 걸음 수가 똑같았다. 층이
+  // 생기면서 그 대칭은 없어졌다 — 대신 **어느 기지에서든 닿기는 한다**
+  it('어느 기지에서든 2-3 교실까지 길이 있다', () => {
+    for (const team of TEAM_IDS) {
       let cur = `base${team}`
       let n = 0
       while (cur !== 'centralPlaza' && n < 20) {
         cur = stepToward(cur, 'centralPlaza') as string
         n += 1
       }
-      return n
-    })
-    expect(new Set(steps).size).toBe(1)
+      expect(cur, `${team}`).toBe('centralPlaza')
+    }
   })
 })
 
@@ -661,7 +662,7 @@ describe('투명인간은 없는 사람이다', () => {
     const s = board({ people: [person('a', 'A', lab3.id)], invisibleId: 'a' })
     expect(doAct(s, 'a', { kind: 'research' }).ok).toBe(true)
     const w = board({ people: [person('a', 'A', 'baseA')], invisibleId: 'a' })
-    expect(doAct(w, 'a', { kind: 'move', targetTile: 'classroom' }).ok).toBe(true)
+    expect(doAct(w, 'a', { kind: 'move', targetTile: 'cafeteria' }).ok).toBe(true)
   })
 })
 
@@ -734,10 +735,10 @@ describe('결석 보정', () => {
 describe('움직인 사람 기록', () => {
   it('성공한 행동은 남고, 거절된 것은 안 남는다', () => {
     const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'B', 'baseB')] })
-    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'classroom' })
+    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(s1.actedBy).toEqual(['a'])
     // 옆방이 아니라 거절된다 — 움직인 것으로 치지 않는다
-    const bad = doAct(s1, 'b', { kind: 'move', targetTile: 'classroom' })
+    const bad = doAct(s1, 'b', { kind: 'move', targetTile: 'musicRoom' })
     expect(bad.ok).toBe(false)
   })
 
@@ -745,7 +746,7 @@ describe('움직인 사람 기록', () => {
     let s = board({ people: [{ ...person('a', 'A', 'baseA'), tokens: 99 }] })
     s = must(s, 'a', { kind: 'disguise' })
     const before = s.actedBy.length
-    s = must(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    s = must(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(s.actedBy).toHaveLength(before)
   })
 

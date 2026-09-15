@@ -1,6 +1,6 @@
 // A의 기억.
 //
-// 다툼이 벌어지는 칸 열세 곳에 A의 기억이 한 장면씩 묻혀 있다. 어떤 팀이
+// 다툼이 벌어지는 칸 열두 곳에 A의 기억이 한 장면씩 묻혀 있다. 어떤 팀이
 // 그 칸을 **처음으로** 가져가면 그 팀 전원에게 열린다. 나중에 뺏은 팀에게는
 // 열리지 않는다 — 먼저 마주한 사람만 안다.
 //
@@ -10,7 +10,7 @@ import { TILES, type TileId } from './board'
 import { MEMORY_TIERS } from './v2'
 import type { TeamId } from './v2'
 
-/** 기억이 묻힌 칸. 관문 4 · 교차로 4 · 핵심 4 · 중앙광장 1 = 열세 곳. */
+/** 기억이 묻힌 칸. 관문 4 · 교차로 3 · 핵심 4 · 2-3 교실 1 = 열두 곳. */
 export const MEMORY_TILES: readonly TileId[] = TILES.filter((t) =>
   MEMORY_TIERS.includes(t.tier),
 ).map((t) => t.id)
@@ -48,7 +48,7 @@ export function openMemory(input: OpenInput): MemoryOpened | null {
   return { tileId: input.tileId, team: input.team, atMs: input.atMs }
 }
 
-/** 그 팀이 지금 읽을 수 있는 기억. 게임이 끝나면 전원이 열세 장면을 다 본다. */
+/** 그 팀이 지금 읽을 수 있는 기억. 게임이 끝나면 전원이 열두 장면을 다 본다. */
 export function memoriesFor(
   opened: readonly MemoryOpened[],
   team: TeamId,

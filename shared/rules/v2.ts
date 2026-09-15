@@ -48,7 +48,13 @@ export function teamSizesOf(roster: readonly { team: TeamId }[]): Record<TeamId,
   return out
 }
 
-export type Tier = 'base' | 'zone1' | 'gate' | 'cross' | 'core' | 'plaza'
+/**
+ * 방의 등급.
+ *
+ * stair 는 계단이다. **아무도 못 가진다** — 깃발도 못 꽂고 점수에도
+ * 안 들어간다(기지와 같다). 다만 좁아서 둘까지만 선다.
+ */
+export type Tier = 'base' | 'zone1' | 'gate' | 'cross' | 'core' | 'plaza' | 'stair'
 
 // ── 시간표 ──────────────────────────────────────────────────────
 

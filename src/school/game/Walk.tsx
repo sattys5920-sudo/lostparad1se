@@ -24,6 +24,7 @@ import {
   propAt,
   roomAt,
   spawnFor,
+  stairHere,
   tileAt,
 } from '../map/world'
 import { PAL, buildSprites, type Dir } from '../map/sprites'
@@ -86,11 +87,15 @@ function isTyping(target: EventTarget | null): boolean {
 const asRoom = (id: string | null | undefined): TileId | null => (id ? (id as TileId) : null)
 const asRooms = (ids: readonly string[]): TileId[] => ids as TileId[]
 
-/** 그 문의 건너편 방. 내가 선 방이 아닌 쪽이다. */
-function acrossFrom(door: { a: TileId; b: TileId }, here: TileId | null): TileId | null {
+/**
+ * 그 문을 지나면 어느 방에 들어가는가.
+ *
+ * **문은 방과 복도를 잇는다.** 그래서 나가는 문에서는 갈 곳이 없고
+ * (복도는 방이 아니다), 복도에서 들어가는 문에서만 그 방이 나온다.
+ */
+function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null): TileId | null {
   if (here === door.a) return door.b
-  if (here === door.b) return door.a
-  return null
+  return door.a
 }
 
 export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRef }: WalkProps) {
@@ -309,7 +314,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const toward = id && id !== here ? id : (doorHere(tx, ty) ? acrossFrom(doorHere(tx, ty) as Door, here) : null)
       if (here && toward && toward !== here) {
         const gate = DOORS.find(
-          (d) => (d.a === here && d.b === toward) || (d.b === here && d.a === toward),
+          (d) => d.a === toward,
         )
         if (gate) {
           for (const t of gate.tiles) {
@@ -342,44 +347,20 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       const [dx, dy] = STEP[d]
       const nx = self.tx + dx
       const ny = self.ty + dy
-      const here = roomAt(self.tx, self.ty)?.id ?? null
 
-      // 문이다. 여기서부터는 내가 걷는 것이 아니라 서버가 센다.
-      //
-      // **여기서 문을 잠그지 않는다.** 전에는 아직 안 열린 핵심 방으로
-      // 가는 문을 화면이 막았는데, 서버는 그런 검사를 안 한다 —
-      // 「여기로 간다」로는 들어가지고 걸어서는 못 들어갔다. 게다가
-      // 막을 때 아무 말도 안 해서, 문에 대고 아무리 눌러도 감감무소식이었다.
-      // 무엇이 되는지는 서버가 정하고, 화면은 거절을 그대로 띄운다
-      const door = doorHere(nx, ny)
-      if (door) {
-        const to = acrossFrom(door, here)
-        if (to && !asked) {
-          asked = true
-          askedAtMs = performance.now()
-          crossedVia = door
-          crossedTo = to
-          // 되돌릴 자리. 서버가 아니라고 하면 여기로 돌아온다
-          const back = { x: self.tx, y: self.ty }
-          const said = crossRef.current(to)
-          // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
-          // 영영 못 움직인다
-          if (said && typeof said.then === 'function') {
-            void said.then((ok) => {
-              if (ok) return
-              asked = false
-              crossedVia = null
-              crossedTo = null
-              autoPath = []
-              standAt(back.x, back.y)
-            })
-          }
-        }
-        // **문 칸도 그냥 걸어 들어간다.** 여기서 멈춰 세우고 건너편에
-        // 세워 주면 두 칸을 한 번에 건너뛰어 톡 튄다 — 문이 없는
-        // 것처럼 보일 만큼 빨라도 튀는 건 튀는 것이다.
-        // 한 칸씩 걸어 문을 지나면 걸음이 끊기지 않는다
+      // 계단이다. 한 칸 밟으면 다른 층으로 간다 — 걸어서는 못 잇는다.
+      // 서버에 말하는 것은 여기서 하지 않는다. 옮겨 놓기만 하면
+      // **선 방이 바뀐 것을 보고** 아래에서 알아서 말한다
+      const stair = stairHere(nx, ny)
+      if (stair) {
+        standAt(stair.toX, stair.toY)
+        autoPath = []
+        return
       }
+
+      // **문은 그냥 지나간다.** 문은 방과 복도를 잇는 구멍일 뿐이라,
+      // 밟는 것만으로는 어디로 가는지 알 수 없다. 어느 방에 들어갔는지는
+      // 들어가고 나서 선 자리를 보면 된다
       if (!isWalkable(nx, ny)) {
         // **문 옆 한 칸에서 벽을 밀면 문 쪽으로 비켜 준다.**
         //
@@ -488,14 +469,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       // 나와야 한다 — 방 한가운데로 순간이동하면 걸어 들어온 것이 아니라
       // 순간이동한 것이 된다
       //
-      // 어느 문이었는지는 넘은 쪽이 기억해 둔 것을 먼저 믿는다. 서버의
-      // fromTile 은 비어 올 때가 있고, 비면 곧장 한가운데로 튀었다
-      const from = asRoom(viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId)?.fromTile)
-      const door =
-        (crossedTo === id ? crossedVia : null) ??
-        (from ? DOORS.find((d) => (d.a === id && d.b === from) || (d.b === id && d.a === from)) : null)
-      crossedVia = null
-      crossedTo = null
+      // **방마다 문이 하나다.** 복도로만 드나드니 어느 문으로 들어왔는지
+      // 고민할 것이 없다. 계단참과 옥상은 문이 없어 한가운데에 선다
+      const door = DOORS.find((d) => d.a === id) ?? null
       const spot = door ? doorSpot(id, door) : null
       standAt(
         spot ? spot.x : rect.x + Math.floor(rect.w / 2),
@@ -561,15 +537,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
      * 그 판 내내 문을 잠근다.
      */
     let askedAtMs = 0
-    /**
-     * 방금 넘은 문과 가려던 방.
-     *
-     * **서버가 알려 주기를 기다리지 않는다.** 어느 문으로 나갔는지는
-     * 넘은 쪽이 제일 잘 안다 — 서버의 fromTile 이 비어 오면 그때마다
-     * 방 한가운데로 순간이동했다.
-     */
-    let crossedVia: Door | null = null
-    let crossedTo: TileId | null = null
     let lastServerTile: TileId | null = null
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
@@ -594,9 +561,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
         // 걸어서 넘는 동안 대답이 온다. 그때 또 세우면 그 사이 걸어간
         // 만큼을 문 앞으로 도로 끌어당긴다 — 없애려던 튐이 되레 커진다.
         // 방금 넘은 문 위에 서 있는 것도 「가는 중」이라 그냥 둔다
+        // **어느 방에도 없으면 건드리지 않는다.** 복도와 문턱이 그렇다 —
+        // 거기 선 사람을 서버가 아는 방으로 끌어다 놓으면, 복도로
+        // 나서자마자 도로 방 안으로 튕겨 들어간다. 실제로 그랬다
         const standing = roomAt(self.tx, self.ty)?.id ?? null
-        const onCrossed = crossedVia !== null && doorHere(self.tx, self.ty) === crossedVia
-        if (standing !== serverTile && !onCrossed) placeIn(serverTile)
+        if (standing !== null && standing !== serverTile) placeIn(serverTile)
         lastServerTile = serverTile
         // 도착했다. 다음 문을 넘을 수 있다
         asked = false
@@ -609,8 +578,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
         !asked &&
         !self.moving &&
         !walkingRef.current &&
-        // 문 위는 어느 방도 아니다. 지나가는 중인 사람을 되돌리면 안 된다
-        !doorHere(self.tx, self.ty) &&
+        // **방 안에 있을 때만 본다.** 복도와 문턱은 어느 방도 아니라,
+        // 거기 선 것을 어긋난 것으로 치면 복도를 걸을 수가 없다
+        roomAt(self.tx, self.ty) !== null &&
         roomAt(self.tx, self.ty)?.id !== serverTile
       ) {
         placeIn(serverTile)
@@ -654,6 +624,29 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, padRe
       if (room !== lastRoom) {
         lastRoom = room
         roomRef.current(room)
+      }
+
+      // **방이 바뀌면 그때 서버에 말한다.**
+      //
+      // 전에는 문을 밟는 순간 말했다. 복도가 생기면서 그 방법이 깨졌다 —
+      // 문은 방과 복도를 이을 뿐이라 어디로 가는지 모르고, 계단참처럼
+      // 문이 아예 없는 방도 있다. 들어가고 나서 선 자리를 보는 편이
+      // 한 가지로 다 된다
+      if (room !== null && serverTile !== null && room !== serverTile && !asked && !walkingRef.current) {
+        asked = true
+        askedAtMs = performance.now()
+        const back = { x: self.tx, y: self.ty }
+        const said = crossRef.current(room)
+        // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
+        // 영영 못 움직인다
+        if (said && typeof said.then === 'function') {
+          void said.then((ok) => {
+            if (ok) return
+            asked = false
+            autoPath = []
+            standAt(back.x, back.y)
+          })
+        }
       }
 
       draw()

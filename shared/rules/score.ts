@@ -51,7 +51,12 @@ export interface ScoreInput {
 // ── 항목별 ──────────────────────────────────────────────────────
 
 const oursExcludingBase = (tiles: readonly TileState[], team: TeamId) =>
-  tiles.filter((t) => t.ownerTeam === team && TILE_BY_ID[t.tileId].tier !== 'base')
+  tiles.filter(
+    (t) =>
+      t.ownerTeam === team &&
+      TILE_BY_ID[t.tileId].tier !== 'base' &&
+      TILE_BY_ID[t.tileId].tier !== 'stair',
+  )
 
 /** 가진 칸의 가치 합. A의 기록 보너스를 포함한다. */
 export function territoryScore(input: ScoreInput): number {

@@ -62,7 +62,7 @@ export function Board(props: BoardProps) {
               .filter(Boolean)
               .join(' ')}
             onClick={() => props.onPick(t.id)}
-            style={{ gridRow: t.row + 1, gridColumn: t.col + 1 }}
+            style={{ gridRow: t.planRow + 1, gridColumn: t.planCol + 1 }}
           >
             <span className="sc-bd__name">{t.name}</span>
             {seen && (

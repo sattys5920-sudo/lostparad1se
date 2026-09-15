@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   coreOpen,
-  crossOwner,
   eventsOn,
   inLastHours,
   isOver,
@@ -10,10 +9,9 @@ import {
   openTilesBy,
   openedOn,
   tileValue,
-  touchesOpenCore,
 } from './fragments'
 import { TILE_BY_ID } from './board'
-import { FRAGMENT_TILE_BONUS, TEAM_IDS } from './v2'
+import { FRAGMENT_TILE_BONUS } from './v2'
 
 const seoul = (iso: string) => new Date(`${iso}+09:00`).getTime()
 const START = seoul('2026-03-02T08:00:00')
@@ -39,27 +37,18 @@ describe('열리는 칸', () => {
     expect(openTilesBy(5).size).toBe(5)
   })
 
-  it('DAY 1·2에 열리는 핵심은 마주 보는 두 칸이다', () => {
+  // 전에는 5×5 격자라 「마주 보는 두 칸」이라는 말이 되었다. 층이
+  // 생기면서 그 대칭은 없어졌다 — 대신 날마다 서로 다른 층에서
+  // 하나씩 열리는지를 본다
+  it('DAY 1·2에 열리는 두 칸은 같은 층 같은 줄이 아니다', () => {
     for (const day of [1, 2]) {
       const [a, b] = openedOn(day).map((id) => TILE_BY_ID[id])
-      // 마주 본다 = 행이 같거나 열이 같고, 두 칸 떨어져 있다
-      const sameLine = a.row === b.row || a.col === b.col
-      expect(sameLine, `DAY ${day}`).toBe(true)
+      expect(a.floor !== b.floor || a.side !== b.side, `DAY ${day}`).toBe(true)
     }
   })
 
-  it('어느 날이든 모든 팀이 열린 핵심 하나와 맞닿는다', () => {
-    for (const day of [1, 2, 3, 4, 5]) {
-      for (const team of TEAM_IDS) {
-        expect(touchesOpenCore(team, day), `DAY ${day} · ${team}`).toBe(true)
-      }
-    }
-  })
-
-  it('교차로마다 주인이 있다', () => {
-    const owners = ['oldBuilding', 'annex', 'newBuilding', 'mainBuilding'].map(crossOwner)
-    expect(new Set(owners).size).toBe(4)
-    expect(owners.every(Boolean)).toBe(true)
+  it('닷새가 지나면 핵심이 다 열린다', () => {
+    expect(openTilesBy(5).size).toBe(5)
   })
 })
 

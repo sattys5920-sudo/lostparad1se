@@ -1,8 +1,8 @@
 /* 5×5 판. 안개 밖은 어둡게 덮는다 */
 .sc-bd {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(5, 1fr);
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(12, 1fr);
   gap: 3px;
   aspect-ratio: 1;
   width: 100%;

@@ -87,8 +87,8 @@ export function readMap(f: MapFacts): RoomFacts[] {
     return {
       id,
       name: t.name,
-      row: t.row,
-      col: t.col,
+      row: t.planRow,
+      col: t.planCol,
       owner: (f.tiles[id]?.ownerTeam ?? null) as TeamId | null,
       known,
       count: known ? (counts[id] ?? 0) : null,

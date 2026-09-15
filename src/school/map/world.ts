@@ -1,26 +1,37 @@
 // 걸어 다니는 학교. **판은 여기서 정하지 않는다 — shared/rules/board.ts 가 정한다.**
 //
-// 전에는 이 파일이 학교를 따로 그렸다. 바깥 고리 한 줄에 기지와 1구역을
-// 늘어놓고, 관문을 안쪽에 박고, 구관 회랑으로 핵심 지역을 감싼 모양이었다.
-// 보기에는 그럴듯했는데 규칙 쪽 판과 이웃 관계가 달랐다. 미술실에서
-// 음악실로 가는 문이 있었지만 규칙은 그 둘을 이웃으로 치지 않아서, 그 문을
-// 지나면 서버가 「옆방이 아니다」라고 되받았다. 마흔 쌍 중 열여덟 쌍이
-// 그랬다. 두 벌로 그리면 반드시 이렇게 된다.
+// 층마다 복도가 하나고, 방은 그 복도 위아래로 늘어선다. 복도 양끝에
+// 계단이 있고 계단으로 위아래 층에 간다.
 //
-// 그래서 지금은 판이 하나다. 방 스물다섯 개를 5×5 격자에 그대로 펴고,
-// 문은 ADJACENCY 가 이웃이라고 한 자리에만 뚫는다. 미니맵이 그리는 것과
-// 걸어 다니는 학교가 같은 것이 된다.
+//   옥상    한 칸짜리 열린 자리
+//   2층     2-3 교실 · 과학실 · 음악실 · 미술실 · 도서관
+//           ─────────────── 복도 ───────────────
+//           무용실 · 시청각실 · 방송실 · 학생회실 · 동아리실
+//   1층     교무실 · 급식실 · 양호실 · 화장실 · 상점
+//           ─────────────── 복도 ───────────────
+//           가사실 · 체육관 · 강당 · 운동장 · 정원
+//   지하    창고 · 기술실 / 경비실
 //
-//      D기지  창고   급식실  음악실  C기지        기지는 네 귀퉁이 — 어디서
-//      정원   본관   방송실  신관   동아리실      중앙까지 가든 네 걸음이다
-//      옥상  학생회  중앙광장  강당   체육관
-//      복도   구관   운동장  별관   과학실
-//      A기지  교실   도서관  미술실  B기지
+// **복도는 방이 아니다.** 걸어서 지나는 자리일 뿐이라 점령도 깃발도
+// 없고, 거기 선 동안에는 어느 방에도 있지 않다(문턱과 같다).
 //
-// 격자는 90도 회전에 대해 대칭이다(규칙 쪽에서 그렇게 짰다). 가구도 그
-// 대칭을 따라 한 방만 그리고 세 번 돌려 쓴다 — 네 팀이 똑같은 학교를
-// 걷지 않으면 자리가 유불리가 된다.
-import { ADJACENCY, START_TILE, TILE_BY_ID, TILES as BOARD } from '../../../shared/rules/board'
+// **계단은 뚫린 문이 아니라 건너뛰는 자리다.** 층이 서로 멀리 떨어져
+// 그려져 있어서 벽에 구멍을 낼 수가 없다 — 계단 칸을 밟으면 위아래
+// 층의 짝 계단으로 옮겨 놓는다.
+//
+// 전에는 스물다섯 방이 5×5 격자로 서로 직통이었다. 교무실 옆문을 열면
+// 급식실이 나오는 식이라 학교라기보다 바둑판이었다.
+import {
+  ADJACENCY,
+  FLOORS,
+  START_TILE,
+  TILE_BY_ID,
+  TILES as BOARD,
+  rowOf,
+  stairIdOf,
+  type Floor,
+  type StairEnd,
+} from '../../../shared/rules/board'
 import type { Tier } from '../../../shared/rules/v2'
 import type { MarkKind, PropKind } from './sprites'
 import type { TeamId, TileId } from '../types'
@@ -30,25 +41,47 @@ export type { PropKind, MarkKind } from './sprites'
 export const TILE = 16
 
 /**
- * 방 한 변과 방 사이 벽 한 줄. 판 크기가 전부 여기서 나온다.
+ * 방 한 변과 방 사이 벽 한 줄.
  *
  * **화면에 들어오는 크기여야 한다.** 캔버스는 한 변이 380px 쯤이고 2배로
  * 그리니 열한 칸이 보인다. 방이 아홉 칸이면 방과 양옆 벽이 딱 들어와서,
- * 선 자리에서 제 방의 문 네 개가 전부 보인다. 열한 칸짜리 방을 썼을 때는
- * 문이 화면 밖에 있었다 — 어디로 나가야 하는지 보이지도 않았다.
+ * 선 자리에서 제 방의 문이 보인다.
  */
 const ROOM = 9
 const CELL = ROOM + 1
 const MARGIN = 2
-const GRID = 5
-/** 격자가 90도 돌아도 같은 자리에 떨어지도록 가장자리를 맞춘 크기. */
-const N = MARGIN * 2 + GRID * CELL - 1
-
-export const MAP_W = N
-export const MAP_H = N
 
 /** 방 한 변(칸). 화면에 몇 칸이 들어오는지와 맞물린다 — world.test.ts 가 지킨다. */
 export const ROOM_TILES = ROOM
+
+/** 복도와 계단참의 높이. 셋이면 두 사람이 비켜 지나갈 수 있다. */
+export const AISLE_WIDE = 3
+/** 계단참 너비. */
+const STAIR_W = 5
+/** 한 층의 높이 — 위 줄 + 벽 + 복도 + 벽 + 아래 줄. */
+const BAND_H = ROOM + 1 + AISLE_WIDE + 1 + ROOM
+/** 층과 층 사이. 벽으로 둔다 — 위층이 아래층에 붙어 보이면 안 된다. */
+const BAND_GAP = 3
+
+/** 방 줄이 시작하는 x. 왼쪽에 계단참과 벽 한 줄이 있다. */
+const ROOM_X0 = MARGIN + STAIR_W + 1
+
+const slotsOn = (floor: Floor) => Math.max(rowOf(floor, 'up').length, rowOf(floor, 'down').length)
+
+/** 위에서부터 몇 번째 층인가. 옥상이 0이다. */
+const bandIndex = (floor: Floor) => FLOORS.length - 1 - FLOORS.indexOf(floor)
+const bandTop = (floor: Floor) => MARGIN + bandIndex(floor) * (BAND_H + BAND_GAP)
+
+/** 그 층 복도의 y 범위(첫 줄). */
+const aisleTop = (floor: Floor) => bandTop(floor) + ROOM + 1
+/** 그 층 동쪽 계단참이 시작하는 x. 방이 적은 층은 복도도 짧다. */
+const eastStairX = (floor: Floor) => ROOM_X0 + slotsOn(floor) * CELL
+
+/** 옥상은 한 칸짜리 열린 자리라 복도도 계단참도 없다. 넓게 편다. */
+const ROOF_SLOTS = 5
+
+export const MAP_W = ROOM_X0 + ROOF_SLOTS * CELL + STAIR_W + MARGIN
+export const MAP_H = MARGIN + FLOORS.length * (BAND_H + BAND_GAP) - BAND_GAP + MARGIN
 
 interface Rect {
   x: number
@@ -57,17 +90,22 @@ interface Rect {
   h: number
 }
 
-const rectOf = (row: number, col: number): Rect => ({
-  x: MARGIN + col * CELL,
-  y: MARGIN + row * CELL,
-  w: ROOM,
-  h: ROOM,
-})
+function rectOf(id: TileId): Rect {
+  const t = TILE_BY_ID[id]
+  const top = bandTop(t.floor)
+  if (t.side === 'stair') {
+    const x = t.slot === 0 ? MARGIN : eastStairX(t.floor)
+    return { x, y: aisleTop(t.floor), w: STAIR_W, h: AISLE_WIDE }
+  }
+  // 옥상은 한 방이 복도 자리까지 통째로 쓴다
+  if (t.floor === 'roof') {
+    return { x: ROOM_X0, y: top, w: ROOF_SLOTS * CELL - 1, h: ROOM }
+  }
+  const y = t.side === 'up' ? top : top + ROOM + 1 + AISLE_WIDE + 1
+  return { x: ROOM_X0 + t.slot * CELL, y, w: ROOM, h: ROOM }
+}
 
-const ROOM_RECTS = Object.fromEntries(BOARD.map((t) => [t.id, [rectOf(t.row, t.col)]])) as Record<TileId, Rect[]>
-
-/** 격자 자리로 방을 찾는다. 회전 궤도를 따라갈 때 쓴다. */
-const AT = new Map<string, TileId>(BOARD.map((t) => [`${t.row},${t.col}`, t.id as TileId]))
+const ROOM_RECTS = Object.fromEntries(BOARD.map((t) => [t.id, [rectOf(t.id as TileId)]])) as Record<TileId, Rect[]>
 
 export interface RoomSpec {
   id: TileId
@@ -84,12 +122,15 @@ export const roomById = Object.fromEntries(ROOMS.map((r) => [r.id, r])) as Recor
 
 // ── 타일판 만들기 ───────────────────────────────────────────────
 
-export type TileKind = 'wall' | 'floor' | 'door'
+/** hall 은 복도다. 걸을 수 있지만 어느 방도 아니다. */
+export type TileKind = 'wall' | 'floor' | 'door' | 'hall'
 
-const kinds = new Uint8Array(N * N) // 0 벽 · 1 바닥 · 2 문
-/** 각 칸이 어느 방인지. 255는 어느 방도 아님(벽·문턱). */
-const roomIndex = new Uint8Array(N * N).fill(255)
-const idx = (x: number, y: number) => y * N + x
+const N_W = MAP_W
+const N_H = MAP_H
+const kinds = new Uint8Array(N_W * N_H) // 0 벽 · 1 바닥 · 2 문 · 3 복도
+/** 각 칸이 어느 방인지. 255는 어느 방도 아님(벽·문턱·복도). */
+const roomIndex = new Uint8Array(N_W * N_H).fill(255)
+const idx = (x: number, y: number) => y * N_W + x
 
 ROOMS.forEach((room, i) => {
   for (const r of room.rects) {
@@ -103,98 +144,169 @@ ROOMS.forEach((room, i) => {
   }
 })
 
+/** 복도. 서쪽 계단참 오른쪽 끝부터 동쪽 계단참 왼쪽 끝까지 이어진다. */
+for (const floor of FLOORS) {
+  if (floor === 'roof') continue
+  const y0 = aisleTop(floor)
+  for (let y = y0; y < y0 + AISLE_WIDE; y++) {
+    for (let x = MARGIN + STAIR_W; x < eastStairX(floor); x++) {
+      if (kinds[idx(x, y)] !== 0) continue
+      kinds[idx(x, y)] = 3
+    }
+  }
+}
+
 export interface Door {
-  /** 문 자리. 문은 이 칸을 포함해 DOOR_WIDE 칸이다. */
+  /** 문 자리. */
   x: number
   y: number
+  /** 문이 붙은 방. */
   a: TileId
-  b: TileId
+  /** 문 너머. **복도면 null 이다** — 복도는 방이 아니다. */
+  b: TileId | null
   /** 문을 이루는 칸 전부. 어느 칸으로 지나든 같은 문이다. */
   tiles: readonly { x: number; y: number }[]
 }
 
-/**
- * 문 너비. 한 칸이다.
- *
- * 전에는 세 칸이었다. 한 칸짜리 문은 손가락 조작과 안 맞는다는 것이
- * 이유였다 — 방을 가로질러 온 사람은 문보다 한 칸 옆에 서 있기 쉽고,
- * 그 자리에서 위를 누르면 아무 일도 안 일어난다. 벽에 막힌 것인지
- * 게임이 고장 난 것인지 알 길이 없다. 실제로 그랬다.
- *
- * 그래서 좁히면서 그 구멍을 두 가지로 막았다.
- *
- *   1. 가구를 못 놓는 한가운데 길은 그대로 세 칸이다(AISLE_WIDE).
- *      문은 좁아도 다가가는 길은 안 좁힌다
- *   2. 문 옆 한 칸에서 벽을 밀면 문 쪽으로 비켜 준다(Walk 의 tryStep)
- *
- * 그리고 지금은 옆방을 눌러 저절로 걸어가는 길도 있다.
- */
+/** 문 너비. 한 칸이다. 다가가는 복도는 세 칸이라 좁아도 막히지 않는다. */
 export const DOOR_WIDE = 1
 
 /**
- * 가구를 못 놓는 한가운데 길의 너비.
+ * 방과 복도 사이 벽 한가운데에 문을 뚫는다.
  *
- * **문 너비와 따로 둔다.** 문을 한 칸으로 좁혔다고 길까지 한 칸으로
- * 좁히면, 좁은 문 바로 앞에 책상이 놓여 다가갈 수조차 없게 된다.
+ * **문은 방과 복도를 잇는다. 방과 방을 잇지 않는다.** 그래서 문을
+ * 밟는 것만으로는 어느 방으로 가는지 알 수 없다 — 나가는 문에서는
+ * 아무 일도 없고, 들어가는 문에서 그 방으로 들어간 것이 된다.
  */
-export const AISLE_WIDE = 3
-
-/**
- * 두 방 사이 벽 한 줄 가운데에 문을 뚫는다. 격자라 이웃은 언제나 벽 한 줄을
- * 사이에 두고 맞닿아 있다 — 손으로 좌표를 세지 않는다.
- */
-function carveDoor(a: TileId, b: TileId): Door {
-  const ra = TILE_BY_ID[a]
-  const rb = TILE_BY_ID[b]
-  const half = Math.floor(ROOM / 2)
-  const arm = Math.floor(DOOR_WIDE / 2)
-  /** 두 칸 사이 벽 줄의 좌표. */
-  const wall = (p: number, q: number) => MARGIN + Math.min(p, q) * CELL + ROOM
-  const spread = (x: number, y: number, alongX: boolean) => {
-    const out: { x: number; y: number }[] = []
-    for (let i = -arm; i <= arm; i++) out.push(alongX ? { x: x + i, y } : { x, y: y + i })
-    return out
-  }
-  if (ra.row === rb.row) {
-    const x = wall(ra.col, rb.col)
-    const y = MARGIN + ra.row * CELL + half
-    // 세로 벽이니 문은 위아래로 넓어진다
-    return { x, y, a, b, tiles: spread(x, y, false) }
-  }
-  if (ra.col === rb.col) {
-    const x = MARGIN + ra.col * CELL + half
-    const y = wall(ra.row, rb.row)
-    return { x, y, a, b, tiles: spread(x, y, true) }
-  }
-  throw new Error(`맞닿지 않은 두 방에 문을 놓으려 한다: ${a} ↔ ${b}`)
-}
-
-/** 이웃한 방 쌍. **규칙이 정한 것을 그대로 받는다.** 여기서 더하거나 빼지 않는다. */
-const CONNECTIONS: [TileId, TileId][] = (() => {
-  const out: [TileId, TileId][] = []
-  for (const t of BOARD) {
-    for (const n of ADJACENCY[t.id] ?? []) {
-      if (t.id < n) out.push([t.id as TileId, n as TileId])
+const DOORS_BUILD: Door[] = []
+for (const floor of FLOORS) {
+  if (floor === 'roof') continue
+  const top = bandTop(floor)
+  for (const side of ['up', 'down'] as const) {
+    const wallY = side === 'up' ? top + ROOM : top + ROOM + 1 + AISLE_WIDE
+    for (const t of rowOf(floor, side)) {
+      const r = ROOM_RECTS[t.id as TileId][0]
+      const x = r.x + Math.floor(ROOM / 2)
+      DOORS_BUILD.push({ x, y: wallY, a: t.id as TileId, b: null, tiles: [{ x, y: wallY }] })
     }
   }
-  return out
-})()
+}
 
-export const DOORS: Door[] = CONNECTIONS.map(([a, b]) => carveDoor(a, b))
+export const DOORS: Door[] = DOORS_BUILD
 for (const d of DOORS) for (const t of d.tiles) kinds[idx(t.x, t.y)] = 2
 
 const doorAt = new Map<string, Door>()
 for (const d of DOORS) for (const t of d.tiles) doorAt.set(`${t.x},${t.y}`, d)
 
-export function tileAt(x: number, y: number): TileKind {
-  if (x < 0 || y < 0 || x >= N || y >= N) return 'wall'
-  const k = kinds[idx(x, y)]
-  return k === 0 ? 'wall' : k === 1 ? 'floor' : 'door'
+// ── 계단 ────────────────────────────────────────────────────────
+
+export interface Stair {
+  /** 밟는 자리. */
+  x: number
+  y: number
+  /** 이 칸이 속한 계단참. */
+  from: TileId
+  /** 옮겨 갈 방과 자리. */
+  to: TileId
+  toX: number
+  toY: number
+  /** 올라가는가 내려가는가. 그림을 고를 때 쓴다. */
+  up: boolean
 }
 
-/** 문턱에 서 있으면 아직 어느 방도 아니다. 부르는 쪽이 직전 방을 유지한다. */
+/**
+ * 계단 칸.
+ *
+ * 계단참 하나에 두 칸까지 놓인다 — 위로 가는 칸과 아래로 가는 칸.
+ * 밟으면 짝 계단참의 **반대쪽 칸 옆**에 내려놓는다. 같은 칸에 놓으면
+ * 그 칸이 다시 계단이라 무한히 오르내린다.
+ */
+const STAIRS_BUILD: Stair[] = []
+{
+  const landing = (id: TileId) => ROOM_RECTS[id][0]
+  /** 계단참 안에서 위로 가는 칸과 아래로 가는 칸. 가운데 줄에 나란히 둔다. */
+  const upCell = (id: TileId) => {
+    const r = landing(id)
+    return { x: r.x + 1, y: r.y + 1 }
+  }
+  const downCell = (id: TileId) => {
+    const r = landing(id)
+    return { x: r.x + r.w - 2, y: r.y + 1 }
+  }
+  /**
+   * 내려놓는 자리.
+   *
+   * **계단 칸 위에 내려놓으면 안 된다.** 오르내리는 칸이 가운데 줄
+   * 양쪽에 있어서, 거기 놓으면 그 즉시 도로 반대편 층으로 간다 —
+   * 무한히 오르내린다. 가운데 칸의 위·아래 줄에 내려놓는다.
+   */
+  const restFor = (id: TileId, arrivingUp: boolean) => {
+    const r = landing(id)
+    return { x: r.x + Math.floor(r.w / 2), y: arrivingUp ? r.y : r.y + r.h - 1 }
+  }
+
+  const ends: StairEnd[] = ['w', 'e']
+  const withStairs: Floor[] = FLOORS.filter((f) => f !== 'roof')
+  for (let i = 0; i < withStairs.length; i++) {
+    for (const end of ends) {
+      const here = stairIdOf(withStairs[i], end) as TileId
+      const above = (i + 1 < withStairs.length ? stairIdOf(withStairs[i + 1], end) : null) as TileId | null
+      const below = (i > 0 ? stairIdOf(withStairs[i - 1], end) : null) as TileId | null
+      if (above) {
+        const c = upCell(here)
+        const r = restFor(above, true)
+        STAIRS_BUILD.push({ ...c, from: here, to: above, toX: r.x, toY: r.y, up: true })
+      } else {
+        // 맨 위 층의 계단은 옥상으로 나간다
+        const c = upCell(here)
+        const roof = ROOM_RECTS.rooftop[0]
+        const x = end === 'w' ? roof.x + 2 : roof.x + roof.w - 3
+        STAIRS_BUILD.push({ ...c, from: here, to: 'rooftop', toX: x, toY: roof.y + roof.h - 2, up: true })
+      }
+      if (below) {
+        const c = downCell(here)
+        const r = restFor(below, false)
+        STAIRS_BUILD.push({ ...c, from: here, to: below, toX: r.x, toY: r.y, up: false })
+      }
+    }
+  }
+  // 옥상에서 내려가는 자리. 양끝에 하나씩 — 올라온 자리 그대로다
+  {
+    const roof = ROOM_RECTS.rooftop[0]
+    for (const end of ends) {
+      const back = stairIdOf('f2', end) as TileId
+      const rest = restFor(back, false)
+      const x = end === 'w' ? roof.x : roof.x + roof.w - 1
+      STAIRS_BUILD.push({
+        x,
+        y: roof.y + roof.h - 2,
+        from: 'rooftop',
+        to: back,
+        toX: rest.x,
+        toY: rest.y,
+        up: false,
+      })
+    }
+  }
+}
+
+export const STAIRS: readonly Stair[] = STAIRS_BUILD
+const stairAt = new Map<string, Stair>(STAIRS.map((s) => [`${s.x},${s.y}`, s]))
+
+/** 그 칸이 계단인가. 밟으면 다른 층으로 간다. */
+export function stairHere(x: number, y: number): Stair | null {
+  return stairAt.get(`${x},${y}`) ?? null
+}
+
+export function tileAt(x: number, y: number): TileKind {
+  if (x < 0 || y < 0 || x >= N_W || y >= N_H) return 'wall'
+  const k = kinds[idx(x, y)]
+  return k === 0 ? 'wall' : k === 1 ? 'floor' : k === 2 ? 'door' : 'hall'
+}
+
+/** 문턱과 복도에 서 있으면 아직 어느 방도 아니다. */
 export function roomAt(x: number, y: number): RoomSpec | null {
-  if (x < 0 || y < 0 || x >= N || y >= N) return null
+  if (x < 0 || y < 0 || x >= N_W || y >= N_H) return null
   const i = roomIndex[idx(x, y)]
   return i === 255 ? null : ROOMS[i]
 }
@@ -205,21 +317,17 @@ export function doorHere(x: number, y: number): Door | null {
 
 /**
  * 그 문이 가로로 뻗은 벽에 났는가. 위아래로 지나가는 문이다.
- *
- * 문 그림을 고를 때 쓴다 — 벽이 누운 방향에 따라 널빤지도 눕거나 선다.
- * 세 칸이 x 로 퍼졌으면 벽이 가로로 뻗은 것이다.
+ * 방과 복도 사이 벽은 전부 가로다 — 그림을 고르는 쪽이 이걸 본다.
  */
 export function doorIsHorizontal(x: number, y: number): boolean {
   const d = doorAt.get(`${x},${y}`)
-  if (!d || d.tiles.length < 2) return true
+  if (!d) return true
+  if (d.tiles.length < 2) return true
   return d.tiles[0].x !== d.tiles[1].x
 }
 
 // ── 가구와 흔적 ─────────────────────────────────────────────────
 // 방마다 다른 것을 놓는다. 이름표를 읽지 않아도 어느 실인지 알아야 한다.
-//
-// 자리는 네 팀이 똑같아야 한다. 그래서 자리 뼈대는 등급마다 한 벌만 그리고
-// 회전 궤도를 따라 돌려 쓰고, 그 자리에 놓을 가구만 방마다 다르게 고른다.
 
 const props = new Map<string, PropKind>()
 const marks = new Map<string, MarkKind>()
@@ -230,85 +338,33 @@ function nearDoor(x: number, y: number): boolean {
   return DOORS.some((d) => d.tiles.some((t) => Math.abs(t.x - x) <= 1 && Math.abs(t.y - y) <= 1))
 }
 
-/** 격자가 90도 돌면 (row,col) 은 (col, GRID-1-row) 로 간다. */
-const rotCell = (row: number, col: number): [number, number] => [col, GRID - 1 - row]
-
-/** 방 한가운데 줄. 문과 문을 잇는 길이라 가구를 놓지 않는다. */
+/** 방 한가운데 줄. 문에서 방 안쪽으로 가는 길이라 가구를 놓지 않는다. */
 const CENTER = Math.floor(ROOM / 2)
-
-/** 가구를 못 놓는 한가운데 띠. 문보다 넓다 — 좁은 문일수록 길은 넓어야 한다. */
 const KEEP_CLEAR = new Set<number>()
 for (let i = -Math.floor(AISLE_WIDE / 2); i <= Math.floor(AISLE_WIDE / 2); i++) KEEP_CLEAR.add(CENTER + i)
-
-/** 방 안의 자리도 같이 돈다. 방이 정사각이라 (lx,ly) → (ROOM-1-ly, lx) 다. */
-const rotSlot = ([lx, ly]: [number, number]): [number, number] => [ROOM - 1 - ly, lx]
-
-/**
- * 회전 궤도들. 한 궤도는 네 방(중앙광장만 저 혼자)이고, 돌리면 서로가 된다.
- * 손으로 적지 않는다 — 판이 바뀌면 궤도도 저절로 따라온다.
- */
-function orbitsOf(tier: Tier): TileId[][] {
-  const mine = BOARD.filter((t) => t.tier === tier)
-  const left = new Set<TileId>(mine.map((t) => t.id as TileId))
-  const out: TileId[][] = []
-  for (const t of mine) {
-    if (!left.has(t.id as TileId)) continue
-    const ring: TileId[] = []
-    let r = t.row
-    let c = t.col
-    for (let i = 0; i < 4; i++) {
-      const id = AT.get(`${r},${c}`)
-      if (!id || !left.has(id)) break
-      left.delete(id)
-      ring.push(id)
-      ;[r, c] = rotCell(r, c)
-    }
-    if (ring.length > 0) out.push(ring)
-  }
-  return out
-}
 
 type Slot = [number, number, number]
 
 /**
- * 한 궤도를 채운다. 자리는 방마다 90도씩 돌아가고, 가구는 방마다 제 것을 쓴다.
- * pick(방 id, 묶음 번호) 가 그 자리에 무엇을 놓을지 정한다.
+ * 한 방을 채운다.
+ *
+ * **더 이상 돌려 쓰지 않는다.** 5×5 격자이던 동안에는 판이 90도 대칭이라
+ * 한 방만 그리고 세 번 돌려 썼다. 층과 복도가 생기면서 그 대칭이 없어졌다 —
+ * 이제는 등급마다 자리 한 벌을 그대로 쓴다.
  */
-function furnish(ring: TileId[], slots: Slot[], pick: (id: TileId, group: number) => PropKind): void {
-  // 문은 벽 한가운데에 뚫린다. 그래서 방 한가운데를 지나는 십자(가로 5줄,
-  // 세로 5줄)는 문에서 문으로 가는 길이다. 여기를 막으면 방을 곧장 지나갈
-  // 수 없고, 사람은 벽을 따라 방을 한 바퀴 돌게 된다. 실제로 그랬다 —
-  // 도서관에 들어가면 서쪽 문까지 직선으로 못 갔다.
-  //
-  // 돌려 쓰는 자리라 (lx,ly) → (ROOM-1-ly, lx) 로 돌아간다. 네 번 다
-  // 십자를 비키려면 lx 도 ly 도 한가운데가 아니면 된다
-  for (const [lx, ly] of slots) {
-    if (KEEP_CLEAR.has(lx) || KEEP_CLEAR.has(ly)) {
-      throw new Error(`가구가 방 한가운데 길(${[...KEEP_CLEAR].join(',')})을 막는다: ${lx},${ly}`)
-    }
-  }
-  let cur = slots
-  for (const id of ring) {
-    const target = ROOM_RECTS[id][0]
-    for (const [lx, ly, g] of cur) {
-      if (lx < 0 || ly < 0 || lx >= ROOM || ly >= ROOM) throw new Error(`${id} 가구가 방 밖으로 나갔다: ${lx},${ly}`)
-      const x = target.x + lx
-      const y = target.y + ly
-      if (nearDoor(x, y)) continue
-      props.set(key(x, y), pick(id, g))
-    }
-    cur = cur.map(([lx, ly, g]): Slot => {
-      const [nx, ny] = rotSlot([lx, ly])
-      return [nx, ny, g]
-    })
+function furnish(id: TileId, slots: Slot[], pick: (id: TileId, group: number) => PropKind): void {
+  const target = ROOM_RECTS[id][0]
+  for (const [lx, ly, g] of slots) {
+    if (lx < 0 || ly < 0 || lx >= target.w || ly >= target.h) continue
+    // 한가운데 세로 길은 비운다. 문이 거기 뚫려 있다
+    if (KEEP_CLEAR.has(lx)) continue
+    const x = target.x + lx
+    const y = target.y + ly
+    if (nearDoor(x, y)) continue
+    props.set(key(x, y), pick(id, g))
   }
 }
 
-/**
- * 가구 자리. 방이 아홉 칸이고 가운데 세 줄(3·4·5)은 길이라, 쓸 수 있는
- * 것은 네 귀퉁이의 3×3 뿐이다. 좁아 보이지만 방 하나에 여덟아홉 개면
- * 「무슨 방인지」는 충분히 말한다.
- */
 /** 기지 — 사물함 벽과 앉을 자리. */
 const BASE_SLOTS: Slot[] = [
   [0, 0, 0], [1, 0, 0], [2, 0, 0], [6, 0, 0], [7, 0, 0], [8, 0, 0],
@@ -320,10 +376,7 @@ const ZONE1_SLOTS: Slot[] = [
   [1, 7, 1], [2, 7, 1], [6, 7, 1], [7, 7, 1],
   [0, 2, 2], [8, 6, 2],
 ]
-/**
- * 관문 — 정원이 둘뿐인 좁은 방이다. 귀퉁이를 꽉 채워 실제로 좁게 만든다.
- * 숫자로만 좁다고 하면 걸어 보는 사람은 알 수가 없다.
- */
+/** 관문 — 정원이 둘뿐인 좁은 방이다. 귀퉁이를 꽉 채워 실제로 좁게 만든다. */
 const GATE_SLOTS: Slot[] = [
   [0, 0, 0], [1, 0, 0], [2, 0, 0], [6, 0, 0], [7, 0, 0], [8, 0, 0],
   [0, 1, 1], [1, 1, 1], [7, 1, 1], [8, 1, 1],
@@ -334,15 +387,29 @@ const GATE_SLOTS: Slot[] = [
 const CROSS_SLOTS: Slot[] = [[0, 0, 0], [8, 0, 0], [0, 8, 1], [8, 8, 1], [2, 2, 2]]
 /** 핵심 지역 — 몇 개만. 여기서 무슨 일이 있었는지가 중요하지 가구가 아니다. */
 const CORE_SLOTS: Slot[] = [[2, 2, 0], [6, 2, 0], [2, 6, 1]]
+/**
+ * 옥상은 넓다. 위쪽 벽을 따라서만 놓는다 — 아래쪽 줄은 계단이 사람을
+ * 내려놓는 자리라 비워 둔다.
+ */
+const ROOF_SLOTS_AT: Slot[] = [[6, 1, 0], [20, 1, 1], [34, 1, 2], [42, 1, 0]]
+
+const SLOTS_BY_TIER: Partial<Record<Tier, Slot[]>> = {
+  base: BASE_SLOTS,
+  zone1: ZONE1_SLOTS,
+  gate: GATE_SLOTS,
+  cross: CROSS_SLOTS,
+  core: CORE_SLOTS,
+  plaza: CORE_SLOTS,
+}
 
 const PROPS: Partial<Record<TileId, PropKind[]>> = {
-  baseA: ['locker', 'bench'],
-  baseB: ['locker', 'bench'],
-  baseC: ['locker', 'bench'],
-  baseD: ['locker', 'bench'],
+  baseA: ['cabinet', 'meetingTable'],
+  baseB: ['box', 'box'],
+  baseC: ['labBench', 'cabinet'],
+  baseD: ['seats', 'console'],
 
-  classroom: ['desk', 'desk', 'plant'],
-  hallway: ['locker', 'locker', 'plant'],
+  classroom: ['shelf', 'table', 'plant'],
+  hallway: ['canteen', 'table', 'shelf'],
   scienceRoom: ['labBench', 'labBench', 'shelf'],
   artRoom: ['easel', 'table', 'shelf'],
   musicRoom: ['seats', 'seats', 'piano'],
@@ -356,105 +423,75 @@ const PROPS: Partial<Record<TileId, PropKind[]>> = {
   rooftop: ['tank', 'plant', 'box'],
 
   oldBuilding: ['cabinet', 'cabinet', 'shelf'],
-  mainBuilding: ['cabinet', 'plant', 'shelf'],
-  newBuilding: ['shelf', 'cabinet', 'plant'],
-  annex: ['box', 'cabinet', 'shelf'],
+  newBuilding: ['bench', 'piano', 'plant'],
+  annex: ['bench', 'cabinet', 'shelf'],
 
   playground: ['bench', 'tree'],
   auditorium: ['seats', 'seats'],
   broadcastRoom: ['console', 'cabinet'],
   studentCouncil: ['meetingTable', 'shelf'],
+  centralPlaza: ['desk', 'desk', 'plant'],
 }
 
 const pickProp = (id: TileId, g: number): PropKind => PROPS[id]?.[g] ?? 'box'
 
-for (const ring of orbitsOf('base')) furnish(ring, BASE_SLOTS, pickProp)
-for (const ring of orbitsOf('zone1')) furnish(ring, ZONE1_SLOTS, pickProp)
-for (const ring of orbitsOf('gate')) furnish(ring, GATE_SLOTS, pickProp)
-for (const ring of orbitsOf('cross')) furnish(ring, CROSS_SLOTS, pickProp)
-for (const ring of orbitsOf('core')) furnish(ring, CORE_SLOTS, pickProp)
-
-// 중앙광장 — 네 귀퉁이에 화단, 네 어귀에 기둥. 학교가 자랑스러워하던 것.
-//
-// 중앙광장은 회전의 **고정점**이다. 판이 돌아도 저는 제자리라, 방 안이
-// 저 혼자 90도 대칭이어야 한다. 조형물을 한 자리에만 세우면 어느 팀은
-// 그것을 돌아가야 하고 어느 팀은 안 돌아가도 된다 — 그래서 넷이다.
-// 한가운데는 비운다. 거기는 사람이 서는 자리다
-{
-  const r = ROOM_RECTS.centralPlaza[0]
-  const put = (lx: number, ly: number, kind: PropKind) => {
-    if (!nearDoor(r.x + lx, r.y + ly)) props.set(key(r.x + lx, r.y + ly), kind)
-  }
-  for (const [lx, ly, kind] of [
-    [2, 2, 'plant'],
-    [1, 0, 'statue'],
-  ] as [number, number, PropKind][]) {
-    let p: [number, number] = [lx, ly]
-    for (let i = 0; i < 4; i++) {
-      put(p[0], p[1], kind)
-      p = rotSlot(p)
-    }
-  }
+for (const t of BOARD) {
+  if (t.id === 'rooftop') continue
+  const slots = SLOTS_BY_TIER[t.tier]
+  if (slots) furnish(t.id as TileId, slots, pickProp)
 }
+furnish('rooftop', ROOF_SLOTS_AT, pickProp)
 
 /**
- * 흔적. 길을 막지 않고 바닥에 깔린다. 대부분은 그냥 낡은 학교의 얼룩이지만
- * 옥상의 실내화와 국화, 중앙광장의 초는 A가 남긴 자리다.
+ * 흔적. 길을 막지 않고 바닥에 깔린다. 대부분은 낡은 학교의 얼룩이지만
+ * 옥상의 실내화와 국화, 2-3 교실의 초는 A가 남긴 자리다.
  */
 const MARKS: [TileId, number, number, MarkKind][] = [
-  ['classroom', 5, 8, 'flowers'],
-  ['classroom', 5, 2, 'chalk'],
-  ['hallway', 5, 4, 'poster'],
-  ['scienceRoom', 5, 4, 'stain'],
-  ['artRoom', 4, 6, 'stain'],
+  ['classroom', 6, 8, 'flowers'],
+  ['hallway', 6, 4, 'poster'],
+  ['scienceRoom', 6, 4, 'stain'],
+  ['artRoom', 6, 6, 'stain'],
   ['musicRoom', 6, 4, 'poster'],
-  ['clubRoom', 4, 4, 'crack'],
+  ['clubRoom', 6, 4, 'crack'],
   ['garden', 6, 6, 'flowers'],
-  ['storage', 4, 6, 'crack'],
-  ['library', 5, 3, 'poster'],
-  ['gym', 5, 7, 'crack'],
-  ['cafeteria', 5, 3, 'stain'],
-  ['rooftop', 4, 3, 'shoes'],
-  ['rooftop', 6, 3, 'flowers'],
-  ['rooftop', 5, 7, 'tape'],
-  ['oldBuilding', 5, 5, 'tape'],
-  ['mainBuilding', 5, 5, 'crack'],
-  ['newBuilding', 5, 5, 'stain'],
-  ['annex', 5, 5, 'crack'],
-  ['playground', 5, 5, 'crack'],
-  ['auditorium', 5, 5, 'stain'],
-  ['broadcastRoom', 5, 5, 'stain'],
-  ['studentCouncil', 5, 5, 'crack'],
-  ['centralPlaza', 4, 4, 'candle'],
-  ['centralPlaza', 6, 4, 'flowers'],
+  ['storage', 6, 6, 'crack'],
+  ['library', 6, 3, 'poster'],
+  ['gym', 6, 7, 'crack'],
+  ['cafeteria', 6, 3, 'stain'],
+  ['rooftop', 20, 3, 'shoes'],
+  ['rooftop', 22, 3, 'flowers'],
+  ['rooftop', 24, 6, 'tape'],
+  ['oldBuilding', 6, 5, 'tape'],
+  ['newBuilding', 6, 5, 'stain'],
+  ['annex', 6, 5, 'crack'],
+  ['playground', 6, 5, 'crack'],
+  ['auditorium', 6, 5, 'stain'],
+  ['broadcastRoom', 6, 5, 'stain'],
+  ['studentCouncil', 6, 5, 'crack'],
+  ['centralPlaza', 6, 4, 'candle'],
+  ['centralPlaza', 6, 6, 'flowers'],
 ]
 
 for (const [id, lx, ly, kind] of MARKS) {
   const r = ROOM_RECTS[id][0]
   if (lx < 0 || ly < 0 || lx >= r.w || ly >= r.h) throw new Error(`${id} 흔적이 방 밖으로 나갔다: ${lx},${ly}`)
   const k = key(r.x + lx, r.y + ly)
-  // 가구가 이미 선 자리에는 겹치지 않는다
   if (!props.has(k)) marks.set(k, kind)
 }
 
-/** 방마다 바닥이 다르다. 실외는 흙, 체육관·강당은 마루, 복도·교차로는 통로. */
+/** 방마다 바닥이 다르다. 실외는 흙, 체육관·강당은 마루, 계단·복도는 통로. */
 export type FloorKind = 'room' | 'hall' | 'outdoor' | 'wood'
 
 const FLOOR_OF: Partial<Record<TileId, FloorKind>> = {
-  hallway: 'hall',
-  oldBuilding: 'hall',
-  mainBuilding: 'hall',
-  newBuilding: 'hall',
-  annex: 'hall',
   garden: 'outdoor',
   playground: 'outdoor',
   rooftop: 'outdoor',
-  centralPlaza: 'outdoor',
   gym: 'wood',
   auditorium: 'wood',
 }
 
 export function floorOf(id: TileId): FloorKind {
+  if (TILE_BY_ID[id]?.tier === 'stair') return 'hall'
   return FLOOR_OF[id] ?? 'room'
 }
 
@@ -487,9 +524,7 @@ export function lockedDoorKeys(unlocked: TileId[]): Set<string> {
   const open = new Set(unlocked)
   const out = new Set<string>()
   for (const d of DOORS) {
-    const gated = [d.a, d.b].filter((id) => CORE_TILES.has(id))
-    if (gated.length === 0 || gated.every((id) => open.has(id))) continue
-    // 문이 세 칸이다. 한 칸만 잠그면 옆으로 돌아 들어간다
+    if (!CORE_TILES.has(d.a) || open.has(d.a)) continue
     for (const t of d.tiles) out.add(`${t.x},${t.y}`)
   }
   return out
@@ -504,7 +539,6 @@ export function centerOf(id: TileId): { x: number; y: number } {
 /**
  * 처음 서는 자리. **팀을 안 본다** — 넷 다 2-3 교실에서 시작한다.
  * 서버(functions/src/lobby.ts)가 두는 자리와 같은 곳이어야 한다.
- * 어긋나면 화면은 기지에, 서버는 교실에 세워 놓고 「이미 그 방이다」가 뜬다
  */
 export function spawnFor(_team: TeamId | null): { x: number; y: number } {
   return centerOf(START_TILE as TileId)
@@ -513,21 +547,20 @@ export function spawnFor(_team: TeamId | null): { x: number; y: number } {
 /** 팀이 정해지기 전 기본 자리. */
 export const SPAWN = spawnFor(null)
 
-/** 조각이 떨어질 수 있는 곳 — 기지와 핵심 지역은 뺀다. */
-export const SPAWNABLE_TILES: TileId[] = ROOMS.map((r) => r.id).filter(
-  (id) => !CORE_TILES.has(id) && !id.startsWith('base'),
-)
+/** 조각이 떨어질 수 있는 곳 — 기지·핵심 지역·계단은 뺀다. */
+export const SPAWNABLE_TILES: TileId[] = BOARD.filter(
+  (t) => !CORE_TILES.has(t.id as TileId) && t.tier !== 'base' && t.tier !== 'stair',
+).map((t) => t.id as TileId)
 
 // ── 만들고 나서 확인 ────────────────────────────────────────────
 // 생성된 맵이라 한 군데만 어긋나도 방이 통째로 잠긴다. 켤 때 바로 터뜨린다.
 {
-  // **문과 규칙이 어긋나면 여기서 터진다.** 이 확인이 없어서 걸어 다니는
-  // 학교와 규칙이 다른 학교인 채로 한참을 굴렀다
-  for (const d of DOORS) {
-    if (!ADJACENCY[d.a]?.includes(d.b)) throw new Error(`규칙이 이웃으로 안 치는 문: ${d.a} ↔ ${d.b}`)
+  // 방마다 문이 하나씩. 옥상과 계단참은 복도에 바로 붙어 있어 문이 없다
+  for (const t of BOARD) {
+    if (t.tier === 'stair' || t.floor === 'roof') continue
+    const mine = DOORS.filter((d) => d.a === (t.id as TileId))
+    if (mine.length !== 1) throw new Error(`${t.id} 의 문이 ${mine.length}개다.`)
   }
-  const pairs = Object.values(ADJACENCY).reduce((s, ns) => s + ns.length, 0) / 2
-  if (DOORS.length !== pairs) throw new Error(`문 ${DOORS.length}개, 규칙 이웃 ${pairs}쌍 — 어긋난다.`)
 
   // 방 한가운데는 언제나 비어 있어야 한다. 거기 서서 시작하고, 거기로 놓인다
   for (const room of ROOMS) {
@@ -535,28 +568,45 @@ export const SPAWNABLE_TILES: TileId[] = ROOMS.map((r) => r.id).filter(
     if (!isWalkable(c.x, c.y)) throw new Error(`${room.id} 한가운데에 설 수 없다.`)
   }
 
-  const start = centerOf('baseA')
-  const seen = new Uint8Array(N * N)
-  const queue = [idx(start.x, start.y)]
-  seen[queue[0]] = 1
-  while (queue.length > 0) {
-    const cur = queue.pop() as number
-    const x = cur % N
-    const y = (cur - x) / N
-    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-      const nx = x + dx
-      const ny = y + dy
-      if (!isWalkable(nx, ny)) continue
-      if (seen[idx(nx, ny)]) continue
-      seen[idx(nx, ny)] = 1
-      queue.push(idx(nx, ny))
+  // 계단이 내려놓는 자리도 설 수 있어야 한다
+  for (const s of STAIRS) {
+    if (!isWalkable(s.toX, s.toY)) throw new Error(`계단이 못 서는 자리에 내려놓는다: ${s.from}→${s.to}`)
+    if (stairHere(s.toX, s.toY)) throw new Error(`계단이 또 계단 위에 내려놓는다: ${s.from}→${s.to}`)
+  }
+
+  // 층마다 따로 본다 — 계단은 걸어서 잇지 않고 건너뛰므로 물 흐르듯
+  // 퍼지지 않는다. 한 층 안에서 모든 방에 닿는지만 확인한다
+  for (const floor of FLOORS) {
+    const mine = BOARD.filter((t) => t.floor === floor)
+    const start = centerOf(mine[0].id as TileId)
+    const seen = new Uint8Array(N_W * N_H)
+    const queue = [idx(start.x, start.y)]
+    seen[queue[0]] = 1
+    while (queue.length > 0) {
+      const cur = queue.pop() as number
+      const x = cur % N_W
+      const y = (cur - x) / N_W
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = x + dx
+        const ny = y + dy
+        if (!isWalkable(nx, ny)) continue
+        if (seen[idx(nx, ny)]) continue
+        seen[idx(nx, ny)] = 1
+        queue.push(idx(nx, ny))
+      }
+    }
+    for (const t of mine) {
+      const r = ROOM_RECTS[t.id as TileId][0]
+      let ok = false
+      for (let y = r.y; y < r.y + r.h && !ok; y++) {
+        for (let x = r.x; x < r.x + r.w && !ok; x++) if (seen[idx(x, y)]) ok = true
+      }
+      if (!ok) throw new Error(`${t.id}에 걸어서 갈 수 없다.`)
     }
   }
-  for (const room of ROOMS) {
-    const reachable = room.rects.some((r) => {
-      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (seen[idx(x, y)]) return true
-      return false
-    })
-    if (!reachable) throw new Error(`${room.id}에 걸어서 갈 수 없다.`)
+
+  // 계단이 닿는 곳이 규칙의 이웃과 같아야 한다
+  for (const s of STAIRS) {
+    if (!ADJACENCY[s.from]?.includes(s.to)) throw new Error(`규칙이 이웃으로 안 치는 계단: ${s.from} → ${s.to}`)
   }
 }

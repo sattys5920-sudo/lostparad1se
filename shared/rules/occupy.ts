@@ -208,6 +208,8 @@ export const KIND_BY_TIER: Record<Tier, RoomKind> = {
   cross: 'lab',
   core: 'normal',
   plaza: 'plant',
+  // 계단은 좁다. 둘이 서면 길이 막힌다
+  stair: 'narrow',
 }
 
 export const ROOM_KIND: Readonly<Record<TileId, RoomKind>> = Object.fromEntries(

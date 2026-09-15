@@ -9,71 +9,81 @@
 // 화면을 켜 봐야 아는 것과 시험이 잡아 주는 것은 다르다.
 import { describe, expect, it } from 'vitest'
 
-import { ADJACENCY, START_TILE, TILES } from '../../../shared/rules/board'
+import { ADJACENCY, START_TILE, TILES, TILE_BY_ID } from '../../../shared/rules/board'
 import { CANVAS_SCALE, NARROW_PX } from '../game/timing'
 import {
   DOORS,
-  DOOR_WIDE,
-  MAP_W,
+  STAIRS,
   ROOMS,
   ROOM_TILES,
   TILE,
   SPAWNABLE_TILES,
   centerOf,
-  doorHere,
   isWalkable,
   roomAt,
   spawnFor,
-  tileAt,
 } from './world'
 import type { TeamId, TileId } from '../types'
 
 const pair = (a: string, b: string) => [a, b].sort().join('|')
-
-const rulePairs = (() => {
-  const out = new Set<string>()
-  for (const [a, ns] of Object.entries(ADJACENCY)) for (const n of ns) out.add(pair(a, n))
-  return out
-})()
 
 describe('걸어 다니는 학교는 규칙과 같은 판이다', () => {
   it('방이 규칙과 하나씩 맞는다', () => {
     expect(ROOMS.map((r) => r.id).sort()).toEqual(TILES.map((t) => t.id).sort())
   })
 
-  it('문이 있는 곳은 규칙도 이웃이라고 한다', () => {
-    const wrong = DOORS.filter((d) => !ADJACENCY[d.a]?.includes(d.b)).map((d) => `${d.a}↔${d.b}`)
-    expect(wrong).toEqual([])
+  it('방마다 문이 하나다 — 복도로 난다', () => {
+    const rooms = TILES.filter((t) => t.tier !== 'stair' && t.floor !== 'roof')
+    for (const t of rooms) {
+      expect(DOORS.filter((d) => d.a === t.id)).toHaveLength(1)
+    }
+    expect(DOORS).toHaveLength(rooms.length)
   })
 
-  it('규칙이 이웃이라고 한 곳에는 문이 있다', () => {
-    const doors = new Set(DOORS.map((d) => pair(d.a, d.b)))
-    expect([...rulePairs].filter((p) => !doors.has(p))).toEqual([])
+  it('문 너머는 복도다 — 방과 방을 바로 잇지 않는다', () => {
+    for (const d of DOORS) expect(d.b).toBeNull()
   })
 
-  it('문 하나에 이웃 한 쌍 — 두 번 뚫지 않는다', () => {
-    expect(DOORS.length).toBe(rulePairs.size)
+  it('두 문이 같은 칸에 나지 않는다', () => {
     expect(new Set(DOORS.map((d) => `${d.x},${d.y}`)).size).toBe(DOORS.length)
   })
 
-  it('문은 세 칸이다 — 한 칸이면 한 칸 옆에 선 사람이 못 지나간다', () => {
-    for (const d of DOORS) {
-      expect(d.tiles.length).toBe(DOOR_WIDE)
-      for (const t of d.tiles) {
-        expect(tileAt(t.x, t.y)).toBe('door')
-        expect(doorHere(t.x, t.y)).toBe(d)
+  it('규칙이 이웃이라고 한 방끼리는 걸어서 닿는다', () => {
+    // 복도가 생긴 뒤로는 방과 방 사이에 문이 없다. 대신 **같은 층이면
+    // 복도를 지나 걸어서 닿아야** 한다. 층이 다른 쌍(계단)은 건너뛴다
+    const far: string[] = []
+    for (const [a, ns] of Object.entries(ADJACENCY)) {
+      for (const b of ns) {
+        if (a >= b) continue
+        if (TILE_BY_ID[a].floor !== TILE_BY_ID[b].floor) continue
+        if (!walkable(centerOf(a as TileId), centerOf(b as TileId))) far.push(pair(a, b))
       }
     }
+    expect(far).toEqual([])
   })
 
-  it('문 세 칸이 전부 같은 벽 줄에 있다', () => {
-    for (const d of DOORS) {
-      const sameCol = d.tiles.every((t) => t.x === d.x)
-      const sameRow = d.tiles.every((t) => t.y === d.y)
-      expect(sameCol || sameRow).toBe(true)
-    }
+  it('계단은 규칙의 이웃으로 이어진다', () => {
+    for (const s of STAIRS) expect(ADJACENCY[s.from]).toContain(s.to)
   })
 })
+
+/** 두 자리가 벽을 넘지 않고 이어지는가. 계단은 안 쓴다. */
+function walkable(from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  const seen = new Set<string>([`${from.x},${from.y}`])
+  const queue = [from]
+  while (queue.length > 0) {
+    const cur = queue.shift() as { x: number; y: number }
+    if (cur.x === to.x && cur.y === to.y) return true
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const n = { x: cur.x + dx, y: cur.y + dy }
+      const k = `${n.x},${n.y}`
+      if (seen.has(k) || !isWalkable(n.x, n.y)) continue
+      seen.add(k)
+      queue.push(n)
+    }
+  }
+  return false
+}
 
 describe('걸어서 갈 수 있다', () => {
   it('방 한가운데에는 언제나 설 수 있다', () => {
@@ -110,32 +120,17 @@ describe('걸어서 갈 수 있다', () => {
 })
 
 describe('방을 곧장 지나갈 수 있다', () => {
-  it('문에서 문까지 한가운데를 지나 직선으로 간다', () => {
-    // 문은 벽 한가운데에 뚫린다. 방 한가운데를 지나는 십자가 뚫려 있으면
-    // 어느 문에서 들어와도 곧장 반대쪽 문으로 나갈 수 있다. 막혀 있으면
-    // 사람은 벽을 따라 방을 한 바퀴 돌게 된다 — 실제로 관문 넷이 그랬다
-    const blocked: string[] = []
+  it('문에서 방 한가운데까지 막히지 않는다', () => {
+    const stuck: string[] = []
     for (const d of DOORS) {
-      for (const id of [d.a, d.b]) {
-        const c = centerOf(id)
-        // 문 세 칸 어디로 들어와도 한가운데까지 막히지 않아야 한다
-        for (const t of d.tiles) {
-          let x = t.x
-          let y = t.y
-          // 벽 줄을 먼저 벗어난 다음 한가운데로 꺾는다
-          while (x !== c.x || y !== c.y) {
-            if (x !== c.x && Math.sign(c.x - t.x) !== 0) x += Math.sign(c.x - x)
-            else if (y !== c.y) y += Math.sign(c.y - y)
-            else x += Math.sign(c.x - x)
-            if (!isWalkable(x, y)) {
-              blocked.push(`${id} 문(${t.x},${t.y})→가운데 @${x},${y}`)
-              break
-            }
-          }
-        }
+      const c = centerOf(d.a)
+      // 문은 방 한가운데 세로줄에 뚫린다. 그 줄을 따라가면 곧장 닿아야 한다
+      const step = c.y > d.y ? 1 : -1
+      for (let y = d.y + step; y !== c.y + step; y += step) {
+        if (!isWalkable(d.x, y)) stuck.push(`${d.a} @ ${d.x},${y}`)
       }
     }
-    expect(blocked).toEqual([])
+    expect(stuck).toEqual([])
   })
 })
 
@@ -146,23 +141,5 @@ describe('제 방이 한 화면에 들어온다', () => {
     // 보이지도 누를 수도 없다 — 실제로 그랬다. 「방끼리 이동이 안 된다」
     const seen = Math.floor(NARROW_PX / CANVAS_SCALE / TILE)
     expect(ROOM_TILES + 2).toBeLessThanOrEqual(seen)
-  })
-})
-
-describe('네 팀이 똑같은 학교를 걷는다', () => {
-  it('걸을 수 있는 칸이 90도 회전에 대해 대칭이다', () => {
-    // 자리가 유불리가 되면 안 된다. 한 팀만 가구가 덜 놓인 방을 쓰면
-    // 그 팀만 잘 지나다닌다
-    // 판 크기는 world 가 정한다. 여기서 다시 적으면 어긋난다
-    const N = MAP_W
-    const rot = (x: number, y: number) => [N - 1 - y, x]
-    const off: string[] = []
-    for (let y = 0; y < N; y++) {
-      for (let x = 0; x < N; x++) {
-        const [rx, ry] = rot(x, y)
-        if (isWalkable(x, y) !== isWalkable(rx, ry)) off.push(`${x},${y}`)
-      }
-    }
-    expect(off).toEqual([])
   })
 })

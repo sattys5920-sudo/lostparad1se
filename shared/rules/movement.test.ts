@@ -23,11 +23,21 @@ const walk = (from: string, to: string, at: string, factor = 1): Walk => {
 
 describe('경로', () => {
   it('이웃 칸은 한 걸음이다', () => {
-    expect(walk('baseA', 'classroom', '2026-03-02T10:00:00').path).toEqual(['classroom'])
+    expect(walk('baseA', 'cafeteria', '2026-03-02T10:00:00').path).toEqual(['cafeteria'])
   })
 
-  it('기지에서 중앙광장까지 네 걸음이다', () => {
-    expect(walk('baseA', 'centralPlaza', '2026-03-02T10:00:00').path).toHaveLength(4)
+  // 교무실(1층) → 급식실 → 양호실 → 화장실 → 상점. 복도를 따라 네 걸음
+  it('같은 층 복도 끝에서 끝까지 네 걸음이다', () => {
+    expect(walk('baseA', 'classroom', '2026-03-02T10:00:00').path).toHaveLength(4)
+  })
+
+  it('계단으로 층을 넘는 것도 한 걸음씩이다', () => {
+    // 교무실 → 1층 서쪽 계단 → 2층 서쪽 계단 → 2-3 교실
+    expect(walk('baseA', 'centralPlaza', '2026-03-02T10:00:00').path).toEqual([
+      'stair_f1_w',
+      'stair_f2_w',
+      'centralPlaza',
+    ])
   })
 
   it('같은 칸은 찍을 수 없다', () => {
@@ -51,7 +61,7 @@ describe('걷는 시간', () => {
   })
 
   it('칸마다 도착 시각이 찍힌다', () => {
-    const w = walk('baseA', 'centralPlaza', '2026-03-02T10:00:00')
+    const w = walk('baseA', 'classroom', '2026-03-02T10:00:00')
     const out = arrivals(w)
     expect(out).toHaveLength(4)
     expect(out[0].atMs).toBe(seoul('2026-03-02T10:15:00'))
@@ -62,12 +72,12 @@ describe('걷는 시간', () => {
   // 예전에는 소등에 걸려 문 앞에서 밤을 샜다. 이제는 그냥 걷는다
   it('자정을 넘어도 멈추지 않는다', () => {
     // 23:50 출발, 네 칸이면 한 시간 → 다음 날 00:50 도착
-    const w = walk('baseA', 'centralPlaza', '2026-03-02T23:50:00')
+    const w = walk('baseA', 'classroom', '2026-03-02T23:50:00')
     expect(walkEndsAtMs(w)).toBe(seoul('2026-03-03T00:50:00'))
   })
 
   it('새벽에 출발시켜도 그 자리에서 센다', () => {
-    const w = walk('baseA', 'classroom', '2026-03-03T03:00:00')
+    const w = walk('baseA', 'cafeteria', '2026-03-03T03:00:00')
     expect(walkEndsAtMs(w)).toBe(seoul('2026-03-03T03:15:00'))
   })
 })
@@ -104,22 +114,22 @@ describe('걷는 도중의 위치', () => {
 
 describe('등교 예약', () => {
   it('두 칸까지다', () => {
-    expect(checkCommutePlan('baseA', 'classroom').ok).toBe(true)
-    expect(checkCommutePlan('baseA', 'library').ok).toBe(true)
-    const far = checkCommutePlan('baseA', 'centralPlaza')
+    expect(checkCommutePlan('baseA', 'cafeteria').ok).toBe(true)
+    expect(checkCommutePlan('baseA', 'annex').ok).toBe(true)
+    const far = checkCommutePlan('baseA', 'classroom')
     expect(far.ok).toBe(false)
     expect(far.reason).toBe('tooFar')
   })
 
-  it('08:00에 걸음으로 바뀐다', () => {
+  it('하루가 열릴 때 걸음으로 바뀐다', () => {
     const dawn = seoul('2026-03-03T08:00:00')
-    const w = releaseCommute({ playerId: 'a1', to: 'library', flagOnArrival: true }, 'baseA', dawn)
+    const w = releaseCommute({ playerId: 'a1', to: 'annex', flagOnArrival: true }, 'baseA', dawn)
     expect(w?.startedAtMs).toBe(dawn)
     expect(walkEndsAtMs(w as Walk)).toBe(dawn + 30 * MIN)
   })
 
   it('그 사이에 말이 옮겨져 두 칸을 넘으면 취소된다', () => {
-    const w = releaseCommute({ playerId: 'a1', to: 'baseC', flagOnArrival: false }, 'baseA', 0)
+    const w = releaseCommute({ playerId: 'a1', to: 'classroom', flagOnArrival: false }, 'baseA', 0)
     expect(w).toBe(null)
   })
 })

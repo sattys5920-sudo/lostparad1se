@@ -54,13 +54,13 @@ const input = (over: Partial<ScoreInput> = {}): ScoreInput => ({
 
 describe('영역', () => {
   it('가진 칸의 가치를 더한다 — 기지는 빼고', () => {
-    // A의 1구역은 교실 3, 복도 1
-    expect(territoryScore(input())).toBe(4)
+    // A(교무실)가 시작할 때 쥐는 것은 급식실 4 · 가사실 1
+    expect(territoryScore(input())).toBe(5)
   })
 
   it('A의 기록 보너스가 붙는다', () => {
-    const out = territoryScore(input({ fragments: [{ day: 1, spotTile: 'classroom' }] }))
-    expect(out).toBe(4 + 2)
+    const out = territoryScore(input({ fragments: [{ day: 1, spotTile: 'cafeteria' }] }))
+    expect(out).toBe(5 + 2)
   })
 })
 
@@ -70,12 +70,13 @@ describe('연결', () => {
   })
 
   it('떨어진 땅은 한 점도 아니다', () => {
-    const tiles = board({ A: [...startingTiles('A'), 'gym'] })
+    // 음악실은 2층이다. 계단을 안 쥐었으니 이어지지 않는다
+    const tiles = board({ A: [...startingTiles('A'), 'musicRoom'] })
     expect(connectionScore(input({ tiles }))).toBe(2)
   })
 
   it('이어 붙이면 늘어난다', () => {
-    const tiles = board({ A: [...startingTiles('A'), 'library'] })
+    const tiles = board({ A: [...startingTiles('A'), 'annex'] })
     expect(connectionScore(input({ tiles }))).toBe(3)
   })
 })
@@ -120,7 +121,10 @@ describe('비밀 목표', () => {
   })
 
   it('끊기지 않는 길은 연결 9 이상이다', () => {
-    const wide = board({ A: ['baseA', 'classroom', 'hallway', 'library', 'garden', 'artRoom', 'oldBuilding', 'playground', 'rooftop', 'mainBuilding'] })
+    // 1층을 통째로. 기지를 뺀 아홉 칸이 복도를 따라 이어진다
+    const wide = board({
+      A: ['baseA', 'cafeteria', 'annex', 'baseB', 'classroom', 'hallway', 'gym', 'auditorium', 'playground', 'garden'],
+    })
     expect(check('unbrokenPath', { tiles: wide })).toBe(true)
     expect(check('unbrokenPath')).toBe(false)
   })

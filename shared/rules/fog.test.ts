@@ -32,18 +32,19 @@ describe('보이는 칸', () => {
   it('말이 선 칸과 그 이웃이 보인다', () => {
     const out = visibleTiles({ ownedTiles: [], myPawnTiles: ['centralPlaza'] })
     expect(out.has('centralPlaza')).toBe(true)
-    expect(out.has('studentCouncil')).toBe(true)
-    expect(out.has('broadcastRoom')).toBe(true)
+    // 2-3 교실의 이웃 — 옆자리, 복도 건너, 서쪽 계단
+    expect(out.has('scienceRoom')).toBe(true)
+    expect(out.has('newBuilding')).toBe(true)
     // 두 칸 떨어진 곳은 안 보인다
-    expect(out.has('mainBuilding')).toBe(false)
+    expect(out.has('musicRoom')).toBe(false)
   })
 
   it('정보부장이 있으면 한 겹 더 본다', () => {
     const out = visibleTiles({ ownedTiles: [], myPawnTiles: ['centralPlaza'], intelOfficer: true })
     expect(INTEL_VISION_BONUS).toBe(1)
-    expect(out.has('mainBuilding')).toBe(true)
+    expect(out.has('musicRoom')).toBe(true)
     // 세 칸은 여전히 안 보인다
-    expect(out.has('baseA')).toBe(false)
+    expect(out.has('library')).toBe(false)
   })
 
   it('없는 칸은 무시한다', () => {

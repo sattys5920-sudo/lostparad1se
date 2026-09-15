@@ -18,9 +18,9 @@ describe('모으기', () => {
     expect(lines.filter((l) => l.source === 'secret')).toHaveLength(14)
   })
 
-  it('A의 시선 열넷과 A의 기억 열셋이 다 있다', () => {
+  it('A의 시선 열넷과 A의 기억 열둘이 다 있다', () => {
     expect(lines.filter((l) => l.source === 'sight')).toHaveLength(14)
-    expect(lines.filter((l) => l.source === 'memory')).toHaveLength(13)
+    expect(lines.filter((l) => l.source === 'memory')).toHaveLength(12)
   })
 
   it('전말 열일곱 줄이 다 있다', () => {

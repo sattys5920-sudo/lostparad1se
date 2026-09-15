@@ -15,7 +15,6 @@ export const MEMORIES: Record<TileId, string> = {
   oldBuilding: '구관 화장실 거울에 누가 립밤으로 적어 둔 글씨. 「없는 사람」',
   annex: '별관 계단은 아무도 안 다녀서 좋았다. 그래서 거기서 무슨 일이 있어도 아무도 몰랐다',
   newBuilding: '새 교실로 옮기던 날, 내 책상만 복도에 나와 있었다',
-  mainBuilding: '현관 신발장. 내 실내화는 금요일마다 사라졌다가 월요일마다 쓰레기통에 있었다',
   playground: '체육대회 계주 명단. 내 이름 위에 누가 두 줄을 그어 놓았다',
   auditorium: '수련회 단체 사진. 내가 서 있던 자리만 잘려 있었다',
   broadcastRoom: '점심 방송 익명 신청곡. 「이번 주 투명인간에게 바칩니다」',
