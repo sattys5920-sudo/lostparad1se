@@ -578,6 +578,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {atlas && (
         <FullMap
           facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
+          clock={{ open: phaseOpen, no: phaseNo, endsAtMs: phaseEndsAtMs, nowMs }}
+          snowLevel={state.game?.snow?.level ?? 5}
           onClose={() => setAtlas(false)}
         />
       )}

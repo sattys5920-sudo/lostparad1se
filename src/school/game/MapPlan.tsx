@@ -118,19 +118,31 @@ export function readMap(f: MapFacts): RoomFacts[] {
  * 같은 복도에 붙어 있는지가 안 보였다. 판 데이터에 복도 네모가
  * 그대로 있으니 그것을 깐다.
  */
-export function halls(): { x: number; y: number; w: number; h: number; stair: boolean }[] {
+export interface Cell {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** 복도와 계단통 — **칸 단위다.** 몇 배로 그릴지는 부르는 쪽이 정한다. */
+export function hallCells(): (Cell & { stair: boolean })[] {
   const stairAt = new Set(STAIRWELLS.map((w) => `${w.plan.x},${w.plan.y}`))
   return HALLS.map((h) => ({
-    x: h.rect.x * PLAN_SCALE,
-    y: h.rect.y * PLAN_SCALE,
-    w: h.rect.w * PLAN_SCALE,
-    h: h.rect.h * PLAN_SCALE,
+    x: h.rect.x,
+    y: h.rect.y,
+    w: h.rect.w,
+    h: h.rect.h,
     stair: stairAt.has(`${h.rect.x},${h.rect.y}`),
   }))
 }
 
+export function halls(): (Cell & { stair: boolean })[] {
+  return hallCells().map((c) => ({ ...c, x: c.x * PLAN_SCALE, y: c.y * PLAN_SCALE, w: c.w * PLAN_SCALE, h: c.h * PLAN_SCALE }))
+}
+
 /** 층마다의 바닥판. 쌓아 놓은 것이 한 건물로 읽히게 깔아 준다. */
-export function slabs(): { floor: string; name: string; x: number; y: number; w: number; h: number }[] {
+export function floorCells(): (Cell & { floor: string; name: string })[] {
   return FLOORS.map((floor) => {
     const boxes = [
       ...TILES.filter((t) => t.floor === floor).map((t) => t.plan),
@@ -140,15 +152,12 @@ export function slabs(): { floor: string; name: string; x: number; y: number; w:
     const y = Math.min(...boxes.map((b) => b.y)) - 1
     const w = Math.max(...boxes.map((b) => b.x + b.w)) + 1 - x
     const h = Math.max(...boxes.map((b) => b.y + b.h)) + 1 - y
-    return {
-      floor,
-      name: FLOOR_NAME[floor],
-      x: x * PLAN_SCALE,
-      y: y * PLAN_SCALE,
-      w: w * PLAN_SCALE,
-      h: h * PLAN_SCALE,
-    }
+    return { floor, name: FLOOR_NAME[floor], x, y, w, h }
   })
+}
+
+export function slabs(): (Cell & { floor: string; name: string })[] {
+  return floorCells().map((c) => ({ ...c, x: c.x * PLAN_SCALE, y: c.y * PLAN_SCALE, w: c.w * PLAN_SCALE, h: c.h * PLAN_SCALE }))
 }
 
 export interface PlanProps {
