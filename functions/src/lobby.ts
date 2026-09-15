@@ -11,7 +11,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
 import { grantFor, isShortHanded } from '../../shared/rules/occupy'
-import { BASE_OF, TILES, startingTiles, type TileId } from '../../shared/rules/board'
+import { START_TILE, TILES, startingTiles } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { initialTokenState } from '../../shared/rules/tokens'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
@@ -205,7 +205,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     batch.set(ref.collection('tiles').doc(tile.id), { ownerTeam: owner, buildings: [] })
   }
 
-  // 말은 모두 기지에 서 있다. 직책은 팀 안에서 순서대로
+  // 말은 모두 2-3 교실에 서 있다. 직책은 팀 안에서 순서대로
   for (const team of TEAMS) {
     const members = seats.filter((s) => s.team === team)
     members.forEach((s, i) => {
@@ -213,14 +213,14 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         playerId: s.playerId,
         team,
         title: ROLE_TITLES[i % ROLE_TITLES.length],
-        tileId: BASE_OF[team] as TileId,
+        tileId: START_TILE,
         // 전투 자리. 처음에는 서 있는 자리와 같다
-        postTile: BASE_OF[team] as TileId,
+        postTile: START_TILE,
         // 세 명뿐인 팀의 첫 사람이 주장이다. 점령 판정에서 둘로 센다 —
         // 네 명인 팀과 머릿수를 맞추는 유일한 장치다
         captain: isShortHanded(members.length) && i === 0,
-        // 기지는 이미 가 본 곳이다. 지도는 여기서부터 채워진다
-        visitedTiles: [BASE_OF[team] as TileId],
+        // 2-3 교실은 이미 가 본 곳이다. 지도는 여기서부터 채워진다
+        visitedTiles: [START_TILE],
         fromTile: null,
         path: [],
         arriveAtMs: null,
@@ -269,12 +269,12 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
 
   await batch.commit()
 
-  // 모두 기지에 선 것으로 체류 기록을 연다. 깨달음이 이걸로 센다
+  // 모두 2-3 교실에 선 것으로 체류 기록을 연다. 깨달음이 이걸로 센다
   const iv = db.batch()
   for (const s of seats) {
     iv.set(ref.collection('secret').doc('intervals').collection('items').doc(), {
       playerId: s.playerId,
-      tileId: BASE_OF[s.team] as TileId,
+      tileId: START_TILE,
       startMs: startedAtMs,
       endMs: null,
       state: 'standing',

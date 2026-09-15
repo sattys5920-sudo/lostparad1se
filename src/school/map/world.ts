@@ -20,7 +20,7 @@
 // 격자는 90도 회전에 대해 대칭이다(규칙 쪽에서 그렇게 짰다). 가구도 그
 // 대칭을 따라 한 방만 그리고 세 번 돌려 쓴다 — 네 팀이 똑같은 학교를
 // 걷지 않으면 자리가 유불리가 된다.
-import { ADJACENCY, TILE_BY_ID, TILES as BOARD } from '../../../shared/rules/board'
+import { ADJACENCY, START_TILE, TILE_BY_ID, TILES as BOARD } from '../../../shared/rules/board'
 import type { Tier } from '../../../shared/rules/v2'
 import type { MarkKind, PropKind } from './sprites'
 import type { TeamId, TileId } from '../types'
@@ -495,16 +495,19 @@ export function lockedDoorKeys(unlocked: TileId[]): Set<string> {
   return out
 }
 
-const BASE_OF: Record<TeamId, TileId> = { A: 'baseA', B: 'baseB', C: 'baseC', D: 'baseD' }
-
-/** 그 방 한가운데 칸. 팀마다 자기 기지에서 시작한다. */
+/** 그 방 한가운데 칸. */
 export function centerOf(id: TileId): { x: number; y: number } {
   const r = roomById[id].rects[0]
   return { x: r.x + Math.floor(r.w / 2), y: r.y + Math.floor(r.h / 2) }
 }
 
-export function spawnFor(team: TeamId | null): { x: number; y: number } {
-  return centerOf(team ? BASE_OF[team] : 'hallway')
+/**
+ * 처음 서는 자리. **팀을 안 본다** — 넷 다 2-3 교실에서 시작한다.
+ * 서버(functions/src/lobby.ts)가 두는 자리와 같은 곳이어야 한다.
+ * 어긋나면 화면은 기지에, 서버는 교실에 세워 놓고 「이미 그 방이다」가 뜬다
+ */
+export function spawnFor(_team: TeamId | null): { x: number; y: number } {
+  return centerOf(START_TILE as TileId)
 }
 
 /** 팀이 정해지기 전 기본 자리. */

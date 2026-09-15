@@ -10,7 +10,7 @@
 // **안 아는 방은 서버가 숫자를 안 보낸다.** 여기서 감추는 것이 아니라
 // 애초에 없다. 받아다 가리면 개발자도구로 다 보인다.
 import { ADJACENCY, TILES, TILE_BY_ID } from '../../../shared/rules/board'
-import { ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
+import { OPEN_TILES, ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
 
@@ -53,6 +53,8 @@ export interface RoomFacts {
   /** 서버가 준 머릿수. 위장이 이미 반영돼 있다. 모르는 방은 null. */
   count: number | null
   capacity: number
+  /** 인원 제한이 없는 방. 머릿수만 적고 정원은 안 적는다. */
+  open: boolean
   kind: string
   /** 그 방에 보이는 점들. 그릴 순서대로. */
   dots: { key: string; team: TeamId; me: boolean; robot: boolean }[]
@@ -91,6 +93,7 @@ export function readMap(f: MapFacts): RoomFacts[] {
       known,
       count: known ? (counts[id] ?? 0) : null,
       capacity: capacityOf(id),
+      open: OPEN_TILES.has(id),
       kind: ROOM_KIND[id],
       dots,
     }
@@ -216,9 +219,9 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
                 <text
                   x={x + ROOM_BOX / 2}
                   y={y + ROOM_BOX - 6}
-                  className={`sc-mp__count${(r.count ?? 0) >= r.capacity ? ' is-full' : ''}`}
+                  className={`sc-mp__count${!r.open && (r.count ?? 0) >= r.capacity ? ' is-full' : ''}`}
                 >
-                  {r.count} / {r.capacity}
+                  {r.open ? `${r.count}명` : `${r.count} / ${r.capacity}`}
                 </text>
               </>
             )}

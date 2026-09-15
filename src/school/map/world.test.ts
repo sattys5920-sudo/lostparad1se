@@ -9,7 +9,7 @@
 // 화면을 켜 봐야 아는 것과 시험이 잡아 주는 것은 다르다.
 import { describe, expect, it } from 'vitest'
 
-import { ADJACENCY, TILES } from '../../../shared/rules/board'
+import { ADJACENCY, START_TILE, TILES } from '../../../shared/rules/board'
 import { CANVAS_SCALE, NARROW_PX } from '../game/timing'
 import {
   DOORS,
@@ -85,10 +85,12 @@ describe('걸어서 갈 수 있다', () => {
     expect(stuck.map((r) => r.id)).toEqual([])
   })
 
-  it('네 팀 모두 제 기지에서 시작한다', () => {
+  // 화면과 서버가 같은 자리에서 열어야 한다. 어긋나면 첫 화면부터
+  // 「이미 그 방이다」가 뜬다 — 서버는 교실에, 아바타는 기지에 선 채로
+  it('네 팀 모두 2-3 교실에서 시작한다', () => {
     for (const team of ['A', 'B', 'C', 'D'] as TeamId[]) {
       const s = spawnFor(team)
-      expect(roomAt(s.x, s.y)?.id).toBe(`base${team}`)
+      expect(roomAt(s.x, s.y)?.id).toBe(START_TILE)
     }
   })
 

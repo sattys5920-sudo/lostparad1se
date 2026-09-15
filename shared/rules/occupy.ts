@@ -15,6 +15,7 @@
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 같은 입력에 늘 같은 결과라, 서버가 돌리든 시험이 돌리든 같다.
 import { ADJACENCY, TILE_BY_ID, TILES, type TileId } from './board'
+import { TOTAL_SEATS } from './lobby'
 import { CAPTAIN_HEAD_COUNT, FULL_TEAM_SIZE, type TeamId, type Tier } from './v2'
 
 // ── 수치 ────────────────────────────────────────────────────────
@@ -213,7 +214,18 @@ export const ROOM_KIND: Readonly<Record<TileId, RoomKind>> = Object.fromEntries(
   TILES.map((t) => [t.id, KIND_BY_TIER[t.tier]]),
 ) as Record<TileId, RoomKind>
 
-export const capacityOf = (id: TileId): number => ROOM_CAPACITY[ROOM_KIND[id]]
+/**
+ * 인원 제한이 없는 방.
+ *
+ * 2-3 교실은 아침마다 열넷이 한꺼번에 서는 자리다. 여기에 정원을
+ * 두면 늦게 들어온 사람이 자기 반에 못 들어간다 — 제한을 없애는
+ * 대신 열네 자리(TOTAL_SEATS)로 둔다. 무한대로 두면 화면과 서버가
+ * 주고받을 때마다 숫자가 아닌 값이 섞인다.
+ */
+export const OPEN_TILES: ReadonlySet<TileId> = new Set(['centralPlaza'])
+
+export const capacityOf = (id: TileId): number =>
+  OPEN_TILES.has(id) ? TOTAL_SEATS : ROOM_CAPACITY[ROOM_KIND[id]]
 
 // ── 판 위의 것들 ────────────────────────────────────────────────
 

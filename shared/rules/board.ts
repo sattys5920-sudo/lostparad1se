@@ -24,48 +24,51 @@ export interface TileSpec {
 /**
  * 규칙 원문 1장의 표를 그대로 옮긴 것.
  *
- *        1          2          3            4          5
- *   1  D기지     창고 1    급식실 4관   음악실 3    C기지
- *   2  정원 3    본관 5교  방송실 6핵   신관 5교    동아리실 1
- *   3  옥상 4관  학생회 6핵 중앙광장 8  강당 6핵    체육관 4관
- *   4  복도 1    구관 5교  운동장 6핵   별관 5교    과학실 3
- *   5  A기지     교실 3    도서관 4관   미술실 1    B기지
+ *        1            2           3             4           5
+ *   1  시청각실D    창고 1      급식실 4관    음악실 3    기술실C
+ *   2  정원 3       본관 5교    방송실 6핵    무용실 5교  동아리실 1
+ *   3  옥상 4관     학생회 6핵  2-3 교실 8    강당 6핵    체육관 4관
+ *   4  가사실 1     경비실 5교  운동장 6핵    양호실 5교  과학실 3
+ *   5  교무실A      상점 3      도서관 4관    미술실 1    화장실B
+ *
+ * 이름은 바뀌었어도 자리와 id 는 그대로다. 네 모서리는 여전히 팀
+ * 기지(homeOf)고, 회전 대칭도 그대로다 — 이름만 학교답게 갈았다.
  */
 const LAYOUT: readonly (readonly [TileId, string, number, Tier, TeamId | null])[][] = [
   [
-    ['baseD', 'D팀 기지', 0, 'base', 'D'],
+    ['baseD', '시청각실', 0, 'base', 'D'],
     ['storage', '창고', 1, 'zone1', null],
     ['cafeteria', '급식실', 4, 'gate', null],
     ['musicRoom', '음악실', 3, 'zone1', null],
-    ['baseC', 'C팀 기지', 0, 'base', 'C'],
+    ['baseC', '기술실', 0, 'base', 'C'],
   ],
   [
     ['garden', '정원', 3, 'zone1', null],
     ['mainBuilding', '본관', 5, 'cross', null],
     ['broadcastRoom', '방송실', 6, 'core', null],
-    ['newBuilding', '신관', 5, 'cross', null],
+    ['newBuilding', '무용실', 5, 'cross', null],
     ['clubRoom', '동아리실', 1, 'zone1', null],
   ],
   [
     ['rooftop', '옥상', 4, 'gate', null],
     ['studentCouncil', '학생회실', 6, 'core', null],
-    ['centralPlaza', '중앙광장', 8, 'plaza', null],
+    ['centralPlaza', '2-3 교실', 8, 'plaza', null],
     ['auditorium', '강당', 6, 'core', null],
     ['gym', '체육관', 4, 'gate', null],
   ],
   [
-    ['hallway', '복도', 1, 'zone1', null],
-    ['oldBuilding', '구관', 5, 'cross', null],
+    ['hallway', '가사실', 1, 'zone1', null],
+    ['oldBuilding', '경비실', 5, 'cross', null],
     ['playground', '운동장', 6, 'core', null],
-    ['annex', '별관', 5, 'cross', null],
+    ['annex', '양호실', 5, 'cross', null],
     ['scienceRoom', '과학실', 3, 'zone1', null],
   ],
   [
-    ['baseA', 'A팀 기지', 0, 'base', 'A'],
-    ['classroom', '교실', 3, 'zone1', null],
+    ['baseA', '교무실', 0, 'base', 'A'],
+    ['classroom', '상점', 3, 'zone1', null],
     ['library', '도서관', 4, 'gate', null],
     ['artRoom', '미술실', 1, 'zone1', null],
-    ['baseB', 'B팀 기지', 0, 'base', 'B'],
+    ['baseB', '화장실', 0, 'base', 'B'],
   ],
 ]
 
@@ -92,6 +95,16 @@ export const TILE_IDS: readonly TileId[] = TILES.map((t) => t.id)
 export const BASE_OF: Record<TeamId, TileId> = Object.fromEntries(
   TILES.filter((t) => t.homeOf).map((t) => [t.homeOf as TeamId, t.id]),
 ) as Record<TeamId, TileId>
+
+/**
+ * 모두가 여기서 시작한다.
+ *
+ * 전에는 팀마다 제 기지에서 열었다. 그러면 첫 아침에 만나는 사람이
+ * 같은 팀 셋뿐이라, 열넷이 한 교실에 있다는 이야기가 화면에서는
+ * 어디에도 안 보였다. 기지는 그대로 남는다 — 점수와 깃발은 여전히
+ * 네 모서리를 센다. 다만 아침은 다 같이 2-3 교실에서 연다.
+ */
+export const START_TILE: TileId = 'centralPlaza'
 
 function at(row: number, col: number): TileSpec | null {
   if (row < 0 || col < 0 || row >= GRID || col >= GRID) return null

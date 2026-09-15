@@ -9,7 +9,7 @@
 // 진짜 판은 다르게 돈다.
 import {
   ADJACENCY,
-  BASE_OF,
+  START_TILE,
   TILE_BY_ID,
   TILE_IDS,
   pathBetween,
@@ -165,7 +165,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     assignments.map((a) => [
       a.playerId,
       {
-        id: a.playerId, team: a.team, tileId: BASE_OF[a.team], path: [], arriveAtMs: null,
+        id: a.playerId, team: a.team, tileId: START_TILE, path: [], arriveAtMs: null,
         votedToday: false, revealGained: 0, guardUntilMs: null,
       },
     ]),

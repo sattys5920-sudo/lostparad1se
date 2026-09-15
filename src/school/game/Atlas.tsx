@@ -250,7 +250,7 @@ function RoomCard({
         <div>
           <dt>사람</dt>
           <dd>
-            {room.count} / {room.capacity}
+            {room.open ? `${room.count}명 (정원 없음)` : `${room.count} / ${room.capacity}`}
           </dd>
         </div>
         <div>

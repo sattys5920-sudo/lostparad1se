@@ -428,7 +428,7 @@ export interface GoalSpec {
 
 export const GOALS: readonly GoalSpec[] = [
   { kind: 'gateGuard', name: '관문 수비대', text: '관문 두 칸을 가지고 있다', points: 6 },
-  { kind: 'theMiddle', name: '한가운데', text: '중앙광장을 가지고 있다', points: 7 },
+  { kind: 'theMiddle', name: '한가운데', text: '2-3 교실을 가지고 있다', points: 7 },
   { kind: 'twoHearts', name: '두 개의 심장', text: '핵심 두 칸을 가지고 있다', points: 6 },
   { kind: 'crossroadLord', name: '교차로의 주인', text: '교차로 두 칸을 가지고 있다', points: 5 },
   { kind: 'unbrokenPath', name: '끊기지 않는 길', text: '연결 점수가 9 이상이다', points: 5 },
