@@ -192,7 +192,7 @@ export function gameActions(gameId: string) {
 
     scout: (tileId: TileId) => callServer('scout', { ...g, tileId }),
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),
-    sabotage: (tileId: TileId, kind: string) => callServer('sabotage', { ...g, tileId, kind }),
+    study: (tileId: TileId) => callServer('study', { ...g, tileId }),
 
     /** 마주 선 사람에게 말을 꺼낸다. 수락하면 그 자리에서 끝난다. */
     offerTrade: (toPlayerId: string, give: Record<string, number>, want: Record<string, number>, note = '') =>

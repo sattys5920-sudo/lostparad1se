@@ -458,19 +458,27 @@ export function teamRanks(
 }
 
 /**
- * 주인을 정한다. **가장 많은 팀이 하나뿐일 때만** 바뀐다.
+ * 주인을 정한다. **페이즈가 끝날 때 그 방에 남아 있는 머릿수로만** 정한다.
  *
- * 동점이면 주인이 그대로다. 비어 있던 방이 동점이면 계속 빈 방이다 —
- * 밀어내려면 확실히 더 많아야 한다.
+ *   제일 많은 팀이 하나   그 팀이 차지한다
+ *   동점                  주인이 그대로다. 밀어내려면 확실히 더 많아야 한다
+ *   아무도 없다           **주인이 없어진다**
+ *
+ * 그래서 땅은 매 페이즈 새로 그려진다. 한 번 차지해 두고 다시 안 가면
+ * 잃는다 — 페이즈가 땅을 두고 다투는 시간이 되는 것이 이 한 줄이다.
  */
 export function ownerOf(
   weights: Readonly<Partial<Record<TeamId, number>>>,
   before: TeamId | null,
 ): TeamId | null {
   const rows = Object.entries(weights).filter(([, n]) => (n ?? 0) > 0) as [TeamId, number][]
-  if (rows.length === 0) return before
+  // **아무도 안 섰으면 주인이 없어진다.** 전에는 전 주인이 그대로
+  // 남았다 — 한 번 꽂아 두면 다시 갈 일이 없어서, 땅이 쌓이기만 하고
+  // 페이즈가 땅을 두고 다투는 시간이 아니게 됐다
+  if (rows.length === 0) return null
   const top = Math.max(...rows.map(([, n]) => n))
   const leaders = rows.filter(([, n]) => n === top)
+  // 동점이면 아무도 못 뺏는다. 서 있던 쪽이 지킨 것이다
   return leaders.length === 1 ? leaders[0][0] : before
 }
 

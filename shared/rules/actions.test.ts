@@ -4,15 +4,16 @@ import {
   ACTION_TOKEN_COST,
   canPlantFlag,
   checkGate,
-  checkSabotage,
   checkStand,
   ownerLookup,
+  PRODUCE_YIELD,
+  STUDY_YIELD,
   scoutAlreadyToday,
   scoutYield,
   type ActionKind,
 } from './actions'
 import type { TileState } from './resources'
-import { SABOTAGE_KNOWLEDGE, SCOUT_GAIN, type TeamId } from './v2'
+import { PRODUCE_MONEY, SCOUT_GAIN, STUDY_KNOWLEDGE, type TeamId } from './v2'
 
 /** A는 기지와 1구역, B는 동아리실 하나. 나머지는 빈 칸이다. */
 const OWNERS: Record<string, TeamId | null> = {
@@ -38,20 +39,20 @@ describe('서 있어야 할 곳', () => {
     expect(stand('flag', 'classroom', 'library').reason).toBe('notThere')
   })
 
-  it('건설은 우리 칸 위에서만 한다', () => {
-    expect(stand('build', 'classroom', 'classroom').ok).toBe(true)
-    expect(stand('build', 'clubRoom', 'clubRoom').reason).toBe('notOurTile')
-  })
-
   // 연구는 여기 없다. 페이즈에, 연구실에서만 한다(occupy.ts)
-  it('생산은 우리 땅 아무 데서나 한다', () => {
+  it('생산과 공부는 우리 땅 아무 데서나 한다', () => {
     // 대상 칸이 달라도 우리 땅 위면 된다
     expect(stand('produce', 'classroom', 'hallway').ok).toBe(true)
+    expect(stand('study', 'classroom', 'hallway').ok).toBe(true)
     expect(stand('produce', 'library', 'library').reason).toBe('notOurZone')
+    expect(stand('study', 'library', 'library').reason).toBe('notOurZone')
   })
 
-  it('자유 시간에 걸 수 있는 행동에 연구는 없다', () => {
-    expect(Object.keys(ACTION_TOKEN_COST)).not.toContain('research')
+  it('자유 시간에 걸 수 있는 행동에 연구도 견제도 없다', () => {
+    const kinds = Object.keys(ACTION_TOKEN_COST)
+    expect(kinds).not.toContain('research')
+    expect(kinds).not.toContain('sabotage')
+    expect(kinds).not.toContain('build')
   })
 
   it('탐색은 우리 땅이 아닌 곳에서 한다', () => {
@@ -59,14 +60,7 @@ describe('서 있어야 할 곳', () => {
     expect(stand('scout', 'classroom', 'classroom').reason).toBe('ourTile')
   })
 
-  it('견제는 상대 팀 칸 안에 들어가야 한다', () => {
-    expect(stand('sabotage', 'clubRoom', 'clubRoom').ok).toBe(true)
-    // 빈 칸은 상대 칸이 아니다
-    expect(stand('sabotage', 'library', 'library').reason).toBe('notEnemyTile')
-    expect(stand('sabotage', 'classroom', 'classroom').reason).toBe('notEnemyTile')
-  })
-
-  it('여섯 행동 모두 토큰 한 개다', () => {
+  it('네 행동 모두 토큰 한 개다', () => {
     for (const n of Object.values(ACTION_TOKEN_COST)) expect(n).toBe(1)
   })
 })
@@ -111,6 +105,13 @@ describe('깃발을 꽂을 수 있는 칸', () => {
   })
 })
 
+describe('생산과 공부', () => {
+  it('생산은 돈, 공부는 지식이다', () => {
+    expect(PRODUCE_YIELD).toEqual({ money: PRODUCE_MONEY })
+    expect(STUDY_YIELD).toEqual({ knowledge: STUDY_KNOWLEDGE })
+  })
+})
+
 describe('탐색', () => {
   it('돈이나 지식을 2 준다', () => {
     expect(scoutYield(0)).toEqual({ money: SCOUT_GAIN })
@@ -127,36 +128,6 @@ describe('탐색', () => {
     expect(scoutAlreadyToday(done, 'A', 'library')).toBe(true)
     expect(scoutAlreadyToday(done, 'B', 'library')).toBe(false)
     expect(scoutAlreadyToday(done, 'A', 'gym')).toBe(false)
-  })
-})
-
-describe('견제', () => {
-  const have = { money: 0, knowledge: 3 }
-
-  it('지식 2가 든다', () => {
-    const out = checkSabotage({ kind: 'expandCostUp', targetTeam: 'B', team: 'A', resources: have })
-    expect(out.ok).toBe(true)
-    expect(out.cost).toEqual({ knowledge: SABOTAGE_KNOWLEDGE })
-  })
-
-  it('우리 팀에는 못 건다', () => {
-    expect(
-      checkSabotage({ kind: 'expandCostUp', targetTeam: 'A', team: 'A', resources: have }).reason,
-    ).toBe('ownTeam')
-  })
-
-  it('지식이 모자라면 막는다', () => {
-    const poor = { money: 9, knowledge: 1 }
-    expect(
-      checkSabotage({ kind: 'tradeBlocked', targetTeam: 'B', team: 'A', resources: poor }).reason,
-    ).toBe('cannotAfford')
-  })
-
-  it('카드로 걸면 지식이 들지 않는다', () => {
-    const broke = { money: 0, knowledge: 0 }
-    const out = checkSabotage({ kind: 'tradeBlocked', targetTeam: 'B', team: 'A', resources: broke, byCard: true })
-    expect(out.ok).toBe(true)
-    expect(out.cost).toEqual({})
   })
 })
 

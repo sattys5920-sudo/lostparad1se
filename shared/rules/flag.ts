@@ -14,7 +14,6 @@ import {
   FLAG_DEFENSE_GAME_MIN,
   FLAG_LAST_HOURS_FACTOR,
   FLAG_SPOTLIGHT_BASE_GAME_MIN,
-  SABOTAGE_EXTRA_FLAG_MONEY,
   type FlagTarget,
   type Resource,
   type TeamId,
@@ -83,7 +82,6 @@ export interface CostInput {
   /** 지금 가진 칸 수(기지 제외). 셋마다 돈이 1 비싸진다. */
   ownedTiles: number
   /** 확장 비용 증가 견제를 맞고 있는가. */
-  expandCostUp: boolean
 }
 
 /**
@@ -94,7 +92,7 @@ export interface CostInput {
 export function flagCost(input: CostInput): Partial<Record<Resource, number>> {
   const step = Math.floor(Math.max(0, input.ownedTiles) / FLAG_COST_TILES_PER_STEP)
   const money =
-    FLAG_COST_MONEY[input.target] + step + (input.expandCostUp ? SABOTAGE_EXTRA_FLAG_MONEY : 0)
+    FLAG_COST_MONEY[input.target] + step
   const knowledge = FLAG_COST_KNOWLEDGE[input.target]
   return knowledge > 0 ? { money, knowledge } : { money }
 }

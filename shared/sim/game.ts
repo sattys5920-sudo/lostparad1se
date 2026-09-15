@@ -259,7 +259,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       })
       let success = out.success
       if (success) {
-        const cost = flagCost({ target: f.target, ownedTiles: ownedCount(f.team), expandCostUp: false })
+        const cost = flagCost({ target: f.target, ownedTiles: ownedCount(f.team) })
         const left = pay(teams[f.team].resources, cost)
         if (left) teams[f.team].resources = left
         else success = false
@@ -420,7 +420,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     ) {
       // 성공할 때 낼 돈이 없으면 꽂지 않는다. 실패하면 토큰만 잃는다
       const target0 = flagTargetOf(p.tileId, here.ownerTeam)
-      const need = flagCost({ target: target0, ownedTiles: ownedCount(p.team), expandCostUp: false })
+      const need = flagCost({ target: target0, ownedTiles: ownedCount(p.team) })
       const spent = (need.money ?? 0) <= team.resources.money &&
         (need.knowledge ?? 0) <= team.resources.knowledge
         ? spendToken(team.tokens, p.id)

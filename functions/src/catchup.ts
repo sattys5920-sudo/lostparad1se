@@ -450,7 +450,7 @@ async function flagDue(c: Ctx, payload: Record<string, unknown>): Promise<void> 
   // 성공했으면 그제야 값을 치른다
   if (success) {
     const owned = tiles.filter((t) => t.ownerTeam === team && TILE_BY_ID[t.tileId].tier !== 'base').length
-    const cost = flagCost({ target, ownedTiles: owned, expandCostUp: false })
+    const cost = flagCost({ target, ownedTiles: owned })
     if (!canPay(teamDoc.resources, cost)) {
       success = false
     } else {

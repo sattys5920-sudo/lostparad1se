@@ -8,7 +8,6 @@ import { useState, type ReactNode } from 'react'
 
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
-import { SABOTAGE_LABEL, type SabotageKind } from '../../../shared/rules/v2'
 import type { GameActions } from './useGame'
 
 export interface ActionsProps {
@@ -66,6 +65,9 @@ export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | nul
       <span className="sc-ac__where">{standingOn ? '선 자리에서' : '걷는 중'}</span>
       <button disabled={busy || !standingOn} onClick={() => run('생산', () => act.produce(standingOn as TileId))}>
         생산 <em>{ACTION_TOKEN_COST.produce}</em>
+      </button>
+      <button disabled={busy || !standingOn} onClick={() => run('공부', () => act.study(standingOn as TileId))}>
+        공부 <em>{ACTION_TOKEN_COST.study}</em>
       </button>
     </div>
   )
@@ -138,14 +140,15 @@ export function QuickActions({
       <button disabled={busy || walking} onClick={() => run('생산', () => act.produce(standingOn as TileId))}>
         생산 <em>{ACTION_TOKEN_COST.produce}</em>
       </button>
+      <button disabled={busy || walking} onClick={() => run('공부', () => act.study(standingOn as TileId))}>
+        공부 <em>{ACTION_TOKEN_COST.study}</em>
+      </button>
       <button disabled={busy || walking} onClick={() => run('깃발', () => act.plantFlag(standingOn as TileId))}>
         깃발 <em>{ACTION_TOKEN_COST.flag}</em>
       </button>
       <button disabled={busy || walking} onClick={() => run('탐색', () => act.scout(standingOn as TileId))}>
         탐색 <em>{ACTION_TOKEN_COST.scout}</em>
       </button>
-      {/* 견제는 무엇으로 방해할지 고르는 메뉴가 붙는다 */}
-      <button disabled={walking} onClick={() => onSheet('act')}>견제</button>
       <button onClick={() => onSheet('deal')}>거래</button>
     </div>
   )
@@ -153,7 +156,6 @@ export function QuickActions({
 
 export function Actions({ tileId, where, act, onSaid, onClose, children }: ActionsProps) {
   const { busy, run } = useRun(onSaid)
-  const [open, setOpen] = useState<'sabotage' | null>(null)
   const spec = TILE_BY_ID[tileId]
 
   return (
@@ -188,24 +190,6 @@ export function Actions({ tileId, where, act, onSaid, onClose, children }: Actio
         </button>
       </div>
 
-      <div className="sc-ac__row">
-        <button disabled={busy} onClick={() => setOpen(open === 'sabotage' ? null : 'sabotage')}>
-          견제
-        </button>
-      </div>
-
-      {open === 'sabotage' && (
-        <ul className="sc-ac__menu">
-          {(Object.keys(SABOTAGE_LABEL) as SabotageKind[]).map((k) => (
-            <li key={k}>
-              <button disabled={busy} onClick={() => run(SABOTAGE_LABEL[k], () => act.sabotage(tileId, k))}>
-                {SABOTAGE_LABEL[k]}
-                <span>영향력 1</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }

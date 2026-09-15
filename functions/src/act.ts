@@ -17,31 +17,24 @@ import { getFirestore } from 'firebase-admin/firestore'
 import {
   ACTION_TOKEN_COST,
   PRODUCE_YIELD,
-  SABOTAGE_COST,
-  checkSabotage,
+  STUDY_YIELD,
   checkStand,
   ownerLookup,
   scoutAlreadyToday,
   scoutYield,
   type ActionKind,
 } from '../../shared/rules/actions'
-import { canPay, gain, pay, type TileState } from '../../shared/rules/resources'
+import { gain, type TileState } from '../../shared/rules/resources'
 import { spendToken } from '../../shared/rules/tokens'
 import { rngFrom } from '../../shared/missions/assign'
-import {
-  SABOTAGE_REAL_HOURS,
-  type Resource,
-  type SabotageKind,
-  type TeamId,
-} from '../../shared/rules/v2'
+import { type Resource, type TeamId } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
-import type { SabotageDoc, TeamDoc, TokenStateDoc } from '../../shared/model'
+import type { TeamDoc, TokenStateDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, requireAwake, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
-const HOUR_MS = 3_600_000
 
 const STAND_MESSAGE: Record<string, string> = {
   walking: '걷는 중이다.',
@@ -196,48 +189,30 @@ export const produce = onCall<{ gameId: string; tileId: TileId }>(async (req) =>
   return { got: PRODUCE_YIELD }
 })
 
-// ── 견제 ────────────────────────────────────────────────────────
+// ── 공부 ────────────────────────────────────────────────────────
 
 /**
- * 남의 칸에 서서 그 팀을 방해한다. 지식을 낸다.
+ * 우리 땅 위에서 지식을 번다. **생산의 짝이다.**
  *
- * 걸린 견제는 공개다 — 누가 걸었는지까지 보인다. 익명이 아니다.
+ * 전에는 지식이 탐색과 문제지에서만 나왔다. 연구가 연구실 하나로
+ * 몰리면서 지식이 판의 목줄이 되었는데, 버는 길이 운(탐색)과
+ * 문제지뿐이면 연구실을 못 쥔 팀은 손쓸 방법이 없다.
  */
-export const sabotage = onCall<{ gameId: string; tileId: TileId; kind: SabotageKind }>(async (req) => {
+export const study = onCall<{ gameId: string; tileId: TileId }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, tileId, kind } = req.data
-  const c = await begin(gameId, uid, 'sabotage', tileId)
+  const { gameId, tileId } = req.data
+  const c = await begin(gameId, uid, 'study', tileId)
 
-  const targetTeam = c.tiles.find((t) => t.tileId === tileId)?.ownerTeam
-  if (!targetTeam) throw new HttpsError('failed-precondition', '주인 없는 칸이다.')
-
-  const out = checkSabotage({ kind, targetTeam, team: c.team, resources: c.teamDoc.resources })
-  if (!out.ok) {
-    throw new HttpsError('failed-precondition', out.reason === 'ownTeam' ? '우리 팀이다.' : '지식이 모자라다.')
-  }
-  if (!canPay(c.teamDoc.resources, SABOTAGE_COST)) {
-    throw new HttpsError('failed-precondition', '지식이 모자라다.')
-  }
-
-  const hours = SABOTAGE_REAL_HOURS[kind]
-  const doc: SabotageDoc = {
-    kind,
-    fromTeam: c.team,
-    targetTeam,
-    expiresRealMs: Date.now() + hours * HOUR_MS,
-    consumed: false,
-  }
-  const batch = commit(gameId, c.team, c.spentBox, pay(c.teamDoc.resources, SABOTAGE_COST) as Record<Resource, number>, {
+  const batch = commit(gameId, c.team, c.spentBox, gain(c.teamDoc.resources, STUDY_YIELD), {
     atMs: c.nowMs,
     day: c.day,
-    kind: 'sabotage',
+    kind: 'study',
     team: c.team,
     playerId: uid,
     tileId,
-    detail: { sabotage: kind, targetTeam },
+    detail: { got: STUDY_YIELD },
   })
-  batch.set(gameRef(gameId).collection('sabotages').doc(), doc)
   await batch.commit()
   await refreshViews(gameId)
-  return { kind, targetTeam }
+  return { got: STUDY_YIELD }
 })

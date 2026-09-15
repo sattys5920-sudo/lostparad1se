@@ -17,7 +17,6 @@ import type {
   GoalKind,
   Resource,
   RoleTitle,
-  SabotageKind,
   TeamId,
   VoteKind,
 } from './rules/v2'
@@ -520,7 +519,7 @@ export type EventKind =
   | 'gameStart' | 'dayStart' | 'settlement' | 'gameEnd'
   | 'move' | 'arrive'
   | 'flagPlanted' | 'flagSucceeded' | 'flagFailed' | 'tileCaptured' | 'tileLost'
-  | 'build' | 'upgrade' | 'research' | 'scout' | 'produce' | 'sabotage'
+  | 'research' | 'scout' | 'produce' | 'study'
   | 'vote' | 'rumor' | 'reveal' | 'leverageGained' | 'leverageSpent'
   | 'cardDrawn' | 'cardPlayed'
   | 'tradeProposed' | 'tradeAccepted' | 'tradeDeclined'
@@ -631,16 +630,6 @@ export interface NoticeDoc {
 }
 
 // ── 견제·약점처럼 기한이 붙는 것 ────────────────────────────────
-
-/** games/{gameId}/sabotages/{id} — 걸린 견제. 공개다. */
-export interface SabotageDoc {
-  kind: SabotageKind
-  fromTeam: TeamId
-  targetTeam: TeamId
-  /** 실제 시계 기준 만료. productionDown은 대신 다음 정산 한 번만 먹는다. */
-  expiresRealMs: number | null
-  consumed: boolean
-}
 
 /** games/{gameId}/secret/leverage/items/{id} — 누가 누구의 약점을 쥐었는가. */
 export interface LeverageDoc {

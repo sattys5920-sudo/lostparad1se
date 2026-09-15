@@ -583,8 +583,13 @@ describe('닫으면 서 있는 자리로 주인이 정해진다', () => {
     expect(settle(empty).next.owners.library).toBeNull()
   })
 
-  it('아무도 없어도 주인은 남는다', () => {
-    expect(settle(board({ owners: { library: 'C' } })).next.owners.library).toBe('C')
+  it('아무도 안 서 있으면 주인이 없어진다', () => {
+    expect(settle(board({ owners: { library: 'C' } })).next.owners.library).toBeNull()
+  })
+
+  it('서 있으면 지킨다', () => {
+    const s = board({ people: [person('c1', 'C', 'library')], owners: { library: 'C' } })
+    expect(settle(s).next.owners.library).toBe('C')
   })
 
   it('주장은 둘로 센다', () => {
@@ -844,7 +849,10 @@ describe('ownerOf', () => {
   it('가장 많은 팀이 하나뿐일 때만 바뀐다', () => {
     expect(ownerOf({ A: 3, B: 1 }, null)).toBe('A')
     expect(ownerOf({ A: 2, B: 2 }, 'C')).toBe('C')
-    expect(ownerOf({}, 'D')).toBe('D')
-    expect(ownerOf({ A: 0 }, null)).toBeNull()
+  })
+
+  it('아무도 없으면 주인이 없어진다 — 전 주인도 남지 않는다', () => {
+    expect(ownerOf({}, 'D')).toBeNull()
+    expect(ownerOf({ A: 0 }, 'D')).toBeNull()
   })
 })

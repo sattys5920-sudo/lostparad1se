@@ -123,28 +123,25 @@ describe('마지막 여섯 시간에 걸친 깃발', () => {
 
 describe('비용', () => {
   it('빈 칸은 돈 2, 남의 칸·핵심은 4, 중앙광장도 4', () => {
-    const zero = { ownedTiles: 0, expandCostUp: false }
+    const zero = { ownedTiles: 0 }
     expect(flagCost({ target: 'empty', ...zero })).toEqual({ money: 2 })
     expect(flagCost({ target: 'enemy', ...zero })).toEqual({ money: 4 })
   })
 
   it('핵심과 중앙광장은 지식도 든다', () => {
-    const zero = { ownedTiles: 0, expandCostUp: false }
+    const zero = { ownedTiles: 0 }
     expect(flagCost({ target: 'core', ...zero })).toEqual({ money: 4, knowledge: 4 })
     expect(flagCost({ target: 'plaza', ...zero })).toEqual({ money: 4, knowledge: 6 })
   })
 
   it('가진 칸 셋마다 돈이 1 비싸진다', () => {
-    const at = (n: number) => flagCost({ target: 'empty', ownedTiles: n, expandCostUp: false }).money
+    const at = (n: number) => flagCost({ target: 'empty', ownedTiles: n }).money
     expect(at(0)).toBe(2)
     expect(at(FLAG_COST_TILES_PER_STEP - 1)).toBe(2)
     expect(at(FLAG_COST_TILES_PER_STEP)).toBe(3)
     expect(at(FLAG_COST_TILES_PER_STEP * 3)).toBe(5)
   })
 
-  it('확장 비용 증가 견제를 맞으면 2가 더 붙는다', () => {
-    expect(flagCost({ target: 'enemy', ownedTiles: 0, expandCostUp: true })).toEqual({ money: 6 })
-  })
 })
 
 describe('판정', () => {

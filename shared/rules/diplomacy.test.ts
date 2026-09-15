@@ -48,9 +48,6 @@ describe('교역 제안', () => {
     expect(canOffer({ ...base }).ok).toBe(true)
   })
 
-  it('교역 차단을 맞으면 못 보낸다', () => {
-    expect(canOffer({ ...base, tradeBlocked: true }).reason).toBe('blocked')
-  })
 
   it('빈 제안은 막는다', () => {
     expect(canOffer({ ...base, give: {}, want: {} }).reason).toBe('empty')

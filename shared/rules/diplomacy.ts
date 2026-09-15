@@ -42,7 +42,7 @@ export interface Purse {
   robots: number
 }
 
-export type OfferRefusal = 'ownTeam' | 'blocked' | 'empty'
+export type OfferRefusal = 'ownTeam' | 'empty'
 
 export interface OfferInput {
   fromTeam: TeamId
@@ -50,7 +50,6 @@ export interface OfferInput {
   give: Bag
   want: Bag
   /** 교역 차단 견제를 맞고 있는가. */
-  tradeBlocked?: boolean
   /** 사람끼리 오가는 것 — 토큰과 데리고 있는 로봇. */
   givePurse?: Partial<Purse>
   wantPurse?: Partial<Purse>
@@ -66,7 +65,6 @@ export interface OfferInput {
  */
 export function canOffer(input: OfferInput): { ok: boolean; reason: OfferRefusal | null } {
   if (input.fromTeam === input.toTeam) return { ok: false, reason: 'ownTeam' }
-  if (input.tradeBlocked) return { ok: false, reason: 'blocked' }
   const any =
     RESOURCES.some((r) => (input.give[r] ?? 0) > 0 || (input.want[r] ?? 0) > 0) ||
     (input.givePurse?.tokens ?? 0) > 0 ||

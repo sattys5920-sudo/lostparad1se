@@ -259,37 +259,13 @@ export const ROLE_TITLE_LABEL: Record<RoleTitle, string> = {
 
 /** 생산 한 번에 얻는 돈. */
 export const PRODUCE_MONEY = 3
+/** 공부 한 번에 버는 팀 금고의 지식. 생산의 짝이다. */
+export const STUDY_KNOWLEDGE = 2
 /** 탐색 한 번에 얻는 양. 돈과 지식 중 무작위로 하나. */
 export const SCOUT_GAIN = 2
 export const SCOUT_RESOURCES: readonly Resource[] = ['money', 'knowledge']
 /** 같은 칸 탐색은 팀당 하루 한 번. */
 export const SCOUT_PER_TILE_DAILY = 1
-/** 연구 비용 = 이 값 + 지금 연구 단계. */
-export const RESEARCH_BASE_KNOWLEDGE = 2
-/** 견제에 드는 지식. */
-export const SABOTAGE_KNOWLEDGE = 2
-
-// ── 견제 ────────────────────────────────────────────────────────
-
-// **생산 감소는 없앴다.** 깎을 것이 건물 생산뿐이었는데 건물이
-// 없어졌다. 아무 일도 안 하는 견제를 목록에 남겨 두면, 낸 지식만
-// 날리고 왜 아무 일도 없는지는 어디에도 안 나온다
-export type SabotageKind = 'expandCostUp' | 'tradeBlocked'
-
-export const SABOTAGE_LABEL: Record<SabotageKind, string> = {
-  expandCostUp: '확장 비용 증가',
-  tradeBlocked: '교역 차단',
-}
-
-/** 상대 깃발 성공 비용에 더 붙는 돈. */
-export const SABOTAGE_EXTRA_FLAG_MONEY = 2
-
-/** 지속. 실제 시계 기준이다. */
-export const SABOTAGE_REAL_HOURS: Record<SabotageKind, number> = {
-  expandCostUp: 24,
-  tradeBlocked: 12,
-}
-
 // ── 교역과 동맹 ─────────────────────────────────────────────────
 
 // 답 없는 제안이라는 것이 없어졌다. 거래는 마주 선 자리에서 끝난다 —

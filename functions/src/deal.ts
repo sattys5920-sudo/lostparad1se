@@ -22,7 +22,7 @@ import { tradeEpoch } from '../../shared/rules/diplomacy'
 import { MAX_CARRIED_ROBOTS, TRADE_COST } from '../../shared/rules/occupy'
 import type { Resource, TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
-import type { PawnDoc, SabotageDoc, TeamDoc } from '../../shared/model'
+import type { PawnDoc, TeamDoc } from '../../shared/model'
 import type { TileId } from '../../shared/rules/board'
 import { note, noteAll } from './records'
 
@@ -86,16 +86,6 @@ function cleanBag(bag: unknown): Bag {
   return out
 }
 
-/** 지금 이 팀이 맞고 있는 견제. */
-async function sabotagesOn(gameId: string, team: TeamId, kind: SabotageDoc['kind']): Promise<boolean> {
-  const snap = await gameRef(gameId).collection('sabotages').where('targetTeam', '==', team).get()
-  const now = Date.now()
-  return snap.docs.some((d) => {
-    const s = d.data() as SabotageDoc
-    return s.kind === kind && !s.consumed && (s.expiresRealMs === null || s.expiresRealMs > now)
-  })
-}
-
 // ── 교역 ────────────────────────────────────────────────────────
 
 /**
@@ -153,12 +143,10 @@ export const offerTrade = onCall<{
       want,
       givePurse,
       wantPurse,
-      tradeBlocked: await sabotagesOn(gameId, pawn.team, 'tradeBlocked'),
     })
     if (!out.ok) {
       const why: Record<string, string> = {
         ownTeam: '우리 팀이다.',
-        blocked: '교역이 막혀 있다.',
         empty: '주고받을 것이 없다.',
       }
       throw new HttpsError('failed-precondition', why[out.reason as string] ?? '보낼 수 없다.')

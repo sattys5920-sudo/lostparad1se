@@ -9,36 +9,32 @@
 import {
   FLAG_TOKEN_COST,
   PRODUCE_MONEY,
-  SABOTAGE_KNOWLEDGE,
   SCOUT_GAIN,
   SCOUT_RESOURCES,
-  type Resource,
-  type SabotageKind,
+  STUDY_KNOWLEDGE,
   type TeamId,
 } from './v2'
 import { ADJACENCY, TILE_BY_ID, type TileId } from './board'
-import { canPay, type Bag, type TileState } from './resources'
+import { type Bag, type TileState } from './resources'
 
-export type ActionKind = 'flag' | 'build' | 'scout' | 'sabotage' | 'produce'
+export type ActionKind = 'flag' | 'scout' | 'produce' | 'study'
 
 /** 어디에 서 있어야 하는가. */
 export type Stand = 'thatTile' | 'ourTile' | 'ourZone' | 'notOurTile' | 'enemyTile'
 
 export const ACTION_STAND: Record<ActionKind, Stand> = {
   flag: 'thatTile',
-  build: 'ourTile',
   scout: 'notOurTile',
-  sabotage: 'enemyTile',
   produce: 'ourZone',
+  study: 'ourZone',
 }
 
 /** 토큰 한 개가 드는 행동. 이동·표·교역·카드에는 들지 않는다. */
 export const ACTION_TOKEN_COST: Record<ActionKind, number> = {
   flag: FLAG_TOKEN_COST,
-  build: 1,
   scout: 1,
-  sabotage: 1,
   produce: 1,
+  study: 1,
 }
 
 export interface StandInput {
@@ -57,7 +53,7 @@ export type StandRefusal = 'walking' | 'notThere' | 'notOurTile' | 'notOurZone' 
  * 서 있는 자리가 맞는가.
  *
  * 「우리 영역 안」은 우리 칸 위이거나 우리 칸에 맞닿은 곳이 아니라,
- * 우리 칸 위를 말한다 — 생산은 우리 땅에서만 한다.
+ * 우리 칸 위를 말한다 — 생산과 공부는 우리 땅에서만 한다.
  *
  * **연구는 여기 없다.** 연구는 페이즈에만, 연구실에서만 한다
  * (shared/rules/occupy.ts). 자유 시간에 제 땅 아무 데서나 되던
@@ -154,27 +150,8 @@ export function scoutAlreadyToday(
 
 export const PRODUCE_YIELD: Bag = { money: PRODUCE_MONEY }
 
-// ── 견제 ────────────────────────────────────────────────────────
-
-export const SABOTAGE_COST: Bag = { knowledge: SABOTAGE_KNOWLEDGE }
-
-export interface SabotageInput {
-  kind: SabotageKind
-  targetTeam: TeamId
-  team: TeamId
-  resources: Record<Resource, number>
-  /** 카드로 걸면 자리에 들어가지 않아도 되고 지식도 들지 않는다. */
-  byCard?: boolean
-}
-
-export type SabotageRefusal = 'ownTeam' | 'cannotAfford'
-
-export function checkSabotage(input: SabotageInput): { ok: boolean; cost: Bag; reason: SabotageRefusal | null } {
-  if (input.targetTeam === input.team) return { ok: false, cost: {}, reason: 'ownTeam' }
-  const cost = input.byCard ? {} : SABOTAGE_COST
-  if (!canPay(input.resources, cost)) return { ok: false, cost, reason: 'cannotAfford' }
-  return { ok: true, cost, reason: null }
-}
+/** 공부 한 번에 버는 것. 생산이 돈이면 이쪽은 지식이다. */
+export const STUDY_YIELD: Bag = { knowledge: STUDY_KNOWLEDGE }
 
 // ── 한데 묶어 보기 ──────────────────────────────────────────────
 
