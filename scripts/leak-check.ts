@@ -105,9 +105,10 @@ function releaseChecks(): void {
   // 시작 전
   check(canRelease(1, start, start - 1).reason === 'notYet', '시작 1ms 전에는 첫 조각도 안 열린다')
   check(canRelease(1, null, dayAt(3, 12)).reason === 'notStarted', '시작하지 않은 판은 「아직 시작 안 됨」')
-  // 08:00 경계
-  check(canRelease(2, start, dayAt(2, 8)).ok, 'DAY 2 08:00 정각에 열린다')
-  check(!canRelease(2, start, dayAt(2, 8) - 1).ok, 'DAY 2 07:59:59.999에는 안 열린다')
+  // 자정 경계. **08:00 이 아니다** — 날짜가 자정에 넘어가게 바뀐 뒤로
+  // 그날 조각도 자정에 열린다
+  check(canRelease(2, start, dayAt(2, 0)).ok, 'DAY 2 자정 정각에 열린다')
+  check(!canRelease(2, start, dayAt(2, 0) - 1).ok, 'DAY 1 23:59:59.999 에는 DAY 2 가 안 열린다')
   // 소등 중에도 어제 것은 열려 있다
   check(canRelease(3, start, dayAt(3, 25)).ok, '소등 중(25시)에도 그날 조각은 그대로 열려 있다')
   check(releasedDays(start, dayAt(3, 12)).join(',') === '1,2,3', 'DAY 3에 열린 것은 셋뿐')

@@ -33,11 +33,14 @@ import {
   type Rect,
   type StairEnd,
 } from '../../../shared/rules/board'
-import type { Tier } from '../../../shared/rules/v2'
-import type { MarkKind, PropKind } from './sprites'
+import { FURNITURE } from './furniture'
+import { propTiles, WALL_PROPS, type PropKind } from './props'
+import { signTiles } from './signs'
+import type { MarkKind } from './sprites'
 import type { TeamId, TileId } from '../types'
 
-export type { PropKind, MarkKind } from './sprites'
+export type { MarkKind } from './sprites'
+export type { PropKind } from './props'
 
 export const TILE = 16
 
@@ -317,7 +320,22 @@ export function doorIsHorizontal(x: number, y: number): boolean {
 // ── 가구와 흔적 ─────────────────────────────────────────────────
 // 방마다 다른 것을 놓는다. 이름표를 읽지 않아도 어느 실인지 알아야 한다.
 
-const props = new Map<string, PropKind>()
+/** 소품이 깔린 칸. 두 칸짜리 소품이면 칸마다 그림의 어느 조각인지 적는다. */
+export interface PropCell {
+  kind: PropKind
+  /** 그림에서 몇 번째 칸인가. drawImage 로 그 조각만 떠 온다. */
+  ox: number
+  oy: number
+}
+
+/** 팻말이 깔린 칸. 방마다 판이 하나라 방 이름과 조각 번호면 된다. */
+export interface SignCell {
+  id: TileId
+  ox: number
+}
+
+const props = new Map<string, PropCell>()
+const signs = new Map<string, SignCell>()
 const marks = new Map<string, MarkKind>()
 const key = (x: number, y: number) => `${x},${y}`
 
@@ -354,147 +372,59 @@ const LANES = new Set<string>()
   }
 }
 
-const inDoorLane = (x: number, y: number) => LANES.has(`${x},${y}`)
+/** 문에서 방 한가운데로 이어지는 길 위인가. 여기에는 아무것도 못 놓는다. */
+export const inDoorLane = (x: number, y: number): boolean => LANES.has(`${x},${y}`)
 
 /**
- * 가구 자리. 방 왼쪽 위에서 센 칸수인데, **음수면 반대쪽 끝에서 센다** —
- * 방마다 크기가 달라서(작게는 7×7, 크게는 18×9) 절대 좌표로는 한 벌을
- * 돌려 쓸 수가 없다. -1 은 마지막 줄, -2 는 그 앞줄이다.
- */
-type Slot = [number, number, number]
-
-/**
- * 한 방을 채운다.
+ * 가구를 깐다.
  *
- * **더 이상 돌려 쓰지 않는다.** 5×5 격자이던 동안에는 판이 90도 대칭이라
- * 한 방만 그리고 세 번 돌려 썼다. 층과 복도가 생기면서 그 대칭이 없어졌다 —
- * 이제는 등급마다 자리 한 벌을 방 크기에 맞춰 편다.
+ * **자리는 여기서 정하지 않는다.** furniture.ts 에 좌표로 적혀 있고,
+ * 그 파일은 scripts/gen-furniture.ts 가 한 번 굴려서 만든 것이다 —
+ * 판마다 가구가 옮겨 다니면 「아까 그 방」을 알아볼 수가 없다.
+ *
+ * 여기서 하는 일은 적힌 대로 깔면서 어긋난 데가 없는지 보는 것뿐이다.
  */
-function furnish(id: TileId, slots: Slot[], pick: (id: TileId, group: number) => PropKind): void {
-  const target = ROOM_RECTS[id][0]
-  for (const [sx, sy, g] of slots) {
-    const lx = sx < 0 ? target.w + sx : sx
-    const ly = sy < 0 ? target.h + sy : sy
-    if (lx < 0 || ly < 0 || lx >= target.w || ly >= target.h) continue
-    const x = target.x + lx
-    const y = target.y + ly
-    if (inDoorLane(x, y)) continue
-    props.set(key(x, y), pick(id, g))
+for (const room of ROOMS) {
+  const r = ROOM_RECTS[room.id][0]
+  const plan = FURNITURE[room.id]
+  if (!plan) throw new Error(`${room.id} 의 가구 배치가 없다.`)
+
+  for (const it of plan.props) {
+    const size = propTiles(it.kind)
+    for (let oy = 0; oy < size.h; oy++) {
+      for (let ox = 0; ox < size.w; ox++) {
+        const lx = it.x + ox
+        const ly = it.y + oy
+        if (lx < 0 || ly < 0 || lx >= r.w || ly >= r.h) {
+          throw new Error(`${room.id} 의 ${it.kind} 가 방 밖으로 나갔다: ${lx},${ly}`)
+        }
+        const x = r.x + lx
+        const y = r.y + ly
+        if (inDoorLane(x, y)) throw new Error(`${room.id} 의 ${it.kind} 가 문 앞 길을 막는다: ${lx},${ly}`)
+        if (props.has(key(x, y))) throw new Error(`${room.id} 에서 소품이 겹친다: ${lx},${ly}`)
+        props.set(key(x, y), { kind: it.kind, ox, oy })
+      }
+    }
+    if (WALL_PROPS.has(it.kind) && it.y !== 0) {
+      throw new Error(`${room.id} 의 ${it.kind} 는 벽에 붙는 것인데 안쪽에 놓였다: ${it.y}`)
+    }
+  }
+
+  // 팻말. 판 너비는 이름에서 나오므로 좌표만 적어 둔다
+  const wide = signTiles(room.name)
+  for (let ox = 0; ox < wide; ox++) {
+    const lx = plan.sign.x + ox
+    const ly = plan.sign.y
+    if (lx < 0 || ly < 0 || lx >= r.w || ly >= r.h) {
+      throw new Error(`${room.id} 팻말이 방 밖으로 나갔다: ${lx},${ly}`)
+    }
+    const x = r.x + lx
+    const y = r.y + ly
+    if (inDoorLane(x, y)) throw new Error(`${room.id} 팻말이 문 앞 길을 막는다: ${lx},${ly}`)
+    if (props.has(key(x, y))) throw new Error(`${room.id} 팻말이 소품과 겹친다: ${lx},${ly}`)
+    signs.set(key(x, y), { id: room.id, ox })
   }
 }
-
-/**
- * 가구 자리는 방 크기에서 만든다.
- *
- * 자리 목록을 손으로 적어 두었더니 방마다 크기가 달라진 뒤로 큰 방이
- * 텅 비어 보였다 — 열여덟 칸짜리 경비실에 사물함 넷이 놓이는 식이다.
- * 벽을 따라 몇 칸마다 하나씩 놓게 바꿨다.
- */
-type Gen = (w: number, h: number) => Slot[]
-
-const along = (y: number, w: number, step: number, g: number, pad = 0): Slot[] => {
-  const out: Slot[] = []
-  for (let x = pad; x < w - pad; x += step) out.push([x, y, g])
-  return out
-}
-const down = (x: number, h: number, step: number, g: number, pad = 2): Slot[] => {
-  const out: Slot[] = []
-  for (let y = pad; y < h - pad; y += step) out.push([x, y, g])
-  return out
-}
-
-const SLOTS_BY_TIER: Partial<Record<Tier, Gen>> = {
-  /** 기지 — 사물함이 위 벽을 메우고, 앉을 자리가 아래에 흩어진다. */
-  base: (w, h) => [...along(0, w, 2, 0), ...along(h - 1, w, 4, 1, 1)],
-  /** 1구역 — 벽에서 한 칸 띄운 두 줄과 옆벽 한 줄. */
-  zone1: (w, h) => [
-    ...along(1, w, 3, 0, 1),
-    ...along(h - 2, w, 3, 1, 1),
-    ...down(0, h, 4, 2),
-    ...down(w - 1, h, 4, 2),
-  ],
-  /** 관문 — 정원이 둘뿐인 좁은 방이다. 위아래를 꽉 채워 실제로 좁게 만든다. */
-  gate: (w, h) => [
-    ...along(0, w, 2, 0),
-    ...along(1, w, 3, 1, 1),
-    ...along(h - 2, w, 3, 1, 1),
-    ...along(h - 1, w, 2, 2),
-  ],
-  /** 연구실 — 실험대가 줄지어 선다. 학교에서 하나뿐인 방이라 눈에 띄어야 한다. */
-  lab: (w, h) => [
-    ...along(1, w, 3, 0, 1),
-    ...along(Math.floor(h / 2), w, 3, 0, 1),
-    ...along(h - 2, w, 3, 1, 1),
-    ...down(0, h, 3, 2),
-    ...down(w - 1, h, 3, 2),
-  ],
-  /** 교차로 — 지나가는 곳이라 네 귀퉁이만 쓴다. */
-  cross: (w, h) => [
-    [0, 0, 0],
-    [w - 1, 0, 0],
-    [0, h - 1, 1],
-    [w - 1, h - 1, 1],
-    [2, 2, 2],
-  ],
-  /** 핵심 지역 — 몇 개만. 여기서 무슨 일이 있었는지가 중요하지 가구가 아니다. */
-  core: (w, h) => [
-    [2, 2, 0],
-    [w - 3, 2, 0],
-    [2, h - 3, 1],
-    [w - 3, h - 3, 1],
-  ],
-  plaza: (w, h) => [
-    [2, 2, 0],
-    [w - 3, 2, 0],
-    [2, h - 3, 1],
-    [w - 3, h - 3, 1],
-  ],
-}
-
-/** 옥상은 넓다. 위쪽 벽을 따라서만 놓는다 — 아래쪽 줄은 계단 자리다. */
-const ROOF_SLOTS_AT: Slot[] = [[6, 1, 0], [20, 1, 1], [34, 1, 2], [-6, 1, 0]]
-
-
-const PROPS: Partial<Record<TileId, PropKind[]>> = {
-  baseA: ['cabinet', 'meetingTable'],
-  baseB: ['box', 'box'],
-  baseC: ['labBench', 'cabinet'],
-  baseD: ['seats', 'console'],
-
-  classroom: ['shelf', 'table', 'plant'],
-  hallway: ['canteen', 'table', 'shelf'],
-  scienceRoom: ['labBench', 'labBench', 'shelf'],
-  artRoom: ['easel', 'table', 'shelf'],
-  musicRoom: ['seats', 'seats', 'piano'],
-  clubRoom: ['box', 'table', 'shelf'],
-  garden: ['tree', 'bench', 'plant'],
-  storage: ['box', 'box', 'cabinet'],
-
-  library: ['shelf', 'shelf', 'table'],
-  gym: ['bench', 'vault', 'box'],
-  cafeteria: ['canteen', 'table', 'table'],
-  rooftop: ['tank', 'plant', 'box'],
-
-  oldBuilding: ['cabinet', 'cabinet', 'shelf'],
-  newBuilding: ['bench', 'piano', 'plant'],
-  annex: ['bench', 'cabinet', 'shelf'],
-
-  playground: ['bench', 'tree'],
-  auditorium: ['seats', 'seats'],
-  broadcastRoom: ['console', 'cabinet'],
-  studentCouncil: ['meetingTable', 'shelf'],
-  centralPlaza: ['desk', 'desk', 'plant'],
-  labRoom: ['labBench', 'cabinet', 'tank'],
-}
-
-const pickProp = (id: TileId, g: number): PropKind => PROPS[id]?.[g] ?? 'box'
-
-for (const t of BOARD) {
-  if (t.id === 'rooftop') continue
-  const gen = SLOTS_BY_TIER[t.tier]
-  if (gen) furnish(t.id as TileId, gen(t.plan.w, t.plan.h), pickProp)
-}
-furnish('rooftop', ROOF_SLOTS_AT, pickProp)
 
 /**
  * 흔적. 길을 막지 않고 바닥에 깔린다. 대부분은 낡은 학교의 얼룩이지만
@@ -553,8 +483,28 @@ export function markAt(x: number, y: number): MarkKind | null {
   return marks.get(key(x, y)) ?? null
 }
 
-export function propAt(x: number, y: number): PropKind | null {
-  return props.get(`${x},${y}`) ?? null
+export function propAt(x: number, y: number): PropCell | null {
+  return props.get(key(x, y)) ?? null
+}
+
+/** 그 칸에 팻말이 깔렸는가. 방 이름판의 어느 조각인지까지 알려 준다. */
+export function signAt(x: number, y: number): SignCell | null {
+  return signs.get(key(x, y)) ?? null
+}
+
+/**
+ * 소품이나 팻말 한 조각을 찍는다. 두 칸짜리도 칸마다 제 조각만 떠 온다.
+ * 그림은 화면 쪽이 들고 오고, 여기서는 어느 조각인지만 안다.
+ */
+export function drawPiece(
+  ctx: CanvasRenderingContext2D,
+  img: CanvasImageSource,
+  ox: number,
+  oy: number,
+  dx: number,
+  dy: number,
+): void {
+  ctx.drawImage(img, ox * TILE, oy * TILE, TILE, TILE, dx, dy, TILE, TILE)
 }
 
 /**
@@ -563,7 +513,8 @@ export function propAt(x: number, y: number): PropKind | null {
  */
 export function isWalkable(x: number, y: number, lockedDoors?: Set<string>): boolean {
   if (tileAt(x, y) === 'wall') return false
-  if (props.has(`${x},${y}`)) return false
+  if (props.has(key(x, y))) return false
+  if (signs.has(key(x, y))) return false
   if (lockedDoors?.has(`${x},${y}`)) return false
   return true
 }
@@ -733,6 +684,47 @@ function roamReach(from: TileId): Set<TileId> {
         for (let x = r.x; x < r.x + r.w && !ok; x++) if (seen[idx(x, y)]) ok = true
       }
       if (!ok) throw new Error(`${t.id}에 걸어서 갈 수 없다.`)
+    }
+  }
+
+  // **방 안 한 칸도 갇히면 안 된다.**
+  //
+  // 가구를 놓다 보면 구석 한 칸이 소품에 둘러싸여 영영 못 가는
+  // 자리가 된다 — 걸어서는 안 닿는데 규칙은 그 방에 있다고 하니
+  // 서 있을 수는 있는, 말이 안 되는 칸이다. 문(옥상은 계단)에서
+  // 물을 부어 방 안이 다 젖는지 본다
+  for (const room of ROOMS) {
+    const r = ROOM_RECTS[room.id][0]
+    const seen = new Uint8Array(N_W * N_H)
+    const queue: number[] = []
+    const push = (x: number, y: number): void => {
+      if (x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h) return
+      if (seen[idx(x, y)] || !isWalkable(x, y)) return
+      seen[idx(x, y)] = 1
+      queue.push(idx(x, y))
+    }
+    // 문 자리는 벽 줄이라 방 밖이다. 문으로 들어선 첫 칸에서 나선다
+    for (const d of DOORS) {
+      if (d.a !== room.id) continue
+      push(Math.min(Math.max(d.x, r.x), r.x + r.w - 1), Math.min(Math.max(d.y, r.y), r.y + r.h - 1))
+    }
+    for (const st of STAIRS) if (roomAt(st.x, st.y)?.id === room.id) push(st.x, st.y)
+    if (queue.length === 0) throw new Error(`${room.id} 에 들어설 자리가 없다.`)
+    while (queue.length > 0) {
+      const cur = queue.pop() as number
+      const x = cur % N_W
+      const y = (cur - x) / N_W
+      push(x, y - 1)
+      push(x, y + 1)
+      push(x - 1, y)
+      push(x + 1, y)
+    }
+    for (let y = r.y; y < r.y + r.h; y++) {
+      for (let x = r.x; x < r.x + r.w; x++) {
+        if (isWalkable(x, y) && !seen[idx(x, y)]) {
+          throw new Error(`${room.id} 안에 갇힌 칸이 있다: ${x - r.x},${y - r.y}`)
+        }
+      }
     }
   }
 

@@ -714,8 +714,3 @@
   font-size: 13px;
 }
 
-/* 방 이름 겹판. 지도와 딱 포개 놓는다 — 누르는 것은 아래 지도가 받는다 */
-.sc-wk__labels {
-  position: absolute;
-  pointer-events: none;
-}

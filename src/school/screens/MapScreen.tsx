@@ -1,7 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
+import { signSheet } from '../map/signs'
 import './MapScreen.css'
 import { useSchoolGame } from '../state/SchoolGameContext'
-import { doorIsHorizontal, floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, stairHere, TILE, tileAt } from '../map/world'
+import {
+  doorIsHorizontal,
+  drawPiece,
+  floorOf,
+  isWalkable,
+  MAP_H,
+  MAP_W,
+  markAt,
+  propAt,
+  roomAt,
+  ROOMS,
+  signAt,
+  stairHere,
+  TILE,
+  tileAt,
+} from '../map/world'
 import { buildSprites, PAL, type Dir } from '../map/sprites'
 import { PX, pixelFrame } from '../char/pixel'
 import { clearPosition, POSITION_STALE_MS, sendPosition, subscribePositions, type LivePosition } from '../mapSync'
@@ -300,6 +316,7 @@ export function MapScreen() {
       const y0 = Math.max(0, Math.floor(camY / TILE))
       const x1 = Math.min(MAP_W - 1, Math.ceil((camX + canvas!.width) / TILE))
       const y1 = Math.min(MAP_H - 1, Math.ceil((camY + canvas!.height) / TILE))
+      const plates = signSheet()
       for (let y = y0; y <= y1; y++) {
         for (let x = x0; x <= x1; x++) {
           const kind = tileAt(x, y)
@@ -343,7 +360,9 @@ export function MapScreen() {
           const mark = markAt(x, y)
           if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
           const prop = propAt(x, y)
-          if (prop) ctx.drawImage(sprites.props[prop], x * TILE - camX, y * TILE - camY)
+          if (prop) drawPiece(ctx, sprites.props[prop.kind], prop.ox, prop.oy, x * TILE - camX, y * TILE - camY)
+          const sign = signAt(x, y)
+          if (sign) drawPiece(ctx, plates[sign.id], sign.ox, 0, x * TILE - camX, y * TILE - camY)
         }
       }
 

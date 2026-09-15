@@ -11,17 +11,20 @@
 // 32→16은 정확히 절반이라 도트가 안 뭉갠다. 24·20은 나누어떨어지지
 // 않아서 어떤 줄은 굵고 어떤 줄은 가늘어진다. 그 차이도 같이 보인다.
 import {
+  doorIsHorizontal,
+  drawPiece,
+  floorOf,
   MAP_H,
   MAP_W,
-  TILE,
-  ROOMS,
-  doorIsHorizontal,
-  floorOf,
   markAt,
   propAt,
   roomAt,
+  ROOMS,
+  signAt,
+  TILE,
   tileAt,
 } from '../school/map/world'
+import { signSheet } from '../school/map/signs'
 import { PAL, buildSprites } from '../school/map/sprites'
 import { pixelFrame } from '../school/char/pixel'
 import { TILE_BY_ID } from '../../shared/rules/board'
@@ -86,6 +89,7 @@ function panel(scale: number, charPx: number): HTMLCanvasElement {
   const x1 = Math.min(MAP_W - 1, Math.ceil((camX + w) / TILE))
   const y1 = Math.min(MAP_H - 1, Math.ceil((camY + h) / TILE))
 
+  const plates = signSheet()
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const kind = tileAt(x, y)
@@ -107,7 +111,9 @@ function panel(scale: number, charPx: number): HTMLCanvasElement {
       const mark = markAt(x, y)
       if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
       const prop = propAt(x, y)
-      if (prop) ctx.drawImage(sprites.props[prop], x * TILE - camX, y * TILE - camY)
+      if (prop) drawPiece(ctx, sprites.props[prop.kind], prop.ox, prop.oy, x * TILE - camX, y * TILE - camY)
+      const sign = signAt(x, y)
+      if (sign) drawPiece(ctx, plates[sign.id], sign.ox, 0, x * TILE - camX, y * TILE - camY)
     }
   }
 

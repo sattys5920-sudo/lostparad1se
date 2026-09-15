@@ -23,6 +23,8 @@ export default defineConfig({
         sprites: resolve(root, 'sprites.html'),
         // 캐릭터 크기 시안. 고를 것을 나란히 놓고 본다
         size: resolve(root, 'size.html'),
+        // 방 검수용. 학교 전체를 카메라 없이 한 장에 편다
+        maptour: resolve(root, 'maptour.html'),
         // 아침 등교 시퀀스 검수용. 본문은 가짜다 — 진짜는 서버에만 있다
         morning: resolve(root, 'morning.html'),
         // 기록 보관함·추리 노트 검수용

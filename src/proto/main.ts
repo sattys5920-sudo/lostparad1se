@@ -1,6 +1,22 @@
 import './proto.css'
+import { signSheet } from '../school/map/signs'
 import { firebaseConfigured } from '../firebase'
-import { doorIsHorizontal, floorOf, isWalkable, MAP_H, MAP_W, markAt, propAt, roomAt, ROOMS, SPAWN, TILE, tileAt } from '../school/map/world'
+import {
+  doorIsHorizontal,
+  drawPiece,
+  floorOf,
+  isWalkable,
+  MAP_H,
+  MAP_W,
+  markAt,
+  propAt,
+  roomAt,
+  ROOMS,
+  signAt,
+  SPAWN,
+  TILE,
+  tileAt,
+} from '../school/map/world'
 import { buildSprites, PAL, type Dir } from '../school/map/sprites'
 import { PX, pixelFrame } from '../school/char/pixel'
 import { defaultLook } from '../school/char/look'
@@ -312,6 +328,7 @@ function loop(now: number) {
   const x1 = Math.min(MAP_W - 1, Math.ceil((camX + canvas.width) / TILE))
   const y1 = Math.min(MAP_H - 1, Math.ceil((camY + canvas.height) / TILE))
 
+  const plates = signSheet()
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const kind = tileAt(x, y)
@@ -330,7 +347,9 @@ function loop(now: number) {
       const mark = markAt(x, y)
       if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
       const prop = propAt(x, y)
-      if (prop) ctx.drawImage(sprites.props[prop], x * TILE - camX, y * TILE - camY)
+      if (prop) drawPiece(ctx, sprites.props[prop.kind], prop.ox, prop.oy, x * TILE - camX, y * TILE - camY)
+      const sign = signAt(x, y)
+      if (sign) drawPiece(ctx, plates[sign.id], sign.ox, 0, x * TILE - camX, y * TILE - camY)
     }
   }
 

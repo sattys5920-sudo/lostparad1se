@@ -19,10 +19,17 @@ import {
   TILE,
   SPAWNABLE_TILES,
   centerOf,
+  inDoorLane,
   isWalkable,
+  propAt,
   roomAt,
+  roomById,
+  signAt,
   spawnFor,
 } from './world'
+import { FURNITURE } from './furniture'
+import { propTiles, WALL_PROPS } from './props'
+import { signTextPx, signTiles } from './signs'
 import type { TeamId, TileId } from '../types'
 
 const pair = (a: string, b: string) => [a, b].sort().join('|')
@@ -167,5 +174,126 @@ describe('제 방이 한 화면에 들어온다', () => {
     // 보이지도 누를 수도 없다 — 실제로 그랬다. 「방끼리 이동이 안 된다」
     const seen = Math.floor(NARROW_PX / CANVAS_SCALE / TILE)
     expect(ROOM_TILES + 2).toBeLessThanOrEqual(seen)
+  })
+})
+
+describe('소품과 팻말이 길을 막지 않는다', () => {
+  /**
+   * **캐릭터를 방 안 모든 칸에 걸어가 보게 한다.**
+   *
+   * 소품을 놓기 시작하면서 생긴 위험이다 — 구석 한 칸이 책상과 벽에
+   * 둘러싸여 영영 못 가는 자리가 된다. 문(옥상은 계단)에서 출발해
+   * 그 방 안에서만 걸어, 밟을 수 있는 칸에 하나도 빠짐없이 닿는지 본다.
+   */
+  it('문에서 걸어 방 안 모든 칸에 닿는다', () => {
+    const trapped: string[] = []
+    for (const room of ROOMS) {
+      const r = room.rects[0]
+      const inside = (x: number, y: number) =>
+        x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h
+      const seen = new Set<string>()
+      const queue: { x: number; y: number }[] = []
+      const go = (x: number, y: number) => {
+        if (!inside(x, y) || seen.has(`${x},${y}`) || !isWalkable(x, y)) return
+        seen.add(`${x},${y}`)
+        queue.push({ x, y })
+      }
+      // 문 자리는 벽 줄이라 방 밖이다. 문으로 들어선 첫 칸에서 출발한다
+      for (const d of DOORS) {
+        if (d.a !== room.id) continue
+        go(Math.min(Math.max(d.x, r.x), r.x + r.w - 1), Math.min(Math.max(d.y, r.y), r.y + r.h - 1))
+      }
+      for (const st of STAIRS) if (roomAt(st.x, st.y)?.id === room.id) go(st.x, st.y)
+      expect(queue.length, `${room.name} 에 들어갈 데가 없다`).toBeGreaterThan(0)
+      while (queue.length > 0) {
+        const c = queue.pop() as { x: number; y: number }
+        go(c.x, c.y - 1)
+        go(c.x, c.y + 1)
+        go(c.x - 1, c.y)
+        go(c.x + 1, c.y)
+      }
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++) {
+          if (isWalkable(x, y) && !seen.has(`${x},${y}`)) {
+            trapped.push(`${room.name} ${x - r.x},${y - r.y}`)
+          }
+        }
+      }
+    }
+    expect(trapped).toEqual([])
+  })
+
+  it('문 앞과 문에서 방 안으로 드는 길은 비어 있다', () => {
+    const blocked: string[] = []
+    for (const d of DOORS) {
+      const r = roomById[d.a].rects[0]
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++) {
+          if (!inDoorLane(x, y)) continue
+          if (propAt(x, y) || signAt(x, y)) blocked.push(`${d.a} ${x - r.x},${y - r.y}`)
+        }
+      }
+    }
+    expect(blocked).toEqual([])
+  })
+
+  it('소품끼리 겹치지 않고, 팻말과도 겹치지 않는다', () => {
+    // 겹치면 뒤에 놓인 것이 앞엣것을 지운다 — 반쪽짜리 책상이 남는다.
+    // world.ts 가 켜질 때 터뜨리지만, 여기서도 센다
+    let cells = 0
+    let objects = 0
+    for (const room of ROOMS) {
+      for (const it of FURNITURE[room.id].props) {
+        const size = propTiles(it.kind)
+        objects += size.w * size.h
+      }
+      objects += signTiles(room.name)
+      const r = room.rects[0]
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++) {
+          if (propAt(x, y) || signAt(x, y)) cells++
+          expect(propAt(x, y) && signAt(x, y), `${room.name} ${x},${y}`).toBeFalsy()
+        }
+      }
+    }
+    expect(cells).toBe(objects)
+  })
+
+  it('방마다 소품이 다섯이나 여섯이다 — 창고만 비운다', () => {
+    for (const room of ROOMS) {
+      const n = FURNITURE[room.id].props.length
+      if (room.id === 'storage') expect(n, room.name).toBe(0)
+      else expect(n, room.name).toBeGreaterThanOrEqual(5)
+      expect(n, room.name).toBeLessThanOrEqual(6)
+    }
+  })
+
+  it('벽에 거는 것은 벽 쪽 줄에만 놓는다', () => {
+    // 액자·칠판·거울은 바로 위가 벽이라야 걸린 것으로 보인다.
+    // 방 한가운데에 놓이면 허공에 뜬다
+    for (const room of ROOMS) {
+      for (const it of FURNITURE[room.id].props) {
+        if (WALL_PROPS.has(it.kind)) expect(it.y, `${room.name} ${it.kind}`).toBe(0)
+      }
+    }
+  })
+
+  it('팻말은 제 방의 주 출입문이 난 벽에 선다', () => {
+    for (const room of ROOMS) {
+      const mine = DOORS.filter((d) => d.a === room.id)
+      if (mine.length === 0) continue // 옥상은 문이 없다
+      const main = mine.find((d) => d.horizontal) ?? mine[0]
+      const r = room.rects[0]
+      const want = !main.horizontal ? 0 : main.y < r.y ? 0 : r.h - 1
+      expect(FURNITURE[room.id].sign.y, room.name).toBe(want)
+    }
+  })
+
+  it('방 이름이 팻말 판 안에 들어간다', () => {
+    for (const room of ROOMS) {
+      const tiles = signTiles(room.name)
+      expect(signTextPx(room.name), room.name).toBeLessThanOrEqual(tiles * 16 - 4)
+      expect(tiles, room.name).toBeGreaterThanOrEqual(2)
+    }
   })
 })
