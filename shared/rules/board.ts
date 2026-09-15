@@ -353,16 +353,17 @@ function buildAdjacency(): Record<TileId, TileId[]> {
 // **이웃과 오갈 수 있는 곳은 다른 것이다.**
 //
 // 이웃(ADJACENCY)은 「가까운 방」이다 — 안개가 보여 주는 범위, 시작
-// 땅, 이어 붙인 땅 점수가 이것을 본다. 페이즈에 토큰 한 개로 넘는
-// 것도 이것이다.
+// 땅, 이어 붙인 땅 점수가 이것을 본다. 오갈 수 있는 범위는 아니다.
 //
-// 그런데 복도는 층 하나를 통째로 잇는다. 1층 서쪽 끝에서 동쪽 끝까지
-// 문 하나 안 지나고 걸어갈 수 있다. 그래서 「이웃이 아니면 못 들어간다」로
+// 복도는 층 하나를 통째로 잇는다. 1층 서쪽 끝에서 동쪽 끝까지 문
+// 하나 안 지나고 걸어갈 수 있다. 그래서 「이웃이 아니면 못 들어간다」로
 // 두면, 눈앞의 문 앞에 서서 못 들어가는 일이 생긴다 — 걸어서 닿는
 // 방 짝 254개 중 181개가 그랬다.
 //
-// **자유 시간에는 복도로 닿으면 들어간다.** 어차피 공짜고 즉시라,
-// 이웃만 허용해 봐야 같은 자리에 몇 번 더 눌러 가는 것과 같다.
+// **복도로 닿으면 들어간다. 자유 시간이든 페이즈든 같다.**
+// 값이 다를 뿐이다: 자유 시간에는 공짜고 즉시, 페이즈에는 문을 넘을
+// 때마다 토큰 하나와 10분이다. 나가는 데는 안 든다 — 값은 들어갈 때
+// 한 번뿐이라, 복도를 아무리 길게 걸어도 문 하나면 토큰 하나다.
 
 interface HallRect {
   floor: Floor
@@ -432,14 +433,16 @@ export function sameHall(a: TileId, b: TileId): boolean {
 }
 
 /**
- * 자유 시간에 걸어 들어갈 수 있는가.
+ * 걸어 들어갈 수 있는가. **자유 시간과 페이즈가 같은 문을 쓴다.**
  *
- * 복도로 닿거나, 이웃이거나(계단으로 층을 넘는 경우). **페이즈에는
- * 이것을 쓰지 않는다** — 토큰 한 개는 옆방까지다.
+ * 복도로 닿거나, 이웃이거나(계단으로 층을 넘는 경우). 규칙이 막는
+ * 범위와 화면이 걸을 수 있는 범위는 하나여야 한다 — 어긋나면 문
+ * 앞에 서서 못 들어간다. world.ts 가 불러올 때 둘을 맞춰 본다.
  */
 export function canRoamTo(from: TileId, to: TileId): boolean {
   return sameHall(from, to) || isAdjacent(from, to)
 }
+
 
 /** 방에서 곧바로 갈 수 있는 곳. 복도를 지나는 것은 한 걸음으로 친다. */
 export const ADJACENCY: Record<TileId, readonly TileId[]> = buildAdjacency()
@@ -447,6 +450,16 @@ export const ADJACENCY: Record<TileId, readonly TileId[]> = buildAdjacency()
 export function isAdjacent(a: TileId, b: TileId): boolean {
   return ADJACENCY[a]?.includes(b) ?? false
 }
+
+/**
+ * 여기서 걸어 나갈 수 있는 곳 전부. canRoamTo 를 한 칸씩 물어본
+ * 것과 같고, 판이 작아 한 번 만들어 둔다.
+ */
+export const ROAM_TO: Record<TileId, readonly TileId[]> = (() => {
+  const out = {} as Record<TileId, TileId[]>
+  for (const a of TILE_IDS) out[a] = TILE_IDS.filter((b) => canRoamTo(a, b))
+  return out
+})()
 
 /**
  * 걸어서 몇 걸음인가.

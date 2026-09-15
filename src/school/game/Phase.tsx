@@ -21,7 +21,7 @@ import {
   researchKnowledge,
   leftBehindCount,
 } from '../../../shared/rules/occupy'
-import { ADJACENCY, TILE_BY_ID, TILES } from '../../../shared/rules/board'
+import { ROAM_TO, TILE_BY_ID, TILES } from '../../../shared/rules/board'
 import { ITEMS, ITEM_BY_KIND, ITEM_FOR } from '../../../shared/rules/items'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
@@ -60,7 +60,7 @@ const LABEL: Record<ActionKind, string> = {
 }
 
 const WHAT: Record<ActionKind, string> = {
-  move: `옆방으로 한 칸. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다.`,
+  move: `복도로 닿는 방이면 어디든. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다.`,
   research: '연구실에서만. 다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
   summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다.',
   disturb: `${ITEM_BY_KIND.whistle.name} 하나. 같은 방 상대 하나를 이번 판정에서 0명으로 만든다.`,
@@ -163,8 +163,9 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         {endsAtMs != null && <em>{overAt ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}</em>}
       </p>
       <p className="sc-ph__hint">
-        다른 방에 <b>들어갈 때</b> 토큰 {ACT_COST.move}개. 나가는 데 {EXIT_MINUTES}분, 들어가는 데 {ENTER_MINUTES}분이
-        걸리고 그동안은 어느 방에도 없다. 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
+        문 하나를 <b>들어갈 때</b> 토큰 {ACT_COST.move}개. 나가는 데는 안 든다 — 복도는 끝에서 끝까지 걸어도
+        공짜다. 나가는 데 {EXIT_MINUTES}분, 들어가는 데 {ENTER_MINUTES}분이 걸리고 그동안은 어느 방에도 없다.
+        닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
       </p>
 
       <ul className="sc-ph__list">
@@ -243,8 +244,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       </p>
       {here && (
         <p className="sc-ph__note">
-          옆방:{' '}
-          {(ADJACENCY[here] ?? []).map((n, i) => {
+          걸어서 갈 수 있는 곳:{' '}
+          {(ROAM_TO[here] ?? []).map((n, i) => {
             // **옮기기 전에 알려 준다.** 저쪽에 로봇 자리가 모자라면
             // 사람은 가고 넘치는 로봇만 이 방에 남는다
             const seen = view?.robotCounts?.[asRoom(n)]

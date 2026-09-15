@@ -14,7 +14,7 @@
 //
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 같은 입력에 늘 같은 결과라, 서버가 돌리든 시험이 돌리든 같다.
-import { ADJACENCY, TILE_BY_ID, TILES, type TileId } from './board'
+import { ROAM_TO, TILE_BY_ID, TILES, canRoamTo, type TileId } from './board'
 import { ITEM_BY_KIND, ITEM_FOR, countOf, takeItem, type Satchels } from './items'
 import { TOTAL_SEATS } from './lobby'
 import { CAPTAIN_HEAD_COUNT, FULL_TEAM_SIZE, type TeamId, type Tier } from './v2'
@@ -108,7 +108,9 @@ export function nextTokens(input: {
 /**
  * 다른 방에 **들어갈 때** 드는 토큰. 나갈 때는 안 든다.
  *
- * 방 안을 걸어 다니는 것은 공짜다. 값이 붙는 것은 문을 넘는 일 하나뿐이다.
+ * 방 안을 걸어 다니는 것도, 복도를 걷는 것도 공짜다. 값이 붙는 것은
+ * 문을 넘는 일 하나뿐이라, 복도 끝에서 끝까지 가도 토큰 하나다.
+ * 대신 층을 바꾸려면 계단에 한 번 들어갔다 나와야 하니 문이 둘이다.
  */
 export const ENTER_COST = 1
 
@@ -340,7 +342,7 @@ export const vaultOf = (state: PhaseState, team: TeamId): Vault => state.vaults[
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
 
-/** 행동에 드는 토큰. 이동은 **들어가는 값**이다 — 나가는 데는 안 든다. */
+/** 행동에 드는 토큰. 이동은 **문 하나를 들어가는 값**이다 — 나가는 데는 안 든다. */
 export const ACT_COST: Record<ActionKind, number> = {
   move: ENTER_COST,
   research: 2,
@@ -561,7 +563,9 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
    */
   function step(p: Person, to: TileId): string | null {
     if (p.tileId === null) return '이미 걷는 중이다.'
-    if (!ADJACENCY[p.tileId]?.includes(to)) return '옆방이 아니다.'
+    // **복도로 닿으면 간다.** 자유 시간과 같은 문을 쓴다 — 다른 것은
+    // 값뿐이다. 층을 넘으려면 계단을 한 번 들르니 문이 둘, 토큰도 둘
+    if (!canRoamTo(p.tileId, to)) return '거기까지는 복도가 안 이어진다.'
     const room = capacityOf(to)
     if (seats(to) + 1 > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
     const from = p.tileId
@@ -936,7 +940,12 @@ export function absenceRefunds(state: PhaseState, teams: readonly TeamId[]): Rec
 }
 
 /**
- * from 에서 to 쪽으로 한 칸. 최단 경로의 첫 걸음이다.
+ * from 에서 to 쪽으로 한 걸음. 최단 경로의 첫 칸이다.
+ *
+ * **이동과 같은 그물을 본다**(ROAM_TO). 복도로 곧장 닿으면 한 걸음이
+ * 곧 목적지고, 층이 다르면 계단이 첫 걸음이다. 이웃만 보던 때에는
+ * 호출이 복도 저편의 사람을 한 칸씩밖에 못 당겨서, 같은 토큰을 내고도
+ * 제 발로 걷는 것보다 못했다.
  *
  * 너비 우선으로 찾는다 — 판이 스물다섯 칸뿐이라 미리 표를 만들 이유가 없고,
  * 표를 만들면 판을 고칠 때 같이 고쳐야 하는 것이 하나 더 는다.
@@ -948,7 +957,7 @@ export function stepToward(from: TileId, to: TileId): TileId | null {
   const queue: TileId[] = [from]
   while (queue.length > 0) {
     const at = queue.shift() as TileId
-    for (const next of ADJACENCY[at] ?? []) {
+    for (const next of ROAM_TO[at] ?? []) {
       if (seen.has(next)) continue
       seen.add(next)
       prev.set(next, at)

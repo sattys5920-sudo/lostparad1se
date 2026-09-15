@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ADJACENCY,
+  ROAM_TO,
   BASE_OF,
   FLOORS,
   TILES,
@@ -224,6 +225,30 @@ describe('복도로 닿는 곳', () => {
   it('이웃이면 언제나 갈 수 있다', () => {
     for (const t of TILES) {
       for (const n of ADJACENCY[t.id]) expect(canRoamTo(t.id, n), `${t.id}→${n}`).toBe(true)
+    }
+  })
+
+  it('오갈 수 있는 곳 표는 canRoamTo 와 한 글자도 안 다르다', () => {
+    for (const a of TILES) {
+      for (const b of TILES) {
+        expect(ROAM_TO[a.id].includes(b.id), `${a.id}→${b.id}`).toBe(canRoamTo(a.id, b.id))
+      }
+    }
+  })
+
+  it('오가는 길은 양쪽으로 열린다', () => {
+    for (const a of TILES) {
+      for (const b of ROAM_TO[a.id]) expect(ROAM_TO[b], `${b}→${a.id}`).toContain(a.id)
+    }
+  })
+
+  it('층이 다르면 계단을 거쳐야 한다 — 방에서 방으로 곧장은 없다', () => {
+    for (const a of TILES) {
+      for (const b of ROAM_TO[a.id]) {
+        if (a.floor === TILE_BY_ID[b].floor) continue
+        // 층을 넘는 걸음은 계단이 한쪽 끝에 있다
+        expect(a.tier === 'stair' || TILE_BY_ID[b].tier === 'stair', `${a.id}→${b}`).toBe(true)
+      }
     }
   })
 })

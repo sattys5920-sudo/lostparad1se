@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ACT_COST,
+  ENTER_COST,
   MAX_CARRIED_ROBOTS,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
@@ -39,7 +40,7 @@ import {
   type Person,
   type Robot,
 } from './occupy'
-import { TILES } from './board'
+import { TILES, isAdjacent } from './board'
 import { TEAM_IDS, type TeamId } from './v2'
 
 const person = (playerId: string, team: TeamId, tileId: string, captain = false): Person => ({
@@ -136,11 +137,35 @@ describe('토큰이 한 페이즈의 전부다', () => {
 })
 
 describe('움직임', () => {
-  it('옆방이 아니면 못 간다', () => {
+  it('복도가 이어지면 옆방이 아니어도 간다', () => {
+    // 교무실과 화장실은 1층 양 끝이고 이웃이 아니다. 그래도 복도
+    // 하나로 이어져 있으니 문 하나 값에 간다
+    expect(isAdjacent('baseA', 'baseB')).toBe(false)
     const s = board({ people: [person('a', 'A', 'baseA')] })
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'baseB' })
+    expect(out.ok).toBe(true)
+    if (out.ok) expect(at(out.next, 'a').toTile).toBe('baseB')
+  })
+
+  it('복도가 안 이어지면 못 간다 — 층이 다르면 계단을 거친다', () => {
+    // 과학실은 2층이다. 1층 복도는 거기까지 안 간다
+    const s = board({ people: [person('a', 'A', 'baseA')] })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'scienceRoom' })
     expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('옆방')
+    if (!out.ok) expect(out.why).toContain('복도')
+  })
+
+  it('문 하나에 토큰 하나 — 복도를 길게 걸어도 같다', () => {
+    const near = board({ people: [person('a', 'A', 'baseA')] })
+    const far = board({ people: [person('b', 'A', 'baseA')] })
+    // 이웃인 방과 복도 건너 먼 방의 값이 같다
+    const one = doAct(near, 'a', { kind: 'move', targetTile: 'hallway' })
+    const two = doAct(far, 'b', { kind: 'move', targetTile: 'baseB' })
+    expect(one.ok && two.ok).toBe(true)
+    if (one.ok && two.ok) {
+      expect(at(one.next, 'a').tokens).toBe(at(two.next, 'b').tokens)
+      expect(at(one.next, 'a').tokens).toBe(at(near, 'a').tokens - ENTER_COST)
+    }
   })
 
   it('꽉 찬 방에는 못 들어간다 — 먼저 누른 쪽만 들어간다', () => {
