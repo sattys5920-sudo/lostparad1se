@@ -91,27 +91,27 @@ export type PurseRefusal = 'senderNoTokens' | 'senderNoRobots' | 'receiverNoToke
 /**
  * 토큰과 로봇이 실제로 오갈 수 있는가. **받아들이는 순간** 센다.
  *
- * 값(TRADE_COST)은 제안한 쪽이 낸다. 제안만 뿌리고 다니는 것을 막으려면
- * 값이 제안하는 쪽에 붙어야 한다 — 다만 성립할 때만이다.
+ * **여기서 값을 물지 않는다.** 거는 값은 제안한 사람의 개인 토큰에서
+ * 나간다(TRADE_COST) — 팀 상자에서 빼면 한 사람이 말을 걸고 다니는
+ * 것만으로 팀이 페이즈에 쓸 것이 준다. 이 함수는 오가는 것만 센다.
  */
 export function movePurse(
   from: Purse,
   to: Purse,
   give: Partial<Purse>,
   want: Partial<Purse>,
-  cost: number,
 ): { ok: true; from: Purse; to: Purse } | { ok: false; reason: PurseRefusal } {
   const giveT = give.tokens ?? 0
   const giveR = give.robots ?? 0
   const wantT = want.tokens ?? 0
   const wantR = want.robots ?? 0
-  if (from.tokens < giveT + cost) return { ok: false, reason: 'senderNoTokens' }
+  if (from.tokens < giveT) return { ok: false, reason: 'senderNoTokens' }
   if (from.robots < giveR) return { ok: false, reason: 'senderNoRobots' }
   if (to.tokens < wantT) return { ok: false, reason: 'receiverNoTokens' }
   if (to.robots < wantR) return { ok: false, reason: 'receiverNoRobots' }
   return {
     ok: true,
-    from: { tokens: from.tokens - giveT - cost + wantT, robots: from.robots - giveR + wantR },
+    from: { tokens: from.tokens - giveT + wantT, robots: from.robots - giveR + wantR },
     to: { tokens: to.tokens - wantT + giveT, robots: to.robots - wantR + giveR },
   }
 }

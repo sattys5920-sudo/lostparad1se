@@ -5,6 +5,7 @@
 import { useState } from 'react'
 
 import { CARD_BY_KIND } from '../../../shared/rules/v2'
+import { Trade, pileText, type GoodKey } from './Trade'
 import { TEAMS } from '../../../shared/rules/lobby'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { GameActions } from './useGame'
@@ -22,17 +23,24 @@ export interface DealsProps {
   onSaid: (text: string) => void
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
   ask: (text: string) => Promise<boolean>
+  /** 페이즈 중에는 흥정하지 않는다. */
+  phaseOpen: boolean
 }
 
-const RES_LABEL: Record<string, string> = { money: '돈', knowledge: '지식' }
+/** 자루와 주머니를 한 더미로 합친다. 화면에서는 넷이 나란히 보여야 한다. */
+const pileOf = (
+  bag: Record<string, number> | null | undefined,
+  purse: Record<string, number> | null | undefined,
+): Partial<Record<GoodKey, number>> => ({
+  money: bag?.money ?? 0,
+  knowledge: bag?.knowledge ?? 0,
+  tokens: purse?.tokens ?? 0,
+  robots: purse?.robots ?? 0,
+})
 
-export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid, ask }: DealsProps) {
+export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid, ask, phaseOpen }: DealsProps) {
   const facing = new Set(facingTeams)
   const [busy, setBusy] = useState(false)
-  const [to, setTo] = useState<string>('')
-  const [give, setGive] = useState({ money: 0, knowledge: 0 })
-  const [want, setWant] = useState({ money: 0, knowledge: 0 })
-
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
     try {
@@ -52,6 +60,62 @@ export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid, a
 
   return (
     <div className="sc-dl">
+      <h2>마주 선 사람과 <span>{herePeople.length}명</span></h2>
+      <Trade
+        view={view}
+        herePeople={herePeople}
+        phaseOpen={phaseOpen}
+        busy={busy}
+        onOffer={(toPlayerId, give, want) => {
+          // 돈·지식은 재화 자루로, 토큰·짝은 손에서 손으로 가는 주머니로
+          void run('제안', () =>
+            act.offerTrade(
+              toPlayerId,
+              { money: give.money, knowledge: give.knowledge },
+              { money: want.money, knowledge: want.knowledge },
+              { tokens: give.tokens, robots: give.robots },
+              { tokens: want.tokens, robots: want.robots },
+            ),
+          )
+        }}
+      />
+
+      {trades.length > 0 && (
+        <ul className="sc-dl__offers">
+          {trades.map((t) => {
+            const mineToRead = t.toPlayerId ? t.toPlayerId === me.playerId : t.toTeam === me.team
+            // **읽는 사람 기준으로 뒤집는다.** 「주는 것」이 제안한
+            // 쪽 기준이면, 받는 사람은 매번 머릿속으로 뒤집어야 한다
+            const theirs = pileOf(t.give, t.givePurse)
+            const ours = pileOf(t.want, t.wantPurse)
+            return (
+              <li key={t.id}>
+                <span className="sc-dl__from">
+                  {t.fromTeam}팀 → {t.toTeam}팀
+                </span>
+                <span className="sc-dl__bag">
+                  {mineToRead ? '받는 것' : '주는 것'} {pileText(theirs)}
+                </span>
+                <span className="sc-dl__bag">
+                  {mineToRead ? '주는 것' : '받는 것'} {pileText(ours)}
+                </span>
+                {t.note && <span className="sc-dl__note">{t.note}</span>}
+                {mineToRead && (
+                  <div className="sc-ac__row">
+                    <button disabled={busy} onClick={() => run('거절', () => act.respondTrade(t.id, false))}>
+                      거절
+                    </button>
+                    <button disabled={busy} onClick={() => run('수락', () => act.respondTrade(t.id, true))}>
+                      받는다
+                    </button>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
       <h2>손패 <span>{hand.length}장</span></h2>
       {hand.length === 0 && <p className="sc-dl__none">페이즈에 연구실에서 연구를 하면 한 장 들어온다.</p>}
       <ul className="sc-ac__menu">
@@ -64,92 +128,6 @@ export function Deals({ me, view, teams, facingTeams, herePeople, act, onSaid, a
           </li>
         ))}
       </ul>
-
-      <h2>교역</h2>
-      {herePeople.length === 0 ? (
-        <p className="sc-dl__none">지금 같은 자리에 아무도 없다. 마주 서야 말을 꺼낼 수 있다.</p>
-      ) : null}
-      <div className="sc-dl__trade">
-        <label>
-          <span>누구에게</span>
-          {/* **마주 선 사람 중에서만 고른다.** 목록에서 고르는 원격
-              제안은 없앴다 — 거래는 그 자리에서 시작하고 그 자리에서 끝난다 */}
-          <select value={to} onChange={(e) => setTo(e.target.value)}>
-            <option value="">고른다</option>
-            {herePeople.map((p) => (
-              <option key={p.playerId} value={p.playerId}>
-                {p.name} ({p.team}팀)
-              </option>
-            ))}
-          </select>
-        </label>
-        {(['money', 'knowledge'] as const).map((r) => (
-          <div key={r} className="sc-dl__pair">
-            <span>{RES_LABEL[r]}</span>
-            <label>
-              준다
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={give[r]}
-                onChange={(e) => setGive({ ...give, [r]: Math.max(0, Number(e.target.value) || 0) })}
-              />
-            </label>
-            <label>
-              받는다
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={want[r]}
-                onChange={(e) => setWant({ ...want, [r]: Math.max(0, Number(e.target.value) || 0) })}
-              />
-            </label>
-          </div>
-        ))}
-        <button disabled={busy || to === ''} onClick={() => run('제안', () => act.offerTrade(to, give, want))}>
-          말을 꺼낸다
-        </button>
-        <p className="sc-dl__none">
-          수락하면 그 자리에서 끝난다. 거절하거나 둘 중 하나가 자리를 뜨거나 페이즈가 닫히면 그냥 사라진다.
-        </p>
-      </div>
-
-      {trades.length > 0 && (
-        <ul className="sc-dl__offers">
-          {trades.map((t) => (
-            <li key={t.id}>
-              <span>
-                {t.fromTeam} → {t.toTeam}
-              </span>
-              <span className="sc-dl__bag">
-                주는 것{' '}
-                {Object.entries(t.give)
-                  .map(([r, n]) => `${RES_LABEL[r]} ${n}`)
-                  .join(' · ') || '없음'}
-              </span>
-              <span className="sc-dl__bag">
-                받는 것{' '}
-                {Object.entries(t.want)
-                  .map(([r, n]) => `${RES_LABEL[r]} ${n}`)
-                  .join(' · ') || '없음'}
-              </span>
-              {t.note && <span className="sc-dl__note">{t.note}</span>}
-              {(t.toPlayerId ? t.toPlayerId === me.playerId : t.toTeam === me.team) && (
-                <div className="sc-ac__row">
-                  <button disabled={busy} onClick={() => run('거절', () => act.respondTrade(t.id, false))}>
-                    거절
-                  </button>
-                  <button disabled={busy} onClick={() => run('수락', () => act.respondTrade(t.id, true))}>
-                    받는다
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
 
       <h2>동맹 {ally && <span>{ally}팀과</span>}</h2>
       {ally ? (

@@ -1,4 +1,5 @@
 // 교역과 동맹.
+import { DEAL_TOKENS_PER_DAY, TRADE_COST } from './occupy'
 import { tradeEpoch } from './diplomacy'
 import { describe, expect, it } from 'vitest'
 import {
@@ -136,34 +137,54 @@ describe('동맹', () => {
   })
 })
 
+describe('거래를 거는 값은 개인 토큰이다', () => {
+  it('하루에 열둘', () => {
+    expect(DEAL_TOKENS_PER_DAY).toBe(12)
+  })
+
+  it('한 번 거는 데 하나', () => {
+    expect(TRADE_COST).toBe(1)
+  })
+
+  it('하루치로 열두 번까지 건다', () => {
+    // 자유 시간이 하루 다섯 번이니 한 번에 두어 차례꼴이다
+    expect(Math.floor(DEAL_TOKENS_PER_DAY / TRADE_COST)).toBe(12)
+  })
+})
+
 describe('토큰과 로봇은 사람끼리 오간다', () => {
-  const cost = 1
-  it('주고받은 만큼 옮겨 가고, 값은 제안한 쪽이 낸다', () => {
-    const out = movePurse({ tokens: 5, robots: 2 }, { tokens: 1, robots: 0 }, { tokens: 2 }, { robots: 0 }, cost)
+  it('주고받은 만큼 옮겨 간다', () => {
+    const out = movePurse({ tokens: 5, robots: 2 }, { tokens: 1, robots: 0 }, { tokens: 2 }, { robots: 0 })
     expect(out.ok).toBe(true)
     if (!out.ok) return
-    // 준 둘 + 값 하나
-    expect(out.from.tokens).toBe(2)
+    expect(out.from.tokens).toBe(3)
     expect(out.to.tokens).toBe(3)
   })
 
+  it('**거는 값은 여기서 안 문다** — 제안한 사람의 개인 토큰에서 나간다', () => {
+    // 팀 상자에서 빼면 한 사람이 말을 걸고 다니는 것만으로 팀이
+    // 페이즈에 쓸 것이 준다. 이 함수는 오가는 것만 센다
+    const out = movePurse({ tokens: 2, robots: 0 }, { tokens: 9, robots: 0 }, { tokens: 2 }, {})
+    expect(out.ok).toBe(true)
+    if (out.ok) expect(out.from.tokens).toBe(0)
+  })
+
   it('로봇도 손에서 손으로 간다', () => {
-    const out = movePurse({ tokens: 3, robots: 2 }, { tokens: 0, robots: 1 }, { robots: 2 }, { robots: 1 }, cost)
+    const out = movePurse({ tokens: 3, robots: 2 }, { tokens: 0, robots: 1 }, { robots: 2 }, { robots: 1 })
     expect(out.ok).toBe(true)
     if (!out.ok) return
     expect(out.from.robots).toBe(1)
     expect(out.to.robots).toBe(2)
   })
 
-  it('**값까지 낼 토큰이 있어야 한다**', () => {
-    // 둘을 주려면 값 하나까지 셋이 있어야 한다. 둘뿐이면 성립하지 않는다
-    const out = movePurse({ tokens: 2, robots: 0 }, { tokens: 9, robots: 0 }, { tokens: 2 }, {}, cost)
+  it('없는 토큰은 못 준다', () => {
+    const out = movePurse({ tokens: 1, robots: 0 }, { tokens: 9, robots: 0 }, { tokens: 2 }, {})
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.reason).toBe('senderNoTokens')
   })
 
   it('없는 것은 못 받는다', () => {
-    const out = movePurse({ tokens: 9, robots: 0 }, { tokens: 0, robots: 0 }, {}, { robots: 1 }, cost)
+    const out = movePurse({ tokens: 9, robots: 0 }, { tokens: 0, robots: 0 }, {}, { robots: 1 })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.reason).toBe('receiverNoRobots')
   })

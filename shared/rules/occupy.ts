@@ -136,8 +136,22 @@ export const EXIT_MINUTES = 5
 export const ENTER_MINUTES = 5
 export const MOVE_MINUTES = EXIT_MINUTES + ENTER_MINUTES
 
-/** 마주 선 사람과 거래 한 번. 거래할 수 있는 것은 토큰·재화·데리고 있는 로봇이다. */
+/**
+ * 거래 한 번을 거는 데 드는 **개인 토큰**. 거는 쪽이 낸다.
+ *
+ * 팀 상자에서 빼지 않는다 — 한 사람이 하루 종일 말을 걸고 다니면
+ * 팀이 페이즈에 쓸 것을 축낸다. 제 몫에서 내게 두면, 많이 거는 사람은
+ * 제 것을 쓰는 것이고 팀에 손해를 끼치지 않는다.
+ */
 export const TRADE_COST = 1
+
+/**
+ * 사람 한 명이 하루에 쥐는 거래 토큰. 자정에 다시 찬다.
+ *
+ * 자유 시간이 하루 다섯 번이니 한 번에 두어 차례꼴이다. 파는 것이
+ * 흔하지도, 한 번 걸고 마는 것도 아니게 하는 값이다.
+ */
+export const DEAL_TOKENS_PER_DAY = 12
 
 /** 사람 한 명이 데리고 다닐 수 있는 로봇. */
 export const MAX_CARRIED_ROBOTS = 2

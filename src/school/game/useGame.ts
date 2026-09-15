@@ -191,8 +191,15 @@ export function gameActions(gameId: string) {
     buyShopItem: (itemId: string) => callServer('buyShopItem', { ...g, itemId }),
 
     /** 마주 선 사람에게 말을 꺼낸다. 수락하면 그 자리에서 끝난다. */
-    offerTrade: (toPlayerId: string, give: Record<string, number>, want: Record<string, number>, note = '') =>
-      callServer('offerTrade', { ...g, toPlayerId, give, want, note }),
+    offerTrade: (
+      toPlayerId: string,
+      give: Record<string, number>,
+      want: Record<string, number>,
+      // 토큰과 짝은 자루가 아니라 주머니로 간다. 서버가 둘을 갈라 본다
+      givePurse: Record<string, number> = {},
+      wantPurse: Record<string, number> = {},
+      note = '',
+    ) => callServer('offerTrade', { ...g, toPlayerId, give, want, givePurse, wantPurse, note }),
     respondTrade: (tradeId: string, accept: boolean) => callServer('respondTrade', { ...g, tradeId, accept }),
     proposeAlliance: (withTeam: TeamId) => callServer('proposeAlliance', { ...g, withTeam }),
     respondAlliance: (proposalId: string, accept: boolean) =>

@@ -28,6 +28,8 @@ import { noticesFor, type Notice } from '../reveal/notice'
 export interface WorldPawn extends PawnPosition {
   /** 정보부장이면 우리 팀 시야가 한 겹 넓어진다. */
   intelOfficer: boolean
+  /** 거래를 걸 수 있는 개인 토큰. 투영이 본인 몫에만 싣는다. */
+  dealTokens?: number
   /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
   arriveAtMs?: number | null
   /** 전투 자리. 본인 몫에만 실린다 — 남의 전선 계획까지 보일 이유가 없다. */
@@ -158,6 +160,9 @@ export interface World {
     epoch?: string | null
     give: Record<string, number>
     want: Record<string, number>
+    /** 손에서 손으로 가는 것 — 토큰과 데리고 있는 짝. */
+    givePurse?: Record<string, number> | null
+    wantPurse?: Record<string, number> | null
     note: string
     status: string
     createdAtMs: number
@@ -227,6 +232,13 @@ export interface View {
    * 읽힌다. 그게 이 게임의 절반이다.
    */
   myTeamTokens: number
+  /**
+   * 거래를 걸 수 있는 내 개인 토큰. **내 것만 간다.**
+   *
+   * 남이 몇 번 더 걸 수 있는지 보이면 「저 사람은 오늘 끝났다」가
+   * 계산이 된다 — 흥정은 그걸 모르는 채로 해야 한다.
+   */
+  myDealTokens: number
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
   myVault: { money: number; knowledge: number }
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
@@ -358,6 +370,7 @@ export function projectView(world: World, viewerId: string): View {
       myArriveAtMs: null,
       myPost: null,
       myTeamTokens: 0,
+      myDealTokens: 0,
       myVault: { money: 0, knowledge: 0 },
       myItems: {},
       myTeamRobots: 0,
@@ -452,6 +465,7 @@ export function projectView(world: World, viewerId: string): View {
     // **우리 팀 것만이다.** 남의 상자가 보이면 언제 밀고 들어올지가
     // 읽힌다 — 그게 이 게임의 절반이다
     myTeamTokens: world.wallets?.[team] ?? 0,
+    myDealTokens: world.pawns.find((p) => p.playerId === viewerId)?.dealTokens ?? 0,
     myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[team] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,

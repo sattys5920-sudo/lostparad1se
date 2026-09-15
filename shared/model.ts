@@ -198,6 +198,13 @@ export interface PawnDoc {
   /** 머릿수가 모자란 팀의 주장. 점령 판정에서 둘로 센다. */
   captain?: boolean
   /**
+   * 거래를 거는 데 쓰는 **개인 토큰**. 자정에 다시 찬다.
+   *
+   * 팀 상자와 따로다 — 한 사람이 하루 종일 말을 걸고 다녀도 팀이
+   * 페이즈에 쓸 것은 안 준다. 많이 거는 사람은 제 몫을 쓰는 것이다.
+   */
+  dealTokens?: number
+  /**
    * 한 번이라도 발을 들인 방. 사람마다 따로 쌓인다.
    *
    * 지도가 채워지는 것은 개인의 기록이다 — 남이 다녀온 곳은 내
@@ -339,6 +346,8 @@ export interface PlayerViewDoc {
   myPost: TileId | null
   /** 이번 페이즈에 내게 남은 토큰. */
   myTeamTokens: number
+  /** 거래를 걸 수 있는 내 개인 토큰. 하루치다. */
+  myDealTokens: number
   /**
    * **우리 팀** 금고. 돈과 지식 둘뿐이고, 남의 팀 것은 오지 않는다.
    *
@@ -408,6 +417,9 @@ export interface PlayerViewDoc {
     byId?: string | null
     give: Record<string, number>
     want: Record<string, number>
+    /** 손에서 손으로 가는 것 — 토큰과 데리고 있는 짝. */
+    givePurse?: Record<string, number> | null
+    wantPurse?: Record<string, number> | null
     note: string
     status: string
     createdAtMs: GameMs

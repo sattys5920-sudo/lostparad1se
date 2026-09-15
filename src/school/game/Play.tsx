@@ -663,6 +663,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             act={act}
             onSaid={setSaid}
             ask={ask}
+            phaseOpen={phaseOpen}
           />
         </Sheet>
       )}

@@ -10,7 +10,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
-import { grantFor, isShortHanded } from '../../shared/rules/occupy'
+import { DEAL_TOKENS_PER_DAY, grantFor, isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES, startingTiles } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { initialTokenState } from '../../shared/rules/tokens'
@@ -230,6 +230,8 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         arriveAtMs: null,
         asleep: false,
         tokensUsedToday: 0,
+        // 거래를 거는 개인 토큰. 자정에 다시 찬다
+        dealTokens: DEAL_TOKENS_PER_DAY,
         votedToday: false,
         peeksToday: 0,
       })

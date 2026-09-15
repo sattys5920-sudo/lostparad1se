@@ -116,8 +116,15 @@ export const offerTrade = onCall<{
     const { gameId, toPlayerId } = req.data
     const { game, nowMs } = await freshNow(gameId)
     const pawn = await myPawn(gameId, uid)
+    // **거래는 자유 시간의 일이다.** 페이즈는 서 있는 자리로 겨루는
+    // 시간이라, 그 한 시간 안에 흥정까지 끼우면 아무도 못 움직인다
+    if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '페이즈 중에는 거래하지 않는다.')
     if (pawn.tileId === null) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 말을 꺼낸다.')
     if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
+    // 거는 값은 **내 개인 토큰**이다. 없으면 말을 못 꺼낸다
+    if ((pawn.dealTokens ?? 0) < TRADE_COST) {
+      throw new HttpsError('failed-precondition', '오늘 거래를 걸 토큰이 없다.')
+    }
 
     // **마주 선 사람에게만.** 목록에서 고르는 원격 제안은 없다
     const theirSnap = await gameRef(gameId).collection('pawns').doc(toPlayerId).get()
@@ -292,9 +299,6 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       { tokens: to.phaseTokens ?? 0, robots: theirBots.size },
       givePurse,
       wantPurse,
-      // **값은 제안한 쪽이 낸다.** 거절당하면 안 낸다 — 제안만 뿌리고
-      // 다니는 것을 막으려면 값이 제안 쪽에 붙되 성립할 때만이어야 한다
-      TRADE_COST,
     )
     if (!moved.ok) {
       const why: Record<string, string> = {
@@ -305,6 +309,13 @@ export const respondTrade = onCall<{ gameId: string; tradeId: string; accept: bo
       }
       throw new HttpsError('failed-precondition', why[moved.reason])
     }
+
+    // **거는 값은 제안한 사람의 개인 토큰에서.** 거절당하면 안 낸다 —
+    // 제안만 뿌리고 다니는 것을 막으려면 값이 제안 쪽에 붙되 성립할
+    // 때만이어야 한다
+    const offererLeft = (mine.dealTokens ?? 0) - TRADE_COST
+    if (offererLeft < 0) throw new HttpsError('failed-precondition', '거는 쪽에 거래 토큰이 없다.')
+    tx.update(mineSnap.ref, { dealTokens: offererLeft })
 
     tx.update(ref.collection('teams').doc(t.fromTeam), {
       resources: out.fromResources,
