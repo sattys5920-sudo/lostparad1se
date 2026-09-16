@@ -48,7 +48,8 @@ import {
 } from './timing'
 import type { TeamId, TileId } from '../types'
 import type { AvatarLook } from '../../../shared/look'
-import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
+import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
+import { LIVE_EVERY_MS, LIVE_STALE_MS } from './useLive'
 
 export interface WalkProps {
   me: { playerId: string; team: TeamId; look: AvatarLook | null }
@@ -110,6 +111,22 @@ export interface WalkProps {
    * 없는 사람(캐릭터를 아직 안 만든 계정)은 예전처럼 팀 색 점이다.
    */
   looks?: Readonly<Record<string, AvatarLook | null | undefined>>
+  /**
+   * 남들이 지금 어디서 어디를 보고 걷는가. useLive 가 채워 두는 통이다.
+   *
+   * **state 가 아니라 ref 다.** 열셋이 초에 세 번씩 바뀌는 것을 state 로
+   * 두면 그 수만큼 화면 전체가 다시 그려진다. 지도는 어차피 매 프레임
+   * 제 손으로 그린다.
+   */
+  live?: RefObject<Map<string, LiveDoc>>
+  /**
+   * 내 자리를 적어 보낸다. **걷는 동안에만 부른다.**
+   *
+   * 판정과는 상관이 없다 — 서버가 「바로 옆 칸인가」를 보는 것은
+   * 여전히 onStand 로 적은 pawns 다. 이쪽은 남의 화면에 내가 걷는
+   * 모습이 보이게 하는 것뿐이다.
+   */
+  onLive?: (at: LiveDoc) => void
 }
 
 const DIR_OF: Record<string, Dir> = {
@@ -144,7 +161,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {} }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -168,6 +185,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const standRef = useRef(onStand)
   const frozenRef = useRef(frozen)
   const looksRef = useRef(looks)
+  const liveOutRef = useRef(onLive)
   viewRef.current = view
   tilesRef.current = tiles
   crossRef.current = onCross
@@ -177,6 +195,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   standRef.current = onStand
   frozenRef.current = frozen
   looksRef.current = looks
+  liveOutRef.current = onLive
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
   const myPawn = view?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
@@ -632,6 +651,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
 
+    /** 마지막으로 내 자리를 적어 보낸 시각. 걷는 동안에만 오간다. */
+    let lastLiveMs = 0
+    /** 직전 프레임에 걷고 있었나. 멈추는 순간 한 번 더 적으려고 본다. */
+    let toldLive = false
+
     function frame(now: number) {
       raf = requestAnimationFrame(frame)
       const dt = Math.min(64, now - last)
@@ -724,6 +748,33 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         self.py = self.ty * TILE + TILE / 2 - dy * TILE * t
       }
 
+      /*
+       * 걷는 모습을 남에게 보낸다.
+       *
+       * **걷는 동안에만, 그것도 띄엄띄엄.** 한 칸이 160ms 인데 칸마다
+       * 적으면 가만히 선 열넷도 문서를 계속 두드린다. 받는 쪽이 사이를
+       * 메워 그리므로 320ms 면 눈에 매끄럽다.
+       *
+       * 멈추면 마지막으로 한 번 더 적고 그친다. 그 한 번이 없으면
+       * 남의 화면에서 내가 마지막으로 보낸 자리에 어정쩡하게 선다.
+       */
+      if (liveOutRef.current) {
+        const movingNow = self.moving || autoPath.length > 0
+        const due = now - lastLiveMs >= LIVE_EVERY_MS
+        if ((movingNow && due) || (!movingNow && toldLive)) {
+          lastLiveMs = now
+          toldLive = movingNow
+          liveOutRef.current({
+            tileId: roomAt(self.tx, self.ty)?.id ?? null,
+            x: self.px / TILE,
+            y: self.py / TILE,
+            dir: self.dir,
+            moving: movingNow,
+            ms: Date.now(),
+          })
+        }
+      }
+
       // 내가 선 칸. 화면에는 안 쓰고 주행 시험이 읽는다 — 「방은 맞는데
       // 문에서 한 칸 옆」 같은 것은 방 이름만 봐서는 알 수가 없다
       canvas.dataset.at = `${self.tx},${self.ty}`
@@ -756,10 +807,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         }
       }
 
-      draw()
+      draw(dt, now)
     }
 
-    function draw(): void {
+    /**
+     * dt 와 now 를 받는다. **남들을 밀어 주려면 시간이 필요하다** —
+     * 실시간 자리는 띄엄띄엄 오고, 그 사이를 매 프레임 조금씩 메운다.
+     */
+    function draw(dt: number, now: number): void {
       const w = canvas.width
       const h = canvas.height
       const camX = Math.round(Math.max(0, Math.min(MAP_W * TILE - w, self.px - w / 2)))
@@ -840,10 +895,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 누를 수 있을 것처럼 보인다
       // 아래에 선 사람이 나중에 그려져야 앞으로 온다. 안 그러면
       // 뒷줄 사람의 머리가 앞줄 사람 몸을 뚫고 나온다
-      const line = standees()
+      const line = standees(dt)
         .filter((p) => p.playerId !== me.playerId)
         .sort((a, b) => a.y - b.y)
-      for (const p of line) person(p.x - camX, p.y - camY, p.team as TeamId, p.look, p.asleep)
+      for (const p of line) {
+        // 걷는 사람은 다리가 움직인다. 멈춘 사람은 첫 자세로 선다
+        const pose = p.moving ? Math.floor((now / 1000) * WALK_POSES_PER_SEC) : 0
+        person(p.x - camX, p.y - camY, p.team as TeamId, p.look, p.asleep, p.dir, pose)
+      }
 
       // 나는 늘 맨 위다. 앞줄에 누가 서더라도 **나를 잃어버리면 안 된다**
       person(
@@ -907,31 +966,95 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       x: number
       y: number
       look: AvatarLook | null
+      /** 보고 선 쪽. 실시간 자리가 온 사람만 안다. */
+      dir: Dir
+      /** 걷는 중인가. 다리를 움직일지 정한다. */
+      moving: boolean
     }
-    function standees(): Standee[] {
+
+    /**
+     * 남들을 그리는 자리. **받은 자리로 곧장 튀지 않고 밀어 준다.**
+     *
+     * 실시간 자리는 320ms 에 한 번 온다. 오는 대로 찍으면 초에 세 번씩
+     * 순간이동한다 — 사이를 메워야 걷는 것으로 보인다. 목표까지 남은
+     * 거리를 매 프레임 조금씩 줄이는 쪽이 앞질러 가지 않아 안전하다.
+     */
+    const shown = new Map<string, { x: number; y: number }>()
+
+    /** 지금 보고 있는 실시간 자리. 오래된 것은 안 쓴다. */
+    function liveOf(playerId: string): LiveDoc | null {
+      const d = live?.current?.get(playerId)
+      if (!d) return null
+      return Date.now() - d.ms > LIVE_STALE_MS ? null : d
+    }
+
+    /**
+     * 목표를 향해 한 프레임만큼 민다.
+     *
+     * 한 걸음보다 훨씬 멀면(방을 건넜거나 서버가 옮겨 세웠으면) 그냥
+     * 찍는다. 밀어 봐야 학교를 가로질러 미끄러지는 꼴이 된다.
+     */
+    function ease(playerId: string, tx: number, ty: number, dt: number): { x: number; y: number } {
+      const had = shown.get(playerId)
+      if (!had || Math.hypot(tx - had.x, ty - had.y) > TILE * 4) {
+        const now = { x: tx, y: ty }
+        shown.set(playerId, now)
+        return now
+      }
+      // 내 걸음과 같은 속도로 따라붙는다. 한 칸에 STEP_MS
+      const step = (TILE * dt) / STEP_MS
+      const dx = tx - had.x
+      const dy = ty - had.y
+      const far = Math.hypot(dx, dy)
+      if (far <= step) {
+        had.x = tx
+        had.y = ty
+      } else {
+        had.x += (dx / far) * step
+        had.y += (dy / far) * step
+      }
+      return had
+    }
+    function standees(dt = 0): Standee[] {
       const out: Standee[] = []
       const byRoom = new Map<string, Omit<Standee, 'here' | 'x' | 'y'>[]>()
+      const gone = new Set(shown.keys())
       for (const p of viewRef.current?.visiblePawns ?? []) {
         if (p.walking || !p.tileId) continue
+        gone.delete(p.playerId)
         const who = {
           playerId: p.playerId,
           team: p.team,
           asleep: p.asleep === true,
           look: lookOf(p.playerId),
+          dir: 'down' as Dir,
+          moving: false,
+        }
+        /*
+         * **실시간 자리가 있으면 그쪽이 먼저다.**
+         *
+         * 서버가 아는 것은 멈춰 선 칸뿐이라 걷는 도중이 통째로 빈다.
+         * 다만 서버가 말하는 방과 다른 방을 가리키면 안 믿는다 —
+         * 화면이 적는 값이라, 안 보이는 방에 서 있다고 우길 수 있다.
+         * 우겨 봐야 여기서 걸러지고, 판정은 애초에 pawns 만 본다.
+         */
+        const now = liveOf(p.playerId)
+        if (now && now.tileId === p.tileId) {
+          const at = ease(p.playerId, now.x * TILE, now.y * TILE, dt)
+          out.push({ ...who, dir: now.dir, moving: now.moving, here: p.tileId as TileId, x: at.x, y: at.y })
+          continue
         }
         if (p.at) {
-          out.push({
-            ...who,
-            here: p.tileId as TileId,
-            x: p.at.x * TILE + TILE / 2,
-            y: p.at.y * TILE + TILE / 2,
-          })
+          const at = ease(p.playerId, p.at.x * TILE + TILE / 2, p.at.y * TILE + TILE / 2, dt)
+          out.push({ ...who, here: p.tileId as TileId, x: at.x, y: at.y })
           continue
         }
         const row = byRoom.get(p.tileId) ?? []
         row.push(who)
         byRoom.set(p.tileId, row)
       }
+      // 안 보이게 된 사람의 자리는 버린다. 다시 나타나면 그 자리에 찍힌다
+      for (const id of gone) shown.delete(id)
       for (const [tileId, mates] of byRoom) {
         const at = centerPx(asRoom(tileId))
         if (!at) continue

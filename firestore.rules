@@ -152,6 +152,28 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // 지금 어디서 어디를 보고 있는가. **화면이 직접 적는다.**
+      //
+      // views 를 거치면 걸음이 뚝뚝 끊긴다 — 서버는 멈춰 선 자리만
+      // 알고, 그것도 열넷 몫을 한꺼번에 다시 쓴다. 걷는 모습이 보이려면
+      // 초에 몇 번씩 오가야 하는데 그 값을 서버가 치를 이유가 없다.
+      //
+      // **누가 읽어도 되는지는 여전히 서버가 정한다.** 그 사람의 view 에
+      // 든 사람만 그 사람의 live 를 연다 — 안개가 가린 사람, 잠복한
+      // 사람, 지워진 사람은 애초에 목록에 없으므로 여기서도 안 열린다.
+      // 화면이 받아서 숨기는 것이 아니라 오지를 않는다.
+      //
+      // 적는 것은 본인만. 남의 자리에 남의 이름으로 설 수는 없다.
+      // 제 자리를 거짓으로 적는 것은 막지 않는다 — 판정은 전부 pawns 를
+      // 보므로, 거짓말은 남의 화면에서 헛걸음을 시킬 뿐이다.
+      match /live/{playerId} {
+        allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/games/$(gameId)/views/$(request.auth.uid))
+          && get(/databases/$(database)/documents/games/$(gameId)/views/$(request.auth.uid))
+               .data.visibleIds.hasAny([playerId]);
+        allow write: if request.auth != null && request.auth.uid == playerId;
+      }
+
       // 추리 노트. 본인만 읽고 본인만 쓴다.
       //
       // 다른 문서와 달리 클라이언트가 직접 쓴다. 판정에 쓰이지 않는

@@ -166,6 +166,13 @@ export interface World {
 export interface View {
   updatedAtMs: number
   visiblePawns: PawnView[]
+  /**
+   * 위 목록의 아이디만 뽑아 둔 것. **Firestore 규칙이 이것을 읽는다.**
+   *
+   * 규칙은 맵이 든 배열 안을 뒤지지 못한다. live 문서를 열어 줄지
+   * 말지를 한 줄로 판단할 수 있게, 같은 계산에서 아이디만 떼어 둔다.
+   */
+  visibleIds: string[]
   /** 보이는 방에 있는 로봇. 머릿수로만 센다. */
   visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
   /**
@@ -327,6 +334,7 @@ export function projectView(world: World, viewerId: string): View {
     return {
       updatedAtMs: world.nowMs,
       visiblePawns: [],
+      visibleIds: [],
       visibleRobots: [],
       roomCounts: {},
       visibleTiles: [],
@@ -375,6 +383,14 @@ export function projectView(world: World, viewerId: string): View {
   // 내가 선 방. 걷는 중이면 어느 방에도 없다 — 바닥의 쪽지도 안 보인다
   const here = seenPawns.find((p) => p.playerId === viewerId)?.tileId ?? null
 
+  const seen = visiblePawns({
+    viewerId,
+    viewerTeam: team,
+    pawns: seenPawns,
+    visible,
+    nowMs: world.nowMs,
+  })
+
   return {
     updatedAtMs: world.nowMs,
     // 안개 밖의 말은 목록에 없다. 목적지는 어느 말에도 붙지 않는다
@@ -385,13 +401,18 @@ export function projectView(world: World, viewerId: string): View {
       .filter((r) => visible.has(r.tileId))
       .map((r) => ({ id: r.id, team: r.team, tileId: r.tileId })),
 
-    visiblePawns: visiblePawns({
-      viewerId,
-      viewerTeam: team,
-      pawns: seenPawns,
-      visible,
-      nowMs: world.nowMs,
-    }),
+    visiblePawns: seen,
+    /**
+     * 위 목록에 든 사람의 아이디만. **규칙이 이것을 본다.**
+     *
+     * 걸음을 실시간으로 주고받는 live 문서를 누가 읽어도 되는지를
+     * 이 줄로 가른다 — 「보인다」를 정하는 곳이 하나여야 한다. 안개가
+     * 가린 사람의 live 를 읽을 수 있으면, 화면에 안 그려도 개발자도구로
+     * 다 보인다.
+     *
+     * 같은 계산에서 떼어 낸다. 따로 세면 언젠가 어긋난다.
+     */
+    visibleIds: seen.map((p) => p.playerId),
     visibleTiles: [...visible].sort(),
 
     // 우리 팀 것

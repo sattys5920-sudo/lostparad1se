@@ -57,6 +57,34 @@ export interface SeatEntry {
   look?: AvatarLook | null
 }
 
+/**
+ * games/{gameId}/live/{playerId}
+ *
+ * **지금 이 순간 어디서 어디를 보고 있는가.** 화면이 직접 적고,
+ * 그 사람이 보이는 사람만 읽는다(규칙이 views 의 visibleIds 로 가른다).
+ *
+ * 판정은 이것을 절대 쓰지 않는다. 「바로 옆 칸인가」도, 방 머릿수도,
+ * 깃발도 전부 pawns 를 본다 — 여기는 화면이 적는 것이라 얼마든지
+ * 거짓을 쓸 수 있다. **거짓을 써 봐야 남의 화면에서 헛걸음할 뿐이다.**
+ *
+ * 걷는 동안에만 적는다. 멈추면 한 번 더 적고 그친다 — Firestore 는
+ * 한 문서에 초당 한 번쯤을 셈하고 만든 것이라, 가만히 선 열넷이
+ * 계속 두드리면 안 된다.
+ */
+export interface LiveDoc {
+  /** 지금 있는 방. 걷는 중에 방을 건너면 도착할 방이다. */
+  tileId: TileId | null
+  /** 칸 좌표. **소수다** — 칸과 칸 사이가 걷는 중인 자리다. */
+  x: number
+  y: number
+  /** 보고 선 쪽. */
+  dir: 'up' | 'down' | 'left' | 'right'
+  /** 걷는 중인가. 멈춘 사람은 다리를 안 움직인다. */
+  moving: boolean
+  /** 적은 시각. 오래된 것은 안 믿는다 — 창을 닫고 간 사람이 남는다. */
+  ms: number
+}
+
 /** games/{gameId} */
 export interface GameDoc {
   phase: GamePhase
@@ -364,6 +392,14 @@ export interface PlayerViewDoc {
     /** 방 안 어디에 서 있는가. 걷는 중이거나 아직 안 적었으면 없다. */
     at?: Cell | null
   }[]
+  /**
+   * 위 목록의 아이디만. **Firestore 규칙이 이 줄을 읽는다.**
+   *
+   * live/{누구} 를 열어 줄지 말지가 여기서 갈린다 — 규칙은 맵이 든
+   * 배열 속을 뒤지지 못해서 아이디만 따로 둔다. 「보인다」를 정하는
+   * 곳은 여전히 하나다(projectView).
+   */
+  visibleIds?: string[]
   /**
    * 내 말이 걷는 중이면 도착 시각. **내 것만 실린다** — 남이 언제
    * 도착하는지까지 알면 문 앞에서 기다렸다 덮치는 것이 계산이 된다.

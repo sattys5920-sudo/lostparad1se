@@ -30,6 +30,7 @@ import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
 import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
+import { pushLive, useLive } from './useLive'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
@@ -438,6 +439,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     () => Object.fromEntries((game?.seats ?? []).map((sx) => [sx.playerId, sx.look ?? null])),
     [game],
   )
+  /**
+   * 보이는 사람들의 실시간 자리.
+   *
+   * **누구 것을 열지는 서버가 정한 목록 그대로다**(view.visibleIds).
+   * 규칙도 같은 줄을 본다 — 화면이 남의 문서를 청해도 열리지 않는다.
+   */
+  const liveIds = state.view?.visibleIds ?? []
+  const live = useLive(gameId, liveIds)
 
   // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다.
   //
@@ -511,6 +520,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           <Walk
             me={{ playerId: me.playerId, team: me.team, look }}
             looks={looks}
+            live={live}
+            onLive={(at) => pushLive(gameId, me.playerId, at)}
             view={state.view}
             tiles={state.tiles}
             nowMs={nowMs}
