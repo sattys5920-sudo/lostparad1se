@@ -64,7 +64,11 @@ export function useDeal(gameId: string | null, uid: string | null): DealSeat {
           )
           settle()
         },
-        () => setDeal(null),
+        (e) => {
+          // 조용히 죽으면 「거래가 안 뜬다」만 남는다. 이유를 남긴다
+          console.error('거래판을 못 읽었다', e)
+          setDeal(null)
+        },
       ),
     )
     return () => stop.forEach((f) => f())

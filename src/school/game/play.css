@@ -509,7 +509,7 @@
 /* 열 개 스무 개를 한 개씩 누르게 두지 않는다 */
 .sc-dr__slide { grid-column: 1 / -1; width: 100%; margin: 0; }
 
-.sc-dr__hint { margin: 0; font-size: 11px; color: var(--sc-text-dim); text-wrap: pretty; }
+.sc-dr__hint { margin: 0 0 2px; font-size: 11px; color: var(--sc-text-dim); text-wrap: pretty; }
 
 /* 바닥에 붙는 준비 단추. 큰 것 하나와 작은 나가기 */
 .sc-dr__foot {
@@ -518,8 +518,11 @@
   display: flex;
   gap: 8px;
   align-items: stretch;
-  padding-top: 6px;
-  background: linear-gradient(to bottom, rgba(238, 240, 242, 0), var(--sc-bg) 40%);
+  padding: 8px 0 2px;
+  /* **비치면 안 된다.** 반투명하면 밑으로 지나가는 소지품 줄이 단추에
+     겹쳐 보여서, 화면이 깨진 것처럼 읽힌다 */
+  background: var(--sc-bg);
+  box-shadow: 0 -6px 8px -6px rgba(11, 13, 15, 0.18);
 }
 .sc-dr__go {
   appearance: none;

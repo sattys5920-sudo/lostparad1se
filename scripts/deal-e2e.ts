@@ -1,0 +1,325 @@
+// 거래 탁자를 진짜 서버로.
+//
+// 순수 함수 쪽은 shared/rules/deal.test.ts 가 본다. 여기서 볼 것은
+// 서버만 아는 여섯 가지다.
+//
+//   준비한 뒤 물건이 바뀌면 준비가 풀린다
+//   가진 것보다 많이 올리면 막힌다
+//   자리를 뜨거나 페이즈가 열리면 사라지고 **물건은 그대로 있다**
+//   둘이 동시에 성립을 불러도 한 번만 먹는다
+//   개인 토큰은 성립할 때만 하나 든다 — 청했다 사라지면 안 든다
+//   쪽지는 접힌 채로 간다. 어느 쪽지인지 거래판에 없다
+//
+//   npx vite-node scripts/deal-e2e.ts
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { TOTAL_SEATS } from '../shared/rules/lobby'
+import { ADJACENCY } from '../shared/rules/board'
+import { dayHourMs } from '../shared/rules/clock'
+import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
+import { TRADE_COST, stepToward } from '../shared/rules/occupy'
+
+const PROJECT = 'demo-goei'
+const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
+const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1'
+const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
+const ADMIN = { Authorization: 'Bearer owner' }
+
+let failures = 0
+function check(ok: boolean, label: string, detail = ''): void {
+  if (!ok) failures += 1
+  console.log(`${ok ? '  ✓' : '  ✗'} ${label}${detail ? ` — ${detail}` : ''}`)
+}
+function plain(v: unknown): unknown {
+  if (v === null || typeof v !== 'object') return v
+  const o = v as Record<string, unknown>
+  if ('stringValue' in o) return o.stringValue
+  if ('integerValue' in o) return Number(o.integerValue)
+  if ('doubleValue' in o) return o.doubleValue
+  if ('booleanValue' in o) return o.booleanValue
+  if ('nullValue' in o) return null
+  if ('arrayValue' in o) return ((o.arrayValue as { values?: unknown[] }).values ?? []).map(plain)
+  if ('mapValue' in o) {
+    const f = (o.mapValue as { fields?: Record<string, unknown> }).fields ?? {}
+    return Object.fromEntries(Object.entries(f).map(([k, x]) => [k, plain(x)]))
+  }
+  if ('fields' in o) {
+    return Object.fromEntries(Object.entries(o.fields as Record<string, unknown>).map(([k, x]) => [k, plain(x)]))
+  }
+  return o
+}
+async function getAll(path: string): Promise<{ id: string; d: Record<string, unknown> }[]> {
+  const r = await fetch(`${FS}/${path}?pageSize=300`, { headers: ADMIN })
+  if (!r.ok) return []
+  const j = (await r.json()) as { documents?: { name: string }[] }
+  return (j.documents ?? []).map((doc) => ({
+    id: doc.name.split('/').pop() as string,
+    d: plain(doc) as Record<string, unknown>,
+  }))
+}
+async function signUp(email: string): Promise<string> {
+  await fetch(`${AUTH}/accounts:signUp?key=fake`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: 'password', returnSecureToken: true }),
+  })
+  return email
+}
+async function setAdmin(email: string): Promise<void> {
+  const r = await fetch(`${AUTH}/accounts:lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ email: [email] }),
+  })
+  const { users } = (await r.json()) as { users: { localId: string }[] }
+  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ localId: users[0].localId, customAttributes: JSON.stringify({ admin: true }) }),
+  })
+}
+async function auth(email: string): Promise<{ uid: string; token: string }> {
+  const r = await fetch(`${AUTH}/accounts:signInWithPassword?key=fake`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: 'password', returnSecureToken: true }),
+  })
+  const j = (await r.json()) as { idToken: string; localId: string }
+  return { uid: j.localId, token: j.idToken }
+}
+interface Res { ok: boolean; data?: Record<string, unknown>; code?: string; message?: string }
+async function call(name: string, tk: string, data: unknown): Promise<Res> {
+  const r = await fetch(`${FN}/${name}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+    body: JSON.stringify({ data }),
+  })
+  const j = (await r.json()) as { result?: Record<string, unknown>; error?: { status: string; message: string } }
+  if (j.error) return { ok: false, code: j.error.status, message: j.error.message }
+  return { ok: true, data: j.result ?? {} }
+}
+async function must(name: string, tk: string, data: unknown): Promise<Record<string, unknown>> {
+  const r = await call(name, tk, data)
+  if (!r.ok) throw new Error(`${name}: ${r.code} ${r.message}`)
+  return r.data as Record<string, unknown>
+}
+
+const GAME = `dl${Date.now()}`
+const START = Date.UTC(2026, 2, 1, 23, 0, 0)
+const M = 60_000
+
+const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/pawns`)).map((p) => [p.id, p.d]))
+const dealNow = async (id: string) => (await getAll(`games/${GAME}/deals`)).find((d) => d.id === id)?.d ?? {}
+const teamNow = async (t: TeamId) => (await getAll(`games/${GAME}/teams`)).find((x) => x.id === t)?.d ?? {}
+const slipsNow = async () => await getAll(`games/${GAME}/secret/slips/items`)
+const side = (x: Record<string, unknown>, k: 'a' | 'b') => (x[k] ?? {}) as Record<string, unknown>
+const staked = (x: Record<string, unknown>, k: 'a' | 'b') =>
+  (side(x, k).stake ?? {}) as Record<string, number>
+
+/** 말 하나를 원하는 자리에 놓는다. **시험 준비용** — 서버를 거치지 않는다. */
+async function put(uid: string, fields: Record<string, unknown>): Promise<void> {
+  const mask = Object.keys(fields).map((k) => `updateMask.fieldPaths=${k}`).join('&')
+  await fetch(`${FS}/games/${GAME}/pawns/${uid}?${mask}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: Object.fromEntries(
+        Object.entries(fields).map(([k, v]) => [
+          k,
+          typeof v === 'number' ? { integerValue: String(v) } : { stringValue: String(v) },
+        ]),
+      ),
+    }),
+  })
+}
+
+async function main(): Promise<void> {
+  console.log(`판 ${GAME}\n── 판 세우기 ──`)
+  const he = await signUp(`h-${GAME}@x.test`)
+  await setAdmin(he)
+  const host = (await auth(he)).token
+  const want: TeamId[] = []
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) {
+    for (let i = 0; i < n; i++) want.push(t)
+  }
+  await must('createGame', host, { gameId: GAME, seed: 'deal' })
+  const people: { uid: string; token: string; team: TeamId }[] = []
+  for (let i = 0; i < TOTAL_SEATS; i++) {
+    const a = await auth(await signUp(`p${i}-${GAME}@x.test`))
+    people.push({ ...a, team: want[i] })
+    await must('joinGame', a.token, { gameId: GAME, name: `봇${i}`, team: want[i] })
+  }
+  await must('startGame', host, { gameId: GAME, startAtMs: START })
+  let clock = dayHourMs(START, 1, 10)
+  const push = async (ms: number): Promise<void> => {
+    clock += ms
+    await must('setDevClock', host, { gameId: GAME, anchorGameMs: clock, speed: 1 })
+    await must('tick', host, { gameId: GAME })
+  }
+  await push(0)
+
+  const A = people.filter((p) => p.team === 'A')
+  const B = people.filter((p) => p.team === 'B')
+  const me = A[0]
+  const you = B[0]
+
+  /** 둘을 같은 방에 세운다. 마주 서야 말을 꺼낼 수 있다. */
+  const face = async (): Promise<string> => {
+    const where = (await pawnsNow())[me.uid].tileId as string
+    for (let i = 0; i < 16; i++) {
+      const here = (await pawnsNow())[you.uid].tileId as string | null
+      if (here === where) return where
+      if (here === null) {
+        await push(20 * M)
+        continue
+      }
+      const next = stepToward(here, where)
+      if (!next) break
+      await must('roamTo', you.token, { gameId: GAME, tileId: next })
+    }
+    return where
+  }
+  const room = await face()
+  check((await pawnsNow())[you.uid].tileId === room, '둘이 같은 방에 섰다', room)
+
+  const open = async (): Promise<string> => {
+    const asked = await must('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
+    const id = String(asked.id)
+    await must('answerDeal', you.token, { gameId: GAME, dealId: id, accept: true })
+    return id
+  }
+
+  // ── 1. 준비한 뒤 물건이 바뀌면 준비가 풀린다 ────────────────
+  console.log('── 1. 준비 해제 ──')
+  let id = await open()
+  check(String((await dealNow(id)).status) === 'open', '수락하면 탁자가 열린다')
+
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1 } })
+  await must('stakeDeal', you.token, { gameId: GAME, dealId: id, stake: { knowledge: 1 } })
+  await must('readyDeal', me.token, { gameId: GAME, dealId: id, ready: true })
+  await must('readyDeal', you.token, { gameId: GAME, dealId: id, ready: true })
+  let d = await dealNow(id)
+  check(String(d.status) === 'settling', '둘 다 준비하면 세기 시작한다')
+
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 2 } })
+  d = await dealNow(id)
+  check(
+    String(d.status) === 'open' &&
+      side(d, 'a').ready === false &&
+      side(d, 'b').ready === false &&
+      d.settleAtMs === null,
+    '물건이 바뀌면 **둘 다** 준비가 풀리고 세던 것도 멈춘다',
+    String(d.status),
+  )
+
+  // ── 2. 가진 것보다 많이 올리면 막힌다 ───────────────────────
+  console.log('── 2. 자원 부족 ──')
+  const vault = ((await teamNow('A')).resources ?? {}) as Record<string, number>
+  const tooMuch = await call('stakeDeal', me.token, {
+    gameId: GAME,
+    dealId: id,
+    stake: { money: (vault.money ?? 0) + 99 },
+  })
+  check(!tooMuch.ok && tooMuch.code === 'FAILED_PRECONDITION', '금고에 없는 돈은 못 올린다', tooMuch.message)
+  const ghostSlip = await call('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { slips: 5 } })
+  check(!ghostSlip.ok, '없는 쪽지도 못 올린다', ghostSlip.message)
+  check(Number(staked(await dealNow(id), 'a').money) === 2, '막힌 뒤에도 탁자는 아까 그대로다')
+
+  // ── 3. 자리를 뜨거나 페이즈가 열리면 사라진다 ───────────────
+  console.log('── 3. 이탈 · 페이즈 ──')
+  const moneyBefore = (((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0
+  const away = ADJACENCY[(await pawnsNow())[you.uid].tileId as string][0]
+  await must('roamTo', you.token, { gameId: GAME, tileId: away })
+  await must('dealNow', me.token, { gameId: GAME })
+  d = await dealNow(id)
+  check(String(d.status) === 'gone', '한 사람이 자리를 뜨면 사라진다', String(d.why ?? ''))
+  check(
+    ((((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0) === moneyBefore,
+    '올린 것은 선언일 뿐이라 **돌아올 것도 없다**',
+  )
+
+  await face()
+  id = await open()
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1 } })
+  await must('openPhase', host, { gameId: GAME })
+  await must('dealNow', me.token, { gameId: GAME })
+  check(String((await dealNow(id)).status) === 'gone', '페이즈가 열리면 사라진다')
+  const inPhase = await call('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
+  check(!inPhase.ok, '페이즈 중에는 걸 수도 없다', inPhase.message)
+  await must('closePhase', host, { gameId: GAME })
+  await push(20 * M)
+
+  // ── 4·5·6. 동시 성립 · 값 · 쪽지 ────────────────────────────
+  console.log('── 4·5·6. 성립 ──')
+  await face()
+  // 쪽지 한 장을 손에 쥐어 준다 — 접힌 채로 건너가는지 볼 것이다
+  const slip = (await slipsNow())[0]
+  await fetch(`${FS}/games/${GAME}/secret/slips/items/${slip.id}?updateMask.fieldPaths=heldBy`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { heldBy: { stringValue: me.uid } } }),
+  })
+  await put(me.uid, { dealTokens: 5 })
+  await put(you.uid, { dealTokens: 5 })
+
+  id = await open()
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1, slips: 1 } })
+  await must('stakeDeal', you.token, { gameId: GAME, dealId: id, stake: { knowledge: 1 } })
+
+  // 쪽지 내용이 거래판에 없는지 먼저 본다
+  const board = JSON.stringify(await dealNow(id))
+  check(!board.includes(slip.id), '거래판에 **어느 쪽지인지가 없다**')
+  const line = String(slip.d.line ?? '')
+  check(line === '' || !board.includes(line), '쪽지 본문도 없다')
+  check(Number(staked(await dealNow(id), 'a').slips) === 1, '장수만 적힌다')
+
+  const aMoney = (((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0
+  const bKnow = (((await teamNow('B')).resources ?? {}) as Record<string, number>).knowledge ?? 0
+  await must('readyDeal', me.token, { gameId: GAME, dealId: id, ready: true })
+  await must('readyDeal', you.token, { gameId: GAME, dealId: id, ready: true })
+  const early = await call('settleDeal', me.token, { gameId: GAME, dealId: id })
+  check(!early.ok, '다 세기 전에는 성립하지 않는다', early.message)
+
+  await push(DEAL_COUNTDOWN_MS + 1000)
+  // 둘이 **같이** 부른다. 한 번만 먹어야 한다
+  const both = await Promise.all([
+    call('settleDeal', me.token, { gameId: GAME, dealId: id }),
+    call('settleDeal', you.token, { gameId: GAME, dealId: id }),
+  ])
+  check(both.some((r) => r.ok), '성립했다', JSON.stringify(both.map((r) => r.code ?? 'ok')))
+  check(String((await dealNow(id)).status) === 'done', '탁자가 닫혔다')
+
+  const aAfter = (((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0
+  const bAfter = (((await teamNow('B')).resources ?? {}) as Record<string, number>).knowledge ?? 0
+  check(aAfter === aMoney - 1, 'A 금고에서 돈 하나가 나갔다', `${aMoney} → ${aAfter}`)
+  check(bAfter === bKnow - 1, 'B 금고에서 지식 하나가 나갔다', `${bKnow} → ${bAfter}`)
+
+  const pawns = await pawnsNow()
+  check(
+    Number(pawns[me.uid].dealTokens) === 5 - TRADE_COST,
+    `청한 쪽만 개인 토큰 ${TRADE_COST}개를 낸다`,
+    String(pawns[me.uid].dealTokens),
+  )
+  check(Number(pawns[you.uid].dealTokens) === 5, '받은 쪽은 안 낸다', String(pawns[you.uid].dealTokens))
+
+  const moved = (await slipsNow()).find((s) => s.id === slip.id)
+  check(String(moved?.d.heldBy) === you.uid, '쪽지가 받는 쪽 손에 들어갔다')
+  const myView = (await getAll(`games/${GAME}/views`)).find((v) => v.id === me.uid)?.d ?? {}
+  check(!JSON.stringify(myView).includes(slip.id), '넘긴 사람 몫에서는 그 쪽지가 사라졌다')
+
+  // 걸었다가 무시당하면 값이 안 든다
+  console.log('── 덤. 답 없는 청은 값이 안 든다 ──')
+  const before = Number((await pawnsNow())[me.uid].dealTokens)
+  const asked = await must('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
+  await push(20_000)
+  await must('dealNow', me.token, { gameId: GAME })
+  check(String((await dealNow(String(asked.id))).status) === 'gone', '열다섯 초가 지나면 사라진다')
+  check(Number((await pawnsNow())[me.uid].dealTokens) === before, '값은 안 들었다')
+
+  console.log(failures === 0 ? '\n전부 통과' : `\n${failures}개 실패`)
+  if (failures > 0) process.exitCode = 1
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exitCode = 1
+})
