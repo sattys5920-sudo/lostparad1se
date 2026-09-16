@@ -53,6 +53,32 @@ const EMPTY: GameState = { loading: true, game: null, view: null, teams: {}, til
  * uid가 없으면 내 몫은 안 붙는다 — 규칙이 거절할 요청을 보내 봐야
  * 콘솔만 빨개진다.
  */
+/**
+ * 판 문서 스냅샷 하나를 받아 들고 있을 값을 정한다.
+ *
+ * **캐시가 흘린 빈 답을 「없어졌다」로 받지 않는다.**
+ *
+ * 연결이 끊겼다 붙는 사이 Firestore 는 로컬 캐시에서 한 번 답한다.
+ * 그 캐시에 판 문서가 없으면 빈 스냅샷이 오고, 그것을 그대로 받으면
+ * 화면이 「판이 없다」로 갔다가 다음 스냅샷에 돌아온다 — 그 한 번에
+ * Running 이 새로 서고 아침 시퀀스가 처음부터 다시 돈다. 지하철에서
+ * 몇 분마다 번쩍거리며 튕긴 것이 이것이다.
+ *
+ * **서버가 없다고 한 것만 없는 것이다.** 아직 아무것도 못 받았으면
+ * 캐시가 없다고 해도 그대로 받는다 — 판이 정말 없을 수도 있으니
+ * 「불러오는 중」에 영영 묶어 두면 안 된다.
+ *
+ * 화면 밖으로 떼어 둔 것은 시험을 붙이려고다. 끊겼다 붙는 순간은
+ * 브라우저로 만들기 어렵지만, 판단 자체는 여기서 다 볼 수 있다.
+ */
+export function nextGame(
+  had: GameDoc | null,
+  snap: { exists: boolean; fromCache: boolean; data: GameDoc | undefined },
+): GameDoc | null {
+  if (!snap.exists && snap.fromCache && had) return had
+  return snap.data ?? null
+}
+
 export function useGame(gameId: string | null): GameState {
   const [state, setState] = useState<GameState>(EMPTY)
   const uid = auth?.currentUser?.uid ?? null
@@ -69,7 +95,16 @@ export function useGame(gameId: string | null): GameState {
     stop.push(
       onSnapshot(
         base,
-        (snap) => setState((s) => ({ ...s, loading: false, game: (snap.data() as GameDoc) ?? null })),
+        (snap) =>
+          setState((s) => ({
+            ...s,
+            loading: false,
+            game: nextGame(s.game, {
+              exists: snap.exists(),
+              fromCache: snap.metadata.fromCache,
+              data: snap.data() as GameDoc | undefined,
+            }),
+          })),
         fail,
       ),
     )
@@ -104,6 +139,8 @@ export function useGame(gameId: string | null): GameState {
       onSnapshot(
         collection(base, 'tiles'),
         (snap) => {
+          // 빈 캐시 답에 방 임자를 지우면 지도 색이 통째로 깜빡인다
+          if (snap.empty && snap.metadata.fromCache) return
           const tiles: Partial<Record<TileId, TileDoc>> = {}
           snap.forEach((d) => (tiles[d.id as TileId] = d.data() as TileDoc))
           setState((s) => ({ ...s, tiles }))
@@ -115,6 +152,7 @@ export function useGame(gameId: string | null): GameState {
       onSnapshot(
         collection(base, 'phaseLog'),
         (snap) => {
+          if (snap.empty && snap.metadata.fromCache) return
           const rows = snap.docs
             .map((d) => d.data() as { no: number; day: number; lines: PhaseLogLine[] })
             .sort((a, b) => a.no - b.no)
@@ -127,7 +165,11 @@ export function useGame(gameId: string | null): GameState {
       stop.push(
         onSnapshot(
           doc(base, 'views', uid),
-          (snap) => setState((s) => ({ ...s, view: (snap.data() as PlayerViewDoc) ?? null })),
+          (snap) => {
+            // 내 몫이 잠깐 비면 보이는 사람이 통째로 사라졌다 나타난다
+            if (!snap.exists() && snap.metadata.fromCache) return
+            setState((s) => ({ ...s, view: (snap.data() as PlayerViewDoc) ?? null }))
+          },
           fail,
         ),
       )
