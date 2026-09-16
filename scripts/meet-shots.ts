@@ -1,4 +1,4 @@
-// 만나서 거래하기까지 — 375×667 열 장.
+// 만나서 거래하기까지 — 375×667 열한 장.
 //
 // 거래창 낱장은 deal-shots.ts 가 찍는다. 여기서 찍는 것은 **이야기**다.
 // 자유 시간에 혼자 있던 방에 누가 들어오고, 그 사람을 짚고, 탁자에
@@ -285,6 +285,21 @@ async function main(): Promise<void> {
       return { x: (sx / n) * k, y: (sy / n) * k }
     }, TEAM_RGB[theirTeam] ?? TEAM_RGB.B)
 
+  /** 한 칸이 화면에서 몇 px 인가. 배율은 정수라 나누기만 하면 된다. */
+  const tilePx = await canvas.evaluate((el) => {
+    const c = el as HTMLCanvasElement
+    return (c.clientWidth / c.width) * 16
+  })
+
+  // **옆으로 다가간다.** 같은 방에 있는 것만으로는 거래를 못 건다 —
+  // 바로 옆 칸이라야 한다. 상대 왼쪽 칸을 짚어 그리로 걸어간다
+  const near = await findDot()
+  if (near) {
+    await canvas.click({ position: { x: Math.max(4, near.x - tilePx), y: near.y } }).catch(() => undefined)
+    await p1.waitForTimeout(2500)
+    await shot(p1, '3-옆으로-다가간다')
+  }
+
   let tapped = false
   for (let i = 0; i < 6 && !tapped; i++) {
     const at = await findDot()
@@ -306,13 +321,13 @@ async function main(): Promise<void> {
     await shot(p1, 'x-못-짚었다')
     throw new Error('맵에서 그 사람을 못 짚었다')
   }
-  await shot(p1, '3-사람을-짚었다')
+  await shot(p1, '4-사람을-짚었다')
 
   // ── 4~5. 청하고 앉는다 ──────────────────────────────────
   const seat = async (): Promise<boolean> => {
     await p1.locator('.sc-pr__go').click().catch(() => undefined)
     if (!(await p2.waitForSelector('.sc-da', { timeout: 8_000 }).then(() => true).catch(() => false))) return false
-    await shot(p2, '4-요청이-왔다')
+    await shot(p2, '5-요청이-왔다')
     await p2.locator('.sc-da__row button.is-on').click()
     return await p1
       .waitForSelector('.sc-dr__bag li', { timeout: 8_000 })
@@ -331,7 +346,7 @@ async function main(): Promise<void> {
   }
   if (!open) throw new Error('거래창이 안 열렸다')
   await p1.waitForTimeout(400)
-  await shot(p1, '5-빈-탁자')
+  await shot(p1, '6-빈-탁자')
 
   // ── 6. 각자 올린다 ──────────────────────────────────────
   const steps = p1.locator('.sc-dr__bag li .sc-dr__step button:nth-child(3)')
@@ -340,24 +355,24 @@ async function main(): Promise<void> {
   await steps.nth(1).click()
   await p2.locator('.sc-dr__bag li .sc-dr__step button:nth-child(3)').nth(0).click()
   await p1.waitForTimeout(1400)
-  await shot(p1, '6-양쪽이-올렸다')
+  await shot(p1, '7-양쪽이-올렸다')
 
   // ── 7. 한쪽만 준비 ──────────────────────────────────────
   await p2.locator('.sc-dr__go').click()
   await p1.waitForTimeout(2000)
-  await shot(p1, '7-상대만-준비')
+  await shot(p1, '8-상대만-준비')
 
   // ── 8. 세는 중 ──────────────────────────────────────────
   await p1.locator('.sc-dr__go').click()
   await p1.waitForSelector('.sc-dr__count', { timeout: 5_000 })
-  await shot(p1, '8-세는-중')
+  await shot(p1, '9-세는-중')
 
   // ── 9~10. 성립 ─────────────────────────────────────────
   await p1.waitForSelector('.sc-dr.is-over', { timeout: 20_000 })
   await p1.waitForTimeout(500)
-  await shot(p1, '9-성립했다')
+  await shot(p1, '10-성립했다')
   await p2.waitForTimeout(500)
-  await shot(p2, '10-상대-쪽')
+  await shot(p2, '11-상대-쪽')
 
   await browser.close()
   if (boom.length > 0) {
@@ -365,7 +380,7 @@ async function main(): Promise<void> {
     for (const b of boom) console.log(`  ✗ ${b}`)
     process.exitCode = 1
   } else {
-    console.log('\n열 장. 화면이 터진 곳은 없다')
+    console.log('\n열한 장. 화면이 터진 곳은 없다')
   }
 }
 

@@ -6,6 +6,7 @@
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { askExpired, type DealState } from '../../shared/rules/deal'
+import { cellsTouch, type Cell } from '../../shared/rules/board'
 import type { PawnDoc } from '../../shared/model'
 import { gameRef } from './index'
 
@@ -61,7 +62,12 @@ export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
   if (snap.empty) return
   const game = gameSnap.data() as { phaseNow?: { open?: boolean }; invisibleId?: string | null }
   const where = new Map<string, string | null>()
-  for (const d of pawns.docs) where.set(d.id, (d.data() as PawnDoc).tileId ?? null)
+  const at = new Map<string, Cell | null>()
+  for (const d of pawns.docs) {
+    const p = d.data() as PawnDoc
+    where.set(d.id, p.tileId ?? null)
+    at.set(d.id, p.at ?? null)
+  }
 
   const batch = db.batch()
   let any = false
@@ -73,6 +79,9 @@ export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
     else if (game.invisibleId === deal.aId || game.invisibleId === deal.bId) why = '한 사람이 사라졌다.'
     else if (where.get(deal.aId) !== deal.tileId || where.get(deal.bId) !== deal.tileId) {
       why = '한 사람이 자리를 떴다.'
+    } else if (!cellsTouch(at.get(deal.aId), at.get(deal.bId))) {
+      // 마주 선 채로만 흥정한다. 한 걸음 떨어지면 탁자가 접힌다
+      why = '서로 떨어졌다.'
     }
     if (!why) continue
     batch.update(d.ref, { status: 'gone', why })

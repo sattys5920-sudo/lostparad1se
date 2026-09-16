@@ -13,7 +13,7 @@
 //   npx vite-node scripts/deal-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
-import { ADJACENCY } from '../shared/rules/board'
+import { ADJACENCY, TILE_BY_ID } from '../shared/rules/board'
 import { dayHourMs } from '../shared/rules/clock'
 import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
 import { TRADE_COST, stepToward } from '../shared/rules/occupy'
@@ -162,12 +162,18 @@ async function main(): Promise<void> {
   const me = A[0]
   const you = B[0]
 
-  /** 둘을 같은 방에 세운다. 마주 서야 말을 꺼낼 수 있다. */
+  /**
+   * 둘을 **바로 옆 칸**에 세운다.
+   *
+   * 같은 방으로는 모자라다 — 거래는 마주 보고 물건을 주고받는 것이다.
+   * 걸어서 같은 방까지 오게 한 뒤, 칸은 화면이 할 일을 대신해 적는다
+   * (standAt 을 부르는 것은 원래 각자의 화면이다).
+   */
   const face = async (): Promise<string> => {
     const where = (await pawnsNow())[me.uid].tileId as string
     for (let i = 0; i < 16; i++) {
       const here = (await pawnsNow())[you.uid].tileId as string | null
-      if (here === where) return where
+      if (here === where) break
       if (here === null) {
         await push(20 * M)
         continue
@@ -176,7 +182,16 @@ async function main(): Promise<void> {
       if (!next) break
       await must('roamTo', you.token, { gameId: GAME, tileId: next })
     }
+    await standSideBySide(where)
     return where
+  }
+  /** 그 방 안에서 둘을 옆 칸에 세운다. */
+  const standSideBySide = async (where: string): Promise<void> => {
+    const rect = TILE_BY_ID[where].plan
+    const x = rect.x + 1
+    const y = rect.y + 1
+    await must('standAt', me.token, { gameId: GAME, x, y })
+    await must('standAt', you.token, { gameId: GAME, x: x + 1, y })
   }
   const room = await face()
   check((await pawnsNow())[you.uid].tileId === room, '둘이 같은 방에 섰다', room)
@@ -187,6 +202,20 @@ async function main(): Promise<void> {
     await must('answerDeal', you.token, { gameId: GAME, dealId: id, accept: true })
     return id
   }
+
+  // ── 0. 같은 방으로는 모자라다 ───────────────────────────────
+  console.log('── 0. 바로 옆 칸 ──')
+  const rect = TILE_BY_ID[room].plan
+  await must('standAt', you.token, { gameId: GAME, x: rect.x + 4, y: rect.y + 3 })
+  const far = await call('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
+  check(!far.ok && far.code === 'FAILED_PRECONDITION', '같은 방이어도 떨어져 있으면 못 건다', far.message)
+  await must('standAt', you.token, { gameId: GAME, x: rect.x + 2, y: rect.y + 2 })
+  const diag = await call('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
+  check(!diag.ok, '대각선도 닿은 것이 아니다', diag.message)
+  const notMine = await call('standAt', me.token, { gameId: GAME, x: 0, y: 0 })
+  check(!notMine.ok, '내 방 아닌 칸에는 못 선다', notMine.message)
+  await standSideBySide(room)
+  check(true, '옆 칸에 나란히 섰다')
 
   // ── 1. 준비한 뒤 물건이 바뀌면 준비가 풀린다 ────────────────
   console.log('── 1. 준비 해제 ──')
@@ -227,11 +256,19 @@ async function main(): Promise<void> {
   // ── 3. 자리를 뜨거나 페이즈가 열리면 사라진다 ───────────────
   console.log('── 3. 이탈 · 페이즈 ──')
   const moneyBefore = (((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0
+  // 방을 뜨기 전에, **한 걸음만 물러나도** 탁자가 접힌다
+  await must('standAt', you.token, { gameId: GAME, x: rect.x + 4, y: rect.y + 3 })
+  await must('dealNow', me.token, { gameId: GAME })
+  check(String((await dealNow(id)).status) === 'gone', '한 걸음 떨어지면 사라진다', String((await dealNow(id)).why ?? ''))
+
+  await standSideBySide(room)
+  id = await open()
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 2 } })
   const away = ADJACENCY[(await pawnsNow())[you.uid].tileId as string][0]
   await must('roamTo', you.token, { gameId: GAME, tileId: away })
   await must('dealNow', me.token, { gameId: GAME })
   d = await dealNow(id)
-  check(String(d.status) === 'gone', '한 사람이 자리를 뜨면 사라진다', String(d.why ?? ''))
+  check(String(d.status) === 'gone', '방을 뜨면 사라진다', String(d.why ?? ''))
   check(
     ((((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0) === moneyBefore,
     '올린 것은 선언일 뿐이라 **돌아올 것도 없다**',

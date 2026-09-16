@@ -151,6 +151,12 @@ export function gameActions(gameId: string) {
     // ── 페이즈 ──────────────────────────────────────────────────
     /** 자유 시간에 옆방으로. 즉시 간다. 전선은 안 움직인다. */
     roamTo: (tileId: TileId) => callServer('roamTo', { ...g, tileId }),
+    /**
+     * 방 안 어디에 섰는지 적는다. **걸음을 멈출 때 한 번만.**
+     *
+     * 거래가 이것을 본다 — 같은 방이 아니라 바로 옆 칸이라야 한다.
+     */
+    standAt: (x: number, y: number) => callServer('standAt', { ...g, x, y }),
     /** 이번 페이즈에 할 일. 닫히기 전까지는 바꿀 수 있다. */
     phaseAct: (
       kind: string,

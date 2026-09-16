@@ -623,3 +623,38 @@ export function pathBetween(from: TileId, to: TileId): TileId[] {
   }
   return []
 }
+
+// ── 칸 하나 ─────────────────────────────────────────────────────
+//
+// 방보다 한 겹 아래다. 「같은 방」이 아니라 **바로 옆 칸**이라야 하는
+// 일이 있다 — 거래가 그렇다. 마주 보고 물건을 주고받는 것이지,
+// 교실 반대편에서 소리쳐 흥정하는 것이 아니다.
+
+export interface Cell {
+  x: number
+  y: number
+}
+
+const inRect = (r: Rect, x: number, y: number) =>
+  x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h
+
+/**
+ * 그 칸이 어느 방 안인가. **네모 안쪽만 본다** — 벽도 문턱도 복도도
+ * 어느 방이 아니다. 방 그림(map/world.ts)과 같은 네모를 쓰므로 둘이
+ * 어긋날 일이 없다.
+ */
+export function roomOfCell(x: number, y: number): TileId | null {
+  for (const t of TILES) if (inRect(t.plan, x, y)) return t.id
+  return null
+}
+
+/**
+ * 두 칸이 **상하좌우로 닿아** 있는가.
+ *
+ * 대각선은 닿은 것이 아니다. 같은 칸도 아니다 — 한 칸에 둘이 설 수는
+ * 없으니, 같은 칸으로 보이면 아직 자리가 안 잡힌 것이다.
+ */
+export function cellsTouch(a: Cell | null | undefined, b: Cell | null | undefined): boolean {
+  if (!a || !b) return false
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1
+}

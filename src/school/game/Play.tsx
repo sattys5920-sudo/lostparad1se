@@ -31,7 +31,7 @@ import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
-import { ADJACENCY, TILE_BY_ID, type TileId } from '../../../shared/rules/board'
+import { ADJACENCY, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import { MOVE_MINUTES } from '../../../shared/rules/occupy'
 import './play.css'
@@ -325,6 +325,18 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    */
   const { deal, dismiss: leaveDeal } = useDeal(gameId, uid)
   /**
+   * 그 사람이 **바로 옆 칸**에 서 있는가.
+   *
+   * 거래는 마주 보고 물건을 주고받는 것이다 — 같은 방이라는 것만으로는
+   * 교실 반대편에서 소리치는 것과 구별이 안 된다. 서버도 같은 것을
+   * 본다(cellsTouch). 화면은 미리 알려 줄 뿐이다.
+   */
+  const myAt = state.view?.visiblePawns.find((p) => p.playerId === uid)?.at ?? null
+  const nextTo = person
+    ? cellsTouch(myAt, state.view?.visiblePawns.find((p) => p.playerId === person)?.at ?? null)
+    : false
+
+  /**
    * 거래창을 닫는다. **살아 있는 판은 접고, 끝난 판은 치우기만 한다** —
    * 끝난 판에 대고 또 접자고 하면 서버가 「그런 거래가 없다」로 답한다.
    */
@@ -453,6 +465,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               goFar(id)
             }}
             onTapPerson={setPerson}
+            /* 멈춰 선 자리를 서버가 알아야 「바로 옆 칸」을 판정한다.
+               거절은 흘려보낸다 — 걷다 멈춘 자리를 못 적었다고 화면에
+               빨간 글씨가 뜰 일은 아니다 */
+            onStand={(x, y) => { void act.standAt(x, y).catch(() => {}) }}
+            /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */
+            frozen={deal !== null && deal.status !== 'done' && deal.status !== 'gone'}
           />
 
           {/* 방 위에 얹는 것들. 줄을 따로 내주면 방이 그만큼 작아진다.
@@ -697,11 +715,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <Sheet title={nameOf(person)} onClose={() => setPerson(null)}>
           <div className="sc-pr">
             <p className="sc-pr__who">
-              {hereNow.find((p) => p.playerId === person)?.team ?? '?'}팀 · 같은 방에 서 있다
+              {hereNow.find((p) => p.playerId === person)?.team ?? '?'}팀 ·{' '}
+              {nextTo ? '바로 옆 칸에 서 있다' : '같은 방에 있다'}
             </p>
             <button
               className="sc-pr__go"
-              disabled={phaseOpen || deal !== null}
+              disabled={phaseOpen || deal !== null || !nextTo}
               onClick={() => {
                 const who = person
                 setPerson(null)
@@ -717,7 +736,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   ? '페이즈 중에는 흥정하지 않는다'
                   : deal !== null
                     ? '이미 거래 중이다'
-                    : `성립하면 개인 토큰 1개 · 오늘 ${state.view?.myDealTokens ?? 0}개 남았다`}
+                    : !nextTo
+                      ? '바로 옆 칸에 서야 한다 — 한 걸음 더 다가간다'
+                      : `성립하면 개인 토큰 1개 · 오늘 ${state.view?.myDealTokens ?? 0}개 남았다`}
               </span>
             </button>
           </div>

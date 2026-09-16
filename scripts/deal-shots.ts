@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
+import { TILE_IDS } from '../shared/rules/board'
 import { dayHourMs } from '../shared/rules/clock'
 import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
 
@@ -167,6 +168,15 @@ async function main(): Promise<void> {
   if (!otherId) throw new Error('다른 팀 사람을 못 찾았다')
   const yours = uidOf(otherId)
   await put(yours, { tileId: room })
+  // 나머지 열둘은 다른 방으로 흩는다. **한 방에 그 팀이 하나라야**
+  // 화면에서 색으로 그 사람을 찾을 수 있다
+  const away = TILE_IDS.filter((t) => t !== room)
+  let n = 0
+  for (const uid of Object.keys(now)) {
+    if (uid === mine || uid === yours) continue
+    await put(uid, { tileId: away[n % away.length] })
+    n += 1
+  }
   // 올릴 것이 보이게 개인 토큰을 넉넉히 둔다
   await put(mine, { dealTokens: 8 })
   await put(yours, { dealTokens: 8 })
@@ -182,13 +192,17 @@ async function main(): Promise<void> {
   console.log(`  qa01(${myTeam}팀)과 ${otherId}·${yourName}(${String(now[yours].team)}팀)이 ${room} 에 마주 섰다`)
 
   // 계정 증표는 한 번 더 바꿔야 서버가 받는다
-  const custom = String((await must('logInAccount', host, { id: 'qa01', password: QA_PW })).token ?? '')
-  const swap = await fetch(`${AUTH}/accounts:signInWithCustomToken?key=fake`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: custom, returnSecureToken: true }),
-  })
-  const myToken = ((await swap.json()) as { idToken: string }).idToken
+  const tokenOf = async (id: string): Promise<string> => {
+    const custom = String((await must('logInAccount', host, { id, password: QA_PW })).token ?? '')
+    const swap = await fetch(`${AUTH}/accounts:signInWithCustomToken?key=fake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: custom, returnSecureToken: true }),
+    })
+    return ((await swap.json()) as { idToken: string }).idToken
+  }
+  const myToken = await tokenOf('qa01')
+
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
   const view = {
     viewport: { width: 375, height: 667 },
@@ -221,30 +235,70 @@ async function main(): Promise<void> {
   await p1.waitForTimeout(1500)
 
   // ── 1. 거래 요청 ─────────────────────────────────────────
-  // 맵에서 짚어 건다. 화면이 실제로 그렇게 시작하는지 본다
-  // 사람이 방 어디에 서 있는지는 그리는 쪽이 정한다. 손가락처럼
-  // 가운데부터 넓혀 가며 짚어 본다 — 짚히면 그 사람 쪽이 열린다
+  //
+  // 그려진 것을 그대로 읽는다. 상대 팀 색 점을 캔버스에서 찾아, **한 칸
+   // 옆으로 걸어간 뒤** 짚는다 — 같은 방으로는 못 걸고 바로 옆 칸이라야
+  // 한다. 서버에 좌표를 적어 봐야 소용없다: 화면이 제 자리를 다시 적는다
   const canvas = p1.locator('canvas').first()
-  const box = (await canvas.boundingBox()) ?? { x: 0, y: 0, width: 375, height: 300 }
-  const cx = box.width / 2
-  const cy = box.height / 2
-  let tapped = false
-  outer: for (const r of [0, 10, 16, 22, 28, 34, 40, 48, 56, 64]) {
-    for (let a = 0; a < (r === 0 ? 1 : 12); a++) {
-      const th = (a / 12) * Math.PI * 2
-      await canvas
-        .click({ position: { x: cx + Math.cos(th) * r, y: cy + Math.sin(th) * r } })
-        .catch(() => undefined)
-      await p1.waitForTimeout(140)
-      if (!(await p1.locator('.sc-pr__go').count())) continue
-      // 짚긴 짚었는데 다른 사람이면 놓고 다시 찾는다
-      const who = await p1.locator('.sc-sheet__head h2').innerText().catch(() => '')
-      if (who.trim() === yourName) {
-        tapped = true
-        break outer
+  const theirTeam = String((await pawns())[yours].team)
+  const TEAM_RGB: Record<string, [number, number, number]> = {
+    A: [224, 69, 63],
+    B: [63, 122, 224],
+    C: [47, 168, 102],
+    D: [224, 160, 42],
+  }
+  const findDot = async (): Promise<{ x: number; y: number } | null> =>
+    await canvas.evaluate((el, rgb) => {
+      const c = el as HTMLCanvasElement
+      const ctx = c.getContext('2d')
+      if (!ctx) return null
+      const d = ctx.getImageData(0, 0, c.width, c.height).data
+      let sx = 0
+      let sy = 0
+      let n = 0
+      for (let y = 0; y < c.height; y++) {
+        for (let x = 0; x < c.width; x++) {
+          const o = (y * c.width + x) * 4
+          if (
+            Math.abs(d[o] - rgb[0]) < 12 &&
+            Math.abs(d[o + 1] - rgb[1]) < 12 &&
+            Math.abs(d[o + 2] - rgb[2]) < 12
+          ) {
+            sx += x
+            sy += y
+            n += 1
+          }
+        }
       }
+      if (n === 0) return null
+      const k = c.clientWidth / c.width
+      return { x: (sx / n) * k, y: (sy / n) * k }
+    }, TEAM_RGB[theirTeam] ?? TEAM_RGB.B)
+
+  const tilePx = await canvas.evaluate((el) => {
+    const c = el as HTMLCanvasElement
+    return (c.clientWidth / c.width) * 16
+  })
+  const near = await findDot()
+  if (near) {
+    await canvas.click({ position: { x: Math.max(4, near.x - tilePx), y: near.y } }).catch(() => undefined)
+    await p1.waitForTimeout(2500)
+  }
+  let tapped = false
+  for (let i = 0; i < 6 && !tapped; i++) {
+    const at = await findDot()
+    if (!at) {
+      await p1.waitForTimeout(600)
+      continue
+    }
+    await canvas.click({ position: at }).catch(() => undefined)
+    await p1.waitForTimeout(500)
+    if (!(await p1.locator('.sc-pr__go').count())) continue
+    const who = await p1.locator('.sc-sheet__head h2').innerText().catch(() => '')
+    if (who.trim() === yourName) tapped = true
+    else {
       await p1.locator('.sc-sheet__head button').click().catch(() => undefined)
-      await p1.waitForTimeout(120)
+      await p1.waitForTimeout(300)
     }
   }
   if (tapped) await shot(p1, '0-사람을짚었다')

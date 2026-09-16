@@ -20,7 +20,7 @@ import type {
   TeamId,
   VoteKind,
 } from './rules/v2'
-import type { TileId } from './rules/board'
+import type { Cell, TileId } from './rules/board'
 import type { Satchel } from './rules/items'
 
 /** 밀리초 타임스탬프. 게임 속 시각이다(개발용 시계가 걸려 있으면 그 시각). */
@@ -214,6 +214,15 @@ export interface PawnDoc {
   visitedTiles?: TileId[]
   /** 지금 선 칸. 걷는 중이면 null — 걷는 말은 어느 칸 판정에도 세지 않는다. */
   tileId: TileId | null
+  /**
+   * 방 안 어디에 서 있는가. **거래가 이것을 본다** — 같은 방이 아니라
+   * 바로 옆 칸이라야 물건을 주고받는다.
+   *
+   * 화면이 걸음을 멈출 때마다 적어 보낸다. 서버는 그 칸이 정말 그
+   * 사람이 있는 방 안인지만 확인한다 — 방 안 어디라고 우기는 것까지는
+   * 막지 않는다. 그래 봐야 **예전 규칙(같은 방이면 된다)** 만큼이다.
+   */
+  at?: Cell | null
   /** 걷는 중일 때 방금 떠난 칸. 서 있으면 null. */
   fromTile: TileId | null
   /**
@@ -337,6 +346,8 @@ export interface PlayerViewDoc {
     toTile: TileId | null
     asleep: boolean
     walking: boolean
+    /** 방 안 어디에 서 있는가. 걷는 중이거나 아직 안 적었으면 없다. */
+    at?: Cell | null
   }[]
   /**
    * 내 말이 걷는 중이면 도착 시각. **내 것만 실린다** — 남이 언제

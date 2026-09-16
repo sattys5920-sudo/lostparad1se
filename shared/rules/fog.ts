@@ -5,7 +5,7 @@
 // 아예 들어가지 않는다. 받은 뒤 숨기면 개발자도구로 다 보인다.
 //
 // 걷는 말의 목적지는 어느 view에도 들어가지 않는다 — 본인 팀 것도.
-import { ADJACENCY, TILE_BY_ID, tileDistance, type TileId } from './board'
+import { ADJACENCY, TILE_BY_ID, tileDistance, type Cell, type TileId } from './board'
 import { INTEL_VISION_BONUS, VISION_RANGE, type TeamId } from './v2'
 
 /**
@@ -28,6 +28,8 @@ export interface PawnPosition {
   /** 걷는 중일 때 바로 다음 칸. 목적지가 아니다. */
   toTile: TileId | null
   asleep: boolean
+  /** 방 안 어디에 서 있는가. 걷는 중이면 없다. */
+  at?: Cell | null
   /** 잠복 카드가 풀리는 시각. 없으면 null. */
   hiddenUntilMs: number | null
 }
@@ -41,6 +43,14 @@ export interface PawnView {
   toTile: TileId | null
   asleep: boolean
   walking: boolean
+  /**
+   * 방 안 어디에 서 있는가. **거래가 이것을 본다.**
+   *
+   * 보이는 사람의 것만 실린다 — 안개를 이미 지나온 자리라 여기서
+   * 새로 샐 것은 없다. 어느 방인지가 이미 보이는데 그 방 어디인지를
+   * 감출 이유가 없다.
+   */
+  at?: Cell | null
 }
 
 export interface VisionInput {
@@ -95,6 +105,8 @@ function viewOf(pawn: PawnPosition): PawnView {
     toTile: walking ? pawn.toTile : null,
     asleep: pawn.asleep,
     walking,
+    // 걷는 중에는 어느 칸이라 할 수 없다. 걷는 말은 어느 판정에도 안 센다
+    ...(walking || !pawn.at ? {} : { at: pawn.at }),
   }
 }
 

@@ -146,7 +146,7 @@ export { claimHost } from './hostgate'
 export { seedPlayers, openAllTiles } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
-export { openPhase, closePhase, phaseAct, phaseNow, roamTo } from './phase'
+export { openPhase, closePhase, phaseAct, phaseNow, roamTo, standAt } from './phase'
 export { takeSlip, readSlip, dropSlip, tearSlip, giveSlip } from './slips'
 
 // 문제 종이. 정답과 해설은 여기 바깥으로 나가지 않는다 — 채점도 서버가 한다

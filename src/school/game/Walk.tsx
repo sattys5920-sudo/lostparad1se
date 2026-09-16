@@ -68,6 +68,19 @@ export interface WalkProps {
    */
   onTapPerson: (playerId: string) => void
   /**
+   * 걸음을 멈춘 자리. **서버가 이것으로 「옆에 있다」를 판정한다.**
+   *
+   * 칸마다 보내지 않는다 — 한 칸에 160ms 인 걸음을 칸마다 적으면
+   * 열넷이 종일 서버를 두드린다. 멈춰 선 뒤 한 번만 보낸다.
+   */
+  onStand: (x: number, y: number) => void
+  /**
+   * 걸음을 묶어 둔다. **거래창이 열려 있는 동안 쓴다** — 마주 선 채로만
+   * 흥정하는데, 시트 위로 삐져나온 지도를 잘못 누르면 한 걸음 물러나
+   * 탁자가 접힌다. 나가기를 누르면 풀린다.
+   */
+  frozen?: boolean
+  /**
    * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
    * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
    * 단추의 data-dir 만 보고 붙으므로 생김새는 부모가 정한다.
@@ -117,7 +130,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, padRef, placeAtMs = null }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -138,12 +151,16 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const roomRef = useRef(onRoom)
   const tapRef = useRef(onTapRoom)
   const personRef = useRef(onTapPerson)
+  const standRef = useRef(onStand)
+  const frozenRef = useRef(frozen)
   viewRef.current = view
   tilesRef.current = tiles
   crossRef.current = onCross
   roomRef.current = onRoom
   tapRef.current = onTapRoom
   personRef.current = onTapPerson
+  standRef.current = onStand
+  frozenRef.current = frozen
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
   const myPawn = view?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
@@ -304,6 +321,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      */
     const onTap = (e: PointerEvent) => {
       if (walkingRef.current) return
+      // 거래 중에는 자리를 뜨지 않는다. 사람을 짚는 것만 남긴다
+      if (frozenRef.current) return
       const r = canvas.getBoundingClientRect()
       const sx = ((e.clientX - r.left) / r.width) * canvas.width + camRef.x
       const sy = ((e.clientY - r.top) / r.height) * canvas.height + camRef.y
@@ -357,6 +376,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     canvas.addEventListener('pointerdown', onTap)
 
     function tryStep(d: Dir): void {
+      // 거래 중에는 십자키도 안 먹는다. 마주 선 채로만 흥정한다
+      if (frozenRef.current) return
       const [dx, dy] = STEP[d]
       const nx = self.tx + dx
       const ny = self.ty + dy
@@ -474,6 +495,42 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     }
 
     /** 서버가 「너는 이 방에 있다」고 하면 그 방 안으로 옮겨 놓는다. */
+    /** 지금 남들이 서 있는 칸들. 내 자리를 고를 때 피한다. */
+    function takenCells(): Set<string> {
+      const out = new Set<string>()
+      for (const p of viewRef.current?.visiblePawns ?? []) {
+        if (p.playerId === me.playerId || p.walking || !p.at) continue
+        out.add(`${p.at.x},${p.at.y}`)
+      }
+      return out
+    }
+
+    /**
+     * 그 자리에서 가장 가까운 **빈 칸**.
+     *
+     * 한 칸에 둘이 서면 거래가 영영 안 된다 — 같은 칸은 「바로 옆」이
+     * 아니다. 열넷이 같은 문으로 들어오는 첫 교실이 특히 그렇다.
+     * 남이 선 칸을 피해 한 칸씩 비켜 세운다.
+     */
+    function freeSpot(x: number, y: number, id: TileId): { x: number; y: number } {
+      const taken = takenCells()
+      if (!taken.has(`${x},${y}`) && isWalkable(x, y)) return { x, y }
+      for (let r = 1; r <= 6; r++) {
+        for (let dx = -r; dx <= r; dx++) {
+          for (let dy = -r; dy <= r; dy++) {
+            if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue
+            const cx = x + dx
+            const cy = y + dy
+            if (roomAt(cx, cy)?.id !== id) continue
+            if (!isWalkable(cx, cy)) continue
+            if (taken.has(`${cx},${cy}`)) continue
+            return { x: cx, y: cy }
+          }
+        }
+      }
+      return { x, y }
+    }
+
     function placeIn(id: TileId): void {
       const r = ROOMS.find((x) => x.id === id)
       if (!r) return
@@ -486,10 +543,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 고민할 것이 없다. 계단참과 옥상은 문이 없어 한가운데에 선다
       const door = DOORS.find((d) => d.a === id) ?? null
       const spot = door ? doorSpot(id, door) : null
-      standAt(
+      const want = freeSpot(
         spot ? spot.x : rect.x + Math.floor(rect.w / 2),
         spot ? spot.y : rect.y + Math.floor(rect.h / 2),
+        id,
       )
+      standAt(want.x, want.y)
       // **여기서 더 걷게 하지 않는다.**
       //
       // 전에는 들어서자마자 방 한가운데까지 저절로 걸어갔다. 한가운데가
@@ -810,31 +869,47 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     /**
      * 지금 서 있는 사람들이 각자 어디에 서 있는가.
      *
-     * 방 한가운데에 다 겹쳐 그리면 넷이 서 있어도 하나로 보이고, 손끝이
-     * 누구를 짚었는지도 알 수 없다. 아이디 순으로 작은 원에 벌려 세운다 —
+     * **서버가 아는 칸에 그대로 세운다.** 사람마다 방 안 어디에 섰는지를
+     * 서버가 들고 있고, 거래도 그 칸으로 「바로 옆인가」를 판정한다 —
+     * 화면이 딴 자리에 그리면 눈에 보이는 것과 되는 일이 어긋난다.
+     *
+     * 아직 자리를 안 적은 사람(막 들어와서, 옛 판이라서)은 방 한가운데에
+     * 격자로 흩어 세운다. 겹쳐 그리면 넷이 서 있어도 하나로 보인다.
+     *
      * **그림과 손끝이 이 함수 하나를 같이 본다.** 자리를 따로 셈하면
      * 보이는 곳과 눌리는 곳이 어긋난다.
-     *
-     * 나도 자리를 하나 차지한다. 그려지지는 않지만, 빼 두면 남들이 내가
-     * 서 있는 한가운데로 몰린다.
      */
-    function standees(): { playerId: string; team: string; asleep: boolean; here: TileId; x: number; y: number }[] {
+    interface Standee {
+      playerId: string
+      team: string
+      asleep: boolean
+      here: TileId
+      x: number
+      y: number
+    }
+    function standees(): Standee[] {
+      const out: Standee[] = []
       const byRoom = new Map<string, { playerId: string; team: string; asleep: boolean }[]>()
       for (const p of viewRef.current?.visiblePawns ?? []) {
         if (p.walking || !p.tileId) continue
+        const who = { playerId: p.playerId, team: p.team, asleep: p.asleep === true }
+        if (p.at) {
+          out.push({
+            ...who,
+            here: p.tileId as TileId,
+            x: p.at.x * TILE + TILE / 2,
+            y: p.at.y * TILE + TILE / 2,
+          })
+          continue
+        }
         const row = byRoom.get(p.tileId) ?? []
-        row.push({ playerId: p.playerId, team: p.team, asleep: p.asleep === true })
+        row.push(who)
         byRoom.set(p.tileId, row)
       }
-      const out: { playerId: string; team: string; asleep: boolean; here: TileId; x: number; y: number }[] = []
       for (const [tileId, mates] of byRoom) {
         const at = centerPx(asRoom(tileId))
         if (!at) continue
         const order = [...mates].sort((a, b) => (a.playerId < b.playerId ? -1 : 1))
-        // **격자로 흩어 세운다.** 고리에 돌려 세우면 열셋이 한 교실에
-        // 섰을 때 화면 한가운데에 큰 동그라미가 그려진다 — 의식을 치르는
-        // 것처럼 보이지 사람들로 안 보인다. 반지름을 좁히면 이번에는
-        // 점이 겹쳐 덩어리가 된다
         const cols = Math.ceil(Math.sqrt(order.length))
         const rows = Math.ceil(order.length / cols)
         order.forEach((p, i) => {
@@ -887,9 +962,44 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       ctx.globalAlpha = 1
     }
 
+    /**
+     * 멈춰 선 자리를 서버에 알린다.
+     *
+     * **멈춘 뒤에 한 번만.** 걷는 동안에도, 갈 길이 남아 있는 동안에도
+     * 안 보낸다 — 한 칸에 160ms 인 걸음을 칸마다 적으면 열넷이 종일
+     * 서버를 두드린다. 같은 칸을 두 번 보내지도 않는다.
+     */
+    let told = ''
+    const tellTimer = window.setInterval(() => {
+      if (self.moving || autoPath.length > 0) return
+      // **한 칸에 둘이 서 있으면 한쪽이 비킨다.** 둘이 동시에 들어오면
+      // 서로의 자리를 모른 채 같은 칸을 고를 수 있다. 아이디가 뒤인
+      // 쪽이 비킨다 — 둘 다 비키면 둘 다 계속 어긋난다
+      const clash = (viewRef.current?.visiblePawns ?? []).some(
+        (p) =>
+          p.playerId !== me.playerId &&
+          !p.walking &&
+          p.at?.x === self.tx &&
+          p.at?.y === self.ty &&
+          p.playerId < me.playerId,
+      )
+      if (clash) {
+        const room = roomAt(self.tx, self.ty)?.id ?? null
+        if (room) {
+          const aside = freeSpot(self.tx, self.ty, room)
+          if (aside.x !== self.tx || aside.y !== self.ty) standAt(aside.x, aside.y)
+        }
+      }
+      const here = `${self.tx},${self.ty}`
+      if (here === told) return
+      told = here
+      standRef.current(self.tx, self.ty)
+    }, 500)
+
     raf = requestAnimationFrame(frame)
     return () => {
       cancelAnimationFrame(raf)
+      window.clearInterval(tellTimer)
       canvas.removeEventListener('pointerdown', onTap)
       ro.disconnect()
       window.removeEventListener('keydown', onDown)

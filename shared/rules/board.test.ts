@@ -5,6 +5,8 @@
 // 대칭은 없어졌다. 대신 **학교로서 말이 되는지**를 본다.
 import { describe, expect, it } from 'vitest'
 import {
+  cellsTouch,
+  roomOfCell,
   ADJACENCY,
   ROAM_TO,
   BASE_OF,
@@ -270,5 +272,44 @@ describe('연결 점수', () => {
   it('이어 붙이면 늘어난다', () => {
     const next = ADJACENCY[BASE_OF.A]
     expect(connectedSize('A', owners([BASE_OF.A, ...next]))).toBe(next.length)
+  })
+})
+
+describe('칸 하나', () => {
+  const room = TILE_BY_ID[BASE_OF.A]
+  const c = { x: room.plan.x + 1, y: room.plan.y + 1 }
+
+  it('방 네모 안이면 그 방이다', () => {
+    expect(roomOfCell(room.plan.x, room.plan.y)).toBe(BASE_OF.A)
+    expect(roomOfCell(room.plan.x + room.plan.w - 1, room.plan.y + room.plan.h - 1)).toBe(BASE_OF.A)
+  })
+
+  it('네모 밖은 어느 방도 아니다 — 벽도 복도도 방이 아니다', () => {
+    expect(roomOfCell(room.plan.x - 1, room.plan.y)).not.toBe(BASE_OF.A)
+    expect(roomOfCell(-1, -1)).toBeNull()
+  })
+
+  it('상하좌우로 한 칸이면 닿은 것이다', () => {
+    expect(cellsTouch(c, { x: c.x + 1, y: c.y })).toBe(true)
+    expect(cellsTouch(c, { x: c.x - 1, y: c.y })).toBe(true)
+    expect(cellsTouch(c, { x: c.x, y: c.y + 1 })).toBe(true)
+    expect(cellsTouch(c, { x: c.x, y: c.y - 1 })).toBe(true)
+  })
+
+  it('대각선은 닿은 것이 아니다', () => {
+    expect(cellsTouch(c, { x: c.x + 1, y: c.y + 1 })).toBe(false)
+    expect(cellsTouch(c, { x: c.x - 1, y: c.y - 1 })).toBe(false)
+  })
+
+  it('같은 칸도 두 칸 떨어진 것도 아니다', () => {
+    // 한 칸에 둘이 설 수는 없다. 같은 칸으로 보이면 자리가 안 잡힌 것이다
+    expect(cellsTouch(c, c)).toBe(false)
+    expect(cellsTouch(c, { x: c.x + 2, y: c.y })).toBe(false)
+  })
+
+  it('자리를 모르는 사람과는 닿을 수 없다', () => {
+    expect(cellsTouch(c, null)).toBe(false)
+    expect(cellsTouch(null, c)).toBe(false)
+    expect(cellsTouch(undefined, undefined)).toBe(false)
   })
 })

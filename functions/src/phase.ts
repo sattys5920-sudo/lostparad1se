@@ -43,7 +43,7 @@ import {
   type Vault,
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
-import { TILE_BY_ID, canRoamTo, type TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, canRoamTo, roomOfCell, type TileId } from '../../shared/rules/board'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
@@ -835,7 +835,16 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     // 다만 **발은 들였으니** 지도에는 남는다
     const been = new Set(p.visitedTiles ?? [])
     been.add(tileId)
-    tx.update(mine.ref, { tileId, fromTile: here, arriveAtMs: null, path: [], visitedTiles: [...been] })
+    // **칸은 버린다.** 앞 방의 좌표를 들고 가면 새 방에서 엉뚱한 자리에
+    // 선 것이 되고, 거래가 그 좌표로 「옆에 있다」를 판정한다
+    tx.update(mine.ref, {
+      tileId,
+      fromTile: here,
+      arriveAtMs: null,
+      path: [],
+      at: null,
+      visitedTiles: [...been],
+    })
   })
   // 방을 옮긴 순간 앞 방의 체류가 끝나고 이 방의 체류가 시작된다.
   // 이것이 없으면 옮겨 다녀도 채팅은 처음 방에 머문다 — 늦게 들어온
@@ -846,3 +855,34 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
 })
 
 export { ACT_COST, TOKENS_PER_PHASE }
+
+/**
+ * 방 안 어디에 섰는지 적는다.
+ *
+ * **걸음마다 적지 않는다.** 화면이 멈춰 설 때 한 번만 보낸다 — 한 칸에
+ * 160ms 인 걸음을 칸마다 적으면 열넷이 종일 서버를 두드린다.
+ *
+ * 서버는 **그 칸이 정말 그 사람이 선 방 안인지**만 본다. 방 안 어디라고
+ * 우기는 것까지는 막지 않는다 — 그래 봐야 예전 규칙(같은 방이면 된다)
+ * 만큼이고, 그 이상은 벽과 가구를 서버가 다 들고 있어야 한다.
+ */
+export const standAt = onCall<{ gameId: string; x: number; y: number }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId } = req.data
+  const x = Math.floor(Number(req.data.x))
+  const y = Math.floor(Number(req.data.y))
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
+
+  const ref = gameRef(gameId).collection('pawns').doc(uid)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
+  const p = snap.data() as PawnDoc
+  // 걷는 중에는 어느 칸도 아니다. 도착해서 다시 보낸다
+  if (p.tileId === null) return { ok: false, why: '걷는 중이다.' }
+  if (roomOfCell(x, y) !== p.tileId) throw new HttpsError('failed-precondition', '그 방의 칸이 아니다.')
+  if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
+
+  await ref.update({ at: { x, y } })
+  await refreshViews(gameId)
+  return { ok: true, same: false }
+})

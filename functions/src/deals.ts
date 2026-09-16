@@ -31,6 +31,7 @@ import {
 } from '../../shared/rules/deal'
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
 import { TRADE_COST } from '../../shared/rules/occupy'
+import { cellsTouch } from '../../shared/rules/board'
 import type { PawnDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
@@ -110,7 +111,12 @@ export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req
   const theirSnap = await gameRef(gameId).collection('pawns').doc(toPlayerId).get()
   if (!theirSnap.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
   const their = theirSnap.data() as PawnDoc
+  // **같은 방으로는 모자라다.** 마주 보고 물건을 주고받는 것이지
+  // 교실 반대편에서 소리쳐 흥정하는 것이 아니다
   if (their.tileId !== mine.tileId) throw new HttpsError('failed-precondition', '같은 방에 있어야 한다.')
+  if (!cellsTouch(mine.at, their.at)) {
+    throw new HttpsError('failed-precondition', '바로 옆 칸에 서야 말을 꺼낼 수 있다.')
+  }
   refuseIfInvisible(game.invisibleId, uid, toPlayerId, '거래할')
 
   for (const who of [uid, toPlayerId]) {
@@ -260,7 +266,12 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   ])
   const a = aPawn.data() as PawnDoc
   const b = bPawn.data() as PawnDoc
-  if (game.phaseNow?.open || a.tileId !== seen.tileId || b.tileId !== seen.tileId) {
+  if (
+    game.phaseNow?.open ||
+    a.tileId !== seen.tileId ||
+    b.tileId !== seen.tileId ||
+    !cellsTouch(a.at, b.at)
+  ) {
     await endDeal(gameId, dealId, '자리를 잃어 사라졌다.')
     throw new HttpsError('failed-precondition', '거래가 사라졌다.')
   }
