@@ -20,6 +20,8 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
+import type { AvatarLook } from '../../shared/look'
+
 const db = getFirestore()
 const pbkdf2Async = promisify(pbkdf2)
 
@@ -203,6 +205,34 @@ export const logInAccount = onCall<{ id: string; password: string }>(async (req)
     avatar: record.avatar ?? null,
   }
 })
+
+/**
+ * 그 계정이 만들어 둔 캐릭터. 없으면 null.
+ *
+ * 자리에 앉을 때 서버가 이것을 꺼내 명단에 적는다. **화면이 보내 주는
+ * 것을 받지 않는다** — 받으면 남의 얼굴로 앉을 수 있다.
+ *
+ * 모양은 보지 않고 그대로 옮긴다. 목록 길이를 아는 것은 그림 그리는
+ * 쪽이고, 범위를 벗어난 값은 화면이 normalizeLook 으로 접어 넣는다.
+ */
+export async function lookOfAccount(accountId: string | undefined): Promise<AvatarLook | null> {
+  if (!accountId) return null
+  const snap = await accountRef(accountId).get()
+  if (!snap.exists) return null
+  const avatar = (snap.data() as { avatar?: unknown }).avatar
+  return avatar && typeof avatar === 'object' ? (avatar as AvatarLook) : null
+}
+
+/**
+ * 그 계정의 캐릭터를 바꿔 끼운다. **QA 전용이다.**
+ *
+ * 열넷을 앉혀 놓고 화면을 보려면 열넷이 서로 달라 보여야 한다. 사람이
+ * 쓰는 길(saveCharacter)은 본인 증표를 보지만, 이쪽은 운영자가 QA
+ * 계정을 만들면서 함께 찍어 두는 것이라 증표를 볼 것이 없다.
+ */
+export async function setAccountLook(rawId: string, avatar: AvatarLook): Promise<void> {
+  await accountRef(normalizeId(rawId)).set({ avatar }, { merge: true })
+}
 
 /** 닉네임과 모습. 로그인한 본인 것만 고친다. */
 export const saveCharacter = onCall<{ nickname: string; avatar: unknown }>(async (req) => {

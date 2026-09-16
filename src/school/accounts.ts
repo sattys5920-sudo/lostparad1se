@@ -23,7 +23,7 @@ import {
 } from 'firebase/firestore'
 import { auth, callServer, db } from '../firebase'
 import { normalizeLook } from './char/look'
-import type { AvatarLook } from './types'
+import type { AvatarLook } from '../../shared/look'
 
 /** 아이디에 허용하는 글자. 문서 id로 그대로 쓰므로 좁게 잡는다. */
 const ID_RE = /^[a-z0-9_-]{3,16}$/

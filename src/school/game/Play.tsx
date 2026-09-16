@@ -11,7 +11,8 @@ import { auth, callServer, firebaseConfigured } from '../../firebase'
 import { logIn, myAccount, saveAccountCharacter, signUp } from '../accounts'
 import { CharacterCreator } from '../components/CharacterCreator'
 import { randomLook } from '../char/look'
-import type { AvatarLook, TeamId } from '../types'
+import type { TeamId } from '../types'
+import type { AvatarLook } from '../../../shared/look'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, QuickActions, Shop, Standing } from './Actions'
@@ -427,6 +428,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     (id: string | null) => (id ? (game?.seats.find((s) => s.playerId === id)?.name ?? '누군가') : '누군가'),
     [game],
   )
+  /**
+   * 누가 어떻게 생겼는가. 명단에서 한 번 펴 두고 지도에 건넨다.
+   *
+   * 이름을 꺼내는 곳과 같은 자리다 — 「이 사람이 누구인가」는 이름과
+   * 얼굴이 한 벌이고, 둘 다 명단에 있다.
+   */
+  const looks = useMemo(
+    () => Object.fromEntries((game?.seats ?? []).map((sx) => [sx.playerId, sx.look ?? null])),
+    [game],
+  )
 
   // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다.
   //
@@ -499,6 +510,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <div className="sc-pl__room">
           <Walk
             me={{ playerId: me.playerId, team: me.team, look }}
+            looks={looks}
             view={state.view}
             tiles={state.tiles}
             nowMs={nowMs}

@@ -17,6 +17,7 @@ import { initialTokenState } from '../../shared/rules/tokens'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canStart, openTeams, timedEvents } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
+import { lookOfAccount } from './account'
 import { gameRef, nowOf, requireUid } from './index'
 import { refreshViews } from './views'
 
@@ -96,6 +97,9 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     throw new HttpsError('invalid-argument', '이름은 1~12자다.')
   }
 
+  // 트랜잭션 밖에서 읽는다. 계정은 판과 무관해서 같이 묶을 것이 없다
+  const look = await lookOfAccount(req.auth?.token?.accountId as string | undefined)
+
   return db.runTransaction(async (tx) => {
     const ref = gameRef(req.data.gameId)
     const snap = await tx.get(ref)
@@ -116,7 +120,7 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
       throw new HttpsError('resource-exhausted', `${team}팀은 다 찼다.`)
     }
 
-    const seat: SeatEntry = { playerId: uid, name, team }
+    const seat: SeatEntry = { playerId: uid, name, team, look }
     if (mine >= 0) seats[mine] = seat
     else seats.push(seat)
 

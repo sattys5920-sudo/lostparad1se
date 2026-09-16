@@ -24,7 +24,7 @@ import {
   TORN_TYPE_FACTOR,
   TYPE_MS_PER_CHAR,
 } from '../../../shared/reveal/staging'
-import type { AvatarLook } from '../types'
+import type { AvatarLook } from '../../../shared/look'
 import type { TeamId } from '../../../shared/rules/v2'
 
 // ── 서버가 내려보낸 엔딩 한 벌 ──────────────────────────────────

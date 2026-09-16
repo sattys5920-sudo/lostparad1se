@@ -15,7 +15,7 @@ import {
   OUTFITS,
   WEAR_STYLE_NAMES,
 } from './pixel'
-import type { AvatarLook, StyleSet } from '../types'
+import type { AvatarLook, StyleSet } from '../../../shared/look'
 
 export const COLOR_COUNT = HAIR_COLORS.length
 export const EXPRESSION_COUNT = EXPRESSIONS.length

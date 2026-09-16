@@ -21,6 +21,7 @@ import type {
   VoteKind,
 } from './rules/v2'
 import type { Cell, TileId } from './rules/board'
+import type { AvatarLook } from './look'
 import type { Satchel } from './rules/items'
 
 /** 밀리초 타임스탬프. 게임 속 시각이다(개발용 시계가 걸려 있으면 그 시각). */
@@ -40,6 +41,20 @@ export interface SeatEntry {
   playerId: string
   name: string
   team: TeamId
+  /**
+   * 그 사람이 만든 캐릭터. **서버가 계정에서 꺼내 적는다** — 화면이
+   * 보내 주는 것이 아니다.
+   *
+   * 이름 옆이 제자리다. 「이 사람이 누구인가」는 이름과 생김새가 한
+   * 벌이고, 둘 다 원래 공개다. 안개는 그 사람이 화면에 **나타나는지**를
+   * 정하지, 나타난 사람이 어떻게 생겼는지를 감추지 않는다.
+   *
+   * 앉을 때 한 번 찍는다. 앉은 뒤에 캐릭터를 고쳐도 이 판에서는 그대로다 —
+   * 닷새 내내 같은 얼굴이어야 「어제 그 애」가 성립한다.
+   *
+   * 계정에 캐릭터가 없으면 null 이고, 화면은 예전처럼 팀 색 점을 찍는다.
+   */
+  look?: AvatarLook | null
 }
 
 /** games/{gameId} */

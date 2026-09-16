@@ -21,7 +21,8 @@ import {
   tone,
   type Tone,
 } from './palette'
-import type { AvatarLook, TeamId } from '../types'
+import type { TeamId } from '../types'
+import type { AvatarLook } from '../../../shared/look'
 
 export const PX = 32
 /** 시트 한 칸. 32×32 스프라이트를 가운데 둔다. */

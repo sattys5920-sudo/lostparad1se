@@ -24,7 +24,7 @@ import {
   type RetroNotice,
   type RetroPost,
 } from '../../../shared/reveal/retro'
-import type { AvatarLook } from '../types'
+import type { AvatarLook } from '../../../shared/look'
 import type { TeamId } from '../../../shared/rules/v2'
 
 export interface RetroProps {

@@ -13,7 +13,8 @@ import { TOTAL_SEATS, openTeams } from '../../shared/rules/lobby'
 import { TILES } from '../../shared/rules/board'
 import { STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, SeatEntry } from '../../shared/model'
-import { createAccount } from './account'
+import type { AvatarLook } from '../../shared/look'
+import { createAccount, setAccountLook } from './account'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -26,6 +27,30 @@ const NAMES = [
 
 /** 아이디는 자리 번호 그대로다 — 누구로 들어갈지 바로 안다. */
 const idOf = (i: number) => `qa${String(i + 1).padStart(2, '0')}`
+
+/**
+ * 열넷을 서로 달라 보이게 한다.
+ *
+ * 자리 번호로 짜므로 qa07 은 늘 같은 얼굴이다 — 판을 다시 차려도
+ * 어제 보던 애가 그 애다.
+ *
+ * **숫자가 목록보다 커도 된다.** 화면이 normalizeLook 으로 접어 넣는다.
+ * 목록 길이를 여기 적어 두면 머리 모양이 하나 늘 때마다 두 곳을 고쳐야
+ * 하고, 한 곳을 잊으면 QA 얼굴만 조용히 틀어진다.
+ */
+function qaLook(i: number): AvatarLook {
+  const set = i % 2 === 0 ? 'F' : 'M'
+  return {
+    styleSet: set,
+    hairStyle: `${set}${String((i * 3) % 15).padStart(2, '0')}`,
+    hairColor: (i * 5) % 9,
+    expression: (i * 2) % 6,
+    outfit: i % 6,
+    wearStyle: i % 3,
+    bottom: set === 'F' ? i % 2 : 0,
+    neckwear: (i + 1) % 3,
+  }
+}
 
 export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats?: number }>(async (req) => {
   requireUid(req.auth)
@@ -47,9 +72,14 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
 
   // 계정은 트랜잭션 밖에서 만든다. 해시 열넷을 한 트랜잭션에 넣으면
   // 시간이 오래 걸려 그대로 터진다
-  const made: { uid: string; name: string }[] = []
+  const made: { uid: string; name: string; look: AvatarLook }[] = []
   for (let i = 0; i < want; i++) {
-    made.push({ uid: await createAccount(idOf(i), password, NAMES[i]), name: NAMES[i] })
+    const look = qaLook(i)
+    const uid = await createAccount(idOf(i), password, NAMES[i])
+    // 이미 있던 계정에도 덮어쓴다. QA 계정은 한 에뮬레이터 안에서
+    // 판을 넘어 살아남는데, 그러면 처음 만든 판의 얼굴만 남는다
+    await setAccountLook(idOf(i), look)
+    made.push({ uid, name: NAMES[i], look })
   }
 
   const seated = await db.runTransaction(async (tx) => {
@@ -60,7 +90,7 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
       if (seats.some((s) => s.playerId === p.uid)) continue
       const team = pickTeam(seats)
       if (!team) break
-      const seat: SeatEntry = { playerId: p.uid, name: p.name, team }
+      const seat: SeatEntry = { playerId: p.uid, name: p.name, team, look: p.look }
       seats.push(seat)
     }
     tx.update(ref, { seats })

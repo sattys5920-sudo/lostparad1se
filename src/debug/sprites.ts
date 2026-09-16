@@ -17,7 +17,8 @@ import {
   WEAR_STYLE_NAMES,
   pixelFrame,
 } from '../school/char/pixel'
-import type { AvatarLook, StyleSet, TeamId } from '../school/types'
+import type { TeamId } from '../school/types'
+import type { AvatarLook, StyleSet } from '../../shared/look'
 
 const out = document.getElementById('out') as HTMLDivElement
 const check = document.getElementById('check') as HTMLDivElement

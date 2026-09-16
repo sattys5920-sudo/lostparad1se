@@ -15,7 +15,8 @@ import {
 } from '../char/pixel'
 import { HAIR_COLORS, TEAMS } from '../char/palette'
 import { BOTTOM_NAMES, randomLook, withStyleSet } from '../char/look'
-import type { AvatarLook, StyleSet, TeamId } from '../types'
+import type { TeamId } from '../types'
+import type { AvatarLook, StyleSet } from '../../../shared/look'
 
 /** 머리 + 상반신 — 명단·대화 아이콘용 */
 export const BUST_BOX = { x: 8, y: 6, w: 16, h: 18 }

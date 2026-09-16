@@ -32,6 +32,9 @@ import {
 } from '../map/world'
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { pixelFrame } from '../char/pixel'
+// 명단에서 온 생김새는 어떤 값이 들어 있을지 모른다. 서버는 검사하지
+// 않고 옮기기만 하므로, 그리기 직전에 여기서 접어 넣는다
+import { normalizeLook } from '../char/look'
 import { TEAM_COLOR } from './MapPlan'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import {
@@ -43,7 +46,8 @@ import {
   STEP_MS,
   WALK_POSES_PER_SEC,
 } from './timing'
-import type { AvatarLook, TeamId, TileId } from '../types'
+import type { TeamId, TileId } from '../types'
+import type { AvatarLook } from '../../../shared/look'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 
 export interface WalkProps {
@@ -96,6 +100,16 @@ export interface WalkProps {
    * 안 열린다.
    */
   placeAtMs?: number | null
+  /**
+   * 남들이 만들어 둔 캐릭터. playerId → 생김새.
+   *
+   * 명단(games/{id}.seats)에서 온다 — 이름이 거기 있으니 얼굴도 거기
+   * 있다. 안개는 **그 사람이 화면에 나타나는지**를 정하고, 나타난
+   * 사람이 어떻게 생겼는지는 감출 것이 아니다.
+   *
+   * 없는 사람(캐릭터를 아직 안 만든 계정)은 예전처럼 팀 색 점이다.
+   */
+  looks?: Readonly<Record<string, AvatarLook | null | undefined>>
 }
 
 const DIR_OF: Record<string, Dir> = {
@@ -130,7 +144,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {} }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -153,6 +167,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const personRef = useRef(onTapPerson)
   const standRef = useRef(onStand)
   const frozenRef = useRef(frozen)
+  const looksRef = useRef(looks)
   viewRef.current = view
   tilesRef.current = tiles
   crossRef.current = onCross
@@ -161,6 +176,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   personRef.current = onTapPerson
   standRef.current = onStand
   frozenRef.current = frozen
+  looksRef.current = looks
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
   const myPawn = view?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
@@ -822,30 +838,23 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 방에도 없다. 규칙에서도 그렇다 — 걷는 말은 깃발 판정에 세지
       // 않고, 표도 교역도 그 사람과는 할 수 없다. 화면에만 서 있으면
       // 누를 수 있을 것처럼 보인다
-      for (const p of standees()) {
-        if (p.playerId === me.playerId) continue
-        dot(p.x - camX, p.y - camY, p.team as TeamId, p.asleep)
-      }
+      // 아래에 선 사람이 나중에 그려져야 앞으로 온다. 안 그러면
+      // 뒷줄 사람의 머리가 앞줄 사람 몸을 뚫고 나온다
+      const line = standees()
+        .filter((p) => p.playerId !== me.playerId)
+        .sort((a, b) => a.y - b.y)
+      for (const p of line) person(p.x - camX, p.y - camY, p.team as TeamId, p.look, p.asleep)
 
-      // 나
-      const look = me.look
-      if (look) {
-        const img = pixelFrame(look, me.team, self.dir, self.moving ? Math.floor(self.phase) : 0)
-        // 한 칸 반으로 줄여 그린다. 발끝은 칸 바닥에 그대로 둔다 —
-        // 크기가 달라져도 서 있는 자리는 같아야 한다
-        const k = CHAR_PX / img.width
-        const dw = Math.round(img.width * k)
-        const dh = Math.round(img.height * k)
-        ctx.drawImage(
-          img,
-          Math.round(self.px - camX - dw / 2),
-          Math.round(self.py - camY - dh + 6 * k),
-          dw,
-          dh,
-        )
-      } else {
-        dot(self.px - camX, self.py - camY, me.team, false)
-      }
+      // 나는 늘 맨 위다. 앞줄에 누가 서더라도 **나를 잃어버리면 안 된다**
+      person(
+        self.px - camX,
+        self.py - camY,
+        me.team,
+        me.look,
+        false,
+        self.dir,
+        self.moving ? Math.floor(self.phase) : 0,
+      )
     }
 
     /**
@@ -861,10 +870,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       return teams.length === 1 ? (teams[0] as TeamId) : null
     }
 
-    /** 점 하나가 차지하는 너비. 이만큼씩 떼어 놓는다. */
-    const DOT_PX = 10
-    /** 이만큼 안을 누르면 그 사람을 짚은 것으로 본다. 점 하나 크기다. */
-    const GRAB_PX = 6
+    /**
+     * 서버가 아직 칸을 모르는 사람들을 방 가운데 격자로 세울 때의 간격.
+     *
+     * 캐릭터 한 몸 너비다. 점이던 시절에는 10이면 넉넉했는데, 이제는
+     * 몸이 있어서 그만큼 붙여 놓으면 서로 겹쳐 한 덩어리가 된다.
+     */
+    const DOT_PX = CHAR_PX
+    /** 짚었다고 볼 반경. 몸통 반 너비다. */
+    const GRAB_PX = Math.round(CHAR_PX / 2)
+
+    /** 그 사람이 만들어 둔 캐릭터. 나는 계정에서 바로 온 것이 더 새롭다. */
+    function lookOf(playerId: string): AvatarLook | null {
+      if (playerId === me.playerId) return me.look
+      return looksRef.current?.[playerId] ?? null
+    }
 
     /**
      * 지금 서 있는 사람들이 각자 어디에 서 있는가.
@@ -886,13 +906,19 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       here: TileId
       x: number
       y: number
+      look: AvatarLook | null
     }
     function standees(): Standee[] {
       const out: Standee[] = []
-      const byRoom = new Map<string, { playerId: string; team: string; asleep: boolean }[]>()
+      const byRoom = new Map<string, Omit<Standee, 'here' | 'x' | 'y'>[]>()
       for (const p of viewRef.current?.visiblePawns ?? []) {
         if (p.walking || !p.tileId) continue
-        const who = { playerId: p.playerId, team: p.team, asleep: p.asleep === true }
+        const who = {
+          playerId: p.playerId,
+          team: p.team,
+          asleep: p.asleep === true,
+          look: lookOf(p.playerId),
+        }
         if (p.at) {
           out.push({
             ...who,
@@ -928,12 +954,18 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     function personAt(sx: number, sy: number, here: TileId | null): string | null {
       if (!here) return null
       let best: string | null = null
-      let near = GRAB_PX
+      let front = -Infinity
       for (const p of standees()) {
         if (p.playerId === me.playerId || p.here !== here) continue
-        const d = Math.hypot(p.x - sx, p.y - sy)
-        if (d <= near) {
-          near = d
+        // **짚는 자리는 보이는 자리다.** 몸이 있는 사람은 발끝이 아니라
+        // 머리끝까지가 그 사람이다 — 얼굴을 눌렀는데 아무 일도 안
+        // 일어나면 눌러야 할 곳을 찾아 더듬게 된다
+        const hit = p.look
+          ? Math.abs(p.x - sx) <= GRAB_PX && sy <= p.y + 4 && sy >= p.y - CHAR_PX
+          : Math.hypot(p.x - sx, p.y - sy) <= GRAB_PX
+        // 겹쳐 서 있으면 앞에 선 사람이다. 그리는 순서와 같아야 한다
+        if (hit && p.y > front) {
+          front = p.y
           best = p.playerId
         }
       }
@@ -959,6 +991,42 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       ctx.beginPath()
       ctx.arc(Math.round(x), Math.round(y), 3, 0, Math.PI * 2)
       ctx.fill()
+      ctx.globalAlpha = 1
+    }
+
+    /**
+     * 사람 하나. **나도 남도 여기로 그린다.**
+     *
+     * 전에는 나만 캐릭터였고 남들은 팀 색 점이었다. 그러면 열넷이
+     * 저마다 얼굴을 만들어 놓고 정작 서로는 못 본다 — 얼굴을 만드는
+     * 화면이 무슨 소용인지 알 수 없어진다.
+     *
+     * 남이 어디를 보고 섰는지는 서버가 안 보낸다. 보내려면 걸음마다
+     * 방향을 적어 올려야 하는데, 그건 「옆에 있는가」 하나 때문에
+     * 서버를 두드리는 것과 같은 값을 치르는 일이다. 서 있는 사람은
+     * 정면(down)으로 둔다 — 마주 선 것처럼 보인다.
+     *
+     * (x, y) 는 **발끝이다.** 그림 크기가 달라져도 서 있는 자리는 같다.
+     */
+    function person(
+      x: number,
+      y: number,
+      team: TeamId,
+      look: AvatarLook | null,
+      asleep: boolean,
+      dir: Dir = 'down',
+      frame = 0,
+    ): void {
+      if (!look) {
+        dot(x, y, team, asleep)
+        return
+      }
+      const img = pixelFrame(normalizeLook(look), team, dir, frame)
+      const k = CHAR_PX / img.width
+      const dw = Math.round(img.width * k)
+      const dh = Math.round(img.height * k)
+      ctx.globalAlpha = asleep ? 0.5 : 1
+      ctx.drawImage(img, Math.round(x - dw / 2), Math.round(y - dh + 6 * k), dw, dh)
       ctx.globalAlpha = 1
     }
 
