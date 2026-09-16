@@ -83,8 +83,12 @@ export function useGame(gameId: string | null): GameState {
       let watching: TeamId | null = null
       stop.push(
         onSnapshot(base, (snap) => {
-          const mine = (snap.data() as GameDoc | undefined)?.seats.find((x) => x.playerId === uid)?.team ?? null
-          if (!mine || mine === watching) return
+          const g = snap.data() as GameDoc | undefined
+          const mine = g?.seats.find((x) => x.playerId === uid)?.team ?? null
+          // 시작 전에는 팀 문서가 아직 없다. 자리에는 앉았어도 말이
+          // 없으니, 규칙이 소속을 확인할 길이 없어 거절한다 — 청하지
+          // 않는다. 시작하면 이 구독이 다시 깨어나 그때 청한다
+          if (!mine || !g?.startedAtMs || mine === watching) return
           watching = mine
           stopTeam?.()
           stopTeam = onSnapshot(

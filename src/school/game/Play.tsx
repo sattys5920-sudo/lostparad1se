@@ -140,10 +140,13 @@ function Setup({ first, onDone }: { first: { nickname: string; avatar: AvatarLoo
 
 // ── 로비 ────────────────────────────────────────────────────────
 
-function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
+function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar: AvatarLook | null } }) {
   const state = useGame(gameId)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [room, setRoom] = useState<TileId | null>(null)
+  const [roster, setRoster] = useState(false)
+  const padRef = useRef<HTMLDivElement | null>(null)
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
   const mine = seats.find((s) => s.playerId === uid)
@@ -173,32 +176,103 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string } }) {
     )
   }
 
-  return (
-    <div className="sc-pl__lobby">
-      <h1>교실</h1>
-      <p className="sc-pl__count">
-        {seats.length} / {TOTAL_SEATS}
-      </p>
-
-      {mine ? (
-        <p className="sc-pl__mine">
-          너는 <strong>{mine.team}팀</strong>이다. 다 모이면 시작한다.
+  // 아직 명부에 없으면 문 앞이다. 들어가야 학교가 열린다
+  if (!mine || !uid) {
+    return (
+      <div className="sc-pl__lobby">
+        <h1>교실</h1>
+        <p className="sc-pl__count">
+          {seats.length} / {TOTAL_SEATS}
         </p>
-      ) : (
         <button className="sc-pl__go" disabled={busy} onClick={() => void join()}>
           들어가기
         </button>
-      )}
+        <ul className="sc-pl__seated">
+          {seats.map((s) => (
+            <li key={s.playerId} className={s.playerId === uid ? 'is-me' : ''}>
+              {s.name} <span>{s.team}</span>
+            </li>
+          ))}
+        </ul>
+        {error && <p className="sc-pl__error">{error}</p>}
+      </div>
+    )
+  }
 
-      <ul className="sc-pl__seated">
-        {seats.map((s) => (
-          <li key={s.playerId} className={s.playerId === uid ? 'is-me' : ''}>
-            {s.name} <span>{s.team}</span>
-          </li>
-        ))}
-      </ul>
+  /*
+   * **시작 전에도 학교는 열려 있다.**
+   *
+   * 전에는 「진행자가 시작할 때까지 기다린다」 한 줄 앞에 앉아 있어야
+   * 했다. 열넷이 다 모일 때까지 몇십 분이 걸리는데 그동안 할 것이
+   * 아무것도 없으면, 처음 들어온 사람은 이 학교가 어떻게 생겼는지도
+   * 모른 채 닷새를 시작한다.
+   *
+   * 다만 **여기서 일어나는 일은 아무것도 판에 남지 않는다.** 말은
+   * 아직 없다 — 서버는 시작할 때 비로소 말을 세운다. 그래서 걸음도
+   * 서버에 안 적고, 남도 안 보이고, 할 수 있는 일도 없다. 학교를
+   * 미리 걸어 보는 것뿐이다.
+   */
+  // sc-pl 로 감싼다. 이 껍데기가 높이를 100% 로 잡아 주는 것이라,
+  // 빼먹으면 방이 제 키만큼만 서고 아래가 허옇게 빈다
+  return (
+    <div className="sc-pl">
+      <div className="sc-pl__today sc-pl__before">
+        <section className="sc-pl__tab sc-pl__map">
+          <div className="sc-pl__room">
+            <Walk
+              me={{ playerId: uid, team: mine.team, look: me.avatar }}
+              view={null}
+              tiles={{}}
+              nowMs={Date.now()}
+              padRef={padRef}
+              /* 서버에 묻지 않는다. 말이 아직 없어서 물어도 거절당한다 */
+              onCross={() => Promise.resolve(true)}
+              onRoom={setRoom}
+              onTapRoom={() => {}}
+              onTapPerson={() => {}}
+              onStand={() => {}}
+            />
+            <header className="sc-pl__head">
+              <span className="sc-pl__day">DAY 0</span>
+              <span>{seats.length} / {TOTAL_SEATS} 모였다</span>
+              <span className="sc-pl__me">{me.nickname} · {mine.team}팀</span>
+            </header>
+          </div>
 
-      {error && <p className="sc-pl__error">{error}</p>}
+          <p className="sc-pl__before-note">
+            {room ? `${TILE_BY_ID[room].name} · ` : ''}
+            아직 시작 전이다. 걸어 다녀 볼 수는 있다 — 남들은 아직 자리에 없다.
+          </p>
+
+          <div className="sc-pl__ctl">
+            <div className="sc-pl__pad" ref={padRef}>
+              <button data-dir="up" aria-label="위">↑</button>
+              <button data-dir="left" aria-label="왼쪽">←</button>
+              <button data-dir="down" aria-label="아래">↓</button>
+              <button data-dir="right" aria-label="오른쪽">→</button>
+            </div>
+            <div className="sc-pl__acts">
+              <button onClick={() => setRoster(true)}>모인 사람</button>
+            </div>
+          </div>
+        </section>
+
+        {roster && (
+          <Sheet title="모인 사람" onClose={() => setRoster(false)}>
+            <p className="sc-dl__none">
+              {seats.length}명이 모였다. 열넷이 차면 진행자가 닷새를 시작한다.
+            </p>
+            <ul className="sc-pl__seated">
+              {seats.map((s) => (
+                <li key={s.playerId} className={s.playerId === uid ? 'is-me' : ''}>
+                  {s.name} <span>{s.team}</span>
+                </li>
+              ))}
+            </ul>
+            {error && <p className="sc-pl__error">{error}</p>}
+          </Sheet>
+        )}
+      </div>
     </div>
   )
 }

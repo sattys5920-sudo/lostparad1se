@@ -103,8 +103,13 @@ service cloud.firestore {
       //
       // 소속은 pawns 로 확인한다. 규칙의 get()은 클라이언트 규칙을
       // 거치지 않으므로, 말 문서가 닫혀 있어도 여기서는 읽힌다.
+      //
+      // 말이 있는지 먼저 본다. 시작 전에는 말이 없어서, 바로 get() 하면
+      // 규칙이 「거절」이 아니라 「터짐」으로 답한다 — 터진 규칙은
+      // 화면 전체를 오류 창으로 바꾼다. 없으면 조용히 아니라고 한다.
       match /teams/{teamId} {
         allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/games/$(gameId)/pawns/$(request.auth.uid))
           && get(/databases/$(database)/documents/games/$(gameId)/pawns/$(request.auth.uid)).data.team == teamId;
         allow write: if false;
       }
