@@ -153,7 +153,7 @@ async function main(): Promise<void> {
     const page = await ctx.newPage()
     page.on('pageerror', (e) => problems.push(`[${size.tag}] 화면이 터졌다: ${e.message}`))
 
-    await page.goto(`${SITE}/play.html?game=${GAME}`, { waitUntil: 'networkidle' })
+    await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
 
     // 로그인. 가입이 아니라 이미 있는 계정으로 들어간다
     await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })

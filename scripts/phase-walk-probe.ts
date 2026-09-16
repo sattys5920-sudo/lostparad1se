@@ -48,7 +48,7 @@ async function main() {
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.log(`  ✗ 화면이 터졌다: ${e.message}`))
 
-  await page.goto(`${SITE}/play.html?game=${GAME}`, { waitUntil: 'networkidle' })
+  await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
   await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
   await page.fill('input[placeholder="아이디"]', 'qa01')
   await page.fill('input[placeholder="비밀번호"]', QA_PW)

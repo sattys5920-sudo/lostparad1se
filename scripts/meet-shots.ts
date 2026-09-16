@@ -118,7 +118,7 @@ async function put(uid: string, fields: Record<string, unknown>): Promise<void> 
 type Page = import('playwright').Page
 
 async function enter(page: Page, id: string): Promise<void> {
-  await page.goto(`${SITE}/play.html?game=${GAME}`, { waitUntil: 'domcontentloaded' })
+  await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
   await page.fill('input[placeholder="아이디"]', id)
   await page.fill('input[placeholder="비밀번호"]', QA_PW)

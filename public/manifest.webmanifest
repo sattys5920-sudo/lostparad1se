@@ -3,7 +3,7 @@
   "short_name": "남겨진 아이들",
   "description": "눈 오는 학교에서 닷새.",
   "id": "/lostparad1se/",
-  "start_url": "/lostparad1se/play.html",
+  "start_url": "/lostparad1se/",
   "scope": "/lostparad1se/",
   "display": "standalone",
   "orientation": "portrait",

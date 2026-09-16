@@ -43,7 +43,7 @@ async function main() {
   page.on('pageerror', (e) => console.log(`  ✗ 화면이 터졌다: ${e.message}`))
 
   const enter = async () => {
-    await page.goto(`${SITE}/play.html?game=${GAME}`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(1500)
     if (await page.locator('.sc-pl__gate').count()) {
       await page.fill('input[placeholder="아이디"]', 'qa01')

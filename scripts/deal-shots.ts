@@ -118,7 +118,7 @@ type Page = import('playwright').Page
 
 /** 그 계정으로 들어가 오늘 하루까지 간다. */
 async function enter(page: Page, id: string): Promise<void> {
-  await page.goto(`${SITE}/play.html?game=${GAME}`, { waitUntil: 'networkidle' })
+  await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
   await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
   await page.fill('input[placeholder="아이디"]', id)
   await page.fill('input[placeholder="비밀번호"]', QA_PW)

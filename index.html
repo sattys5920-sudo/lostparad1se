@@ -2,89 +2,39 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="theme-color" content="#eef0f2" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="남겨진 아이들" />
+    <!-- 모바일 전용이다. 데스크톱은 고려하지 않는다.
+         user-scalable=no 는 두 손가락 확대를 막는다 — 전체 맵만 자기
+         손으로 확대를 처리하고, 나머지 화면이 늘어나면 레이아웃이 깨진다.
+         interactive-widget 은 키보드가 올라올 때 화면을 밀어 올린다 -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
     />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="남겨진 아이들" />
+    <link rel="manifest" href="/lostparad1se/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/lostparad1se/icon-192.png" />
+    <meta name="theme-color" content="#0d0f16" />
     <title>남겨진 아이들</title>
-    <script>
-      // iOS에서 홈 화면에 추가해 독립 실행형(PWA)으로 열면 100svh/100dvh 값이
-      // 실제 화면보다 크게 잡혀 하단 탭바가 화면 밖으로 밀리는 경우가 있다.
-      // window.innerHeight를 직접 측정해 CSS 변수로 넘겨 그 문제를 피한다.
-      //
-      // 다만 일부 안드로이드 브라우저는 화면 키보드가 올라올 때도 window.innerHeight가
-      // 줄어든다. 그때마다 앱 전체 높이를 따라 줄이면 화면이 눌리면서 댓글/채팅
-      // 입력창이 밀려 보인다. 그래서 높이가 "커질 때"(회전 등 실제 화면 변화)만
-      // 반영하고, 키보드처럼 "줄어드는" 변화는 무시한다. 화면 회전 시에는
-      // orientationchange에서 기준값을 다시 잡는다.
-      //
-      // 다만 화면 높이 자체는 고정해 두더라도, 키보드가 그만큼 화면 아래를
-      // 가리는 건 그대로다. 그래서 --app-height는 절대 줄이지 않는 대신,
-      // visualViewport로 실제 가려진 높이(키보드 높이)를 따로 재서
-      // --kb-inset에 담아 두고, 채팅/입력창이 있는 최하단 영역이 그만큼
-      // 위로 올라와 보이게 한다 (App.css의 .shell 참고).
-      //
-      // 이때 기준값은 반드시 "지금" window.innerHeight여야 한다. 고정해 둔
-      // maxHeight를 기준으로 빼면, innerHeight가 이미 줄어드는 브라우저에서는
-      // 두 번 겹쳐 줄어들어(브라우저가 한 번, 우리가 또 한 번) 입력창이
-      // 필요 이상으로 위로 밀려 보인다.
-      ;(function () {
-        // iOS(사파리/홈화면 앱)는 포커스된 입력창을 키보드 위로 자체적으로
-        // 스크롤/패닝해서 올려 준다(OS 레벨 동작이라 body의 overflow:hidden으로도
-        // 못 막는다). 이 상태에서 안드로이드용으로 만든 --kb-inset 패딩까지 얹으면
-        // iOS가 이미 올려놓은 화면 위에 우리가 또 한 번 밀어 올리는 셈이 되어,
-        // 입력창이 필요 이상으로 위로 붕 뜨고 그 아래에 빈 공간이 남는다. 그래서
-        // iOS에서는 --kb-inset을 항상 0으로 두고 iOS의 자체 동작에 맡긴다.
-        var isIOS =
-          /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-        var maxHeight = window.innerHeight
-        function setAppHeight(h) {
-          document.documentElement.style.setProperty('--app-height', h + 'px')
-        }
-        function setKbInset(px) {
-          document.documentElement.style.setProperty('--kb-inset', px + 'px')
-        }
-        function syncKbInset() {
-          if (isIOS) return
-          var vv = window.visualViewport
-          if (!vv) return
-          // 키보드 높이는 반드시 "고정해 둔" maxHeight 기준으로 재야 한다. 일부 안드로이드
-          // 브라우저(예: 갤럭시 S25+ 기본/삼성 인터넷 브라우저)는 interactive-widget=
-          // overlays-content를 따르지 않고 키보드가 뜨면 window.innerHeight 자체도 함께
-          // 줄여 버린다. 그럴 때 여기서 살아있는 window.innerHeight를 기준으로 빼면
-          // 두 값이 같이 줄어들어 inset이 거의 0으로 계산되고, --app-height는 이미
-          // 더 큰 값으로 고정돼 있어서 결과적으로 하단 채팅 입력창이 화면 밖으로 밀려 가려진다.
-          var inset = Math.max(0, maxHeight - vv.height)
-          setKbInset(inset)
-        }
-        setAppHeight(maxHeight)
-        window.addEventListener('resize', function () {
-          if (window.innerHeight > maxHeight) {
-            maxHeight = window.innerHeight
-            setAppHeight(maxHeight)
-          }
-          syncKbInset()
-        })
-        window.addEventListener('orientationchange', function () {
-          maxHeight = window.innerHeight
-          setAppHeight(maxHeight)
-          setKbInset(0)
-        })
-        if (window.visualViewport) {
-          syncKbInset()
-          window.visualViewport.addEventListener('resize', syncKbInset)
-          window.visualViewport.addEventListener('scroll', syncKbInset)
-        }
-      })()
-    </script>
     <style>
-      /* 글꼴이 오기 전 첫 화면. theme.css 와 같은 순서여야 글자가 안 튄다 */
-      html, body { margin: 0; font-family: 'Pretendard Variable', Pretendard, 'IBM Plex Sans KR', 'Apple SD Gothic Neo', system-ui, sans-serif; }
+      html, body {
+        margin: 0;
+        background: #0d0f16;
+        font-family:
+          'Pretendard Variable', Pretendard, 'IBM Plex Sans KR', 'Apple SD Gothic Neo',
+          system-ui, sans-serif;
+        /* 앱 바깥은 안 움직인다. 고무줄 스크롤이 있으면 캔버스를
+           끌 때마다 화면 전체가 따라 늘어난다 */
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        /* 더블탭 확대를 막는다. 연타가 확대로 새면 조작이 안 된다 */
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+      }
+      #root { height: 100%; }
     </style>
   </head>
   <body>

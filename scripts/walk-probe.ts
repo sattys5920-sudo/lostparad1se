@@ -52,7 +52,7 @@ async function main(): Promise<void> {
   page.on('pageerror', (e) => console.log(`  ✗ 화면이 터졌다: ${e.message}`))
   page.on('console', (m) => { if (m.type() === 'error') console.log(`  · 콘솔: ${m.text().slice(0, 160)}`) })
 
-  await page.goto(`${SITE}/play.html?game=${GAME}`, { waitUntil: 'networkidle' })
+  await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
   await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
   await page.fill('input[placeholder="아이디"]', 'qa01')
   await page.fill('input[placeholder="비밀번호"]', QA_PW)

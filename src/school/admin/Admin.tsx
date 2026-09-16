@@ -83,7 +83,7 @@ function AdminGate({ onIn }: { onIn: () => void }) {
       <button className="sc-ad__go" disabled={busy || code.trim().length === 0} onClick={() => void go()}>
         들어가기
       </button>
-      <a className="sc-ad__back" href={`${import.meta.env.BASE_URL}play.html`}>
+      <a className="sc-ad__back" href={import.meta.env.BASE_URL}>
         게임 화면으로
       </a>
     </div>
@@ -249,7 +249,7 @@ function Desk() {
           {said}
         </p>
       )}
-      <a className="sc-ad__back" href={`${import.meta.env.BASE_URL}play.html`}>
+      <a className="sc-ad__back" href={import.meta.env.BASE_URL}>
         게임 화면으로
       </a>
     </div>
