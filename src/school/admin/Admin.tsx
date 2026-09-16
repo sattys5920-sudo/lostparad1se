@@ -127,6 +127,37 @@ function Desk() {
     }
   }
 
+  /**
+   * QA 판 한 번에 차리기.
+   *
+   * 판 만들기 · 열넷 채우기 · 닷새 시작을 따로 누르게 두면, 중간에
+   * 한 단계를 빠뜨린 채 「왜 시작이 안 되냐」로 끝난다. 실제로 그랬다.
+   * **순서가 정해져 있는 일은 순서째로 한 단추에 둔다.**
+   *
+   * 이미 있는 판은 건드리지 않는다 — 돌고 있는 판을 덮어쓰는 단추를
+   * 관리자 화면에 두면 언젠가 잘못 눌린다.
+   */
+  async function setUpQa(): Promise<void> {
+    setBusy(true)
+    try {
+      if (!state.game) {
+        await act.createGame()
+        setSaid('판을 만들었다. 자리를 채우는 중…')
+      } else if (state.game.phase !== 'lobby') {
+        setSaid('이미 돌고 있는 판이다. 덮어쓰지 않는다.')
+        return
+      }
+      const seeded = (await act.seedPlayers(qaPw, 0)) as { seated?: number }
+      setSaid(`${seeded.seated ?? 0}명이 앉았다. 시작하는 중…`)
+      await act.startGame()
+      setSaid(`차렸다. qa01 … qa14 로 들어가면 된다.`)
+    } catch (e) {
+      setSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const game = state.game
   const seats = game?.seats ?? []
   const phaseNo = game?.phaseNow?.no ?? 0
@@ -150,6 +181,7 @@ function Desk() {
             <button disabled={busy} onClick={() => void run('판 만들기', () => act.createGame())}>
               판 만들기
             </button>
+            <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
           </>
         ) : (
           <>
@@ -171,18 +203,12 @@ function Desk() {
                   판 안에 있지 않아서, 한 자리를 비워 두면 열넷이
                   안 차 시작을 못 한다
                 */}
-                <input
-                  type="password"
-                  placeholder="QA 비밀번호 (8자 이상)"
-                  value={qaPw}
-                  autoComplete="off"
-                  onChange={(e) => setQaPw(e.target.value)}
-                />
+                <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
                 <button
                   disabled={busy || qaPw.length < 8}
                   onClick={() => void run('채우기', () => act.seedPlayers(qaPw, 0))}
                 >
-                  QA 열넷 채우기
+                  QA 열넷 채우기 (자리만)
                 </button>
               </>
             )}
@@ -227,5 +253,40 @@ function Desk() {
         게임 화면으로
       </a>
     </div>
+  )
+}
+
+/**
+ * QA 비밀번호 한 칸과 한 번에 차리는 단추.
+ *
+ * 비밀번호를 여기서 정하게 둔다 — 뻔한 값을 박아 두면 qa01 이 그대로
+ * 뒷문이 된다. **자리는 열넷을 다 채운다.** 운영자는 관리자 화면에
+ * 있지 판 안에 있지 않아서, 한 자리를 비워 두면 시작을 못 한다.
+ */
+function QaSetUp({
+  busy,
+  qaPw,
+  setQaPw,
+  onGo,
+}: {
+  busy: boolean
+  qaPw: string
+  setQaPw: (v: string) => void
+  onGo: () => Promise<void>
+}) {
+  return (
+    <>
+      <input
+        type="password"
+        placeholder="QA 비밀번호 (8자 이상)"
+        value={qaPw}
+        autoComplete="off"
+        onChange={(e) => setQaPw(e.target.value)}
+      />
+      <button className="is-lead" disabled={busy || qaPw.length < 8} onClick={() => void onGo()}>
+        QA 판 한 번에 차리기
+        <span>열넷 채우고 · 역할 나누고 · 닷새 시작까지</span>
+      </button>
+    </>
   )
 }
