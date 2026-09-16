@@ -1685,3 +1685,39 @@
   font-size: 12px;
   color: var(--sc-text-dim);
 }
+
+/* ── 나가기 ────────────────────────────────────────────────────
+ *
+ * **눈에 띄되 먼저 띄지는 않게.** 잘못 누르면 비밀번호를 다시 쳐야
+ * 돌아오는 자리라, 화면에서 제일 먼저 보이는 것이 되면 안 된다.
+ * 그렇다고 숨기면 여태처럼 「나갈 길이 없다」가 된다 — 늘 맨 아래,
+ * 테두리만 있는 단추다.
+ */
+.sc-out {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sc-line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.sc-out__go {
+  appearance: none;
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sc-text-dim);
+  font: inherit;
+  font-size: 13px;
+}
+.sc-out__go:disabled { opacity: 0.5; }
+/* 지금 누구로 들어와 있는지. 열넷을 번갈아 켜 보는 동안 이것이 없으면
+   누구 화면을 보고 있는지 알 수가 없다 */
+.sc-out__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sc-text-dim);
+}

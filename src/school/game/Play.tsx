@@ -22,7 +22,7 @@ import { Phase, PhaseLog } from './Phase'
 import { Slips } from './Slips'
 import { Quiz } from './Quiz'
 import { Ballot } from './Ballot'
-import { AddToHome, OfflineBar, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
+import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
@@ -136,6 +136,9 @@ function Setup({ first, onDone }: { first: { nickname: string; avatar: AvatarLoo
       <button className="sc-pl__go" disabled={busy || nickname.trim().length === 0} onClick={() => void go()}>
         이걸로 하기
       </button>
+      {/* 엉뚱한 계정으로 들어왔으면 여기서 되돌아갈 수 있어야 한다.
+          아직 나를 만들지도 않은 자리라 물을 것이 없다 */}
+      <SignOut />
     </div>
   )
 }
@@ -197,6 +200,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
           ))}
         </ul>
         {error && <p className="sc-pl__error">{error}</p>}
+        <SignOut note={`들어와 있는 계정 · ${me.nickname}`} />
       </div>
     )
   }
@@ -272,6 +276,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               ))}
             </ul>
             {error && <p className="sc-pl__error">{error}</p>}
+            {/* 시작 전에는 그냥 나간다. 아직 잃을 것이 없다 */}
+            <SignOut note={`들어와 있는 계정 · ${me.nickname}`} />
           </Sheet>
         )}
       </div>
@@ -698,6 +704,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             onSaid={setSaid}
           />
         )}
+
+        <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
       </section>
 
       {/* ── 수첩 탭 ───────────────────────────────────────────

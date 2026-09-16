@@ -258,3 +258,38 @@ export function Waiting({
     </div>
   )
 }
+
+// ── 나가기 ──────────────────────────────────────────────────────
+
+/**
+ * 로그아웃.
+ *
+ * 여태 이 단추는 **오류 창에만** 있었다. 잘 돌아가는 동안에는 나갈
+ * 길이 없어서, 남의 계정으로 들어온 사람은 앱 데이터를 지우거나
+ * 시크릿 창을 여는 수밖에 없었다 — QA 로 열넷을 번갈아 켜 보는
+ * 동안에는 그 일이 하루에도 여러 번이다.
+ *
+ * 닷새 중에는 한 번 묻는다. 비밀번호를 모르면 못 돌아오는 자리라,
+ * 손가락이 스친 것만으로 일어나면 안 된다. 아직 시작 전이면 그냥
+ * 나간다 — 잃을 것이 없다.
+ *
+ * 나간 뒤에는 화면을 새로 연다. 로그인 상태만 바꾸고 그대로 두면
+ * 앞사람의 판 문서를 구독하던 것들이 살아남아 거절을 뱉는다.
+ */
+export function SignOut({ ask, note }: { ask?: (text: string) => Promise<boolean>; note?: string }) {
+  const [busy, setBusy] = useState(false)
+  async function go(): Promise<void> {
+    if (ask && !(await ask('로그아웃한다. 다시 들어오려면 아이디와 비밀번호가 있어야 한다.'))) return
+    setBusy(true)
+    await logOut().catch(() => undefined)
+    location.reload()
+  }
+  return (
+    <section className="sc-out">
+      <button className="sc-out__go" disabled={busy} onClick={() => void go()}>
+        로그아웃
+      </button>
+      {note && <p className="sc-out__note">{note}</p>}
+    </section>
+  )
+}
