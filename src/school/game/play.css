@@ -1247,6 +1247,12 @@
   padding-right: calc(var(--sc-mini) + 14px);
 }
 
+/*
+ * **비쳐 보이면 안 된다.** 72% 투명으로 두었더니, 뒤에 어두운 복도 띠가
+ * 지나갈 때 검정 위에 검정이 얹혀 통째로 없어진 것처럼 보였다 — 실제로
+ * 「미니맵이 사라졌다」는 말을 들었다. 지도는 늘 같은 자리에 같은 밝기로
+ * 있어야 눈이 거기를 믿는다.
+ */
 .sc-mini {
   position: fixed;
   top: max(10px, env(safe-area-inset-top));
@@ -1256,9 +1262,10 @@
   aspect-ratio: 1;
   padding: 4px;
   appearance: none;
-  border: 1px solid rgba(242, 243, 244, 0.35);
+  border: 1px solid rgba(242, 243, 244, 0.6);
   border-radius: 6px;
-  background: rgba(12, 14, 18, 0.72);
+  background: #0c0e12;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
   cursor: pointer;
 }
 
