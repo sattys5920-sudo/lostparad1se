@@ -763,10 +763,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 방에도 없다. 규칙에서도 그렇다 — 걷는 말은 깃발 판정에 세지
       // 않고, 표도 교역도 그 사람과는 할 수 없다. 화면에만 서 있으면
       // 누를 수 있을 것처럼 보인다
-      const myRoom = roomAt(self.tx, self.ty)?.id ?? null
       for (const p of standees()) {
         if (p.playerId === me.playerId) continue
-        dot(p.x - camX, p.y - camY, p.team as TeamId, p.asleep, p.here === myRoom)
+        dot(p.x - camX, p.y - camY, p.team as TeamId, p.asleep)
       }
 
       // 나
@@ -803,10 +802,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       return teams.length === 1 ? (teams[0] as TeamId) : null
     }
 
-    /** 여럿이 한 방에 설 때 벌려 세우는 반지름. 손끝이 짚을 만큼은 떨어진다. */
-    const RING_PX = 7
-    /** 이만큼 안을 누르면 그 사람을 짚은 것으로 본다. */
-    const GRAB_PX = 9
+    /** 점 하나가 차지하는 너비. 이만큼씩 떼어 놓는다. */
+    const DOT_PX = 10
+    /** 이만큼 안을 누르면 그 사람을 짚은 것으로 본다. 점 하나 크기다. */
+    const GRAB_PX = 6
 
     /**
      * 지금 서 있는 사람들이 각자 어디에 서 있는가.
@@ -832,14 +831,18 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const at = centerPx(asRoom(tileId))
         if (!at) continue
         const order = [...mates].sort((a, b) => (a.playerId < b.playerId ? -1 : 1))
+        // **격자로 흩어 세운다.** 고리에 돌려 세우면 열셋이 한 교실에
+        // 섰을 때 화면 한가운데에 큰 동그라미가 그려진다 — 의식을 치르는
+        // 것처럼 보이지 사람들로 안 보인다. 반지름을 좁히면 이번에는
+        // 점이 겹쳐 덩어리가 된다
+        const cols = Math.ceil(Math.sqrt(order.length))
+        const rows = Math.ceil(order.length / cols)
         order.forEach((p, i) => {
-          const th = (i / order.length) * Math.PI * 2 - Math.PI / 2
-          const off = order.length > 1 ? RING_PX : 0
           out.push({
             ...p,
             here: tileId as TileId,
-            x: at.x + Math.round(Math.cos(th) * off),
-            y: at.y + Math.round(Math.sin(th) * off),
+            x: at.x + Math.round(((i % cols) - (cols - 1) / 2) * DOT_PX),
+            y: at.y + Math.round((Math.floor(i / cols) - (rows - 1) / 2) * DOT_PX),
           })
         })
       }
@@ -871,20 +874,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     }
 
 
-    function dot(x: number, y: number, team: TeamId, asleep: boolean, mine = false): void {
+    function dot(x: number, y: number, team: TeamId, asleep: boolean): void {
       ctx.globalAlpha = asleep ? 0.5 : 1
       ctx.fillStyle = PAL.paper
       ctx.beginPath()
       ctx.arc(Math.round(x), Math.round(y), 4, 0, Math.PI * 2)
       ctx.fill()
-      // 내 방 사람은 눌러서 말을 걸 수 있다. 테두리 한 겹으로 그것을 알린다
-      if (mine && !asleep) {
-        ctx.strokeStyle = PAL.paper
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.arc(Math.round(x), Math.round(y), 6, 0, Math.PI * 2)
-        ctx.stroke()
-      }
       ctx.fillStyle = TEAM_COLOR[team]
       ctx.beginPath()
       ctx.arc(Math.round(x), Math.round(y), 3, 0, Math.PI * 2)
