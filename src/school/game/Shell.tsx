@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 
 import { logOut } from '../accounts'
+import { josa } from '../text'
 import { gameNow } from '../../../shared/rules/clock'
 import type { GameDoc } from '../../../shared/model'
 
@@ -241,7 +242,9 @@ export function Waiting({
 
   return (
     <div className="sc-wait">
-      <p className="sc-wait__what">{error ? '서버가 거절했다.' : `${what}을(를) 기다리고 있다.`}</p>
+      <p className="sc-wait__what">
+        {error ? '서버가 거절했다.' : `${what}${josa(what, '을/를')} 기다리고 있다.`}
+      </p>
       {error && <p className="sc-wait__why">{error}</p>}
       {!error && <p className="sc-wait__why">연결이 느리거나, 서버가 대답하지 않는다.</p>}
       <div className="sc-wait__row">

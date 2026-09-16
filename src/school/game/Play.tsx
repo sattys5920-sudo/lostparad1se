@@ -35,6 +35,7 @@ import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
+import type { GamePhase } from '../../../shared/model'
 import { MOVE_MINUTES } from '../../../shared/rules/occupy'
 import './play.css'
 
@@ -320,6 +321,14 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   // **거절을 삼키지 않는다.** 여태 여기서 그냥 「불러오는 중」이었다
   if (!game) return <Waiting what="판" error={state.error} />
 
+  // **명단에 없으면 여기서 돌려보낸다.** 아래 아침 시퀀스보다 먼저다 —
+  // 그러지 않으면 이 판과 아무 상관 없는 사람이 오늘 아침의 일기장을
+  // 한 장씩 넘겨 본 뒤에야 자리가 없다는 말을 듣는다
+  const myUid = auth?.currentUser?.uid ?? null
+  if (myUid && !game.seats.some((s) => s.playerId === myUid)) {
+    return <NoSeat phase={game.phase} />
+  }
+
   // 종례가 끝났으면 엔딩과 회고만 남는다
   if (game.phase === 'finished') {
     return (
@@ -365,6 +374,34 @@ type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop'
  * 무엇을 할 수 있는지는 여전히 화면이 판단하지 않는다. 안 되는 것은
  * 서버가 거절하고 그 이유를 말해 준다.
  */
+/**
+ * 이 판에 자리가 없는 사람.
+ *
+ * **기다려도 오지 않는 것을 기다리게 두면 안 된다.** 여태 여기서
+ * 「내 자리를 기다리고 있다」가 영영 돌았다 — 연결이 느린 것도,
+ * 서버가 대답을 안 하는 것도 아닌데 그렇게 말하고 있었다. 시작한
+ * 판의 명단은 더 바뀌지 않으므로 자리는 영영 안 생긴다.
+ *
+ * 무엇이 일어났는지 말하고, 할 수 있는 일을 준다.
+ */
+function NoSeat({ phase }: { phase: GamePhase }) {
+  const over = phase === 'finished'
+  return (
+    <div className="sc-wait">
+      <p className="sc-wait__what">{over ? '이 판은 끝났다.' : '이 판에 네 자리가 없다.'}</p>
+      <p className="sc-wait__why">
+        {over
+          ? '끝난 판에는 들어갈 수 없다. 운영자가 새 판을 열어야 한다.'
+          : '닷새가 이미 시작했다. 시작한 뒤에는 앉을 수 없다 — 처음 열넷이 끝까지 같은 열넷이어야 인연이 이어진다.'}
+      </p>
+      <p className="sc-wait__why">
+        네 아이디로 앉은 판이 따로 있으면 그 아이디로 다시 들어와라.
+      </p>
+      <SignOut />
+    </div>
+  )
+}
+
 function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
   const act = useMemo(() => gameActions(gameId), [gameId])
@@ -494,7 +531,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const phaseOpen = state.game?.phaseNow?.open === true
   const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
 
-  if (!game || !me) return <Waiting what={game ? '내 자리' : '판'} error={state.error} />
+  if (!game) return <Waiting what="판" error={state.error} />
+  // **기다려도 오지 않는다.** 명단에 없는 사람은 자리가 생길 일이
+  // 없는데, 여태 「내 자리를 기다리고 있다」를 영영 띄우고 있었다
+  if (!me) return <NoSeat phase={game.phase} />
 
   if (archive) return <LiveArchive gameId={gameId} onClose={() => setArchive(false)} />
 
