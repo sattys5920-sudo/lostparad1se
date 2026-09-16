@@ -280,6 +280,26 @@ export type HairId = string
 type Bangs =
   | 'full' | 'straight' | 'part' | 'half' | 'diag'
   | 'round' | 'bowl' | 'comma' | 'oneEye' | 'none'
+  // 아래 넷은 이마를 얼마쯤 드러내 놓고 그 위에 다시 얹는 앞머리다
+  | 'seeThrough' | 'curtain' | 'baby' | 'choppy' | 'heavy'
+
+/**
+ * 그 앞머리를 그리려면 이마를 몇 줄 비워 둬야 하는가.
+ *
+ * **앞머리는 이마를 덮는 것이 아니라 이마 위에 얹는 것이다.** 시스루는
+ * 숱 사이로 이마가 비쳐야 시스루이고, 커튼은 가운데가 갈라져야 커튼이다.
+ * 머리통 맵은 이마까지 머리로 차 있으므로, 먼저 살로 비워 낸 다음
+ * 그 위에 머리칸을 몇 개만 다시 얹는다.
+ *
+ * 앞머리 모양을 고르면 비울 줄 수가 따라온다 — 둘을 따로 적으면
+ * 언젠가 어긋나서, 시스루인데 이마가 막혀 있는 머리가 나온다.
+ */
+const BANGS_OPEN: Partial<Record<Bangs, number>> = {
+  seeThrough: 1,
+  curtain: 1,
+  baby: 2,
+  none: 1,
+}
 type Extra =
   | 'twin' | 'lowTwin' | 'pony' | 'highPony' | 'sidePony'
   | 'braid' | 'bun' | 'bigBun' | 'spike' | null
@@ -321,7 +341,8 @@ function hair(id: HairId, name: string, o: HairOpts = {}): HairSpec {
     name,
     set: id[0] as StyleSet,
     bangs: 'full',
-    forehead: 0,
+    // 앞머리 모양이 정하는 기본값. 남자 머리처럼 따로 적으면 그쪽이 이긴다
+    forehead: BANGS_OPEN[o.bangs ?? 'full'] ?? 0,
     ear: false,
     undercut: 0,
     flat: false,
@@ -338,22 +359,29 @@ function hair(id: HairId, name: string, o: HairOpts = {}): HairSpec {
 }
 
 export const HAIR_SPECS: HairSpec[] = [
-  // 여자 — 이마는 앞머리가 덮는다
+  // 여자.
+  //
+  // **묶는 모양만 다르고 앞머리는 전부 같았다.** 열다섯 중 열이 같은
+  // 한 줄짜리 앞머리를 썼다 — 정면에서 보면 뒤가 안 보이므로, 얼굴
+  // 위쪽이 다 똑같아서 열이 한 사람처럼 보였다.
+  //
+  // 이제 앞머리로도 갈린다. 겹치는 것은 셋뿐이고(full·curtain·seeThrough
+  // 가 한 번씩 더 나온다), 그 짝은 뒤가 크게 달라서 헷갈리지 않는다.
   hair('F00', '기본 단발', { backTo: 21 }),
-  hair('F01', '긴 생머리', { sideTo: 25, backTo: 25 }),
-  hair('F02', '양갈래', { extra: 'twin' }),
-  hair('F03', '낮은 양갈래', { backTo: 20, extra: 'lowTwin' }),
-  hair('F04', '포니테일', { extra: 'pony' }),
-  hair('F05', '높은 포니테일', { bangs: 'none', forehead: 1, extra: 'highPony' }),
+  hair('F01', '긴 생머리', { bangs: 'curtain', sideTo: 25, backTo: 25 }),
+  hair('F02', '양갈래', { bangs: 'choppy', extra: 'twin' }),
+  hair('F03', '낮은 양갈래', { bangs: 'seeThrough', backTo: 20, extra: 'lowTwin' }),
+  hair('F04', '포니테일', { bangs: 'diag', extra: 'pony' }),
+  hair('F05', '높은 포니테일', { bangs: 'none', extra: 'highPony' }),
   hair('F06', '숏컷', { bangs: 'part', backTo: 20 }),
-  hair('F07', '웨이브 단발', { sideTo: 22, backTo: 22, wave: true }),
-  hair('F08', '긴 웨이브', { sideTo: 26, backTo: 26, wave: true }),
+  hair('F07', '웨이브 단발', { bangs: 'baby', sideTo: 22, backTo: 22, wave: true }),
+  hair('F08', '긴 웨이브', { bangs: 'round', sideTo: 26, backTo: 26, wave: true }),
   hair('F09', '앞머리 일자 단발', { bangs: 'straight', sideTo: 23, backTo: 23 }),
-  hair('F10', '사이드 포니테일', { bangs: 'part', extra: 'sidePony' }),
-  hair('F11', '땋은 머리', { extra: 'braid' }),
-  hair('F12', '반묶음', { sideTo: 24, backTo: 24, extra: 'bun' }),
-  hair('F13', '보브컷', { sideTo: 21, backTo: 20, curlIn: true }),
-  hair('F14', '똥머리', { extra: 'bigBun' }),
+  hair('F10', '사이드 포니테일', { bangs: 'comma', extra: 'sidePony' }),
+  hair('F11', '땋은 머리', { bangs: 'half', extra: 'braid' }),
+  hair('F12', '반묶음', { bangs: 'curtain', sideTo: 24, backTo: 24, extra: 'bun' }),
+  hair('F13', '보브컷', { bangs: 'heavy', sideTo: 21, backTo: 20, curlIn: true }),
+  hair('F14', '똥머리', { bangs: 'seeThrough', extra: 'bigBun' }),
   // 남자 — 이마를 한두 줄 더 드러내고 귀가 보인다
   hair('M00', '기본 커트', { bangs: 'half', forehead: 2, ear: true }),
   hair('M01', '투블럭', { bangs: 'round', forehead: 2, ear: true, undercut: 2 }),
@@ -418,8 +446,15 @@ function bangRows(spec: HairSpec, dir: Dir): Row[] {
   const y = FACE_TOP
   if (dir === 'right') {
     if (spec.bangs === 'none') return []
-    if (spec.bangs === 'straight' || spec.bangs === 'bowl') return [[y + 1, SIDE_BROW_L, SIDE_BROW_R - 1]]
+    if (spec.bangs === 'straight' || spec.bangs === 'bowl' || spec.bangs === 'choppy' || spec.bangs === 'heavy') {
+      return [[y + 1, SIDE_BROW_L, SIDE_BROW_R - 1]]
+    }
     if (spec.bangs === 'oneEye') return [[y, SIDE_BROW_L, SIDE_BROW_R], [y + 1, SIDE_BROW_L + 1, SIDE_BROW_R]]
+    // 이마를 비워 놓는 앞머리도 옆에서는 이마에 한 줄 걸린다. 안 그리면
+    // 옆모습만 이마가 훤한 딴사람이 된다
+    if (spec.bangs === 'seeThrough' || spec.bangs === 'curtain' || spec.bangs === 'baby') {
+      return [[y, SIDE_BROW_L, SIDE_BROW_R - 1]]
+    }
     return spec.forehead ? [] : [[y, SIDE_BROW_L - 1, SIDE_BROW_R]]
   }
   switch (spec.bangs) {
@@ -441,6 +476,32 @@ function bangRows(spec: HairSpec, dir: Dir): Row[] {
       return [[y - 1, FACE_L + 1, FACE_R - 1], [y, FACE_L + 1, FACE_R - 1]]
     case 'oneEye':
       return [[y - 1, FACE_L, FACE_L + 4], [y, FACE_L, FACE_L + 4], [y + 1, FACE_L, FACE_L + 3], [y + 2, FACE_L, FACE_L + 2]]
+    // 시스루 — 숱을 세 갈래로만 남긴다. 사이로 이마가 비친다
+    case 'seeThrough':
+      return [[y, FACE_L, FACE_L + 1], [y, FACE_L + 3, FACE_L + 4], [y, FACE_R - 1, FACE_R]]
+    // 커튼 — 가운데를 갈라 양옆으로 흘린다. 이마 한가운데가 열린다
+    case 'curtain':
+      return [
+        [y - 1, FACE_L, FACE_L + 2], [y, FACE_L, FACE_L + 1],
+        [y - 1, FACE_R - 2, FACE_R], [y, FACE_R - 1, FACE_R],
+      ]
+    // 짧은 앞머리 — 눈썹 한참 위에서 끊는다. 아래로 이마가 한 줄 남는다
+    case 'baby':
+      return [[y - 1, FACE_L + 1, FACE_R - 1]]
+    // 두꺼운 앞머리 — 눈썹 줄을 다 덮고 한 겹 더 내려온다. 가운데가
+    // 살짝 좁아 둥글다.
+    //
+    // **아래로 쌓아야 한다.** 이마를 안 비우는 머리(여자 기본)는
+    // 눈썹 줄 위가 이미 머리칸이라, 위에 얹은 것은 한 칸도 안 보인다 —
+    // 위로 쌓았더니 기본 단발과 픽셀 하나 다르지 않았다
+    case 'heavy':
+      return [[y, FACE_L, FACE_R], [y + 1, FACE_L + 1, FACE_R - 1]]
+    // 숱 친 일자 — 일자로 자르되 밑단이 들쭉날쭉하다
+    case 'choppy':
+      return [
+        [y, FACE_L, FACE_R],
+        [y + 1, FACE_L, FACE_L + 1], [y + 1, FACE_L + 3, FACE_L + 4], [y + 1, FACE_R - 1, FACE_R],
+      ]
     case 'none':
       return []
   }
