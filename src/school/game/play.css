@@ -391,15 +391,15 @@
 .sc-dl__none { margin: 0; font-size: 11.5px; color: #6b7280; }
 
 /* 거래창. **세로 세 단** — 위가 상대, 가운데가 오가는 방향, 아래가 나 */
-.sc-dr { display: flex; flex-direction: column; gap: 8px; }
+.sc-dr { display: flex; flex-direction: column; gap: 6px; }
 
 .sc-dr__side {
   border: 1px solid #d8dcdf;
   border-radius: 5px;
-  padding: 8px 9px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   background: #f7f8f9;
 }
 .sc-dr__side.is-mine { background: #fff; }
@@ -427,11 +427,11 @@
 .sc-dr__slots {
   list-style: none;
   margin: 0;
-  padding: 5px;
+  padding: 4px;
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  min-height: 46px;
+  gap: 4px;
+  min-height: 38px;
   border: 2px solid var(--sc-line);
   border-radius: 0;
   background: #fff;
@@ -439,22 +439,32 @@
 .sc-dr__slots.is-ready { border-width: 2px; }
 
 .sc-dr__slot {
-  min-width: 52px;
+  min-width: 46px;
   border: 2px solid var(--sc-line-strong);
   border-radius: 0;
-  padding: 4px 6px;
+  padding: 3px 5px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1px;
   font-size: 11px;
   background: #eef1f3;
 }
-.sc-dr__slot b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.sc-dr__slot { font-size: 10.5px; }
+.sc-dr__slot b { font-size: 12.5px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+/* **정수 배로만 늘린다.** 12도트를 24로 늘리고 보간을 끈다 */
+.sc-dr__slot img,
+.sc-dr__what img {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+  flex: none;
+}
 .sc-dr__slot.is-blank {
   border-style: dashed;
   border-color: var(--sc-line);
   background: transparent;
-  min-height: 32px;
+  min-height: 26px;
 }
 .sc-dr__none { font-size: 11.5px; color: var(--sc-text-dim); align-self: center; }
 
@@ -466,7 +476,7 @@
   gap: 10px;
   font-size: 15px;
   color: var(--sc-text-dim);
-  min-height: 26px;
+  min-height: 22px;
 }
 .sc-dr__mid i { font-style: normal; font-size: 11px; }
 .sc-dr__count {
@@ -477,16 +487,28 @@
   text-align: center;
 }
 
-/* 내 소지품. 가진 것만 나온다 — 「짝 0」 같은 빈 줄은 아예 없다 */
-.sc-dr__bag { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+/* 내 소지품. 가진 것만 나온다 — 「짝 0」 같은 빈 줄은 아예 없다.
+   **목록만 안에서 구른다.** 시트는 화면의 70%까지인데 여기가 길어지면
+   상대가 올린 것이 화면 밖으로 밀린다 — 그러면 흥정이 아니다 */
+.sc-dr__bag {
+  list-style: none;
+  margin: 0;
+  padding: 0 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 104px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .sc-dr__bag li {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 6px 8px;
+  gap: 2px 8px;
   font-size: 12px;
 }
-.sc-dr__what { display: flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; }
+.sc-dr__what { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
 .sc-dr__what em { font-style: normal; font-size: 10px; color: var(--sc-text-dim); }
 
 .sc-dr__step { display: flex; align-items: center; gap: 3px; }
@@ -507,7 +529,7 @@
 .sc-dr__step button:disabled { opacity: 0.35; cursor: default; }
 
 /* 열 개 스무 개를 한 개씩 누르게 두지 않는다 */
-.sc-dr__slide { grid-column: 1 / -1; width: 100%; margin: 0; }
+.sc-dr__slide { grid-column: 1 / -1; width: 100%; height: 16px; margin: 0 0 2px; }
 
 .sc-dr__hint { margin: 0 0 2px; font-size: 11px; color: var(--sc-text-dim); text-wrap: pretty; }
 

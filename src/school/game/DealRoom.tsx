@@ -12,12 +12,13 @@
 // 없다. 대신 성립 직전에 서버가 양쪽 소지품을 다시 센다.
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { stakeIsEmpty, type Stake } from '../../../shared/rules/deal'
+import { DEAL_COUNTDOWN_MS, stakeIsEmpty, type Stake } from '../../../shared/rules/deal'
 import { ITEMS, type ItemKind } from '../../../shared/rules/items'
 import { TRADE_COST } from '../../../shared/rules/occupy'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { TEAM_COLOR } from './MapPlan'
+import { goodIcon } from './goodArt'
 import { SFX } from './sfx'
 import type { LiveDeal } from './useDeal'
 import type { GameActions } from './useGame'
@@ -138,8 +139,10 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
   }, [theirs])
 
   // 세는 소리. 3 · 2 · 1 로 한 번씩
+  // 셋을 세는 판에 4가 뜨면 안 된다. 서버 시계와 내 시계가 몇 밀리초
+  // 어긋난 것뿐인데, 올림하면 그 몇 밀리초가 한 칸이 된다
   const left = deal.settleAtMs === null ? null : Math.max(0, deal.settleAtMs - nowMs)
-  const secs = left === null ? null : Math.ceil(left / 1000)
+  const secs = left === null ? null : Math.min(DEAL_COUNTDOWN_MS / 1000, Math.ceil(left / 1000))
   const lastTick = useRef<number | null>(null)
   useEffect(() => {
     if (secs === null || secs <= 0) {
@@ -245,6 +248,7 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
           {SLOTS.filter((s) => have[s.key] > 0).map((s) => (
             <li key={s.key}>
               <span className="sc-dr__what">
+                <img src={goodIcon(s.key)} alt="" width={24} height={24} />
                 {s.name}
                 <em>{s.from} · {have[s.key]}</em>
               </span>
@@ -286,7 +290,7 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
       </section>
 
       <p className="sc-dr__hint">
-        값은 성립할 때 청한 쪽이 개인 토큰 {TRADE_COST}개를 낸다. 쪽지는 접힌 채로 건너간다.
+        성립할 때 청한 쪽이 개인 토큰 {TRADE_COST}개. 쪽지는 접힌 채로 건너간다.
       </p>
 
       <div className="sc-dr__foot">
@@ -332,6 +336,7 @@ function Slots({ pile, team, lit, none }: { pile: Pile; team: TeamId; lit: boole
     >
       {put.map((s) => (
         <li key={s.key} className="sc-dr__slot">
+          <img src={goodIcon(s.key)} alt="" width={24} height={24} />
           <span>{s.name}</span>
           <b>{pile[s.key]}</b>
         </li>
