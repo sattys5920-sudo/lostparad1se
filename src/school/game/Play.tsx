@@ -122,23 +122,35 @@ function Setup({ first, onDone }: { first: { nickname: string; avatar: AvatarLoo
     }
   }
 
+  /*
+   * 고르는 것과 정하는 것을 위아래로 가른다.
+   *
+   * 고를 것이 여덟 줄이라 한 덩어리로 두면 「이걸로 하기」가 화면 밖에
+   * 있다. 게다가 앱 바깥은 구르지 않게 막아 두어서(캔버스를 끌 때
+   * 화면이 늘어나면 안 되니까) 내려서 찾을 수도 없었다 — **만들 방법이
+   * 아예 없는 화면이었다.**
+   */
   return (
     <div className="sc-pl__setup">
-      <h1>나</h1>
-      <input
-        placeholder="이름 (1~12자)"
-        value={nickname}
-        maxLength={12}
-        onChange={(e) => setNickname(e.target.value)}
-      />
-      <CharacterCreator look={look} team={null} onChange={setLook} />
-      {error && <p className="sc-pl__error">{error}</p>}
-      <button className="sc-pl__go" disabled={busy || nickname.trim().length === 0} onClick={() => void go()}>
-        이걸로 하기
-      </button>
-      {/* 엉뚱한 계정으로 들어왔으면 여기서 되돌아갈 수 있어야 한다.
-          아직 나를 만들지도 않은 자리라 물을 것이 없다 */}
-      <SignOut />
+      <div className="sc-pl__setupBody">
+        <h1>나</h1>
+        <input
+          placeholder="이름 (1~12자)"
+          value={nickname}
+          maxLength={12}
+          onChange={(e) => setNickname(e.target.value)}
+        />
+        <CharacterCreator look={look} team={null} onChange={setLook} />
+        {error && <p className="sc-pl__error">{error}</p>}
+        {/* 엉뚱한 계정으로 들어왔으면 여기서 되돌아갈 수 있어야 한다.
+            아직 나를 만들지도 않은 자리라 물을 것이 없다 */}
+        <SignOut />
+      </div>
+      <div className="sc-pl__setupFoot">
+        <button className="sc-pl__go" disabled={busy || nickname.trim().length === 0} onClick={() => void go()}>
+          이걸로 하기
+        </button>
+      </div>
     </div>
   )
 }
