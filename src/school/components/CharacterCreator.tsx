@@ -7,7 +7,7 @@ import {
   HAIR_IDS_F,
   HAIR_IDS_M,
   NECKWEAR_NAMES,
-  OUTFIT_NAMES,
+  OUTFITS,
   PX,
   WEAR_STYLE_NAMES,
   pixelFrame,
@@ -20,6 +20,21 @@ import type { AvatarLook, StyleSet } from '../../../shared/look'
 
 /** 머리 + 상반신 — 명단·대화 아이콘용 */
 export const BUST_BOX = { x: 8, y: 6, w: 16, h: 18 }
+
+/**
+ * 옷만 보려고 자르는 칸 — 턱 아래부터 신발까지.
+ *
+ * 옷 차이는 가슴 다섯 줄에 다 들어 있다. 온몸을 작게 보여 주면 그
+ * 다섯 줄이 열 몇 픽셀로 줄어서, 무엇이 달라졌는지 볼 수가 없다.
+ */
+const WEAR_BOX = { x: 8, y: 15, w: 16, h: 16 }
+
+/** 착용 스타일 셋이 각각 무엇인지. 이름만으로는 무엇이 다른지 모른다. */
+const WEAR_STYLE_NOTES = [
+  '단추를 끝까지 잠근다',
+  '적당히. 대부분 이렇게 입는다',
+  '셔츠를 빼입고 넥타이를 풀었다',
+]
 
 interface Crop {
   x: number
@@ -91,6 +106,53 @@ function WalkPreview({ look, team, dir, scale }: { look: AvatarLook; team: TeamI
 const SET_IDS: StyleSet[] = ['M', 'F']
 const SET_NAMES = ['남', '여']
 const COLOR_NAMES = HAIR_COLORS.map((c) => c.name)
+
+/**
+ * 골라 놓고 나란히 견주는 줄.
+ *
+ * 복장과 착용은 **이름만 봐서는 무엇이 다른지 모른다.** 화살표로 하나씩
+ * 넘기면 방금 본 것과 지금 것을 머릿속에서 비교해야 하는데, 한 칸짜리
+ * 차이는 그렇게 기억되지 않는다. 그래서 이 둘만 한 줄에 펴 놓는다 —
+ * 옷 부분만 잘라 키워서, 무엇이 달라지는지 눈으로 견준다.
+ */
+function Wardrobe({
+  label,
+  names,
+  notes,
+  value,
+  team,
+  make,
+  onPick,
+}: {
+  label: string
+  names: readonly string[]
+  notes: readonly string[]
+  value: number
+  team: TeamId | null
+  make: (i: number) => AvatarLook
+  onPick: (i: number) => void
+}) {
+  return (
+    <div className="sc-cc__wardrobe">
+      <span className="sc-cc__rowLabel">{label}</span>
+      <div className="sc-cc__wardrobeRow" role="radiogroup" aria-label={label}>
+        {names.map((name, i) => (
+          <button
+            key={name}
+            className={`sc-cc__wear${i === value ? ' is-on' : ''}`}
+            role="radio"
+            aria-checked={i === value}
+            onClick={() => onPick(i)}
+          >
+            <Sprite look={make(i)} team={team} scale={3} crop={WEAR_BOX} />
+            <b>{name}</b>
+          </button>
+        ))}
+      </div>
+      <p className="sc-cc__wearNote">{notes[value]}</p>
+    </div>
+  )
+}
 
 /**
  * 고르는 줄 하나 — 왼쪽 화살표, 지금 고른 것의 이름, 오른쪽 화살표.
@@ -202,11 +264,22 @@ export function CharacterCreator({
           value={look.expression}
           onPick={(i) => onChange({ ...look, expression: i })}
         />
-        <Row label="복장" names={OUTFIT_NAMES} value={look.outfit} onPick={(i) => onChange({ ...look, outfit: i })} />
-        <Row
+        <Wardrobe
+          label="복장"
+          names={OUTFITS.map((o) => o.name)}
+          notes={OUTFITS.map((o) => o.note)}
+          value={look.outfit}
+          team={team}
+          make={(i) => ({ ...look, outfit: i })}
+          onPick={(i) => onChange({ ...look, outfit: i })}
+        />
+        <Wardrobe
           label="착용"
           names={WEAR_STYLE_NAMES}
+          notes={WEAR_STYLE_NOTES}
           value={look.wearStyle}
+          team={team}
+          make={(i) => ({ ...look, wearStyle: i })}
           onPick={(i) => onChange({ ...look, wearStyle: i })}
         />
         <Row label="하의" names={BOTTOM_NAMES} value={look.bottom} onPick={(i) => onChange({ ...look, bottom: i })} />

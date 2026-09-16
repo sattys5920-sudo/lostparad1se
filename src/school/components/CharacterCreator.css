@@ -127,3 +127,61 @@
   color: var(--sc-bg, #14151a);
   border-color: var(--sc-text);
 }
+
+/* ── 복장·착용 — 나란히 놓고 견준다 ───────────────────────────
+ *
+ * 이 둘만 화살표가 아니라 줄이다. 이름만으로는 무엇이 다른지 몰라서
+ * 하나씩 넘겨 가며 기억으로 비교해야 했다. 한 칸짜리 차이는 그렇게
+ * 기억되지 않는다.
+ */
+.sc-cc__wardrobe {
+  border: 1px solid var(--sc-line);
+  padding: 4px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 복장은 여섯이라 좁은 화면에서는 옆으로 구른다. 착용 셋은 다 들어온다 */
+.sc-cc__wardrobeRow {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.sc-cc__wardrobeRow::-webkit-scrollbar { display: none; }
+
+.sc-cc__wear {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  border-radius: 4px;
+  background: var(--sc-bg-2);
+  color: var(--sc-text-dim);
+  font: inherit;
+  padding: 3px 3px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  cursor: pointer;
+}
+.sc-cc__wear b { font-size: 10px; font-weight: 600; }
+/* 고른 것은 테두리와 글자로 표시한다. 바탕을 칠하면 옷 색을 못 본다 */
+.sc-cc__wear.is-on {
+  border-color: var(--sc-line-strong);
+  border-width: 2px;
+  padding: 2px 2px 1px;
+  color: var(--sc-text);
+  background: var(--sc-surface);
+}
+.sc-cc__wear canvas { display: block; }
+
+.sc-cc__wearNote {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--sc-text-dim);
+}

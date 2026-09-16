@@ -640,33 +640,64 @@ type Cloth = keyof typeof SCHOOL_PALETTE
 
 export interface OutfitSpec {
   name: string
+  /** 한 줄 설명. 고르는 화면에서 이 옷이 무엇인지 알려 준다 */
+  note: string
   /** 몸통 천 */
   body: Cloth
   /** 팔 천. 없으면 몸통과 같다 — 춘추복만 다르다(조끼 몸통 + 셔츠 소매) */
   arm?: Cloth
-  /** 반팔 — 팔 아랫부분이 맨살 */
+  /** 반팔 — 팔 아랫부분이 맨살. 팔에 살이 보이는 유일한 복장이다 */
   shortSleeve?: boolean
   /** 앞을 여미는 겉옷. 껄렁하게 입으면 앞이 벌어져 셔츠가 보인다 */
   over?: boolean
-  /** 가슴 가운데가 V로 파여 셔츠가 보이는 줄 수 */
-  vRows?: number
-  /** 가운데 1칸짜리 단추선 */
+  /** 가운데 세로 단추선 — 가디건 */
   buttons?: boolean
-  /** 팔·다리 바깥에 흰 줄 */
+  /** 팔·다리 바깥에 흰 줄 — 체육복 */
   stripe?: boolean
-  /** 뒷모습에서 머리 아래에 후드가 두 줄 */
-  hoodBack?: boolean
+  /** 목 뒤에 후드 덩어리. 정면에서도 어깨 위로 한 칸씩 삐져나온다 */
+  hood?: boolean
+  /**
+   * 어깨에 한 줄 그늘. 겉옷은 안에 셔츠를 껴입은 만큼 어깨가 도톰하다.
+   *
+   * **실루엣은 못 넓힌다.** 넓히면 옷을 갈아입을 때 사람 덩치가
+   * 달라져서, 멀리서 보면 다른 사람이 온 것처럼 보인다. 그래서
+   * 윤곽 안쪽에 그늘 한 줄로 두께를 낸다.
+   */
+  padded?: boolean
+  /**
+   * 바탕이 셔츠만큼 밝다. 흰 깃과 명찰을 흰색으로 얹으면 안 보이므로,
+   * 이 옷에서는 둘을 그늘색으로 뒤집어 그린다.
+   */
+  pale?: boolean
+  /** 깃도 목 장식도 없다 — 체육복 */
+  bare?: boolean
   /** 하의 선택을 무시하고 이 천을 입는다 */
   fixedBottom?: Cloth
 }
 
+/**
+ * 복장 여섯.
+ *
+ * **색만 다르면 안 된다.** 32칸 안에서 색 차이는 한 단계 어두워진
+ * 것으로만 보이고, 어두운 복도에 서면 그마저 사라진다. 그래서 여섯이
+ * 저마다 **모양으로** 갈린다 —
+ *
+ *   하복   팔에 살이 보인다
+ *   춘추복 몸통과 팔의 색이 다르다
+ *   동복   어깨가 도톰하고 가슴에 V가 깊다
+ *   가디건 가운데 단추가 점점이 박힌다
+ *   후드   목 뒤가 두껍다
+ *   체육복 팔다리에 흰 줄이 있고 깃이 없다
+ *
+ * 하나씩 봐도 무엇을 입었는지 알 수 있어야 한다.
+ */
 export const OUTFITS: OutfitSpec[] = [
-  { name: '하복', body: 'shirt', shortSleeve: true },
-  { name: '춘추복', body: 'vest', arm: 'shirt' },
-  { name: '동복', body: 'blazer', over: true, vRows: 2 },
-  { name: '가디건', body: 'cardigan', over: true, buttons: true },
-  { name: '후드집업', body: 'hood', over: true, hoodBack: true },
-  { name: '체육복', body: 'gym', stripe: true, fixedBottom: 'gym' },
+  { name: '하복', note: '반팔. 여름에는 이것뿐이다', body: 'shirt', shortSleeve: true, pale: true },
+  { name: '춘추복', note: '흰 셔츠 위에 조끼를 껴입는다', body: 'vest', arm: 'shirt' },
+  { name: '동복', note: '남색 블레이저. 정장에 가깝다', body: 'blazer', over: true, padded: true },
+  { name: '가디건', note: '단추를 채워 입는 니트', body: 'cardigan', over: true, buttons: true },
+  { name: '후드집업', note: '교칙에는 없지만 다들 입는다', body: 'hood', over: true, hood: true },
+  { name: '체육복', note: '체육 시간 뒤로 갈아입지 않았다', body: 'gym', stripe: true, bare: true, fixedBottom: 'gym' },
 ]
 export const OUTFIT_NAMES = OUTFITS.map((o) => o.name)
 
@@ -766,6 +797,24 @@ interface WearCtx {
   scan: BodyScan
 }
 
+// ── 옷의 자리 ───────────────────────────────────────────────────
+//
+// 몸 맵 안에서의 칸 번호다. 맵을 안 고치기로 했으므로 여기 숫자는
+// 맵의 글자와 맞아떨어져야 한다 — 가슴 한가운데가 T 두 칸(6,7)이고
+// 그 양옆이 몸통(5,8), 또 그 밖이 어깨 끝(4,9)이다.
+/** 가슴 한가운데. 목 장식과 단추가 여기 선다 */
+const CHEST_L = 6
+const CHEST_R = 7
+/** 깃이 서는 칸 — 가슴 양옆 */
+const COLLAR_L = 5
+const COLLAR_R = 8
+/** 어깨 끝 — 후드가 삐져나오고 껄렁한 어깨가 처지는 자리 */
+const SHOULDER_L = 4
+const SHOULDER_R = 9
+/** 명찰 — 화면 왼쪽 가슴 */
+const BADGE_X = 4
+const BADGE_Y = 2
+
 /** 몸 맵의 글자 하나를 재질과 그늘로 바꾼다. */
 function roleOf(c: string, x: number, y: number, w: WearCtx): { mat: Mat; shade: Shade } | null {
   const { o, style, scan } = w
@@ -776,19 +825,23 @@ function roleOf(c: string, x: number, y: number, w: WearCtx): { mat: Mat; shade:
     case 'w': {
       const shade: Shade = c === 'w' ? 'shade' : 'base'
       if (onArm) {
-        // 반팔 — 팔꿈치 아래는 맨살
-        if (o.shortSleeve && y - (scan.armTop.get(x) ?? y) >= 2) return { mat: 'skin', shade: 'base' }
+        // 반팔 — 소매는 어깨 한 칸뿐이고 그 아래는 전부 맨살이다.
+        // **팔에 살이 보이는 복장은 하복 하나뿐이라** 1배율에서도
+        // 이것 하나로 하복인 줄 안다
+        if (o.shortSleeve && y - (scan.armTop.get(x) ?? y) >= 1) return { mat: 'skin', shade: 'base' }
         // 껄렁 — 긴소매를 걷어 손목 한 칸이 드러난다
         if (style === LOOSE && !o.shortSleeve && scan.armLow.has(k)) return { mat: 'skin', shade: 'base' }
         if (o.stripe && scan.outer.has(k)) return { mat: 'stripe', shade: 'base' }
         return { mat: o.arm ? 'collar' : 'shirt', shade }
       }
-      // 후드는 뒷모습에서 머리 아래가 두 줄 두껍다
-      if (o.hoodBack && w.dir === 'up' && y < 2) return { mat: 'shirt', shade: 'shade' }
+      // 겉옷은 어깨가 도톰하다. 윤곽을 넓히는 대신 안쪽에 그늘 한 줄
+      if (o.padded && y === 0 && (x === SHOULDER_L || x === SHOULDER_R)) {
+        return { mat: 'shirt', shade: 'shade' }
+      }
       return { mat: 'shirt', shade }
     }
     case 'T':
-      return neckCell(x, y, w)
+      return chestCell(y, w)
     case 'K':
       return { mat: 'skin', shade: 'base' }
     case 'D':
@@ -814,52 +867,122 @@ function roleOf(c: string, x: number, y: number, w: WearCtx): { mat: Mat; shade:
 }
 
 /**
- * 가슴 가운데 두 칸(T). 여기에 목 장식·V넥·단추·벌어진 앞섶이 모인다.
- * 껄렁하게 입으면 장식이 한 칸 내려가고 한 칸 비뚤어진다.
+ * 가슴 한가운데 두 칸이 바탕으로 무슨 색인가.
+ *
+ * 목 장식과 깃은 이 위에 따로 얹는다(wearPix). 여기서 정하는 것은
+ * **그 뒤에 무엇이 있는가**뿐이다 — 목인가, 속 셔츠인가, 겉옷인가.
  */
-function neckCell(x: number, y: number, w: WearCtx): { mat: Mat; shade: Shade } {
-  const { o, style, neck } = w
-  const loose = style === LOOSE
-  // 깃이 벌어져 목이 한 칸 드러난다
-  if (loose && y === 0) return { mat: 'skin', shade: 'base' }
-  const top = o.vRows ?? 0
-  // 껄렁하면 장식이 한 칸 내려간다. 리본은 목 밑에 짧게, 넥타이는 가슴까지
-  const lo = loose ? 1 : 0
-  const onNeckwear = neck !== NO_NECK && y >= top + lo && y <= (neck === 1 ? top + 1 : top + 4) + lo
-  if (onNeckwear) return { mat: 'accent', shade: 'base' }
-  // 단추선 — 장식이 끝난 아래쪽에만. 가디건 단추는 한 칸짜리 세로줄이다
-  if (o.buttons && x % 2 === 1) return { mat: 'shirt', shade: 'shade' }
-  // 겉옷 앞이 열렸거나(껄렁) V로 파였으면 속 셔츠가 보인다
-  if ((loose && o.over) || y < top) return { mat: 'collar', shade: 'base' }
-  return o.over || o.buttons ? { mat: 'collar', shade: 'base' } : { mat: 'shirt', shade: 'base' }
+function chestCell(y: number, w: WearCtx): { mat: Mat; shade: Shade } {
+  const { o, style } = w
+  // 체육복은 깃이 없다. 가운데 지퍼 한 줄만 선다
+  if (o.bare) return { mat: 'shirt', shade: y === 0 ? 'base' : 'shade' }
+  // 깃이 V로 벌어진 자리. 껄렁하면 한 줄 더 벌어져 목이 더 보인다
+  if (y <= (style === LOOSE ? 1 : 0)) return { mat: 'skin', shade: 'base' }
+  // 껄렁 — 겉옷 앞을 풀어 속 셔츠가 두 칸 보인다
+  if (style === LOOSE && o.over) return { mat: 'collar', shade: 'base' }
+  // 여미고 입으면 겉옷 색 그대로, 겉옷이 아니면 셔츠 그대로
+  return { mat: 'shirt', shade: 'base' }
 }
 
 /**
- * 맵 밖에 얹는 디테일. 전부 완장(layer 7)보다 아래에 그린다 —
+ * 맵 위에 얹는 옷 디테일. 전부 완장(layer 7)보다 아래에 그린다 —
  * 껄렁한 앞섶도 빼입은 셔츠도 완장을 가리지 못한다.
+ *
+ * **교복으로 보이게 하는 것이 여기 다 있다.** 흰 깃, 목 장식, 명찰 —
+ * 이 셋 중 둘이 안 보이면 그냥 사복이다. 32칸 안에서 「교복」은 천의
+ * 색이 아니라 이 작은 표지들로 읽힌다.
+ *
+ * 쓸 수 있는 자리는 가슴 다섯 줄(0~4) × 여섯 칸(4~9)뿐이다. 그 안에서
+ * 서로 자리를 빼앗지 않게 칸을 나눠 뒀다 —
+ *
+ *   깃    x5·x8      목 양옆. 목 장식이 여기를 밟지 않는다
+ *   목구멍 x6·x7 0줄  깃이 V로 벌어진 자리. 살이 보인다
+ *   목장식 x6·x7 1줄~ 매듭부터 아래로
+ *   명찰   x4  2줄    한 칸. 팔·완장과 겹치지 않는다
+ *   단추   x5  2~4줄  가디건. 가운데는 넥타이가 쓰므로 한 칸 옆이다
  */
 function wearPix(w: WearCtx, map: string[]): Pix[] {
   const { o, style, neck, scan } = w
   const out: Pix[] = []
-  const front = w.dir === 'down'
-  const add = (x: number, y: number, mat: Mat, shade: Shade = 'base') => out.push({ x: BODY_X + x, y: BODY_Y + y, mat, shade })
-  if (!front) return out
-  // 단정 — 셔츠를 넣어 입어 허리선이 또렷하다
-  if (style === NEAT) {
+  if (w.dir !== 'down') return out
+  const add = (x: number, y: number, mat: Mat, shade: Shade = 'base') =>
+    out.push({ x: BODY_X + x, y: BODY_Y + y, mat, shade })
+  const neat = style === NEAT
+  const loose = style === LOOSE
+  // 밝은 옷 위에는 흰 표지가 안 보인다. 그때만 그늘색으로 뒤집는다
+  const markShade: Shade = o.pale ? 'shade' : 'base'
+
+  // ── 흰 셔츠 깃 ────────────────────────────────────────────────
+  // **가장 중요한 단서다.** 목 양옆에 흰 기둥 둘.
+  //
+  // 단정은 두 줄이라 목을 감싸고, 보통은 한 줄, 껄렁은 한 줄이 아래로
+  // 내려가 앞이 벌어진 것처럼 보인다. **깃 높이가 착용 스타일을 가르는
+  // 가장 큰 차이다** — 한 칸짜리 목 장식 길이보다 눈에 띈다.
+  if (!o.bare) {
+    const top = loose ? 1 : 0
+    const tall = neat ? 1 : 0
+    for (let i = 0; i <= tall; i++) {
+      add(COLLAR_L, top + i, 'collar', markShade)
+      add(COLLAR_R, top + i, 'collar', markShade)
+    }
+  }
+
+  // ── 후드 ──────────────────────────────────────────────────────
+  // 목 뒤가 두꺼운 유일한 복장. 정면에서도 어깨 위로 한 칸씩 나온다
+  if (o.hood) {
+    add(SHOULDER_L, 0, 'shirt', 'shade')
+    add(SHOULDER_R, 0, 'shirt', 'shade')
+  }
+
+  // ── 가디건 단추 ───────────────────────────────────────────────
+  // **가운데가 아니라 한 칸 옆이다.** 가운데는 넥타이가 덮어서, 거기
+  // 그리면 목 장식을 「없음」으로 둔 사람만 단추를 본다
+  if (o.buttons) {
+    for (let y = 2; y <= 4; y++) add(COLLAR_L, y, 'shirt', y === 3 ? 'light' : 'shade')
+  }
+
+  // ── 목 장식 ───────────────────────────────────────────────────
+  if (!o.bare && neck !== NO_NECK) {
+    // 껄렁하면 한 칸 내려가고 한 칸 옆으로 비뚤어진다
+    const top = 1 + (loose ? 1 : 0)
+    const off = loose ? 1 : 0
+    if (neck === 1) {
+      // 리본 — 매듭 양옆으로 날개가 한 칸씩. 넥타이보다 넓고 짧다
+      add(CHEST_L + off, top, 'accent', 'base')
+      add(CHEST_R + off, top, 'accent', 'base')
+      add(CHEST_L - 1 + off, top, 'accent', 'shade')
+      add(CHEST_R + 1 + off, top, 'accent', 'shade')
+      add(CHEST_L + off, top + 1, 'accent', 'shade')
+      add(CHEST_R + off, top + 1, 'accent', 'shade')
+    } else {
+      // 넥타이 — 매듭 아래로 날이 내려간다. 몸통이 다섯 줄뿐이라
+      // 길이는 두 칸까지다. 보통은 한 칸 짧다
+      const len = neat ? 2 : 1
+      add(CHEST_L + off, top, 'accent', 'light')
+      add(CHEST_R + off, top, 'accent', 'light')
+      for (let i = 1; i <= len; i++) {
+        add(CHEST_L + off, top + i, 'accent', 'base')
+        add(CHEST_R + off, top + i, 'accent', 'base')
+      }
+      // 끝이 뾰족하게 한 칸
+      add(CHEST_L + off, top + len + 1, 'accent', 'shade')
+    }
+  }
+
+  // ── 명찰 ──────────────────────────────────────────────────────
+  // 한 칸짜리지만 교복 신호가 강하다. 껄렁하면 떼고 다닌다
+  if (!o.bare && !loose) add(BADGE_X, BADGE_Y, 'stripe', markShade)
+
+  // ── 허리·어깨 ─────────────────────────────────────────────────
+  if (neat) {
+    // 단정 — 셔츠를 넣어 입어 허리선이 또렷하다
     for (let x = 0; x < map[scan.hem].length; x++) {
       if (map[scan.hem][x] === 'D') add(x, scan.hem, 'bottom', 'shade')
     }
-  }
-  // 껄렁 — 리본·넥타이가 한 칸 비뚤어진다
-  if (style === LOOSE && neck !== NO_NECK) {
-    const y = (o.vRows ?? 0) + 1
-    add(8, y, 'accent', 'base')
-  }
-  // 리본은 목 밑에서 양옆으로 한 칸씩 퍼진다
-  if (neck === 1) {
-    const y = (o.vRows ?? 0) + (style === LOOSE ? 1 : 0)
-    add(5, y, 'accent', 'shade')
-    add(8, y, 'accent', 'shade')
+  } else if (loose) {
+    // 껄렁 — 한쪽 어깨가 처진다. 윤곽은 못 건드리니 그늘로 기울인다.
+    // **깃(x5·x8)은 안 건드린다** — 여기를 덮으면 교복 단서가 하나 준다
+    add(SHOULDER_R, 0, 'shirt', 'shade')
   }
   return out
 }
