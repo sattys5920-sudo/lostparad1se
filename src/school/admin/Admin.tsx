@@ -10,7 +10,7 @@
 // 있고, 열어도 아무것도 안 된다.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { amHost, claimHost, logIn } from '../accounts'
+import { amHost, claimHost, deleteAccounts, listAccounts, logIn, type AccountSummary } from '../accounts'
 import { gameActions, useGame } from '../game/useGame'
 import { PhaseHost } from '../game/Phase'
 import { QuizHost } from '../game/Quiz'
@@ -327,6 +327,11 @@ function Desk() {
           </section>
 
           <section className="sc-ad__card">
+            <h2>가입</h2>
+            <Signups onSaid={setSaid} />
+          </section>
+
+          <section className="sc-ad__card">
             <h2>문제</h2>
             <QuizHost act={act} onSaid={setSaid} />
           </section>
@@ -342,6 +347,122 @@ function Desk() {
         게임 화면으로
       </a>
     </div>
+  )
+}
+
+/**
+ * 가입 데이터.
+ *
+ * **판과 따로다.** 계정을 지워도 명단은 안 건드린다 — 이름·팀·얼굴은
+ * 판이 제 안에 베껴 들고 있어서 지난 판의 기록은 그대로 남는다.
+ * 지워지는 것은 그 아이디로 다시 들어오는 길뿐이다.
+ *
+ * 아이디를 해시해 uid 를 만들므로, **같은 아이디로 다시 가입하면 같은
+ * uid** 다. 잘못 지웠으면 그 아이디로 다시 가입하면 앉아 있던 자리로
+ * 돌아간다 — 비밀번호만 새로 정한 것이 된다.
+ */
+function Signups({ onSaid }: { onSaid: (t: string) => void }) {
+  const [rows, setRows] = useState<AccountSummary[] | null>(null)
+  /** 지금 들어와 있는 운영자. 제 계정은 못 지운다 — 미리 잠근다 */
+  const [me, setMe] = useState('')
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [asked, setAsked] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(() => {
+    setBusy(true)
+    void listAccounts()
+      .then((r) => {
+        setRows(r.rows)
+        setMe(r.me)
+        setPicked(new Set())
+      })
+      .catch((e) => onSaid((e as Error).message))
+      .finally(() => setBusy(false))
+  }, [onSaid])
+  useEffect(load, [load])
+
+  const toggle = (id: string) => {
+    const next = new Set(picked)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setPicked(next)
+    setAsked(false)
+  }
+
+  if (rows === null) return <p className="sc-ad__hint">불러오는 중</p>
+
+  const chosen = [...picked]
+  const risky = rows.filter((r) => picked.has(r.id) && r.playing).length
+
+  return (
+    <>
+      <p className="sc-ad__hint">
+        {rows.length}명이 가입했다. 지워도 판의 명단은 그대로다 — 같은 아이디로 다시 가입하면 자리로 돌아온다.
+      </p>
+      <ul className="sc-ad__accounts">
+        {rows.map((r) => (
+          <li key={r.id}>
+            <label>
+              {/* 제 계정은 못 고른다. 골라 봐야 서버가 거절한다 */}
+              <input
+                type="checkbox"
+                checked={picked.has(r.id)}
+                disabled={r.id === me}
+                onChange={() => toggle(r.id)}
+              />
+              <b>{r.id}</b>
+              <span>{r.nickname || '이름 없음'}</span>
+            </label>
+            {r.id === me && <em className="sc-ad__tagMe">나</em>}
+            {/* 얼굴을 안 만든 사람은 지도에 점으로 뜬다. 여기서 보인다 */}
+            {!r.face && <em className="sc-ad__tagDot">얼굴 없음</em>}
+            {r.playing && <em className="sc-ad__tagPlay">판에 있음</em>}
+          </li>
+        ))}
+      </ul>
+
+      {!asked ? (
+        <button
+          className="sc-ad__danger"
+          disabled={busy || chosen.length === 0}
+          onClick={() => setAsked(true)}
+        >
+          고른 {chosen.length}개 지우기
+        </button>
+      ) : (
+        <div className="sc-ad__ask">
+          <p>
+            {chosen.join(', ')} — {chosen.length}개를 지운다. 되돌릴 수 없다.
+            {risky > 0 && ` 이 중 ${risky}명은 지금 판에 앉아 있다 — 그 사람은 다시 못 들어온다.`}
+          </p>
+          <div className="sc-ad__askRow">
+            <button onClick={() => setAsked(false)}>그만두기</button>
+            <button
+              className="sc-ad__danger"
+              disabled={busy}
+              onClick={() => {
+                setAsked(false)
+                setBusy(true)
+                void deleteAccounts(chosen)
+                  .then((r) => {
+                    const no = (r.kept ?? []).map((k) => `${k.id}(${k.why})`).join(', ')
+                    onSaid(`${(r.gone ?? []).length}개를 지웠다.${no ? ` 못 지운 것 — ${no}` : ''}`)
+                    load()
+                  })
+                  .catch((e) => onSaid((e as Error).message))
+                  .finally(() => setBusy(false))
+              }}
+            >
+              지운다
+            </button>
+          </div>
+        </div>
+      )}
+      <button disabled={busy} onClick={load}>
+        다시 불러오기
+      </button>
+    </>
   )
 }
 

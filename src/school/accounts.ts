@@ -13,14 +13,7 @@
 //   accounts/{id}              닉네임·아바타 — 진행자가 목록으로 훑는다
 //   accounts/{id}/auth/secret  소금·해시 — **서버 전용**
 import { signInWithCustomToken, signOut } from 'firebase/auth'
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  type Firestore,
-} from 'firebase/firestore'
+import { collection, doc, getDoc, type Firestore } from 'firebase/firestore'
 import { auth, callServer, db } from '../firebase'
 import { normalizeLook } from './char/look'
 import type { AvatarLook } from '../../shared/look'
@@ -40,6 +33,10 @@ export interface AccountSummary {
   id: string
   nickname: string
   createdAtMs: number
+  /** 캐릭터를 만들어 두었는가. 안 만들었으면 지도에 점으로 뜬다 */
+  face: boolean
+  /** 지금 돌고 있는 판에 앉아 있는가. 지우기 전에 알아야 한다 */
+  playing: boolean
 }
 
 interface AccountDoc {
@@ -202,34 +199,28 @@ export async function saveAccountCharacter(_id: string, nickname: string, avatar
 
 // ── 진행자용 ────────────────────────────────────────────────────
 
-/** 가입한 계정을 전부 펴 본다. 소금·해시는 다른 문서에 있어 딸려 나오지 않는다. */
-export async function listAccounts(): Promise<AccountSummary[]> {
-  const snap = await getDocs(accountsCol()).catch((e) => {
-    throw friendly(e)
-  })
-  return snap.docs
-    .map((d) => {
-      const r = d.data() as AccountDoc
-      return {
-        id: d.id,
-        nickname: typeof r.nickname === 'string' ? r.nickname : '',
-        createdAtMs: typeof r.createdAtMs === 'number' ? r.createdAtMs : 0,
-      }
-    })
-    .sort((a, b) => a.createdAtMs - b.createdAtMs || a.id.localeCompare(b.id))
+/**
+ * 가입한 계정을 전부 펴 본다. **서버가 편다.**
+ *
+ * 전에는 브라우저가 계정 컬렉션을 통째로 읽었다. 그러려면 규칙이
+ * 목록 보기를 아무에게나 열어 두어야 하는데, 그러면 가입한 사람들의
+ * 아이디와 이름이 누구에게나 보인다 — 진행자 화면 하나 만들자고
+ * 명부를 길에 내놓는 꼴이었다. 이제 운영자 표시를 서버가 본다.
+ *
+ * 소금·해시는 안 나온다. 다른 문서에 있고 그쪽은 서버만 읽는다.
+ */
+export async function listAccounts(): Promise<{ rows: AccountSummary[]; me: string }> {
+  const reply = await callServer<{ rows: AccountSummary[]; me: string }>('hostAccounts', {})
+  return { rows: reply.rows ?? [], me: reply.me ?? '' }
 }
 
 /**
- * 계정 하나를 지운다.
+ * 고른 계정을 지운다. **판은 안 건드린다.**
  *
- * 비밀번호 문서는 이제 서버만 읽고 쓰므로 여기서 못 지운다. 계정
- * 문서를 지우면 로그인이 막히고, 남은 해시 문서는 아무 열쇠도 열지
- * 못하는 조각이 된다.
+ * 명단에 적힌 이름·팀·얼굴은 판이 제 안에 베껴 들고 있어서, 지난
+ * 판의 기록은 그대로 남는다. 지워지는 것은 그 아이디로 다시 들어오는
+ * 길뿐이다 — 같은 아이디로 다시 가입하면 uid 가 같아서 자리로 돌아온다.
  */
-export async function deleteAccount(rawId: string): Promise<void> {
-  const id = normalizeId(rawId)
-  if (!ID_RE.test(id)) throw new Error('그런 아이디는 없다.')
-  await deleteDoc(accountRef(id)).catch((e) => {
-    throw friendly(e)
-  })
+export async function deleteAccounts(ids: readonly string[]): Promise<{ gone: string[]; kept: { id: string; why: string }[] }> {
+  return await callServer('hostDeleteAccounts', { ids })
 }

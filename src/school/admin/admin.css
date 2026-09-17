@@ -202,3 +202,54 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+
+/* ── 가입 데이터 ──────────────────────────────────────────────── */
+
+.sc-ad__accounts {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #d8dade;
+  border-radius: 8px;
+}
+.sc-ad__accounts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-bottom: 1px solid #e6e8ea;
+}
+.sc-ad__accounts li:last-child { border-bottom: 0; }
+/* 손가락이 닿는 자리는 줄 전체다. 네모만 짚게 두면 자꾸 빗나간다 */
+.sc-ad__accounts label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.sc-ad__accounts input { flex: 0 0 auto; width: 16px; height: 16px; min-width: 0; min-height: 0; }
+.sc-ad__accounts b { font-size: 13px; font-weight: 600; }
+.sc-ad__accounts label span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #6b7076;
+}
+.sc-ad__accounts em {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.sc-ad__tagDot { color: #8a8f96; }
+.sc-ad__tagPlay { color: #2f6f4f; }
+.sc-ad__tagMe { color: #2f5f9e; }

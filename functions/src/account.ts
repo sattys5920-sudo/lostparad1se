@@ -270,3 +270,99 @@ export const saveCharacter = onCall<{ nickname: string; avatar: unknown }>(async
   await accountRef(accountId).update({ nickname, avatar: req.data.avatar ?? null })
   return { nickname }
 })
+
+// ── 운영자: 가입 데이터 ─────────────────────────────────────────
+//
+// **판과 가입은 따로다.** 계정을 지워도 명단(seats)은 안 건드린다 —
+// 이름·팀·얼굴은 판이 제 안에 베껴 들고 있어서, 지난 판의 기록은
+// 그대로 남는다. 지워지는 것은 「그 아이디로 다시 들어오는 길」뿐이다.
+//
+// uid 는 아이디를 해시한 값이라, 같은 아이디로 다시 가입하면 **같은
+// uid** 가 나온다. 잘못 지웠으면 그 아이디로 다시 가입하면 자리로
+// 돌아간다 — 비밀번호는 새로 정한 것이 된다.
+
+/** 운영자만. 화면이 하는 말을 믿지 않는다. */
+function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): void {
+  if (!auth?.uid) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
+  if (auth.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
+}
+
+/** 지금 돌고 있는 판에 앉아 있는 uid 들. 지우기 전에 보여 준다. */
+async function seatedNow(): Promise<Set<string>> {
+  const out = new Set<string>()
+  const games = await db.collection('games').get()
+  for (const g of games.docs) {
+    const d = g.data() as { phase?: string; seats?: { playerId?: string }[] }
+    if (d.phase !== 'running') continue
+    for (const s of d.seats ?? []) if (s.playerId) out.add(s.playerId)
+  }
+  return out
+}
+
+/**
+ * 가입한 계정을 전부 편다. 운영자만.
+ *
+ * **소금과 해시는 안 나온다.** 다른 문서(auth/secret)에 있고 그쪽은
+ * 서버만 읽는다. 여기서 나가는 것은 아이디·이름·가입 시각과, 얼굴을
+ * 만들었는지, 지금 돌고 있는 판에 앉아 있는지뿐이다.
+ */
+export const hostAccounts = onCall(async (req) => {
+  requireHost(req.auth)
+  const [snap, seated] = await Promise.all([
+    db.collection('schoolSessions/live/accounts').get(),
+    seatedNow(),
+  ])
+  const rows = snap.docs.map((d) => {
+    const r = d.data() as AccountDoc & { createdAtMs?: number }
+    const uid = uidOf(d.id)
+    return {
+      id: d.id,
+      nickname: typeof r.nickname === 'string' ? r.nickname : '',
+      createdAtMs: typeof r.createdAtMs === 'number' ? r.createdAtMs : 0,
+      face: r.avatar != null,
+      playing: seated.has(uid),
+    }
+  })
+  rows.sort((a, b) => a.createdAtMs - b.createdAtMs || a.id.localeCompare(b.id))
+  // 내 계정은 지울 수 없다. 화면이 미리 잠그도록 누구인지 알려 준다
+  return { rows, me: normalizeId(String(req.auth?.token?.accountId ?? '')) }
+})
+
+/**
+ * 고른 계정을 지운다. 운영자만.
+ *
+ * 세 가지를 같이 지운다 — 계정 문서, 그 아래 비밀번호 문서, 그리고
+ * 로그인 자체(Firebase 사용자). **계정 문서만 지우면 증표가 살아
+ * 있어서** 이미 로그인해 둔 브라우저는 한동안 그대로 논다.
+ *
+ * 자기 자신은 못 지운다. 운영자가 제 계정을 지우고 나면 관리자 화면에
+ * 다시 들어올 길이 없다.
+ */
+export const hostDeleteAccounts = onCall<{ ids: string[] }>(async (req) => {
+  requireHost(req.auth)
+  const mine = normalizeId(String(req.auth?.token?.accountId ?? ''))
+  const ids = [...new Set((req.data.ids ?? []).map(normalizeId))].filter((x) => x.length > 0)
+  if (ids.length === 0) throw new HttpsError('invalid-argument', '지울 것을 고르지 않았다.')
+
+  const gone: string[] = []
+  const kept: { id: string; why: string }[] = []
+  for (const id of ids) {
+    if (id === mine) {
+      kept.push({ id, why: '내 계정이다' })
+      continue
+    }
+    const snap = await accountRef(id).get()
+    if (!snap.exists) {
+      kept.push({ id, why: '그런 아이디가 없다' })
+      continue
+    }
+    await secretRef(id).delete()
+    await accountRef(id).delete()
+    // 남은 로그인 증표까지 끊는다. 없으면 그냥 넘어간다
+    await getAuth()
+      .deleteUser(uidOf(id))
+      .catch(() => undefined)
+    gone.push(id)
+  }
+  return { gone, kept }
+})

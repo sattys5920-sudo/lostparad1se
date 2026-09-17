@@ -34,19 +34,21 @@ service cloud.firestore {
 
       // 계정. 비밀번호 원문은 오지 않고, 소금을 섞은 해시만 올라온다.
       //
-      // 해시는 계정 문서가 아니라 그 아래 auth/secret에 둔다. 그래서 계정
-      // 목록을 펴 봐도(진행자가 정리하려면 필요하다) 해시는 딸려 나오지
-      // 않는다. 해시 문서는 목록 보기를 막아 아이디를 정확히 아는 사람만
-      // 한 건씩 읽을 수 있다.
+      // 해시는 계정 문서가 아니라 그 아래 auth/secret에 둔다. 두 겹으로
+      // 막아 둔 셈이다 — 계정 문서를 읽어도 해시는 딸려 나오지 않고,
+      // 해시 문서는 서버 말고 아무도 못 읽는다.
       match /accounts/{accountId} {
-        // 닉네임·아바타뿐이라 열어 둔다. 진행자 화면이 이걸로 목록을 만든다
-        allow get, list: if true;
-        allow create: if true;
-        // 계정 문서에 해시를 도로 심지 못하게 막는다. 고치고 난 문서에 해시가
-        // 남아 있으면 안 된다 — 걷어내는 것(예전 계정 옮기기)은 통과한다
-        allow update: if !request.resource.data.keys().hasAny(['salt', 'hash']);
-        // 진행자가 가입 데이터를 지운다
-        allow delete: if true;
+        // **제 것만 읽는다.**
+        //
+        // 전에는 목록 보기까지 열어 두었다. 진행자 화면이 브라우저에서
+        // 계정 컬렉션을 통째로 읽었기 때문인데, 그 말은 가입한 사람들의
+        // 아이디와 이름이 누구에게나 보였다는 뜻이다 — 화면 하나 만들자고
+        // 명부를 길에 내놓은 꼴이었다. 목록도 지우기도 서버로 옮겼다
+        // (hostAccounts · hostDeleteAccounts, 운영자 표시를 서버가 본다).
+        //
+        // 가입·수정·삭제는 전부 서버가 한다. Admin SDK 는 규칙을 안 거친다.
+        allow get: if request.auth != null && request.auth.token.accountId == accountId;
+        allow list, create, update, delete: if false;
 
         // 소금과 해시. **서버만 읽고 쓴다.**
         //
