@@ -320,6 +320,10 @@ export function gameActions(gameId: string) {
     /** 우리 팀 팀장으로 한 사람을 적는다. 창이 닫히기 전까지 바꿀 수 있다. */
     voteCaptain: (targetId: string) => callServer('voteCaptain', { ...g, targetId }),
 
+    // ── 완성품 ──────────────────────────────────────────────────
+    /** 연구실에 놓인 것을 가져간다. 먼저 온 사람이 가진다 — 누구든. */
+    takeMade: (madeId: string) => callServer('takeMade', { ...g, madeId }),
+
     /** 아침 시퀀스를 어디까지 봤는지 적는다. */
     markMorning: (read: number[], skipped: number[]) => callServer('markMorning', { ...g, read, skipped }),
     /** A의 기록 한 조각. 공개 시각 전에는 서버가 거절한다. */

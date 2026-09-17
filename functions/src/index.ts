@@ -114,6 +114,9 @@ export { askTransfer, answerTransfer } from './transfer'
 // 팀장 — 날마다 팀이 투표로 뽑는다.
 export { voteCaptain } from './captain'
 
+// 연구실에 놓인 완성품을 가져간다. 먼저 온 사람이 가진다.
+export { takeMade } from './made'
+
 // 마주 보고 하는 거래. 양쪽이 각자 물건을 올리고, 성립할 때 값이 든다.
 export {
   askDeal,

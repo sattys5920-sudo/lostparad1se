@@ -22,7 +22,6 @@ import { getFirestore } from 'firebase-admin/firestore'
 import {
   ACT_COST,
   ACT_MINUTES,
-  KNOWLEDGE_PER_RESEARCH,
   MOVE_MINUTES,
   PHASES_PER_DAY,
   PHASE_MINUTES,
@@ -37,7 +36,6 @@ import {
   settle,
   type Act,
   type ActionKind,
-  type PendingResearch,
   type PhaseState,
   type Person,
   type Robot,
@@ -56,6 +54,7 @@ import {
   type TileDoc,
 } from '../../shared/model'
 import { freshNow, refuseIfInvisible, requireFree } from './turn'
+import { researchTierUp, type Brewing } from './made'
 import { countsDouble, roundAt } from '../../shared/rules/captain'
 import { clearArrivals } from './move'
 import { openInterval } from './reveal'
@@ -64,8 +63,7 @@ import { scatterSlips } from './slips'
 import { foldQuizzes, scatterQuizzes } from './quiz'
 import { settleBallots } from './ballot'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
-import { drawForTeam } from './card'
-import { note, noteAll } from './records'
+import { note } from './records'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -105,7 +103,7 @@ interface HiddenPhase {
   disguised: string[]
   zeroedPeople: string[]
   zeroedRobots: string[]
-  pendingResearch: PendingResearch[]
+  pendingResearch: Brewing[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: string[]
   /** 이번 페이즈에 무엇이든 한 사람. 결석 보정이 이 목록을 본다. */
@@ -115,17 +113,20 @@ interface HiddenPhase {
 /**
  * 걸어 둔 연구를 읽어 온다.
  *
- * **옛 판은 사람 이름만 적어 두었다.** 연구값이 연구실 주인에 따라
- * 갈리기 전에는 값을 적을 필요가 없었다. 그때 저장된 것을 만나면
- * 「아무에게도 안 낸 두 점」으로 친다 — 그래야 불발 환급이 터지지
- * 않는다.
+ * **모양이 안 맞는 옛 줄은 버린다.** 연구가 「페이즈 끝에 한꺼번에」
+ * 에서 「스무 분 뒤 그 연구실에」로 바뀌면서, 어느 방인지와 언제
+ * 익는지가 없으면 처리할 길이 아예 없어졌다. 값을 지어내 놓고
+ * 엉뚱한 방에 로봇을 내느니 버리는 편이 낫다.
  */
-function queued(raw: unknown): PendingResearch[] {
+function queued(raw: unknown): Brewing[] {
   if (!Array.isArray(raw)) return []
-  return raw.map((r) =>
-    typeof r === 'string' ?
-      { playerId: r, knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }
-    : (r as PendingResearch),
+  return raw.filter(
+    (r): r is Brewing =>
+      r !== null &&
+      typeof r === 'object' &&
+      typeof (r as Brewing).playerId === 'string' &&
+      typeof (r as Brewing).tileId === 'string' &&
+      typeof (r as Brewing).doneAtMs === 'number',
   )
 }
 
@@ -688,7 +689,16 @@ export const phaseAct = onCall<{
       disguised: out.next.disguised,
       zeroedPeople: out.next.zeroedPeople,
       zeroedRobots: out.next.zeroedRobots,
-      pendingResearch: out.next.pendingResearch,
+      /*
+       * **익는 시각은 서버가 찍는다.** 규칙은 시계를 안 본다 —
+       * 어느 연구실에 걸었는지까지가 규칙의 몫이고, 언제 익는지는
+       * 시계를 쥔 쪽의 몫이다. 이미 찍힌 것은 그대로 둔다
+       */
+      pendingResearch: out.next.pendingResearch.map((r) =>
+        typeof (r as Brewing).doneAtMs === 'number'
+          ? (r as Brewing)
+          : { ...r, doneAtMs: nowMs + ACT_MINUTES.research * 60_000 },
+      ),
       smashedBy: out.next.smashedBy,
       actedBy: out.next.actedBy,
     })
@@ -703,7 +713,7 @@ export const phaseAct = onCall<{
       subjectId: bot.made.id,
       ownerId: uid,
     })
-    await researchLanded(gameId, bot.made.team, uid, game.phaseNow.day)
+    await researchTierUp(gameId, bot.made.team, uid, game.phaseNow.day)
   }
   if (bot.smashed) {
     await note(gameId, 'robotSmashed', nowMs, { id: uid, team: bot.smashed.byTeam }, {
@@ -721,22 +731,6 @@ export const phaseAct = onCall<{
   await refreshViews(gameId)
   return { kind, tokens: left, walking: leftFor !== null }
 })
-
-/**
- * 연구가 하나 끝났다. **팀의 연구 단계를 올리고 카드를 한 장 준다.**
- *
- * 전에는 이 둘이 자유 시간의 연구에 붙어 있었다. 연구를 페이즈로
- * 옮기면서 같이 왔다 — 안 옮겼으면 연구 단계는 영영 0이고(점수판의
- * 「발전」 줄과 「학구파」 목표가 죽는다) 카드는 나올 데가 없어진다.
- */
-async function researchLanded(gameId: string, team: TeamId, playerId: string, day: number) {
-  const ref = gameRef(gameId).collection('teams').doc(team)
-  const snap = await ref.get()
-  const tier = ((snap.data()?.researchTier as number | undefined) ?? 0) + 1
-  await ref.update({ researchTier: tier })
-  // 손패가 차 있으면 그대로 사라진다
-  await drawForTeam(gameId, team, playerId, day)
-}
 
 /** 페이즈가 지금 어떤지. **무엇을 했는지는 안 나간다.** */
 export const phaseNow = onCall<{ gameId: string }>(async (req) => {
@@ -864,35 +858,6 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
 
   await batch.commit()
   const batch2 = db.batch()
-  // 한 페이즈가 지날 때마다 쪽지가 몇 장 더 떨어진다. 자유 시간에
-  // 주우러 다닐 것이 있어야 자유 시간이 시간이 된다
-  // 걸어 둔 연구가 이제 로봇이 됐다. 지금 난 것도 만든 것이다 —
-  // 그 자리에서 난 것만 세면 발전소 없는 팀의 과학부는 영영 못 채운다
-  await noteAll(
-    gameId,
-    out.log
-      .filter((l) => l.kind === 'researchDone' && l.playerId)
-      .map((l) => {
-        const who = state.people.find((p) => p.playerId === l.playerId) as Person
-        const fresh = out.next.robots.find((r) => !state.robots.some((b) => b.id === r.id) && r.team === who.team)
-        return {
-          kind: 'robotBorn' as const,
-          atMs: nowMs,
-          actorId: l.playerId as string,
-          actorTeam: who.team,
-          tileId: l.tileId ?? null,
-          subjectId: fresh?.id ?? null,
-          ownerId: l.playerId as string,
-        }
-      }),
-  )
-
-  // 걸어 둔 연구가 끝났다. 단계를 올리고 카드를 준다
-  for (const l of out.log) {
-    if (l.kind !== 'researchDone' || !l.playerId) continue
-    const who = state.people.find((p) => p.playerId === l.playerId)
-    if (who) await researchLanded(gameId, who.team, l.playerId, game.phaseNow.day)
-  }
 
   // 그날 마지막 페이즈면 내일의 투명인간을 고른다. **득표수는 남기지
   // 않는다** — 발표되는 것은 결과 한 줄뿐이다

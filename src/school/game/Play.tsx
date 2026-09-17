@@ -671,6 +671,27 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       room.push({ key: 'buy', icon: 'buy', label: '구매', run: () => setSheet('shop') })
     }
     /*
+     * **이 방에 놓인 완성품.** 첫 칸을 가져간다.
+     *
+     * 주인이 없다 — 연구를 건 사람이 제때 여기 없었다는 뜻이고, 먼저
+     * 누른 사람이 가진다. 남의 팀 것도 가져갈 수 있다. 자유 시간에는
+     * 나와 있지 않으므로 이 칸도 안 뜬다.
+     */
+    const made = phaseOpen ? (state.view?.madeHere ?? []) : []
+    if (made.length > 0) {
+      const first = made[0]
+      room.push({
+        key: 'made',
+        icon: 'made',
+        label: made.length > 1 ? `완성품 ${made.length}` : '완성품',
+        run: () =>
+          void act
+            .takeMade(first.id)
+            .then((r) => say(String((r as { said?: string }).said ?? '가져갔다.')))
+            .catch((e) => refuse((e as Error).message)),
+      })
+    }
+    /*
      * **생산과 공부는 페이즈에만 있다.**
      *
      * 자유 시간은 만나고 거래하고 이야기하는 시간이다. 거기에 값을
@@ -708,7 +729,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
     ]
     return [...room, ...fixed, ...tail]
-  }, [phaseOpen, standingOn, phaseTokens, busyLeftMs, busyKind, act, say, refuse])
+  }, [phaseOpen, standingOn, phaseTokens, busyLeftMs, busyKind, state.view?.madeHere, act, say, refuse])
 
   /**
    * 여섯 칸에 다 안 들어가면 마지막 칸을 「더보기」가 쓴다.

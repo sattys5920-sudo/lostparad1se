@@ -413,14 +413,17 @@ describe('연구', () => {
     expect(doAct(board({ people: [person('a', 'A', lab.id)] }), 'a', { kind: 'research' }).ok).toBe(true)
   })
 
-  it('건 다음 페이즈가 닫힐 때 로봇이 된다', () => {
+  /**
+   * 거는 순간에는 아무것도 안 난다. **어느 연구실에 걸었는지**를
+   * 적어 두고, 완성은 스무 분 뒤 그 방에서 서버가 처리한다.
+   */
+  it('걸면 그 연구실이 적힌다 — 로봇은 아직 없다', () => {
     let s = board({ people: [person('a', 'A', lab.id)] })
     s = must(s, 'a', { kind: 'research' })
     expect(s.robots).toHaveLength(0)
-    expect(s.pendingResearch).toEqual([{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }])
-    const done = settle(s)
-    expect(done.next.robots).toHaveLength(1)
-    expect(done.next.pendingResearch).toEqual([])
+    expect(s.pendingResearch).toEqual([
+      { playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null, tileId: lab.id },
+    ])
   })
 
   it('발전소를 쥔 팀은 그 자리에서 나온다', () => {
@@ -460,28 +463,32 @@ describe('연구', () => {
     const s = board({
       people: [person('a', 'A', lab.id), person('b', 'A', lab.id)],
       robots: almost,
-      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }],
+      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null, tileId: lab.id }],
     })
     const out = doAct(s, 'b', { kind: 'research' })
     expect(out.ok).toBe(false)
   })
 
-  it('한도에 걸려 불발되면 토큰을 돌려준다', () => {
-    // 연구를 건 뒤 같은 팀이 먼저 채워 버린 판. 내 잘못이 아니라 환불한다
-    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+  /**
+   * **안 익은 연구는 페이즈가 닫힐 때 사라진다.** 값도 안 돌아온다.
+   *
+   * 완성은 스무 분 뒤 그 연구실에서 일어나는 일이라, 종이 치면 그냥
+   * 끝이다. 낸 값을 돌려주면 페이즈 끝무렵에 밑져야 본전으로 거는
+   * 것이 되어 「남은 시간을 보고 건다」가 규칙이 아니게 된다.
+   */
+  it('안 익은 연구는 닫힐 때 사라지고 값도 안 돌아온다', () => {
     const s = board({
       people: [person('a', 'A', lab.id)],
-      robots: full,
-      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }],
+      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null, tileId: lab.id }],
+      vaults: { A: { money: 0, knowledge: 0 } },
       wallets: { A: 1 },
     })
     const done = settle(s)
-    expect(done.next.robots).toHaveLength(ROBOTS_PER_TEAM)
-    expect(done.log.some((l) => l.kind === 'researchFizzled' && l.playerId === 'a')).toBe(true)
-    // **팀 상자로 돌아온다.** 낸 사람이 아니라 팀이 낸 값이다
-    expect(purse(done.next, 'A')).toBe(1 + ACT_COST.research)
-    // 불발은 미뤄 두지 않는다. 한도는 다음 페이즈에도 그대로다
     expect(done.next.pendingResearch).toEqual([])
+    // 로봇도 안 난다 — 나는 자리는 연구실이고 나는 때는 스무 분 뒤다
+    expect(done.next.robots).toHaveLength(0)
+    expect(purse(done.next, 'A')).toBe(1)
+    expect(vaultOf(done.next, 'A').knowledge).toBe(0)
   })
 })
 
@@ -503,7 +510,9 @@ describe('연구에 드는 지식', () => {
   it('걸 때 바로 뺀다 — 완성될 때 빼면 없는 지식으로 넷이 연구한다', () => {
     const s = must(withVault(5), 'a', { kind: 'research' })
     expect(vaultOf(s, 'A').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
-    expect(s.pendingResearch).toEqual([{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }])
+    expect(s.pendingResearch).toEqual([
+      { playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null, tileId: lab2.id },
+    ])
   })
 
   it('우리 연구실이면 한 점만 들고, 그 한 점은 아무도 안 받는다', () => {
@@ -544,44 +553,16 @@ describe('연구에 드는 지식', () => {
     expect(vaultOf(s, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH - 1)
   })
 
-  it('불발되면 토큰과 지식을 함께 돌려준다', () => {
-    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+  /** 남의 연구실에 낸 지식은 **돌아오지 않는다.** 주인 팀이 가진 값이다. */
+  it('남의 연구실에 낸 지식은 닫혀도 주인 팀에 남는다', () => {
     const s = board({
       people: [person('a', 'A', lab2.id)],
-      robots: full,
-      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }],
-      vaults: { A: { money: 0, knowledge: 0 } },
-      wallets: { A: 1 },
-    })
-    const done = settle(s)
-    expect(purse(done.next, 'A')).toBe(1 + ACT_COST.research)
-    expect(vaultOf(done.next, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH)
-  })
-
-  it('불발 환불은 걸 때 적어 둔 액수 그대로다', () => {
-    // 그 사이에 연구실 주인이 바뀌었다고 덜 돌려주면 남의 일로 손해를 본다
-    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
-    const s = board({
-      people: [person('a', 'A', lab2.id)],
-      robots: full,
-      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH_OWNER, paidTo: null }],
-      owners: { [lab2.id]: 'B' },
-      vaults: { A: { money: 0, knowledge: 0 } },
-    })
-    expect(vaultOf(settle(s).next, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH_OWNER)
-  })
-
-  it('남에게 냈던 것이 불발되면 그 팀 금고에서 도로 뺀다', () => {
-    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
-    const s = board({
-      people: [person('a', 'A', lab2.id)],
-      robots: full,
-      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: 'B' }],
+      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: 'B', tileId: lab2.id }],
       vaults: { A: { money: 0, knowledge: 0 }, B: { money: 0, knowledge: KNOWLEDGE_PER_RESEARCH } },
     })
     const done = settle(s).next
-    expect(vaultOf(done, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH)
-    expect(vaultOf(done, 'B').knowledge).toBe(0)
+    expect(vaultOf(done, 'A').knowledge).toBe(0)
+    expect(vaultOf(done, 'B').knowledge).toBe(KNOWLEDGE_PER_RESEARCH)
   })
 })
 
@@ -668,17 +649,17 @@ describe('닫으면 서 있는 자리로 주인이 정해진다', () => {
     expect(done.next.disguised).toEqual([])
   })
 
-  it('닫을 때 난 로봇은 이번 판정에 안 낀다', () => {
+  it('걸어 둔 연구는 판정에 안 낀다 — 로봇이 아직 없다', () => {
     // A 하나가 연구를 걸어 둔 방에 B 하나가 서 있다
     const s = board({
       people: [person('a', 'A', lab.id), person('b', 'B', lab.id)],
       owners: { [lab.id]: null },
-      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null }],
+      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, paidTo: null, tileId: lab.id }],
     })
     const done = settle(s)
     // 로봇이 끼었다면 A가 2대1로 가져갔을 것이다. 1대1이라 안 바뀐다
     expect(done.next.owners[lab.id]).toBeNull()
-    expect(done.next.robots).toHaveLength(1)
+    expect(done.next.robots).toHaveLength(0)
   })
 })
 

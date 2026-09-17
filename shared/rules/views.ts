@@ -126,6 +126,8 @@ export interface World {
   pawns: readonly WorldPawn[]
   /** 판 위의 로봇. 사람처럼 안개를 거친다 — 보이는 방의 것만 내려간다. */
   robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
+  /** 연구실에 놓인 주인 없는 완성품. */
+  made?: readonly { id: string; tileId: TileId; byPlayerId: string }[]
   /** 지금 위장하고 있는 사람들. 남에게 보이는 숫자를 서버가 부풀린다. */
   disguised?: readonly string[]
   /** 이번 페이즈에 로봇을 부순 사람. 투영이 내 것만 세어 보낸다. */
@@ -181,6 +183,14 @@ export interface View {
   visibleIds: string[]
   /** 보이는 방에 있는 로봇. 머릿수로만 센다. */
   visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
+  /**
+   * **내가 선 방에 놓인** 주인 없는 완성품.
+   *
+   * 안개 너머의 것은 안 보낸다. 방마다 몇 개 놓였는지가 보이면 어느
+   * 연구실에서 연구가 돌고 있는지가 학교 반대편에서 읽힌다 — 그것은
+   * 걸어가서 봐야 하는 값이다.
+   */
+  madeHere: { id: string; byPlayerId: string; mine: boolean }[]
   /**
    * 방마다 **내게 보이는** 머릿수. 미니맵이 이 숫자를 그대로 쓴다.
    *
@@ -359,6 +369,7 @@ export function projectView(world: World, viewerId: string): View {
       visiblePawns: [],
       visibleIds: [],
       visibleRobots: [],
+      madeHere: [],
       roomCounts: {},
       visibleTiles: [],
       hand: [],
@@ -427,6 +438,11 @@ export function projectView(world: World, viewerId: string): View {
     visibleRobots: (world.robots ?? [])
       .filter((r) => visible.has(r.tileId))
       .map((r) => ({ id: r.id, team: r.team, tileId: r.tileId })),
+
+    // 내가 선 방에 놓인 것만. 걷는 중이면 아무것도 안 온다
+    madeHere: (world.made ?? [])
+      .filter((m) => here !== null && m.tileId === here)
+      .map((m) => ({ id: m.id, byPlayerId: m.byPlayerId, mine: m.byPlayerId === viewerId })),
 
     visiblePawns: seen,
     /**

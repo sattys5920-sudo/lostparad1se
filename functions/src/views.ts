@@ -59,13 +59,14 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, peeks, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, goals, peeks, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
       sub(gameId, 'teams').get(),
       sub(gameId, 'tiles').get(),
       sub(gameId, 'robots').get(),
+      sub(gameId, 'made').get(),
       secret(gameId, 'roster').get(),
       secret(gameId, 'hands').get(),
       secret(gameId, 'goals').get(),
@@ -149,6 +150,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     robots: robots.docs.map((d) => {
       const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }
       return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
+    }),
+    made: made.docs.map((d) => {
+      const m = d.data() as { tileId: TileId; byPlayerId: string }
+      return { id: d.id, tileId: m.tileId, byPlayerId: m.byPlayerId }
     }),
     tiles: tiles.docs.map((d) => {
       const t = d.data() as TileDoc

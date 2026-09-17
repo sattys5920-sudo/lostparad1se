@@ -39,6 +39,7 @@ import type {
 import { gameRef } from './index'
 import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
+import { landResearch } from './made'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
 
@@ -465,6 +466,9 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   await sweepDeals(gameId, toMs)
 
   // 세상이 바뀌었으면 각자 몫을 다시 깎는다. 틀린 안개는 새는 안개다
+  // 스무 분이 찬 연구를 여기서 익힌다. 본인이 그 연구실에 서 있으면
+  // 받고, 아니면 주인 없는 완성품이 되어 그 방에 놓인다
+  await landResearch(gameId)
   // 창이 닫힌 팀장 투표를 여기서 센다. 동점이면 다음 차례가 걸린다
   await settleCaptainVotes(gameId)
   if (applied > 0) await refreshViews(gameId)

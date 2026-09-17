@@ -311,13 +311,15 @@ export interface PendingResearch {
   knowledge: number
   /** 그 지식을 받은 팀. 우리 연구실이었으면 아무도 안 받았다. */
   paidTo: TeamId | null
+  /** 어느 연구실에 걸었는가. **완성품이 그 방에 놓인다.** */
+  tileId: TileId
 }
 
 export interface PhaseState {
   people: readonly Person[]
   robots: readonly Robot[]
   owners: Readonly<Partial<Record<TileId, TeamId | null>>>
-  /** 지난 페이즈에 연구를 건 사람들. 이번 페이즈 끝에 로봇이 된다. */
+  /** 지금 돌고 있는 연구들. 스무 분 뒤에 그 연구실에 완성품이 놓인다. */
   pendingResearch: readonly PendingResearch[]
   /** 이번 페이즈에 방해당한 사람·로봇. 점령 판정에서 0으로 센다. */
   zeroedPeople: readonly string[]
@@ -438,7 +440,6 @@ export type LogKind =
   | 'robotSmashed'
   | 'researchStarted'
   | 'researchDone'
-  | 'researchFizzled'
   | 'captured'
 
 export interface LogLine {
@@ -823,7 +824,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
         const his = paid[paidTo] ?? EMPTY_VAULT
         paid = { ...paid, [paidTo]: { ...his, knowledge: his.knowledge + need } }
       }
-      const queued: PendingResearch = { playerId, knowledge: need, paidTo }
+      const queued: PendingResearch = { playerId, knowledge: need, paidTo, tileId: mine.tileId }
 
       if (!hasPlant) {
           return {
@@ -931,44 +932,22 @@ export function settle(state: PhaseState): SettleResult {
     if (after !== before && after) log.push({ kind: 'captured', tileId: t.id, team: after })
   }
 
-  // 지난 페이즈의 연구가 이제 로봇이 된다
-  let robots = [...state.robots]
-  const botsAt = (tileId: TileId) => robots.filter((r) => r.tileId === tileId).length
-  const botsOf = (team: TeamId) => robots.filter((r) => r.team === team).length
-  /** 불발된 연구에 돌려주는 토큰. **팀 상자로 돌아간다.** */
-  const refund = new Map<TeamId, number>()
-  /** 불발이면 지식도 같이 돌려준다. 걸 때 뺐으므로 도로 넣어야 한다. */
+  /*
+   * **연구는 여기서 처리하지 않는다.**
+   *
+   * 전에는 걸어 둔 연구가 페이즈가 닫힐 때 한꺼번에 로봇이 됐다. 이제는
+   * 건 지 스무 분 뒤에 **그 연구실에** 완성품이 놓이고, 그때 거기 서
+   * 있던 본인이 받는다. 못 받으면 주인 없는 물건이 되어 먼저 온 사람이
+   * 가진다 — 누구든.
+   *
+   * 그래서 시각을 보는 일이고, 시각은 서버의 몫이다. 여기서는 **아직
+   * 안 익은 것을 버리기만** 한다. 낸 값은 안 돌려준다 — 건 순간 치른
+   * 값이라, 남은 시간을 보고 걸라는 압박이 그대로 규칙이 된다.
+   */
+  const robots = [...state.robots]
   const vaults: Partial<Record<TeamId, Vault>> = { ...state.vaults }
-  let made = 0
-  for (const r of state.pendingResearch) {
-    const id = r.playerId
-    const p = state.people.find((q) => q.playerId === id)
-    // 연구를 건 사람이 걷는 중이면 로봇이 설 자리가 없다. 다음으로 미룬다
-    if (!p || p.tileId === null) continue
-    // **한도에 걸리면 불발이고 값을 돌려준다.** 같은 팀 사람이 먼저
-    // 완성해서 막힌 것이라 이 사람의 잘못이 아니다. 자리가 없는 것과
-    // 달라서 다음으로 미루지도 않는다 — 한도는 다음 페이즈에도 그대로다
-    if (botsOf(p.team) >= ROBOTS_PER_TEAM || botsAt(p.tileId) + 1 > ROBOTS_PER_ROOM) {
-      refund.set(p.team, (refund.get(p.team) ?? 0) + ACT_COST.research)
-      // 지식도 **걸 때 적어 둔 액수 그대로** 돌린다. 지금 값으로 세면
-      // 그사이 연구실 주인이 바뀐 만큼 남의 일로 손해를 본다.
-      // 주인에게 냈던 것이면 주인 금고에서 도로 빼서 돌려준다
-      const back = vaults[p.team] ?? EMPTY_VAULT
-      vaults[p.team] = { ...back, knowledge: back.knowledge + r.knowledge }
-      if (r.paidTo) {
-        const his = vaults[r.paidTo] ?? EMPTY_VAULT
-        vaults[r.paidTo] = { ...his, knowledge: Math.max(0, his.knowledge - r.knowledge) }
-      }
-      log.push({ kind: 'researchFizzled', playerId: id, tileId: p.tileId })
-      continue
-    }
-    made += 1
-    robots = [...robots, born(p, robots, `${id}-${made}`, p.tileId)]
-    log.push({ kind: 'researchDone', playerId: id, tileId: p.tileId })
-  }
 
   const wallets: Partial<Record<TeamId, number>> = { ...state.wallets }
-  for (const [team, back] of refund) wallets[team] = (wallets[team] ?? 0) + back
 
   return {
     next: {

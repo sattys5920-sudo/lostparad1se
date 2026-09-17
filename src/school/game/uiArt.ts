@@ -313,6 +313,26 @@ const DISGUISE = M([
   '                ',
 ])
 
+/** 완성품 — 반짝이는 로봇 머리. 연구실에 놓인 주인 없는 것이다. */
+const MADE = M([
+  '                ',
+  '  4          4  ',
+  ' 4            4 ',
+  '       33       ',
+  '4      33      4',
+  '  333333333333  ',
+  '  311111111113  ',
+  '  311111111113  ',
+  '  313311113313  ',
+  '  313311113313  ',
+  '  311111111113  ',
+  '  311333333113  ',
+  '  311111111113  ',
+  '  333333333333  ',
+  '                ',
+  '                ',
+])
+
 /** 로봇 두고 가기 — 내려놓는 로봇. */
 const DROP_ROBOT = M([
   '       33       ',
@@ -477,6 +497,7 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   // 점령전 행동 여섯. **열쇠가 곧 ActionKind 다** — Phase 화면이
   // uiIcon(kind) 로 바로 집는다. 아래 자기 검사가 빠진 것을 잡는다
   research: RESEARCH,
+  made: MADE,
   summon: SUMMON,
   disturb: DISTURB,
   disguise: DISGUISE,
