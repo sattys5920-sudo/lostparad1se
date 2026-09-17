@@ -220,7 +220,10 @@ export async function listAccounts(): Promise<{ rows: AccountSummary[]; me: stri
  * 명단에 적힌 이름·팀·얼굴은 판이 제 안에 베껴 들고 있어서, 지난
  * 판의 기록은 그대로 남는다. 지워지는 것은 그 아이디로 다시 들어오는
  * 길뿐이다 — 같은 아이디로 다시 가입하면 uid 가 같아서 자리로 돌아온다.
+ *
+ * **아직 시작 안 한 판의 자리는 같이 비운다.** 지운 사람은 안 돌아오는데
+ * 자리가 차 있으면, 새로 가입한 사람이 「자리가 없다」를 듣는다.
  */
-export async function deleteAccounts(ids: readonly string[]): Promise<{ gone: string[]; kept: { id: string; why: string }[] }> {
+export async function deleteAccounts(ids: readonly string[]): Promise<{ gone: string[]; kept: { id: string; why: string }[]; freed: string[] }> {
   return await callServer('hostDeleteAccounts', { ids })
 }

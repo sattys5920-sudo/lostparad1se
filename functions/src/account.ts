@@ -21,6 +21,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import type { AvatarLook } from '../../shared/look'
+import { sweepAllLobbies } from './seats'
 
 const db = getFirestore()
 const pbkdf2Async = promisify(pbkdf2)
@@ -299,6 +300,12 @@ async function seatedNow(): Promise<Set<string>> {
   return out
 }
 
+/** 계정이 살아 있는 uid 전부. 주인 없는 자리를 가려낼 때 쓴다. */
+export async function accountUids(): Promise<Set<string>> {
+  const snap = await db.collection('schoolSessions/live/accounts').get()
+  return new Set(snap.docs.map((d) => uidOf(d.id)))
+}
+
 /**
  * 가입한 계정을 전부 편다. 운영자만.
  *
@@ -364,5 +371,9 @@ export const hostDeleteAccounts = onCall<{ ids: string[] }>(async (req) => {
       .catch(() => undefined)
     gone.push(id)
   }
-  return { gone, kept }
+  // **지운 사람이 앉아 있던 자리를 비운다.** 안 그러면 로비가 유령으로
+  // 차서, 새로 가입한 사람이 「자리가 없다」를 듣는다. 시작한 판은
+  // 안 건드린다 — 거기서 자리를 빼면 말도 점수도 주인을 잃는다
+  const freed = gone.length > 0 ? await sweepAllLobbies() : []
+  return { gone, kept, freed }
 })

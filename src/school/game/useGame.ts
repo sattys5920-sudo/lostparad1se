@@ -208,6 +208,13 @@ export function gameActions(gameId: string) {
      */
     refreshFaces: () => callServer('refreshFaces', g),
     /**
+     * 주인 없는 자리를 비운다. **아직 시작 안 한 판에서만.**
+     *
+     * 계정을 지워도 명단은 남는다. 로비에서는 그 자리가 그냥 막힌
+     * 자리가 되어, 새로 가입한 사람이 「자리가 없다」를 듣는다.
+     */
+    sweepSeats: () => callServer('sweepSeats', g),
+    /**
      * 달력 한 칸을 손으로 넘긴다.
      *
      * 시계가 날을 바꾸지 않는다. 정산도 끝나는 것도 여기서 민다 —

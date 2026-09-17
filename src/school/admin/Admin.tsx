@@ -268,6 +268,31 @@ function Desk() {
             >
               얼굴 다시 읽기
             </button>
+            {/*
+              **계정을 지우면 자리가 남는다.**
+              지운 사람은 안 돌아오는데 자리는 차 있어서, 새로 가입한
+              사람이 「자리가 없다」를 듣는다. 지울 때 저절로 비우지만,
+              이미 그렇게 막힌 판은 여기서 푼다.
+            */}
+            {game.phase === 'lobby' && (
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run('자리 비우기', async () => {
+                    const r = (await act.sweepSeats()) as { freed?: string[]; left?: number; need?: number }
+                    const n = r.freed?.length ?? 0
+                    setSaid(
+                      n === 0
+                        ? `주인 없는 자리는 없다. ${r.left ?? 0} / ${r.need ?? 0} 앉아 있다.`
+                        : `${n}자리를 비웠다(${(r.freed ?? []).join(', ')}). 이제 ${r.left ?? 0} / ${r.need ?? 0} 이다.`,
+                    )
+                    return {}
+                  })
+                }
+              >
+                주인 없는 자리 비우기
+              </button>
+            )}
             {game.phase !== 'lobby' && <ResetGame busy={busy} act={act} onSaid={setSaid} />}
           </>
         )}
@@ -447,7 +472,12 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
                 void deleteAccounts(chosen)
                   .then((r) => {
                     const no = (r.kept ?? []).map((k) => `${k.id}(${k.why})`).join(', ')
-                    onSaid(`${(r.gone ?? []).length}개를 지웠다.${no ? ` 못 지운 것 — ${no}` : ''}`)
+                    const free = (r.freed ?? []).length
+                    onSaid(
+                      `${(r.gone ?? []).length}개를 지웠다.` +
+                        (free > 0 ? ` 시작 안 한 판의 ${free}자리를 같이 비웠다.` : '') +
+                        (no ? ` 못 지운 것 — ${no}` : ''),
+                    )
                     load()
                   })
                   .catch((e) => onSaid((e as Error).message))

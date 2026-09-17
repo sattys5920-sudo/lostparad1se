@@ -102,18 +102,74 @@ async function main(): Promise<void> {
   const back = await call('logInAccount', null, { id: b, password: PW }).then(() => '', (e: Error) => e.message)
   check(back.length > 0, '지운 계정으로는 못 들어온다', back)
 
-  console.log('\n── 판의 명단은 안 건드린다 ──')
+  const seatsOf = async (gameId: string): Promise<number> => {
+    const g = await fetch(`${FS}/games/${gameId}`, { headers: ADMIN })
+    return (
+      ((await g.json()) as {
+        fields?: { seats?: { arrayValue?: { values?: unknown[] } } }
+      }).fields?.seats?.arrayValue?.values ?? []
+    ).length
+  }
+
+  console.log('\n── 시작한 판의 명단은 안 건드린다 ──')
   const GAME = `sg${TAG}`
   await call('createGame', host, { gameId: GAME, seed: 'sg' })
   const c = `gamma${TAG}`
   await call('signUpAccount', null, { id: c, password: PW })
   await call('joinGame', await asPlayer(c), { gameId: GAME, name: '감마', team: 'A' })
+  // 시작한 판으로 만든다 — 자리를 빼면 말도 점수도 주인을 잃는다
+  await fetch(`${FS}/games/${GAME}?updateMask.fieldPaths=phase`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { phase: { stringValue: 'running' } } }),
+  })
   await call('hostDeleteAccounts', host, { ids: [c] })
-  const g = await fetch(`${FS}/games/${GAME}`, { headers: ADMIN })
-  const seats = ((await g.json()) as {
-    fields?: { seats?: { arrayValue?: { values?: { mapValue?: { fields?: Record<string, unknown> } }[] } } }
-  }).fields?.seats?.arrayValue?.values ?? []
-  check(seats.length === 1, '앉은 자리는 그대로 남는다', `${seats.length}자리`)
+  check((await seatsOf(GAME)) === 1, '시작한 판의 자리는 그대로 남는다', `${await seatsOf(GAME)}자리`)
+
+  /**
+   * **여기가 「자리가 없다」의 정체다.**
+   *
+   * 로비에 앉은 사람의 계정을 지우면, 그 사람은 안 돌아오는데 자리는
+   * 차 있다. 열넷이 그렇게 되면 새로 가입한 사람은 앉을 데가 없다 —
+   * 실제로 그렇게 막혔다.
+   */
+  console.log('\n── 시작 안 한 판의 자리는 비운다 ──')
+  const LOB = `lb${TAG}`
+  await call('createGame', host, { gameId: LOB, seed: 'lb' })
+  const d1 = `del1${TAG}`
+  const d2 = `del2${TAG}`
+  const keep = `keep${TAG}`
+  for (const id of [d1, d2, keep]) await call('signUpAccount', null, { id, password: PW })
+  await call('joinGame', await asPlayer(d1), { gameId: LOB, name: '델타', team: 'A' })
+  await call('joinGame', await asPlayer(d2), { gameId: LOB, name: '엡실론', team: 'A' })
+  await call('joinGame', await asPlayer(keep), { gameId: LOB, name: '남는이', team: 'A' })
+  check((await seatsOf(LOB)) === 3, '셋이 앉았다')
+
+  const wiped = await call('hostDeleteAccounts', host, { ids: [d1, d2] })
+  check((wiped.freed as string[]).length === 2, '지우면서 두 자리를 같이 비웠다', String((wiped.freed as string[]).length))
+  check((await seatsOf(LOB)) === 1, '남은 사람 자리만 남는다', `${await seatsOf(LOB)}자리`)
+
+  // 자리가 비었으니 새 사람이 앉는다 — 이것이 고치려던 것이다
+  const fresh = `new${TAG}`
+  await call('signUpAccount', null, { id: fresh, password: PW })
+  const sat = await call('joinGame', await asPlayer(fresh), { gameId: LOB, name: '새사람', team: 'A' })
+  check(sat.seated === 2, '새로 가입한 사람이 앉는다', `${sat.seated}명`)
+
+  console.log('\n── 이미 막힌 판은 단추로 푼다 ──')
+  const JAM = `jm${TAG}`
+  await call('createGame', host, { gameId: JAM, seed: 'jm' })
+  const g1 = `ghost${TAG}`
+  await call('signUpAccount', null, { id: g1, password: PW })
+  await call('joinGame', await asPlayer(g1), { gameId: JAM, name: '유령', team: 'B' })
+  // 자리만 남기고 계정을 조용히 없앤다(옛 판이 이 꼴이었다)
+  await fetch(`${FS}/schoolSessions/live/accounts/${g1}`, { method: 'DELETE', headers: ADMIN })
+  check((await seatsOf(JAM)) === 1, '주인 없는 자리가 남아 있다')
+  const swept = await call('sweepSeats', host, { gameId: JAM })
+  check((swept.freed as string[]).length === 1, '단추 한 번에 비운다', (swept.freed as string[]).join(','))
+  check((await seatsOf(JAM)) === 0, '자리가 비었다')
+
+  const noRun = await call('sweepSeats', host, { gameId: GAME }).then(() => '', (e: Error) => e.message)
+  check(noRun.includes('이미 시작한 판'), '시작한 판에서는 못 한다', noRun)
 
   console.log('\n── 같은 아이디로 다시 가입하면 ──')
   const again = await call('signUpAccount', null, { id: c, password: 'brandnew1' })
