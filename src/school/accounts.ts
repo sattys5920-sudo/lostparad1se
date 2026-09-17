@@ -138,9 +138,11 @@ export async function logIn(rawId: string, password: string): Promise<Account> {
  * 증표를 새로 고쳐도 안 붙는다(만들 때 실은 클레임이 덮어쓴다).
  * 그래서 서버가 새 증표를 만들어 주고 그걸로 다시 들어간다.
  */
-export async function claimHost(code: string): Promise<void> {
+export async function hostEnter(code: string): Promise<void> {
   if (!auth) throw new Error('서버에 연결되어 있지 않다.')
-  const reply = await callServer<{ token: string }>('claimHost', { code: code.trim() })
+  // **로그인해 두지 않아도 된다.** 운영자는 계정이 없다 — 코드 하나로
+  // 들어오고, 나가면 그걸로 끝이다
+  const reply = await callServer<{ token: string }>('hostEnter', { code: code.trim() })
   await signInWithCustomToken(auth, reply.token)
 }
 
@@ -198,6 +200,9 @@ export async function saveAccountCharacter(_id: string, nickname: string, avatar
 }
 
 // ── 진행자용 ────────────────────────────────────────────────────
+//
+// 운영자는 **계정이 아니다.** 가입도 아바타도 없고, 코드 한 줄로
+// 들어와 고정된 uid 하나를 쓴다.
 
 /**
  * 가입한 계정을 전부 펴 본다. **서버가 편다.**

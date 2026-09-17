@@ -10,7 +10,7 @@
 // 있고, 열어도 아무것도 안 된다.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { amHost, claimHost, deleteAccounts, listAccounts, logIn, type AccountSummary } from '../accounts'
+import { deleteAccounts, listAccounts, logOut, type AccountSummary } from '../accounts'
 import { gameActions, useGame } from '../game/useGame'
 import { PhaseHost } from '../game/Phase'
 import { QuizHost } from '../game/Quiz'
@@ -33,72 +33,16 @@ const clockText = (ms: number) =>
   }).format(ms)
 
 /**
- * 들어오는 자리.
+ * 운영자 책상.
  *
- * 아이디·비밀번호로 로그인하고, 그다음에 운영자 코드를 맞힌다.
- * **코드는 여기에도 번들에도 없다** — 서버가 배포 환경변수로 들고
- * 있고 틀린 횟수도 서버가 센다.
+ * **문은 여기에 없다.** 들어오는 자리는 로그인 화면 하나고, 거기서
+ * 코드를 맞힌 사람만 이 화면을 받는다(Root 가 가른다). 전에는 이
+ * 파일이 제 문을 따로 들고 있었다.
+ *
+ * **화면이 막는 것은 하나도 없다.** 여기 있는 모든 단추는 서버가
+ * 운영자 표시를 다시 확인한다.
  */
-function AdminGate({ onIn }: { onIn: () => void }) {
-  const [id, setId] = useState('')
-  const [pw, setPw] = useState('')
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  async function go() {
-    setBusy(true)
-    setError('')
-    try {
-      // 이미 로그인돼 있으면 건너뛴다 — 코드만 다시 맞히러 온 것이다
-      if (id.trim().length > 0) await logIn(id, pw)
-      await claimHost(code)
-      onIn()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="sc-ad__gate">
-      <h1>관리자</h1>
-      <p className="sc-ad__hint">
-        판을 만들고 페이즈를 여는 자리다. 이미 로그인돼 있으면 아이디·비밀번호는 비워 둬도 된다.
-      </p>
-      <input placeholder="아이디" value={id} onChange={(e) => setId(e.target.value)} autoCapitalize="off" />
-      <input placeholder="비밀번호" type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
-      <input
-        placeholder="관리자 코드"
-        type="password"
-        value={code}
-        autoComplete="off"
-        onChange={(e) => setCode(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) void go()
-        }}
-      />
-      {error && <p className="sc-ad__error">{error}</p>}
-      <button className="sc-ad__go" disabled={busy || code.trim().length === 0} onClick={() => void go()}>
-        들어가기
-      </button>
-      <a className="sc-ad__back" href={import.meta.env.BASE_URL}>
-        게임 화면으로
-      </a>
-    </div>
-  )
-}
-
 export function Admin() {
-  const [host, setHost] = useState<boolean | null>(null)
-  const check = useCallback(() => {
-    void amHost().then(setHost)
-  }, [])
-  useEffect(check, [check])
-
-  if (host === null) return <p className="sc-ad__wait">확인하는 중</p>
-  if (!host) return <AdminGate onIn={check} />
   return <Desk />
 }
 
@@ -205,6 +149,11 @@ function Desk() {
       <header className="sc-ad__top">
         <h1>관리자</h1>
         <span className="sc-ad__game">{GAME_ID}</span>
+        {/* 나가면 로그인 화면으로 돌아간다. 운영자는 계정이 없으므로
+            증표를 버리는 것이 곧 나가는 것이다 */}
+        <button className="sc-ad__out" onClick={() => void logOut()}>
+          나가기
+        </button>
       </header>
 
       <section className="sc-ad__card">
@@ -369,9 +318,6 @@ function Desk() {
           {said}
         </p>
       )}
-      <a className="sc-ad__back" href={import.meta.env.BASE_URL}>
-        게임 화면으로
-      </a>
     </div>
   )
 }

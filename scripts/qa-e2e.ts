@@ -52,7 +52,8 @@ async function main(): Promise<void> {
   console.log('\n── 운영자가 아니면 ──')
   check((await call('seedPlayers', plain.token, { gameId: GAME, password: QA_PW })).code === 'PERMISSION_DENIED', '못 채운다')
 
-  const got = await call('claimHost', plain.token, { code: CODE })
+  // 운영자는 로그인 없이 코드만으로 들어온다
+  const got = await call('hostEnter', null, { code: CODE })
   const host = await exchange(got.data?.token as string)
   await call('createGame', host, { gameId: GAME })
   check(true, '판을 만들었다')

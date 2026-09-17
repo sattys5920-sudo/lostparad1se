@@ -17,7 +17,6 @@ import { timingSafeEqual } from 'node:crypto'
 
 import { HOST_GATE_LOCK_MS, HOST_GATE_MAX_MISSES, HOST_GATE_MIN_CODE } from '../../shared/rules/v2'
 import { mintToken } from './account'
-import { requireUid } from './index'
 
 const db = getFirestore()
 
@@ -42,15 +41,22 @@ function sameCode(given: string, want: string): boolean {
   return timingSafeEqual(a, b)
 }
 
+/** 운영자의 uid. **계정이 아니다** — 가입도 아바타도 없다. */
+export const HOST_UID = 'host'
+
 /**
- * 코드를 맞히면 운영자가 된다.
+ * 코드를 맞히면 운영자로 들어온다.
  *
- * 표시를 붙이는 것만으로는 부족하다. 지금 들고 있는 증표에는 그
- * 표시가 없어서, 새로 만들어 돌려준다 — 화면은 이걸로 다시 로그인한다.
- * (createCustomToken의 클레임은 덮어쓰기라 갱신만으로는 안 붙는다.)
+ * **로그인이 필요 없다.** 전에는 아이디·비밀번호로 먼저 로그인하고
+ * 그다음에 코드를 맞혔는데, 운영자는 판에 앉는 사람이 아니라 계정을
+ * 만들 이유가 없다. 아바타도 이름도 없다 — 이 문으로 들어오면 곧바로
+ * 운영자 책상이다.
+ *
+ * 들고 나가는 증표는 **고정된 uid** 하나짜리다. 운영자는 열넷 중 한
+ * 자리가 아니므로 사람마다 다른 uid 를 줄 까닭이 없고, 하나로 두면
+ * 「누가 운영자인가」를 규칙에서도 한 줄로 본다.
  */
-export const claimHost = onCall<{ code: string }>(async (req) => {
-  const uid = requireUid(req.auth)
+export const hostEnter = onCall<{ code: string }>(async (req) => {
   const want = String(process.env.HOST_CODE ?? '')
 
   // 코드가 안 심겼는데 아무나 통과시키면 최악이다. 차라리 아무도 못 들어간다
@@ -77,15 +83,19 @@ export const claimHost = onCall<{ code: string }>(async (req) => {
   // 맞혔으니 센 것을 지운다. 다음 사람이 남은 횟수를 물려받을 이유가 없다
   await gateRef().set({ windowFromMs: 0, misses: 0 })
 
-  const user = await getAuth().getUser(uid)
-  await getAuth().setCustomUserClaims(uid, { ...(user.customClaims ?? {}), admin: true })
+  // 표시는 **증표와 사용자 기록 둘 다**에 붙인다. 증표에만 두면 나중에
+  // 갱신될 때 떨어지고, 기록에만 두면 지금 들고 나가는 증표에 안 붙는다
+  await ensureHostUser()
+  await getAuth().setCustomUserClaims(HOST_UID, { admin: true })
 
-  const accountId = (req.auth?.token as Record<string, unknown> | undefined)?.accountId
-  return {
-    admin: true,
-    token: await mintToken(uid, {
-      ...(typeof accountId === 'string' ? { accountId } : {}),
-      admin: true,
-    }),
-  }
+  return { admin: true, token: await mintToken(HOST_UID, { admin: true }) }
 })
+
+/** 표시를 붙이려면 사용자 기록이 있어야 한다. 없으면 만든다. */
+async function ensureHostUser(): Promise<void> {
+  try {
+    await getAuth().getUser(HOST_UID)
+  } catch {
+    await getAuth().createUser({ uid: HOST_UID })
+  }
+}

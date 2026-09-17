@@ -1,7 +1,6 @@
 /* 관리자 화면. 게임 화면과 달리 폰에 맞춘 틀이 아니라 그냥 세로 목록이다 —
    운영자는 판을 들여다보는 사람이지 판 안에 있는 사람이 아니다. */
-.sc-ad,
-.sc-ad__gate {
+.sc-ad {
   max-width: 560px;
   margin: 0 auto;
   padding: 20px 16px 84px;
@@ -16,6 +15,20 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
+}
+
+/* 나가기. 머리줄 오른쪽 끝에 붙는다 */
+.sc-ad__out {
+  margin-left: auto;
+  appearance: none;
+  border: 1px solid var(--sc-line, #d8dcdf);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .sc-ad h1 {
@@ -83,16 +96,6 @@
    틀이 어긋난다 — 실제로 문제 은행이 제목 위로 겹쳐 올라왔다.
    그래서 이 칸이 직접 낳은 것만 고른다 */
 .sc-ad__card > button,
-.sc-ad__gate button {
-  min-height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--sc-line-strong);
-  background: transparent;
-  color: var(--sc-text);
-  font-size: 13.5px;
-  cursor: pointer;
-}
-
 /* 한 번에 차리는 단추. 여러 단추 사이에서 이것이 먼저 눈에 들어와야
    한다 — QA 는 늘 이것부터 누른다 */
 .sc-ad__card > button.is-lead {
@@ -109,21 +112,7 @@
 .sc-ad__card > button.is-lead span { font-size: 11px; font-weight: 400; opacity: 0.75; }
 
 .sc-ad__card > button:disabled,
-.sc-ad__gate button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
 .sc-ad__card > input,
-.sc-ad__gate input {
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--sc-line);
-  background: transparent;
-  color: var(--sc-text);
-  font-size: 14px;
-}
-
 .sc-ad__go {
   border-color: var(--sc-text-2) !important;
 }
@@ -150,19 +139,6 @@
   margin: 0;
   font-size: 12.5px;
   color: #e0453f;
-}
-
-.sc-ad__wait {
-  padding: 40px 16px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--sc-text-dim);
-}
-
-.sc-ad__back {
-  align-self: flex-start;
-  font-size: 12px;
-  color: var(--sc-text-dim);
 }
 
 /* 빌려 온 도구는 카드 안에서 한 덩어리로 앉는다 */

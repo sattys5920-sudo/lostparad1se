@@ -64,32 +64,32 @@ async function main(): Promise<void> {
   check(noHost.code === 'PERMISSION_DENIED', '판을 못 만든다', noHost.message)
 
   console.log('\n── 틀린 코드 ──')
-  const wrong = await call('claimHost', me.token, { code: '아무거나' })
+  const wrong = await call('hostEnter', null, { code: '아무거나' })
   check(wrong.code === 'PERMISSION_DENIED', '거절한다', wrong.message)
   check(!JSON.stringify(wrong).includes(CODE), '거절 응답에 코드가 없다')
 
   // 길이가 같고 한 글자만 다른 것도 막아야 한다
   const near = CODE.slice(0, -1) + (CODE.endsWith('1') ? '2' : '1')
-  check((await call('claimHost', me.token, { code: near })).code === 'PERMISSION_DENIED', '한 글자만 달라도 거절')
+  check((await call('hostEnter', null, { code: near })).code === 'PERMISSION_DENIED', '한 글자만 달라도 거절')
 
   console.log('\n── 두들기면 잠근다 ──')
   let locked = ''
   for (let i = 0; i < HOST_GATE_MAX_MISSES + 2; i++) {
-    const r = await call('claimHost', me.token, { code: `틀림${i}` })
+    const r = await call('hostEnter', null, { code: `틀림${i}` })
     if (r.code === 'RESOURCE_EXHAUSTED') { locked = r.message ?? ''; break }
   }
   check(locked !== '', `${HOST_GATE_MAX_MISSES}번 틀리면 잠긴다`, locked)
   // 잠긴 동안에는 **맞는 코드도** 안 통해야 한다. 아니면 세는 의미가 없다
-  check((await call('claimHost', me.token, { code: CODE })).code === 'RESOURCE_EXHAUSTED', '잠긴 동안에는 맞는 코드도 안 통한다')
+  check((await call('hostEnter', null, { code: CODE })).code === 'RESOURCE_EXHAUSTED', '잠긴 동안에는 맞는 코드도 안 통한다')
 
   console.log('\n── 맞히면 ──')
   await resetGate()
-  const got = await call('claimHost', me.token, { code: CODE })
-  check(got.ok, '통과한다', got.message)
-  check(typeof got.data?.token === 'string', '새 증표를 준다')
+  const got = await call('hostEnter', null, { code: CODE })
+  check(got.ok, '로그인 없이도 통과한다', got.message)
+  check(typeof got.data?.token === 'string', '증표를 준다')
 
-  // 옛 증표로는 여전히 안 된다 — 표시는 증표 안에 있다
-  check((await call('createGame', me.token, { gameId: `${GAME}old` })).code === 'PERMISSION_DENIED', '옛 증표로는 아직 못 만든다')
+  // 평범한 계정은 그대로다 — 운영자 표시는 새 증표에만 있다
+  check((await call('createGame', me.token, { gameId: `${GAME}old` })).code === 'PERMISSION_DENIED', '평범한 증표로는 아직 못 만든다')
 
   const hostToken = await exchange(got.data?.token as string)
   const made = await call('createGame', hostToken, { gameId: GAME })

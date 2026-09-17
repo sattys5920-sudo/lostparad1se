@@ -151,7 +151,7 @@ export { say, chatLines } from './chat'
 export { radio, radioLines } from './radio'
 
 // 운영자 코드. 코드는 저장소가 아니라 배포 환경변수에 있다.
-export { claimHost } from './hostgate'
+export { hostEnter } from './hostgate'
 
 // QA용 채우기. 운영자만, 로비에서만.
 export { seedPlayers, openAllTiles } from './qa'

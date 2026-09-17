@@ -813,21 +813,6 @@
 
 .sc-pl__none { margin: 0; font-size: 12.5px; color: var(--sc-text-dim); text-wrap: pretty; }
 
-.sc-pl__hostlink {
-  appearance: none;
-  border: none;
-  background: none;
-  color: #6b7280;
-  font: inherit;
-  font-size: 11.5px;
-  padding: 6px 0;
-  text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.sc-pl__hostlink:hover { color: var(--sc-text-dim); }
 
 .sc-pl__hostgate { display: flex; flex-wrap: wrap; gap: 6px; }
 
