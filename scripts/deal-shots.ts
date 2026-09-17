@@ -127,9 +127,8 @@ async function enter(page: Page, id: string): Promise<void> {
   // 있으면 그것부터 누른다 — 가운데를 탭해 넘기는 것은 장수만큼 걸린다
   for (let i = 0; i < 60; i++) {
     if (await page.locator('.sc-pl__today').count()) break
-    const skip = page.locator('.sc-rv__skip')
-    if (await skip.count()) await skip.first().click().catch(() => undefined)
-    else await page.locator('.sc-rv__sheet').first().click().catch(() => undefined)
+    // **건너뛰기는 없다.** 아침은 탭으로만 넘어간다 — 사람이 하는 것과 같다
+    await page.locator('.sc-rv__sheet').first().click().catch(() => undefined)
     await page.waitForTimeout(350)
   }
   if ((await page.locator('.sc-pl__today').count()) === 0) throw new Error(`${id}: 오늘 하루까지 못 갔다`)

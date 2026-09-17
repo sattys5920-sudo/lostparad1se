@@ -29,6 +29,14 @@ export interface MorningState {
   /** 「맨 위」를 이미 드러냈는가. */
   topShown: boolean
   /** 건너뛴 날. 보관함에 「읽지 않음」으로 남는다. */
+  /**
+   * 건너뛴 날.
+   *
+   * **이제 아무도 못 건너뛴다** — 아침은 관리자가 여는 대로 겪는다.
+   * 그래서 이 목록은 늘 비어 있다. 자리를 남겨 두는 것은 예전에 넘긴
+   * 날이 적힌 판이 아직 돌기 때문이다. 보관함이 그 날들을 「읽지 않음」
+   * 으로 가려내는 데 이 값을 쓴다.
+   */
   skipped: readonly number[]
 }
 
@@ -98,19 +106,6 @@ export function advance(s: MorningState, script: DayScript | null): MorningState
 
   // map — 이 날은 끝났다
   return nextDay(s, false)
-}
-
-
-/**
- * 밀린 날을 한꺼번에 넘긴다. 남은 날이 모두 「읽지 않음」이 된다.
- *
- * **하루만 골라 넘기는 길은 없다.** 오늘 아침은 오늘 읽는 것이고,
- * 하루치를 접어 두는 단추가 있으면 그것이 곧 기본값이 된다 —
- * A의 기록을 아무도 안 읽고 닷새가 지나간다. 며칠 못 들어온 사람의
- * 밀린 몫만 이 길로 나간다.
- */
-export function skipAll(s: MorningState): MorningState {
-  return { ...s, queue: [], scene: 'date', paperIndex: 0, topShown: false, skipped: [...s.skipped, ...s.queue] }
 }
 
 /**

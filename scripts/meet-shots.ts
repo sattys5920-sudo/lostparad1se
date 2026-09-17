@@ -127,9 +127,8 @@ async function enter(page: Page, id: string): Promise<void> {
   // 기본 30초로 두면 사라진 장을 누르려다 몇 분씩 멈춰 선다
   for (let i = 0; i < 60; i++) {
     if (await page.locator('.sc-pl__today').count()) break
-    const skip = page.locator('.sc-rv__skip')
-    if (await skip.count()) await skip.first().click({ timeout: 1500 }).catch(() => undefined)
-    else await page.locator('.sc-rv__sheet').first().click({ timeout: 1500 }).catch(() => undefined)
+    // **건너뛰기는 없다.** 아침은 탭으로만 넘어간다 — 사람이 하는 것과 같다
+    await page.locator('.sc-rv__sheet').first().click({ timeout: 1500 }).catch(() => undefined)
     await page.waitForTimeout(300)
   }
   if ((await page.locator('.sc-pl__today').count()) === 0) {

@@ -8,7 +8,6 @@ import {
   handledDays,
   readDays,
   shouldPlay,
-  skipAll,
   startMorning,
   type DayScript,
 } from './morning'
@@ -97,53 +96,51 @@ describe('며칠을 건너뛰고 들어온 사람', () => {
   })
 })
 
-describe('건너뛰기', () => {
+describe('건너뛰기는 없다', () => {
   /**
-   * **하루만 골라 넘기는 길은 없다.**
+   * **아침은 관리자가 여는 대로 겪는다.**
    *
-   * 오늘 아침은 오늘 읽는다. 하루치를 접어 두는 단추가 있으면 그것이
-   * 곧 기본값이 되어, A의 기록을 아무도 안 읽고 닷새가 지나간다.
-   * 넘길 수 있는 것은 며칠 못 들어온 사람의 **밀린 몫**뿐이다.
+   * 하루치를 접어 두는 단추가 있으면 그것이 곧 기본값이 된다 — 누르는
+   * 쪽이 늘 빠르니까, A의 기록을 아무도 안 읽고 닷새가 지나간다.
+   * 밀린 몫을 한꺼번에 넘기는 길도 같은 이유로 없앴다. 못 들어온 날은
+   * 다음에 들어올 때 날짜순으로 이어서 본다.
    */
-  it('밀린 날을 한꺼번에 넘기면 남은 날이 모두 읽지 않음이다', () => {
-    const s = skipAll(startMorning([1, 2, 3]))
-    expect(done(s)).toBe(true)
-    expect(s.skipped).toEqual([1, 2, 3])
-    expect(readDays([1, 2, 3], s)).toEqual([])
+  it('넘기는 길이 없다 — 탭으로만 넘어간다', () => {
+    let s = startMorning([1, 2])
+    expect(s.skipped).toEqual([])
+    s = tap(s, one, 4)
+    expect(currentDay(s)).toBe(2)
+    expect(s.skipped).toEqual([])
   })
 
-  it('보던 날 뒤로 밀린 것만 넘어간다', () => {
-    let s = startMorning([1, 2, 3])
-    s = tap(s, one, 4) // 1일차는 끝까지 봤다
-    s = skipAll(s)
-    expect(s.skipped).toEqual([2, 3])
-    expect(readDays([1, 2, 3], s)).toEqual([1])
-  })
-
-  it('넘긴 날은 다시 재생하지 않는다', () => {
-    // 넘겼는데 다음 접속에 또 나오면 그건 건너뛰기가 아니다.
-    // 본 것으로 적어 두고, 보관함에만 읽지 않음으로 남긴다
-    const s = skipAll(startMorning([1, 2]))
-    expect(pendingDays([1, 2], [...s.skipped])).toEqual([])
+  it('끝까지 본 날만 읽은 것이다', () => {
+    const before = [1, 2]
+    let s = startMorning(before)
+    s = tap(s, one, 4)
+    expect(readDays(before, s)).toEqual([1])
+    s = tap(s, one, 4)
+    expect(readDays(before, s)).toEqual([1, 2])
+    expect(pendingDays(before, handledDays(before, s))).toEqual([])
   })
 })
 
+
 describe('다 본 뒤', () => {
   it('더 탭해도 아무 일도 없다', () => {
-    const s = skipAll(startMorning([1]))
+    const s = tap(startMorning([1]), one, 4)
+    expect(done(s)).toBe(true)
     expect(advance(s, one)).toEqual(s)
-    expect(skipAll(s)).toEqual(s)
   })
 })
 
 describe('handledDays', () => {
-  it('본 날과 넘긴 날을 함께 돌려준다', () => {
+  it('끝까지 본 날을 돌려준다', () => {
     const before = [1, 2, 3]
     let s = startMorning(before)
-    s = tap(s, one, 4) // 1일차는 봤다
-    s = skipAll(s) // 2·3 은 넘겼다
-    expect(readDays(before, s)).toEqual([1])
-    expect(handledDays(before, s)).toEqual([1, 2, 3])
+    s = tap(s, one, 4)
+    s = tap(s, one, 4)
+    expect(readDays(before, s)).toEqual([1, 2])
+    expect(handledDays(before, s)).toEqual([1, 2])
   })
 
   it('아직 안 본 날은 빠진다', () => {
@@ -152,12 +149,15 @@ describe('handledDays', () => {
     expect(handledDays(before, s)).toEqual([])
   })
 
-  // 이 둘을 갈라 놓고 readDays만 저장하면 넘긴 아침이 매일 다시 뜬다.
-  // 봇 닷새 주행에서 실제로 그랬다.
-  it('넘긴 날을 다시 재생하지 않는다', () => {
+  /**
+   * 옛 판에는 넘긴 날이 적혀 있다. 그 판이 아직 돌고 있으므로
+   * **적힌 것을 그대로 읽어야 한다** — 이 둘을 갈라 놓고 readDays 만
+   * 저장하면 그 아침이 매일 다시 뜬다. 봇 닷새 주행에서 그랬다.
+   */
+  it('옛 판에 넘긴 날로 적힌 것은 다시 재생하지 않는다', () => {
     const before = [1, 2, 3]
-    const s = skipAll(startMorning(before))
-    expect(pendingDays([1, 2, 3], readDays(before, s))).toContain(1)
-    expect(pendingDays([1, 2, 3], handledDays(before, s))).not.toContain(1)
+    const old = { ...startMorning(before), queue: [2, 3], skipped: [1] }
+    expect(pendingDays(before, readDays(before, old))).toContain(1)
+    expect(pendingDays(before, handledDays(before, old))).not.toContain(1)
   })
 })
