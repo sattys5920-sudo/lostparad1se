@@ -9,6 +9,7 @@
 //   npx vite-node scripts/transfer-e2e.ts
 import { createHash } from 'node:crypto'
 import { dayHourMs } from '../shared/rules/clock'
+import { TILE_BY_ID } from '../shared/rules/board'
 import { TRANSFER_NO } from '../shared/rules/transfer'
 
 const PROJECT = 'demo-goei'
@@ -101,11 +102,17 @@ async function main(): Promise<void> {
 
   const a = uidOf(aId)
   const b = uidOf(bId)
-  const room = 'class2_3'
+  // 실재하는 방이라야 한다. 없는 칸에 세우면 서버가 보는 값과 어긋난다
+  const room = 'storage'
   // 같은 방 **바로 옆 칸**에 세운다. 같은 방만으로는 모자라다
   await patch(`games/${GAME}/pawns/${a}`, { tileId: room, postTile: room })
   await patch(`games/${GAME}/pawns/${b}`, { tileId: room, postTile: room })
-  for (const [who, cell] of [[a, { x: 4, y: 4 }], [b, { x: 5, y: 4 }]] as const) {
+  // **칸은 판에서 뽑는다.** 방 좌표는 층을 이어 붙인 전역 값이다
+  const plan = TILE_BY_ID[room].plan
+  for (const [who, cell] of [
+    [a, { x: plan.x + 1, y: plan.y + 1 }],
+    [b, { x: plan.x + 2, y: plan.y + 1 }],
+  ] as const) {
     await fetch(`${FS}/games/${GAME}/pawns/${who}?updateMask.fieldPaths=at`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...ADMIN },

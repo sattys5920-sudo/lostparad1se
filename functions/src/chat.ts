@@ -14,9 +14,9 @@
 // 자기가 무슨 말을 했는지는 안다. 다만 아무도 듣지 않았다. 원문은
 // 서버가 그대로 쥐고 있다가 엔딩 6번 장면에서 되돌려 준다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
+import { chatReaches } from '../../shared/rules/invisible'
 
 import { CHAT_MAX_LEN } from '../../shared/rules/v2'
-import { maskClassChat } from '../../shared/rules/invisible'
 import type { TileId } from '../../shared/rules/board'
 import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
@@ -118,14 +118,25 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
 
   const lines = all.docs
     .map((d) => d.data() as ChatDocRaw)
+    /*
+     * **지워진 사람이 친 줄은 남에게 아예 안 간다.**
+     *
+     * 전에는 말만 「…」로 가려서 보냈다. 그런데 새는 것은 **누구인가**가
+     * 아니라 **어디 있는가**였다 — 오늘의 투명인간이 누구인지는 아침에
+     * 모두가 들어서 알지만, 지금 어느 방에 있는지는 맵이 일부러 지워
+     * 놓은 값이다. 가려진 줄 한 개가 그 방에 있다는 것을 알려 준다.
+     *
+     * 본인에게는 그대로 남는다. 제가 친 말이 안 보이면 「안 쳐졌나」와
+     * 「안 들렸나」를 가를 수가 없다 — muted 표시가 그 답이다.
+     */
+    .filter((c) => chatReaches(c, uid))
     .map((c) => ({
       playerId: c.playerId,
       name: c.name,
       team: c.team,
       atMs: c.atMs,
-      text: maskClassChat(c.text, c.invisible, c.playerId === uid),
-      // 「이 줄은 전해지지 않았다」. 누가 투명인간인지는 이미 모두가
-      // 아는 사실이라 이 표시로 새어 나가는 것은 없다
+      text: c.text,
+      /** 「이 줄은 전해지지 않았다」. **본인 줄에만 붙는다.** */
       muted: c.invisible,
     }))
 

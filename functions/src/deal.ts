@@ -14,7 +14,7 @@ import type { TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn, standingWith } from './turn'
+import { freshNow, myPawn, refuseIfInvisible, standingWith } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -48,6 +48,9 @@ export const proposeAlliance = onCall<{ gameId: string; withTeam: TeamId }>(asyn
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
   if (!TEAMS.includes(withTeam)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
+  // 동맹은 팀 대 팀이지만 꺼내는 것은 사람이다. 보이지 않는 사람이
+  // 꺼낸 말은 마주 선 사람에게 닿지 않는다
+  refuseIfInvisible(game.invisibleId, uid, null, '동맹을 꺼낼')
   await requireFacing(gameId, uid, withTeam, '동맹')
   const ref = gameRef(gameId)
 
@@ -95,6 +98,8 @@ export const respondAlliance = onCall<{ gameId: string; proposalId: string; acce
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
   const ref = gameRef(gameId)
+  // 받는 쪽도 사람이다. 지워진 사람이 팀을 대표해 답할 수는 없다
+  refuseIfInvisible(game.invisibleId, uid, null, '동맹에 답할')
 
   const result = await db.runTransaction(async (tx) => {
     const propRef = proposalsOf(gameId).doc(proposalId)

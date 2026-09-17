@@ -16,7 +16,7 @@ import { rngFrom } from '../../shared/missions/assign'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import type { CardDoc, PawnDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn } from './turn'
+import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -102,6 +102,10 @@ export const playOne = onCall<{
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
   const ref = gameRef(gameId)
+
+  // 사람을 겨눈 카드는 대인 행동이다. 지워진 사람은 겨누지도 못하고
+  // 겨눠지지도 않는다 — 없는 사람이다
+  if (req.data.targetPawn) refuseIfInvisible(game.invisibleId, uid, req.data.targetPawn, '카드를 쓸')
 
   const hand = await handOf(gameId, pawn.team)
   const input = {

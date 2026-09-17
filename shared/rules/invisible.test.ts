@@ -10,10 +10,10 @@ import {
   INVISIBLE_CAN,
   INVISIBLE_CANNOT,
   isInvisible,
-  maskClassChat,
+  chatReaches,
   pickInvisible,
 } from './invisible'
-import { INVISIBLE_CHAT_MASK, INVISIBLE_MIN_VOTES } from './v2'
+import { INVISIBLE_MIN_VOTES } from './v2'
 
 const counts = (o: Record<string, number>) =>
   Object.entries(o).map(([playerId, count]) => ({ playerId, count }))
@@ -88,16 +88,22 @@ describe('지워진 하루', () => {
 })
 
 describe('전체 채팅', () => {
-  it('남에게는 「…」로만 간다', () => {
-    expect(maskClassChat('나 아니야', true, false)).toBe(INVISIBLE_CHAT_MASK)
+  const said = { playerId: 'erased', invisible: true }
+
+  /**
+   * 가려서 보내지 않고 **아예 안 보낸다**. 가려진 줄 하나가 「지금 이
+   * 방에 있다」를 알려 주는데, 그것이야말로 맵이 지워 놓은 값이다.
+   */
+  it('지워진 사람이 친 줄은 남에게 안 간다', () => {
+    expect(chatReaches(said, 'other')).toBe(false)
   })
 
-  it('본인에게는 자기 말이 그대로 보인다', () => {
-    expect(maskClassChat('나 아니야', true, true)).toBe('나 아니야')
+  it('본인에게는 남는다 — 안 쳐진 것과 안 들린 것을 갈라야 한다', () => {
+    expect(chatReaches(said, 'erased')).toBe(true)
   })
 
-  it('투명인간이 아니면 그대로다', () => {
-    expect(maskClassChat('나 아니야', false, false)).toBe('나 아니야')
+  it('투명인간이 아니면 모두에게 간다', () => {
+    expect(chatReaches({ playerId: 'anyone', invisible: false }, 'other')).toBe(true)
   })
 })
 

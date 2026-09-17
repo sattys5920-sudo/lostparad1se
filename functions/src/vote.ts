@@ -13,7 +13,7 @@ import type { RevealScope, VoteKind } from '../../shared/rules/v2'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
 import type { LeverageDoc, PawnDoc, RosterDoc, VoteDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn, refuseIfInvisible } from './turn'
+import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -29,7 +29,8 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
   const { game, nowMs } = await freshNow(gameId)
   const ref = gameRef(gameId)
 
-  refuseIfInvisible(game.invisibleId, uid, targetId, '표를 줄')
+  // **지워진 사람도 표는 준다.** 믿는다고 말하는 일까지 빼앗지는
+  // 않는다 — 받는 쪽은 아래에서 따로 막는다
   const [me, target] = await Promise.all([myPawn(gameId, uid), ref.collection('pawns').doc(targetId).get()])
   if (!target.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
   const you = target.data() as PawnDoc

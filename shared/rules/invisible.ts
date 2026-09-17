@@ -14,7 +14,7 @@
 // 이 파일은 「누가 지워지는가」와 「지워진 사람이 무엇을 못 하는가」만
 // 답한다. 위치를 감추는 일은 fog.ts가 한다 — 투명인간은 안개보다 **먼저**
 // 걸러서, 다른 사람에게는 위치 데이터 자체를 보내지 않는다.
-import { INVISIBLE_CHAT_MASK, INVISIBLE_MIN_VOTES, INVISIBLE_NO_REPEAT } from './v2'
+import { INVISIBLE_MIN_VOTES, INVISIBLE_NO_REPEAT } from './v2'
 
 /** 던진 표 한 장. 누가 누구를 적었는지는 **서버 밖으로 안 나간다.** */
 export interface Ballot {
@@ -97,33 +97,59 @@ export function pickInvisible(input: PickInput): PickResult {
  */
 export const INVISIBLE_CAN = {
   walk: true,
+  /** 점령전은 그대로 겨룬다. 서 있는 자리로 하는 일이라 말이 필요 없다. */
   act: true,
   reveal: true,
-  /** 표를 줄 수는 있다. */
+  /**
+   * 신뢰·호감표를 **주는 것**은 된다.
+   *
+   * 지워졌다고 누군가를 믿는 일까지 빼앗지는 않는다. 받는 것은
+   * 막힌다 — 없는 사람에게는 줄 수 없다.
+   */
   castVote: true,
 } as const
 
 export const INVISIBLE_CANNOT = {
   /** 남에게 보인다. 같은 팀에게도. */
   beSeen: false,
-  /** 깃발 판정에서 센다. */
   /** 표를 받는다. */
   receiveVote: false,
-  /** 전체 채팅이 그대로 전해진다. */
+  /**
+   * 친 말이 남에게 간다.
+   *
+   * **줄 자체가 안 간다.** 가려서 보내면 「어느 방에 있는가」가 새는데,
+   * 그것은 맵이 일부러 지워 놓은 값이다. 본인 화면에만 남는다.
+   */
   speakInClass: false,
+  /** 거래·이적·쪽지 건네기·동맹 — 마주 보고 하는 일 전부. */
+  dealWithPeople: false,
+  /** 사람을 겨눈 카드. 쓰지도 못하고 겨눠지지도 않는다. */
+  targetPeopleWithCards: false,
+  /** 호출. 부르는 쪽도 불리는 쪽도 아니다 — 어느 쪽이든 위치가 샌다. */
+  summon: false,
 } as const
+
+/**
+ * 그 줄이 이 사람에게 가는가.
+ *
+ * **지워진 사람이 친 줄은 본인에게만 간다.** 전에는 말만 「…」로 가려서
+ * 모두에게 보냈다. 그런데 새는 것은 **누구인가**가 아니라 **어디
+ * 있는가**였다 — 오늘의 투명인간이 누구인지는 아침에 다 같이 들어서
+ * 알지만, 지금 어느 방에 있는지는 맵이 일부러 지워 놓은 값이다.
+ * 가려진 줄 하나가 그 방에 있다는 것을 알려 준다.
+ *
+ * 본인에게 남기는 것은 「안 쳐졌다」와 「안 들렸다」를 가르기 위해서다.
+ */
+export function chatReaches(
+  line: { playerId: string; invisible: boolean },
+  viewerId: string,
+): boolean {
+  return !line.invisible || line.playerId === viewerId
+}
 
 /** 지금 이 사람이 투명인간인가. */
 export function isInvisible(invisibleId: string | null | undefined, playerId: string): boolean {
   return invisibleId != null && invisibleId === playerId
 }
 
-/**
- * 전체 채팅에 나갈 글. 서버에서 치환한 뒤 전달한다 —
- * 원문을 보내 놓고 화면에서 가리면 개발자도구로 다 보인다.
- */
-export function maskClassChat(text: string, speakerInvisible: boolean, viewerIsSpeaker: boolean): string {
-  if (!speakerInvisible || viewerIsSpeaker) return text
-  return INVISIBLE_CHAT_MASK
-}
 

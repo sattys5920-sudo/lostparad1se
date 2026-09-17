@@ -56,7 +56,7 @@ import {
   type TeamDoc,
   type TileDoc,
 } from '../../shared/model'
-import { freshNow, requireFree } from './turn'
+import { freshNow, refuseIfInvisible, requireFree } from './turn'
 import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
@@ -488,6 +488,21 @@ export const phaseAct = onCall<{
   const { game, nowMs } = await freshNow(gameId)
   if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '지금은 페이즈가 아니다.')
   if (!phaseAlive(game, nowMs)) throw new HttpsError('failed-precondition', '이 페이즈는 시간이 끝났다.')
+
+  /*
+   * **호출은 지워진 사람을 비껴간다.** 부르는 쪽도 불리는 쪽도다.
+   *
+   * 점령전 자체에는 참여한다 — 서 있는 자리로 방을 겨루는 일은 그대로
+   * 된다. 다만 호출은 사람을 불러 옮기는 대인 행동이고, 어느 쪽으로
+   * 통하든 **위치가 드러난다**: 지워진 사람이 부르면 불린 사람이 그
+   * 자리로 끌려와 거기 누가 있는지 알게 되고, 남이 지워진 사람을
+   * 부르면 안 보이는 말이 제 쪽으로 다가온다.
+   *
+   * 나머지 행동(이동·연구·방해·위장·로봇)에는 막는 것이 없다.
+   */
+  if (kind === 'summon') {
+    refuseIfInvisible(game.invisibleId, uid, req.data.targetPlayer ?? null, '호출할')
+  }
 
   const ref = gameRef(gameId)
   const act: Act = {
