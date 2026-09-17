@@ -311,6 +311,10 @@ export function gameActions(gameId: string) {
     say: (text: string) => callServer('say', { ...g, text }),
     /** 내가 선 방에서 내가 들어온 뒤에 나온 줄들. */
     chatLines: (sinceMs: number) => callServer('chatLines', { ...g, sinceMs }),
+    // ── 무전 ────────────────────────────────────────────────────
+    // 방에 매이지 않는다. 같은 팀에게만 가고, 걷는 중에도 된다.
+    radio: (text: string) => callServer('radio', { ...g, text }),
+    radioLines: (sinceMs = 0) => callServer('radioLines', { ...g, sinceMs }),
 
     /** 아침 시퀀스를 어디까지 봤는지 적는다. */
     markMorning: (read: number[], skipped: number[]) => callServer('markMorning', { ...g, read, skipped }),

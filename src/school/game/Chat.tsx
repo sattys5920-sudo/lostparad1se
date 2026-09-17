@@ -31,9 +31,20 @@ export interface ChatProps {
   hereName: string | null
   act: GameActions
   onSaid: (text: string) => void
+  /**
+   * 어느 줄인가. **방**은 그 자리에 그때 있던 사람에게만 남고,
+   * **팀**(무전)은 학교 어디에 있든 같은 팀에게 닿는다.
+   *
+   * 화면은 똑같이 생겼다 — 다른 것은 어디로 가느냐뿐이라, 창을 둘
+   * 그리면 같은 것을 두 군데서 고치게 된다.
+   */
+  channel?: 'room' | 'team'
 }
 
-export function Chat({ me, hereName, act, onSaid }: ChatProps) {
+export function Chat({ me, hereName, act, onSaid, channel = 'room' }: ChatProps) {
+  const team = channel === 'team'
+  // 무전은 걷는 중에도 된다. 자리가 아니라 팀에 매인 줄이다
+  const open = team ? true : hereName !== null
   const [lines, setLines] = useState<ChatLine[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -50,7 +61,7 @@ export function Chat({ me, hereName, act, onSaid }: ChatProps) {
     if (pullingRef.current) return
     pullingRef.current = true
     try {
-      const res = (await act.chatLines(sinceRef.current)) as { lines?: ChatLine[] }
+      const res = (await (team ? act.radioLines(sinceRef.current) : act.chatLines(sinceRef.current))) as { lines?: ChatLine[] }
       const fresh = res.lines ?? []
       if (fresh.length === 0) return
       sinceRef.current = Math.max(sinceRef.current, ...fresh.map((l) => l.atMs))
@@ -60,7 +71,7 @@ export function Chat({ me, hereName, act, onSaid }: ChatProps) {
     } finally {
       pullingRef.current = false
     }
-  }, [act])
+  }, [act, team])
 
   useEffect(() => {
     void pull()
@@ -77,7 +88,7 @@ export function Chat({ me, hereName, act, onSaid }: ChatProps) {
     if (!text) return
     setBusy(true)
     try {
-      const res = (await act.say(text)) as { heard?: boolean }
+      const res = (await (team ? act.radio(text) : act.say(text))) as { heard?: boolean }
       setDraft('')
       // 들리지 않았다는 것만은 알려 준다. 허공에 대고 친 줄 모르면
       // 대답이 없는 이유를 영영 알 수 없다
@@ -92,12 +103,16 @@ export function Chat({ me, hereName, act, onSaid }: ChatProps) {
 
   return (
     <div className="sc-ch">
-      <h2 className="sc-ch__head">{hereName ?? '걷는 중'}</h2>
+      <h2 className="sc-ch__head">{team ? `${me.team}팀 무전` : (hereName ?? '걷는 중')}</h2>
 
       <div className="sc-ch__log">
         {lines.length === 0 && (
           <p className="sc-ch__none">
-            {hereName ? '여기서는 아직 아무 말도 없다.' : '걷는 중에는 말할 수 없다.'}
+            {team
+              ? '오늘 오간 무전이 없다.'
+              : hereName
+                ? '여기서는 아직 아무 말도 없다.'
+                : '걷는 중에는 말할 수 없다.'}
           </p>
         )}
         <ul>
@@ -121,8 +136,8 @@ export function Chat({ me, hereName, act, onSaid }: ChatProps) {
         <input
           value={draft}
           maxLength={CHAT_MAX_LEN}
-          placeholder={hereName ? `${hereName}에서` : '걷는 중'}
-          disabled={!hereName}
+          placeholder={team ? `${me.team}팀에게` : hereName ? `${hereName}에서` : '걷는 중'}
+          disabled={!open}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) void send()
@@ -133,8 +148,9 @@ export function Chat({ me, hereName, act, onSaid }: ChatProps) {
         </button>
       </div>
       <p className="sc-ch__note">
-        이 방에서 한 말이다. 옆 방에는 가지 않고, 나중에 들어온 사람은 보지 못한다.
-        점수에도 들어가지 않는다.
+        {team
+          ? '같은 팀에게만 간다. 학교 어디에 있든 닿고, 걷는 중에도 된다. 점수에는 들어가지 않는다.'
+          : '이 방에서 한 말이다. 옆 방에는 가지 않고, 나중에 들어온 사람은 보지 못한다. 점수에도 들어가지 않는다.'}
       </p>
     </div>
   )

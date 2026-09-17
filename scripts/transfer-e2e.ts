@@ -185,6 +185,12 @@ async function main(): Promise<void> {
     JSON.stringify(after),
   )
   check((await seatTeam(b)) === 'A', '자리표가 A팀으로 옮겨졌다')
+  const since = (await doc(`games/${GAME}/pawns/${b}`)).teamSinceMs as { integerValue?: string } | undefined
+  check(
+    Number(since?.integerValue ?? 0) > 0,
+    '언제 이 팀이 됐는지도 적혔다 — 무전이 이것을 본다',
+    JSON.stringify(since),
+  )
   check(
     str((await doc(`games/${GAME}/secret/roster/items/${b}`)).team) === 'A',
     '명단이 A팀으로 옮겨졌다 — 안개와 미션 채점이 이것을 본다',

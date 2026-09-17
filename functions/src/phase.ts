@@ -337,7 +337,8 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   for (const m of moved) {
     const to = m.p.movingTo as TeamId
     teamNow.set(m.id, to)
-    batch.update(m.ref, { team: to, movingTo: null })
+    // 무전은 여기서부터 듣는다. 옛 팀이 아침에 짠 것은 안 따라온다
+    batch.update(m.ref, { team: to, movingTo: null, teamSinceMs: nowMs })
     batch.update(ref.collection('secret').doc('roster').collection('items').doc(m.id), { team: to })
   }
   const seats = moved.length

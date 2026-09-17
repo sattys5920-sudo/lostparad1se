@@ -415,6 +415,26 @@ const TAB_ME = M([
   '                ',
 ])
 
+/** 무전 탭 — 안테나 달린 무전기. 팀에게만 통하는 줄이다. */
+const TAB_RADIO = M([
+  '          33 4  ',
+  '          33    ',
+  '          334   ',
+  '          33    ',
+  '   333333333    ',
+  '   311111113    ',
+  '   333333333    ',
+  '   330000033    ',
+  '   334444433    ',
+  '   333333333    ',
+  '   311111113    ',
+  '   313131313    ',
+  '   311111113    ',
+  '   313131313    ',
+  '   311111113    ',
+  '   333333333    ',
+])
+
 /** 수첩 탭 — 스프링 노트. */
 const TAB_NOTE = M([
   '                ',
@@ -464,6 +484,7 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   smashRobot: SMASH_ROBOT,
   tabMap: TAB_MAP,
   tabMe: TAB_ME,
+  tabRadio: TAB_RADIO,
   tabNote: TAB_NOTE,
 }
 

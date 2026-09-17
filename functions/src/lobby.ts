@@ -303,6 +303,8 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         // 세 명뿐인 팀의 첫 사람이 주장이다. 점령 판정에서 둘로 센다 —
         // 네 명인 팀과 머릿수를 맞추는 유일한 장치다
         captain: isShortHanded(members.length) && i === 0,
+        // 처음부터 이 팀이었다. 오늘 오간 무전은 다 내 것이다
+        teamSinceMs: startedAtMs,
         // 2-3 교실은 이미 가 본 곳이다. 지도는 여기서부터 채워진다
         visitedTiles: [START_TILE],
         fromTile: null,

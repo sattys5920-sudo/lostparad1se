@@ -317,7 +317,9 @@
   height: calc(48px + var(--sa-bottom));
   padding-bottom: var(--sa-bottom);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* 칸 수를 세지 않는다. 탭이 늘어도 한 줄에 나란히 선다 */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   background: var(--ct-bg);
   border-top: 2px solid var(--ct-line);
 }

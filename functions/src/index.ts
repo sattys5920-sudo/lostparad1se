@@ -143,6 +143,9 @@ export { signUpAccount, logInAccount, saveCharacter, hostAccounts, hostDeleteAcc
 // 채팅. 어떤 판정에도 쓰이지 않는다.
 export { say, chatLines } from './chat'
 
+// 무전 — 방에 매이지 않고 같은 팀끼리만 통한다.
+export { radio, radioLines } from './radio'
+
 // 운영자 코드. 코드는 저장소가 아니라 배포 환경변수에 있다.
 export { claimHost } from './hostgate'
 

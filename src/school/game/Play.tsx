@@ -407,7 +407,7 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 }
 
 /** 아래 탭바의 세 칸. 화면은 세 장뿐이고, 나머지는 전부 시트다. */
-type Tab = 'map' | 'me' | 'note'
+type Tab = 'map' | 'me' | 'note' | 'radio'
 
 /** 컨트롤 바의 「더보기」에서 열리는 것들. */
 type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop' | 'team'
@@ -967,6 +967,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
       {/* ── 수첩 탭 ───────────────────────────────────────────
           지나간 것만 본다 */}
+      {/* ── 무전 탭 ───────────────────────────────────────────
+          방에 매이지 않는 유일한 말이다. 흩어져서도 팀이 팀으로
+          움직이려면 떨어져서 말이 통해야 한다 */}
+      <section className="sc-pl__tab sc-pl__radio" hidden={tab !== 'radio'}>
+        <Chat me={me} hereName={null} act={act} onSaid={setSaid} channel="team" />
+      </section>
+
       <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'note'}>
         <header className="sc-pl__paneHead">
           <h2>수첩</h2>
@@ -983,6 +990,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         tabs={[
           { key: 'map', icon: 'tabMap', label: '맵' },
           { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0 },
+          { key: 'radio', icon: 'tabRadio', label: '무전' },
           { key: 'note', icon: 'tabNote', label: '수첩' },
         ]}
       />
