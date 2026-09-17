@@ -111,6 +111,9 @@ export { proposeAlliance, respondAlliance, breakAllianceNow } from './deal'
 // 이적. 자유 시간에 마주 서서 꺼내고, 다음 페이즈가 열릴 때 발효된다.
 export { askTransfer, answerTransfer } from './transfer'
 
+// 팀장 — 날마다 팀이 투표로 뽑는다.
+export { voteCaptain } from './captain'
+
 // 마주 보고 하는 거래. 양쪽이 각자 물건을 올리고, 성립할 때 값이 든다.
 export {
   askDeal,

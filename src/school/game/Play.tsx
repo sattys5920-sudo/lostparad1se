@@ -30,6 +30,7 @@ import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
 import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
 import { TransferAsk } from './TransferAsk'
+import { CaptainVote } from './CaptainVote'
 import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
 import { useTransfer } from './useTransfer'
@@ -971,6 +972,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           방에 매이지 않는 유일한 말이다. 흩어져서도 팀이 팀으로
           움직이려면 떨어져서 말이 통해야 한다 */}
       <section className="sc-pl__tab sc-pl__radio" hidden={tab !== 'radio'}>
+        {/* 상의하는 자리와 뽑는 자리가 같아야 한다. 창이 딴 데서 뜨면
+            무전으로 맞춰 놓고 아무도 안 적는다 */}
+        <CaptainVote
+          me={me}
+          seats={game.seats}
+          captainId={state.teams[me.team]?.captainId ?? null}
+          vote={state.teams[me.team]?.captainVote ?? null}
+          nowMs={nowMs}
+          act={act}
+          onSaid={setSaid}
+        />
         <Chat me={me} hereName={null} act={act} onSaid={setSaid} channel="team" />
       </section>
 

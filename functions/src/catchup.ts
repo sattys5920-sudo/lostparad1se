@@ -16,7 +16,7 @@ import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
-import { DEAL_TOKENS_PER_DAY, isShortHanded } from '../../shared/rules/occupy'
+import { DEAL_TOKENS_PER_DAY } from '../../shared/rules/occupy'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   ALLIANCE_CLEAR_DAY,
@@ -38,6 +38,7 @@ import type {
 } from '../../shared/model'
 import { gameRef } from './index'
 import { refreshViews } from './views'
+import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
 
@@ -90,13 +91,18 @@ async function dayStart(c: Ctx): Promise<void> {
     c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0, dealTokens: DEAL_TOKENS_PER_DAY })
   }
 
-  // 머릿수가 모자란 팀의 주장은 날마다 돈다
-  for (const team of TEAMS) {
-    const members = c.game.seats.filter((s) => s.team === team)
-    if (!isShortHanded(members.length)) continue
-    const next = members[(c.day - 1) % members.length].playerId
-    c.tx.update(ref.collection('teams').doc(team), { captainId: next })
-  }
+  /*
+   * **팀장은 날마다 팀이 투표로 뽑는다.**
+   *
+   * 전에는 세 명짜리 팀의 주장이 자리 순서대로 하루씩 돌았다. 돌리는
+   * 것은 공평하지만 아무 뜻도 없다 — 누가 맡을지를 팀이 정하지 않으면
+   * 팀장은 직책이 아니라 순번이다. 이제 네 팀이 다 뽑는다.
+   *
+   * 어제 팀장은 여기서 내려온다. 새로 뽑을 때까지 그 팀에는 팀장이
+   * 없다 — 어제 사람이 앉은 채로 투표하면, 못 정했을 때 그대로 남아
+   * 「투표로 뽑는다」가 「투표로 바꿀 수도 있다」가 된다.
+   */
+  openCaptainVotes(c.tx, c.gameId, c.day, c.atMs, pawns)
 
   // DAY 4 가 열릴 때 — 모든 동맹이 풀린다. 먼저 깬 것이 아니므로 아무도
   // 값을 치르지 않고, 잠기지도 않는다
@@ -459,6 +465,8 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   await sweepDeals(gameId, toMs)
 
   // 세상이 바뀌었으면 각자 몫을 다시 깎는다. 틀린 안개는 새는 안개다
+  // 창이 닫힌 팀장 투표를 여기서 센다. 동점이면 다음 차례가 걸린다
+  await settleCaptainVotes(gameId)
   if (applied > 0) await refreshViews(gameId)
 
   const last = (await ref.get()).data() as GameDoc

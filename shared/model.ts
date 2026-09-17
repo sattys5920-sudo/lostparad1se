@@ -1,17 +1,3 @@
-// 영역전 v2 — Firestore에 무엇이 어떤 모양으로 놓이는가.
-//
-// 서버(Cloud Functions)와 화면이 같은 타입을 쓴다.
-//
-// 가장 중요한 규칙: **숨겨야 하는 것은 클라이언트가 읽을 수 있는 자리에
-// 두지 않는다.** 받은 뒤 화면에서 숨기는 방식은 개발자도구로 뚫린다.
-// 그래서 문서를 처음부터 두 갈래로 나눈다.
-//
-//   games/{gameId}/...              누구나 읽어도 되는 것
-//   games/{gameId}/secret/...       서버만 읽고 쓴다 (규칙이 전면 차단)
-//   games/{gameId}/views/{playerId} 그 사람 몫으로 서버가 깎아 둔 것
-//
-// 안개·익명 표·비밀 목표·손패·등교 예약·가짜 깃발 여부·잠복은 전부
-// secret에 있고, 각자에게 보여도 되는 만큼만 views에 복사된다.
 import type {
   CardKind,
   GoalKind,
@@ -23,6 +9,7 @@ import type {
 import type { Cell, TileId } from './rules/board'
 import type { AvatarLook } from './look'
 import type { Satchel } from './rules/items'
+import type { CaptainVote } from './rules/captain'
 
 /** 밀리초 타임스탬프. 게임 속 시각이다(개발용 시계가 걸려 있으면 그 시각). */
 export type GameMs = number
@@ -210,8 +197,15 @@ export interface TeamDoc {
   researchTier: number
   /** 손패는 장수만 공개한다. 내용은 secret에 있다. */
   handCount: number
-  /** 3인 팀의 오늘 주장. */
+  /**
+   * 오늘의 팀장. **네 팀이 다 뽑는다.**
+   *
+   * 아직 못 정했으면 null 이다 — 동점이면 풀릴 때까지 다시 뽑으므로,
+   * 하루의 얼마간은 팀장이 없는 채로 흐른다.
+   */
   captainId: string | null
+  /** 지금 돌고 있는 팀장 투표. 정해지면 지운다. */
+  captainVote?: CaptainVote | null
   /** 21:00에 공개된 점수(비밀 목표 제외). 마지막 여섯 시간에는 null. */
   publicScore: number | null
   /** 동맹 상대. 한 팀과만. */

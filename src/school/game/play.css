@@ -700,6 +700,45 @@
  * 키를 정하지만 여기서는 탭이 키를 준다.
  */
 .sc-pl__radio { padding: 12px 14px calc(12px + var(--sa-bottom)); }
+
+/* ── 팀장 투표 ───────────────────────────────────────────────
+   무전 맨 위에 선다. 자리를 많이 먹으면 안 된다 — 아래에 쌓이는
+   무전이 본체고 이것은 하루에 한 번 지나가는 일이다 */
+.sc-cv {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--sc-warn);
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--sc-text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-wrap: pretty;
+}
+.sc-cv--done { border-color: var(--sc-line); }
+.sc-cv__head { margin: 0; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.sc-cv__head em { font-style: normal; font-size: 11px; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+.sc-cv__why { margin: 0; font-size: 11px; color: var(--sc-text-dim); }
+.sc-cv__who { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-cv__who button {
+  appearance: none;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-height: 40px;
+}
+.sc-cv__who button em { font-style: normal; font-size: 10.5px; color: var(--sc-text-dim); }
+.sc-cv__who button:disabled { opacity: 0.45; cursor: default; }
 .sc-pl__radio .sc-ch { flex: 1; min-height: 0; }
 .sc-pl__radio .sc-ch__log { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
 

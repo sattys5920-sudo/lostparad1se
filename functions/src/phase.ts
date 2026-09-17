@@ -30,7 +30,6 @@ import {
   TOKEN_CAP,
   absenceRefunds,
   capacityOf,
-  isShortHanded,
   nextWallet,
   roomsOf,
   teamRanks,
@@ -57,6 +56,7 @@ import {
   type TileDoc,
 } from '../../shared/model'
 import { freshNow, refuseIfInvisible, requireFree } from './turn'
+import { countsDouble, roundAt } from '../../shared/rules/captain'
 import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
@@ -348,28 +348,6 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // 지금 인원. 상수를 읽지 않는다 — 이적하면 4·4·3·3이 아니다
   const sizes = teamSizesOf(pawns.docs.map((d) => ({ ...(d.data() as PawnDoc), team: teamNow.get(d.id) as TeamId })))
 
-  /*
-   * 오간 두 팀만 주장을 다시 세운다.
-   *
-   * 주장은 **머릿수가 모자란 팀에만** 있고 판정에서 둘로 센다. 셋이
-   * 넷이 되면 주장이 없어져야 하고 넷이 셋이 되면 생겨야 하는데,
-   * 그대로 두면 없는 사람 몫이 계속 세어지거나 받아야 할 몫을 못
-   * 받는다. **건드리지 않은 팀은 그대로 둔다** — 여기서 판을 통째로
-   * 다시 세우면 날마다 도는 주장 교대와 부딪친다.
-   */
-  const touched = new Set<TeamId>(moved.flatMap((m) => [m.p.team, m.p.movingTo as TeamId]))
-  for (const team of touched) {
-    const members = seats.filter((x) => x.team === team)
-    const head = isShortHanded(members.length) ? (members[0]?.playerId ?? null) : null
-    batch.update(ref.collection('teams').doc(team), { captainId: head })
-    for (const d of pawns.docs) {
-      if (teamNow.get(d.id) !== team) continue
-      const was = (d.data() as PawnDoc).captain === true
-      const is = d.id === head
-      if (was !== is) batch.update(d.ref, { captain: is })
-    }
-  }
-
   /**
    * 투명인간이 나온 팀이 더 받는 몫. **상자에 통째로 들어간다.**
    *
@@ -434,6 +412,36 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   const no = (game.phaseDone ?? 0) + 1
   const endsAtMs = nowMs + PHASE_MINUTES * 60_000
   const day = Math.floor((no - 1) / PHASES_PER_DAY) + 1
+
+  /*
+   * 오간 두 팀의 팀장을 다시 본다.
+   *
+   * **떠났으면 다시 뽑는다.** 자리 순서로 대신 앉히지 않는다 — 투표로
+   * 뽑기로 한 자리를 규칙이 말없이 채우면 그게 곧 걷어낸 옛 교대다.
+   * 남은 사람들이 상의하고 다시 뽑을 때까지 그 팀에는 팀장이 없다.
+   *
+   * **남아 있으면 머릿수만 다시 센다.** 점령 판정에서 둘로 세는 것은
+   * 세 명인 팀의 팀장뿐이라, 셋이 넷이 되면 그 자리에서 떼고 넷이
+   * 셋이 되면 붙여야 한다. 건드리지 않은 팀은 그대로 둔다.
+   */
+  const touched = new Set<TeamId>(moved.flatMap((m) => [m.p.team, m.p.movingTo as TeamId]))
+  for (const team of touched) {
+    const head = (teams.docs.find((d) => d.id === team)?.data() as TeamDoc | undefined)?.captainId ?? null
+    if (!head) continue
+    const members = seats.filter((x) => x.team === team).map((x) => x.playerId)
+    if (!members.includes(head)) {
+      batch.update(ref.collection('teams').doc(team), {
+        captainId: null,
+        captainVote: roundAt(day, 1, nowMs),
+      })
+      batch.update(ref.collection('pawns').doc(head), { captain: false })
+      continue
+    }
+    const is = countsDouble(members.length, true)
+    const was = (pawns.docs.find((d) => d.id === head)?.data() as PawnDoc | undefined)?.captain === true
+    if (was !== is) batch.update(ref.collection('pawns').doc(head), { captain: is })
+  }
+
 
   // 그날 첫 페이즈에 순위를 찍어 하루 동안 고정한다. 이적이 이 수를
   // 보는데, 페이즈마다 움직이면 어제 합의한 이적이 오늘 아침 말없이
