@@ -100,12 +100,15 @@ export function advance(s: MorningState, script: DayScript | null): MorningState
   return nextDay(s, false)
 }
 
-/** 건너뛰기. 그 날 하나만 건너뛴다 — 나머지 날은 그대로 이어서 본다. */
-export function skipDay(s: MorningState): MorningState {
-  return done(s) ? s : nextDay(s, true)
-}
 
-/** 전부 건너뛰기. 남은 날이 모두 「읽지 않음」이 된다. */
+/**
+ * 밀린 날을 한꺼번에 넘긴다. 남은 날이 모두 「읽지 않음」이 된다.
+ *
+ * **하루만 골라 넘기는 길은 없다.** 오늘 아침은 오늘 읽는 것이고,
+ * 하루치를 접어 두는 단추가 있으면 그것이 곧 기본값이 된다 —
+ * A의 기록을 아무도 안 읽고 닷새가 지나간다. 며칠 못 들어온 사람의
+ * 밀린 몫만 이 길로 나간다.
+ */
 export function skipAll(s: MorningState): MorningState {
   return { ...s, queue: [], scene: 'date', paperIndex: 0, topShown: false, skipped: [...s.skipped, ...s.queue] }
 }

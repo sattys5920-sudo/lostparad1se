@@ -17,7 +17,6 @@ import {
   currentDay,
   done,
   skipAll,
-  skipDay,
   startMorning,
   type DayScript,
   type MorningState,
@@ -163,10 +162,23 @@ export function MorningSequence(props: MorningProps) {
         </div>
       )}
 
-      <div className="sc-rv__skip">
-        <button onClick={() => setState(skipDay)}>이 날 건너뛰기</button>
-        {state.queue.length > 1 && <button onClick={() => setState(skipAll)}>전부 건너뛰기</button>}
-      </div>
+      {/*
+        **이 날만 골라 건너뛰는 일은 없다.**
+
+        오늘 아침은 오늘 읽는다. 하루치를 접어 두고 들어가는 길을
+        열어 두면, 그 길이 곧 기본값이 된다 — A의 기록을 아무도 안
+        읽고 닷새가 지나간다.
+
+        밀린 것은 다르다. 며칠 못 들어온 사람에게 지난 아침을 전부
+        앉혀 놓고 보이면 그날 할 것을 못 한다. 그래서 **밀린 날이
+        있을 때만** 한꺼번에 넘기는 길이 있고, 넘긴 날은 보관함에
+        「읽지 않음」으로 남아 나중에 읽을 수 있다.
+      */}
+      {state.queue.length > 1 && (
+        <div className="sc-rv__skip">
+          <button onClick={() => setState(skipAll)}>밀린 날 전부 건너뛰기</button>
+        </div>
+      )}
     </div>
   )
 }
