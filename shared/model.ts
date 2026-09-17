@@ -239,6 +239,14 @@ export interface PawnDoc {
   postTile?: TileId | null
   /** 머릿수가 모자란 팀의 주장. 점령 판정에서 둘로 센다. */
   captain?: boolean
+  /**
+   * 옮기기로 한 팀. **다음 페이즈가 열릴 때** 발효된다.
+   *
+   * 자유 시간에 마주 서서 합의해 두는 값이라, 합의한 순간부터 종이
+   * 칠 때까지는 아직 옛 팀 사람이다 — 이 사이가 이적의 전부다.
+   * 발효되면 지워진다.
+   */
+  movingTo?: TeamId | null
   /** 내 주머니. **산 사람이 가진다** — 상점에 다녀온 그 사람 것이다. */
   items?: Satchel
   /**
@@ -435,6 +443,8 @@ export interface PlayerViewDoc {
   myTeamTokens: number
   /** 내 하루 몫에서 남은 수. */
   /** 거래를 걸 수 있는 내 개인 토큰. 하루치다. */
+  /** 다음 점령전부터 갈 팀. 본인만 본다. */
+  myMovingTo: TeamId | null
   myDealTokens: number
   /**
    * **우리 팀** 금고. 돈과 지식 둘뿐이고, 남의 팀 것은 오지 않는다.

@@ -28,8 +28,11 @@ import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
+import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
+import { TransferAsk } from './TransferAsk'
 import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
+import { useTransfer } from './useTransfer'
 import { pushLive, useLive } from './useLive'
 import { ActionGrid, Pad, ResourceRow, TabBar, Toast, buzzOn, setBuzz, useToast, padFace, type Act } from './Controls'
 import { TEAM_COLOR } from './MapPlan'
@@ -505,6 +508,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 상대가 물건을 올리는 것이 그 자리에서 보여야 흥정이다.
    */
   const { deal, dismiss: leaveDeal } = useDeal(gameId, uid)
+  const { ask: moveAsk, dismiss: dropMoveAsk } = useTransfer(gameId, uid)
   /**
    * 그 사람이 **바로 옆 칸**에 서 있는가.
    *
@@ -516,6 +520,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const nextTo = person
     ? cellsTouch(myAt, state.view?.visiblePawns.find((p) => p.playerId === person)?.at ?? null)
     : false
+
+  /** 짚은 사람의 팀. 안 보이면 null 이다. */
+  const personTeam = (hereNow.find((p) => p.playerId === person)?.team ?? null) as TeamId | null
+
 
   /**
    * 거래창을 닫는다. **살아 있는 판은 접고, 끝난 판은 치우기만 한다** —
@@ -588,6 +596,29 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
   const phaseNo = state.game?.phaseNow?.no ?? 0
   const phaseOpen = state.game?.phaseNow?.open === true
+
+  /**
+   * 이적을 못 꺼내는 까닭. **서버와 같은 함수를 부른다.**
+   *
+   * 남의 pawn 은 화면에 안 오므로 「이미 옮기기로 했다」와 「그 팀
+   * 마지막 한 사람이다」 둘은 넣지 않는다 — 모르는 것을 지어내느니
+   * 켜 둔 채로 서버가 거절하며 까닭을 말하게 둔다.
+   */
+  const moveNo =
+    person && personTeam && me
+      ? whyNotTransfer({
+          day: game?.day ?? 0,
+          phaseOpen,
+          byId: me.playerId,
+          byTeam: me.team,
+          toId: person,
+          toTeam: personTeam,
+          bothStanding: standingOn !== null,
+          nextTo,
+          asking: moveAsk?.status === 'asking',
+        })
+      : 'walking'
+
   const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
 
   /**
@@ -864,6 +895,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           <h2>{me.name}</h2>
           <span>{me.team}팀 · DAY {game.day}</span>
         </header>
+        {/* 합의해 둔 이적. **나만 본다** — 옛 팀에게도 새 팀에게도 안 간다 */}
+        {state.view?.myMovingTo && (
+          <p className="sc-pl__moving">
+            다음 점령전부터 <b>{state.view.myMovingTo}팀</b>이다. {me.team}팀 금고와 손패는 두고 간다.
+          </p>
+        )}
         {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
 
         <ul className="sc-pl__mine">
@@ -1070,6 +1107,29 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                       : `성립하면 개인 토큰 1개 · 오늘 ${state.view?.myDealTokens ?? 0}개 남았다`}
               </span>
             </button>
+
+            {/* 우리 팀 사람에게는 꺼낼 말이 아니다. 아예 안 보인다 */}
+            {personTeam !== null && personTeam !== me.team && (
+              <button
+                className="sc-pr__go sc-pr__go--move"
+                disabled={moveNo !== null}
+                onClick={() => {
+                  const who = person
+                  setPerson(null)
+                  act
+                    .askTransfer(who)
+                    .then(() => say('우리 팀으로 오겠느냐고 물었다. 열다섯 초 안에 답이 온다.'))
+                    .catch((e) => refuse((e as Error).message))
+                }}
+              >
+                이적 제안하기
+                <span>
+                  {moveNo !== null
+                    ? TRANSFER_NO[moveNo]
+                    : `받아들이면 다음 점령전부터 ${me.team}팀이다`}
+                </span>
+              </button>
+            )}
           </div>
         </Sheet>
       )}
@@ -1087,6 +1147,28 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           }}
         />
       )}
+      {/* ── 이적 ────────────────────────────────────────────
+          불린 쪽에만 뜬다. 옛 팀은 발효될 때까지 아무것도 모른다 */}
+      {moveAsk?.status === 'asking' && moveAsk.toId === me.playerId && (
+        <TransferAsk
+          fromName={nameOf(moveAsk.byId)}
+          toTeam={moveAsk.byTeam}
+          myTeam={me.team}
+          askedAtMs={moveAsk.askedAtMs}
+          nowMs={nowMs}
+          onAnswer={(accept) => {
+            dropMoveAsk()
+            act
+              .answerTransfer(moveAsk.id, accept)
+              .then((r) => say(String((r as { said?: string }).said ?? '남기로 했다.')))
+              .catch((e) => refuse((e as Error).message))
+          }}
+        />
+      )}
+      {moveAsk?.status === 'asking' && moveAsk.byId === me.playerId && (
+        <p className="sc-da__wait">{nameOf(moveAsk.toId)}의 답을 기다린다.</p>
+      )}
+
       {deal?.status === 'asking' && deal.askedBy === me.playerId && (
         <p className="sc-da__wait">
           {nameOf(deal.a.playerId === me.playerId ? deal.b.playerId : deal.a.playerId)}의 답을 기다린다.

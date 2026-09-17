@@ -288,6 +288,13 @@ export function gameActions(gameId: string) {
       callServer('respondAlliance', { ...g, proposalId, accept }),
     breakAlliance: () => callServer('breakAllianceNow', g),
 
+    // ── 이적 ────────────────────────────────────────────────────
+    // 마주 서서 「우리 팀으로 오겠느냐」고 묻는다. 불린 쪽이 답하고,
+    // 수락해도 다음 페이즈가 열릴 때까지는 아직 옛 팀 사람이다.
+    askTransfer: (toPlayerId: string) => callServer('askTransfer', { ...g, toPlayerId }),
+    answerTransfer: (askId: string, accept: boolean) =>
+      callServer('answerTransfer', { ...g, askId, accept }),
+
     playCard: (kind: string, target: { targetTeam?: TeamId; targetTile?: TileId; targetPawn?: string } = {}) =>
       callServer('playOne', { ...g, kind, ...target }),
 

@@ -30,6 +30,7 @@ import {
   TOKEN_CAP,
   absenceRefunds,
   capacityOf,
+  isShortHanded,
   nextWallet,
   roomsOf,
   teamRanks,
@@ -315,8 +316,58 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   }
   await Promise.all(returning.map((m) => clearArrivals(gameId, m.ref.id)))
 
+  /*
+   * **이적은 여기서 발효된다.**
+   *
+   * 자유 시간에 마주 서서 합의해 둔 것이 종이 치는 순간 넘어간다.
+   * 합의한 자리에서 바로 넘기지 않는 까닭은, 팀 값이 **세 군데**에
+   * 나뉘어 적혀 있어서다 — 자리표(seats)는 팀장 교대와 화면 구독이
+   * 보고, 말(pawns)은 규칙의 금고 열쇠와 머릿수가 보고, 명단(roster)은
+   * 안개와 개인 미션 채점이 본다. 셋 중 하나만 옮기면 새 팀 금고는
+   * 열리는데 시야와 채점은 옛 팀인 사람이 생긴다. 그래서 한 묶음으로
+   * 쓸 수 있는 여기서 셋을 같이 옮긴다.
+   *
+   * 공지는 없다. 마주쳐야 안다 — 완장이 바뀐 것을 보고 아는 것이지
+   * 아침에 이름이 불리는 것이 아니다.
+   */
+  const moved = pawns.docs
+    .map((d) => ({ id: d.id, ref: d.ref, p: d.data() as PawnDoc }))
+    .filter((x) => x.p.movingTo != null && x.p.movingTo !== x.p.team)
+  const teamNow = new Map<string, TeamId>(pawns.docs.map((d) => [d.id, (d.data() as PawnDoc).team]))
+  for (const m of moved) {
+    const to = m.p.movingTo as TeamId
+    teamNow.set(m.id, to)
+    batch.update(m.ref, { team: to, movingTo: null })
+    batch.update(ref.collection('secret').doc('roster').collection('items').doc(m.id), { team: to })
+  }
+  const seats = moved.length
+    ? game.seats.map((x) => ({ ...x, team: teamNow.get(x.playerId) ?? x.team }))
+    : game.seats
+
   // 지금 인원. 상수를 읽지 않는다 — 이적하면 4·4·3·3이 아니다
-  const sizes = teamSizesOf(pawns.docs.map((d) => d.data() as PawnDoc))
+  const sizes = teamSizesOf(pawns.docs.map((d) => ({ ...(d.data() as PawnDoc), team: teamNow.get(d.id) as TeamId })))
+
+  /*
+   * 오간 두 팀만 주장을 다시 세운다.
+   *
+   * 주장은 **머릿수가 모자란 팀에만** 있고 판정에서 둘로 센다. 셋이
+   * 넷이 되면 주장이 없어져야 하고 넷이 셋이 되면 생겨야 하는데,
+   * 그대로 두면 없는 사람 몫이 계속 세어지거나 받아야 할 몫을 못
+   * 받는다. **건드리지 않은 팀은 그대로 둔다** — 여기서 판을 통째로
+   * 다시 세우면 날마다 도는 주장 교대와 부딪친다.
+   */
+  const touched = new Set<TeamId>(moved.flatMap((m) => [m.p.team, m.p.movingTo as TeamId]))
+  for (const team of touched) {
+    const members = seats.filter((x) => x.team === team)
+    const head = isShortHanded(members.length) ? (members[0]?.playerId ?? null) : null
+    batch.update(ref.collection('teams').doc(team), { captainId: head })
+    for (const d of pawns.docs) {
+      if (teamNow.get(d.id) !== team) continue
+      const was = (d.data() as PawnDoc).captain === true
+      const is = d.id === head
+      if (was !== is) batch.update(d.ref, { captain: is })
+    }
+  }
 
   /**
    * 투명인간이 나온 팀이 더 받는 몫. **상자에 통째로 들어간다.**
@@ -399,6 +450,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
 
   batch.update(ref, {
     phaseNow: { no, day, open: true, openedAtMs: nowMs, endsAtMs },
+    ...(moved.length ? { seats } : {}),
     ...freeze,
   })
   // 지난 페이즈의 위장·방해는 여기서 지운다. 연구 대기는 남긴다 —

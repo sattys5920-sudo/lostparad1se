@@ -148,6 +148,16 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // 이적 제안. 거래와 같다 — 마주 선 둘만 본다.
+      //
+      // 부른 쪽도 읽어야 「거절당했다」가 보인다. 나머지 열둘에게는
+      // 이 문서가 아예 없다. 발효되기 전까지 옛 팀은 아무것도 모른다.
+      match /transfers/{askId} {
+        allow read: if request.auth != null
+          && (request.auth.uid == resource.data.byId || request.auth.uid == resource.data.toId);
+        allow write: if false;
+      }
+
       // 서버가 그 사람 몫으로 깎아 둔 것. 본인만 읽는다.
       match /views/{playerId} {
         allow read: if request.auth != null && request.auth.uid == playerId;
