@@ -21,6 +21,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import {
   ACT_COST,
+  ACT_MINUTES,
   KNOWLEDGE_PER_RESEARCH,
   MOVE_MINUTES,
   PHASES_PER_DAY,
@@ -54,7 +55,7 @@ import {
   type TeamDoc,
   type TileDoc,
 } from '../../shared/model'
-import { freshNow } from './turn'
+import { freshNow, requireFree } from './turn'
 import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
@@ -67,6 +68,17 @@ import { note, noteAll } from './records'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
+
+/** 묶여 있는 동안 화면에 적는 이름. */
+const ACT_LABEL: Record<ActionKind, string> = {
+  move: '이동',
+  research: '연구',
+  summon: '호출',
+  disturb: '방해',
+  disguise: '위장',
+  dropRobot: '로봇 두기',
+  smashRobot: '로봇 부수기',
+}
 
 const ACTION_KINDS: readonly ActionKind[] = [
   'move',
@@ -323,7 +335,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     const came = returning.some((m) => m.ref.id === d.id)
     if (!came) {
       // 제 전선에 그대로 서 있었다. 자리는 안 건드린다
-      batch.update(d.ref, { postTile: post, fromTile: null, path: [], arriveAtMs: null })
+      batch.update(d.ref, { postTile: post, fromTile: null, path: [], arriveAtMs: null, busyUntilMs: null, busyKind: null })
       continue
     }
     returned += 1
@@ -334,6 +346,10 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
       path: [],
       arriveAtMs: null,
       asleep: false,
+      // 종이 치면 하던 일도 끊긴다. 옮겨 세워 놓고 「생산 중」이라
+      // 적혀 있으면 그 자리에서 아무것도 못 한다
+      busyUntilMs: null,
+      busyKind: null,
     })
   }
 
@@ -474,6 +490,16 @@ export const phaseAct = onCall<{
       invisibleId: game.invisibleId ?? null,
     }
 
+    /*
+     * **하던 일이 안 끝났으면 아무것도 못 한다.**
+     *
+     * 생산·공부·호출은 시간이 든다. 그동안 다른 것을 걸 수 있으면
+     * 시간을 물린 뜻이 없다 — 10분짜리 일을 걸어 놓고 그 10분에
+     * 세 가지를 더 한다.
+     */
+    const mineDoc = pawns.docs.find((d) => d.id === uid)
+    if (mineDoc) requireFree(mineDoc.data() as PawnDoc, nowMs)
+
     const out = doAct(before, uid, act)
     if (!out.ok) throw new HttpsError('failed-precondition', out.why)
     bot.made = null
@@ -533,6 +559,35 @@ export const phaseAct = onCall<{
         doneAtMs: null,
       })
       if (p.playerId === uid) leftFor = was.tileId
+    }
+
+    /*
+     * **시간이 드는 행동은 손을 묶는다.**
+     *
+     * 호출은 부른 쪽과 불린 쪽이 둘 다 묶인다 — 부르는 것도 오는 것도
+     * 시간이 든다. 불린 사람만 묶으면 부르는 쪽이 공짜로 남의 10분을
+     * 쓴다.
+     *
+     * 로봇 부수기는 순식간이라 0분이고, 그때는 아무도 안 묶인다.
+     */
+    /*
+     * **이동과 연구는 여기서 안 묶는다.**
+     *
+     * 이동의 10분은 이미 걷는 중(arriveAtMs)으로 흐르고 있다. 여기서
+     * 또 묶으면 도착하고도 10분을 더 서 있는다.
+     *
+     * 연구의 20분은 맡겨 두는 시간이다 — 걸어 놓고 돌아다닌다.
+     * 대신 찾으러 다시 들어와야 한다(아직 안 붙였다).
+     */
+    const mins = kind === 'summon' ? ACT_MINUTES[kind] : 0
+    if (mins > 0) {
+      const until = nowMs + mins * 60_000
+      const busy = { busyUntilMs: until, busyKind: ACT_LABEL[kind] }
+      const both = kind === 'summon' && act.targetPlayer ? [uid, act.targetPlayer] : [uid]
+      for (const id of both) {
+        const d = pawns.docs.find((x) => x.id === id)
+        if (d) tx.update(d.ref, busy)
+      }
     }
 
     // 팀 상자 — 값을 치른 팀만 쓴다
@@ -652,7 +707,14 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     // 걷는 중이었으면 자리가 없다. 떠난 방을 전선으로 남긴다 —
     // 문 사이에서 페이즈가 끝나면 아무 방도 못 가져간다
     const where = p.tileId ?? (p.toTile as TileId | null)
-    if (where) batch.update(ref.collection('pawns').doc(p.playerId), { postTile: where })
+    // 종이 치면 하던 일도 끝난다. 자유 시간까지 묶여 있을 까닭이 없다
+    if (where) {
+      batch.update(ref.collection('pawns').doc(p.playerId), {
+        postTile: where,
+        busyUntilMs: null,
+        busyKind: null,
+      })
+    }
   }
 
   // 팀 상자 — 불발된 연구가 값을 돌려주고, 결석한 팀은 보정을 예약한다.
@@ -812,6 +874,9 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
       tx.get(ref.collection('pawns').doc(uid)),
       tx.get(ref.collection('pawns')),
     ])
+    // 페이즈가 닫히면 하던 일도 끊기지만, 그 사이에 이 문으로 들어올
+    // 수 있다. 여기서도 한 번 본다
+    if (mine.exists) requireFree(mine.data() as PawnDoc, nowMs)
     if (!mine.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
     const p = mine.data() as PawnDoc
     if (p.tileId === tileId) throw new HttpsError('failed-precondition', '이미 그 방이다.')

@@ -18,7 +18,7 @@ import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions, Shop } from './Actions'
 import { Walk, type DirWay } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
-import { Phase, PhaseLog } from './Phase'
+import { Phase, PhaseLog, leftText } from './Phase'
 import { Slips } from './Slips'
 import { Quiz } from './Quiz'
 import { Ballot } from './Ballot'
@@ -576,11 +576,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // 아무도 부르지 않으면 영영 안 돈다 — 문을 넘어 놓고 「이동 중」에
   // 갇혀서, 밖에서 보기에는 방에서 방으로 못 건너가는 것과 같다
   const arriveAtMs = state.view?.myArriveAtMs ?? null
+  /** 무언가 하느라 묶인 시각. 그동안은 걸음도 다른 행동도 안 된다 */
+  const busyUntilMs = state.view?.myBusyUntilMs ?? null
+  const busyKind = state.view?.myBusyKind ?? null
+  const busyLeftMs = busyUntilMs === null ? 0 : Math.max(0, busyUntilMs - nowMs)
   useEffect(() => {
-    if (arriveAtMs == null) return
+    if (arriveAtMs == null && busyUntilMs == null) return
     const t = setInterval(() => void act.tick().catch(() => {}), 4000)
     return () => clearInterval(t)
-  }, [arriveAtMs, act])
+  }, [arriveAtMs, busyUntilMs, act])
 
   const phaseNo = state.game?.phaseNow?.no ?? 0
   const phaseOpen = state.game?.phaseNow?.open === true
@@ -622,11 +626,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
      * 보내 준 숫자뿐이다 — 페이즈 상자가 비었으면 무엇을 눌러도
      * 서버가 거절한다. 그 말을 미리 대신 해 줄 뿐이다.
      */
-    const stop = walking
-      ? '걷는 중이다 — 멈춰야 한다'
-      : phaseTokens === 0
-        ? '팀 토큰이 없다'
-        : undefined
+    const stop = busyLeftMs > 0
+      ? `${busyKind ?? '하는'} 중이다 — ${leftText(busyLeftMs)} 남았다`
+      : walking
+        ? '걷는 중이다 — 멈춰야 한다'
+        : phaseTokens === 0
+          ? '팀 토큰이 없다'
+          : undefined
     // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
     const room: Act[] = []
     if (!phaseOpen && standingOn === SHOP_TILE) {
@@ -670,7 +676,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
     ]
     return [...room, ...fixed, ...tail]
-  }, [phaseOpen, standingOn, phaseTokens, act, say, refuse])
+  }, [phaseOpen, standingOn, phaseTokens, busyLeftMs, busyKind, act, say, refuse])
 
   /**
    * 여섯 칸에 다 안 들어가면 마지막 칸을 「더보기」가 쓴다.
@@ -802,7 +808,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                빨간 글씨가 뜰 일은 아니다 */
             onStand={(x, y) => { void act.standAt(x, y).catch(() => {}) }}
             /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */
-            frozen={deal !== null && deal.status !== 'done' && deal.status !== 'gone'}
+            /* 거래 탁자에 앉아 있거나, 무언가 하느라 묶여 있으면 못 움직인다 */
+            frozen={(deal !== null && deal.status !== 'done' && deal.status !== 'gone') || busyLeftMs > 0}
           />
 
           {/* 방 위에 얹는 것들. 줄을 따로 내주면 방이 그만큼 작아진다.
@@ -1215,6 +1222,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           </details>
 
         </Sheet>
+      )}
+
+      {/*
+        **하는 동안은 그 자리다.**
+
+        생산·공부·호출에는 시간이 든다. 그동안 걸음도 다른 행동도 막고,
+        무엇을 얼마나 더 해야 하는지 화면 한가운데에 적어 둔다 — 안
+        적으면 십자키가 고장 난 줄 안다.
+      */}
+      {busyLeftMs > 0 && (
+        <div className="sc-pl__busy" role="status">
+          <p className="sc-pl__busyWhat">{busyKind ?? '하는 중'}</p>
+          <p className="sc-pl__busyLeft">{leftText(busyLeftMs)}</p>
+          <p className="sc-pl__busyWhy">끝날 때까지 그 자리에 있는다.</p>
+        </div>
       )}
 
       {asking}

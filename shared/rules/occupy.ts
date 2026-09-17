@@ -397,6 +397,28 @@ export const ACT_COST: Record<ActionKind, number> = {
   smashRobot: 1,
 }
 
+/**
+ * 행동에 드는 **시간**. 게임 속 분이다.
+ *
+ * 값만 있고 시간이 없으면, 토큰이 남아 있는 한 한 자리에서 무엇이든
+ * 연달아 할 수 있다. 한 시간짜리 페이즈가 「토큰을 몇 개 쥐었나」로만
+ * 갈리고 몸이 어디 있었는지는 아무 뜻이 없어진다.
+ *
+ * 생산·공부는 **그 자리에 묶인다** — 하는 동안 못 움직인다.
+ * 연구는 맡겨 놓고 돌아다닌다 — 대신 찾으러 다시 들어와야 한다.
+ * 호출은 부른 쪽과 불린 쪽이 **둘 다** 묶인다.
+ * 로봇 부수기는 순식간이다. 값만 든다.
+ */
+export const ACT_MINUTES: Record<ActionKind, number> = {
+  move: MOVE_MINUTES,
+  research: 20,
+  summon: 10,
+  disturb: 0,
+  disguise: 0,
+  dropRobot: 0,
+  smashRobot: 0,
+}
+
 export interface Act {
   kind: ActionKind
   /** 이동의 목적지. */

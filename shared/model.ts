@@ -278,6 +278,17 @@ export interface PawnDoc {
   arriveAtMs: GameMs | null
   /** 앱을 닫아도 말은 남는다. 잠든 말도 판정에서 센다. */
   asleep: boolean
+  /**
+   * 무언가 하고 있어서 손이 묶인 시각. 그때까지 움직이지도 다른 것을
+   * 하지도 못한다.
+   *
+   * **발 묶기(boundUntilMs)와 다르다.** 저쪽은 남이 나에게 건 것이고
+   * 이쪽은 내가 고른 일이다 — 화면에 뜨는 말도, 푸는 방법도 다르다.
+   * 판정에서는 둘 다 그대로 센다. 그 자리에 몸이 있기 때문이다.
+   */
+  busyUntilMs?: GameMs
+  /** 무엇을 하느라 묶였는가. 화면이 「생산 중」이라 적는 데 쓴다. */
+  busyKind?: string
   /** 발 묶기 — 움직이지도 행동하지도 못한다. 판정에서는 센다. */
   boundUntilMs?: GameMs
   /** 잠복 — 누구에게도 보이지 않는다. 판정에서는 센다. */
@@ -405,6 +416,16 @@ export interface PlayerViewDoc {
    * 도착하는지까지 알면 문 앞에서 기다렸다 덮치는 것이 계산이 된다.
    */
   myArriveAtMs: number | null
+  /**
+   * 무언가 하느라 손이 묶인 시각. 걷는 중이 아닌데도 못 움직인다.
+   *
+   * 화면이 이것으로 「생산 중 · 7:12」를 띄우고 걸음을 잠근다.
+   * **판정과는 상관이 없다** — 묶여 있어도 그 자리에 몸이 있어서
+   * 머릿수로는 그대로 센다.
+   */
+  myBusyUntilMs?: number | null
+  /** 무엇을 하느라 묶였는가. 화면이 그대로 적는다. */
+  myBusyKind?: string | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
   /**

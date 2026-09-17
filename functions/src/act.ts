@@ -20,6 +20,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import {
+  ACTION_MINUTES,
   ACTION_TOKEN_COST,
   PRODUCE_YIELD,
   STUDY_YIELD,
@@ -34,7 +35,7 @@ import { SHOP_TILE, shopItemById, shopPriceFor } from '../../shared/rules/shop'
 import { putItem, type Satchel } from '../../shared/rules/items'
 import type { TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn, requireAwake, tileStates } from './turn'
+import { freshNow, myPawn, requireAwake, requireFree, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -63,7 +64,7 @@ async function earn(
   kind: ActionKind,
   targetTile: TileId,
   got: Partial<Record<Resource, number>>,
-): Promise<{ got: Partial<Record<Resource, number>>; left: number }> {
+): Promise<{ got: Partial<Record<Resource, number>>; left: number; minutes: number }> {
   const { game, nowMs } = await freshNow(gameId)
   if (!TILE_BY_ID[targetTile]) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
   if (!game.phaseNow?.open) {
@@ -73,6 +74,7 @@ async function earn(
   const ref = gameRef(gameId)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
+  requireFree(pawn, nowMs)
 
   const tileSnap = await ref.collection('tiles').get()
   const tiles = tileStates(tileSnap.docs)
@@ -87,6 +89,21 @@ async function earn(
     if (held < cost) throw new HttpsError('failed-precondition', '팀 토큰이 모자라다.')
     const after = held - cost
     tx.update(teamRef, { phaseTokens: after, resources: gain(team.resources, got) })
+    /*
+     * **하는 동안 그 자리에 묶인다.**
+     *
+     * 값만 물리고 시간을 안 물리면, 토큰이 남아 있는 한 한 방에 서서
+     * 연달아 찍어 낸다 — 페이즈가 「토큰이 몇 개인가」로만 갈리고
+     * 몸이 어디 있었는지는 아무 뜻이 없어진다.
+     *
+     * 번 것은 지금 들어온다. 끝날 때 넣으려면 누군가 그 시각에
+     * 서버를 두드려 줘야 하는데, 혼자 확인하는 판에서는 아무도 안
+     * 두드려서 낸 토큰만 사라진다.
+     */
+    tx.update(ref.collection('pawns').doc(uid), {
+      busyUntilMs: nowMs + ACTION_MINUTES[kind] * 60_000,
+      busyKind: kind === 'produce' ? '생산' : '공부',
+    })
     tx.set(ref.collection('events').doc(), {
       atMs: nowMs,
       day: game.day,
@@ -100,7 +117,7 @@ async function earn(
   })
 
   await refreshViews(gameId)
-  return { got, left }
+  return { got, left, minutes: ACTION_MINUTES[kind] }
 }
 
 // ── 생산 ────────────────────────────────────────────────────────

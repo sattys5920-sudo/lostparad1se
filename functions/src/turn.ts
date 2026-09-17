@@ -52,6 +52,27 @@ export function requireAwake(pawn: PawnDoc, nowMs: number): void {
   if (!gate.ok) throw new HttpsError('failed-precondition', '발이 묶여 있다.')
 }
 
+/** 무엇을 하느라 묶였을 때 몇 분 남았는가. 안 묶였으면 0. */
+export function busyLeft(pawn: PawnDoc, nowMs: number): number {
+  const until = pawn.busyUntilMs ?? 0
+  return until > nowMs ? Math.ceil((until - nowMs) / 60_000) : 0
+}
+
+/**
+ * 하던 일이 안 끝났으면 아무것도 못 한다.
+ *
+ * **손이 묶인 것과 발이 묶인 것은 다르다.** 발 묶기는 남이 나에게 건
+ * 것이고, 이쪽은 내가 고른 일이다 — 거절하는 말도 그래서 다르다.
+ * 판정에서는 둘 다 그대로 센다. 그 자리에 몸이 있기 때문이다.
+ */
+export function requireFree(pawn: PawnDoc, nowMs: number): void {
+  const left = busyLeft(pawn, nowMs)
+  if (left > 0) {
+    const what = pawn.busyKind ? `${pawn.busyKind} 중이다` : '하던 일이 안 끝났다'
+    throw new HttpsError('failed-precondition', `${what}. ${left}분 남았다.`)
+  }
+}
+
 export { requireUid }
 
 /**

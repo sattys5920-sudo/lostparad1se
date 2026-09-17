@@ -102,6 +102,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       intelOfficer: p.title === 'intelOfficer',
       // 투영이 본인 몫에만 싣는다. 여기서는 그냥 들고만 간다
       arriveAtMs: p.arriveAtMs ?? null,
+      busyUntilMs: p.busyUntilMs ?? null,
+      busyKind: p.busyKind ?? null,
       postTile: p.postTile ?? null,
       visitedTiles: p.visitedTiles ?? [],
       dealTokens: p.dealTokens ?? 0,

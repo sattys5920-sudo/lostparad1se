@@ -32,6 +32,10 @@ export interface WorldPawn extends PawnPosition {
   dealTokens?: number
   /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
   arriveAtMs?: number | null
+  /** 무언가 하느라 묶인 시각. 본인 몫에만 실린다. */
+  busyUntilMs?: number | null
+  /** 무엇을 하느라 묶였는가. 본인 몫에만 실린다. */
+  busyKind?: string | null
   /** 전투 자리. 본인 몫에만 실린다 — 남의 전선 계획까지 보일 이유가 없다. */
   postTile?: TileId | null
   /** 가 본 방. 본인 몫에만 실린다. */
@@ -199,6 +203,16 @@ export interface View {
    * 사실은 보이지만(visiblePawns.walking) 몇 분 남았는지는 안 보인다.
    */
   myArriveAtMs: number | null
+  /**
+   * 무언가 하느라 손이 묶인 시각. 걷는 중이 아닌데도 못 움직인다.
+   *
+   * 화면이 이것으로 「생산 중 · 7분 남음」을 띄우고 걸음을 잠근다.
+   * **판정과는 상관이 없다** — 묶여 있어도 그 자리에 몸이 있어서
+   * 머릿수로는 그대로 센다.
+   */
+  myBusyUntilMs: number | null
+  /** 무엇을 하느라 묶였는가. 화면이 그대로 적는다. */
+  myBusyKind: string | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
   /**
@@ -345,6 +359,8 @@ export function projectView(world: World, viewerId: string): View {
       myChoice: null,
       own: null,
       myArriveAtMs: null,
+      myBusyUntilMs: null,
+      myBusyKind: null,
       myPost: null,
       myTeamTokens: 0,
       myDealTokens: 0,
@@ -436,6 +452,8 @@ export function projectView(world: World, viewerId: string): View {
     // 역할은 **자기 한 줄뿐이다.** 남의 것은 들어가지 않는다
     own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
     myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
+    myBusyUntilMs: world.pawns.find((p) => p.playerId === viewerId)?.busyUntilMs ?? null,
+    myBusyKind: world.pawns.find((p) => p.playerId === viewerId)?.busyKind ?? null,
     myPost: world.pawns.find((p) => p.playerId === viewerId)?.postTile ?? null,
     // **우리 팀 것만이다.** 남의 상자가 보이면 언제 밀고 들어올지가
     // 읽힌다 — 그게 이 게임의 절반이다

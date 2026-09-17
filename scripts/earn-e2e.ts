@@ -10,8 +10,10 @@
 //   npx vite-node scripts/earn-e2e.ts
 import { createHash } from 'node:crypto'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
-import { ACTION_TOKEN_COST } from '../shared/rules/actions'
+import { ACTION_MINUTES, ACTION_TOKEN_COST } from '../shared/rules/actions'
 import { dayHourMs } from '../shared/rules/clock'
+import { ACT_MINUTES } from '../shared/rules/occupy'
+import { ADJACENCY, type TileId } from '../shared/rules/board'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -125,9 +127,72 @@ async function main(): Promise<void> {
   )
   check(afterProduce.money > before.money, '돈이 늘었다', `${before.money} → ${afterProduce.money}`)
 
+  console.log('\n── 하는 동안은 그 자리 ──')
+  /**
+   * **값만 물리고 시간을 안 물리면** 토큰이 남아 있는 한 한 방에 서서
+   * 연달아 찍어 낸다. 페이즈가 「토큰이 몇 개인가」로만 갈리고 몸이
+   * 어디 있었는지는 아무 뜻이 없어진다.
+   */
+  const again = await no(call('produce', mine, { gameId: GAME, tileId: home }))
+  check(again.includes('생산 중이다'), '생산하는 동안에는 또 못 한다', again)
+  const noStudy = await no(call('study', mine, { gameId: GAME, tileId: home }))
+  check(noStudy.includes('생산 중이다'), '다른 것도 못 한다', noStudy)
+  const noMove = await no(call('phaseAct', mine, { gameId: GAME, kind: 'move', targetTile: 'centralPlaza' }))
+  check(noMove.includes('생산 중이다'), '움직이지도 못한다', noMove)
+
+  // 10분을 넘겨 준다. 시계를 옮기는 것으로 족하다
+  await call('setDevClock', host, {
+    gameId: GAME,
+    anchorGameMs: dayHourMs(START, 1, 10) + (ACTION_MINUTES.produce + 1) * 60_000,
+    speed: 1,
+  })
   await call('study', mine, { gameId: GAME, tileId: home })
   const afterStudy = await team(myTeam)
-  check(afterStudy.knowledge > afterProduce.knowledge, '공부로 지식이 늘었다', `${afterProduce.knowledge} → ${afterStudy.knowledge}`)
+  check(afterStudy.knowledge > afterProduce.knowledge, '10분이 지나면 공부가 된다', `${afterProduce.knowledge} → ${afterStudy.knowledge}`)
+
+  // 공부도 묶는다
+  const noAgain = await no(call('produce', mine, { gameId: GAME, tileId: home }))
+  check(noAgain.includes('공부 중이다'), '공부하는 동안에도 묶인다', noAgain)
+  await call('setDevClock', host, {
+    gameId: GAME,
+    anchorGameMs: dayHourMs(START, 1, 10) + (ACTION_MINUTES.produce + ACTION_MINUTES.study + 2) * 60_000,
+    speed: 1,
+  })
+
+  console.log('\n── 호출은 양쪽이 묶인다 ──')
+  /**
+   * 부르는 것도 오는 것도 시간이 든다. **불린 사람만 묶으면**
+   * 부르는 쪽이 공짜로 남의 10분을 쓴다.
+   */
+  const all = await fetch(`${FS}/games/${GAME}/pawns?pageSize=30`, { headers: ADMIN })
+  const docs = ((await all.json()) as { documents?: { name: string; fields: Record<string, unknown> }[] }).documents ?? []
+  const mateId = docs
+    .map((d) => ({ id: d.name.split('/').pop() as string, team: (d.fields.team as { stringValue?: string })?.stringValue }))
+    .find((x) => x.team === myTeam && x.id !== me)?.id
+  if (!mateId) throw new Error('같은 팀 사람을 못 찾았다')
+  // 옆방에 세워 둔다. 한 걸음 거리라야 부를 수 있다
+  const near = (ADJACENCY[home as TileId] ?? [])[0]
+  await patch(`games/${GAME}/pawns/${mateId}`, { tileId: near, postTile: near })
+  await call('setDevClock', host, {
+    gameId: GAME,
+    anchorGameMs: dayHourMs(START, 1, 10) + (ACTION_MINUTES.produce + ACTION_MINUTES.study + 3) * 60_000,
+    speed: 1,
+  })
+  await call('phaseAct', mine, { gameId: GAME, kind: 'summon', targetPlayer: mateId })
+  const busyOf = async (id: string): Promise<number> => {
+    const r = await fetch(`${FS}/games/${GAME}/pawns/${id}`, { headers: ADMIN })
+    const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
+    return num(f.busyUntilMs)
+  }
+  check((await busyOf(me)) > 0, '부른 쪽이 묶인다')
+  check((await busyOf(mateId)) > 0, '불린 쪽도 묶인다')
+  const noNow = await no(call('produce', mine, { gameId: GAME, tileId: home }))
+  check(noNow.includes('호출 중이다'), '호출 중에는 다른 것을 못 한다', noNow)
+  await call('setDevClock', host, {
+    gameId: GAME,
+    anchorGameMs: dayHourMs(START, 1, 10) + (ACTION_MINUTES.produce + ACTION_MINUTES.study + ACT_MINUTES.summon + 4) * 60_000,
+    speed: 1,
+  })
 
   console.log('\n── 상자가 비면 ──')
   await patch(`games/${GAME}/teams/${myTeam}`, { phaseTokens: 0 })
@@ -135,6 +200,13 @@ async function main(): Promise<void> {
   check(empty.includes('팀 토큰이 모자라다'), '팀 토큰이 없으면 거절한다', empty)
   const still = await team(myTeam)
   check(still.money === afterStudy.money, '거절당하면 아무것도 안 빠지고 안 는다')
+
+  console.log('\n── 종이 치면 하던 일도 끝난다 ──')
+  await call('setDevClock', host, { gameId: GAME, anchorGameMs: dayHourMs(START, 1, 11), speed: 1 })
+  await patch(`games/${GAME}/teams/${myTeam}`, { phaseTokens: 9 })
+  await call('produce', mine, { gameId: GAME, tileId: home })
+  const stuck = await no(call('produce', mine, { gameId: GAME, tileId: home }))
+  check(stuck.includes('생산 중이다'), '묶인 채로 페이즈가 닫힌다', stuck)
 
   console.log('\n── 페이즈가 닫히면 ──')
   await call('closePhase', host, { gameId: GAME })

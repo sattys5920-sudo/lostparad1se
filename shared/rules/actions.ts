@@ -25,6 +25,19 @@ export const ACTION_STAND: Record<ActionKind, Stand> = {
 }
 
 /** 토큰 한 개가 드는 행동. 이동·표·교역·카드에는 들지 않는다. */
+/**
+ * 생산·공부에 드는 **시간**. 게임 속 분이다.
+ *
+ * **하는 동안 그 자리에 묶인다.** 값만 물리고 시간을 안 물리면,
+ * 토큰이 남아 있는 한 한 방에 서서 연달아 찍어 낼 수 있다 — 그러면
+ * 페이즈가 「토큰이 몇 개인가」로만 갈리고 몸이 어디 있었는지는
+ * 아무 뜻이 없어진다.
+ */
+export const ACTION_MINUTES: Record<ActionKind, number> = {
+  produce: 10,
+  study: 10,
+}
+
 export const ACTION_TOKEN_COST: Record<ActionKind, number> = {
   produce: 1,
   study: 1,

@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 
 import {
   ACT_COST,
+  ACT_MINUTES,
   ENTER_MINUTES,
   EXIT_MINUTES,
   MAX_CARRIED_ROBOTS,
@@ -62,7 +63,7 @@ const LABEL: Record<ActionKind, string> = {
 const WHAT: Record<ActionKind, string> = {
   move: `학교 안 어느 방이든. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다. 계단은 문이라 값이 없다.`,
   research: '연구실에서만. 다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
-  summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다.',
+  summon: `같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. ${ACT_MINUTES.summon}분 — **부른 쪽도 불린 쪽도** 그동안 못 움직인다.`,
   disturb: `${ITEM_BY_KIND.whistle.name} 하나. 같은 방 상대 하나를 이번 판정에서 0명으로 만든다.`,
   disguise: `${ITEM_BY_KIND.nameTag.name} 하나. 다른 팀에게 내 인원수가 2명으로 보인다.`,
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 계속 1명으로 센다.',
@@ -73,7 +74,7 @@ const WHAT: Record<ActionKind, string> = {
 const KINDS: ActionKind[] = ['research', 'summon', 'disturb', 'disguise', 'dropRobot', 'smashRobot']
 
 /** 남은 시간을 분·초로. 초까지 보여야 마지막 한 칸을 갈지 말지 정한다. */
-function leftText(ms: number): string {
+export function leftText(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000))
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
@@ -110,6 +111,9 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
    */
   function why(kind: ActionKind): string | null {
     if (overAt) return '이 페이즈는 시간이 끝났다.'
+    // 하던 일이 안 끝났으면 아무것도 못 한다. 서버도 같은 말로 거절한다
+    const busyLeft = (view?.myBusyUntilMs ?? 0) - now
+    if (busyLeft > 0) return `${view?.myBusyKind ?? '하는'} 중이다. ${leftText(busyLeft)} 남았다.`
     if (!here) return '걷는 중이다. 도착해야 할 수 있다.'
     if (tokens < ACT_COST[kind]) return `팀 토큰이 모자란다. ${ACT_COST[kind]}개가 든다.`
     // 물건이 드는 행동은 물건이 먼저다. 없으면 상점에 가야 한다

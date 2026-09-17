@@ -634,3 +634,38 @@
   font-size: 13px;
 }
 
+
+/* ── 하는 중 ──────────────────────────────────────────────────── */
+
+/*
+ * **하는 동안은 그 자리다.**
+ *
+ * 생산·공부·호출에는 시간이 든다. 그동안 십자키를 눌러도 안 움직이는데
+ * 까닭이 안 적혀 있으면 고장 난 줄 안다. 화면 한가운데에 무엇을 얼마나
+ * 더 해야 하는지 적어 둔다.
+ *
+ * 지도를 덮지 않는다 — 옆에 누가 서 있는지는 그동안에도 봐야 한다.
+ */
+.sc-pl__busy {
+  position: fixed;
+  left: 50%;
+  top: 38%;
+  z-index: 60;
+  transform: translate(-50%, -50%);
+  /* 「끝날 때까지 그 자리에 있는다」가 한 줄로 들어가는 너비 */
+  min-width: 204px;
+  padding: 14px 18px;
+  text-align: center;
+  background: rgba(28, 31, 51, 0.94);
+  border: 2px solid #4a5070;
+  color: #e8e6f5;
+  pointer-events: none;
+}
+.sc-pl__busyWhat { margin: 0; font-size: 13px; letter-spacing: 0.06em; }
+.sc-pl__busyLeft {
+  margin: 4px 0 0;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  color: #f0d68a;
+}
+.sc-pl__busyWhy { margin: 6px 0 0; font-size: 11px; color: #9aa0c0; }
