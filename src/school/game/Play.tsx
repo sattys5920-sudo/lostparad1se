@@ -667,7 +667,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           : undefined
     // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
     const room: Act[] = []
-    if (!phaseOpen && standingOn === SHOP_TILE) {
+    // **페이즈 중에도 산다.** 상점에 서 있는 것 말고 드는 값이 없다 —
+    // 서버도 시각을 안 본다. 감춰 두면 전선에서 호루라기가 떨어졌을 때
+    // 상점 칸을 쥐고도 아무것도 못 하는 셈이 된다
+    if (standingOn === SHOP_TILE) {
       room.push({ key: 'buy', icon: 'buy', label: '구매', run: () => setSheet('shop') })
     }
     /*
@@ -952,37 +955,36 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           />
         )}
 
-        {/* 오늘의 투명인간. 만나지 않고 하는 투표라 어디서든 열린다 */}
-        {!phaseOpen && (
-          <Ballot
-            me={me}
-            seats={game.seats}
-            captainIds={Object.values(state.teams)
-              .map((t) => t?.captainId ?? null)
-              .filter((id): id is string => typeof id === 'string')}
-            invisibleId={game.invisibleId ?? null}
-            day={game.day}
-            view={state.view}
-            act={act}
-            onSaid={setSaid}
-            ask={ask}
-          />
-        )}
+        {/* 오늘의 투명인간. **만나지 않고 하는 투표라 언제 어디서든 열린다** —
+            페이즈 중에 감추면 그날 표를 던질 틈이 자유 시간뿐이라,
+            전선에 붙어 있던 사람만 못 던지는 일이 생긴다 */}
+        <Ballot
+          me={me}
+          seats={game.seats}
+          captainIds={Object.values(state.teams)
+            .map((t) => t?.captainId ?? null)
+            .filter((id): id is string => typeof id === 'string')}
+          invisibleId={game.invisibleId ?? null}
+          day={game.day}
+          view={state.view}
+          act={act}
+          onSaid={setSaid}
+          ask={ask}
+        />
 
-        {!phaseOpen && (
-          <People
-            me={me}
-            seats={game.seats}
-            day={game.day}
-            hereIds={hereIds}
-            hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
-            invisibleId={game.invisibleId}
-            chosenId={state.view?.myChoice?.chosenId ?? null}
-            day4={state.view?.myChoice?.day4 ?? null}
-            act={act}
-            onSaid={setSaid}
-          />
-        )}
+        {/* 신뢰·호감표. 마주 선 사람에게 주는 것이라 페이즈에도 준다 */}
+        <People
+          me={me}
+          seats={game.seats}
+          day={game.day}
+          hereIds={hereIds}
+          hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+          invisibleId={game.invisibleId}
+          chosenId={state.view?.myChoice?.chosenId ?? null}
+          day4={state.view?.myChoice?.day4 ?? null}
+          act={act}
+          onSaid={setSaid}
+        />
 
         <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
       </section>

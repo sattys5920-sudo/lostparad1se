@@ -10,7 +10,6 @@
 import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 
 import { clockItems, nextByHand, type Due } from '../../shared/rules/catchup'
-import { accrueTokens, markComeback } from '../../shared/rules/tokens'
 import type { TileState } from '../../shared/rules/resources'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
@@ -23,6 +22,7 @@ import {
   CORE_OPENING,
   type Resource,
   type TeamId,
+  TOKEN_COMEBACK_BONUS,
 } from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
 import type { Fragment } from '../../shared/rules/fragments'
@@ -33,7 +33,6 @@ import type {
   ScheduleDoc,
   TeamDoc,
   TileDoc,
-  TokenStateDoc,
   VoteDoc,
 } from '../../shared/model'
 import { gameRef } from './index'
@@ -153,12 +152,9 @@ async function lastHours(c: Ctx): Promise<void> {
  */
 async function settlement(c: Ctx): Promise<void> {
   const ref = gameRef(c.gameId)
-  // 트랜잭션은 **읽기를 전부 끝낸 뒤에야** 쓸 수 있다. 그래서 나중에
-  // 쓸 토큰 상자까지 여기서 미리 읽는다
-  const [tileSnap, teamSnap, tokenSnap, voteSnap] = await Promise.all([
+  const [tileSnap, teamSnap, voteSnap] = await Promise.all([
     c.tx.get(ref.collection('tiles')),
     c.tx.get(ref.collection('teams')),
-    c.tx.get(ref.collection('secret').doc('tokens').collection('items')),
     c.tx.get(ref.collection('secret').doc('votes').collection('items')),
   ])
 
@@ -248,8 +244,19 @@ async function settlement(c: Ctx): Promise<void> {
   }
 
   // 5. 꼴찌는 다음 날이 열릴 때 토큰을 더 받는다
-  const lastBox = tokenSnap.docs.find((d) => d.id === result.comeback)
-  if (lastBox) c.tx.set(lastBox.ref, markComeback(lastBox.data() as TokenStateDoc))
+  /*
+   * **만회는 다음 페이즈 몫에 얹는다.**
+   *
+   * 전에는 시간마다 차는 주머니에 넣어 두고 이튿날 아침에 붙였다.
+   * 그 주머니를 걷어냈으므로 이제는 페이즈 상자가 열릴 때 함께
+   * 들어간다 — 결석 보정과 같은 길이다(pendingRefund).
+   */
+  if (result.comeback) {
+    const box = teamDocs.get(result.comeback)
+    c.tx.update(ref.collection('teams').doc(result.comeback), {
+      pendingRefund: (box?.pendingRefund ?? 0) + TOKEN_COMEBACK_BONUS,
+    })
+  }
 
   // 내일 지워지는 사람. 표가 갈렸으면 null이고, 그것도 그대로 알린다
   const tomorrow = c.day + 1
@@ -392,26 +399,6 @@ async function applyItem(
 
 // ── 토큰 ────────────────────────────────────────────────────────
 
-/**
- * 마지막 충전 시각부터 지금까지를 한 번에 따라잡는다.
- *
- * 예정 이벤트로 두지 않는 이유: accrueTokens가 이미 「그 사이의 충전을
- * 전부」 계산한다. 같은 일을 두 군데서 하면 언젠가 한 쪽이 틀린다.
- */
-async function accrueAll(gameId: string, toMs: number): Promise<void> {
-  const ref = gameRef(gameId)
-  await db.runTransaction(async (tx) => {
-    const items = ref.collection('secret').doc('tokens').collection('items')
-    const snap = await tx.get(items)
-    for (const d of snap.docs) {
-      const { state, grants } = accrueTokens(d.data() as TokenStateDoc, toMs)
-      if (grants.length === 0) continue
-      tx.set(d.ref, state)
-      tx.update(ref.collection('teams').doc(d.id), { tokens: state.tokens })
-    }
-  })
-}
-
 // ── 밀기 ────────────────────────────────────────────────────────
 
 export interface CatchUpResult {
@@ -452,8 +439,6 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
     if (await applyItem(gameId, item, payload, landed)) applied += 1
   }
 
-  // 토큰은 예정 이벤트가 아니라 한 번에 따라잡는다
-  await accrueAll(gameId, toMs)
   await ref.update({ caughtUpToMs: toMs })
 
   // 칸에 선 말의 체류 기록을 연다. 트랜잭션 안에서 하면 읽기·쓰기

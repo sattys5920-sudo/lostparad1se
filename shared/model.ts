@@ -167,19 +167,12 @@ export interface TileDoc {
 export interface TeamDoc {
   resources: Record<Resource, number>
   /**
-   * 팀 공용 행동 토큰. 남은 수만 여기 있다.
+   * **행동 토큰 상자. 팀에 하나뿐이다.**
    *
-   * 충전 상태(마지막 충전 시각·사람마다 쓴 수·밀린 만회 보너스)는
-   * secret/tokens에 있다. 사람마다 몇 개를 썼는지는 그 팀 안의 일이라
-   * 남이 알 까닭이 없다.
-   */
-  tokens: number
-  /**
-   * **페이즈 토큰 상자. 팀에 하나다.**
-   *
-   * 위의 tokens 와 다른 주머니다 — 그쪽은 자유 시간의 생산·공부가
-   * 쓰고 시간마다 차지만, 이것은 페이즈가 열릴 때 한 번에 들어오고
-   * 이동·연구·소환·부수기가 쓴다.
+   * **시간마다 차지 않는다.** 페이즈가 열릴 때 한 번에 들어오고, 그
+   * 페이즈 동안 이동·연구·호출·부수기가 쓴다. 전에는 자유 시간에도
+   * 시간마다 차는 주머니가 따로 있었는데, 자유 시간에 값을 치르는
+   * 일이 없어지면서 아무도 안 쓰는 채로 남아 있었다.
    *
    * 예전에는 사람마다 지갑이 따로였다. 그때는 누가 얼마를 쓰든 남에게
    * 지장이 없어서, 팀이라고 부르면서 실은 넷이 따로 놀았다. 이제 한
@@ -187,10 +180,11 @@ export interface TeamDoc {
    */
   phaseTokens?: number
   /**
-   * 다음 페이즈에 얹어 줄 결석 보정.
+   * 다음 페이즈에 얹어 줄 보정.
    *
-   * 직전 페이즈에 이 팀에서 아무도 움직이지 않았을 때만 찬다. 쓰고
-   * 나면 0으로 지운다 — 남겨 두면 매 페이즈 되풀이해서 얹힌다.
+   * 직전 페이즈에 이 팀에서 아무도 움직이지 않았을 때(결석)와 21:00
+   * 정산에서 꼴찌였을 때(만회)가 여기로 들어온다. 쓰고 나면 0으로
+   * 지운다 — 남겨 두면 매 페이즈 되풀이해서 얹힌다.
    */
   pendingRefund?: number
 
@@ -372,20 +366,6 @@ export interface RosterDoc {
   bondId: string
   /** 털어놓았는가. 방식과 시각까지. */
   reveal: { scope: 'class' | 'private'; atMs: GameMs; listenerIds: string[] } | null
-}
-
-/**
- * games/{gameId}/secret/tokens/items/{teamId} — 토큰 충전 상태.
- *
- * shared/rules/tokens.ts의 TokenState 그대로다. 같은 계산을 두 번
- * 돌려도 결과가 같다 — lastGrantMs를 넘긴 충전만 세기 때문이다.
- * 따라잡기가 도중에 끊겨도 토큰이 두 배로 들어가지 않는다.
- */
-export interface TokenStateDoc {
-  tokens: number
-  lastGrantMs: GameMs
-  usedToday: Record<string, number>
-  pendingComeback: number
 }
 
 // ── 각자 몫 ─────────────────────────────────────────────────────

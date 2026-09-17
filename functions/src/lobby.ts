@@ -13,7 +13,6 @@ import { assignRoles, type Player } from '../../shared/missions/assign'
 import { DEAL_TOKENS_PER_DAY, grantFor, isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES, startingTiles } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
-import { initialTokenState } from '../../shared/rules/tokens'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canStart, openTeams, timedEvents } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
@@ -262,14 +261,11 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     })
   }
 
-  // 팀 — 자원과 순위는 공개다. 토큰 충전 상태만 secret으로 간다
+  // 팀 — 자원과 순위는 공개다
   for (const team of TEAMS) {
     const members = seats.filter((s) => s.team === team)
-    const tokens = initialTokenState(startedAtMs)
-    batch.set(ref.collection('secret').doc('tokens').collection('items').doc(team), tokens)
     batch.set(ref.collection('teams').doc(team), {
       resources: { ...STARTING_RESOURCES },
-      tokens: tokens.tokens,
       // 페이즈 상자. **첫 페이즈가 열리기 전에도 거래는 한다** —
       // 빈손으로 시작하면 첫날 아침에는 아무도 아무것도 못 건넨다
       phaseTokens: grantFor(members.length) * members.length,
