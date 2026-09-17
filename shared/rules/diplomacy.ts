@@ -4,15 +4,12 @@
 // 그래서 판정 직전에 깨질 수도 있다. 깨는 값은 12시간이다 — 그 12시간은
 // 실제 시계다. 밤새 잠긴 채로 아침을 맞아야 아프다.
 import {
-  ALLIANCE_BREAK_LOCK_REAL_HOURS,
-  ALLIANCE_CLEAR_DAY,
   RESOURCES,
   type Resource,
   type TeamId,
 } from './v2'
 import { canPay, type Bag } from './resources'
 
-const HOUR_MS = 3_600_000
 
 // ── 교역 ────────────────────────────────────────────────────────
 
@@ -152,78 +149,4 @@ export function acceptTrade(
   out.fromResources.money += bonus
   out.toResources.money += bonus
   return { ok: true, ...out, reason: null }
-}
-
-// ── 동맹 ────────────────────────────────────────────────────────
-
-export interface AllianceState {
-  /** 지금 손잡은 팀. 한 번에 하나다. */
-  allyTeam: TeamId | null
-  /** 먼저 깨서 새 동맹을 못 맺는 시각(실제 시계). */
-  lockUntilRealMs: number | null
-}
-
-export type AllyRefusal = 'ownTeam' | 'alreadyAllied' | 'theyAreAllied' | 'locked' | 'lastHours'
-
-export interface AllyInput {
-  us: AllianceState
-  them: AllianceState
-  ourTeam: TeamId
-  theirTeam: TeamId
-  realNowMs: number
-  /** 마지막 여섯 시간에는 새 동맹을 맺을 수 없다. */
-  lastHours?: boolean
-}
-
-export function canAlly(input: AllyInput): { ok: boolean; reason: AllyRefusal | null } {
-  if (input.ourTeam === input.theirTeam) return { ok: false, reason: 'ownTeam' }
-  if (input.lastHours) return { ok: false, reason: 'lastHours' }
-  if (input.us.allyTeam !== null) return { ok: false, reason: 'alreadyAllied' }
-  if (input.them.allyTeam !== null) return { ok: false, reason: 'theyAreAllied' }
-  if (input.us.lockUntilRealMs !== null && input.realNowMs < input.us.lockUntilRealMs) {
-    return { ok: false, reason: 'locked' }
-  }
-  if (input.them.lockUntilRealMs !== null && input.realNowMs < input.them.lockUntilRealMs) {
-    return { ok: false, reason: 'locked' }
-  }
-  return { ok: true, reason: null }
-}
-
-export interface BreakResult {
-  /** 먼저 깬 쪽. 값을 치른다. */
-  breaker: AllianceState
-  /** 당한 쪽. 아무것도 잃지 않는다. */
-  other: AllianceState
-}
-
-/**
- * 먼저 깬 팀은 12시간 동안 새 동맹을 못 맺는다.
- *
- * 전에는 영향력 2도 같이 잃었다. 영향력이 없어진 지금 값은 시간
- * 하나뿐이다 — 그리고 시간이야말로 이 게임에서 제일 비싼 것이다.
- */
-export function breakAlliance(realNowMs: number): BreakResult {
-  return {
-    breaker: {
-      allyTeam: null,
-      lockUntilRealMs: realNowMs + ALLIANCE_BREAK_LOCK_REAL_HOURS * HOUR_MS,
-    },
-    other: { allyTeam: null, lockUntilRealMs: null },
-  }
-}
-
-/** DAY 4 08:00. 모든 동맹이 풀린다. 먼저 깬 것이 아니므로 아무도 값을 치르지 않는다. */
-export function clearAlliances(states: Record<TeamId, AllianceState>): Record<TeamId, AllianceState> {
-  const out = {} as Record<TeamId, AllianceState>
-  for (const [team, s] of Object.entries(states) as [TeamId, AllianceState][]) {
-    out[team] = { ...s, allyTeam: null }
-  }
-  return out
-}
-
-export const ALLIANCE_CLEARED_ON_DAY = ALLIANCE_CLEAR_DAY
-
-/** 깃발 판정에 넘길 동맹 목록. 판정 직전 값이다. */
-export function alliesOf(state: AllianceState): TeamId[] {
-  return state.allyTeam ? [state.allyTeam] : []
 }

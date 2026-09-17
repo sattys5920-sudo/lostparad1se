@@ -30,8 +30,9 @@ describe('그날의 시스템 사건', () => {
     expect(kinds).toContain('chosen')
   })
 
-  it('DAY 4는 동맹 해제', () => {
-    expect(todayItems({ day: 4 }).map((i) => i.kind)).toContain('alliance')
+  /** 동맹을 걷어냈다. DAY 4 에 따로 알릴 일이 없다. */
+  it('DAY 4에는 알릴 사건이 없다', () => {
+    expect(todayItems({ day: 4 }).map((i) => i.kind)).not.toContain('alliance')
   })
 
   it('DAY 5는 중앙광장과 점수판 소등 시각', () => {

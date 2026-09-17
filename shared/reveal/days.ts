@@ -10,7 +10,6 @@
 // 다섯 시의 창고는 여기 없다. 알아챈 사람만 피할 수 있어야 하고,
 // 알아챌 단서는 그날 아침 A의 마지막 메모에 이미 적혀 있다.
 import {
-  ALLIANCE_CLEAR_DAY,
   CHOSEN_ONE_DAY,
   CORE_OPENING,
   GOAL_REVEAL_DAY,
@@ -43,7 +42,7 @@ export function dateCardLine(day: number): string {
  * kind는 화면이 아이콘을 고르는 데 쓴다. text는 그대로 찍는다.
  * needsName이 붙은 줄은 서버가 이름을 채워 넣는다 — 투명인간뿐이다.
  */
-export type TodayKind = 'open' | 'invisible' | 'alliance' | 'goal' | 'chosen' | 'scoreboard' | 'rumor'
+export type TodayKind = 'open' | 'invisible' | 'goal' | 'chosen' | 'scoreboard' | 'rumor'
 
 export interface TodayItem {
   kind: TodayKind
@@ -78,9 +77,6 @@ export function todayItems(input: TodayInput): TodayItem[] {
   }
   if (day === CHOSEN_ONE_DAY) {
     out.push({ kind: 'chosen', text: '중요한 사람을 고른다' })
-  }
-  if (day === ALLIANCE_CLEAR_DAY) {
-    out.push({ kind: 'alliance', text: '모든 동맹이 풀린다' })
   }
   if (day === LAST_HOURS_DAY) {
     out.push({ kind: 'scoreboard', text: `${LAST_HOURS_START_HOUR}:00부터 점수판이 꺼진다` })

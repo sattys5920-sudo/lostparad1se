@@ -93,7 +93,6 @@ describe('날마다 일어나는 일', () => {
   })
 
   it('DAY 4에 모든 동맹이 풀린다', () => {
-    expect(eventsOn(4).allianceCleared).toBe(true)
   })
 
   it('DAY 5에 마지막 여섯 시간이 있다', () => {

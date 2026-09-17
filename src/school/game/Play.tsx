@@ -501,8 +501,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const hereIds = hereNow.map((p) => p.playerId)
   /** 오늘 지워진 사람. 나라면 화면이 반투명해진다 */
   const iAmInvisible = game?.invisibleId === uid
-  // 마주 선 팀. 교역도 동맹도 사람이 꺼내는 말이라 그 팀 사람이 앞에 있어야 한다
-  const facingTeams = [...new Set(hereNow.map((p) => p.team))].filter((t) => t !== me?.team)
 
   /**
    * 지금 앉아 있는 거래판. **views 가 아니라 거래판 문서를 직접 본다** —
@@ -1106,15 +1104,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
       {sheet === 'hand' && (
         <Sheet title="손패" onClose={closeSheet}>
-          <Hand
-            me={me}
-            view={state.view}
-            teams={state.teams}
-            facingTeams={facingTeams}
-            act={act}
-            onSaid={setSaid}
-            ask={ask}
-          />
+          <Hand me={me} view={state.view} act={act} onSaid={setSaid} />
         </Sheet>
       )}
 

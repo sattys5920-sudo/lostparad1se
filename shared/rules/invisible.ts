@@ -121,7 +121,7 @@ export const INVISIBLE_CANNOT = {
    * 그것은 맵이 일부러 지워 놓은 값이다. 본인 화면에만 남는다.
    */
   speakInClass: false,
-  /** 거래·이적·쪽지 건네기·동맹 — 마주 보고 하는 일 전부. */
+  /** 거래·이적·쪽지 건네기 — 마주 보고 하는 일 전부. */
   dealWithPeople: false,
   /** 사람을 겨눈 카드. 쓰지도 못하고 겨눠지지도 않는다. */
   targetPeopleWithCards: false,

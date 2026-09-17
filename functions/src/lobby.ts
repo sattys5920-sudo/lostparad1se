@@ -275,7 +275,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
       // 3인 팀만 주장을 둔다. 4인 팀은 직책 넷이 다 찬다
       captainId: members.length < 4 ? members[0].playerId : null,
       publicScore: null,
-      allyTeam: null,
     })
   }
 

@@ -202,10 +202,6 @@ export interface TeamDoc {
   captainVote?: CaptainVote | null
   /** 21:00에 공개된 점수(비밀 목표 제외). 마지막 여섯 시간에는 null. */
   publicScore: number | null
-  /** 동맹 상대. 한 팀과만. */
-  allyTeam: TeamId | null
-  /** 먼저 깨서 새 동맹을 못 맺는 시각(실제 시계). */
-  allianceLockUntilRealMs?: number
 }
 
 /**
@@ -595,7 +591,6 @@ export type EventKind =
   | 'vote' | 'rumor' | 'reveal' | 'leverageGained' | 'leverageSpent'
   | 'cardDrawn' | 'cardPlayed'
   | 'tradeProposed' | 'tradeAccepted' | 'tradeDeclined'
-  | 'allianceFormed' | 'allianceBroken' | 'allianceCleared'
   | 'goalRevealed' | 'spotlight' | 'comeback'
 
 export interface EventDoc {

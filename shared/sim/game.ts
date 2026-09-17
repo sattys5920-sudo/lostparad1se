@@ -20,11 +20,11 @@ import { addActiveSeconds, dayNumber, secondsIntoSeoulDay, seoulTimeOn } from '.
 import { gain, pay, type TileState } from '../rules/resources'
 import { ownerLookup } from '../rules/actions'
 import { ROOM_KIND, ownerOf, researchKnowledge } from '../rules/occupy'
-import { coreOpen, inLastHours } from '../rules/fragments'
+import { coreOpen } from '../rules/fragments'
 import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenState } from '../rules/tokens'
 import { tallyVotes, type Vote } from '../rules/votes'
 import { reveal, type Leverage } from '../rules/leverage'
-import { acceptTrade, breakAlliance, canAlly, clearAlliances, type AllianceState } from '../rules/diplomacy'
+import { acceptTrade } from '../rules/diplomacy'
 import { finalScore, publicScore, settle, territoryScore, type ScoreBreakdown, type TeamState } from '../rules/score'
 import {
   DAY_START_HOUR,
@@ -53,11 +53,9 @@ interface SimTeam {
   resources: Record<Resource, number>
   tokens: TokenState
   researchTier: number
-  alliance: AllianceState
   goals: { kind: GoalKind; rivalTeam?: TeamId }[]
   lostTile: boolean
   raidSuccesses: number
-  brokeAlliance: boolean
   trustFrom: Set<TeamId>
   revealed: boolean
   spotlighted: boolean
@@ -125,14 +123,12 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       resources: { ...STARTING_RESOURCES },
       tokens: initialTokenState(startMs),
       researchTier: 0,
-      alliance: { allyTeam: null, lockUntilRealMs: null },
       goals: deck.splice(0, GOALS_PER_TEAM).map((g) => ({
         kind: g.kind,
         rivalTeam: g.needsRivalTeam ? pick(TEAM_IDS.filter((t) => t !== team)) : undefined,
       })),
       lostTile: false,
       raidSuccesses: 0,
-      brokeAlliance: false,
       trustFrom: new Set(),
       revealed: false,
       spotlighted: false,
@@ -191,12 +187,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       lastDay = day
       fragments.push({ day, spotTile: pick(TILE_IDS.filter((t) => TILE_BY_ID[t].tier !== 'base')) })
       for (const p of players.values()) p.votedToday = false
-      if (day === 4) {
-        const cleared = clearAlliances(
-          Object.fromEntries(TEAM_IDS.map((t) => [t, teams[t].alliance])) as Record<TeamId, AllianceState>,
-        )
-        for (const t of TEAM_IDS) teams[t].alliance = cleared[t]
-      }
     }
 
     // 토큰 충전
@@ -269,11 +259,12 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     team,
     resources: teams[team].resources,
     researchTier: teams[team].researchTier,
-    allyTeam: teams[team].alliance.allyTeam,
+    // 동맹은 판에서 걷어냈다. 관련 목표는 늘 안 채워진다
+    allyTeam: null,
     goals: teams[team].goals,
     lostTile: teams[team].lostTile,
     raidSuccesses: teams[team].raidSuccesses,
-    brokeAlliance: teams[team].brokeAlliance,
+    brokeAlliance: false,
     trustFrom: [...teams[team].trustFrom],
     revealed: teams[team].revealed,
   })
@@ -300,7 +291,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     fragmentTiles: fragments.map((f) => f.spotTile),
     ownerAtEnd: (id) => tiles.get(id)?.ownerTeam ?? null,
     teamRank: Object.fromEntries(ranked.ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>,
-    allianceAtEnd: Object.fromEntries(TEAM_IDS.map((t) => [t, teams[t].alliance.allyTeam])) as Record<TeamId, TeamId | null>,
+    allianceAtEnd: Object.fromEntries(TEAM_IDS.map((t) => [t, null])) as Record<TeamId, TeamId | null>,
     leverageAtEnd: leverages.filter((l) => l.spentAtMs === null).map((l) => ({ holderId: l.holderId, aboutId: l.aboutId })),
     teamLostTile: Object.fromEntries(TEAM_IDS.map((t) => [t, teams[t].lostTile])) as Record<TeamId, boolean>,
     chosenBy: {},
@@ -411,26 +402,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       return
     }
 
-    // 동맹 — 아주 가끔
-    if (rnd() < 0.01) {
-      const other = pick(TEAM_IDS.filter((t) => t !== p.team))
-      const ok = canAlly({
-        us: team.alliance, them: teams[other].alliance, ourTeam: p.team, theirTeam: other,
-        realNowMs: nowMs, lastHours: inLastHours(startMs, nowMs),
-      })
-      if (ok.ok) {
-        team.alliance = { ...team.alliance, allyTeam: other }
-        teams[other].alliance = { ...teams[other].alliance, allyTeam: p.team }
-      } else if (team.alliance.allyTeam && rnd() < 0.3) {
-        const broke = breakAlliance(nowMs)
-        const ally = team.alliance.allyTeam
-        team.alliance = broke.breaker
-        teams[ally].alliance = broke.other
-        team.brokeAlliance = true
-      }
-      return
-    }
-
     // 깃발을 꽂았으면 익을 때까지 서 있는다. 떠나면 그 자리에서 실패다
     if (p.guardUntilMs !== null) {
       if (nowMs < p.guardUntilMs) return
@@ -480,8 +451,8 @@ export function simulateGame(seed: string, startMs: number): SimResult {
         fragments,
         team: {
           team, resources: teams[team].resources, researchTier: teams[team].researchTier,
-          allyTeam: teams[team].alliance.allyTeam, goals: [], lostTile: teams[team].lostTile,
-          raidSuccesses: teams[team].raidSuccesses, brokeAlliance: teams[team].brokeAlliance,
+          allyTeam: null, goals: [], lostTile: teams[team].lostTile,
+          raidSuccesses: teams[team].raidSuccesses, brokeAlliance: false,
           trustFrom: [...teams[team].trustFrom], revealed: teams[team].revealed,
         },
       }),

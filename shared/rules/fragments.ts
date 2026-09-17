@@ -8,7 +8,6 @@
 // (HINT_SCHEDULE)에 있고, 표 계산에는 「정확히 짚었다」는 답만 들어온다.
 // 두 시스템을 붙이지 않으려고 일부러 갈라 뒀다.
 import {
-  ALLIANCE_CLEAR_DAY,
   CORE_OPENING,
   FRAGMENT_TILE_BONUS,
   GOAL_REVEAL_DAY,
@@ -59,8 +58,6 @@ export interface DayEvents {
   opens: readonly TileId[]
   /** 비밀 목표 한 장을 공개해야 하는 날인가. */
   goalReveal: boolean
-  /** 모든 동맹이 풀리는 날인가. */
-  allianceCleared: boolean
   /** 마지막 여섯 시간이 있는 날인가. */
   hasLastHours: boolean
 }
@@ -70,7 +67,6 @@ export function eventsOn(day: number): DayEvents {
     day,
     opens: openedOn(day),
     goalReveal: day === GOAL_REVEAL_DAY,
-    allianceCleared: day === ALLIANCE_CLEAR_DAY,
     hasLastHours: day === LAST_HOURS_DAY,
   }
 }

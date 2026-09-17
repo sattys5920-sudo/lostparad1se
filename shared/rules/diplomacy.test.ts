@@ -4,17 +4,11 @@ import { tradeEpoch } from './diplomacy'
 import { describe, expect, it } from 'vitest'
 import {
   acceptTrade,
-  alliesOf,
-  breakAlliance,
-  canAlly,
   canOffer,
-  clearAlliances,
   movePurse,
-  type AllianceState,
   type TradeOffer,
 } from './diplomacy'
 import {
-  ALLIANCE_BREAK_LOCK_REAL_HOURS,
   type Resource,
   type TeamId,
 } from './v2'
@@ -83,57 +77,6 @@ describe('교역 성립', () => {
     const withNote = acceptTrade(offer({ note: '이번엔 진짜야' }), res(), res())
     const without = acceptTrade(offer(), res(), res())
     expect(withNote.fromResources).toEqual(without.fromResources)
-  })
-})
-
-describe('동맹', () => {
-  const free: AllianceState = { allyTeam: null, lockUntilRealMs: null }
-  const base = { us: free, them: free, ourTeam: 'A' as TeamId, theirTeam: 'B' as TeamId, realNowMs: 1000 }
-
-  it('둘 다 비어 있으면 맺는다', () => {
-    expect(canAlly(base).ok).toBe(true)
-  })
-
-  it('한 팀은 한 번에 한 팀과만 맺는다', () => {
-    expect(canAlly({ ...base, us: { allyTeam: 'C', lockUntilRealMs: null } }).reason).toBe('alreadyAllied')
-    expect(canAlly({ ...base, them: { allyTeam: 'C', lockUntilRealMs: null } }).reason).toBe('theyAreAllied')
-  })
-
-  it('먼저 깬 팀은 12시간 잠긴다', () => {
-    const out = breakAlliance(0)
-    expect(out.breaker.lockUntilRealMs).toBe(ALLIANCE_BREAK_LOCK_REAL_HOURS * 3_600_000)
-    expect(out.other.lockUntilRealMs).toBe(null)
-  })
-
-  it('잠긴 동안에는 못 맺는다', () => {
-    const locked = { allyTeam: null, lockUntilRealMs: 5000 }
-    expect(canAlly({ ...base, us: locked }).reason).toBe('locked')
-    // 상대가 잠겨 있어도 못 맺는다
-    expect(canAlly({ ...base, them: locked }).reason).toBe('locked')
-    // 풀리면 맺는다
-    expect(canAlly({ ...base, us: locked, realNowMs: 5000 }).ok).toBe(true)
-  })
-
-  it('마지막 여섯 시간에는 새 동맹이 없다', () => {
-    expect(canAlly({ ...base, lastHours: true }).reason).toBe('lastHours')
-  })
-
-  it('DAY 4에는 모두 풀리되 아무도 값을 치르지 않는다', () => {
-    const before: Record<TeamId, AllianceState> = {
-      A: { allyTeam: 'B', lockUntilRealMs: null },
-      B: { allyTeam: 'A', lockUntilRealMs: null },
-      C: { allyTeam: 'D', lockUntilRealMs: 777 },
-      D: { allyTeam: 'C', lockUntilRealMs: null },
-    }
-    const after = clearAlliances(before)
-    for (const s of Object.values(after)) expect(s.allyTeam).toBe(null)
-    // 잠금은 건드리지 않는다
-    expect(after.C.lockUntilRealMs).toBe(777)
-  })
-
-  it('깃발 판정에 넘길 목록을 만든다', () => {
-    expect(alliesOf({ allyTeam: 'B', lockUntilRealMs: null })).toEqual(['B'])
-    expect(alliesOf(free)).toEqual([])
   })
 })
 

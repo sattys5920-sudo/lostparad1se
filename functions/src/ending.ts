@@ -143,11 +143,12 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
       team,
       resources: doc.resources,
       researchTier: doc.researchTier,
-      allyTeam: doc.allyTeam,
+      // 동맹은 걷어냈다. 관련 목표는 나중에 고친다
+      allyTeam: null,
       goals: [],
       lostTile: lostTile.has(team),
       raidSuccesses: captures.filter((f) => f.team === team && f.ownerBefore !== null && f.ownerBefore !== team).length,
-      brokeAlliance: events.some((e) => e.kind === 'allianceBroken' && e.team === team),
+      brokeAlliance: false,
       trustFrom: [],
       revealed: roster.some((r) => r.team === team && r.reveal),
     }
@@ -180,7 +181,8 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
     fragmentTiles: game.boostedTiles as TileId[],
     ownerAtEnd: (id) => ownerAt.get(id) ?? null,
     teamRank,
-    allianceAtEnd: Object.fromEntries(TEAMS.map((t) => [t, teamDocs.get(t)?.allyTeam ?? null])) as Record<TeamId, TeamId | null>,
+    // 동맹은 걷어냈다. 인연 팀과 손잡는 미션은 나중에 고친다
+    allianceAtEnd: Object.fromEntries(TEAMS.map((t) => [t, null])) as Record<TeamId, TeamId | null>,
     leverageAtEnd: [],
     teamLostTile: Object.fromEntries(TEAMS.map((t) => [t, lostTile.has(t)])) as Record<TeamId, boolean>,
     chosenBy: closing?.chosenBy ?? {},

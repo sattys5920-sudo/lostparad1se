@@ -68,10 +68,6 @@ function world(over = false, invisibleId: string | null = null): World {
       { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
       { playerId: 'B0', voteKind: 'liking', voterNickname: '다른누군가' },
     ],
-    proposals: [
-      { id: 'a-AC', fromTeam: 'A', toTeam: 'C', status: 'open', createdAtMs: 7 },
-      { id: 'a-BD', fromTeam: 'B', toTeam: 'D', status: 'open', createdAtMs: 8 },
-    ],
     choices: [
       { playerId: 'A0', chosenId: 'B0', day4: 'bond' },
       { playerId: 'B0', chosenId: 'A0', day4: 'team' },
@@ -276,17 +272,6 @@ describe('투명인간', () => {
     const v = projectView(world(false, 'A0'), 'A0')
     expect(v.visibleTiles.length).toBeGreaterThan(0)
     expect(v.own).not.toBeNull()
-  })
-})
-
-describe('협상', () => {
-  it('동맹 제안도 관련된 두 팀만', () => {
-    const all = projectAll(world())
-    for (const r of ROSTER) {
-      const ids = all[r.playerId].proposals.map((p) => p.id)
-      expect(ids.includes('a-AC')).toBe(r.team === 'A' || r.team === 'C')
-      expect(ids.includes('a-BD')).toBe(r.team === 'B' || r.team === 'D')
-    }
   })
 })
 

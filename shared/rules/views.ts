@@ -147,8 +147,6 @@ export interface World {
   /** 가짜 깃발. 꽂은 팀만 안다. */
   /** 정보부장이 들여다본 결과. 본 사람만 안다. */
   peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
-  /** 동맹 제안. 관련된 두 팀만 본다. */
-  proposals: readonly { id: string; fromTeam: TeamId; toTeam: TeamId; status: string; createdAtMs: number }[]
   /**
    * DAY 3·4의 선택. **본인 것만 나간다.**
    *
@@ -203,7 +201,6 @@ export interface View {
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
   peeked: { voteKind: VoteKind; voterNickname: string }[]
-  proposals: World['proposals'][number][]
   /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
   myChoice: { chosenId: string | null; day4: string | null } | null
   own: { roleId: string; bondId: string } | null
@@ -375,7 +372,6 @@ export function projectView(world: World, viewerId: string): View {
       hand: [],
       goals: [],
       peeked: [],
-      proposals: [],
       myChoice: null,
       own: null,
       myArriveAtMs: null,
@@ -470,7 +466,6 @@ export function projectView(world: World, viewerId: string): View {
     peeked: world.peeks
       .filter((p) => p.playerId === viewerId)
       .map((p) => ({ voteKind: p.voteKind, voterNickname: p.voterNickname })),
-    proposals: world.proposals.filter((p) => p.fromTeam === team || p.toTeam === team),
     myChoice: (() => {
       const c = world.choices.find((x) => x.playerId === viewerId)
       return c ? { chosenId: c.chosenId, day4: c.day4 } : null

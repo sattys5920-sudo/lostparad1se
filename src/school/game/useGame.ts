@@ -283,10 +283,6 @@ export function gameActions(gameId: string) {
     settleDeal: (dealId: string) => callServer('settleDeal', { ...g, dealId }),
     /** 지금 내가 끼어 있는 거래. 시든 것을 접고 나서 답한다. */
     dealNow: () => callServer('dealNow', g),
-    proposeAlliance: (withTeam: TeamId) => callServer('proposeAlliance', { ...g, withTeam }),
-    respondAlliance: (proposalId: string, accept: boolean) =>
-      callServer('respondAlliance', { ...g, proposalId, accept }),
-    breakAlliance: () => callServer('breakAllianceNow', g),
 
     // ── 이적 ────────────────────────────────────────────────────
     // 마주 서서 「우리 팀으로 오겠느냐」고 묻는다. 불린 쪽이 답하고,

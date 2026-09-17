@@ -59,7 +59,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, goals, peeks, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, goals, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -71,7 +71,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'hands').get(),
       secret(gameId, 'goals').get(),
       secret(gameId, 'peeks').get(),
-      secret(gameId, 'alliances').get(),
       secret(gameId, 'choices').get(),
       secret(gameId, 'progress').get(),
       secret(gameId, 'confessions').get(),
@@ -169,9 +168,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { id: d.id, team: g.team, kind: g.kind, ...(g.rivalTeam ? { rivalTeam: g.rivalTeam } : {}), revealed: g.revealed }
     }),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
-    proposals: proposals.docs
-      .filter((d) => (d.data() as { status: string }).status === 'open')
-      .map((d) => ({ id: d.id, ...(d.data() as Omit<World['proposals'][number], 'id'>) })),
     choices: choices.docs.map((d) => {
       const c = d.data() as { chosenId: string | null; day4: string | null }
       return { playerId: d.id, chosenId: c.chosenId ?? null, day4: c.day4 ?? null }

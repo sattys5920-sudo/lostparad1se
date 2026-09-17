@@ -105,8 +105,6 @@ export { peekDay, pushDay, tick } from './tick'
 // 토큰을 쓰는 행동.
 export { produce, study, buyShopItem } from './act'
 
-// 동맹.
-export { proposeAlliance, respondAlliance, breakAllianceNow } from './deal'
 
 // 이적. 자유 시간에 마주 서서 꺼내고, 다음 페이즈가 열릴 때 발효된다.
 export { askTransfer, answerTransfer } from './transfer'

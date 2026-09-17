@@ -18,7 +18,6 @@ import { tallyVotes, type Vote } from '../../shared/rules/votes'
 import { DEAL_TOKENS_PER_DAY } from '../../shared/rules/occupy'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
-  ALLIANCE_CLEAR_DAY,
   CORE_OPENING,
   type Resource,
   type TeamId,
@@ -103,20 +102,6 @@ async function dayStart(c: Ctx): Promise<void> {
    * 「투표로 뽑는다」가 「투표로 바꿀 수도 있다」가 된다.
    */
   openCaptainVotes(c.tx, c.gameId, c.day, c.atMs, pawns)
-
-  // DAY 4 가 열릴 때 — 모든 동맹이 풀린다. 먼저 깬 것이 아니므로 아무도
-  // 값을 치르지 않고, 잠기지도 않는다
-  if (c.day === ALLIANCE_CLEAR_DAY) {
-    for (const team of TEAMS) {
-      c.tx.update(ref.collection('teams').doc(team), { allyTeam: null })
-    }
-    c.tx.set(ref.collection('events').doc(), {
-      atMs: c.atMs,
-      day: c.day,
-      kind: 'allianceCleared',
-      detail: {},
-    })
-  }
 
   c.tx.update(ref, {
     day: c.day,
@@ -215,7 +200,8 @@ async function settlement(c: Ctx): Promise<void> {
       team,
       resources: after.get(team) ?? doc.resources,
       researchTier: doc.researchTier,
-      allyTeam: doc.allyTeam,
+      // 동맹은 걷어냈다. 관련 목표는 나중에 고친다 — 그때까지 늘 없다
+      allyTeam: null,
       goals: [],
       lostTile: false,
       raidSuccesses: 0,
