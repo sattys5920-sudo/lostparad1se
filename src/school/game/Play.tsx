@@ -170,6 +170,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const [busy, setBusy] = useState(false)
   const [room, setRoom] = useState<TileId | null>(null)
   const [roster, setRoster] = useState(false)
+  /** 시작 전 설정·로그아웃. 판이 돌 때의 「더보기」와 같은 자리다 */
+  const [before, setBefore] = useState(false)
   const padRef = useRef<HTMLDivElement | null>(null)
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
@@ -274,8 +276,18 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
           <div className="sc-ct">
             <div className="sc-ct__ctl">
               <Pad padRef={padRef} dirs={{}} onBlocked={() => {}} />
+              {/*
+                **나가는 문이 「모인 사람」 뒤에 있으면 안 된다.**
+                로그아웃을 명단 시트 맨 아래에 두었더니, 열넷을 다
+                지나쳐 내려가야 나왔다 — 이름이 「모인 사람」이라
+                거기 있을 것이라고 생각할 까닭도 없다. 판이 돌 때와
+                같은 자리(더보기)에 둔다.
+              */}
               <ActionGrid
-                acts={[{ key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) }]}
+                acts={[
+                  { key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) },
+                  { key: 'more', icon: 'more', label: '더보기', run: () => setBefore(true) },
+                ]}
                 onBlocked={() => {}}
               />
             </div>
@@ -295,7 +307,12 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               ))}
             </ul>
             {error && <p className="sc-pl__error">{error}</p>}
-            {/* 시작 전에는 그냥 나간다. 아직 잃을 것이 없다 */}
+          </Sheet>
+        )}
+
+        {before && (
+          <Sheet title="더보기" onClose={() => setBefore(false)}>
+            {/* 시작 전에는 그냥 나간다. 아직 잃을 것이 없어서 묻지 않는다 */}
             <SignOut note={`들어와 있는 계정 · ${me.nickname}`} />
           </Sheet>
         )}
@@ -1135,6 +1152,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             </button>
             <button onClick={() => { closeSheet(); setArchive(true) }}>보관함</button>
           </div>
+          {/*
+            **나가는 문은 한 군데 더 있어야 한다.**
+            여태 로그아웃은 「나」 탭 맨 아래에만 있었다. 맵을 보다가
+            나가려면 탭을 옮기고 끝까지 내려야 나온다 — 설정이 여기
+            있으니 나가는 것도 여기 있는 것이 맞다.
+          */}
+          <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
           {/* **한 장으로 상태를 다 보이게 한다.** 「안 움직여요」만으로는
               어디가 막혔는지 알 수 없어서, 판이 지금 어떤 상태인지를
               그대로 적어 둔다. 숨긴 값은 없다 — 전부 내 화면이 이미
