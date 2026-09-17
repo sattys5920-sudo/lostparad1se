@@ -250,6 +250,24 @@ function Desk() {
             <button disabled={busy} onClick={() => void run('따라잡기', () => act.tick())}>
               따라잡기
             </button>
+            {/*
+              **얼굴이 비어 있으면 그 사람은 점으로 뜬다.**
+              명단의 얼굴은 자리에 앉는 순간 한 번 찍힌다. 얼굴을
+              만들기 전에 앉았거나, 얼굴이 명단에 적히기 전의 옛 자리면
+              비어 있는 채로 남는다 — 판을 되돌리지 않고 여기서 고친다.
+            */}
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run('얼굴 다시 읽기', async () => {
+                  const r = (await act.refreshFaces()) as { seats?: number; faces?: number }
+                  setSaid(`${r.seats ?? 0}자리 중 ${r.faces ?? 0}명의 얼굴을 읽었다.`)
+                  return {}
+                })
+              }
+            >
+              얼굴 다시 읽기
+            </button>
             {game.phase !== 'lobby' && <ResetGame busy={busy} act={act} onSaid={setSaid} />}
           </>
         )}

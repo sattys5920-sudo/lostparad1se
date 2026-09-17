@@ -224,6 +224,31 @@ export async function lookOfAccount(accountId: string | undefined): Promise<Avat
 }
 
 /**
+ * uid 로 여러 계정의 얼굴을 한 번에 꺼낸다.
+ *
+ * **uid 는 아이디를 해시한 것이라 거꾸로 못 푼다.** 그래서 계정을
+ * 통째로 훑고 uidOf 로 맞춰 본다 — 한 학교 규모라 훑어도 된다.
+ * uid→계정 색인을 따로 두면 계정을 지울 때 한쪽만 늙는다.
+ *
+ * 명단에 적힌 얼굴이 비어 있거나 낡았을 때 다시 읽는 데 쓴다. 자리에
+ * 앉을 때 한 번 찍어 두는 것만으로는, **앉고 나서 얼굴을 만든 사람**이
+ * 영영 점으로 남는다.
+ */
+export async function looksByUid(uids: readonly string[]): Promise<Record<string, AvatarLook | null>> {
+  const want = new Set(uids)
+  if (want.size === 0) return {}
+  const out: Record<string, AvatarLook | null> = {}
+  const snap = await db.collection('schoolSessions/live/accounts').get()
+  for (const d of snap.docs) {
+    const uid = uidOf(d.id)
+    if (!want.has(uid)) continue
+    const avatar = (d.data() as { avatar?: unknown }).avatar
+    out[uid] = avatar && typeof avatar === 'object' ? (avatar as AvatarLook) : null
+  }
+  return out
+}
+
+/**
  * 그 계정의 캐릭터를 바꿔 끼운다. **QA 전용이다.**
  *
  * 열넷을 앉혀 놓고 화면을 보려면 열넷이 서로 달라 보여야 한다. 사람이

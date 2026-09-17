@@ -201,6 +201,13 @@ export function gameActions(gameId: string) {
      */
     resetGame: () => callServer('resetGame', g),
     /**
+     * 명단의 얼굴만 계정에서 다시 읽는다.
+     *
+     * 앉을 때 찍어 둔 얼굴이 비어 있으면 그 사람은 점으로 뜬다.
+     * 돌고 있는 판을 되돌리지 않고 고치는 자리다.
+     */
+    refreshFaces: () => callServer('refreshFaces', g),
+    /**
      * 달력 한 칸을 손으로 넘긴다.
      *
      * 시계가 날을 바꾸지 않는다. 정산도 끝나는 것도 여기서 민다 —

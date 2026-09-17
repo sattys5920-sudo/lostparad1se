@@ -17,7 +17,7 @@ import { initialTokenState } from '../../shared/rules/tokens'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canStart, openTeams, timedEvents } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
-import { lookOfAccount } from './account'
+import { lookOfAccount, looksByUid } from './account'
 import { gameRef, nowOf, requireUid } from './index'
 import { refreshViews } from './views'
 
@@ -91,6 +91,39 @@ export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) 
   return { gameId, seats: 0, need: TOTAL_SEATS }
 })
 
+/**
+ * 명단의 얼굴을 계정에서 다시 읽는다.
+ *
+ * **자리에 앉을 때 한 번 찍어 두는 것만으로는 모자랐다.**
+ * 얼굴을 만들기 전에 앉은 사람, 앉고 나서 얼굴을 바꾼 사람, 얼굴이
+ * 명단에 적히기 전에 앉은 옛 자리 — 전부 영영 점으로 남았다. 되돌리기는
+ * 자리를 그대로 들고 오므로 그 점이 다음 판까지 따라온다.
+ *
+ * 계정에 얼굴이 없으면 명단에 있던 것을 그대로 둔다. 지우는 쪽이 아니라
+ * 채우는 쪽이다 — QA 로 앉힌 자리를 빈 얼굴로 덮어쓰면 안 된다.
+ */
+async function freshFaces(seats: readonly SeatEntry[]): Promise<SeatEntry[]> {
+  const found = await looksByUid(seats.map((s) => s.playerId))
+  return seats.map((s) => ({ ...s, look: found[s.playerId] ?? s.look ?? null }))
+}
+
+/**
+ * 명단의 얼굴만 다시 읽어 적는다. 운영자만.
+ *
+ * 돌고 있는 판을 되돌리지 않고 고칠 수 있어야 한다 — 얼굴 하나 때문에
+ * 닷새치를 지우는 것은 말이 안 된다.
+ */
+export const refreshFaces = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const ref = gameRef(req.data.gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  const seats = await freshFaces(game.seats ?? [])
+  await ref.update({ seats })
+  return { seats: seats.length, faces: seats.filter((s) => s.look).length }
+})
+
 // ── 되돌리기 ────────────────────────────────────────────────────
 
 /**
@@ -115,7 +148,9 @@ export const resetGame = onCall<{ gameId: string }>(async (req) => {
   const game = snap.data() as GameDoc
 
   // 자리는 들고 있는다. 지우고 나서 그대로 다시 앉힌다
-  const seats = game.seats ?? []
+  // 얼굴은 여기서 다시 읽는다. 옛 자리의 빈 얼굴을 그대로 들고 오면
+  // 새 판에서도 그 사람만 점으로 남는다
+  const seats = await freshFaces(game.seats ?? [])
   await db.recursiveDelete(ref)
   await ref.set(freshLobby(`${req.data.gameId}-${Date.now()}`, seats))
   return { seats: seats.length, need: TOTAL_SEATS }
@@ -199,7 +234,9 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   const game = snap.data() as GameDoc
   if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
 
-  const seats = game.seats
+  // **시작할 때 얼굴을 다시 읽는다.** 앉을 때 찍어 둔 것만 믿으면,
+  // 앉고 나서 얼굴을 만든 사람은 닷새 내내 점으로 남는다
+  const seats = await freshFaces(game.seats)
   const ready = canStart(seats)
   if (!ready.ok) throw new HttpsError('failed-precondition', ready.reason as string)
 
@@ -305,6 +342,8 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   // 따라잡기에 맡겨 두면 첫날 운동장과 방송실이 영영 안 열린다
   batch.update(ref, {
     phase: 'running',
+    // 다시 읽은 얼굴을 명단에 박아 둔다. 판이 도는 동안은 이것이 정본이다
+    seats,
     startedAtMs,
     caughtUpToMs: startedAtMs,
     day: 1,
