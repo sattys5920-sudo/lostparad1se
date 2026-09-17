@@ -1116,12 +1116,28 @@
   border-radius: 5px;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 9px;
 }
 
+/*
+ * 그림은 조작부와 같은 도트다. 여기 바탕은 밝은데 그림은 어두운
+ * 바탕에 맞춰 그린 것이라, 칸 하나를 어둡게 깔고 그 위에 얹는다 —
+ * 강조색(금빛)이 흰 종이 위에서 사라지는 것을 막는다.
+ */
+.sc-ph__art {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border-radius: 4px;
+  background: #1c1f33;
+  image-rendering: pixelated;
+}
+
+.sc-ph__say { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sc-ph__list > li > button strong { font-size: 13px; font-weight: 700; }
-.sc-ph__list > li > button span { font-size: 11.5px; color: var(--sc-text-dim); text-wrap: pretty; }
+.sc-ph__list > li > button em { font-style: normal; font-size: 11.5px; color: var(--sc-text-dim); text-wrap: pretty; }
 .sc-ph__list > li > button:disabled { opacity: 0.45; cursor: default; }
 .sc-ph__list > li.is-picked > button { border-color: var(--sc-line-strong); background: var(--sc-surface); }
 

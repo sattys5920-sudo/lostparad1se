@@ -28,6 +28,7 @@ import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
+import { uiIcon } from './uiArt'
 
 /** 규칙 쪽 TileId 는 string, 지도 쪽은 스물다섯 개 유니온이다. 경계를 여기 모은다. */
 const asRoom = (id: string): TileId => id as TileId
@@ -63,7 +64,7 @@ const LABEL: Record<ActionKind, string> = {
 const WHAT: Record<ActionKind, string> = {
   move: `학교 안 어느 방이든. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다. 계단은 문이라 값이 없다.`,
   research: '연구실에서만. 다음 페이즈가 닫힐 때 로봇 1기가 붙는다. 발전소를 쥐었으면 바로 나온다.',
-  summon: `같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. ${ACT_MINUTES.summon}분 — **부른 쪽도 불린 쪽도** 그동안 못 움직인다.`,
+  summon: `같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. ${ACT_MINUTES.summon}분 — 부른 쪽도 불린 쪽도 그동안 못 움직인다.`,
   disturb: `${ITEM_BY_KIND.whistle.name} 하나. 같은 방 상대 하나를 이번 판정에서 0명으로 만든다.`,
   disguise: `${ITEM_BY_KIND.nameTag.name} 하나. 다른 팀에게 내 인원수가 2명으로 보인다.`,
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 계속 1명으로 센다.',
@@ -184,10 +185,13 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
                 disabled={busy || no !== null}
                 onClick={() => (fold ? setOpen(open === k ? null : k) : void send(k))}
               >
-                <strong>
-                  {LABEL[k]} <i>{ACT_COST[k]}</i>
-                </strong>
-                <span>{no ?? WHAT[k]}</span>
+                <img className="sc-ph__art" src={uiIcon(k)} alt="" width={32} height={32} />
+                <span className="sc-ph__say">
+                  <strong>
+                    {LABEL[k]} <i>{ACT_COST[k]}</i>
+                  </strong>
+                  <em>{no ?? WHAT[k]}</em>
+                </span>
               </button>
 
               {open === k && k === 'summon' && (

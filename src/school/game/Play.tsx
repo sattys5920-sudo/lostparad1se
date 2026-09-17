@@ -647,7 +647,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
      */
     const fixed: Act[] = phaseOpen
       ? [
-          { key: 'post', icon: 'make', label: '자리 차지', cost: ENTER_COST, run: () => setSheet('act') },
+          { key: 'post', icon: 'post', label: '자리 차지', cost: ENTER_COST, run: () => setSheet('act') },
           {
             key: 'make',
             icon: 'make',
