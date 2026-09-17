@@ -49,7 +49,7 @@ import {
 import type { TeamId, TileId } from '../types'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
-import { LIVE_EVERY_MS, LIVE_STALE_MS } from './useLive'
+import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
 
 export interface WalkProps {
   me: { playerId: string; team: TeamId; look: AvatarLook | null }
@@ -138,6 +138,21 @@ export interface WalkProps {
    * 화면이 그 수만큼 다시 그려진다.
    */
   onDirs?: (ways: Record<Dir, DirWay>) => void
+  /**
+   * 시작 전에 같이 걸어 다니는 사람들.
+   *
+   * **판이 열리기 전에는 view 가 없다** — 서버가 아직 말을 안 세웠고,
+   * 안개도 없다. 그래서 「누가 보이는가」를 서버가 가려 줄 것이 없고,
+   * 명단에 앉은 사람이 곧 보이는 사람이다.
+   *
+   * 열넷이 다 차기를 기다리는 동안 서로가 안 보이면, 같은 교실에
+   * 둘이 서 있어도 각자 빈 학교를 걷는다. 기다리는 시간이 그대로
+   * 죽는다 — 실제로 그렇게 보였다.
+   *
+   * 판이 시작하면 이 자리는 view 가 가져간다. 그때부터는 안개가
+   * 가린 사람이 정말로 안 온다.
+   */
+  roster?: readonly { playerId: string; team: TeamId }[]
 }
 
 /**
@@ -181,7 +196,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -205,6 +220,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const standRef = useRef(onStand)
   const frozenRef = useRef(frozen)
   const looksRef = useRef(looks)
+  const rosterRef = useRef(roster)
   const liveOutRef = useRef(onLive)
   const dirsRef = useRef(onDirs)
   viewRef.current = view
@@ -216,6 +232,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   standRef.current = onStand
   frozenRef.current = frozen
   looksRef.current = looks
+  rosterRef.current = roster
   liveOutRef.current = onLive
   dirsRef.current = onDirs
 
@@ -785,7 +802,16 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       if (liveOutRef.current) {
         const movingNow = self.moving || autoPath.length > 0
         const due = now - lastLiveMs >= LIVE_EVERY_MS
-        if ((movingNow && due) || (!movingNow && toldLive)) {
+        /*
+         * **시작 전에는 가만히 서 있어도 맥이 뛴다.**
+         *
+         * 판이 돌 때는 멈추면 그친다 — 서버가 아는 칸이 밑바탕으로
+         * 깔려 있어서, 실시간 자리가 끊겨도 그 자리에 선 것으로
+         * 그려진다. 시작 전에는 그 밑바탕이 없다. 안 적으면 같은
+         * 교실에 마주 선 사람이 몇 초 뒤에 사라진다.
+         */
+        const beat = rosterRef.current !== undefined && now - lastLiveMs >= LIVE_BEAT_MS
+        if ((movingNow && due) || (!movingNow && toldLive) || beat) {
           lastLiveMs = now
           toldLive = movingNow
           liveOutRef.current({
@@ -1043,7 +1069,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     function liveOf(playerId: string): LiveDoc | null {
       const d = live?.current?.get(playerId)
       if (!d) return null
-      return Date.now() - d.ms > LIVE_STALE_MS ? null : d
+      // 시작 전에는 맥이 느리게 뛴다. 그만큼 오래 믿어 준다
+      const keep = rosterRef.current === undefined ? LIVE_STALE_MS : LIVE_LOBBY_STALE_MS
+      return Date.now() - d.ms > keep ? null : d
     }
 
     /**
@@ -1077,6 +1105,37 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const out: Standee[] = []
       const byRoom = new Map<string, Omit<Standee, 'here' | 'x' | 'y'>[]>()
       const gone = new Set(shown.keys())
+
+      /*
+       * **시작 전에는 실시간 자리가 전부다.**
+       *
+       * 서버가 아직 말을 안 세워서 view 가 없다. 안개도 없으니
+       * 가릴 것도 없고, 명단에 앉은 사람 중 지금 걷고 있는 사람이
+       * 곧 보이는 사람이다. 판이 열리면 이 가지는 안 쓰인다.
+       */
+      if (!viewRef.current) {
+        for (const m of rosterRef.current ?? []) {
+          if (m.playerId === me.playerId) continue
+          const now = liveOf(m.playerId)
+          if (!now) continue
+          gone.delete(m.playerId)
+          const at = ease(m.playerId, now.x * TILE, now.y * TILE, dt)
+          out.push({
+            playerId: m.playerId,
+            team: m.team,
+            asleep: false,
+            look: lookOf(m.playerId),
+            dir: now.dir,
+            moving: now.moving,
+            here: now.tileId as TileId,
+            x: at.x,
+            y: at.y,
+          })
+        }
+        for (const id of gone) shown.delete(id)
+        return out
+      }
+
       for (const p of viewRef.current?.visiblePawns ?? []) {
         if (p.walking || !p.tileId) continue
         gone.delete(p.playerId)

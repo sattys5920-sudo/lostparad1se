@@ -177,6 +177,25 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const seats = state.game?.seats ?? []
   const mine = seats.find((s) => s.playerId === uid)
 
+  /**
+   * 시작 전에도 서로가 보인다.
+   *
+   * **안개가 없으니 가릴 것도 없다.** 말이 아직 없어서 서버가
+   * 「누가 보이는가」를 정해 줄 것이 없고, 명단에 앉은 사람이 곧
+   * 보이는 사람이다. 열넷이 차기를 기다리는 동안 같은 교실에 둘이
+   * 서 있어도 각자 빈 학교를 걷고 있었다 — 기다리는 시간이 그대로
+   * 죽는다.
+   */
+  const mates = useMemo(
+    () => seats.filter((sx) => sx.playerId !== uid).map((sx) => ({ playerId: sx.playerId, team: sx.team })),
+    [seats, uid],
+  )
+  const looks = useMemo(
+    () => Object.fromEntries(seats.map((sx) => [sx.playerId, sx.look ?? null])),
+    [seats],
+  )
+  const live = useLive(gameId, mates.map((m) => m.playerId))
+
   // 팀을 안 보낸다. 어느 반인지는 서버가 정해서 알려 준다 —
   // 고르게 두면 친구끼리 한 팀으로 몰리고 그러면 게임이 아니다
   async function join() {
@@ -235,9 +254,11 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 모른 채 닷새를 시작한다.
    *
    * 다만 **여기서 일어나는 일은 아무것도 판에 남지 않는다.** 말은
-   * 아직 없다 — 서버는 시작할 때 비로소 말을 세운다. 그래서 걸음도
-   * 서버에 안 적고, 남도 안 보이고, 할 수 있는 일도 없다. 학교를
-   * 미리 걸어 보는 것뿐이다.
+   * 아직 없다 — 서버는 시작할 때 비로소 말을 세운다. 걸음도 판정에
+   * 안 들어가고, 할 수 있는 일도 없다. 학교를 미리 걸어 보는 것뿐이다.
+   *
+   * 서로는 보인다. 안개가 없으니 가릴 것이 없고, 열넷이 차기를
+   * 기다리는 동안 각자 빈 학교를 걷게 두면 그 시간이 그대로 죽는다.
    */
   // sc-pl 로 감싼다. 이 껍데기가 높이를 100% 로 잡아 주는 것이라,
   // 빼먹으면 방이 제 키만큼만 서고 아래가 허옇게 빈다
@@ -252,6 +273,11 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               tiles={{}}
               nowMs={Date.now()}
               padRef={padRef}
+              /* 시작 전에는 view 가 없다. 명단이 그 자리를 대신한다 */
+              roster={mates}
+              looks={looks}
+              live={live}
+              onLive={(at) => pushLive(gameId, uid, at)}
               /* 서버에 묻지 않는다. 말이 아직 없어서 물어도 거절당한다 */
               onCross={() => Promise.resolve(true)}
               onRoom={setRoom}
@@ -268,7 +294,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
 
           <p className="sc-pl__before-note">
             {room ? `${TILE_BY_ID[room].name} · ` : ''}
-            아직 시작 전이다. 걸어 다녀 볼 수는 있다 — 남들은 아직 자리에 없다.
+            아직 시작 전이다. 먼저 온 사람들과 걸어 다녀 볼 수는 있다.
           </p>
 
           {/* 시작 전에도 십자키는 같은 것을 쓴다. 판이 열린 뒤에 손가락이
