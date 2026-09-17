@@ -1,12 +1,9 @@
-// 점수와 정산 — 공개 점수에 비밀 목표가 섞이지 않는지.
+// 점수와 정산.
 import { describe, expect, it } from 'vitest'
 import {
   connectionScore,
   coreScore,
   developmentScore,
-  finalScore,
-  goalAchieved,
-  goalScore,
   publicScore,
   rankTeams,
   resourceScore,
@@ -17,19 +14,12 @@ import {
 } from './score'
 import { startingTiles, TILE_BY_ID, TILE_IDS } from './board'
 import type { TileState } from './resources'
-import { GOAL_BY_KIND, type GoalKind, type TeamId } from './v2'
+import type { TeamId } from './v2'
 
 const team = (over: Partial<TeamState> = {}): TeamState => ({
   team: 'A',
   resources: { money: 0, knowledge: 0 },
   researchTier: 0,
-  allyTeam: null,
-  goals: [],
-  lostTile: false,
-  raidSuccesses: 0,
-  brokeAlliance: false,
-  trustFrom: [],
-  revealed: false,
   ...over,
 })
 
@@ -105,104 +95,14 @@ describe('자원과 발전', () => {
   })
 })
 
-describe('비밀 목표', () => {
-  const check = (kind: GoalKind, over: Partial<ScoreInput> = {}, rivalTeam?: TeamId) =>
-    goalAchieved({ kind, rivalTeam }, input(over))
-
-  it('관문 두 칸', () => {
-    expect(check('gateGuard', { tiles: board({ A: ['library'] }) })).toBe(false)
-    expect(check('gateGuard', { tiles: board({ A: ['library', 'gym'] }) })).toBe(true)
-  })
-
-  it('한가운데와 두 개의 심장', () => {
-    expect(check('theMiddle', { tiles: board({ A: ['centralPlaza'] }) })).toBe(true)
-    expect(check('twoHearts', { tiles: board({ A: ['playground', 'auditorium'] }) })).toBe(true)
-    expect(check('twoHearts', { tiles: board({ A: ['playground'] }) })).toBe(false)
-  })
-
-  it('끊기지 않는 길은 연결 9 이상이다', () => {
-    // 1층을 통째로. 기지를 뺀 아홉 칸이 복도를 따라 이어진다
-    const wide = board({
-      A: ['baseA', 'cafeteria', 'annex', 'baseB', 'classroom', 'hallway', 'gym', 'auditorium', 'playground', 'garden'],
-    })
-    expect(check('unbrokenPath', { tiles: wide })).toBe(true)
-    expect(check('unbrokenPath')).toBe(false)
-  })
-
-  it('철옹성은 한 번도 안 뺏겼을 때다', () => {
-    expect(goalAchieved({ kind: 'fortress' }, input({ team: team({ lostTile: false }) }))).toBe(true)
-    expect(goalAchieved({ kind: 'fortress' }, input({ team: team({ lostTile: true }) }))).toBe(false)
-  })
-
-  it('약탈자는 세 번 이상이다', () => {
-    expect(goalAchieved({ kind: 'raider' }, input({ team: team({ raidSuccesses: 2 }) }))).toBe(false)
-    expect(goalAchieved({ kind: 'raider' }, input({ team: team({ raidSuccesses: 3 }) }))).toBe(true)
-  })
-
-  it('먼 친구는 대각선 팀과 동맹일 때다', () => {
-    // A는 왼쪽 아래, B는 오른쪽 아래로 이웃이다. C는 오른쪽 위 — 대각선
-    expect(goalAchieved({ kind: 'distantFriend' }, input({ team: team({ allyTeam: 'B' }) }))).toBe(false)
-    expect(goalAchieved({ kind: 'distantFriend' }, input({ team: team({ allyTeam: 'C' }) }))).toBe(true)
-  })
-
-  it('배신 없는 반은 먼저 깬 적 없고 끝날 때 동맹이 있을 때다', () => {
-    expect(goalAchieved({ kind: 'noBetrayal' }, input({ team: team({ allyTeam: 'B' }) }))).toBe(true)
-    expect(
-      goalAchieved({ kind: 'noBetrayal' }, input({ team: team({ allyTeam: 'B', brokeAlliance: true }) })),
-    ).toBe(false)
-    expect(goalAchieved({ kind: 'noBetrayal' }, input({ team: team({ allyTeam: null }) }))).toBe(false)
-  })
-
-  it('모두의 신뢰는 나머지 세 팀 전부에게서 받았을 때다', () => {
-    expect(goalAchieved({ kind: 'everyonesTrust' }, input({ team: team({ trustFrom: ['B', 'C'] }) }))).toBe(false)
-    expect(
-      goalAchieved({ kind: 'everyonesTrust' }, input({ team: team({ trustFrom: ['B', 'C', 'D'] }) })),
-    ).toBe(true)
-  })
-
-  it('입 무거운 반은 아무도 털어놓지 않았을 때다', () => {
-    expect(goalAchieved({ kind: 'tightLipped' }, input({ team: team({ revealed: true }) }))).toBe(false)
-  })
-
-  it('학구파·알부자는 문턱값이다', () => {
-    expect(goalAchieved({ kind: 'scholars' }, input({ team: team({ researchTier: 4 }) }))).toBe(true)
-    expect(
-      goalAchieved({ kind: 'moneyed' }, input({ team: team({ resources: { money: 15, knowledge: 0 } }) })),
-    ).toBe(true)
-  })
-
-  it('라이벌은 적힌 팀보다 영역 점수가 높을 때다', () => {
-    const territoryOf = (t: TeamId) => (t === 'A' ? 10 : 5)
-    expect(goalAchieved({ kind: 'rival', rivalTeam: 'B' }, input(), territoryOf)).toBe(true)
-    expect(goalAchieved({ kind: 'rival', rivalTeam: 'B' }, input(), () => 5)).toBe(false)
-  })
-
-  it('달성한 것만 점수가 된다', () => {
-    const t = team({ goals: [{ kind: 'fortress' }, { kind: 'raider' }], lostTile: false, raidSuccesses: 0 })
-    expect(goalScore(input({ team: t }))).toBe(GOAL_BY_KIND.fortress.points)
-  })
-})
-
-describe('공개 점수와 최종 점수', () => {
-  const t = team({ goals: [{ kind: 'fortress' }] })
-
-  it('공개 점수에는 비밀 목표가 0이다', () => {
-    const out = publicScore(input({ team: t }))
-    expect(out.goals).toBe(0)
-  })
-
-  it('최종 점수에만 들어간다', () => {
-    const open = publicScore(input({ team: t }))
-    const done = finalScore(input({ team: t }))
-    expect(done.goals).toBe(GOAL_BY_KIND.fortress.points)
-    expect(done.total).toBe(open.total + GOAL_BY_KIND.fortress.points)
-  })
-
+describe('점수', () => {
+  /**
+   * 팀 비밀 목표를 걷어냈다. 정산에서 보이는 수가 곧 끝에 세는
+   * 수다 — 뒤에 따로 붙는 것이 없다.
+   */
   it('합계가 항목의 합과 같다', () => {
-    const out = finalScore(input({ team: t }))
-    expect(out.total).toBe(
-      out.territory + out.connection + out.core + out.resource + out.development + out.goals,
-    )
+    const out = publicScore(input({ team: team() }))
+    expect(out.total).toBe(out.territory + out.connection + out.core + out.resource + out.development)
   })
 })
 

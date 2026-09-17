@@ -12,7 +12,6 @@
 import {
   CHOSEN_ONE_DAY,
   CORE_OPENING,
-  GOAL_REVEAL_DAY,
   LAST_HOURS_DAY,
   LAST_HOURS_START_HOUR,
   TOTAL_DAYS,
@@ -42,7 +41,7 @@ export function dateCardLine(day: number): string {
  * kind는 화면이 아이콘을 고르는 데 쓴다. text는 그대로 찍는다.
  * needsName이 붙은 줄은 서버가 이름을 채워 넣는다 — 투명인간뿐이다.
  */
-export type TodayKind = 'open' | 'invisible' | 'goal' | 'chosen' | 'scoreboard' | 'rumor'
+export type TodayKind = 'open' | 'invisible' | 'chosen' | 'scoreboard' | 'rumor'
 
 export interface TodayItem {
   kind: TodayKind
@@ -72,9 +71,6 @@ export function todayItems(input: TodayInput): TodayItem[] {
     out.push({ kind: 'invisible', text: `오늘의 투명인간 · ${input.invisibleName}` })
   }
 
-  if (day === GOAL_REVEAL_DAY) {
-    out.push({ kind: 'goal', text: '팀마다 비밀 목표 한 장을 골라 공개' })
-  }
   if (day === CHOSEN_ONE_DAY) {
     out.push({ kind: 'chosen', text: '중요한 사람을 고른다' })
   }

@@ -6,7 +6,7 @@ import type { Ballot } from './invisible'
 import type { TeamId } from './v2'
 
 const row = (team: TeamId, total: number): ScoreBreakdown => ({
-  team, territory: total, connection: 0, core: 0, resource: 0, development: 0, goals: 0, total,
+  team, territory: total, connection: 0, core: 0, resource: 0, development: 0, total,
 })
 
 const SCORES = [row('A', 30), row('B', 20), row('C', 10), row('D', 5)]

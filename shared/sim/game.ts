@@ -25,18 +25,15 @@ import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenSt
 import { tallyVotes, type Vote } from '../rules/votes'
 import { reveal, type Leverage } from '../rules/leverage'
 import { acceptTrade } from '../rules/diplomacy'
-import { finalScore, publicScore, settle, territoryScore, type ScoreBreakdown, type TeamState } from '../rules/score'
+import { publicScore, settle, type ScoreBreakdown, type TeamState } from '../rules/score'
 import {
   DAY_START_HOUR,
-  GOALS,
-  GOALS_PER_TEAM,
   MOVE_GAME_MIN_PER_TILE,
   SETTLEMENT_HOUR,
   STARTING_RESOURCES,
   TEAM_IDS,
   STARTING_TEAM_SIZES,
   TOTAL_DAYS,
-  type GoalKind,
   type Resource,
   type TeamId,
 } from '../rules/v2'
@@ -53,7 +50,6 @@ interface SimTeam {
   resources: Record<Resource, number>
   tokens: TokenState
   researchTier: number
-  goals: { kind: GoalKind; rivalTeam?: TeamId }[]
   lostTile: boolean
   raidSuccesses: number
   trustFrom: Set<TeamId>
@@ -115,18 +111,12 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     }
   }
 
-  // 비밀 목표 — 열여섯 장에서 겹치지 않게 나눈다
-  const deck = [...GOALS].sort(() => rnd() - 0.5)
   const teams = {} as Record<TeamId, SimTeam>
   for (const team of TEAM_IDS) {
     teams[team] = {
       resources: { ...STARTING_RESOURCES },
       tokens: initialTokenState(startMs),
       researchTier: 0,
-      goals: deck.splice(0, GOALS_PER_TEAM).map((g) => ({
-        kind: g.kind,
-        rivalTeam: g.needsRivalTeam ? pick(TEAM_IDS.filter((t) => t !== team)) : undefined,
-      })),
       lostTile: false,
       raidSuccesses: 0,
       trustFrom: new Set(),
@@ -259,20 +249,10 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     team,
     resources: teams[team].resources,
     researchTier: teams[team].researchTier,
-    // 동맹은 판에서 걷어냈다. 관련 목표는 늘 안 채워진다
-    allyTeam: null,
-    goals: teams[team].goals,
-    lostTile: teams[team].lostTile,
-    raidSuccesses: teams[team].raidSuccesses,
-    brokeAlliance: false,
-    trustFrom: [...teams[team].trustFrom],
-    revealed: teams[team].revealed,
   })
   const tileList = [...tiles.values()]
-  const territoryOf = (team: TeamId) =>
-    territoryScore({ tiles: tileList, fragments, team: finalTeam(team) })
   const scores = TEAM_IDS.map((team) =>
-    finalScore({ tiles: tileList, fragments, team: finalTeam(team) }, territoryOf),
+    publicScore({ tiles: tileList, fragments, team: finalTeam(team) }),
   )
   const ranked = settle(scores, (t) => teams[t].resources.knowledge)
 
@@ -449,12 +429,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       publicScore({
         tiles: list,
         fragments,
-        team: {
-          team, resources: teams[team].resources, researchTier: teams[team].researchTier,
-          allyTeam: null, goals: [], lostTile: teams[team].lostTile,
-          raidSuccesses: teams[team].raidSuccesses, brokeAlliance: false,
-          trustFrom: [...teams[team].trustFrom], revealed: teams[team].revealed,
-        },
+        team: { team, resources: teams[team].resources, researchTier: teams[team].researchTier },
       }),
     )
     // 4. 주목과 만회

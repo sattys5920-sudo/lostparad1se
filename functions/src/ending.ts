@@ -143,14 +143,6 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
       team,
       resources: doc.resources,
       researchTier: doc.researchTier,
-      // 동맹은 걷어냈다. 관련 목표는 나중에 고친다
-      allyTeam: null,
-      goals: [],
-      lostTile: lostTile.has(team),
-      raidSuccesses: captures.filter((f) => f.team === team && f.ownerBefore !== null && f.ownerBefore !== team).length,
-      brokeAlliance: false,
-      trustFrom: [],
-      revealed: roster.some((r) => r.team === team && r.reveal),
     }
     return publicScore({ tiles, fragments: [], team: state })
   })

@@ -17,7 +17,7 @@
 // 순수 함수다. Firestore를 모른다 — 그래야 시험할 수 있다.
 import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
-import type { CardKind, GoalKind, TeamId, VoteKind } from './v2'
+import type { CardKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type TileId } from './board'
 import type { Satchel, Satchels } from './items'
 import { canSeeConfession, canSeeMemory } from '../reveal/archive'
@@ -143,7 +143,6 @@ export interface World {
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
   hands: readonly { id: string; team: TeamId; kind: CardKind; targetTeam?: TeamId }[]
-  goals: readonly { id: string; team: TeamId; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
   /** 가짜 깃발. 꽂은 팀만 안다. */
   /** 정보부장이 들여다본 결과. 본 사람만 안다. */
   peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
@@ -199,7 +198,6 @@ export interface View {
   roomCounts: Record<TileId, number>
   visibleTiles: TileId[]
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
-  goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
   peeked: { voteKind: VoteKind; voterNickname: string }[]
   /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
   myChoice: { chosenId: string | null; day4: string | null } | null
@@ -370,7 +368,6 @@ export function projectView(world: World, viewerId: string): View {
       roomCounts: {},
       visibleTiles: [],
       hand: [],
-      goals: [],
       peeked: [],
       myChoice: null,
       own: null,
@@ -458,9 +455,6 @@ export function projectView(world: World, viewerId: string): View {
     hand: world.hands
       .filter((c) => c.team === team)
       .map((c) => ({ id: c.id, kind: c.kind, ...(c.targetTeam ? { targetTeam: c.targetTeam } : {}) })),
-    goals: world.goals
-      .filter((g) => g.team === team)
-      .map((g) => ({ id: g.id, kind: g.kind, ...(g.rivalTeam ? { rivalTeam: g.rivalTeam } : {}), revealed: g.revealed })),
 
     // 내 것
     peeked: world.peeks

@@ -13,7 +13,6 @@ import type { TileId } from '../../shared/rules/board'
 import type {
   CardDoc,
   GameDoc,
-  GoalDoc,
   NoticeDoc,
   PawnDoc,
   RosterDoc,
@@ -59,7 +58,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, goals, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -69,7 +68,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       sub(gameId, 'made').get(),
       secret(gameId, 'roster').get(),
       secret(gameId, 'hands').get(),
-      secret(gameId, 'goals').get(),
       secret(gameId, 'peeks').get(),
       secret(gameId, 'choices').get(),
       secret(gameId, 'progress').get(),
@@ -162,10 +160,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     hands: hands.docs.map((d) => {
       const c = d.data() as CardDoc & { team: 'A' | 'B' | 'C' | 'D' }
       return { id: d.id, team: c.team, kind: c.kind, ...(c.targetTeam ? { targetTeam: c.targetTeam } : {}) }
-    }),
-    goals: goals.docs.map((d) => {
-      const g = d.data() as GoalDoc & { team: 'A' | 'B' | 'C' | 'D' }
-      return { id: d.id, team: g.team, kind: g.kind, ...(g.rivalTeam ? { rivalTeam: g.rivalTeam } : {}), revealed: g.revealed }
     }),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
     choices: choices.docs.map((d) => {

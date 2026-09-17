@@ -24,10 +24,11 @@ describe('그날의 시스템 사건', () => {
     expect(kinds).toContain('open')
   })
 
-  it('DAY 3은 비밀 목표 공개와 중요한 사람', () => {
+  /** 팀 비밀 목표를 걷어냈다. DAY 3에 공개할 것이 없다. */
+  it('DAY 3은 중요한 사람', () => {
     const kinds = todayItems({ day: 3 }).map((i) => i.kind)
-    expect(kinds).toContain('goal')
     expect(kinds).toContain('chosen')
+    expect(kinds).not.toContain('goal')
   })
 
   /** 동맹을 걷어냈다. DAY 4 에 따로 알릴 일이 없다. */

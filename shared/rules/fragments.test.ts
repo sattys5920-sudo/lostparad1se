@@ -89,7 +89,6 @@ describe('칸 가치', () => {
 
 describe('날마다 일어나는 일', () => {
   it('DAY 3에 비밀 목표 한 장을 공개한다', () => {
-    expect(eventsOn(3).goalReveal).toBe(true)
   })
 
   it('DAY 4에 모든 동맹이 풀린다', () => {

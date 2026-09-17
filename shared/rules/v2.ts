@@ -274,59 +274,6 @@ export const CARD_SECRET_LETTER_REAL_HOURS = 1
 export const CARD_ACCORD_MONEY = 2
 export const CARD_HIDE_GAME_HOURS = 6
 
-// ── 비밀 목표 ───────────────────────────────────────────────────
-
-export type GoalKind =
-  | 'gateGuard' | 'theMiddle' | 'twoHearts' | 'crossroadLord' | 'unbrokenPath'
-  | 'fortress' | 'raider' | 'distantFriend' | 'noBetrayal' | 'everyonesTrust'
-  | 'tightLipped' | 'scholars' | 'moneyed' | 'rival'
-
-export interface GoalSpec {
-  kind: GoalKind
-  name: string
-  text: string
-  points: number
-  /** 받을 때 대상 팀을 무작위로 지정한다(자기 팀 제외). */
-  needsRivalTeam?: boolean
-}
-
-export const GOALS: readonly GoalSpec[] = [
-  { kind: 'gateGuard', name: '관문 수비대', text: '관문 두 칸을 가지고 있다', points: 6 },
-  { kind: 'theMiddle', name: '한가운데', text: '2-3 교실을 가지고 있다', points: 7 },
-  { kind: 'twoHearts', name: '두 개의 심장', text: '핵심 두 칸을 가지고 있다', points: 6 },
-  { kind: 'crossroadLord', name: '교차로의 주인', text: '교차로 두 칸을 가지고 있다', points: 5 },
-  { kind: 'unbrokenPath', name: '끊기지 않는 길', text: '연결 점수가 9 이상이다', points: 5 },
-  { kind: 'fortress', name: '철옹성', text: '닷새 동안 한 번도 칸을 뺏기지 않았다', points: 6 },
-  { kind: 'raider', name: '약탈자', text: '남의 칸 깃발을 세 번 이상 성공했다', points: 5 },
-  { kind: 'distantFriend', name: '먼 친구', text: '이웃하지 않는 팀과 동맹인 채로 끝난다', points: 5 },
-  { kind: 'noBetrayal', name: '배신 없는 반', text: '동맹을 먼저 깬 적이 없고, 끝날 때 동맹이 있다', points: 5 },
-  { kind: 'everyonesTrust', name: '모두의 신뢰', text: '다른 세 팀 모두에게서 신뢰표를 받았다', points: 5 },
-  { kind: 'tightLipped', name: '입 무거운 반', text: '우리 팀 누구도 비밀을 털어놓지 않았다', points: 4 },
-  { kind: 'scholars', name: '학구파', text: '연구 4단계 이상이다', points: 5 },
-  { kind: 'moneyed', name: '알부자', text: '돈이 15 이상 남아 있다', points: 4 },
-  { kind: 'rival', name: '라이벌', text: '적힌 팀보다 영역 점수가 높다', points: 6, needsRivalTeam: true },
-]
-
-export const GOAL_BY_KIND: Record<GoalKind, GoalSpec> = Object.fromEntries(
-  GOALS.map((g) => [g.kind, g]),
-) as Record<GoalKind, GoalSpec>
-
-/** 팀마다 받는 비밀 목표 수. 열여섯 장 중 겹치지 않게 나눈다. */
-export const GOALS_PER_TEAM = 3
-/** 이날 08:00에 한 장을 골라 공개해야 한다. */
-export const GOAL_REVEAL_DAY = 3
-
-/** 목표 판정에 쓰는 문턱값. */
-export const GOAL_THRESHOLD = {
-  gateTiles: 2,
-  coreTiles: 2,
-  crossTiles: 2,
-  connection: 9,
-  raidSuccesses: 3,
-  researchTier: 4,
-  money: 15,
-} as const
-
 // ── 점수 ────────────────────────────────────────────────────────
 
 /** 핵심 한 칸당. */

@@ -10,7 +10,6 @@
 import {
   CORE_OPENING,
   FRAGMENT_TILE_BONUS,
-  GOAL_REVEAL_DAY,
   LAST_HOURS_DAY,
   LAST_HOURS_START_HOUR,
   TOTAL_DAYS,
@@ -56,8 +55,6 @@ export interface DayEvents {
   day: number
   /** 오늘 열리는 칸. */
   opens: readonly TileId[]
-  /** 비밀 목표 한 장을 공개해야 하는 날인가. */
-  goalReveal: boolean
   /** 마지막 여섯 시간이 있는 날인가. */
   hasLastHours: boolean
 }
@@ -66,7 +63,6 @@ export function eventsOn(day: number): DayEvents {
   return {
     day,
     opens: openedOn(day),
-    goalReveal: day === GOAL_REVEAL_DAY,
     hasLastHours: day === LAST_HOURS_DAY,
   }
 }

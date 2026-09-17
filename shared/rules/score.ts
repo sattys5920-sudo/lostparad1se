@@ -1,24 +1,21 @@
 // 점수와 21:00 정산.
 //
-//   영역 + 연결 + 핵심 + 자원 + 발전 + 비밀 목표
+//   영역 + 연결 + 핵심 + 자원 + 발전
 //
-// 정산 때 공개되는 점수에는 비밀 목표가 빠져 있다. 1위와 2위 차이가
-// 6점 안쪽이면 아직 아무것도 정해지지 않은 것이다 — 그래서 공개 점수와
-// 최종 점수를 다른 함수로 갈라 둔다. 섞이면 목표가 새어 나간다.
+// **감춰 둔 몫이 없다.** 전에는 팀마다 비밀 목표 세 장이 있어서 정산에
+// 보이는 수와 끝에 세는 수가 달랐다 — 1위와 2위 차이가 6점 안쪽이면
+// 아직 아무것도 안 정해진 것이었다. 그 층을 걷어냈으므로 이제는
+// 정산에서 보이는 수가 곧 끝에 세는 수다.
 import {
-  GOAL_BY_KIND,
-  GOAL_THRESHOLD,
   RESOURCES,
   SCORE_PER_CORE,
   SCORE_PLAZA,
   SCORE_RESEARCH_MULTIPLIER,
   SCORE_RESOURCE_DIVISOR,
-  TEAM_IDS,
-  type GoalKind,
   type Resource,
   type TeamId,
 } from './v2'
-import { BASE_OF, TILE_BY_ID, areNeighborTeams, connectedSize, type TileId } from './board'
+import { BASE_OF, TILE_BY_ID, connectedSize, type TileId } from './board'
 import { tileValue, type Fragment } from './fragments'
 import type { TileState } from './resources'
 
@@ -27,19 +24,6 @@ export interface TeamState {
   team: TeamId
   resources: Record<Resource, number>
   researchTier: number
-  allyTeam: TeamId | null
-  /** 받은 비밀 목표. 내용은 우리 팀만 안다. */
-  goals: readonly { kind: GoalKind; rivalTeam?: TeamId }[]
-  /** 닷새 동안 칸을 뺏긴 적이 있는가. */
-  lostTile: boolean
-  /** 남의 칸 깃발을 성공한 횟수. */
-  raidSuccesses: number
-  /** 동맹을 먼저 깬 적이 있는가. */
-  brokeAlliance: boolean
-  /** 신뢰표를 준 적 있는 팀들. 「모두의 신뢰」가 쓴다. */
-  trustFrom: readonly TeamId[]
-  /** 우리 팀 누군가 털어놓았는가. */
-  revealed: boolean
 }
 
 export interface ScoreInput {
@@ -100,67 +84,6 @@ export function developmentScore(input: ScoreInput): number {
   return input.team.researchTier * SCORE_RESEARCH_MULTIPLIER
 }
 
-// ── 비밀 목표 ───────────────────────────────────────────────────
-
-function tilesOfTier(input: ScoreInput, tier: string): number {
-  return oursExcludingBase(input.tiles, input.team.team).filter(
-    (t) => TILE_BY_ID[t.tileId].tier === tier,
-  ).length
-}
-
-/**
- * 목표 하나를 달성했는가. 전부 「게임이 끝날 때」 판정이다.
- *
- * 라이벌만 다른 팀 점수를 봐야 해서 영역 점수를 따로 받는다.
- */
-export function goalAchieved(
-  goal: { kind: GoalKind; rivalTeam?: TeamId },
-  input: ScoreInput,
-  territoryOf: (team: TeamId) => number = () => 0,
-): boolean {
-  const t = input.team
-  switch (goal.kind) {
-    case 'gateGuard':
-      return tilesOfTier(input, 'gate') >= GOAL_THRESHOLD.gateTiles
-    case 'theMiddle':
-      return tilesOfTier(input, 'plaza') >= 1
-    case 'twoHearts':
-      return tilesOfTier(input, 'core') >= GOAL_THRESHOLD.coreTiles
-    case 'crossroadLord':
-      return tilesOfTier(input, 'cross') >= GOAL_THRESHOLD.crossTiles
-    case 'unbrokenPath':
-      return connectionScore(input) >= GOAL_THRESHOLD.connection
-    case 'fortress':
-      return !t.lostTile
-    case 'raider':
-      return t.raidSuccesses >= GOAL_THRESHOLD.raidSuccesses
-    case 'distantFriend':
-      return t.allyTeam !== null && !areNeighborTeams(t.team, t.allyTeam)
-    case 'noBetrayal':
-      return !t.brokeAlliance && t.allyTeam !== null
-    case 'everyonesTrust':
-      return TEAM_IDS.filter((x) => x !== t.team).every((x) => t.trustFrom.includes(x))
-    case 'tightLipped':
-      return !t.revealed
-    case 'scholars':
-      return t.researchTier >= GOAL_THRESHOLD.researchTier
-    case 'moneyed':
-      return (t.resources.money ?? 0) >= GOAL_THRESHOLD.money
-    case 'rival':
-      return goal.rivalTeam !== undefined && territoryOf(t.team) > territoryOf(goal.rivalTeam)
-  }
-}
-
-/** 달성한 목표의 점수 합. */
-export function goalScore(
-  input: ScoreInput,
-  territoryOf: (team: TeamId) => number = () => 0,
-): number {
-  return input.team.goals
-    .filter((g) => goalAchieved(g, input, territoryOf))
-    .reduce((a, g) => a + GOAL_BY_KIND[g.kind].points, 0)
-}
-
 // ── 합계 ────────────────────────────────────────────────────────
 
 export interface ScoreBreakdown {
@@ -170,12 +93,16 @@ export interface ScoreBreakdown {
   core: number
   resource: number
   development: number
-  /** 비밀 목표. 공개 점수에서는 언제나 0이다. */
-  goals: number
   total: number
 }
 
-/** 정산 때 모두에게 보이는 점수. 비밀 목표가 빠져 있다. */
+/**
+ * 점수. **이게 전부다.**
+ *
+ * 전에는 여기에 팀 비밀 목표 점수가 따로 붙는 finalScore 가 있었다.
+ * 비밀 목표를 걷어내면서 공개 점수와 최종 점수가 같아졌다 — 정산에서
+ * 보이는 수가 곧 끝에 세는 수다.
+ */
 export function publicScore(input: ScoreInput): ScoreBreakdown {
   const parts = {
     team: input.team.team,
@@ -184,19 +111,8 @@ export function publicScore(input: ScoreInput): ScoreBreakdown {
     core: coreScore(input),
     resource: resourceScore(input),
     development: developmentScore(input),
-    goals: 0,
   }
   return { ...parts, total: parts.territory + parts.connection + parts.core + parts.resource + parts.development }
-}
-
-/** 종례에서 나오는 점수. 비밀 목표가 들어간다. */
-export function finalScore(
-  input: ScoreInput,
-  territoryOf: (team: TeamId) => number = () => 0,
-): ScoreBreakdown {
-  const open = publicScore(input)
-  const goals = goalScore(input, territoryOf)
-  return { ...open, goals, total: open.total + goals }
 }
 
 // ── 순위 ────────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 import type {
   CardKind,
-  GoalKind,
   Resource,
   RoleTitle,
   TeamId,
@@ -338,16 +337,6 @@ export interface CardDoc {
   targetTeam?: TeamId
 }
 
-/** games/{gameId}/secret/goals/items/{goalId} — 비밀 목표. */
-export interface GoalDoc {
-  team: TeamId
-  kind: GoalKind
-  /** 라이벌 카드는 받을 때 대상 팀이 무작위로 정해진다(자기 팀 제외). */
-  rivalTeam?: TeamId
-  /** DAY 3에 반 전체에 공개했는가. */
-  revealed: boolean
-}
-
 /**
  * games/{gameId}/secret/roster/items/{playerId} — 역할과 인연 대상.
  *
@@ -481,7 +470,6 @@ export interface PlayerViewDoc {
   /** 우리 팀 손패. 내용까지 보인다. */
   hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   /** 우리 팀 비밀 목표. */
-  goals: { id: string; kind: GoalKind; rivalTeam?: TeamId; revealed: boolean }[]
   /** 우리가 꽂은 깃발 중 가짜인 것. 우리 팀만 안다. */
   /** 정보부장이 들여다본 결과. */
   peeked: { voteKind: VoteKind; voterNickname: string }[]

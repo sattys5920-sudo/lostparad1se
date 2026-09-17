@@ -60,10 +60,6 @@ function world(over = false, invisibleId: string | null = null): World {
       { id: 'cA', team: 'A', kind: 'windfall' },
       { id: 'cB', team: 'B', kind: 'windfall' },
     ],
-    goals: [
-      { id: 'gA', team: 'A', kind: 'distantFriend', rivalTeam: 'C', revealed: false },
-      { id: 'gB', team: 'B', kind: 'distantFriend', rivalTeam: 'D', revealed: false },
-    ],
     peeks: [
       { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
       { playerId: 'B0', voteKind: 'liking', voterNickname: '다른누군가' },
@@ -207,11 +203,6 @@ describe('우리 팀 것', () => {
     expect(projectView(world(), 'B0').hand.map((c) => c.id)).toEqual(['cB'])
   })
 
-  it('비밀 목표는 우리 것만', () => {
-    expect(projectView(world(), 'A0').goals.map((g) => g.id)).toEqual(['gA'])
-    expect(json(projectView(world(), 'C0'))).not.toContain('gA')
-  })
-
   it('엿본 결과는 엿본 사람만', () => {
     expect(projectView(world(), 'A0').peeked).toHaveLength(1)
     expect(projectView(world(), 'A1').peeked).toEqual([])
@@ -335,14 +326,6 @@ describe('열넷 몫을 통째로 훑는다', () => {
       const mine = json(all[r.playerId])
       const theirs = r.team === 'A' ? 'cB' : 'cA'
       expect(mine).not.toContain(theirs)
-    }
-  })
-
-  it('남의 비밀 목표 아이디가 없다', () => {
-    for (const r of ROSTER) {
-      const mine = json(all[r.playerId])
-      if (r.team !== 'A') expect(mine).not.toContain('"gA"')
-      if (r.team !== 'B') expect(mine).not.toContain('"gB"')
     }
   })
 

@@ -200,14 +200,6 @@ async function settlement(c: Ctx): Promise<void> {
       team,
       resources: after.get(team) ?? doc.resources,
       researchTier: doc.researchTier,
-      // 동맹은 걷어냈다. 관련 목표는 나중에 고친다 — 그때까지 늘 없다
-      allyTeam: null,
-      goals: [],
-      lostTile: false,
-      raidSuccesses: 0,
-      brokeAlliance: false,
-      trustFrom: [],
-      revealed: false,
     }
     return publicScore({ tiles, fragments, team: state })
   })
