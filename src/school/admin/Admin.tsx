@@ -160,7 +160,8 @@ function Desk() {
       const seeded = (await act.seedPlayers(qaPw, 0)) as { seated?: number }
       setSaid(`${seeded.seated ?? 0}명이 앉았다. 시작하는 중…`)
       await act.startGame()
-      setSaid(`차렸다. qa01 … qa14 로 들어가면 된다.`)
+      // 비밀번호를 여기 한 번 더 적는다. 다른 기기에 쳐 넣어야 하는 값이다
+      setSaid(`차렸다. qa01 … qa14 · 비밀번호 ${qaPw}`)
     } catch (e) {
       setSaid((e as Error).message)
     } finally {
@@ -556,6 +557,21 @@ function ResetGame({
  * 뒷문이 된다. **자리는 열넷을 다 채운다.** 운영자는 관리자 화면에
  * 있지 판 안에 있지 않아서, 한 자리를 비워 두면 시작을 못 한다.
  */
+/**
+ * 열넷을 채워 놓는 비밀번호는 **부르는 쪽이 정한다.**
+ *
+ * 뻔한 값을 박아 두면 qa01 이 그대로 뒷문이 된다. 그렇다고 운영자가
+ * 매번 지어내게 두면, 결국 늘 쓰던 것을 쓴다 — 그것도 뒷문이다.
+ * 여기서 만들어 주고 **눈에 보이게 둔다**. 친구 폰에 qa02 로 들어가
+ * 볼 때 그대로 읽어서 치면 된다.
+ */
+function madePassword(): string {
+  const abc = 'abcdefghijkmnpqrstuvwxyz23456789'
+  const n = new Uint32Array(12)
+  crypto.getRandomValues(n)
+  return [...n].map((x) => abc[x % abc.length]).join('')
+}
+
 function QaSetUp({
   busy,
   qaPw,
@@ -567,18 +583,35 @@ function QaSetUp({
   setQaPw: (v: string) => void
   onGo: () => Promise<void>
 }) {
+  // 빈 칸으로 두면 무엇을 적어야 하는지부터 막힌다. 하나 만들어 둔다
+  useEffect(() => {
+    if (qaPw.length === 0) setQaPw(madePassword())
+  }, [qaPw, setQaPw])
+
   return (
     <>
+      <p className="sc-ad__hint">
+        {/*
+          **열넷이 안 차면 시작할 수가 없다.** 역할과 인연 고리가 열넷을
+          전제로 짜여 있어서, 둘이서는 판이 서지 않는다. 그래서 둘이
+          확인하고 싶을 때는 나머지를 QA 로 채워 넣는다 — 앉은 사람은
+          그대로 두고 빈 자리만 메운다. 채팅도 거래도 그때부터 된다.
+        */}
+        지금 앉은 사람은 그대로 두고 빈 자리만 QA 로 채운다. 둘이서 확인할 때 쓴다.
+      </p>
+      {/* 비밀번호를 가리지 않는다 — 읽어서 다른 기기에 쳐야 하는 값이다 */}
       <input
-        type="password"
+        type="text"
         placeholder="QA 비밀번호 (8자 이상)"
         value={qaPw}
         autoComplete="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onChange={(e) => setQaPw(e.target.value)}
       />
       <button className="is-lead" disabled={busy || qaPw.length < 8} onClick={() => void onGo()}>
-        QA 판 한 번에 차리기
-        <span>열넷 채우고 · 역할 나누고 · 닷새 시작까지</span>
+        빈 자리를 QA로 채우고 시작
+        <span>qa01 … qa14 · 역할 나누고 · 닷새 시작까지</span>
       </button>
     </>
   )
