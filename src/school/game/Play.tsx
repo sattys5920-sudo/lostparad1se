@@ -15,7 +15,7 @@ import type { TeamId } from '../types'
 import type { AvatarLook } from '../../../shared/look'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
-import { Actions, Shop, Standing } from './Actions'
+import { Actions, Shop } from './Actions'
 import { Walk, type DirWay } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog } from './Phase'
@@ -612,34 +612,36 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 못 하는 것도 칸에 남긴다. 사라지면 그런 것이 있는 줄도 모르고,
    * 흐린 채로 있으면 눌러서 까닭을 들을 수 있다.
    */
-  const freeTokens = state.view?.myTokens ?? null
+  const phaseTokens = state.view?.myTeamTokens ?? null
   const acts = useMemo<Act[]>(() => {
     const walking = standingOn === null
     /**
      * 못 하는 까닭.
      *
-     * **화면이 규칙을 판단하지 않는다.** 여기서 보는 것은 서버가
-     * 이미 보내 준 숫자뿐이다 — 내가 지금 쓸 수 있는 토큰이 0 이면
-     * 무엇을 눌러도 서버가 거절한다. 그 말을 미리 대신 해 줄 뿐,
-     * 되는지 안 되는지를 새로 따지는 것이 아니다.
+     * **화면이 규칙을 판단하지 않는다.** 여기서 보는 것은 서버가 이미
+     * 보내 준 숫자뿐이다 — 페이즈 상자가 비었으면 무엇을 눌러도
+     * 서버가 거절한다. 그 말을 미리 대신 해 줄 뿐이다.
      */
     const stop = walking
       ? '걷는 중이다 — 멈춰야 한다'
-      : freeTokens === 0
-        ? '오늘 쓸 토큰이 없다'
+      : phaseTokens === 0
+        ? '팀 토큰이 없다'
         : undefined
     // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
     const room: Act[] = []
     if (!phaseOpen && standingOn === SHOP_TILE) {
       room.push({ key: 'buy', icon: 'buy', label: '구매', run: () => setSheet('shop') })
     }
+    /*
+     * **생산과 공부는 페이즈에만 있다.**
+     *
+     * 자유 시간은 만나고 거래하고 이야기하는 시간이다. 거기에 값을
+     * 치르는 일이 섞여 있으면 「자유」가 아니라 그냥 짧은 페이즈가
+     * 된다 — 실제로 자유 시간마다 생산부터 누르고 흩어졌다.
+     */
     const fixed: Act[] = phaseOpen
       ? [
           { key: 'post', icon: 'make', label: '자리 차지', cost: ENTER_COST, run: () => setSheet('act') },
-          { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
-          { key: 'talk', icon: 'talk', label: '말', run: () => setSheet('talk') },
-        ]
-      : [
           {
             key: 'make',
             icon: 'make',
@@ -658,12 +660,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           },
           { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
         ]
+      : [
+          // 자유 시간에 하는 일 — 만나서 이야기하고, 손패를 보고, 거래한다
+          { key: 'talk', icon: 'talk', label: '말', run: () => setSheet('talk') },
+          { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
+        ]
     const tail: Act[] = [
       { key: 'room', icon: 'room', label: '이 방', run: () => setSheet('act') },
       { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
     ]
     return [...room, ...fixed, ...tail]
-  }, [phaseOpen, standingOn, freeTokens, act, say, refuse])
+  }, [phaseOpen, standingOn, phaseTokens, act, say, refuse])
 
   /**
    * 여섯 칸에 다 안 들어가면 마지막 칸을 「더보기」가 쓴다.
@@ -825,9 +832,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
         <div className="sc-ct">
           <Toast text={toast} />
+          {/* 자유 시간에는 토큰 칸이 아예 없다. 쓸 데가 없는 숫자다 */}
           <ResourceRow
-            tokens={phaseOpen ? (state.view?.myTeamTokens ?? null) : (state.view?.myTokens ?? null)}
-            tokenLabel={phaseOpen ? '팀 토큰' : '토큰'}
+            tokens={phaseOpen ? (state.view?.myTeamTokens ?? null) : null}
+            tokenLabel="팀 토큰"
             money={state.view?.myVault?.money ?? null}
             knowledge={state.view?.myVault?.knowledge ?? null}
             mates={mates}
@@ -987,9 +995,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 />
               )}
               {standingRoom ? (
-                <Actions tileId={standingRoom} where="here">
-                  <Standing standingOn={standingOn} act={act} onSaid={setSaid} />
-                </Actions>
+                /* 생산·공부는 페이즈로 갔다. 자유 시간에 이 방에서
+                   할 것은 만나는 일뿐이다 */
+                <Actions tileId={standingRoom} where="here" />
               ) : (
                 <p className="sc-pl__none">복도에서는 할 것이 없다.</p>
               )}
@@ -1122,8 +1130,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             {/* **페이즈 상자는 넷이 나눠 쓴다.** 내 것이 아니라는 게 여기서
                 보여야 한다 — 먼저 쓰는 사람이 임자다 */}
             <li><span>페이즈 토큰(팀 공용)</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
-            <li><span>자유 시간에 내가 쓸 수 있는 수</span><span>{state.view?.myTokens ?? '—'}</span></li>
-            <li><span>내 하루 몫에서 남은 수</span><span>{state.view?.myTokensDaily ?? '—'}</span></li>
             <li><span>내 돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
             <li><span>내 지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
           </ul>

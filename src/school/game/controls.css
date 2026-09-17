@@ -121,8 +121,10 @@
   font-size: 10px;
   color: #9aa0c0;
 }
-/* 지식만 다른 계열. 돈과 헷갈리지 않게 */
-.sc-ct__res:nth-child(3) b { color: var(--ct-ice); }
+/* 지식만 다른 계열. 돈과 헷갈리지 않게.
+   **자리로 잡지 않는다** — 자유 시간에는 토큰 칸이 빠져서
+   셋째가 지식이 아니게 된다 */
+.sc-ct__res.is-know b { color: var(--ct-ice); }
 
 /* 바뀌는 순간 한 번. 늘면 강조색, 줄면 붉은색 */
 .sc-ct__res.is-up b { color: #fff3cf; }

@@ -26,6 +26,27 @@ const HOST = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/ctlshots'
 
 const QA_PW = 'ctl-password'
+/**
+ * 찍는 사람은 **사람 계정**이다.
+ *
+ * qa01 은 한 에뮬레이터 안에서 판을 넘어 살아남아, 비밀번호가 맨
+ * 처음 차린 판의 것으로 굳는다. 그 계정으로 들어가려 들면 다음 판
+ * 부터는 문 앞에서 막힌다. 사람 하나를 먼저 앉히고 나머지를 봇으로
+ * 채운다 — 지금 판을 차리는 길과 같은 순서다.
+ */
+const ME = `shot${String(Date.now()).slice(-6)}`
+const MY_PW = 'ctl-shot-pass1'
+/** 찍는 사람 얼굴. 점이 아니라 사람으로 나와야 한다 */
+const qaFace = {
+  styleSet: 'F',
+  hairStyle: 'F03',
+  hairColor: 2,
+  expression: 1,
+  outfit: 2,
+  wearStyle: 0,
+  bottom: 1,
+  neckwear: 1,
+}
 const GAME = `ctl${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
@@ -94,7 +115,7 @@ async function useUpDaily(team: string, uid: string, n: number): Promise<void> {
 }
 /** 그 사람 자신으로 서버를 부른다. 화면이 하는 것과 같은 길이다. */
 async function asPlayer(host: string, id: string): Promise<string> {
-  const custom = String((await must('logInAccount', host, { id, password: QA_PW })).token ?? '')
+  const custom = String((await must('logInAccount', host, { id, password: MY_PW })).token ?? '')
   const swap = await fetch(`${AUTH}/accounts:signInWithCustomToken?key=fake`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -135,7 +156,7 @@ async function enter(page: Page, site: string, id: string): Promise<void> {
     .catch(() => false)
   if (gate) {
     await page.fill('input[placeholder="아이디"]', id)
-    await page.fill('input[placeholder="비밀번호"]', QA_PW)
+    await page.fill('input[placeholder="비밀번호"]', MY_PW)
     await page.locator('.sc-pl__gate button.sc-pl__go').click()
   }
   for (let i = 0; i < 60; i++) {
@@ -219,6 +240,12 @@ async function main(): Promise<void> {
   await setAdmin(he)
   const host = await authTok(he)
   await must('createGame', host, { gameId: GAME, seed: 'ctl' })
+  await must('signUpAccount', host, { id: ME, password: MY_PW })
+  // **얼굴부터 만든다.** 안 만들면 앱이 「나」 화면(캐릭터 만들기)에서
+  // 멈춰 서고, 지도까지 못 간다
+  const meTok = await asPlayer(host, ME)
+  await must('saveCharacter', meTok, { nickname: '나', avatar: qaFace })
+  await must('joinGame', meTok, { gameId: GAME, name: '나' })
   await must('seedPlayers', host, { gameId: GAME, password: QA_PW, leaveSeats: 0 })
   await must('startGame', host, { gameId: GAME, startAtMs: START })
   let clock = dayHourMs(START, 1, 10)
@@ -229,10 +256,10 @@ async function main(): Promise<void> {
   }
   await tick()
 
-  const mine = uidOf('qa01')
+  const mine = uidOf(ME)
   const myTeam = await myTeamOf(mine)
-  const myToken = await asPlayer(host, 'qa01')
-  console.log(`  qa01 은 ${myTeam}팀`)
+  const myToken = await asPlayer(host, ME)
+  console.log(`  ${ME} 은 ${myTeam}팀`)
 
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
   const notes: Record<string, unknown> = {}
@@ -250,13 +277,13 @@ async function main(): Promise<void> {
     page.on('pageerror', (e) => boom.push(`${v.name}: ${e.message}`))
 
     // ── 전 ────────────────────────────────────────────────
-    await enter(page, `${HOST}/before`, 'qa01')
+    await enter(page, `${HOST}/before`, ME)
     await page.waitForTimeout(1200)
     await page.screenshot({ path: `${OUT}/before-${v.name}.png` })
     console.log(`  before-${v.name}.png`)
 
     // ── 후 · 1 보통 ───────────────────────────────────────
-    await enter(page, `${HOST}/lostparad1se`, 'qa01')
+    await enter(page, `${HOST}/lostparad1se`, ME)
     await page.waitForTimeout(1200)
     await page.screenshot({ path: `${OUT}/after-${v.name}-1보통.png` })
     notes[`${v.name}/자유시간`] = await measure(page)

@@ -61,10 +61,21 @@ function useBlink(value: number | null): 'up' | 'down' | null {
   return flash
 }
 
-function Res({ icon, label, value }: { icon: string; label: string; value: number | null }) {
+function Res({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: string
+  label: string
+  value: number | null
+  /** 지식만 다른 색이다. 자리가 아니라 이름으로 잡는다 */
+  tone?: 'know'
+}) {
   const flash = useBlink(value)
   return (
-    <span className={`sc-ct__res${flash ? ` is-${flash}` : ''}`}>
+    <span className={`sc-ct__res${flash ? ` is-${flash}` : ''}${tone ? ` is-${tone}` : ''}`}>
       <img src={uiIcon(icon)} alt="" width={16} height={16} />
       <b>{value ?? '—'}</b>
       <i>{label}</i>
@@ -82,10 +93,9 @@ export interface Mate {
 /**
  * 자원 줄.
  *
- * **토큰은 내가 지금 쓸 수 있는 수다.** 자유 시간에는 팀 상자와 내
- * 하루 몫 중 작은 쪽이고(서버가 쓸 때 보는 것과 같다), 페이즈 중에는
- * 페이즈 상자다 — 그쪽은 넷이 한 주머니를 나눠 쓰는 것이라 「팀」이라
- * 불러야 한다. 이름을 바꿔 붙이면 화면이 거짓말을 한다.
+ * **토큰은 페이즈에만 있다.** 넷이 한 주머니를 나눠 쓰는 것이라
+ * 「팀 토큰」이라 부른다. 자유 시간에는 값을 치를 일이 없어서 아예
+ * 안 뜬다 — 쓸 데가 없는 숫자를 띄워 두면 무엇에 쓰는지부터 묻게 된다.
  */
 export function ResourceRow({
   tokens,
@@ -96,6 +106,7 @@ export function ResourceRow({
   teamColor,
   onOpen,
 }: {
+  /** 페이즈 상자. **자유 시간에는 null 이고, 그때는 칸이 없다.** */
   tokens: number | null
   tokenLabel: string
   money: number | null
@@ -106,9 +117,9 @@ export function ResourceRow({
 }) {
   return (
     <button className="sc-ct__bar" onClick={onOpen} aria-label="우리 팀 보기">
-      <Res icon="token" label={tokenLabel} value={tokens} />
+      {tokens !== null && <Res icon="token" label={tokenLabel} value={tokens} />}
       <Res icon="money" label="돈" value={money} />
-      <Res icon="knowledge" label="지식" value={knowledge} />
+      <Res icon="knowledge" label="지식" value={knowledge} tone="know" />
       <span className="sc-ct__mates" aria-hidden="true">
         {mates.map((m) => (
           <i

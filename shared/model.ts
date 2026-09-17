@@ -412,10 +412,7 @@ export interface PlayerViewDoc {
    * 먼저 쓰는 사람이 임자다. 화면에서 「내 토큰」이라 부르면 안 된다.
    */
   myTeamTokens: number
-  /** 자유 시간에 내가 지금 쓸 수 있는 수. 팀 상자와 내 하루 몫 중 작은 쪽. */
-  myTokens?: number
   /** 내 하루 몫에서 남은 수. */
-  myTokensDaily?: number
   /** 거래를 걸 수 있는 내 개인 토큰. 하루치다. */
   myDealTokens: number
   /**

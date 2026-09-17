@@ -8,7 +8,6 @@ import { useState, type ReactNode } from 'react'
 
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { SHOP_ITEMS, shopPriceFor } from '../../../shared/rules/shop'
-import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import { capacityOf } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
 import type { TeamId } from '../types'
@@ -54,33 +53,6 @@ function useRun(onSaid: (t: string) => void) {
     },
   }
 }
-
-/**
- * 생산은 **내가 선 자리**에서 한다. 고른 칸과 상관없다.
- *
- * 처음에는 이것도 칸 패널에 넣었는데, 「교실」을 골라 두고 생산을
- * 누르면 교실에서 무언가 나는 것처럼 보였다. 실제로는 내가 선 칸이
- * 우리 땅이기만 하면 된다. 자리를 갈라 놓는다.
- *
- * **연구는 여기 없다.** 페이즈에, 연구실에서만 한다.
- */
-export function Standing({ standingOn, act, onSaid }: { standingOn: TileId | null; act: GameActions; onSaid: (t: string) => void }) {
-  const { busy, run } = useRun(onSaid)
-  return (
-    <div className="sc-ac__standing">
-      {/* 방 이름은 바로 위 제목이 이미 말한다. 여기서는 서 있는 자리에서만
-          되는 일이라는 것만 밝힌다 */}
-      <span className="sc-ac__where">{standingOn ? '선 자리에서' : '걷는 중'}</span>
-      <button disabled={busy || !standingOn} onClick={() => run('생산', () => act.produce(standingOn as TileId))}>
-        생산 <em>{ACTION_TOKEN_COST.produce}</em>
-      </button>
-      <button disabled={busy || !standingOn} onClick={() => run('공부', () => act.study(standingOn as TileId))}>
-        공부 <em>{ACTION_TOKEN_COST.study}</em>
-      </button>
-    </div>
-  )
-}
-
 
 /**
  * 상점. **서 있어야 산다.**
