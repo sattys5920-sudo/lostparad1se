@@ -59,9 +59,12 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, roster, hands, goals, peeks, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, tokenBoxes, pawns, teams, tiles, robots, roster, hands, goals, peeks, proposals, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
+      // 자유 시간 토큰 상자. **사람마다 하루 몫이 따로 있다** — 그
+      // 수를 화면이 못 보고 있었다. 투영이 내 것만 떼어 보낸다
+      secret(gameId, 'tokens').get(),
       sub(gameId, 'pawns').get(),
       sub(gameId, 'teams').get(),
       sub(gameId, 'tiles').get(),
@@ -126,6 +129,13 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 페이즈 토큰 상자도 마찬가지다. 남의 상자는 투영에서 걸러진다
     wallets: Object.fromEntries(
       teams.docs.map((d) => [d.id, (d.data() as { phaseTokens?: number }).phaseTokens ?? 0]),
+    ),
+    // 자유 시간 상자. 팀에 남은 수와 사람마다 오늘 쓴 수가 같이 있다
+    tokenBoxes: Object.fromEntries(
+      tokenBoxes.docs.map((d) => {
+        const t = d.data() as { tokens?: number; usedToday?: Record<string, number> }
+        return [d.id, { tokens: t.tokens ?? 0, usedToday: t.usedToday ?? {} }]
+      }),
     ),
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,

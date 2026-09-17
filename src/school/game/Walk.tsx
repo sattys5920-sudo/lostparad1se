@@ -127,7 +127,27 @@ export interface WalkProps {
    * 모습이 보이게 하는 것뿐이다.
    */
   onLive?: (at: LiveDoc) => void
+  /**
+   * 지금 선 칸에서 어느 쪽으로 갈 수 있는가.
+   *
+   * 십자키가 이것으로 갈 수 없는 쪽을 어둡게 둔다. **벽을 미는 단추를
+   * 멀쩡하게 두면 눌러 보고 나서야 벽인 줄 안다** — 그 전에는 게임이
+   * 고장 난 것처럼 보인다.
+   *
+   * 바뀔 때만 부른다. 한 칸 옮길 때마다 달라지므로 프레임마다 보내면
+   * 화면이 그 수만큼 다시 그려진다.
+   */
+  onDirs?: (ways: Record<Dir, DirWay>) => void
 }
+
+/**
+ * 그쪽이 어떤 쪽인가.
+ *
+ * - `shut` 벽이다. 눌러도 아무 일도 안 일어난다.
+ * - `open` 방 안에서 한 칸 옮긴다. 값이 안 든다.
+ * - `door` 문이나 계단을 넘는다 — **페이즈 중에는 여기에만 값이 붙는다.**
+ */
+export type DirWay = 'shut' | 'open' | 'door'
 
 const DIR_OF: Record<string, Dir> = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
@@ -161,7 +181,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -186,6 +206,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const frozenRef = useRef(frozen)
   const looksRef = useRef(looks)
   const liveOutRef = useRef(onLive)
+  const dirsRef = useRef(onDirs)
   viewRef.current = view
   tilesRef.current = tiles
   crossRef.current = onCross
@@ -196,6 +217,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   frozenRef.current = frozen
   looksRef.current = looks
   liveOutRef.current = onLive
+  dirsRef.current = onDirs
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
   const myPawn = view?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
@@ -655,6 +677,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     let lastLiveMs = 0
     /** 직전 프레임에 걷고 있었나. 멈추는 순간 한 번 더 적으려고 본다. */
     let toldLive = false
+    /** 마지막으로 십자키에 알려 준 네 쪽. 바뀔 때만 다시 알린다. */
+    let toldDirs = ''
 
     function frame(now: number) {
       raf = requestAnimationFrame(frame)
@@ -778,6 +802,40 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 내가 선 칸. 화면에는 안 쓰고 주행 시험이 읽는다 — 「방은 맞는데
       // 문에서 한 칸 옆」 같은 것은 방 이름만 봐서는 알 수가 없다
       canvas.dataset.at = `${self.tx},${self.ty}`
+
+      // **갈 수 있는 쪽을 십자키에 알려 준다.**
+      //
+      // 계단과 문은 갈 수 있는 쪽이다 — 걸어서 못 잇는 층도 계단
+      // 한 칸을 밟으면 넘어간다. 벽 옆에서 문 쪽으로 비켜 주는
+      // 걸음(tryStep 의 side)도 갈 수 있는 것으로 센다. 화면에
+      // 「막혔다」고 해 놓고 실제로는 걸어지면 그쪽이 더 나쁘다.
+      //
+      // 셋을 가른다. **문이나 계단을 넘는 걸음만 값이 든다** — 방
+      // 안에서 한 칸 옮기는 것까지 「1」이라 적어 두면 화면이 없는
+      // 값을 부르는 셈이다.
+      const canGo = (d: Dir): DirWay => {
+        const [dx, dy] = STEP[d]
+        const nx = self.tx + dx
+        const ny = self.ty + dy
+        if (stairHere(nx, ny)) return 'door'
+        if (doorHere(nx, ny)) return 'door'
+        if (isWalkable(nx, ny)) return 'open'
+        const side: [number, number][] = d === 'up' || d === 'down' ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]]
+        const slip = side.some(([sx, sy]) => doorHere(nx + sx, ny + sy) && isWalkable(self.tx + sx, self.ty + sy))
+        return slip ? 'door' : 'shut'
+      }
+      const ways: Record<Dir, DirWay> = {
+        up: canGo('up'),
+        down: canGo('down'),
+        left: canGo('left'),
+        right: canGo('right'),
+      }
+      const nowDirs = `${ways.up}|${ways.down}|${ways.left}|${ways.right}`
+      if (nowDirs !== toldDirs) {
+        toldDirs = nowDirs
+        dirsRef.current?.(ways)
+      }
+
       const room = roomAt(self.tx, self.ty)?.id ?? null
       if (room !== lastRoom) {
         lastRoom = room

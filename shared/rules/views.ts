@@ -17,6 +17,7 @@
 // 순수 함수다. Firestore를 모른다 — 그래야 시험할 수 있다.
 import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
+import { TOKEN_PER_PLAYER_DAILY } from './v2'
 import type { CardKind, GoalKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type TileId } from './board'
 import type { Satchel, Satchels } from './items'
@@ -107,6 +108,14 @@ export interface World {
   satchels?: Readonly<Satchels>
   /** 팀마다 하나인 페이즈 토큰 상자. **자기 팀 것만 내려간다.** */
   wallets?: Readonly<Partial<Record<TeamId, number>>>
+  /**
+   * 자유 시간 토큰 상자. 팀에 남은 수와 사람마다 오늘 쓴 수.
+   *
+   * **쓸 때 서버는 둘을 다 본다**(spendToken) — 팀 상자가 넉넉해도
+   * 내 하루 몫이 떨어지면 못 쓴다. 그런데 화면은 팀 상자만 보고
+   * 있었다. 「토큰 16」이라 적혀 있는데 아무것도 안 되는 일이 난다.
+   */
+  tokenBoxes?: Readonly<Partial<Record<TeamId, { tokens: number; usedToday: Readonly<Record<string, number>> }>>>
   /** 끝났으면 A의 기억 열셋이 전원에게 열린다. */
   over: boolean
   /**
@@ -208,6 +217,16 @@ export interface View {
    * 읽힌다. 그게 이 게임의 절반이다.
    */
   myTeamTokens: number
+  /**
+   * **자유 시간에 내가 지금 쓸 수 있는 수.**
+   *
+   * 팀 상자에 남은 것과 내 하루 몫 중 작은 쪽이다 — 서버가 쓸 때
+   * 보는 것과 같은 계산이다. 팀 몫을 보여 주고 개인 한도에서 막히면
+   * 화면이 거짓말을 한 것이 된다.
+   */
+  myTokens: number
+  /** 내 하루 몫에서 남은 수. 팀 상자는 따로다. */
+  myTokensDaily: number
   /**
    * 거래를 걸 수 있는 내 개인 토큰. **내 것만 간다.**
    *
@@ -347,6 +366,8 @@ export function projectView(world: World, viewerId: string): View {
       myArriveAtMs: null,
       myPost: null,
       myTeamTokens: 0,
+      myTokens: 0,
+      myTokensDaily: 0,
       myDealTokens: 0,
       myVault: { money: 0, knowledge: 0 },
       myItems: {},
@@ -382,6 +403,10 @@ export function projectView(world: World, viewerId: string): View {
 
   // 내가 선 방. 걷는 중이면 어느 방에도 없다 — 바닥의 쪽지도 안 보인다
   const here = seenPawns.find((p) => p.playerId === viewerId)?.tileId ?? null
+
+  // 자유 시간 토큰 — 팀 상자와 내 하루 몫 중 작은 쪽이 내가 쓸 수 있는 수다
+  const myBox = world.tokenBoxes?.[team] ?? { tokens: 0, usedToday: {} }
+  const dailyLeft = Math.max(0, TOKEN_PER_PLAYER_DAILY - (myBox.usedToday[viewerId] ?? 0))
 
   const seen = visiblePawns({
     viewerId,
@@ -439,6 +464,8 @@ export function projectView(world: World, viewerId: string): View {
     // **우리 팀 것만이다.** 남의 상자가 보이면 언제 밀고 들어올지가
     // 읽힌다 — 그게 이 게임의 절반이다
     myTeamTokens: world.wallets?.[team] ?? 0,
+    myTokens: Math.min(myBox.tokens, dailyLeft),
+    myTokensDaily: dailyLeft,
     myDealTokens: world.pawns.find((p) => p.playerId === viewerId)?.dealTokens ?? 0,
     myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[viewerId] ?? {},

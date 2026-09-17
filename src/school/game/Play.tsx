@@ -15,8 +15,8 @@ import type { TeamId } from '../types'
 import type { AvatarLook } from '../../../shared/look'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
-import { Actions, QuickActions, Shop, Standing } from './Actions'
-import { Walk } from './Walk'
+import { Actions, Shop, Standing } from './Actions'
+import { Walk, type DirWay } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog } from './Phase'
 import { Slips } from './Slips'
@@ -31,12 +31,18 @@ import { DealAsk } from './DealAsk'
 import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
 import { pushLive, useLive } from './useLive'
+import { ActionGrid, Pad, ResourceRow, TabBar, Toast, buzzOn, setBuzz, useToast, padFace, type Act } from './Controls'
+import { TEAM_COLOR } from './MapPlan'
+import { uiIcon } from './uiArt'
+import type { Dir } from '../map/sprites'
+import './controls.css'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import type { GamePhase } from '../../../shared/model'
-import { MOVE_MINUTES } from '../../../shared/rules/occupy'
+import { ENTER_COST, MOVE_MINUTES } from '../../../shared/rules/occupy'
+import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import './play.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
@@ -263,15 +269,15 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
             아직 시작 전이다. 걸어 다녀 볼 수는 있다 — 남들은 아직 자리에 없다.
           </p>
 
-          <div className="sc-pl__ctl">
-            <div className="sc-pl__pad" ref={padRef}>
-              <button data-dir="up" aria-label="위">↑</button>
-              <button data-dir="left" aria-label="왼쪽">←</button>
-              <button data-dir="down" aria-label="아래">↓</button>
-              <button data-dir="right" aria-label="오른쪽">→</button>
-            </div>
-            <div className="sc-pl__acts">
-              <button onClick={() => setRoster(true)}>모인 사람</button>
+          {/* 시작 전에도 십자키는 같은 것을 쓴다. 판이 열린 뒤에 손가락이
+              자리를 다시 외우게 할 까닭이 없다 */}
+          <div className="sc-ct">
+            <div className="sc-ct__ctl">
+              <Pad padRef={padRef} dirs={{}} onBlocked={() => {}} />
+              <ActionGrid
+                acts={[{ key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) }]}
+                onBlocked={() => {}}
+              />
             </div>
           </div>
         </section>
@@ -358,7 +364,7 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 type Tab = 'map' | 'me' | 'note'
 
 /** 컨트롤 바의 「더보기」에서 열리는 것들. */
-type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop'
+type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop' | 'team'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -427,6 +433,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
   const [snowOff, setSnowOffState] = useState(snowIsOff)
+  const [buzzing, setBuzzing] = useState(buzzOn)
   // 십자키는 컨트롤 바에 있고 그림은 위에 있다. 자리만 건네준다
   const padRef = useRef<HTMLDivElement | null>(null)
   const [asking, ask] = useAsk()
@@ -503,6 +510,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const liveIds = state.view?.visibleIds ?? []
   const live = useLive(gameId, liveIds)
 
+  const [toast, showToast] = useToast()
+  /** 지금 선 칸에서 어느 쪽으로 갈 수 있는가. 지도가 한 칸 옮길 때마다 알려 준다 */
+  const [ways, setWays] = useState<Record<Dir, DirWay>>({ up: 'open', down: 'open', left: 'open', right: 'open' })
+
+
   // 서버가 한 말을 잠깐 띄운다. 그대로 두면 쌓여서 화면을 가린다.
   //
   // **거절은 안 지운다.** 3.2초는 걷다가 놓치기 딱 좋은 시간이고,
@@ -530,6 +542,120 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const phaseNo = state.game?.phaseNow?.no ?? 0
   const phaseOpen = state.game?.phaseNow?.open === true
   const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
+
+  /**
+   * 십자키 네 칸이 어떤 얼굴을 하는가.
+   *
+   * 벽은 어둡게 두고 누를 수도 없게 한다. **갈 수는 있는데 지금 못
+   * 가는 쪽은 다르다** — 멀쩡하게 두고, 누르면 까닭을 한 줄로 말한다.
+   * 페이즈 중에 토큰이 떨어졌을 때가 그렇다. 어둡게 해 버리면 벽과
+   * 구별이 안 돼서 「이 방에 갇혔다」로 읽힌다.
+   *
+   * 값은 문·계단을 넘는 쪽에만 붙는다. 방 안에서 한 칸 옮기는 데는
+   * 아무것도 들지 않는다.
+   */
+  const dirs = useMemo(
+    () => padFace(ways, phaseOpen, state.view?.myTeamTokens ?? 0, ENTER_COST),
+    [ways, phaseOpen, state.view?.myTeamTokens],
+  )
+
+  /**
+   * 여섯 칸에 무엇을 놓는가.
+   *
+   * **이 방에서 되는 것이 앞 칸에 온다.** 상점에 서 있으면 「구매」가
+   * 첫 칸이고, 아니면 그 칸을 다른 것이 쓴다. 여섯을 넘으면 나머지는
+   * 더보기 시트로 간다 — 잘라 버리지 않는다.
+   *
+   * 못 하는 것도 칸에 남긴다. 사라지면 그런 것이 있는 줄도 모르고,
+   * 흐린 채로 있으면 눌러서 까닭을 들을 수 있다.
+   */
+  const freeTokens = state.view?.myTokens ?? null
+  const acts = useMemo<Act[]>(() => {
+    const walking = standingOn === null
+    /**
+     * 못 하는 까닭.
+     *
+     * **화면이 규칙을 판단하지 않는다.** 여기서 보는 것은 서버가
+     * 이미 보내 준 숫자뿐이다 — 내가 지금 쓸 수 있는 토큰이 0 이면
+     * 무엇을 눌러도 서버가 거절한다. 그 말을 미리 대신 해 줄 뿐,
+     * 되는지 안 되는지를 새로 따지는 것이 아니다.
+     */
+    const stop = walking
+      ? '걷는 중이다 — 멈춰야 한다'
+      : freeTokens === 0
+        ? '오늘 쓸 토큰이 없다'
+        : undefined
+    // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
+    const room: Act[] = []
+    if (!phaseOpen && standingOn === SHOP_TILE) {
+      room.push({ key: 'buy', icon: 'buy', label: '구매', run: () => setSheet('shop') })
+    }
+    const fixed: Act[] = phaseOpen
+      ? [
+          { key: 'post', icon: 'make', label: '자리 차지', cost: ENTER_COST, run: () => setSheet('act') },
+          { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
+          { key: 'talk', icon: 'talk', label: '말', run: () => setSheet('talk') },
+        ]
+      : [
+          {
+            key: 'make',
+            icon: 'make',
+            label: '생산',
+            cost: ACTION_TOKEN_COST.produce,
+            why: stop,
+            run: () => void act.produce(standingOn as TileId).then((r) => say(String((r as { said?: string }).said ?? '생산했다.'))).catch((e) => refuse((e as Error).message)),
+          },
+          {
+            key: 'study',
+            icon: 'study',
+            label: '공부',
+            cost: ACTION_TOKEN_COST.study,
+            why: stop,
+            run: () => void act.study(standingOn as TileId).then((r) => say(String((r as { said?: string }).said ?? '공부했다.'))).catch((e) => refuse((e as Error).message)),
+          },
+          { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
+        ]
+    const tail: Act[] = [
+      { key: 'room', icon: 'room', label: '이 방', run: () => setSheet('act') },
+      { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
+    ]
+    return [...room, ...fixed, ...tail]
+  }, [phaseOpen, standingOn, freeTokens, act, say, refuse])
+
+  /**
+   * 여섯 칸에 다 안 들어가면 마지막 칸을 「더보기」가 쓴다.
+   *
+   * **잘라 버리지 않는다.** 넘친 것은 시트에 그대로 있고, 거기서도
+   * 같은 그림과 같은 이름으로 나온다 — 자리만 옮긴 것이지 없어진
+   * 것이 아니라는 게 보여야 한다.
+   */
+  const more: Act = { key: 'more', icon: 'more', label: '더보기', run: () => setSheet('more') }
+  // 마지막 칸은 늘 더보기다. 설정과 보관함이 그 뒤에 있어서, 칸이
+  // 남는 날에만 열리게 두면 어떤 날은 아예 못 연다
+  const grid = [...acts.slice(0, 5), more]
+  const spill = acts.slice(5)
+
+  /**
+   * 우리 팀 넷이 지금 켜 두고 있는가.
+   *
+   * **live 문서가 곧 접속 표시다.** 걷는 동안만 적히므로 가만히 선
+   * 사람은 잠시 뒤 흐려지는데, 그 편이 「켜 두고 자리를 비웠다」와
+   * 「같이 있다」를 가르는 데는 오히려 맞다.
+   */
+  const mates = useMemo(() => {
+    const capIds = new Set(
+      Object.values(state.teams)
+        .map((t) => t?.captainId ?? null)
+        .filter((x): x is string => typeof x === 'string'),
+    )
+    return (game?.seats ?? [])
+      .filter((sx) => sx.team === me?.team)
+      .map((sx) => ({
+        playerId: sx.playerId,
+        here: sx.playerId === me?.playerId || live.current.has(sx.playerId),
+        captain: capIds.has(sx.playerId),
+      }))
+  }, [game, state.teams, me?.team, me?.playerId, live])
 
   if (!game) return <Waiting what="판" error={state.error} />
   // **기다려도 오지 않는다.** 명단에 없는 사람은 자리가 생길 일이
@@ -612,6 +738,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 })
             }}
             onRoom={setStandingRoom}
+            onDirs={setWays}
             onTapRoom={(id) => {
               if (id === standingRoom) {
                 setFar(null)
@@ -653,38 +780,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           )}
         </div>
 
-        <ul className="sc-pl__stat">
-          <li><span>팀 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
-          <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
-          <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
-        </ul>
-
-        {/* **할 수 있는 일은 눌러 보기 전에 보인다.** 전에는 전부
-            「행동」 뒤에 있어서, 처음 들어온 사람은 거래라는 것이
-            있는 줄도 몰랐다 */}
-        <QuickActions
-          standingOn={standingOn}
-          standingRoom={standingRoom}
-          phaseOpen={phaseOpen}
-          far={far}
-          act={act}
-          onSaid={setSaid}
-          onSheet={setSheet}
-        />
-
-        <div className="sc-pl__ctl">
-          {/* 한 번 누르면 한 칸. 길게 눌러도 이어 걷지 않는다 */}
-          <div className="sc-pl__pad" ref={padRef}>
-            <button data-dir="up" aria-label="위">↑</button>
-            <button data-dir="left" aria-label="왼쪽">←</button>
-            <button data-dir="down" aria-label="아래">↓</button>
-            <button data-dir="right" aria-label="오른쪽">→</button>
-          </div>
-          <div className="sc-pl__acts">
-            <button onClick={() => setSheet('act')}>{phaseOpen ? '자리' : '이 방'}</button>
-            <button onClick={() => setAtlas(true)}>전체 맵</button>
-            <button onClick={() => setSheet('talk')}>말</button>
-            <button onClick={() => setSheet('more')}>더보기</button>
+        <div className="sc-ct">
+          <Toast text={toast} />
+          <ResourceRow
+            tokens={phaseOpen ? (state.view?.myTeamTokens ?? null) : (state.view?.myTokens ?? null)}
+            tokenLabel={phaseOpen ? '팀 토큰' : '토큰'}
+            money={state.view?.myVault?.money ?? null}
+            knowledge={state.view?.myVault?.knowledge ?? null}
+            mates={mates}
+            teamColor={TEAM_COLOR[me.team]}
+            onOpen={() => setSheet('team')}
+          />
+          <div className="sc-ct__ctl">
+            {/* 한 번 누르면 한 칸. 길게 눌러도 이어 걷지 않는다 */}
+            <Pad padRef={padRef} dirs={dirs} onBlocked={showToast} />
+            <ActionGrid acts={grid} onBlocked={showToast} />
           </div>
         </div>
       </section>
@@ -772,11 +882,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       </section>
 
       {/* ── 탭바 ─────────────────────────────────────────────── */}
-      <nav className="sc-pl__tabbar">
-        <button className={tab === 'map' ? 'is-on' : ''} onClick={() => setTab('map')}>맵</button>
-        <button className={tab === 'me' ? 'is-on' : ''} onClick={() => setTab('me')}>나</button>
-        <button className={tab === 'note' ? 'is-on' : ''} onClick={() => setTab('note')}>수첩</button>
-      </nav>
+      <TabBar
+        now={tab}
+        onPick={(k) => setTab(k as Tab)}
+        tabs={[
+          { key: 'map', icon: 'tabMap', label: '맵' },
+          { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0 },
+          { key: 'note', icon: 'tabNote', label: '수첩' },
+        ]}
+      />
 
       {/* ── 전체 맵 ───────────────────────────────────────────
           전체 화면 오버레이. 여기만 두 손가락 확대를 허용한다 */}
@@ -947,10 +1061,69 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </Sheet>
       )}
 
+      {/* 우리 팀 넷. **자원 줄을 누르면 여기가 열린다** — 작은 네모 넷만
+          보고는 누가 누구인지 알 수 없다 */}
+      {sheet === 'team' && (
+        <Sheet title={`${me.team}팀`} onClose={closeSheet}>
+          <ul className="sc-pl__team">
+            {mates.map((m) => (
+              <li key={m.playerId}>
+                <i className="sc-pl__teamDot" style={{ background: m.here ? TEAM_COLOR[me.team] : 'transparent' }} />
+                <span>{nameOf(m.playerId)}</span>
+                {m.captain && <em>팀장</em>}
+                <span className="sc-pl__teamState">{m.here ? '접속 중' : '자리 비움'}</span>
+              </li>
+            ))}
+          </ul>
+          <ul className="sc-pl__teamNums">
+            {/* **페이즈 상자는 넷이 나눠 쓴다.** 내 것이 아니라는 게 여기서
+                보여야 한다 — 먼저 쓰는 사람이 임자다 */}
+            <li><span>페이즈 토큰(팀 공용)</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
+            <li><span>자유 시간에 내가 쓸 수 있는 수</span><span>{state.view?.myTokens ?? '—'}</span></li>
+            <li><span>내 하루 몫에서 남은 수</span><span>{state.view?.myTokensDaily ?? '—'}</span></li>
+            <li><span>내 돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
+            <li><span>내 지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
+          </ul>
+        </Sheet>
+      )}
+
       {sheet === 'more' && (
         <Sheet title="더보기" onClose={closeSheet}>
+          {/* 여섯 칸에서 밀려난 것들. 같은 그림, 같은 이름으로 나온다 */}
+          {spill.length > 0 && (
+            <div className="sc-pl__spill">
+              {spill.map((a) => (
+                <button
+                  key={a.key}
+                  className={a.why ? 'is-off' : undefined}
+                  onClick={() => {
+                    if (a.why) {
+                      setSaid(a.why)
+                      return
+                    }
+                    closeSheet()
+                    a.run()
+                  }}
+                >
+                  <img src={uiIcon(a.icon)} alt="" width={16} height={16} />
+                  {a.label}
+                  {a.cost !== undefined && <em>{a.cost}</em>}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="sc-pl__more">
             <button onClick={() => setMiniOn(!miniOn)}>{miniOn ? '미니맵 끄기' : '미니맵 켜기'}</button>
+            {/* 진동은 기기에만 남는다. 같은 계정이라도 다른 폰에서는 따로다 */}
+            <button
+              onClick={() => {
+                const next = !buzzing
+                setBuzz(next)
+                setBuzzing(next)
+              }}
+            >
+              {buzzing ? '진동 끄기' : '진동 켜기'}
+            </button>
             <button
               onClick={() => {
                 const next = !snowOff

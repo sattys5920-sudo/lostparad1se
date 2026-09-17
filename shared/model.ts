@@ -407,8 +407,15 @@ export interface PlayerViewDoc {
   myArriveAtMs: number | null
   /** 내 전투 자리. 자유 시간에 여기서 떨어져 있으면 페이즈 때 돌아온다. */
   myPost: TileId | null
-  /** 이번 페이즈에 내게 남은 토큰. */
+  /**
+   * **페이즈 토큰 상자에 팀이 남긴 수.** 내 것이 아니라 넷이 나눠 쓴다 —
+   * 먼저 쓰는 사람이 임자다. 화면에서 「내 토큰」이라 부르면 안 된다.
+   */
   myTeamTokens: number
+  /** 자유 시간에 내가 지금 쓸 수 있는 수. 팀 상자와 내 하루 몫 중 작은 쪽. */
+  myTokens?: number
+  /** 내 하루 몫에서 남은 수. */
+  myTokensDaily?: number
   /** 거래를 걸 수 있는 내 개인 토큰. 하루치다. */
   myDealTokens: number
   /**

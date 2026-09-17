@@ -1,0 +1,389 @@
+/* 화면 아래 조작부.
+ *
+ * **겨울 저녁이다.** 지도는 낮의 학교라 밝고, 이 줄은 그 아래 어둠에
+ * 앉는다. 두 쪽이 같은 밝기면 경계가 없어서 지도가 어디서 끝나는지
+ * 모른다.
+ *
+ * 모서리는 전부 각지다. 둥근 모서리와 그림자는 도트 그림과 안 맞는다 —
+ * 픽셀은 격자 위에 있고 둥근 것은 격자를 흐린다. 그라데이션도 안 쓴다.
+ */
+
+/*
+ * 색은 **뿌리에 둔다.**
+ *
+ * 탭바는 `.sc-ct` 바깥에 선다(자원 줄·조작 영역과 달리 시트 위에도
+ * 남아야 한다). 변수를 `.sc-ct` 에만 두었더니 탭바까지 안 내려와서
+ * 활성 탭이 금색이 아니라 흰색으로 떴다 — 캡처에서 잡혔다.
+ */
+.sc-pl-root {
+  --ct-bg: #1c1f33;
+  --ct-face: #353a57;
+  --ct-line: #4a5070;
+  --ct-text: #e8e6f5;
+  --ct-gold: #f0d68a;
+  --ct-ice: #9fd4e8;
+  --ct-down: #e07a72;
+}
+
+.sc-ct {
+  /* 조작 영역 높이. 좁은 화면에서만 88 로 줄어든다 */
+  --ct-ctl: 96px;
+  /* 십자 한 칸. 히트박스는 따로 44 를 잡는다 */
+  --ct-key: 30px;
+
+  /* 한 줄 알림이 이 상자를 기준으로 뜬다 */
+  position: relative;
+  flex: 0 0 auto;
+  background: var(--ct-bg);
+  color: var(--ct-text);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * **전역 최소 터치 규칙을 여기서만 되돌린다.**
+ *
+ * mobile.css 가 `.sc-pl-root button` 을 죄다 44×44 로 민다. 좋은 규칙인데
+ * 조작부는 **보이는 면과 닿는 면을 따로 잡는** 방식이라, 그대로 두면
+ * 자원 줄이 36 이 아니라 44 가 되고 십자 칸도 30 을 넘긴다 — 실제로
+ * 총높이가 190 으로 재졌다. 44 는 ::after 가 절대값으로 따로 잡는다.
+ *
+ * 누를 때의 전역 반투명도 끈다. 도트 화면에서 면이 비치면 아래 것이
+ * 같이 보여서 단추가 얇은 종이처럼 읽힌다 — 면 색만 한 단계 올린다.
+ */
+.sc-pl-root .sc-ct button,
+.sc-pl-root .sc-ct .sc-ct__key {
+  min-width: 0;
+  min-height: 0;
+  border-radius: 0;
+}
+.sc-pl-root .sc-ct button:active:not(:disabled) {
+  opacity: 1;
+  transform: translateY(1px);
+}
+
+/*
+ * **도트 그림은 줄어들면 안 된다.**
+ *
+ * 세로로 쌓은 칸(아이콘 위, 이름 아래) 안에서 img 는 flex 아이템이라
+ * 자리가 모자라면 눌린다. 16 짜리 그림이 10 으로 눌리면 정수 배가
+ * 깨져서 도트가 뭉갠 것처럼 보인다 — 실제로 탭 아이콘이 그렇게 떴다.
+ */
+.sc-ct img,
+.sc-ct__tabs img {
+  image-rendering: pixelated;
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* ── 자원 줄 36 ─────────────────────────────────────────────── */
+
+.sc-ct__bar {
+  appearance: none;
+  width: 100%;
+  /*
+   * **36 안에 위아래 선이 다 들어간다.**
+   *
+   * 테두리를 바깥 상자에 붙였더니 36 + 96 + 48 이 182 로 재졌다. 2px
+   * 이 우스워 보여도 못 박은 값은 못 박은 값이다 — border-box 라
+   * 선을 이 줄 안으로 들이면 딱 180 이다.
+   */
+  height: 36px;
+  border: 0;
+  border-top: 2px solid var(--ct-line);
+  border-bottom: 2px solid var(--ct-line);
+  background: var(--ct-bg);
+  color: inherit;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.sc-ct__res {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1;
+}
+.sc-ct__res b {
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ct-gold);
+}
+.sc-ct__res i {
+  font-style: normal;
+  font-size: 10px;
+  color: #9aa0c0;
+}
+/* 지식만 다른 계열. 돈과 헷갈리지 않게 */
+.sc-ct__res:nth-child(3) b { color: var(--ct-ice); }
+
+/* 바뀌는 순간 한 번. 늘면 강조색, 줄면 붉은색 */
+.sc-ct__res.is-up b { color: #fff3cf; }
+.sc-ct__res.is-down b { color: var(--ct-down); }
+
+/* 팀원. 접속 중은 팀 색으로 차고 아닌 사람은 빈 네모다 */
+.sc-ct__mates {
+  margin-left: auto;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.sc-ct__mate {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--ct-line);
+  background: transparent;
+}
+.sc-ct__mate.is-here { border-color: transparent; }
+/* 팀장은 위에 점 하나. 우리 팀에게만 온다 */
+.sc-ct__mate.is-cap::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 3px;
+  width: 1px;
+  height: 1px;
+  background: var(--ct-gold);
+  box-shadow: 0 0 0 0.5px var(--ct-gold);
+}
+
+/* ── 조작 영역 96 ───────────────────────────────────────────── */
+
+.sc-ct__ctl {
+  height: var(--ct-ctl);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+/* 자원 줄이 없는 자리(시작 전 로비)에서는 조작 영역이 맨 위다 */
+.sc-ct__ctl:first-child { border-top: 2px solid var(--ct-line); }
+
+/* 십자 다섯 칸. 가운데는 비어 있다 */
+.sc-ct__pad {
+  flex: 0 0 auto;
+  position: relative;
+  width: calc(var(--ct-key) * 3 + 6px);
+  height: calc(var(--ct-key) * 3 + 6px);
+  display: grid;
+  grid-template-columns: repeat(3, var(--ct-key));
+  grid-template-rows: repeat(3, var(--ct-key));
+  gap: 3px;
+}
+
+.sc-ct__key {
+  appearance: none;
+  position: relative;
+  padding: 0;
+  border: 2px solid var(--ct-line);
+  background: var(--ct-face);
+  color: var(--ct-text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.sc-ct__key {
+  width: var(--ct-key);
+  height: var(--ct-key);
+}
+.sc-ct__key.is-up { grid-area: 1 / 2; }
+.sc-ct__key.is-left { grid-area: 2 / 1; }
+.sc-ct__key.is-mid { grid-area: 2 / 2; border-color: transparent; background: var(--ct-bg); }
+.sc-ct__key.is-right { grid-area: 2 / 3; }
+.sc-ct__key.is-down { grid-area: 3 / 2; }
+
+/*
+ * **보이는 것은 30, 닿는 것은 44.**
+ *
+ * 엄지 끝은 30px 네모를 정확히 못 짚는다. 그렇다고 네모를 키우면
+ * 십자가 화면을 다 먹는다. 그래서 눈에 보이는 면은 그대로 두고
+ * 판정 영역만 밖으로 넓힌다 — 가운데 빈 칸 쪽으로도 넓어지지만
+ * 거기는 어차피 아무 일도 안 하는 자리다.
+ */
+.sc-ct__key::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.sc-ct__key.is-mid::after { content: none; }
+
+/* 문이 없는 쪽. 눌러도 아무 일 없다 */
+.sc-ct__key.is-shut {
+  background: #1f2237;
+  border-color: #2c3049;
+  color: #474c6b;
+  cursor: default;
+}
+.sc-ct__key.is-shut::after { content: none; }
+
+/* 페이즈 중에만 드는 값. 자유 시간에는 아예 안 붙는다 */
+.sc-ct__key em {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-style: normal;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--ct-gold);
+}
+
+/* 행동 3열 2행 */
+.sc-ct__acts {
+  flex: 1;
+  min-width: 0;
+  height: calc(var(--ct-key) * 3 + 6px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 3px;
+}
+
+.sc-ct__act {
+  appearance: none;
+  min-width: 0;
+  padding: 0 2px;
+  border: 2px solid var(--ct-line);
+  background: var(--ct-face);
+  color: var(--ct-text);
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+}
+.sc-ct__act span {
+  font-size: 10px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.sc-ct__act em {
+  font-style: normal;
+  font-size: 9px;
+  margin-left: 3px;
+  color: var(--ct-gold);
+}
+/* 못 하는 것. 눌리기는 한다 — 눌러야 까닭을 들을 수 있다 */
+.sc-ct__act.is-off {
+  background: #262a42;
+  border-color: #333855;
+  color: #6b7192;
+}
+.sc-ct__act.is-off img { opacity: 0.45; }
+.sc-ct__act.is-off em { color: #6b7192; }
+
+/*
+ * 누르는 느낌.
+ *
+ * **트랜지션을 안 준다.** 도트 화면에서 0.15초짜리 부드러운 변화는
+ * 흐릿해 보일 뿐이다. 면이 한 단계 밝아지고 1px 내려앉는 것으로
+ * 족하다 — 실제 단추가 하는 일이 그것이다.
+ */
+.sc-ct__key:active,
+.sc-ct__act:active,
+.sc-ct__tab:active {
+  background: #444a6d;
+  transform: translateY(1px);
+}
+.sc-ct__key.is-shut:active { background: #1f2237; transform: none; }
+
+/* ── 탭바 48 ────────────────────────────────────────────────── */
+
+.sc-ct__tabs {
+  flex: 0 0 auto;
+  height: calc(48px + var(--sa-bottom));
+  padding-bottom: var(--sa-bottom);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--ct-bg);
+  border-top: 2px solid var(--ct-line);
+}
+
+.sc-ct__tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #7d83a6;
+  font: inherit;
+  font-size: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  /* 활성 표시가 자리를 먹지 않게 테두리를 미리 깔아 둔다 */
+  border-top: 2px solid transparent;
+  margin-top: -2px;
+}
+.sc-ct__tab.is-on {
+  color: var(--ct-gold);
+  border-top-color: var(--ct-gold);
+}
+.sc-ct__tab img { opacity: 0.55; }
+.sc-ct__tab.is-on img { opacity: 1; }
+
+.sc-ct__tabIcon { position: relative; display: block; }
+.sc-ct__dot {
+  position: absolute;
+  top: -1px;
+  right: -2px;
+  width: 2px;
+  height: 2px;
+  background: var(--ct-gold);
+  box-shadow: 0 0 0 1px var(--ct-bg);
+}
+
+/* ── 한 줄 알림 ─────────────────────────────────────────────── */
+
+.sc-ct__toast {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% + 6px);
+  z-index: 40;
+  margin: 0;
+  padding: 7px 10px;
+  background: var(--ct-bg);
+  border: 2px solid var(--ct-line);
+  color: var(--ct-text);
+  font-size: 12px;
+  line-height: 17px;
+  text-align: center;
+}
+
+/*
+ * 낮은 화면.
+ *
+ * 조작부는 36 + 96 + 48 = 180 이고 나머지 세로는 전부 지도가 가져간다.
+ * 지도가 280 을 못 채우는 것은 화면이 **460 보다 낮을 때**다(180 + 280).
+ * 375×667 이나 390×844 에서는 지도가 각각 487·664 라 줄일 까닭이 없다 —
+ * 무턱대고 700 아래에서 줄이면 멀쩡한 화면의 키만 작아진다.
+ *
+ * 줄이면 36 + 88 + 48 = 172 다. 십자 칸은 28 이 되지만 **히트박스 44 는
+ * 위에서 절대값으로 잡아 두어 그대로다** — 보이는 면만 작아진다.
+ */
+@media (max-height: 459px) {
+  .sc-ct { --ct-ctl: 88px; --ct-key: 28px; }
+}
