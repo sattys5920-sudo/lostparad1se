@@ -194,6 +194,21 @@ export function gameActions(gameId: string) {
     // ── 운영자만 ────────────────────────────────────────────────
     // 화면에서 막지 않는다. 운영자가 아니면 서버가 거절한다.
     createGame: (seed?: string) => callServer('createGame', { ...g, ...(seed ? { seed } : {}) }),
+    /**
+     * 판을 첫날로 되돌린다. **앉은 자리는 남는다.**
+     *
+     * 돌아온 곳은 로비다 — 「닷새 시작」을 다시 눌러야 돈다.
+     */
+    resetGame: () => callServer('resetGame', g),
+    /**
+     * 달력 한 칸을 손으로 넘긴다.
+     *
+     * 시계가 날을 바꾸지 않는다. 정산도 끝나는 것도 여기서 민다 —
+     * 세워 둔 사이에 닷새가 지나가 엔딩만 남는 일을 막는다.
+     */
+    pushDay: () => callServer('pushDay', g),
+    /** 다음에 무엇을 넘기게 되는가. 누르기 전에 보여 준다. */
+    peekDay: () => callServer('peekDay', g),
     // ── 페이즈 ──────────────────────────────────────────────────
     /** 자유 시간에 옆방으로. 즉시 간다. 전선은 안 움직인다. */
     roamTo: (tileId: TileId) => callServer('roamTo', { ...g, tileId }),

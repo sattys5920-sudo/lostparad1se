@@ -93,11 +93,11 @@ export { fragmentOfDay, releasedFragments } from './fragments'
 export { hostDashboard, hostTextAudit, hostNotice, noticeTemplates } from './admin'
 
 // 로비. 역할은 시작할 때 나뉘고 secret에만 적힌다.
-export { createGame, joinGame, leaveGame, startGame } from './lobby'
+export { createGame, joinGame, leaveGame, resetGame, startGame } from './lobby'
 
 // 따라잡기. 상시 서버가 없으므로 밀린 일을 다음 요청이 민다.
 export { catchUp } from './catchup'
-export { tick } from './tick'
+export { peekDay, pushDay, tick } from './tick'
 
 // 이동과 깃발. 걸음은 예정 이벤트로 적히고 따라잡기가 민다.
 

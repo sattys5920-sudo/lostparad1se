@@ -102,12 +102,22 @@ export function Admin() {
   return <Desk />
 }
 
+/** 달력 한 칸의 이름. 운영자가 무엇을 누르는지 알아야 한다. */
+const CALENDAR: Record<string, string> = {
+  dayStart: '다음 날 아침',
+  settlement: '21시 정산',
+  lastHours: '점수판 끄기 (마지막 여섯 시간)',
+  gameEnd: '닷새 끝 · 엔딩',
+}
+
 function Desk() {
   const state = useGame(GAME_ID)
   const act = useMemo(() => gameActions(GAME_ID), [])
   const [said, setSaid] = useState('')
   const [busy, setBusy] = useState(false)
   const [qaPw, setQaPw] = useState('')
+  /** 다음에 넘길 달력 한 칸. 서버가 알려 준다 — 화면이 세지 않는다 */
+  const [nextUp, setNextUp] = useState<{ kind: string; day: number } | null>(null)
   const nowMs = useGameNow(state.game?.clock)
 
   async function run(label: string, fn: () => Promise<unknown>) {
@@ -160,6 +170,31 @@ function Desk() {
 
   const game = state.game
   const seats = game?.seats ?? []
+
+  /**
+   * 다음에 넘길 것을 미리 묻는다.
+   *
+   * **누르기 전에 알아야 누를 수 있다.** 「다음으로」만 있고 그것이
+   * 무엇인지 안 보이면, 엔딩을 넘기려던 손이 정산을 넘긴다.
+   */
+  const phaseName = game?.phase ?? ''
+  const dayNow = game?.day ?? 0
+  useEffect(() => {
+    if (phaseName !== 'running') {
+      setNextUp(null)
+      return
+    }
+    let alive = true
+    void act
+      .peekDay()
+      .then((r) => {
+        if (alive) setNextUp((r as { next?: { kind: string; day: number } | null }).next ?? null)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [act, phaseName, dayNow, said])
   const phaseNo = game?.phaseNow?.no ?? 0
   const phaseOpen = game?.phaseNow?.open === true
   const phaseEndsAtMs = game?.phaseNow?.endsAtMs ?? null
@@ -215,12 +250,48 @@ function Desk() {
             <button disabled={busy} onClick={() => void run('따라잡기', () => act.tick())}>
               따라잡기
             </button>
+            {game.phase !== 'lobby' && <ResetGame busy={busy} act={act} onSaid={setSaid} />}
           </>
         )}
       </section>
 
       {game && game.phase !== 'lobby' && (
         <>
+          <section className="sc-ad__card">
+            <h2>달력</h2>
+            {/*
+              **시계가 판을 끝내지 않는다.**
+              세워 두고 며칠 지나면 아무도 안 들어온 사이에 닷새가
+              지나가 버려서, 다음에 들어온 사람은 엔딩만 봤다. 날이
+              바뀌는 것도 정산도 끝나는 것도 이제 여기서 민다.
+            */}
+            <p className="sc-ad__hint">
+              날은 저절로 바뀌지 않는다. 한 번 누르면 한 칸이다.
+            </p>
+            <dl className="sc-ad__facts">
+              <div>
+                <dt>지금</dt>
+                <dd>DAY {game.day}</dd>
+              </div>
+              <div>
+                <dt>다음</dt>
+                <dd>{nextUp ? `DAY ${nextUp.day} · ${CALENDAR[nextUp.kind] ?? nextUp.kind}` : '더 넘길 것이 없다'}</dd>
+              </div>
+            </dl>
+            <button
+              disabled={busy || nextUp === null}
+              onClick={() =>
+                void run(nextUp ? (CALENDAR[nextUp.kind] ?? '넘기기') : '넘기기', async () => {
+                  const r = (await act.pushDay()) as { next?: { kind: string; day: number } | null }
+                  setNextUp(r.next ?? null)
+                  return r
+                })
+              }
+            >
+              다음으로 넘기기
+            </button>
+          </section>
+
           <section className="sc-ad__card">
             <h2>페이즈</h2>
             <p className="sc-ad__hint">
@@ -252,6 +323,59 @@ function Desk() {
       <a className="sc-ad__back" href={import.meta.env.BASE_URL}>
         게임 화면으로
       </a>
+    </div>
+  )
+}
+
+/**
+ * 판을 첫날로 되돌린다.
+ *
+ * **한 번에 지우지 않는다.** 닷새치 기록이 통째로 날아가는 일이라,
+ * 잘못 눌러서 되는 일이 아니다 — 한 번 누르면 묻고, 거기서 다시
+ * 눌러야 지운다. 되돌린 뒤에는 로비다. 「닷새 시작」을 눌러야 돈다.
+ *
+ * 앉은 자리는 남는다. 같은 사람들이 같은 이름으로 다시 앉는 일에는
+ * 아무 뜻이 없다.
+ */
+function ResetGame({
+  busy,
+  act,
+  onSaid,
+}: {
+  busy: boolean
+  act: ReturnType<typeof gameActions>
+  onSaid: (t: string) => void
+}) {
+  const [asked, setAsked] = useState(false)
+  if (!asked) {
+    return (
+      <button className="sc-ad__danger" disabled={busy} onClick={() => setAsked(true)}>
+        판을 첫날로 되돌리기
+      </button>
+    )
+  }
+  return (
+    <div className="sc-ad__ask">
+      <p>닷새치 기록이 다 지워진다. 앉은 자리만 남는다.</p>
+      <div className="sc-ad__askRow">
+        <button onClick={() => setAsked(false)}>그만두기</button>
+        <button
+          className="sc-ad__danger"
+          disabled={busy}
+          onClick={() => {
+            setAsked(false)
+            void act
+              .resetGame()
+              .then((r) => {
+                const n = (r as { seats?: number }).seats ?? 0
+                onSaid(`되돌렸다. ${n}명이 그대로 앉아 있다 — 「닷새 시작」을 누르면 DAY 1 부터다.`)
+              })
+              .catch((e) => onSaid((e as Error).message))
+          }}
+        >
+          지우고 되돌린다
+        </button>
+      </div>
     </div>
   )
 }

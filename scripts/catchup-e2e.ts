@@ -1,8 +1,13 @@
 // 따라잡기를 **진짜 서버로** 확인한다.
 //
-// 개발용 시계를 DAY 1 08:00에 걸고, 시계를 앞으로 옮겨 가며 tick을
-// 부른다. 밀린 아침과 정산이 제때 처리되는지, 두 번 불러도 두 번
-// 처리되지 않는지, 이틀을 건너뛰어도 그 사이가 전부 밀리는지 본다.
+// **시계는 달력을 넘기지 않는다.** 판을 세워 두고 며칠 지나면 아무도
+// 안 들어온 사이에 닷새가 지나가 버려서, 다음에 들어온 사람은 엔딩만
+// 봤다. 그래서 날이 바뀌는 것도 정산도 끝나는 것도 운영자가 pushDay 로
+// 민다 — 시계가 미는 것은 걸음(도착)뿐이다.
+//
+// 여기서 보는 것: 시간이 아무리 흘러도 tick 이 달력을 안 민다는 것,
+// pushDay 가 원래 순서대로 한 번에 한 칸씩 넘긴다는 것, 두 번 눌러도
+// 두 번 처리되지 않는다는 것.
 //
 //   npx -y -p firebase-tools firebase emulators:start \
 //     --only firestore,functions,auth --project demo-goei
@@ -120,28 +125,45 @@ async function main(): Promise<void> {
   check((await tokensOf('A')) === 4, 'DAY 1 12:00까지 토큰 넷', `${await tokensOf('A')}개`)
 
   console.log('\n── 정산 ──')
+  // 21시가 지나도 시계는 정산을 안 민다. 여기가 이 판의 새 규칙이다
   await setClock(dayHourMs(START, 1, 21))
   r = await call('tick', seats[0], { gameId: GAME })
-  check(r.applied === 1, 'DAY 1 21:00에 정산 하나', `${r.applied}건`)
+  check(r.applied === 0, 'DAY 1 21:00이 지나도 시계는 정산을 안 민다', `${r.applied}건`)
+  check((await events('settlement')).length === 0, '정산 기록도 아직 없다')
+
+  // 누르기 전에 무엇을 누르는지 보인다
+  const peek = await call('peekDay', host, { gameId: GAME })
+  const nextOf = (x: Record<string, unknown>) => (x.next ?? null) as { kind: string; day: number } | null
+  check(nextOf(peek)?.kind === 'settlement', '다음에 넘길 것은 정산이다', String(nextOf(peek)?.kind))
+
+  let h = await call('pushDay', host, { gameId: GAME })
+  check((h.pushed as { kind: string } | null)?.kind === 'settlement', '운영자가 정산을 넘겼다')
   const settle1 = await events('settlement')
   check(settle1.length === 1, '정산 기록이 하나 남았다')
+  check(nextOf(h)?.kind === 'dayStart', '그 다음은 DAY 2 아침이다', String(nextOf(h)?.kind))
 
-  // 두 번 불러도 두 번 처리되지 않는다
+  // 두 번 불러도 두 번 처리되지 않는다 — tick 도 pushDay 도
   r = await call('tick', seats[1], { gameId: GAME })
-  check(r.applied === 0, '같은 시각에 또 불러도 다시 안 민다', `${r.applied}건`)
+  check(r.applied === 0, '시계는 여전히 아무것도 안 민다', `${r.applied}건`)
   check((await events('settlement')).length === 1, '정산 기록도 그대로 하나')
 
   const g1 = await game()
   const spot = ((g1?.spotlightTeams as { arrayValue: { values: { stringValue: string }[] } }).arrayValue.values ?? [])[0]
   check(Boolean(spot?.stringValue), '주목 팀이 정해졌다', spot?.stringValue)
 
-  console.log('\n── 이틀 건너뛰기 ──')
-  // DAY 2·3을 아무도 안 들어온 채 보낸다
+  console.log('\n── 아무도 안 들어온 채 이틀이 지나도 ──')
   await setClock(dayHourMs(START, 3, 12))
   r = await call('tick', seats[2], { gameId: GAME })
-  // 아침 2·3, 정산 2 → 셋
-  check(r.applied === 3, '빠진 아침 둘과 정산 하나를 한 번에 민다', `${r.applied}건`)
-  check(num((await game())?.day) === 3, '날이 3일차로 맞춰졌다', String(num((await game())?.day)))
+  check(r.applied === 0, '이틀이 지나도 시계는 날을 안 넘긴다', `${r.applied}건`)
+  check(num((await game())?.day) === 1, '아직 1일차 그대로', String(num((await game())?.day)))
+
+  console.log('\n── 손으로 셋을 넘긴다 ──')
+  // 아침 2 · 정산 2 · 아침 3. 한 번 누르면 한 칸이다
+  for (const want of ['dayStart', 'settlement', 'dayStart']) {
+    h = await call('pushDay', host, { gameId: GAME })
+    check((h.pushed as { kind: string } | null)?.kind === want, `${want} 을(를) 넘겼다`, String((h.pushed as { kind: string } | null)?.kind))
+  }
+  check(num((await game())?.day) === 3, '날이 3일차가 됐다', String(num((await game())?.day)))
   check((await events('dayStart')).length === 2, '아침 기록이 둘')
   check((await events('settlement')).length === 2, '정산 기록이 둘')
 
@@ -171,9 +193,9 @@ async function main(): Promise<void> {
 
   console.log('\n── 마지막 여섯 시간 ──')
   await setClock(dayHourMs(START, 5, 16))
-  r = await call('tick', seats[3], { gameId: GAME })
-  // 아침 4·5, 정산 3·4, 마지막 여섯 시간 → 다섯
-  check(r.applied === 5, 'DAY 5 16:00까지 다섯을 민다', `${r.applied}건`)
+  // 정산 3 · 아침 4 · 정산 4 · 아침 5 · 점수판 끄기 → 다섯
+  for (let i = 0; i < 5; i++) h = await call('pushDay', host, { gameId: GAME })
+  check((h.pushed as { kind: string } | null)?.kind === 'lastHours', '다섯째에 점수판을 껐다')
   const g5 = await game()
   check((g5?.lastHours as { booleanValue: boolean }).booleanValue === true, '점수판이 꺼졌다')
   const scoreA = await doc(`games/${GAME}/teams/A`)
@@ -181,12 +203,18 @@ async function main(): Promise<void> {
 
   console.log('\n── 끝 ──')
   await setClock(dayHourMs(START, 5, 25))
+  // **닷새가 지나도 저절로 안 끝난다.** 여기가 「엔딩만 뜬다」를 막는 자리다
   r = await call('tick', seats[4], { gameId: GAME })
-  // 정산 5, 끝 → 둘
-  check(r.applied === 2, 'DAY 5 정산과 끝을 민다', `${r.applied}건`)
-  check(r.phase === 'finished', '판이 끝났다', String(r.phase))
-  r = await call('tick', seats[5], { gameId: GAME })
-  check(r.applied === 0, '끝난 판은 더 밀지 않는다')
+  check(r.applied === 0, '닷새가 다 지나도 시계는 판을 안 끝낸다', `${r.applied}건`)
+  check(r.phase === 'running', '아직 돌고 있다', String(r.phase))
+
+  h = await call('pushDay', host, { gameId: GAME })
+  check((h.pushed as { kind: string } | null)?.kind === 'settlement', 'DAY 5 정산을 넘겼다')
+  h = await call('pushDay', host, { gameId: GAME })
+  check((h.pushed as { kind: string } | null)?.kind === 'gameEnd', '운영자가 판을 끝냈다')
+  check(h.phase === 'finished', '판이 끝났다', String(h.phase))
+  h = await call('pushDay', host, { gameId: GAME })
+  check(h.pushed === null, '끝난 판은 더 넘길 것이 없다')
 
   check((await doneCount()) === 11, '예정 이벤트 열하나가 전부 밀렸다', `${await doneCount()}건`)
   check((await events('gameEnd')).length === 1, '끝 기록이 하나')
@@ -203,19 +231,23 @@ async function main(): Promise<void> {
   await call('startGame', host, { gameId: GAME2, startAtMs: START })
   await call('setDevClock', host, { gameId: GAME2, anchorGameMs: dayHourMs(START, 3, 12), speed: 1 })
 
+  // 운영자가 손가락이 미끄러져 넷을 연달아 눌러도, 같은 칸이 두 번
+  // 처리되면 안 된다. 자원이 두 배로 들어간다
   const results = await Promise.allSettled(
-    seats.slice(0, 6).map((tk) => call('tick', tk, { gameId: GAME2 })),
+    Array.from({ length: 4 }, () => call('pushDay', host, { gameId: GAME2 })),
   )
   const okRuns = results.filter((r) => r.status === 'fulfilled')
-  check(okRuns.length === 6, '여섯이 동시에 불러도 전부 응답한다', `${okRuns.length}/6`)
-  const totalApplied = okRuns.reduce((a, r) => a + Number((r as PromiseFulfilledResult<Record<string, unknown>>).value.applied), 0)
-  // 아침 2·3 + 정산 1·2 = 넷. 여섯이 나눠 밀든 하나가 다 밀든 합은 넷이다
-  check(totalApplied === 4, '여섯이 나눠 밀어도 합은 넷', `${totalApplied}건`)
+  check(okRuns.length === 4, '넷을 동시에 눌러도 전부 응답한다', `${okRuns.length}/4`)
+  const pushedKinds = okRuns
+    .map((r) => (r as PromiseFulfilledResult<Record<string, unknown>>).value.pushed as { kind: string } | null)
+    .filter((x): x is { kind: string } => x !== null)
 
   const ev2 = await list(`games/${GAME2}/events`)
   const kindCount = (k: string) => ev2.filter((e) => (e.f.kind as { stringValue: string }).stringValue === k).length
-  check(kindCount('settlement') === 2, '정산이 딱 두 번만 기록됐다', `${kindCount('settlement')}건`)
-  check(kindCount('dayStart') === 2, '아침도 딱 두 번', `${kindCount('dayStart')}건`)
+  const logged = kindCount('settlement') + kindCount('dayStart') + kindCount('lastHours') + kindCount('gameEnd')
+  // 몇 칸이 넘어갔든, 넘어갔다고 말한 수와 기록에 남은 수가 같아야 한다
+  check(logged === pushedKinds.length, '민 만큼만 기록됐다', `말한 것 ${pushedKinds.length} · 남은 것 ${logged}`)
+  check(pushedKinds.length >= 1, '적어도 한 칸은 넘어갔다', `${pushedKinds.length}칸`)
 
   console.log('\n── 중앙광장 ──')
   const finalOpened = ((await game())?.openedTiles as { arrayValue: { values?: { stringValue: string }[] } }).arrayValue.values ?? []

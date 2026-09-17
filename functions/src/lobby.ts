@@ -52,19 +52,17 @@ function randomOpenTeam(others: readonly SeatEntry[], seed: string): TeamId | un
 
 // ── 판 만들기 ───────────────────────────────────────────────────
 
-export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) => {
-  requireHost(req.auth)
-  const { gameId } = req.data
-  if (!/^[A-Za-z0-9_-]{3,40}$/.test(gameId ?? '')) {
-    throw new HttpsError('invalid-argument', '판 이름이 이상하다.')
-  }
-  const ref = gameRef(gameId)
-  if ((await ref.get()).exists) throw new HttpsError('already-exists', '같은 이름의 판이 있다.')
-
-  const game: GameDoc = {
+/**
+ * 아직 아무 일도 없었던 판 하나.
+ *
+ * 만들 때와 되돌릴 때가 같은 모양이어야 한다. 두 군데서 따로 적으면
+ * 언젠가 한쪽에만 칸이 늘고, 되돌린 판에서만 없는 값이 생긴다.
+ */
+function freshLobby(seed: string, seats: readonly SeatEntry[]): GameDoc {
+  return {
     phase: 'lobby',
-    seed: req.data.seed ?? `${gameId}-${Date.now()}`,
-    seats: [],
+    seed,
+    seats: [...seats],
     startedAtMs: null,
     clock: { anchorRealMs: 0, anchorGameMs: 0, speed: 1 },
     caughtUpToMs: 0,
@@ -78,8 +76,49 @@ export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) 
     invisibleByDay: {},
     snow: { level: 5, stopped: false },
   }
-  await ref.set(game)
+}
+
+export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  if (!/^[A-Za-z0-9_-]{3,40}$/.test(gameId ?? '')) {
+    throw new HttpsError('invalid-argument', '판 이름이 이상하다.')
+  }
+  const ref = gameRef(gameId)
+  if ((await ref.get()).exists) throw new HttpsError('already-exists', '같은 이름의 판이 있다.')
+
+  await ref.set(freshLobby(req.data.seed ?? `${gameId}-${Date.now()}`, []))
   return { gameId, seats: 0, need: TOTAL_SEATS }
+})
+
+// ── 되돌리기 ────────────────────────────────────────────────────
+
+/**
+ * **판을 첫날로 되돌린다. 자리는 그대로 둔다.**
+ *
+ * 닷새가 끝나 버린 판에서 다시 하려면 판을 새로 만들고 열넷이 다시
+ * 들어와 앉아야 했다. 같은 사람들이 같은 이름으로 다시 앉는 일이라
+ * 아무 뜻이 없다 — 앉은 것은 남기고 나머지를 쓸어 낸다.
+ *
+ * 하위 컬렉션을 손으로 세지 않는다. 이름을 적어 두면 나중에 하나가
+ * 늘었을 때 그것만 살아남아 다음 판을 조용히 더럽힌다. 문서 아래를
+ * 통째로 지운다.
+ *
+ * 되돌린 뒤에는 로비다. 「닷새 시작」을 다시 눌러야 돈다 — 지우는
+ * 것과 시작하는 것을 한 번에 하면, 잘못 눌렀을 때 되돌릴 틈이 없다.
+ */
+export const resetGame = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const ref = gameRef(req.data.gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+
+  // 자리는 들고 있는다. 지우고 나서 그대로 다시 앉힌다
+  const seats = game.seats ?? []
+  await db.recursiveDelete(ref)
+  await ref.set(freshLobby(`${req.data.gameId}-${Date.now()}`, seats))
+  return { seats: seats.length, need: TOTAL_SEATS }
 })
 
 // ── 참가 ────────────────────────────────────────────────────────

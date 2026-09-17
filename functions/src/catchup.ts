@@ -9,7 +9,7 @@
 // 트랜잭션 안에 있다.
 import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 
-import { dueItems, type Due } from '../../shared/rules/catchup'
+import { clockItems, nextByHand, type Due } from '../../shared/rules/catchup'
 import { accrueTokens, markComeback } from '../../shared/rules/tokens'
 import type { TileState } from '../../shared/rules/resources'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
@@ -342,6 +342,47 @@ const HANDLERS: Partial<Record<ScheduleDoc['kind'], (c: Ctx, payload: Record<str
   arrive,
 }
 
+/**
+ * 예정 이벤트 하나를 민다. 이미 밀려 있으면 false.
+ *
+ * **내가 정말로 밀었는지**를 트랜잭션이 돌려준다. 밖에서 그냥 세면,
+ * 남이 먼저 민 것을 건너뛰고도 센 것으로 친다. 열넷이 아침에 동시에
+ * 들어오면 같은 정산을 열넷이 「내가 했다」고 보고한다 — 실제로 한
+ * 번만 처리되니 자원은 맞는데, 세는 숫자만 거짓말을 한다.
+ */
+async function applyItem(
+  gameId: string,
+  item: Due,
+  payload: ScheduleDoc,
+  landed: Ctx['landed'],
+): Promise<boolean> {
+  const ref = gameRef(gameId)
+  const handler = HANDLERS[item.kind]
+  return db.runTransaction(async (tx) => {
+    // 트랜잭션 안에서 다시 읽는다 — 다른 요청이 먼저 밀었을 수 있다
+    const itemRef = ref.collection('schedule').doc(item.id)
+    const [fresh, gameFresh] = await Promise.all([tx.get(itemRef), tx.get(ref)])
+    if (!fresh.exists || (fresh.data() as ScheduleDoc).doneAtMs !== null) return false
+    const game = gameFresh.data() as GameDoc
+
+    if (handler) {
+      await handler(
+        {
+          tx,
+          gameId,
+          game,
+          atMs: item.dueAtMs,
+          day: (payload.payload?.day as number) ?? game.day,
+          landed,
+        },
+        payload.payload ?? {},
+      )
+    }
+    tx.update(itemRef, { doneAtMs: item.dueAtMs })
+    return true
+  })
+}
+
 // ── 토큰 ────────────────────────────────────────────────────────
 
 /**
@@ -396,37 +437,12 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
 
   let applied = 0
   const landed: Ctx['landed'] = []
-  for (const item of dueItems(due, toMs)) {
-    const handler = HANDLERS[item.kind]
+  // **시계가 미는 것은 도착뿐이다.** 날이 바뀌는 것도 정산도 끝나는
+  // 것도 운영자가 pushByHand 로 민다 — 아무도 없는 사이에 닷새가
+  // 지나가 버리는 일을 막는다
+  for (const item of clockItems(due, toMs)) {
     const payload = pending.docs.find((d) => d.id === item.id)?.data() as ScheduleDoc
-    // **내가 정말로 밀었는지**를 트랜잭션이 돌려준다. 밖에서 그냥
-    // 세면, 남이 먼저 민 것을 건너뛰고도 센 것으로 친다. 열넷이 아침에
-    // 동시에 들어오면 같은 정산을 열넷이 「내가 했다」고 보고한다 —
-    // 실제로 한 번만 처리되니 자원은 맞는데, 세는 숫자만 거짓말을 한다.
-    const did = await db.runTransaction(async (tx) => {
-      // 트랜잭션 안에서 다시 읽는다 — 다른 요청이 먼저 밀었을 수 있다
-      const itemRef = ref.collection('schedule').doc(item.id)
-      const [fresh, gameFresh] = await Promise.all([tx.get(itemRef), tx.get(ref)])
-      if (!fresh.exists || (fresh.data() as ScheduleDoc).doneAtMs !== null) return false
-      game = gameFresh.data() as GameDoc
-
-      if (handler) {
-        await handler(
-          {
-            tx,
-            gameId,
-            game,
-            atMs: item.dueAtMs,
-            day: (payload.payload?.day as number) ?? game.day,
-            landed,
-          },
-          payload.payload ?? {},
-        )
-      }
-      tx.update(itemRef, { doneAtMs: item.dueAtMs })
-      return true
-    })
-    if (did) applied += 1
+    if (await applyItem(gameId, item, payload, landed)) applied += 1
   }
 
   // 토큰은 예정 이벤트가 아니라 한 번에 따라잡는다
@@ -447,4 +463,72 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
 
   const last = (await ref.get()).data() as GameDoc
   return { applied, day: last.day, phase: last.phase }
+}
+
+// ── 손으로 넘기기 ───────────────────────────────────────────────
+
+export interface HandResult {
+  /** 민 것. 없으면 null — 더 넘길 것이 없다. */
+  pushed: { kind: ScheduleDoc['kind']; day: number } | null
+  /** 그 다음에 넘길 것. 미리 보여 주려고 같이 돌려준다. */
+  next: { kind: ScheduleDoc['kind']; day: number } | null
+  day: number
+  phase: GameDoc['phase']
+}
+
+/** 아직 안 민 달력 항목을 이른 것부터. 시각은 보지 않는다. */
+async function handQueue(gameId: string): Promise<{ due: Due[]; docs: Map<string, ScheduleDoc> }> {
+  const snap = await gameRef(gameId).collection('schedule').where('doneAtMs', '==', null).get()
+  const docs = new Map<string, ScheduleDoc>()
+  const due: Due[] = []
+  for (const d of snap.docs) {
+    const s = d.data() as ScheduleDoc
+    docs.set(d.id, s)
+    due.push({ id: d.id, dueAtMs: s.dueAtMs, ord: s.ord, kind: s.kind, doneAtMs: s.doneAtMs })
+  }
+  return { due, docs }
+}
+
+/** 다음에 무엇을 넘기게 되는가. 운영자 화면이 미리 보여 준다. */
+export async function peekByHand(gameId: string): Promise<{ kind: ScheduleDoc['kind']; day: number } | null> {
+  const { due, docs } = await handQueue(gameId)
+  const item = nextByHand(due)
+  if (!item) return null
+  return { kind: item.kind, day: (docs.get(item.id)?.payload?.day as number) ?? 0 }
+}
+
+/**
+ * 달력 한 칸을 넘긴다.
+ *
+ * 순서는 원래 달력 그대로다 — 정산을 건너뛰고 끝내거나 이틀을 한꺼번에
+ * 넘기지 못한다. **한 번 누르면 한 칸이다.**
+ */
+export async function pushByHand(gameId: string): Promise<HandResult> {
+  const ref = gameRef(gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  if (game.phase !== 'running') {
+    return { pushed: null, next: null, day: game.day, phase: game.phase }
+  }
+
+  const { due, docs } = await handQueue(gameId)
+  const item = nextByHand(due)
+  if (!item) return { pushed: null, next: null, day: game.day, phase: game.phase }
+
+  const payload = docs.get(item.id) as ScheduleDoc
+  const landed: Ctx['landed'] = []
+  const did = await applyItem(gameId, item, payload, landed)
+
+  // 판이 바뀌었으니 각자 몫을 다시 짠다. 틀린 안개는 새는 안개다
+  for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs)
+  if (did) await refreshViews(gameId)
+
+  const last = (await ref.get()).data() as GameDoc
+  return {
+    pushed: did ? { kind: item.kind, day: (payload.payload?.day as number) ?? last.day } : null,
+    next: await peekByHand(gameId),
+    day: last.day,
+    phase: last.phase,
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueItems, nextDueMs, type Due } from './catchup'
+import { clockItems, dueItems, nextByHand, nextDueMs, type Due } from './catchup'
 import { SCHEDULE_ORD } from '../model'
 
 const d = (id: string, dueAtMs: number, kind: Due['kind'], doneAtMs: number | null = null): Due => ({
@@ -69,5 +69,47 @@ describe('다음 일', () => {
   it('남은 게 없으면 null', () => {
     expect(nextDueMs([d('a', 100, 'dayStart', 100)], 0)).toBeNull()
     expect(nextDueMs([], 0)).toBeNull()
+  })
+})
+
+describe('시계가 미는 것과 사람이 미는 것', () => {
+  /**
+   * **이것이 「엔딩만 뜬다」의 정체다.**
+   *
+   * 판을 세워 두고 며칠 지나면, 아무도 안 들어온 사이에 닷새가 통째로
+   * 지나가 버렸다. 다음에 들어온 사람이 보는 것은 엔딩 화면뿐이다.
+   * 걸음은 시계가 밀어야 하지만 달력은 사람이 넘긴다.
+   */
+  it('시계는 도착만 민다 — 날도 정산도 끝도 안 민다', () => {
+    const items = [
+      d('a', 100, 'arrive'),
+      d('b', 100, 'dayStart'),
+      d('c', 100, 'settlement'),
+      d('d', 100, 'lastHours'),
+      d('e', 100, 'gameEnd'),
+    ]
+    expect(clockItems(items, 999).map((i) => i.kind)).toEqual(['arrive'])
+  })
+
+  it('사람이 미는 것은 이른 것 하나. 시각은 보지 않는다', () => {
+    const items = [d('b', 900, 'settlement'), d('a', 200, 'dayStart')]
+    // 200 도 900 도 아직 안 왔다. 그래도 넘긴다 — 그것이 손으로 넘긴다는 뜻이다
+    expect(nextByHand(items)?.id).toBe('a')
+  })
+
+  it('이미 민 것은 건너뛴다', () => {
+    const items = [d('a', 200, 'dayStart', 200), d('b', 300, 'settlement')]
+    expect(nextByHand(items)?.id).toBe('b')
+  })
+
+  /** 정산을 건너뛰고 끝내지 못한다. 순서는 원래 달력 그대로다. */
+  it('도착은 사람 차례에 끼어들지 않는다', () => {
+    const items = [d('x', 10, 'arrive'), d('a', 200, 'settlement')]
+    expect(nextByHand(items)?.id).toBe('a')
+  })
+
+  it('남은 게 없으면 null', () => {
+    expect(nextByHand([d('a', 100, 'gameEnd', 100)])).toBeNull()
+    expect(nextByHand([])).toBeNull()
   })
 })

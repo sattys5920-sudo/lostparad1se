@@ -170,3 +170,35 @@
 .sc-ad__card > .sc-pl__hosttools {
   margin: 0;
 }
+
+/* ── 되돌리기 ─────────────────────────────────────────────────── */
+
+/*
+ * **지우는 단추는 다른 색이다.**
+ *
+ * 「따라잡기」와 「되돌리기」가 같은 회색 네모로 나란히 있으면 손이
+ * 구별을 못 한다. 하나는 아무 때나 눌러도 되는 것이고 하나는 닷새를
+ * 날리는 것이다.
+ */
+.sc-ad__card > button.sc-ad__danger,
+.sc-ad__ask button.sc-ad__danger {
+  border-color: #b4483f;
+  color: #b4483f;
+}
+
+.sc-ad__ask {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #b4483f;
+  border-radius: 8px;
+}
+.sc-ad__ask p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 19px;
+}
+.sc-ad__askRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
