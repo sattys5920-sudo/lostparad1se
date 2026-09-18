@@ -29,10 +29,9 @@ import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
-import { Chat } from './Chat'
 import { Say } from './Say'
 import { SAY_BUBBLE_MS } from './timing'
-import { useChatLines } from './useChat'
+import { bubbleText, useChatLines } from './useChat'
 import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
@@ -479,7 +478,15 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 type Tab = 'map' | 'me' | 'radio' | 'vote' | 'note'
 
 /** 컨트롤 바의 「더보기」에서 열리는 것들. */
-type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop' | 'team'
+/**
+ * 컨트롤 바의 「더보기」에서 열리는 것들.
+ *
+ * **방 안의 말은 여기 없다.** 전에는 로그를 누르면 지난 줄이 전부
+ * 담긴 창이 열렸는데, 그러면 「그 자리에 있던 사람만 안다」가
+ * 「나중에 읽어도 된다」가 된다 — 방 대화의 휘발성이 통째로 사라진다.
+ * 지나간 줄은 지나간 것으로 둔다.
+ */
+type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -559,7 +566,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // 글을 쓰는 동안에는 탭바를 감춘다. 키보드 위에 얹혀 있으면
   // 입력창이 그만큼 가려진다
   const typing = useTyping()
-  useKeyboard()
+  const kb = useKeyboard()
+  // 내줄 것을 다 내주고도 모자라면 로그가 줄어든다
+  const peek = typing && kb > YIELD_PX ? PEEK_TIGHT : PEEK_FULL
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
@@ -656,7 +665,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 이 방에서 오간 말. **한 군데서 가져온다** — 아래 말줄과 머리 위
    * 풍선이 같은 줄을 봐야 하는데, 따로 세면 둘이 다른 것을 보게 된다.
    */
-  const talk = useChatLines(act, 'room')
+  const talk = useChatLines(act, 'room', { room: standingOn })
 
   /**
    * 지금 머리 위에 떠 있어야 할 말. 사람마다 마지막 한 줄이다.
@@ -669,7 +678,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     const out: Record<string, string> = {}
     for (const l of talk.lines) {
       if (nowMs - l.atMs > SAY_BUBBLE_MS) continue
-      out[l.playerId] = l.text
+      // 두 줄에 안 들어가는 말은 뒤를 자른다. 전체는 아래 로그에서 읽는다
+      out[l.playerId] = bubbleText(l.text)
     }
     return out
   }, [talk.lines, nowMs])
@@ -949,7 +959,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {/* ── 맵 탭 ─────────────────────────────────────────────
           숨길 때도 떼지 않는다. 떼면 걷던 자리가 처음으로 돌아간다 */}
       <section className="sc-pl__tab sc-pl__map" hidden={tab !== 'map'}>
-        <div className="sc-pl__room">
+        {/* 지도를 짚으면 키보드가 내려간다. 말줄은 이 상자 바깥에
+            있으므로, 여기 닿았다는 것은 곧 칸 바깥을 짚었다는 뜻이다 */}
+        <div
+          className="sc-pl__room"
+          onPointerDownCapture={() => {
+            if (!typing) return
+            ;(document.activeElement as HTMLElement | null)?.blur()
+          }}
+        >
           <Walk
             me={{ playerId: me.playerId, team: me.team, look }}
             looks={looks}
@@ -1037,13 +1055,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           {/* 말줄. **늘 떠 있다** — 오간 말은 지도 아래에 몇 줄 떠 있다가
               지워지고, 전체는 그 줄을 눌러 편다 */}
           <Say
-            me={me}
             hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
             act={act}
             onSaid={setSaid}
-            onOpen={() => setSheet('talk')}
             lines={talk.lines}
             pull={talk.pull}
+            peek={peek}
           />
           {/* 자유 시간에는 토큰 칸이 아예 없다. 쓸 데가 없는 숫자다 */}
           <ResourceRow
@@ -1316,17 +1333,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               )}
             </>
           )}
-        </Sheet>
-      )}
-
-      {sheet === 'talk' && (
-        <Sheet title="말" onClose={closeSheet}>
-          <Chat
-            me={me}
-            hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
-            act={act}
-            onSaid={setSaid}
-          />
         </Sheet>
       )}
 
@@ -1647,13 +1653,8 @@ function PhaseClock({
  * 지금 글을 쓰고 있는가.
  *
  * **화면을 끌어당기지 않는다.** 전에는 초점이 가면 0.26초 뒤에
- * `scrollIntoView({block:'center'})` 를 불렀다. 창(시트) 안에 있는
- * 입력칸을 키보드 위로 올리려던 것인데, 지금은 말줄이 고정 틀 바닥에
- * 붙어 있어서 끌어올릴 곳이 없다 — 대신 화면이 한 번 훌쩍 올라갔다가
- * 탭바가 사라지며 또 움직였다. 누를 때마다 화면이 두 번 뛰었다.
- *
- * 키보드는 끌어당겨서 피하는 것이 아니라 **틀을 그만큼 줄여서** 피한다
- * (useKeyboard).
+ * `scrollIntoView({block:'center'})` 를 불렀다 — 화면이 훌쩍 올라갔고,
+ * 조작부가 사라지며 또 움직였다. 누를 때마다 두 번 뛰었다.
  */
 function useTyping(): boolean {
   const [typing, setTyping] = useState(false)
@@ -1678,18 +1679,24 @@ function useTyping(): boolean {
  * 키보드가 먹은 높이(css px). 안 올라와 있으면 0.
  *
  * **dvh 로는 안 잡힌다.** dvh 는 주소창과 툴바까지만 세고 키보드는
- * 안 센다 — 아이폰에서 키보드가 올라와도 100dvh 는 그대로라, 아래
- * 조작부가 키보드 뒤로 들어간다.
+ * 안 센다 — 아이폰에서 키보드가 올라와도 100dvh 는 그대로다.
  *
  * `innerHeight - visualViewport.height` 로 잰다. 이 식은 **두 번 빼는
  * 일을 저절로 막는다**: 안드로이드는 키보드가 올라오면 innerHeight
  * 자체가 줄어서 이 차이가 0 이 되고, 아이폰은 innerHeight 가 그대로라
  * 차이가 곧 키보드 높이다.
  *
- * 값은 문서 뿌리에 적는다. 틀을 잡는 규칙이 Root 에 있어서, 여기서
- * 클래스로 내려보낼 수가 없다.
+ * 값은 문서 뿌리에 적는다 — 말줄이 `position:fixed` 라 화면 전체를
+ * 기준으로 서고, 그 규칙이 이 컴포넌트 바깥에 있다.
+ *
+ * **그리고 판을 원래 자리로 되돌린다.** 아이폰은 초점이 간 칸이
+ * 키보드에 가리면 페이지째 위로 민다. 구르지 않는 틀(overflow:hidden)
+ * 에서도 민다 — 지도가 통째로 올라가고 캐릭터가 화면 밖으로 나가던
+ * 것이 이것이다. 말줄을 미리 키보드 위에 세워 두면 밀 이유가 없지만,
+ * 이미 밀고 난 뒤라면 되돌려 놓아야 한다.
  */
-function useKeyboard(): void {
+function useKeyboard(): number {
+  const [kb, setKb] = useState(0)
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
@@ -1697,16 +1704,42 @@ function useKeyboard(): void {
     const fit = () => {
       const gap = Math.round(window.innerHeight - vv.height)
       // 주소창이 줄었다 늘었다 하는 정도는 키보드가 아니다
-      root.style.setProperty('--kb', `${gap > 80 ? gap : 0}px`)
+      const px = gap > 80 ? gap : 0
+      root.style.setProperty('--kb', `${px}px`)
+      setKb(px)
+      // 판이 밀렸으면 제자리로. 지도는 여기 고정이다
+      if (window.scrollY !== 0 || vv.offsetTop !== 0) window.scrollTo(0, 0)
     }
     fit()
     vv.addEventListener('resize', fit)
+    vv.addEventListener('scroll', fit)
     return () => {
       vv.removeEventListener('resize', fit)
+      vv.removeEventListener('scroll', fit)
       root.style.removeProperty('--kb')
     }
   }, [])
+  return kb
 }
+
+/**
+ * 키보드가 올라와도 **지도는 건드리지 않는다.**
+ *
+ * 내줄 것이 있는 만큼만 내준다 — 십자키와 행동 칸(96) · 자원 줄(36) ·
+ * 탭바(48). 셋을 합쳐 180 이다. 키보드가 그보다 높으면 더 내줄 것이
+ * 없으므로, 그때 비로소 로그를 다섯 줄에서 두 줄로 줄인다.
+ *
+ * 지도가 마지막까지 그대로인 이유는 조작부를 **자리만 남기고 감추기**
+ * 때문이다(visibility). 아예 떼면 `flex:1` 인 지도가 그 자리를
+ * 먹으려고 커지고, 캔버스가 다시 서면서 걷던 자리가 튄다.
+ */
+// 좁은 화면에서는 조작 영역이 88 로 줄어 172 가 된다. 8px 차이로
+// 로그를 한 번 더 줄일 일은 없으니 넉넉한 쪽을 쓴다 — 이 값은
+// 「더 내줄 것이 남았나」를 가르는 문턱이지 자리 계산이 아니다.
+// 자리는 CSS 가 --ct-ctl 을 그대로 읽어서 잡는다(controls.css 의 .sc-sy)
+const YIELD_PX = 180
+const PEEK_FULL = 5
+const PEEK_TIGHT = 2
 
 // ── 묶기 ────────────────────────────────────────────────────────
 

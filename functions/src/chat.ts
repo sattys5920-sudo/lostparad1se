@@ -16,12 +16,17 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { chatReaches } from '../../shared/rules/invisible'
 
-import { CHAT_MAX_LEN } from '../../shared/rules/v2'
+import { ROOM_SAY_MAX } from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
 import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
 
-export const CHAT_MAX = CHAT_MAX_LEN
+/**
+ * 방 안의 말은 **무전보다 짧다.** 무전은 적어 두고 읽는 것이지만
+ * 이쪽은 머리 위에 떠 있다가 사라지는 것이라, 긴 글이 오면 풍선이
+ * 지도를 덮고 그나마도 다 못 읽는다.
+ */
+export const CHAT_MAX = ROOM_SAY_MAX
 
 /** games/{gameId}/secret/chat/items/{id} — 원문은 서버만 쥔다. */
 export interface ChatDocRaw {

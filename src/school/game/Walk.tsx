@@ -1055,20 +1055,61 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const k = scaleRef.current
       const ox = canvas.offsetLeft
       const oy = canvas.offsetTop
-      for (const [id, el] of els) {
-        // 나는 standees 에 없다. 내 자리는 따로 들고 있다
-        const at =
-          id === me.playerId
-            ? { x: self.px, y: self.py }
-            : (line.find((p) => p.playerId === id) ?? null)
+      const right = ox + canvas.clientWidth
+      const bottom = oy + canvas.clientHeight
+
+      /** 이미 자리를 잡은 풍선들. 겹치면 그만큼 위로 밀어 올린다. */
+      const taken: { l: number; r: number; t: number; b: number }[] = []
+
+      // 아래쪽 사람부터 놓는다. 그래야 겹칠 때 **앞에 선 사람의 말이
+      // 제자리에 남고** 뒤에 선 사람 것이 위로 밀린다 — 반대로 하면
+      // 가까이 있는 사람 말이 자꾸 하늘로 올라간다
+      const order = [...els.entries()]
+        .map(([id, el]) => {
+          const at =
+            id === me.playerId
+              ? { x: self.px, y: self.py }
+              : (line.find((p) => p.playerId === id) ?? null)
+          return { id, el, at }
+        })
+        .sort((a, b) => (b.at?.y ?? -Infinity) - (a.at?.y ?? -Infinity))
+
+      for (const { el, at } of order) {
         // 걷는 중인 사람은 어느 방에도 없다. 풍선도 없다
         if (!at) {
           el.style.display = 'none'
           continue
         }
         el.style.display = ''
-        const x = Math.round(ox + (at.x - camX) * k)
-        const y = Math.round(oy + (at.y - camY - CHAR_PX) * k)
+        const w = el.offsetWidth
+        const h = el.offsetHeight
+
+        // 머리 위. 꼬리 3px 만큼 띄운다
+        let x = Math.round(ox + (at.x - camX) * k)
+        let y = Math.round(oy + (at.y - camY - CHAR_PX) * k) - 3
+
+        /*
+         * **가장자리에서는 안쪽으로 민다.** 문 옆에 선 사람의 말이
+         * 반쯤 잘려 나가면 읽을 수가 없다. 꼬리는 가운데 그대로 두고
+         * 상자만 민다 — 꼬리까지 옮기면 누가 한 말인지 흐려진다.
+         */
+        x = Math.min(Math.max(x, ox + w / 2 + 2), right - w / 2 - 2)
+        y = Math.max(y, oy + h + 2)
+
+        /*
+         * **겹쳐 선 사람들.** 같은 칸에 둘이 서면 풍선이 정확히
+         * 포개져서 둘 다 못 읽는다. 자리가 물리면 한 칸씩 위로 쌓는다.
+         */
+        for (let guard = 0; guard < 6; guard += 1) {
+          const box = { l: x - w / 2, r: x + w / 2, t: y - h, b: y }
+          const hit = taken.find((o) => o.l < box.r && box.l < o.r && o.t < box.b && box.t < o.b)
+          if (!hit) break
+          y = hit.t - 3
+        }
+        // 위로 밀다가 지도 밖으로 나가면 도로 안으로 들인다
+        y = Math.min(Math.max(y, oy + h + 2), bottom)
+        taken.push({ l: x - w / 2, r: x + w / 2, t: y - h, b: y })
+
         el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`
       }
     }

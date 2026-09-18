@@ -405,52 +405,87 @@
   gap: 6px;
   padding: 5px 8px;
   border-bottom: 1px solid var(--ct-line);
+  background: var(--ct-bg);
 }
 
 /*
- * 오간 말은 **지도 위에 뜬다.** 줄을 따로 내주면 그만큼 지도가 작아지고,
- * 지도는 이 화면에서 제일 큰 것이라 몇 픽셀이 바로 보인다.
+ * **키보드 바로 위로 올라간다. 자리는 그대로 두고.**
+ *
+ * `position: fixed` 로 띄웠더니 이 줄이 흐름에서 빠지고, 그만큼
+ * 지도(`flex:1`)가 커졌다 — 45px 이 늘어난 것이 캡처에 잡혔다.
+ * 고치려던 바로 그 증상이다. `transform` 은 **자리를 안 건드린다.**
+ *
+ * 얼마나 올릴까: 이 줄 아래에 자원 줄 36 · 조작 영역 --ct-ctl ·
+ * 탭바 48 + 안전 영역이 깔려 있다. 키보드가 그 합보다 낮으면 이미
+ * 키보드 위라 안 올린다(min 이 0 을 고른다). 높으면 넘치는 만큼만
+ * 올려서 키보드 윗변에 딱 붙인다.
+ *
+ * --kb 는 visualViewport 로 잰다(Play.tsx 의 useKeyboard). `bottom:0`
+ * 만으로는 아이폰에서 안 맞는다 — 키보드가 레이아웃 뷰포트를 안 줄여서,
+ * 고정 바닥이 키보드 **뒤로** 들어간다.
  */
-.sc-sy__peek {
+.sc-pl__today.is-typing .sc-sy {
+  z-index: 60;
+  transform: translateY(min(0px, calc(36px + var(--ct-ctl) + 48px + var(--sa-bottom) - var(--kb, 0px))));
+}
+
+/*
+ * ── 로그 ─────────────────────────────────────────────────────
+ *
+ * 지도 바로 아래, 적는 줄 위. **지도 위에 얹는다** — 줄을 따로 내주면
+ * 그만큼 지도가 작아지고, 지도는 이 화면에서 제일 큰 것이라 몇
+ * 픽셀이 바로 보인다.
+ *
+ * **구르지 않는다.** 다섯 줄이 지나가면 앞선 줄은 사라진다. 다시 펴
+ * 볼 수 있으면 「그 자리에 있던 사람만 안다」가 「나중에 읽어도
+ * 된다」가 된다.
+ */
+.sc-sy__log {
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: 0;
+  right: 0;
   bottom: 100%;
   z-index: 5;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  margin-bottom: 4px;
-  padding: 8px 8px 6px;
-  border: 0;
-  border-radius: 3px;
-  /* 위로 갈수록 옅다. 지도를 덮는 것이 아니라 그 위에 얹힌 것으로 */
-  background: linear-gradient(rgba(8, 10, 16, 0.5), rgba(8, 10, 16, 0.82));
-  color: #dbe2ee;
-  font: inherit;
+  align-items: stretch;
+  padding: 6px 10px 5px;
+  /* 맵과 경계가 지게. 그라데이션이 아니라 한 겹 깔고 선 하나다 */
+  border-top: 1px solid rgba(120, 132, 168, 0.55);
+  background: rgba(10, 12, 20, 0.72);
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 15px;
   text-align: left;
-  cursor: pointer;
+  overflow: hidden;
+  pointer-events: none;
 }
 
+/* 오래된 줄일수록 옅다. 맨 위는 40% — 사라지는 중인 것으로 읽힌다 */
 .sc-sy__line {
   display: block;
-  max-width: 100%;
+  opacity: var(--fade, 1);
+  color: #cfd6e4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 새 줄은 아래에서 밀려 올라온다 */
+  animation: sc-sy-rise 160ms steps(4, end);
 }
-/* 이름 칸은 비어도 자리를 지킨다. 그래야 글이 들쭉날쭉하지 않는다 */
+
+@keyframes sc-sy-rise {
+  from { transform: translateY(15px); opacity: 0; }
+  to { transform: translateY(0); opacity: var(--fade, 1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-sy__line { animation: none; }
+}
+
+/* 이름은 완장 색. 색만으로 누구 팀인지 읽힌다 */
 .sc-sy__line b {
-  display: inline-block;
-  min-width: 38px;
   margin-right: 5px;
-  color: var(--ct-gold);
   font-weight: 700;
 }
-.sc-sy__line.is-me b { color: #e6edf7; }
 /* 지워진 채로 친 말. 본인에게만 원문이 보인다 */
 .sc-sy__line.is-muted { color: #6b7386; font-style: italic; }
 
@@ -480,6 +515,17 @@
   font-size: 16px;
 }
 .sc-sy__box::placeholder { color: #6b7386; font-size: 12px; }
+
+/* 상한이 가까울 때만 뜬다. 늘 떠 있으면 잔소리다 */
+.sc-sy__left {
+  flex: 0 0 auto;
+  min-width: 16px;
+  color: #7d83a6;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.sc-sy__left.is-full { color: var(--ct-down); }
 .sc-sy__box:disabled { background: #14172440; color: #5a6076; }
 .sc-sy__box:focus { outline: none; border-color: var(--ct-gold); }
 

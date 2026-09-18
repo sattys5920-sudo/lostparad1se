@@ -1909,43 +1909,44 @@ p.sc-cv { display: block; }
  * 지도는 캔버스라 글자를 거기에 그리면 뭉갠다(논리 화소가 160 이다).
  * 풍선은 위에 겹으로 얹고, 자리만 그릴 때마다 캔버스에서 받아 옮긴다.
  */
+/*
+ * 머리 위 말풍선. **도트 그림과 같은 규칙으로 그린다** — 모서리는
+ * 각지고, 테두리는 1px, 꼬리는 3px 짜리 네모 하나다. 둥근 모서리와
+ * 흐린 그림자는 격자를 흐린다.
+ */
 .sc-wk__say {
   position: absolute;
   top: 0;
   left: 0;
   z-index: 8;
-  max-width: 58%;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: rgba(250, 250, 248, 0.95);
-  color: #1c1f2a;
+  /* 한 줄 열두 자. 넘는 말은 Play.tsx 가 미리 「…」로 자른다 */
+  max-width: 13em;
+  padding: 3px 5px;
+  border: 1px solid #14161f;
+  border-radius: 0;
+  background: #fafaf8;
+  color: #14161f;
   font-size: 11px;
-  line-height: 1.45;
+  line-height: 14px;
   text-align: center;
   word-break: keep-all;
-  /* 두 줄까지. 그보다 길면 말줄에서 읽는다 */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   /* 지도를 누르는 것을 막지 않는다 — 풍선은 보이기만 한다 */
   pointer-events: none;
-  filter: drop-shadow(0 1px 0 rgba(8, 10, 16, 0.55));
 }
 
-/* 꼬리. 머리 쪽을 가리킨다 */
+/* 꼬리. 머리 쪽을 가리킨다 — 네모 하나라 각이 안 죽는다 */
 .sc-wk__say::after {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: -4px;
-  width: 0;
-  height: 0;
-  margin-left: -4px;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid rgba(250, 250, 248, 0.95);
+  bottom: -3px;
+  width: 3px;
+  height: 3px;
+  margin-left: -1px;
+  background: #fafaf8;
+  border-right: 1px solid #14161f;
+  border-bottom: 1px solid #14161f;
 }
 
 /* 내 말은 완장 쪽 색으로 테를 두른다 */
-.sc-wk__say.is-me { box-shadow: inset 0 0 0 2px #e8d9a0; }
+.sc-wk__say.is-me { box-shadow: inset 0 0 0 1px #c8a24a; }

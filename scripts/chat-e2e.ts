@@ -15,7 +15,7 @@ import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { meetAt } from './meet'
-import { CHAT_MAX_LEN, INVISIBLE_CHAT_MASK } from '../shared/rules/v2'
+import { INVISIBLE_CHAT_MASK, ROOM_SAY_MAX } from '../shared/rules/v2'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
 
   console.log('\n── 못 치는 말 ──')
   check((await call('say', A[0].token, { gameId: GAME, text: '   ' })).code === 'INVALID_ARGUMENT', '빈 줄은 거절')
-  check((await call('say', A[0].token, { gameId: GAME, text: '가'.repeat(CHAT_MAX_LEN + 1) })).code === 'INVALID_ARGUMENT', `${CHAT_MAX_LEN}자를 넘기면 거절`)
+  check((await call('say', A[0].token, { gameId: GAME, text: '가'.repeat(ROOM_SAY_MAX + 1) })).code === 'INVALID_ARGUMENT', `${ROOM_SAY_MAX}자를 넘기면 거절`)
   const outsider = await auth(await signUp(`out-${GAME}@x.test`))
   check((await call('say', outsider.token, { gameId: GAME, text: '끼어든다' })).ok === false, '판에 없는 사람은 못 친다')
 
