@@ -19,15 +19,11 @@ import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '..
 import { lookOfAccount, looksByUid } from './account'
 import { gameRef, nowOf, requireUid } from './index'
 import { refreshViews } from './views'
+import { requireHost } from './host'
 
 const db = getFirestore()
 
 /** 운영자만. 확인은 서버에서 한다 — 화면이 하는 말을 믿지 않는다. */
-function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): string {
-  const uid = requireUid(auth)
-  if (auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
-  return uid
-}
 
 /**
  * 팀은 고르는 것이 아니라 **받는 것**이다.

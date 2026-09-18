@@ -28,6 +28,7 @@ import { freshNow } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
+import { requireHost } from './host'
 
 const db = getFirestore()
 
@@ -218,9 +219,6 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
 // ── 운영자 ──────────────────────────────────────────────────────
 
 /** 운영자만. 판정은 커스텀 클레임으로 한다 — 화면이 하는 말을 믿지 않는다. */
-function requireHost(auth: { token?: Record<string, unknown> } | undefined): void {
-  if (auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
-}
 
 /** 등록된 문제를 본다. **운영자만.** 정답과 해설이 여기서만 나간다. */
 export const hostQuizList = onCall<{ gameId: string }>(async (req) => {

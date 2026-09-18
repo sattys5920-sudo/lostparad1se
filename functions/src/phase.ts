@@ -67,6 +67,7 @@ import { note } from './records'
 import { sysLine } from './radio'
 import { sys } from '../../shared/rules/radio'
 import { gameRef, requireUid } from './index'
+import { requireHost } from './host'
 
 const db = getFirestore()
 
@@ -142,11 +143,6 @@ const EMPTY_HIDDEN: HiddenPhase = {
 }
 
 /** 운영자만. 화면이 하는 말을 믿지 않는다. */
-function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): string {
-  const uid = requireUid(auth)
-  if (auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
-  return uid
-}
 
 /** 페이즈가 지금 살아 있는가. 시간이 지났으면 열려 있어도 아무도 못 움직인다. */
 function phaseAlive(game: GameDoc, nowMs: number): boolean {

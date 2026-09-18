@@ -7,13 +7,9 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import type { GameDoc } from '../../shared/model'
 import { catchUp, peekByHand, pushByHand } from './catchup'
 import { gameRef, nowOf, requireUid } from './index'
+import { requireHost } from './host'
 
 /** 운영자만. 화면이 하는 말을 믿지 않는다. */
-function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): string {
-  const uid = requireUid(auth)
-  if (auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
-  return uid
-}
 
 export const tick = onCall<{ gameId: string }>(async (req) => {
   requireUid(req.auth)

@@ -17,6 +17,9 @@ import { timingSafeEqual } from 'node:crypto'
 
 import { HOST_GATE_LOCK_MS, HOST_GATE_MAX_MISSES, HOST_GATE_MIN_CODE } from '../../shared/rules/v2'
 import { mintToken } from './account'
+import { HOST_UID } from './host'
+
+export { HOST_UID }
 
 const db = getFirestore()
 
@@ -40,9 +43,6 @@ function sameCode(given: string, want: string): boolean {
   if (a.length !== b.length) return false
   return timingSafeEqual(a, b)
 }
-
-/** 운영자의 uid. **계정이 아니다** — 가입도 아바타도 없다. */
-export const HOST_UID = 'host'
 
 /**
  * 코드를 맞히면 운영자로 들어온다.

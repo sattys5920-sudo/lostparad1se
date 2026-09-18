@@ -22,6 +22,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import type { AvatarLook } from '../../shared/look'
 import { sweepAllLobbies } from './seats'
+import { requireHost } from './host'
 
 const db = getFirestore()
 const pbkdf2Async = promisify(pbkdf2)
@@ -67,13 +68,31 @@ function uidOf(id: string): string {
  * 여기서 읽어다 다시 실어 준다 — 계정이 아직 없으면(첫 로그인)
  * 붙어 있던 것도 없다.
  */
-async function carriedClaims(uid: string): Promise<Record<string, unknown>> {
+/**
+ * 계정에 눌어붙은 운영자 표시를 뗀다.
+ *
+ * **옛 문지기가 계정 uid 에 표시를 박았다.** 그때는 아이디로 먼저
+ * 로그인하고 코드를 맞히는 순서였다(claimHost) — 지금은 운영자가
+ * 계정이 아니라 고정된 uid 하나(host)이고 코드만으로 들어온다.
+ *
+ * 그런데 그 시절에 코드를 맞힌 계정에는 표시가 그대로 남아 있고,
+ * 증표를 새로 만들 때마다 따라붙었다. 그 계정으로 로그인하면
+ * **아무 판에도 앉지 않은 채 운영자 책상이 열리고**, 서버의
+ * requireHost 도 그대로 통과한다 — 화면이 잘못 간 것이 아니라
+ * 권한이 새고 있던 것이다.
+ *
+ * 그래서 옮겨 오지 않는 정도로는 모자란다. 보이면 지운다.
+ */
+async function dropStaleAdmin(uid: string): Promise<void> {
   try {
     const user = await getAuth().getUser(uid)
     const claims = (user.customClaims ?? {}) as Record<string, unknown>
-    return claims.admin === true ? { admin: true } : {}
+    if (claims.admin !== true) return
+    const rest = { ...claims }
+    delete rest.admin
+    await getAuth().setCustomUserClaims(uid, rest)
   } catch {
-    return {}
+    // 사용자 기록이 아직 없으면 붙어 있을 표시도 없다
   }
 }
 
@@ -157,10 +176,13 @@ export const signUpAccount = onCall<{ id: string; password: string }>(async (req
   })
 
   const uid = uidOf(id)
+  // 지웠다 같은 아이디로 다시 가입하면 uid 가 같다. 옛 표시가 살아
+  // 돌아오지 않게 여기서도 뗀다
+  await dropStaleAdmin(uid)
   return {
     id,
     uid,
-    token: await mintToken(uid, { accountId: id, ...(await carriedClaims(uid)) }),
+    token: await mintToken(uid, { accountId: id }),
     nickname: '',
     avatar: null,
   }
@@ -198,10 +220,14 @@ export const logInAccount = onCall<{ id: string; password: string }>(async (req)
   }
 
   const uid = uidOf(id)
+  // **계정은 운영자가 될 수 없다.** 옛 문지기가 박아 둔 표시가 남아
+  // 있으면 여기서 뗀다 — 증표에 안 싣는 것만으로는 사용자 기록에
+  // 남아서, 규칙과 requireHost 가 계속 통과시킨다
+  await dropStaleAdmin(uid)
   return {
     id,
     uid,
-    token: await mintToken(uid, { accountId: id, ...(await carriedClaims(uid)) }),
+    token: await mintToken(uid, { accountId: id }),
     nickname: record.nickname ?? '',
     avatar: record.avatar ?? null,
   }
@@ -283,10 +309,6 @@ export const saveCharacter = onCall<{ nickname: string; avatar: unknown }>(async
 // 돌아간다 — 비밀번호는 새로 정한 것이 된다.
 
 /** 운영자만. 화면이 하는 말을 믿지 않는다. */
-function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): void {
-  if (!auth?.uid) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
-  if (auth.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
-}
 
 /** 지금 돌고 있는 판에 앉아 있는 uid 들. 지우기 전에 보여 준다. */
 async function seatedNow(): Promise<Set<string>> {

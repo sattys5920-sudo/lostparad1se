@@ -5,23 +5,17 @@
 //
 // 여기 있는 것은 읽기뿐이다. 게임 상태를 바꾸는 기능은 넣지 않았다 —
 // 투명인간 해제 같은 것은 기존 운영자 도구로만 한다.
-import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https'
+import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 import { CLUE_MAP, EXPOSURE_LABEL, HOST_RULES, LINKS } from './story/clues'
 import { auditLines } from './story/audit'
 import { SOURCE_LABEL, TIME_LABEL, placesIn } from './story/timeline'
 import { checkNotice, NOTICE_TEMPLATES } from '../../shared/reveal/notice'
+import { requireHost } from './host'
 
 const db = getFirestore()
 
 /** 커스텀 클레임으로만 통과한다. 토큰에 admin이 없으면 여기서 끝난다. */
-function requireHost(auth: CallableRequest['auth']): string {
-  if (!auth?.uid) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
-  if (auth.token?.admin !== true) {
-    throw new HttpsError('permission-denied', '운영자만 볼 수 있다.')
-  }
-  return auth.uid
-}
 
 /**
  * 추리 지도.

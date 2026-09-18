@@ -13,15 +13,12 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { TOTAL_SEATS } from '../../shared/rules/lobby'
 import type { GameDoc } from '../../shared/model'
 import { accountUids } from './account'
-import { gameRef, requireUid } from './index'
+import { gameRef } from './index'
+import { requireHost } from './host'
 
 const db = getFirestore()
 
 /** 운영자만. 화면이 하는 말을 믿지 않는다. */
-function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): void {
-  requireUid(auth)
-  if (auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
-}
 
 /**
  * 그 판에서 주인 없는 자리를 비운다. **로비에서만.**
