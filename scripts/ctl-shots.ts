@@ -151,13 +151,13 @@ async function enter(page: Page, site: string, id: string): Promise<void> {
   // **두 벌이 같은 origin 이라 로그인이 그대로 남는다.** 전을 찍고 후로
   // 옮겨 가면 문이 아예 안 뜬다 — 문이 있을 때만 두드린다
   const gate = await page
-    .waitForSelector('.sc-pl__gate', { timeout: 8_000 })
+    .waitForSelector('.sc-gt', { timeout: 8_000 })
     .then(() => true)
     .catch(() => false)
   if (gate) {
-    await page.fill('input[placeholder="아이디"]', id)
-    await page.fill('input[placeholder="비밀번호"]', MY_PW)
-    await page.locator('.sc-pl__gate button.sc-pl__go').click()
+    await page.fill('#gt-id', id)
+    await page.fill('#gt-pw', MY_PW)
+    await page.locator('.sc-gt__submit').click()
   }
   for (let i = 0; i < 60; i++) {
     if (await page.locator('.sc-pl__today').count()) break

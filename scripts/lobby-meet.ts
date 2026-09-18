@@ -70,10 +70,10 @@ async function teamPixels(page: Page, rgb: [number, number, number]): Promise<nu
 
 async function enter(page: Page, id: string): Promise<void> {
   await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'domcontentloaded' })
-  await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
-  await page.fill('input[placeholder="아이디"]', id)
-  await page.fill('input[placeholder="비밀번호"]', PW)
-  await page.locator('.sc-pl__gate button.sc-pl__go').click()
+  await page.waitForSelector('.sc-gt', { timeout: 20_000 })
+  await page.fill('#gt-id', id)
+  await page.fill('#gt-pw', PW)
+  await page.locator('.sc-gt__submit').click()
   await page.waitForSelector('.sc-pl__before', { timeout: 20_000 })
   await page.waitForTimeout(1200)
 }

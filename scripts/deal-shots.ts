@@ -119,10 +119,10 @@ type Page = import('playwright').Page
 /** 그 계정으로 들어가 오늘 하루까지 간다. */
 async function enter(page: Page, id: string): Promise<void> {
   await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
-  await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
-  await page.fill('input[placeholder="아이디"]', id)
-  await page.fill('input[placeholder="비밀번호"]', QA_PW)
-  await page.locator('.sc-pl__gate button.sc-pl__go').click()
+  await page.waitForSelector('.sc-gt', { timeout: 20_000 })
+  await page.fill('#gt-id', id)
+  await page.fill('#gt-pw', QA_PW)
+  await page.locator('.sc-gt__submit').click()
   // 아침 시퀀스를 지나야 오늘 하루가 나온다. 「이 날 건너뛰기」가
   // 있으면 그것부터 누른다 — 가운데를 탭해 넘기는 것은 장수만큼 걸린다
   for (let i = 0; i < 60; i++) {

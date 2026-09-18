@@ -45,10 +45,10 @@ async function main() {
   const enter = async () => {
     await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(1500)
-    if (await page.locator('.sc-pl__gate').count()) {
-      await page.fill('input[placeholder="아이디"]', 'qa01')
-      await page.fill('input[placeholder="비밀번호"]', QA_PW)
-      await page.locator('.sc-pl__gate button.sc-pl__go').click()
+    if (await page.locator('.sc-gt').count()) {
+      await page.fill('#gt-id', 'qa01')
+      await page.fill('#gt-pw', QA_PW)
+      await page.locator('.sc-gt__submit').click()
     }
     // 아침 시퀀스는 넘기되, **아무 데나 누르지 않는다** — 기다리는
     // 화면에 「다시 해 본다」가 떠 있으면 그것을 눌러 새로고침이

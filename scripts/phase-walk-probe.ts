@@ -49,10 +49,10 @@ async function main() {
   page.on('pageerror', (e) => console.log(`  ✗ 화면이 터졌다: ${e.message}`))
 
   await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
-  await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
-  await page.fill('input[placeholder="아이디"]', 'qa01')
-  await page.fill('input[placeholder="비밀번호"]', QA_PW)
-  await page.locator('.sc-pl__gate button.sc-pl__go').click()
+  await page.waitForSelector('.sc-gt', { timeout: 20_000 })
+  await page.fill('#gt-id', 'qa01')
+  await page.fill('#gt-pw', QA_PW)
+  await page.locator('.sc-gt__submit').click()
   for (let i = 0; i < 30; i++) {
     if (await page.locator('.sc-pl__today').count()) break
     await page.mouse.click(187, 333).catch(() => undefined)

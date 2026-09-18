@@ -119,10 +119,10 @@ type Page = import('playwright').Page
 
 async function enter(page: Page, id: string): Promise<void> {
   await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'domcontentloaded' })
-  await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
-  await page.fill('input[placeholder="아이디"]', id)
-  await page.fill('input[placeholder="비밀번호"]', QA_PW)
-  await page.locator('.sc-pl__gate button.sc-pl__go').click()
+  await page.waitForSelector('.sc-gt', { timeout: 20_000 })
+  await page.fill('#gt-id', id)
+  await page.fill('#gt-pw', QA_PW)
+  await page.locator('.sc-gt__submit').click()
   // 아침 시퀀스를 지난다. **누르기마다 기다리는 시간을 짧게 둔다** —
   // 기본 30초로 두면 사라진 장을 누르려다 몇 분씩 멈춰 선다
   for (let i = 0; i < 60; i++) {

@@ -53,10 +53,10 @@ async function main(): Promise<void> {
   page.on('console', (m) => { if (m.type() === 'error') console.log(`  · 콘솔: ${m.text().slice(0, 160)}`) })
 
   await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
-  await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
-  await page.fill('input[placeholder="아이디"]', 'qa01')
-  await page.fill('input[placeholder="비밀번호"]', QA_PW)
-  await page.locator('.sc-pl__gate button.sc-pl__go').click()
+  await page.waitForSelector('.sc-gt', { timeout: 20_000 })
+  await page.fill('#gt-id', 'qa01')
+  await page.fill('#gt-pw', QA_PW)
+  await page.locator('.sc-gt__submit').click()
   for (let i = 0; i < 30; i++) {
     if (await page.locator('.sc-pl__today').count()) break
     await page.mouse.click(187, 333).catch(() => undefined)

@@ -156,10 +156,10 @@ async function main(): Promise<void> {
     await page.goto(`${SITE}/?game=${GAME}`, { waitUntil: 'networkidle' })
 
     // 로그인. 가입이 아니라 이미 있는 계정으로 들어간다
-    await page.waitForSelector('.sc-pl__gate', { timeout: 20_000 })
-    await page.fill('input[placeholder="아이디"]', ME)
-    await page.fill('input[placeholder="비밀번호"]', QA_PW)
-    await page.locator('.sc-pl__gate button.sc-pl__go').click()
+    await page.waitForSelector('.sc-gt', { timeout: 20_000 })
+    await page.fill('#gt-id', ME)
+    await page.fill('#gt-pw', QA_PW)
+    await page.locator('.sc-gt__submit').click()
 
     // 아침 시퀀스를 지나야 오늘 하루가 나온다. 볼 것이 없으면 저절로
     // 지나가지만, 있으면 눌러서 넘긴다
