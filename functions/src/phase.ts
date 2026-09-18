@@ -64,6 +64,8 @@ import { foldQuizzes, scatterQuizzes } from './quiz'
 import { settleBallots } from './ballot'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { note } from './records'
+import { sysLine } from './radio'
+import { sys } from '../../shared/rules/radio'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -335,12 +337,21 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     .map((d) => ({ id: d.id, ref: d.ref, p: d.data() as PawnDoc }))
     .filter((x) => x.p.movingTo != null && x.p.movingTo !== x.p.team)
   const teamNow = new Map<string, TeamId>(pawns.docs.map((d) => [d.id, (d.data() as PawnDoc).team]))
+  /*
+   * 두 팀 무전에만 적을 것. **밖으로는 한 줄도 안 나간다** — 공지는
+   * 없고 마주쳐야 아는 것이 규칙이다. 다만 자기 팀 머릿수가 줄고 느는
+   * 것은 그 팀이 어차피 그 자리에서 본다. 날짜가 아래에서 정해져서
+   * 여기서는 모아만 둔다.
+   */
+  const movedNotes: { from: TeamId; to: TeamId; name: string }[] = []
   for (const m of moved) {
     const to = m.p.movingTo as TeamId
     teamNow.set(m.id, to)
     // 무전은 여기서부터 듣는다. 옛 팀이 아침에 짠 것은 안 따라온다
     batch.update(m.ref, { team: to, movingTo: null, teamSinceMs: nowMs })
     batch.update(ref.collection('secret').doc('roster').collection('items').doc(m.id), { team: to })
+    const who = game.seats.find((x) => x.playerId === m.id)?.name ?? ''
+    if (who) movedNotes.push({ from: m.p.team, to, name: who })
   }
   const seats = moved.length
     ? game.seats.map((x) => ({ ...x, team: teamNow.get(x.playerId) ?? x.team }))
@@ -463,6 +474,12 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     ...(moved.length ? { seats } : {}),
     ...freeze,
   })
+  // 네 팀 무전에 종이 울린다. 무전만 보고 있어도 교시가 열린 줄 안다
+  for (const t of TEAMS) sysLine(batch, gameId, t, sys.phaseOpen(no), nowMs, day)
+  for (const m of movedNotes) {
+    sysLine(batch, gameId, m.from, sys.movedOut(m.name, m.to), nowMs, day)
+    sysLine(batch, gameId, m.to, sys.movedIn(m.name), nowMs, day)
+  }
   // 지난 페이즈의 위장·방해는 여기서 지운다. 연구 대기는 남긴다 —
   // 이번 페이즈가 닫힐 때 로봇이 될 것들이다
   batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
@@ -809,9 +826,21 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   for (const r of out.next.robots) batch.set(robotsOf(gameId).doc(r.id), { ...r })
 
   for (const [tileId, team] of Object.entries(out.next.owners)) {
-    if ((state.owners[tileId as TileId] ?? null) !== (team ?? null)) {
-      batch.update(ref.collection('tiles').doc(tileId), { ownerTeam: team ?? null })
-    }
+    const was = state.owners[tileId as TileId] ?? null
+    const now = team ?? null
+    if (was === now) continue
+    batch.update(ref.collection('tiles').doc(tileId), { ownerTeam: now })
+    /*
+     * 주인이 바뀐 방을 **양쪽 무전에** 적는다.
+     *
+     * 가져간 팀에게는 「차지했다」, 잃은 팀에게는 「빼앗겼다」. 둘 다
+     * 그 팀이 다음 페이즈에 지도에서 보는 것이라, 여기가 새 정보가
+     * 새는 구멍은 아니다 — 한 줄로 옮겨 적는 것뿐이다.
+     */
+    const room = TILE_BY_ID[tileId as TileId]?.name ?? tileId
+    const day = game.phaseNow.day
+    if (now) sysLine(batch, gameId, now, sys.roomTaken(room), nowMs, day)
+    if (was) sysLine(batch, gameId, was, sys.roomLost(room, now), nowMs, day)
   }
 
   // **누가 어디 서서 무엇을 가져갔는지 남긴다.** 개인 미션의
@@ -853,6 +882,7 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     phaseDone: no,
     pendingResearch: out.next.pendingResearch,
   })
+  for (const t of TEAMS) sysLine(batch, gameId, t, sys.phaseClose(no), nowMs, game.phaseNow.day)
   // 위장도 방해도 페이즈와 함께 끝난다. **남겨 두면 나중에 다 들통난다**
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 

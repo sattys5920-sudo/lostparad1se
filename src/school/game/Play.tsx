@@ -30,6 +30,7 @@ import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnl
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
+import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
 import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
@@ -522,6 +523,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const say = useCallback((text: string) => { setBad(false); setSaid(text) }, [])
   const refuse = useCallback((text: string) => { setBad(true); setSaid(text) }, [])
   const [tab, setTab] = useState<Tab>('map')
+  /** 무전에 안 읽은 줄이 몇인가. 탭 그림 모서리에 점을 찍는다 */
+  const [radioNew, setRadioNew] = useState(0)
   const [sheet, setSheet] = useState<SheetId | null>(null)
   /** 맵에서 짚은 사람. 거래는 여기서 시작한다. */
   const [person, setPerson] = useState<string | null>(null)
@@ -1082,7 +1085,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             팀장 투표가 열렸다 — 투표 탭에서 적는다
           </button>
         )}
-        <Chat me={me} hereName={null} act={act} onSaid={setSaid} channel="team" />
+        <Radio
+          me={me}
+          act={act}
+          onSaid={setSaid}
+          /* 페이즈 중에는 열린 뒤로 얼마나 지났는지를 적는다 */
+          phaseOpenedAtMs={phaseOpen ? (state.game?.phaseNow?.openedAtMs ?? null) : null}
+          active={tab === 'radio'}
+          onUnread={setRadioNew}
+        />
       </section>
 
       {/* ── 메모 탭 ───────────────────────────────────────────
@@ -1114,7 +1125,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         tabs={[
           { key: 'map', icon: 'tabMap', label: '맵' },
           { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0 },
-          { key: 'radio', icon: 'tabRadio', label: '무전' },
+          { key: 'radio', icon: 'tabRadio', label: '무전', dot: radioNew > 0 },
           // 팀장 투표가 열려 있으면 점을 찍는다. 무전에서 떼어 온 대신,
           // 열린 것을 모르고 지나치지는 않게 한다
           { key: 'vote', icon: 'tabVote', label: '투표', dot: captainOpen },

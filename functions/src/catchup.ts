@@ -40,6 +40,8 @@ import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
+import { sysLine } from './radio'
+import { sys } from '../../shared/rules/radio'
 
 const db = getFirestore()
 
@@ -116,6 +118,20 @@ async function dayStart(c: Ctx): Promise<void> {
     kind: 'dayStart',
     detail: { opened: opens },
   })
+
+  /*
+   * 오늘 지워진 사람을 **그 팀 무전에만** 적는다.
+   *
+   * 누가 투명인간인지는 원래 다 공개된다(아침 안내). 팀에게 따로
+   * 적는 것은 그 하루 판정에서 그 사람이 빠지기 때문이다 — 셋이서
+   * 짜야 하는데 넷인 줄 알고 방을 나누면 그날 작전이 통째로 어긋난다.
+   */
+  const hiddenId = c.game.invisibleByDay[c.day] ?? null
+  if (hiddenId) {
+    const seat = c.game.seats.find((x) => x.playerId === hiddenId)
+    const team = (pawns.docs.find((d) => d.id === hiddenId)?.data() as PawnDoc | undefined)?.team
+    if (seat && team) sysLine(c.tx, c.gameId, team, sys.invisible(seat.name), c.atMs, c.day)
+  }
 }
 
 /** DAY 5 15:00 — 점수판이 꺼진다. 마지막 여섯 시간은 아무도 순위를 모른다. */

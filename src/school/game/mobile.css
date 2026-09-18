@@ -143,7 +143,17 @@
   flex-direction: column;
 }
 
-.sc-pl__today {
+/*
+ * **겹수를 한 겹 올려 둔다.**
+ *
+ * play.css 의 `.sc-pl__today` 가 `padding: 28px 16px` 를 준다. 이 파일이
+ * 나중에 온다고 적혀 있지만 실제로는 아니었다 — main.tsx 가 mobile.css
+ * 를 먼저 부르고, Root → Play 를 타고 play.css 가 그 뒤에 얹힌다.
+ * 그래서 판 화면이 사방 16px 씩 밝은 테두리를 두르고 있었다.
+ * 파일 순서를 바꾸면 이 파일의 다른 규칙까지 한꺼번에 뒤집히므로,
+ * 틀을 잡는 이 한 줄만 겹수로 이긴다.
+ */
+.sc-pl-root .sc-pl__today {
   flex: 1;
   min-height: 0;
   padding: 0;

@@ -45,7 +45,7 @@ async function tok(id: string, password = PW): Promise<string> {
   return ((await r.json()) as { idToken: string }).idToken
 }
 const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
-type Line = { playerId: string; text: string; muted?: boolean }
+type Line = { playerId: string; text: string; hidden?: boolean }
 const heard = async (tk: string): Promise<Line[]> =>
   ((await call('radioLines', tk, { gameId: GAME })) as { lines?: Line[] }).lines ?? []
 async function patch(path: string, fields: Record<string, unknown>): Promise<void> {
@@ -108,14 +108,21 @@ async function main(): Promise<void> {
   const said = await call('say', tk1, { gameId: GAME, text: '가는 중' }).then(() => '', (e: Error) => e.message)
   check(said.includes('걷는 중'), '말은 걷는 중에 거절된다 — 둘이 다른 줄이다', said)
 
-  console.log('\n── 지워진 사람의 무전은 같은 팀에게도 안 간다 ──')
+  /*
+   * 지워진 것은 판정에서지 팀에서가 아니다. 무전은 방이 아니라 팀에
+   * 매인 줄이라 어디 있는지가 안 새고, 셋이 넷인 줄 알고 방을 나누면
+   * 그날 작전이 통째로 어긋난다 — 오히려 말이 통해야 한다.
+   */
+  console.log('\n── 지워진 사람도 무전은 쓴다. 이름 옆에 표가 붙을 뿐이다 ──')
   await patch(`games/${GAME}`, { invisibleId: uidOf(a1), invisibleTeam: 'A' })
-  await call('radio', tk1, { gameId: GAME, text: '나 여기 있어' })
+  const ghost = await call('radio', tk1, { gameId: GAME, text: '나 여기 있어' })
+  check(ghost.heard === true, '지워져 있어도 닿는다')
   const mate2 = await heard(tk2)
-  check(!mate2.some((l) => l.text === '나 여기 있어'), '같은 팀도 못 듣는다')
+  const seen = mate2.find((l) => l.text === '나 여기 있어')
+  check(seen !== undefined, '같은 팀이 듣는다')
+  check(seen?.hidden === true, '그 줄에 「안 보임」 표가 붙는다')
   const own = await heard(tk1)
-  const line = own.find((l) => l.text === '나 여기 있어')
-  check(line !== undefined && line.muted === true, '본인에게는 「전해지지 않았다」로 남는다')
+  check(own.find((l) => l.text === '나 여기 있어')?.hidden === true, '본인 화면에도 같은 표가 붙는다')
 
   console.log('\n── 이적하면 새 팀 무전을 듣는다 ──')
   await patch(`games/${GAME}`, { invisibleId: '' })

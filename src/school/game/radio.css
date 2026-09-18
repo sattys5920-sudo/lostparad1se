@@ -1,0 +1,246 @@
+/* 무전 — 주파수 하나에 팀 넷.
+ *
+ * **분위기보다 읽히는 것이 먼저다.** 작전을 짜는 자리라 누가 무슨
+ * 말을 했는지가 한눈에 갈려야 한다. 노이즈는 위 상태 바에만 두고
+ * 글자 위로는 안 올린다.
+ *
+ * 흐린 글자가 둘이다. 선·점선·가라앉은 막대에는 #3E4A5E 를 쓰고,
+ * **읽어야 하는 흐린 글자**(시각·안내)에는 #7286A0 을 쓴다 —
+ * #3E4A5E 는 이 바탕에서 대비가 2.0:1 이라 글자로는 안 읽힌다.
+ * (본문 10.9:1 · 이름 7.1:1 · 흐린 글자 4.8:1)
+ */
+.sc-rd {
+  --rd-bg: #141822;
+  --rd-line: #2a3040;
+  --rd-text: #b8cce0;
+  --rd-on: #6fa8d9;
+  --rd-faint: #3e4a5e;
+  --rd-dim: #7286a0;
+
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--rd-bg);
+  color: var(--rd-text);
+  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 11px;
+}
+
+/* ── 수신 상태 ─────────────────────────────────────────────── */
+
+.sc-rd__top {
+  flex: none;
+  height: 56px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--rd-line);
+}
+
+.sc-rd__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  line-height: 1;
+}
+
+.sc-rd__freq { color: var(--rd-dim); letter-spacing: 0.06em; }
+.sc-rd__freq b { color: var(--rd-on); font-weight: 400; font-size: 11px; }
+
+.sc-rd__conn { color: var(--rd-faint); letter-spacing: 0.06em; }
+.sc-rd__conn.is-on { color: var(--rd-dim); }
+
+/* 막대는 높이만 움직인다. 정수 픽셀이라 끝이 안 흐려진다 */
+.sc-rd__wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.sc-rd__wave span {
+  flex: 1;
+  height: 1px;
+  background: var(--rd-on);
+  border-radius: 0;
+}
+
+/* ── 오간 말 ───────────────────────────────────────────────── */
+
+.sc-rd__log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 10px 10px 12px;
+}
+
+.sc-rd__none { margin: 0; color: var(--rd-dim); }
+
+.sc-rd__log ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/*
+ * 한 줄 — [시각] [이름] [내용].
+ *
+ * 세 칸이 세로로 줄이 맞아야 눈이 이름만 훑고 내려갈 수 있다.
+ * 긴 문장은 내용 칸 안에서만 접힌다.
+ */
+.sc-rd__line {
+  display: grid;
+  /* 시각 · 이름 · 내용. 이름 칸을 76px 로 잡아 두면 두세 글자 이름이
+     세로로 줄을 맞춘다 — 눈이 이름만 훑고 내려갈 수 있다 */
+  grid-template-columns: 38px 76px 1fr;
+  gap: 8px;
+  line-height: 1.6;
+  /* 한국어는 낱말 단위로 접는다. 「점수 / 에는」처럼 갈라지면 안 된다 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  /* 새 줄은 아래에서 한 칸씩 밀려 올라온다. 세 걸음으로 끊는다 */
+  animation: sc-rd-up 0.18s steps(1, end);
+}
+
+@keyframes sc-rd-up {
+  0% { transform: translateY(6px); opacity: 0; }
+  50% { transform: translateY(3px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.sc-rd__at {
+  color: var(--rd-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-rd__who {
+  color: var(--rd-on);
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 오늘 판정에서 빠진 사람 */
+.sc-rd__who i {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--rd-dim);
+  margin-left: 4px;
+}
+
+.sc-rd__text { color: var(--rd-text); }
+
+/* 잇달아 말하면 이름 칸을 비운다. 자리는 그대로라 줄이 안 흔들린다 —
+   밀려 올라오는 것은 새 줄이면 다 같다 */
+
+
+/* 판이 적은 줄. 앞뒤로 점선을 긋고 가운데에 둔다 */
+.sc-rd__sys {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  color: var(--rd-dim);
+  text-align: center;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+.sc-rd__sys::before,
+.sc-rd__sys::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dashed var(--rd-faint);
+}
+.sc-rd__sys span { flex: none; max-width: 78%; }
+
+/* ── 새 메시지 ─────────────────────────────────────────────── */
+
+/* 위로 올려 읽는 중에 온 것. 누르면 맨 아래로 간다 */
+.sc-rd__behind {
+  flex: none;
+  align-self: center;
+  margin: 0 0 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--rd-on);
+  border-radius: 0;
+  background: var(--rd-bg);
+  color: var(--rd-on);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* ── 송신 ──────────────────────────────────────────────────── */
+
+.sc-rd__bar {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 0;
+  border-top: 1px solid var(--rd-line);
+}
+
+.sc-rd .sc-rd__bar input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  height: 44px;
+  box-sizing: border-box;
+  border: 1px solid var(--rd-line);
+  border-radius: 0;
+  background: #0f131b;
+  font-family: inherit;
+  /* 16px 아래면 아이폰이 화면을 확대한다. 갈무리는 11 의 정수 배에서만
+     또렷하니 22 다 — 두 조건이 만나는 자리가 여기뿐이다 */
+  font-size: 22px;
+  line-height: 1;
+  color: var(--rd-text);
+  padding: 0 8px;
+}
+.sc-rd .sc-rd__bar input::placeholder { color: var(--rd-faint); font-size: 11px; }
+.sc-rd .sc-rd__bar input:focus { outline: none; border-color: var(--rd-on); }
+
+.sc-rd__send {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  appearance: none;
+  border: 1px solid var(--rd-on);
+  border-radius: 0;
+  background: var(--rd-on);
+  color: #0f131b;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sc-rd__send:disabled {
+  border-color: var(--rd-line);
+  background: none;
+  color: var(--rd-faint);
+  cursor: default;
+}
+
+.sc-rd__note {
+  flex: none;
+  margin: 0;
+  padding: 6px 10px calc(6px + var(--sa-bottom));
+  color: var(--rd-dim);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-rd__line { animation: none; }
+}
