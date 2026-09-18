@@ -1,0 +1,215 @@
+/* 메모 탭 — 수첩 한 권.
+ *
+ * 밝은 회색 목록이 아니라 **물건**이다. 문은 구겨진 투표용지고, 투표
+ * 탭은 투표용지와 투표함이고, 여기는 책상 위에 펴 둔 수첩이다.
+ *
+ * 나만 본다. 판정에도, 운영자 대시보드에도 안 나간다 — 그래서 남에게
+ * 보이는 화면들과 달리 **손으로 쓴 것처럼** 둔다.
+ *
+ * 판 자체는 보관함 것과 같은 것을 쓴다(reveal.css 의 .sc-ar__board).
+ * 여기서는 그 위에 수첩 옷을 입힌다.
+ */
+
+.sc-nb-root {
+  --nb-paper: #e7e0cc;
+  --nb-rule: #dcd5c0;
+  --nb-under: #b9b29b;
+  --nb-margin: #b5524c;
+  --nb-ink: #2b2720;
+  --nb-pencil: #4a4335;
+  --nb-soft: #8c8574;
+
+  background: #171b24;
+  gap: 14px;
+  padding: 0 0 calc(16px + var(--sa-bottom));
+}
+
+/* 맨 윗줄. 투표 탭과 같은 자리, 같은 크기 */
+.sc-nb__top {
+  flex: none;
+  margin: 0;
+  padding: 14px 16px 2px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #7f8aa3;
+  text-align: center;
+}
+
+/* ── 수첩 ─────────────────────────────────────────────────────
+ * 왼쪽 18px 은 스프링이 종이 밖으로 나가는 자리다.
+ */
+.sc-nb {
+  position: relative;
+  flex: none;
+  margin: 0 14px;
+  /* 스프링이 종이 밖으로 나가는 자리. 철사가 가장자리를 물어야 한다 */
+  padding-left: 26px;
+}
+
+.sc-nb__page {
+  position: relative;
+  padding: 18px 16px 14px 58px;
+  background-color: var(--nb-paper);
+  /* 아주 흐린 줄. 읽는 줄이 아니라 결이다 — 진하게 그으면 글자와 싸운다 */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 29px,
+    var(--nb-rule) 29px 30px
+  );
+  box-shadow: 2px 2px 0 #0d1019;
+}
+
+/* 붉은 마진선. 스프링과 글자 사이를 가른다 */
+.sc-nb__page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 46px;
+  width: 1px;
+  background: var(--nb-margin);
+  opacity: 0.55;
+}
+
+/* 스프링. 세로로 이어 붙인다 — 수첩이 길어져도 배율은 2배 그대로 */
+.sc-nb__rings {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 38px;
+  image-rendering: pixelated;
+  background-repeat: repeat-y;
+  background-size: 38px 34px;
+}
+
+/* 뜯어낸 아랫단. 종이 바로 밑에 붙는다 */
+.sc-nb__tear {
+  display: block;
+  height: 12px;
+  margin-top: -1px;
+  image-rendering: pixelated;
+  background-repeat: repeat-x;
+  background-size: 20px 12px;
+  filter: drop-shadow(2px 2px 0 #0d1019);
+}
+
+/* ── 종이 위의 판 ─────────────────────────────────────────────
+ * 보관함과 같은 마크업이라 색과 테두리만 갈아 끼운다. 상자에 담긴
+ * 목록이 아니라 **줄 위에 적은 것**으로 보여야 한다.
+ */
+.sc-nb .sc-ar__board {
+  --nb-field: transparent;
+  --nb-line: var(--nb-under);
+  --nb-line-soft: transparent;
+  --nb-text: var(--nb-ink);
+  --nb-dim: var(--nb-soft);
+}
+
+.sc-nb .sc-ar__board-hint {
+  margin: 0 0 14px;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--nb-soft);
+  letter-spacing: 0.02em;
+}
+
+.sc-nb .sc-ar__board ul {
+  gap: 0;
+}
+
+/* 한 사람이 한 칸. 상자 테두리를 걷어 낸다 */
+.sc-nb .sc-ar__person {
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 8px;
+  gap: 0;
+}
+
+.sc-nb .sc-ar__person-head {
+  gap: 8px;
+  min-height: 42px;
+}
+
+.sc-nb .sc-ar__person-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--nb-ink);
+}
+
+/* 추리 태그. 도장을 찍듯 네모 하나 — 넓게 벌리면 종이가 아니라 서식이다 */
+.sc-nb .sc-ar__guess {
+  width: 108px;
+  min-height: 40px;
+  padding: 0 6px;
+  border: 1px solid var(--nb-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--nb-ink);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+/* 아직 안 정한 것은 찍지 않은 자리다 */
+.sc-nb .sc-ar__guess.is-unknown {
+  border-style: dashed;
+  border-color: var(--nb-soft);
+  color: var(--nb-soft);
+}
+
+/* 한 줄 메모는 줄 위에 얹는다. 상자가 아니라 밑줄이다 */
+.sc-nb .sc-ar__person-note {
+  height: 40px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--nb-under);
+  border-radius: 0;
+  background: transparent;
+  color: var(--nb-pencil);
+  /* 16px 아래로 내려가면 아이폰이 칸을 누를 때 화면을 확대한다 */
+  font-size: 16px;
+}
+
+.sc-nb .sc-ar__person-note::placeholder {
+  color: #b3ab96;
+}
+
+.sc-nb .sc-ar__person-note:focus {
+  outline: none;
+  border-bottom-color: var(--nb-margin);
+}
+
+/* ── 수첩 밖 ──────────────────────────────────────────────────
+ * 지난 페이즈와 보관함은 수첩에 적은 것이 아니다. 책상 위에 둔다.
+ */
+.sc-nb__sub {
+  flex: none;
+  margin: 4px 16px -4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #7f8aa3;
+}
+
+.sc-nb-root .sc-ph__log {
+  flex: none;
+  margin: 0 16px;
+}
+.sc-nb-root .sc-ph__log h2 { color: #d8e2f0; }
+.sc-nb-root .sc-ph__log h2 span { color: #6f7f99; }
+.sc-nb-root .sc-ph__log li { color: #9fb0c8; }
+.sc-nb-root .sc-ph__log li.is-big { color: #e6edf7; }
+
+.sc-nb__open {
+  flex: none;
+  margin: 0 16px;
+  min-height: 44px;
+  border: 1px solid #3a4254;
+  border-radius: 2px;
+  background: #1b2030;
+  color: #b3c2d6;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}

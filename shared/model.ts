@@ -129,6 +129,15 @@ export interface GameDoc {
    * 숨기는 것은 그 사람의 **위치**이고, 그건 views가 한다.
    */
   invisibleId: string | null
+  /**
+   * 오늘 네 팀의 팀장. 아직 못 정한 팀은 null 이다.
+   *
+   * **팀 문서가 아니라 판 문서에 둔다.** 팀 문서에는 금고가 들어 있어서
+   * 제 팀 것만 읽을 수 있는데, 팀장은 모두가 알아야 하는 값이다 —
+   * 투명인간 투표에서 못 적는 사람이라 화면이 미리 알아야 하고,
+   * 뽑히면 공지도 나간다.
+   */
+  captains?: Partial<Record<TeamId, string | null>>
   /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
   invisibleByDay: Record<number, string | null>
   /**

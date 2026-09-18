@@ -261,9 +261,13 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     })
   }
 
-  // 팀 — 자원과 순위는 공개다
+  // 팀 — 자원과 순위는 공개다.
+  // **주장은 판 문서에도 적는다** — 팀 문서는 제 팀 것만 읽을 수 있는데,
+  // 팀장은 투명인간 투표에서 못 적는 사람이라 모두가 미리 알아야 한다
+  const captains: Partial<Record<TeamId, string | null>> = {}
   for (const team of TEAMS) {
     const members = seats.filter((s) => s.team === team)
+    captains[team] = members.length < 4 ? (members[0]?.playerId ?? null) : null
     batch.set(ref.collection('teams').doc(team), {
       resources: { ...STARTING_RESOURCES },
       // 페이즈 상자. **첫 페이즈가 열리기 전에도 거래는 한다** —
@@ -347,6 +351,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     openedTiles: [...(CORE_OPENING[1] ?? [])],
     boostedTiles: FRAGMENT_BY_DAY[1] ? [FRAGMENT_BY_DAY[1].spotTile] : [],
     startedRealMs: FieldValue.serverTimestamp(),
+    captains,
   })
 
   await batch.commit()

@@ -69,7 +69,9 @@ import { ENTER_COST, MOVE_MINUTES, PHASES_PER_DAY } from '../../../shared/rules/
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import { armSfx } from './sfx'
 import './play.css'
+import { ringTile, tearTile } from './noteArt'
 import './ballot.css'
+import './note.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
 
@@ -1037,6 +1039,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         )}
         {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
 
+        {/* ── 알림 ────────────────────────────────────────────
+            **여태 어디에도 안 떴다.** 탭에 점만 찍히고 정작 문구는
+            화면 어디에도 없었다 — 투명인간 발표도, 운영자 공지도,
+            이제 팀장 공지도 이 길로 온다. 최근 것부터 여섯 줄 */}
+        {(state.view?.notices?.length ?? 0) > 0 && (
+          <ul className="sc-pl__notices">
+            {[...(state.view?.notices ?? [])]
+              .sort((a, b) => b.atMs - a.atMs)
+              .slice(0, 6)
+              .map((n) => (
+                <li key={n.id}>{n.text}</li>
+              ))}
+          </ul>
+        )}
+
         <ul className="sc-pl__mine">
           {/* **토큰은 팀에 한 주머니다.** 넷이 나눠 쓴다 */}
           <li><span>팀 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
@@ -1094,9 +1111,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <Ballot
           me={me}
           seats={game.seats}
-          captainIds={Object.values(state.teams)
-            .map((t) => t?.captainId ?? null)
-            .filter((id): id is string => typeof id === 'string')}
+          /* **판 문서에서 읽는다.** 팀 문서는 제 팀 것만 읽을 수 있어서
+             다른 팀 팀장을 몰랐고, 그래서 적어 본 뒤에야 물렸다 */
+          captainIds={Object.values(game.captains ?? {}).filter(
+            (id): id is string => typeof id === 'string',
+          )}
           invisibleId={game.invisibleId ?? null}
           day={game.day}
           view={state.view}
@@ -1109,8 +1128,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             <CaptainVote
               me={me}
               seats={game.seats}
-              captainId={state.teams[me.team]?.captainId ?? null}
+              captainId={game.captains?.[me.team] ?? state.teams[me.team]?.captainId ?? null}
               vote={state.teams[me.team]?.captainVote ?? null}
+              all={game.captains ?? null}
               nowMs={nowMs}
               act={act}
               onSaid={setSaid}
@@ -1146,24 +1166,40 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
       {/* ── 메모 탭 ───────────────────────────────────────────
           **나만 본다.** 어떤 판정에도 안 쓰고 운영자 대시보드에도
-          안 나간다. 전에는 수첩 → 보관함 → 사람들로 두 겹 안이었다 */}
-      <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'note'}>
-        <header className="sc-pl__paneHead">
-          <h2>메모</h2>
-          <span>열셋</span>
-        </header>
-        {uid && (
-          <Notes
-            gameId={gameId}
-            meId={uid}
-            classmates={game.seats
-              .filter((sx) => sx.playerId !== uid)
-              .map((sx) => ({ id: sx.playerId, name: sx.name }))}
+          안 나간다. 전에는 수첩 → 보관함 → 사람들로 두 겹 안이었다.
+
+          남에게 보이는 화면이 아니라서 물건도 다르다 — 문은 구겨진
+          투표용지, 투표 탭은 투표함, 여기는 책상에 펴 둔 수첩이다 */}
+      <section className="sc-pl__tab sc-pl__scroll sc-nb-root" hidden={tab !== 'note'}>
+        <p className="sc-nb__top">메모 · 열셋</p>
+        <div className="sc-nb">
+          <div className="sc-nb__page">
+            {uid && (
+              <Notes
+                gameId={gameId}
+                meId={uid}
+                classmates={game.seats
+                  .filter((sx) => sx.playerId !== uid)
+                  .map((sx) => ({ id: sx.playerId, name: sx.name }))}
+              />
+            )}
+          </div>
+          {/* 종이 가장자리를 문 스프링. 글자 위로 와야 꿴 것으로 보인다 */}
+          <span
+            className="sc-nb__rings"
+            aria-hidden="true"
+            style={{ backgroundImage: `url(${ringTile()})` }}
           />
-        )}
-        <h3 className="sc-pl__paneSub">지난 페이즈</h3>
+          <span
+            className="sc-nb__tear"
+            aria-hidden="true"
+            style={{ backgroundImage: `url(${tearTile()})` }}
+          />
+        </div>
+
+        <h3 className="sc-nb__sub">지난 페이즈</h3>
         <PhaseLog rows={state.phaseLog} seats={game.seats} />
-        <button className="sc-pl__wide" onClick={() => setArchive(true)}>보관함 열기</button>
+        <button className="sc-nb__open" onClick={() => setArchive(true)}>보관함 열기</button>
       </section>
 
       {/* ── 탭바 ─────────────────────────────────────────────── */}

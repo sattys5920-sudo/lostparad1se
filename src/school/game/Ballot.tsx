@@ -18,6 +18,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { VOTE_FOOT, VOTE_TITLE, murmursUpTo } from '../../../shared/story/vote'
+import { josa } from '../../../shared/text'
 import { BOX_H, FOLD_FRAMES, SLOT_Y, boxSprite, boxWidthFor, foldSheet } from './boxArt'
 import { PaperSheet } from './Paper'
 import { SFX, armSfx } from './sfx'
@@ -503,7 +504,7 @@ export function Ballot(props: BallotProps) {
         )}
         {oops && !playing && <p className="sc-bt__oops">넣지 못했다</p>}
         {!closed && !shut && !just && chosenName && (
-          <p className="sc-bt__picked">「{chosenName}」이라고 적혀 있다</p>
+          <p className="sc-bt__picked">「{chosenName}」{josa(chosenName, '이라고/라고')} 적혀 있다</p>
         )}
       </div>
     </div>

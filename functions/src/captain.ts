@@ -10,9 +10,11 @@
 //
 // **누가 누구를 적었는지는 서버 밖으로 안 나간다.** 결과 한 줄만 나간다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
+import { getFirestore } from 'firebase-admin/firestore'
 
 import {
   CAPTAIN_NO,
+  announceCaptain,
   countsDouble,
   roundAt,
   tallyCaptain,
@@ -21,10 +23,15 @@ import {
   type CaptainVote,
 } from '../../shared/rules/captain'
 import { TEAMS } from '../../shared/rules/lobby'
+import { sys } from '../../shared/rules/radio'
+import { sysLine } from './radio'
 import type { TeamId } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc, TeamDoc } from '../../shared/model'
 import { freshNow, myPawn } from './turn'
+import { refreshViews } from './views'
 import { gameRef, nowOf, requireUid } from './index'
+
+const db = getFirestore()
 
 /** games/{gameId}/secret/captainBallots/items/{day}-{round}-{team}-{voterId} */
 const ballotsOf = (gameId: string) =>
@@ -52,6 +59,8 @@ export function openCaptainVotes(
   pawns: FirebaseFirestore.QuerySnapshot,
 ): void {
   const ref = gameRef(gameId)
+  // 판 문서의 팀장 넷도 같이 비운다. **여기가 모두가 읽는 자리다**
+  tx.update(ref, { captains: {} })
   for (const team of TEAMS) {
     tx.update(ref.collection('teams').doc(team), {
       captainId: null,
@@ -82,6 +91,7 @@ export async function settleCaptainVotes(gameId: string): Promise<void> {
   if (game.phase !== 'running') return
   const nowMs = nowOf(game)
   const teams = await ref.collection('teams').get()
+  let told = false
 
   for (const d of teams.docs) {
     const team = d.id as TeamId
@@ -109,7 +119,27 @@ export async function settleCaptainVotes(gameId: string): Promise<void> {
     if (out.winner && countsDouble(members.length, true)) {
       await ref.collection('pawns').doc(out.winner).update({ captain: true })
     }
+
+    // **뽑혔으면 숨기지 않는다.** 판 문서에 적고(모두가 읽는 자리다),
+    // 공지로 한 줄 내보내고, 무전에도 한 줄 남긴다
+    const name = out.winner ? (game.seats.find((s) => s.playerId === out.winner)?.name ?? null) : null
+    const batch = db.batch()
+    batch.update(ref, { [`captains.${team}`]: out.winner ?? null })
+    if (out.winner && name) {
+      batch.set(ref.collection('notices').doc(), {
+        toPlayerId: null,
+        text: announceCaptain(team, name),
+        atMs: nowMs,
+      })
+      for (const t of TEAMS) sysLine(batch, gameId, t, sys.captain(team, name), nowMs, vote.day)
+      told = true
+    }
+    await batch.commit()
   }
+
+  // **공지를 적었으면 각자 몫을 다시 짠다.** 안 그러면 판 문서에는
+  // 있고 화면에는 없다 — 알림이 실제로 그렇게 새지 못했다
+  if (told) await refreshViews(gameId)
 }
 
 /** 우리 팀 팀장으로 한 사람을 적는다. 한 차례에 한 장, 바꿔 적을 수 있다. */
@@ -154,6 +184,7 @@ export function captainLeft(
   day: number,
   nowMs: number,
 ): void {
+  tx.update(gameRef(gameId), { [`captains.${team}`]: null })
   tx.update(gameRef(gameId).collection('teams').doc(team), {
     captainId: null,
     captainVote: roundAt(day, 1, nowMs),

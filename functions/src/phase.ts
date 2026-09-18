@@ -442,6 +442,8 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     if (!head) continue
     const members = seats.filter((x) => x.team === team).map((x) => x.playerId)
     if (!members.includes(head)) {
+      // 판 문서의 팀장 넷도 같이 지운다. 모두가 읽는 자리다
+      batch.update(ref, { [`captains.${team}`]: null })
       batch.update(ref.collection('teams').doc(team), {
         captainId: null,
         captainVote: roundAt(day, 1, nowMs),

@@ -12,6 +12,7 @@ import {
   whyNotVote,
   type CaptainVote as Vote,
 } from '../../../shared/rules/captain'
+import { josa } from '../../../shared/text'
 import type { SeatEntry } from '../../../shared/model'
 import type { GameActions } from './useGame'
 import type { TeamId } from '../../../shared/rules/v2'
@@ -26,21 +27,39 @@ export interface CaptainVoteProps {
   me: { playerId: string; team: TeamId }
   seats: readonly SeatEntry[]
   captainId: string | null
+  /** 오늘 네 팀의 팀장. **비밀이 아니다** — 뽑히면 공지가 나간다. */
+  all?: Partial<Record<TeamId, string | null>> | null
   vote: Vote | null
   nowMs: number
   act: GameActions
   onSaid: (text: string) => void
 }
 
-export function CaptainVote({ me, seats, captainId, vote, nowMs, act, onSaid }: CaptainVoteProps) {
+export function CaptainVote({ me, seats, captainId, all, vote, nowMs, act, onSaid }: CaptainVoteProps) {
   const mates = seats.filter((s) => s.team === me.team)
   const nameOf = (id: string) => mates.find((s) => s.playerId === id)?.name ?? '?'
+  // 다른 팀 팀장은 같은 팀이 아니므로 명단 전체에서 찾는다
+  const anyName = (id: string) => seats.find((s) => s.playerId === id)?.name ?? '?'
+
+  // 아직 못 정한 팀은 빼고 적는다. 「없다」를 줄줄이 적어 봐야 소용없다
+  const others = (Object.entries(all ?? {}) as [TeamId, string | null][])
+    .filter(([t, id]) => t !== me.team && typeof id === 'string' && id !== '')
+    .sort(([a], [b]) => a.localeCompare(b))
 
   if (captainId) {
     return (
-      <p className="sc-cv sc-cv--done">
-        오늘 <b>{me.team}팀 팀장</b>은 <b>{nameOf(captainId)}</b>다.
-      </p>
+      <div className="sc-cv sc-cv--done">
+        <p>
+          오늘 <b>{me.team}팀 팀장</b>은 <b>{nameOf(captainId)}</b>
+          {josa(nameOf(captainId), '이다/다')}.
+        </p>
+        {/* 팀장은 비밀이 아니다. 뽑힌 만큼 여기에 쌓인다 */}
+        {others.length > 0 && (
+          <p className="sc-cv__others">
+            {others.map(([t, id]) => `${t} ${anyName(id as string)}`).join(' · ')}
+          </p>
+        )}
+      </div>
     )
   }
   if (!vote) return null

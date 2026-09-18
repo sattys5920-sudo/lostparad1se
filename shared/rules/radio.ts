@@ -112,6 +112,7 @@ export const sys = {
     to === null
       ? `${room}${josa(room, '을/를')} 놓쳤다.`
       : `${room}${josa(room, '을/를')} ${to}팀에게 빼앗겼다.`,
+  captain: (team: TeamId, name: string) => `${team}팀 팀장은 ${name}${josa(name, '이/가')} 됐다.`,
   invisible: (name: string): string => `${name}${josa(name, '은/는')} 오늘 보이지 않는다.`,
   /** 숫자 뒤에는 조사를 붙이지 않는다 — 「돈 3이」가 된다 */
   vaultOut: (money: number, knowledge: number): string => {
