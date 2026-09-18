@@ -35,6 +35,7 @@ import { DealAsk } from './DealAsk'
 import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
 import { TransferAsk } from './TransferAsk'
 import { CaptainVote } from './CaptainVote'
+import { phaseOf } from '../../../shared/rules/captain'
 import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
 import { useTransfer } from './useTransfer'
@@ -45,6 +46,7 @@ import { uiIcon } from './uiArt'
 import type { Dir } from '../map/sprites'
 import './controls.css'
 import { People } from './People'
+import { Notes } from './Notes'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
@@ -454,7 +456,7 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 }
 
 /** 아래 탭바의 세 칸. 화면은 세 장뿐이고, 나머지는 전부 시트다. */
-type Tab = 'map' | 'me' | 'note' | 'radio'
+type Tab = 'map' | 'me' | 'radio' | 'vote' | 'note'
 
 /** 컨트롤 바의 「더보기」에서 열리는 것들. */
 type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop' | 'team'
@@ -466,9 +468,10 @@ type SheetId = 'act' | 'talk' | 'more' | 'hand' | 'shop' | 'team'
  * 104 · 탭바 56. 높이를 %로 나누면 주소창이 줄었다 늘었다 할 때마다
  * 탭바가 화면 밖으로 밀려 나간다. flex 로 나누고 dvh 로 잰다.
  *
- * 탭은 세 장이지만 **만나야 하는 일은 여전히 맵에서만 일어난다.**
- * 「나」는 내 것만 보고, 「수첩」은 지나간 것만 본다 — 거기서 학교
- * 반대편 사람에게 말을 걸 수는 없다.
+ * 탭은 다섯 장이지만 **만나야 하는 일은 여전히 맵에서만 일어난다.**
+ * 「나」는 내 것만 보고, 「투표」는 표만 던지고, 「메모」는 나만 본다 —
+ * 거기서 학교 반대편 사람에게 말을 걸 수는 없다. 「무전」 하나가
+ * 예외인데, 그것도 같은 팀에게만 간다.
  *
  * 무엇을 할 수 있는지는 여전히 화면이 판단하지 않는다. 안 되는 것은
  * 서버가 거절하고 그 이유를 말해 준다.
@@ -665,6 +668,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       : 'walking'
 
   const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
+
+  /**
+   * 우리 팀 팀장 투표가 지금 열려 있는가.
+   *
+   * 상의하는 자리(무전)와 뽑는 자리(투표)가 갈렸다. 열린 것을 모르고
+   * 지나치면 그날 팀장이 안 정해지므로, 탭에 점을 찍고 무전 위에도
+   * 한 줄 가리킨다.
+   */
+  const captainVote = state.teams[me?.team ?? 'A']?.captainVote ?? null
+  const captainOpen = captainVote ? phaseOf(captainVote, nowMs) !== 'closed' : false
 
   /**
    * 십자키 네 칸이 어떤 얼굴을 하는가.
@@ -999,6 +1012,30 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           />
         )}
 
+        <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
+      </section>
+
+      {/* ── 투표 탭 ───────────────────────────────────────────
+          **표는 전부 여기서 던진다.** 팀장 투표는 무전 안에, 투명인간
+          투표는 「나」 안에, 신뢰·호감표는 그 아래에 흩어져 있었다 —
+          같은 일인데 세 군데였고, 어디서 하는지 외워야 했다 */}
+      <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'vote'}>
+        <header className="sc-pl__paneHead">
+          <h2>투표</h2>
+          <span>DAY {game.day}</span>
+        </header>
+
+        {/* 하루를 여는 표. 우리 팀끼리만 한다 */}
+        <CaptainVote
+          me={me}
+          seats={game.seats}
+          captainId={state.teams[me.team]?.captainId ?? null}
+          vote={state.teams[me.team]?.captainVote ?? null}
+          nowMs={nowMs}
+          act={act}
+          onSaid={setSaid}
+        />
+
         {/* 오늘의 투명인간. **만나지 않고 하는 투표라 언제 어디서든 열린다** —
             페이즈 중에 감추면 그날 표를 던질 틈이 자유 시간뿐이라,
             전선에 붙어 있던 사람만 못 던지는 일이 생긴다 */}
@@ -1029,35 +1066,43 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           act={act}
           onSaid={setSaid}
         />
-
-        <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
       </section>
 
-      {/* ── 수첩 탭 ───────────────────────────────────────────
-          지나간 것만 본다 */}
       {/* ── 무전 탭 ───────────────────────────────────────────
           방에 매이지 않는 유일한 말이다. 흩어져서도 팀이 팀으로
           움직이려면 떨어져서 말이 통해야 한다 */}
       <section className="sc-pl__tab sc-pl__radio" hidden={tab !== 'radio'}>
-        {/* 상의하는 자리와 뽑는 자리가 같아야 한다. 창이 딴 데서 뜨면
-            무전으로 맞춰 놓고 아무도 안 적는다 */}
-        <CaptainVote
-          me={me}
-          seats={game.seats}
-          captainId={state.teams[me.team]?.captainId ?? null}
-          vote={state.teams[me.team]?.captainVote ?? null}
-          nowMs={nowMs}
-          act={act}
-          onSaid={setSaid}
-        />
+        {/*
+          팀장 투표는 투표 탭으로 갔다. **상의하는 자리와 뽑는 자리가
+          갈렸으니** 여기서 한 줄로 가리킨다 — 무전으로 다 맞춰 놓고
+          아무도 안 적는 일이 생기면 안 된다.
+        */}
+        {captainOpen && (
+          <button className="sc-pl__toVote" onClick={() => setTab('vote')}>
+            팀장 투표가 열렸다 — 투표 탭에서 적는다
+          </button>
+        )}
         <Chat me={me} hereName={null} act={act} onSaid={setSaid} channel="team" />
       </section>
 
+      {/* ── 메모 탭 ───────────────────────────────────────────
+          **나만 본다.** 어떤 판정에도 안 쓰고 운영자 대시보드에도
+          안 나간다. 전에는 수첩 → 보관함 → 사람들로 두 겹 안이었다 */}
       <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'note'}>
         <header className="sc-pl__paneHead">
-          <h2>수첩</h2>
-          <span>지난 페이즈</span>
+          <h2>메모</h2>
+          <span>열셋</span>
         </header>
+        {uid && (
+          <Notes
+            gameId={gameId}
+            meId={uid}
+            classmates={game.seats
+              .filter((sx) => sx.playerId !== uid)
+              .map((sx) => ({ id: sx.playerId, name: sx.name }))}
+          />
+        )}
+        <h3 className="sc-pl__paneSub">지난 페이즈</h3>
         <PhaseLog rows={state.phaseLog} seats={game.seats} />
         <button className="sc-pl__wide" onClick={() => setArchive(true)}>보관함 열기</button>
       </section>
@@ -1070,7 +1115,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           { key: 'map', icon: 'tabMap', label: '맵' },
           { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0 },
           { key: 'radio', icon: 'tabRadio', label: '무전' },
-          { key: 'note', icon: 'tabNote', label: '수첩' },
+          // 팀장 투표가 열려 있으면 점을 찍는다. 무전에서 떼어 온 대신,
+          // 열린 것을 모르고 지나치지는 않게 한다
+          { key: 'vote', icon: 'tabVote', label: '투표', dot: captainOpen },
+          { key: 'note', icon: 'tabNote', label: '메모' },
         ]}
       />
 

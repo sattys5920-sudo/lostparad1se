@@ -137,7 +137,17 @@ export function Archive(props: ArchiveProps) {
   )
 }
 
-function PersonBoard({
+/**
+ * 열셋 명단에 각자 역할 태그와 한 줄 메모를 단다.
+ *
+ * **보관함 안에만 두었더니 두 겹 안이었다** — 수첩 탭을 열고 거기서
+ * 다시 보관함을 열어야 나왔다. 판이 도는 동안 제일 자주 끄적일 자리가
+ * 제일 깊은 데 있었다. 지금은 메모 탭이 이것을 바로 편다.
+ *
+ * 규칙이 `request.auth.uid == playerId` 하나로 본인 말고는 읽지도
+ * 쓰지도 못하게 막는다. 운영자 대시보드에도 안 나간다.
+ */
+export function PersonBoard({
   note,
   classmates,
   onNoteChange,

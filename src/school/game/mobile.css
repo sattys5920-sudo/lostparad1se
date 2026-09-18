@@ -306,6 +306,55 @@
 
 .sc-pl__none { margin: 0; color: var(--sc-text-dim); font-size: 12px; }
 
+/*
+ * 메모 탭의 사람 판.
+ *
+ * 그림은 보관함 것을 그대로 쓴다(reveal.css 의 .sc-ar__board). 거기는
+ * 어두운 전체 화면이라 색이 어두운데, 여기는 밝은 판이다 — 색만
+ * 갈아 끼운다. 판 자체를 두 벌로 짜 두면 한쪽만 고치게 된다.
+ */
+.sc-pl__tab .sc-ar__board {
+  --nb-field: #fff;
+  --nb-line: var(--sc-line);
+  --nb-line-soft: #e2e5e8;
+  --nb-text: var(--sc-text);
+  --nb-dim: var(--sc-text-dim);
+}
+
+/* 한 줄 메모는 손가락으로 누른다 */
+.sc-pl__tab .sc-ar__person-note { min-height: 40px; font-size: 16px; }
+.sc-pl__tab .sc-ar__guess { min-height: 40px; font-size: 16px; }
+
+/* 한 판 안의 작은 머리말. 메모 탭에서 사람 판과 지난 페이즈를 가른다 */
+.sc-pl__paneSub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sc-text-dim);
+  letter-spacing: 0.03em;
+}
+
+/*
+ * 무전에서 투표 탭으로 보내는 한 줄.
+ *
+ * 팀장 투표가 무전 안에 있었다. 투표 탭으로 옮기면서 상의하는 자리와
+ * 뽑는 자리가 갈렸으니, **열린 줄 모르고 지나치지 않게** 여기서
+ * 가리킨다. 점은 탭바에도 찍힌다.
+ */
+.sc-pl__toVote {
+  flex: none;
+  width: 100%;
+  appearance: none;
+  min-height: 44px;
+  border: 1px solid var(--sc-accent);
+  border-radius: 6px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
 /* 여섯 칸에서 밀려난 행동. 조작부와 같은 그림, 같은 이름이다 */
 .sc-pl__spill { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
 .sc-pl__spill button {
