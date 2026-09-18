@@ -30,6 +30,7 @@ import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnl
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
+import { Say } from './Say'
 import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
@@ -221,7 +222,6 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const NOT_YET = '아직 시작 전이다. 운영자가 열어야 할 수 있다.'
   const beforeDirs = useMemo(() => padFace(ways, false, 0, ENTER_COST), [ways])
   const beforeGrid: Act[] = [
-    { key: 'talk', icon: 'talk', label: '말', why: NOT_YET, run: () => {} },
     { key: 'hand', icon: 'hand', label: '손패', why: NOT_YET, run: () => {} },
     { key: 'room', icon: 'room', label: '이 방', why: NOT_YET, run: () => {} },
     { key: 'atlas', icon: 'atlas', label: '전체 맵', why: NOT_YET, run: () => {} },
@@ -834,8 +834,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
         ]
       : [
-          // 자유 시간에 하는 일 — 만나서 이야기하고, 손패를 보고, 거래한다
-          { key: 'talk', icon: 'talk', label: '말', run: () => setSheet('talk') },
+          // 자유 시간에 하는 일. **「말」은 여기 없다** — 화면 아래에
+          // 늘 떠 있는 줄로 옮겼다. 말하는 것이 생산·공부와 같은 칸에
+          // 서 있으면, 한마디 건네는 일이 마음먹고 고르는 행동이 된다
           { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
         ]
     const tail: Act[] = [
@@ -1006,6 +1007,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
         <div className="sc-ct">
           <Toast text={toast} />
+          {/* 말줄. **늘 떠 있다** — 오간 말은 지도 아래에 몇 줄 떠 있다가
+              지워지고, 전체는 그 줄을 눌러 편다 */}
+          <Say
+            me={me}
+            hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+            act={act}
+            onSaid={setSaid}
+            onOpen={() => setSheet('talk')}
+          />
           {/* 자유 시간에는 토큰 칸이 아예 없다. 쓸 데가 없는 숫자다 */}
           <ResourceRow
             tokens={phaseOpen ? (state.view?.myTeamTokens ?? null) : null}

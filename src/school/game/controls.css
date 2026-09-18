@@ -391,3 +391,110 @@
 @media (max-height: 459px) {
   .sc-ct { --ct-ctl: 88px; --ct-key: 28px; }
 }
+
+/* ── 말줄 ────────────────────────────────────────────────────
+ * 화면 아래에 늘 떠 있는 한 줄. 전에는 「말」 단추를 눌러 창을 열어야
+ * 했는데, 그러면 말하는 일이 생산·공부와 같은 칸에 선 **행동 하나**가
+ * 된다 — 옆에 누가 서 있어도 한마디 건네려면 두 번을 눌러야 했다.
+ */
+.sc-sy {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--ct-line);
+}
+
+/*
+ * 오간 말은 **지도 위에 뜬다.** 줄을 따로 내주면 그만큼 지도가 작아지고,
+ * 지도는 이 화면에서 제일 큰 것이라 몇 픽셀이 바로 보인다.
+ */
+.sc-sy__peek {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-bottom: 4px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: rgba(8, 10, 16, 0.72);
+  color: #cfd6e4;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sc-sy__line {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-sy__line b { color: var(--ct-gold); font-weight: 700; margin-right: 5px; }
+.sc-sy__line.is-me b { color: #e6edf7; }
+/* 지워진 채로 친 말. 본인에게만 원문이 보인다 */
+.sc-sy__line.is-muted { color: #6b7386; font-style: italic; }
+
+.sc-sy__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+/*
+ * **겹수를 한 겹 올린다.** theme.css 의 `.school-root input{font-size:
+ * inherit}` 이 겹수가 같으면서 뒤에 실린다 — 클래스 하나로는 진다.
+ * 그러면 조작부의 14px 를 물려받고, 아이폰은 16px 미만인 칸을 누르면
+ * 화면을 확대해 버린다. 로그인 칸에서 똑같이 당했던 자리다.
+ */
+.sc-sy .sc-sy__box {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--ct-line);
+  border-radius: 3px;
+  background: #171a2b;
+  color: #e6edf7;
+  font-family: inherit;
+  font-size: 16px;
+}
+.sc-sy__box::placeholder { color: #6b7386; font-size: 12px; }
+.sc-sy__box:disabled { background: #14172440; color: #5a6076; }
+.sc-sy__box:focus { outline: none; border-color: var(--ct-gold); }
+
+/* 손끝이 닿아야 하는 최소 크기는 44 다. 보이는 것은 34 라도 */
+.sc-sy__send {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 34px;
+  border: 1px solid var(--ct-line);
+  border-radius: 3px;
+  background: #232840;
+  color: var(--ct-gold);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sc-sy__send:disabled { color: #545a74; cursor: default; }
+.sc-sy__send::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  bottom: -5px;
+}

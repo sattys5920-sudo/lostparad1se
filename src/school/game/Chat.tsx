@@ -9,21 +9,13 @@
 //
 // 지워진 사람의 말은 서버가 「…」로 바꿔 보낸다. 본인 화면에만 원문이
 // 남는다. 자기가 무슨 말을 했는지는 안다. 다만 아무도 듣지 않았다.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { CHAT_MAX_LEN } from '../../../shared/rules/v2'
-import { CHAT_POLL_MS } from './timing'
+import { useChatLines, type ChatLine } from './useChat'
 import type { GameActions } from './useGame'
 
-export interface ChatLine {
-  playerId: string
-  name: string
-  team: string
-  atMs: number
-  text: string
-  /** 전해지지 않은 줄. 지워진 채로 친 말이다. */
-  muted: boolean
-}
+export type { ChatLine }
 
 export interface ChatProps {
   me: { playerId: string; team: string }
@@ -45,39 +37,10 @@ export function Chat({ me, hereName, act, onSaid, channel = 'room' }: ChatProps)
   const team = channel === 'team'
   // 무전은 걷는 중에도 된다. 자리가 아니라 팀에 매인 줄이다
   const open = team ? true : hereName !== null
-  const [lines, setLines] = useState<ChatLine[]>([])
+  const { lines, pull } = useChatLines(act, channel)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
-  const sinceRef = useRef(0)
-  const pullingRef = useRef(false)
   const tailRef = useRef<HTMLDivElement | null>(null)
-
-  // 채팅은 secret/ 아래에 있어서 구독할 수 없다. 규칙이 막아서가
-  // 아니라 원문을 그대로 내려보내면 「…」가 의미를 잃기 때문이다.
-  // 그래서 서버에 물어보는 수밖에 없다
-  const pull = useCallback(async () => {
-    // 보내고 나서 바로 한 번, 그리고 주기적으로 한 번. 둘이 겹치면
-    // 같은 줄을 두 번 붙인다 — 먼저 들어온 쪽이 끝날 때까지 기다린다
-    if (pullingRef.current) return
-    pullingRef.current = true
-    try {
-      const res = (await (team ? act.radioLines(sinceRef.current) : act.chatLines(sinceRef.current))) as { lines?: ChatLine[] }
-      const fresh = res.lines ?? []
-      if (fresh.length === 0) return
-      sinceRef.current = Math.max(sinceRef.current, ...fresh.map((l) => l.atMs))
-      setLines((old) => [...old, ...fresh])
-    } catch {
-      // 잠깐 끊긴 것뿐이다. 다음 번에 다시 가져온다
-    } finally {
-      pullingRef.current = false
-    }
-  }, [act, team])
-
-  useEffect(() => {
-    void pull()
-    const t = setInterval(() => void pull(), CHAT_POLL_MS)
-    return () => clearInterval(t)
-  }, [pull])
 
   useEffect(() => {
     tailRef.current?.scrollIntoView({ block: 'end' })
