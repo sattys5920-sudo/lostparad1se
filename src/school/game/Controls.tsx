@@ -38,6 +38,47 @@ export function buzz(kind: 'step' | 'act'): void {
   navigator.vibrate?.(kind === 'step' ? 8 : 18)
 }
 
+/**
+ * 연출을 줄일 것인가. 이것도 기기에만 남는다.
+ *
+ * 켜 두면 접히고 떨어지는 장면을 건너뛰고 결과만 뜬다. 오래된 폰에서
+ * 프레임이 끊기는 것을 참느니 아예 안 보는 편이 낫고, 열네 명이
+ * 같은 판을 도는 게임이라 **연출 때문에 느려지는 사람이 있으면
+ * 그 사람만 늦는다.**
+ */
+const PLAIN_KEY = 'sc-plain'
+
+export function plainOn(): boolean {
+  try {
+    return localStorage.getItem(PLAIN_KEY) === 'on'
+  } catch {
+    return false
+  }
+}
+export function setPlain(on: boolean): void {
+  try {
+    localStorage.setItem(PLAIN_KEY, on ? 'on' : 'off')
+  } catch {
+    // 비공개 창. 설정 하나 때문에 화면이 멈추면 안 된다
+  }
+}
+
+/**
+ * 지금 연출을 접어야 하는가.
+ *
+ * 기기 설정(prefers-reduced-motion)도 따른다. **둘 중 하나만 켜져
+ * 있어도 접는다** — 운영체제에서 이미 꺼 둔 사람에게 앱 설정을 또
+ * 찾게 하지 않는다.
+ */
+export function motionOff(): boolean {
+  if (plainOn()) return true
+  try {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    return false
+  }
+}
+
 // ── 자원 줄 ─────────────────────────────────────────────────────
 
 /**

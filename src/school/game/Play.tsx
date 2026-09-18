@@ -41,7 +41,20 @@ import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
 import { useTransfer } from './useTransfer'
 import { pushLive, useLive } from './useLive'
-import { ActionGrid, Pad, ResourceRow, TabBar, Toast, buzzOn, setBuzz, useToast, padFace, type Act } from './Controls'
+import {
+  ActionGrid,
+  Pad,
+  ResourceRow,
+  TabBar,
+  Toast,
+  buzzOn,
+  padFace,
+  plainOn,
+  setBuzz,
+  setPlain,
+  useToast,
+  type Act,
+} from './Controls'
 import { TEAM_COLOR } from './MapPlan'
 import { uiIcon } from './uiArt'
 import type { Dir } from '../map/sprites'
@@ -52,9 +65,11 @@ import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
-import { ENTER_COST, MOVE_MINUTES } from '../../../shared/rules/occupy'
+import { ENTER_COST, MOVE_MINUTES, PHASES_PER_DAY } from '../../../shared/rules/occupy'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
+import { armSfx } from './sfx'
 import './play.css'
+import './ballot.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
 
@@ -533,6 +548,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [miniOn, setMiniOn] = useMiniMapOn()
   const [snowOff, setSnowOffState] = useState(snowIsOff)
   const [buzzing, setBuzzing] = useState(buzzOn)
+  const [plain, setPlainState] = useState(plainOn)
   // 십자키는 컨트롤 바에 있고 그림은 위에 있다. 자리만 건네준다
   const padRef = useRef<HTMLDivElement | null>(null)
   const [asking, ask] = useAsk()
@@ -631,6 +647,18 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // **판마다 시계가 따로 돈다.** 서버와 같은 함수로 잰다
   const nowMs = useGameNow(state.game?.clock)
 
+  /**
+   * 화면 어디든 처음 닿으면 소리 장치를 연다.
+   *
+   * 브라우저가 손끝이 닿기 전에는 안 열어 주기도 하고, 들어오자마자
+   * 소리가 나면 조용히 보려던 사람이 놀라기도 한다. 한 번만 듣는다
+   */
+  useEffect(() => {
+    const on = () => armSfx()
+    window.addEventListener('pointerdown', on, { once: true })
+    return () => window.removeEventListener('pointerdown', on)
+  }, [])
+
   // 걷는 동안에는 서버를 두드려 준다. 도착은 따라잡기가 처리하는데,
   // 아무도 부르지 않으면 영영 안 돈다 — 문을 넘어 놓고 「이동 중」에
   // 갇혀서, 밖에서 보기에는 방에서 방으로 못 건너가는 것과 같다
@@ -671,6 +699,27 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       : 'walking'
 
   const phaseEndsAtMs = state.game?.phaseNow?.endsAtMs ?? null
+
+  /**
+   * 오늘 표가 이미 세어졌는가.
+   *
+   * 집계는 **그날 마지막 교시가 닫힐 때** 한 번 돈다(settleBallots).
+   * 그 교시가 닫힌 뒤부터 자정까지는 종이를 내밀어도 소용이 없으므로
+   * 화면에서 잠근다.
+   */
+  const ballotClosed =
+    state.game?.phase !== 'running' || (phaseNo > 0 && phaseNo % PHASES_PER_DAY === 0 && !phaseOpen)
+  /**
+   * 마감까지 몇 분인가. **모르면 안 적는다.**
+   *
+   * 교시는 운영자가 하나씩 연다. 마지막 교시가 아직 열리지 않았으면
+   * 언제 닫힐지 아무도 모르고, 그럴 때 그럴듯한 숫자를 적어 두면
+   * 그 숫자를 믿고 기다리다 못 던지는 사람이 생긴다.
+   */
+  const ballotClosesInMin =
+    phaseOpen && phaseNo % PHASES_PER_DAY === 0 && phaseEndsAtMs !== null
+      ? Math.max(0, Math.ceil((phaseEndsAtMs - nowMs) / 60000))
+      : null
 
   /**
    * 우리 팀 팀장 투표가 지금 열려 있는가.
@@ -1015,48 +1064,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           />
         )}
 
-        <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
-      </section>
-
-      {/* ── 투표 탭 ───────────────────────────────────────────
-          **표는 전부 여기서 던진다.** 팀장 투표는 무전 안에, 투명인간
-          투표는 「나」 안에, 신뢰·호감표는 그 아래에 흩어져 있었다 —
-          같은 일인데 세 군데였고, 어디서 하는지 외워야 했다 */}
-      <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'vote'}>
-        <header className="sc-pl__paneHead">
-          <h2>투표</h2>
-          <span>DAY {game.day}</span>
-        </header>
-
-        {/* 하루를 여는 표. 우리 팀끼리만 한다 */}
-        <CaptainVote
-          me={me}
-          seats={game.seats}
-          captainId={state.teams[me.team]?.captainId ?? null}
-          vote={state.teams[me.team]?.captainVote ?? null}
-          nowMs={nowMs}
-          act={act}
-          onSaid={setSaid}
-        />
-
-        {/* 오늘의 투명인간. **만나지 않고 하는 투표라 언제 어디서든 열린다** —
-            페이즈 중에 감추면 그날 표를 던질 틈이 자유 시간뿐이라,
-            전선에 붙어 있던 사람만 못 던지는 일이 생긴다 */}
-        <Ballot
-          me={me}
-          seats={game.seats}
-          captainIds={Object.values(state.teams)
-            .map((t) => t?.captainId ?? null)
-            .filter((id): id is string => typeof id === 'string')}
-          invisibleId={game.invisibleId ?? null}
-          day={game.day}
-          view={state.view}
-          act={act}
-          onSaid={setSaid}
-          ask={ask}
-        />
-
-        {/* 신뢰·호감표. 마주 선 사람에게 주는 것이라 페이즈에도 준다 */}
+        {/* 신뢰·호감표 · 털어놓기. **마주 선 사람에게만 하는 일이다** —
+            투표 탭은 만나지 않고 하는 배제만 맡고, 만나서 하는 일은
+            내 것들과 함께 여기 있다 */}
         <People
           me={me}
           seats={game.seats}
@@ -1068,6 +1078,44 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           day4={state.view?.myChoice?.day4 ?? null}
           act={act}
           onSaid={setSaid}
+        />
+
+        <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
+      </section>
+
+      {/* ── 투표 탭 ───────────────────────────────────────────
+          **투표용지 한 장뿐이다.** 목록에서 이름을 누르고 끝나면 표를
+          던진 일이 설거지 같아진다 — 접어서 넣는 데 시간이 들어야
+          되돌릴 수 없는 일로 느껴진다.
+
+          신뢰·호감표와 털어놓기는 여기서 뺐다. 그쪽은 **마주 선
+          사람에게** 하는 일이라 내 것들이 모인 「나」 탭으로 갔다 */}
+      <section className="sc-pl__tab sc-pl__stage" hidden={tab !== 'vote'}>
+        <Ballot
+          me={me}
+          seats={game.seats}
+          captainIds={Object.values(state.teams)
+            .map((t) => t?.captainId ?? null)
+            .filter((id): id is string => typeof id === 'string')}
+          invisibleId={game.invisibleId ?? null}
+          day={game.day}
+          view={state.view}
+          act={act}
+          onSaid={setSaid}
+          closed={ballotClosed}
+          closesInMin={ballotClosesInMin}
+          /* 하루를 여는 표. 우리 팀끼리만 하고, 없으면 줄도 안 뜬다 */
+          head={
+            <CaptainVote
+              me={me}
+              seats={game.seats}
+              captainId={state.teams[me.team]?.captainId ?? null}
+              vote={state.teams[me.team]?.captainVote ?? null}
+              nowMs={nowMs}
+              act={act}
+              onSaid={setSaid}
+            />
+          }
         />
       </section>
 
@@ -1399,6 +1447,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               }}
             >
               {buzzing ? '진동 끄기' : '진동 켜기'}
+            </button>
+            {/* 오래된 폰에서 접히고 떨어지는 장면이 끊기면, 안 보는 편이 낫다 */}
+            <button
+              onClick={() => {
+                const next = !plain
+                setPlain(next)
+                setPlainState(next)
+              }}
+            >
+              {plain ? '연출 켜기' : '연출 줄이기'}
             </button>
             <button
               onClick={() => {

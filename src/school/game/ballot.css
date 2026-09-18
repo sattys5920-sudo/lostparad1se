@@ -1,0 +1,450 @@
+/* 투표 탭 — 투표용지 한 장.
+ *
+ * 밝은 회색 목록이 아니라 **종이 한 장**이다. 문(로그인)에서 쓰는
+ * 구겨진 용지와 같은 조각을 쓴다 — 들어올 때 손에 쥔 것과 표를 던질
+ * 때 손에 쥔 것이 같은 종이여야 한다.
+ *
+ * 도트는 전부 정확히 2 배로 늘린다. 소수 배율을 한 군데라도 쓰면
+ * 구김과 접힌 자국이 흐려지고, 그 순간 종이가 아니라 이미지가 된다.
+ */
+
+.sc-bt {
+  --bt-w: 300px;
+  --bt-ink: #2e2a22;
+  --bt-faint: #8a8371;
+  --bt-red: #7a2e2a;
+  --bt-rule: #c0b8a5;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #161a26;
+}
+
+/* ── 맨 윗줄 ─────────────────────────────────────────────── */
+
+.sc-bt__top {
+  flex: none;
+  margin: 0;
+  padding: 14px 16px 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #7f8aa3;
+  text-align: center;
+}
+
+/* 팀장 판이 여기로 들어온다. 어두운 바탕에 맞춰 다시 칠한다 */
+.sc-bt .sc-cv {
+  flex: none;
+  margin: 0 16px 10px;
+  padding: 8px 12px;
+  border: 1px solid #2a3040;
+  border-radius: 2px;
+  background: #1b2030;
+  color: #9fb0c8;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.sc-bt .sc-cv b { color: #d8e2f0; }
+.sc-bt .sc-cv em { color: #6f7f99; font-style: normal; }
+.sc-bt .sc-cv__who button {
+  border: 1px solid #3a4254;
+  background: #232a3c;
+  color: #cfdbe9;
+}
+
+/* ── 가운데 ──────────────────────────────────────────────── */
+
+.sc-bt__mid {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 0 8px;
+}
+
+.sc-bt__hold {
+  position: relative;
+  flex: none;
+  /* 접힐 때 1~2px 흔들린다. 정수만 쓰므로 도트는 그대로다 */
+  will-change: transform;
+}
+
+/* ── 첫 번째 접힘 ────────────────────────────────────────
+ * 오른쪽 절반이 가운데 선을 넘어오는 중이다. 보이는 폭은 78% 로 줄고,
+ * 50%~78% 는 **넘어온 장의 뒷면**이라 글자가 없고 밝다. 그 경계에
+ * 꺾인 자국이 한 줄 생긴다.
+ *
+ * 여기까지는 진짜 종이를 깎아서 한다. 글자가 있는 장은 미리 구울 수
+ * 없기 때문이다 — 이름이 판마다 다르다. 다음 장부터는 글자가 아예
+ * 안 보이므로 구워 둔 그림으로 넘긴다.
+ */
+.sc-bt__hold.is-half {
+  clip-path: inset(0 22% 0 0);
+}
+
+.sc-bt__back {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 28%;
+  background: #e6e0cf;
+}
+/* 넘어온 장의 바깥 끝. 그늘이 한 줄 진다 */
+.sc-bt__back::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  background: #c9c1ad;
+}
+
+.sc-bt__line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -2px;
+  background: #c2baa7;
+}
+
+/* 종이를 치울 때. **자리는 남긴다** — 높이를 재야 접힘 그림을 굽는다 */
+.sc-bt__hold.is-away {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: calc(var(--bt-w) / -2);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sc-bt__paper {
+  position: relative;
+  width: var(--bt-w);
+}
+
+/* ── 종이 그림 — 아홉 조각 ────────────────────────────────
+ * 모서리 넷은 56px 고정, 가장자리 넷은 이어 붙이고, 가운데는 평평하다.
+ * 구김이 네 모서리에만 있는 까닭이다.
+ */
+.sc-bt__sheet {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(2px 2px 0 #0d1019);
+}
+
+.sc-bt__flat {
+  position: absolute;
+  inset: 28px;
+  background: #d5cebc;
+}
+
+.sc-bt__c,
+.sc-bt__e {
+  position: absolute;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+}
+
+.sc-bt__c {
+  width: 56px;
+  height: 56px;
+  background-size: 56px 56px;
+}
+.sc-bt__c--tl { top: 0; left: 0; }
+.sc-bt__c--tr { top: 0; right: 0; }
+.sc-bt__c--bl { bottom: 0; left: 0; }
+.sc-bt__c--br { bottom: 0; right: 0; }
+
+.sc-bt__e--t,
+.sc-bt__e--b {
+  left: 56px;
+  right: 56px;
+  height: 28px;
+  background-repeat: repeat-x;
+  background-size: 32px 28px;
+}
+.sc-bt__e--t { top: 0; }
+.sc-bt__e--b { bottom: 0; }
+
+.sc-bt__e--l,
+.sc-bt__e--r {
+  top: 56px;
+  bottom: 56px;
+  width: 28px;
+  background-repeat: repeat-y;
+  background-size: 28px 32px;
+}
+.sc-bt__e--l { left: 0; }
+.sc-bt__e--r { right: 0; }
+
+/* ── 종이 위의 글 ────────────────────────────────────────
+ * 위아래 옆으로 28px 는 모서리 구김이 차지한 자리다. 글자가 접힌
+ * 면을 밟으면 안 읽힌다.
+ */
+.sc-bt__in {
+  position: relative;
+  padding: 26px 28px 22px;
+  font-family: var(--sc-font-body, inherit);
+}
+
+.sc-bt__label {
+  margin: 0 0 14px;
+  font-size: 11px;
+  letter-spacing: 0.5em;
+  /* 자간이 오른쪽에도 붙는다. 그만큼 왼쪽으로 당겨야 가운데에 온다 */
+  text-indent: 0.5em;
+  text-align: center;
+  color: var(--bt-faint);
+}
+
+/* 가운데 접는 선. 여기서 반으로 접힌다 */
+.sc-bt__fold {
+  position: absolute;
+  top: 22px;
+  bottom: 18px;
+  left: 50%;
+  width: 1px;
+  background: var(--bt-rule);
+  opacity: 0.7;
+}
+
+/* ── 이름 열셋 ───────────────────────────────────────────
+ * 두 줄로 세운다. **왼쪽을 다 읽고 오른쪽으로 넘어간다** — 가로로
+ * 채우면 이름이 지그재그로 흩어져서 아는 이름을 찾는 데 시간이 든다.
+ */
+.sc-bt__names {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(var(--bt-rows, 7), auto);
+  column-gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sc-bt__names li { margin: 0; }
+
+.sc-bt__name {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 0 2px 7px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--bt-ink);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 밑줄. **자리를 안 차지하는 자리에 그린다** — 굵기가 1px 에서 2px 로
+   바뀔 때 줄이 밀리면 고른 순간 종이 전체가 한 칸 내려앉는다 */
+.sc-bt__name::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  height: 1px;
+  background: var(--bt-rule);
+}
+
+.sc-bt__name i {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--bt-red);
+  opacity: 0;
+}
+
+.sc-bt__name.is-on { color: var(--bt-red); font-weight: 700; }
+.sc-bt__name.is-on::after { height: 2px; background: var(--bt-red); }
+.sc-bt__name.is-on i { opacity: 1; }
+
+.sc-bt__name:disabled { cursor: default; opacity: 0.75; }
+
+/* ── 아래 글 ─────────────────────────────────────────────── */
+
+.sc-bt__murmur {
+  margin: 14px 0 0;
+  color: #a79e88;
+  font-size: 9px;
+  line-height: 1.8;
+}
+.sc-bt__murmur p { margin: 0; }
+
+.sc-bt__foot {
+  margin: 10px 0 0;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  color: var(--bt-faint);
+}
+
+/* ── 접힌 조각 ───────────────────────────────────────────
+ * 미리 구운 네 장을 배경 위치만 옮겨 갈아 끼운다. 회전은 안 쓴다 —
+ * 도트를 45도로 돌리면 화소가 화소에 안 맞아서 가장자리가 흐려진다.
+ */
+.sc-bt__slip {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  filter: drop-shadow(2px 2px 0 #0d1019);
+  will-change: transform;
+}
+
+/* 투입구 아래로는 안 보인다 */
+.sc-bt__air {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── 투표함 ──────────────────────────────────────────────── */
+
+/* 크기는 화면이 정한다 — 접힌 종이가 들어갈 만큼 넓어야 한다 */
+.sc-bt__box,
+.sc-bt__rest {
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  filter: drop-shadow(2px 2px 0 #0d1019);
+}
+
+.sc-bt__box {
+  position: absolute;
+  z-index: 3;
+  bottom: 0;
+  left: 50%;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.sc-bt__rest { flex: none; }
+
+/* ── 아래에 남는 줄 ──────────────────────────────────────── */
+
+/* 연출이 도는 동안에는 비운다. **투표함이 올라오는 자리다** — 단추와
+   겹치면 종이가 어디로 들어가는지 안 보인다. 자리는 그대로 두므로
+   종이가 튀지 않는다 */
+.sc-bt__base.is-play { visibility: hidden; }
+
+.sc-bt__base {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 14px;
+}
+
+.sc-bt__go {
+  width: var(--bt-w);
+  min-height: 48px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--bt-red);
+  color: #ede5d4;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sc-bt__go:disabled {
+  background: #2a3040;
+  color: #5c6780;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  cursor: default;
+}
+
+.sc-bt__again {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid #3a4254;
+  border-radius: 2px;
+  background: #1b2030;
+  color: #b3c2d6;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sc-bt__done {
+  margin: 0;
+  text-align: center;
+  font-size: 17px;
+  color: #dfe7f2;
+}
+.sc-bt__done em {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
+  font-size: 11px;
+  color: #6f7f99;
+}
+
+.sc-bt__picked {
+  margin: 0;
+  font-size: 11px;
+  color: #6f7f99;
+}
+
+.sc-bt__oops {
+  margin: 0;
+  font-size: 12px;
+  color: #c2564e;
+}
+
+/* 기기에서 움직임을 줄여 두었으면 접힘과 흔들림을 다 뺀다.
+   화면(연출 줄이기)에서도 같은 자리로 모인다 — motionOff() 하나가
+   둘을 다 본다 */
+@media (prefers-reduced-motion: reduce) {
+  .sc-bt__hold,
+  .sc-bt__box,
+  .sc-bt__slip {
+    will-change: auto;
+  }
+}
+
+/* 투표 탭은 구르지 않는다. **투표함이 화면 바닥에 붙어 있어야 하고**,
+   바닥이 구르면 종이가 어디로 떨어지는지 알 수 없다 */
+.sc-pl__stage { padding: 0; }
+
+/* 서버가 물린 이름. 줄이 그어진 것처럼 둔다 — 눌러도 안 되는 것을
+   눌러 보게 두면 같은 자리에서 두 번 막힌다 */
+.sc-bt__name.is-no { color: #9a937f; }
+.sc-bt__name.is-no span { text-decoration: line-through; }
+.sc-bt__name.is-no i { opacity: 0.6; color: #9a937f; }

@@ -16,7 +16,7 @@ import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react'
 
 import { hostEnter, logIn, signUp } from '../accounts'
 import { Snow } from '../reveal/Snow'
-import { paperSlice } from './paperArt'
+import { PaperSheet } from './Paper'
 import './gate.css'
 
 type Mode = 'in' | 'up' | 'host'
@@ -153,18 +153,10 @@ export function Gate({ onIn }: { onIn: () => void }) {
       <Snow level={1} />
       <div ref={holdRef} className={`sc-gt__hold${gone ? ' is-gone' : ''}`}>
         <div className="sc-gt__paper">
-          {/* 종이 그림. 글자와 같은 상자 안에 있고, 이 상자를 가득 채운다 */}
-          <div className="sc-gt__sheet" aria-hidden="true">
-            <span className="sc-gt__flat" />
-            <span className="sc-gt__e sc-gt__e--t" style={{ backgroundImage: `url(${paperSlice('ET')})` }} />
-            <span className="sc-gt__e sc-gt__e--b" style={{ backgroundImage: `url(${paperSlice('EB')})` }} />
-            <span className="sc-gt__e sc-gt__e--l" style={{ backgroundImage: `url(${paperSlice('EL')})` }} />
-            <span className="sc-gt__e sc-gt__e--r" style={{ backgroundImage: `url(${paperSlice('ER')})` }} />
-            <span className="sc-gt__c sc-gt__c--tl" style={{ backgroundImage: `url(${paperSlice('TL')})` }} />
-            <span className="sc-gt__c sc-gt__c--tr" style={{ backgroundImage: `url(${paperSlice('TR')})` }} />
-            <span className="sc-gt__c sc-gt__c--bl" style={{ backgroundImage: `url(${paperSlice('BL')})` }} />
-            <span className="sc-gt__c sc-gt__c--br" style={{ backgroundImage: `url(${paperSlice('BR')})` }} />
-          </div>
+          {/* 종이 그림. 글자와 같은 상자 안에 있고, 이 상자를 가득 채운다.
+              투표용지와 **같은 조각을 쓴다** — 두 군데에 따로 붙여 두면
+              한쪽 구김만 고쳐지는 날이 온다 */}
+          <PaperSheet cls="sc-gt" />
 
           <div className="sc-gt__in">
             <div className="sc-gt__no">2 - 3</div>

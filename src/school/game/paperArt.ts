@@ -264,3 +264,25 @@ export function paperVars(): Record<string, string> {
   for (const k of Object.keys(ART)) out[`--pa-${k.toLowerCase()}`] = `url(${paperSlice(k)})`
   return out
 }
+
+/**
+ * 조각 하나를 다른 캔버스에 직접 찍는다. **뜯긴 자리는 뚫는다.**
+ *
+ * 접힌 종이에 모서리 구김을 옮겨 붙일 때 쓴다. 접혔다고 종이가 갑자기
+ * 반듯한 네모가 되면, 접힌 것이 아니라 다른 물건으로 바뀐 것처럼 보인다.
+ */
+export function stampSlice(ctx: CanvasRenderingContext2D, key: string, x: number, y: number): void {
+  const rows = ART[key]
+  if (!rows) return
+  for (const [dy, row] of rows.entries()) {
+    for (const [dx, c] of [...row].entries()) {
+      const color = CH[c]
+      if (!color) {
+        ctx.clearRect(x + dx, y + dy, 1, 1)
+        continue
+      }
+      ctx.fillStyle = color
+      ctx.fillRect(x + dx, y + dy, 1, 1)
+    }
+  }
+}
