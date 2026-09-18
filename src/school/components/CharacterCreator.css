@@ -1,187 +1,346 @@
-/* 캐릭터 만들기 — 손에 쥔 화면 기준. 미리보기가 위, 고르는 칸이 아래. */
+/* 나를 만든다 — 전신 거울과 서랍.
+ *
+ * 색·글꼴은 게임 조작부(controls.css)와 같은 것을 쓴다. 로그인에서
+ * 여기로, 여기서 판으로 넘어가는 동안 세계가 바뀌면 안 된다. 여기만
+ * 밝은 회색 목록이면 앱 설정 화면에 들른 것처럼 보인다.
+ *
+ * 화면은 세 덩이다. 위는 거울(안 구른다), 가운데 서랍(여기만 구른다),
+ * 아래는 정하는 단추(늘 보인다). 「이 아이로 정한다」가 화면 밖으로
+ * 밀려나면 만들 방법이 없는 화면이 된다.
+ */
 .sc-cc {
+  --cc-bg: #1c1f33;
+  --cc-face: #262b44;
+  --cc-line: #3b4266;
+  --cc-line-on: #f0d68a;
+  --cc-text: #e8e6f5;
+  --cc-dim: #9aa0c0;
+  --cc-gold: #f0d68a;
+
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  min-height: 0;
+  height: 100%;
+  background: var(--cc-bg);
+  color: var(--cc-text);
+  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
 }
+
+/* ── 전신 거울 ───────────────────────────────────────────────── */
 
 .sc-cc__stage {
+  position: relative;
+  flex: none;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 8px;
-  min-height: 200px;
-  border: 1px solid var(--sc-line-strong);
-  padding: 10px;
+  padding: 10px 8px 0;
+  /* 바닥에 깔린 빛 한 덩이. 서 있는 자리가 있어야 인물로 보인다 */
+  background: radial-gradient(ellipse 55% 40% at 50% 84%, #2b3152 0%, var(--cc-bg) 70%);
+  border-bottom: 1px solid var(--cc-line);
 }
 
-.sc-cc__stage canvas {
+.sc-cc__mirror {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+}
+
+.sc-cc__mirror canvas {
   display: block;
   image-rendering: pixelated;
 }
 
 .sc-cc__turn {
-  border: 1px solid var(--sc-line);
-  background: transparent;
-  color: var(--sc-text);
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--cc-line);
+  border-radius: 0;
+  background: var(--cc-face);
+  color: var(--cc-text);
+  font-family: inherit;
   font-size: 22px;
   line-height: 1;
-  width: 34px;
-  height: 52px;
   cursor: pointer;
 }
+.sc-cc__turn:active { background: var(--cc-line); }
 
-.sc-cc__turn:active {
-  background: var(--sc-line);
+/* 무대 네 귀퉁이에 얹는 것들. 여기 있는 것은 만드는 일이 아니라서
+   작고 조용해야 한다 — 큰 단추로 두면 「로그아웃」이 제일 먼저 눈에
+   들어온다 */
+.sc-cc__corner {
+  position: absolute;
+  top: 6px;
+  left: 6px;
 }
 
-.sc-cc__band {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-family: var(--sc-font-title);
-  font-size: 12px;
-  color: var(--sc-text);
-  border: 1px dashed var(--sc-line);
-  padding: 6px 8px;
-}
-
-.sc-cc__bandNote {
-  font-size: 10px;
-  color: var(--sc-text-dim);
-}
-
-/* 고르는 줄 — 이름표 · ‹ · 지금 고른 것 · › · 몇 번째인지 */
-.sc-cc__rows {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sc-cc__row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--sc-line);
-  padding: 2px 6px;
-}
-
-.sc-cc__rowLabel {
-  flex: 0 0 42px;
-  font-size: 11px;
-  color: var(--sc-text-dim);
-}
-
-.sc-cc__arrow {
-  border: none;
-  background: transparent;
-  color: var(--sc-text);
-  font-size: 20px;
-  line-height: 1;
-  width: 30px;
-  height: 30px;
-  cursor: pointer;
-}
-
-.sc-cc__arrow:active {
-  background: var(--sc-line);
-}
-
-/* 이름이 길든 짧든 화살표가 제자리에 있도록 가운데 칸이 남는 폭을 다 먹는다 */
-.sc-cc__rowValue {
-  flex: 1;
-  text-align: center;
-  font-family: var(--sc-font-title);
-  font-size: 13px;
-  color: var(--sc-text);
-}
-
-.sc-cc__rowCount {
-  flex: 0 0 40px;
-  text-align: right;
-  font-size: 10px;
-  color: var(--sc-text-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.sc-cc__actions {
-  display: flex;
-  gap: 6px;
-}
-
-.sc-cc__random,
-.sc-cc__done {
-  flex: 1;
-  border: 1px solid var(--sc-line-strong);
-  background: transparent;
-  color: var(--sc-text);
-  padding: 12px 0;
-  font-family: var(--sc-font-title);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.sc-cc__done {
-  background: var(--sc-text);
-  color: var(--sc-bg, #14151a);
-  border-color: var(--sc-text);
-}
-
-/* ── 복장·착용 — 나란히 놓고 견준다 ───────────────────────────
- *
- * 이 둘만 화살표가 아니라 줄이다. 이름만으로는 무엇이 다른지 몰라서
- * 하나씩 넘겨 가며 기억으로 비교해야 했다. 한 칸짜리 차이는 그렇게
- * 기억되지 않는다.
- */
-.sc-cc__wardrobe {
-  border: 1px solid var(--sc-line);
-  padding: 4px 6px 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* 복장은 여섯이라 좁은 화면에서는 옆으로 구른다. 착용 셋은 다 들어온다 */
-.sc-cc__wardrobeRow {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 2px;
-}
-.sc-cc__wardrobeRow::-webkit-scrollbar { display: none; }
-
-.sc-cc__wear {
-  flex: 0 0 auto;
-  appearance: none;
-  border: 1px solid var(--sc-line);
-  border-radius: 4px;
-  background: var(--sc-bg-2);
-  color: var(--sc-text-dim);
-  font: inherit;
-  padding: 3px 3px 2px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  cursor: pointer;
-}
-.sc-cc__wear b { font-size: 10px; font-weight: 600; }
-/* 고른 것은 테두리와 글자로 표시한다. 바탕을 칠하면 옷 색을 못 본다 */
-.sc-cc__wear.is-on {
-  border-color: var(--sc-line-strong);
-  border-width: 2px;
-  padding: 2px 2px 1px;
-  color: var(--sc-text);
-  background: var(--sc-surface);
-}
-.sc-cc__wear canvas { display: block; }
-
-.sc-cc__wearNote {
+/* 원래는 화면 아래 홀로 놓이는 단추라 윗줄과 여백을 달고 온다.
+   귀퉁이에서는 그 줄이 허공에 뜬 작대기가 된다 */
+.sc-cc__corner .sc-out {
+  display: block;
   margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sc-cc__corner .sc-out__go {
+  min-height: 32px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  font-family: inherit;
   font-size: 11px;
-  line-height: 16px;
-  color: var(--sc-text-dim);
+  color: #5b6187;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.sc-cc__dice {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--cc-line);
+  border-radius: 0;
+  background: var(--cc-face);
+  color: var(--cc-gold);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.sc-cc__dice:active { background: var(--cc-line); }
+
+/* 완장 한 줄. 고를 수 없는 것이라 단추처럼 보이면 안 된다 */
+.sc-cc__band {
+  margin: 0;
+  padding: 5px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  color: var(--cc-dim);
+  border-top: 1px dashed var(--cc-line);
+}
+
+/* ── 이름표 ─────────────────────────────────────────────────── */
+
+.sc-cc__name {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cc-line);
+}
+
+.sc-cc__name > span {
+  flex: none;
+  letter-spacing: 2px;
+  color: var(--cc-dim);
+}
+
+.sc-cc .sc-cc__name input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  height: 40px;
+  border: 0;
+  border-bottom: 2px solid var(--cc-line);
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  /* 16px 아래로 내려가면 아이폰이 화면을 확대한다. 갈무리는 11 의
+     정수 배에서만 또렷하니 22 다 */
+  font-size: 22px;
+  line-height: 1;
+  color: var(--cc-text);
+  padding: 10px 0 2px;
+}
+/* 채울 자리를 알려 주는 글씨는 적은 글씨보다 작아야 한다. 칸 자체는
+   22px 이라 아이폰이 확대하지 않는다 — 이것만 줄인다 */
+.sc-cc .sc-cc__name input::placeholder { color: #4d5378; font-size: 11px; }
+.sc-cc .sc-cc__name input:focus {
+  outline: none;
+  border-bottom-color: var(--cc-gold);
+  border-bottom-width: 3px;
+  padding-bottom: 1px;
+}
+
+/* ── 서랍 꼭지 ──────────────────────────────────────────────── */
+
+.sc-cc__tabs {
+  flex: none;
+  display: flex;
+  border-bottom: 1px solid var(--cc-line);
+}
+
+.sc-cc__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 그림 크기가 서로 달라서 글자를 바닥에 맞춰야 줄이 안 흔들린다 */
+  justify-content: flex-end;
+  gap: 2px;
+  min-height: 56px;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--cc-dim);
+  cursor: pointer;
+}
+
+/* 꼭지 그림은 지금 내 모습을 잘라 놓은 것이다 — 따로 그린 아이콘이
+   아니라서, 고르는 대로 꼭지도 같이 바뀐다 */
+.sc-cc__tab canvas {
+  display: block;
+  image-rendering: pixelated;
+  opacity: 0.55;
+}
+
+.sc-cc__tab.is-on {
+  color: var(--cc-gold);
+  border-bottom-color: var(--cc-gold);
+  background: var(--cc-face);
+}
+.sc-cc__tab.is-on canvas { opacity: 1; }
+
+/* ── 서랍 안 ────────────────────────────────────────────────── */
+
+.sc-cc__drawer {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sc-cc__secHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: var(--cc-dim);
+}
+
+/* 지금 고른 것의 이름. 칸마다 적는 대신 여기 한 번 */
+.sc-cc__secHead b {
+  flex: 1;
+  min-width: 0;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--cc-gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-cc__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 6px;
+}
+
+.sc-cc__pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  /* 손가락으로 누른다 */
+  min-height: 48px;
+  padding: 5px 2px;
+  border: 1px solid var(--cc-line);
+  border-radius: 0;
+  background: var(--cc-face);
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--cc-dim);
+  cursor: pointer;
+}
+
+.sc-cc__pick canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.sc-cc__pick b {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* 고른 것 — 테두리 금색에 한 겹 더. 색만 바꾸면 도트 위에서 안 보인다 */
+.sc-cc__pick.is-on {
+  border-color: var(--cc-line-on);
+  box-shadow: inset 0 0 0 1px var(--cc-line-on);
+  background: #2f3558;
+  color: var(--cc-gold);
+}
+
+/* 머리색 동그라미 */
+.sc-cc__chip {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border: 2px solid;
+  border-radius: 50%;
+}
+
+/* ── 정한다 ─────────────────────────────────────────────────── */
+
+.sc-cc__foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--cc-line);
+  background: var(--cc-bg);
+}
+
+.sc-cc__error {
+  margin: 0;
+  color: #e07a72;
+}
+
+.sc-cc__done {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--cc-gold);
+  border-radius: 0;
+  background: var(--cc-gold);
+  color: #241f16;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 3px;
+  padding-left: 3px;
+  cursor: pointer;
+}
+.sc-cc__done:disabled { opacity: 0.45; cursor: default; }
+
+/* 짧은 화면에서는 거울 언저리의 여백부터 줄인다. 그림 자체는
+   CharacterCreator.tsx 가 정수 배로 한 칸 내린다 */
+@media (max-height: 719px) {
+  .sc-cc__stage { padding-top: 4px; gap: 4px; }
+  .sc-cc__name { padding: 4px 12px; }
+  .sc-cc__drawer { padding-top: 8px; }
 }

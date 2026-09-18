@@ -832,72 +832,16 @@
  * 잘린 채로 끝난다.** 고를 것이 여덟 줄이라, 실제로 「이걸로 하기」가
  * 화면 밖에 있고 내려갈 수도 없었다.
  */
+/* 나를 만든다 — 속은 CharacterCreator.css 가 전부 그린다.
+   여기서는 화면을 꽉 채우고 바깥이 구르지 않게만 잡아 준다 */
 .sc-pl__setup {
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.sc-pl__setupBody {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 24px 16px 20px;
-  max-width: 520px;
-  width: 100%;
-  margin: 0 auto;
-}
-/* 구르는 상자 안의 것은 저절로 납작해진다. 눌리지 않게 막는다 */
-.sc-pl__setupBody > * { flex: 0 0 auto; }
-
-/* 정하는 단추는 늘 같은 자리에. 다 고르고 나서 찾아 헤매지 않는다 */
-.sc-pl__setupFoot {
-  flex: 0 0 auto;
-  border-top: 1px solid var(--sc-line);
-  background: var(--sc-bg);
-  padding: 10px 16px calc(10px + var(--sa-bottom));
-  display: flex;
-  flex-direction: column;
-}
-.sc-pl__setupFoot .sc-pl__go {
-  margin: 0 auto;
-  width: 100%;
-  max-width: 520px;
-  min-height: 46px;
-  border-color: var(--sc-line-strong);
-}
-/* 이름을 아직 안 적었을 때. 바탕은 그대로 두고 글자만 흐린다 */
-.sc-pl__setupFoot .sc-pl__go:disabled {
-  opacity: 1;
-  color: var(--sc-text-dim);
-  border-color: var(--sc-line);
-}
-
-.sc-pl__setup h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
-
-.sc-pl__setup > input {
-  appearance: none;
-  border: 1px solid var(--sc-line);
-  background: #f7f8f9;
-  color: var(--sc-text);
-  font: inherit;
-  font-size: 14px;
-  padding: 11px 12px;
-  border-radius: 5px;
-}
-
-/* 캐릭터 만들기는 낮의 학교에서 온 밝은 판이다. 어두운 배경 위에
-   그대로 얹으면 떠 보여서, 종이 한 장 올린 것처럼 테두리를 준다 */
-.sc-pl__setup .sc-cc {
-  border-radius: 6px;
   overflow: hidden;
 }
+.sc-pl__setup > * { flex: 1; min-height: 0; }
 
 .sc-pl__mine { margin: 0; font-size: 13px; color: var(--sc-text-2); }
 .sc-pl__mine strong { color: var(--sc-text); }
