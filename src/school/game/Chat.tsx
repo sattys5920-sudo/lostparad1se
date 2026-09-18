@@ -143,7 +143,19 @@ export function Chat({ me, hereName, act, onSaid, channel = 'room' }: ChatProps)
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) void send()
           }}
         />
-        <button disabled={busy || draft.trim().length === 0} onClick={() => void send()}>
+        {/*
+          **누르는 동안 적던 칸에서 손을 떼지 않는다.**
+
+          손가락으로 「보내기」를 누르면 먼저 입력칸이 초점을 잃는다.
+          그 순간 브라우저가 화면을 도로 굴려서 단추가 58px 위로
+          올라가고, 손을 뗀 자리에는 이미 단추가 없다 — 누른 것이
+          눌리지 않는다. 엔터로는 보내지는데 단추로는 안 보내졌다.
+        */}
+        <button
+          disabled={busy || draft.trim().length === 0}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => void send()}
+        >
           보내기
         </button>
       </div>
