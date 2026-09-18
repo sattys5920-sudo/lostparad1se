@@ -85,7 +85,18 @@ const LOOK = `(() => {
     화면높이: innerHeight,
     세로구름: Math.round(document.documentElement.scrollHeight - innerHeight),
     격자에말있나: [...document.querySelectorAll('.sc-ct__act')].some((b) => b.textContent.includes('말')),
-    떠있는줄: [...document.querySelectorAll('.sc-sy__line')].map((e) => e.textContent.trim()),
+    남은줄: [...document.querySelectorAll('.sc-sy__line')].map((e) => e.textContent.trim()),
+    풍선: [...document.querySelectorAll('.sc-wk__say')]
+      .filter((e) => getComputedStyle(e).display !== 'none')
+      .map((e) => {
+        const r = e.getBoundingClientRect()
+        const map = document.querySelector('.sc-wk').getBoundingClientRect()
+        return {
+          글: e.textContent.trim(),
+          지도안: r.top >= map.top - 1 && r.bottom <= map.bottom + 1 && r.left >= map.left - 1 && r.right <= map.right + 1,
+          안눌린다: getComputedStyle(e).pointerEvents === 'none',
+        }
+      }),
   }
 })()`
 
@@ -101,7 +112,8 @@ interface Look {
   화면높이: number
   세로구름: number
   격자에말있나: boolean
-  떠있는줄: string[]
+  남은줄: string[]
+  풍선: { 글: string; 지도안: boolean; 안눌린다: boolean }[]
 }
 
 type Page = import('playwright').Page
@@ -150,12 +162,16 @@ async function main() {
   await page.waitForTimeout(1800)
   const aloneLook = (await page.evaluate(LOOK)) as Look
 
-  // 손가락으로만 친다. 엔터는 안 쓴다
-  await page.locator('.sc-sy__box').click()
-  await page.locator('.sc-sy__box').type('아무도 없네', { delay: 30 })
-  await page.screenshot({ path: `${OUT}/sy-2-치는중.png` })
-  await page.locator('.sc-sy__send').click()
-  await page.waitForTimeout(2000)
+  // 손가락으로만 친다. 엔터는 안 쓴다. 여섯 줄을 치면 다섯만 남아야 한다
+  const said = ['아무도 없네', '여기 조용하다', '누가 왔었나', '이젤이 하나', '창밖이 밝다', '가 봐야겠다']
+  for (const [i, t] of said.entries()) {
+    await page.locator('.sc-sy__box').click()
+    await page.locator('.sc-sy__box').type(t, { delay: 15 })
+    if (i === 0) await page.screenshot({ path: `${OUT}/sy-2-치는중.png` })
+    await page.locator('.sc-sy__send').click()
+    await page.waitForTimeout(900)
+  }
+  await page.waitForTimeout(1200)
   const sent = (await page.evaluate(LOOK)) as Look
   // **손을 뗀 뒤에 재야 한다.** 치는 동안에는 탭바가 숨으므로,
   // 그때 재면 「화면 안에 있다」가 0 을 보고 통과해 버린다
@@ -170,6 +186,10 @@ async function main() {
   const sheet = await page.locator('.sc-ch').count()
   await page.screenshot({ path: `${OUT}/sy-4-펴본다.png` })
 
+  // 풍선은 잠깐이다. 시간이 지나면 사라져야 한다
+  await page.waitForTimeout(9000)
+  const later = (await page.evaluate(LOOK)) as Look
+
   console.log(
     JSON.stringify(
       {
@@ -182,7 +202,13 @@ async function main() {
           보내기높이: first.보내기높이,
         },
         '혼자일때': { 칸이꺼졌나: aloneLook.칸이꺼졌나, 안내말: aloneLook.안내말 },
-        '손가락으로보낸뒤': { 떠있는줄: sent.떠있는줄 },
+        '여섯줄치고나서': {
+          친것: said.length,
+          남은줄수: sent.남은줄.length,
+          남은줄: sent.남은줄,
+          풍선: sent.풍선,
+        },
+        '조금뒤': { 풍선: later.풍선 },
         '전체창열렸나': sheet > 0,
         틀: {
           화면높이: after.화면높이,

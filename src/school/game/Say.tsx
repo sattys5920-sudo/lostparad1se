@@ -15,11 +15,11 @@
 import { useRef, useState } from 'react'
 
 import { CHAT_MAX_LEN } from '../../../shared/rules/v2'
-import { useChatLines } from './useChat'
+import type { ChatLine } from './useChat'
 import type { GameActions } from './useGame'
 
-/** 지도 위에 띄워 두는 줄 수. 더 쌓이면 지도가 안 보인다. */
-const PEEK = 3
+/** 지도 아래에 남겨 두는 줄 수. 더 쌓이면 지도가 안 보인다. */
+const PEEK = 5
 
 export interface SayProps {
   me: { playerId: string }
@@ -29,10 +29,15 @@ export interface SayProps {
   onSaid: (text: string) => void
   /** 전체를 펴 본다. */
   onOpen: () => void
+  /**
+   * 오간 말. **가져오는 일은 바깥에서 한다** — 머리 위 풍선도 같은 줄을
+   * 봐야 하는데, 여기서 따로 세면 둘이 다른 것을 보게 된다.
+   */
+  lines: readonly ChatLine[]
+  pull: () => Promise<void>
 }
 
-export function Say({ me, hereName, act, onSaid, onOpen }: SayProps) {
-  const { lines, pull } = useChatLines(act, 'room')
+export function Say({ me, hereName, act, onSaid, onOpen, lines, pull }: SayProps) {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const boxRef = useRef<HTMLInputElement | null>(null)
@@ -74,7 +79,9 @@ export function Say({ me, hereName, act, onSaid, onOpen }: SayProps) {
                 (l.muted ? ' is-muted' : '')
               }
             >
-              <b>{l.name}</b>
+              {/* 같은 사람이 잇달아 말하면 이름 칸을 비운다. 다섯 줄에
+                  같은 이름이 다섯 번 서면 이름이 아니라 무늬가 된다 */}
+              <b>{i > 0 && peek[i - 1].playerId === l.playerId ? '' : l.name}</b>
               {l.text}
             </span>
           ))}

@@ -73,6 +73,14 @@ export interface WalkProps {
    */
   onTapPerson: (playerId: string) => void
   /**
+   * 지금 머리 위에 띄울 말. 사람 아이디 → 한 줄.
+   *
+   * **지도는 캔버스다.** 여기에 글자를 그리면 논리 화소가 160 짜리라
+   * 한글이 뭉개진다 — 풍선은 위에 겹으로 얹고, 자리만 그릴 때마다
+   * 캔버스에서 받아 옮긴다.
+   */
+  says?: Readonly<Record<string, string>>
+  /**
    * 걸음을 멈춘 자리. **서버가 이것으로 「옆에 있다」를 판정한다.**
    *
    * 칸마다 보내지 않는다 — 한 칸에 160ms 인 걸음을 칸마다 적으면
@@ -207,8 +215,12 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {} }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
+  const sayElsRef = useRef(new Map<string, HTMLDivElement>())
+  /** 지금 몇 배로 늘려 그리고 있는가. 풍선 자리를 화면 좌표로 옮길 때 쓴다 */
+  const scaleRef = useRef(1)
   /**
    * 글자만 따로 그리는 겹판.
    *
@@ -389,6 +401,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       canvas.height = vh
       canvas.style.width = `${vw * scale}px`
       canvas.style.height = `${vh * scale}px`
+      scaleRef.current = scale
       ctx.imageSmoothingEnabled = false
     }
     resize()
@@ -1024,6 +1037,40 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         self.dir,
         self.moving ? Math.floor(self.phase) : 0,
       )
+
+      placeSays(line, camX, camY)
+    }
+
+    /**
+     * 머리 위 풍선을 제자리에 놓는다.
+     *
+     * **그릴 때마다 옮긴다.** 사람이 걸어가면 풍선도 따라가야 하고,
+     * 화면이 굴러가면(카메라) 그만큼 같이 밀려야 한다. React 로
+     * 자리를 주면 한 걸음에 한 번씩 다시 그려야 해서, 여기서 직접
+     * style 만 만진다 — 파형을 움직이는 것과 같은 방식이다.
+     */
+    function placeSays(line: readonly Standee[], camX: number, camY: number): void {
+      const els = sayElsRef.current
+      if (els.size === 0) return
+      const k = scaleRef.current
+      const ox = canvas.offsetLeft
+      const oy = canvas.offsetTop
+      for (const [id, el] of els) {
+        // 나는 standees 에 없다. 내 자리는 따로 들고 있다
+        const at =
+          id === me.playerId
+            ? { x: self.px, y: self.py }
+            : (line.find((p) => p.playerId === id) ?? null)
+        // 걷는 중인 사람은 어느 방에도 없다. 풍선도 없다
+        if (!at) {
+          el.style.display = 'none'
+          continue
+        }
+        el.style.display = ''
+        const x = Math.round(ox + (at.x - camX) * k)
+        const y = Math.round(oy + (at.y - camY - CHAR_PX) * k)
+        el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`
+      }
     }
 
     /**
@@ -1351,6 +1398,19 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     <div className="sc-wk">
       <canvas ref={canvasRef} className="sc-wk__canvas" />
       {/* 글자만 또렷하게. 누르는 것은 아래 지도가 받는다 */}
+      {Object.entries(says).map(([id, text]) => (
+        <div
+          key={id}
+          className={`sc-wk__say${id === me.playerId ? ' is-me' : ''}`}
+          ref={(el) => {
+            const m = sayElsRef.current
+            if (el) m.set(id, el)
+            else m.delete(id)
+          }}
+        >
+          {text}
+        </div>
+      ))}
 
       {walking && (
         <div className="sc-wk__transit">

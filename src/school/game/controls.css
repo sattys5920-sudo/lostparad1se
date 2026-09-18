@@ -422,11 +422,12 @@
   align-items: flex-start;
   gap: 2px;
   margin-bottom: 4px;
-  padding: 6px 8px;
+  padding: 8px 8px 6px;
   border: 0;
   border-radius: 3px;
-  background: rgba(8, 10, 16, 0.72);
-  color: #cfd6e4;
+  /* 위로 갈수록 옅다. 지도를 덮는 것이 아니라 그 위에 얹힌 것으로 */
+  background: linear-gradient(rgba(8, 10, 16, 0.5), rgba(8, 10, 16, 0.82));
+  color: #dbe2ee;
   font: inherit;
   font-size: 11px;
   line-height: 1.5;
@@ -441,7 +442,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sc-sy__line b { color: var(--ct-gold); font-weight: 700; margin-right: 5px; }
+/* 이름 칸은 비어도 자리를 지킨다. 그래야 글이 들쭉날쭉하지 않는다 */
+.sc-sy__line b {
+  display: inline-block;
+  min-width: 38px;
+  margin-right: 5px;
+  color: var(--ct-gold);
+  font-weight: 700;
+}
 .sc-sy__line.is-me b { color: #e6edf7; }
 /* 지워진 채로 친 말. 본인에게만 원문이 보인다 */
 .sc-sy__line.is-muted { color: #6b7386; font-style: italic; }

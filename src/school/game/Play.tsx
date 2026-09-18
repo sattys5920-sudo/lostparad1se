@@ -31,6 +31,8 @@ import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Chat } from './Chat'
 import { Say } from './Say'
+import { SAY_BUBBLE_MS } from './timing'
+import { useChatLines } from './useChat'
 import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
@@ -650,6 +652,28 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const nowMs = useGameNow(state.game?.clock)
 
   /**
+   * 이 방에서 오간 말. **한 군데서 가져온다** — 아래 말줄과 머리 위
+   * 풍선이 같은 줄을 봐야 하는데, 따로 세면 둘이 다른 것을 보게 된다.
+   */
+  const talk = useChatLines(act, 'room')
+
+  /**
+   * 지금 머리 위에 떠 있어야 할 말. 사람마다 마지막 한 줄이다.
+   *
+   * 게임 시계로 잰다 — 줄에 찍힌 시각이 게임 시각이라, 실제 시계로
+   * 재면 시계를 빨리 돌린 판에서 풍선이 영영 안 사라지거나 뜨자마자
+   * 사라진다.
+   */
+  const says = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const l of talk.lines) {
+      if (nowMs - l.atMs > SAY_BUBBLE_MS) continue
+      out[l.playerId] = l.text
+    }
+    return out
+  }, [talk.lines, nowMs])
+
+  /**
    * 화면 어디든 처음 닿으면 소리 장치를 연다.
    *
    * 브라우저가 손끝이 닿기 전에는 안 열어 주기도 하고, 들어오자마자
@@ -971,6 +995,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               goFar(id)
             }}
             onTapPerson={setPerson}
+            /* 머리 위에 잠깐 뜨는 말 */
+            says={says}
             /* 멈춰 선 자리를 서버가 알아야 「바로 옆 칸」을 판정한다.
                거절은 흘려보낸다 — 걷다 멈춘 자리를 못 적었다고 화면에
                빨간 글씨가 뜰 일은 아니다 */
@@ -1015,6 +1041,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             act={act}
             onSaid={setSaid}
             onOpen={() => setSheet('talk')}
+            lines={talk.lines}
+            pull={talk.pull}
           />
           {/* 자유 시간에는 토큰 칸이 아예 없다. 쓸 데가 없는 숫자다 */}
           <ResourceRow

@@ -1904,3 +1904,48 @@ p.sc-cv { display: block; }
   color: #2c313d;
   word-break: keep-all;
 }
+
+/* ── 머리 위 말풍선 ──────────────────────────────────────────
+ * 지도는 캔버스라 글자를 거기에 그리면 뭉갠다(논리 화소가 160 이다).
+ * 풍선은 위에 겹으로 얹고, 자리만 그릴 때마다 캔버스에서 받아 옮긴다.
+ */
+.sc-wk__say {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 8;
+  max-width: 58%;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(250, 250, 248, 0.95);
+  color: #1c1f2a;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+  word-break: keep-all;
+  /* 두 줄까지. 그보다 길면 말줄에서 읽는다 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* 지도를 누르는 것을 막지 않는다 — 풍선은 보이기만 한다 */
+  pointer-events: none;
+  filter: drop-shadow(0 1px 0 rgba(8, 10, 16, 0.55));
+}
+
+/* 꼬리. 머리 쪽을 가리킨다 */
+.sc-wk__say::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 0;
+  height: 0;
+  margin-left: -4px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid rgba(250, 250, 248, 0.95);
+}
+
+/* 내 말은 완장 쪽 색으로 테를 두른다 */
+.sc-wk__say.is-me { box-shadow: inset 0 0 0 2px #e8d9a0; }
