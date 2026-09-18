@@ -149,11 +149,43 @@ async function main() {
     await page.waitForTimeout(1200)
     await page.screenshot({ path: `${OUT}/fm-${h}-${name}.png` })
     const f = (await page.evaluate(FRAME)) as Frame
+
+    // ── 키보드 ────────────────────────────────────────────
+    // 진짜 키보드는 못 띄운다. **키보드가 먹는 높이를 그대로 넣어**
+    // 틀이 그만큼 줄어드는지, 조작부가 그 위에 남는지를 본다.
+    //
+    // 누를 때 화면이 끌려가지 않는 것도 같이 본다 — 전에는 초점이
+    // 가면 scrollIntoView 가 화면을 가운데로 당겼다
+    const before = (await page.evaluate(
+      `JSON.stringify([scrollY, Math.round(document.querySelector('.sc-pl-root').getBoundingClientRect().top)])`,
+    )) as string
+    await page.locator('.sc-sy__box').click()
+    await page.waitForTimeout(700)
+    const afterTap = (await page.evaluate(
+      `JSON.stringify([scrollY, Math.round(document.querySelector('.sc-pl-root').getBoundingClientRect().top)])`,
+    )) as string
+
+    const KB = 300
+    await page.evaluate(`document.documentElement.style.setProperty('--kb','${KB}px')`)
+    await page.waitForTimeout(500)
+    const k = (await page.evaluate(FRAME)) as Frame
+    await page.screenshot({ path: `${OUT}/fm-${h}-${name}-키보드.png` })
+    await page.evaluate(`document.documentElement.style.removeProperty('--kb')`)
+
     rows.push({
       화면: `${w}×${h} ${name}`,
       ...f,
       '탭바가화면안': f.탭바 !== null && f.탭바.bottom <= f.화면높이,
       '십자키가화면안': f.십자키 !== null && f.십자키.bottom <= f.화면높이,
+      '누를때안끌려간다': before === afterTap,
+      키보드: {
+        '먹은높이': KB,
+        틀높이: k.틀높이,
+        '기대': h - KB,
+        십자키: k.십자키,
+        '십자키가키보드위': k.십자키 !== null && k.십자키.bottom <= h - KB + 1,
+        세로구름: k.세로구름,
+      },
       터짐: boom,
     })
     await page.close()

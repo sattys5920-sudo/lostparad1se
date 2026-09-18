@@ -559,6 +559,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // 글을 쓰는 동안에는 탭바를 감춘다. 키보드 위에 얹혀 있으면
   // 입력창이 그만큼 가려진다
   const typing = useTyping()
+  useKeyboard()
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
@@ -1643,21 +1644,24 @@ function PhaseClock({
 }
 
 /**
- * 지금 글을 쓰고 있는가. 키보드가 올라오면 화면이 그만큼 줄어드는데,
- * 거기에 탭바까지 얹혀 있으면 입력창이 가려진다.
+ * 지금 글을 쓰고 있는가.
+ *
+ * **화면을 끌어당기지 않는다.** 전에는 초점이 가면 0.26초 뒤에
+ * `scrollIntoView({block:'center'})` 를 불렀다. 창(시트) 안에 있는
+ * 입력칸을 키보드 위로 올리려던 것인데, 지금은 말줄이 고정 틀 바닥에
+ * 붙어 있어서 끌어올릴 곳이 없다 — 대신 화면이 한 번 훌쩍 올라갔다가
+ * 탭바가 사라지며 또 움직였다. 누를 때마다 화면이 두 번 뛰었다.
+ *
+ * 키보드는 끌어당겨서 피하는 것이 아니라 **틀을 그만큼 줄여서** 피한다
+ * (useKeyboard).
  */
 function useTyping(): boolean {
   const [typing, setTyping] = useState(false)
   useEffect(() => {
     const on = (e: FocusEvent) => {
-      const el = e.target as HTMLElement | null
-      const tag = el?.tagName
+      const tag = (e.target as HTMLElement | null)?.tagName
       if (tag !== 'INPUT' && tag !== 'TEXTAREA') return
       setTyping(true)
-      // **키보드가 입력창을 가리면 안 된다.** 뷰포트가 줄어드는 것은
-      // 키보드가 다 올라온 뒤라, 바로 밀면 밀기 전 높이로 계산해서
-      // 한 뼘 모자란다
-      setTimeout(() => el?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 260)
     }
     const off = () => setTyping(false)
     window.addEventListener('focusin', on)
@@ -1668,6 +1672,40 @@ function useTyping(): boolean {
     }
   }, [])
   return typing
+}
+
+/**
+ * 키보드가 먹은 높이(css px). 안 올라와 있으면 0.
+ *
+ * **dvh 로는 안 잡힌다.** dvh 는 주소창과 툴바까지만 세고 키보드는
+ * 안 센다 — 아이폰에서 키보드가 올라와도 100dvh 는 그대로라, 아래
+ * 조작부가 키보드 뒤로 들어간다.
+ *
+ * `innerHeight - visualViewport.height` 로 잰다. 이 식은 **두 번 빼는
+ * 일을 저절로 막는다**: 안드로이드는 키보드가 올라오면 innerHeight
+ * 자체가 줄어서 이 차이가 0 이 되고, 아이폰은 innerHeight 가 그대로라
+ * 차이가 곧 키보드 높이다.
+ *
+ * 값은 문서 뿌리에 적는다. 틀을 잡는 규칙이 Root 에 있어서, 여기서
+ * 클래스로 내려보낼 수가 없다.
+ */
+function useKeyboard(): void {
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const root = document.documentElement
+    const fit = () => {
+      const gap = Math.round(window.innerHeight - vv.height)
+      // 주소창이 줄었다 늘었다 하는 정도는 키보드가 아니다
+      root.style.setProperty('--kb', `${gap > 80 ? gap : 0}px`)
+    }
+    fit()
+    vv.addEventListener('resize', fit)
+    return () => {
+      vv.removeEventListener('resize', fit)
+      root.style.removeProperty('--kb')
+    }
+  }, [])
 }
 
 // ── 묶기 ────────────────────────────────────────────────────────
