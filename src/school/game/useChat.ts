@@ -9,7 +9,9 @@
 // 붙는다. 세는 일을 여기 한 군데로 모은다.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { CHAT_POLL_MS, SAY_BUBBLE_CHARS } from './timing'
+import { realTimeOf, type DevClock } from '../../../shared/rules/clock'
+
+import { CHAT_POLL_MS, SAY_BUBBLE_CHARS, SAY_BUBBLE_MS } from './timing'
 import type { GameActions } from './useGame'
 
 export interface ChatLine {
@@ -114,4 +116,20 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
  */
 export function bubbleText(text: string): string {
   return text.length > SAY_BUBBLE_CHARS ? `${text.slice(0, SAY_BUBBLE_CHARS)}…` : text
+}
+
+/**
+ * 이 줄의 풍선이 아직 떠 있어야 하는가.
+ *
+ * **실제 시계로 잰다.** 여기서 한 번 크게 틀렸다 — 줄에 찍힌 시각이
+ * 게임 시각이라기에 게임 시계로 뺐는데, 판은 닷새를 하룻저녁에
+ * 돌리느라 시계가 빨리 간다. 배속 60이면 4초가 실제로는 67ms 라,
+ * 폰에서는 **풍선이 아예 안 뜬 것처럼** 보였다.
+ *
+ * 풍선이 얼마나 떠 있어야 하는가는 게임의 규칙이 아니라 **사람이 한
+ * 줄 읽는 데 걸리는 시간**이다. 그건 시계를 어떻게 돌리든 4초다.
+ * 그래서 찍힌 게임 시각을 실제 시각으로 되돌려서 real 시계와 뺀다.
+ */
+export function bubbleUp(atMs: number, clock: DevClock | undefined, realNowMs: number = Date.now()): boolean {
+  return realNowMs - realTimeOf(atMs, clock) <= SAY_BUBBLE_MS
 }

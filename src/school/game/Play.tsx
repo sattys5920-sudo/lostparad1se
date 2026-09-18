@@ -30,8 +30,7 @@ import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnl
 import { Sheet, useAsk } from './Sheet'
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Say } from './Say'
-import { SAY_BUBBLE_MS } from './timing'
-import { bubbleText, useChatLines } from './useChat'
+import { bubbleText, bubbleUp, useChatLines } from './useChat'
 import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
@@ -670,19 +669,28 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   /**
    * 지금 머리 위에 떠 있어야 할 말. 사람마다 마지막 한 줄이다.
    *
-   * 게임 시계로 잰다 — 줄에 찍힌 시각이 게임 시각이라, 실제 시계로
-   * 재면 시계를 빨리 돌린 판에서 풍선이 영영 안 사라지거나 뜨자마자
-   * 사라진다.
+   * **실제 시계로 잰다.** 여기서 한 번 크게 틀렸다 — 줄에 찍힌 시각이
+   * 게임 시각이라기에 게임 시계로 뺐는데, 판은 닷새를 하룻저녁에
+   * 돌리느라 시계가 빨리 간다. 배속 60이면 4초가 실제로는 67ms 다.
+   * **풍선이 아예 안 뜬 것처럼 보였다.**
+   *
+   * 풍선이 얼마나 떠 있어야 하는가는 게임의 규칙이 아니라 **사람이 한
+   * 줄 읽는 데 걸리는 시간**이다. 그건 시계를 어떻게 돌리든 4초다.
+   * 그래서 찍힌 게임 시각을 실제 시각으로 되돌려서(realTimeOf) real
+   * 시계와 뺀다.
+   *
+   * nowMs 는 1초마다 바뀌니 다시 셈하는 계기로만 쓴다.
    */
   const says = useMemo(() => {
+    const realNow = Date.now()
     const out: Record<string, string> = {}
     for (const l of talk.lines) {
-      if (nowMs - l.atMs > SAY_BUBBLE_MS) continue
+      if (!bubbleUp(l.atMs, state.game?.clock, realNow)) continue
       // 두 줄에 안 들어가는 말은 뒤를 자른다. 전체는 아래 로그에서 읽는다
       out[l.playerId] = bubbleText(l.text)
     }
     return out
-  }, [talk.lines, nowMs])
+  }, [talk.lines, nowMs, state.game?.clock])
 
   /**
    * 화면 어디든 처음 닿으면 소리 장치를 연다.

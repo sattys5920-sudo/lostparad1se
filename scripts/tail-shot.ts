@@ -73,7 +73,7 @@ async function main() {
   await must('joinGame', meTok, { gameId: game, name: '수아' })
   await must('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
   await must('startGame', host, { gameId: game, startAtMs: START })
-  await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })
+  await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 60 })
   await must('tick', host, { gameId: game })
   await must('markMorning', meTok, { gameId: game, read: [1] })
 

@@ -21,6 +21,15 @@ const MY_PW = 'room-talk-pass1'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 const FACE = { styleSet: 'F', hairStyle: 'F03', hairColor: 2, expression: 1, outfit: 2, wearStyle: 0, bottom: 1, neckwear: 1 }
+/**
+ * 시계 배속. **1 로 두면 안 된다.**
+ *
+ * 실제 판은 닷새를 하룻저녁에 돌리므로 시계가 빨리 간다. 풍선이 얼마나
+ * 떠 있나를 게임 시각으로 재면 배속만큼 짧아져서, 1 로만 재 보면
+ * 「뜬다」가 거짓으로 통과한다 — 실제로 그렇게 통과했다.
+ */
+const SPEED = 60
+
 /** 키보드가 먹었다고 치는 높이. 한글 키보드가 대충 이만하다 */
 const KB = 300
 
@@ -157,7 +166,7 @@ async function main() {
   await must('joinGame', meTok, { gameId: game, name: '수아' })
   await must('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
   await must('startGame', host, { gameId: game, startAtMs: START })
-  await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })
+  await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: SPEED })
   await must('tick', host, { gameId: game })
   await must('markMorning', meTok, { gameId: game, read: [1] })
 
