@@ -13,7 +13,9 @@ import { myAccount, saveAccountCharacter } from '../accounts'
 import { AvatarFace, CharacterCreator } from '../components/CharacterCreator'
 import { Gate } from './Gate'
 import { randomLook } from '../char/look'
-import type { TeamId } from '../types'
+// 지도 쪽 TileId 는 스물다섯 방짜리 유니온이다. 규칙 쪽(string)과
+// 이름이 같아서 여기서만 다른 이름으로 받는다
+import type { TeamId, TileId as RoomId } from '../types'
 import type { AvatarLook } from '../../../shared/look'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
@@ -44,7 +46,7 @@ import type { Dir } from '../map/sprites'
 import './controls.css'
 import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
-import { ADJACENCY, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
+import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
 import { ENTER_COST, MOVE_MINUTES } from '../../../shared/rules/occupy'
@@ -162,6 +164,9 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const [roster, setRoster] = useState(false)
   /** 시작 전 설정·로그아웃. 판이 돌 때의 「더보기」와 같은 자리다 */
   const [before, setBefore] = useState(false)
+  /** 시작 전에도 십자키는 벽을 안다. 나가는 쪽은 어둡다 */
+  const [ways, setWays] = useState<Record<Dir, DirWay>>({ up: 'open', down: 'open', left: 'open', right: 'open' })
+  const [toast, showToast] = useToast()
   const padRef = useRef<HTMLDivElement | null>(null)
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
@@ -185,6 +190,25 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
     [seats],
   )
   const live = useLive(gameId, mates.map((m) => m.playerId))
+
+  /**
+   * 시작 전 조작부.
+   *
+   * 판이 돌 때와 같은 여섯 칸을 같은 자리에 세우되, 게임 안의 일은
+   * 전부 흐리다. **빈 조작부는 만들다 만 화면처럼 보이고**, 시작하고
+   * 나서 손가락이 자리를 다시 외워야 한다.
+   */
+  const NOT_YET = '아직 시작 전이다. 운영자가 열어야 할 수 있다.'
+  const beforeDirs = useMemo(() => padFace(ways, false, 0, ENTER_COST), [ways])
+  const beforeGrid: Act[] = [
+    { key: 'talk', icon: 'talk', label: '말', why: NOT_YET, run: () => {} },
+    { key: 'hand', icon: 'hand', label: '손패', why: NOT_YET, run: () => {} },
+    { key: 'room', icon: 'room', label: '이 방', why: NOT_YET, run: () => {} },
+    { key: 'atlas', icon: 'atlas', label: '전체 맵', why: NOT_YET, run: () => {} },
+    // 이 둘은 게임 안의 일이 아니다. 나가는 문도 더보기 뒤에 있다
+    { key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) },
+    { key: 'more', icon: 'more', label: '더보기', run: () => setBefore(true) },
+  ]
 
   // 팀을 안 보낸다. 어느 반인지는 서버가 정해서 알려 준다 —
   // 고르게 두면 친구끼리 한 팀으로 몰리고 그러면 게임이 아니다
@@ -306,6 +330,16 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               /* 서버에 묻지 않는다. 말이 아직 없어서 물어도 거절당한다 */
               onCross={() => Promise.resolve(true)}
               onRoom={setRoom}
+              onDirs={setWays}
+              /*
+               * **2-3 교실 밖으로는 못 나간다.**
+               *
+               * 첫 아침은 다 같이 한 교실에서 연다. 시작도 안 한 학교를
+               * 혼자 다 돌아 보고 나서 닷새를 시작하면, 첫날 아침에
+               * 처음 보는 것이 아무것도 없다.
+               *
+               */
+              stayIn={START_TILE as RoomId}
               onTapRoom={() => {}}
               onTapPerson={() => {}}
               onStand={() => {}}
@@ -319,28 +353,25 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
 
           <p className="sc-pl__before-note">
             {room ? `${TILE_BY_ID[room].name} · ` : ''}
-            아직 시작 전이다. 먼저 온 사람들과 걸어 다녀 볼 수는 있다.
+            아직 시작 전이다. 열넷이 차면 운영자가 닷새를 연다.
           </p>
 
-          {/* 시작 전에도 십자키는 같은 것을 쓴다. 판이 열린 뒤에 손가락이
-              자리를 다시 외우게 할 까닭이 없다 */}
+          {/*
+            조작부는 판이 돌 때와 **같은 것을 같은 자리에** 세워 둔다.
+            여섯 칸이 비어 있으면 아직 만들다 만 화면처럼 보이고,
+            시작하고 나서 손가락이 자리를 다시 외워야 한다.
+            다만 판이 서기 전에는 아무것도 눌리지 않는다 — 흐리게
+            두고, 누르면 까닭을 한 줄로 말한다.
+
+            **「모인 사람」과 「더보기」는 살려 둔다.** 게임 안의 일이
+            아니고, 나가는 문(로그아웃)이 더보기 뒤에 있다 — 둘 다
+            막으면 이 화면에 갇힌다.
+          */}
           <div className="sc-ct">
+            <Toast text={toast} />
             <div className="sc-ct__ctl">
-              <Pad padRef={padRef} dirs={{}} onBlocked={() => {}} />
-              {/*
-                **나가는 문이 「모인 사람」 뒤에 있으면 안 된다.**
-                로그아웃을 명단 시트 맨 아래에 두었더니, 열넷을 다
-                지나쳐 내려가야 나왔다 — 이름이 「모인 사람」이라
-                거기 있을 것이라고 생각할 까닭도 없다. 판이 돌 때와
-                같은 자리(더보기)에 둔다.
-              */}
-              <ActionGrid
-                acts={[
-                  { key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) },
-                  { key: 'more', icon: 'more', label: '더보기', run: () => setBefore(true) },
-                ]}
-                onBlocked={() => {}}
-              />
+              <Pad padRef={padRef} dirs={beforeDirs} onBlocked={showToast} />
+              <ActionGrid acts={beforeGrid} onBlocked={showToast} />
             </div>
           </div>
         </section>

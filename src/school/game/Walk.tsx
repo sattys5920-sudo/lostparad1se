@@ -86,6 +86,17 @@ export interface WalkProps {
    */
   frozen?: boolean
   /**
+   * 이 방 밖으로 못 나간다.
+   *
+   * 시작 전에 쓴다. 판이 열리기 전에는 서버가 말을 안 세워서 문을
+   * 넘어도 아무도 막지 않는데, 그대로 두면 **시작도 안 한 학교를
+   * 혼자 다 돌아 본 뒤에 닷새가 시작된다.** 첫 아침에 다 같이 한
+   * 교실에서 여는 것이 규칙이라, 그때까지는 그 교실에 있는다.
+   *
+   * 막는 자리는 걸음 자체다 — 문을 넘게 두었다가 되돌리면 튕긴다.
+   */
+  stayIn?: TileId | null
+  /**
    * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
    * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
    * 단추의 data-dir 만 보고 붙으므로 생김새는 부모가 정한다.
@@ -196,7 +207,7 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /**
    * 글자만 따로 그리는 겹판.
@@ -219,6 +230,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const personRef = useRef(onTapPerson)
   const standRef = useRef(onStand)
   const frozenRef = useRef(frozen)
+  const stayRef = useRef(stayIn)
   const looksRef = useRef(looks)
   const rosterRef = useRef(roster)
   const liveOutRef = useRef(onLive)
@@ -231,6 +243,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   personRef.current = onTapPerson
   standRef.current = onStand
   frozenRef.current = frozen
+  stayRef.current = stayIn
   looksRef.current = looks
   rosterRef.current = roster
   liveOutRef.current = onLive
@@ -456,6 +469,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const nx = self.tx + dx
       const ny = self.ty + dy
 
+      // 아직 못 나간다. 문도 계단도 이 방 밖이면 한 칸도 안 간다
+      if (shutIn(nx, ny)) return
+
       // 계단이다. 한 칸 밟으면 다른 층으로 간다 — 걸어서는 못 잇는다.
       // 서버에 말하는 것은 여기서 하지 않는다. 옮겨 놓기만 하면
       // **선 방이 바뀐 것을 보고** 아래에서 알아서 말한다
@@ -506,6 +522,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      */
     let autoPath: { x: number; y: number }[] = []
 
+    /** 갇혀 있는데 그 칸이 이 방 밖인가. 벽도 문도 복도도 다 밖이다. */
+    function shutIn(x: number, y: number): boolean {
+      const keep = stayRef.current
+      return keep !== null && roomAt(x, y)?.id !== keep
+    }
+
     /**
      * 저기까지 가는 가장 짧은 길. 가구와 벽을 피해 돌아간다.
      *
@@ -529,6 +551,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             if (seen.has(k)) continue
             const onDoor = doorHere(nx, ny) !== null
             if (!onDoor && !isWalkable(nx, ny)) continue
+            // 갇혀 있으면 길도 이 방 안에서만 찾는다. 문 한 칸도 안 밟는다
+            if (shutIn(nx, ny)) continue
             seen.add(k)
             prev.set(k, `${cur.x},${cur.y}`)
             if (k === goal) {
@@ -843,6 +867,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const [dx, dy] = STEP[d]
         const nx = self.tx + dx
         const ny = self.ty + dy
+        // 갇혀 있으면 이 방 테두리가 곧 벽이다 — 십자키도 어둡게 둔다
+        if (shutIn(nx, ny)) return 'shut'
         if (stairHere(nx, ny)) return 'door'
         if (doorHere(nx, ny)) return 'door'
         if (isWalkable(nx, ny)) return 'open'

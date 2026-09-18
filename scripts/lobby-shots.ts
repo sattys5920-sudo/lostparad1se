@@ -135,6 +135,26 @@ async function main() {
     await page.waitForSelector('.sc-pl__before', { timeout: 15_000 })
     await page.waitForTimeout(2200)
     await page.screenshot({ path: `${OUT}/lb-${s.w}-4-DAY0.png` })
+
+    /*
+     * **2-3 교실 밖으로 못 나가는가.**
+     *
+     * 위로 스무 번 민다. 교실은 여덟 칸 높이라 그 안에서 끝까지 가고,
+     * 거기서부터는 십자키가 어두워져 있어야 한다. 방 이름이 그대로면
+     * 한 칸도 안 나간 것이다.
+     */
+    const shutUp = () =>
+      page.evaluate(() => document.querySelector('.sc-ct__key.is-up')?.classList.contains('is-shut') ?? false)
+    let walled = false
+    for (let i = 0; i < 20 && !walled; i++) {
+      // 어두워진 칸은 눌러도 안 먹는다(aria-disabled). 거기가 벽이다
+      await page.locator('.sc-ct__key.is-up').click({ force: true })
+      await page.waitForTimeout(120)
+      walled = await shutUp()
+    }
+    const still = (await page.textContent('.sc-pl__before-note')) ?? ''
+    await page.screenshot({ path: `${OUT}/lb-${s.w}-6-벽.png` })
+
     await page.click('text=모인 사람')
     await page.waitForTimeout(700)
     await page.screenshot({ path: `${OUT}/lb-${s.w}-5-명단.png` })
@@ -143,6 +163,8 @@ async function main() {
       s.w,
       JSON.stringify({
         가득할때막힘: shut !== null,
+        교실에갇힘: still.includes('2-3 교실'),
+        위쪽막힘: walled,
         가로구름: await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
         자리: await page.locator('.sc-roll__one').count(),
       }),
