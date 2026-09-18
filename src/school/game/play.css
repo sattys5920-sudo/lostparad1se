@@ -1934,18 +1934,48 @@ p.sc-cv { display: block; }
   pointer-events: none;
 }
 
-/* 꼬리. 머리 쪽을 가리킨다 — 네모 하나라 각이 안 죽는다 */
+/*
+ * 꼬리. **머리를 콕 찌른다.**
+ *
+ * 전에는 3px 짜리 네모 하나였다 — 모서리 두 변에만 선을 둘러서,
+ * 가리키는 뾰족한 끝이 아니라 상자 밑에 붙은 작은 턱으로 보였다.
+ * 누구 말인지 눈으로 따라가려면 끝이 한 화소로 모여야 한다.
+ *
+ * 도트 삼각형은 계단이다 — 5 · 3 · 1. 비스듬한 선은 안 쓴다(격자를
+ * 흐린다). clip-path 의 꼭짓점을 전부 정수 화소에 두면 잘리는 면이
+ * 죄다 수평·수직이라 또렷하게 남는다.
+ *
+ * 두 겹이다. ::before 가 어두운 삼각형(5×3), ::after 가 그보다 한
+ * 화소씩 작은 흰 삼각형(3×3)이다. 겹치면 비탈과 끝에 1px 테가 남고,
+ * 흰 쪽이 한 줄 위로 올라와 **풍선 아래 선을 끊어** 속과 이어진다.
+ */
+.sc-wk__say::before,
 .sc-wk__say::after {
   content: '';
   position: absolute;
   left: 50%;
+  transform: translateX(-50%);
+}
+
+/* 어두운 쪽 — 5 · 3 · 1 로 좁아지며 한 화소에서 끝난다 */
+.sc-wk__say::before {
   bottom: -3px;
+  width: 5px;
+  height: 3px;
+  background: #14161f;
+  clip-path: polygon(
+    0 0, 5px 0, 5px 1px, 4px 1px, 4px 2px, 3px 2px,
+    3px 3px, 2px 3px, 2px 2px, 1px 2px, 1px 1px, 0 1px
+  );
+}
+
+/* 흰 쪽 — 한 화소 안쪽. 맨 윗줄이 풍선 아래 선을 덮는다 */
+.sc-wk__say::after {
+  bottom: -2px;
   width: 3px;
   height: 3px;
-  margin-left: -1px;
   background: #fafaf8;
-  border-right: 1px solid #14161f;
-  border-bottom: 1px solid #14161f;
+  clip-path: polygon(0 0, 3px 0, 3px 2px, 2px 2px, 2px 3px, 1px 3px, 1px 2px, 0 2px);
 }
 
 /* 내 말은 완장 쪽 색으로 테를 두른다 */

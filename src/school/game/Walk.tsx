@@ -1084,9 +1084,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const w = el.offsetWidth
         const h = el.offsetHeight
 
-        // 머리 위. 꼬리 3px 만큼 띄운다
+        // 머리 위. y 는 머리 꼭대기고, 꼬리가 3px 내려온다 —
+        // 2px 만 띄워서 **끝이 머리에 한 화소 걸치게** 한다. 딱
+        // 맞춰 떼어 놓으면 풍선과 사람 사이가 벌어져 보인다
         let x = Math.round(ox + (at.x - camX) * k)
-        let y = Math.round(oy + (at.y - camY - CHAR_PX) * k) - 3
+        let y = Math.round(oy + (at.y - camY - CHAR_PX) * k) - 2
 
         /*
          * **가장자리에서는 안쪽으로 민다.** 문 옆에 선 사람의 말이
@@ -1104,7 +1106,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           const box = { l: x - w / 2, r: x + w / 2, t: y - h, b: y }
           const hit = taken.find((o) => o.l < box.r && box.l < o.r && o.t < box.b && box.t < o.b)
           if (!hit) break
-          y = hit.t - 3
+          // 꼬리 3px 에 한 화소 더. 위 풍선의 꼬리가 아래 풍선 위에
+          // 얹히지 않는다
+          y = hit.t - 4
         }
         // 위로 밀다가 지도 밖으로 나가면 도로 안으로 들인다
         y = Math.min(Math.max(y, oy + h + 2), bottom)
