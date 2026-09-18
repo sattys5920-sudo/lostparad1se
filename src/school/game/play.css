@@ -46,41 +46,8 @@
   margin: 0;
 }
 
-/* 로그인 */
-.sc-pl__gate {
-  min-height: 100vh;
-  background: transparent;
-  color: var(--sc-text);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  justify-content: center;
-  padding: 24px 20px;
-}
-
-.sc-pl__gate h1 {
-  margin: 0 0 8px;
-  font-size: 22px;
-  letter-spacing: 0.04em;
-}
-
-.sc-pl__tabs { display: flex; gap: 6px; }
-
-.sc-pl__tabs button {
-  appearance: none;
-  border: 1px solid var(--sc-line);
-  background: none;
-  color: var(--sc-text-dim);
-  font: inherit;
-  font-size: 13px;
-  padding: 7px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.sc-pl__tabs button.is-on { color: var(--sc-text); border-color: #6b7280; }
-
-.sc-pl__gate input,
+/* 로그인 화면은 gate.css 에 따로 있다 — 구겨진 투표용지 한 장이라
+   여기 색과 아무것도 나눠 쓰지 않는다. */
 .sc-pl__lobby input {
   appearance: none;
   border: 1px solid var(--sc-line);
@@ -244,7 +211,6 @@
 .sc-pl__head { display: flex; align-items: baseline; gap: 10px; }
 .sc-pl__head h1 { margin: 0; font-size: 20px; letter-spacing: 0.04em; }
 
-.sc-pl__hint { color: #6b7280; font-size: 11.5px; margin: 4px 0 0; }
 
 /* 서버가 한 말. 잠깐 떴다 사라진다 */
 .sc-pl__said {

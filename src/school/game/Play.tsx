@@ -8,8 +8,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
-import { hostEnter, logIn, myAccount, saveAccountCharacter, signUp } from '../accounts'
+import { myAccount, saveAccountCharacter } from '../accounts'
 import { CharacterCreator } from '../components/CharacterCreator'
+import { Gate } from './Gate'
 import { randomLook } from '../char/look'
 import type { TeamId } from '../types'
 import type { AvatarLook } from '../../../shared/look'
@@ -50,89 +51,6 @@ import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import './play.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
-
-// ── 로그인 ──────────────────────────────────────────────────────
-
-/**
- * 들어오는 문. **하나뿐이다.**
- *
- * 전에는 운영자가 admin.html 이라는 딴 주소로 들어갔다. 주소를 아는
- * 사람만 찾아갈 수 있는 문은 문이 아니라 뒷길이고, 같은 일(로그인)을
- * 두 군데서 따로 짜게 된다.
- *
- * 플레이어는 가입하고 로그인한다. **운영자는 코드 하나로 들어온다** —
- * 계정도 아바타도 없다. 판에 앉는 사람이 아니라 판을 여는 사람이다.
- */
-function Gate({ onIn }: { onIn: () => void }) {
-  const [mode, setMode] = useState<'in' | 'up' | 'host'>('in')
-  const [id, setId] = useState('')
-  const [pw, setPw] = useState('')
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const host = mode === 'host'
-
-  async function go() {
-    setBusy(true)
-    setError('')
-    try {
-      if (host) await hostEnter(code)
-      else await (mode === 'up' ? signUp(id, pw) : logIn(id, pw))
-      onIn()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const ready = host ? code.trim().length > 0 : Boolean(id && pw)
-
-  return (
-    <div className="sc-pl__gate">
-      <h1>남겨진 아이들</h1>
-      <div className="sc-pl__tabs">
-        <button className={mode === 'in' ? 'is-on' : ''} onClick={() => { setMode('in'); setError('') }}>로그인</button>
-        <button className={mode === 'up' ? 'is-on' : ''} onClick={() => { setMode('up'); setError('') }}>가입</button>
-        <button className={host ? 'is-on' : ''} onClick={() => { setMode('host'); setError('') }}>관리자</button>
-      </div>
-
-      {host ? (
-        <>
-          <input
-            placeholder="관리자 코드"
-            type="password"
-            value={code}
-            autoComplete="off"
-            onChange={(e) => setCode(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing && ready) void go()
-            }}
-          />
-          <p className="sc-pl__hint">판을 만들고 페이즈를 여는 자리다. 가입도 아바타도 없다.</p>
-        </>
-      ) : (
-        <>
-          <input placeholder="아이디" value={id} onChange={(e) => setId(e.target.value)} autoCapitalize="off" />
-          <input
-            placeholder="비밀번호"
-            type="password"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing && ready) void go()
-            }}
-          />
-        </>
-      )}
-
-      {error && <p className="sc-pl__error">{error}</p>}
-      <button className="sc-pl__go" disabled={busy || !ready} onClick={() => void go()}>
-        {host ? '관리자로 들어가기' : mode === 'up' ? '가입하기' : '들어가기'}
-      </button>
-    </div>
-  )
-}
 
 // ── 나를 만든다 ─────────────────────────────────────────────────
 
