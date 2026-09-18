@@ -11,13 +11,15 @@
  */
 
 .sc-nb-root {
-  --nb-paper: #e7e0cc;
-  --nb-rule: #dcd5c0;
-  --nb-under: #b9b29b;
-  --nb-margin: #b5524c;
-  --nb-ink: #2b2720;
-  --nb-pencil: #4a4335;
-  --nb-soft: #8c8574;
+  /* 거의 흰 종이. 투표용지의 누런 갱지와 달라야 같은 물건으로 안 보인다 */
+  --nb-paper: #f6f5f2;
+  --nb-rule: #dfe3e8;
+  --nb-under: #bcc3cb;
+  --nb-margin: #c2564e;
+  --nb-ink: #262a31;
+  --nb-pencil: #3f444c;
+  /* 흰 바탕에서 읽히는 가장 흐린 회색. 4.7:1 */
+  --nb-soft: #686e76;
 
   background: #171b24;
   gap: 14px;
@@ -68,7 +70,7 @@
   left: 46px;
   width: 1px;
   background: var(--nb-margin);
-  opacity: 0.55;
+  opacity: 0.7;
 }
 
 /* 스프링. 세로로 이어 붙인다 — 수첩이 길어져도 배율은 2배 그대로 */
@@ -172,7 +174,7 @@
 }
 
 .sc-nb .sc-ar__person-note::placeholder {
-  color: #b3ab96;
+  color: #979da5;
 }
 
 .sc-nb .sc-ar__person-note:focus {
