@@ -17,14 +17,16 @@
   --pl-c-fill: #dff0e7;
   --pl-d-fill: #f9eeda;
 
-  /* 이 페이지는 평범하게 스크롤한다. theme.css 의 height:100% 는
-     본 앱의 고정 레이아웃용이라 여기서는 풀어 준다 */
-  min-height: 100vh;
-  height: auto;
+  /* 높이는 **여기서 정하지 않는다.** mobile.css 가 100dvh 로 잡는다.
+     예전에 여기에 `min-height:100vh; height:auto` 가 있었다 — 그때는
+     이 화면이 평범하게 구르는 문서였다. 지금은 고정 틀이고, 그 한 줄이
+     아이폰에서 아래를 잘라 먹었다: vh 는 주소창이 보일 때도 「숨겼을
+     때의 높이」라, 그 차이만큼 탭바가 툴바 뒤로 밀려난다. */
 }
 
 .sc-pl {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   background: transparent;
   color: var(--sc-text);
   display: flex;
