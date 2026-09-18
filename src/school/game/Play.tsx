@@ -5,11 +5,12 @@
 // 여기서 게임 규칙을 판단하지 않는다. 무엇을 할 수 있는지도 서버가
 // 정하고, 화면은 서버가 거절하면 그 말을 그대로 보인다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
 import { myAccount, saveAccountCharacter } from '../accounts'
-import { CharacterCreator } from '../components/CharacterCreator'
+import { AvatarFace, CharacterCreator } from '../components/CharacterCreator'
 import { Gate } from './Gate'
 import { randomLook } from '../char/look'
 import type { TeamId } from '../types'
@@ -45,7 +46,7 @@ import { People } from './People'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
-import type { GamePhase } from '../../../shared/model'
+import type { GamePhase, SeatEntry } from '../../../shared/model'
 import { ENTER_COST, MOVE_MINUTES } from '../../../shared/rules/occupy'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import './play.css'
@@ -114,6 +115,45 @@ function Setup({ first, onDone }: { first: { nickname: string; avatar: AvatarLoo
 
 // ── 로비 ────────────────────────────────────────────────────────
 
+/**
+ * 자리 열넷.
+ *
+ * 이름만 늘어놓으면 **몇 자리 남았는지를 세어야 안다.** 빈 책상까지
+ * 다 그려 놓으면 세지 않아도 보인다 — 교실에 들어서서 빈자리를 찾는
+ * 것과 같은 일이다.
+ *
+ * 얼굴을 같이 보인다. 이름과 생김새는 한 벌이고 둘 다 원래 공개다.
+ * 시작하고 나서 「어제 그 애」가 성립하려면, 여기서부터 얼굴이 눈에
+ * 익어 있어야 한다.
+ */
+function Roll({ seats, uid }: { seats: SeatEntry[]; uid: string | null }) {
+  const empty = Math.max(0, TOTAL_SEATS - seats.length)
+  return (
+    <ul className="sc-roll">
+      {seats.map((s) => (
+        <li
+          key={s.playerId}
+          className={`sc-roll__one${s.playerId === uid ? ' is-me' : ''}`}
+          style={{ '--roll-team': TEAM_COLOR[s.team] } as CSSProperties}
+        >
+          <span className="sc-roll__face">
+            {/* 계정에 캐릭터가 없으면 팀 색 점이다. 서버가 그렇게 보낸다 */}
+            {s.look ? <AvatarFace look={s.look} team={s.team} scale={2} /> : <i className="sc-roll__dot" />}
+          </span>
+          <b>{s.name}</b>
+          <em>{s.team}</em>
+        </li>
+      ))}
+      {Array.from({ length: empty }, (_, i) => (
+        <li key={`empty${i}`} className="sc-roll__one is-empty">
+          <span className="sc-roll__face" />
+          <b>빈자리</b>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar: AvatarLook | null } }) {
   const state = useGame(gameId)
   const [error, setError] = useState('')
@@ -160,13 +200,40 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
     }
   }
 
-  if (state.loading || state.error) return <Waiting what="판" error={state.error} />
+  /*
+   * 문 앞도 게임 안이다.
+   *
+   * 여기만 밝은 회색 목록이면, 문(구겨진 투표용지)에서 여기로,
+   * 여기서 학교로 넘어가는 동안 세계가 한 번 뒤집힌다. 색과 글꼴을
+   * 판과 같은 것으로 쓴다 — 기다리는 자리도 판의 일부다.
+   */
+  const left = TOTAL_SEATS - seats.length
+
+  if (state.loading || state.error) {
+    return (
+      <div className="sc-lb">
+        <Waiting what="판" error={state.error} />
+      </div>
+    )
+  }
   if (!state.game) {
     return (
-      <div className="sc-pl__lobby">
-        <h1>남겨진 아이들</h1>
-        <p className="sc-pl__none">아직 열린 판이 없다. 운영자가 만들어야 한다.</p>
-        {error && <p className="sc-pl__error">{error}</p>}
+      <div className="sc-lb">
+        <header className="sc-lb__top">
+          <span className="sc-lb__where">2 - 3 교실</span>
+          {/* 판이 없어도 나갈 문은 있어야 한다. 전에는 여기 갇혔다 */}
+          <SignOut />
+        </header>
+        <div className="sc-lb__body is-bare">
+          <p className="sc-lb__none">
+            아직 열린 판이 없다.
+            <br />
+            운영자가 만들어야 한다.
+          </p>
+        </div>
+        <footer className="sc-lb__foot">
+          <p className="sc-lb__who">들어와 있는 계정 · {me.nickname}</p>
+        </footer>
       </div>
     )
   }
@@ -174,23 +241,31 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   // 아직 명부에 없으면 문 앞이다. 들어가야 학교가 열린다
   if (!mine || !uid) {
     return (
-      <div className="sc-pl__lobby">
-        <h1>교실</h1>
-        <p className="sc-pl__count">
-          {seats.length} / {TOTAL_SEATS}
-        </p>
-        <button className="sc-pl__go" disabled={busy} onClick={() => void join()}>
-          들어가기
-        </button>
-        <ul className="sc-pl__seated">
-          {seats.map((s) => (
-            <li key={s.playerId} className={s.playerId === uid ? 'is-me' : ''}>
-              {s.name} <span>{s.team}</span>
-            </li>
-          ))}
-        </ul>
-        {error && <p className="sc-pl__error">{error}</p>}
-        <SignOut note={`들어와 있는 계정 · ${me.nickname}`} />
+      <div className="sc-lb">
+        <header className="sc-lb__top">
+          <span className="sc-lb__where">2 - 3 교실</span>
+          <SignOut />
+        </header>
+
+        <div className="sc-lb__body">
+          <p className="sc-lb__count">
+            <b>{seats.length}</b>
+            <i>/</i>
+            <span>{TOTAL_SEATS}</span>
+          </p>
+          <p className="sc-lb__note">
+            {left > 0 ? `${left}자리 남았다` : '자리가 다 찼다'}
+          </p>
+          <Roll seats={seats} uid={uid} />
+        </div>
+
+        <footer className="sc-lb__foot">
+          {error && <p className="sc-lb__error">{error}</p>}
+          <button className="sc-lb__go" disabled={busy || left <= 0} onClick={() => void join()}>
+            들어가기
+          </button>
+          <p className="sc-lb__who">들어와 있는 계정 · {me.nickname}</p>
+        </footer>
       </div>
     )
   }
@@ -275,13 +350,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
             <p className="sc-dl__none">
               {seats.length}명이 모였다. 열넷이 차면 진행자가 닷새를 시작한다.
             </p>
-            <ul className="sc-pl__seated">
-              {seats.map((s) => (
-                <li key={s.playerId} className={s.playerId === uid ? 'is-me' : ''}>
-                  {s.name} <span>{s.team}</span>
-                </li>
-              ))}
-            </ul>
+            <Roll seats={seats} uid={uid} />
             {error && <p className="sc-pl__error">{error}</p>}
           </Sheet>
         )}

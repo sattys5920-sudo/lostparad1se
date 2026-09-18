@@ -46,18 +46,7 @@
   margin: 0;
 }
 
-/* 로그인 화면은 gate.css 에 따로 있다 — 구겨진 투표용지 한 장이라
-   여기 색과 아무것도 나눠 쓰지 않는다. */
-.sc-pl__lobby input {
-  appearance: none;
-  border: 1px solid var(--sc-line);
-  background: #f7f8f9;
-  color: var(--sc-text);
-  font: inherit;
-  font-size: 14px;
-  padding: 11px 12px;
-  border-radius: 5px;
-}
+/* 로그인 화면은 gate.css, 문 앞은 아래 .sc-lb 에 따로 있다. */
 
 .sc-pl__go {
   appearance: none;
@@ -74,67 +63,203 @@
 
 .sc-pl__go:disabled { opacity: 0.4; cursor: default; }
 
-/* 로비 */
-.sc-pl__lobby > * { flex: 0 0 auto; }
-.sc-pl__lobby {
-  /* 여기도 스스로 구른다. 열넷 명단에 나가는 단추까지 붙으면 넘친다 */
+/* ── 문 앞 ──────────────────────────────────────────────────
+ *
+ * 기다리는 자리도 판의 일부다. 여기만 밝은 회색 목록이면 문(구겨진
+ * 투표용지)에서 여기로, 여기서 학교로 넘어가는 동안 세계가 한 번
+ * 뒤집힌다. 색과 글꼴을 조작부·캐릭터 만들기와 같은 것으로 쓴다.
+ */
+.sc-lb {
+  --lb-bg: #1c1f33;
+  --lb-face: #262b44;
+  --lb-line: #3b4266;
+  --lb-text: #e8e6f5;
+  --lb-dim: #9aa0c0;
+  --lb-gold: #f0d68a;
+
   height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse 70% 45% at 50% 22%, #242a45 0%, var(--lb-bg) 70%);
+  color: var(--lb-text);
+  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.sc-lb__top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: calc(var(--sa-top) + 8px) 12px 8px;
+  border-bottom: 1px solid var(--lb-line);
+}
+
+/* 어느 교실인가. 투표용지 맨 위에 적힌 것과 같은 번호다 */
+.sc-lb__where { letter-spacing: 0.4em; padding-left: 0.4em; color: var(--lb-dim); }
+
+.sc-lb__top .sc-out { display: block; margin: 0; padding: 0; border: 0; }
+.sc-lb__top .sc-out__go {
+  min-height: 32px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 11px;
+  color: #5b6187;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/*
+ * 자리가 적을 때는 가운데, 열넷이 차서 넘칠 때는 위에서부터.
+ *
+ * justify-content: center 로 두면 넘치는 순간 **위가 잘려서 구를 수도
+ * 없다.** 바깥 여백을 auto 로 두면 남을 때만 밀어 준다.
+ */
+.sc-lb__body {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  background: transparent;
-  color: var(--sc-text);
-  padding: 24px 16px calc(24px + var(--sa-bottom));
+  padding: 14px 12px 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
+.sc-lb__body > :first-child { margin-top: auto; }
+.sc-lb__body > :last-child { margin-bottom: auto; }
+.sc-lb__body.is-bare { display: flex; align-items: center; justify-content: center; }
 
-.sc-pl__lobby h1 { margin: 0; font-size: 20px; }
-.sc-pl__count { margin: 0; color: var(--sc-text-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
-
-.sc-pl__teams { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-
-.sc-pl__teams li {
+/* 몇이 모였는가. 세는 것이 이 화면의 일이라 제일 크다 */
+.sc-lb__count {
+  margin: 0;
   display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.sc-lb__count b { font-size: 33px; font-weight: 400; line-height: 1; color: var(--lb-gold); }
+.sc-lb__count i { font-style: normal; font-size: 22px; color: var(--lb-line); }
+.sc-lb__count span { font-size: 22px; color: var(--lb-dim); }
+
+.sc-lb__note { margin: 6px 0 14px; text-align: center; color: var(--lb-dim); }
+
+.sc-lb__none { margin: 0; text-align: center; color: var(--lb-dim); line-height: 22px; }
+
+.sc-lb__foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  border: 1px solid #d8dcdf;
-  border-radius: 5px;
-  padding: 9px 11px;
-  font-size: 13px;
+  gap: 6px;
+  padding: 10px 12px calc(10px + var(--sa-bottom));
+  border-top: 1px solid var(--lb-line);
 }
 
-.sc-pl__team { font-weight: 600; }
-.sc-pl__left { color: var(--sc-text-dim); font-size: 12px; flex: 1; }
+.sc-lb__error { margin: 0; color: #e07a72; }
+.sc-lb__who { margin: 0; color: #5b6187; }
 
-.sc-pl__teams button {
+.sc-lb__go {
   appearance: none;
-  border: 1px solid var(--sc-line);
-  background: none;
-  color: var(--sc-text-2);
-  font: inherit;
-  font-size: 12px;
-  padding: 6px 11px;
-  border-radius: 4px;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--lb-gold);
+  border-radius: 0;
+  background: var(--lb-gold);
+  color: #241f16;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 3px;
+  padding-left: 3px;
   cursor: pointer;
 }
+.sc-lb__go:disabled { opacity: 0.4; cursor: default; }
 
-.sc-pl__teams button:disabled { opacity: 0.35; cursor: default; }
+/* ── 자리 열넷 ──────────────────────────────────────────────
+ *
+ * 문 앞(어두운 바탕)과 「모인 사람」 시트(밝은 바탕) 양쪽에서 같은
+ * 것을 쓴다. 색만 변수로 갈아 끼운다 — 같은 명단을 두 벌로 짜 두면
+ * 한쪽만 고치게 된다.
+ */
+.sc-roll {
+  --roll-line: #d8dcdf;
+  --roll-face: #fff;
+  --roll-text: var(--sc-text);
+  --roll-dim: var(--sc-text-dim);
 
-.sc-pl__seated { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
-
-.sc-pl__seated li {
-  font-size: 11.5px;
-  color: var(--sc-text-2);
-  border: 1px solid var(--sc-surface);
-  border-radius: 999px;
-  padding: 4px 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 6px;
 }
 
-.sc-pl__seated li.is-me { color: var(--sc-text); border-color: var(--sc-line); }
-.sc-pl__seated li span { color: var(--sc-text-dim); margin-left: 4px; }
+.sc-lb .sc-roll {
+  --roll-line: #3b4266;
+  --roll-face: #262b44;
+  --roll-text: #e8e6f5;
+  --roll-dim: #9aa0c0;
+}
+
+.sc-roll__one {
+  position: relative;
+  /* 빈자리에는 완장 글자가 없다. 키를 맞춰 두지 않으면 마지막 줄만
+     짧아져서 격자가 어긋나 보인다 */
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  justify-content: center;
+  padding: 6px 2px 5px;
+  border: 1px solid var(--roll-line);
+  background: var(--roll-face);
+  font-size: 11px;
+  color: var(--roll-text);
+  /* 완장 색을 자리 위쪽 띠로. 이름 옆 글자 하나보다 멀리서 읽힌다 */
+  border-top: 2px solid var(--roll-team, var(--roll-line));
+}
+
+.sc-roll__one b { font-weight: 400; }
+.sc-roll__one em { font-style: normal; font-size: 11px; color: var(--roll-dim); }
+
+.sc-roll__face {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 36px;
+}
+.sc-roll__face canvas { display: block; image-rendering: pixelated; }
+
+/* 캐릭터를 안 만든 사람. 팀 색 점으로만 선다 */
+.sc-roll__dot {
+  width: 12px;
+  height: 12px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--roll-team, var(--roll-dim));
+}
+
+/* 나 — 금색 한 겹 */
+.sc-roll__one.is-me {
+  box-shadow: inset 0 0 0 1px #f0d68a;
+  border-color: #f0d68a;
+}
+
+/* 아직 안 온 자리. 세지 않아도 몇이 남았는지 보인다 */
+.sc-roll__one.is-empty {
+  border-style: dashed;
+  border-top-style: dashed;
+  background: none;
+  color: var(--roll-dim);
+  opacity: 0.55;
+}
 
 /* 오늘 */
 .sc-pl__today { flex: 1; padding: 28px 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -847,19 +972,6 @@
 .sc-pl__mine strong { color: var(--sc-text); }
 
 .sc-pl__hosttools { flex-wrap: wrap; }
-
-.sc-pl__qapw {
-  flex: 1;
-  min-width: 140px;
-  appearance: none;
-  border: 1px solid var(--sc-line);
-  background: #f7f8f9;
-  color: var(--sc-text);
-  font: inherit;
-  font-size: 12.5px;
-  padding: 8px 10px;
-  border-radius: 4px;
-}
 
 /* ── 걸어 다니는 학교 ─────────────────────────────────────────── */
 
