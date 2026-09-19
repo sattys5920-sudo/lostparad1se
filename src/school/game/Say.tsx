@@ -33,6 +33,8 @@ export interface SayProps {
    */
   lines: readonly ChatLine[]
   pull: () => Promise<void>
+  /** 가져오기가 계속 실패할 때 그 이유. 조용히 비어 있는 것보다 낫다. */
+  stuck: string | null
   /**
    * 로그에 남길 줄 수. 키보드가 조작부보다 높이 올라오면 줄어든다 —
    * 로그는 지도 위에 얹혀 있어서, 다섯 줄이 그대로 올라오면 그만큼
@@ -41,7 +43,7 @@ export interface SayProps {
   peek: number
 }
 
-export function Say({ hereName, act, onSaid, lines, pull, peek }: SayProps) {
+export function Say({ hereName, act, onSaid, lines, pull, peek, stuck }: SayProps) {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   /** 도배로 붙들린 시각. 0 이면 풀려 있다. */
@@ -151,6 +153,8 @@ export function Say({ hereName, act, onSaid, lines, pull, peek }: SayProps) {
           ▲
         </button>
       </div>
+      {/* 보내기는 되는데 아무것도 안 돌아오면, 여기 말고는 알 데가 없다 */}
+      {stuck && <p className="sc-sy__stuck" role="alert">말을 못 받아온다 — {stuck}</p>}
     </div>
   )
 }

@@ -123,6 +123,8 @@ export function Radio({
   onUnread,
 }: RadioProps) {
   const [lines, setLines] = useState<RadioLine[]>([])
+  const [stuck, setStuck] = useState<string | null>(null)
+  const failsRef = useRef(0)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [spikeAt, setSpikeAt] = useState(0)
@@ -161,11 +163,17 @@ export function Radio({
       setLines((old) => [...old, ...fresh])
       setSpikeAt(Date.now())
       if (!stuckRef.current) setBehind((n) => n + fresh.length)
-    } catch {
-      // 잠깐 끊긴 것뿐이다. 다음 번에 다시 가져온다
+    } catch (e) {
+      // 한두 번은 잠깐 끊긴 것이다. 계속 그러면 거절이다 — 화면에 낸다.
+      // 방 안 말줄과 같은 병을 같은 자리에서 앓았다(useChat.ts)
+      failsRef.current += 1
+      if (failsRef.current >= 3) setStuck((e as Error).message || '서버가 대답하지 않는다.')
+      return
     } finally {
       pullingRef.current = false
     }
+    failsRef.current = 0
+    setStuck(null)
   }, [act])
 
   useEffect(() => {
@@ -236,7 +244,8 @@ export function Radio({
 
       {/* ── 오간 말 ─────────────────────────────────────── */}
       <div className="sc-rd__log" ref={logRef} onScroll={onScroll}>
-        {lines.length === 0 && <p className="sc-rd__none">오늘 오간 무전이 없다.</p>}
+        {stuck && <p className="sc-rd__none" role="alert">무전을 못 받아온다 — {stuck}</p>}
+        {!stuck && lines.length === 0 && <p className="sc-rd__none">오늘 오간 무전이 없다.</p>}
         <ul>
           {lines.map((l, i) => {
             if (l.system) {

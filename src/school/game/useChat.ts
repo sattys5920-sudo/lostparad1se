@@ -31,7 +31,20 @@ export interface Talk {
   lines: readonly ChatLine[]
   /** 지금 한 번 더 가져온다. 보내고 난 직후에 부른다. */
   pull: () => Promise<void>
+  /**
+   * 가져오기가 **계속** 실패하고 있을 때 그 이유. 한두 번은 null 이다.
+   *
+   * 여기서 몇 시간을 잃었다. 실제 Firestore 에 색인이 없어서 chatLines
+   * 가 매번 거절됐는데, catch 가 「잠깐 끊긴 것뿐」이라며 영영 삼켰다 —
+   * 보내기는 되고(입력칸이 비고) 로그와 풍선만 조용히 비어 있었다.
+   * 잠깐 끊긴 것과 늘 거절당하는 것은 다르다. 세 번 연달아 실패하면
+   * 화면에 낸다.
+   */
+  stuck: string | null
 }
+
+/** 이만큼 연달아 실패하면 「잠깐」이 아니다. 2.5초 간격이니 7.5초다. */
+const STUCK_AFTER = 3
 
 /**
  * 방 안의 말은 **쌓아 두지 않는다.**
@@ -58,8 +71,10 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
   const team = channel === 'team'
   const room = opts.room ?? null
   const [lines, setLines] = useState<ChatLine[]>([])
+  const [stuck, setStuck] = useState<string | null>(null)
   const sinceRef = useRef(0)
   const pullingRef = useRef(false)
+  const failsRef = useRef(0)
 
   const pull = useCallback(async () => {
     // 보내고 나서 바로 한 번, 그리고 주기적으로 한 번. 둘이 겹치면
@@ -70,6 +85,9 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
       const res = (await (team ? act.radioLines(sinceRef.current) : act.chatLines(sinceRef.current))) as {
         lines?: ChatLine[]
       }
+      // 대답이 왔다 — 끊긴 게 아니다
+      failsRef.current = 0
+      setStuck(null)
       const fresh = res.lines ?? []
       if (fresh.length === 0) return
       sinceRef.current = Math.max(sinceRef.current, ...fresh.map((l) => l.atMs))
@@ -77,8 +95,11 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
         const next = [...old, ...fresh]
         return team ? next : next.slice(-ROOM_KEEP)
       })
-    } catch {
-      // 잠깐 끊긴 것뿐이다. 다음 번에 다시 가져온다
+    } catch (e) {
+      // 한두 번은 잠깐 끊긴 것이다. 다음 번에 다시 가져온다.
+      // 계속 그러면 그건 끊긴 게 아니라 거절이다 — 화면에 낸다
+      failsRef.current += 1
+      if (failsRef.current >= STUCK_AFTER) setStuck((e as Error).message || '서버가 대답하지 않는다.')
     } finally {
       pullingRef.current = false
     }
@@ -117,7 +138,7 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
     return () => clearInterval(t)
   }, [pull])
 
-  return { lines, pull }
+  return { lines, pull, stuck }
 }
 
 /**

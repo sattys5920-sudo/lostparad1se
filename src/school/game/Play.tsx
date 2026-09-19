@@ -1069,6 +1069,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             lines={talk.lines}
             pull={talk.pull}
             peek={peek}
+            stuck={talk.stuck}
           />
           {/* 자유 시간에는 토큰 칸이 아예 없다. 쓸 데가 없는 숫자다 */}
           <ResourceRow

@@ -526,6 +526,15 @@
   text-align: right;
 }
 .sc-sy__left.is-full { color: var(--ct-down); }
+
+/* 가져오기가 계속 실패할 때. 조용히 비어 있는 것이 제일 나쁘다 */
+.sc-sy__stuck {
+  width: 100%;
+  margin: 4px 0 0;
+  color: var(--ct-down);
+  font-size: 11px;
+  line-height: 14px;
+}
 .sc-sy__box:disabled { background: #14172440; color: #5a6076; }
 .sc-sy__box:focus { outline: none; border-color: var(--ct-gold); }
 

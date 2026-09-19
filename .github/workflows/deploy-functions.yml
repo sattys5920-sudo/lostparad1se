@@ -16,6 +16,12 @@
 # 규칙도 여기서 같이 올린다. 콘솔에 손으로 붙여넣던 것을 그만두는
 # 것이다 — 저장소의 firestore.rules 가 유일한 정본이 된다.
 #
+# **색인(firestore.indexes.json)도 여기서 올린다.** 한동안 안 올렸다 —
+# 파일 자체가 없었다. 에뮬레이터는 색인 없이도 어떤 쿼리든 돌려서
+# 검증이 전부 통과했는데, 실제 Firestore 는 「같음 + 범위」 복합 쿼리를
+# 색인 없이는 거절한다. chatLines·radioLines 가 그렇게 영영 실패했고,
+# 화면은 그 오류를 삼켜서 로그도 풍선도 그냥 비어 있었다.
+#
 # 필요한 시크릿 둘 (Settings → Secrets and variables → Actions)
 #   PROJECTID                  이미 등록돼 있다. 화면 빌드가 쓰던 것
 #   FIREBASE_SERVICE_ACCOUNT   서비스 계정 열쇠(JSON) 통째로
@@ -29,6 +35,7 @@ on:
       - 'functions/**'
       - 'shared/**'
       - 'firestore.rules'
+      - 'firestore.indexes.json'
       - 'firebase.json'
       - '.github/workflows/deploy-functions.yml'
   workflow_dispatch:
@@ -36,12 +43,13 @@ on:
       what:
         description: 무엇을 올릴까
         required: true
-        default: functions,firestore:rules
+        default: functions,firestore:rules,firestore:indexes
         type: choice
         options:
-          - functions,firestore:rules
+          - functions,firestore:rules,firestore:indexes
           - functions
           - firestore:rules
+          - firestore:indexes
 
 permissions:
   contents: read
@@ -101,7 +109,7 @@ jobs:
           PROJECT: ${{ secrets.PROJECTID }}
           # push 로 돌 때는 inputs 가 비어 있다. 비운 채로 --only 에 넘기면
           # 아무것도 안 올라가거나 전부 올라간다 — 둘 다 조용히 잘못된다
-          WHAT: ${{ inputs.what || 'functions,firestore:rules' }}
+          WHAT: ${{ inputs.what || 'functions,firestore:rules,firestore:indexes' }}
         run: |
           # 열쇠를 명령줄이 아니라 파일로 건넨다. 명령줄에 두면 따옴표
           # 하나에 깨지고, 실패한 명령이 로그에 통째로 찍힐 수 있다
