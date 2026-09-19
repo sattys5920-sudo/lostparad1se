@@ -18,6 +18,7 @@ import { chatReaches } from '../../shared/rules/invisible'
 
 import { ROOM_SAY_MAX } from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
+import { openInterval } from './reveal'
 import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
 
@@ -49,8 +50,10 @@ const chatOf = (gameId: string) => gameRef(gameId).collection('secret').doc('cha
  * 내가 지금 이 방에 **언제 들어왔는지**.
  *
  * 체류 기록이 이미 그 시각을 들고 있다. 걸어 들어올 때마다 새 칸이
- * 열리므로, 아직 안 닫힌 칸의 시작 시각이 곧 도착 시각이다. 기록이
- * 없으면 아무것도 못 듣는다 — 없는 것보다 안전한 쪽으로 기운다.
+ * 열리므로, 아직 안 닫힌 칸의 시작 시각이 곧 도착 시각이다.
+ *
+ * 기록이 없으면 Infinity 다. 부르는 쪽이 「지금」으로 고쳐 잡는다 —
+ * 여기서 0 을 돌려주면 그 방의 지난 말이 통째로 딸려 간다.
  */
 async function arrivedAtMs(gameId: string, uid: string): Promise<number> {
   const open = await gameRef(gameId)
@@ -106,12 +109,31 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
 export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const { game } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
   if (pawn.tileId === null) return { lines: [], day: game.day, here: null }
 
-  const arrived = await arrivedAtMs(gameId, uid)
-  if (!Number.isFinite(arrived)) return { lines: [], day: game.day, here: pawn.tileId }
+  /*
+   * 도착 시각을 못 믿을 때는 **「지금부터」로 본다.**
+   *
+   * 전에는 기록이 없으면 아무것도 안 돌려줬다. 안전한 쪽이라고 적어
+   * 뒀는데, 안전한 게 아니라 **조용히 영원히 막는 것**이었다 — 말은
+   * 들어가는데(화면은 보냈다고 믿는다) 한 줄도 안 돌아오니, 로그도
+   * 풍선도 영영 비어 있고 아무 데도 오류가 안 뜬다.
+   *
+   * 미래도 마찬가지다. 운영자가 시계를 되돌리면 그 전에 열린 칸의
+   * 시작 시각이 지금보다 뒤가 된다. 그러면 `atMs > since` 를 넘길
+   * 줄이 영영 없다 — 같은 증상이고, 판을 새로 만들기 전에는 안 풀린다.
+   *
+   * 둘 다 **지금 칸을 열어서 고쳐 놓는다.** 「이 사람이 언제부터 여기
+   * 있었나」는 체류 기록이 유일한 답이라, 비워 두면 엔딩까지 틀린다.
+   * 지금부터로 잡으므로 **들어오기 전 말이 딸려 가지도 않는다.**
+   */
+  let arrived = await arrivedAtMs(gameId, uid)
+  if (!Number.isFinite(arrived) || arrived > nowMs) {
+    await openInterval(gameId, uid, pawn.tileId, nowMs)
+    arrived = nowMs
+  }
   const since = Math.max(Number(req.data.sinceMs ?? 0), arrived)
 
   const all = await chatOf(gameId)
