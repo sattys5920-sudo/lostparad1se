@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { SAY_BUBBLE_CHARS, SAY_BUBBLE_MS } from './timing'
-import { bubbleText, bubbleUp } from './useChat'
+import { bubbleText, bubbleUp, movedRoom } from './useChat'
 import { faded } from './Say'
 
 describe('로그가 옅어진다', () => {
@@ -81,5 +81,36 @@ describe('풍선은 시계를 빨리 돌려도 4초 떠 있는다', () => {
     const now = Date.UTC(2026, 2, 1, 20, 0, 0)
     expect(bubbleUp(now - 3000, undefined, now)).toBe(true)
     expect(bubbleUp(now - 5000, undefined, now)).toBe(false)
+  })
+})
+
+describe('로그를 언제 버리나', () => {
+  it('아는 방에서 아는 다른 방으로 옮기면 버린다', () => {
+    expect(movedRoom('artRoom', 'library')).toBe(true)
+  })
+
+  it('같은 방에 그대로 서 있으면 안 버린다', () => {
+    expect(movedRoom('artRoom', 'artRoom')).toBe(false)
+  })
+
+  it('**선 방을 모르는 순간(null)에는 안 버린다** — 여기서 로그가 안 쌓였다', () => {
+    // view 가 잠깐 비거나 그 목록에 내가 없으면 null 이 된다.
+    // 열넷이 돌아다니는 판에서는 그 순간이 쉴 새 없이 온다
+    expect(movedRoom('artRoom', null)).toBe(false)
+  })
+
+  it('모르는 동안을 거쳐 같은 방으로 돌아오면 그대로다', () => {
+    // 옮겼다고 친 자리는 마지막으로 **안** 방이라, null 을 거쳐도
+    // 되돌아오면 같은 방이다
+    let was: string | null = 'artRoom'
+    for (const now of [null, 'artRoom', null, 'artRoom'] as (string | null)[]) {
+      const moved = movedRoom(was, now)
+      expect(moved).toBe(false)
+      if (moved) was = now
+    }
+  })
+
+  it('처음 방을 알게 되는 순간에는 한 번 버린다 — 어차피 비어 있다', () => {
+    expect(movedRoom(null, 'artRoom')).toBe(true)
   })
 })

@@ -91,9 +91,22 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
    * 먼저 오간 말이 이미 지나간 시각이라 영영 안 온다 — 서버는
    * 어차피 내가 들어오기 전 줄은 안 보내므로 0 으로 되돌려도
    * 남의 옛말이 딸려 오지 않는다.
+   *
+   * **모르는 동안(null)에는 안 버린다.** 여기서 크게 당했다 — 선 방은
+   * `view.visiblePawns` 에서 나를 찾아 꺼내는 값이라, view 가 잠깐
+   * 비거나(다시 붙는 중, 앱이 깨어나는 중) 그 목록에 내가 없는 순간이
+   * 있으면 null 이 된다. 열넷이 돌아다니는 판에서는 view 가 쉴 새 없이
+   * 다시 오므로 그 순간이 자주 온다. null 마다 버리면 **로그가 쌓이질
+   * 않는다** — 쌓이자마자 지워지니 화면에는 아무것도 없고, 머리 위
+   * 풍선도 같은 줄을 보므로 같이 사라진다. 실제로 폰에서 그렇게 됐다.
+   *
+   * 버리는 것은 **아는 방에서 아는 다른 방으로 옮겨 섰을 때**뿐이다.
    */
+  const lastRoomRef = useRef<string | null>(null)
   useEffect(() => {
     if (team) return
+    if (!movedRoom(lastRoomRef.current, room)) return
+    lastRoomRef.current = room
     setLines([])
     sinceRef.current = 0
   }, [team, room])
@@ -130,6 +143,24 @@ export function bubbleText(text: string): string {
  * 줄 읽는 데 걸리는 시간**이다. 그건 시계를 어떻게 돌리든 4초다.
  * 그래서 찍힌 게임 시각을 실제 시각으로 되돌려서 real 시계와 뺀다.
  */
+/**
+ * 방을 옮긴 것인가 — 로그를 버려야 하는가.
+ *
+ * **모르는 동안(null)은 옮긴 것이 아니다.** 선 방은 `view.visiblePawns`
+ * 에서 나를 찾아 꺼내는 값이라, view 가 잠깐 비거나(다시 붙는 중, 앱이
+ * 깨어나는 중) 그 목록에 내가 없는 순간이 있으면 null 이 된다. 열넷이
+ * 돌아다니는 판에서는 view 가 쉴 새 없이 다시 오므로 그 순간이 자주
+ * 온다. null 마다 버리면 **로그가 쌓이질 않는다** — 쌓이자마자 지워지니
+ * 화면에는 아무것도 없고, 머리 위 풍선도 같은 줄을 보므로 같이
+ * 사라진다. 실제로 폰에서 그렇게 됐다.
+ *
+ * 버리는 것은 **아는 방에서 아는 다른 방으로 옮겨 섰을 때**뿐이다.
+ */
+export function movedRoom(was: string | null, now: string | null): boolean {
+  if (now === null) return false
+  return was !== now
+}
+
 export function bubbleUp(atMs: number, clock: DevClock | undefined, realNowMs: number = Date.now()): boolean {
   return realNowMs - realTimeOf(atMs, clock) <= SAY_BUBBLE_MS
 }
