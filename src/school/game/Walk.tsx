@@ -81,6 +81,15 @@ export interface WalkProps {
    */
   says?: Readonly<Record<string, string>>
   /**
+   * 채팅 바 윗변의 화면 y(css px). 채팅 모드가 아니면 null.
+   *
+   * 내 캐릭터가 이 선보다 아래에 있으면 **카메라만** 위로 밀어서 선
+   * 위 40px 에 오게 한다. 이미 잘 보이면 안 민다 — 쓸데없는 움직임이
+   * 제일 거슬린다. **지도의 크기도 배율도 안 바뀐다.** 바뀌는 것은
+   * 카메라 자리 하나뿐이고, 그래서 캔버스가 다시 설 일이 없다.
+   */
+  keepAbove?: number | null
+  /**
    * 걸음을 멈춘 자리. **서버가 이것으로 「옆에 있다」를 판정한다.**
    *
    * 칸마다 보내지 않는다 — 한 칸에 160ms 인 걸음을 칸마다 적으면
@@ -215,12 +224,24 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
   return door.a
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {} }: WalkProps) {
+/** 채팅 바 위로 이만큼 띄워 준다. Play.tsx 의 CAM_GAP 과 같은 값이다. */
+const CAM_GAP_PX = 40
+
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
   /** 지금 몇 배로 늘려 그리고 있는가. 풍선 자리를 화면 좌표로 옮길 때 쓴다 */
   const scaleRef = useRef(1)
+  /** 캔버스 윗변의 화면 y(css px). 문서가 안 구르므로 resize 때만 바뀐다 */
+  const canvasTopRef = useRef(0)
+  /** 채팅 바 윗변. 그리는 쪽은 ref 로만 읽는다 */
+  const keepAboveRef = useRef<number | null>(null)
+  /** 지금 먹인 들어올림(논리 화소). 0.25초에 걸쳐 목표로 다가간다 */
+  const liftRef = useRef(0)
+  // 그리는 쪽은 ref 로만 읽는다 — 여기에 의존성을 더하면 채팅 모드에
+  // 들어갈 때마다 캔버스가 다시 서고 걷던 자리가 처음으로 돌아간다
+  keepAboveRef.current = keepAbove
   /**
    * 글자만 따로 그리는 겹판.
    *
@@ -402,6 +423,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       canvas.style.width = `${vw * scale}px`
       canvas.style.height = `${vh * scale}px`
       scaleRef.current = scale
+      canvasTopRef.current = canvas.getBoundingClientRect().top
       ctx.imageSmoothingEnabled = false
     }
     resize()
@@ -941,7 +963,22 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const w = canvas.width
       const h = canvas.height
       const camX = Math.round(Math.max(0, Math.min(MAP_W * TILE - w, self.px - w / 2)))
-      const camY = Math.round(Math.max(0, Math.min(MAP_H * TILE - h, self.py - h / 2)))
+      /*
+       * **목표는 안 밀린 자리로 잰다.** 밀린 뒤의 화면 y 로 재면
+       * 밀수록 목표가 따라 움직여서 영영 안 멎는다.
+       */
+      const baseY = Math.max(0, Math.min(MAP_H * TILE - h, self.py - h / 2))
+      const k = scaleRef.current
+      const bar = keepAboveRef.current
+      let want = 0
+      if (bar !== null && k > 0) {
+        const onScreen = canvasTopRef.current + (self.py - baseY) * k
+        want = Math.max(0, (onScreen - (bar - CAM_GAP_PX)) / k)
+      }
+      // 프레임 수와 무관하게 0.25초쯤에 닿는다
+      liftRef.current += (want - liftRef.current) * (1 - Math.exp(-dt / 80))
+      if (Math.abs(want - liftRef.current) < 0.5) liftRef.current = want
+      const camY = Math.round(Math.max(0, Math.min(MAP_H * TILE - h, baseY + liftRef.current)))
       camRef.x = camX
       camRef.y = camY
 

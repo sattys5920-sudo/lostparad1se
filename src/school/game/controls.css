@@ -23,6 +23,16 @@
   --ct-gold: #f0d68a;
   --ct-ice: #9fd4e8;
   --ct-down: #e07a72;
+
+  /*
+   * 지도 아래에 깔린 것들의 총 높이 — 자원 줄 36 · 조작 영역 96 ·
+   * 탭바 48 + 안전 영역. 평소에 말줄이 이 위에 앉는다.
+   *
+   * 뿌리에 두는 이유: 말줄이 `position:fixed` 라 `.sc-ct` 바깥에
+   * 서고, 거기 정의된 --ct-ctl 을 못 읽는다.
+   */
+  --ct-ctl: 96px;
+  --ct-chrome: calc(36px + var(--ct-ctl) + 48px + var(--sa-bottom));
 }
 
 .sc-ct {
@@ -389,7 +399,8 @@
  * 위에서 절대값으로 잡아 두어 그대로다** — 보이는 면만 작아진다.
  */
 @media (max-height: 459px) {
-  .sc-ct { --ct-ctl: 88px; --ct-key: 28px; }
+  .sc-pl-root, .sc-ct { --ct-ctl: 88px; }
+  .sc-ct { --ct-key: 28px; }
 }
 
 /* ── 말줄 ────────────────────────────────────────────────────
@@ -397,67 +408,73 @@
  * 했는데, 그러면 말하는 일이 생산·공부와 같은 칸에 선 **행동 하나**가
  * 된다 — 옆에 누가 서 있어도 한마디 건네려면 두 번을 눌러야 했다.
  */
+/*
+ * ── 말줄 — 지도 위에 뜬 오버레이 ─────────────────────────────
+ *
+ * **흐름 밖에 선다.** 조작부 안에 두었을 때는 키보드가 뜰 때마다 이
+ * 줄이 흐름에서 빠졌다 들어갔다 하면서 지도가 그만큼 커졌다 작아졌다
+ * 했다. 밖에 두면 지도의 상자는 처음부터 끝까지 그대로다.
+ *
+ * 평소에는 조작부 위(--ct-chrome)에, 키보드가 뜨면 그 위(--kb)에.
+ * `max()` 하나로 둘을 다 받는다 — 키보드가 조작부보다 낮으면 어차피
+ * 이미 그 위라 안 움직인다.
+ *
+ * `transition` 이 이벤트 사이의 빈틈을 메운다. 아이폰 키보드는 약
+ * 0.25초에 걸쳐 올라오고 visualViewport 이벤트를 띄엄띄엄 보내는데,
+ * 그 값만 따라가면 계단처럼 튄다.
+ */
 .sc-sy {
-  position: relative;
-  flex: 0 0 auto;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(var(--kb, 0px), var(--ct-chrome));
+  z-index: 40;
+  /* 앱은 500 안에 세워 가운데 놓는다. 고정 요소는 그 틀 밖으로
+     나가므로 같은 식으로 다시 가운데 잡아 준다 */
+  max-width: 500px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
-  border-bottom: 1px solid var(--ct-line);
-  background: var(--ct-bg);
+  padding: 0 8px;
+  transition: bottom 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/*
- * **키보드 바로 위로 올라간다. 자리는 그대로 두고.**
- *
- * `position: fixed` 로 띄웠더니 이 줄이 흐름에서 빠지고, 그만큼
- * 지도(`flex:1`)가 커졌다 — 45px 이 늘어난 것이 캡처에 잡혔다.
- * 고치려던 바로 그 증상이다. `transform` 은 **자리를 안 건드린다.**
- *
- * 얼마나 올릴까: 이 줄 아래에 자원 줄 36 · 조작 영역 --ct-ctl ·
- * 탭바 48 + 안전 영역이 깔려 있다. 키보드가 그 합보다 낮으면 이미
- * 키보드 위라 안 올린다(min 이 0 을 고른다). 높으면 넘치는 만큼만
- * 올려서 키보드 윗변에 딱 붙인다.
- *
- * --kb 는 visualViewport 로 잰다(Play.tsx 의 useKeyboard). `bottom:0`
- * 만으로는 아이폰에서 안 맞는다 — 키보드가 레이아웃 뷰포트를 안 줄여서,
- * 고정 바닥이 키보드 **뒤로** 들어간다.
- */
-.sc-pl__today.is-typing .sc-sy {
-  z-index: 60;
-  transform: translateY(min(0px, calc(36px + var(--ct-ctl) + 48px + var(--sa-bottom) - var(--kb, 0px))));
+@media (prefers-reduced-motion: reduce) {
+  .sc-sy { transition: none; }
 }
 
 /*
  * ── 로그 ─────────────────────────────────────────────────────
  *
- * 지도 바로 아래, 적는 줄 위. **지도 위에 얹는다** — 줄을 따로 내주면
- * 그만큼 지도가 작아지고, 지도는 이 화면에서 제일 큰 것이라 몇
- * 픽셀이 바로 보인다.
+ * 평소 세 줄, 채팅 모드에서 다섯 줄. **평소에는 배경이 없다** —
+ * 지도 위에 글자만 얹고 검은 테를 둘러 읽히게 한다. 면을 깔면 그만큼
+ * 지도가 잘려 보인다. 채팅 모드에서는 어차피 키보드가 아래를 덮고
+ * 있으므로 반투명 면을 깔아 읽기 쉽게 한다.
  *
- * **구르지 않는다.** 다섯 줄이 지나가면 앞선 줄은 사라진다. 다시 펴
- * 볼 수 있으면 「그 자리에 있던 사람만 안다」가 「나중에 읽어도
- * 된다」가 된다.
+ * **구르지 않는다.** 다섯 줄이 지나가면 앞선 줄은 사라진다.
  */
 .sc-sy__log {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 100%;
-  z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   padding: 6px 10px 5px;
-  /* 맵과 경계가 지게. 그라데이션이 아니라 한 겹 깔고 선 하나다 */
-  border-top: 1px solid rgba(120, 132, 168, 0.55);
-  background: rgba(10, 12, 20, 0.72);
   font-size: 11px;
   line-height: 15px;
   text-align: left;
   overflow: hidden;
+  /* 지도를 짚는 것을 막지 않는다 — 쓸어내려 닫을 때만 받는다 */
   pointer-events: none;
+  transition: background-color 0.25s ease;
+}
+.sc-sy.is-open .sc-sy__log {
+  border-top: 1px solid rgba(120, 132, 168, 0.55);
+  background: rgba(10, 12, 20, 0.72);
+  pointer-events: auto;
 }
 
 /* 오래된 줄일수록 옅다. 맨 위는 40% — 사라지는 중인 것으로 읽힌다 */
@@ -468,9 +485,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* 새 줄은 아래에서 밀려 올라온다 */
+  /* 배경이 없는 동안 글자가 지도에 묻히지 않게. 면 대신 테 하나 */
+  text-shadow:
+    1px 0 0 #0a0c14, -1px 0 0 #0a0c14, 0 1px 0 #0a0c14, 0 -1px 0 #0a0c14;
   animation: sc-sy-rise 160ms steps(4, end);
 }
+/* 면이 깔리면 테는 필요 없다 */
+.sc-sy.is-open .sc-sy__line { text-shadow: none; }
 
 @keyframes sc-sy-rise {
   from { transform: translateY(15px); opacity: 0; }
@@ -494,6 +515,21 @@
   align-items: center;
   gap: 6px;
   width: 100%;
+  /* 평소 40, 채팅 모드 48 */
+  height: 40px;
+  border: 1px solid var(--ct-line);
+  border-radius: 3px;
+  background: rgba(12, 14, 24, 0.82);
+  padding: 0 4px 0 0;
+  transition: height 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sc-sy.is-open .sc-sy__bar {
+  height: 48px;
+  background: var(--ct-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-sy__bar, .sc-sy__log { transition: none; }
 }
 
 /*
@@ -505,13 +541,14 @@
 .sc-sy .sc-sy__box {
   flex: 1;
   min-width: 0;
-  height: 34px;
-  padding: 0 9px;
-  border: 1px solid var(--ct-line);
-  border-radius: 3px;
-  background: #171a2b;
+  height: 100%;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
   color: #e6edf7;
   font-family: inherit;
+  /* 16 미만이면 아이폰이 초점 갈 때 화면을 확대하고, 확대하면
+     레이아웃이 통째로 무너진다 */
   font-size: 16px;
 }
 .sc-sy__box::placeholder { color: #6b7386; font-size: 12px; }
@@ -535,20 +572,20 @@
   font-size: 11px;
   line-height: 14px;
 }
-.sc-sy__box:disabled { background: #14172440; color: #5a6076; }
-.sc-sy__box:focus { outline: none; border-color: var(--ct-gold); }
+.sc-sy__box:disabled { color: #5a6076; }
+.sc-sy__box:focus { outline: none; }
+.sc-sy.is-open .sc-sy__bar { border-color: var(--ct-gold); }
 
-/* 손끝이 닿아야 하는 최소 크기는 44 다. 보이는 것은 34 라도 */
+/* 칸 **안** 오른쪽에 앉는다. 내용이 없으면 흐리다 */
 .sc-sy__send {
   position: relative;
   flex: 0 0 auto;
-  width: 44px;
-  height: 34px;
-  border: 1px solid var(--ct-line);
-  border-radius: 3px;
-  background: #232840;
+  width: 40px;
+  height: 100%;
+  border: 0;
+  background: transparent;
   color: var(--ct-gold);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
 }

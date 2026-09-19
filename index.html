@@ -5,10 +5,13 @@
     <!-- 모바일 전용이다. 데스크톱은 고려하지 않는다.
          user-scalable=no 는 두 손가락 확대를 막는다 — 전체 맵만 자기
          손으로 확대를 처리하고, 나머지 화면이 늘어나면 레이아웃이 깨진다.
-         interactive-widget 은 키보드가 올라올 때 화면을 밀어 올린다 -->
+         interactive-widget=overlays-content — 키보드가 **레이아웃을 안
+         줄인다.** resizes-content 이면 안드로이드가 화면을 통째로 줄여서
+         맵·자원 줄·탭바가 한꺼번에 재배치된다. 키보드는 덮기만 하고,
+         그 높이는 visualViewport 로 따로 잰다(Play.tsx 의 useKeyboard) -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content"
     />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -33,6 +36,15 @@
         /* 더블탭 확대를 막는다. 연타가 확대로 새면 조작이 안 된다 */
         touch-action: manipulation;
         -webkit-text-size-adjust: 100%;
+      }
+      /* **문서를 못 박는다.** 키보드가 떠도 문서가 구르거나 줄지
+         않게. 아이폰은 초점 간 칸이 키보드에 가리면 페이지째 밀어
+         올리는데, position:fixed 면 밀 것이 없다 — 맵이 통째로
+         올라가고 캐릭터가 화면 밖으로 나가던 것이 그것이었다 */
+      body {
+        position: fixed;
+        inset: 0;
+        width: 100%;
       }
       #root { height: 100%; }
     </style>

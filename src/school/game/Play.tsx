@@ -566,8 +566,27 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // 입력창이 그만큼 가려진다
   const typing = useTyping()
   const kb = useKeyboard()
-  // 내줄 것을 다 내주고도 모자라면 로그가 줄어든다
-  const peek = typing && kb > YIELD_PX ? PEEK_TIGHT : PEEK_FULL
+  /** 초점을 뗀다. 맵을 짚거나 로그를 쓸어내리면 채팅 모드가 닫힌다 */
+  const blurNow = useCallback(() => {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }, [])
+  /**
+   * 채팅 바 윗변의 화면 y. 캐릭터가 이보다 아래면 카메라를 민다.
+   *
+   * **재서 넘긴다.** 바의 높이와 자리를 CSS 가 정하므로(40 ↔ 48,
+   * `bottom: max(--kb, 조작부)`) 여기서 같은 셈을 두 벌 두면 반드시
+   * 어긋난다. 키보드가 움직일 때만 재니 비싸지도 않다.
+   */
+  const [barTop, setBarTop] = useState<number | null>(null)
+  useEffect(() => {
+    if (!typing) { setBarTop(null); return }
+    // 바가 다 올라간 뒤의 자리를 재야 한다. 전환이 0.25초다
+    const t = setTimeout(() => {
+      const el = document.querySelector('.sc-sy')
+      setBarTop(el ? Math.round(el.getBoundingClientRect().top) : null)
+    }, 260)
+    return () => clearTimeout(t)
+  }, [typing, kb])
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
@@ -1024,6 +1043,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             onTapPerson={setPerson}
             /* 머리 위에 잠깐 뜨는 말 */
             says={says}
+            keepAbove={barTop}
             /* 멈춰 선 자리를 서버가 알아야 「바로 옆 칸」을 판정한다.
                거절은 흘려보낸다 — 걷다 멈춘 자리를 못 적었다고 화면에
                빨간 글씨가 뜰 일은 아니다 */
@@ -1058,19 +1078,27 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           )}
         </div>
 
+        {/*
+          말줄. **흐름 밖에 선다** — `position:fixed` 로 지도 위에 얹고
+          키보드 높이만큼 띄운다(controls.css). 조작부 안에 두었을
+          때는 키보드가 뜰 때마다 이 줄이 흐름에서 빠졌다 들어갔다
+          하면서 지도가 그만큼 커졌다 작아졌다 했다 — 45px 이 캡처에
+          잡혔다. 밖에 두면 지도의 상자는 처음부터 끝까지 그대로고,
+          키보드는 그 위를 덮기만 한다.
+        */}
+        <Say
+          hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+          act={act}
+          onSaid={setSaid}
+          lines={talk.lines}
+          pull={talk.pull}
+          open={typing}
+          onClose={blurNow}
+          stuck={talk.stuck}
+        />
+
         <div className="sc-ct">
           <Toast text={toast} />
-          {/* 말줄. **늘 떠 있다** — 오간 말은 지도 아래에 몇 줄 떠 있다가
-              지워지고, 전체는 그 줄을 눌러 편다 */}
-          <Say
-            hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
-            act={act}
-            onSaid={setSaid}
-            lines={talk.lines}
-            pull={talk.pull}
-            peek={peek}
-            stuck={talk.stuck}
-          />
           {/* 자유 시간에는 토큰 칸이 아예 없다. 쓸 데가 없는 숫자다 */}
           <ResourceRow
             tokens={phaseOpen ? (state.view?.myTeamTokens ?? null) : null}
@@ -1690,19 +1718,19 @@ function useTyping(): boolean {
  * **dvh 로는 안 잡힌다.** dvh 는 주소창과 툴바까지만 세고 키보드는
  * 안 센다 — 아이폰에서 키보드가 올라와도 100dvh 는 그대로다.
  *
- * `innerHeight - visualViewport.height` 로 잰다. 이 식은 **두 번 빼는
- * 일을 저절로 막는다**: 안드로이드는 키보드가 올라오면 innerHeight
- * 자체가 줄어서 이 차이가 0 이 되고, 아이폰은 innerHeight 가 그대로라
- * 차이가 곧 키보드 높이다.
+ *   kb = innerHeight - visualViewport.height - visualViewport.offsetTop
+ *
+ * `offsetTop` 까지 빼는 것이 중요하다. 아이폰은 키보드가 올라오는 동안
+ * 보이는 창을 아래로 밀기도 하는데(offsetTop 이 0 이 아니게 된다),
+ * 그걸 안 빼면 키보드가 실제보다 높다고 잰다 — 바가 먼저 튀어 오른다.
+ *
+ * **이벤트마다 갱신한다.** 아이폰은 키보드가 올라오는 0.25초 동안
+ * visualViewport 이벤트를 여러 번 보낸다. 그때마다 --kb 를 고쳐 주면
+ * 바가 키보드를 따라 올라간다. 이벤트 사이의 빈틈은 CSS 의
+ * `transition: bottom .25s` 가 메운다(controls.css 의 .sc-sy).
  *
  * 값은 문서 뿌리에 적는다 — 말줄이 `position:fixed` 라 화면 전체를
  * 기준으로 서고, 그 규칙이 이 컴포넌트 바깥에 있다.
- *
- * **그리고 판을 원래 자리로 되돌린다.** 아이폰은 초점이 간 칸이
- * 키보드에 가리면 페이지째 위로 민다. 구르지 않는 틀(overflow:hidden)
- * 에서도 민다 — 지도가 통째로 올라가고 캐릭터가 화면 밖으로 나가던
- * 것이 이것이다. 말줄을 미리 키보드 위에 세워 두면 밀 이유가 없지만,
- * 이미 밀고 난 뒤라면 되돌려 놓아야 한다.
  */
 function useKeyboard(): number {
   const [kb, setKb] = useState(0)
@@ -1711,13 +1739,13 @@ function useKeyboard(): number {
     if (!vv) return
     const root = document.documentElement
     const fit = () => {
-      const gap = Math.round(window.innerHeight - vv.height)
+      const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop)
       // 주소창이 줄었다 늘었다 하는 정도는 키보드가 아니다
       const px = gap > 80 ? gap : 0
       root.style.setProperty('--kb', `${px}px`)
       setKb(px)
-      // 판이 밀렸으면 제자리로. 지도는 여기 고정이다
-      if (window.scrollY !== 0 || vv.offsetTop !== 0) window.scrollTo(0, 0)
+      // 그래도 밀렸으면 제자리로. 지도는 여기 고정이다
+      if (window.scrollY !== 0) window.scrollTo(0, 0)
     }
     fit()
     vv.addEventListener('resize', fit)
@@ -1730,25 +1758,6 @@ function useKeyboard(): number {
   }, [])
   return kb
 }
-
-/**
- * 키보드가 올라와도 **지도는 건드리지 않는다.**
- *
- * 내줄 것이 있는 만큼만 내준다 — 십자키와 행동 칸(96) · 자원 줄(36) ·
- * 탭바(48). 셋을 합쳐 180 이다. 키보드가 그보다 높으면 더 내줄 것이
- * 없으므로, 그때 비로소 로그를 다섯 줄에서 두 줄로 줄인다.
- *
- * 지도가 마지막까지 그대로인 이유는 조작부를 **자리만 남기고 감추기**
- * 때문이다(visibility). 아예 떼면 `flex:1` 인 지도가 그 자리를
- * 먹으려고 커지고, 캔버스가 다시 서면서 걷던 자리가 튄다.
- */
-// 좁은 화면에서는 조작 영역이 88 로 줄어 172 가 된다. 8px 차이로
-// 로그를 한 번 더 줄일 일은 없으니 넉넉한 쪽을 쓴다 — 이 값은
-// 「더 내줄 것이 남았나」를 가르는 문턱이지 자리 계산이 아니다.
-// 자리는 CSS 가 --ct-ctl 을 그대로 읽어서 잡는다(controls.css 의 .sc-sy)
-const YIELD_PX = 180
-const PEEK_FULL = 5
-const PEEK_TIGHT = 2
 
 // ── 묶기 ────────────────────────────────────────────────────────
 

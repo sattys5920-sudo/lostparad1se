@@ -11,6 +11,20 @@
 // **로그는 구르지 않는다.** 다섯 줄이 지나가면 앞선 줄은 사라진다.
 // RPG 에서 지나간 대사가 남지 않는 것과 같다 — 다시 펴 볼 수 있으면
 // 「그 자리에 있던 사람만 안다」가 「나중에 읽어도 된다」가 된다.
+//
+// ── 두 모습 ────────────────────────────────────────────────────
+//
+// 평소에는 지도 아래에 얇은 바 하나(40px)와 로그 세 줄이다. 로그는
+// 배경 없이 글자에 검은 테만 둘러 지도 위에 얹는다 — 배경을 깔면
+// 그만큼 지도가 잘린 것처럼 보인다.
+//
+// 칸을 누르면 채팅 모드다. 바가 키보드 위로 올라가며 48px 이 되고,
+// 로그가 다섯 줄로 펼쳐지며 반투명 배경이 생긴다. **자리를 잡는 것은
+// CSS 다**(controls.css 의 .sc-sy) — 여기서는 모습만 고른다.
+//
+// 칸은 늘 거기 있다. 「누르면 열리는 단추」를 따로 두지 않는 이유는,
+// 아이폰이 **사용자가 직접 누른 것이 아니면 키보드를 안 열어 주기**
+// 때문이다 — 단추를 누른 뒤 코드로 초점을 옮기면 한 번 씹힌다.
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 
@@ -35,15 +49,17 @@ export interface SayProps {
   pull: () => Promise<void>
   /** 가져오기가 계속 실패할 때 그 이유. 조용히 비어 있는 것보다 낫다. */
   stuck: string | null
-  /**
-   * 로그에 남길 줄 수. 키보드가 조작부보다 높이 올라오면 줄어든다 —
-   * 로그는 지도 위에 얹혀 있어서, 다섯 줄이 그대로 올라오면 그만큼
-   * 지도를 덮는다.
-   */
-  peek: number
+  /** 채팅 모드인가(칸에 초점이 가 있는가). 바와 로그의 모습을 가른다. */
+  open: boolean
+  /** 채팅 모드를 닫는다. 로그를 아래로 쓸어내렸을 때 부른다. */
+  onClose: () => void
 }
 
-export function Say({ hereName, act, onSaid, lines, pull, peek, stuck }: SayProps) {
+/** 평소에 남기는 줄 수와, 채팅 모드에서 펼치는 줄 수. */
+const PEEK_REST = 3
+const PEEK_OPEN = 5
+
+export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck }: SayProps) {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   /** 도배로 붙들린 시각. 0 이면 풀려 있다. */
@@ -55,7 +71,7 @@ export function Say({ hereName, act, onSaid, lines, pull, peek, stuck }: SayProp
   // **서 있기만 하면 된다.** 누가 듣는지는 보내고 나서 알 일이다
   const held = heldTo > 0
   const can = hereName !== null && !held
-  const shown = lines.slice(-peek)
+  const shown = lines.slice(-(open ? PEEK_OPEN : PEEK_REST))
   const left = ROOM_SAY_MAX - draft.length
 
   // 붙들린 동안에는 시계를 하나 걸어 둔다. 안 걸면 다음에 무언가
@@ -99,10 +115,23 @@ export function Say({ hereName, act, onSaid, lines, pull, peek, stuck }: SayProp
     }
   }
 
+  /** 로그를 아래로 쓸어내리면 닫는다. 맵 탭·완료와 함께 셋째 길이다. */
+  const swipeRef = useRef<number | null>(null)
+
   return (
-    <div className="sc-sy">
+    <div className={'sc-sy' + (open ? ' is-open' : '')}>
       {shown.length > 0 && (
-        <div className="sc-sy__log" aria-live="polite" aria-label="이 방에서 오간 말">
+        <div
+          className="sc-sy__log"
+          aria-live="polite"
+          aria-label="이 방에서 오간 말"
+          onPointerDown={(e) => { swipeRef.current = e.clientY }}
+          onPointerUp={(e) => {
+            const from = swipeRef.current
+            swipeRef.current = null
+            if (open && from !== null && e.clientY - from > 24) onClose()
+          }}
+        >
           {shown.map((l, i) => (
             <span
               key={`${l.atMs}-${l.playerId}`}
@@ -121,6 +150,7 @@ export function Say({ hereName, act, onSaid, lines, pull, peek, stuck }: SayProp
         <input
           ref={boxRef}
           className="sc-sy__box"
+          enterKeyHint="send"
           value={draft}
           maxLength={ROOM_SAY_MAX}
           placeholder={
@@ -138,8 +168,8 @@ export function Say({ hereName, act, onSaid, lines, pull, peek, stuck }: SayProp
         {left <= COUNT_FROM && <span className={'sc-sy__left' + (left === 0 ? ' is-full' : '')}>{left}</span>}
         {/*
           **누르는 동안 적던 칸에서 손을 떼지 않는다.** 손가락으로
-          누르면 먼저 입력칸이 초점을 잃고, 그 순간 조작부가 돌아오면서
-          단추가 아래로 뛴다 — 손을 뗀 자리에는 이미 단추가 없다.
+          누르면 먼저 입력칸이 초점을 잃고, 그 순간 바가 키보드와 함께
+          내려가 버린다 — 손을 뗀 자리에는 이미 단추가 없다.
           로그인과 무전에서 같은 자리로 두 번 막혔다.
         */}
         <button
@@ -148,9 +178,9 @@ export function Say({ hereName, act, onSaid, lines, pull, peek, stuck }: SayProp
           disabled={!can || busy || draft.trim().length === 0}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void send()}
-          aria-label="보내기"
+          aria-label={open ? '보내기' : '말하기'}
         >
-          ▲
+          {open ? '▲' : '💬'}
         </button>
       </div>
       {/* 보내기는 되는데 아무것도 안 돌아오면, 여기 말고는 알 데가 없다 */}
