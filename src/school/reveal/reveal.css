@@ -69,12 +69,21 @@
   letter-spacing: 0.06em;
   text-align: center;
   text-wrap: balance;
-  animation: sc-rv-in 700ms ease-out both;
+  animation: sc-rv-in 260ms steps(1, end) both;
 }
 
+/*
+ * 떠오르며 나타난다. **세 프레임이다.**
+ *
+ * 부드럽게 흐르는 700ms 페이드는 여기 하나만 놓고 보면 곱지만, 맵과
+ * 조작부가 전부 도트로 끊어진 화면에서는 이 장면만 다른 게임처럼
+ * 보인다. 세 걸음으로 끊으면 같은 게임 안의 화면이 된다.
+ */
 @keyframes sc-rv-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
+  0% { opacity: 0; transform: translateY(6px); }
+  33% { opacity: 1; transform: translateY(4px); }
+  66% { opacity: 1; transform: translateY(2px); }
+  100% { opacity: 1; transform: none; }
 }
 
 /* 기록 읽기 */
@@ -144,7 +153,7 @@
   margin-bottom: 14px;
   padding-bottom: 10px;
   border-bottom: 1px dashed #b9c2d4;
-  animation: sc-rv-in 600ms ease-out both;
+  animation: sc-rv-in 260ms steps(1, end) both;
 }
 
 .sc-rv__top .sc-rv__hand {
@@ -175,7 +184,7 @@
 .sc-rv__today {
   width: 100%;
   max-width: 420px;
-  animation: sc-rv-in 500ms ease-out both;
+  animation: sc-rv-in 260ms steps(1, end) both;
 }
 
 .sc-rv__today-label {
@@ -219,7 +228,7 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  animation: sc-rv-in 400ms ease-out both;
+  animation: sc-rv-in 260ms steps(1, end) both;
 }
 
 .sc-rv__spot-name {
@@ -338,9 +347,12 @@
   margin-bottom: -1px;
 }
 
+/* 고른 것에는 **붉은 밑줄**. 투표용지의 그 붉은 줄과 같은 색이다 —
+   종이 위에서 무언가를 고른다는 표시는 이 판에서 늘 이 색이다 */
 .sc-ar__tab.is-on {
   color: #e6e8ee;
-  border-bottom-color: #8b90a0;
+  border-bottom-color: #c2564e;
+  border-bottom-width: 2px;
 }
 
 /* 안 읽은 조각이 있으면 점 하나. 숫자는 굳이 세어 주지 않는다 */
@@ -676,7 +688,7 @@
   display: grid;
   grid-template-columns: 72px 1fr;
   gap: 4px 10px;
-  animation: sc-rv-in 500ms ease-out both;
+  animation: sc-rv-in 260ms steps(1, end) both;
 }
 
 .sc-en__when {

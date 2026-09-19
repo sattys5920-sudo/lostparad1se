@@ -132,17 +132,30 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck }
             if (open && from !== null && e.clientY - from > 24) onClose()
           }}
         >
-          {shown.map((l, i) => (
-            <span
-              key={`${l.atMs}-${l.playerId}`}
-              className={'sc-sy__line' + (l.muted ? ' is-muted' : '')}
-              /* 위로 갈수록 옅다. 맨 위는 거의 지워진 것으로 보인다 */
-              style={{ '--fade': String(faded(i, shown.length)) } as CSSProperties}
-            >
-              <b style={{ color: (TEAM_COLOR as Record<string, string>)[l.team] ?? '#d8dde8' }}>{l.name}</b>
-              {l.text}
-            </span>
-          ))}
+          {shown.map((l, i) => {
+            /* 판이 적은 줄에는 이름이 없다. 가운데에 회색으로 둔다 —
+               사람이 한 말과 같은 모양이면 누가 한 말인지 헷갈린다 */
+            const sys = isSystem(l)
+            const tone = (TEAM_COLOR as Record<string, string>)[l.team] ?? '#d8dde8'
+            return (
+              <span
+                key={`${l.atMs}-${l.playerId}-${i}`}
+                className={'sc-sy__line' + (sys ? ' is-sys' : '') + (l.muted ? ' is-muted' : '')}
+                /* 위로 갈수록 옅다. 맨 위는 거의 지워진 것으로 보인다.
+                   왼쪽 2px 막대도 완장 색이다 — 이름을 읽기 전에
+                   「우리 편이 말했다」가 먼저 보인다 */
+                style={
+                  {
+                    '--fade': String(faded(i, shown.length)),
+                    ...(sys ? {} : { '--say-team': tone }),
+                  } as CSSProperties
+                }
+              >
+                {!sys && <b style={{ color: tone }}>{l.name}</b>}
+                {l.text}
+              </span>
+            )
+          })}
         </div>
       )}
 
@@ -187,6 +200,14 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck }
       {stuck && <p className="sc-sy__stuck" role="alert">말을 못 받아온다 — {stuck}</p>}
     </div>
   )
+}
+
+/**
+ * 판이 적은 줄인가. **이름이 없으면 판이 적은 것이다** — 사람이 친
+ * 줄에는 서버가 언제나 이름을 붙인다(functions/src/chat.ts).
+ */
+export function isSystem(l: Pick<ChatLine, 'name'>): boolean {
+  return l.name.trim() === ''
 }
 
 /**

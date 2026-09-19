@@ -56,7 +56,7 @@ import {
   useToast,
   type Act,
 } from './Controls'
-import { TEAM_COLOR } from './MapPlan'
+import { KIND_MARK, TEAM_COLOR } from './MapPlan'
 import { uiIcon } from './uiArt'
 import type { Dir } from '../map/sprites'
 import './controls.css'
@@ -66,7 +66,13 @@ import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
-import { ENTER_COST, MOVE_MINUTES, PHASES_PER_DAY } from '../../../shared/rules/occupy'
+import {
+  ENTER_COST,
+  MOVE_MINUTES,
+  PHASES_PER_DAY,
+  ROOM_KIND,
+  capacityOf,
+} from '../../../shared/rules/occupy'
 import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import { armSfx } from './sfx'
 import './play.css'
@@ -210,6 +216,11 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
     () => Object.fromEntries(seats.map((sx) => [sx.playerId, sx.look ?? null])),
     [seats],
   )
+  /* 발치에 다는 이름표. 열넷이 같은 교복을 입고 서 있다 */
+  const names = useMemo(
+    () => Object.fromEntries(seats.map((sx) => [sx.playerId, sx.name])),
+    [seats],
+  )
   const live = useLive(gameId, mates.map((m) => m.playerId))
 
   /**
@@ -345,6 +356,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               /* 시작 전에는 view 가 없다. 명단이 그 자리를 대신한다 */
               roster={mates}
               looks={looks}
+              names={names}
               live={live}
               onLive={(at) => pushLive(gameId, uid, at)}
               /* 서버에 묻지 않는다. 말이 아직 없어서 물어도 거절당한다 */
@@ -365,9 +377,14 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               onStand={() => {}}
             />
             <header className="sc-pl__head">
-              <span className="sc-pl__day">DAY 0</span>
-              <span>{seats.length} / {TOTAL_SEATS} 모였다</span>
-              <span className="sc-pl__me">{me.nickname} · {mine.team}팀</span>
+              <div className="sc-pl__hud1">
+                <span className="sc-pl__day">DAY 0</span>
+                <span className="sc-pl__clock">{seats.length} / {TOTAL_SEATS} 모였다</span>
+                <span className="sc-pl__me">
+                  <i className="sc-pl__band" style={{ background: TEAM_COLOR[mine.team] }} />
+                  {me.nickname}
+                </span>
+              </div>
             </header>
           </div>
 
@@ -588,6 +605,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     return () => clearTimeout(t)
   }, [typing, kb])
 
+  /**
+   * 머리 위 표시 아랫변의 화면 y. 풍선을 이보다 위로는 안 올린다.
+   *
+   * **재서 넘긴다.** 표시가 한 층일 때(대기실)와 두 층일 때, 안전
+   * 영역이 있을 때와 없을 때 높이가 다 다르다 — 숫자를 여기 적어
+   * 두면 어느 기기에선가 반드시 어긋난다.
+   */
+  const [headBottom, setHeadBottom] = useState<number | null>(null)
+
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
   const invisibleName = game?.invisibleId
@@ -601,6 +627,22 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const hereIds = hereNow.map((p) => p.playerId)
   /** 오늘 지워진 사람. 나라면 화면이 반투명해진다 */
   const iAmInvisible = game?.invisibleId === uid
+
+  // 표시가 한 층일 때와 두 층일 때, 안전 영역이 있을 때와 없을 때
+  // 높이가 다 다르다. 방이 바뀌거나 화면이 돌면 다시 잰다
+  useEffect(() => {
+    const fit = () => {
+      const el = document.querySelector('.sc-pl__head')
+      setHeadBottom(el ? Math.round(el.getBoundingClientRect().bottom) : null)
+    }
+    fit()
+    const t = window.setTimeout(fit, 400)
+    window.addEventListener('resize', fit)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('resize', fit)
+    }
+  }, [standingOn, kb])
 
   /**
    * 지금 앉아 있는 거래판. **views 가 아니라 거래판 문서를 직접 본다** —
@@ -649,6 +691,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    */
   const looks = useMemo(
     () => Object.fromEntries((game?.seats ?? []).map((sx) => [sx.playerId, sx.look ?? null])),
+    [game],
+  )
+  /* 발치에 다는 이름표. **명단은 다 알고 있다** — 누가 보이는지는
+     view 가 정하고, 여기서는 보이는 사람의 이름만 꺼내 쓴다 */
+  const names = useMemo(
+    () => Object.fromEntries((game?.seats ?? []).map((sx) => [sx.playerId, sx.name])),
     [game],
   )
   /**
@@ -700,6 +748,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    *
    * nowMs 는 1초마다 바뀌니 다시 셈하는 계기로만 쓴다.
    */
+  /* 돈·지식이 드나든 만큼. 머리 위로 떠올랐다 사라진다 */
+  const pops = usePops(state.view?.myVault?.money ?? null, state.view?.myVault?.knowledge ?? null)
+
   const says = useMemo(() => {
     const realNow = Date.now()
     const out: Record<string, string> = {}
@@ -1043,7 +1094,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             onTapPerson={setPerson}
             /* 머리 위에 잠깐 뜨는 말 */
             says={says}
+            names={names}
+            pops={pops}
             keepAbove={barTop}
+            keepBelow={headBottom}
             /* 멈춰 선 자리를 서버가 알아야 「바로 옆 칸」을 판정한다.
                거절은 흘려보낸다 — 걷다 멈춘 자리를 못 적었다고 화면에
                빨간 글씨가 뜰 일은 아니다 */
@@ -1056,17 +1110,44 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           {/* 방 위에 얹는 것들. 줄을 따로 내주면 방이 그만큼 작아진다.
               **타이머는 시트가 올라와도 보여야 해서 여기 둔다** —
               시트는 화면의 70%까지만 올라온다 */}
+          {/*
+            머리 위 표시는 **두 층**이다. 한 줄에 다 넣었더니
+            「DAY 1 · 자유 시간 · 홍시 커플 2-3 교실 · 아름답음 · D팀」이
+            11px 로 늘어서서 무엇 하나 읽히지 않았다.
+              1층 — 날짜 · 시계 · 나
+              2층 — 지금 선 방 · 방 종류 · 보이는 인원/정원
+          */}
           <header className="sc-pl__head">
-            <span className="sc-pl__day">DAY {game.day}</span>
-            <PhaseClock
-              open={phaseOpen}
-              no={phaseNo}
-              endsAtMs={phaseEndsAtMs}
-              nowMs={nowMs}
-              post={(state.view?.myPost ?? null) as TileId | null}
-              standing={standingOn}
-            />
-            <span className="sc-pl__me">{me.name} · {me.team}팀</span>
+            <div className="sc-pl__hud1">
+              <span className="sc-pl__day">DAY {game.day}</span>
+              <PhaseClock
+                open={phaseOpen}
+                no={phaseNo}
+                endsAtMs={phaseEndsAtMs}
+                nowMs={nowMs}
+                post={(state.view?.myPost ?? null) as TileId | null}
+                standing={standingOn}
+              />
+              <span className="sc-pl__me">
+                {/* 팀은 글자가 아니라 완장으로 안다 — 「D팀」 두 글자가
+                    9px 로 붙어 있는 것보다 색 한 점이 빨리 읽힌다 */}
+                <i className="sc-pl__band" style={{ background: TEAM_COLOR[me.team] }} />
+                {me.name}
+              </span>
+            </div>
+            {standingOn !== null && (
+              <div className="sc-pl__hud2">
+                <span className="sc-pl__where">{TILE_BY_ID[standingOn].name}</span>
+                {KIND_MARK[ROOM_KIND[standingOn]] !== '' && (
+                  <span className="sc-pl__kind" aria-hidden>{KIND_MARK[ROOM_KIND[standingOn]]}</span>
+                )}
+                {/* **보이는 사람만 센다.** 잠복한 사람은 서버가 안 보내
+                    주므로 여기 없다 — 화면이 받아 놓고 숨기는 것이 아니다 */}
+                <span className="sc-pl__crowd">
+                  {hereNow.length + 1}/{capacityOf(standingOn)}
+                </span>
+              </div>
+            )}
           </header>
           {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
           {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
@@ -1648,6 +1729,44 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   )
 }
 
+/** 떠오른 숫자가 머무는 시간. 한 번 읽을 만큼이다. */
+const POP_MS = 1100
+
+/**
+ * 드나든 만큼을 머리 위로 띄운다.
+ *
+ * **숫자만 조용히 바뀌면 아무 일도 안 일어난 것과 같다.** 방에 들어설
+ * 때 한 닢이 빠지는데, 자원 줄의 8 이 7 로 바뀐 것을 본 사람은 거의
+ * 없었다 — 그때 눈은 지도를 보고 있다.
+ */
+function usePops(money: number | null, knowledge: number | null) {
+  const [pops, setPops] = useState<{ key: string; text: string; down: boolean }[]>([])
+  const had = useRef({ money, knowledge })
+  useEffect(() => {
+    const was = had.current
+    had.current = { money, knowledge }
+    const born: { key: string; text: string; down: boolean }[] = []
+    const add = (before: number | null, now: number | null, label: string) => {
+      if (before === null || now === null || before === now) return
+      const d = now - before
+      born.push({ key: `${label}-${Date.now()}-${d}`, text: `${d > 0 ? '+' : ''}${d} ${label}`, down: d < 0 })
+    }
+    add(was.money, money, '돈')
+    add(was.knowledge, knowledge, '지식')
+    if (born.length === 0) return
+    setPops((old) => [...old, ...born])
+    const t = window.setTimeout(() => {
+      const gone = new Set(born.map((b) => b.key))
+      setPops((old) => old.filter((p) => !gone.has(p.key)))
+    }, POP_MS)
+    return () => window.clearTimeout(t)
+  }, [money, knowledge])
+  return pops
+}
+
+/** 시계가 붉어지는 지점. 게임 속으로 열 분 남았을 때다. */
+const LOW_MS = 10 * 60 * 1000
+
 /**
  * 남은 시간. 게임 속 시계로 잰다. 1초에 한 번만 갱신한다 — 매 프레임
  * 다시 그리면 그것만으로 배터리가 눈에 띄게 준다.
@@ -1679,8 +1798,11 @@ function PhaseClock({
   const left = Math.max(0, endsAtMs - nowMs)
   const mm = Math.floor(left / 60000)
   const ss = Math.floor((left % 60000) / 1000)
+  // 한 교시는 예순 분이다. 마지막 열 분은 붉게 깜빡여서, 숫자를 읽지
+  // 않고 곁눈으로도 「이제 곧 종이 친다」가 보이게 한다
+  const low = left <= LOW_MS
   return (
-    <span className="sc-pl__clock is-on">
+    <span className={'sc-pl__clock is-on' + (low ? ' is-low' : '')}>
       {no}교시 {mm}:{String(ss).padStart(2, '0')}
     </span>
   )

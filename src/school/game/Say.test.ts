@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { SAY_BUBBLE_CHARS, SAY_BUBBLE_MS } from './timing'
 import { bubbleText, bubbleUp, movedRoom } from './useChat'
-import { faded } from './Say'
+import { faded, isSystem } from './Say'
 
 describe('로그가 옅어진다', () => {
   it('맨 위가 0.4, 맨 아래가 1', () => {
@@ -112,5 +112,21 @@ describe('로그를 언제 버리나', () => {
 
   it('처음 방을 알게 되는 순간에는 한 번 버린다 — 어차피 비어 있다', () => {
     expect(movedRoom(null, 'artRoom')).toBe(true)
+  })
+})
+
+describe('판이 적은 줄을 가려낸다', () => {
+  it('이름이 있으면 사람이 한 말이다', () => {
+    expect(isSystem({ name: '아름답음' })).toBe(false)
+  })
+
+  it('이름이 없으면 판이 적은 줄이다 — 서버의 sysRow 가 name 을 비운다', () => {
+    expect(isSystem({ name: '' })).toBe(true)
+  })
+
+  it('공백만 있어도 이름이 아니다', () => {
+    // 이름 칸이 비었는데 공백 한 칸이 들어와 있으면, 사람 줄로 잘못
+    // 그려져서 완장 막대만 색 없이 덩그러니 남는다
+    expect(isSystem({ name: '   ' })).toBe(true)
   })
 })

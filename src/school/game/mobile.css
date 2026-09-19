@@ -137,7 +137,7 @@
   right: 0;
   z-index: 80;
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 12px;
   text-align: center;
   background: var(--sc-danger);
   color: #fff;
@@ -221,7 +221,14 @@
   flex-direction: column;
 }
 
-/* DAY·타이머·이름은 방 위에 얹는다. 줄을 따로 내주면 방이 그만큼 작다 */
+/*
+ * 머리 위 표시. 방 위에 얹는다 — 줄을 따로 내주면 방이 그만큼 작다.
+ *
+ * **두 층이다.** 한 줄에 다 넣었을 때는 열 몇 글자가 11px 로 늘어서서
+ * 아무것도 안 읽혔다. 이제 위층은 날짜·시계·나, 아래층은 지금 선 방이다.
+ * 두 층 모두 맵 위에 살짝 떠 있는 **판**으로 보이게 2px 테두리를
+ * 두르고 배경을 반투명하게 깐다 — 그림자가 아니라 테두리로 띄운다.
+ */
 .sc-pl__today .sc-pl__head {
   position: absolute;
   top: 0;
@@ -229,21 +236,93 @@
   right: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: calc(var(--sa-top) + 5px) 10px 10px;
-  font-size: 11px;
-  line-height: 14px;
-  color: #f2f3f4;
-  background: linear-gradient(rgba(6, 8, 11, 0.82), rgba(6, 8, 11, 0));
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: calc(var(--sa-top) + 6px) 8px 0;
+  line-height: 1;
+  color: var(--ct-text, #e8e6f5);
   pointer-events: none;
 }
-.sc-pl__today.has-mini .sc-pl__head { padding-right: calc(var(--sc-mini) + 14px); }
-.sc-pl__day { letter-spacing: 0.08em; }
-.sc-pl__today .sc-pl__me { color: #c9ced2; font-size: 11px; }
-.sc-pl__clock { font-variant-numeric: tabular-nums; color: #c9ced2; }
-.sc-pl__clock.is-on { color: #fff; font-size: 13px; letter-spacing: 0.04em; }
+.sc-pl__today.has-mini .sc-pl__head { padding-right: calc(var(--sc-mini) + 12px); }
+
+.sc-pl__hud1,
+.sc-pl__hud2 {
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--ct-line, #4a5070);
+  background: rgba(28, 31, 51, 0.82);
+}
+/* 위층은 폭을 다 쓴다 — 날짜는 왼쪽, 나는 오른쪽 끝에 못 박아 둔다 */
+.sc-pl__hud1 {
+  align-self: stretch;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+}
+/* 아래층은 내용만큼만. 방 이름이 짧으면 판도 짧다 */
+.sc-pl__hud2 { gap: 6px; padding: 4px 7px; }
+
+.sc-pl__day {
+  flex: 0 0 auto;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ct-gold, #f0d68a);
+}
+.sc-pl__today .sc-pl__me {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ct-text, #e8e6f5);
+}
+/* 팀 완장. 한 점이면 된다 — 테두리를 어둡게 둘러야 밝은 바닥 위에서도 산다 */
+.sc-pl__band {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border: 1px solid var(--mp-outline, #1a1d2e);
+}
+
+/* **시계가 제일 크고 밝다.** 페이즈 중에 한 가지만 본다면 이것이다.
+   자유 시간에는 「종이 치면 2-3 교실」이 뒤에 붙어 줄이 길어진다 —
+   날짜와 내 이름을 밀어내지 않도록 여기서만 줄인다 */
+.sc-pl__clock {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #b9bfd4;
+}
+.sc-pl__clock.is-on {
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+.sc-pl__clock.is-low { animation: sc-pl-low 1s steps(1, end) infinite; }
+@keyframes sc-pl-low {
+  0%, 49% { color: var(--ct-down, #e07a72); }
+  50%, 100% { color: #fff; }
+}
+/* 깜빡임을 싫어하는 눈에게는 붉은색만 남긴다 */
+@media (prefers-reduced-motion: reduce) {
+  .sc-pl__clock.is-low { animation: none; color: var(--ct-down, #e07a72); }
+}
+
+.sc-pl__where { font-size: 12px; color: var(--ct-text, #e8e6f5); }
+.sc-pl__kind { font-size: 12px; color: var(--ct-ice, #9fd4e8); }
+/* 인원은 작은 사각형에 담는다 — 방 이름과 붙여 두면 한 덩어리로 읽힌다 */
+.sc-pl__crowd {
+  padding: 1px 4px;
+  border: 1px solid var(--ct-line, #4a5070);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: #b9bfd4;
+}
 
 .sc-pl__today .sc-pl__ghost {
   position: absolute;
@@ -254,7 +333,7 @@
   margin: 0;
   padding: 5px 10px;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   pointer-events: none;
 }
 
@@ -771,11 +850,12 @@
   color: #e8e6f5;
   pointer-events: none;
 }
-.sc-pl__busyWhat { margin: 0; font-size: 13px; letter-spacing: 0.06em; }
+.sc-pl__busyWhat { margin: 0; font-size: 12px; letter-spacing: 0.06em; }
 .sc-pl__busyLeft {
   margin: 4px 0 0;
-  font-size: 26px;
+  /* 본문 12px 의 정수 배. 세는 숫자는 이 화면에서 제일 크다 */
+  font-size: 36px;
   font-variant-numeric: tabular-nums;
   color: #f0d68a;
 }
-.sc-pl__busyWhy { margin: 6px 0 0; font-size: 11px; color: #9aa0c0; }
+.sc-pl__busyWhy { margin: 6px 0 0; font-size: 9px; color: #9aa0c0; }

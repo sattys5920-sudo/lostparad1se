@@ -2,13 +2,23 @@
 //
 // **소품 그림은 여기에 없다.** 전부 propArt.ts 에 있고, 어떤 소품이
 // 있는지는 props.ts 가 안다. 여기서는 바닥·벽·문·계단과 흔적만 굽는다.
+import { MAP } from '../skin'
 import { PROP_ART, PROP_KINDS, type PropKind } from './props'
 
+/**
+ * 맵 팔레트. **값은 skin.ts 가 쥔다** — 맵과 UI 가 같은 파일을 봐야
+ * 한 게임처럼 보인다. 여기서는 글자 하나에 색 하나를 매어 둘 뿐이다.
+ */
 export const PAL = {
-  paper: '#eef0f2', // 0 — 바닥
-  light: '#c9ced2', // 1 — 밝은 면, 옷
-  mid: '#5c646b', // 2 — 중간 톤, 그림자
-  ink: '#0b0d0f', // 3 — 벽, 윤곽
+  paper: MAP.floor, // 0 — 방 바닥
+  light: MAP.light, // 1 — 밝은 면, 옷
+  mid: MAP.mid, // 2 — 중간 톤, 그림자
+  ink: MAP.outline, // 3 — 윤곽
+  tile: MAP.floorTile, // 4 — 바닥 무늬
+  out: MAP.floorOut, // 5 — 실외(눈)
+  hall: MAP.floorHall, // 6 — 복도
+  wall: MAP.wall, // 7 — 벽 몸통
+  wallLit: MAP.wallLit, // 8 — 벽 윗면
 } as const
 
 const CH: Record<string, string | null> = {
@@ -17,6 +27,11 @@ const CH: Record<string, string | null> = {
   '1': PAL.light,
   '2': PAL.mid,
   '3': PAL.ink,
+  '4': PAL.tile,
+  '5': PAL.out,
+  '6': PAL.hall,
+  '7': PAL.wall,
+  '8': PAL.wallLit,
 }
 
 /** 문자열 격자를 오프스크린 캔버스로 굽는다. 매 프레임 픽셀을 다시 찍지 않으려고. */
@@ -49,49 +64,32 @@ function bake(rows: string[]): HTMLCanvasElement {
  *
  * 무늬 자체는 아래 grid() 로 언제든 되살릴 수 있다.
  */
-const FLOOR_FLAT = Array.from({ length: 16 }, () => '0'.repeat(16))
-const FLOOR_HALL = FLOOR_FLAT
-const FLOOR_ROOM = FLOOR_FLAT
+/**
+ * 방 바닥. **무늬는 아주 옅게 한 겹만.**
+ *
+ * 8칸마다 한 줄씩 금을 긋는다. 민무늬면 넓은 방이 텅 빈 면이 되고,
+ * 촘촘하면 그 위의 사람과 가구가 안 보인다 — 바닥이 바닥으로 보일
+ * 만큼만.
+ */
+const FLOOR_ROOM = Array.from({ length: 16 }, (_, y) =>
+  y % 8 === 0 ? '4'.repeat(16) : Array.from({ length: 16 }, (_, x) => (x % 8 === 0 ? '4' : '0')).join(''),
+)
+/** 복도. 방보다 어둡다 — 문을 넘는 순간 안과 밖이 갈린다 */
+const FLOOR_HALL = Array.from({ length: 16 }, () => '6'.repeat(16))
+/** 실외. 눈이 덮여 한 단계 밝다 */
+const FLOOR_OUT = Array.from({ length: 16 }, () => '5'.repeat(16))
 
 /** 벽 몸통 — 위로 벽이 이어질 때 쓴다. 갓을 반복해 찍으면 벽이 아니라 블록 더미로 보인다. */
-const WALL_BODY = [
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '2233223322332233',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3322332233223322',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-]
+const WALL_BODY = Array.from({ length: 16 }, (_, y) =>
+  // 벽돌 이음매 두 줄. 민벽이면 높이가 안 읽힌다
+  y === 3 || y === 11 ? '8888888888888888' : '7777777777777777',
+)
 
 /** 벽 갓 — 윗면(3줄)만 회색으로 띄워 두께를 준다. 벽 줄기의 맨 위에만 얹는다. */
-const WALL = [
-  '1111111111111111',
-  '2222222222222222',
-  '2222222222222222',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-  '3333333333333333',
-]
+const WALL = Array.from({ length: 16 }, (_, y) =>
+  // 윗면 1px 만 밝게. 그것만으로 벽에 두께가 생긴다
+  y === 0 ? '8888888888888888' : '7777777777777777',
+)
 
 /**
  * 문. **벽 한 줄을 그대로 메운다.**
@@ -106,10 +104,16 @@ const WALL = [
  * 뻗으면 널빤지도 선다. 그리는 쪽이 문의 방향을 보고 고른다.
  */
 
-/** 가로로 뻗은 벽에 난 문. 위아래로 지나간다. */
+/**
+ * 가로로 뻗은 벽에 난 문. 위아래로 지나간다.
+ *
+ * **문틀이 있다.** 전에는 널빤지만 있어서 벽이 끊긴 구멍처럼 보였다 —
+ * 위아래로 벽 색 문틀을 두고, 그 안쪽에 밝은 윗면을 한 줄 넣어 문이
+ * 벽에 **박혀 있는** 것으로 읽히게 한다.
+ */
 const DOOR_H = [
-  '3333333333333333',
-  '2222222222222222',
+  '7777777777777777',
+  '8888888888888888',
   '1111111111111111',
   '1111111111111111',
   '2222222222222222',
@@ -122,8 +126,8 @@ const DOOR_H = [
   '2222222222222222',
   '1111111111111111',
   '1111111111111111',
-  '2222222222222222',
-  '3333333333333333',
+  '8888888888888888',
+  '7777777777777777',
 ]
 
 /**
@@ -176,7 +180,8 @@ const STAIR_DOWN = [
 ]
 
 /** 세로로 뻗은 벽에 난 문. 좌우로 지나간다. */
-const DOOR_V = Array.from({ length: 16 }, () => '3211211111121123')
+/** 세로로 뻗은 벽에 난 문. 좌우가 문틀이다 */
+const DOOR_V = Array.from({ length: 16 }, () => '7811211111121187')
 
 
 // ── 점령된 바닥 ─────────────────────────────────────────────────
@@ -408,6 +413,7 @@ export interface SpriteSet {
   tiles: {
     floorHall: HTMLCanvasElement
     floorRoom: HTMLCanvasElement
+    floorOut: HTMLCanvasElement
     wall: HTMLCanvasElement
     wallBody: HTMLCanvasElement
     doorH: HTMLCanvasElement
@@ -428,6 +434,7 @@ export function buildSprites(): SpriteSet {
     tiles: {
       floorHall: bake(FLOOR_HALL),
       floorRoom: bake(FLOOR_ROOM),
+      floorOut: bake(FLOOR_OUT),
       wall: bake(WALL),
       wallBody: bake(WALL_BODY),
       doorH: bake(DOOR_H),

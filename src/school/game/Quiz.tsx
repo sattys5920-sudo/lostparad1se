@@ -22,10 +22,17 @@ export interface QuizProps {
 export function Quiz({ view, act, onSaid }: QuizProps) {
   const [busy, setBusy] = useState(false)
   const [typed, setTyped] = useState<Record<string, string>>({})
+  /**
+   * 방금 틀린 문제. **종이가 한 화소 흔들린다.**
+   *
+   * 답을 내면 화면은 그대로고 아래쪽에 글줄 하나가 뜰 뿐이었다 —
+   * 맞았는지 틀렸는지를 글을 읽어야 알았다. 흔들림은 읽기 전에 온다.
+   */
+  const [shook, setShook] = useState<string | null>(null)
   const papers = view?.quizzesHere ?? []
   if (papers.length === 0) return null
 
-  async function run(label: string, fn: () => Promise<unknown>) {
+  async function run(label: string, fn: () => Promise<unknown>, id: string | null = null) {
     setBusy(true)
     try {
       const out = (await fn()) as { correct?: boolean; explain?: string | null }
@@ -33,6 +40,8 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
         onSaid(`맞혔다. 지식 ${KNOWLEDGE_PER_QUIZ}점.${out.explain ? ` ${out.explain}` : ''}`)
       } else if (out?.correct === false) {
         onSaid('틀렸다. 이 문제는 다시 못 푼다.')
+        setShook(id)
+        window.setTimeout(() => setShook((k) => (k === id ? null : k)), 260)
       } else {
         onSaid(`${label} 했다.`)
       }
@@ -50,7 +59,10 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
       </h2>
       <ul className="sc-qz__list">
         {papers.map((q) => (
-          <li key={q.id} className={q.opened ? 'is-open' : ''}>
+          <li
+            key={q.id}
+            className={(q.opened ? 'is-open' : '') + (shook === q.id ? ' is-wrong' : '')}
+          >
             {!q.opened && (
               <>
                 <p className="sc-qz__shut">접힌 문제가 한 장 있다.</p>
@@ -69,7 +81,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
                 {!q.iFailed && q.kind === 'choice' && (
                   <div className="sc-qz__choices">
                     {q.choices.map((c) => (
-                      <button key={c} disabled={busy} onClick={() => void run('답', () => act.answerQuiz(q.id, c))}>
+                      <button key={c} disabled={busy} onClick={() => void run('답', () => act.answerQuiz(q.id, c), q.id)}>
                         {c}
                       </button>
                     ))}
@@ -86,7 +98,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
                     />
                     <button
                       disabled={busy || (typed[q.id] ?? '').trim() === ''}
-                      onClick={() => void run('답', () => act.answerQuiz(q.id, typed[q.id] ?? ''))}
+                      onClick={() => void run('답', () => act.answerQuiz(q.id, typed[q.id] ?? ''), q.id)}
                     >
                       낸다
                     </button>

@@ -12,21 +12,12 @@
 //
 // 자원은 8×8, 행동·탭은 16×16 이다. 화면에서는 **정수 배로만** 늘린다.
 import { PAL } from '../map/sprites'
+import { UI } from '../skin'
 import type { ActionKind } from '../../../shared/rules/occupy'
 
-/** 조작부 색. 겨울 저녁이다 — 지도(낮의 학교)보다 어둡다. */
-export const UI = {
-  bg: '#1c1f33',
-  face: '#353a57',
-  line: '#4a5070',
-  text: '#e8e6f5',
-  /** 활성 탭·자원 숫자 */
-  gold: '#f0d68a',
-  /** 지식 계열 */
-  ice: '#9fd4e8',
-  /** 줄어들 때 한 번 번쩍이는 색 */
-  down: '#e07a72',
-} as const
+// 조작부 색은 skin.ts 한 군데서 온다. 여기에 따로 적어 두었더니 두
+// 벌이 되었고, 한쪽만 고쳐지는 날을 기다리는 꼴이었다.
+export { UI }
 
 /** 8×8 한 칸. 짧게 적은 줄은 오른쪽을 공백으로 채운다. */
 const S = (rows: string[]): string[] => rows.map((r) => r.padEnd(8, ' ').slice(0, 8))

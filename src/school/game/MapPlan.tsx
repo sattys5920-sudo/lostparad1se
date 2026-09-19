@@ -10,6 +10,7 @@
 //
 // **안 아는 방은 서버가 숫자를 안 보낸다.** 여기서 감추는 것이 아니라
 // 애초에 없다. 받아다 가리면 개발자도구로 다 보인다.
+import { TEAMS } from '../char/palette'
 import { ADJACENCY, FLOOR_NAME, FLOORS, HALLS, STAIRWELLS, TILES, TILE_BY_ID } from '../../../shared/rules/board'
 import { OPEN_TILES, ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
@@ -29,14 +30,16 @@ export const PLAN_PAD = 20
 export const DOTS_MAX = 3
 
 /** 방 종류 표시. 좁은 방·연구실·발전소만 따로 그린다. */
-const KIND_MARK: Record<string, string> = { narrow: '▮', lab: '⚗', plant: '⚡', normal: '' }
+export const KIND_MARK: Record<string, string> = { narrow: '▮', lab: '⚗', plant: '⚡', normal: '' }
 
-export const TEAM_COLOR: Record<TeamId, string> = {
-  A: '#e0453f',
-  B: '#3f7ae0',
-  C: '#2fa866',
-  D: '#e0a02a',
-}
+/**
+ * 완장 색. **char/palette.ts 의 TEAMS 가 정본이다** — 도트로 그린
+ * 완장과 화면의 색이 어긋나면 안 된다. 전에는 같은 네 값을 여기에
+ * 또 적어 두었다.
+ */
+export const TEAM_COLOR: Record<TeamId, string> = Object.fromEntries(
+  TEAMS.map((t) => [t.id, t.color]),
+) as Record<TeamId, string>
 
 export interface MapFacts {
   /** 내가 선 방. 규칙 쪽에서 온 string 을 여기서 받아 지도 이름으로 쓴다. */

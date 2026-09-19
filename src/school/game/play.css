@@ -38,7 +38,7 @@
   padding: 40px 16px;
   text-align: center;
   color: var(--sc-text-dim);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 20px;
 }
 
@@ -1029,8 +1029,8 @@ p.sc-cv { display: block; }
   animation: sc-wk-bob 0.5s steps(2) infinite;
 }
 
-.sc-wk__transit p { margin: 0; font-size: 14px; color: #f2f3f4; }
-.sc-wk__transit span { font-size: 11.5px; color: #aeb4c2; font-variant-numeric: tabular-nums; }
+.sc-wk__transit p { margin: 0; font-size: 16px; color: #f2f3f4; }
+.sc-wk__transit span { font-size: 9px; color: #aeb4c2; font-variant-numeric: tabular-nums; }
 
 @keyframes sc-wk-bob {
   from { transform: translateY(0); }
@@ -1041,11 +1041,81 @@ p.sc-cv { display: block; }
   .sc-wk__transit img { animation: none; }
 }
 
-.sc-wk__here {
-  margin: 6px 0 0;
-  font-size: 12.5px;
-  color: var(--sc-text-2);
-  text-align: center;
+/*
+ * 발치의 이름표.
+ *
+ * **9px 에 팀색 점 하나.** 열넷이 같은 교복을 입고 있어서, 색 점이
+ * 없으면 이름을 다 읽고 나서야 우리 편인지 안다. 지도 위 글자라
+ * 어두운 테를 두른다 — 밝은 바닥에서도 어두운 복도에서도 같은
+ * 또렷함으로 남아야 한다.
+ */
+.sc-wk__tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 9em;
+  font-size: 9px;
+  line-height: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: #eef1f8;
+  /* 면을 깔면 발치가 가려진다. 테 하나로 띄운다 */
+  text-shadow:
+    1px 0 0 #1a1d2e, -1px 0 0 #1a1d2e, 0 1px 0 #1a1d2e, 0 -1px 0 #1a1d2e;
+  pointer-events: none;
+}
+/* 팀색 점. 3×3 한 점이면 된다 — 테를 둘러야 밝은 바닥에서도 산다 */
+.sc-wk__tag i {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 3px;
+  box-shadow: 0 0 0 1px #1a1d2e;
+  background: var(--tag-team, #eef1f8);
+}
+/* 내 이름만 한 단계 밝다. 사람이 많으면 나부터 찾는다 */
+.sc-wk__tag.is-me { color: #fff; font-weight: 700; }
+
+/*
+ * 머리 위로 떠오르는 숫자.
+ *
+ * 나가는 것은 붉고 들어오는 것은 금색이다. **네 걸음으로 끊어** 올린다 —
+ * 부드럽게 흐르면 요즘 게임의 그것이 되고, 발밑의 도트와 따로 논다.
+ */
+.sc-wk__pop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 9;
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow:
+    1px 0 0 #1a1d2e, -1px 0 0 #1a1d2e, 0 1px 0 #1a1d2e, 0 -1px 0 #1a1d2e;
+  pointer-events: none;
+  animation: sc-wk-pop-up 1.1s steps(1, end) forwards;
+}
+.sc-wk__pop.is-down { color: #e07a72; }
+.sc-wk__pop.is-up { color: #f0d68a; }
+
+@keyframes sc-wk-pop-up {
+  0% { margin-top: 4px; opacity: 1; }
+  25% { margin-top: 0; opacity: 1; }
+  50% { margin-top: -4px; opacity: 1; }
+  75% { margin-top: -8px; opacity: 1; }
+  100% { margin-top: -12px; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-wk__pop { animation: sc-wk-pop-hold 1.1s steps(1, end) forwards; }
+}
+@keyframes sc-wk-pop-hold {
+  0%, 90% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* 방향키. 손가락으로 하는 게 먼저다 */
@@ -1407,8 +1477,9 @@ p.sc-cv { display: block; }
 
 /* ── 미니맵 ───────────────────────────────────────────────────── */
 
-/* 미니맵 한 변. 자리를 비워 두는 쪽에서도 같은 값을 쓴다 */
-.sc-pl__today { --sc-mini: clamp(100px, 25vw, 160px); }
+/* 미니맵 한 변. 자리를 비워 두는 쪽에서도 같은 값을 쓴다.
+   25vw 는 방을 너무 가렸다 — 화면 폭의 22% 로 줄인다 */
+.sc-pl__today { --sc-mini: clamp(88px, 22vw, 140px); }
 
 /*
  * 미니맵이 켜져 있으면 오른쪽 위는 미니맵 자리다. 띄워 놓기만 하면
@@ -1420,24 +1491,27 @@ p.sc-cv { display: block; }
 }
 
 /*
- * **비쳐 보이면 안 된다.** 72% 투명으로 두었더니, 뒤에 어두운 복도 띠가
- * 지나갈 때 검정 위에 검정이 얹혀 통째로 없어진 것처럼 보였다 — 실제로
- * 「미니맵이 사라졌다」는 말을 들었다. 지도는 늘 같은 자리에 같은 밝기로
- * 있어야 눈이 거기를 믿는다.
+ * 검은 사각형이 방을 가렸다. 반투명하게 깔고 2px 테두리를 두른다.
+ *
+ * 전에 한 번 72% 로 두었다가 **통째로 사라져 보인다**는 말을 들었다 —
+ * 뒤로 지나가는 검은 복도 띠 위에 검정을 얹은 탓이었다. 그래서 이번엔
+ * 두 가지를 같이 바꿨다. 하나는 복도 바닥이 이제 회색이라는 것
+ * (skin.ts), 다른 하나는 **테두리를 2px 로 굵게 밝혀** 배경이 무엇이든
+ * 네모의 윤곽만은 늘 남게 한 것이다. 배경도 82% 까지만 비운다.
  */
 .sc-mini {
   position: fixed;
   top: max(10px, env(safe-area-inset-top));
   right: max(10px, env(safe-area-inset-right));
   z-index: 30;
-  width: var(--sc-mini, clamp(100px, 25vw, 160px));
+  width: var(--sc-mini, clamp(88px, 22vw, 140px));
   aspect-ratio: 1;
   padding: 4px;
   appearance: none;
-  border: 1px solid rgba(242, 243, 244, 0.6);
-  border-radius: 6px;
-  background: #0c0e12;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  border: 2px solid var(--ct-line, #4a5070);
+  border-radius: 0;
+  background: rgba(28, 31, 51, 0.82);
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -1736,6 +1810,23 @@ p.sc-cv { display: block; }
 .sc-qz h2 span { font-size: 11px; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
 .sc-qz__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .sc-qz__list > li { display: flex; flex-direction: column; gap: 6px; }
+
+/*
+ * 틀린 종이. **한 화소씩 두 번 흔들린다.**
+ *
+ * 크게 흔들면 요즘 게임의 그것이 된다. 도트 화면에서 「아니다」는
+ * 한 화소로 충분하다 — 옛날 게임의 잘못된 선택음이 짧았던 것과 같다.
+ */
+.sc-qz__list > li.is-wrong { animation: sc-qz-no 0.26s steps(1, end); }
+@keyframes sc-qz-no {
+  0%, 100% { transform: translateX(0); }
+  15%, 65% { transform: translateX(-1px); }
+  40%, 90% { transform: translateX(1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-qz__list > li.is-wrong { animation: none; }
+}
 .sc-qz__shut { margin: 0; font-size: 12px; color: var(--sc-text-dim); }
 .sc-qz__prompt { margin: 0; font-size: 13px; line-height: 1.5; }
 .sc-qz__warn { margin: 0; font-size: 11px; color: var(--sc-quiz-mark); }
@@ -1911,8 +2002,15 @@ p.sc-cv { display: block; }
  */
 /*
  * 머리 위 말풍선. **도트 그림과 같은 규칙으로 그린다** — 모서리는
- * 각지고, 테두리는 1px, 꼬리는 3px 짜리 네모 하나다. 둥근 모서리와
+ * 각지고, 테두리는 1px, 꼬리는 한 화소로 모인다. 둥근 모서리와
  * 흐린 그림자는 격자를 흐린다.
+ *
+ * 색은 skin.ts 의 종이와 먹이다(PAPER.sheet · MAP.outline). 투표용지와
+ * 쪽지와 같은 종이를 쓴다 — 화면 안에서 「글씨가 적힌 것」은 전부 이 흰색이다.
+ *
+ * **바깥은 자리만 잡는다.** 자리(transform)는 Walk.tsx 가 매 프레임
+ * 직접 만지므로, 팝 애니메이션은 안쪽 상자에 건다 — 한 요소에 둘을
+ * 겹치면 둘 중 하나가 진다.
  */
 .sc-wk__say {
   position: absolute;
@@ -1921,17 +2019,48 @@ p.sc-cv { display: block; }
   z-index: 8;
   /* 한 줄 열두 자. 넘는 말은 Play.tsx 가 미리 「…」로 자른다 */
   max-width: 13em;
-  padding: 3px 5px;
-  border: 1px solid #14161f;
-  border-radius: 0;
-  background: #fafaf8;
-  color: #14161f;
-  font-size: 11px;
-  line-height: 14px;
-  text-align: center;
-  word-break: keep-all;
   /* 지도를 누르는 것을 막지 않는다 — 풍선은 보이기만 한다 */
   pointer-events: none;
+}
+
+.sc-wk__say__b {
+  display: block;
+  padding: 3px 5px;
+  border: 1px solid var(--say-line, #1a1d2e);
+  border-radius: 0;
+  background: #f4f1e8;
+  color: #1a1d2e;
+  font-size: 12px;
+  line-height: 15px;
+  text-align: center;
+  word-break: keep-all;
+  /*
+   * 모서리 한 화소씩 깎는다. 도트 그림에서 네모의 네 귀퉁이를 비우는
+   * 것과 같다 — 1px 짜리 비스듬한 면은 화면에서 **정확히 한 화소가
+   * 빠진 것**으로 보인다.
+   */
+  clip-path: polygon(
+    1px 0, calc(100% - 1px) 0, 100% 1px, 100% calc(100% - 1px),
+    calc(100% - 1px) 100%, 1px 100%, 0 calc(100% - 1px), 0 1px
+  );
+  /* 나타나고 사라지는 것이 두 프레임이다. 살짝 커졌다 제자리로
+     오는 것만으로 「방금 말했다」가 보인다 */
+  transform-origin: bottom center;
+  animation: sc-wk-pop 4s steps(1, end) forwards;
+}
+
+@keyframes sc-wk-pop {
+  0% { transform: scale(0.4); }
+  1.5% { transform: scale(0.8); }
+  3% { transform: scale(1); }
+  96.5% { transform: scale(1); }
+  98% { transform: scale(0.8); }
+  99.5% { transform: scale(0.4); }
+  100% { transform: scale(0.4); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-wk__say__b { animation: none; }
 }
 
 /*
@@ -1946,8 +2075,8 @@ p.sc-cv { display: block; }
  * 죄다 수평·수직이라 또렷하게 남는다.
  *
  * 두 겹이다. ::before 가 어두운 삼각형(5×3), ::after 가 그보다 한
- * 화소씩 작은 흰 삼각형(3×3)이다. 겹치면 비탈과 끝에 1px 테가 남고,
- * 흰 쪽이 한 줄 위로 올라와 **풍선 아래 선을 끊어** 속과 이어진다.
+ * 화소씩 작은 종이색 삼각형(3×3)이다. 겹치면 비탈과 끝에 1px 테가
+ * 남고, 종이 쪽이 한 줄 위로 올라와 **풍선 아래 선을 끊어** 속과 이어진다.
  */
 .sc-wk__say::before,
 .sc-wk__say::after {
@@ -1957,26 +2086,24 @@ p.sc-cv { display: block; }
   transform: translateX(-50%);
 }
 
-/* 어두운 쪽 — 5 · 3 · 1 로 좁아지며 한 화소에서 끝난다 */
+/* 어두운 쪽 — 5 · 3 · 1 로 좁아지며 한 화소에서 끝난다.
+   팀색 테를 두른 풍선은 꼬리 끝도 그 색이다 */
 .sc-wk__say::before {
   bottom: -3px;
   width: 5px;
   height: 3px;
-  background: #14161f;
+  background: var(--say-line, #1a1d2e);
   clip-path: polygon(
     0 0, 5px 0, 5px 1px, 4px 1px, 4px 2px, 3px 2px,
     3px 3px, 2px 3px, 2px 2px, 1px 2px, 1px 1px, 0 1px
   );
 }
 
-/* 흰 쪽 — 한 화소 안쪽. 맨 윗줄이 풍선 아래 선을 덮는다 */
+/* 종이 쪽 — 한 화소 안쪽. 맨 윗줄이 풍선 아래 선을 덮는다 */
 .sc-wk__say::after {
   bottom: -2px;
   width: 3px;
   height: 3px;
-  background: #fafaf8;
+  background: #f4f1e8;
   clip-path: polygon(0 0, 3px 0, 3px 2px, 2px 2px, 2px 3px, 1px 3px, 1px 2px, 0 2px);
 }
-
-/* 내 말은 완장 쪽 색으로 테를 두른다 */
-.sc-wk__say.is-me { box-shadow: inset 0 0 0 1px #c8a24a; }

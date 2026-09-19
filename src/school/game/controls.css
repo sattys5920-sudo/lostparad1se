@@ -23,6 +23,16 @@
   --ct-gold: #f0d68a;
   --ct-ice: #9fd4e8;
   --ct-down: #e07a72;
+  /* 베벨 — 위·왼쪽은 밝고 아래·오른쪽은 어둡다. 이것만으로 눌리는
+     물건이라는 게 보인다 */
+  --ct-bevel-lit: #4a5070;
+  --ct-bevel-dim: #0e1120;
+  /* 로그 본문. 이름은 팀 완장 색이 맡는다 */
+  --ct-log: #d8dce8;
+  /* 맵 — UI 가 맵과 이어져 보이게, 같은 값을 여기서도 쓴다 */
+  --mp-floor: #c8cdd8;
+  --mp-wall: #2a2f42;
+  --mp-outline: #1a1d2e;
 
   /*
    * 지도 아래에 깔린 것들의 총 높이 — 자원 줄 36 · 조작 영역 96 ·
@@ -100,10 +110,14 @@
    * 선을 이 줄 안으로 들이면 딱 180 이다.
    */
   height: 36px;
+  /*
+   * **면이 없다.** 전에는 자원 줄도 십자키도 액션도 전부 같은 남색
+   * 면이라, 뭐가 읽는 것이고 뭐가 누르는 것인지 모양으로는 구별이
+   * 안 됐다. 읽는 것에서 면을 걷어 내면 그것만으로 갈린다.
+   */
   border: 0;
-  border-top: 2px solid var(--ct-line);
-  border-bottom: 2px solid var(--ct-line);
-  background: var(--ct-bg);
+  border-bottom: 1px solid var(--ct-bevel-dim);
+  background: transparent;
   color: inherit;
   font: inherit;
   display: flex;
@@ -121,14 +135,15 @@
   line-height: 1;
 }
 .sc-ct__res b {
+  /* 숫자는 크고 밝게, 라벨은 작고 흐리게 — 눈이 숫자부터 잡는다 */
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
   color: var(--ct-gold);
 }
 .sc-ct__res i {
   font-style: normal;
-  font-size: 10px;
+  font-size: 9px;
   color: #9aa0c0;
 }
 /* 지식만 다른 계열. 돈과 헷갈리지 않게.
@@ -136,9 +151,27 @@
    셋째가 지식이 아니게 된다 */
 .sc-ct__res.is-know b { color: var(--ct-ice); }
 
-/* 바뀌는 순간 한 번. 늘면 강조색, 줄면 붉은색 */
-.sc-ct__res.is-up b { color: #fff3cf; }
-.sc-ct__res.is-down b { color: var(--ct-down); }
+/*
+ * 바뀌는 순간 **번쩍인다.** 색만 300ms 바뀌게 두었더니, 지도를 보고
+ * 있는 눈에는 아무 일도 안 일어난 것과 같았다. 두 번 껐다 켠다 —
+ * 도트 게임에서 값이 깎일 때의 그 깜빡임이다.
+ */
+.sc-ct__res.is-up b { animation: sc-ct-blink-up 0.3s steps(1, end); }
+.sc-ct__res.is-down b { animation: sc-ct-blink-down 0.3s steps(1, end); }
+
+@keyframes sc-ct-blink-up {
+  0%, 50% { color: #fff3cf; }
+  25%, 75% { color: var(--ct-text); }
+}
+@keyframes sc-ct-blink-down {
+  0%, 50% { color: var(--ct-down); }
+  25%, 75% { color: var(--ct-text); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-ct__res.is-up b { animation: none; color: #fff3cf; }
+  .sc-ct__res.is-down b { animation: none; color: var(--ct-down); }
+}
 
 /* 팀원. 접속 중은 팀 색으로 차고 아닌 사람은 빈 네모다 */
 .sc-ct__mates {
@@ -180,6 +213,44 @@
 /* 자원 줄이 없는 자리(시작 전 로비)에서는 조작 영역이 맨 위다 */
 .sc-ct__ctl:first-child { border-top: 2px solid var(--ct-line); }
 
+
+/*
+ * ── 픽셀 베벨 ────────────────────────────────────────────────
+ *
+ * 위·왼쪽 1px 밝게, 아래·오른쪽 1px 어둡게. **이것만으로 눌리는
+ * 물건이라는 게 보인다** — 라벨을 읽기 전에 손이 먼저 안다.
+ *
+ * 그림자 대신 inset box-shadow 를 쓴다. 도트 화면에서 흐린 그림자는
+ * 격자를 흐리고, 이쪽은 정확히 1px 이다.
+ *
+ * 누르면 뒤집힌다(밝은 쪽이 아래로). 안 눌리는 것은 베벨을 뗀다 —
+ * 평평하면 평평한 대로 「이건 아니다」가 보인다.
+ */
+.sc-pl-root .sc-ct__key,
+.sc-pl-root .sc-ct__act {
+  box-shadow:
+    inset 1px 1px 0 0 var(--ct-bevel-lit),
+    inset -1px -1px 0 0 var(--ct-bevel-dim);
+}
+.sc-pl-root .sc-ct__key:active:not(:disabled),
+.sc-pl-root .sc-ct__act:active:not(:disabled) {
+  box-shadow:
+    inset -1px -1px 0 0 var(--ct-bevel-lit),
+    inset 1px 1px 0 0 var(--ct-bevel-dim);
+}
+.sc-pl-root .sc-ct__key:disabled,
+.sc-pl-root .sc-ct__act:disabled,
+.sc-pl-root .sc-ct__key.is-shut,
+.sc-pl-root .sc-ct__act.is-shut {
+  box-shadow: none;
+}
+
+/* 십자키와 액션 사이 한 줄. 두 무리가 다른 일을 한다는 표시 */
+.sc-ct__ctl .sc-ct__pad {
+  border-right: 1px solid var(--ct-bevel-dim);
+  padding-right: 8px;
+}
+
 /* 십자 다섯 칸. 가운데는 비어 있다 */
 .sc-ct__pad {
   flex: 0 0 auto;
@@ -200,7 +271,7 @@
   background: var(--ct-face);
   color: var(--ct-text);
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -251,7 +322,7 @@
   right: 2px;
   bottom: 0;
   font-style: normal;
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1;
   color: var(--ct-gold);
 }
@@ -283,7 +354,7 @@
   cursor: pointer;
 }
 .sc-ct__act span {
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
@@ -340,7 +411,7 @@
   background: transparent;
   color: #7d83a6;
   font: inherit;
-  font-size: 10px;
+  font-size: 9px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -463,8 +534,8 @@
   flex-direction: column;
   align-items: stretch;
   padding: 6px 10px 5px;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 12px;
+  line-height: 16px;
   text-align: left;
   overflow: hidden;
   /* 지도를 짚는 것을 막지 않는다 — 쓸어내려 닫을 때만 받는다 */
@@ -477,11 +548,15 @@
   pointer-events: auto;
 }
 
-/* 오래된 줄일수록 옅다. 맨 위는 40% — 사라지는 중인 것으로 읽힌다 */
+/* 오래된 줄일수록 옅다. 맨 위는 40% — 사라지는 중인 것으로 읽힌다.
+   왼쪽 2px 막대가 완장 색이다. 줄 앞에 색이 한 줄 서 있으면, 이름
+   석 자를 읽기 전에 **몇 팀이 말하고 있는지**가 먼저 보인다 */
 .sc-sy__line {
   display: block;
+  padding-left: 6px;
+  border-left: 2px solid var(--say-team, transparent);
   opacity: var(--fade, 1);
-  color: #cfd6e4;
+  color: var(--ct-log, #d8dce8);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -507,6 +582,15 @@
   margin-right: 5px;
   font-weight: 700;
 }
+/* 판이 적은 줄. 이름이 없고, 가운데에 회색으로 선다 — 사람이 한
+   말과 같은 모양이면 누가 한 말인지 헷갈린다 */
+.sc-sy__line.is-sys {
+  padding-left: 0;
+  border-left: 0;
+  color: #8b93a8;
+  text-align: center;
+}
+
 /* 지워진 채로 친 말. 본인에게만 원문이 보인다 */
 .sc-sy__line.is-muted { color: #6b7386; font-style: italic; }
 
@@ -517,8 +601,9 @@
   width: 100%;
   /* 평소 40, 채팅 모드 48 */
   height: 40px;
-  border: 1px solid var(--ct-line);
-  border-radius: 3px;
+  /* 2px 픽셀 프레임. 맵 위에 얹히는 판은 위쪽 표시와 같은 테를 쓴다 */
+  border: 2px solid var(--ct-line);
+  border-radius: 0;
   background: rgba(12, 14, 24, 0.82);
   padding: 0 4px 0 0;
   transition: height 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -558,7 +643,7 @@
   flex: 0 0 auto;
   min-width: 16px;
   color: #7d83a6;
-  font-size: 11px;
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -569,7 +654,7 @@
   width: 100%;
   margin: 4px 0 0;
   color: var(--ct-down);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 14px;
 }
 .sc-sy__box:disabled { color: #5a6076; }
@@ -585,7 +670,7 @@
   border: 0;
   background: transparent;
   color: var(--ct-gold);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }

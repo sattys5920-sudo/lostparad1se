@@ -46,10 +46,10 @@
   --sc-quiz-edge: #9db6c4;
   --sc-quiz-bg: #e6edf1;
 
-  --team-a: #2c3e6b;
-  --team-b: #7c3b3b;
-  --team-c: #4f6b3f;
-  --team-d: #5b4e66;
+  /* 완장 색은 여기 없다. char/palette.ts 의 TEAMS 가 정본이고,
+     play.css 가 --pl-* 로 잇는다. 전에는 여기에도 네 줄이 있었는데
+     순서도 색도 달라서, 쓰는 데가 없는 채로 오답 하나를 놓아 둔
+     꼴이었다 — 언젠가 누군가 이 줄을 쓴다 */
 
   width: 100%;
   height: 100%;

@@ -7,7 +7,7 @@
 // 화면은 남의 픽셀 위치를 모른다. 서버가 아는 것은 「누가 어느 방에
 // 있는가」뿐이고, 그보다 자세한 것을 주고받으면 안개가 의미를 잃는다.
 // 그래서 남은 방 한가운데에 선 것으로 그린다.
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { signSheet } from '../map/signs'
 
 import {
@@ -31,12 +31,12 @@ import {
   type Door,
 } from '../map/world'
 import { PAL, buildSprites, type Dir } from '../map/sprites'
+import { MAP } from '../skin'
 import { pixelFrame } from '../char/pixel'
 // 명단에서 온 생김새는 어떤 값이 들어 있을지 모른다. 서버는 검사하지
 // 않고 옮기기만 하므로, 그리기 직전에 여기서 접어 넣는다
 import { normalizeLook } from '../char/look'
 import { TEAM_COLOR } from './MapPlan'
-import { TILE_BY_ID } from '../../../shared/rules/board'
 import {
   CHAR_PX,
   CROSS_TIMEOUT_MS,
@@ -89,6 +89,12 @@ export interface WalkProps {
    * 카메라 자리 하나뿐이고, 그래서 캔버스가 다시 설 일이 없다.
    */
   keepAbove?: number | null
+  /**
+   * 화면 위쪽에서 여기보다 위로는 풍선을 올리지 않는다(뷰포트 좌표).
+   * 머리 위 표시가 덮고 있는 자리다 — 거기 올라간 풍선은 판 뒤로
+   * 숨거나 표시를 가리거나, 둘 중 하나다.
+   */
+  keepBelow?: number | null
   /**
    * 걸음을 멈춘 자리. **서버가 이것으로 「옆에 있다」를 판정한다.**
    *
@@ -181,6 +187,20 @@ export interface WalkProps {
    * 가린 사람이 정말로 안 온다.
    */
   roster?: readonly { playerId: string; team: TeamId }[]
+  /**
+   * 사람마다 이름. **이름표를 발치에 단다** — 전에는 아무 이름도
+   * 안 붙어서, 누군지 알려면 하나씩 눌러 봐야 했다. 열넷이 같은
+   * 교복을 입고 서 있는 판에서 그것은 「누가 누구인지 모른다」였다.
+   *
+   * 여기 없는 사람은 이름표가 없다. 서버가 안 보내 준 사람이다.
+   */
+  names?: Readonly<Record<string, string>>
+  /**
+   * 머리 위로 떠올랐다 사라지는 숫자. 돈이나 지식이 드나든 만큼이다.
+   *
+   * **내 것만 뜬다.** 남의 주머니는 애초에 안 보인다.
+   */
+  pops?: readonly { key: string; text: string; down: boolean }[]
 }
 
 /**
@@ -227,10 +247,119 @@ function acrossFrom(door: { a: TileId; b: TileId | null }, here: TileId | null):
 /** 채팅 바 위로 이만큼 띄워 준다. Play.tsx 의 CAM_GAP 과 같은 값이다. */
 const CAM_GAP_PX = 40
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null }: WalkProps) {
+/** 하늘이 보이는 방. 눈이 쌓여 바닥이 한 단계 밝다 */
+const OUTDOOR: ReadonlySet<string> = new Set(['playground', 'garden', 'rooftop'])
+
+/** 눈송이 수. 늘려도 더 눈 같아지지 않는다 — 화면만 시끄러워진다 */
+const SNOW_N = 64
+
+/** 방을 바꿀 때 덮는 네모 한 변. 0.3초 동안 찼다가 빠진다 */
+const WIPE_PX = 8
+const WIPE_MS = 300
+/** 주인이 바뀐 방 바닥이 번쩍이는 시간. 두 프레임이다 */
+const FLASH_MS = 160
+
+/** 4×4 베이어. 단계와 단계 사이를 알갱이로 흩어 준다 */
+const BAYER: readonly (readonly number[])[] = [
+  [0, 8, 2, 10],
+  [12, 4, 14, 6],
+  [3, 11, 1, 9],
+  [15, 7, 13, 5],
+]
+
+/** 가장자리 네 단계의 짙기. 0은 안 덮는다 */
+const VIG_A = [0, 0.06, 0.14, 0.26]
+
+/**
+ * 가장자리를 어둡게 하는 한 장. **네 단계로 끊고 디더로 흩는다.**
+ *
+ * 부드러운 그라디언트를 깔면 도트 그림 위에 사진 같은 면이 얹혀
+ * 곧바로 이물감이 난다. 단계를 넷으로 끊으면 옛날 게임의 그것이 되고,
+ * 베이어 디더를 섞으면 단계 사이의 띠가 안 보인다.
+ */
+function bakeVignette(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const g = c.getContext('2d')
+  if (!g) return c
+  const img = g.createImageData(w, h)
+  const d = img.data
+  /*
+   * 가로와 세로를 따로 잰다. 한쪽 값으로 둘 다 재면 **좁은 쪽이 화면
+   * 폭의 절반을 먹는다** — 세로로 긴 손전화에서 지도 가운데만 남고
+   * 좌우가 통째로 어두워졌다. 실제로 그렇게 나왔다.
+   */
+  const ex = Math.max(6, Math.round(w * 0.16))
+  const ey = Math.max(6, Math.round(h * 0.16))
+  // #1a1d2e — 맵의 윤곽색이다. 검정으로 덮으면 화면이 두 색이 된다
+  const [r, gg, b] = [0x1a, 0x1d, 0x2e]
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const t = Math.max(
+        0,
+        Math.min(1, Math.max(1 - x / ex, 1 - y / ey, 1 - (w - 1 - x) / ex, 1 - (h - 1 - y) / ey)),
+      )
+      const raw = t * (VIG_A.length - 1)
+      const lo = Math.floor(raw)
+      const up = raw - lo > BAYER[y & 3][x & 3] / 16 ? 1 : 0
+      const a = VIG_A[Math.min(VIG_A.length - 1, lo + up)]
+      const i = (y * w + x) * 4
+      d[i] = r
+      d[i + 1] = gg
+      d[i + 2] = b
+      d[i + 3] = Math.round(a * 255)
+    }
+  }
+  g.putImageData(img, 0, 0)
+  return c
+}
+
+/**
+ * 간판의 그림자. 1px 만 어긋나게 깔면 벽에 **걸린** 것으로 보인다.
+ *
+ * 간판 그림은 글꼴이 늦게 와서 한 번 다시 구워진다(signs.ts). 그래서
+ * 캔버스 자체를 열쇠로 쥐는 WeakMap 에 담는다 — 다시 구워지면 새 열쇠라
+ * 저절로 새 그림자가 생기고, 옛것은 같이 버려진다.
+ */
+const SIGN_SHADOW = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>()
+function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
+  const had = SIGN_SHADOW.get(plate)
+  if (had) return had
+  const c = document.createElement('canvas')
+  c.width = plate.width
+  c.height = plate.height
+  const g = c.getContext('2d')
+  if (g) {
+    g.drawImage(plate, 0, 0)
+    // 그림 모양 그대로 한 색으로 채운다 — 실루엣이다
+    g.globalCompositeOperation = 'source-in'
+    g.fillStyle = MAP.outline
+    g.fillRect(0, 0, c.width, c.height)
+  }
+  SIGN_SHADOW.set(plate, c)
+  return c
+}
+
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
+  const tagElsRef = useRef(new Map<string, HTMLDivElement>())
+  /** 내리는 눈. 화면 좌표로 돈다 — 카메라를 따라 흐르지 않는다 */
+  const flakesRef = useRef<{ x: number; y: number; vx: number; vy: number; s: number }[]>([])
+  /** 가장자리를 어둡게 하는 한 장. 크기가 바뀔 때만 다시 굽는다 */
+  const popElsRef = useRef(new Map<string, HTMLDivElement>())
+  const keepBelowRef = useRef(keepBelow)
+  const vigRef = useRef<HTMLCanvasElement | null>(null)
+  /** 방이 바뀐 순간. 여기서부터 0.3초 동안 네모가 찼다 빠진다 */
+  const wipeRef = useRef(0)
+  /** 마지막으로 서 있던 방. 바뀌는 순간을 여기서 잡는다 */
+  const wasRoomRef = useRef<TileId | null>(null)
+  /** 방마다 마지막으로 본 주인. 바뀌면 그 방 바닥이 번쩍인다 */
+  const ownWasRef = useRef<Record<string, string | null>>({})
+  /** 번쩍이는 중인 방과 그 시작 시각 */
+  const flashRef = useRef<Record<string, number>>({})
   /** 지금 몇 배로 늘려 그리고 있는가. 풍선 자리를 화면 좌표로 옮길 때 쓴다 */
   const scaleRef = useRef(1)
   /** 캔버스 윗변의 화면 y(css px). 문서가 안 구르므로 resize 때만 바뀐다 */
@@ -242,6 +371,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   // 그리는 쪽은 ref 로만 읽는다 — 여기에 의존성을 더하면 채팅 모드에
   // 들어갈 때마다 캔버스가 다시 서고 걷던 자리가 처음으로 돌아간다
   keepAboveRef.current = keepAbove
+  keepBelowRef.current = keepBelow
   /**
    * 글자만 따로 그리는 겹판.
    *
@@ -284,7 +414,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
   const myPawn = view?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
-  const standingOn = asRoom(myPawn?.tileId)
   const walking = myPawn?.walking === true
   const walkingRef = useRef(walking)
   walkingRef.current = walking
@@ -425,6 +554,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       scaleRef.current = scale
       canvasTopRef.current = canvas.getBoundingClientRect().top
       ctx.imageSmoothingEnabled = false
+      // 화면 크기가 바뀌었을 때만 굽는다. 매 프레임 굽는 그림이 아니다
+      vigRef.current = bakeVignette(vw, vh)
+      // 눈은 새 크기에 맞춰 다시 뿌린다
+      flakesRef.current = []
     }
     resize()
     const ro = new ResizeObserver(resize)
@@ -982,6 +1115,33 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       camRef.x = camX
       camRef.y = camY
 
+      /*
+       * 이번 프레임에 무엇이 달라졌는가. **화면이 알려 주지 않으면
+       * 아무 일도 안 일어난 것과 같다** — 방이 바뀌어도 지도가 스르륵
+       * 다른 그림이 되어 있을 뿐이었고, 방 주인이 넘어가도 색이
+       * 소리 없이 갈렸다.
+       */
+      {
+        const nowRoom = asRoom(viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId)?.tileId)
+        if (nowRoom !== wasRoomRef.current) {
+          // 처음 방을 알게 되는 순간에는 안 덮는다. 들어온 것이 아니다
+          if (wasRoomRef.current !== null) wipeRef.current = now
+          wasRoomRef.current = nowRoom
+        }
+        const seenOwn = ownWasRef.current
+        for (const [id, t] of Object.entries(tilesRef.current)) {
+          const own = (t?.ownerTeam ?? null) as string | null
+          if (!(id in seenOwn)) {
+            seenOwn[id] = own
+            continue
+          }
+          if (seenOwn[id] !== own) {
+            seenOwn[id] = own
+            flashRef.current[id] = now
+          }
+        }
+      }
+
       ctx.fillStyle = PAL.ink
       ctx.fillRect(0, 0, w, h)
 
@@ -992,6 +1152,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const seen = new Set<TileId>(asRooms(viewRef.current?.visibleTiles ?? []))
 
       const plates = signSheet()
+      /*
+       * 간판은 **한 바퀴 다 돌고 나서** 그린다. 그림자를 1px 어긋나게
+       * 까는데, 칸 안에서 바로 그리면 다음 칸의 바닥이 그 1px 을 덮어
+       * 아래쪽 그림자만 사라졌다.
+       */
+      const boards: { img: HTMLCanvasElement; ox: number; dx: number; dy: number; own: TeamId | null }[] = []
       for (let y = y0; y <= y1; y++) {
         for (let x = x0; x <= x1; x++) {
           const kind = tileAt(x, y)
@@ -1007,8 +1173,38 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             // 벽이 누운 방향에 따라 널빤지도 눕거나 선다
             img = doorIsHorizontal(x, y) ? sprites.tiles.doorH : sprites.tiles.doorV
           } else {
-            // 방 바닥은 어디나 같은 흰색이다. 점령한 팀 색만 그 위에 얹는다
-            ctx.drawImage(sprites.tiles.floorRoom, x * TILE - camX, y * TILE - camY)
+            /*
+             * 바닥은 셋이다 — 방 · 복도 · 실외. 전에는 어디나 같은
+             * 흰색이라 문을 넘어도 화면이 그대로였고, 안에 있는지 밖에
+             * 있는지 발밑으로는 알 수가 없었다.
+             */
+            const base =
+              kind === 'hall'
+                ? sprites.tiles.floorHall
+                : room !== null && OUTDOOR.has(room)
+                  ? sprites.tiles.floorOut
+                  : sprites.tiles.floorRoom
+            ctx.drawImage(base, x * TILE - camX, y * TILE - camY)
+            /*
+             * 창으로 드는 빛. **위가 벽인 방 바닥에만**, 세 칸 걸러
+             * 한 칸씩 둔다 — 창이 벽마다 줄지어 난 학교의 모습이다.
+             * 복도와 실외에는 없다(복도에는 창이 없고, 밖은 온통 빛이다).
+             */
+            if (
+              kind !== 'hall' &&
+              room !== null &&
+              !OUTDOOR.has(room) &&
+              tileAt(x, y - 1) === 'wall' &&
+              x % 3 === 0
+            ) {
+              const dx = x * TILE - camX
+              const dy = y * TILE - camY
+              // 두 단만 쓴다. 아래로 갈수록 넓어지고 옅어진다
+              ctx.fillStyle = 'rgba(255, 248, 224, 0.15)'
+              ctx.fillRect(dx + 3, dy, 10, 8)
+              ctx.fillStyle = 'rgba(255, 248, 224, 0.07)'
+              ctx.fillRect(dx + 1, dy + 8, 14, 8)
+            }
             const team = room ? tilesRef.current[room]?.ownerTeam : null
             img = team ? sprites.tiles.floorTeam[team] : null
           }
@@ -1031,12 +1227,36 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             ctx.fillRect(x * TILE - camX, y * TILE - camY, TILE, TILE)
             ctx.globalCompositeOperation = 'source-over'
           }
+          // 방금 주인이 바뀐 방. 두 프레임 번쩍인다 — 켜졌다 꺼진다
+          if (room) {
+            const at = flashRef.current[room]
+            if (at !== undefined) {
+              const age = now - at
+              if (age > FLASH_MS) delete flashRef.current[room]
+              else if (age < FLASH_MS / 2) {
+                ctx.fillStyle = 'rgba(255, 252, 232, 0.55)'
+                ctx.fillRect(x * TILE - camX, y * TILE - camY, TILE, TILE)
+              }
+            }
+          }
           const mark = markAt(x, y)
           if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
           const prop = propAt(x, y)
           if (prop) drawPiece(ctx, sprites.props[prop.kind], prop.ox, prop.oy, x * TILE - camX, y * TILE - camY)
           const sign = signAt(x, y)
-          if (sign) drawPiece(ctx, plates[sign.id], sign.ox, 0, x * TILE - camX, y * TILE - camY)
+          // 안개 뒤의 간판은 아예 안 모은다 — 나중에 그리므로 안개가
+          // 덮어 주지 못한다
+          if (sign && !(room && !seen.has(room))) {
+            boards.push({
+              img: plates[sign.id],
+              ox: sign.ox,
+              dx: x * TILE - camX,
+              dy: y * TILE - camY,
+              // 주인은 바닥을 칠할 때 이미 구했다. 여기서 따로 또
+              // 찾으면 두 셈이 되고, 실제로 한 번 어긋났다
+              own: owner,
+            })
+          }
 
           // 안개. 못 받은 방은 덮는다 — 화면에서 가리는 것이 아니라
           // 애초에 그 방 정보가 오지 않았다
@@ -1045,6 +1265,31 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             ctx.fillRect(x * TILE - camX, y * TILE - camY, TILE, TILE)
           }
         }
+      }
+
+      // 간판. 그림자를 한 화소 어긋나게 먼저 깔면 벽에 걸린 판이 된다
+      for (const b of boards) drawPiece(ctx, signShadow(b.img), b.ox, 0, b.dx + 1, b.dy + 1)
+      for (const b of boards) drawPiece(ctx, b.img, b.ox, 0, b.dx, b.dy)
+
+      /*
+       * 간판 옆의 깃발. **주인이 있는 방에만** 선다.
+       *
+       * 바닥의 색은 방마다 다른 무늬 위에 곱해져서, 옅은 팀과 짙은 팀이
+       * 같아 보일 때가 있다. 깃발은 원색 그대로라 한눈에 갈린다.
+       */
+      for (const b of boards) {
+        if (b.ox !== 0) continue
+        const own = b.own
+        if (!own) continue
+        const fx = b.dx - 5
+        const fy = b.dy + 2
+        // 깃대 — 어두운 한 줄
+        ctx.fillStyle = MAP.outline
+        ctx.fillRect(fx, fy, 1, 11)
+        // 천 — 팀색 4×5 에 어두운 테
+        ctx.fillRect(fx + 1, fy, 5, 6)
+        ctx.fillStyle = TEAM_COLOR[own]
+        ctx.fillRect(fx + 1, fy + 1, 4, 4)
       }
 
       // 남들. 방 한가운데에 선 것으로 그린다 — 서버가 아는 것도 거기까지다.
@@ -1075,7 +1320,156 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         self.moving ? Math.floor(self.phase) : 0,
       )
 
-      placeSays(line, camX, camY)
+      snow(dt, w, h, camX, camY)
+      wipe(now, w, h)
+
+      // 가장자리는 맨 마지막이다. 사람도 같이 어두워져야 **가운데를
+      // 보게 되는** 화면이 된다
+      const vig = vigRef.current
+      if (vig) ctx.drawImage(vig, 0, 0)
+
+      /*
+       * 덮는 중에는 글자도 같이 사라진다. 캔버스만 덮으면 이름표와
+       * 풍선은 위에 겹으로 얹힌 것이라 네모 사이에 둥둥 떠 있는다 —
+       * 화면이 두 겹이라는 것이 그 순간에 드러난다.
+       */
+      const hid = wipeRef.current !== 0
+      placeSays(line, camX, camY, hid)
+      placeTags(line, camX, camY, hid)
+      placePops(camX, camY, hid)
+    }
+
+    /**
+     * 떠오르는 숫자를 내 머리 위에 놓는다. 여럿이 한꺼번에 뜨면
+     * 한 줄씩 위로 쌓는다 — 돈과 지식이 같이 드나드는 일이 잦다.
+     */
+    function placePops(camX: number, camY: number, hide: boolean): void {
+      const els = popElsRef.current
+      if (els.size === 0) return
+      if (hide) {
+        for (const [, el] of els) el.style.display = 'none'
+        return
+      }
+      const k = scaleRef.current
+      const ox = canvas.offsetLeft
+      const oy = canvas.offsetTop
+      let step = 0
+      for (const [, el] of els) {
+        el.style.display = ''
+        const x = Math.round(ox + (self.px - camX) * k)
+        const y = Math.round(oy + (self.py - camY - CHAR_PX) * k) - 6 - step * 14
+        el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`
+        step += 1
+      }
+    }
+
+    /**
+     * 방을 바꿀 때 덮는 네모들.
+     *
+     * 8×8 짜리가 뒤죽박죽 순서로 찼다가 같은 순서로 빠진다. **0.3초**
+     * 다 — 그보다 길면 걸음이 끊기고, 짧으면 깜빡인 것으로만 보인다.
+     *
+     * 순서는 칸 좌표로 정한다. 난수를 쓰면 같은 칸이 들어갈 때마다
+     * 다른 모양이 되어, 두 번째부터는 무엇이 일어난 건지 못 읽는다.
+     */
+    function wipe(now: number, w: number, h: number): void {
+      const at = wipeRef.current
+      if (at === 0) return
+      const age = now - at
+      if (age >= WIPE_MS) {
+        wipeRef.current = 0
+        return
+      }
+      // 앞 절반은 차고 뒤 절반은 빠진다
+      const half = WIPE_MS / 2
+      const on = age < half ? age / half : 1 - (age - half) / half
+      const cols = Math.ceil(w / WIPE_PX)
+      const rows = Math.ceil(h / WIPE_PX)
+      ctx.fillStyle = MAP.outline
+      for (let r = 0; r < rows; r += 1) {
+        for (let c = 0; c < cols; c += 1) {
+          // 같은 칸은 늘 같은 차례다. 흩어 보이되 흔들리지 않는다
+          const order = ((c * 7 + r * 13) % 16) / 16
+          if (order < on) ctx.fillRect(c * WIPE_PX, r * WIPE_PX, WIPE_PX, WIPE_PX)
+        }
+      }
+    }
+
+    /**
+     * 눈.
+     *
+     * **밖에서는 굵고 안에서는 희미하다.** 송이마다 제가 지금 어느
+     * 칸 위에 있는지를 보고 정한다 — 한 화면에 마당과 교실이 같이
+     * 보일 때, 창 너머로만 눈이 내리는 그림이 된다.
+     */
+    function snow(dt: number, w: number, h: number, camX: number, camY: number): void {
+      let f = flakesRef.current
+      if (f.length === 0) {
+        f = Array.from({ length: SNOW_N }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          // 왼쪽으로 비껴 내린다. 똑바로 떨어지면 비처럼 보인다
+          vx: -3 - Math.random() * 7,
+          vy: 9 + Math.random() * 15,
+          s: Math.random() < 0.3 ? 2 : 1,
+        }))
+        flakesRef.current = f
+      }
+      for (const k of f) {
+        k.x += (k.vx * dt) / 1000
+        k.y += (k.vy * dt) / 1000
+        if (k.y > h) {
+          k.y = -2
+          k.x = Math.random() * w
+        }
+        if (k.x < -2) k.x = w + 2
+        const room = roomAt(Math.floor((k.x + camX) / TILE), Math.floor((k.y + camY) / TILE))?.id ?? null
+        const out = room !== null && OUTDOOR.has(room)
+        ctx.fillStyle = out ? 'rgba(246, 249, 255, 0.9)' : 'rgba(246, 249, 255, 0.1)'
+        ctx.fillRect(Math.round(k.x), Math.round(k.y), k.s, k.s)
+      }
+    }
+
+    /**
+     * 이름표를 발치에 놓는다.
+     *
+     * 풍선과 같은 방식이다 — 캔버스에 글자를 그리면 논리 화소가
+     * 160 이라 뭉갠다. 위에 겹으로 얹고 자리만 여기서 옮긴다.
+     *
+     * **발치다.** 머리 위는 풍선 자리라, 이름표를 거기 두면 말할
+     * 때마다 둘이 겹친다.
+     */
+    function placeTags(line: readonly Standee[], camX: number, camY: number, hide: boolean): void {
+      const els = tagElsRef.current
+      if (els.size === 0) return
+      if (hide) {
+        for (const [, el] of els) el.style.display = 'none'
+        return
+      }
+      const k = scaleRef.current
+      const ox = canvas.offsetLeft
+      const oy = canvas.offsetTop
+      const right = ox + canvas.clientWidth
+      const bottom = oy + canvas.clientHeight
+
+      for (const [id, el] of els) {
+        const at = id === me.playerId ? { x: self.px, y: self.py } : (line.find((p) => p.playerId === id) ?? null)
+        // 걷는 중인 사람은 어느 방에도 없다. 이름표도 없다
+        if (!at) {
+          el.style.display = 'none'
+          continue
+        }
+        el.style.display = ''
+        const w = el.offsetWidth
+        const h = el.offsetHeight
+        let x = Math.round(ox + (at.x - camX) * k)
+        // at.y 가 발이다. 한 화소 띄워 붙인다
+        let y = Math.round(oy + (at.y - camY) * k) + 1
+        // 가장자리에서는 안쪽으로 민다. 반쯤 잘린 이름은 이름이 아니다
+        x = Math.min(Math.max(x, ox + w / 2), right - w / 2)
+        y = Math.min(y, bottom - h)
+        el.style.transform = `translate(-50%, 0) translate(${x}px, ${y}px)`
+      }
     }
 
     /**
@@ -1086,9 +1480,13 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      * 자리를 주면 한 걸음에 한 번씩 다시 그려야 해서, 여기서 직접
      * style 만 만진다 — 파형을 움직이는 것과 같은 방식이다.
      */
-    function placeSays(line: readonly Standee[], camX: number, camY: number): void {
+    function placeSays(line: readonly Standee[], camX: number, camY: number, hide: boolean): void {
       const els = sayElsRef.current
       if (els.size === 0) return
+      if (hide) {
+        for (const [, el] of els) el.style.display = 'none'
+        return
+      }
       const k = scaleRef.current
       const ox = canvas.offsetLeft
       const oy = canvas.offsetTop
@@ -1133,7 +1531,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
          * 상자만 민다 — 꼬리까지 옮기면 누가 한 말인지 흐려진다.
          */
         x = Math.min(Math.max(x, ox + w / 2 + 2), right - w / 2 - 2)
-        y = Math.max(y, oy + h + 2)
+        // 머리 위 표시 아래로만 올린다. 화면 좌표라 캔버스 기준으로 옮긴다
+        const roof = keepBelowRef.current === null ? 0 : Math.max(0, keepBelowRef.current - canvasTopRef.current)
+        y = Math.max(y, oy + roof + h + 2)
 
         /*
          * **겹쳐 선 사람들.** 같은 칸에 둘이 서면 풍선이 정확히
@@ -1148,7 +1548,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           y = hit.t - 4
         }
         // 위로 밀다가 지도 밖으로 나가면 도로 안으로 들인다
-        y = Math.min(Math.max(y, oy + h + 2), bottom)
+        y = Math.min(Math.max(y, oy + roof + h + 2), bottom)
         taken.push({ l: x - w / 2, r: x + w / 2, t: y - h, b: y })
 
         el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`
@@ -1476,23 +1876,42 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
 
   const leftMin = view?.myArriveAtMs != null ? Math.max(0, Math.ceil((view.myArriveAtMs - nowMs) / 60000)) : null
 
+  /*
+   * 이름표를 달 사람들. **서버가 보내 준 사람만** 여기 있다 — 안개
+   * 뒤에 선 사람은 view 에 아예 없으므로, 이름표도 없다.
+   */
+  const tagged = (view ? view.visiblePawns : (roster ?? [])).flatMap((p) => {
+    const name = names[p.playerId]
+    return name ? [{ playerId: p.playerId, team: p.team as string, name }] : []
+  })
+
   return (
     <div className="sc-wk">
       <canvas ref={canvasRef} className="sc-wk__canvas" />
       {/* 글자만 또렷하게. 누르는 것은 아래 지도가 받는다 */}
-      {Object.entries(says).map(([id, text]) => (
-        <div
-          key={id}
-          className={`sc-wk__say${id === me.playerId ? ' is-me' : ''}`}
-          ref={(el) => {
-            const m = sayElsRef.current
-            if (el) m.set(id, el)
-            else m.delete(id)
-          }}
-        >
-          {text}
-        </div>
-      ))}
+      {Object.entries(says).map(([id, text]) => {
+        /*
+         * **같은 팀 말은 완장 색으로 테를 두른다.** 한 방에 넷이 서서
+         * 떠들면 누가 우리 편인지가 먼저 보여야 한다 — 이름을 읽고
+         * 명단과 맞춰 보는 동안 대화는 이미 지나가 있다.
+         */
+        const team = id === me.playerId ? me.team : (view?.visiblePawns.find((p) => p.playerId === id)?.team ?? null)
+        const mate = team !== null && team === me.team
+        return (
+          <div
+            key={id}
+            className={`sc-wk__say${id === me.playerId ? ' is-me' : ''}`}
+            style={mate ? ({ '--say-line': TEAM_COLOR[me.team] } as CSSProperties) : undefined}
+            ref={(el) => {
+              const m = sayElsRef.current
+              if (el) m.set(id, el)
+              else m.delete(id)
+            }}
+          >
+            <span className="sc-wk__say__b">{text}</span>
+          </div>
+        )
+      })}
 
       {walking && (
         <div className="sc-wk__transit">
@@ -1502,8 +1921,44 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         </div>
       )}
 
+      {/*
+        발치의 이름표. **방 이름은 여기 없다** — 머리 위 표시의
+        둘째 층이 그것을 맡는다(Play.tsx). 같은 이름이 화면에 두 번
+        적혀 있으면 어느 쪽을 봐야 하는지 눈이 매번 고른다.
+      */}
+      {tagged.map(({ playerId, team, name }) => (
+        <div
+          key={playerId}
+          className={`sc-wk__tag${playerId === me.playerId ? ' is-me' : ''}`}
+          style={{ '--tag-team': TEAM_COLOR[team as TeamId] } as CSSProperties}
+          ref={(el) => {
+            const m = tagElsRef.current
+            if (el) m.set(playerId, el)
+            else m.delete(playerId)
+          }}
+        >
+          <i aria-hidden />
+          {name}
+        </div>
+      ))}
+
+      {/* 드나든 만큼이 머리 위로 떠오른다. 자원 줄의 숫자가 소리 없이
+          하나 줄어드는 것만으로는 **무엇에 썼는지** 알 수 없다 */}
+      {pops.map((p) => (
+        <div
+          key={p.key}
+          className={`sc-wk__pop${p.down ? ' is-down' : ' is-up'}`}
+          ref={(el) => {
+            const m = popElsRef.current
+            if (el) m.set(p.key, el)
+            else m.delete(p.key)
+          }}
+        >
+          {p.text}
+        </div>
+      ))}
+
       {!ready && <p className="sc-pl__wait">지도를 그리는 중</p>}
-      {standingOn && !walking && <p className="sc-wk__here">{TILE_BY_ID[standingOn].name}</p>}
     </div>
   )
 }
