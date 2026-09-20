@@ -21,11 +21,11 @@ import { discloseFor, judge, type Phase } from '../../shared/missions/judge'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
 import { ROLE_NAMES, ROLE_PATH_LABEL, type RoleId } from '../../shared/missions/roleNames'
 import { dayNumber } from '../../shared/rules/clock'
-import type { RosterDoc } from '../../shared/model'
+import type { GameDoc, RosterDoc } from '../../shared/model'
 
 import { buildLog } from './ending'
-import { freshNow } from './turn'
-import { gameRef, requireUid } from './index'
+import { catchUp } from './catchup'
+import { gameRef, nowOf, requireUid } from './index'
 
 /**
  * 내 학생증과 생활기록부.
@@ -40,7 +40,15 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
   if (typeof gameId !== 'string' || gameId.length === 0) {
     throw new HttpsError('invalid-argument', '어느 판인지 없다.')
   }
-  const { game } = await freshNow(gameId)
+  /*
+   * **freshNow 를 안 쓴다.** 그쪽은 phase 가 running 이 아니면 거절하는데,
+   * 학생증은 로비에서 먼저 넘어온다(열넷이 차는 순간). 대신 따라잡기는
+   * 직접 부른다 — 날짜가 안 넘어간 채로 받은 표를 세면 하루가 어긋난다.
+   */
+  const first = await gameRef(gameId).get()
+  if (!first.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  if ((first.data() as GameDoc).phase !== 'lobby') await catchUp(gameId, nowOf(first.data() as GameDoc))
+  const game = (await gameRef(gameId).get()).data() as GameDoc
 
   const mineSnap = await gameRef(gameId)
     .collection('secret')
@@ -53,6 +61,35 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
   const roleId = mine.roleId as RoleId
   const role = ROLE_BY_ID[roleId]
   if (!role) throw new HttpsError('internal', '역할을 찾지 못했다.')
+
+  const head = {
+    roleId,
+    roleName: ROLE_NAMES[roleId],
+    pathLabel: ROLE_PATH_LABEL[role.path],
+    // 내 것 한 줄. 남의 숨긴 사실은 이 응답 어디에도 없다
+    secret: role.secret,
+  }
+
+  /*
+   * **로비에서도 부른다.** 열넷이 차면 그 자리에서 역할이 나뉘고
+   * 학생증이 넘어오기 때문이다(lobby.ts 의 settleRoster).
+   *
+   * 다만 진행도는 셀 수가 없다 — 팀 금고도 칸도 시작할 때 놓이므로
+   * buildLog 가 읽을 것이 아직 없다. 미션 **문장**은 역할 데이터에
+   * 있으니 그대로 보내고, 조항은 빈 채로 둔다. counting 이 false 인
+   * 동안 화면은 막대 대신 「닷새가 열리면 센다」를 적는다.
+   */
+  if (game.phase === 'lobby') {
+    return {
+      ...head,
+      counting: false,
+      main: { text: role.main.text, clauses: [], met: null, broken: false },
+      bond: { text: role.bond.text, clauses: [], met: null, broken: false },
+      votesReceived: 0,
+      votesThroughDay: 0,
+      revealed: null,
+    }
+  }
 
   const over = game.phase === 'finished'
   const { log } = await buildLog(gameId, game, {
@@ -70,11 +107,8 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
   const votesReceived = log.votes.filter((v) => v.targetId === uid).length
 
   return {
-    roleId,
-    roleName: ROLE_NAMES[roleId],
-    pathLabel: ROLE_PATH_LABEL[role.path],
-    // 내 것 한 줄. 남의 숨긴 사실은 이 응답 어디에도 없다
-    secret: role.secret,
+    ...head,
+    counting: true,
     main: shown.main,
     bond: shown.bond,
     votesReceived,

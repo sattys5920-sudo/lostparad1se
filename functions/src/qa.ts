@@ -15,6 +15,7 @@ import { STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, SeatEntry } from '../../shared/model'
 import type { AvatarLook } from '../../shared/look'
 import { createAccount, setAccountLook } from './account'
+import { readRoster, settleRoster } from './lobby'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -83,7 +84,9 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
   }
 
   const seated = await db.runTransaction(async (tx) => {
-    const now = (await tx.get(ref)).data() as GameDoc
+    // 읽기가 먼저다. 트랜잭션은 쓰기 뒤에 읽을 수 없다
+    const [gameSnap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, req.data.gameId)])
+    const now = gameSnap.data() as GameDoc
     if (now.phase !== 'lobby') throw new HttpsError('failed-precondition', '그새 시작했다.')
     const seats = [...now.seats]
     for (const p of made) {
@@ -94,6 +97,8 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
       seats.push(seat)
     }
     tx.update(ref, { seats })
+    // 봇으로 채워도 열넷이면 역할이 나뉜다. 사람이 앉을 때와 같은 길이다
+    settleRoster(tx, req.data.gameId, hadRoster, seats, now.seed)
     return seats.length
   })
 

@@ -1,8 +1,14 @@
 // 판 만들기 · 참가 · 시작.
 //
-// 역할은 **시작할 때 서버가 나눠 secret에만 적는다.** 로비에는 누가
-// 어느 팀인지까지만 있다 — 팀은 원래 공개라 숨길 것이 없고, 역할은
-// 어떤 경로로도 남에게 내려가지 않는다.
+// 역할은 **열넷이 차는 순간 서버가 나눠 secret에만 적는다.** 전에는
+// 운영자가 시작을 눌러야 나눠졌는데, 그러면 자리가 다 찬 뒤로 아무도
+// 자기가 누구인지 모르는 시간이 생겼다.
+//
+// 공개 범위는 둘로 갈린다.
+//   팀      games/{id}.seats 에 있고 로그인한 모두가 읽는다. **전체 공개**
+//   역할·인연·숨긴 사실·개인 미션
+//           secret/roster 에만 있고 규칙이 클라이언트를 통째로 막는다
+//           (firestore.rules). 본인조차 myPaper 를 거쳐야 본다. **개인 공개**
 //
 // 같은 명단·같은 씨앗이면 역할이 늘 같다. 판을 다시 열어도 바뀌지
 // 않도록 씨앗을 판 문서에 적어 둔다.
@@ -14,7 +20,7 @@ import { DEAL_TOKENS_PER_DAY, grantFor, isShortHanded } from '../../shared/rules
 import { START_TILE, TILES, startingTiles } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
-import { TEAMS, TOTAL_SEATS, canStart, openTeams, timedEvents } from '../../shared/rules/lobby'
+import { TEAMS, TOTAL_SEATS, canStart, mayPickTeam, openTeams, timedEvents } from '../../shared/rules/lobby'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
 import { lookOfAccount, looksByUid } from './account'
 import { gameRef, nowOf, requireUid } from './index'
@@ -34,6 +40,77 @@ const db = getFirestore()
  * 씨앗에 사람을 섞어 고른다. 같은 사람이 다시 들어와도 같은 팀이다 —
  * 새로고침할 때마다 팀이 바뀌면 그게 더 이상하다.
  */
+const rosterOf = (gameId: string) =>
+  gameRef(gameId).collection('secret').doc('roster').collection('items')
+
+/** 자리가 바뀔 때마다 부른다. 읽기가 있으니 **트랜잭션의 쓰기보다 먼저** 부른다. */
+export const readRoster = (
+  tx: FirebaseFirestore.Transaction,
+  gameId: string,
+): Promise<FirebaseFirestore.QuerySnapshot> => tx.get(rosterOf(gameId))
+
+/**
+ * 자리가 열넷이면 역할을 나누고, 아니면 나눠 둔 것을 지운다.
+ *
+ * **자리가 바뀌면 다시 나눈다.** 역할은 팀 구성에 매여 있어서(팀의 길
+ * 하나 · 밖의 길 하나), 한 사람이 팀을 옮기면 남은 열셋의 배정도 같이
+ * 틀어진다. 한 명이 나갔다가 다른 사람이 들어온 판에서 옛 배정을 그냥
+ * 두면 그때부터 규칙이 안 맞는다.
+ *
+ * assignRoles 는 (명단·씨앗)에 대해 늘 같은 답을 낸다. 그래서 이미
+ * 적힌 것이 지금 나올 답과 같으면 **한 줄도 안 건드린다** — 이름만
+ * 고치러 다시 들어온 사람 때문에 열넷의 역할 문서가 매번 새로 쓰이면,
+ * 그 쓰기 하나하나가 「배정이 바뀌었다」는 신호로 보인다.
+ */
+export function settleRoster(
+  tx: FirebaseFirestore.Transaction,
+  gameId: string,
+  had: FirebaseFirestore.QuerySnapshot,
+  seats: readonly SeatEntry[],
+  seed: string,
+): void {
+  const col = rosterOf(gameId)
+  if (seats.length !== TOTAL_SEATS) {
+    for (const d of had.docs) tx.delete(d.ref)
+    return
+  }
+  const players: Player[] = seats.map((s) => ({ id: s.playerId, team: s.team }))
+  let dealt
+  try {
+    dealt = assignRoles(players, seed)
+  } catch {
+    // 나눌 수 없는 명단이면(팀 정원이 안 맞는 등) 옛것을 지우고 만다.
+    // 시작할 때 canStart 가 같은 이유로 막아 세운다
+    for (const d of had.docs) tx.delete(d.ref)
+    return
+  }
+
+  const same =
+    had.size === dealt.length &&
+    dealt.every((a) => {
+      const was = had.docs.find((d) => d.id === a.playerId)?.data() as RosterRow | undefined
+      return was?.team === a.team && was?.roleId === a.roleId && was?.bondId === a.bondId
+    })
+  if (same) return
+
+  for (const d of had.docs) tx.delete(d.ref)
+  for (const a of dealt) {
+    tx.set(col.doc(a.playerId), {
+      playerId: a.playerId,
+      team: a.team,
+      roleId: a.roleId,
+      bondId: a.bondId,
+      reveal: null,
+    })
+  }
+}
+
+interface RosterRow {
+  team: TeamId
+  roleId: string
+  bondId: string
+}
+
 function randomOpenTeam(others: readonly SeatEntry[], seed: string): TeamId | undefined {
   const open = openTeams(others)
   if (open.length === 0) return undefined
@@ -169,16 +246,24 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
   // 트랜잭션 밖에서 읽는다. 계정은 판과 무관해서 같이 묶을 것이 없다
   const look = await lookOfAccount(req.auth?.token?.accountId as string | undefined)
 
+  // 팀을 찍을 수 있는 사람은 규칙이 정한다(shared/rules/lobby.ts).
+  // 진짜 서버에서는 운영자뿐이다
+  const canPick = mayPickTeam({
+    host: req.auth?.token?.admin === true,
+    emulator: process.env.FUNCTIONS_EMULATOR === 'true',
+  })
+
   return db.runTransaction(async (tx) => {
     const ref = gameRef(req.data.gameId)
-    const snap = await tx.get(ref)
+    // **읽기가 먼저다.** 트랜잭션은 쓰기 뒤에 읽을 수 없다
+    const [snap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, req.data.gameId)])
     if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
     const game = snap.data() as GameDoc
     if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
 
     const seats = [...game.seats]
     const mine = seats.findIndex((s) => s.playerId === uid)
-    const wanted = req.data.team
+    const wanted = canPick ? req.data.team : undefined
     if (wanted && !TEAMS.includes(wanted)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
 
     // 이미 앉아 있으면 이름·팀만 고친다
@@ -194,7 +279,9 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     else seats.push(seat)
 
     tx.update(ref, { seats })
-    return { seat, seated: seats.length, need: TOTAL_SEATS }
+    // 열넷째가 앉는 순간 역할이 나뉜다. 시작을 기다리지 않는다
+    settleRoster(tx, req.data.gameId, hadRoster, seats, game.seed)
+    return { seat, seated: seats.length, need: TOTAL_SEATS, dealt: seats.length === TOTAL_SEATS }
   })
 })
 
@@ -203,12 +290,15 @@ export const leaveGame = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   return db.runTransaction(async (tx) => {
     const ref = gameRef(req.data.gameId)
-    const snap = await tx.get(ref)
+    const [snap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, req.data.gameId)])
     if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
     const game = snap.data() as GameDoc
     if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
     const seats = game.seats.filter((s) => s.playerId !== uid)
     tx.update(ref, { seats })
+    // 한 자리가 비면 나눠 둔 역할을 **통째로 지운다.** 남은 열셋의
+    // 배정도 빈 자리에 매여 있어서, 그냥 두면 규칙이 안 맞는다
+    settleRoster(tx, req.data.gameId, hadRoster, seats, game.seed)
     return { seated: seats.length, need: TOTAL_SEATS }
   })
 })
@@ -246,14 +336,29 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   const startedAtMs = req.data.startAtMs ?? nowOf(game)
   const batch = db.batch()
 
-  // 역할과 인연. **여기 말고 어디에도 적지 않는다**
+  /*
+   * 역할과 인연. **여기 말고 어디에도 적지 않는다.**
+   *
+   * 보통은 열넷이 찰 때 이미 나뉘어 있다(settleRoster). 그때 적힌
+   * 것과 여기서 나오는 답은 같다 — assignRoles 가 (명단·씨앗)에
+   * 대해 결정적이고, 자리는 그 뒤로 안 바뀌었다. 그래도 한 번 더
+   * 쓰는 것은 **이 줄 하나가 배정을 보장하는 마지막 자리**여서다.
+   * 배정이 아직 없는 옛 판도 여기서 채워진다.
+   *
+   * 털어놓은 기록은 지키고 간다. 로비에서 털어놓을 길은 없지만,
+   * 있었던 것을 덮어쓰는 코드는 언젠가 덮어쓴다
+   */
+  const hadRoster = await ref.collection('secret').doc('roster').collection('items').get()
+  const revealOf = new Map(
+    hadRoster.docs.map((d) => [d.id, (d.data() as { reveal?: unknown }).reveal ?? null]),
+  )
   for (const a of roles) {
     batch.set(ref.collection('secret').doc('roster').collection('items').doc(a.playerId), {
       playerId: a.playerId,
       team: a.team,
       roleId: a.roleId,
       bondId: a.bondId,
-      reveal: null,
+      reveal: revealOf.get(a.playerId) ?? null,
     })
   }
 

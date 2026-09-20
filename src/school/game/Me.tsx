@@ -73,7 +73,6 @@ export function Me(props: MeProps) {
   const [confirm, setConfirm] = useState<'class' | 'private' | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const tone = TEAM_COLOR[me.team as TeamId]
   const items = view?.myItems ?? {}
   const itemCount = Object.values(items).reduce<number>((a, b) => a + (b ?? 0), 0)
   const slipCount = view?.mySlips?.length ?? 0
@@ -102,13 +101,6 @@ export function Me(props: MeProps) {
     }
   }
 
-  /* 정면 한 칸. pixelFrame 은 32×32 를 돌려주고, 화면에서 4배로
-     늘린다 — 정수 배가 아니면 도트가 뭉갠다 */
-  const face = useMemo(
-    () => (props.look ? pixelFrame(props.look, me.team as TeamId, 'down', 0).toDataURL() : null),
-    [props.look, me.team],
-  )
-
   return (
     <div className="sc-mi-root">
       {/*
@@ -121,43 +113,16 @@ export function Me(props: MeProps) {
       <div className="sc-mi__scroll">
       <div className="sc-mi__stack">
         {/* ── ① 학생증 ─────────────────────────────────── */}
-        <Card title="학 생 증" className={props.invisible ? 'is-gone' : ''}>
-          <div className="sc-mi__id">
-            <span
-              className="sc-mi__face"
-              aria-hidden
-              style={face ? { backgroundImage: `url(${face})` } : undefined}
-            />
-            <div className="sc-mi__who">
-              <b>{me.name}</b>
-              <span className="sc-mi__cls">2학년 3반 · {me.team}팀</span>
-              <span className="sc-mi__role">
-                {paper ? paper.roleName : '…'}
-                {paper && <i>{paper.pathLabel}</i>}
-              </span>
-              {props.invisible && <span className="sc-mi__gone">오늘은 보이지 않는다</span>}
-            </div>
-            {/* 완장. 이름을 읽기 전에 몇 팀인지가 먼저 보인다 */}
-            <span className="sc-mi__band" style={{ background: tone }} aria-hidden />
-          </div>
-
-          {/* 숨긴 사실. **기본은 접힘** — 남에게 화면을 보여 줄 일이
-              생기는 게임이라, 펴 두면 그게 사고가 된다 */}
-          <button
-            type="button"
-            className={'sc-mi__fold' + (secretOpen ? ' is-open' : '')}
-            aria-expanded={secretOpen}
-            onClick={() => setSecretOpen((v) => !v)}
-          >
-            숨긴 사실
-            <i aria-hidden>{secretOpen ? '▲' : '▼'}</i>
-          </button>
-          {secretOpen && (
-            <p className="sc-mi__secret">
-              {paper ? paper.secret : props.paperErr ? `못 받아왔다 — ${props.paperErr}` : '…'}
-            </p>
-          )}
-        </Card>
+        <IdCard
+          name={me.name}
+          team={me.team as TeamId}
+          look={props.look}
+          paper={paper}
+          err={props.paperErr}
+          invisible={props.invisible}
+          open={secretOpen}
+          onFold={() => setSecretOpen((v) => !v)}
+        />
 
         {/* ── ② 가진 것 ────────────────────────────────── */}
         <Card title="가 진 것">
@@ -204,20 +169,24 @@ export function Me(props: MeProps) {
         </Card>
 
         {/* ── ③ 미션 ───────────────────────────────────── */}
-        <Card title="미 션" state={paper ? stateOf(paper.main) : null}>
+        <Card title="미 션" state={paper?.counting ? stateOf(paper.main) : null}>
           {!paper && <p className="sc-mi__none">{props.paperErr ?? '불러오는 중…'}</p>}
           {paper && (
             <>
               <p className="sc-mi__mission">{paper.main.text}</p>
-              <Clauses m={paper.main} />
+              {paper.counting ? (
+                <Clauses m={paper.main} />
+              ) : (
+                <p className="sc-mi__fine">닷새가 열리면 센다.</p>
+              )}
             </>
           )}
         </Card>
 
         {paper && (
-          <Card title="인 연" state={stateOf(paper.bond)}>
+          <Card title="인 연" state={paper.counting ? stateOf(paper.bond) : null}>
             <p className="sc-mi__mission is-small">{paper.bond.text}</p>
-            <Clauses m={paper.bond} />
+            {paper.counting && <Clauses m={paper.bond} />}
           </Card>
         )}
 
@@ -404,13 +373,88 @@ export function Me(props: MeProps) {
 }
 
 /**
+ * 학생증 한 장.
+ *
+ * **두 군데가 같은 것을 쓴다** — 열넷이 차서 배정이 끝나면 화면
+ * 가운데로 이 카드가 넘어오고(Dealt.tsx), 그 뒤로는 「나」 탭 맨 위에
+ * 같은 카드가 있다. 두 벌로 만들면 한쪽만 고쳐지는 날이 온다.
+ */
+export function IdCard({
+  name,
+  team,
+  look,
+  paper,
+  err,
+  invisible = false,
+  open,
+  onFold,
+}: {
+  name: string
+  team: TeamId
+  look: AvatarLook | null
+  paper: MyPaper | null
+  err: string | null
+  /** 오늘 지워진 사람인가. 카드째 흐려진다. */
+  invisible?: boolean
+  /** 숨긴 사실이 펴져 있는가. */
+  open: boolean
+  onFold: () => void
+}) {
+  /* 정면 한 칸. pixelFrame 은 32×32 를 돌려주고, 화면에서 4배로
+     늘린다 — 정수 배가 아니면 도트가 뭉갠다 */
+  const face = useMemo(
+    () => (look ? pixelFrame(look, team, 'down', 0).toDataURL() : null),
+    [look, team],
+  )
+  return (
+    <Card title="학 생 증" className={invisible ? 'is-gone' : ''}>
+      <div className="sc-mi__id">
+        <span
+          className="sc-mi__face"
+          aria-hidden
+          style={face ? { backgroundImage: `url(${face})` } : undefined}
+        />
+        <div className="sc-mi__who">
+          <b>{name}</b>
+          <span className="sc-mi__cls">2학년 3반 · {team}팀</span>
+          <span className="sc-mi__role">
+            {paper ? paper.roleName : '…'}
+            {paper && <i>{paper.pathLabel}</i>}
+          </span>
+          {invisible && <span className="sc-mi__gone">오늘은 보이지 않는다</span>}
+        </div>
+        {/* 완장. 이름을 읽기 전에 몇 팀인지가 먼저 보인다 */}
+        <span className="sc-mi__band" style={{ background: TEAM_COLOR[team] }} aria-hidden />
+      </div>
+
+      {/* 숨긴 사실. **기본은 접힘** — 남에게 화면을 보여 줄 일이
+          생기는 게임이라, 펴 두면 그게 사고가 된다 */}
+      <button
+        type="button"
+        className={'sc-mi__fold' + (open ? ' is-open' : '')}
+        aria-expanded={open}
+        onClick={onFold}
+      >
+        숨긴 사실
+        <i aria-hidden>{open ? '▲' : '▼'}</i>
+      </button>
+      {open && (
+        <p className="sc-mi__secret">
+          {paper ? paper.secret : err ? `못 받아왔다 — ${err}` : '…'}
+        </p>
+      )}
+    </Card>
+  )
+}
+
+/**
  * 종이 카드 한 장.
  *
  * 아홉 조각 종이(Paper.tsx)를 그대로 쓴다 — 로그인 화면과 투표용지가
  * 쓰는 그 종이다. 두 군데에 같은 조각을 따로 붙여 두면 한쪽 구김만
  * 고쳐지는 날이 온다.
  */
-function Card({
+export function Card({
   title,
   state,
   className = '',

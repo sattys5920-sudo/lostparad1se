@@ -37,6 +37,11 @@ export interface MyPaper {
   pathLabel: string
   /** 내 것 한 줄. 남의 숨긴 사실은 이 응답 어디에도 없다. */
   secret: string
+  /**
+   * 진행도를 세고 있는가. 로비에서는 false 다 — 팀 금고도 칸도
+   * 아직 안 놓여서 셀 것이 없다. 미션 **문장**은 그때도 온다.
+   */
+  counting: boolean
   main: MissionShown
   bond: MissionShown
   /** 합계뿐이다. 신뢰인지 호감인지는 오지 않는다. */

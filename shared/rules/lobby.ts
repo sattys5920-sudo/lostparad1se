@@ -77,3 +77,26 @@ export function timedEvents(startedAtMs: number): TimedEvent[] {
   out.push({ dueAtMs: dayHourMs(startedAtMs, TOTAL_DAYS, 24), kind: 'gameEnd', day: TOTAL_DAYS })
   return out.sort((a, b) => a.dueAtMs - b.dueAtMs)
 }
+
+/**
+ * 팀을 찍어서 들어올 수 있는가.
+ *
+ * **팀은 고르는 것이 아니라 받는 것이다.** 고르게 두면 같이 들어온
+ * 친구들이 한 팀으로 몰리고, 그러면 팀 사이의 거래도 의심도 처음부터
+ * 김이 빠진다. 화면은 처음부터 team 을 안 보냈지만, 서버가 받으면
+ * 그만이었다 — 개발자도구로 콜러블을 부르면 원하는 팀에 앉았다.
+ * 화면이 막는 것은 막은 게 아니다.
+ *
+ * 두 예외가 있다.
+ *
+ *   운영자      판을 세워 보려면 팀을 찍어 둘 일이 있다
+ *   에뮬레이터  검수 대본 스물여섯 개가 팀을 찍어 두고 확인한다.
+ *               **진짜 서버에는 이 문이 없다** — FUNCTIONS_EMULATOR 는
+ *               파이어베이스 에뮬레이터만 켜 주는 환경 변수다
+ *
+ * 규칙을 함수 하나로 뽑아 둔 것은, 진짜 서버의 답(false)을 시험이
+ * 붙들어 두기 위해서다. 콜러블 안에 if 로 묻혀 있으면 아무도 안 본다.
+ */
+export function mayPickTeam(who: { host: boolean; emulator: boolean }): boolean {
+  return who.host || who.emulator
+}

@@ -62,6 +62,7 @@ import type { Dir } from '../map/sprites'
 import './controls.css'
 import { Around } from './People'
 import { Me } from './Me'
+import { Dealt, dealtSeen, markDealtSeen } from './Dealt'
 import { useMyPaper } from './useMyPaper'
 import { logOut } from '../accounts'
 import { Notes } from './Notes'
@@ -189,6 +190,7 @@ function Roll({ seats, uid }: { seats: SeatEntry[]; uid: string | null }) {
 
 function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar: AvatarLook | null } }) {
   const state = useGame(gameId)
+  const act = useMemo(() => gameActions(gameId), [gameId])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [room, setRoom] = useState<TileId | null>(null)
@@ -202,6 +204,18 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
   const mine = seats.find((s) => s.playerId === uid)
+
+  /*
+   * 배정된 학생증.
+   *
+   * **열넷이 차는 순간 서버가 나눈다**(lobby.ts). 자리가 다 찬 뒤에만
+   * 부른다 — 그 전에는 나눠 둔 것이 없어서 서버가 거절한다.
+   */
+  const full = seats.length === TOTAL_SEATS
+  const card = useMyPaper(act, full && mine !== undefined, 0)
+  const [cardShut, setCardShut] = useState(false)
+  // 판마다 한 번만 띄운다. 새로고침마다 나오면 그건 공지가 아니다
+  const sawCard = uid !== null && dealtSeen(gameId, uid)
 
   /**
    * 시작 전에도 서로가 보인다.
@@ -344,6 +358,29 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 서로는 보인다. 안개가 없으니 가릴 것이 없고, 열넷이 차기를
    * 기다리는 동안 각자 빈 학교를 걷게 두면 그 시간이 그대로 죽는다.
    */
+  /*
+   * 배정이 끝났다. **학생증 한 장이 넘어온다.**
+   *
+   * 여기서 한 번 보고 나면 그 뒤로는 「나」 탭에 늘 있다. 팀은 어차피
+   * 명단에 있어 모두가 아는 것이고, 역할과 숨긴 사실은 이 카드가
+   * 처음이자 본인에게만 오는 자리다.
+   */
+  if (card.paper && !cardShut && !sawCard && uid) {
+    return (
+      <Dealt
+        name={me.nickname}
+        team={mine.team}
+        look={me.avatar}
+        paper={card.paper}
+        snowLevel={state.game?.snow?.level ?? 5}
+        onClose={() => {
+          markDealtSeen(gameId, uid)
+          setCardShut(true)
+        }}
+      />
+    )
+  }
+
   // sc-pl 로 감싼다. 이 껍데기가 높이를 100% 로 잡아 주는 것이라,
   // 빼먹으면 방이 제 키만큼만 서고 아래가 허옇게 빈다
   return (
