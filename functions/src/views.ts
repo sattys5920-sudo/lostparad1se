@@ -180,7 +180,9 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return {
         id: d.id,
         subjectId: s2.subjectId,
-        line: fillSubject(rawLine(s2.textId), who),
+        // 운영자가 손으로 쓴 메모는 표를 안 거친다. 이름을 끼워
+        // 넣을 자리도 없다 — 누구의 비밀도 아닌 종이다
+        line: s2.text ? s2.text : fillSubject(rawLine(s2.textId), who),
         tileId: s2.tileId ?? null,
         heldBy: s2.heldBy ?? null,
         readBy: s2.readBy ?? [],

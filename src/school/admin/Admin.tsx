@@ -14,6 +14,7 @@ import { deleteAccounts, listAccounts, logOut, type AccountSummary } from '../ac
 import { gameActions, useGame } from '../game/useGame'
 import { PhaseHost } from '../game/Phase'
 import { QuizHost } from '../game/Quiz'
+import { DropHost } from './Drop'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import './admin.css'
@@ -304,6 +305,15 @@ function Desk() {
           <section className="sc-ad__card">
             <h2>가입</h2>
             <Signups onSaid={setSaid} />
+          </section>
+
+          <section className="sc-ad__card">
+            <h2>떨어뜨리기</h2>
+            <p className="sc-ad__hint">
+              페이즈가 닫힐 때 서버가 알아서 뿌리는 것과 별개다. 지금 이 방 바닥에
+              한 장 놓는다.
+            </p>
+            <DropHost act={act} onSaid={setSaid} />
           </section>
 
           <section className="sc-ad__card">

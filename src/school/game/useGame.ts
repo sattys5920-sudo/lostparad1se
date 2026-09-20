@@ -257,6 +257,13 @@ export function gameActions(gameId: string) {
     hostQuizList: () => callServer('hostQuizList', g),
     hostQuizUpsert: (quiz: unknown, id?: string) => callServer('hostQuizUpsert', { ...g, id, quiz }),
     hostQuizRemove: (id: string) => callServer('hostQuizRemove', { ...g, id }),
+    /** 바닥에 한 장 놓는다. **운영자만** — 서버가 토큰을 본다 */
+    hostDrop: (drop: {
+      tileId: string
+      kind: 'quiz' | 'memo'
+      text?: string
+      quiz?: { kind: 'choice' | 'short'; prompt: string; choices?: string[]; answers?: string[]; explain?: string }
+    }) => callServer('hostDrop', { ...g, ...drop }),
     openPhase: () => callServer('openPhase', g),
     closePhase: () => callServer('closePhase', g),
 

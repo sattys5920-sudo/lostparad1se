@@ -33,7 +33,15 @@ const db = getFirestore()
  */
 export interface SlipDoc {
   textId: string
-  /** 누구의 비밀인가. 뿌려질 때 정해진다. */
+  /**
+   * 운영자가 손으로 쓴 글. 있으면 이것이 문장이다(drop.ts).
+   *
+   * 뿌려지는 쪽지는 textId 로 서버 전용 표를 가리킨다. 운영자 메모는
+   * 가리킬 표가 없어서 글을 그대로 담는다 — **그래도 secret 아래다.**
+   * 주워서 읽은 사람에게만 간다는 규칙은 똑같다.
+   */
+  text?: string
+  /** 누구의 비밀인가. 뿌려질 때 정해진다. 운영자 메모는 비어 있다. */
   subjectId: string
   tileId: TileId | null
   heldBy: string | null
