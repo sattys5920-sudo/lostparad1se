@@ -135,7 +135,11 @@ async function main() {
     secret?: string
     main?: { text?: string }
     counting?: boolean
+    pathLabel?: string
   }
+  // 갈래는 화면이 안 적으므로 서버도 안 보낸다. 안 쓰는 값이 응답에
+  // 남아 있으면 언젠가 누가 그걸 다시 그린다
+  check(paper.pathLabel === undefined, '갈래(팀의 길…)는 아예 안 내려온다', String(paper.pathLabel))
   check(typeof paper.roleName === 'string' && paper.roleName.length > 0, 'myPaper 는 내 역할 이름을 준다', paper.roleName ?? '')
   check(typeof paper.secret === 'string' && paper.secret.length > 8, '내 숨긴 사실도 온다')
   check((paper.main?.text ?? '').length > 8, '내 개인 미션 문장도 온다')

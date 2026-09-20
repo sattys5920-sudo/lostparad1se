@@ -417,10 +417,10 @@ export function IdCard({
         <div className="sc-mi__who">
           <b>{name}</b>
           <span className="sc-mi__cls">2학년 3반 · {team}팀</span>
-          <span className="sc-mi__role">
-            {paper ? paper.roleName : '…'}
-            {paper && <i>{paper.pathLabel}</i>}
-          </span>
+          {/* 역할 이름만. 갈래(팀의 길·사람의 길·밖의 길)는 안 적는다 —
+              이름이 이미 그보다 많은 것을 말하고, 갈래까지 붙으면
+              남에게 화면을 한 번 보여 줄 때 넷 중 하나로 좁혀진다 */}
+          <span className="sc-mi__role">{paper ? paper.roleName : '…'}</span>
           {invisible && <span className="sc-mi__gone">오늘은 보이지 않는다</span>}
         </div>
         {/* 완장. 이름을 읽기 전에 몇 팀인지가 먼저 보인다 */}

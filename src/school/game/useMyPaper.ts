@@ -34,7 +34,6 @@ export interface MissionShown {
 export interface MyPaper {
   roleId: string
   roleName: string
-  pathLabel: string
   /** 내 것 한 줄. 남의 숨긴 사실은 이 응답 어디에도 없다. */
   secret: string
   /**

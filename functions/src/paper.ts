@@ -19,7 +19,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { discloseFor, judge, type Phase } from '../../shared/missions/judge'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
-import { ROLE_NAMES, ROLE_PATH_LABEL, type RoleId } from '../../shared/missions/roleNames'
+import { ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
 import { dayNumber } from '../../shared/rules/clock'
 import type { GameDoc, RosterDoc } from '../../shared/model'
 
@@ -65,7 +65,7 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
   const head = {
     roleId,
     roleName: ROLE_NAMES[roleId],
-    pathLabel: ROLE_PATH_LABEL[role.path],
+    // 갈래는 안 보낸다. 화면이 안 적는 것은 서버도 안 꺼낸다
     // 내 것 한 줄. 남의 숨긴 사실은 이 응답 어디에도 없다
     secret: role.secret,
   }
