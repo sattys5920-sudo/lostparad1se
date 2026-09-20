@@ -1,19 +1,25 @@
-// 사람에게 하는 일 — 표 · 털어놓기 · 중요한 사람.
+// 남에게 하는 일 — 표와 「중요한 사람」.
+//
+// **수첩 탭에 산다.** 전에는 「나」 탭에 있었는데, 아침에는 열넷이 한
+// 교실에 서 있어서 카드 열셋이 그 탭의 절반을 먹었다. 남에 대한
+// 것은 남을 적어 두는 자리에 있는 편이 맞다.
+//
+// 털어놓기는 여기서 뺐다. 그것은 내가 나에 대해 하는 일이라 학생증
+// 쪽으로 갔고, 상대는 누를 때 시트로 고른다 — 평소에 열셋을 늘어
+// 놓을 이유가 없다.
 //
 // 표는 익명이다. 던지고 나면 화면에도 아무것도 남지 않는다 — 서버가
 // 「던졌다」만 알려 주고, 누구에게 줬는지는 내 몫에도 안 담긴다.
-//
-// 털어놓기는 되돌릴 수 없다. 1:1은 들은 사람마다 약점을 쥐므로 누르기
-// 전에 무엇을 잃는지 보여 준다.
 import { useState } from 'react'
 
-import { REVEAL_PRIVATE_WARNING } from '../../../shared/rules/reveal'
-import { CHOSEN_ONE_DAY, DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
+import { CHOSEN_ONE_DAY } from '../../../shared/rules/choices'
 import { VOTE_LABEL, type VoteKind } from '../../../shared/rules/v2'
+import { TEAM_COLOR } from './MapPlan'
 import type { GameActions } from './useGame'
 import type { SeatEntry } from '../../../shared/model'
+import type { TeamId } from '../types'
 
-export interface PeopleProps {
+export interface AroundProps {
   me: SeatEntry
   seats: readonly SeatEntry[]
   day: number
@@ -21,11 +27,10 @@ export interface PeopleProps {
   invisibleId: string | null
   /** 내가 고른 중요한 사람. */
   chosenId: string | null
-  /** 지금 나와 같은 자리에 서 있는 사람들. 이들에게만 털어놓을 수 있다. */
+  /** 지금 나와 같은 자리에 서 있는 사람들. */
   hereIds: readonly string[]
   /** 내가 선 방 이름. 걷는 중이면 null. */
   hereName: string | null
-  day4: string | null
   act: GameActions
   onSaid: (text: string) => void
 }
@@ -33,12 +38,10 @@ export interface PeopleProps {
 // 표는 호의뿐이다. 배제는 투명인간 투표가 따로 맡는다
 const VOTES: VoteKind[] = ['trust', 'liking']
 
-export function People(props: PeopleProps) {
+export function Around(props: AroundProps) {
   const { me, seats, act, onSaid } = props
   const [busy, setBusy] = useState(false)
   const [picked, setPicked] = useState<string | null>(null)
-  const [confirmReveal, setConfirmReveal] = useState<'class' | 'private' | null>(null)
-  const [listeners, setListeners] = useState<string[]>([])
 
   // **여기 있는 사람만 보인다.** 명단을 통째로 펴 놓으면 학교
   // 반대편 사람에게도 뭔가 할 수 있을 것처럼 보인다. 만나야 한다
@@ -72,7 +75,8 @@ export function People(props: PeopleProps) {
           <li key={s.playerId} className={picked === s.playerId ? 'is-picked' : ''}>
             <button className="sc-pe__who" onClick={() => setPicked(picked === s.playerId ? null : s.playerId)}>
               {s.name}
-              <span>{s.team}</span>
+              {/* 팀은 글자가 아니라 완장 색이다. 다른 화면과 같은 규칙 */}
+              <span className="sc-pe__band" style={{ background: TEAM_COLOR[s.team as TeamId] }} aria-hidden />
               {props.invisibleId === s.playerId && <em>오늘 지워짐</em>}
               {props.chosenId === s.playerId && <i>중요한 사람</i>}
             </button>
@@ -88,85 +92,11 @@ export function People(props: PeopleProps) {
                     중요한 사람으로
                   </button>
                 )}
-                {(
-                  <label className="sc-pe__hear">
-                    <input
-                      type="checkbox"
-                      checked={listeners.includes(s.playerId)}
-                      onChange={(e) =>
-                        setListeners((ls) =>
-                          e.target.checked ? [...ls, s.playerId] : ls.filter((x) => x !== s.playerId),
-                        )
-                      }
-                    />
-                    들을 사람
-                  </label>
-                )}
               </div>
             )}
           </li>
         ))}
       </ul>
-
-      <h2>털어놓기</h2>
-      <p className="sc-pe__warn">{REVEAL_PRIVATE_WARNING}</p>
-      <p className="sc-pe__warn">
-        {props.hereName
-          ? `1:1은 ${props.hereName}에 같이 있는 사람에게만 할 수 있다.`
-          : '걷는 중에는 1:1로 털어놓을 수 없다. 어딘가에 서야 한다.'}
-      </p>
-      <div className="sc-ac__row">
-        <button disabled={busy || listeners.length === 0} onClick={() => setConfirmReveal('private')}>
-          1:1 ({listeners.length}명)
-        </button>
-        <button disabled={busy} onClick={() => setConfirmReveal('class')}>
-          전체에게
-        </button>
-      </div>
-      {confirmReveal && (
-        <div className="sc-pe__confirm">
-          <p>
-            {confirmReveal === 'class'
-              ? '반 전체가 듣는다. 되돌릴 수 없다.'
-              : `${listeners.length}명이 듣는다. 그만큼 약점이 생긴다. 되돌릴 수 없다.`}
-          </p>
-          <div className="sc-ac__row">
-            <button onClick={() => setConfirmReveal(null)}>그만두기</button>
-            <button
-              className="is-danger"
-              disabled={busy}
-              onClick={async () => {
-                const scope = confirmReveal
-                setConfirmReveal(null)
-                await run('털어놓기', () => act.reveal(scope, listeners))
-                setListeners([])
-              }}
-            >
-              털어놓는다
-            </button>
-          </div>
-        </div>
-      )}
-
-      {props.day === DAY4_CHOICE_DAY && (
-        <>
-          <h2>무엇을 지킬 것인가</h2>
-          <ul className="sc-ac__menu">
-            {DAY4_CHOICES.map((c) => (
-              <li key={c.id}>
-                <button
-                  className={props.day4 === c.id ? 'is-on' : ''}
-                  disabled={busy}
-                  onClick={() => run(c.label, () => act.chooseDay4(c.id))}
-                >
-                  {c.label}
-                  <span>{c.text}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
     </div>
   )
 }

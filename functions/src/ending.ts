@@ -68,8 +68,19 @@ function normalizeNote(ownerId: string, raw: unknown): DeductionNote {
   }
 }
 
-/** 닷새치 기록을 GameLog 하나로. */
-async function buildLog(gameId: string, game: GameDoc): Promise<{
+/**
+ * 닷새치 기록을 GameLog 하나로.
+ *
+ * **판이 도는 중에도 부른다**(paper.ts). 그때는 `over` 가 false 고,
+ * `voteCutoffDay` 가 온다 — 오늘 받은 표를 **로그에 아예 안 담는다**.
+ * 담아 놓고 화면에서 가리면, 같은 방에 한 사람만 있을 때 방금 그
+ * 사람이 표를 줬다는 것이 숫자 하나로 드러난다. 익명이 무너진다.
+ */
+export async function buildLog(
+  gameId: string,
+  game: GameDoc,
+  opts: { over?: boolean; voteCutoffDay?: number } = {},
+): Promise<{
   log: GameLog
   roster: RosterDoc[]
   seats: GameDoc['seats']
@@ -122,10 +133,11 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
     .map((e) => ({ fromTeam: e.detail?.fromTeam as TeamId, toTeam: e.team as TeamId, atMs: e.atMs }))
   const lostTile = new Set(events.filter((e) => e.kind === 'tileLost').map((e) => e.team as TeamId))
 
-  const votes: JudgeVote[] = voteS.docs.map((d) => {
-    const v = d.data() as VoteDoc
-    return { voterId: v.voterId, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }
-  })
+  const cutoff = opts.voteCutoffDay
+  const votes: JudgeVote[] = voteS.docs
+    .map((d) => d.data() as VoteDoc)
+    .filter((v) => cutoff === undefined || v.day < cutoff)
+    .map((v) => ({ voterId: v.voterId, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
   const reveals: RevealRecord[] = roster
     .filter((r) => r.reveal)
     .map((r) => ({
@@ -161,7 +173,7 @@ async function buildLog(gameId: string, game: GameDoc): Promise<{
   const log: GameLog = {
     startedAtMs,
     nowMs,
-    over: true,
+    over: opts.over ?? true,
     teamOf,
     intervals: ivS.docs.map((d) => d.data() as Interval),
     votes,

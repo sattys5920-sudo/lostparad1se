@@ -60,7 +60,10 @@ import { KIND_MARK, TEAM_COLOR } from './MapPlan'
 import { uiIcon } from './uiArt'
 import type { Dir } from '../map/sprites'
 import './controls.css'
-import { People } from './People'
+import { Around } from './People'
+import { Me } from './Me'
+import { useMyPaper } from './useMyPaper'
+import { logOut } from '../accounts'
 import { Notes } from './Notes'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
@@ -79,6 +82,7 @@ import './play.css'
 import { ringTile, tearTile } from './noteArt'
 import './ballot.css'
 import './note.css'
+import './me.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
 
@@ -627,6 +631,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const hereIds = hereNow.map((p) => p.playerId)
   /** 오늘 지워진 사람. 나라면 화면이 반투명해진다 */
   const iAmInvisible = game?.invisibleId === uid
+
+  /*
+   * 학생증과 생활기록부. **views 에 안 싣는다** — 미션 진행도는 판
+   * 전체의 기록을 훑어야 나오고, views 는 누가 한 걸음 옮길 때마다
+   * 열넷을 통째로 다시 쓴다. 「나」 탭을 볼 때와 날짜가 바뀔 때만
+   * 부른다(useMyPaper).
+   */
+  const mine = useMyPaper(act, tab === 'me', game?.day ?? 0)
 
   // 표시가 한 층일 때와 두 층일 때, 안전 영역이 있을 때와 없을 때
   // 높이가 다 다르다. 방이 바뀌거나 화면이 돌면 다시 잰다
@@ -1200,78 +1212,59 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
       {/* ── 나 탭 ─────────────────────────────────────────────
           내 것만 본다. 여기서 남에게 말을 걸 수는 없다 */}
-      <section className="sc-pl__tab sc-pl__scroll" hidden={tab !== 'me'}>
-        <header className="sc-pl__paneHead">
-          <h2>{me.name}</h2>
-          <span>{me.team}팀 · DAY {game.day}</span>
-        </header>
-        {/* 합의해 둔 이적. **나만 본다** — 옛 팀에게도 새 팀에게도 안 간다 */}
-        {state.view?.myMovingTo && (
-          <p className="sc-pl__moving">
-            다음 점령전부터 <b>{state.view.myMovingTo}팀</b>이다. {me.team}팀 금고와 손패는 두고 간다.
-          </p>
-        )}
-        {invisibleName && <p className="sc-pl__invisible">오늘의 투명인간 · {invisibleName}</p>}
-
-        {/* ── 알림 ────────────────────────────────────────────
-            **여태 어디에도 안 떴다.** 탭에 점만 찍히고 정작 문구는
-            화면 어디에도 없었다 — 투명인간 발표도, 운영자 공지도,
-            이제 팀장 공지도 이 길로 온다. 최근 것부터 여섯 줄 */}
-        {(state.view?.notices?.length ?? 0) > 0 && (
-          <ul className="sc-pl__notices">
-            {[...(state.view?.notices ?? [])]
-              .sort((a, b) => b.atMs - a.atMs)
-              .slice(0, 6)
-              .map((n) => (
-                <li key={n.id}>{n.text}</li>
-              ))}
-          </ul>
-        )}
-
-        <ul className="sc-pl__mine">
-          {/* **토큰은 팀에 한 주머니다.** 넷이 나눠 쓴다 */}
-          <li><span>팀 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
-          <li><span>돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
-          <li><span>지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
-          <li><span>든 짝</span><span>{state.view?.myCarriedRobots ?? '—'}</span></li>
-          <li><span>우리 짝</span><span>{state.view?.myTeamRobots ?? '—'}</span></li>
-          <li><span>이번 페이즈 부순 수</span><span>{state.view?.mySmashes ?? '—'}</span></li>
-        </ul>
-
-        {/* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이
-            떨어진 사람이 한 시간 동안 할 수 있는 유일한 일이기도 하다 */}
-        <Quiz view={state.view} act={act} onSaid={setSaid} />
-
-        {/* 쪽지. 페이즈 중에는 점령전 말고 할 일이 없다 */}
-        {!phaseOpen && uid && (
-          <Slips
-            view={state.view}
-            seats={game.seats}
-            hereIds={hereIds}
-            meId={uid}
-            act={act}
-            onSaid={setSaid}
-            ask={ask}
-          />
-        )}
-
-        {/* 신뢰·호감표 · 털어놓기. **마주 선 사람에게만 하는 일이다** —
-            투표 탭은 만나지 않고 하는 배제만 맡고, 만나서 하는 일은
-            내 것들과 함께 여기 있다 */}
-        <People
+      {/*
+        ── 「나」 탭 — 학생증과 생활기록부 ────────────────────
+        여기 있는 것은 **전부 내 것**이다. 남에 대한 것(표·중요한 사람)
+        은 수첩 탭으로 갔다 — 아침에는 열넷이 한 교실에 서 있어서 그
+        목록 하나가 이 탭의 절반을 먹었다.
+      */}
+      <section className="sc-pl__tab" hidden={tab !== 'me'}>
+        {/*
+          **볼 때만 세운다.** hidden 인 채로 세워 두면 배경 눈 캔버스가
+          폭 0 으로 잡히고, 탭을 열어도 눈이 한 톨도 안 내린다 — 눈은
+          창 크기가 바뀔 때만 다시 재기 때문이다.
+        */}
+        {tab === 'me' && (
+        <Me
           me={me}
-          seats={game.seats}
           day={game.day}
+          look={look}
+          view={state.view}
+          paper={mine.paper}
+          paperErr={mine.err}
+          invisible={iAmInvisible}
+          invisibleName={invisibleName}
           hereIds={hereIds}
           hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
-          invisibleId={game.invisibleId}
-          chosenId={state.view?.myChoice?.chosenId ?? null}
-          day4={state.view?.myChoice?.day4 ?? null}
+          seats={game.seats}
+          snowLevel={state.game?.snow?.level ?? 5}
+          /* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이
+             떨어진 사람이 한 시간 동안 할 수 있는 유일한 일이다 */
+          quiz={<Quiz view={state.view} act={act} onSaid={setSaid} />}
+          slips={
+            uid ? (
+              <Slips
+                view={state.view}
+                seats={game.seats}
+                hereIds={hereIds}
+                meId={uid}
+                act={act}
+                onSaid={setSaid}
+                ask={ask}
+              />
+            ) : null
+          }
+          log={<PhaseLog rows={state.phaseLog} seats={game.seats} />}
           act={act}
           onSaid={setSaid}
+          ask={ask}
+          onSignOut={() => {
+            void logOut()
+              .catch(() => undefined)
+              .finally(() => location.reload())
+          }}
         />
-
-        <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
+        )}
       </section>
 
       {/* ── 투표 탭 ───────────────────────────────────────────
@@ -1371,8 +1364,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           />
         </div>
 
-        <h3 className="sc-nb__sub">지난 페이즈</h3>
-        <PhaseLog rows={state.phaseLog} seats={game.seats} />
+        {/* 남에게 하는 일. **여기가 남을 적어 두는 자리다** —
+            전에는 「나」 탭에 있었는데, 내 것들 사이에 남의 카드
+            열셋이 끼어 있었다. 지난 페이즈 기록은 학생증 쪽으로 갔다 */}
+        <h3 className="sc-nb__sub">지금 여기</h3>
+        <Around
+          me={me}
+          seats={game.seats}
+          day={game.day}
+          hereIds={hereIds}
+          hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+          invisibleId={game.invisibleId}
+          chosenId={state.view?.myChoice?.chosenId ?? null}
+          act={act}
+          onSaid={setSaid}
+        />
         <button className="sc-nb__open" onClick={() => setArchive(true)}>보관함 열기</button>
       </section>
 

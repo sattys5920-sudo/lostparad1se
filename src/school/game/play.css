@@ -449,7 +449,14 @@
   gap: 8px;
 }
 
-.sc-pe__who span { color: var(--sc-text-dim); font-size: 11px; }
+/* 팀은 글자가 아니라 완장 색이다. 「A」 한 자를 읽는 것보다
+   색 한 점이 빠르고, 지도·로그·이름표와 같은 규칙이 된다 */
+.sc-pe__band {
+  width: 9px;
+  height: 9px;
+  align-self: center;
+  box-shadow: 0 0 0 1px rgba(11, 13, 15, 0.55);
+}
 .sc-pe__who em { font-style: normal; color: var(--pl-a); font-size: 10.5px; margin-left: auto; }
 .sc-pe__who i { font-style: normal; color: #9a7318; font-size: 10.5px; margin-left: auto; }
 .sc-pe__list li.is-picked .sc-pe__who { border-color: var(--sc-line); }

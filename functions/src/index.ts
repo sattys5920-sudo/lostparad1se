@@ -140,6 +140,7 @@ export { playOne } from './card'
 
 // 엔딩. 종례가 끝난 뒤에만 내려간다.
 export { endingData } from './ending'
+export { myPaper } from './paper'
 
 // 계정. 비밀번호 검사가 서버에 있고, 통과하면 로그인 증표를 만들어 준다.
 export { signUpAccount, logInAccount, saveCharacter, hostAccounts, hostDeleteAccounts } from './account'

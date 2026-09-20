@@ -1,0 +1,501 @@
+/* 「나」 탭 — 학생증과 생활기록부.
+ *
+ * 종이는 로그인 화면·투표용지와 **같은 아홉 조각**이다(Paper.tsx).
+ * 다만 저쪽은 2배(모서리 56)로 늘려 쓰고 여기는 1배(모서리 28)다 —
+ * 카드가 작아서 56 짜리 구김 넷을 물리면 위아래 구김이 서로 닿는다.
+ *
+ * 글자는 셋뿐이다. 16(이름·큰 숫자) · 12(본문) · 9(딱지·주석).
+ */
+.sc-mi-root {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  /* 눈은 이 상자에 붙어 있고, 구르는 것은 안쪽이다 */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #161a26;
+  color: #e8e6f5;
+  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* 배경 눈. 글자 뒤로 지나가되 손끝은 안 막는다 */
+.sc-mi-root > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.sc-mi__scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sc-mi__stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 12px calc(20px + var(--sa-bottom, 0px));
+}
+
+/* ── 종이 카드 ──────────────────────────────────────────── */
+
+.sc-mi__card {
+  position: relative;
+  /* 구김 넷이 28px 씩이다. 그보다 낮으면 위아래 구김이 겹친다 */
+  min-height: 58px;
+  color: #26231c;
+  /* 아래에서 위로 두 프레임. 탭이 hidden 이라 들어올 때마다 한 번씩
+     다시 돈다 — 그게 「탭 진입 시 한 번」이다 */
+  animation: sc-mi-up 0.16s steps(1, end) both;
+}
+
+@keyframes sc-mi-up {
+  0% { transform: translateY(6px); opacity: 0; }
+  50% { transform: translateY(3px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-mi__card { animation: none; }
+}
+
+/* 오늘 지워진 날. 카드째 비친다 — 학생증이 흐려진 것으로 보인다 */
+.sc-mi__card.is-gone { opacity: 0.62; }
+
+/* 아홉 조각 — 모서리 28 고정, 가장자리는 이어 붙이고 가운데는 평평 */
+.sc-mi__sheet {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(2px 2px 0 #0b0e17);
+}
+.sc-mi__flat {
+  position: absolute;
+  inset: 14px;
+  background: #d5cebc;
+}
+.sc-mi__c,
+.sc-mi__e {
+  position: absolute;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+}
+.sc-mi__c {
+  width: 28px;
+  height: 28px;
+  background-size: 28px 28px;
+}
+.sc-mi__c--tl { top: 0; left: 0; }
+.sc-mi__c--tr { top: 0; right: 0; }
+.sc-mi__c--bl { bottom: 0; left: 0; }
+.sc-mi__c--br { bottom: 0; right: 0; }
+
+.sc-mi__e--t,
+.sc-mi__e--b {
+  left: 28px;
+  right: 28px;
+  height: 14px;
+  background-repeat: repeat-x;
+  background-size: 16px 14px;
+}
+.sc-mi__e--t { top: 0; }
+.sc-mi__e--b { bottom: 0; }
+
+.sc-mi__e--l,
+.sc-mi__e--r {
+  top: 28px;
+  bottom: 28px;
+  width: 14px;
+  background-repeat: repeat-y;
+  background-size: 14px 16px;
+}
+.sc-mi__e--l { left: 0; }
+.sc-mi__e--r { right: 0; }
+
+/* 종이 위의 글. 가장자리 14px 는 구김 자리라 밟으면 안 읽힌다 */
+.sc-mi__in {
+  position: relative;
+  padding: 18px 18px 16px;
+}
+
+/* 서류철의 클립. 종이가 겹쳐 꽂혀 있다는 표시 한 점이다 */
+.sc-mi__clip {
+  position: absolute;
+  top: -4px;
+  left: 22px;
+  width: 8px;
+  height: 18px;
+  box-shadow:
+    inset 0 0 0 2px #8e939f,
+    2px 2px 0 0 #0b0e17;
+  background: transparent;
+}
+
+.sc-mi__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+/* 「학 생 증」 — 자간을 벌려 서류 딱지처럼 */
+.sc-mi__head h3 {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: #7b7364;
+}
+.sc-mi__state {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid #a49a85;
+  font-size: 9px;
+  color: #5d5647;
+}
+
+/* ── ① 학생증 ───────────────────────────────────────────── */
+
+.sc-mi__id {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* 증명사진. 32×32 도트를 **정수 4배**로 늘린다 */
+.sc-mi__face {
+  flex: 0 0 auto;
+  width: 128px;
+  height: 128px;
+  background-color: #c6bfac;
+  background-size: 128px 128px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  box-shadow: inset 0 0 0 1px #a49a85;
+}
+
+.sc-mi__who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 4px;
+}
+.sc-mi__who b {
+  font-size: 16px;
+  line-height: 20px;
+  color: #1c1a15;
+  word-break: keep-all;
+}
+.sc-mi__cls { font-size: 9px; color: #7b7364; }
+.sc-mi__role {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #3d382d;
+}
+.sc-mi__role i {
+  font-style: normal;
+  font-size: 9px;
+  padding: 0 4px;
+  border: 1px solid #a49a85;
+  color: #7b7364;
+}
+.sc-mi__gone { font-size: 9px; color: #9a3b33; }
+
+/* 완장. 카드 오른쪽 위 한 점 */
+.sc-mi__band {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  box-shadow: 0 0 0 1px #1c1a15;
+}
+
+/* 숨긴 사실 — 접어 둔다 */
+.sc-mi__fold {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 7px 0 0;
+  appearance: none;
+  border: 0;
+  border-top: 1px dashed #a49a85;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: #7b7364;
+  cursor: pointer;
+}
+.sc-mi__fold i { font-style: normal; }
+.sc-mi__secret {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: #c8c0ab;
+  border-left: 2px solid #c2564e;
+  font-size: 12px;
+  line-height: 18px;
+  color: #26231c;
+  word-break: keep-all;
+}
+
+/* ── ② 가진 것 ──────────────────────────────────────────── */
+
+.sc-mi__have {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+/* 칩 하나. **이름은 숫자 밑으로 내린다** — 옆에 붙였더니 375px 에서
+   「토/큰」 「지/식」 「아이/템」으로 죄다 두 줄이 됐다 */
+.sc-mi__chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.sc-mi__chip img { image-rendering: pixelated; flex: 0 0 auto; }
+.sc-mi__chip b { font-size: 16px; line-height: 18px; color: #1c1a15; font-variant-numeric: tabular-nums; }
+.sc-mi__chip i { font-style: normal; font-size: 9px; line-height: 12px; color: #7b7364; }
+.sc-mi__caret { align-self: center; font-style: normal; font-size: 9px; color: #7b7364; }
+
+.sc-mi__open { margin: 12px 0 0; border-top: 1px dashed #a49a85; padding-top: 10px; }
+.sc-mi__open h4 {
+  margin: 0 0 6px;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  color: #7b7364;
+}
+.sc-mi__open h4 + * { margin-bottom: 12px; }
+
+.sc-mi__bag { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sc-mi__bag li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+.sc-mi__bag b { font-size: 12px; color: #1c1a15; }
+.sc-mi__bag span { font-size: 9px; color: #7b7364; font-variant-numeric: tabular-nums; }
+.sc-mi__bag p { grid-column: 1 / -1; margin: 0; font-size: 9px; line-height: 14px; color: #5d5647; word-break: keep-all; }
+
+.sc-mi__none { margin: 0; font-size: 12px; color: #7b7364; }
+
+/* ── ③ 미션 ─────────────────────────────────────────────── */
+
+.sc-mi__mission { margin: 0 0 10px; font-size: 12px; line-height: 18px; color: #1c1a15; word-break: keep-all; }
+.sc-mi__mission.is-small { font-size: 12px; color: #3d382d; }
+
+.sc-mi__clauses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sc-mi__clauses li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sc-mi__clauses p { margin: 0; font-size: 9px; line-height: 14px; color: #5d5647; word-break: keep-all; }
+
+/* 숫자가 안 온 조항. **막대도 안 그린다** — 없는 값이라 그릴 것이 없다 */
+.sc-mi__later { flex: 0 0 auto; font-size: 9px; color: #8a8271; }
+.sc-mi__flag { flex: 0 0 auto; font-size: 9px; color: #8a8271; }
+.sc-mi__flag.is-met { color: #3f6b3a; }
+
+/* 여덟 칸짜리 도트 막대 */
+.sc-mi__bar { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.sc-mi__bar i { display: flex; gap: 1px; }
+.sc-mi__bar em {
+  display: block;
+  width: 6px;
+  height: 9px;
+  background: #bdb5a1;
+  box-shadow: inset 0 0 0 1px #a49a85;
+}
+.sc-mi__bar em.is-on { background: #3d382d; box-shadow: none; }
+.sc-mi__bar b { font-size: 9px; color: #5d5647; font-variant-numeric: tabular-nums; }
+
+/* 마지막 선택 */
+.sc-mi__pick { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sc-mi__pick button {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  appearance: none;
+  border: 1px solid #a49a85;
+  border-radius: 0;
+  background: #cdc5b0;
+  font: inherit;
+  text-align: left;
+  color: #26231c;
+  cursor: pointer;
+}
+.sc-mi__pick button.is-on { border-color: #c2564e; border-width: 2px; padding: 7px 9px; }
+.sc-mi__pick b { font-size: 12px; }
+.sc-mi__pick span { font-size: 9px; line-height: 14px; color: #5d5647; word-break: keep-all; }
+
+/* ── ④ 받은 표 ──────────────────────────────────────────── */
+
+.sc-mi__votes { margin: 0 0 4px; }
+/* 본문 16의 정수 배. 이 카드에서 읽을 것은 이 숫자 하나뿐이다 */
+.sc-mi__votes b { font-size: 32px; line-height: 34px; color: #1c1a15; font-variant-numeric: tabular-nums; }
+.sc-mi__fine { margin: 2px 0 0; font-size: 9px; line-height: 14px; color: #7b7364; word-break: keep-all; }
+
+/* ── ⑤ 털어놓기 ─────────────────────────────────────────── */
+
+.sc-mi__two { display: flex; gap: 8px; margin: 10px 0 8px; }
+.sc-mi__two button {
+  flex: 1;
+  min-height: 44px;
+  appearance: none;
+  border: 1px solid #6b6356;
+  border-radius: 0;
+  background: #cdc5b0;
+  font: inherit;
+  font-size: 12px;
+  color: #26231c;
+  cursor: pointer;
+}
+.sc-mi__two button:disabled { border-color: #bdb5a1; color: #9a9486; cursor: default; }
+.sc-mi__two button.is-danger { border-color: #9a3b33; color: #7a2620; }
+.sc-mi__done { margin: 0; font-size: 12px; color: #3d382d; }
+
+.sc-mi__ears { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sc-mi__ears label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid #4a5070;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sc-mi__ears i { width: 9px; height: 9px; margin-left: auto; box-shadow: 0 0 0 1px #0b0e17; }
+.sc-mi__warn { margin: 0 0 4px; font-size: 12px; line-height: 18px; color: #e07a72; word-break: keep-all; }
+
+/* ── ⑥⑦ 링크와 바닥 ────────────────────────────────────── */
+
+.sc-mi__link { margin: 2px 0 0; text-align: center; }
+.sc-mi__link button {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: #9fd4e8;
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.sc-mi__foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 0;
+  font-size: 9px;
+  color: #6b7183;
+}
+/*
+ * 나가기. **밑줄 하나뿐이다.**
+ *
+ * 전에는 화면 한가운데 큰 네모였다. 실수로 눌리면 안 되는 것이 제일
+ * 눈에 띄는 물건이었다 — 판이 도는 중에 그걸 누르면 판을 잃는다.
+ */
+/*
+ * **손끝 44px 규칙을 여기서만 깬다.** mobile.css 가 조작부의 모든
+ * 단추를 44×44 로 미는데, 그 규칙은 「누르기 쉬워야 하는 것」을 위한
+ * 것이다. 이건 반대로 **누르기 어려워야 하는 것**이다 — 판이 도는
+ * 중에 잘못 누르면 판을 잃는다. 확인 한 단계는 그 뒤에 또 있다.
+ */
+.sc-pl-root .sc-mi__out {
+  appearance: none;
+  border: 0;
+  background: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 3px 2px;
+  font: inherit;
+  font-size: 9px;
+  line-height: 12px;
+  color: #6b7183;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sc-mi__note { text-align: center; }
+
+/* 시트 안에 얹히는 문제 종이·쪽지는 종이 위에 올라간다. 어두운 탭에
+   맞춰 둔 색이 종이 위에서 안 읽히므로 여기서 되돌린다 */
+.sc-mi__open .sc-sl h2,
+.sc-mi__open .sc-sl p,
+.sc-mi__open .sc-sl li { color: #26231c; }
+
+/* ── 종이 위에 얹히는 옛 조각들 ─────────────────────────────
+ *
+ * 문제 종이와 쪽지는 밝은 회색 판에 놓으려고 만든 것이라, 색과 테를
+ * 그대로 두면 종이 카드 위에 **다른 앱이 한 조각 얹힌 것**으로 보인다.
+ * 상자는 걷어내고 색만 종이에 맞춘다 — 구조는 안 건드린다.
+ */
+.sc-mi__in .sc-qz,
+.sc-mi__in .sc-sl {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.sc-mi__in .sc-qz h2,
+.sc-mi__in .sc-sl h2 { display: none; }
+.sc-mi__in .sc-qz__prompt { font-size: 12px; line-height: 18px; color: #1c1a15; }
+.sc-mi__in .sc-qz__note,
+.sc-mi__in .sc-qz__shut,
+.sc-mi__in .sc-sl__hint,
+.sc-mi__in .sc-sl__note,
+.sc-mi__in .sc-sl__whose,
+.sc-mi__in .sc-sl__folded { font-size: 9px; line-height: 14px; color: #7b7364; }
+.sc-mi__in .sc-qz__warn { font-size: 9px; color: #9a3b33; }
+.sc-mi__in .sc-sl__line { font-size: 12px; line-height: 18px; color: #26231c; }
+
+/* 종이 위의 단추. 도트 테 하나로 통일한다 */
+.sc-mi__in .sc-qz button,
+.sc-mi__in .sc-sl button {
+  min-height: 44px;
+  padding: 6px 10px;
+  appearance: none;
+  border: 1px solid #6b6356;
+  border-radius: 0;
+  background: #cdc5b0;
+  font: inherit;
+  font-size: 12px;
+  color: #26231c;
+  cursor: pointer;
+}
+.sc-mi__in .sc-qz button:disabled,
+.sc-mi__in .sc-sl button:disabled { border-color: #bdb5a1; color: #9a9486; cursor: default; }
+.sc-mi__in .sc-sl__tear { color: #7a2620; }
+.sc-mi__in .sc-qz__choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sc-mi__in .sc-sl__row { display: flex; flex-wrap: wrap; gap: 6px; }

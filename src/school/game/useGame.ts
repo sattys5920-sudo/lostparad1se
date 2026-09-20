@@ -223,6 +223,8 @@ export function gameActions(gameId: string) {
     pushDay: () => callServer('pushDay', g),
     /** 다음에 무엇을 넘기게 되는가. 누르기 전에 보여 준다. */
     peekDay: () => callServer('peekDay', g),
+    /** 내 학생증과 생활기록부. **서버가 내 몫만 깎아서 준다** */
+    myPaper: () => callServer('myPaper', g),
     // ── 페이즈 ──────────────────────────────────────────────────
     /** 자유 시간에 옆방으로. 즉시 간다. 전선은 안 움직인다. */
     roamTo: (tileId: TileId) => callServer('roamTo', { ...g, tileId }),
