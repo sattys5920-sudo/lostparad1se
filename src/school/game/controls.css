@@ -45,6 +45,14 @@
   --ct-chrome: calc(36px + var(--ct-ctl) + 48px + var(--sa-bottom));
 }
 
+/*
+ * 시작 전에는 자원 줄도 탭바도 없다. 조작 영역 하나뿐이라, 판이 돌
+ * 때의 높이를 그대로 쓰면 말줄이 조작부 위로 한 뼘 떠 버린다.
+ */
+.sc-pl-root .sc-pl__before {
+  --ct-chrome: calc(var(--ct-ctl) + var(--sa-bottom));
+}
+
 .sc-ct {
   /* 조작 영역 높이. 좁은 화면에서만 88 로 줄어든다 */
   --ct-ctl: 96px;

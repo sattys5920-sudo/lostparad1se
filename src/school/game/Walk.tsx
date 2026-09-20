@@ -21,6 +21,7 @@ import {
   MAP_W,
   markAt,
   propAt,
+  roomById,
   roomAt,
   ROOMS,
   signAt,
@@ -249,6 +250,32 @@ const CAM_GAP_PX = 40
 
 /** 하늘이 보이는 방. 눈이 쌓여 바닥이 한 단계 밝다 */
 const OUTDOOR: ReadonlySet<string> = new Set(['playground', 'garden', 'rooftop'])
+
+/**
+ * 시작 전에 보이는 만큼.
+ *
+ * **갇힌 방 하나와 그 둘레 벽뿐이다.** 전에는 복도가 훤히 보였다 —
+ * 방은 안개가 덮었는데 복도는 어느 방에도 안 속해서 그냥 그려졌고,
+ * 교실에 갇혀 있는 사람에게 밖이 다 보였다.
+ *
+ * 문틀이 보이게 한 칸 넓힌다. 벽이 없으면 방이 우주에 떠 있다.
+ */
+function shutBox(id: TileId | null): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (id === null) return null
+  const rects = roomById[id]?.rects ?? []
+  if (rects.length === 0) return null
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+  for (const r of rects) {
+    x0 = Math.min(x0, r.x)
+    y0 = Math.min(y0, r.y)
+    x1 = Math.max(x1, r.x + r.w - 1)
+    y1 = Math.max(y1, r.y + r.h - 1)
+  }
+  return { x0: x0 - 1, y0: y0 - 1, x1: x1 + 1, y1: y1 + 1 }
+}
 
 /** 눈송이 수. 늘려도 더 눈 같아지지 않는다 — 화면만 시끄러워진다 */
 const SNOW_N = 64
@@ -1150,6 +1177,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const x1 = Math.min(MAP_W - 1, Math.ceil((camX + w) / TILE))
       const y1 = Math.min(MAP_H - 1, Math.ceil((camY + h) / TILE))
       const seen = new Set<TileId>(asRooms(viewRef.current?.visibleTiles ?? []))
+      // 갇혀 있는 동안에는 그 방만 그린다. 바깥은 안 그린 채로 둔다 —
+      // 캔버스가 이미 윤곽색으로 덮여 있어서 그대로 어둠이 된다
+      const shut = shutBox(stayRef.current)
+      // 갇힌 방은 늘 보인다. view 가 없으면 seen 이 비어서, 그냥 두면
+      // 제가 선 교실까지 안개가 덮는다 — 실제로 그렇게 나왔다
+      if (stayRef.current !== null) seen.add(stayRef.current)
 
       const plates = signSheet()
       /*
@@ -1160,6 +1193,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const boards: { img: HTMLCanvasElement; ox: number; dx: number; dy: number; own: TeamId | null }[] = []
       for (let y = y0; y <= y1; y++) {
         for (let x = x0; x <= x1; x++) {
+          if (shut && (x < shut.x0 || x > shut.x1 || y < shut.y0 || y > shut.y1)) continue
           const kind = tileAt(x, y)
           const room = roomAt(x, y)?.id ?? null
           // 벽은 어느 방에도 속하지 않는다. 둘러싼 방을 찾아 같이 칠한다

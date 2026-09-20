@@ -17,10 +17,11 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { chatReaches } from '../../shared/rules/invisible'
 
 import { ROOM_SAY_MAX } from '../../shared/rules/v2'
-import type { TileId } from '../../shared/rules/board'
+import { START_TILE, type TileId } from '../../shared/rules/board'
+import type { GameDoc, SeatEntry } from '../../shared/model'
 import { openInterval } from './reveal'
 import { freshNow, myPawn } from './turn'
-import { gameRef, requireUid } from './index'
+import { gameRef, nowOf, requireUid } from './index'
 
 /**
  * 방 안의 말은 **무전보다 짧다.** 무전은 적어 두고 읽는 것이지만
@@ -68,6 +69,35 @@ async function arrivedAtMs(gameId: string, uid: string): Promise<number> {
 }
 
 /** 한 줄 친다. 내가 선 방에 남는다. */
+/**
+ * 시작 전의 2-3 교실.
+ *
+ * **자리에 앉은 사람은 시작 전에도 말한다.** 열넷이 차기를 기다리는
+ * 동안 한 교실에 같이 서 있는데 입을 막아 두면, 그 시간이 그대로
+ * 죽는다. 말은 원래 방에 남는 것이고, 그때 방은 하나뿐이다.
+ *
+ * 그때는 말이 아직 없어서(pawns 는 시작할 때 놓인다) 서 있는 칸을
+ * 물을 데가 없다. 물을 것도 없다 — 시작 전에 갈 수 있는 곳은
+ * 2-3 교실 하나뿐이다(Walk 의 stayIn).
+ *
+ * 자리에 없는 사람은 여기서도 못 친다. 앉아야 교실에 있는 것이다.
+ */
+function beforeStart(game: GameDoc, uid: string): { seat: SeatEntry; tileId: TileId } | null {
+  if (game.phase !== 'lobby') return null
+  const seat = game.seats.find((s) => s.playerId === uid)
+  if (!seat) throw new HttpsError('failed-precondition', '아직 자리에 앉지 않았다.')
+  return { seat, tileId: START_TILE as TileId }
+}
+
+/** 로비에서도 부른다. freshNow 는 판이 도는 중에만 답한다 */
+async function loadNow(gameId: string): Promise<{ game: GameDoc; nowMs: number }> {
+  const snap = await gameRef(gameId).get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  if (game.phase !== 'lobby') return freshNow(gameId)
+  return { game, nowMs: nowOf(game) }
+}
+
 export const say = onCall<{ gameId: string; text: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
@@ -75,19 +105,30 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
   if (text.length === 0) throw new HttpsError('invalid-argument', '할 말을 적어라.')
   if (text.length > CHAT_MAX) throw new HttpsError('invalid-argument', `${CHAT_MAX}자까지 칠 수 있다.`)
 
-  const { game, nowMs } = await freshNow(gameId)
-  const pawn = await myPawn(gameId, uid)
-  // 문과 문 사이에서 한 말은 어느 방에도 남지 않는다
-  if (pawn.tileId === null) {
-    throw new HttpsError('failed-precondition', '걷는 중이다. 어딘가에 서야 말할 수 있다.')
+  const { game, nowMs } = await loadNow(gameId)
+  const early = beforeStart(game, uid)
+
+  let tileId: TileId
+  let team: string
+  if (early) {
+    tileId = early.tileId
+    team = early.seat.team
+  } else {
+    const pawn = await myPawn(gameId, uid)
+    // 문과 문 사이에서 한 말은 어느 방에도 남지 않는다
+    if (pawn.tileId === null) {
+      throw new HttpsError('failed-precondition', '걷는 중이다. 어딘가에 서야 말할 수 있다.')
+    }
+    tileId = pawn.tileId
+    team = pawn.team
   }
   const seat = game.seats.find((s) => s.playerId === uid)
 
   const row: ChatDocRaw = {
-    tileId: pawn.tileId,
+    tileId,
     playerId: uid,
     name: seat?.name ?? '',
-    team: pawn.team,
+    team,
     text,
     atMs: nowMs,
     day: game.day,
@@ -109,7 +150,46 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
 export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const { game, nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await loadNow(gameId)
+  const early = beforeStart(game, uid)
+
+  /*
+   * 시작 전에는 **체류 기록을 안 만든다.**
+   *
+   * 아래의 「도착 시각이 없으면 지금 칸을 연다」는 판이 도는 중에나
+   * 맞는 말이다. 로비에서 칸을 열어 두면 그 구간이 닷새의 체류 시간에
+   * 섞여 들어가고, 「지목 칸에 두 시간」 같은 미션이 시작도 전에 찬다.
+   *
+   * 대신 sinceMs 만 본다. 시작 전 교실은 한 칸뿐이고 거기서 오간 말은
+   * 아직 판의 일이 아니다 — 늦게 들어온 사람도 앞선 줄을 본다.
+   * 시작하면 이 줄들은 저절로 떨어져 나간다. 그때 서버가 체류를
+   * 시작 시각으로 열어서, 그보다 앞선 말은 다시 안 온다.
+   */
+  if (early) {
+    const since = Number(req.data.sinceMs ?? 0)
+    const rows = await chatOf(gameId)
+      .where('tileId', '==', early.tileId)
+      .where('atMs', '>', since)
+      .orderBy('atMs')
+      .limit(CHAT_MAX)
+      .get()
+    return {
+      lines: rows.docs.map((d) => {
+        const c = d.data() as ChatDocRaw
+        return {
+          playerId: c.playerId,
+          name: c.name,
+          team: c.team,
+          atMs: c.atMs,
+          text: c.text,
+          muted: false,
+        }
+      }),
+      day: 0,
+      here: early.tileId,
+    }
+  }
+
   const pawn = await myPawn(gameId, uid)
   if (pawn.tileId === null) return { lines: [], day: game.day, here: null }
 

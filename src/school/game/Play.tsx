@@ -193,7 +193,6 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const act = useMemo(() => gameActions(gameId), [gameId])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [room, setRoom] = useState<TileId | null>(null)
   const [roster, setRoster] = useState(false)
   /** 시작 전 설정·로그아웃. 판이 돌 때의 「더보기」와 같은 자리다 */
   const [before, setBefore] = useState(false)
@@ -204,6 +203,20 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const uid = auth?.currentUser?.uid ?? null
   const seats = state.game?.seats ?? []
   const mine = seats.find((s) => s.playerId === uid)
+
+  /*
+   * 시작 전에도 말한다. **교실이 하나뿐인 동안의 교실 대화다.**
+   *
+   * 열넷이 차기를 기다리는 동안 한 교실에 같이 서 있는데 입을 막아
+   * 두면 그 시간이 그대로 죽는다. 서버도 이때는 2-3 교실 한 칸으로
+   * 본다(chat.ts 의 beforeStart).
+   */
+  const talk = useChatLines(act, 'room', { room: START_TILE })
+  const typing = useTyping()
+  useKeyboard()
+  const blurNow = useCallback(() => {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }, [])
 
   /*
    * 배정된 학생증.
@@ -402,7 +415,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               onLive={(at) => pushLive(gameId, uid, at)}
               /* 서버에 묻지 않는다. 말이 아직 없어서 물어도 거절당한다 */
               onCross={() => Promise.resolve(true)}
-              onRoom={setRoom}
+              /* 시작 전에는 갈 수 있는 방이 하나뿐이라 물어볼 것이 없다 */
+              onRoom={() => {}}
               onDirs={setWays}
               /*
                * **2-3 교실 밖으로는 못 나간다.**
@@ -426,13 +440,28 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
                   {me.nickname}
                 </span>
               </div>
+              {/* 둘째 층. 판이 돌 때의 「방 이름 · 인원」 자리에 시작
+                  전이라는 말을 둔다 — 전에는 지도 아래 한 줄이었는데,
+                  말줄이 그 자리에 앉으면서 글자 위에 글자가 겹쳤다 */}
+              <div className="sc-pl__hud2">
+                <span className="sc-pl__where">{TILE_BY_ID[START_TILE as TileId].name}</span>
+                <span className="sc-pl__crowd">밖으로는 못 나간다</span>
+              </div>
             </header>
           </div>
 
-          <p className="sc-pl__before-note">
-            {room ? `${TILE_BY_ID[room].name} · ` : ''}
-            아직 시작 전이다. 열넷이 차면 운영자가 닷새를 연다.
-          </p>
+          {/* 말줄. 판이 돌 때와 **같은 자리에 같은 것**이다 — 흐름
+              밖에 서서 키보드만큼 올라간다(controls.css 의 .sc-sy) */}
+          <Say
+            hereName={TILE_BY_ID[START_TILE as TileId].name}
+            act={act}
+            onSaid={showToast}
+            lines={talk.lines}
+            pull={talk.pull}
+            open={typing}
+            onClose={blurNow}
+            stuck={talk.stuck}
+          />
 
           {/*
             조작부는 판이 돌 때와 **같은 것을 같은 자리에** 세워 둔다.
