@@ -277,6 +277,20 @@ export interface PawnDoc {
    */
   resources?: Record<Resource, number>
   /**
+   * 쥐고 있는 씨앗. 정원 입구의 상자에서 집는다.
+   *
+   * 값은 없고 한도만 있다(SEED_LIMIT) — 여덟 자리를 혼자 다 채우지
+   * 못하게 하는 값이다.
+   */
+  seeds?: number
+  /**
+   * 딴 작물. 키가 작물 아이디다. **딴 사람이 가진다.**
+   *
+   * 자판기에 팔면 돈이 된다. 들고 다닐 수 있는 수는 한도가 있다
+   * (HARVEST_LIMIT) — 주머니가 아니라 손이라고 보면 맞다.
+   */
+  crops?: Record<string, number>
+  /**
    * 거래를 거는 데 쓰는 **개인 토큰**. 자정에 다시 찬다.
    *
    * 팀 상자와 따로다 — 한 사람이 하루 종일 말을 걸고 다녀도 팀이
@@ -540,6 +554,23 @@ export interface PlayerViewDoc {
     thingHere: boolean
     canDrop: boolean
   } | null
+  /**
+   * 정원의 화분 여덟. **그 방에 서 있을 때만 온다.**
+   *
+   * 단계와 — 싹이 난 뒤에는 — 이름까지다. 누가 심었는지도, 언제
+   * 열매가 될지도 어느 몫에도 없다.
+   */
+  potsHere?: {
+    i: number
+    cell: Cell
+    stage: 'empty' | 'soil' | 'sprout' | 'leaf' | 'fruit' | 'withered'
+    name: string | null
+    canPick: boolean
+  }[]
+  /** 쥐고 있는 씨앗. */
+  mySeeds?: number
+  /** 딴 작물. 키가 작물 아이디다. */
+  myCrops?: Record<string, number>
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**

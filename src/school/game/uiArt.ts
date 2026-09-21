@@ -537,6 +537,26 @@ const TAB_NOTE = M([
  * 화면에서 부르는 이름을 열쇠로 쓴다. 이름이 어긋나면 아래 자기
  * 검사가 잡는다 — 잡지 않으면 빈 칸이 조용히 나간다.
  */
+/** 화분 — 정원에서 여는 칸. 지도의 화분과 같은 모양을 16칸으로. */
+const POT = M([
+  '                ',
+  '                ',
+  '        3       ',
+  '      3 3 3     ',
+  '       31 3     ',
+  '      3 3 3     ',
+  '        3       ',
+  '   3333333333   ',
+  '   3444444443   ',
+  '   3111111113   ',
+  '   3111111113   ',
+  '    31111113    ',
+  '    31111113    ',
+  '     333333     ',
+  '                ',
+  '                ',
+])
+
 export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   token: TOKEN,
   money: MONEY,
@@ -561,6 +581,7 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   disguise: DISGUISE,
   dropRobot: DROP_ROBOT,
   smashRobot: SMASH_ROBOT,
+  pot: POT,
   tabMap: TAB_MAP,
   tabMe: TAB_ME,
   tabRadio: TAB_RADIO,

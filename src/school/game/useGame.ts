@@ -252,6 +252,16 @@ export function gameActions(gameId: string) {
     pickUpThing: () => callServer('pickUpThing', g),
     /** 도착 방에 놓는다. **먼저 놓은 사람이 가진다.** */
     dropThing: () => callServer('dropThing', g),
+    // ── 화분 ──────────────────────────────────────────────
+    /** 씨앗 상자에서 하나 집는다. */
+    takeSeed: () => callServer('takeSeed', g),
+    /** 빈 화분에 심는다. **무엇이 될지는 안 돌려준다.** */
+    plantSeed: (pot: number) => callServer('plantSeed', { ...g, pot }),
+    /** 열매를 딴다. 심은 사람인지는 안 본다 */
+    harvestPot: (pot: number) => callServer('harvestPot', { ...g, pot }),
+    /** 시든 것을 치운다. */
+    clearPot: (pot: number) => callServer('clearPot', { ...g, pot }),
+
     /** 그만둔다. 남은 사람은 계속한다. */
     giveUpErrand: () => callServer('giveUpErrand', g),
     /** 운영자 — 풀과 판 위의 상황. */

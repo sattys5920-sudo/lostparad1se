@@ -4,7 +4,7 @@
 // 있는지는 props.ts 가 안다. 여기서는 바닥·벽·문·계단과 흔적만 굽는다.
 import { MAP } from '../skin'
 import { PROP_ART, PROP_KINDS, type PropKind } from './props'
-import { THING_ART } from './thingArt'
+import { POT_ART, THING_ART } from './thingArt'
 import { THING_ICONS, type ThingIcon } from '../../../shared/rules/errand'
 
 /**
@@ -428,6 +428,8 @@ export interface SpriteSet {
   props: Record<PropKind, HTMLCanvasElement>
   /** 바닥에 놓인 심부름 물건. 12칸이라 타일보다 작다 */
   things: Record<ThingIcon, HTMLCanvasElement>
+  /** 화분 다섯 단계와 씨앗 상자. 같은 자리에서 그림만 바뀐다 */
+  pots: Record<string, HTMLCanvasElement>
   marks: Record<MarkKind, HTMLCanvasElement>
   shadow: HTMLCanvasElement
 }
@@ -456,6 +458,9 @@ export function buildSprites(): SpriteSet {
     things: Object.fromEntries(
       THING_ICONS.map((k) => [k, bake(THING_ART[k] as unknown as string[])]),
     ) as Record<ThingIcon, HTMLCanvasElement>,
+    pots: Object.fromEntries(
+      Object.entries(POT_ART).map(([k, rows]) => [k, bake(rows as unknown as string[])]),
+    ),
     marks: {
       flowers: bake(FLOWERS),
       chalk: bake(CHALK),

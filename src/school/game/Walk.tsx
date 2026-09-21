@@ -96,6 +96,11 @@ export interface WalkProps {
    */
   things?: readonly { x: number; y: number; icon: ThingIcon }[]
   /**
+   * 정원의 화분과 씨앗 상자. **정원에 서 있을 때만 온다** — 서버가
+   * 그 방 사람에게만 단계를 보낸다.
+   */
+  pots?: readonly { x: number; y: number; art: string }[]
+  /**
    * 채팅 바 윗변의 화면 y(css px). 채팅 모드가 아니면 null.
    *
    * 내 캐릭터가 이 선보다 아래에 있으면 **카메라만** 위로 밀어서 선
@@ -390,7 +395,7 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -447,6 +452,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const boardsRef = useRef(boards)
   /** 바닥의 심부름 물건. 게시판과 같은 길로 간다 */
   const thingsRef = useRef(things)
+  /** 화분. 그림만 바뀌고 자리는 고정이다 */
+  const potsRef = useRef(pots)
   const frozenRef = useRef(frozen)
   const stayRef = useRef(stayIn)
   const looksRef = useRef(looks)
@@ -462,6 +469,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   standRef.current = onStand
   boardsRef.current = boards
   thingsRef.current = things
+  potsRef.current = pots
   frozenRef.current = frozen
   stayRef.current = stayIn
   looksRef.current = looks
@@ -1321,6 +1329,16 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
            * 16칸 안에). 가구처럼 칸을 채우면 밟고 지나갈 수 없어 보이고,
            * 주울 것으로 안 읽힌다.
            */
+          /* 화분과 씨앗 상자. 소품처럼 칸에 박혀 있지만 그림이
+             자라면서 바뀐다 — 그래서 소품이 아니라 여기로 온다 */
+          const pot = potsRef.current.find((t) => t.x === x && t.y === y)
+          if (pot) {
+            const img = sprites.pots[pot.art]
+            if (img) {
+              const inset = Math.round((TILE - img.width) / 2)
+              ctx.drawImage(img, x * TILE - camX + inset, y * TILE - camY + inset)
+            }
+          }
           const thing = thingsRef.current.find((t) => t.x === x && t.y === y)
           if (thing) {
             const img = sprites.things[thing.icon]

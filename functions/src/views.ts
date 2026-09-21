@@ -24,6 +24,7 @@ import { rawLine } from './story/slips'
 import type { SlipDoc } from './slips'
 import type { QuizDoc, QuizPaperDoc } from './quiz'
 import { errandWorld } from './errand'
+import { gardenWorld } from './garden'
 import { gameRef, nowOf } from './index'
 
 const db = getFirestore()
@@ -59,7 +60,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -80,6 +81,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       gameRef(gameId).collection('secret').doc('quiz').collection('floor').get(),
       gameRef(gameId).collection('secret').doc('shopStock').collection('items').get(),
       errandWorld(gameId),
+      gardenWorld(gameId),
       secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
     ])
@@ -142,6 +144,18 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 것만 떼어 보낸다
     satchels: Object.fromEntries(
       pawns.docs.map((d) => [d.id, (d.data() as { items?: Record<string, number> }).items ?? {}]),
+    ),
+    // 화분 여덟. **심은 것과 뽑아 둔 시간째로** 들고 가고, 투영이
+    // 단계만 떼어 보낸다 — 무엇을 심었는지는 싹이 나야 나간다
+    pots: garden.pots.map((p) => ({
+      i: p.i,
+      cropId: p.cropId,
+      plantedMs: p.plantedMs,
+      growMs: p.growMs,
+    })),
+    seeds: Object.fromEntries(pawns.docs.map((d) => [d.id, (d.data() as { seeds?: number }).seeds ?? 0])),
+    crops: Object.fromEntries(
+      pawns.docs.map((d) => [d.id, (d.data() as { crops?: Record<string, number> }).crops ?? {}]),
     ),
     // 페이즈 토큰 상자도 마찬가지다. 남의 상자는 투영에서 걸러진다
     wallets: Object.fromEntries(

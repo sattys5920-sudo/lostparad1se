@@ -160,6 +160,7 @@ export { seedPlayers, openAllTiles } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
 export { openPhase, closePhase, phaseAct, phaseNow, roamTo, standAt } from './phase'
+export { takeSeed, plantSeed, harvestPot, clearPot } from './garden'
 export { takeSlip, readSlip, dropSlip, tearSlip, giveSlip } from './slips'
 // 손으로 쓰는 물건 넷. 문이 하나다 — 물건 빼는 자리가 한 군데라야 한다
 export { useItem } from './use'

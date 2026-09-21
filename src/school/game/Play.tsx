@@ -23,6 +23,26 @@ import { Actions } from './Actions'
 import { Vending } from './Vending'
 import { BoardSheet, ErrandStrip } from './Errand'
 import { BOARDS, atBoard } from '../../../shared/rules/errand'
+import { GARDEN_TILE, POT_CELLS, SEED_BOX_CELL, type PotStage } from '../../../shared/rules/crop'
+import { GardenSheet } from './Garden'
+
+/** 단계마다 어느 그림인가. 이름은 map/thingArt 의 POT_ART 키다 */
+const POT_ART_OF: Record<PotStage, string> = {
+  empty: 'potEmpty',
+  soil: 'potSoil',
+  sprout: 'potSprout',
+  leaf: 'potLeaf',
+  fruit: 'potFruit',
+  withered: 'potWithered',
+}
+
+/**
+ * 그 칸 옆에 서 있는가. **둘레 한 칸까지다** — 서버도 같은 자로
+ * 잰다(garden.ts 의 near). 여기서 재는 것은 헛누름을 줄이려는 것뿐이고,
+ * 되는지 안 되는지는 서버가 정한다.
+ */
+const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }): boolean =>
+  me !== null && Math.abs(me.x - c.x) <= 1 && Math.abs(me.y - c.y) <= 1
 import { Walk, type DirWay } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog, leftText } from './Phase'
@@ -592,7 +612,7 @@ function placeName(room: TileId | null, cell: { x: number; y: number } | null): 
   return null
 }
 
-type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board'
+type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -1047,6 +1067,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       room.push({ key: 'board', icon: 'note', label: '게시판', run: () => setSheet('board') })
     }
     /*
+     * **화분.** 정원에 서 있으면 뜬다.
+     *
+     * 게시판과 달리 방 하나에 다 모여 있어서, 자리까지 보지 않고
+     * 방으로 연다 — 어느 화분 앞인지는 시트 안에서 가른다.
+     */
+    if (standingOn === (GARDEN_TILE as TileId)) {
+      room.push({ key: 'garden', icon: 'pot', label: '화분', run: () => setSheet('garden') })
+    }
+    /*
      * **이 방에 놓인 완성품.** 첫 칸을 가져간다.
      *
      * 주인이 없다 — 연구를 건 사람이 제때 여기 없었다는 뜻이고, 먼저
@@ -1265,6 +1294,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             things={
               state.view?.myErrand?.thingAt
                 ? [{ ...state.view.myErrand.thingAt, icon: state.view.myErrand.icon }]
+                : []
+            }
+            /* 화분과 씨앗 상자. 정원에 서 있을 때만 서버가 보내 준다 */
+            pots={
+              (state.view?.potsHere?.length ?? 0) > 0
+                ? [
+                    ...(state.view?.potsHere ?? []).map((p) => ({ ...p.cell, art: POT_ART_OF[p.stage] })),
+                    { ...SEED_BOX_CELL, art: 'seedBox' },
+                  ]
                 : []
             }
             /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */
@@ -1768,6 +1806,20 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {sheet === 'board' && (
         <Sheet title="게시판" onClose={closeSheet}>
           <BoardSheet view={state.view} act={act} onSaid={setSaid} onClose={closeSheet} />
+        </Sheet>
+      )}
+
+      {/* 화분. 정원 안에서만 열린다 — 씨앗 상자와 여덟 자리가 한 목록이다 */}
+      {sheet === 'garden' && (
+        <Sheet title="화분" onClose={closeSheet}>
+          <GardenSheet
+            view={state.view}
+            act={act}
+            onSaid={setSaid}
+            myCell={myCell}
+            atBox={beside(myCell, SEED_BOX_CELL)}
+            nearPot={(i) => beside(myCell, POT_CELLS[i])}
+          />
         </Sheet>
       )}
 

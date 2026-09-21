@@ -21,6 +21,7 @@ import { START_TILE, TILES } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canStart, mayPickTeam, openTeams, timedEvents } from '../../shared/rules/lobby'
+import { seedGarden } from './garden'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
 import { lookOfAccount, looksByUid } from './account'
 import { gameRef, nowOf, requireUid } from './index'
@@ -396,6 +397,9 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   for (const tile of TILES) {
     batch.set(ref.collection('tiles').doc(tile.id), { ownerTeam: null })
   }
+
+  // 정원 화분 여덟. 비어 있는 채로 놓는다
+  await seedGarden(req.data.gameId)
 
   // 말은 모두 2-3 교실에 서 있다. 직책은 팀 안에서 순서대로
   for (const team of TEAMS) {

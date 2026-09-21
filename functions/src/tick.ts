@@ -6,6 +6,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import type { GameDoc } from '../../shared/model'
 import { sweepErrands } from './errand'
+import { sweepGarden } from './garden'
 import { refreshViews } from './views'
 import { catchUp, peekByHand, pushByHand } from './catchup'
 import { gameRef, nowOf, requireUid } from './index'
@@ -26,7 +27,10 @@ export const tick = onCall<{ gameId: string }>(async (req) => {
    * 아무 일도 안 일어나는데, 그때는 볼 사람도 없다. 화면이 몇 초마다
    * 이 문을 두드리므로 실제로는 제때 떨어진다.
    */
-  if (await sweepErrands(req.data.gameId, nowMs)) await refreshViews(req.data.gameId)
+  // 화분도 같이 본다 — 싹이 난 「그 애가 심은 것」을 그때 알린다
+  const swept = await sweepErrands(req.data.gameId, nowMs)
+  const grew = await sweepGarden(req.data.gameId, nowMs)
+  if (swept || grew) await refreshViews(req.data.gameId)
   return catchUp(req.data.gameId, nowMs)
 })
 

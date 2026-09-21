@@ -11,6 +11,7 @@ import { useState } from 'react'
 
 import { ITEM_BY_KIND, PAPER_MAX, isHandItem, type ItemKind, type Satchel } from '../../../shared/rules/items'
 import { TILE_BY_ID } from '../../../shared/rules/board'
+import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
 import { goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
@@ -41,7 +42,17 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
    */
   const errand = view?.myErrand ?? null
   const carrying = errand?.carrying === true ? errand : null
-  if (rows.length === 0 && carrying === null) return <p className="sc-mi__none">가진 것이 없다.</p>
+  /*
+   * 딴 작물. **여기서는 보여 주기만 한다** — 파는 것은 자판기가 하고,
+   * 쓰는 물건도 아니다. 손에 몇 개 들었는지가 다음에 딸 수 있는지를
+   * 정하므로 한도를 같이 적는다.
+   */
+  const crops = Object.entries(view?.myCrops ?? {}).filter(([, n]) => n > 0)
+  const held = crops.reduce((a, [, n]) => a + n, 0)
+  const seeds = view?.mySeeds ?? 0
+  if (rows.length === 0 && carrying === null && crops.length === 0 && seeds === 0) {
+    return <p className="sc-mi__none">가진 것이 없다.</p>
+  }
 
   async function use(kind: ItemKind, more: { text?: string; scrapId?: string } = {}) {
     setBusy(true)
@@ -90,6 +101,22 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
           <button className="sc-mi__use" disabled={busy} onClick={() => void drop()}>
             {TILE_BY_ID[carrying.to].name}에 놓기
           </button>
+        </li>
+      )}
+      {seeds > 0 && (
+        <li className="is-seed">
+          <b>씨앗</b>
+          <span>{seeds}개</span>
+          <p>정원의 빈 화분에 심는다. 무엇이 날지는 심어 봐야 안다.</p>
+        </li>
+      )}
+      {crops.length > 0 && (
+        <li className="is-crop">
+          <b>딴 것</b>
+          <span>
+            {held}/{HARVEST_LIMIT}
+          </span>
+          <p>{crops.map(([id, n]) => `${CROP_BY_ID[id]?.name ?? id} ${n}`).join(' · ')}</p>
         </li>
       )}
       {rows.map(([kind, n]) => {

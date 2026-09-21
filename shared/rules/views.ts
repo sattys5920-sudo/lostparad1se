@@ -21,6 +21,15 @@ import type { CardKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
 import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
+import {
+  CROP_BY_ID,
+  GARDEN_TILE,
+  HARVEST_LIMIT,
+  POT_CELLS,
+  nameShows,
+  stageOf,
+  type PotStage,
+} from './crop'
 import type { Satchel, Satchels } from './items'
 import { canSeeConfession, canSeeMemory } from '../reveal/archive'
 import { noticesFor, type Notice } from '../reveal/notice'
@@ -95,6 +104,14 @@ export interface WorldErrand {
   cell: Cell
   postedMs: number
   takers: Readonly<Record<string, { tookMs: number; carrying: boolean }>>
+}
+
+/** 화분 한 자리. **여기까지가 서버의 것이다.** */
+export interface WorldPot {
+  i: number
+  cropId: string | null
+  plantedMs: number | null
+  growMs: number | null
 }
 
 export interface WorldSlip {
@@ -197,6 +214,15 @@ export interface World {
   shopSold?: Readonly<Record<string, number>>
   /** 지금 붙어 있는 심부름. **받은 사람 목록째로 들고 온다** — 투영이 본인 것만 뗀다. */
   errands?: readonly WorldErrand[]
+  /**
+   * 정원의 화분 여덟. **심은 것과 자랄 시간째로 들고 온다** — 투영이
+   * 단계만 떼어 보낸다. 무엇을 심었는지는 싹이 나야 나간다.
+   */
+  pots?: readonly WorldPot[]
+  /** 사람마다 쥔 씨앗. */
+  seeds?: Readonly<Record<string, number>>
+  /** 사람마다 딴 작물. */
+  crops?: Readonly<Record<string, Readonly<Record<string, number>>>>
   slips?: readonly WorldSlip[]
   quizzes?: readonly WorldQuiz[]
   memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
@@ -206,6 +232,17 @@ export interface World {
 }
 
 // ── 내려보내는 것 ───────────────────────────────────────────────
+
+/** 화분 한 자리, 사람에게 보이는 만큼. */
+export interface PotView {
+  i: number
+  cell: Cell
+  stage: PotStage
+  /** 싹이 나야 이름이 보인다. 흙만 있을 때는 null 이다. */
+  name: string | null
+  /** 딸 수 있는가 — 열매이고 내 손이 덜 찼다. */
+  canPick: boolean
+}
 
 export interface View {
   updatedAtMs: number
@@ -287,6 +324,17 @@ export interface View {
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
   /** **내 주머니.** 팀 것이 아니다 — 산 사람이 가진다. */
   myItems: Satchel
+  /**
+   * 정원의 화분. **그 방에 서 있을 때만 온다.**
+   *
+   * 단계와 — 싹이 난 뒤에는 — 이름까지다. 심은 사람도, 언제 열매가
+   * 될지도 안 온다: 흙을 보고 기다리는 것이 이 일의 전부다.
+   */
+  potsHere: PotView[]
+  /** 쥔 씨앗. */
+  mySeeds: number
+  /** 딴 작물. 키가 작물 아이디다. */
+  myCrops: Readonly<Record<string, number>>
   /**
    * 우리 팀 로봇 수. 한도(ROBOTS_PER_TEAM)를 보여 주려면 안개 밖의
    * 것까지 세어야 한다 — 우리 것이므로 다 알아도 된다. 남의 팀 총수는
@@ -500,6 +548,9 @@ export function projectView(world: World, viewerId: string): View {
       boardCounts: {},
       errandsHere: [],
       myErrand: null,
+      potsHere: [],
+      mySeeds: 0,
+      myCrops: {},
       lockedTiles: [],
       soldOutItems: [],
       quizzesHere: [],
@@ -660,6 +711,37 @@ export function projectView(world: World, viewerId: string): View {
     // 가졌는지는 말로 알아내야 한다
     myVault: world.vaults?.[viewerId] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[viewerId] ?? {},
+    /*
+     * 화분. **정원에 서 있을 때만 간다.**
+     *
+     * 단계는 시간으로만 나온다 — 서버가 심은 시각과 뽑아 둔 시간을
+     * 알고 있고, 여기서는 그걸로 단계만 만든다. 자랄 시간도 심은
+     * 사람도 안 싣는다.
+     */
+    potsHere:
+      here === (GARDEN_TILE as TileId)
+        ? (world.pots ?? []).map((pot) => {
+            const spec = pot.cropId === null ? null : (CROP_BY_ID[pot.cropId] ?? null)
+            const grown = pot.plantedMs === null ? 0 : Math.max(0, world.nowMs - pot.plantedMs)
+            const growMs = pot.growMs ?? 0
+            const stage: PotStage =
+              spec === null || pot.plantedMs === null
+                ? 'empty'
+                : stageOf(grown, growMs, Math.max(0, grown - growMs), spec.witherHours * 3_600_000)
+            const mine = world.crops?.[viewerId] ?? {}
+            const held = Object.values(mine).reduce((a, n) => a + n, 0)
+            return {
+              i: pot.i,
+              cell: POT_CELLS[pot.i],
+              stage,
+              // **흙만 있을 때는 이름이 없다.** 심은 사람에게도 안 간다
+              name: spec !== null && nameShows(stage) ? spec.name : null,
+              canPick: stage === 'fruit' && held < HARVEST_LIMIT,
+            }
+          })
+        : [],
+    mySeeds: world.seeds?.[viewerId] ?? 0,
+    myCrops: world.crops?.[viewerId] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
     mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,
