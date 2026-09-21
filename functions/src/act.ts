@@ -32,6 +32,8 @@ import { earn as earnPurse, pay, purseOf } from '../../shared/rules/resources'
 import { type Resource } from '../../shared/rules/v2'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { SHOP_TILE, priceOf, shopItemById } from '../../shared/rules/shop'
+import { CROP_BY_ID } from '../../shared/rules/crop'
+import { josa } from '../../shared/text'
 import { putItem } from '../../shared/rules/items'
 import type { PawnDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
@@ -230,4 +232,53 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
 
   await refreshViews(gameId)
   return { item: item.id, cost: cost.money }
+})
+
+/**
+ * 매입구 — 딴 작물을 기계에 넣는다.
+ *
+ * **값은 표에 적힌 그대로다.** 흥정도, 떨이도, 많이 넣으면 깎이는
+ * 일도 없다 — 주인 없는 기계라 흥정할 상대가 없다. 그래서 정원에서
+ * 나오는 돈은 「무엇이 열렸나」로만 갈린다.
+ *
+ * 사는 것과 같은 자리에서 한다. 기계 한 대에 넣는 구멍과 나오는
+ * 구멍이 따로 있을 뿐이다.
+ */
+export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId } = req.data
+  const spec = CROP_BY_ID[String(req.data.cropId)]
+  if (!spec) throw new HttpsError('invalid-argument', '그런 작물은 없다.')
+
+  const { nowMs, game } = await freshNow(gameId)
+  const ref = gameRef(gameId)
+  const pawn = await myPawn(gameId, uid)
+  requireAwake(pawn, nowMs)
+  if (pawn.tileId !== SHOP_TILE) {
+    throw new HttpsError('failed-precondition', `${TILE_BY_ID[SHOP_TILE].name}에 서야 넣을 수 있다.`)
+  }
+
+  await db.runTransaction(async (tx) => {
+    const meRef = ref.collection('pawns').doc(uid)
+    const meNow = (await tx.get(meRef)).data() as PawnDoc
+    const have = (meNow.crops ?? {})[spec.id] ?? 0
+    if (have < 1) throw new HttpsError('failed-precondition', `${spec.name}${josa(spec.name, '이/가')} 없다.`)
+    // **돈은 개인 지갑으로.** 딴 사람이 가진다 — 정원의 규칙 그대로다
+    tx.update(meRef, {
+      [`crops.${spec.id}`]: have - 1,
+      resources: earnPurse(meNow, { money: spec.price }),
+    })
+    tx.set(ref.collection('events').doc(), {
+      atMs: nowMs,
+      day: game.day,
+      kind: 'cropSold',
+      team: pawn.team,
+      playerId: uid,
+      tileId: SHOP_TILE,
+      detail: { crop: spec.id, paid: spec.price },
+    })
+  })
+
+  await refreshViews(gameId)
+  return { crop: spec.id, paid: spec.price }
 })

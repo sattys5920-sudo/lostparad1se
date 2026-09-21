@@ -257,6 +257,8 @@ export function gameActions(gameId: string) {
     harvestPot: (pot: number) => callServer('harvestPot', { ...g, pot }),
     /** 시든 것을 치운다. */
     clearPot: (pot: number) => callServer('clearPot', { ...g, pot }),
+    /** 매입구에 작물 하나를 넣는다. **값은 표대로다** */
+    sellCrop: (cropId: string) => callServer('sellCrop', { ...g, cropId }),
     /** 운영자 — 화분 여덟의 지금 모습. 흙 속까지 보인다 */
     hostGarden: () => callServer('hostGarden', g),
     /** 운영자 — 빈 화분에 심는다. 작물을 고르지 않으면 서버가 뽑는다 */

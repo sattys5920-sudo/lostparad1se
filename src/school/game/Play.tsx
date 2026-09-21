@@ -1827,6 +1827,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {sheet === 'shop' && (
         <Vending
           money={state.view?.myVault?.money ?? 0}
+          crops={state.view?.myCrops ?? {}}
           soldOut={state.view?.soldOutItems ?? []}
           act={act}
           onSaid={setSaid}

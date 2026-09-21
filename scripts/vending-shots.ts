@@ -100,9 +100,15 @@ async function standAt(game: string, uid: string, tileId: string): Promise<void>
     },
   )
 }
-/** 금고를 채운다. 값이 모자라 못 사는 화면은 여기서 볼 것이 아니다 */
-async function fund(game: string, team: string, money: number): Promise<void> {
-  await fetch(`${FS}/games/${game}/teams/${team}?updateMask.fieldPaths=resources`, {
+/**
+ * 지갑을 채운다. 값이 모자라 못 사는 화면은 여기서 볼 것이 아니다.
+ *
+ * **팀 금고가 아니라 사람 주머니다.** 돈이 개인 소유로 옮겨 간 뒤에도
+ * 이 손은 한참 teams/ 를 고치고 있었다 — 고쳐도 화면의 「돈」은 꿈쩍
+ * 않는다. views 는 pawns 의 resources 를 읽는다.
+ */
+async function fund(game: string, uid: string, money: number): Promise<void> {
+  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({
@@ -114,10 +120,24 @@ async function fund(game: string, team: string, money: number): Promise<void> {
     }),
   })
 }
-async function teamOf(game: string, uid: string): Promise<string> {
-  const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
-  const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
-  return (f.team as { stringValue?: string })?.stringValue ?? 'A'
+
+/** 손에 딴 것을 쥐여 준다. 매입구에 넣을 것이 있어야 그 줄이 산다 */
+async function giveCrops(game: string, uid: string, crops: Record<string, number>): Promise<void> {
+  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=crops`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        crops: {
+          mapValue: {
+            fields: Object.fromEntries(
+              Object.entries(crops).map(([k, n]) => [k, { integerValue: String(n) }]),
+            ),
+          },
+        },
+      },
+    }),
+  })
 }
 
 /** 들어와서 화면을 덮는 것들을 사람이 하듯 넘긴다. */
@@ -212,8 +232,7 @@ async function main() {
   await must('tick', host, { gameId: game })
 
   const meUid = uidOf('qa01')
-  const myTeam = await teamOf(game, meUid)
-  await fund(game, myTeam, 40)
+  await fund(game, meUid, 40)
   await standAt(game, meUid, SHOP_TILE)
   /*
    * 지우개는 남이 오늘 몫을 사 갔다고 해 둔다. **판을 차리는 것**이지
@@ -263,18 +282,47 @@ async function main() {
      * 일어날 때 다시 만들어지므로, 서버가 한 번 일하게 해서 깨운다.
      * 앞서 한 번 여기서 속았다 — 칸이 멀쩡해 보여서 CSS 를 의심했다
      */
-    await fund(game, myTeam, 1)
+    await fund(game, meUid, 1)
     await must('hostDrop', host, { gameId: game, tileId: 'artRoom', kind: 'memo', text: '지나가는 종이' })
     await page.waitForTimeout(2500)
     await full(page, `${w}-6-돈부족.png`)
 
     // 하루 한도 — 지우개를 남이 사 간 판
-    await fund(game, myTeam, 40)
+    await fund(game, meUid, 40)
     await must('hostDrop', host, { gameId: game, tileId: 'artRoom', kind: 'memo', text: '지나가는 종이' })
     await page.waitForTimeout(2500)
     await page.locator('.sc-vd__cell').nth(4).click()
     await page.waitForTimeout(400)
     await full(page, `${w}-7-한도.png`)
+
+    /*
+     * ── 매입구 ────────────────────────────────────────────
+     *
+     * **빈 줄부터 찍는다.** 손에 아무것도 없을 때 「넣을 것 없음」이
+     * 서 있어야, 그 줄이 무엇을 하는 자리인지 딴 것이 없는 사람도
+     * 안다. 줄 자체를 감추면 정원에 다녀올 때까지 이 기계가 사는
+     * 기계이기만 한 줄 안다.
+     */
+    // **손부터 비운다.** 두 번째 화면 크기는 같은 판을 다시 여는데,
+    // 앞 바퀴에서 쥐여 준 것이 그대로 남아 「빈손」이 빈손이 아니었다
+    await giveCrops(game, meUid, {})
+    await must('hostDrop', host, { gameId: game, tileId: 'artRoom', kind: 'memo', text: '지나가는 종이' })
+    await page.waitForTimeout(2500)
+    await full(page, `${w}-8-매입구-빈손.png`)
+
+    // 딴 것을 쥐여 준다. 값이 다른 셋 — 줄이 값 순으로 선다
+    await giveCrops(game, meUid, { corn: 1, strawberry: 2, hers: 1 })
+    await must('hostDrop', host, { gameId: game, tileId: 'artRoom', kind: 'memo', text: '지나가는 종이' })
+    await page.waitForTimeout(2500)
+    await full(page, `${w}-9-매입구-손에.png`)
+
+    /*
+     * 넣는다. **표시창에 값이 뜬다** — 흥정이 없으므로 「얼마에
+     * 팔렸나」가 아니라 「얼마짜리였나」가 전부다.
+     */
+    await page.locator('.sc-vd__crop').first().click()
+    await page.waitForTimeout(900)
+    await full(page, `${w}-10-넣었다.png`)
 
     await ctx.close()
   }

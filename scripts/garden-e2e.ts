@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
 import { CROP_BY_ID, GARDEN_TILE, HARVEST_LIMIT, POT_CELLS } from '../shared/rules/crop'
+import { SHOP_TILE } from '../shared/rules/shop'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -296,6 +297,30 @@ async function main() {
   const rows2 = ((await again.json()) as { documents?: { fields?: Record<string, unknown> }[] }).documents ?? []
   const after = rows2.filter((d) => (str(d.fields?.text) ?? '').includes(CROP_BY_ID.hers.name)).length
   check(after === before, '한 번만 울린다', `${before} → ${after}`)
+
+  console.log('\n── 매입구 ──')
+  /*
+   * 딴 것은 자판기에 넣어야 돈이 된다. **값은 표에 적힌 그대로다** —
+   * 흥정도 떨이도 없다. 기계 앞에 서야 넣을 수 있는 것도 사는 것과 같다.
+   */
+  const bagNow = mapOf((await viewOf(game, youUid)).myCrops)
+  const soldId = Object.keys(bagNow)[0] ?? 'corn'
+  const farSell = await call('sellCrop', youTok, { gameId: game, cropId: soldId })
+  check(!farSell.ok, '자판기 앞이 아니면 못 넣는다', farSell.ok ? '넣었다' : (farSell.err ?? ''))
+
+  await putIn(game, youUid, SHOP_TILE)
+  const moneyBefore = await purseOf(game, youUid)
+  const paid = await must('sellCrop', youTok, { gameId: game, cropId: soldId })
+  check(
+    Number(paid.paid) === CROP_BY_ID[soldId].price,
+    '**표에 적힌 값 그대로 받는다**',
+    `${paid.paid} / 표는 ${CROP_BY_ID[soldId].price}`,
+  )
+  check((await purseOf(game, youUid)) === moneyBefore + CROP_BY_ID[soldId].price, '내 지갑에 그대로 붙었다')
+  const vSold = await viewOf(game, youUid)
+  check(num(mapOf(vSold.myCrops)[soldId]) === 0, '손에서 빠진다')
+  const twiceSell = await call('sellCrop', youTok, { gameId: game, cropId: soldId })
+  check(!twiceSell.ok, '없는 것은 못 넣는다', twiceSell.ok ? '넣었다' : (twiceSell.err ?? ''))
 
   console.log('\n── 손에 드는 수 ──')
   // 한도까지 채워 두고 한 번 더 따 본다

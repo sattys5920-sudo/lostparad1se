@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { SHOP_ITEMS, priceOf } from '../../../shared/rules/shop'
+import { CROP_BY_ID } from '../../../shared/rules/crop'
+import { josa } from '../text'
 import { goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
 
@@ -39,6 +41,8 @@ export interface VendingProps {
   money: number
   /** 오늘 다 나간 품목. 서버가 보내 준다. */
   soldOut: readonly string[]
+  /** 지금 손에 든 작물. 키가 작물 아이디다 — 매입구에 넣을 것들이다. */
+  crops?: Readonly<Record<string, number>>
   act: GameActions
   onSaid: (text: string) => void
   onClose: () => void
@@ -103,7 +107,7 @@ function makeNoise() {
   }
 }
 
-export function Vending({ money, soldOut, act, onSaid, onClose }: VendingProps) {
+export function Vending({ money, soldOut, crops = {}, act, onSaid, onClose }: VendingProps) {
   const [picked, setPicked] = useState<string | null>(null)
   const [step, setStep] = useState<Step>('idle')
   const [frame, setFrame] = useState(0)
@@ -213,12 +217,53 @@ export function Vending({ money, soldOut, act, onSaid, onClose }: VendingProps) 
 
   const chosen = rows.find((r) => r.item.id === picked) ?? null
   const busy = step !== 'idle'
+  /** 매입구에 넣을 수 있는 것. 값이 비싼 것부터 */
+  const hand = Object.entries(crops)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => (CROP_BY_ID[b[0]]?.price ?? 0) - (CROP_BY_ID[a[0]]?.price ?? 0))
 
   function tapCell(id: string) {
     noise.wake()
     if (busy) return
     setPicked(id)
     setNote(null)
+    setSold(null)
+  }
+
+  /*
+   * 매입구. **넣으면 값이 표대로 떨어진다** — 흥정도 떨이도 없다.
+   *
+   * 사는 쪽과 달리 고르는 단계가 없다. 손에 든 것을 눌러 넣는 것이
+   * 전부다: 기계 앞에서 무엇을 팔지 고민하는 시간이 길 이유가 없다.
+   */
+  const [sold, setSold] = useState<{ name: string; paid: number } | null>(null)
+  async function sell(cropId: string) {
+    noise.wake()
+    if (busy) return
+    setStep('coin')
+    setFrame(0)
+    try {
+      const out = (await act.sellCrop(cropId)) as { paid?: number }
+      const name = CROP_BY_ID[cropId]?.name ?? cropId
+      const paid = Number(out.paid ?? 0)
+      // **표시창은 sold 가 맡는다.** 여기서 note 를 같이 채우면 note 가
+      // 먼저 걸려 「+2 / 옥수수 받았다」가 영영 안 뜬다 — 한 번 그랬다
+      setNote(null)
+      setSold({ name, paid })
+      noise.coin()
+      onSaid(`${name}${josa(name, '을/를')} 넣었다. ${paid}코인.`)
+    } catch (e) {
+      setSold(null)
+      setNote((e as Error).message)
+      noise.bounce()
+    } finally {
+      later(() => {
+        setStep('idle')
+        setFrame(0)
+      }, FRAME * 3)
+      // 영수증은 잠깐만. 기계는 곧 제자리로 돌아간다
+      later(() => setSold(null), 3000)
+    }
   }
 
   /** 배출구에서 꺼낸다. 물건은 이미 주머니에 있다 — 연출을 닫는 일이다 */
@@ -350,13 +395,20 @@ export function Vending({ money, soldOut, act, onSaid, onClose }: VendingProps) 
 
         {/* ── 표시창 ───────────────────────────────────── */}
         <div className={`sc-vd__panel${jitter ? ' is-jit' : ''}`}>
-          {chosen && !note ?
+          {/* **영수증이 고른 칸보다 앞이다.** 뒤에 두었더니 아까 눌러
+              둔 칸이 그대로 떠 있어서, 넣어도 표시창이 안 바뀌었다 */}
+          {note ?
+            <span className="sc-vd__line">{note}</span>
+          : sold ?
+            <>
+              <span className="sc-vd__line">{`+${sold.paid}`}</span>
+              <span className="sc-vd__sub">{`${sold.name} 받았다`}</span>
+            </>
+          : chosen ?
             <>
               <span className="sc-vd__line">{`${chosen.code} ${chosen.item.name} · ${chosen.cost}`}</span>
               <span className="sc-vd__sub">{chosen.item.text}</span>
             </>
-          : note ?
-            <span className="sc-vd__line">{note}</span>
           : <>
               <span className="sc-vd__line">돈 {money}</span>
               <span className="sc-vd__sub">{alt ? houseLine : '거스름돈 없음'}</span>
@@ -392,6 +444,32 @@ export function Vending({ money, soldOut, act, onSaid, onClose }: VendingProps) 
             />
           )}
         </button>
+
+        {/* ── 매입구 ───────────────────────────────────
+            **배출구 아래 한 줄.** 넣는 구멍과 나오는 구멍이 따로다 —
+            같은 자리에 두면 산 것을 도로 넣는 것처럼 보인다 */}
+        <div className="sc-vd__buy">
+          <span className="sc-vd__buyLab">매입구</span>
+          {hand.length === 0 ?
+            <span className="sc-vd__buyNone">넣을 것 없음</span>
+          : <div className="sc-vd__buyRow">
+              {hand.map(([id, n]) => (
+                <button
+                  key={id}
+                  className="sc-vd__crop is-inline"
+                  disabled={busy}
+                  onClick={() => void sell(id)}
+                  aria-label={`${CROP_BY_ID[id]?.name ?? id} 넣기`}
+                >
+                  <i style={{ background: CROP_BY_ID[id]?.color ?? '#888' }} aria-hidden />
+                  {CROP_BY_ID[id]?.name ?? id}
+                  {n > 1 && <b>×{n}</b>}
+                  <em>· {CROP_BY_ID[id]?.price ?? 0}</em>
+                </button>
+              ))}
+            </div>
+          }
+        </div>
 
         {/* 흠집과 스티커 자국. 새 기계가 아니다 */}
         <i className="sc-vd__scr sc-vd__scr--1" aria-hidden />

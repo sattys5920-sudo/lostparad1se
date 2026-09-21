@@ -103,7 +103,7 @@ export { peekDay, pushDay, tick } from './tick'
 // 이동과 깃발. 걸음은 예정 이벤트로 적히고 따라잡기가 민다.
 
 // 토큰을 쓰는 행동.
-export { produce, study, buyShopItem } from './act'
+export { produce, study, buyShopItem, sellCrop } from './act'
 
 
 // 이적. 자유 시간에 마주 서서 꺼내고, 다음 페이즈가 열릴 때 발효된다.
