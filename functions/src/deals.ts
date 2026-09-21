@@ -114,9 +114,16 @@ export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req
   const theirSnap = await gameRef(gameId).collection('pawns').doc(toPlayerId).get()
   if (!theirSnap.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
   const their = theirSnap.data() as PawnDoc
-  // **같은 방으로는 모자라다.** 마주 보고 물건을 주고받는 것이지
-  // 교실 반대편에서 소리쳐 흥정하는 것이 아니다
-  if (their.tileId !== mine.tileId) throw new HttpsError('failed-precondition', '같은 방에 있어야 한다.')
+  /*
+   * **옆 칸이면 된다. 방을 묻지 않는다.**
+   *
+   * 전에는 「같은 방 + 옆 칸」이었다. 방을 묻는 줄이 복도를 막고
+   * 있었다 — 복도에서 마주친 둘은 각자 마지막으로 들어간 방이
+   * 달라서, 어깨를 맞대고 서 있어도 남남이었다.
+   *
+   * 방 조건은 없어도 잃는 것이 없다. 방과 방은 떨어져 있어서 서로
+   * 다른 방에 선 두 사람의 칸이 닿을 수가 없다.
+   */
   if (!cellsTouch(mine.at, their.at)) {
     throw new HttpsError('failed-precondition', '바로 옆 칸에 서야 말을 꺼낼 수 있다.')
   }
@@ -269,12 +276,8 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   ])
   const a = aPawn.data() as PawnDoc
   const b = bPawn.data() as PawnDoc
-  if (
-    game.phaseNow?.open ||
-    a.tileId !== seen.tileId ||
-    b.tileId !== seen.tileId ||
-    !cellsTouch(a.at, b.at)
-  ) {
+  // 옆 칸이면 된다 — 복도에서 마주 선 둘도 흥정한다
+  if (game.phaseNow?.open || !cellsTouch(a.at, b.at)) {
     await endDeal(gameId, dealId, '자리를 잃어 사라졌다.')
     throw new HttpsError('failed-precondition', '거래가 사라졌다.')
   }

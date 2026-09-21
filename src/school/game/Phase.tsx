@@ -238,7 +238,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         {ownsLab ?
           ' (우리 연구실이라 한 점)'
         : labOwner ?
-          ` (${labOwner}팀 연구실이다 — 낸 지식은 그 팀 한 사람에게 간다)`
+          ` (${labOwner}팀 연구실이다 — 우리 것이 아니라 한 점 더 든다)`
         : ''}
         {' · '}내 지식 {view?.myVault?.knowledge ?? 0}
       </p>

@@ -458,6 +458,8 @@ export function projectView(world: World, viewerId: string): View {
     viewerTeam: team,
     pawns: seenPawns,
     visible,
+    // 내가 선 칸. **복도에 섰으면 같은 복도 사람이 보인다**
+    at: seenPawns.find((p) => p.playerId === viewerId)?.at ?? null,
     nowMs: world.nowMs,
   })
 

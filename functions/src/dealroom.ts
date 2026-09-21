@@ -61,13 +61,9 @@ export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
   ])
   if (snap.empty) return
   const game = gameSnap.data() as { phaseNow?: { open?: boolean }; invisibleId?: string | null }
-  const where = new Map<string, string | null>()
+  // 자리만 본다. **방은 안 묻는다** — 복도에서 마주 선 둘도 흥정한다
   const at = new Map<string, Cell | null>()
-  for (const d of pawns.docs) {
-    const p = d.data() as PawnDoc
-    where.set(d.id, p.tileId ?? null)
-    at.set(d.id, p.at ?? null)
-  }
+  for (const d of pawns.docs) at.set(d.id, (d.data() as PawnDoc).at ?? null)
 
   const batch = db.batch()
   let any = false
@@ -77,10 +73,13 @@ export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
     if (askExpired(deal, nowMs)) why = '답이 없어 사라졌다.'
     else if (game.phaseNow?.open) why = '페이즈가 열려 거래가 사라졌다.'
     else if (game.invisibleId === deal.aId || game.invisibleId === deal.bId) why = '한 사람이 사라졌다.'
-    else if (where.get(deal.aId) !== deal.tileId || where.get(deal.bId) !== deal.tileId) {
-      why = '한 사람이 자리를 떴다.'
-    } else if (!cellsTouch(at.get(deal.aId), at.get(deal.bId))) {
-      // 마주 선 채로만 흥정한다. 한 걸음 떨어지면 탁자가 접힌다
+    else if (!cellsTouch(at.get(deal.aId), at.get(deal.bId))) {
+      /*
+       * 마주 선 채로만 흥정한다. 한 걸음 떨어지면 탁자가 접힌다.
+       *
+       * **방은 안 묻는다.** 복도에서 마주 선 둘도 흥정하는데, 방을
+       * 물으면 각자 마지막으로 들어간 방이 달라 곧바로 접힌다.
+       */
       why = '서로 떨어졌다.'
     }
     if (!why) continue

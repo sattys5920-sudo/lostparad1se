@@ -42,7 +42,7 @@ import {
   type Vault,
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
-import { TILE_BY_ID, canRoamTo, roomOfCell, type TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
@@ -1052,7 +1052,20 @@ export const standAt = onCall<{ gameId: string; x: number; y: number }>(async (r
   const p = snap.data() as PawnDoc
   // 걷는 중에는 어느 칸도 아니다. 도착해서 다시 보낸다
   if (p.tileId === null) return { ok: false, why: '걷는 중이다.' }
-  if (roomOfCell(x, y) !== p.tileId) throw new HttpsError('failed-precondition', '그 방의 칸이 아니다.')
+  /*
+   * **복도 칸도 적는다.**
+   *
+   * 전에는 「내가 있는 방 안의 칸」만 받았다. 그러면 복도로 나선
+   * 사람의 자리가 방 안 어딘가에 멎은 채로 남고, 복도에서 마주친
+   * 둘은 서로 옆에 선 것으로 안 쳐진다 — 거래도 못 한다.
+   *
+   * 방 안이면 **내 방이라야** 하고(남의 방 칸이라고 우길 수는 없다),
+   * 복도면 어디든 된다. 복도는 아무의 자리도 아니다.
+   */
+  const room = roomOfCell(x, y)
+  if (room !== null ? room !== p.tileId : !isHallCell(x, y)) {
+    throw new HttpsError('failed-precondition', '거기에는 설 수 없다.')
+  }
   if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
 
   await ref.update({ at: { x, y } })

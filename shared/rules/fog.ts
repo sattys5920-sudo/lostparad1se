@@ -5,7 +5,7 @@
 // 아예 들어가지 않는다. 받은 뒤 숨기면 개발자도구로 다 보인다.
 //
 // 걷는 말의 목적지는 어느 view에도 들어가지 않는다 — 본인 팀 것도.
-import { ADJACENCY, TILE_BY_ID, tileDistance, type Cell, type TileId } from './board'
+import { ADJACENCY, HALLS, TILE_BY_ID, tileDistance, type Cell, type TileId } from './board'
 import { INTEL_VISION_BONUS, VISION_RANGE, type TeamId } from './v2'
 
 /**
@@ -115,8 +115,24 @@ export interface PawnVisionInput {
   viewerTeam: TeamId
   pawns: readonly PawnPosition[]
   visible: ReadonlySet<TileId>
+  /** 보는 사람이 선 칸. 복도에 섰는지를 이걸로 본다. */
+  at?: Cell | null
   nowMs: number
 }
+
+/**
+ * 둘이 **같은 복도 구간**에 서 있는가.
+ *
+ * 구간 하나가 한 층의 한 줄이다. 복도는 트여 있어서 그 줄에 선 사람은
+ * 서로 보인다 — 반대쪽 끝이라도 보인다. 방처럼 문으로 끊기지 않는다.
+ */
+export function sameHall(a: Cell | null | undefined, b: Cell | null | undefined): boolean {
+  if (!a || !b) return false
+  return HALLS.some((h) => inHallRect(h.rect, a) && inHallRect(h.rect, b))
+}
+
+const inHallRect = (r: { x: number; y: number; w: number; h: number }, c: Cell): boolean =>
+  c.x >= r.x && c.x < r.x + r.w && c.y >= r.y && c.y < r.y + r.h
 
 /**
  * 이 사람의 view에 담을 말들.
@@ -138,6 +154,20 @@ export function visiblePawns(input: PawnVisionInput): PawnView[] {
       continue
     }
     if (pawn.team === input.viewerTeam) {
+      out.push(viewOf(pawn))
+      continue
+    }
+    /*
+     * **복도는 트여 있다.**
+     *
+     * 안개는 방을 덮는다. 복도는 어느 방도 아니라 덮을 것이 없고,
+     * 실제로 거기 서면 눈앞에 사람이 보인다 — 방 문을 열고 들어가야
+     * 보이는 것과 다르다. 같은 복도 구간에 선 둘은 서로 보인다.
+     *
+     * 이게 없으면 복도에서 어깨를 맞대고 서 있어도 남남이다. 각자
+     * 마지막으로 들어간 방이 다르고 그 방이 서로 안 보이기 때문이다.
+     */
+    if (sameHall(input.at, pawn.at)) {
       out.push(viewOf(pawn))
       continue
     }

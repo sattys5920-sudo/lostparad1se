@@ -309,8 +309,6 @@ export interface PendingResearch {
   playerId: string
   /** 걸 때 낸 지식. */
   knowledge: number
-  /** 그 지식을 받은 팀. 우리 연구실이었으면 아무도 안 받았다. */
-  paidTo: TeamId | null
   /** 어느 연구실에 걸었는가. **완성품이 그 방에 놓인다.** */
   tileId: TileId
 }
@@ -832,31 +830,23 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (purse.knowledge < need) return no(`지식이 모자란다. ${need}점이 든다.`)
       // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 지갑으로 셋이
       // 더 걸어서 없는 지식으로 넷이 연구한 판이 된다
-      const paidTo = ownsLab ? null : landlord
-      let paid: Partial<Record<string, Vault>> = {
+      /*
+       * **낸 지식은 사라진다.** 주인 팀에게 가지 않는다.
+       *
+       * 한때 남의 연구실 값이 그 팀 금고로 넘어갔다. 금고가
+       * 없어지면서 받을 사람을 골라야 했는데, 누구를 고르든
+       * 어색했다 — 넷에게 나누면 두 점이 0 넷이 되고, 한 명에게
+       * 몰면 그 한 명만 부자가 된다.
+       *
+       * 그래서 안 준다. **연구실을 쥐는 값은 받는 것이 아니라 덜
+       * 내는 것이다**(researchKnowledge 가 1과 2를 가른다). 자판기와
+       * 같은 규칙이고, 판에서 자원이 빠져나가는 두 번째 구멍이다.
+       */
+      const paid: Partial<Record<string, Vault>> = {
         ...state.vaults,
         [playerId]: { ...purse, knowledge: purse.knowledge - need },
       }
-      /*
-       * 남의 연구실이면 낸 값이 **그 팀에서 지식이 제일 적은 한
-       * 사람에게** 간다.
-       *
-       * 팀 금고가 없어져서 받을 곳을 정해야 했다. 넷에게 나누면
-       * 1~2 짜리가 0 넷이 되어 연구실을 쥐는 값이 사라지고, 팀장에게
-       * 몰아주면 팀장 혼자 부자가 된다. 제일 적은 사람에게 주면
-       * 값이 뭉치지 않고 흩어지면서도 한 번에 뜻이 있는 양이 된다.
-       */
-      if (paidTo) {
-        const theirs = state.people
-          .filter((p) => p.team === paidTo)
-          .map((p) => ({ id: p.playerId, purse: paid[p.playerId] ?? EMPTY_VAULT }))
-          .sort((a, b) => a.purse.knowledge - b.purse.knowledge || a.id.localeCompare(b.id))
-        const lucky = theirs[0]
-        if (lucky) {
-          paid = { ...paid, [lucky.id]: { ...lucky.purse, knowledge: lucky.purse.knowledge + need } }
-        }
-      }
-      const queued: PendingResearch = { playerId, knowledge: need, paidTo, tileId: mine.tileId }
+      const queued: PendingResearch = { playerId, knowledge: need, tileId: mine.tileId }
 
       if (!hasPlant) {
           return {

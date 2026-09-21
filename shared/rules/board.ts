@@ -649,6 +649,19 @@ export function roomOfCell(x: number, y: number): TileId | null {
 }
 
 /**
+ * 그 칸이 복도인가. **계단통도 복도다.**
+ *
+ * 방도 복도도 아니면 벽이다. 복도는 아무 방에도 안 속해서 아무도
+ * 차지할 수 없고, 그래서 게시판과 자판기가 거기 선다.
+ */
+export function isHallCell(x: number, y: number): boolean {
+  return HALLS.some((h) => inRect(h.rect, x, y))
+}
+
+/** 서 있을 수 있는 칸인가. 방 안이거나 복도면 된다. */
+export const canStandAt = (x: number, y: number): boolean => roomOfCell(x, y) !== null || isHallCell(x, y)
+
+/**
  * 두 칸이 **상하좌우로 닿아** 있는가.
  *
  * 대각선은 닿은 것이 아니다. 같은 칸도 아니다 — 한 칸에 둘이 설 수는

@@ -324,7 +324,15 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
     // 발을 들였으니 지도에 남는다. 사람마다 따로 쌓인다
     const been = new Set(pawn.visitedTiles ?? [])
     been.add(tileId)
-    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, visitedTiles: [...been] })
+    /*
+     * **칸은 비운다.** 도착하면 방 안 어디에 설지는 화면이 다시
+     * 정해서 보낸다(standAt).
+     *
+     * 안 비우면 복도에서 걸어 들어온 사람의 자리가 복도 칸으로 남고,
+     * 복도가 트인 뒤로는 그 값이 「아직 복도에 있다」는 뜻이 된다 —
+     * 방에 들어갔는데도 복도 사람들에게 보이고 거래까지 걸린다.
+     */
+    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, at: null, visitedTiles: [...been] })
     // 이 칸에 섰다. 체류 기록은 트랜잭션 밖에서 연다
     c.landed.push({ playerId, tileId, atMs: c.atMs })
   } else {

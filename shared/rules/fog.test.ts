@@ -150,3 +150,53 @@ describe('새면 안 되는 것', () => {
     expect(out[0].toTile).toBe(null)
   })
 })
+
+/**
+ * 복도는 트여 있다.
+ *
+ * 안개는 방을 덮는다. 복도는 어느 방도 아니라 덮을 것이 없고, 실제로
+ * 거기 서면 눈앞에 사람이 보인다. 이게 없으면 복도에서 어깨를 맞대고
+ * 서 있어도 남남이다 — 각자 마지막으로 들어간 방이 다르고, 그 방이
+ * 서로 안 보이기 때문이다.
+ */
+describe('복도에서 마주치기', () => {
+  /** 1층 가운데 복도. spot-check 가 이 칸이 복도임을 확인한다 */
+  const hall = { x: 34, y: 80 }
+  const farInSameHall = { x: 14, y: 80 }
+  /** 2층 복도. 같은 건물이지만 딴 줄이다 */
+  const otherHall = { x: 33, y: 31 }
+  const base = { viewerId: 'me', viewerTeam: 'A' as const, visible: new Set<never>(), nowMs: 1000 }
+
+  const other = (at: { x: number; y: number }) =>
+    pawn({ playerId: 'x', team: 'B', tileId: 'baseB', at })
+
+  it('같은 복도에 서면 서로 보인다 — 안개 밖의 방에서 왔어도', () => {
+    const out = visiblePawns({ ...base, at: hall, pawns: [other(hall)] })
+    expect(out.map((p) => p.playerId)).toContain('x')
+  })
+
+  it('복도 반대쪽 끝도 보인다 — 문으로 끊기지 않는다', () => {
+    const out = visiblePawns({ ...base, at: hall, pawns: [other(farInSameHall)] })
+    expect(out.map((p) => p.playerId)).toContain('x')
+  })
+
+  it('딴 층 복도는 안 보인다', () => {
+    const out = visiblePawns({ ...base, at: hall, pawns: [other(otherHall)] })
+    expect(out.map((p) => p.playerId)).not.toContain('x')
+  })
+
+  it('내가 복도에 없으면 안 보인다 — 방 안에서 복도가 들여다보이지 않는다', () => {
+    const out = visiblePawns({ ...base, at: { x: 15, y: 70 }, pawns: [other(hall)] })
+    expect(out.map((p) => p.playerId)).not.toContain('x')
+  })
+
+  /** **잠복은 복도에서도 잠복이다.** 트였다고 숨은 사람이 드러나지 않는다 */
+  it('잠복한 사람은 같은 복도라도 안 보인다', () => {
+    const out = visiblePawns({
+      ...base,
+      at: hall,
+      pawns: [pawn({ playerId: 'x', team: 'B', tileId: 'baseB', at: hall, hiddenUntilMs: 9999 })],
+    })
+    expect(out.map((p) => p.playerId)).not.toContain('x')
+  })
+})
