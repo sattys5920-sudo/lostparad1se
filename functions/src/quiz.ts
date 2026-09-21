@@ -14,7 +14,6 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import {
   KNOWLEDGE_PER_QUIZ,
-  QUIZ_CHOICES,
   QUIZ_ON_FLOOR_MAX,
   QUIZ_PER_PHASE,
   bankIsThin,
@@ -239,22 +238,17 @@ export const hostQuizList = onCall<{ gameId: string }>(async (req) => {
 export const hostQuizUpsert = onCall<{ gameId: string; id?: string; quiz: QuizDoc }>(async (req) => {
   requireHost(req.auth)
   const { gameId, id, quiz } = req.data
+  // **문제는 주관식이다.** 보기 넷을 주면 방에 선 사람 전원이 넷 중
+  // 하나를 찍고, 먼저 찍는 손이 이긴다 — 아는 것과 상관없다. 적어야
+  // 하는 문제는 아는 사람이 이긴다
   const kind = quiz?.kind
-  if (kind !== 'choice' && kind !== 'short') throw new HttpsError('invalid-argument', '형식이 잘못됐다.')
+  if (kind !== 'short') throw new HttpsError('invalid-argument', '문제는 주관식이다.')
   const prompt = (quiz.prompt ?? '').trim()
   if (prompt === '') throw new HttpsError('invalid-argument', '문제를 적어야 한다.')
   const answers = (quiz.answers ?? []).map((a) => a.trim()).filter((a) => a !== '')
   if (answers.length === 0) throw new HttpsError('invalid-argument', '정답을 하나는 적어야 한다.')
-  const choices = kind === 'choice' ? (quiz.choices ?? []).map((c) => c.trim()).filter((c) => c !== '') : []
-  if (kind === 'choice' && choices.length !== QUIZ_CHOICES) {
-    throw new HttpsError('invalid-argument', `객관식은 보기가 ${QUIZ_CHOICES}개여야 한다.`)
-  }
-  // 객관식 정답은 보기 안에 있어야 한다. 없으면 아무도 못 맞힌다
-  if (kind === 'choice' && !answers.every((a) => choices.includes(a))) {
-    throw new HttpsError('invalid-argument', '정답이 보기 안에 없다.')
-  }
 
-  const doc: QuizDoc = { kind, prompt, choices, answers, explain: (quiz.explain ?? '').trim() }
+  const doc: QuizDoc = { kind, prompt, choices: [], answers, explain: (quiz.explain ?? '').trim() }
   const ref = id ? bankOf(gameId).doc(id) : bankOf(gameId).doc()
   await ref.set(doc)
   return { id: ref.id }

@@ -17,10 +17,10 @@ import type { GameActions } from '../game/useGame'
 /** 메모 한 장에 적을 수 있는 길이. 서버(drop.ts)와 같은 값이다. */
 const MEMO_MAX = 300
 
+/** 주관식뿐이다. kind 는 서버 문서 모양을 맞추려고 남아 있다 */
 const EMPTY = {
-  kind: 'choice' as 'choice' | 'short',
+  kind: 'short' as const,
   prompt: '',
-  choices: ['', '', '', ''],
   answers: '',
   explain: '',
 }
@@ -45,7 +45,7 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
               quiz: {
                 kind: form.kind,
                 prompt: form.prompt,
-                choices: form.kind === 'choice' ? form.choices : [],
+                choices: [],
                 // 정답은 줄바꿈으로 여럿 적는다 — 동의어와 표기 차이를
                 // 미리 적어 두는 편이 채점을 똑똑하게 만드는 것보다 정확하다
                 answers: form.answers.split('\n').map((a) => a.trim()).filter((a) => a !== ''),
@@ -67,9 +67,7 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
     tileId !== '' &&
     (what === 'memo'
       ? memo.trim().length > 0
-      : form.prompt.trim().length > 0 &&
-        form.answers.trim().length > 0 &&
-        (form.kind === 'short' || form.choices.filter((c) => c.trim() !== '').length >= 2))
+      : form.prompt.trim().length > 0 && form.answers.trim().length > 0)
 
   return (
     <div className="sc-dr">
@@ -114,21 +112,6 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
 
       {what === 'quiz' && (
         <>
-          <div className="sc-dr__what">
-            <button
-              className={form.kind === 'choice' ? 'is-on' : ''}
-              onClick={() => setForm({ ...form, kind: 'choice' })}
-            >
-              객관식
-            </button>
-            <button
-              className={form.kind === 'short' ? 'is-on' : ''}
-              onClick={() => setForm({ ...form, kind: 'short' })}
-            >
-              단답
-            </button>
-          </div>
-
           <label className="sc-dr__row sc-dr__row--tall">
             <span>문제</span>
             <textarea
@@ -137,21 +120,6 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
               onChange={(e) => setForm({ ...form, prompt: e.target.value })}
             />
           </label>
-
-          {form.kind === 'choice' &&
-            form.choices.map((c, i) => (
-              <label className="sc-dr__row" key={i}>
-                <span>보기 {i + 1}</span>
-                <input
-                  value={c}
-                  onChange={(e) => {
-                    const next = [...form.choices]
-                    next[i] = e.target.value
-                    setForm({ ...form, choices: next })
-                  }}
-                />
-              </label>
-            ))}
 
           <label className="sc-dr__row sc-dr__row--tall">
             <span>정답</span>

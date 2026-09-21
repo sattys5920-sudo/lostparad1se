@@ -9,7 +9,7 @@
 // 틀렸는지만 온다.
 import { useEffect, useState } from 'react'
 
-import { KNOWLEDGE_PER_QUIZ, QUIZ_CHOICES, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
+import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 
@@ -129,7 +129,8 @@ interface BankItem {
   used: boolean
 }
 
-const EMPTY_FORM = { kind: 'choice' as 'choice' | 'short', prompt: '', choices: ['', '', '', ''], answers: '', explain: '' }
+/** 주관식뿐이다. kind 는 서버 문서 모양을 맞추려고 남아 있다 */
+const EMPTY_FORM = { kind: 'short' as const, prompt: '', answers: '', explain: '' }
 
 /**
  * 문제를 등록·수정·삭제한다. **운영자만.**
@@ -167,7 +168,7 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
         {
           kind: form.kind,
           prompt: form.prompt,
-          choices: form.kind === 'choice' ? form.choices : [],
+          choices: [],
           // 정답은 줄바꿈으로 여럿 적는다 — 동의어와 표기 차이를
           // 미리 적어 두는 편이 채점을 똑똑하게 만드는 것보다 정확하다
           answers: form.answers.split('\n').map((a) => a.trim()).filter((a) => a !== ''),
@@ -211,37 +212,13 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
       )}
 
       <div className="sc-qzh__form">
-        <div className="sc-qzh__kind">
-          {(['choice', 'short'] as const).map((k) => (
-            <button key={k} className={form.kind === k ? 'is-on' : ''} onClick={() => setForm((f) => ({ ...f, kind: k }))}>
-              {k === 'choice' ? '객관식' : '단답형'}
-            </button>
-          ))}
-        </div>
-
-        <label htmlFor="quiz-prompt">문제</label>
+        <label htmlFor="quiz-prompt">문제 — 답을 적어 내는 주관식</label>
         <textarea
           id="quiz-prompt"
           rows={2}
           value={form.prompt}
           onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
         />
-
-        {form.kind === 'choice' && (
-          <>
-            <label htmlFor="quiz-choice-0">보기 {QUIZ_CHOICES}개</label>
-            {form.choices.map((c, i) => (
-              <input
-                key={i}
-                id={`quiz-choice-${i}`}
-                value={c}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, choices: f.choices.map((x, j) => (j === i ? e.target.value : x)) }))
-                }
-              />
-            ))}
-          </>
-        )}
 
         <label htmlFor="quiz-answers">정답 (한 줄에 하나 — 동의어와 표기 차이를 여럿 적는다)</label>
         <textarea
@@ -279,7 +256,6 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
         <ul className="sc-qzh__list">
           {bank.items.map((q) => (
             <li key={q.id}>
-              <span className="sc-qzh__tag">{q.kind === 'choice' ? '객관식' : '단답'}</span>
               <span className="sc-qzh__prompt">{q.prompt}</span>
               <span className="sc-qzh__ans">{q.answers.join(' / ')}</span>
               <button
@@ -287,9 +263,8 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
                 onClick={() => {
                   setEditing(q.id)
                   setForm({
-                    kind: q.kind,
+                    kind: 'short',
                     prompt: q.prompt,
-                    choices: q.kind === 'choice' ? [...q.choices, '', '', '', ''].slice(0, QUIZ_CHOICES) : ['', '', '', ''],
                     answers: q.answers.join('\n'),
                     explain: q.explain,
                   })

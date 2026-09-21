@@ -130,9 +130,11 @@ async function main(): Promise<void> {
 
   const badChoice = await call('hostQuizUpsert', host, {
     gameId: GAME,
-    quiz: { kind: 'choice', prompt: '보기에 없는 정답', choices: ['하나', '둘', '셋', '넷'], answers: ['다섯'], explain: '' },
+    quiz: { kind: 'choice', prompt: '객관식', choices: ['하나', '둘', '셋', '넷'], answers: ['둘'], explain: '' },
   })
-  check(badChoice.code === 'INVALID_ARGUMENT', '객관식 정답이 보기에 없으면 막는다', String(badChoice.code))
+  check(badChoice.code === 'INVALID_ARGUMENT', '**객관식은 받지 않는다** — 주관식뿐', String(badChoice.message ?? badChoice.code))
+  const stillTwo = await must('hostQuizList', host, { gameId: GAME })
+  check(Number(stillTwo.count) === 2, '막힌 것은 은행에 안 남는다', `${stillTwo.count}개`)
 
   console.log('\n── 페이즈가 닫히면 종이가 떨어진다 ──')
   check((await floorNow()).length === 0, '처음에는 바닥에 없다')
@@ -140,12 +142,8 @@ async function main(): Promise<void> {
   const closed = await must('closePhase', host, { gameId: GAME })
   check(Number(closed.quizzes) === QUIZ_PER_PHASE, `${QUIZ_PER_PHASE}장 떨어졌다`, `${closed.quizzes}장`)
   const floor = await floorNow()
-  check(
-    floor.every((q) => !String(q.d.tileId).startsWith('base')),
-    '기지에는 안 떨어진다',
-    floor.map((q) => q.d.tileId).join(','),
-  )
-  check(floor.every((q) => q.d.openedBy === null), '전부 접힌 채로 떨어진다')
+  // 기지는 없어졌다(76368eb). 스물다섯 방 어디에나 떨어진다
+  check(floor.every((q) => q.d.openedBy === null), '전부 접힌 채로 떨어진다', floor.map((q) => q.d.tileId).join(','))
 
   console.log('\n── 정답은 누구도 직접 못 읽는다 ──')
   for (const [who, tk] of [['플레이어', A[0].token], ['운영자', host]] as const) {
@@ -207,18 +205,20 @@ async function main(): Promise<void> {
   const again = await call('answerQuiz', A[0].token, { gameId: GAME, paperId: target.id, given: ANSWER })
   check(again.code === 'FAILED_PRECONDITION', '같은 사람은 다시 못 푼다', String(again.code))
 
-  console.log('\n── 맞히면 그 팀이 가져간다. 한 장은 한 팀만 ──')
-  const before = Number(
-    ((await getAll(`games/${GAME}/teams`)).find((t) => t.id === 'B')?.d.resources as Record<string, number>).knowledge,
-  )
+  console.log('\n── 맞히면 맞힌 사람이 가져간다. 한 장은 한 팀만 ──')
+  // 지식은 팀 금고가 아니라 **그 사람 지갑**에 붙는다(7d045ae)
+  const knowledgeOf = async (uid: string) =>
+    Number(((await pawnsNow())[uid].resources as Record<string, number> | undefined)?.knowledge ?? 0)
+  const before = await knowledgeOf(B[0].uid)
+  const mateBefore = await knowledgeOf(B[1].uid)
   // 대소문자·공백·자모를 흩뜨려 내도 맞아야 한다
   const right = await must('answerQuiz', B[0].token, { gameId: GAME, paperId: target.id, given: `  ${ANSWER.normalize('NFD')} ` })
   check(right.correct === true, '자모로 쳐도 맞는다')
   check(right.explain === EXPLAIN, '맞힌 사람에게만 해설이 간다')
-  const after = Number(
-    ((await getAll(`games/${GAME}/teams`)).find((t) => t.id === 'B')?.d.resources as Record<string, number>).knowledge,
-  )
-  check(after === before + KNOWLEDGE_PER_QUIZ, `B팀 금고에 지식 ${KNOWLEDGE_PER_QUIZ}점`, `${before} → ${after}`)
+  const after = await knowledgeOf(B[0].uid)
+  check(after === before + KNOWLEDGE_PER_QUIZ, `**맞힌 사람 지갑에 지식 ${KNOWLEDGE_PER_QUIZ}점**`, `${before} → ${after}`)
+  const mate = await knowledgeOf(B[1].uid)
+  check(mate === mateBefore, '같은 팀 다른 사람 지갑은 그대로다', `${mateBefore} → ${mate}`)
 
   const late = await call('answerQuiz', A[1].token, { gameId: GAME, paperId: target.id, given: ANSWER })
   check(late.code === 'FAILED_PRECONDITION', '뒤에 온 답은 거절된다 — 한 장은 한 팀만', String(late.code))

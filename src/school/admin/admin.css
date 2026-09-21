@@ -328,10 +328,6 @@
 .sc-ad .sc-qzh__thin { margin: 0; font-size: 13px; line-height: 20px; }
 .sc-ad .sc-qzh__form { gap: 6px; }
 .sc-ad .sc-qzh__form label { font-size: 13px; line-height: 20px; color: var(--sc-text-2); margin-top: 6px; }
-.sc-ad .sc-qzh__kind { display: flex; gap: 6px; }
-.sc-ad .sc-qzh__kind button { flex: 1; }
-/* 게임 화면의 문제 색을 여기까지 끌고 오지 않는다. 이 책상은 먹 한 색이다 */
-.sc-ad .sc-qzh__kind button.is-on { border-color: var(--sc-line-strong); color: var(--sc-text); font-weight: 600; }
 .sc-ad .sc-qzh__row { display: flex; gap: 6px; margin-top: 8px; }
 .sc-ad .sc-qzh__row button { flex: 1; }
 .sc-ad .sc-qzh__list { margin: 12px 0 0; gap: 6px; }

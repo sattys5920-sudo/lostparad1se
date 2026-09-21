@@ -94,11 +94,9 @@ export const hostDrop = onCall<DropInput>(async (req) => {
   const prompt = String(q?.prompt ?? '').trim()
   if (prompt.length === 0) throw new HttpsError('invalid-argument', '문제가 비어 있다.')
   if (prompt.length > CHAT_MAX * 8) throw new HttpsError('invalid-argument', '문제가 너무 길다.')
-  const qKind = q?.kind === 'short' ? 'short' : 'choice'
-  const choices = (q?.choices ?? []).map((c) => String(c).trim()).filter((c) => c !== '')
-  if (qKind === 'choice' && choices.length < 2) {
-    throw new HttpsError('invalid-argument', '객관식은 보기가 둘 이상 있어야 한다.')
-  }
+  // 은행(quiz.ts)과 같은 규칙이다 — 문제는 주관식뿐이다
+  if (q?.kind !== 'short') throw new HttpsError('invalid-argument', '문제는 주관식이다.')
+  const qKind = 'short' as const
   const answers = (q?.answers ?? []).map((a) => String(a).trim()).filter((a) => a !== '')
   if (answers.length === 0) throw new HttpsError('invalid-argument', '정답을 적어야 한다.')
 
@@ -112,7 +110,7 @@ export const hostDrop = onCall<DropInput>(async (req) => {
   batch.set(bank, {
     kind: qKind,
     prompt,
-    choices: qKind === 'choice' ? choices : [],
+    choices: [],
     answers,
     explain: String(q?.explain ?? ''),
   })

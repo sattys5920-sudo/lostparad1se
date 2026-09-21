@@ -46,6 +46,12 @@ async function main() {
   const missed: string[] = []
 
   for (const [tag, site] of Object.entries(SITES)) {
+    // 「전」 서버가 안 떠 있으면 「후」만 찍는다. 두 번 비교는 있을 때만
+    const up = await fetch(`${site}/`).then((r) => r.ok).catch(() => false)
+    if (!up) {
+      console.log(`  ${tag} 서버가 없다(${site}) — 건너뛴다`)
+      continue
+    }
     for (const size of [{ w: 375, h: 667 }, { w: 390, h: 844 }]) {
       const game = `qz${Date.now()}${size.w}`
       const me = `qz${String(Date.now()).slice(-6)}${size.w}`
@@ -71,9 +77,9 @@ async function main() {
       await fetch(`${FS}/games/${game}/secret/quiz/bank?documentId=q1`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN },
         body: JSON.stringify({ fields: {
-          kind: { stringValue: 'choice' },
+          kind: { stringValue: 'short' },
           prompt: { stringValue: '눈이 가장 많이 오는 달은?' },
-          choices: { arrayValue: { values: ['열두 달', '한 달', '두 달', '세 달'].map((v) => ({ stringValue: v })) } },
+          choices: { arrayValue: { values: [] } },
           answers: { arrayValue: { values: [{ stringValue: '한 달' }] } },
           explain: { stringValue: '' },
         } }),
@@ -112,8 +118,9 @@ async function main() {
         missed.push(`${tag}${size.w}: 시험지 안 뜸`)
       } else {
         await page.screenshot({ path: `${OUT}/quiz-${size.w}-시험지-${tag}.png` })
-        // 첫 보기는 오답이다(정답은 「한 달」). 종이가 한 화소 흔들린다
-        await page.evaluate(() => (document.querySelector('.sc-qz__choices button') as HTMLElement | null)?.click())
+        // 틀린 답을 적어 낸다(정답은 「한 달」). 종이가 한 화소 흔들린다
+        await page.locator('.sc-qz__short input').fill('열두 달')
+        await page.locator('.sc-qz__short button').click()
         /*
          * **답이 돌아온 다음에야 흔들린다.** 채점은 서버가 하므로,
          * 누른 직후에 재면 아직 아무 일도 안 일어난 참이다 — 70ms
