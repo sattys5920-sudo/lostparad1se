@@ -260,6 +260,7 @@ async function main() {
     await walkTo(page, game, meUid, MACHINE.cell, '자판기')
     await page.waitForTimeout(1200)
     await full(page, `${w}-0-복도의-기계.png`)
+
     await openVending(page)
     console.log('  잰 것:', JSON.stringify(await measure(page), null, 0))
     await full(page, `${w}-1-기본.png`)

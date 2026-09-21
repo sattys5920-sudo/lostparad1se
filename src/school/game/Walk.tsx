@@ -51,6 +51,7 @@ import {
 import type { TeamId, TileId } from '../types'
 import type { ThingIcon } from '../../../shared/rules/errand'
 import { VENDINGS } from '../../../shared/rules/shop'
+import { facing, fixtureAt } from '../../../shared/rules/fixtures'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -82,6 +83,11 @@ export interface WalkProps {
    * 늘어선 목록에서 고르는 것이 아니라, 눈앞에 선 사람을 짚는다.
    */
   onTapPerson: (playerId: string) => void
+  /**
+   * 복도의 기물을 짚었다. **앞에 서 있을 때만 온다** — 멀리서 누른
+   * 것은 걸음으로 친다.
+   */
+  onTapFixture?: (kind: 'board' | 'vending') => void
   /**
    * 지금 머리 위에 띄울 말. 사람 아이디 → 한 줄.
    *
@@ -402,7 +408,7 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -454,6 +460,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const roomRef = useRef(onRoom)
   const tapRef = useRef(onTapRoom)
   const personRef = useRef(onTapPerson)
+  const fixRef = useRef(onTapFixture)
   const standRef = useRef(onStand)
   /** 게시판. 그리는 고리가 매 프레임 본다 — 다시 세우지 않게 ref 로 */
   const boardsRef = useRef(boards)
@@ -473,6 +480,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   roomRef.current = onRoom
   tapRef.current = onTapRoom
   personRef.current = onTapPerson
+  fixRef.current = onTapFixture
   standRef.current = onStand
   boardsRef.current = boards
   thingsRef.current = things
@@ -663,6 +671,19 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const who = personAt(sx, sy, here)
       if (who) {
         personRef.current(who)
+        return
+      }
+
+      /*
+       * **기물을 짚었다.** 게시판이나 자판기다.
+       *
+       * 밟을 수 없는 칸이라 걸음으로 쳐 봐야 갈 데가 없다. 앞에 서
+       * 있으면 열고, 멀면 아무 일도 안 한다 — 멀리서 눌러 열리면
+       * 「앞까지 걸어간다」가 아무 뜻이 없어진다.
+       */
+      const fix = fixtureAt(tx, ty)
+      if (fix) {
+        if (facing({ x: self.tx, y: self.ty }, fix.cell)) fixRef.current?.(fix.kind)
         return
       }
 

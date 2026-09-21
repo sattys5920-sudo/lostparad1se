@@ -137,7 +137,11 @@ async function main() {
   check(num(counts[BOARD.id]) === 2, '멀리서도 몇 장인지는 보인다', `${num(counts[BOARD.id])}장`)
   check(arr(vFar.errandsHere).length === 0, '**멀리서는 내용이 안 온다**', `${arr(vFar.errandsHere).length}개`)
 
-  await must('standAt', meTok, { gameId: game, x: BOARD.cell.x, y: BOARD.cell.y })
+  /*
+   * **게시판 칸 위가 아니라 옆이다.** 게시판은 기물이라 밟을 수
+   * 없다 — 그 칸에 서던 시험은 여기서 서버에 막혔다.
+   */
+  await must('standAt', meTok, { gameId: game, x: BOARD.cell.x + 1, y: BOARD.cell.y })
   const vNear = await viewOf(game, meUid)
   const here = arr(vNear.errandsHere)
   check(here.length === 2, '앞에 서면 두 장이 보인다', `${here.length}개`)
@@ -167,7 +171,7 @@ async function main() {
    */
   await must('standAt', thirdTok, { gameId: game, x: BOARD.cell.x, y: BOARD.cell.y + 1 }).catch(() => undefined)
   await putIn(game, thirdUid, 'cafeteria')
-  await must('standAt', meTok, { gameId: game, x: BOARD.cell.x, y: BOARD.cell.y })
+  await must('standAt', meTok, { gameId: game, x: BOARD.cell.x + 1, y: BOARD.cell.y })
   /*
    * **심부름 칸만 훑는다.**
    *
@@ -262,8 +266,9 @@ async function main() {
   check(mapOf(vLost.myErrand).thing === undefined, '늦은 쪽 손에서 물건이 사라진다')
 
   console.log('\n── 포기 ──')
-  // **둘 다 게시판 앞에 세운다.** 한쪽만 세우면 받기에서 막힌다
-  for (const [uid, tk, dx] of [[meUid, meTok, 0], [youUid, youTok, 1]] as const) {
+  // **둘 다 게시판 앞에 세운다.** 한쪽만 세우면 받기에서 막힌다.
+  // 게시판 칸(dx 0)은 기물이라 못 밟는다 — 양옆에 하나씩
+  for (const [uid, tk, dx] of [[meUid, meTok, -1], [youUid, youTok, 1]] as const) {
     await putIn(game, uid, 'cafeteria')
     await must('standAt', tk, { gameId: game, x: BOARD.cell.x + dx, y: BOARD.cell.y })
   }

@@ -193,8 +193,10 @@ async function main(): Promise<void> {
   /*
    * **기계 앞으로 간다.** 매점 방에 서서 사던 자리다 — 자판기가
    * 복도로 나간 뒤로는 방이 아니라 칸을 본다.
+   *
+   * 기계 칸이 아니라 **한 칸 옆**이다. 기물이라 밟을 수 없다.
    */
-  await must('standAt', A[1].token, { gameId: GAME, x: MACHINE.x, y: MACHINE.y })
+  await must('standAt', A[1].token, { gameId: GAME, x: MACHINE.x + 1, y: MACHINE.y })
   await must('buyShopItem', A[1].token, { gameId: GAME, itemId: 'nameTag' })
   check(true, '자유 시간에 자판기에서 남의 명찰을 샀다')
 

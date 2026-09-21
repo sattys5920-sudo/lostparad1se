@@ -33,6 +33,7 @@ import {
   type Rect,
   type StairEnd,
 } from '../../../shared/rules/board'
+import { isFixture } from '../../../shared/rules/fixtures'
 import { FURNITURE } from './furniture'
 import { propTiles, WALL_PROPS, type PropKind } from './props'
 import { signTiles } from './signs'
@@ -508,6 +509,9 @@ export function isWalkable(x: number, y: number, lockedDoors?: Set<string>): boo
   if (tileAt(x, y) === 'wall') return false
   if (props.has(key(x, y))) return false
   if (signs.has(key(x, y))) return false
+  // 복도의 게시판과 자판기. **소품과 같은 갈래다** — 그림만 얹혀
+  // 있으면 사람이 기계를 뚫고 지나간다(rules/fixtures)
+  if (isFixture(x, y)) return false
   if (lockedDoors?.has(`${x},${y}`)) return false
   return true
 }

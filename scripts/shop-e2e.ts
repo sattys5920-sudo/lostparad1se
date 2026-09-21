@@ -170,7 +170,17 @@ async function main() {
   const far = await call('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
   check(!far.ok, '**다섯 칸 떨어지면 못 산다** — 방이 아니라 칸을 본다', far.ok ? '사졌다' : (far.err ?? ''))
 
-  // 한 칸 옆도 「앞」이다. 기계 칸을 누가 밟고 있어도 살 수 있어야 한다
+  /*
+   * **기계 칸 자체에는 못 선다.** 기물이라 밟고 지나갈 수 없다.
+   *
+   * 화면도 같은 자로 재서 애초에 그리로 못 걷지만, 서버가 막는지를
+   * 본다 — 화면만 막으면 손으로 부른 요청 하나로 기계 안에 서 있는
+   * 사람이 생긴다.
+   */
+  const onIt = await call('standAt', meTok, { gameId: game, x: MACHINE.x, y: MACHINE.y })
+  check(!onIt.ok, '**기계 위에는 못 선다** — 기물이다', onIt.ok ? '섰다' : (onIt.err ?? ''))
+
+  // 한 칸 옆은 「앞」이다. 거기 서야 산다
   await standBy(game, meUid, { x: MACHINE.x + 1, y: MACHINE.y })
   await fund(game, meUid, 40)
   const before = await moneyOf(game, meUid)

@@ -42,6 +42,7 @@ import {
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
+import { isFixture } from '../../shared/rules/fixtures'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
@@ -1067,6 +1068,14 @@ export const standAt = onCall<{ gameId: string; x: number; y: number }>(async (r
   if (room !== null ? room !== p.tileId : !isHallCell(x, y)) {
     throw new HttpsError('failed-precondition', '거기에는 설 수 없다.')
   }
+  /*
+   * **기물 위에는 못 선다.** 게시판과 자판기가 선 칸이다.
+   *
+   * 화면도 같은 자로 재서(isWalkable) 애초에 그리로 못 걷지만, 여기서
+   * 한 번 더 본다 — 화면이 보내는 값을 믿으면 손으로 부른 요청 하나로
+   * 기계 안에 서 있는 사람이 생긴다.
+   */
+  if (isFixture(x, y)) throw new HttpsError('failed-precondition', '거기에는 물건이 있다.')
   if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
 
   await ref.update({ at: { x, y } })
