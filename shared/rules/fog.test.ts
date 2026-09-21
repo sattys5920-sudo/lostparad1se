@@ -162,7 +162,10 @@ describe('새면 안 되는 것', () => {
 describe('복도에서 마주치기', () => {
   /** 1층 가운데 복도. spot-check 가 이 칸이 복도임을 확인한다 */
   const hall = { x: 34, y: 80 }
+  /** 같은 복도지만 스무 칸 밖. 눈에 안 들어온다 */
   const farInSameHall = { x: 14, y: 80 }
+  /** 여섯 칸 — 딱 눈에 들어오는 끝 */
+  const edge = { x: 40, y: 80 }
   /** 2층 복도. 같은 건물이지만 딴 줄이다 */
   const otherHall = { x: 33, y: 31 }
   const base = { viewerId: 'me', viewerTeam: 'A' as const, visible: new Set<never>(), nowMs: 1000 }
@@ -175,9 +178,18 @@ describe('복도에서 마주치기', () => {
     expect(out.map((p) => p.playerId)).toContain('x')
   })
 
-  it('복도 반대쪽 끝도 보인다 — 문으로 끊기지 않는다', () => {
-    const out = visiblePawns({ ...base, at: hall, pawns: [other(farInSameHall)] })
+  it('눈에 들어오는 끝(여섯 칸)까지는 보인다', () => {
+    const out = visiblePawns({ ...base, at: hall, pawns: [other(edge)] })
     expect(out.map((p) => p.playerId)).toContain('x')
+  })
+
+  /**
+   * **한 줄이 마흔아홉 칸이다.** 같은 복도면 다 보이게 두면 복도에 한
+   * 번 서는 것으로 그 층 사람이 전부 드러난다.
+   */
+  it('같은 복도라도 멀면 안 보인다', () => {
+    const out = visiblePawns({ ...base, at: hall, pawns: [other(farInSameHall)] })
+    expect(out.map((p) => p.playerId)).not.toContain('x')
   })
 
   it('딴 층 복도는 안 보인다', () => {

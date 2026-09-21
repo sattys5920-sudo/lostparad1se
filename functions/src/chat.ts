@@ -15,9 +15,10 @@
 // 서버가 그대로 쥐고 있다가 엔딩 6번 장면에서 되돌려 준다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { chatReaches } from '../../shared/rules/invisible'
+import { nearInHall } from '../../shared/rules/fog'
 
 import { ROOM_SAY_MAX } from '../../shared/rules/v2'
-import { START_TILE, type TileId } from '../../shared/rules/board'
+import { START_TILE, isHallCell, type Cell, type TileId } from '../../shared/rules/board'
 import type { GameDoc, SeatEntry } from '../../shared/model'
 import { openInterval } from './reveal'
 import { freshNow, myPawn } from './turn'
@@ -32,8 +33,18 @@ export const CHAT_MAX = ROOM_SAY_MAX
 
 /** games/{gameId}/secret/chat/items/{id} — 원문은 서버만 쥔다. */
 export interface ChatDocRaw {
-  /** 어느 방에서 한 말인가. 그 방에 **그때** 있던 사람만 듣는다. */
-  tileId: TileId
+  /**
+   * 어느 방에서 한 말인가. 그 방에 **그때** 있던 사람만 듣는다.
+   *
+   * **복도에서 한 말은 null 이다.** 방 이름을 적어 두면 그 방 사람들
+   * 로그에 복도 이야기가 섞인다 — 방 질의(tileId == 'x')는 null 을
+   * 절대 안 집으므로, 비워 두는 것이 제일 확실한 칸막이다.
+   */
+  tileId: TileId | null
+  /** 복도에서 한 말인가. 그렇다면 at 근처 사람에게만 들린다. */
+  hall?: boolean
+  /** 복도에서 한 말이면 선 자리. 거리로 듣는 사람을 가른다. */
+  at?: Cell | null
   playerId: string
   name: string
   team: string
@@ -44,6 +55,15 @@ export interface ChatDocRaw {
   /** 칠 때 지워져 있었는가. 엔딩이 이걸로 「들리지 않았던 말」을 고른다. */
   invisible: boolean
 }
+
+/**
+ * 복도 말이 귀에 남는 시간.
+ *
+ * 방에는 「언제 들어왔나」가 있어서 그때부터를 듣는데, 복도에는 그
+ * 기록이 없다. 짧게 끊는다 — 복도는 지나가며 말하는 곳이고, 뒤늦게
+ * 와서 한 시간치를 읽는 곳이 아니다.
+ */
+const HALL_EARSHOT_MS = 3 * 60_000
 
 const chatOf = (gameId: string) => gameRef(gameId).collection('secret').doc('chat').collection('items')
 
@@ -110,6 +130,8 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
 
   let tileId: TileId
   let team: string
+  /** 복도에서 한 말이면 그 자리. 방에서 한 말이면 null. */
+  let hallAt: Cell | null = null
   if (early) {
     tileId = early.tileId
     team = early.seat.team
@@ -119,13 +141,26 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
     if (pawn.tileId === null) {
       throw new HttpsError('failed-precondition', '걷는 중이다. 어딘가에 서야 말할 수 있다.')
     }
+    /*
+     * **복도에서도 말한다.**
+     *
+     * 내 칸(tileId)은 복도에 서 있어도 마지막으로 들어간 방 그대로다.
+     * 그 이름으로 적어 두면 거기 남은 사람들에게 복도 이야기가 들린다 —
+     * 그래서 복도에서 한 말은 방 이름 없이, 선 자리와 함께 적는다.
+     */
+    const cell = (pawn.at ?? null) as Cell | null
+    if (cell && isHallCell(cell.x, cell.y)) {
+      hallAt = cell
+    }
     tileId = pawn.tileId
     team = pawn.team
   }
   const seat = game.seats.find((s) => s.playerId === uid)
 
   const row: ChatDocRaw = {
-    tileId,
+    // 복도에서 한 말에는 방 이름을 안 적는다. 방 질의가 절대 안 집는다
+    tileId: hallAt ? null : tileId,
+    ...(hallAt ? { hall: true, at: hallAt } : {}),
     playerId: uid,
     name: seat?.name ?? '',
     team,
@@ -209,22 +244,46 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
    * 있었나」는 체류 기록이 유일한 답이라, 비워 두면 엔딩까지 틀린다.
    * 지금부터로 잡으므로 **들어오기 전 말이 딸려 가지도 않는다.**
    */
-  let arrived = await arrivedAtMs(gameId, uid)
-  if (!Number.isFinite(arrived) || arrived > nowMs) {
-    await openInterval(gameId, uid, pawn.tileId, nowMs)
-    arrived = nowMs
-  }
-  const since = Math.max(Number(req.data.sinceMs ?? 0), arrived)
+  /*
+   * **복도에 서 있으면 복도 줄을 듣는다.**
+   *
+   * 방에서 듣는 규칙은 「그 방에, 내가 들어온 뒤에」다. 복도에는
+   * 들어온 시각이 없다 — 체류 기록은 방 단위라서다. 대신 짧은 창을
+   * 둔다: 지금부터 HALL_EARSHOT_MS 전까지. 복도 이야기는 지나가며
+   * 하는 말이고, 뒤늦게 와서 한 시간치를 읽는 곳이 아니다.
+   *
+   * 거리는 **보이는 것과 같은 자**로 잰다(nearInHall). 보이는 사람에게
+   * 들리고 안 보이는 사람에게는 안 들린다.
+   */
+  const myCell = (pawn.at ?? null) as Cell | null
+  const inHall = myCell !== null && isHallCell(myCell.x, myCell.y)
 
-  const all = await chatOf(gameId)
-    .where('tileId', '==', pawn.tileId)
-    .where('atMs', '>', since)
-    .orderBy('atMs')
-    .limit(300)
-    .get()
+  let since: number
+  let all: FirebaseFirestore.QuerySnapshot
+  if (inHall) {
+    since = Math.max(Number(req.data.sinceMs ?? 0), nowMs - HALL_EARSHOT_MS)
+    // 방 이름으로 못 거른다 — 복도 줄에는 방 이름이 없다. 시각으로
+    // 좁혀 오고 거리로 거른다
+    all = await chatOf(gameId).where('atMs', '>', since).orderBy('atMs').limit(300).get()
+  } else {
+    let arrived = await arrivedAtMs(gameId, uid)
+    if (!Number.isFinite(arrived) || arrived > nowMs) {
+      await openInterval(gameId, uid, pawn.tileId, nowMs)
+      arrived = nowMs
+    }
+    since = Math.max(Number(req.data.sinceMs ?? 0), arrived)
+    all = await chatOf(gameId)
+      .where('tileId', '==', pawn.tileId)
+      .where('atMs', '>', since)
+      .orderBy('atMs')
+      .limit(300)
+      .get()
+  }
 
   const lines = all.docs
     .map((d) => d.data() as ChatDocRaw)
+    // 복도에 섰으면 **가까이서 한 복도 말만.** 방 말은 문 너머다
+    .filter((c) => (inHall ? c.hall === true && nearInHall(myCell, c.at ?? null) : true))
     /*
      * **지워진 사람이 친 줄은 남에게 아예 안 간다.**
      *
@@ -247,7 +306,8 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
       muted: c.invisible,
     }))
 
-  return { lines, day: game.day, here: pawn.tileId }
+  // 복도에 섰으면 어느 방도 아니다. 화면이 「여기」를 그렇게 적는다
+  return { lines, day: game.day, here: inHall ? null : pawn.tileId }
 })
 
 /**

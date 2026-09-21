@@ -68,7 +68,7 @@ import { useMyPaper } from './useMyPaper'
 import { logOut } from '../accounts'
 import { Notes } from './Notes'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
-import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, type TileId } from '../../../shared/rules/board'
+import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, isHallCell, type TileId } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
 import {
@@ -574,6 +574,19 @@ type Tab = 'map' | 'me' | 'radio' | 'vote' | 'note'
  * 「나중에 읽어도 된다」가 된다 — 방 대화의 휘발성이 통째로 사라진다.
  * 지나간 줄은 지나간 것으로 둔다.
  */
+/**
+ * 「여기」의 이름. 말줄이 이걸로 열리고 닫힌다.
+ *
+ * 방이면 방 이름, 복도면 **복도**, 걷는 중이면 null 이다. 셋을
+ * 가르는 것이 중요하다 — 복도에서는 말을 걸 수 있고 걷는 중에는 못
+ * 건다. 선 방만 보면 둘이 똑같이 null 이라 복도에서 입이 막힌다.
+ */
+function placeName(room: TileId | null, cell: { x: number; y: number } | null): string | null {
+  if (room) return TILE_BY_ID[room].name
+  if (cell && isHallCell(cell.x, cell.y)) return '복도'
+  return null
+}
+
 type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team'
 
 /**
@@ -631,6 +644,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [standingRoom, setStandingRoom] = useState<TileId | null>(null)
   /** 맵에서 누른 먼 방. 거기로 걸어가거나 내일 아침을 예약한다. */
   const [far, setFar] = useState<TileId | null>(null)
+  /**
+   * 내가 멈춰 선 칸. **복도에 섰는지를 이걸로 안다.**
+   *
+   * 선 방(standingOn)은 복도에서 null 이라, 그것만으로는 「복도에 서
+   * 있다」와 「걷는 중이다」가 구별되지 않는다 — 앞은 말을 걸 수 있고
+   * 뒤는 못 건다.
+   */
+  const [myCell, setMyCell] = useState<{ x: number; y: number } | null>(null)
   /**
    * 그 방을 잠근 팀. **서버가 보내 준 것만 본다** — 안 보이는 방의
    * 자물쇠는 애초에 안 내려온다.
@@ -1201,7 +1222,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             /* 멈춰 선 자리를 서버가 알아야 「바로 옆 칸」을 판정한다.
                거절은 흘려보낸다 — 걷다 멈춘 자리를 못 적었다고 화면에
                빨간 글씨가 뜰 일은 아니다 */
-            onStand={(x, y) => { void act.standAt(x, y).catch(() => {}) }}
+            onStand={(x, y) => {
+              setMyCell({ x, y })
+              void act.standAt(x, y).catch(() => {})
+            }}
             /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */
             /* 거래 탁자에 앉아 있거나, 무언가 하느라 묶여 있으면 못 움직인다 */
             frozen={(deal !== null && deal.status !== 'done' && deal.status !== 'gone') || busyLeftMs > 0}
@@ -1268,7 +1292,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           키보드는 그 위를 덮기만 한다.
         */}
         <Say
-          hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+          hereName={placeName(standingOn, myCell)}
           act={act}
           onSaid={setSaid}
           lines={talk.lines}
@@ -1323,7 +1347,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           invisible={iAmInvisible}
           invisibleName={invisibleName}
           hereIds={hereIds}
-          hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+          hereName={placeName(standingOn, myCell)}
           seats={game.seats}
           snowLevel={state.game?.snow?.level ?? 5}
           /* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이
@@ -1461,7 +1485,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           seats={game.seats}
           day={game.day}
           hereIds={hereIds}
-          hereName={standingOn ? TILE_BY_ID[standingOn].name : null}
+          hereName={placeName(standingOn, myCell)}
           invisibleId={game.invisibleId}
           chosenId={state.view?.myChoice?.chosenId ?? null}
           act={act}

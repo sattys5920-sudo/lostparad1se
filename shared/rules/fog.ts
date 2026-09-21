@@ -6,7 +6,7 @@
 //
 // 걷는 말의 목적지는 어느 view에도 들어가지 않는다 — 본인 팀 것도.
 import { ADJACENCY, HALLS, TILE_BY_ID, tileDistance, type Cell, type TileId } from './board'
-import { INTEL_VISION_BONUS, VISION_RANGE, type TeamId } from './v2'
+import { HALL_SIGHT, INTEL_VISION_BONUS, VISION_RANGE, type TeamId } from './v2'
 
 /**
  * 잠복한 말을 같은 팀도 못 보는가.
@@ -121,15 +121,22 @@ export interface PawnVisionInput {
 }
 
 /**
- * 둘이 **같은 복도 구간**에 서 있는가.
+ * 복도에서 **서로 눈에 들어오는가.**
  *
- * 구간 하나가 한 층의 한 줄이다. 복도는 트여 있어서 그 줄에 선 사람은
- * 서로 보인다 — 반대쪽 끝이라도 보인다. 방처럼 문으로 끊기지 않는다.
+ * 둘 다 복도에 있어야 하고, HALL_SIGHT 칸 안이라야 한다. 한때 「같은
+ * 복도 구간이면 끝에서 끝까지」였는데 그러면 한 줄이 마흔아홉 칸이라,
+ * 복도에 한 번 서는 것으로 그 층 사람이 전부 드러났다.
+ *
+ * 네모로 잰다(가로세로 중 먼 쪽). 화면이 네모라서 그렇다 — 대각선으로
+ * 재면 화면 구석의 사람이 안 보이는 일이 생긴다.
  */
-export function sameHall(a: Cell | null | undefined, b: Cell | null | undefined): boolean {
+export function nearInHall(a: Cell | null | undefined, b: Cell | null | undefined): boolean {
   if (!a || !b) return false
-  return HALLS.some((h) => inHallRect(h.rect, a) && inHallRect(h.rect, b))
+  if (!inAnyHall(a) || !inAnyHall(b)) return false
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= HALL_SIGHT
 }
+
+const inAnyHall = (c: Cell): boolean => HALLS.some((h) => inHallRect(h.rect, c))
 
 const inHallRect = (r: { x: number; y: number; w: number; h: number }, c: Cell): boolean =>
   c.x >= r.x && c.x < r.x + r.w && c.y >= r.y && c.y < r.y + r.h
@@ -162,12 +169,12 @@ export function visiblePawns(input: PawnVisionInput): PawnView[] {
      *
      * 안개는 방을 덮는다. 복도는 어느 방도 아니라 덮을 것이 없고,
      * 실제로 거기 서면 눈앞에 사람이 보인다 — 방 문을 열고 들어가야
-     * 보이는 것과 다르다. 같은 복도 구간에 선 둘은 서로 보인다.
+     * 보이는 것과 다르다. **눈에 들어오는 만큼만** 보인다(HALL_SIGHT).
      *
      * 이게 없으면 복도에서 어깨를 맞대고 서 있어도 남남이다. 각자
      * 마지막으로 들어간 방이 다르고 그 방이 서로 안 보이기 때문이다.
      */
-    if (sameHall(input.at, pawn.at)) {
+    if (nearInHall(input.at, pawn.at)) {
       out.push(viewOf(pawn))
       continue
     }

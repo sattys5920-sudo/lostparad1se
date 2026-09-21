@@ -197,6 +197,56 @@ async function main() {
     check(!txt.includes('"asked"') && !txt.includes('"open"'), '한 걸음 떨어지면 복도에서도 접힌다', txt.slice(0, 80))
   }
 
+  console.log('\n── 복도에서 말하기 ──')
+  // 셋을 세운다. 나와 상대는 복도에, 제삼자는 방 안에
+  const third = ['qa03', 'qa04', 'qa05'].find((id) => id !== you) as string
+  const thirdUid = uidOf(third)
+  const thirdTok = await tok(third)
+  await putIn(game, thirdUid, 'cafeteria')
+  await must('standAt', thirdTok, { gameId: game, x: 28, y: 70 })
+
+  await must('standAt', meTok, { gameId: game, x: HALL.x, y: HALL.y })
+  await must('standAt', youTok, { gameId: game, x: NEXT.x, y: NEXT.y })
+  const WORD = '복도에서 한 말이다'
+  const said = await call('say', meTok, { gameId: game, text: WORD })
+  check(said.ok, '복도에서 말이 나간다', said.ok ? '' : (said.err ?? ''))
+
+  const heard = (await call('chatLines', youTok, { gameId: game, sinceMs: 0 })) as
+    { ok: boolean; result?: { lines?: { text?: string }[]; here?: string | null } }
+  check(
+    (heard.result?.lines ?? []).some((l) => l.text === WORD),
+    '옆에 선 사람에게 들린다',
+    JSON.stringify((heard.result?.lines ?? []).map((l) => l.text)),
+  )
+  check(heard.result?.here === null, '복도에서는 「여기」가 어느 방도 아니다', String(heard.result?.here))
+
+  const inRoom = (await call('chatLines', thirdTok, { gameId: game, sinceMs: 0 })) as
+    { result?: { lines?: { text?: string }[] } }
+  /*
+   * **방에는 안 들린다.**
+   *
+   * 복도 말에 방 이름을 적어 두면 그 방 로그에 섞인다 — 내 칸은
+   * 복도에 서 있어도 마지막으로 들어간 방(급식실) 그대로이기 때문에,
+   * 하필 그 방 사람에게 들리는 것이 제일 그럴듯한 사고다
+   */
+  check(
+    !(inRoom.result?.lines ?? []).some((l) => l.text === WORD),
+    '**같은 이름의 방에 남은 사람에게는 안 들린다**',
+    JSON.stringify((inRoom.result?.lines ?? []).map((l) => l.text)),
+  )
+
+  // 멀어지면 안 들린다. 보이는 자와 같은 자다
+  await must('standAt', youTok, { gameId: game, x: HALL.x + 10, y: HALL.y })
+  const WORD2 = '멀어진 뒤에 한 말'
+  await must('say', meTok, { gameId: game, text: WORD2 })
+  const far = (await call('chatLines', youTok, { gameId: game, sinceMs: 0 })) as
+    { result?: { lines?: { text?: string }[] } }
+  check(
+    !(far.result?.lines ?? []).some((l) => l.text === WORD2),
+    '열 칸 떨어지면 안 들린다 — 보이는 자와 같은 자다',
+    JSON.stringify((far.result?.lines ?? []).map((l) => l.text)),
+  )
+
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   process.exit(bad === 0 ? 0 : 1)
 }
