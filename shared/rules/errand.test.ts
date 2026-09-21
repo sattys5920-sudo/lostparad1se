@@ -1,7 +1,17 @@
 // 심부름 — 게시판과 시간.
 import { describe, expect, it } from 'vitest'
 
-import { BOARDS, BOARD_BY_ID, ERRANDS_PER_BOARD, ERRANDS_PER_PERSON, STARTING_ERRANDS, atBoard, isExpired, minutesLeft } from './errand'
+import {
+  BOARDS,
+  BOARD_BY_ID,
+  ERRANDS,
+  ERRANDS_PER_BOARD,
+  ERRANDS_PER_PERSON,
+  THING_ICONS,
+  atBoard,
+  isExpired,
+  minutesLeft,
+} from './errand'
 import { TILE_BY_ID } from './board'
 
 describe('게시판', () => {
@@ -44,9 +54,9 @@ describe('제한 시간', () => {
   })
 })
 
-describe('처음 깔린 일거리', () => {
+describe('심부름 열 가지', () => {
   it('가져올 방과 놓을 방이 판에 있고, 서로 다르다', () => {
-    for (const e of STARTING_ERRANDS) {
+    for (const e of ERRANDS) {
       expect(TILE_BY_ID[e.from], e.thing).toBeDefined()
       expect(TILE_BY_ID[e.to], e.thing).toBeDefined()
       expect(e.from, e.thing).not.toBe(e.to)
@@ -56,6 +66,28 @@ describe('처음 깔린 일거리', () => {
   })
 
   it('아이디가 겹치지 않는다', () => {
-    expect(new Set(STARTING_ERRANDS.map((e) => e.id)).size).toBe(STARTING_ERRANDS.length)
+    expect(new Set(ERRANDS.map((e) => e.id)).size).toBe(ERRANDS.length)
+  })
+
+  /*
+   * **물건마다 그림이 하나씩이다.** 목록을 닫은 이유가 이것이라,
+   * 그림 없는 심부름이 끼면 닫아 둔 보람이 없다. 그림 자체가 12줄
+   * 12칸인지는 thingArt 가 켜질 때 스스로 터뜨린다.
+   */
+  it('심부름마다 아는 그림이 붙어 있다', () => {
+    for (const e of ERRANDS) {
+      expect(e.icon, e.thing).toBeDefined()
+      expect(THING_ICONS, e.thing).toContain(e.icon)
+    }
+  })
+
+  it('그림이 겹치지 않는다 — 두 물건이 같아 보이면 고른 뜻이 없다', () => {
+    const icons = ERRANDS.map((e) => e.icon)
+    expect(new Set(icons).size).toBe(icons.length)
+  })
+
+  /** 게시판 여섯에 두 장씩 — 열두 자리. 열 가지면 다 채우고도 남는다 */
+  it('게시판을 다 채울 만큼 있다', () => {
+    expect(ERRANDS.length).toBeGreaterThanOrEqual(BOARDS.length)
   })
 })

@@ -10,21 +10,29 @@
 import { TILE_BY_ID, type Cell, type Floor, type TileId } from './board'
 
 /**
- * 물건 그림. **네 가지뿐이다.**
+ * 물건 그림. **심부름마다 하나씩이다.**
  *
- * 운영자가 새 심부름을 만들 때 고른다 — 물건 이름은 자유롭게 적되
- * 그림은 있는 것 중에서 고른다. 이름마다 도트를 그려 둘 수는 없고,
- * 무엇을 안고 뛰는지는 이름이 말해 준다. 그림은 「뭔가 들었다」를
- * 멀리서 알아보게 하는 몫이다.
+ * 전에는 운영자가 이름을 자유롭게 적고 그림은 넷 중에서 골랐다.
+ * 그러니 「석고상」에 상자 그림이 붙었다 — 이름과 그림이 어긋나면
+ * 멀리서 알아보는 몫을 못 한다.
+ *
+ * 목록을 닫고 물건마다 그려 둔다. box 는 남겨 둔다: 옛 판에 붙은
+ * 종이와, 모르는 이름이 들어왔을 때의 자리다.
  */
-export const THING_ICONS = ['beaker', 'broom', 'tray', 'box'] as const
+export const THING_ICONS = [
+  'beaker',
+  'broom',
+  'tray',
+  'firstAid',
+  'sheet',
+  'mic',
+  'bust',
+  'can',
+  'chalk',
+  'keys',
+  'box',
+] as const
 export type ThingIcon = (typeof THING_ICONS)[number]
-export const THING_ICON_NAME: Record<ThingIcon, string> = {
-  beaker: '비커',
-  broom: '빗자루',
-  tray: '식판',
-  box: '상자',
-}
 
 /** 등록해 둔 일거리 하나. 운영자가 풀에 넣는다. */
 export interface ErrandSpec {
@@ -134,8 +142,18 @@ export const isExpired = (postedMs: number, limitMin: number, nowMs: number): bo
 export const minutesLeft = (postedMs: number, limitMin: number, nowMs: number): number =>
   Math.max(0, Math.ceil((postedMs + limitMin * 60_000 - nowMs) / 60_000))
 
-/** 판에 처음 깔아 두는 일거리. 운영자가 지우고 새로 넣을 수 있다. */
-export const STARTING_ERRANDS: readonly ErrandSpec[] = [
+/**
+ * 판에 있는 심부름 **전부**. 열 가지다.
+ *
+ * **운영자는 고르기만 한다.** 새로 만들거나 고치는 길은 없다 —
+ * 물건마다 도트를 그려 두려면 목록이 닫혀 있어야 하고, 이름과 그림이
+ * 어긋나지 않는 편이 자유롭게 적는 것보다 낫다.
+ *
+ * 값은 거리로 정했다. 같은 층은 1~2코인에 20~35분, 층을 넘으면
+ * 3코인에 40~45분 — 계단을 두 번 타는 일이 한 층 건너보다 싸면
+ * 아무도 안 받는다.
+ */
+export const ERRANDS: readonly ErrandSpec[] = [
   {
     id: 'beaker',
     thing: '비커',
@@ -161,11 +179,81 @@ export const STARTING_ERRANDS: readonly ErrandSpec[] = [
     thing: '식판',
     icon: 'tray',
     from: 'cafeteria',
-    // 급식실에서 가사실로. 씻을 데가 거기다 — 처음에는 화장실(baseB)로
-    // 적어 두었는데, 운영자 화면에 「급식실 → 화장실」로 떠서 고쳤다
     to: 'hallway',
     coins: 1,
     limitMin: 30,
     text: '한 장도 흘리지 말 것.',
   },
+  {
+    id: 'firstAid',
+    thing: '구급상자',
+    icon: 'firstAid',
+    from: 'annex',
+    to: 'playground',
+    coins: 2,
+    limitMin: 30,
+    text: '뛰다 넘어진 애가 있다.',
+  },
+  {
+    id: 'sheet',
+    thing: '악보 뭉치',
+    icon: 'sheet',
+    from: 'musicRoom',
+    to: 'broadcastRoom',
+    coins: 1,
+    limitMin: 20,
+    text: '순서가 흐트러지면 아무 쓸모가 없다.',
+  },
+  {
+    id: 'mic',
+    thing: '마이크',
+    icon: 'mic',
+    from: 'broadcastRoom',
+    to: 'auditorium',
+    coins: 2,
+    limitMin: 35,
+    text: '선은 감아서 들 것.',
+  },
+  {
+    id: 'bust',
+    thing: '석고상',
+    icon: 'bust',
+    from: 'artRoom',
+    to: 'auditorium',
+    coins: 3,
+    limitMin: 40,
+    text: '떨어뜨리면 끝이다.',
+  },
+  {
+    id: 'can',
+    thing: '물뿌리개',
+    icon: 'can',
+    from: 'storage',
+    to: 'garden',
+    coins: 2,
+    limitMin: 35,
+    text: '가는 길에 다 흘리면 소용없다.',
+  },
+  {
+    id: 'chalk',
+    thing: '분필 상자',
+    icon: 'chalk',
+    from: 'storage',
+    to: 'centralPlaza',
+    coins: 3,
+    limitMin: 45,
+    text: '한 통은 남겨 둘 것.',
+  },
+  {
+    id: 'keys',
+    thing: '열쇠 꾸러미',
+    icon: 'keys',
+    from: 'oldBuilding',
+    to: 'studentCouncil',
+    coins: 3,
+    limitMin: 45,
+    text: '소리 나는 것을 들고 다니는 셈이다.',
+  },
 ]
+
+export const ERRAND_BY_ID: Record<string, ErrandSpec> = Object.fromEntries(ERRANDS.map((e) => [e.id, e]))

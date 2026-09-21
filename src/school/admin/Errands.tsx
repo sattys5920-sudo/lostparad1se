@@ -1,20 +1,18 @@
-// 심부름 — 풀에 넣고, 게시판을 골라 붙이고, 지금 상황을 본다.
+// 심부름 — 게시판을 골라 붙이고, 지금 상황을 본다.
 //
 // **자동 배치는 없다.** 판에 붙는 심부름이 전부 이 화면을 거친다 —
 // 지금 이 판에서 무슨 일이 일어나기를 바라는지가 그대로 게시판에
 // 붙는다. 대신 운영자가 딴 데 보고 있으면 게시판이 종일 비어 있다.
+//
+// **목록은 못 고친다.** 열 가지가 데이터 파일에 박혀 있고(rules/errand)
+// 물건마다 도트가 하나씩 그려져 있다 — 이름을 자유롭게 적게 두면
+// 「석고상」에 상자 그림이 붙는다. 운영자가 정하는 것은 **무엇을 어느
+// 게시판에** 붙이느냐 하나다.
 import { useCallback, useEffect, useState } from 'react'
 
-import {
-  BOARDS,
-  ERRANDS_PER_BOARD,
-  THING_ICONS,
-  THING_ICON_NAME,
-  minutesLeft,
-  type ErrandSpec,
-} from '../../../shared/rules/errand'
+import { BOARDS, ERRANDS_PER_BOARD, minutesLeft, type ErrandSpec } from '../../../shared/rules/errand'
 import { goodIcon } from '../game/goodArt'
-import { TILES, TILE_BY_ID, FLOOR_NAME } from '../../../shared/rules/board'
+import { TILE_BY_ID } from '../../../shared/rules/board'
 import type { GameActions } from '../game/useGame'
 
 interface Posted {
@@ -31,23 +29,11 @@ interface Posted {
   expired: boolean
 }
 
-const EMPTY: ErrandSpec = {
-  id: '',
-  thing: '',
-  icon: 'box',
-  from: 'labRoom',
-  to: 'annex',
-  coins: 1,
-  limitMin: 30,
-  text: '',
-}
-
 export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {
   const [pool, setPool] = useState<ErrandSpec[]>([])
   const [posted, setPosted] = useState<Posted[]>([])
   const [nowMs, setNowMs] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [form, setForm] = useState<ErrandSpec | null>(null)
   const [pick, setPick] = useState('')
   const [board, setBoard] = useState(BOARDS[0]?.id ?? '')
 
@@ -88,9 +74,9 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
   return (
     <div className="sc-ed">
       {/* ── 풀 ─────────────────────────────────────────── */}
-      <h3>심부름 풀</h3>
+      <h3>심부름 {pool.length}가지</h3>
       {pool.length === 0 ?
-        <p className="sc-ad__hint">등록된 것이 없다. 풀이 비면 붙일 것도 없다.</p>
+        <p className="sc-ad__hint">불러오는 중이다.</p>
       : <ul className="sc-ed__pool">
           {pool.map((e) => (
             <li key={e.id}>
@@ -102,114 +88,10 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
                 {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name} · {e.coins}코인 · {e.limitMin}분
               </span>
               <p>{e.text}</p>
-              <div className="sc-ed__row">
-                <button disabled={busy} onClick={() => setForm({ ...e })}>
-                  수정
-                </button>
-                <button disabled={busy} onClick={() => void run('지웠다.', () => act.hostDeleteErrand(e.id))}>
-                  삭제
-                </button>
-              </div>
             </li>
           ))}
         </ul>
       }
-      {!form && (
-        <button className="sc-ed__add" disabled={busy} onClick={() => setForm({ ...EMPTY })}>
-          + 새로 등록
-        </button>
-      )}
-
-      {form && (
-        <div className="sc-ed__form">
-          <label className="sc-dr__row">
-            <span>아이디</span>
-            <input value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
-          </label>
-          <label className="sc-dr__row">
-            <span>물건</span>
-            <input value={form.thing} onChange={(e) => setForm({ ...form, thing: e.target.value })} />
-          </label>
-          {/*
-            그림. **네 가지 중에서 고른다** — 이름은 무엇이든 적을 수
-            있지만 도트는 그려 둔 것만 있다. 멀리서 「뭔가 들었다」를
-            알아보는 몫이라, 딱 맞는 그림이 없으면 상자면 된다.
-          */}
-          <div className="sc-dr__row">
-            <span>그림</span>
-            <div className="sc-ed__icons">
-              {THING_ICONS.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  className={(form.icon ?? 'box') === k ? 'is-on' : ''}
-                  onClick={() => setForm({ ...form, icon: k })}
-                >
-                  <img src={goodIcon(k)} alt="" width={24} height={24} />
-                  {THING_ICON_NAME[k]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <label className="sc-dr__row">
-            <span>가져올</span>
-            <select value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value as ErrandSpec['from'] })}>
-              {TILES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {FLOOR_NAME[t.floor]} · {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sc-dr__row">
-            <span>놓을</span>
-            <select value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value as ErrandSpec['to'] })}>
-              {TILES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {FLOOR_NAME[t.floor]} · {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sc-dr__row">
-            <span>보상</span>
-            <input
-              type="number"
-              value={form.coins}
-              onChange={(e) => setForm({ ...form, coins: Number(e.target.value) })}
-            />
-          </label>
-          <label className="sc-dr__row">
-            <span>제한(분)</span>
-            <input
-              type="number"
-              value={form.limitMin}
-              onChange={(e) => setForm({ ...form, limitMin: Number(e.target.value) })}
-            />
-          </label>
-          <label className="sc-dr__row sc-dr__row--tall">
-            <span>설명</span>
-            <textarea rows={2} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} />
-          </label>
-          <div className="sc-ed__row">
-            <button
-              disabled={busy || form.id.trim() === '' || form.thing.trim() === ''}
-              onClick={() =>
-                void run('등록했다.', async () => {
-                  await act.hostSaveErrand(form)
-                  setForm(null)
-                })
-              }
-            >
-              저장
-            </button>
-            <button disabled={busy} onClick={() => setForm(null)}>
-              그만
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── 붙이기 ──────────────────────────────────────── */}
       <h3>붙이기</h3>
       <label className="sc-dr__row">

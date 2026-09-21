@@ -256,8 +256,6 @@ export function gameActions(gameId: string) {
     giveUpErrand: () => callServer('giveUpErrand', g),
     /** 운영자 — 풀과 판 위의 상황. */
     hostErrands: () => callServer('hostErrands', g),
-    hostSaveErrand: (spec: unknown) => callServer('hostSaveErrand', { ...g, spec }),
-    hostDeleteErrand: (specId: string) => callServer('hostDeleteErrand', { ...g, specId }),
     hostPostErrand: (specId: string, boardId: string) =>
       callServer('hostPostErrand', { ...g, specId, boardId }),
 

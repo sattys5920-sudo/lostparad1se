@@ -21,13 +21,12 @@ import {
   BOARD_BY_ID,
   ERRANDS_PER_BOARD,
   ERRANDS_PER_PERSON,
-  STARTING_ERRANDS,
-  THING_ICONS,
+  ERRANDS,
+  ERRAND_BY_ID,
   atBoard,
   atThing,
   isExpired,
   thingCellOf,
-  type ErrandSpec,
   type ThingIcon,
 } from '../../shared/rules/errand'
 import { TILE_BY_ID, type Cell, type TileId } from '../../shared/rules/board'
@@ -41,7 +40,6 @@ import { gameRef, requireUid } from './index'
 const db = getFirestore()
 
 /** 등록해 둔 일거리. 운영자가 고친다. */
-const poolOf = (gameId: string) => gameRef(gameId).collection('secret').doc('errandPool').collection('items')
 /** 지금 판에 붙어 있거나 끝난 것. */
 const postedOf = (gameId: string) => gameRef(gameId).collection('errands')
 
@@ -79,13 +77,6 @@ export interface ErrandDoc {
 }
 
 const liveOf = (d: ErrandDoc): boolean => d.doneBy === null && !d.expired
-
-/** 판을 차릴 때 풀을 깐다. 운영자가 여기서 지우고 더한다. */
-export async function seedErrandPool(gameId: string): Promise<void> {
-  const batch = db.batch()
-  for (const e of STARTING_ERRANDS) batch.set(poolOf(gameId).doc(e.id), e)
-  await batch.commit()
-}
 
 /**
  * 시간이 지난 것을 떼어낸다. **받은 사람 전원 실패다.**
@@ -136,47 +127,17 @@ async function loserOf(gameId: string, uid: string): Promise<ErrandDoc | null> {
 
 // ── 운영자 ──────────────────────────────────────────────────────
 
-/** 풀에 넣거나 고친다. 아이디가 같으면 덮어쓴다. */
-export const hostSaveErrand = onCall<{ gameId: string; spec: ErrandSpec }>(async (req) => {
-  requireHost(req.auth)
-  const { gameId } = req.data
-  const s = req.data.spec
-  const id = String(s?.id ?? '').trim()
-  if (id === '') throw new HttpsError('invalid-argument', '아이디를 적어야 한다.')
-  if (!TILE_BY_ID[s.from] || !TILE_BY_ID[s.to]) throw new HttpsError('invalid-argument', '그런 방이 없다.')
-  if (s.from === s.to) throw new HttpsError('invalid-argument', '가져올 방과 놓을 방이 같다.')
-  const spec: ErrandSpec = {
-    id,
-    thing: String(s.thing ?? '').trim().slice(0, 40),
-    // **아는 그림만 받는다.** 모르는 이름이 들어오면 상자다 —
-    // 화면이 없는 그림을 찾다 빈칸을 그리는 것보다 낫다
-    icon: (THING_ICONS as readonly string[]).includes(String(s.icon)) ? (s.icon as ThingIcon) : 'box',
-    from: s.from,
-    to: s.to,
-    coins: Math.max(0, Math.floor(Number(s.coins) || 0)),
-    limitMin: Math.max(1, Math.floor(Number(s.limitMin) || 30)),
-    text: String(s.text ?? '').trim().slice(0, 200),
-  }
-  if (spec.thing === '') throw new HttpsError('invalid-argument', '물건 이름을 적어야 한다.')
-  await poolOf(gameId).doc(id).set(spec)
-  return { saved: id }
-})
-
-export const hostDeleteErrand = onCall<{ gameId: string; specId: string }>(async (req) => {
-  requireHost(req.auth)
-  await poolOf(req.data.gameId).doc(String(req.data.specId)).delete()
-  return { deleted: req.data.specId }
-})
-
 /** 풀 전체와 지금 판 위의 상황. **운영자만 본다.** */
 export const hostErrands = onCall<{ gameId: string }>(async (req) => {
   requireHost(req.auth)
   const { gameId } = req.data
   const { nowMs } = await freshNow(gameId)
-  const [pool, posted] = await Promise.all([poolOf(gameId).get(), postedOf(gameId).get()])
+  const posted = await postedOf(gameId).get()
   return {
     nowMs,
-    pool: pool.docs.map((d) => d.data() as ErrandSpec),
+    // **풀은 데이터 파일이다.** 판마다 베껴 두지 않는다 — 고칠 수
+    // 없는 목록을 판마다 복사해 두면 판끼리 어긋날 자리만 생긴다
+    pool: ERRANDS,
     posted: posted.docs.map((d) => {
       const e = d.data() as ErrandDoc
       return {
@@ -210,8 +171,8 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
   if (!board) throw new HttpsError('invalid-argument', '그런 게시판이 없다.')
 
   const { game, nowMs } = await freshNow(gameId)
-  const spec = (await poolOf(gameId).doc(String(specId)).get()).data() as ErrandSpec | undefined
-  if (!spec) throw new HttpsError('not-found', '풀에 없는 심부름이다.')
+  const spec = ERRAND_BY_ID[String(specId)]
+  if (!spec) throw new HttpsError('not-found', '그런 심부름이 없다.')
 
   const all = await postedOf(gameId).get()
   const rows = all.docs.map((d) => d.data() as ErrandDoc)

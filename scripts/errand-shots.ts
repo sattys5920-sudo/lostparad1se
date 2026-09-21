@@ -14,8 +14,8 @@ import { mkdirSync, readFileSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
-import { BOARDS, thingCellOf } from '../shared/rules/errand'
-import { isWalkable } from '../src/school/map/world'
+import { BOARDS, ERRAND_BY_ID, thingCellOf } from '../shared/rules/errand'
+import { isWalkable, tileAt } from '../src/school/map/world'
 
 const { chromium } = pw as typeof import('playwright')
 type Page = import('playwright').Page
@@ -134,23 +134,14 @@ async function main() {
   const meUid = uidOf('qa01')
 
   /*
-   * **2층에서 걸어 닿는 심부름을 하나 만든다.**
+   * **2층에서 걸어 닿는 심부름을 고른다.**
    *
-   * 처음 세 가지는 1층이다. 사람은 2-3 교실(2층)에서 시작하므로 그걸
-   * 쓰면 캡처가 계단 찾기부터 시작된다 — 여기서 볼 것은 물건을 집고
-   * 놓는 자리다. 미술실과 도서관은 2층 복도를 사이에 두고 붙어 있다.
+   * 목록은 열 가지로 닫혀 있고 운영자는 고르기만 한다. 사람은
+   * 2-3 교실(2층)에서 시작하므로 1층 심부름을 고르면 캡처가 계단
+   * 찾기부터 시작된다 — 여기서 볼 것은 물건을 집고 놓는 자리다.
+   * 악보 뭉치는 음악실에서 방송실로, 둘 다 2층이다.
    */
-  const SPEC = {
-    id: 'plaster',
-    thing: '석고상',
-    icon: 'box',
-    from: 'artRoom',
-    to: 'library',
-    coins: 2,
-    limitMin: 40,
-    text: '떨어뜨리면 끝이다.',
-  } as const
-  await must('hostSaveErrand', host, { gameId: game, spec: SPEC })
+  const SPEC = ERRAND_BY_ID.sheet
 
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
 
@@ -349,7 +340,7 @@ async function walkTo(
   uid: string,
   want: { x: number; y: number },
 ): Promise<void> {
-  for (let leg = 0; leg < 10; leg++) {
+  for (let leg = 0; leg < 24; leg++) {
     /*
      * **문을 지난 직후에는 자리가 없다.** 서버가 방을 옮길 때 칸을
      * 비우고, 화면이 반 박자 뒤에 새 자리를 적는다(500ms 마다). 그
@@ -390,6 +381,12 @@ async function walkTo(
       await page.locator(`.sc-ct__key.${dir}`).click({ timeout: 2000 }).catch(() => undefined)
       await page.waitForTimeout(200)
       now = step
+      /*
+       * **문을 지나면 거기서 끊는다.** 문을 넘는 순간 서버가 방을
+       * 옮기고 화면이 아바타를 새 방 안쪽에 다시 세운다 — 미리
+       * 눌러 둔 나머지 걸음은 엉뚱한 데서 밟힌다. 끊고 다시 잰다.
+       */
+      if (tileAt(step.x, step.y) === 'door') break
     }
     await page.waitForTimeout(900)
     const end = await cellNow(game, uid)

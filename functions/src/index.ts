@@ -165,8 +165,6 @@ export { takeSlip, readSlip, dropSlip, tearSlip, giveSlip } from './slips'
 export { useItem } from './use'
 // 심부름. 붙이는 것은 운영자뿐이고, 붙고 난 뒤는 누가 붙였든 같다
 export {
-  hostSaveErrand,
-  hostDeleteErrand,
   hostErrands,
   hostPostErrand,
   takeErrand,
