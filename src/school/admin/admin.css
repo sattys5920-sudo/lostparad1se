@@ -45,18 +45,26 @@
 .sc-ad__top h1 {
   margin: 0;
   font-size: 18px;
-  letter-spacing: 0.04em;
+  font-weight: 700;
 }
 .sc-ad__game {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--sc-text-dim);
   font-variant-numeric: tabular-nums;
 }
-.sc-ad .sc-ad__out {
+/* 게임 시계. 머리줄 오른쪽에 붙는다 — 알약 줄에 두면 혼자 둘째 줄로
+   내려가 오른쪽 끝에 떠 있었다 */
+.sc-ad__clock {
   margin-left: auto;
+  font-size: 13px;
+  color: var(--sc-text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sc-ad .sc-ad__out {
   min-height: 32px;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: 13px;
   background: transparent;
 }
 
@@ -68,9 +76,9 @@
   padding: 0 16px 10px;
 }
 .sc-ad__pill {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
-  padding: 5px 9px;
+  padding: 6px 10px;
   border: 1px solid var(--sc-line);
   border-radius: 999px;
   color: var(--sc-text-2);
@@ -80,7 +88,6 @@
 .sc-ad__pill.is-live { border-color: var(--sc-line-strong); color: var(--sc-text); }
 /* 페이즈가 열려 있는 동안만 채운다. 이 한 알약이 이 화면의 신호등이다 */
 .sc-ad__pill.is-on { background: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-bg); }
-.sc-ad__clock { margin-left: auto; color: var(--sc-text-dim); }
 
 .sc-ad__tabs {
   display: flex;
@@ -96,8 +103,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--sc-text-dim);
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  font-size: 14px;
 }
 .sc-ad .sc-ad__tabs button.is-on {
   color: var(--sc-text);
@@ -112,41 +118,49 @@
   max-width: 560px;
   margin: 0 auto;
   box-sizing: border-box;
-  padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+  padding: 20px 16px calc(96px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 24px;
 }
 
 /* 한 묶음. 상자를 두르지 않는다 — 카드 아홉을 상자로 두르니 화면이
-   테두리로 가득했다. 작은 제목 한 줄과 사이 여백이면 갈린다 */
+   테두리로 가득했다. 제목 한 줄과 묶음 사이 가는 줄이면 갈린다.
+   **글자는 네 크기뿐이다** — 제목 15 · 본문 14 · 설명 13 · 곁글 12.
+   전에는 11·12·12.5·13·14 가 섞여서 줄마다 높이가 달랐다. */
 .sc-ad__sec {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
+.sc-ad__sec + .sc-ad__sec {
+  padding-top: 22px;
+  border-top: 1px solid var(--sc-line);
+}
+/* 한글에 자간을 주지 않는다. 0.1em 이면 「문 제 은 행」으로 읽힌다 */
 .sc-ad__sec > h2 {
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  color: var(--sc-text-dim);
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+  color: var(--sc-text);
 }
 .sc-ad__sec > h3,
 .sc-ed h3 {
-  margin: 6px 0 0;
-  font-size: 13px;
+  margin: 8px 0 0;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 20px;
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
-.sc-ed h3 em { font-style: normal; font-size: 11px; font-weight: 400; color: var(--sc-text-dim); }
+.sc-ed h3 em { font-style: normal; font-size: 12px; font-weight: 400; color: var(--sc-text-dim); }
 
 .sc-ad__hint {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 20px;
   color: var(--sc-text-dim);
   word-break: keep-all;
 }
@@ -192,7 +206,7 @@
   justify-content: center;
   gap: 2px;
 }
-.sc-ad button.is-primary span { font-size: 11px; font-weight: 400; opacity: 0.75; }
+.sc-ad button.is-primary span { font-size: 12px; font-weight: 400; opacity: 0.75; }
 .sc-ad button.is-primary:disabled { background: var(--sc-text-dim); border-color: var(--sc-text-dim); color: var(--sc-bg); }
 
 /* 지우는 단추는 다른 색이다. 「따라잡기」와 「되돌리기」가 같은 회색
@@ -235,8 +249,8 @@
   border: 1px solid var(--sc-line-strong);
   border-radius: 8px;
   background: var(--sc-bg);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 20px;
   box-shadow: 0 6px 18px rgba(6, 8, 11, 0.25);
   cursor: pointer;
 }
@@ -249,7 +263,7 @@
   border-radius: 8px;
   background: #fff;
 }
-.sc-ad__ask p { margin: 0 0 10px; font-size: 13px; line-height: 19px; }
+.sc-ad__ask p { margin: 0 0 10px; font-size: 13px; line-height: 20px; }
 .sc-ad__askRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 /* ── 가입 데이터 ──────────────────────────────────────────────── */
@@ -283,19 +297,19 @@
   cursor: pointer;
 }
 .sc-ad__accounts input { flex: 0 0 auto; }
-.sc-ad__accounts b { font-size: 13px; font-weight: 600; }
+.sc-ad__accounts b { font-size: 14px; font-weight: 600; }
 .sc-ad__accounts label span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--sc-text-dim);
 }
 .sc-ad__accounts em {
   flex: 0 0 auto;
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 6px;
   border-radius: 999px;
   border: 1px solid currentColor;
@@ -307,13 +321,17 @@
 /* ── 빌려 온 도구 — 문제 은행 ──────────────────────────────────── */
 
 /* 제목은 묶음 제목이 이미 한다. 두 번 적지 않는다 */
-.sc-ad .sc-qzh { margin: 0; padding: 0; border: 0; background: none; }
+.sc-ad .sc-qzh { margin: 0; padding: 0; border: 0; background: none; display: flex; flex-direction: column; gap: 8px; }
 .sc-ad .sc-qzh > h2 { display: none; }
+.sc-ad .sc-qzh > button { width: 100%; }
+.sc-ad .sc-qzh__count,
+.sc-ad .sc-qzh__thin { margin: 0; font-size: 13px; line-height: 20px; }
 .sc-ad .sc-qzh__form { gap: 6px; }
-.sc-ad .sc-qzh__form label { font-size: 12px; color: var(--sc-text-dim); margin-top: 4px; }
+.sc-ad .sc-qzh__form label { font-size: 13px; line-height: 20px; color: var(--sc-text-2); margin-top: 6px; }
 .sc-ad .sc-qzh__kind { display: flex; gap: 6px; }
 .sc-ad .sc-qzh__kind button { flex: 1; }
-.sc-ad .sc-qzh__kind button.is-on { border-color: var(--sc-line-strong); font-weight: 600; }
+/* 게임 화면의 문제 색을 여기까지 끌고 오지 않는다. 이 책상은 먹 한 색이다 */
+.sc-ad .sc-qzh__kind button.is-on { border-color: var(--sc-line-strong); color: var(--sc-text); font-weight: 600; }
 .sc-ad .sc-qzh__row { display: flex; gap: 6px; margin-top: 8px; }
 .sc-ad .sc-qzh__row button { flex: 1; }
 .sc-ad .sc-qzh__list { margin: 12px 0 0; gap: 6px; }
@@ -322,13 +340,14 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 10px;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--sc-line);
   border-radius: 6px;
   background: #fff;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
-.sc-ad .sc-qzh__list button { min-height: 36px; padding: 0 12px; font-size: 12px; }
+.sc-ad .sc-qzh__list button { min-height: 36px; padding: 0 12px; font-size: 13px; }
 
 /* ── 떨어뜨리기 · 심부름 · 화분 — 자리만 잡는다 ────────────────
  * 단추와 입력칸은 위의 한 벌이 그린다. 여기는 줄과 사이뿐이다.
@@ -347,9 +366,10 @@
 .sc-dr__row { display: flex; align-items: center; gap: 8px; }
 .sc-dr__row--tall { align-items: flex-start; }
 .sc-dr__row > span {
-  flex: 0 0 56px;
-  font-size: 12px;
-  color: var(--sc-text-dim);
+  flex: 0 0 60px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-text-2);
 }
 .sc-dr__row--tall > span { padding-top: 12px; }
 .sc-dr__row input,
@@ -357,26 +377,28 @@
 .sc-dr__row textarea { flex: 1; min-width: 0; }
 
 .sc-dr__go { font-weight: 600; }
-.sc-dr__hint { margin: 0; font-size: 11.5px; line-height: 16px; color: var(--sc-text-dim); word-break: keep-all; }
+.sc-dr__hint { margin: 0; font-size: 13px; line-height: 20px; color: var(--sc-text-dim); word-break: keep-all; }
 
 /* 지금 판 위. 읽기 전용이라 단추가 없다 */
 .sc-ed__live { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .sc-ed__live li {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 44px;
+  padding: 0 12px;
   border: 1px solid var(--sc-line);
   border-radius: 6px;
   background: #fff;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
   font-variant-numeric: tabular-nums;
 }
-.sc-ed__live b { font-weight: 600; }
-.sc-ed__live span { color: var(--sc-text-dim); font-size: 11px; }
-.sc-ed__live em { margin-left: auto; font-style: normal; font-size: 11px; color: var(--sc-text-dim); }
-.sc-ed__live i { font-style: normal; font-size: 11px; color: var(--sc-text-dim); }
+.sc-ed__live b { font-weight: 600; white-space: nowrap; }
+/* 길이 길면 여기서 줄인다. 남은 분과 받은 사람 수는 늘 오른쪽에 선다 */
+.sc-ed__live span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sc-text-dim); font-size: 13px; }
+.sc-ed__live em { flex: 0 0 auto; font-style: normal; font-size: 13px; color: var(--sc-text-dim); white-space: nowrap; }
+.sc-ed__live i { flex: 0 0 auto; min-width: 3em; text-align: right; font-style: normal; font-size: 13px; color: var(--sc-text-2); }
 
 /* 접어 둔 풀. 펴야 열 줄이 나온다 */
 .sc-ed__pool { margin-top: 4px; }
@@ -384,26 +406,27 @@
   min-height: 40px;
   display: flex;
   align-items: center;
-  font-size: 12.5px;
+  gap: 8px;
+  font-size: 13px;
   color: var(--sc-text-dim);
   cursor: pointer;
   list-style: none;
 }
 .sc-ed__pool summary::-webkit-details-marker { display: none; }
-.sc-ed__pool summary::before { content: '▸ '; }
-.sc-ed__pool[open] summary::before { content: '▾ '; }
+.sc-ed__pool summary::before { content: '▸'; width: 1em; text-align: center; }
+.sc-ed__pool[open] summary::before { content: '▾'; }
 .sc-ed__pool ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .sc-ed__pool li {
   display: grid;
   gap: 2px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--sc-line);
   border-radius: 6px;
   background: #fff;
 }
-.sc-ed__pool b { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-.sc-ed__pool span { font-size: 11px; color: var(--sc-text-dim); }
-.sc-ed__pool p { margin: 2px 0 0; font-size: 11.5px; color: var(--sc-text-2); word-break: keep-all; }
+.sc-ed__pool b { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 20px; }
+.sc-ed__pool span { font-size: 13px; line-height: 20px; color: var(--sc-text-dim); }
+.sc-ed__pool p { margin: 2px 0 0; font-size: 13px; line-height: 20px; color: var(--sc-text-2); word-break: keep-all; }
 .sc-ed__icon { image-rendering: pixelated; }
 
 /* 화분 여덟. 번호·상태·단추 한 줄씩 */
@@ -412,16 +435,18 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 48px;
   padding: 4px 6px 4px 12px;
   border: 1px solid var(--sc-line);
   border-radius: 6px;
   background: #fff;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
-.sc-ga__pots b { width: 1.4em; text-align: center; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+.sc-ga__pots b { width: 1.4em; text-align: right; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
 .sc-ga__pots span { flex: 1; }
 /* 열매가 달린 줄만 도드라진다 — 훑을 때 그것부터 보여야 한다 */
 .sc-ga__pots li.is-fruit { border-color: #a8894a; }
 .sc-ga__pots li.is-fruit span { font-weight: 700; }
 .sc-ga__pots li.is-withered span { color: var(--sc-text-dim); }
-.sc-ga__pots button { min-height: 36px; padding: 0 14px; font-size: 12px; }
+.sc-ga__pots button { min-height: 36px; padding: 0 14px; font-size: 13px; }

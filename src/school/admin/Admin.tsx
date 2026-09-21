@@ -64,6 +64,13 @@ const CALENDAR: Record<string, string> = {
 
 type Tab = 'go' | 'put' | 'manage'
 
+/** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
+const PHASE_NAME: Record<string, string> = {
+  lobby: '로비',
+  running: '진행 중',
+  finished: '끝났다',
+}
+
 /** 남은 시간. 한 시간 안쪽이라 분:초면 된다 */
 const leftText = (ms: number): string => {
   const s = Math.max(0, Math.floor(ms / 1000))
@@ -183,6 +190,8 @@ function Desk() {
         <header className="sc-ad__top">
           <h1>관리자</h1>
           <span className="sc-ad__game">{GAME_ID}</span>
+          {/* 게임 시계다. 개발용 배속을 걸어 두면 실제 시각과 다르다 */}
+          {game && <span className="sc-ad__clock">{clockText(nowMs)}</span>}
           {/* 나가면 로그인 화면으로 돌아간다. 운영자는 계정이 없으므로
               증표를 버리는 것이 곧 나가는 것이다 */}
           <button className="sc-ad__out" onClick={() => void logOut()}>
@@ -196,7 +205,7 @@ function Desk() {
         */}
         {game && (
           <div className="sc-ad__pills">
-            <span className={`sc-ad__pill${running ? ' is-live' : ''}`}>{game.phase}</span>
+            <span className={`sc-ad__pill${running ? ' is-live' : ''}`}>{PHASE_NAME[game.phase] ?? game.phase}</span>
             {running && <span className="sc-ad__pill">DAY {game.day}</span>}
             {running && (
               <span className={`sc-ad__pill${phaseOpen ? ' is-on' : ''}`}>
@@ -204,10 +213,8 @@ function Desk() {
               </span>
             )}
             <span className="sc-ad__pill">
-              {seats.length}/{TOTAL_SEATS}
+              {seats.length}/{TOTAL_SEATS}명
             </span>
-            {/* 게임 시계다. 개발용 배속을 걸어 두면 실제 시각과 다르다 */}
-            <span className="sc-ad__pill sc-ad__clock">{clockText(nowMs)}</span>
           </div>
         )}
 

@@ -7,7 +7,7 @@
 //
 // **화면은 정답을 모른다.** 채점은 서버가 하고, 여기로는 맞았는지
 // 틀렸는지만 온다.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { KNOWLEDGE_PER_QUIZ, QUIZ_CHOICES, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
 import type { GameActions } from './useGame'
@@ -143,6 +143,12 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
   const [editing, setEditing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // 심부름·화분 책상과 같다 — 운영자가 여기 왔으면 은행부터 본다
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function load() {
     setBusy(true)
     try {
@@ -183,11 +189,13 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
   return (
     <div className="sc-qzh">
       <h2>문제 은행</h2>
-      {!bank && (
-        <button disabled={busy} onClick={() => void load()}>
-          불러오기
+      {/* 열자마자 읽는다. 실패했을 때만 다시 읽는 단추가 남는다 */}
+      {!bank && !busy && (
+        <button onClick={() => void load()}>
+          다시 불러오기
         </button>
       )}
+      {!bank && busy && <p className="sc-qzh__count">불러오는 중</p>}
 
       {bank && (
         <>
