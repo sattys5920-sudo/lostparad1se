@@ -238,6 +238,8 @@ export interface PotView {
   stage: PotStage
   /** 싹이 나야 이름이 보인다. 흙만 있을 때는 null 이다. */
   name: string | null
+  /** 그 작물의 아이디. **이름과 같은 때에만 간다** — 색을 고르는 데 쓴다. */
+  cropId: string | null
   /** 딸 수 있는가 — 열매이고 내 손이 덜 찼다. */
   canPick: boolean
 }
@@ -731,6 +733,7 @@ export function projectView(world: World, viewerId: string): View {
               stage,
               // **흙만 있을 때는 이름이 없다.** 심은 사람에게도 안 간다
               name: spec !== null && nameShows(stage) ? spec.name : null,
+              cropId: spec !== null && nameShows(stage) ? spec.id : null,
               canPick: stage === 'fruit' && held < HARVEST_LIMIT,
             }
           })

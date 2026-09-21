@@ -4,7 +4,8 @@
 // 있는지는 props.ts 가 안다. 여기서는 바닥·벽·문·계단과 흔적만 굽는다.
 import { MAP } from '../skin'
 import { PROP_ART, PROP_KINDS, type PropKind } from './props'
-import { POT_ART, THING_ART } from './thingArt'
+import { POT_ART, POT_FRUIT_ART, THING_ART } from './thingArt'
+import { CROPS } from '../../../shared/rules/crop'
 import { THING_ICONS, type ThingIcon } from '../../../shared/rules/errand'
 
 /**
@@ -37,7 +38,7 @@ const CH: Record<string, string | null> = {
 }
 
 /** 문자열 격자를 오프스크린 캔버스로 굽는다. 매 프레임 픽셀을 다시 찍지 않으려고. */
-function bake(rows: string[]): HTMLCanvasElement {
+function bake(rows: string[], over: Readonly<Record<string, string>> = {}): HTMLCanvasElement {
   const w = rows[0].length
   const h = rows.length
   const c = document.createElement('canvas')
@@ -46,7 +47,7 @@ function bake(rows: string[]): HTMLCanvasElement {
   const ctx = c.getContext('2d') as CanvasRenderingContext2D
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const color = CH[rows[y][x]]
+      const color = over[rows[y][x]] ?? CH[rows[y][x]]
       if (!color) continue
       ctx.fillStyle = color
       ctx.fillRect(x, y, 1, 1)
@@ -458,9 +459,24 @@ export function buildSprites(): SpriteSet {
     things: Object.fromEntries(
       THING_ICONS.map((k) => [k, bake(THING_ART[k] as unknown as string[])]),
     ) as Record<ThingIcon, HTMLCanvasElement>,
-    pots: Object.fromEntries(
-      Object.entries(POT_ART).map(([k, rows]) => [k, bake(rows as unknown as string[])]),
-    ),
+    /*
+     * 화분 그림. 단계 다섯에 **작물마다의 열매**를 더한다 —
+     * 열매 알(0)만 그 작물 색으로 굽고 화분과 잎은 그대로 둔다.
+     * 열쇠는 `fruit:감자아이디` 꼴이다(Play.tsx 가 그렇게 집는다).
+     */
+    pots: {
+      ...Object.fromEntries(
+        Object.entries(POT_ART).map(([k, rows]) => [
+          k,
+          // 열매 알(0)은 원래 바닥색이다. 작물 색이 안 왔을 때 구멍처럼
+          // 비지 않게, 색 없는 열매 한 장은 중간 톤으로 굽는다
+          bake(rows as unknown as string[], k === 'potFruit' ? { '0': PAL.mid } : {}),
+        ]),
+      ),
+      ...Object.fromEntries(
+        CROPS.map((c) => [`fruit:${c.id}`, bake(POT_FRUIT_ART as unknown as string[], { '0': c.color })]),
+      ),
+    },
     marks: {
       flowers: bake(FLOWERS),
       chalk: bake(CHALK),

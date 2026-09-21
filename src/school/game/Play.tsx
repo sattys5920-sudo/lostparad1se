@@ -1299,7 +1299,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             /* 화분과 씨앗 상자. 정원에 서 있을 때만 서버가 보내 준다 */
             pots={
               (state.view?.potsHere?.length ?? 0) > 0
-                ? (state.view?.potsHere ?? []).map((p) => ({ ...p.cell, art: POT_ART_OF[p.stage] }))
+                ? (state.view?.potsHere ?? []).map((p) => ({
+                    ...p.cell,
+                    /* 열매는 **작물 색으로 구워 둔 한 장**을 집는다. 색은
+                       이름이 보일 때만 오므로, 안 오면 그냥 흙빛 열매다 */
+                    art: p.stage === 'fruit' && p.cropId ? `fruit:${p.cropId}` : POT_ART_OF[p.stage],
+                  }))
                 : []
             }
             /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */

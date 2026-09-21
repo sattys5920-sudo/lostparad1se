@@ -28,6 +28,13 @@ describe('작물 표', () => {
     }
   })
 
+  it('**작물마다 제 색이 있다**', () => {
+    // 열매 한 점이 학교에서 유일한 색이다. 두 작물이 같은 색이면
+    // 멀리서 무엇이 열렸는지 못 가린다
+    for (const c of CROPS) expect(c.color, c.name).toMatch(/^#[0-9a-f]{6}$/)
+    expect(new Set(CROPS.map((c) => c.color)).size).toBe(CROPS.length)
+  })
+
   it('「그 애가 심은 것」만 판에 두 번뿐이다', () => {
     const capped = CROPS.filter((c) => c.maxPerGame !== undefined)
     expect(capped.map((c) => c.id)).toEqual(['hers'])

@@ -558,6 +558,8 @@ export interface PlayerViewDoc {
     cell: Cell
     stage: 'empty' | 'soil' | 'sprout' | 'leaf' | 'fruit' | 'withered'
     name: string | null
+    /** 색을 고르는 데 쓴다. 이름과 같은 때에만 온다 */
+    cropId?: string | null
     canPick: boolean
   }[]
   /** 딴 작물. 키가 작물 아이디다. */

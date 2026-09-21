@@ -2251,3 +2251,11 @@ p.sc-cv { display: block; }
 .sc-gd__list button { padding: 5px 12px; font-size: 11px; }
 .sc-gd__list button.is-go { font-weight: 600; }
 .sc-gd__hint { margin: 0; font-size: 11px; line-height: 16px; color: var(--sc-text-dim); word-break: keep-all; }
+/* 작물 색 한 점. 지도의 열매와 같은 색이다 */
+.sc-gd__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 999px;
+}

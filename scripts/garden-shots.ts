@@ -136,15 +136,19 @@ async function wake(game: string, host: string): Promise<void> {
   await must('hostDrop', host, { gameId: game, tileId: 'artRoom', kind: 'memo', text: '지나가는 종이' })
 }
 
-/** 화분을 열매까지 당긴다. 자랄 시간은 문서에만 있다 */
-async function ageToFruit(game: string, i: number): Promise<void> {
+/**
+ * 화분을 그 단계까지 당긴다. **자랄 시간은 문서에만 있다** —
+ * 셋으로 나눠 넘어가므로(stageOf) 그만큼씩 심은 시각을 앞당긴다.
+ */
+async function ageTo(game: string, i: number, stage: 'sprout' | 'leaf' | 'fruit'): Promise<void> {
   const r = await fetch(`${FS}/games/${game}/pots/${i}`, { headers: ADMIN })
   const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
   const planted = Number((f.plantedMs as { integerValue?: string })?.integerValue ?? 0)
   const growMs = Number((f.growMs as { integerValue?: string })?.integerValue ?? 0)
+  const by = stage === 'sprout' ? growMs / 3 : stage === 'leaf' ? (growMs * 2) / 3 : growMs
   await fetch(`${FS}/games/${game}/pots/${i}?updateMask.fieldPaths=plantedMs`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ fields: { plantedMs: { integerValue: String(planted - growMs - 60_000) } } }),
+    body: JSON.stringify({ fields: { plantedMs: { integerValue: String(Math.round(planted - by - 60_000)) } } }),
   })
 }
 
@@ -341,11 +345,34 @@ async function main() {
   await card.screenshot({ path: `${OUT}/3-운영자-심은뒤.png` })
   console.log('  찍었다 3-운영자-심은뒤.png')
 
-  // 사람 쪽. 화분 앞으로 걸어가 흙을 본다
-  await walkTo(page, game, meUid, POT_CELLS[0])
-  await page.waitForTimeout(1500)
-  await page.screenshot({ path: `${OUT}/4-흙.png` })
-  console.log('  찍었다 4-흙.png')
+  /*
+   * 나머지 일곱 자리에도 골라 심고 **단계를 흩어 놓는다.**
+   *
+   * 한 화분만 보면 「흙이 열매가 된다」가 안 보인다 — 여덟 자리에
+   * 흙·싹·잎·열매가 같이 있어야 자라는 일이 한 장에 담긴다. 색도
+   * 그때 같이 보인다: 딸기는 붉고 수박은 푸르다.
+   */
+  const PLAN: { pot: number; crop: string; stage?: 'sprout' | 'leaf' | 'fruit' }[] = [
+    { pot: 1, crop: 'strawberry', stage: 'sprout' },
+    { pot: 2, crop: 'watermelon', stage: 'leaf' },
+    { pot: 3, crop: 'tomato', stage: 'fruit' },
+    { pot: 4, crop: 'sunflower', stage: 'fruit' },
+    { pot: 5, crop: 'blackTulip', stage: 'fruit' },
+    { pot: 6, crop: 'iceFlower', stage: 'fruit' },
+    { pot: 7, crop: 'hers', stage: 'fruit' },
+  ]
+  for (const row of PLAN) {
+    await must('hostPlant', host, { gameId: game, pot: row.pot, cropId: row.crop })
+    if (row.stage) await ageTo(game, row.pot, row.stage)
+  }
+  await ageTo(game, 0, 'sprout')
+  await must('hostPlant', host, { gameId: game, pot: 0 }).catch(() => undefined)
+
+  // 사람 쪽. 가운데로 걸어가 여덟 자리를 한 화면에 담는다
+  await walkTo(page, game, meUid, { x: 26, y: 101 })
+  await page.waitForTimeout(2000)
+  await page.screenshot({ path: `${OUT}/4-자라는-중.png` })
+  console.log('  찍었다 4-자라는-중.png')
   await tap(page, '.sc-ct__act', '화분')
   await page.waitForSelector('.sc-gd', { timeout: 10_000 })
   await page.waitForTimeout(600)
@@ -354,13 +381,9 @@ async function main() {
   await tap(page, '.sc-sheet__panel button', '닫기')
   await page.waitForTimeout(600)
 
-  // 열매까지 당긴다. 몫을 새로 쓰게 하려고 한 걸음 옮겼다 온다
-  await ageToFruit(game, 0)
-  await wake(game, host)
-  await page.locator('.sc-ct__key.is-down').click().catch(() => undefined)
-  await page.waitForTimeout(700)
-  await page.locator('.sc-ct__key.is-up').click().catch(() => undefined)
-  await page.waitForTimeout(2000)
+  // 열매 하나를 딴다. 세 번 화분 앞으로
+  await walkTo(page, game, meUid, POT_CELLS[3])
+  await page.waitForTimeout(1200)
   await page.screenshot({ path: `${OUT}/6-열매.png` })
   console.log('  찍었다 6-열매.png')
 

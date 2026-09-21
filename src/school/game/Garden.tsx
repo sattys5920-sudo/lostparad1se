@@ -8,7 +8,7 @@
 // 오므로 그릴 수도 없다.** 흙 앞에서 기다리는 것이 이 일이다.
 import { useState } from 'react'
 
-import { HARVEST_LIMIT } from '../../../shared/rules/crop'
+import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 
@@ -72,6 +72,11 @@ export function GardenSheet({
           const close = nearPot(pot.i)
           return (
             <li key={pot.i} className={`is-${pot.stage}`}>
+              {/* 색 한 점. **이름이 보일 때만 찍는다** — 흙 앞에서
+                  색이 보이면 무엇인지 알아 버린다 */}
+              {pot.cropId != null && CROP_BY_ID[pot.cropId] && (
+                <i className="sc-gd__dot" style={{ background: CROP_BY_ID[pot.cropId].color }} aria-hidden />
+              )}
               <b>{lineOf(pot)}</b>
               {!close && pot.stage !== 'empty' && <span className="sc-gd__far">앞으로 가야 한다</span>}
               {close && pot.stage === 'fruit' && (

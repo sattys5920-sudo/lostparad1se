@@ -33,29 +33,37 @@ export interface CropSpec {
   weight: number
   /** 판 전체에서 이만큼까지만 나온다. 없으면 제한 없다. */
   maxPerGame?: number
+  /**
+   * 열매 색. **이름에 맞춘다** — 딸기는 붉고 수박은 푸르다.
+   *
+   * 학교는 통째로 잿빛 남색인데 정원만 색이 있다. 여덟 자리 중 어디에
+   * 무엇이 열렸는지가 멀리서 한눈에 들어와야 하고, 그 한 점이 이
+   * 게임에서 유일하게 **자란 것**이기도 하다.
+   */
+  color: string
 }
 
 export const CROPS: readonly CropSpec[] = [
-  { id: 'potato', name: '감자', price: 1, growMin: 1, growMax: 2, witherHours: 3, weight: 6 },
-  { id: 'radish', name: '무', price: 1, growMin: 1, growMax: 2, witherHours: 3, weight: 6 },
-  { id: 'lettuce', name: '상추', price: 1, growMin: 1, growMax: 3, witherHours: 2, weight: 6 },
-  { id: 'tomato', name: '방울토마토', price: 2, growMin: 2, growMax: 3, witherHours: 3, weight: 6 },
-  { id: 'pepper', name: '고추', price: 2, growMin: 2, growMax: 4, witherHours: 3, weight: 6 },
-  { id: 'strawberry', name: '딸기', price: 2, growMin: 2, growMax: 4, witherHours: 2, weight: 6 },
-  { id: 'carrot', name: '당근', price: 2, growMin: 2, growMax: 5, witherHours: 4, weight: 6 },
-  { id: 'corn', name: '옥수수', price: 2, growMin: 3, growMax: 5, witherHours: 4, weight: 6 },
-  { id: 'pumpkin', name: '호박', price: 3, growMin: 3, growMax: 6, witherHours: 5, weight: 6 },
-  { id: 'sunflower', name: '해바라기', price: 3, growMin: 3, growMax: 6, witherHours: 4, weight: 6 },
-  { id: 'watermelon', name: '수박', price: 3, growMin: 4, growMax: 7, witherHours: 3, weight: 6 },
-  { id: 'sweetPotato', name: '고구마', price: 3, growMin: 4, growMax: 8, witherHours: 5, weight: 6 },
-  { id: 'blackTulip', name: '검은 튤립', price: 4, growMin: 4, growMax: 8, witherHours: 2, weight: 6 },
-  { id: 'frostMushroom', name: '서리버섯', price: 4, growMin: 2, growMax: 9, witherHours: 1, weight: 6 },
-  { id: 'iceFlower', name: '얼음꽃', price: 4, growMin: 5, growMax: 9, witherHours: 1, weight: 6 },
+  { id: 'potato', name: '감자', price: 1, growMin: 1, growMax: 2, witherHours: 3, weight: 6, color: '#b08a52' },
+  { id: 'radish', name: '무', price: 1, growMin: 1, growMax: 2, witherHours: 3, weight: 6, color: '#e6ecef' },
+  { id: 'lettuce', name: '상추', price: 1, growMin: 1, growMax: 3, witherHours: 2, weight: 6, color: '#7fbf5a' },
+  { id: 'tomato', name: '방울토마토', price: 2, growMin: 2, growMax: 3, witherHours: 3, weight: 6, color: '#d8483f' },
+  { id: 'pepper', name: '고추', price: 2, growMin: 2, growMax: 4, witherHours: 3, weight: 6, color: '#e0562f' },
+  { id: 'strawberry', name: '딸기', price: 2, growMin: 2, growMax: 4, witherHours: 2, weight: 6, color: '#e0455f' },
+  { id: 'carrot', name: '당근', price: 2, growMin: 2, growMax: 5, witherHours: 4, weight: 6, color: '#e08a35' },
+  { id: 'corn', name: '옥수수', price: 2, growMin: 3, growMax: 5, witherHours: 4, weight: 6, color: '#e8c85a' },
+  { id: 'pumpkin', name: '호박', price: 3, growMin: 3, growMax: 6, witherHours: 5, weight: 6, color: '#e09040' },
+  { id: 'sunflower', name: '해바라기', price: 3, growMin: 3, growMax: 6, witherHours: 4, weight: 6, color: '#f0c93a' },
+  { id: 'watermelon', name: '수박', price: 3, growMin: 4, growMax: 7, witherHours: 3, weight: 6, color: '#3f9e5a' },
+  { id: 'sweetPotato', name: '고구마', price: 3, growMin: 4, growMax: 8, witherHours: 5, weight: 6, color: '#a8506a' },
+  { id: 'blackTulip', name: '검은 튤립', price: 4, growMin: 4, growMax: 8, witherHours: 2, weight: 6, color: '#4a4260' },
+  { id: 'frostMushroom', name: '서리버섯', price: 4, growMin: 2, growMax: 9, witherHours: 1, weight: 6, color: '#bcd4e0' },
+  { id: 'iceFlower', name: '얼음꽃', price: 4, growMin: 5, growMax: 9, witherHours: 1, weight: 6, color: '#9fd4e8' },
   // ── 여기부터 잘 안 나온다 ────────────────────────────────────
-  { id: 'nightGlory', name: '밤에 피는 나팔꽃', price: 4, growMin: 6, growMax: 10, witherHours: 1, weight: 1 },
-  { id: 'paperFlower', name: '종이꽃', price: 5, growMin: 6, growMax: 11, witherHours: 2, weight: 1 },
-  { id: 'namelessGrass', name: '이름 없는 풀', price: 5, growMin: 1, growMax: 12, witherHours: 1, weight: 1 },
-  { id: 'glassBerry', name: '유리 열매', price: 6, growMin: 8, growMax: 12, witherHours: 1, weight: 1 },
+  { id: 'nightGlory', name: '밤에 피는 나팔꽃', price: 4, growMin: 6, growMax: 10, witherHours: 1, weight: 1, color: '#6a5bb5' },
+  { id: 'paperFlower', name: '종이꽃', price: 5, growMin: 6, growMax: 11, witherHours: 2, weight: 1, color: '#efe6d2' },
+  { id: 'namelessGrass', name: '이름 없는 풀', price: 5, growMin: 1, growMax: 12, witherHours: 1, weight: 1, color: '#8a9a7a' },
+  { id: 'glassBerry', name: '유리 열매', price: 6, growMin: 8, growMax: 12, witherHours: 1, weight: 1, color: '#bfe4e8' },
   /**
    * **판 전체에서 두 번뿐이다.**
    *
@@ -63,7 +71,7 @@ export const CROPS: readonly CropSpec[] = [
    * 흔하면 그냥 비싼 작물이고, 두 번뿐이라 그 자리에 있었다는 것이
    * 이야기가 된다.
    */
-  { id: 'hers', name: '그 애가 심은 것', price: 8, growMin: 10, growMax: 12, witherHours: 1, weight: 1, maxPerGame: 2 },
+  { id: 'hers', name: '그 애가 심은 것', price: 8, growMin: 10, growMax: 12, witherHours: 1, weight: 1, maxPerGame: 2, color: '#f0d68a' },
 ]
 
 export const CROP_BY_ID: Record<string, CropSpec> = Object.fromEntries(CROPS.map((c) => [c.id, c]))
