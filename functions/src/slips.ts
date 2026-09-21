@@ -62,7 +62,7 @@ export interface SlipDoc {
 const slipsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('slips').collection('items')
 
 /** 쪽지가 떨어질 수 있는 방. 기지와 핵심 지역은 뺀다. */
-const DROP_TILES: TileId[] = TILES.filter((t) => t.homeOf === null && t.tier !== 'core' && t.tier !== 'plaza').map(
+const DROP_TILES: TileId[] = TILES.filter((t) => t.tier !== 'core' && t.tier !== 'plaza').map(
   (t) => t.id,
 )
 

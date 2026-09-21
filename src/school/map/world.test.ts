@@ -114,7 +114,7 @@ describe('걸어서 갈 수 있다', () => {
   })
 
   // 화면과 서버가 같은 자리에서 열어야 한다. 어긋나면 첫 화면부터
-  // 「이미 그 방이다」가 뜬다 — 서버는 교실에, 아바타는 기지에 선 채로
+  // 「이미 그 방이다」가 뜬다 — 서버는 교실에, 아바타는 딴 방에 선 채로
   it('네 팀 모두 2-3 교실에서 시작한다', () => {
     for (const team of ['A', 'B', 'C', 'D'] as TeamId[]) {
       const s = spawnFor(team)
@@ -128,10 +128,10 @@ describe('걸어서 갈 수 있다', () => {
     for (const d of DOORS) for (const t of d.tiles) expect(roomAt(t.x, t.y)).toBeNull()
   })
 
-  it('조각은 기지와 핵심 지역에 떨어지지 않는다', () => {
+  it('조각은 핵심 지역에 떨어지지 않는다', () => {
     const bad = SPAWNABLE_TILES.filter((id: TileId) => {
       const t = TILES.find((x) => x.id === id)
-      return !t || t.homeOf !== null || t.tier === 'core' || t.tier === 'plaza'
+      return !t || t.tier === 'core' || t.tier === 'plaza'
     })
     expect(bad).toEqual([])
   })

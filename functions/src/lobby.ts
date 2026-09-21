@@ -17,7 +17,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
 import { DEAL_TOKENS_PER_DAY, grantFor, isShortHanded } from '../../shared/rules/occupy'
-import { START_TILE, TILES, startingTiles } from '../../shared/rules/board'
+import { START_TILE, TILES } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canStart, mayPickTeam, openTeams, timedEvents } from '../../shared/rules/lobby'
@@ -385,10 +385,16 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     })
   }
 
-  // 칸 — 기지와 1구역 두 칸을 쥐고 시작한다
+  /*
+   * 칸 — **스물다섯 방이 전부 빈 채로 시작한다.**
+   *
+   * 기지를 없앴다. 팀마다 제 방을 하나씩 못 박아 두고 붙은 방까지
+   * 얹어 주던 것인데, 열넷이 한 교실에서 시작하고 팀 이야기는 무전으로
+   * 하는 판에서는 아무도 안 가는 제 방이 있을 이유가 없다. 가진 방은
+   * 이제 전부 서서 가져온 것이다.
+   */
   for (const tile of TILES) {
-    const owner = TEAMS.find((t) => startingTiles(t).includes(tile.id)) ?? null
-    batch.set(ref.collection('tiles').doc(tile.id), { ownerTeam: owner })
+    batch.set(ref.collection('tiles').doc(tile.id), { ownerTeam: null })
   }
 
   // 말은 모두 2-3 교실에 서 있다. 직책은 팀 안에서 순서대로

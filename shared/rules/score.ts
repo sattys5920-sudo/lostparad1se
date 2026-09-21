@@ -15,7 +15,7 @@ import {
   type Resource,
   type TeamId,
 } from './v2'
-import { BASE_OF, TILE_BY_ID, connectedSize, type TileId } from './board'
+import { TILE_BY_ID, connectedSize } from './board'
 import { tileValue, type Fragment } from './fragments'
 import type { TileState } from './resources'
 
@@ -34,23 +34,19 @@ export interface ScoreInput {
 
 // ── 항목별 ──────────────────────────────────────────────────────
 
-const oursExcludingBase = (tiles: readonly TileState[], team: TeamId) =>
-  tiles.filter(
-    (t) =>
-      t.ownerTeam === team &&
-      TILE_BY_ID[t.tileId].tier !== 'base',
-  )
+/** 우리 칸. **빼는 것은 없다** — 기지가 없어져서 거저 받는 방도 없다 */
+const ours = (tiles: readonly TileState[], team: TeamId) => tiles.filter((t) => t.ownerTeam === team)
 
 /** 가진 칸의 가치 합. A의 기록 보너스를 포함한다. */
 export function territoryScore(input: ScoreInput): number {
   let total = 0
-  for (const t of oursExcludingBase(input.tiles, input.team.team)) {
+  for (const t of ours(input.tiles, input.team.team)) {
     total += tileValue(t.tileId, input.fragments)
   }
   return total
 }
 
-/** 기지에서 우리 칸만 밟고 갈 수 있는 칸의 수. 떨어진 땅은 0이다. */
+/** 붙어 있는 우리 칸 덩어리 중 제일 큰 것. 흩어진 땅은 0이다. */
 export function connectionScore(input: ScoreInput): number {
   const owner = new Map(input.tiles.map((t) => [t.tileId, t.ownerTeam]))
   return connectedSize(input.team.team, (id) => owner.get(id) ?? null)
@@ -59,7 +55,7 @@ export function connectionScore(input: ScoreInput): number {
 /** 핵심 한 칸당 3, 중앙광장 5. */
 export function coreScore(input: ScoreInput): number {
   let total = 0
-  for (const t of oursExcludingBase(input.tiles, input.team.team)) {
+  for (const t of ours(input.tiles, input.team.team)) {
     const tier = TILE_BY_ID[t.tileId].tier
     if (tier === 'core') total += SCORE_PER_CORE
     if (tier === 'plaza') total += SCORE_PLAZA
@@ -174,6 +170,3 @@ export function settle(
     comeback: ranked[ranked.length - 1].team,
   }
 }
-
-/** 기지는 언제나 그 팀 것이다. 점수에는 들어가지 않지만 연결의 출발점이다. */
-export const BASE_TILE_OF: Record<TeamId, TileId> = BASE_OF

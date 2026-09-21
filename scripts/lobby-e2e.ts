@@ -9,7 +9,7 @@
 //   npx vite-node scripts/lobby-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
-import { BASE_OF, startingTiles } from '../shared/rules/board'
+import { START_TILE } from '../shared/rules/board'
 import { ROLE_IDS } from '../shared/missions/roleNames'
 
 const PROJECT = 'demo-goei'
@@ -193,27 +193,24 @@ async function main(): Promise<void> {
 
   const pawns = await listDocs(`games/${GAME}/pawns`)
   check(pawns.length === TOTAL_SEATS, '말이 열넷 놓였다', `${pawns.length}개`)
-  const onBase = await Promise.all(
+  const atStart = await Promise.all(
     pawns.map(async (id) => {
       const d = await readDoc(`games/${GAME}/pawns/${id}`)
-      const team = (d?.team as { stringValue: TeamId }).stringValue
-      return (d?.tileId as { stringValue: string }).stringValue === BASE_OF[team]
+      return (d?.tileId as { stringValue: string }).stringValue === START_TILE
     }),
   )
-  check(onBase.every(Boolean), '말이 모두 자기 기지에 서 있다')
+  check(atStart.every(Boolean), '말이 모두 2-3 교실에 서 있다')
 
   const tiles = await listDocs(`games/${GAME}/tiles`)
   check(tiles.length === 25, '칸 스물다섯이 놓였다', `${tiles.length}칸`)
+  // **빈 채로 시작한다.** 기지를 없앴으니 거저 받는 방이 없다
   let owned = 0
   for (const id of tiles) {
     const d = await readDoc(`games/${GAME}/tiles/${id}`)
     const o = d?.ownerTeam as { stringValue?: string; nullValue?: null }
-    if (o?.stringValue) {
-      owned += 1
-      check(startingTiles(o.stringValue as TeamId).includes(id as never), `${id}은 ${o.stringValue}팀 시작 칸`)
-    }
+    if (o?.stringValue) owned += 1
   }
-  check(owned === 12, '각 팀이 기지와 1구역 두 칸으로 시작한다', `${owned}칸`)
+  check(owned === 0, '주인 있는 방이 하나도 없다', `${owned}칸`)
 
   const teams = await listDocs(`games/${GAME}/teams`)
   check(teams.length === 4, '팀 문서 넷')

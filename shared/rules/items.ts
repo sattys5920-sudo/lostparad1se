@@ -115,8 +115,8 @@ export function putItem(bag: Satchel | undefined, kind: ItemKind, n = 1): Satche
  * 사람마다 하나인 주머니. **키는 사람이다.**
  *
  * 한때 팀마다 하나였다. 그러면 상점에 다녀온 사람과 물건을 쓰는
- * 사람이 달라도 되어서, 멀리 나간 한 사람이 사 온 것을 기지에 앉은
- * 사람이 쓴다. 산 사람이 가진다 — 물건을 쓰려면 그 사람이 거기
+ * 사람이 달라도 되어서, 멀리 나간 한 사람이 사 온 것을 가만히 앉아
+ * 있던 사람이 쓴다. 산 사람이 가진다 — 물건을 쓰려면 그 사람이 거기
  * 있어야 하고, 없으면 거래로 건네받아야 한다.
  */
 export type Satchels = Partial<Record<string, Satchel>>

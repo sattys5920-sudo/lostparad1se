@@ -237,7 +237,6 @@ export const ROOM_CAPACITY: Record<RoomKind, number> = {
  *   중앙광장  발전소 — 한 곳뿐이고 네 기지에서 정확히 같은 거리다
  */
 export const KIND_BY_TIER: Record<Tier, RoomKind> = {
-  base: 'normal',
   zone1: 'normal',
   gate: 'narrow',
   // 교차로는 지나다니는 길목이라 넓다. 전에는 여기가 연구실이었는데,
@@ -509,12 +508,12 @@ export function leftBehindCount(carried: number, botsAtDest: number): number {
 // 않는다 — 방 하나가 한 점이고 그게 전부다. 개인은 개인 미션으로
 // 따로 평가받는다. 둘은 별개다.
 //
-// 기지는 세지 않는다. 시작할 때 거저 받는 것이라 세면 아무것도
-// 안 한 팀이 점수를 갖게 된다.
+// **거저 받는 방은 없다.** 기지를 없앴으므로 스물다섯 방이 전부
+// 빈 채로 시작하고, 센 것은 전부 서서 가져온 것이다.
 
 /** 그 팀이 쥐고 있는 방의 수. 이것이 곧 팀 점수다. */
 export function roomsOf(owners: Readonly<Partial<Record<TileId, TeamId | null>>>, team: TeamId): number {
-  return TILES.filter((t) => t.homeOf === null && owners[t.id] === team).length
+  return TILES.filter((t) => owners[t.id] === team).length
 }
 
 /**
@@ -923,12 +922,6 @@ export function settle(state: PhaseState): SettleResult {
 
   const owners: Partial<Record<TileId, TeamId | null>> = { ...state.owners }
   for (const t of TILES) {
-    // **기지는 판정하지 않는다.** 제 팀 것으로 못 박혀 있다 — 아무도
-    // 안 서 있다고 기지를 잃으면 시작 땅도 연결 점수도 근거가 없어진다
-    if (t.homeOf) {
-      owners[t.id] = t.homeOf
-      continue
-    }
     // **A의 기록이 열기 전에는 핵심도 2-3 교실도 못 가진다.** 서 있는
     // 것은 막지 않는다 — 첫날 아침에 열넷이 서 있는 자리가 2-3 교실이다.
     // 깃발이 있던 시절에는 「열린 뒤에만 꽂는다」가 이 자리를 지켰다

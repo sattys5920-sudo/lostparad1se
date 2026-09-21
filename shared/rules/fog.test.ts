@@ -10,7 +10,6 @@ import {
   visibleTiles,
   type PawnPosition,
 } from './fog'
-import { startingTiles } from './board'
 import { INTEL_VISION_BONUS } from './v2'
 
 const pawn = (over: Partial<PawnPosition> & Pick<PawnPosition, 'playerId' | 'team'>): PawnPosition => ({
@@ -24,7 +23,8 @@ const pawn = (over: Partial<PawnPosition> & Pick<PawnPosition, 'playerId' | 'tea
 
 describe('보이는 칸', () => {
   it('우리 칸은 늘 보인다', () => {
-    const mine = startingTiles('A')
+    // 기지가 없어져서 「시작 칸」이 없다. 쥐고 있는 방을 직접 적는다
+    const mine = ['baseA', 'cafeteria', 'hallway'] as const
     const out = visibleTiles({ ownedTiles: mine, myPawnTiles: [] })
     for (const id of mine) expect(out.has(id)).toBe(true)
   })

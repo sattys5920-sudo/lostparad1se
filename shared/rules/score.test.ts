@@ -12,7 +12,7 @@ import {
   type ScoreInput,
   type TeamState,
 } from './score'
-import { startingTiles, TILE_BY_ID, TILE_IDS } from './board'
+import { TILE_IDS } from './board'
 import type { TileState } from './resources'
 import type { TeamId } from './v2'
 
@@ -29,45 +29,54 @@ function board(owned: Partial<Record<TeamId, string[]>>): TileState[] {
   for (const [t, ids] of Object.entries(owned) as [TeamId, string[]][]) {
     for (const id of ids) who.set(id, t)
   }
-  return TILE_IDS.map((tileId) => ({
-    tileId,
-    ownerTeam: who.get(tileId) ?? TILE_BY_ID[tileId].homeOf,
-  }))
+  return TILE_IDS.map((tileId) => ({ tileId, ownerTeam: who.get(tileId) ?? null }))
 }
 
+/**
+ * 시험에 쓰는 세 칸. **붙어 있다** — 교무실 4 · 급식실 4 · 가사실 1.
+ *
+ * 기지가 없어져서 「시작할 때 쥔 칸」이 없다. 전에는 그걸 썼는데,
+ * 이제는 시험이 직접 붙어 있는 덩어리를 하나 적어 둔다.
+ */
+const MINE = ['baseA', 'cafeteria', 'hallway']
+
 const input = (over: Partial<ScoreInput> = {}): ScoreInput => ({
-  tiles: board({ A: [...startingTiles('A')] }),
+  tiles: board({ A: [...MINE] }),
   fragments: [],
   team: team(),
   ...over,
 })
 
 describe('영역', () => {
-  it('가진 칸의 가치를 더한다 — 기지는 빼고', () => {
-    // A(교무실)가 시작할 때 쥐는 것은 급식실 4 · 가사실 1
-    expect(territoryScore(input())).toBe(5)
+  it('가진 칸의 가치를 더한다 — **빼는 칸은 없다**', () => {
+    // 교무실 4 · 급식실 4 · 가사실 1. 기지가 없으니 거저 받은 칸도 없다
+    expect(territoryScore(input())).toBe(9)
   })
 
   it('A의 기록 보너스가 붙는다', () => {
     const out = territoryScore(input({ fragments: [{ day: 1, spotTile: 'cafeteria' }] }))
-    expect(out).toBe(5 + 2)
+    expect(out).toBe(9 + 2)
   })
 })
 
 describe('연결', () => {
-  it('기지에서 이어진 칸만 센다', () => {
-    expect(connectionScore(input())).toBe(2)
+  it('붙어 있는 덩어리를 센다', () => {
+    expect(connectionScore(input())).toBe(3)
   })
 
-  it('떨어진 땅은 한 점도 아니다', () => {
-    // 음악실은 2층이다. 계단을 안 쥐었으니 이어지지 않는다
-    const tiles = board({ A: [...startingTiles('A'), 'musicRoom'] })
-    expect(connectionScore(input({ tiles }))).toBe(2)
+  it('한 칸뿐이면 연결이 아니다', () => {
+    expect(connectionScore(input({ tiles: board({ A: ['baseA'] }) }))).toBe(0)
+  })
+
+  it('떨어진 땅은 같이 안 센다 — 제일 큰 덩어리 하나다', () => {
+    // 음악실은 2층이다. 붙어 있지 않으니 세 칸 덩어리만 남는다
+    const tiles = board({ A: [...MINE, 'musicRoom'] })
+    expect(connectionScore(input({ tiles }))).toBe(3)
   })
 
   it('이어 붙이면 늘어난다', () => {
-    const tiles = board({ A: [...startingTiles('A'), 'annex'] })
-    expect(connectionScore(input({ tiles }))).toBe(3)
+    const tiles = board({ A: [...MINE, 'annex'] })
+    expect(connectionScore(input({ tiles }))).toBe(4)
   })
 })
 
@@ -90,7 +99,7 @@ describe('자원과 발전', () => {
 
   // 건물을 걷어내면서 발전에 더할 것은 연구뿐이 되었다
   it('발전은 연구 단계의 두 배다', () => {
-    const tiles = board({ A: [...startingTiles('A')] })
+    const tiles = board({ A: [...MINE] })
     expect(developmentScore(input({ tiles, team: team({ researchTier: 3 }) }))).toBe(6)
   })
 })

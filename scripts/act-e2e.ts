@@ -5,7 +5,6 @@
 //   npx vite-node scripts/act-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
-import { BASE_OF } from '../shared/rules/board'
 import { dayHourMs } from '../shared/rules/clock'
 import { TRADE_COST } from '../shared/rules/occupy'
 import { meetAt } from './meet'
@@ -120,10 +119,10 @@ async function main(): Promise<void> {
   console.log('\n── 짓기 ──')
   const notOurs = await call('buildOn', me.token, { gameId: GAME, tileId: 'library', kind: 'observatory' })
   check(notOurs.code === 'FAILED_PRECONDITION', '남의 칸에는 못 짓는다', notOurs.message)
-  const base = await call('buildOn', me.token, { gameId: GAME, tileId: BASE_OF.A, kind: 'observatory' })
-  check(base.code === 'FAILED_PRECONDITION', '기지에도 못 짓는다', base.message)
+  const base = await call('buildOn', me.token, { gameId: GAME, tileId: 'baseA', kind: 'observatory' })
+  check(base.code === 'FAILED_PRECONDITION', '교무실에도 못 짓는다', base.message)
 
-  // 기지 옆 우리 칸으로 걸어가 거기 짓는다
+  // 옆 우리 칸으로 걸어가 거기 짓는다
   await must('moveTo', me.token, { gameId: GAME, tileId: 'classroom' })
   const p1 = await getDoc(`games/${GAME}/pawns/${me.uid}`) as { arriveAtMs: number }
   await clock(Number(p1.arriveAtMs))
@@ -154,7 +153,7 @@ async function main(): Promise<void> {
   await clock(dayHourMs(START, 1, 14))
   await must('tick', me.token, { gameId: GAME })
   const t0 = (await team('A')).researchTier
-  const res = await call('research', A[1].token, { gameId: GAME, tileId: BASE_OF.A })
+  const res = await call('research', A[1].token, { gameId: GAME, tileId: 'baseA' })
   if (res.ok) {
     check((await team('A')).researchTier === t0 + 1, '연구 단계가 올랐다')
   } else {

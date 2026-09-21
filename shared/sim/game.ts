@@ -10,10 +10,8 @@
 import {
   ADJACENCY,
   START_TILE,
-  TILE_BY_ID,
   TILE_IDS,
   pathBetween,
-  startingTiles,
   type TileId,
 } from '../rules/board'
 import { addActiveSeconds, dayNumber, secondsIntoSeoulDay, seoulTimeOn } from '../rules/clock'
@@ -100,15 +98,11 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   const teamOf = (id: string) => byId.get(id)?.team ?? 'A'
 
   // 판
+  // **스물다섯 방이 전부 빈 채로 시작한다.** 기지도 시작 땅도 없다 —
+  // 열넷이 2-3 교실에 서서 시작하고, 가진 것은 전부 서서 가져온 것이다
   const tiles = new Map<TileId, TileState>()
   for (const id of TILE_IDS) {
-    tiles.set(id, { tileId: id, ownerTeam: TILE_BY_ID[id].homeOf })
-  }
-  for (const team of TEAM_IDS) {
-    for (const id of startingTiles(team)) {
-      const t = tiles.get(id)
-      if (t) t.ownerTeam = team
-    }
+    tiles.set(id, { tileId: id, ownerTeam: null })
   }
 
   const teams = {} as Record<TeamId, SimTeam>
@@ -175,7 +169,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     // 08:00 — 새 날
     if (day !== lastDay) {
       lastDay = day
-      fragments.push({ day, spotTile: pick(TILE_IDS.filter((t) => TILE_BY_ID[t].tier !== 'base')) })
+      fragments.push({ day, spotTile: pick([...TILE_IDS]) })
       for (const p of players.values()) p.votedToday = false
     }
 
@@ -207,7 +201,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     if (hour !== lastSettleHour) {
       lastSettleHour = hour
       for (const tile of tiles.values()) {
-        if (TILE_BY_ID[tile.tileId].tier === 'base') continue
         const standing = [...players.values()].filter((p) => p.tileId === tile.tileId)
         const heads: Partial<Record<TeamId, number>> = {}
         for (const p of standing) heads[p.team as TeamId] = (heads[p.team as TeamId] ?? 0) + 1
@@ -392,12 +385,9 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     if (p.path.length === 0 && rnd() < 0.4) {
       const goHome = rnd() < 0.4
       const wanted = goHome
-        ? TILE_IDS.filter(
-            (id) => TILE_BY_ID[id].tier !== 'base' && look(id) === p.team,
-          )
+        ? TILE_IDS.filter((id) => look(id) === p.team)
         : TILE_IDS.filter(
             (id) =>
-              TILE_BY_ID[id].tier !== 'base' &&
               look(id) !== p.team &&
               ADJACENCY[id].some((n) => look(n) === p.team) &&
               coreOpen(id, day),

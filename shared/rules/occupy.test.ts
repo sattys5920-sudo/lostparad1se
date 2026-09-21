@@ -691,9 +691,9 @@ describe('판이 네 팀에게 공평하다', () => {
     for (const [, kinds] of byTier) expect(kinds.size).toBe(1)
   })
 
-  // 전에는 5×5 격자라 네 기지에서 중앙까지 걸음 수가 똑같았다. 층이
-  // 생기면서 그 대칭은 없어졌다 — 대신 **어느 기지에서든 닿기는 한다**
-  it('어느 기지에서든 2-3 교실까지 길이 있다', () => {
+  // 전에는 5×5 격자라 네 귀퉁이에서 중앙까지 걸음 수가 똑같았다. 층이
+  // 생기면서 그 대칭은 없어졌다 — 대신 **어느 구석에서든 닿기는 한다**
+  it('어느 구석에서든 2-3 교실까지 길이 있다', () => {
     for (const team of TEAM_IDS) {
       let cur = `base${team}`
       let n = 0
@@ -909,9 +909,10 @@ describe('움직인 사람 기록', () => {
 })
 
 describe('팀 점수는 방 개수다', () => {
-  it('기지는 세지 않는다 — 거저 받은 것으로 점수가 생기면 안 된다', () => {
+  it('쥔 방은 다 센다 — **빼는 방이 없다**', () => {
+    // 기지를 없앴다. 거저 받는 방이 없으니 뺄 것도 없다
     const owners = { baseA: 'A', classroom: 'A', hallway: 'A' } as const
-    expect(roomsOf(owners, 'A')).toBe(2)
+    expect(roomsOf(owners, 'A')).toBe(3)
   })
 
   it('아무것도 없으면 0이다', () => {
@@ -1020,7 +1021,7 @@ describe('방해와 위장에는 물건이 든다', () => {
 
   it('**같은 팀이라도 남의 물건은 못 쓴다**', () => {
     // 주머니가 팀 것이던 때에는 상점에 다녀온 사람과 쓰는 사람이
-    // 달라도 됐다. 멀리 나가 사 온 것을 기지에 앉은 사람이 쓴다
+    // 달라도 됐다. 멀리 나가 사 온 것을 앉아 있던 사람이 쓴다
     const s = board({
       people: [person('a', 'A', 'storage'), person('c', 'A', 'storage'), person('b', 'B', 'storage')],
       satchels: { ...empty, a: { whistle: 1 } },
@@ -1038,18 +1039,23 @@ describe('방해와 위장에는 물건이 든다', () => {
   })
 })
 
-describe('기지와 계단은 판정 밖이다', () => {
-  it('아무도 안 서 있어도 기지는 제 팀 것이다', () => {
+describe('못 박힌 방은 없다', () => {
+  /*
+   * **기지를 없앴다.** 전에는 네 방이 판정 밖이라 아무도 안 서
+   * 있어도 제 팀 것이었고 남이 몰려 서도 안 뺏겼다. 이제 스물다섯
+   * 방이 전부 같은 규칙을 받는다.
+   */
+  it('아무도 안 서 있으면 놓친다 — 전에는 기지라고 남았다', () => {
     const out = settle(board({ owners: { baseA: 'A' } })).next.owners
-    expect(out.baseA).toBe('A')
+    expect(out.baseA).toBeNull()
   })
 
-  it('남이 기지에 몰려 서도 안 뺏긴다', () => {
+  it('남이 몰려 서면 뺏긴다 — 전에는 기지라고 안 뺏겼다', () => {
     const s = board({
       people: [person('b1', 'B', 'baseA'), person('b2', 'B', 'baseA'), person('b3', 'B', 'baseA')],
       owners: { baseA: 'A' },
     })
-    expect(settle(s).next.owners.baseA).toBe('A')
+    expect(settle(s).next.owners.baseA).toBe('B')
   })
 
   it('계단에는 아예 설 수가 없다 — 칸이 아니다', () => {

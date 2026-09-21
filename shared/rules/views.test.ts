@@ -5,7 +5,14 @@
 // 섞였는지 확인한다 — 어느 칸에 담기든 걸리게.
 import { describe, expect, it } from 'vitest'
 import { projectAll, projectView, type World, type WorldPawn } from './views'
-import { BASE_OF, type TileId } from './board'
+import { type TileId } from './board'
+
+/**
+ * 시험에서 팀마다 서 있는 방. 전에는 기지였다 — 기지를 없앴으므로
+ * 여기에 적어 둔다. 방 이름이 무엇이든 시험이 보는 것은 「내 팀 칸은
+ * 보이고 남의 칸은 안 보인다」다.
+ */
+const ROOM_OF: Record<string, TileId> = { A: 'baseA', B: 'baseB', C: 'baseC', D: 'baseD' }
 import type { TeamId } from './v2'
 
 /** 쪽지에 적힌 것. 투영을 통과하면 안 되는 문장들이다. */
@@ -45,7 +52,7 @@ function world(over = false, invisibleId: string | null = null): World {
     nowMs: 1000,
     over,
     invisibleId,
-    pawns: ROSTER.map((r) => pawn(r.playerId, r.team, BASE_OF[r.team])),
+    pawns: ROSTER.map((r) => pawn(r.playerId, r.team, ROOM_OF[r.team])),
     tiles: [
       { tileId: 'baseA', ownerTeam: 'A' },
       { tileId: 'baseB', ownerTeam: 'B' },
@@ -79,7 +86,7 @@ function world(over = false, invisibleId: string | null = null): World {
     ],
     // 쪽지 — A0 가 선 기지 바닥에 한 장, A1 이 주워서 읽은 것 한 장
     slips: [
-      { id: 'sFloor', subjectId: 'C0', line: SLIP_FLOOR, tileId: BASE_OF.A, heldBy: null, readBy: [] },
+      { id: 'sFloor', subjectId: 'C0', line: SLIP_FLOOR, tileId: 'baseA', heldBy: null, readBy: [] },
       { id: 'sHeld', subjectId: 'D0', line: SLIP_HELD, tileId: null, heldBy: 'A1', readBy: ['A1'] },
       { id: 'sBlind', subjectId: 'C1', line: SLIP_BLIND, tileId: null, heldBy: 'B0', readBy: [] },
       { id: 'sTorn', subjectId: 'D1', line: SLIP_TORN, tileId: null, heldBy: null, readBy: ['A0'] },
@@ -88,7 +95,7 @@ function world(over = false, invisibleId: string | null = null): World {
       // A기지에 두 장 — 한 장은 접혀 있고 한 장은 B0 가 펼쳐 두었다
       {
         id: 'qShut',
-        tileId: BASE_OF.A,
+        tileId: 'baseA',
         kind: 'short' as const,
         prompt: QUIZ_SHUT,
         choices: [],
@@ -98,7 +105,7 @@ function world(over = false, invisibleId: string | null = null): World {
       },
       {
         id: 'qOpen',
-        tileId: BASE_OF.A,
+        tileId: 'baseA',
         kind: 'choice' as const,
         prompt: QUIZ_OPEN,
         choices: ['하나', '둘', '셋', '넷'],
@@ -109,7 +116,7 @@ function world(over = false, invisibleId: string | null = null): World {
       // 이미 누가 가져간 종이. 아무에게도 안 보인다
       {
         id: 'qDone',
-        tileId: BASE_OF.A,
+        tileId: 'baseA',
         kind: 'short' as const,
         prompt: '가져간 문제',
         choices: [],
@@ -354,7 +361,7 @@ describe('문제 종이 — 펼쳐야 보이고, 정답은 안 온다', () => {
     const shared = world()
     const mixed = {
       ...shared,
-      pawns: shared.pawns.map((p) => (p.playerId === 'B0' ? { ...p, tileId: BASE_OF.A } : p)),
+      pawns: shared.pawns.map((p) => (p.playerId === 'B0' ? { ...p, tileId: 'baseA' } : p)),
     }
     for (const who of ['A0', 'A1', 'B0']) {
       const q = projectView(mixed, who).quizzesHere.find((x) => x.id === 'qOpen')

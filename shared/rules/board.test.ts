@@ -9,7 +9,6 @@ import {
   roomOfCell,
   ADJACENCY,
   ROAM_TO,
-  BASE_OF,
   FLOORS,
   TILES,
   TILE_BY_ID,
@@ -22,10 +21,11 @@ import {
   TILE_IDS,
   stairwellOf,
   tilesOn,
-  startingTiles,
   stepsBetween,
+  START_TILE,
+  type TileId,
 } from './board'
-import { TEAM_IDS, type TeamId } from './v2'
+import { type TeamId } from './v2'
 
 const byTier = (tier: string) => TILES.filter((t) => t.tier === tier)
 
@@ -35,7 +35,6 @@ describe('판', () => {
   })
 
   it('층위별 칸 수가 맞다', () => {
-    expect(byTier('base')).toHaveLength(4)
     expect(byTier('core')).toHaveLength(4)
     expect(byTier('gate')).toHaveLength(4)
     expect(byTier('cross')).toHaveLength(3)
@@ -179,21 +178,15 @@ describe('연구실', () => {
     expect(lab.name).toBe('연구실')
   })
 
-  it('어느 팀도 시작부터 쥐고 있지 않다', () => {
-    for (const team of TEAM_IDS as TeamId[]) {
-      expect(startingTiles(team), team).not.toContain(lab.id)
-    }
-  })
-
   it('계단으로만 드나든다 — 제 땅으로 감쌀 수 없는 막다른 방이다', () => {
     expect(ADJACENCY[lab.id]).toHaveLength(0)
     // 그래도 걸어서는 닿는다. 값이 붙는 것은 문 하나뿐이다
     expect(canRoamTo('centralPlaza', lab.id)).toBe(true)
   })
 
-  it('네 팀 다 한 걸음에 닿는다', () => {
-    for (const team of TEAM_IDS as TeamId[]) {
-      expect(pathBetween(BASE_OF[team], lab.id), team).toEqual([lab.id])
+  it('어느 층에서든 계단 하나로 닿는다', () => {
+    for (const from of ['storage', 'cafeteria', 'centralPlaza'] as TileId[]) {
+      expect(pathBetween(from, lab.id).at(-1), from).toBe(lab.id)
     }
   })
 })
@@ -239,53 +232,51 @@ describe('복도로 닿는 곳', () => {
 })
 
 describe('시작 상태', () => {
-  it('기지는 넷이고 팀마다 하나다', () => {
-    expect(Object.keys(BASE_OF).sort()).toEqual([...TEAM_IDS].sort())
+  /*
+   * **기지를 없앴다.** 팀마다 못 박아 두던 방도, 거기 붙어 딸려
+   * 오던 시작 땅도 없다. 열넷이 2-3 교실에서 시작하고 스물다섯 방은
+   * 전부 빈 채다 — 여기서 볼 것은 「어느 방에도 주인이 안 적혀
+   * 있다」 하나다(누가 쥐고 시작하는지는 서버가 정한다: lobby.ts).
+   */
+  it('주인이 못 박힌 방이 없다', () => {
+    for (const t of TILES) expect(t.tier, t.name).not.toBe('base')
   })
 
-  it('네 팀이 비슷하게 쥐고 시작한다', () => {
-    // 계단을 칸으로 두거나 계단 양쪽 방을 이웃으로 묶으면 여기가
-    // 무너진다 — 계단 옆에 기지를 둔 팀만 위층 방까지 들고 시작한다
-    const sizes = (TEAM_IDS as TeamId[]).map((t) => startingTiles(t).length)
-    expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1)
-  })
-
-  it('기지는 제 시작 칸에 들어 있다', () => {
-    for (const team of TEAM_IDS as TeamId[]) {
-      expect(startingTiles(team)).toContain(BASE_OF[team])
-    }
+  it('모두 2-3 교실에서 시작한다', () => {
+    expect(START_TILE).toBe('centralPlaza')
+    expect(TILE_BY_ID[START_TILE].tier).toBe('plaza')
   })
 })
 
 describe('연결 점수', () => {
   const owners = (mine: string[]) => (id: string) => (mine.includes(id) ? ('A' as TeamId) : null)
 
-  it('기지만 쥐면 0이다 — 기지는 세지 않는다', () => {
-    expect(connectedSize('A', owners([BASE_OF.A]))).toBe(0)
+  it('한 칸뿐이면 0이다 — 붙어 있는 것이 없으면 연결이 아니다', () => {
+    expect(connectedSize('A', owners(['baseA']))).toBe(0)
   })
 
-  it('떨어진 땅은 한 점도 되지 않는다', () => {
+  it('떨어진 땅은 같이 안 센다', () => {
     const far = TILES.find((t) => t.floor === 'f2' && t.tier === 'zone1') as (typeof TILES)[number]
-    expect(connectedSize('A', owners([BASE_OF.A, far.id]))).toBe(0)
+    expect(connectedSize('A', owners(['baseA', far.id]))).toBe(0)
   })
 
-  it('이어 붙이면 늘어난다', () => {
-    const next = ADJACENCY[BASE_OF.A]
-    expect(connectedSize('A', owners([BASE_OF.A, ...next]))).toBe(next.length)
+  it('붙은 것만 센다 — 제일 큰 덩어리 하나다', () => {
+    const next = ADJACENCY.baseA
+    expect(connectedSize('A', owners(['baseA', ...next]))).toBe(next.length + 1)
   })
 })
 
 describe('칸 하나', () => {
-  const room = TILE_BY_ID[BASE_OF.A]
+  const room = TILE_BY_ID.baseA
   const c = { x: room.plan.x + 1, y: room.plan.y + 1 }
 
   it('방 네모 안이면 그 방이다', () => {
-    expect(roomOfCell(room.plan.x, room.plan.y)).toBe(BASE_OF.A)
-    expect(roomOfCell(room.plan.x + room.plan.w - 1, room.plan.y + room.plan.h - 1)).toBe(BASE_OF.A)
+    expect(roomOfCell(room.plan.x, room.plan.y)).toBe('baseA')
+    expect(roomOfCell(room.plan.x + room.plan.w - 1, room.plan.y + room.plan.h - 1)).toBe('baseA')
   })
 
   it('네모 밖은 어느 방도 아니다 — 벽도 복도도 방이 아니다', () => {
-    expect(roomOfCell(room.plan.x - 1, room.plan.y)).not.toBe(BASE_OF.A)
+    expect(roomOfCell(room.plan.x - 1, room.plan.y)).not.toBe('baseA')
     expect(roomOfCell(-1, -1)).toBeNull()
   })
 

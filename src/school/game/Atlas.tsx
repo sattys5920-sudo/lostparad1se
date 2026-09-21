@@ -16,7 +16,7 @@ import {
   type MapFacts,
   type RoomFacts,
 } from './MapPlan'
-import { TILES, TILE_BY_ID } from '../../../shared/rules/board'
+import { TILES } from '../../../shared/rules/board'
 import { SHOP_TILE } from '../../../shared/rules/shop'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
@@ -246,7 +246,6 @@ function canDoIn(room: RoomFacts): string[] {
   if (room.kind === 'lab') out.push('연구실 — 페이즈에 연구한다')
   if (room.kind === 'plant') out.push('발전소 — 연구가 그 자리에서 난다')
   if (room.kind === 'narrow') out.push('좁은 방 — 둘까지만 선다')
-  if (TILE_BY_ID[room.id]?.homeOf) out.push('기지 — 주인이 안 바뀐다')
   else out.push('페이즈가 닫힐 때 서 있으면 머릿수에 든다')
   return out
 }

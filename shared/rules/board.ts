@@ -69,8 +69,6 @@ export interface TileSpec {
   floor: Floor
   value: number
   tier: Tier
-  /** 기지라면 어느 팀 것인가. */
-  homeOf: TeamId | null
   /** 층 안에서의 자리. */
   rect: Rect
   /** 건물 전체 전개도에서의 자리 — 층을 위아래로 쌓아 놓은 좌표다. */
@@ -83,7 +81,7 @@ export interface TileSpec {
 // 줄** 있어야 한다 — 붙여 놓으면 문 없이 벽을 통과하는 방이 된다.
 // 그런 실수는 world.ts 가 켜질 때 바로 터뜨린다.
 
-type RoomDef = readonly [TileId, string, number, Tier, TeamId | null, Rect]
+type RoomDef = readonly [TileId, string, number, Tier, Rect]
 
 interface FloorDef {
   floor: Floor
@@ -114,9 +112,9 @@ const B1: FloorDef = {
     { end: 'e', rect: { x: 41, y: 2, w: 6, h: 11 } },
   ],
   rooms: [
-    ['storage', '창고', 1, 'zone1', null, { x: 9, y: 2, w: 11, h: 9 }],
-    ['baseC', '기술실', 0, 'base', 'C', { x: 22, y: 1, w: 13, h: 10 }],
-    ['oldBuilding', '경비실', 5, 'cross', null, { x: 10, y: 16, w: 18, h: 9 }],
+    ['storage', '창고', 1, 'zone1', { x: 9, y: 2, w: 11, h: 9 }],
+    ['baseC', '기술실', 3, 'zone1', { x: 22, y: 1, w: 13, h: 10 }],
+    ['oldBuilding', '경비실', 5, 'cross', { x: 10, y: 16, w: 18, h: 9 }],
   ],
 }
 
@@ -141,17 +139,17 @@ const F1: FloorDef = {
     { end: 'e', rect: { x: 57, y: 11, w: 6, h: 19 } },
   ],
   rooms: [
-    ['baseA', '교무실', 0, 'base', 'A', { x: 9, y: 5, w: 12, h: 10 }],
-    ['cafeteria', '급식실', 4, 'gate', null, { x: 23, y: 3, w: 10, h: 12 }],
-    ['annex', '양호실', 5, 'cross', null, { x: 35, y: 7, w: 8, h: 8 }],
-    ['classroom', '상점', 3, 'zone1', null, { x: 45, y: 4, w: 9, h: 11 }],
-    ['hallway', '가사실', 1, 'zone1', null, { x: 9, y: 20, w: 10, h: 8 }],
-    ['gym', '체육관', 4, 'gate', null, { x: 20, y: 20, w: 9, h: 10 }],
-    ['auditorium', '강당', 6, 'core', null, { x: 34, y: 20, w: 9, h: 10 }],
-    ['playground', '운동장', 6, 'core', null, { x: 44, y: 20, w: 8, h: 10 }],
-    ['labRoom', '연구실', 5, 'lab', null, { x: 51, y: 31, w: 12, h: 10 }],
-    ['garden', '정원', 3, 'zone1', null, { x: 19, y: 35, w: 10, h: 8 }],
-    ['baseB', '화장실', 0, 'base', 'B', { x: 33, y: 35, w: 11, h: 9 }],
+    ['baseA', '교무실', 4, 'zone1', { x: 9, y: 5, w: 12, h: 10 }],
+    ['cafeteria', '급식실', 4, 'gate', { x: 23, y: 3, w: 10, h: 12 }],
+    ['annex', '양호실', 5, 'cross', { x: 35, y: 7, w: 8, h: 8 }],
+    ['classroom', '상점', 3, 'zone1', { x: 45, y: 4, w: 9, h: 11 }],
+    ['hallway', '가사실', 1, 'zone1', { x: 9, y: 20, w: 10, h: 8 }],
+    ['gym', '체육관', 4, 'gate', { x: 20, y: 20, w: 9, h: 10 }],
+    ['auditorium', '강당', 6, 'core', { x: 34, y: 20, w: 9, h: 10 }],
+    ['playground', '운동장', 6, 'core', { x: 44, y: 20, w: 8, h: 10 }],
+    ['labRoom', '연구실', 5, 'lab', { x: 51, y: 31, w: 12, h: 10 }],
+    ['garden', '정원', 3, 'zone1', { x: 19, y: 35, w: 10, h: 8 }],
+    ['baseB', '화장실', 1, 'zone1', { x: 33, y: 35, w: 11, h: 9 }],
   ],
 }
 
@@ -176,16 +174,16 @@ const F2: FloorDef = {
     { end: 'e', rect: { x: 54, y: 4, w: 6, h: 17 } },
   ],
   rooms: [
-    ['centralPlaza', '2-3 교실', 8, 'plaza', null, { x: 9, y: 1, w: 16, h: 8 }],
-    ['scienceRoom', '과학실', 3, 'zone1', null, { x: 27, y: 2, w: 10, h: 7 }],
-    ['musicRoom', '음악실', 3, 'zone1', null, { x: 39, y: 1, w: 13, h: 8 }],
-    ['artRoom', '미술실', 1, 'zone1', null, { x: 14, y: 14, w: 11, h: 11 }],
-    ['library', '도서관', 4, 'gate', null, { x: 27, y: 14, w: 11, h: 11 }],
-    ['baseD', '시청각실', 0, 'base', 'D', { x: 40, y: 14, w: 10, h: 11 }],
-    ['newBuilding', '무용실', 5, 'cross', null, { x: 14, y: 30, w: 12, h: 9 }],
-    ['broadcastRoom', '방송실', 6, 'core', null, { x: 28, y: 30, w: 11, h: 9 }],
-    ['studentCouncil', '학생회실', 6, 'core', null, { x: 41, y: 30, w: 10, h: 9 }],
-    ['clubRoom', '동아리실', 1, 'zone1', null, { x: 0, y: 22, w: 9, h: 9 }],
+    ['centralPlaza', '2-3 교실', 8, 'plaza', { x: 9, y: 1, w: 16, h: 8 }],
+    ['scienceRoom', '과학실', 3, 'zone1', { x: 27, y: 2, w: 10, h: 7 }],
+    ['musicRoom', '음악실', 3, 'zone1', { x: 39, y: 1, w: 13, h: 8 }],
+    ['artRoom', '미술실', 1, 'zone1', { x: 14, y: 14, w: 11, h: 11 }],
+    ['library', '도서관', 4, 'gate', { x: 27, y: 14, w: 11, h: 11 }],
+    ['baseD', '시청각실', 3, 'zone1', { x: 40, y: 14, w: 10, h: 11 }],
+    ['newBuilding', '무용실', 5, 'cross', { x: 14, y: 30, w: 12, h: 9 }],
+    ['broadcastRoom', '방송실', 6, 'core', { x: 28, y: 30, w: 11, h: 9 }],
+    ['studentCouncil', '학생회실', 6, 'core', { x: 41, y: 30, w: 10, h: 9 }],
+    ['clubRoom', '동아리실', 1, 'zone1', { x: 0, y: 22, w: 9, h: 9 }],
   ],
 }
 
@@ -194,7 +192,7 @@ const ROOF: FloorDef = {
   floor: 'roof',
   halls: [],
   stairs: [],
-  rooms: [['rooftop', '옥상', 4, 'gate', null, { x: 8, y: 2, w: 40, h: 12 }]],
+  rooms: [['rooftop', '옥상', 4, 'gate', { x: 8, y: 2, w: 40, h: 12 }]],
 }
 
 const PLAN_BY_FLOOR: Record<Floor, FloorDef> = { b1: B1, f1: F1, f2: F2, roof: ROOF }
@@ -207,7 +205,7 @@ export const PLAN_BAND_GAP = 3
 const allRects = (f: FloorDef): Rect[] => [
   ...f.halls,
   ...f.stairs.map((s) => s.rect),
-  ...f.rooms.map((r) => r[5]),
+  ...f.rooms.map((r) => r[4]),
 ]
 
 /** 그 층이 차지하는 높이. 가장 아래 네모 밑에 벽 한 줄을 남긴다. */
@@ -277,14 +275,13 @@ const STAIR_HALL_AT = (() => {
 })()
 
 const ROOM_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
-  PLAN_BY_FLOOR[floor].rooms.map(([id, name, value, tier, homeOf, rect]) => ({
+  PLAN_BY_FLOOR[floor].rooms.map(([id, name, value, tier, rect]) => ({
     id,
     name,
     shortName: name,
     floor,
     value,
     tier,
-    homeOf,
     rect,
     plan: toPlan(floor, rect),
   })),
@@ -304,11 +301,6 @@ export const TILE_IDS: readonly TileId[] = TILES.map((t) => t.id)
 
 /** 그 층의 칸들. */
 export const tilesOn = (floor: Floor): readonly TileSpec[] => TILES.filter((t) => t.floor === floor)
-
-/** 기지는 팀마다 하나다. */
-export const BASE_OF: Record<TeamId, TileId> = Object.fromEntries(
-  TILES.filter((t) => t.homeOf).map((t) => [t.homeOf as TeamId, t.id]),
-) as Record<TeamId, TileId>
 
 /**
  * 모두가 여기서 시작한다. 2-3 교실 — 2층 북쪽의 제일 큰 교실이다.
@@ -542,53 +534,37 @@ export function stepsBetween(a: TileId, b: TileId): number {
   return tileDistance(a, b)
 }
 
-/** 시작할 때 각 팀이 쥐고 있는 칸 — 기지와 붙어 있는 방들. */
-export function startingTiles(team: TeamId): readonly TileId[] {
-  const base = BASE_OF[team]
-  return [base, ...ADJACENCY[base]]
-}
-
-/** 이 1구역 칸은 어느 팀 몫인가. 기지에 붙어 있는 쪽이 주인이다. */
-export function zoneOwner(id: TileId): TeamId | null {
-  if (TILE_BY_ID[id].tier !== 'zone1') return null
-  for (const n of ADJACENCY[id]) {
-    const home = TILE_BY_ID[n].homeOf
-    if (home) return home
-  }
-  return null
-}
-
 /**
- * 두 팀이 이웃인가. **같은 층을 쓰면 이웃이다.**
+ * 붙어 있는 우리 칸 덩어리 중 **제일 큰 것의 크기.**
  *
- * 전에는 관문 하나를 나눠 쓰는 것이 기준이었다 — 5×5 격자에서만
- * 말이 되던 셈이다. 층이 생긴 지금은 같은 복도를 오가느냐가 훨씬
- * 알기 쉽다. 「먼 친구」 목표가 이걸로 판정된다.
- */
-export function areNeighborTeams(a: TeamId, b: TeamId): boolean {
-  if (a === b) return false
-  return TILE_BY_ID[BASE_OF[a]].floor === TILE_BY_ID[BASE_OF[b]].floor
-}
-
-/**
- * 기지에서 우리 칸만 밟고 갈 수 있는 칸의 수. 기지는 세지 않는다.
- * 떨어진 땅은 한 점도 되지 않는다.
+ * 전에는 기지에서 걸어 나가며 셌다 — 기지가 없어졌으니 출발점도
+ * 없다. 대신 덩어리를 전부 세어 제일 큰 것을 고른다: 「흩어져
+ * 주운 땅은 점수가 안 된다」는 뜻은 그대로고, 어디서부터 세느냐만
+ * 사라졌다.
+ *
+ * 한 칸짜리 덩어리는 0이다. 붙어 있는 것이 없으면 연결이 아니다.
  */
 export function connectedSize(team: TeamId, ownerOf: (id: TileId) => TeamId | null): number {
-  const base = BASE_OF[team]
-  const seen = new Set<TileId>([base])
-  const queue: TileId[] = [base]
-  while (queue.length > 0) {
-    const cur = queue.shift() as TileId
-    for (const next of ADJACENCY[cur]) {
-      if (seen.has(next)) continue
-      if (ownerOf(next) !== team) continue
-      seen.add(next)
-      queue.push(next)
+  const ours = TILES.filter((t) => ownerOf(t.id) === team).map((t) => t.id)
+  const left = new Set<TileId>(ours)
+  let best = 0
+  for (const start of ours) {
+    if (!left.has(start)) continue
+    left.delete(start)
+    const queue: TileId[] = [start]
+    let n = 1
+    while (queue.length > 0) {
+      const cur = queue.shift() as TileId
+      for (const next of ADJACENCY[cur]) {
+        if (!left.has(next)) continue
+        left.delete(next)
+        n += 1
+        queue.push(next)
+      }
     }
+    if (n > best) best = n
   }
-  seen.delete(base)
-  return seen.size
+  return best > 1 ? best : 0
 }
 
 /**

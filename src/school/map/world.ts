@@ -545,10 +545,10 @@ export function spawnFor(_team: TeamId | null): { x: number; y: number } {
 /** 팀이 정해지기 전 기본 자리. */
 export const SPAWN = spawnFor(null)
 
-/** 조각이 떨어질 수 있는 곳 — 기지와 핵심 지역은 뺀다. */
-export const SPAWNABLE_TILES: TileId[] = BOARD.filter(
-  (t) => !CORE_TILES.has(t.id as TileId) && t.tier !== 'base',
-).map((t) => t.id as TileId)
+/** 조각이 떨어질 수 있는 곳 — 핵심 지역은 뺀다. */
+export const SPAWNABLE_TILES: TileId[] = BOARD.filter((t) => !CORE_TILES.has(t.id as TileId)).map(
+  (t) => t.id as TileId,
+)
 
 /**
  * 복도만 밟고 닿을 수 있는 방들. **다른 방을 지나가지는 않는다.**

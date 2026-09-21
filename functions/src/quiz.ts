@@ -74,7 +74,7 @@ const bankOf = (gameId: string) => gameRef(gameId).collection('secret').doc('qui
 const floorOf = (gameId: string) => gameRef(gameId).collection('secret').doc('quiz').collection('floor')
 
 /** 문제 종이가 떨어질 수 있는 방. 기지는 뺀다. */
-const DROP_TILES: TileId[] = TILES.filter((t) => t.homeOf === null).map((t) => t.id)
+const DROP_TILES: TileId[] = TILES.map((t) => t.id)
 
 /** 지금 내가 선 방. 걷는 중이면 null 이다. */
 async function whereAmI(gameId: string, uid: string): Promise<TileId | null> {
