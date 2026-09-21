@@ -36,30 +36,22 @@ export const PHASES_PER_DAY = 10
 export const PHASE_MINUTES = 60
 
 /**
- * 페이즈가 열릴 때 한 사람에게 주는 토큰.
+ * 페이즈가 열릴 때 **팀 상자에** 들어오는 토큰.
+ *
+ * **사람 수를 안 곱한다.** 전에는 1인당 넷씩(세 명짜리 팀은 다섯씩)
+ * 주고 인원을 곱해서, 네 명짜리 팀은 16, 세 명짜리는 15를 받았다.
+ * 곱하고 나니 한 페이즈에 방을 열여섯 번 드나들 수 있는 셈이라
+ * 토큰이 아무것도 조이지 못했고, 인원이 다른 팀을 맞추려고 얹은
+ * 보정도 곱셈이 만든 문제를 곱셈으로 덮는 것이었다.
+ *
+ * **여섯이다.** 팀이 몇이든 한 페이즈에 낼 수 있는 행동은 여섯 번.
+ * 인원이 다른 것은 손이 많고 적은 차이로 남고, 팀의 힘은 같다.
  *
  * **남으면 그대로 간다.** 토큰은 거래할 수 있는 물건이라, 페이즈가
  * 닫힐 때 태워 버리면 「토큰을 받고 무엇을 준다」가 성립하지 않는다.
  * 아껴 두었다가 자유 시간에 남에게 넘길 수도 있다.
  */
-export const TOKENS_PER_PHASE = 4
-
-/**
- * 머릿수가 모자란 팀이 한 사람당 더 받는 몫.
- *
- * 세 명짜리 팀은 1인당 5를 받아 팀 총합 15, 네 명짜리 팀은 4씩 16이
- * 된다. 사람 수만큼 손이 모자란 것은 어차피 그대로고, 여기서 맞추는
- * 것은 **팀이 한 페이즈에 낼 수 있는 행동의 총량**이다.
- *
- * 인원은 페이즈가 열리는 순간에 센다. 이적이 걸려 있으면 그날 아침에
- * 이미 발효돼 있으므로, 옮겨 간 사람은 새 팀 인원수로 받는다.
- */
-export const SHORT_TEAM_BONUS = 1
-
-/** 그 인원의 팀에서 한 사람이 받는 토큰. */
-export function grantFor(teamSize: number): number {
-  return teamSize < FULL_TEAM_SIZE ? TOKENS_PER_PHASE + SHORT_TEAM_BONUS : TOKENS_PER_PHASE
-}
+export const TOKENS_PER_PHASE = 6
 
 /**
  * 들고 다닐 수 있는 토큰의 한도.
@@ -67,8 +59,12 @@ export function grantFor(teamSize: number): number {
  * 남는 것을 그대로 두면 쉰 페이즈 동안 쌓여서 나중에는 아무 값도
  * 아니게 된다. 한편 한 푼도 못 남기면 거래할 물건이 못 된다.
  * **두 페이즈치까지** — 플레이테스트에서 제일 먼저 볼 값이다.
+ *
+ * 지급과 마찬가지로 **사람 수를 안 곱한다.** 곱하던 때에는 네 명짜리
+ * 팀의 한도가 32였는데, 한 페이즈에 16씩 받으니 한도에 닿을 일이
+ * 거의 없어 있으나 마나였다.
  */
-export const TOKEN_CAP = 8
+export const TOKEN_CAP = TOKENS_PER_PHASE * 2
 
 /**
  * 결석 보정 — 직전 페이즈에 **한 명도 움직이지 않은 팀**에게.
@@ -88,14 +84,10 @@ export function absenceRefund(unusedTokens: number): number {
   return Math.floor((unusedTokens * ABSENCE_REFUND_NUMERATOR) / ABSENCE_REFUND_DENOMINATOR)
 }
 
-/** 팀 상자가 들고 갈 수 있는 한도. 사람 수만큼 곱한다. */
-export const walletCap = (teamSize: number): number => TOKEN_CAP * teamSize
-
 /**
  * 이번 페이즈에 이 팀 상자가 갖게 될 토큰.
  *
- * **총량은 사람마다 지갑이던 때와 같다** — 사람 몫에 사람 수를 곱한다.
- * 달라지는 것은 힘이 아니라 「누가 쓸 것인가」를 말로 정해야 한다는 점이다.
+ * **인원을 안 본다.** 어느 팀이든 여섯씩 들어온다.
  *
  * 순서가 중요하다 — **먼저 한도까지 깎고, 그 뒤에 지급과 보정을 얹는다.**
  * 결석 보정으로 한도를 넘긴 팀은 여기서 정리된다. 얹은 다음에 깎으면
@@ -103,12 +95,10 @@ export const walletCap = (teamSize: number): number => TOKEN_CAP * teamSize
  */
 export function nextWallet(input: {
   held: number
-  teamSize: number
   /** 이 팀 몫의 결석 보정. 없으면 0. */
   refund?: number
 }): number {
-  const trimmed = Math.min(input.held, walletCap(input.teamSize))
-  return trimmed + grantFor(input.teamSize) * input.teamSize + (input.refund ?? 0)
+  return Math.min(input.held, TOKEN_CAP) + TOKENS_PER_PHASE + (input.refund ?? 0)
 }
 
 /**

@@ -9,9 +9,10 @@
 //
 //   HOST_CODE=... npx vite-node scripts/phase-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { VENDINGS } from '../shared/rules/shop'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { ACT_COST, MOVE_MINUTES, ROOM_KIND, capacityOf, grantFor, nextWallet, stepToward } from '../shared/rules/occupy'
+import { ACT_COST, MOVE_MINUTES, ROOM_KIND, TOKENS_PER_PHASE, capacityOf, nextWallet, stepToward } from '../shared/rules/occupy'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -74,6 +75,9 @@ async function must(name: string, tk: string, data: unknown): Promise<Record<str
 }
 
 const GAME = `ph${Date.now()}`
+/** 2-3 교실과 같은 층의 기계. 복도 칸이라 자유 시간에 그냥 선다 */
+const MACHINE = VENDINGS.find((v) => v.floor === 'f2')!.cell
+
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
 const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/pawns`)).map((p) => [p.id, p.d]))
@@ -186,9 +190,13 @@ async function main(): Promise<void> {
       },
     }),
   })
-  await must('roamTo', A[1].token, { gameId: GAME, tileId: 'classroom' })
+  /*
+   * **기계 앞으로 간다.** 매점 방에 서서 사던 자리다 — 자판기가
+   * 복도로 나간 뒤로는 방이 아니라 칸을 본다.
+   */
+  await must('standAt', A[1].token, { gameId: GAME, x: MACHINE.x, y: MACHINE.y })
   await must('buyShopItem', A[1].token, { gameId: GAME, itemId: 'nameTag' })
-  check(true, '자유 시간에 남의 명찰을 샀다')
+  check(true, '자유 시간에 자판기에서 남의 명찰을 샀다')
 
   const openedAt = dayHourMs(START, 1, 10)
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: openedAt, speed: 1 })
@@ -202,8 +210,14 @@ async function main(): Promise<void> {
   check(now.tileId === 'centralPlaza', '멀리 있던 사람이 **곧바로** 전선에 섰다', String(now.tileId))
   check(now.postTile === 'centralPlaza', '전투 자리도 그대로다', String(now.postTile))
   check(now.arriveAtMs === null, '걷는 중이 아니다', String(now.arriveAtMs))
-  // 도서관까지 간 a0 과 상점까지 간 A[1], 둘이 끌려 왔다
-  check(Number(opened.returned) === 2, '돌아온 사람 수를 센다', `${opened.returned}명`)
+  /*
+   * 도서관까지 **방을 옮겨** 간 a0 하나만 끌려 온다.
+   *
+   * A[1] 은 자판기 앞에 섰지만 그것은 복도 칸이라 선 방은 2-3 교실
+   * 그대로다(standAt 은 at 만 적는다) — 떠난 적이 없으니 돌아올 것도
+   * 없다. 기계가 방 안에 있던 때에는 이 사람도 둘째로 세어졌다.
+   */
+  check(Number(opened.returned) === 1, '방을 옮겨 갔던 사람만 끌려 온다', `${opened.returned}명`)
   check(Number(opened.allInAtMs) - openedAt < 60_000, '다 모인 시각은 곧 지금이다 — 아무도 안 걷는다',
     `${Number(opened.allInAtMs) - openedAt}ms`)
 
@@ -214,12 +228,15 @@ async function main(): Promise<void> {
   check(roamNow.code === 'FAILED_PRECONDITION', '페이즈 중에는 토큰을 써서 움직인다')
 
   console.log('\n── 토큰은 팀이 한 주머니를 나눠 쓴다 ──')
-  // 판이 시작할 때 한 벌, 페이즈가 열릴 때 또 한 벌. 사람 몫에 사람
-  // 수를 곱해 상자에 넣는다 — 상수 4·4·3·3을 읽지 않고 명단을 센다
-  const aSize = STARTING_TEAM_SIZES.A
-  const wantTokens = nextWallet({ held: grantFor(aSize) * aSize, teamSize: aSize })
+  // 판이 시작할 때 한 벌, 페이즈가 열릴 때 또 한 벌. **인원을 안 본다** —
+  // 어느 팀이든 여섯씩이다
+  const wantTokens = nextWallet({ held: TOKENS_PER_PHASE })
   const boxA = await boxOf('A')
-  check(boxA === wantTokens, '열릴 때 팀 상자가 인원수만큼 찬다', `${boxA}개 (바란 값 ${wantTokens})`)
+  check(boxA === wantTokens, '열릴 때 팀 상자에 여섯이 더 든다', `${boxA}개 (바란 값 ${wantTokens})`)
+
+  // **인원이 달라도 같다.** 곱셈이 돌아오면 여기가 갈라진다
+  const boxC = await boxOf('C')
+  check(boxC === boxA, `세 명짜리 C팀도 네 명짜리 A팀과 같다`, `C ${boxC} · A ${boxA}`)
 
   /**
    * 게임 시계를 민다. 걷는 10분이 지나야 도착한다.

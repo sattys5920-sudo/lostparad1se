@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
 import { TILE_BY_ID, FLOOR_NAME, ROAM_TO, type TileId } from '../shared/rules/board'
-import { ACT_COST, TOKENS_PER_PHASE, grantFor, walletCap } from '../shared/rules/occupy'
+import { ACT_COST, TOKENS_PER_PHASE, TOKEN_CAP } from '../shared/rules/occupy'
 import { SHOP_ITEMS, VENDINGS, atVending, priceOf } from '../shared/rules/shop'
 import { ITEM_BY_KIND, type ItemKind } from '../shared/rules/items'
 import { GARDEN_TILE } from '../shared/rules/crop'
@@ -310,9 +310,10 @@ async function main() {
   const teams = new Map<string, number>()
   for (const r of rows) teams.set(r.team, (teams.get(r.team) ?? 0) + 1)
   console.log(`  팀 나뉨 — ${[...teams].map(([t, n]) => `${t}팀 ${n}`).join(' · ')}`)
+  const boxes = [...new Set(rows.map((r) => r.tokens))]
   console.log(
-    `  한 팀 토큰 ${rows[0].tokens} — 1인 ${grantFor(4)} × 4명 = ${grantFor(4) * 4}, 이월 한도 ${walletCap(4)} ` +
-      `(규칙값 TOKENS_PER_PHASE=${TOKENS_PER_PHASE})`,
+    `  팀 상자 ${boxes.join(' / ')} — 페이즈마다 ${TOKENS_PER_PHASE}, 이월 한도 ${TOKEN_CAP}. ` +
+      (boxes.length === 1 ? '인원이 달라도 같다' : '✗ 팀마다 다르다 — 인원을 곱하고 있다'),
   )
   const rooms = new Set(rows.map((r) => r.room))
   console.log(`  선 방 ${[...rooms].join(', ')} — ${rooms.size === 1 ? '열넷이 한 방에서 시작한다' : '흩어져 있다'}`)

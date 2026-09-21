@@ -16,7 +16,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
-import { DEAL_TOKENS_PER_DAY, grantFor, isShortHanded } from '../../shared/rules/occupy'
+import { DEAL_TOKENS_PER_DAY, TOKENS_PER_PHASE, isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
@@ -376,7 +376,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
       // 아래 pawns 에 STARTING_RESOURCES 가 사람마다 하나씩 들어간다
       // 페이즈 상자. **첫 페이즈가 열리기 전에도 거래는 한다** —
       // 빈손으로 시작하면 첫날 아침에는 아무도 아무것도 못 건넨다
-      phaseTokens: grantFor(members.length) * members.length,
+      phaseTokens: TOKENS_PER_PHASE,
       pendingRefund: 0,
       researchTier: 0,
       handCount: 0,

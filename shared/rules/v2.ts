@@ -120,6 +120,14 @@ export const HALL_SIGHT = 6
 export const INTEL_VISION_BONUS = 1
 
 // ── 행동 토큰 ───────────────────────────────────────────────────
+//
+// **여기 있는 것은 전부 봇 시뮬레이터 몫이다**(shared/sim 만 읽는다).
+// 판의 토큰은 페이즈가 열릴 때 팀 상자에 들어오는 것 하나뿐이고,
+// 그 값은 occupy.ts 의 TOKENS_PER_PHASE·TOKEN_CAP 이다.
+//
+// **이름이 겹친다.** 아래 TOKEN_CAP 은 4이고 occupy.ts 의 TOKEN_CAP 은
+// 12다 — 어느 쪽을 들여다보는지 보고 읽어야 한다. 시뮬레이터를 페이즈
+// 모형으로 옮기면 이 묶음은 tokens.ts 와 같이 걷어낸다.
 
 /** 08:00에 받는 몫. */
 export const TOKEN_DAWN_GRANT = 2

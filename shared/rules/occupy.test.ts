@@ -13,7 +13,6 @@ import {
   KNOWLEDGE_PER_RESEARCH,
   KNOWLEDGE_PER_RESEARCH_OWNER,
   ROOM_CAPACITY,
-  SHORT_TEAM_BONUS,
   TOKEN_CAP,
   ROOM_KIND,
   TOKENS_PER_PHASE,
@@ -22,9 +21,7 @@ import {
   doAct,
   leftBehindCount,
   absenceRefunds,
-  grantFor,
   nextWallet,
-  walletCap,
   walletOf,
   ownerOf,
   robotsIn,
@@ -838,45 +835,36 @@ describe('토큰은 팀이 한 주머니를 나눠 쓴다', () => {
 })
 
 describe('토큰 지급', () => {
-  it('네 명이면 4, 모자란 팀은 한 사람당 하나 더', () => {
-    expect(grantFor(4)).toBe(TOKENS_PER_PHASE)
-    expect(grantFor(3)).toBe(TOKENS_PER_PHASE + SHORT_TEAM_BONUS)
+  it('팀 상자에 페이즈마다 여섯', () => {
+    expect(TOKENS_PER_PHASE).toBe(6)
+    expect(nextWallet({ held: 0 })).toBe(6)
   })
 
-  it('팀 총합이 엇비슷해진다 — 4인 16 대 3인 15', () => {
-    expect(grantFor(4) * 4).toBe(16)
-    expect(grantFor(3) * 3).toBe(15)
-  })
-
-  it('이적으로 인원이 바뀌면 그 인원수로 받는다', () => {
-    // 상수를 읽지 않고 명단을 세므로, 넷이 된 팀은 4를 받는다
-    expect(grantFor(4)).toBe(TOKENS_PER_PHASE)
-  })
-
-  it('상자에는 사람 몫에 사람 수를 곱해서 넣는다 — 총량은 그대로다', () => {
-    expect(nextWallet({ held: 0, teamSize: 4 })).toBe(grantFor(4) * 4)
-    expect(nextWallet({ held: 0, teamSize: 3 })).toBe(grantFor(3) * 3)
+  /*
+   * **인원을 안 본다.** 전에는 1인당 넷씩 주고 인원을 곱해서 4인 팀
+   * 16, 3인 팀 15였다. 곱셈이 돌아오면 이 시험이 먼저 깨진다.
+   */
+  it('세 명짜리 팀도 네 명짜리 팀도 똑같이 여섯', () => {
+    expect(nextWallet({ held: 0 })).toBe(TOKENS_PER_PHASE)
+    expect(nextWallet({ held: 0 })).not.toBe(TOKENS_PER_PHASE * 4)
   })
 
   it('한도까지 깎은 **뒤에** 얹는다', () => {
     // 순서가 뒤바뀌면 결석 보정이 그 자리에서 사라져 아무 뜻이 없다
-    const cap = walletCap(4)
-    expect(nextWallet({ held: cap + 5, teamSize: 4 })).toBe(cap + grantFor(4) * 4)
-    expect(nextWallet({ held: 2, teamSize: 4 })).toBe(2 + grantFor(4) * 4)
+    expect(nextWallet({ held: TOKEN_CAP + 5 })).toBe(TOKEN_CAP + TOKENS_PER_PHASE)
+    expect(nextWallet({ held: 2 })).toBe(2 + TOKENS_PER_PHASE)
   })
 
-  it('상자 한도는 사람 수만큼이다', () => {
-    expect(walletCap(4)).toBe(TOKEN_CAP * 4)
-    expect(walletCap(3)).toBe(TOKEN_CAP * 3)
+  it('상자 한도는 두 페이즈치다', () => {
+    expect(TOKEN_CAP).toBe(TOKENS_PER_PHASE * 2)
   })
 
   it('보정은 한도를 넘어서 얹힌다', () => {
-    const cap = walletCap(3)
-    const got = nextWallet({ held: cap, teamSize: 3, refund: 3 })
-    expect(got).toBe(cap + grantFor(3) * 3 + 3)
+    const got = nextWallet({ held: TOKEN_CAP, refund: 3 })
+    expect(got).toBe(TOKEN_CAP + TOKENS_PER_PHASE + 3)
     // 넘긴 것은 그다음 지급에서 한도까지 깎인다 — 안 그러면 계속
     // 결석해서 쌓아 두는 쪽이 이득이 된다
-    expect(nextWallet({ held: got, teamSize: 3 })).toBe(cap + grantFor(3) * 3)
+    expect(nextWallet({ held: got })).toBe(TOKEN_CAP + TOKENS_PER_PHASE)
   })
 })
 

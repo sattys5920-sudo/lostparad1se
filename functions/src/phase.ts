@@ -405,10 +405,11 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    *
    * **더해 준다.** 남은 토큰을 태우면 거래할 물건이 못 된다.
    *
-   * 인원은 지금 센다 — 이적이 그날 아침에 이미 발효돼 있으므로 옮겨
-   * 간 사람은 새 팀 인원수로 친다. 한도는 얹기 **전에** 깎는다: 결석
-   * 보정으로 넘긴 팀이 여기서 정리되고, 얹은 다음에 깎으면 보정이 그
-   * 자리에서 사라져 아무 뜻이 없어진다
+   * **인원은 안 본다.** 어느 팀이든 여섯씩이다 — 사람 수를 곱하던
+   * 때에는 네 명짜리 팀이 한 페이즈에 열여섯을 받아 토큰이 아무것도
+   * 조이지 못했다. 한도는 얹기 **전에** 깎는다: 결석 보정으로 넘긴
+   * 팀이 여기서 정리되고, 얹은 다음에 깎으면 보정이 그 자리에서
+   * 사라져 아무 뜻이 없어진다
    */
   for (const d of teams.docs) {
     const team = d.id as TeamId
@@ -416,7 +417,6 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     batch.update(d.ref, {
       phaseTokens: nextWallet({
         held: t.phaseTokens ?? 0,
-        teamSize: sizes[team],
         // 결석 보정에 투명인간 보정을 더한다. 둘 다 이때만 한도를
         // 넘고, 넘긴 것은 그다음 지급에서 정리된다
         refund: (t.pendingRefund ?? 0) + (team === game.invisibleTeam ? invisibleShare : 0),
@@ -497,7 +497,12 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   await Promise.all(returning.map((m) => openInterval(gameId, m.ref.id, m.post, nowMs)))
   await refreshViews(gameId)
   // allInAtMs 는 남겨 둔다 — 이제는 늘 지금이다. 아무도 걷지 않는다
-  return { no, returned, endsAtMs, allInAtMs: nowMs, granted: sizes, cap: TOKEN_CAP }
+  /*
+   * **granted 는 실제로 나눠 준 토큰이다.** 여기에 팀 인원수(sizes)가
+   * 들어가 있었다 — 운영자 화면에 「A:4 B:4 C:3 D:3」이 지급량으로
+   * 보였고, 그게 지급량이 아니라 머릿수라는 것을 아무 데도 안 적었다.
+   */
+  return { no, returned, endsAtMs, allInAtMs: nowMs, granted: TOKENS_PER_PHASE, sizes, cap: TOKEN_CAP }
 })
 
 // ── 각자: 지금 당장 하는 행동 ───────────────────────────────────
