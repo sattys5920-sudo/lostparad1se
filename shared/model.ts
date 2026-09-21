@@ -482,6 +482,11 @@ export interface PlayerViewDoc {
    * 자물쇠까지 오면 「저기 누가 있었다」가 공짜로 새어 나간다.
    */
   lockedTiles?: { tileId: TileId; team: TeamId }[]
+  /**
+   * 오늘 다 나간 품목. 자판기 칸이 어두워진다. **수는 안 온다** —
+   * 남았는지 아닌지만 있으면 칸을 그린다.
+   */
+  soldOutItems?: string[]
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**

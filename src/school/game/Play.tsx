@@ -19,7 +19,8 @@ import type { TeamId, TileId as RoomId } from '../types'
 import type { AvatarLook } from '../../../shared/look'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
-import { Actions, Shop } from './Actions'
+import { Actions } from './Actions'
+import { Vending } from './Vending'
 import { Walk, type DirWay } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog, leftText } from './Phase'
@@ -84,6 +85,7 @@ import { ringTile, tearTile } from './noteArt'
 import './ballot.css'
 import './note.css'
 import './me.css'
+import './vending.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
 
@@ -699,6 +701,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null
   const standingOn = (state.view?.visiblePawns.find((p) => p.playerId === uid)?.tileId ?? null) as TileId | null
+
+  /*
+   * **기계 앞을 떠나면 자판기가 저절로 닫힌다.**
+   *
+   * 화면이 남아 있으면 눌러 봐야 서버가 「상점에 서야 살 수 있다」로
+   * 거절한다. 거절로 알려 주는 것보다 닫아 주는 편이 맞다 — 떠난
+   * 것은 사람이 한 일이라 설명할 것이 없다.
+   */
+  useEffect(() => {
+    if (standingOn !== SHOP_TILE) setSheet((s) => (s === 'shop' ? null : s))
+  }, [standingOn])
   // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
   const hereNow = standingOn
     ? (state.view?.visiblePawns ?? []).filter((p) => p.playerId !== uid && p.tileId === standingOn)
@@ -1656,16 +1669,20 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </Sheet>
       )}
 
+      {/*
+        **자판기는 시트가 아니다.** 제목 줄 달린 종이 위에 기계를
+        얹으면 기계가 아니라 기계 그림이 된다 — 화면을 통째로 쓴다.
+      */}
       {sheet === 'shop' && (
-        <Sheet title="상점" onClose={closeSheet}>
-          <Shop
-            myTeam={me.team}
-            owner={(state.tiles[SHOP_TILE]?.ownerTeam ?? null) as TeamId | null}
-            money={state.view?.myVault?.money ?? 0}
-            act={act}
-            onSaid={setSaid}
-          />
-        </Sheet>
+        <Vending
+          myTeam={me.team}
+          owner={(state.tiles[SHOP_TILE]?.ownerTeam ?? null) as TeamId | null}
+          money={state.view?.myVault?.money ?? 0}
+          soldOut={state.view?.soldOutItems ?? []}
+          act={act}
+          onSaid={setSaid}
+          onClose={closeSheet}
+        />
       )}
 
       {/* 우리 팀 넷. **자원 줄을 누르면 여기가 열린다** — 작은 네모 넷만

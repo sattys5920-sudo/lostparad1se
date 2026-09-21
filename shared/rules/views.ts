@@ -19,6 +19,7 @@ import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { CardKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type TileId } from './board'
+import { SHOP_ITEMS } from './shop'
 import type { Satchel, Satchels } from './items'
 import { canSeeConfession, canSeeMemory } from '../reveal/archive'
 import { noticesFor, type Notice } from '../reveal/notice'
@@ -163,6 +164,13 @@ export interface World {
   progress: readonly { playerId: string; handledDays: readonly number[]; readDays: readonly number[] }[]
   confessions: readonly WorldConfession[]
   /** 판 위의 쪽지 전부. 투영이 여기서 **거의 다 잘라낸다.** */
+  /**
+   * 오늘 상점에서 나간 수. **품목 아이디마다 하나씩.**
+   *
+   * 자판기가 「오늘은 끝」을 그리려면 필요하다. 누가 샀는지는 여기
+   * 없다 — 기계가 비었다는 사실만 있다.
+   */
+  shopSold?: Readonly<Record<string, number>>
   slips?: readonly WorldSlip[]
   quizzes?: readonly WorldQuiz[]
   memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
@@ -313,6 +321,14 @@ export interface View {
    * 나간다 — 문을 잠근 사람은 그 방에 있었다는 뜻이다.
    */
   lockedTiles: { tileId: TileId; team: TeamId }[]
+  /**
+   * 오늘 다 나간 품목. 자판기 칸이 어두워진다.
+   *
+   * **하루 몫이 걸린 물건에만 해당한다.** 수는 안 보낸다 — 몇 개
+   * 남았는지는 기계가 알려 줄 일이 아니고, 남았는지 아닌지만 있으면
+   * 칸을 그린다.
+   */
+  soldOutItems: string[]
   /** 내가 들고 있는 쪽지. 읽은 것만 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**
@@ -411,6 +427,7 @@ export function projectView(world: World, viewerId: string): View {
       slipsHere: [],
       scrapsHere: [],
       lockedTiles: [],
+      soldOutItems: [],
       quizzesHere: [],
       mySlips: [],
       memories: [],
@@ -476,6 +493,11 @@ export function projectView(world: World, viewerId: string): View {
     lockedTiles: world.tiles
       .filter((t) => t.lockedBy != null && visible.has(t.tileId))
       .map((t) => ({ tileId: t.tileId, team: t.lockedBy as TeamId })),
+    // 오늘 다 나간 품목. 열넷에게 똑같이 간다 — 기계 앞에 서면 누구나
+    // 보이는 것이라 가릴 것이 없다
+    soldOutItems: SHOP_ITEMS.filter(
+      (i) => i.stockPerDay !== undefined && (world.shopSold?.[i.id] ?? 0) >= i.stockPerDay,
+    ).map((i) => i.id),
 
     // 우리 팀 것
     hand: world.hands

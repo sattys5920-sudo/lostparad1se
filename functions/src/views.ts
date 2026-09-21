@@ -58,7 +58,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -77,6 +77,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       gameRef(gameId).collection('secret').doc('ballots').collection('items').get(),
       gameRef(gameId).collection('secret').doc('quiz').collection('bank').get(),
       gameRef(gameId).collection('secret').doc('quiz').collection('floor').get(),
+      gameRef(gameId).collection('secret').doc('shopStock').collection('items').get(),
       secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
     ])
@@ -152,6 +153,14 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       const m = d.data() as { tileId: TileId; byPlayerId: string }
       return { id: d.id, tileId: m.tileId, byPlayerId: m.byPlayerId }
     }),
+    // 오늘 나간 수. **날짜가 지난 줄은 안 센다** — 어제 다 나간 것이
+    // 오늘도 비어 보이면 기계가 영영 안 찬다
+    shopSold: Object.fromEntries(
+      shopStock.docs
+        .map((d) => d.data() as { day?: number; itemId?: string; n?: number })
+        .filter((r) => r.day === game.day && typeof r.itemId === 'string')
+        .map((r) => [r.itemId as string, r.n ?? 0]),
+    ),
     tiles: tiles.docs.map((d) => {
       const t = d.data() as TileDoc
       // **지난 자물쇠는 없는 것이다.** 문서에는 남아 있어도 시각이

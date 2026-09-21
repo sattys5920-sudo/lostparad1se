@@ -4,12 +4,10 @@
 // 안 되는 것은 서버가 거절하며 그 이유를 말해 준다. 화면이 미리
 // 막으면 서버와 화면이 두 벌의 규칙을 갖게 되고, 둘이 어긋나는 날
 // 사람은 왜 안 되는지 알 수 없다.
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
-import { SHOP_ITEMS, shopPriceFor } from '../../../shared/rules/shop'
 import { capacityOf } from '../../../shared/rules/occupy'
-import type { GameActions } from './useGame'
 import type { TeamId } from '../types'
 
 export interface ActionsProps {
@@ -40,83 +38,6 @@ export interface ActionsProps {
   onClose?: () => void
   /** 제목 바로 아래에 끼울 것. 선 자리의 생산이 여기 들어온다. */
   children?: ReactNode
-}
-
-/** 서버가 한 말을 그대로 올린다. 화면이 문구를 지어내지 않는다. */
-function useRun(onSaid: (t: string) => void) {
-  const [busy, setBusy] = useState(false)
-  return {
-    busy,
-    run: async (label: string, fn: () => Promise<unknown>) => {
-      setBusy(true)
-      try {
-        await fn()
-        onSaid(`${label} 했다.`)
-      } catch (e) {
-        onSaid((e as Error).message)
-      } finally {
-        setBusy(false)
-      }
-    },
-  }
-}
-
-/**
- * 상점. **서 있어야 산다.**
- *
- * 값은 상점을 누가 쥐고 있느냐로 갈린다 — 차지한 팀은 무엇이든
- * 1코인이고, 나머지는 붙은 값을 그대로 주인 팀에게 낸다. 화면이
- * 미리 재 보이기만 하고, 되는지 안 되는지는 서버가 정한다.
- */
-export function Shop({
-  myTeam,
-  owner,
-  money,
-  act,
-  onSaid,
-}: {
-  myTeam: TeamId
-  /** 상점을 쥔 팀. 아무도 안 쥐고 있으면 null. */
-  owner: TeamId | null
-  money: number
-  act: GameActions
-  onSaid: (text: string) => void
-}) {
-  const { busy, run } = useRun(onSaid)
-  return (
-    <div className="sc-shop">
-      <p className="sc-shop__who">
-        {owner === myTeam ?
-          '우리 상점이다. 무엇이든 1코인.'
-        : owner ?
-          `${owner}팀 상점이다. 낸 돈은 그 팀 금고로 간다.`
-        : '주인 없는 상점이다. 낸 돈은 아무 데도 가지 않는다.'}
-        {' · '}돈 {money}
-      </p>
-      {SHOP_ITEMS.length === 0 ?
-        <p className="sc-pl__none">아직 파는 것이 없다.</p>
-      : <ul className="sc-shop__list">
-          {SHOP_ITEMS.map((i) => {
-            const price = shopPriceFor(i, myTeam, owner)
-            return (
-              <li key={i.id}>
-                <button disabled={busy} onClick={() => run(`${i.name} 사기`, () => act.buyShopItem(i.id))}>
-                  <b>
-                    {i.name}
-                    {/* 하루 몫이 걸린 물건. 몇 개 남았는지는 안 온다 —
-                        「오늘 한 개」라는 규칙만 알려 주면 된다 */}
-                    {i.stockPerDay !== undefined && <i>하루 {i.stockPerDay}개</i>}
-                  </b>
-                  <span>{i.text}</span>
-                  <em>{price.cost.money ?? 0}코인</em>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      }
-    </div>
-  )
 }
 
 export function Actions({ tileId, where, owner = null, lockedBy = null, onClose, children }: ActionsProps) {
