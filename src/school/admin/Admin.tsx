@@ -8,11 +8,16 @@
 // **화면이 막는 것은 하나도 없다.** 여기 있는 모든 단추는 서버가
 // 운영자 표시를 다시 확인한다. 이 페이지는 주소만 알면 누구나 열 수
 // 있고, 열어도 아무것도 안 된다.
+//
+// **세 탭이다 — 진행 · 놓기 · 관리.** 아홉 카드를 한 줄로 늘어놓았을
+// 때는 페이즈 하나 닫으려고 열 줄짜리 심부름 목록을 지나쳐야 했다.
+// 운영자가 하는 일은 자주 하는 순으로 셋이다: 판을 돌리는 것(페이즈·
+// 달력), 판 위에 무엇을 놓는 것(심부름·화분·종이), 가끔 손보는 것
+// (시작·QA·문제 은행·가입). 그 셋이 탭이다.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { deleteAccounts, listAccounts, logOut, type AccountSummary } from '../accounts'
 import { gameActions, useGame } from '../game/useGame'
-import { PhaseHost } from '../game/Phase'
 import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
 import { ErrandDesk } from './Errands'
@@ -57,15 +62,30 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '닷새 끝 · 엔딩',
 }
 
+type Tab = 'go' | 'put' | 'manage'
+
+/** 남은 시간. 한 시간 안쪽이라 분:초면 된다 */
+const leftText = (ms: number): string => {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
 function Desk() {
   const state = useGame(GAME_ID)
   const act = useMemo(() => gameActions(GAME_ID), [])
   const [said, setSaid] = useState('')
   const [busy, setBusy] = useState(false)
   const [qaPw, setQaPw] = useState('')
+  const [tab, setTab] = useState<Tab>('go')
   /** 다음에 넘길 달력 한 칸. 서버가 알려 준다 — 화면이 세지 않는다 */
   const [nextUp, setNextUp] = useState<{ kind: string; day: number } | null>(null)
   const nowMs = useGameNow(state.game?.clock)
+  /** 페이즈 남은 시간을 세는 초침 */
+  const [tick, setTick] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setTick(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -118,6 +138,7 @@ function Desk() {
 
   const game = state.game
   const seats = game?.seats ?? []
+  const running = game !== null && game !== undefined && game.phase !== 'lobby'
 
   /**
    * 다음에 넘길 것을 미리 묻는다.
@@ -143,91 +164,99 @@ function Desk() {
       alive = false
     }
   }, [act, phaseName, dayNow, said])
+
+  // 판이 돌기 전에는 진행·놓기 탭에 할 것이 없다. 관리로 보낸다
+  useEffect(() => {
+    if (!running) setTab('manage')
+  }, [running])
+
   const phaseNo = game?.phaseNow?.no ?? 0
   const phaseOpen = game?.phaseNow?.open === true
   const phaseEndsAtMs = game?.phaseNow?.endsAtMs ?? null
+  const phaseLeft =
+    phaseOpen && phaseEndsAtMs !== null ? (tick >= phaseEndsAtMs ? '시간 끝' : `${leftText(phaseEndsAtMs - tick)} 남음`) : null
 
   return (
     <div className="sc-ad">
-      <header className="sc-ad__top">
-        <h1>관리자</h1>
-        <span className="sc-ad__game">{GAME_ID}</span>
-        {/* 나가면 로그인 화면으로 돌아간다. 운영자는 계정이 없으므로
-            증표를 버리는 것이 곧 나가는 것이다 */}
-        <button className="sc-ad__out" onClick={() => void logOut()}>
-          나가기
-        </button>
-      </header>
+      {/* ── 머리줄. 구르는 동안에도 붙어 있다 ── */}
+      <div className="sc-ad__bar">
+        <header className="sc-ad__top">
+          <h1>관리자</h1>
+          <span className="sc-ad__game">{GAME_ID}</span>
+          {/* 나가면 로그인 화면으로 돌아간다. 운영자는 계정이 없으므로
+              증표를 버리는 것이 곧 나가는 것이다 */}
+          <button className="sc-ad__out" onClick={() => void logOut()}>
+            나가기
+          </button>
+        </header>
 
-      <section className="sc-ad__card">
-        <h2>판</h2>
-        {state.loading ? (
+        {/*
+          지금 상태 한 줄. **탭을 옮겨도 이건 보인다** — 페이즈가
+          열려 있는지, 며칠째인지는 어느 탭에서든 알아야 한다.
+        */}
+        {game && (
+          <div className="sc-ad__pills">
+            <span className={`sc-ad__pill${running ? ' is-live' : ''}`}>{game.phase}</span>
+            {running && <span className="sc-ad__pill">DAY {game.day}</span>}
+            {running && (
+              <span className={`sc-ad__pill${phaseOpen ? ' is-on' : ''}`}>
+                {phaseOpen ? `페이즈 ${phaseNo} 열림${phaseLeft ? ` · ${phaseLeft}` : ''}` : `페이즈 ${phaseNo} 닫힘`}
+              </span>
+            )}
+            <span className="sc-ad__pill">
+              {seats.length}/{TOTAL_SEATS}
+            </span>
+            {/* 게임 시계다. 개발용 배속을 걸어 두면 실제 시각과 다르다 */}
+            <span className="sc-ad__pill sc-ad__clock">{clockText(nowMs)}</span>
+          </div>
+        )}
+
+        {running && (
+          <nav className="sc-ad__tabs" aria-label="운영자 탭">
+            {(
+              [
+                ['go', '진행'],
+                ['put', '놓기'],
+                ['manage', '관리'],
+              ] as const
+            ).map(([id, name]) => (
+              <button key={id} className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
+                {name}
+              </button>
+            ))}
+          </nav>
+        )}
+      </div>
+
+      <div className="sc-ad__body">
+        {state.loading ?
           <p className="sc-ad__hint">불러오는 중</p>
-        ) : !game ? (
-          <>
+        : !game ?
+          /* ── 아직 판이 없다 ── */
+          <section className="sc-ad__sec">
+            <h2>판</h2>
             <p className="sc-ad__hint">아직 판이 없다.</p>
-            <button disabled={busy} onClick={() => void run('판 만들기', () => act.createGame())}>
+            <button className="is-primary" disabled={busy} onClick={() => void run('판 만들기', () => act.createGame())}>
               판 만들기
             </button>
             <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
-          </>
-        ) : (
+          </section>
+        : !running ?
+          /* ── 로비. 시작이 전부다 ── */
           <>
-            <dl className="sc-ad__facts">
-              <div><dt>상태</dt><dd>{game.phase}</dd></div>
-              <div><dt>사람</dt><dd>{seats.length} / {TOTAL_SEATS}</dd></div>
-              {/* 게임 시계다. 개발용 배속을 걸어 두면 실제 시각과 다르다 */}
-              <div><dt>지금</dt><dd>{clockText(nowMs)}</dd></div>
-            </dl>
-            {game.phase === 'lobby' && (
-              <>
-                <button disabled={busy} onClick={() => void run('시작', () => act.startGame())}>
-                  닷새 시작
-                </button>
-                {/*
-                  QA용. 비밀번호를 여기서 정하게 둔다 — 뻔한 값을 박아
-                  두면 qa01 이 그대로 뒷문이 된다.
-                  **자리를 다 채운다.** 운영자는 관리자 화면에 있지
-                  판 안에 있지 않아서, 한 자리를 비워 두면 열넷이
-                  안 차 시작을 못 한다
-                */}
-                <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
-                <button
-                  disabled={busy || qaPw.length < 8}
-                  onClick={() => void run('채우기', () => act.seedPlayers(qaPw, 0))}
-                >
-                  QA 열넷 채우기 (자리만)
-                </button>
-              </>
-            )}
-            <button disabled={busy} onClick={() => void run('따라잡기', () => act.tick())}>
-              따라잡기
-            </button>
-            {/*
-              **얼굴이 비어 있으면 그 사람은 점으로 뜬다.**
-              명단의 얼굴은 자리에 앉는 순간 한 번 찍힌다. 얼굴을
-              만들기 전에 앉았거나, 얼굴이 명단에 적히기 전의 옛 자리면
-              비어 있는 채로 남는다 — 판을 되돌리지 않고 여기서 고친다.
-            */}
-            <button
-              disabled={busy}
-              onClick={() =>
-                void run('얼굴 다시 읽기', async () => {
-                  const r = (await act.refreshFaces()) as { seats?: number; faces?: number }
-                  setSaid(`${r.seats ?? 0}자리 중 ${r.faces ?? 0}명의 얼굴을 읽었다.`)
-                  return {}
-                })
-              }
-            >
-              얼굴 다시 읽기
-            </button>
-            {/*
-              **계정을 지우면 자리가 남는다.**
-              지운 사람은 안 돌아오는데 자리는 차 있어서, 새로 가입한
-              사람이 「자리가 없다」를 듣는다. 지울 때 저절로 비우지만,
-              이미 그렇게 막힌 판은 여기서 푼다.
-            */}
-            {game.phase === 'lobby' && (
+            <section className="sc-ad__sec">
+              <h2>시작</h2>
+              <button className="is-primary" disabled={busy} onClick={() => void run('시작', () => act.startGame())}>
+                닷새 시작
+              </button>
+              <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
+              <button disabled={busy || qaPw.length < 8} onClick={() => void run('채우기', () => act.seedPlayers(qaPw, 0))}>
+                QA 열넷 채우기 (자리만)
+              </button>
+            </section>
+            <section className="sc-ad__sec">
+              <h2>자리</h2>
+              <p className="sc-ad__hint">계정을 지우면 자리가 남는다. 막힌 판은 여기서 푼다.</p>
               <button
                 disabled={busy}
                 onClick={() =>
@@ -235,9 +264,9 @@ function Desk() {
                     const r = (await act.sweepSeats()) as { freed?: string[]; left?: number; need?: number }
                     const n = r.freed?.length ?? 0
                     setSaid(
-                      n === 0
-                        ? `주인 없는 자리는 없다. ${r.left ?? 0} / ${r.need ?? 0} 앉아 있다.`
-                        : `${n}자리를 비웠다(${(r.freed ?? []).join(', ')}). 이제 ${r.left ?? 0} / ${r.need ?? 0} 이다.`,
+                      n === 0 ?
+                        `주인 없는 자리는 없다. ${r.left ?? 0} / ${r.need ?? 0} 앉아 있다.`
+                      : `${n}자리를 비웠다(${(r.freed ?? []).join(', ')}). 이제 ${r.left ?? 0} / ${r.need ?? 0} 이다.`,
                     )
                     return {}
                   })
@@ -245,103 +274,121 @@ function Desk() {
               >
                 주인 없는 자리 비우기
               </button>
-            )}
-            {game.phase !== 'lobby' && <ResetGame busy={busy} act={act} onSaid={setSaid} />}
+            </section>
+            <section className="sc-ad__sec">
+              <h2>가입</h2>
+              <Signups onSaid={setSaid} />
+            </section>
           </>
-        )}
-      </section>
-
-      {game && game.phase !== 'lobby' && (
-        <>
-          <section className="sc-ad__card">
-            <h2>달력</h2>
-            {/*
-              **시계가 판을 끝내지 않는다.**
-              세워 두고 며칠 지나면 아무도 안 들어온 사이에 닷새가
-              지나가 버려서, 다음에 들어온 사람은 엔딩만 봤다. 날이
-              바뀌는 것도 정산도 끝나는 것도 이제 여기서 민다.
-            */}
-            <p className="sc-ad__hint">
-              날은 저절로 바뀌지 않는다. 한 번 누르면 한 칸이다.
-            </p>
-            <dl className="sc-ad__facts">
-              <div>
-                <dt>지금</dt>
-                <dd>DAY {game.day}</dd>
-              </div>
-              <div>
-                <dt>다음</dt>
-                <dd>{nextUp ? `DAY ${nextUp.day} · ${CALENDAR[nextUp.kind] ?? nextUp.kind}` : '더 넘길 것이 없다'}</dd>
-              </div>
-            </dl>
-            <button
-              disabled={busy || nextUp === null}
-              onClick={() =>
-                void run(nextUp ? (CALENDAR[nextUp.kind] ?? '넘기기') : '넘기기', async () => {
-                  const r = (await act.pushDay()) as { next?: { kind: string; day: number } | null }
-                  setNextUp(r.next ?? null)
-                  return r
-                })
+        : tab === 'go' ?
+          /* ── 진행. 판을 돌리는 두 손잡이 ── */
+          <>
+            <section className="sc-ad__sec">
+              <h2>페이즈 {phaseNo}</h2>
+              <p className="sc-ad__hint">저절로 열리지 않는다. 여는 것도 닫는 것도 여기서.</p>
+              {phaseOpen ?
+                <button className="is-primary" disabled={busy} onClick={() => void run('닫기', () => act.closePhase())}>
+                  닫고 처리
+                  <span>{phaseLeft ?? '진행 중'}</span>
+                </button>
+              : <button className="is-primary" disabled={busy} onClick={() => void run('열기', () => act.openPhase())}>
+                  페이즈 열기
+                  <span>한 시간 · 종이 치면 열넷이 제자리로</span>
+                </button>
               }
-            >
-              다음으로 넘기기
-            </button>
-          </section>
+            </section>
 
-          <section className="sc-ad__card">
-            <h2>페이즈</h2>
-            <p className="sc-ad__hint">
-              페이즈는 저절로 열리지 않는다. 여는 것도 닫는 것도 여기서 한다.
-            </p>
-            <PhaseHost open={phaseOpen} no={phaseNo} endsAtMs={phaseEndsAtMs} act={act} onSaid={setSaid} />
-          </section>
+            <section className="sc-ad__sec">
+              <h2>달력</h2>
+              {/*
+                **시계가 판을 끝내지 않는다.** 세워 두고 며칠 지나면
+                아무도 안 들어온 사이에 닷새가 지나가 버려서, 다음에
+                들어온 사람은 엔딩만 봤다. 날이 바뀌는 것도 정산도
+                끝나는 것도 여기서 민다.
+              */}
+              <p className="sc-ad__hint">날은 저절로 바뀌지 않는다. 한 번 누르면 한 칸이다.</p>
+              <button
+                disabled={busy || nextUp === null}
+                onClick={() =>
+                  void run(nextUp ? (CALENDAR[nextUp.kind] ?? '넘기기') : '넘기기', async () => {
+                    const r = (await act.pushDay()) as { next?: { kind: string; day: number } | null }
+                    setNextUp(r.next ?? null)
+                    return r
+                  })
+                }
+              >
+                {nextUp ? `다음 — DAY ${nextUp.day} · ${CALENDAR[nextUp.kind] ?? nextUp.kind}` : '더 넘길 것이 없다'}
+              </button>
+            </section>
 
-          <section className="sc-ad__card">
-            <h2>방</h2>
-            {/* 시험용. 본래는 A의 기록이 날마다 두 칸씩 연다 */}
-            <button disabled={busy} onClick={() => void run('방 다 열기', () => act.openAllTiles())}>
-              핵심 방 다 열기
-            </button>
-          </section>
-
-          <section className="sc-ad__card">
-            <h2>가입</h2>
-            <Signups onSaid={setSaid} />
-          </section>
-
-          <section className="sc-ad__card">
-            <h2>떨어뜨리기</h2>
-            <p className="sc-ad__hint">
-              페이즈가 닫힐 때 서버가 알아서 뿌리는 것과 별개다. 지금 이 방 바닥에
-              한 장 놓는다.
-            </p>
-            <DropHost act={act} onSaid={setSaid} />
-          </section>
-
-          <section className="sc-ad__card">
-            <h2>심부름</h2>
-            <p className="sc-ad__hint">
-              <b>자동 배치는 없다.</b> 판에 붙는 심부름이 전부 이 칸을 거친다 — 안 붙이면
-              게시판이 종일 비어 있다.
-            </p>
-            <ErrandDesk act={act} onSaid={setSaid} />
-          </section>
-
-          <section className="sc-ad__card">
-            <h2>화분</h2>
-            <p className="sc-ad__hint">
-              <b>저절로 자라는 화분은 없다.</b> 정원의 여덟 자리가 전부 이 칸을 거친다 — 안 심으면
-              종일 빈 화분이다. 딴 것은 심은 사람이 아니라 <b>먼저 온 사람</b>이 가진다.
-            </p>
-            <GardenDesk act={act} onSaid={setSaid} />
-          </section>
-
-          <section className="sc-ad__card">
-            <h2>문제</h2>
-            <QuizHost act={act} onSaid={setSaid} />
-          </section>
-        </>
-      )}
+            <section className="sc-ad__sec">
+              <h2>시계</h2>
+              <p className="sc-ad__hint">밀린 예정을 지금 시각까지 처리한다. 아무 때나 눌러도 된다.</p>
+              <button disabled={busy} onClick={() => void run('따라잡기', () => act.tick())}>
+                따라잡기
+              </button>
+            </section>
+          </>
+        : tab === 'put' ?
+          /* ── 놓기. 판 위에 무엇을 둔다 ── */
+          <>
+            <section className="sc-ad__sec">
+              <h2>심부름</h2>
+              <p className="sc-ad__hint">자동 배치는 없다. 안 붙이면 게시판이 종일 비어 있다.</p>
+              <ErrandDesk act={act} onSaid={setSaid} />
+            </section>
+            <section className="sc-ad__sec">
+              <h2>화분</h2>
+              <p className="sc-ad__hint">저절로 자라는 화분은 없다. 딴 것은 먼저 온 사람이 가진다.</p>
+              <GardenDesk act={act} onSaid={setSaid} />
+            </section>
+            <section className="sc-ad__sec">
+              <h2>떨어뜨리기</h2>
+              <p className="sc-ad__hint">지금 그 방 바닥에 한 장 놓는다. 페이즈가 닫힐 때 서버가 뿌리는 것과 별개다.</p>
+              <DropHost act={act} onSaid={setSaid} />
+            </section>
+          </>
+        : /* ── 관리. 가끔 손보는 것 ── */
+          <>
+            <section className="sc-ad__sec">
+              <h2>판</h2>
+              {/*
+                **얼굴이 비어 있으면 그 사람은 점으로 뜬다.** 명단의
+                얼굴은 자리에 앉는 순간 한 번 찍힌다. 얼굴을 만들기
+                전에 앉았으면 비어 있는 채로 남는다 — 판을 되돌리지
+                않고 여기서 고친다.
+              */}
+              <div className="sc-ad__row">
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run('얼굴 다시 읽기', async () => {
+                      const r = (await act.refreshFaces()) as { seats?: number; faces?: number }
+                      setSaid(`${r.seats ?? 0}자리 중 ${r.faces ?? 0}명의 얼굴을 읽었다.`)
+                      return {}
+                    })
+                  }
+                >
+                  얼굴 다시 읽기
+                </button>
+                {/* 시험용. 본래는 A의 기록이 날마다 두 칸씩 연다 */}
+                <button disabled={busy} onClick={() => void run('방 다 열기', () => act.openAllTiles())}>
+                  핵심 방 다 열기
+                </button>
+              </div>
+              <ResetGame busy={busy} act={act} onSaid={setSaid} />
+            </section>
+            <section className="sc-ad__sec">
+              <h2>문제 은행</h2>
+              <QuizHost act={act} onSaid={setSaid} />
+            </section>
+            <section className="sc-ad__sec">
+              <h2>가입</h2>
+              <Signups onSaid={setSaid} />
+            </section>
+          </>
+        }
+      </div>
 
       {said && (
         <p className="sc-ad__said" onClick={() => setSaid('')}>

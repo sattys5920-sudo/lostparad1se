@@ -149,28 +149,41 @@ async function main() {
   await page.waitForSelector('.sc-ad', { timeout: 20_000 })
   await page.waitForTimeout(2000)
 
-  console.log('\n── 찍는다 ──')
+  console.log('\n── 정말 구르는가 ──')
   /*
-   * 한 장에 통째로. **fullPage 로는 안 된다** — 틀이 보이는 높이를
-   * 꽉 채우고 안에서 스크롤해서, 페이지 전체를 찍으면 8000px 짜리
-   * 빈 판이 나온다. 안쪽 높이만큼 화면을 늘려 놓고 그 틀을 찍는다.
+   * **scrollIntoView 로는 못 잰다.** 그건 잘린 상자도 프로그램으로
+   * 밀어 버려서, 손가락으로는 못 내리는 화면에서도 캡처가 됐다 —
+   * 그래서 「스크롤이 안 된다」를 한참 못 봤다. 휠로 밀고 scrollTop
+   * 을 읽는다. 0 이면 손가락으로도 안 내려간다.
    */
-  await fit(page, '.sc-ad')
-  await page.locator('.sc-ad').screenshot({ path: `${OUT}/0-전체.png` })
-  console.log('  찍었다 0-전체.png (한 장에 통째로)')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.locator('.sc-ad__tabs button', { hasText: '놓기' }).click()
+  await page.waitForTimeout(600)
+  await page.mouse.move(195, 500)
+  await page.mouse.wheel(0, 1500)
+  await page.waitForTimeout(400)
+  const top = await page.locator('.sc-ad').evaluate((n) => (n as HTMLElement).scrollTop)
+  const max = await page.locator('.sc-ad').evaluate((n) => (n as HTMLElement).scrollHeight - (n as HTMLElement).clientHeight)
+  console.log(`  놓기 탭을 휠로 밀었다 — scrollTop ${top} / 끝까지 ${max} → ${top > 0 ? '구른다 ✓' : '안 구른다 ✗'}`)
+  await page.screenshot({ path: `${OUT}/0-폰에서-내린-뒤.png` })
+  console.log('  찍었다 0-폰에서-내린-뒤.png')
 
-  for (const [title, file] of [
-    ['판', '1-판.png'],
-    ['달력', '2-달력.png'],
-    ['페이즈', '3-페이즈.png'],
-    ['방', '4-방.png'],
-    ['가입', '5-가입.png'],
-    ['떨어뜨리기', '6-떨어뜨리기.png'],
-    ['심부름', '7-심부름.png'],
-    ['화분', '8-화분.png'],
-    ['문제', '9-문제.png'],
+  console.log('\n── 탭마다 한 장 ──')
+  for (const [name, file] of [
+    ['진행', '1-진행.png'],
+    ['놓기', '2-놓기.png'],
+    ['관리', '3-관리.png'],
   ] as const) {
-    await card(page, title, file)
+    await page.setViewportSize({ width: W, height: 844 })
+    await page.locator('.sc-ad__tabs button', { hasText: name }).click()
+    await page.waitForTimeout(700)
+    // 폰 크기 그대로 한 장 — 처음 열었을 때 보이는 만큼
+    await page.locator('.sc-ad').evaluate((n) => ((n as HTMLElement).scrollTop = 0))
+    await page.screenshot({ path: `${OUT}/${file.replace('.png', '-폰.png')}` })
+    // 끝까지 펼친 한 장
+    await fit(page, '.sc-ad')
+    await page.locator('.sc-ad').screenshot({ path: `${OUT}/${file}` })
+    console.log(`  찍었다 ${file} (+ 폰 크기)`)
   }
 
   await browser.close()

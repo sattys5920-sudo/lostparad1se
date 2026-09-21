@@ -43,7 +43,18 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
       setPool(out.pool ?? [])
       setPosted(out.posted ?? [])
       setNowMs(out.nowMs ?? 0)
-      if (pick === '' && (out.pool ?? []).length > 0) setPick((out.pool ?? [])[0].id)
+      /*
+       * 기본으로 고르는 것은 **오늘 아직 안 나간 첫 것**이다. 첫 줄을
+       * 그냥 고르면 비커가 이미 나간 날에 「비커 (오늘 나갔다)」가
+       * 골라진 채로 뜨고, 붙이기가 죽어 있는 까닭을 한참 찾는다.
+       */
+      if (pick === '') {
+        const posted = out.posted ?? []
+        const day = posted.find((p) => !p.expired && p.doneBy === null)?.day ?? posted[0]?.day
+        const gone = new Set(posted.filter((p) => p.day === day).map((p) => p.specId))
+        const first = (out.pool ?? []).find((e) => !gone.has(e.id)) ?? (out.pool ?? [])[0]
+        if (first) setPick(first.id)
+      }
     } catch (e) {
       onSaid((e as Error).message)
     }
@@ -73,33 +84,13 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
 
   return (
     <div className="sc-ed">
-      {/* ── 풀 ─────────────────────────────────────────── */}
-      <h3>심부름 {pool.length}가지</h3>
-      {pool.length === 0 ?
-        <p className="sc-ad__hint">불러오는 중이다.</p>
-      : <ul className="sc-ed__pool">
-          {pool.map((e) => (
-            <li key={e.id}>
-              <b>
-                <img className="sc-ed__icon" src={goodIcon(e.icon ?? 'box')} alt="" width={18} height={18} />
-                {e.thing}
-              </b>
-              <span>
-                {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name} · {e.coins}코인 · {e.limitMin}분
-              </span>
-              <p>{e.text}</p>
-            </li>
-          ))}
-        </ul>
-      }
       {/* ── 붙이기 ──────────────────────────────────────── */}
-      <h3>붙이기</h3>
       <label className="sc-dr__row">
         <span>무엇</span>
         <select value={pick} onChange={(e) => setPick(e.target.value)}>
           {pool.map((e) => (
             <option key={e.id} value={e.id} disabled={today.has(e.id)}>
-              {e.thing}
+              {e.thing} · {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name}
               {today.has(e.id) ? ' (오늘 나갔다)' : ''}
             </option>
           ))}
@@ -116,18 +107,15 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
         </select>
       </label>
       <button
-        className="sc-dr__go"
+        className="is-primary"
         disabled={busy || pick === '' || onBoard(board) >= ERRANDS_PER_BOARD}
         onClick={() => void run('붙였다.', () => act.hostPostErrand(pick, board))}
       >
         붙이기
       </button>
-      <p className="sc-dr__hint">
-        붙고 난 뒤의 규칙은 누가 붙였든 같다. 받는 사람에게는 운영자가 붙였다는 티가 안 난다.
-      </p>
 
       {/* ── 지금 ────────────────────────────────────────── */}
-      <h3>지금 판 위</h3>
+      <h3>지금 판 위 {live.length > 0 && <em>{live.length}장</em>}</h3>
       {live.length === 0 ?
         <p className="sc-ad__hint">붙어 있는 것이 없다.</p>
       : <ul className="sc-ed__live">
@@ -143,6 +131,30 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
           ))}
         </ul>
       }
+
+      {/*
+        ── 풀 ───────────────────────────────────────────
+        **접어 둔다.** 열 가지가 늘 펼쳐져 있으면 붙이는 칸 하나
+        보려고 두 화면을 내려야 한다 — 고를 때는 위 목록에 다 있고,
+        무엇인지 읽고 싶을 때만 편다.
+      */}
+      <details className="sc-ed__pool">
+        <summary>심부름 {pool.length}가지 — 물건 · 길 · 값 · 시간</summary>
+        <ul>
+          {pool.map((e) => (
+            <li key={e.id}>
+              <b>
+                <img className="sc-ed__icon" src={goodIcon(e.icon ?? 'box')} alt="" width={18} height={18} />
+                {e.thing}
+              </b>
+              <span>
+                {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name} · {e.coins}코인 · {e.limitMin}분
+              </span>
+              <p>{e.text}</p>
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   )
 }
