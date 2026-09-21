@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { BOARDS, ERRANDS_PER_BOARD, minutesLeft, type ErrandSpec } from '../../../shared/rules/errand'
 import { goodIcon } from '../game/goodArt'
-import { TILE_BY_ID } from '../../../shared/rules/board'
+import { FLOOR_NAME, TILES, TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import type { GameActions } from '../game/useGame'
 
 interface Posted {
@@ -21,6 +21,8 @@ interface Posted {
   boardId: string
   board: string
   thing: string
+  from: string
+  to: string
   postedMs: number
   limitMin: number
   day: number
@@ -36,6 +38,8 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
   const [busy, setBusy] = useState(false)
   const [pick, setPick] = useState('')
   const [board, setBoard] = useState(BOARDS[0]?.id ?? '')
+  /** 어디로 가져갈지. **풀에 없다** — 붙일 때마다 여기서 고른다 */
+  const [to, setTo] = useState<TileId | ''>('')
 
   const load = useCallback(async () => {
     try {
@@ -77,6 +81,7 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
     }
   }
 
+  const chosen = pool.find((e) => e.id === pick) ?? null
   const live = posted.filter((p) => !p.expired && p.doneBy === null)
   /** 오늘 이미 나간 것. 다시 못 붙인다 — 자동 배치가 없어도 규칙은 같다 */
   const today = new Set(posted.filter((p) => p.day === (live[0]?.day ?? p.day)).map((p) => p.specId))
@@ -90,14 +95,31 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
         <select value={pick} onChange={(e) => setPick(e.target.value)}>
           {pool.map((e) => (
             <option key={e.id} value={e.id} disabled={today.has(e.id)}>
-              {e.thing} · {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name}
+              {e.thing} · {TILE_BY_ID[e.from]?.name}에 있다
               {today.has(e.id) ? ' (오늘 나갔다)' : ''}
             </option>
           ))}
         </select>
       </label>
+      {/*
+        도착지. **풀에 적혀 있지 않다.** 같은 비커라도 옆방으로 보내면
+        잔심부름이고 다른 층 끝으로 보내면 한 페이즈짜리 일이다 — 그
+        손잡이를 운영자가 쥔다. 물건이 있는 방은 고를 수 없다.
+      */}
       <label className="sc-dr__row">
-        <span>어디</span>
+        <span>어디로</span>
+        <select value={to} onChange={(e) => setTo(e.target.value as TileId)}>
+          <option value="">방을 고른다</option>
+          {TILES.map((t) => (
+            <option key={t.id} value={t.id} disabled={t.id === chosen?.from}>
+              {FLOOR_NAME[t.floor]} · {t.name}
+              {t.id === chosen?.from ? ' (물건이 있는 방)' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="sc-dr__row">
+        <span>게시판</span>
         <select value={board} onChange={(e) => setBoard(e.target.value)}>
           {BOARDS.map((b) => (
             <option key={b.id} value={b.id} disabled={onBoard(b.id) >= ERRANDS_PER_BOARD}>
@@ -108,10 +130,15 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
       </label>
       <button
         className="is-primary"
-        disabled={busy || pick === '' || onBoard(board) >= ERRANDS_PER_BOARD}
-        onClick={() => void run('붙였다.', () => act.hostPostErrand(pick, board))}
+        disabled={busy || pick === '' || to === '' || to === chosen?.from || onBoard(board) >= ERRANDS_PER_BOARD}
+        onClick={() => void run('붙였다.', () => act.hostPostErrand(pick, board, to as TileId))}
       >
         붙이기
+        {chosen && to !== '' && (
+          <span>
+            {chosen.thing} · {TILE_BY_ID[chosen.from]?.name} → {TILE_BY_ID[to]?.name}
+          </span>
+        )}
       </button>
 
       {/* ── 지금 ────────────────────────────────────────── */}
@@ -122,7 +149,9 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
           {live.map((p) => (
             <li key={p.id}>
               <b>{p.thing}</b>
-              <span>{p.board}</span>
+              <span>
+                {p.from} → {p.to} · {p.board}
+              </span>
               {/* **누가 받았는지는 안 온다.** 경주하는 중이라 운영자
                   화면에도 이름을 안 싣는다 — 세는 것까지다 */}
               <em>받은 사람 {p.takers}</em>
@@ -148,7 +177,7 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
                 {e.thing}
               </b>
               <span>
-                {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name} · {e.coins}코인 · {e.limitMin}분
+                {TILE_BY_ID[e.from]?.name}에 있다 · {e.coins}코인 · {e.limitMin}분
               </span>
               <p>{e.text}</p>
             </li>

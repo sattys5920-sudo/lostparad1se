@@ -147,6 +147,8 @@ async function main() {
    * 악보 뭉치는 음악실에서 방송실로, 둘 다 2층이다.
    */
   const SPEC = ERRAND_BY_ID.sheet
+  /** 어디로 보낼지는 붙일 때 고른다. 악보는 방송실로 */
+  const TO = 'broadcastRoom' as const
 
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
 
@@ -161,9 +163,13 @@ async function main() {
   }
   await desk.fill('#gt-code', hostCode())
   await desk.locator('.sc-gt__submit').click()
-  await desk.waitForSelector('.sc-ed', { timeout: 20_000 })
+  await desk.waitForSelector('.sc-ad', { timeout: 20_000 })
   await desk.waitForTimeout(1200)
-  const card = desk.locator('.sc-ad__card').filter({ has: desk.locator('h2:text-is("심부름")') })
+  // 운영자 화면은 세 탭이다. 심부름·화분은 「놓기」 안에 있다
+  await desk.locator('.sc-ad__tabs button', { hasText: '놓기' }).click()
+  await desk.waitForSelector('.sc-ed', { timeout: 20_000 })
+  await desk.waitForTimeout(600)
+  const card = desk.locator('.sc-ad__sec').filter({ has: desk.locator('h2:text-is("심부름")') })
   await card.scrollIntoViewIfNeeded()
   await desk.waitForTimeout(300)
   await card.screenshot({ path: `${OUT}/1-운영자-풀.png` })
@@ -194,9 +200,11 @@ async function main() {
   console.log('  찍었다 3a-빈-게시판.png')
 
   // 이제 운영자가 붙인다
+  // 무엇 · 어디로 · 게시판 — 셋을 고르고 붙인다
   await desk.locator('.sc-ed .sc-dr__row select').nth(0).selectOption(SPEC.id)
-  await desk.locator('.sc-ed .sc-dr__row select').nth(1).selectOption(board.id)
-  await desk.locator('.sc-dr__go', { hasText: '붙이기' }).click()
+  await desk.locator('.sc-ed .sc-dr__row select').nth(1).selectOption(TO)
+  await desk.locator('.sc-ed .sc-dr__row select').nth(2).selectOption(board.id)
+  await desk.locator('.sc-ed button', { hasText: '붙이기' }).click()
   await desk.waitForTimeout(1500)
   await card.scrollIntoViewIfNeeded()
   await card.screenshot({ path: `${OUT}/2-운영자-붙인뒤.png` })
@@ -244,7 +252,7 @@ async function main() {
   console.log('  찍었다 6b-들었다.png')
 
   // 놓을 방으로 걸어간다
-  await walkTo(page, game, meUid, thingCellOf('x', SPEC.to))
+  await walkTo(page, game, meUid, thingCellOf('x', TO))
   await page.waitForTimeout(1200)
 
   /*

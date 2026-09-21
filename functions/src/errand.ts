@@ -146,6 +146,8 @@ export const hostErrands = onCall<{ gameId: string }>(async (req) => {
         boardId: e.boardId,
         board: BOARD_BY_ID[e.boardId]?.name ?? e.boardId,
         thing: e.thing,
+        from: TILE_BY_ID[e.from]?.name ?? e.from,
+        to: TILE_BY_ID[e.to]?.name ?? e.to,
         postedMs: e.postedMs,
         limitMin: e.limitMin,
         day: e.day,
@@ -159,12 +161,16 @@ export const hostErrands = onCall<{ gameId: string }>(async (req) => {
 })
 
 /**
- * 고른 게시판에 한 장 붙인다.
+ * 고른 게시판에 한 장 붙인다. **도착지는 여기서 받는다.**
+ *
+ * 풀에는 「어디에 무슨 물건이 있는가」까지만 적혀 있다. 어디로 가져갈지는
+ * 붙이는 사람이 방을 고른다 — 그래서 같은 물건이 날마다 다른 일이 된다.
+ * 고른 방은 이 장에 베껴 두고 끝까지 안 바뀐다.
  *
  * **같은 심부름은 하루에 한 번만.** 자동 배치가 없으니 이 규칙도
  * 여기 하나에만 있으면 된다 — 손으로 뚫을 수 있는 문을 남기지 않는다.
  */
-export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: string }>(async (req) => {
+export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: string; to: TileId }>(async (req) => {
   requireHost(req.auth)
   const { gameId, specId, boardId } = req.data
   const board = BOARD_BY_ID[boardId]
@@ -173,6 +179,10 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
   const { game, nowMs } = await freshNow(gameId)
   const spec = ERRAND_BY_ID[String(specId)]
   if (!spec) throw new HttpsError('not-found', '그런 심부름이 없다.')
+  const to = req.data.to
+  if (!TILE_BY_ID[to]) throw new HttpsError('invalid-argument', '그런 방은 없다.')
+  // 있던 자리에 도로 놓는 것은 일이 아니다
+  if (to === spec.from) throw new HttpsError('invalid-argument', `${TILE_BY_ID[to].name}에 이미 있는 물건이다.`)
 
   const all = await postedOf(gameId).get()
   const rows = all.docs.map((d) => d.data() as ErrandDoc)
@@ -190,7 +200,7 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
     thing: spec.thing,
     icon: spec.icon ?? 'box',
     from: spec.from,
-    to: spec.to,
+    to,
     coins: spec.coins,
     limitMin: spec.limitMin,
     text: spec.text,
@@ -206,7 +216,7 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
   }
   const ref = await postedOf(gameId).add(doc)
   await refreshViews(gameId)
-  return { posted: ref.id, board: board.name }
+  return { posted: ref.id, board: board.name, to: TILE_BY_ID[to].name }
 })
 
 // ── 사람 ────────────────────────────────────────────────────────

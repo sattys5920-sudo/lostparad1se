@@ -41,8 +41,8 @@ export interface ErrandSpec {
   thing: string
   /** 도트 아이콘. 없으면 상자다. */
   icon?: ThingIcon
+  /** 물건이 놓여 있는 방. **여기까지가 데이터다** — 어디로 가져갈지는 붙일 때 운영자가 정한다. */
   from: TileId
-  to: TileId
   /** 보상. 먼저 놓은 사람 지갑으로 들어간다. */
   coins: number
   /** 붙은 때부터 이만큼 지나면 받은 사람 전원 실패. */
@@ -149,9 +149,11 @@ export const minutesLeft = (postedMs: number, limitMin: number, nowMs: number): 
  * 물건마다 도트를 그려 두려면 목록이 닫혀 있어야 하고, 이름과 그림이
  * 어긋나지 않는 편이 자유롭게 적는 것보다 낫다.
  *
- * 값은 거리로 정했다. 같은 층은 1~2코인에 20~35분, 층을 넘으면
- * 3코인에 40~45분 — 계단을 두 번 타는 일이 한 층 건너보다 싸면
- * 아무도 안 받는다.
+ * **여기 적힌 것은 「어디에 무슨 물건이 있는가」까지다.** 어디로
+ * 가져갈지는 붙일 때 운영자가 방을 고른다 — 같은 비커라도 옆방으로
+ * 보내면 잔심부름이고 다른 층 끝으로 보내면 한 페이즈짜리 일이다.
+ * 값과 시간은 물건에 붙어 있으니, 멀리 보내면 그만큼 박한 일이 된다.
+ * 그것도 운영자가 쥔 손잡이다.
  */
 export const ERRANDS: readonly ErrandSpec[] = [
   {
@@ -159,7 +161,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '비커',
     icon: 'beaker',
     from: 'labRoom',
-    to: 'annex',
     coins: 2,
     limitMin: 40,
     text: '깨지지 않게.',
@@ -169,7 +170,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '빗자루',
     icon: 'broom',
     from: 'gym',
-    to: 'auditorium',
     coins: 1,
     limitMin: 25,
     text: '쓰고 제자리에.',
@@ -179,7 +179,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '식판',
     icon: 'tray',
     from: 'cafeteria',
-    to: 'hallway',
     coins: 1,
     limitMin: 30,
     text: '한 장도 흘리지 말 것.',
@@ -189,7 +188,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '구급상자',
     icon: 'firstAid',
     from: 'annex',
-    to: 'playground',
     coins: 2,
     limitMin: 30,
     text: '뛰다 넘어진 애가 있다.',
@@ -199,7 +197,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '악보 뭉치',
     icon: 'sheet',
     from: 'musicRoom',
-    to: 'broadcastRoom',
     coins: 1,
     limitMin: 20,
     text: '순서가 흐트러지면 아무 쓸모가 없다.',
@@ -209,7 +206,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '마이크',
     icon: 'mic',
     from: 'broadcastRoom',
-    to: 'auditorium',
     coins: 2,
     limitMin: 35,
     text: '선은 감아서 들 것.',
@@ -219,7 +215,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '석고상',
     icon: 'bust',
     from: 'artRoom',
-    to: 'auditorium',
     coins: 3,
     limitMin: 40,
     text: '떨어뜨리면 끝이다.',
@@ -229,7 +224,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '물뿌리개',
     icon: 'can',
     from: 'storage',
-    to: 'garden',
     coins: 2,
     limitMin: 35,
     text: '가는 길에 다 흘리면 소용없다.',
@@ -239,7 +233,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '분필 상자',
     icon: 'chalk',
     from: 'storage',
-    to: 'centralPlaza',
     coins: 3,
     limitMin: 45,
     text: '한 통은 남겨 둘 것.',
@@ -249,7 +242,6 @@ export const ERRANDS: readonly ErrandSpec[] = [
     thing: '열쇠 꾸러미',
     icon: 'keys',
     from: 'oldBuilding',
-    to: 'studentCouncil',
     coins: 3,
     limitMin: 45,
     text: '소리 나는 것을 들고 다니는 셈이다.',

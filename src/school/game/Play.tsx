@@ -1275,7 +1275,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             }}
             onTapPerson={setPerson}
             /* 기물을 짚었다 — 앞에 서 있을 때만 온다(Walk 가 잰다) */
-            onTapFixture={(kind) => setSheet(kind === 'board' ? 'board' : 'shop')}
+            onTapFixture={(kind) => setSheet(kind === 'board' ? 'board' : kind === 'pot' ? 'garden' : 'shop')}
             /* 머리 위에 잠깐 뜨는 말 */
             says={says}
             names={names}

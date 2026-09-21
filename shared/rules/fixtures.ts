@@ -1,4 +1,4 @@
-// 복도에 붙박인 것 — 게시판과 자판기.
+// 붙박인 것 — 복도의 게시판과 자판기, 정원의 화분.
 //
 // **기물이다. 밟고 지나갈 수 없다.**
 //
@@ -11,6 +11,7 @@
 // 막는 자리와 여는 자리가 **같은 한 칸**이다: 그 칸을 밟을 수는
 // 없고, 둘레 한 칸에 서서 눌러야 열린다(atBoard · atVending).
 import type { Cell } from './board'
+import { POT_CELLS } from './crop'
 import { BOARDS } from './errand'
 import { VENDINGS } from './shop'
 
@@ -23,17 +24,24 @@ const keyOf = (x: number, y: number): string => `${x},${y}`
 export const FIXTURE_CELLS: ReadonlySet<string> = new Set([
   ...BOARDS.map((b) => keyOf(b.cell.x, b.cell.y)),
   ...VENDINGS.map((v) => keyOf(v.cell.x, v.cell.y)),
+  // 화분 여덟. 정원은 10×8 이라 여덟을 막으면 좁아지는데, 밟고 지나가는
+  // 화분은 화분이 아니다 — 그림과 판정이 같은 칸이어야 한다
+  ...POT_CELLS.map((c) => keyOf(c.x, c.y)),
 ])
 
 /** 그 칸에 기물이 서 있는가. 서 있으면 못 밟는다. */
 export const isFixture = (x: number, y: number): boolean => FIXTURE_CELLS.has(keyOf(x, y))
 
 /** 사람이 짚은 칸에 선 기물. 없으면 null — 화면이 무엇을 열지 이걸로 가른다. */
-export function fixtureAt(x: number, y: number): { kind: 'board' | 'vending'; name: string; cell: Cell } | null {
+export type FixtureKind = 'board' | 'vending' | 'pot'
+
+export function fixtureAt(x: number, y: number): { kind: FixtureKind; name: string; cell: Cell } | null {
   const b = BOARDS.find((s) => s.cell.x === x && s.cell.y === y)
   if (b) return { kind: 'board', name: b.name, cell: b.cell }
   const v = VENDINGS.find((s) => s.cell.x === x && s.cell.y === y)
   if (v) return { kind: 'vending', name: v.name, cell: v.cell }
+  const i = POT_CELLS.findIndex((c) => c.x === x && c.y === y)
+  if (i >= 0) return { kind: 'pot', name: `화분 ${i + 1}`, cell: POT_CELLS[i] }
   return null
 }
 

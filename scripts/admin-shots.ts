@@ -15,6 +15,7 @@ import { mkdirSync, readFileSync } from 'node:fs'
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
 import { BOARDS, ERRANDS } from '../shared/rules/errand'
+import { TILES } from '../shared/rules/board'
 
 const { chromium } = pw as typeof import('playwright')
 type Page = import('playwright').Page
@@ -123,8 +124,10 @@ async function main() {
   await must('tick', host, { gameId: GAME })
 
   // 심부름 두 장과 화분 셋 — 빈 카드는 무엇을 하는 자리인지 안 보인다
+  // 도착지는 붙일 때 고른다 — 여기서는 물건이 있는 방이 아닌 첫 방
   for (const [i, e] of ERRANDS.slice(0, 2).entries()) {
-    await must('hostPostErrand', host, { gameId: GAME, specId: e.id, boardId: BOARDS[i].id }).catch((x) =>
+    const to = TILES.find((t) => t.id !== e.from)!.id
+    await must('hostPostErrand', host, { gameId: GAME, specId: e.id, boardId: BOARDS[i].id, to }).catch((x) =>
       console.log(`  심부름 못 붙였다 — ${(x as Error).message}`),
     )
   }

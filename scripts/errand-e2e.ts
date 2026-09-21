@@ -119,15 +119,21 @@ async function main() {
   const pool = (await must('hostErrands', host, { gameId: game })) as { pool?: { id: string }[] }
   check((pool.pool ?? []).length >= 3, '판을 차릴 때 풀이 깔린다', `${(pool.pool ?? []).length}개`)
 
-  const asPlayer = await call('hostPostErrand', meTok, { gameId: game, specId: 'beaker', boardId: BOARD.id })
+  /** 도착지는 붙일 때 정한다. 비커는 양호실로 — 뒤의 놓기 시험이 거기 선다 */
+  const TO = 'annex'
+  const asPlayer = await call('hostPostErrand', meTok, { gameId: game, specId: 'beaker', boardId: BOARD.id, to: TO })
   check(!asPlayer.ok, '보통 사람은 못 붙인다', asPlayer.ok ? '붙었다' : (asPlayer.err ?? ''))
 
-  const posted = await must('hostPostErrand', host, { gameId: game, specId: 'beaker', boardId: BOARD.id })
+  // **물건이 있는 방으로는 못 보낸다.** 있던 자리에 도로 놓는 것은 일이 아니다
+  const back = await call('hostPostErrand', host, { gameId: game, specId: 'beaker', boardId: BOARD.id, to: 'labRoom' })
+  check(!back.ok, '물건이 있는 방으로는 못 보낸다', back.ok ? '붙었다' : (back.err ?? ''))
+  const posted = await must('hostPostErrand', host, { gameId: game, specId: 'beaker', boardId: BOARD.id, to: TO })
   check(String(posted.board) === BOARD.name, '고른 게시판에 붙었다', String(posted.board))
-  const again = await call('hostPostErrand', host, { gameId: game, specId: 'beaker', boardId: BOARD.id })
+  check(String(posted.to) === '양호실', '**도착지는 붙일 때 고른 방이다**', String(posted.to))
+  const again = await call('hostPostErrand', host, { gameId: game, specId: 'beaker', boardId: BOARD.id, to: TO })
   check(!again.ok, '**같은 심부름은 하루에 한 번**', again.ok ? '두 번 붙었다' : (again.err ?? ''))
-  await must('hostPostErrand', host, { gameId: game, specId: 'broom', boardId: BOARD.id })
-  const full = await call('hostPostErrand', host, { gameId: game, specId: 'tray', boardId: BOARD.id })
+  await must('hostPostErrand', host, { gameId: game, specId: 'broom', boardId: BOARD.id, to: 'auditorium' })
+  const full = await call('hostPostErrand', host, { gameId: game, specId: 'tray', boardId: BOARD.id, to: 'hallway' })
   check(!full.ok, '게시판은 두 장까지다', full.ok ? '세 장 붙었다' : (full.err ?? ''))
 
   console.log('\n── 앞에 서야 본다 ──')

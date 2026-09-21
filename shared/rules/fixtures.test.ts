@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest'
 import { FIXTURE_CELLS, facing, fixtureAt, isFixture } from './fixtures'
 import { BOARDS } from './errand'
 import { VENDINGS } from './shop'
+import { GARDEN_TILE, POT_CELLS } from './crop'
 import { isHallCell, roomOfCell } from './board'
 
 describe('기물', () => {
-  it('게시판 여섯과 자판기 셋이 전부다', () => {
-    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length)
-    expect(FIXTURE_CELLS.size).toBe(9)
+  it('게시판 여섯 · 자판기 셋 · 화분 여덟이 전부다', () => {
+    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length + POT_CELLS.length)
+    expect(FIXTURE_CELLS.size).toBe(17)
   })
 
   /*
@@ -19,6 +20,7 @@ describe('기물', () => {
   it('기물이 선 칸은 못 밟는다', () => {
     for (const b of BOARDS) expect(isFixture(b.cell.x, b.cell.y), b.name).toBe(true)
     for (const v of VENDINGS) expect(isFixture(v.cell.x, v.cell.y), v.name).toBe(true)
+    for (const [i, c] of POT_CELLS.entries()) expect(isFixture(c.x, c.y), `화분 ${i + 1}`).toBe(true)
   })
 
   it('옆 칸은 멀쩡히 밟는다 — 앞에 서야 하니까', () => {
@@ -33,6 +35,7 @@ describe('기물', () => {
     const v = VENDINGS[0]
     expect(fixtureAt(b.cell.x, b.cell.y)?.kind).toBe('board')
     expect(fixtureAt(v.cell.x, v.cell.y)?.kind).toBe('vending')
+    expect(fixtureAt(POT_CELLS[0].x, POT_CELLS[0].y)?.kind).toBe('pot')
     expect(fixtureAt(b.cell.x + 5, b.cell.y)).toBeNull()
   })
 
@@ -45,12 +48,16 @@ describe('기물', () => {
     expect(facing(null, at)).toBe(false)
   })
 
-  /** 기물은 복도에만 선다. 방 안에 서면 그 방 주인이 길목을 쥔다 */
-  it('아홉 칸 모두 복도다', () => {
-    for (const k of FIXTURE_CELLS) {
-      const [x, y] = k.split(',').map(Number)
-      expect(roomOfCell(x, y), k).toBeNull()
-      expect(isHallCell(x, y), k).toBe(true)
+  /** 게시판·자판기는 복도에만 선다. 방 안에 서면 그 방 주인이 길목을 쥔다 */
+  it('게시판과 자판기 아홉 칸은 모두 복도다', () => {
+    for (const c of [...BOARDS.map((b) => b.cell), ...VENDINGS.map((v) => v.cell)]) {
+      expect(roomOfCell(c.x, c.y), `${c.x},${c.y}`).toBeNull()
+      expect(isHallCell(c.x, c.y), `${c.x},${c.y}`).toBe(true)
     }
+  })
+
+  /** 화분은 반대다 — 정원 안이다. 복도에 화분이 서면 아무 팀의 정원도 아니다 */
+  it('화분 여덟 칸은 모두 정원 안이다', () => {
+    for (const c of POT_CELLS) expect(roomOfCell(c.x, c.y), `${c.x},${c.y}`).toBe(GARDEN_TILE)
   })
 })

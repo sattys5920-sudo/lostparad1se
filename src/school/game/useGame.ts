@@ -270,8 +270,8 @@ export function gameActions(gameId: string) {
     giveUpErrand: () => callServer('giveUpErrand', g),
     /** 운영자 — 풀과 판 위의 상황. */
     hostErrands: () => callServer('hostErrands', g),
-    hostPostErrand: (specId: string, boardId: string) =>
-      callServer('hostPostErrand', { ...g, specId, boardId }),
+    hostPostErrand: (specId: string, boardId: string, to: TileId) =>
+      callServer('hostPostErrand', { ...g, specId, boardId, to }),
 
     /**
      * 손으로 쓰는 물건 하나를 쓴다 — 자물쇠 · 빈 종이 · 지우개 · 테이프.

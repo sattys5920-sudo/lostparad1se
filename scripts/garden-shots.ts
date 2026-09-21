@@ -198,9 +198,12 @@ async function main() {
   }
   await desk.fill('#gt-code', hostCode())
   await desk.locator('.sc-gt__submit').click()
-  await desk.waitForSelector('.sc-ga', { timeout: 20_000 })
+  await desk.waitForSelector('.sc-ad', { timeout: 20_000 })
   await desk.waitForTimeout(1200)
-  const card = desk.locator('.sc-ad__card').filter({ has: desk.locator('h2:text-is("화분")') })
+  // 운영자 화면은 세 탭이다. 심부름·화분은 「놓기」 안에 있다
+  await desk.locator('.sc-ad__tabs button', { hasText: '놓기' }).click()
+  await desk.waitForTimeout(600)
+  const card = desk.locator('.sc-ad__sec').filter({ has: desk.locator('h2:text-is("화분")') })
   await card.scrollIntoViewIfNeeded()
   await desk.waitForTimeout(300)
   await card.screenshot({ path: `${OUT}/2-운영자-화분.png` })

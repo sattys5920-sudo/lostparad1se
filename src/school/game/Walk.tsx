@@ -51,7 +51,7 @@ import {
 import type { TeamId, TileId } from '../types'
 import type { ThingIcon } from '../../../shared/rules/errand'
 import { VENDINGS } from '../../../shared/rules/shop'
-import { facing, fixtureAt } from '../../../shared/rules/fixtures'
+import { facing, fixtureAt, type FixtureKind } from '../../../shared/rules/fixtures'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -87,7 +87,7 @@ export interface WalkProps {
    * 복도의 기물을 짚었다. **앞에 서 있을 때만 온다** — 멀리서 누른
    * 것은 걸음으로 친다.
    */
-  onTapFixture?: (kind: 'board' | 'vending') => void
+  onTapFixture?: (kind: FixtureKind) => void
   /**
    * 지금 머리 위에 띄울 말. 사람 아이디 → 한 줄.
    *
@@ -675,7 +675,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       }
 
       /*
-       * **기물을 짚었다.** 게시판이나 자판기다.
+       * **기물을 짚었다.** 게시판이나 자판기, 정원의 화분이다.
        *
        * 밟을 수 없는 칸이라 걸음으로 쳐 봐야 갈 데가 없다. 앞에 서
        * 있으면 열고, 멀면 아무 일도 안 한다 — 멀리서 눌러 열리면

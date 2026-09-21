@@ -55,11 +55,11 @@ describe('제한 시간', () => {
 })
 
 describe('심부름 열 가지', () => {
-  it('가져올 방과 놓을 방이 판에 있고, 서로 다르다', () => {
+  /** 도착지는 여기 없다 — 붙일 때 운영자가 정한다 */
+  it('물건이 있는 방이 판에 있다', () => {
     for (const e of ERRANDS) {
       expect(TILE_BY_ID[e.from], e.thing).toBeDefined()
-      expect(TILE_BY_ID[e.to], e.thing).toBeDefined()
-      expect(e.from, e.thing).not.toBe(e.to)
+      expect('to' in e, e.thing).toBe(false)
       expect(e.coins, e.thing).toBeGreaterThan(0)
       expect(e.limitMin, e.thing).toBeGreaterThan(0)
     }

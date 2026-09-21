@@ -85,6 +85,26 @@ console.log('\n── 기물을 막아도 스물다섯 방에 다 닿는다 ─�
   // 기물 칸 자체는 못 밟아야 한다. 막았다고 적어 놓고 안 막히면 헛일이다
   for (const b of BOARDS) say(!isWalkable(b.cell.x, b.cell.y) && isFixture(b.cell.x, b.cell.y), `${b.name} 게시판은 못 밟는다`)
   for (const v of VENDINGS) say(!isWalkable(v.cell.x, v.cell.y) && isFixture(v.cell.x, v.cell.y), `${v.name} 자판기는 못 밟는다`)
+  for (const [i, c] of POT_CELLS.entries()) say(!isWalkable(c.x, c.y) && isFixture(c.x, c.y), `화분 ${i + 1} 은 못 밟는다`)
+
+  /*
+   * **정원 안이 두 동강 나지 않았는가.** 10×8 에 화분 여덟과 가구
+   * 여섯이 서면 밟을 칸이 절반이다. 문에서 들어가 정원의 밟을 수
+   * 있는 칸에 다 닿는지, 화분마다 옆에 설 자리가 있는지 센다 — 설
+   * 자리가 없는 화분은 아무도 못 딴다.
+   */
+  const g = TILES.find((t) => t.id === GARDEN_TILE)!.plan
+  const inside = (x: number, y: number) => x >= g.x && x < g.x + g.w && y >= g.y && y < g.y + g.h
+  const floor = new Set<string>()
+  for (let y = g.y; y < g.y + g.h; y++) for (let x = g.x; x < g.x + g.w; x++) if (isWalkable(x, y)) floor.add(`${x},${y}`)
+  const reached = [...seen].filter((k) => floor.has(k))
+  say(reached.length === floor.size, `정원의 밟을 칸 ${floor.size} 중 ${reached.length} 에 닿는다`)
+  for (const [i, c] of POT_CELLS.entries()) {
+    const spots = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]
+      .map(([dx, dy]) => [c.x + dx, c.y + dy] as const)
+      .filter(([x, y]) => inside(x, y) && floor.has(`${x},${y}`))
+    say(spots.length > 0, `화분 ${i + 1} 옆에 설 자리 ${spots.length}`)
+  }
 }
 
 console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}자리가 틀렸다.`)

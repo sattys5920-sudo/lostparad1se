@@ -152,13 +152,17 @@ async function ageToFruit(game: string, i: number): Promise<{ cropId: string; wi
  * 것이 있을 때만 다시 쓴다. 옆 칸으로 한 걸음 옮겼다 돌아온다.
  */
 async function wake(game: string, tk: string, cell: { x: number; y: number }): Promise<void> {
+  await must('standAt', tk, { gameId: game, x: cell.x + 1, y: cell.y + 1 })
   await must('standAt', tk, { gameId: game, x: cell.x, y: cell.y + 1 })
-  await must('standAt', tk, { gameId: game, x: cell.x, y: cell.y })
 }
 
-/** 그 칸에 세운다. 정원 안이라야 서버가 받아 준다 */
+/**
+ * 그 화분 **옆**에 세운다. 화분 칸 자체는 기물이라 못 밟는다 — 전에는
+ * 화분 위에 서던 시험이라, 막히자마자 여기서 드러났다. 바로 아랫칸이다:
+ * 화분 두 줄(y100·y103) 아래에는 가구가 없다.
+ */
 async function standAt(game: string, tk: string, cell: { x: number; y: number }): Promise<void> {
-  await must('standAt', tk, { gameId: game, x: cell.x, y: cell.y })
+  await must('standAt', tk, { gameId: game, x: cell.x, y: cell.y + 1 })
 }
 
 const potsOf = (v: Record<string, unknown>) => arr(v.potsHere)
