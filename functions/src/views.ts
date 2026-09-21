@@ -154,7 +154,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     }),
     tiles: tiles.docs.map((d) => {
       const t = d.data() as TileDoc
-      return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
+      // **지난 자물쇠는 없는 것이다.** 문서에는 남아 있어도 시각이
+      // 지났으면 안 담는다 — 지우러 다시 오는 일을 만들지 않는다
+      const locked = t.lockedBy && (t.lockUntilMs ?? 0) > nowMs ? t.lockedBy : null
+      return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, lockedBy: locked }
     }),
     roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: r.roleId, bondId: r.bondId })),
     hands: hands.docs.map((d) => {
@@ -186,6 +189,9 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         tileId: s2.tileId ?? null,
         heldBy: s2.heldBy ?? null,
         readBy: s2.readBy ?? [],
+        // 찢긴 조각. 붙일 수 있는 사람이 그 방에 와야 다시 종이가 된다
+        torn: s2.tornBy != null,
+        tornAt: s2.tornAt ?? null,
       }
     }),
     // 문제 종이. **정답과 해설은 아예 안 싣는다.**

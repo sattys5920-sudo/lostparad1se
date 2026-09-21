@@ -1,12 +1,12 @@
 // 상점. 5행 2열, 옛 이름은 교실.
 //
-// **품목은 아직 비어 있다.** 무엇을 파는지는 사용자가 직접 채운다 —
-// 값과 효과가 정해지기 전에 아무 물건이나 넣어 두면, 나중에 지우는
-// 것보다 남아 있는 것이 더 큰 일이 된다. 빈 채로 두면 화면에도
-// 「아직 파는 것이 없다」로 정직하게 나온다.
+// **파는 것은 여섯이다.** 값은 여기 한 줄씩만 있고, 무엇을 하는
+// 물건인지는 items.ts 가 안다 — 같은 문장을 두 군데 적으면 한 군데만
+// 고치는 날이 온다.
 //
-// 상점 기능을 붙일 때 여기만 채우면 되도록, 파는 쪽 규칙(어디서
-// 살 수 있나)은 미리 적어 둔다.
+// 값을 매긴 자리: 팀 금고가 돈 8로 시작하고 생산 한 번이 3이다.
+// 그러니 3짜리는 「오늘 한 번 마음먹는 것」이고, 6짜리는 하루를
+// 통째로 모아야 하는 것이다.
 import type { Resource, TeamId } from './v2'
 import type { TileId } from './board'
 import { ITEM_BY_KIND, type ItemKind } from './items'
@@ -27,30 +27,30 @@ export interface ShopItem {
   stockPerDay?: number
 }
 
+/** 물건 이름과 설명은 카탈로그에서 그대로 가져온다. */
+const of = (kind: ItemKind) => ({ name: ITEM_BY_KIND[kind].name, text: ITEM_BY_KIND[kind].text, gives: kind })
+
 /**
  * 파는 물건.
  *
- * **값은 아직 임시다.** 방해와 위장이 물건 없이는 안 되게 바뀌면서,
- * 물건이 하나도 없으면 그 두 행동이 판에서 아예 사라진다 — 그래서
- * 두 가지만 먼저 얹어 뒀다. 값은 한 줄씩 고치면 된다.
- *
- * 나머지 품목은 사용자가 채운다.
+ * 둘은 행동에 딸린 것이고(호루라기 · 명찰), 넷은 손으로 쓰는 것이다.
+ * 갈래를 여기서 적지 않는다 — items.ts 의 use 가 그것을 안다.
  */
 export const SHOP_ITEMS: readonly ShopItem[] = [
-  {
-    id: 'whistle',
-    name: ITEM_BY_KIND.whistle.name,
-    text: ITEM_BY_KIND.whistle.text,
-    cost: { money: 3 },
-    gives: 'whistle',
-  },
-  {
-    id: 'nameTag',
-    name: ITEM_BY_KIND.nameTag.name,
-    text: ITEM_BY_KIND.nameTag.text,
-    cost: { money: 3 },
-    gives: 'nameTag',
-  },
+  { id: 'whistle', ...of('whistle'), cost: { money: 3 } },
+  { id: 'nameTag', ...of('nameTag'), cost: { money: 3 } },
+  { id: 'lock', ...of('lock'), cost: { money: 4 } },
+  // 제일 싸다. 종이가 흔해야 바닥에 뭔가 떨어져 있는 학교가 된다
+  { id: 'paper', ...of('paper'), cost: { money: 2 } },
+  /*
+   * **제일 비싸고, 하나뿐이다.**
+   *
+   * 오늘 내게 적힌 표를 지우는 물건이다. 돈만 있으면 몇 장이든
+   * 지울 수 있게 두면 부자 팀은 투명인간 투표 밖에 서게 되고,
+   * 그러면 이 게임에서 제일 무서운 규칙이 돈으로 꺼진다.
+   */
+  { id: 'eraser', ...of('eraser'), cost: { money: 6 }, stockPerDay: 1 },
+  { id: 'tape', ...of('tape'), cost: { money: 4 } },
 ]
 
 export const shopItemById = (id: string): ShopItem | null =>

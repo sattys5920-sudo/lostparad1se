@@ -629,6 +629,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [standingRoom, setStandingRoom] = useState<TileId | null>(null)
   /** 맵에서 누른 먼 방. 거기로 걸어가거나 내일 아침을 예약한다. */
   const [far, setFar] = useState<TileId | null>(null)
+  /**
+   * 그 방을 잠근 팀. **서버가 보내 준 것만 본다** — 안 보이는 방의
+   * 자물쇠는 애초에 안 내려온다.
+   */
+  const lockedBy = useCallback(
+    (id: TileId | null): TeamId | null =>
+      (id === null ? null : (state.view?.lockedTiles?.find((l) => l.tileId === id)?.team ?? null)) as TeamId | null,
+    [state.view],
+  )
   const [said, setSaid] = useState('')
   /** 서버가 거절한 말인가. 거절은 눌러서 지울 때까지 남는다. */
   const [bad, setBad] = useState(false)
@@ -1511,13 +1520,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   tileId={far}
                   where="there"
                   owner={(state.tiles[far]?.ownerTeam ?? null) as TeamId | null}
+                  lockedBy={lockedBy(far)}
                   onClose={() => setFar(null)}
                 />
               )}
               {standingRoom ? (
                 /* 생산·공부는 페이즈로 갔다. 자유 시간에 이 방에서
                    할 것은 만나는 일뿐이다 */
-                <Actions tileId={standingRoom} where="here" />
+                <Actions tileId={standingRoom} where="here" lockedBy={lockedBy(standingRoom)} />
               ) : (
                 <p className="sc-pl__none">복도에서는 할 것이 없다.</p>
               )}

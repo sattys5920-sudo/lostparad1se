@@ -163,6 +163,15 @@ export interface TileDoc {
   reinforcedBy?: number
   /** 봉쇄 카드. 게임 시계 기준. */
   blockedUntilMs?: GameMs
+  /**
+   * 자물쇠를 건 팀. 그 팀 말고는 못 들어온다.
+   *
+   * 언제까지인지는 lockUntilMs 가 따로 든다 — 지난 자물쇠를 지우러
+   * 다시 오는 일이 없게, 시각만 보고 살았는지 죽었는지를 판단한다.
+   */
+  lockedBy?: TeamId | null
+  /** 자물쇠가 풀리는 시각. **게임 시계 기준.** */
+  lockUntilMs?: GameMs
 }
 
 /**
@@ -461,6 +470,18 @@ export interface PlayerViewDoc {
    * 무엇이 적혔는지도 누구의 비밀인지도 안 온다 — 주워서 읽어야 안다.
    */
   slipsHere: { id: string }[]
+  /**
+   * 내가 선 방에 남은 **찢긴 조각.** 「한 무더기 있다」까지다.
+   *
+   * 무엇이 적혔던 종이인지도, 누가 찢었는지도 안 온다 — 테이프로
+   * 붙여야 종이가 되고, 읽어야 문장이 온다.
+   */
+  scrapsHere?: { id: string }[]
+  /**
+   * 지금 잠긴 방과 잠근 팀. **보이는 방만 온다** — 안 보이는 방의
+   * 자물쇠까지 오면 「저기 누가 있었다」가 공짜로 새어 나간다.
+   */
+  lockedTiles?: { tileId: TileId; team: TeamId }[]
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**

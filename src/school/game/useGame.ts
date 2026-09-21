@@ -245,6 +245,14 @@ export function gameActions(gameId: string) {
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
     tearSlip: (slipId: string) => callServer('tearSlip', { ...g, slipId }),
     giveSlip: (slipId: string, toPlayerId: string) => callServer('giveSlip', { ...g, slipId, toPlayerId }),
+    /**
+     * 손으로 쓰는 물건 하나를 쓴다 — 자물쇠 · 빈 종이 · 지우개 · 테이프.
+     *
+     * 문이 하나다. 무엇이 일어나는지는 서버가 정하고, 화면은 무엇을
+     * 적어 냈는지만 보낸다.
+     */
+    useItem: (kind: string, more: { text?: string; scrapId?: string } = {}) =>
+      callServer('useItem', { ...g, kind, ...more }),
     /** 문제 종이를 펼친다. **그 방 사람 전원에게 보이게 된다.** */
     openQuiz: (paperId: string) => callServer('openQuiz', { ...g, paperId }),
     /** 답을 낸다. 채점은 서버가 한다 — 화면은 정답을 모른다. */

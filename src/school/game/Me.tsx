@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
-import { ITEM_BY_KIND, type ItemKind } from '../../../shared/rules/items'
+import { Bag } from './UseItem'
 import { REVEAL_PRIVATE_WARNING } from '../../../shared/rules/reveal'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
@@ -143,21 +143,7 @@ export function Me(props: MeProps) {
           {haveOpen && (
             <div className="sc-mi__open">
               <h4>아이템</h4>
-              {itemCount === 0 ? (
-                <p className="sc-mi__none">가진 것이 없다.</p>
-              ) : (
-                <ul className="sc-mi__bag">
-                  {(Object.entries(items) as [ItemKind, number][])
-                    .filter(([, n]) => n > 0)
-                    .map(([kind, n]) => (
-                      <li key={kind}>
-                        <b>{ITEM_BY_KIND[kind]?.name ?? kind}</b>
-                        <span>{n}개</span>
-                        <p>{ITEM_BY_KIND[kind]?.text ?? ''}</p>
-                      </li>
-                    ))}
-                </ul>
-              )}
+              <Bag items={items} view={view} act={act} onSaid={onSaid} ask={props.ask} />
               <h4>쪽지</h4>
               {slipCount === 0 && floorSlips === 0 ? (
                 <p className="sc-mi__none">들고 있는 쪽지가 없다.</p>

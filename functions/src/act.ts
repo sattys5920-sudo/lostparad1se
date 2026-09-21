@@ -173,22 +173,39 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
   const owner = (shopSnap.data() as { ownerTeam?: TeamId | null } | undefined)?.ownerTeam ?? null
   const price = shopPriceFor(item, pawn.team, owner)
 
+  /**
+   * 하루 몫이 걸린 물건. **판 전체에서 그만큼까지다.**
+   *
+   * 이벤트를 세지 않고 칸 하나를 올린다. 세는 쪽은 색인이 필요하고,
+   * 무엇보다 같은 순간 둘이 사면 둘 다 「아직 남았다」를 본다 —
+   * 트랜잭션 안에서 올리는 칸이라야 열넷이 동시에 눌러도 하나다.
+   */
+  const stockRef = item.stockPerDay
+    ? ref.collection('secret').doc('shopStock').collection('items').doc(`d${game.day}:${item.id}`)
+    : null
+
   await db.runTransaction(async (tx) => {
     const mineRef = ref.collection('teams').doc(pawn.team)
     const hisRef = price.payTo ? ref.collection('teams').doc(price.payTo) : null
     // **값은 팀 금고에서, 물건은 산 사람 주머니로.** 물건이 팀 것이던
     // 때에는 상점에 다녀온 사람과 쓰는 사람이 달라도 됐다
     const meRef = ref.collection('pawns').doc(uid)
-    const [mineSnap, hisSnap, meSnap] = await Promise.all([
+    const [mineSnap, hisSnap, meSnap, stockSnap] = await Promise.all([
       tx.get(mineRef),
       hisRef ? tx.get(hisRef) : null,
       tx.get(meRef),
+      stockRef ? tx.get(stockRef) : null,
     ])
+    const soldToday = ((stockSnap?.data() as { n?: number } | undefined)?.n ?? 0)
+    if (stockRef && item.stockPerDay && soldToday >= item.stockPerDay) {
+      throw new HttpsError('failed-precondition', `오늘 ${item.name}은(는) 다 나갔다.`)
+    }
     const mine = mineSnap.data() as TeamDoc
     const left = pay(mine.resources, price.cost)
     if (!left) throw new HttpsError('failed-precondition', '돈이 모자라다.')
 
     tx.update(mineRef, { resources: left })
+    if (stockRef) tx.set(stockRef, { day: game.day, itemId: item.id, n: soldToday + 1 })
     if (item.gives) {
       const bag = (meSnap.data() as { items?: Satchel } | undefined)?.items
       tx.update(meRef, { items: putItem(bag, item.gives) })

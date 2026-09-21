@@ -359,6 +359,13 @@
 .sc-ac { display: flex; flex-direction: column; gap: 7px; }
 .sc-ac h2 { margin: 6px 0 0; font-size: 14px; display: flex; align-items: baseline; gap: 7px; }
 .sc-ac h2 span { font-size: 11px; color: var(--sc-text-dim); font-weight: 400; }
+/* 잠긴 방. 흐린 글씨에 묻히면 안 되므로 테를 두른다 */
+.sc-ac h2 span.sc-ac__locked {
+  padding: 1px 6px;
+  border: 1px solid var(--sc-line);
+  border-radius: 4px;
+  color: var(--sc-text);
+}
 
 .sc-ac__row { display: flex; gap: 6px; }
 /* 먼 방 패널 — 차지한 팀과 정원 둘뿐이다 */
@@ -1926,6 +1933,17 @@ p.sc-cv { display: block; }
   color: var(--sc-text);
 }
 .sc-shop__list b { font-size: 14px; font-weight: 600; }
+/* 하루 몫 딱지. 이름 옆에 작게 붙는다 */
+.sc-shop__list b i {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--sc-line);
+  border-radius: 4px;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sc-text-dim);
+}
 /* 값은 오른쪽 위에 붙는다. 무엇을 사는지보다 얼마인지가 먼저 눈에 든다 */
 .sc-shop__list em {
   grid-row: 1;

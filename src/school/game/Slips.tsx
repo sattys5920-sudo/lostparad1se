@@ -26,7 +26,9 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsPro
 
   const floor = view?.slipsHere ?? []
   const mine = view?.mySlips ?? []
-  if (floor.length === 0 && mine.length === 0) return null
+  /** 이 방에 남은 찢긴 조각. 붙이는 것은 테이프가 한다(주머니 쪽). */
+  const scraps = view?.scrapsHere ?? []
+  if (floor.length === 0 && mine.length === 0 && scraps.length === 0) return null
 
   async function run(what: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -61,6 +63,17 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsPro
             ))}
           </div>
         </>
+      )}
+
+      {/*
+        찢긴 조각. **여기에는 단추가 없다** — 붙이는 것은 테이프가
+        하는 일이고, 테이프는 주머니에 있다. 여기서 또 누르게 두면
+        물건 없이도 붙일 수 있는 것처럼 보인다
+      */}
+      {scraps.length > 0 && (
+        <p className="sc-sl__hint">
+          찢긴 조각이 {scraps.length}무더기 남아 있다. 테이프가 있으면 붙일 수 있다.
+        </p>
       )}
 
       {mine.length > 0 && (

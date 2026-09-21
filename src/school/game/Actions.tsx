@@ -23,6 +23,13 @@ export interface ActionsProps {
    */
   where: 'here' | 'there'
   /**
+   * 그 방을 잠근 팀. 자물쇠가 없으면 null 이다.
+   *
+   * **보이는 방만 온다**(서버의 lockedTiles). 안 보이는 방의 자물쇠는
+   * 애초에 안 내려와서 여기에도 안 뜬다.
+   */
+  lockedBy?: TeamId | null
+  /**
    * 그 방을 차지한 팀. 없으면 null 이다.
    *
    * **안개가 가리지 않는다.** 누가 어디를 차지했는지는 판에 드러난
@@ -94,7 +101,12 @@ export function Shop({
             return (
               <li key={i.id}>
                 <button disabled={busy} onClick={() => run(`${i.name} 사기`, () => act.buyShopItem(i.id))}>
-                  <b>{i.name}</b>
+                  <b>
+                    {i.name}
+                    {/* 하루 몫이 걸린 물건. 몇 개 남았는지는 안 온다 —
+                        「오늘 한 개」라는 규칙만 알려 주면 된다 */}
+                    {i.stockPerDay !== undefined && <i>하루 {i.stockPerDay}개</i>}
+                  </b>
                   <span>{i.text}</span>
                   <em>{price.cost.money ?? 0}코인</em>
                 </button>
@@ -107,13 +119,16 @@ export function Shop({
   )
 }
 
-export function Actions({ tileId, where, owner = null, onClose, children }: ActionsProps) {
+export function Actions({ tileId, where, owner = null, lockedBy = null, onClose, children }: ActionsProps) {
   const spec = TILE_BY_ID[tileId]
 
   return (
     <div className="sc-ac">
       <h2>
         {spec.name}
+        {/* 자물쇠. 값보다 먼저 눈에 들어야 한다 — 걸어갔다가 문 앞에서
+            돌아서는 것이 제일 아깝다 */}
+        {lockedBy && <span className="sc-ac__locked">{lockedBy}팀이 잠갔다</span>}
         {where === 'here' && <span>{spec.value}점</span>}
         {onClose && (
           <button className="sc-ac__close" onClick={onClose} aria-label="닫기">

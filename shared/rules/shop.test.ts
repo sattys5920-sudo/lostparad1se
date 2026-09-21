@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 
 import { SHOP_ITEMS, SHOP_OWNER_PRICE, SHOP_TILE, shopItemById, shopPriceFor, type ShopItem } from './shop'
 import { TILE_BY_ID } from './board'
-import { ITEM_BY_KIND } from './items'
+import { ITEM_BY_KIND, ITEM_KINDS, type ItemKind } from './items'
 
-/** 품목이 아직 비어 있어서 값 규칙은 가짜 물건으로 확인한다. */
+/** 값 규칙은 파는 목록과 상관없이 돌아야 한다. 가짜 물건으로 본다. */
 const pen: ShopItem = { id: 'pen', name: '볼펜', text: '[작성 예정]', cost: { money: 5 } }
 
 describe('상점', () => {
@@ -24,6 +24,39 @@ describe('상점', () => {
 
   it('없는 물건은 못 찾는다', () => {
     expect(shopItemById('pen')).toBeNull()
+  })
+
+  it('여섯 가지를 팔고, 파는 것은 모두 물건을 남긴다', () => {
+    expect(SHOP_ITEMS.map((i) => i.id)).toEqual(['whistle', 'nameTag', 'lock', 'paper', 'eraser', 'tape'])
+    // gives 가 없으면 사도 아무것도 안 남는다. 값만 받는 물건은 없다
+    for (const i of SHOP_ITEMS) expect(i.gives, i.id).toBeTruthy()
+  })
+
+  it('이름과 설명을 카탈로그에서 그대로 가져온다', () => {
+    for (const i of SHOP_ITEMS) {
+      const spec = ITEM_BY_KIND[i.gives as ItemKind]
+      expect(i.name, i.id).toBe(spec.name)
+      expect(i.text, i.id).toBe(spec.text)
+    }
+  })
+
+  it('물건 카탈로그에 있는 것은 모두 어디선가 산다', () => {
+    for (const kind of ITEM_KINDS) {
+      expect(SHOP_ITEMS.some((i) => i.gives === kind), kind).toBe(true)
+    }
+  })
+
+  it('**지우개만 하루 몫이 걸려 있다**', () => {
+    const limited = SHOP_ITEMS.filter((i) => i.stockPerDay !== undefined)
+    expect(limited.map((i) => i.id)).toEqual(['eraser'])
+    expect(limited[0]?.stockPerDay).toBe(1)
+  })
+
+  it('값은 모두 돈이고, 0원짜리는 없다', () => {
+    for (const i of SHOP_ITEMS) {
+      expect(Object.keys(i.cost), i.id).toEqual(['money'])
+      expect(i.cost.money ?? 0, i.id).toBeGreaterThan(0)
+    }
   })
 })
 

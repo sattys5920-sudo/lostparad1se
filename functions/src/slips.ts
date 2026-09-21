@@ -48,6 +48,14 @@ export interface SlipDoc {
   /** 한 번이라도 읽은 사람들. 넘겨줘도 읽은 것은 안 잊는다. */
   readBy: string[]
   tornBy: string | null
+  /**
+   * 찢긴 방. **조각은 그 자리에 남는다.**
+   *
+   * 찢으면 종이가 세상에서 사라지는 것이 아니라 조각이 된다.
+   * 테이프를 가진 사람이 같은 방에 오면 붙일 수 있다(use.ts) —
+   * 「영영」에 값이 붙은 예외를 하나 두는 것이다.
+   */
+  tornAt?: TileId | null
   atMs: number
 }
 
@@ -86,6 +94,7 @@ export async function scatterSlips(gameId: string, phaseNo: number, nowMs: numbe
       heldBy: null,
       readBy: [],
       tornBy: null,
+      tornAt: null,
       atMs: nowMs,
     }
     batch.set(slipsOf(gameId).doc(), doc)
@@ -193,6 +202,10 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
   const { nowMs } = await freshNow(gameId)
+  // **선 자리를 적어야 조각이 남는다.** 줍기·두기·건네기가 모두
+  // 서 있기를 요구하는데 찢기만 걷는 중에도 됐다 — 여기서 맞춘다
+  const here = await whereAmI(gameId, uid)
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 찢을 수 있다.')
   let subject = ''
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
@@ -201,8 +214,10 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     if ((snap.data() as SlipDoc).heldBy !== uid) {
       throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
     }
-    // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다
-    tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, atMs: nowMs })
+    // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다.
+    // 조각은 찢은 방에 남는다 — tileId 는 비운다(바닥의 「한 장」에
+    // 안 세야 한다). 조각은 tornAt 으로 따로 센다
+    tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, tornAt: here, atMs: nowMs })
     subject = (snap.data() as SlipDoc).subjectId
   })
   // **누구의 쪽지를 찢었는지가 판정의 전부다.** 미화부의 「내 비밀이

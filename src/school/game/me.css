@@ -299,6 +299,43 @@
 
 .sc-mi__none { margin: 0; font-size: 12px; color: #7b7364; }
 
+/* ── 물건 쓰기 ──────────────────────────────────────────── */
+
+/* 쓸 수 없는 물건에 붙는 한 줄. 단추 자리에 대신 선다 */
+.sc-mi__howto { grid-column: 1 / -1; margin: 0; font-size: 9px; line-height: 14px; color: #8a8271; }
+
+.sc-mi__use,
+.sc-mi__write button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 6px 12px;
+  border: 1px solid #6b6455;
+  background: #e3ddcb;
+  color: #1c1a15;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sc-mi__use:disabled,
+.sc-mi__write button:disabled { color: #a49a85; border-color: #b5ad99; cursor: default; }
+
+.sc-mi__write { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+.sc-mi__write textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #6b6455;
+  background: #f0ead8;
+  color: #1c1a15;
+  font: inherit;
+  /* 16px 아래로 내리면 아이폰이 글 칸을 누를 때 화면을 확대한다 */
+  font-size: 16px;
+  line-height: 22px;
+  resize: vertical;
+}
+.sc-mi__writeRow { display: flex; gap: 8px; }
+.sc-mi__cancel { background: transparent; }
+
 /* ── ③ 미션 ─────────────────────────────────────────────── */
 
 .sc-mi__mission { margin: 0 0 10px; font-size: 12px; line-height: 18px; color: #1c1a15; word-break: keep-all; }

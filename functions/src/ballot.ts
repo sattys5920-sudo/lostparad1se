@@ -11,11 +11,12 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
-import { canName, countBallots, pickInvisible, type Ballot } from '../../shared/rules/invisible'
+import { canName, countBallots, eraseFrom, pickInvisible, type Ballot } from '../../shared/rules/invisible'
 import { PHASES_PER_DAY } from '../../shared/rules/occupy'
 import { TOTAL_DAYS } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { GameDoc, TeamDoc } from '../../shared/model'
+import { erasedOn } from './use'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -121,8 +122,10 @@ export async function settleBallots(
   const day = Math.floor((phaseNo - 1) / PHASES_PER_DAY) + 1
   if (day >= TOTAL_DAYS) return null
 
+  // **지우개로 지운 표를 빼고 센다.** 누가 몇 장 지웠는지는 여기까지
+  // 오고 더 가지 않는다 — 결과 한 줄 말고는 아무것도 안 나간다
   const picked = pickInvisible({
-    counts: countBallots(await ballotsOn(gameId, day)),
+    counts: eraseFrom(countBallots(await ballotsOn(gameId, day)), await erasedOn(gameId, day)),
     yesterdayId: game.invisibleId ?? null,
   })
 

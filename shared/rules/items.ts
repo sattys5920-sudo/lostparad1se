@@ -7,18 +7,30 @@
 //
 // 물건은 상점에서만 나온다. 그래서 상점을 쥔 팀은 값을 받을 뿐
 // 아니라, 학교에서 방해와 위장이 몇 번 일어날지를 쥐게 된다.
+//
+// 쓰는 길이 둘이다.
+//
+//   행동에 딸린 것   use 가 찬 물건. 그 행동을 걸 때 저절로 하나 빠진다
+//                    (호루라기 · 남의 명찰)
+//   손으로 쓰는 것   use 가 빈 물건. 「쓰기」를 눌러야 쓰인다
+//                    (자물쇠 · 빈 종이 · 지우개 · 테이프)
 import type { ActionKind } from './occupy'
 
 /** 학교에서 주울 만한 것들. 그럴듯한 물건이어야 쓸 때 말이 된다. */
-export type ItemKind = 'whistle' | 'nameTag'
+export type ItemKind = 'whistle' | 'nameTag' | 'lock' | 'paper' | 'eraser' | 'tape'
 
 export interface ItemSpec {
   kind: ItemKind
   name: string
   /** 화면에 그대로 나온다. */
   text: string
-  /** 이 물건이 있어야 되는 행동. */
-  use: ActionKind
+  /**
+   * 이 물건이 있어야 되는 행동. **비어 있으면 손으로 쓰는 물건이다** —
+   * 페이즈 행동에 딸리지 않고 「쓰기」한 번으로 그 자리에서 쓰인다.
+   */
+  use?: ActionKind
+  /** 손으로 쓸 때 같이 적어 내야 하는 것. 화면이 무엇을 물을지 안다. */
+  needs?: 'text' | 'scrap'
 }
 
 export const ITEMS: readonly ItemSpec[] = [
@@ -34,6 +46,28 @@ export const ITEMS: readonly ItemSpec[] = [
     text: '가슴에 달면 다른 팀에게는 내가 둘로 보인다. 판정은 그대로다.',
     use: 'disguise',
   },
+  {
+    kind: 'lock',
+    name: '자물쇠',
+    text: '선 방 문에 건다. 한 시간 동안 우리 팀 말고는 들어오지 못한다.',
+  },
+  {
+    kind: 'paper',
+    name: '빈 종이',
+    text: '한 줄 적어 선 방 바닥에 놓는다. 누구의 비밀도 아닌 종이라, 주운 사람에게 주인이 안 붙는다.',
+    needs: 'text',
+  },
+  {
+    kind: 'eraser',
+    name: '지우개',
+    text: '오늘 내 이름이 적힌 표를 한 장 지운다. 몇 장이었는지는 알려 주지 않는다.',
+  },
+  {
+    kind: 'tape',
+    name: '테이프',
+    text: '이 방에 남은 찢긴 조각을 한 무더기 붙인다. 접힌 채로 내 손에 온다.',
+    needs: 'scrap',
+  },
 ]
 
 /** 물건 종류를 한 줄로 훑을 때. 목록이 원본이라 빠뜨릴 수가 없다. */
@@ -45,8 +79,17 @@ export const ITEM_BY_KIND: Record<ItemKind, ItemSpec> = Object.fromEntries(
 
 /** 그 행동에 드는 물건. 없으면 토큰만 드는 행동이다. */
 export const ITEM_FOR: Partial<Record<ActionKind, ItemKind>> = Object.fromEntries(
-  ITEMS.map((i) => [i.use, i.kind]),
+  ITEMS.filter((i) => i.use !== undefined).map((i) => [i.use as ActionKind, i.kind]),
 ) as Partial<Record<ActionKind, ItemKind>>
+
+/** 손으로 쓰는 물건인가. 화면이 「쓰기」를 붙일지 여기서 본다. */
+export const isHandItem = (kind: ItemKind): boolean => ITEM_BY_KIND[kind]?.use === undefined
+
+/** 빈 종이 한 장에 적을 수 있는 길이. 운영자 메모와 같은 값이다. */
+export const PAPER_MAX = 300
+
+/** 자물쇠가 버티는 시간. **게임 시계로** 한 시간 — 페이즈 하나와 같다. */
+export const LOCK_MS = 60 * 60 * 1000
 
 /** 팀이 함께 가진 물건. 누가 사 오든 팀 누구나 쓴다 — 금고와 같다. */
 export type Satchel = Partial<Record<ItemKind, number>>

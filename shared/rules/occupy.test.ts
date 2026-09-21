@@ -1081,3 +1081,42 @@ describe('A의 기록이 열기 전에는 핵심을 못 가진다', () => {
     expect(settle(s).next.owners.auditorium).toBe('B')
   })
 })
+
+describe('자물쇠', () => {
+  const locked = { locks: { classroom: 'B' as const } }
+
+  it('잠근 팀이 아니면 못 들어간다', () => {
+    const s = board({ people: [person('a', 'A', 'centralPlaza')], ...locked })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('잠겨')
+  })
+
+  it('잠근 팀은 드나든다', () => {
+    const s = board({ people: [person('b', 'B', 'centralPlaza')], ...locked })
+    expect(doAct(s, 'b', { kind: 'move', targetTile: 'classroom' }).ok).toBe(true)
+  })
+
+  it('자물쇠가 없으면 그냥 들어간다 — 시험이 거짓말을 하고 있지 않다', () => {
+    const s = board({ people: [person('a', 'A', 'centralPlaza')] })
+    expect(doAct(s, 'a', { kind: 'move', targetTile: 'classroom' }).ok).toBe(true)
+  })
+
+  it('거절은 토큰을 안 먹는다', () => {
+    const s = board({ people: [person('a', 'A', 'centralPlaza')], ...locked })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'classroom' })
+    expect(out.ok).toBe(false)
+    // 다음 걸음이 그대로 가능해야 한다. 값이 먹혔으면 여기서 드러난다
+    expect(doAct(s, 'a', { kind: 'move', targetTile: 'artRoom' }).ok).toBe(true)
+  })
+
+  it('**부르는 것도 걸음이다** — 잠긴 방으로는 불려 들어가지 않는다', () => {
+    const s = board({
+      people: [person('b', 'B', 'classroom'), person('b1', 'B', 'centralPlaza')],
+      locks: { classroom: 'A' },
+    })
+    const out = doAct(s, 'b', { kind: 'summon', targetPlayer: 'b1' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('잠겨')
+  })
+})

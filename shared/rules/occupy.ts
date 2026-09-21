@@ -352,6 +352,13 @@ export interface PhaseState {
    */
   actedBy: readonly string[]
   /**
+   * 지금 잠겨 있는 방과 **잠근 팀.**
+   *
+   * 언제까지인지는 여기 없다. 순수 함수라 시계를 모르고, 알 필요도
+   * 없다 — 서버가 부를 때 살아 있는 것만 담아서 넘긴다.
+   */
+  locks?: Readonly<Partial<Record<TileId, TeamId>>>
+  /**
    * 오늘 지워진 사람. 없으면 null.
    *
    * **사람과 얽히는 일의 대상이 되지 않는다** — 호출도 방해도 이 사람을
@@ -652,6 +659,10 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     // **복도로 닿으면 간다.** 자유 시간과 같은 문을 쓴다 — 다른 것은
     // 값뿐이다. 층을 넘으려면 계단을 한 번 들르니 문이 둘, 토큰도 둘
     if (!canRoamTo(p.tileId, to)) return '거기까지는 복도가 안 이어진다.'
+    // **자물쇠는 걸음을 막는다.** 부르는 것도 걸음이라, 잠긴 방으로는
+    // 불려 들어가지도 않는다 — 막는 자리를 여기 하나로 둔 값이다
+    const lockedBy = state.locks?.[to] ?? null
+    if (lockedBy !== null && lockedBy !== p.team) return `${TILE_BY_ID[to].name} 문이 잠겨 있다.`
     const room = capacityOf(to)
     if (seats(to) + 1 > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
     const from = p.tileId
@@ -965,6 +976,7 @@ export function settle(state: PhaseState): SettleResult {
       // 물건은 페이즈를 넘어 남는다. 산 것을 못 쓰고 잃으면 아무도 안 산다
       satchels: state.satchels,
       openedTiles: state.openedTiles,
+      ...(state.locks ? { locks: state.locks } : {}),
     },
     log,
   }

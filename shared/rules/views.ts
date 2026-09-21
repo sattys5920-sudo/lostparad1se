@@ -47,6 +47,8 @@ export interface WorldPawn extends PawnPosition {
 export interface WorldTile {
   tileId: TileId
   ownerTeam: TeamId | null
+  /** 지금 이 방을 잠근 팀. 시각이 지난 자물쇠는 서버가 안 담는다. */
+  lockedBy?: TeamId | null
 }
 
 export interface WorldRoster {
@@ -78,6 +80,9 @@ export interface WorldSlip {
   tileId: TileId | null
   heldBy: string | null
   readBy: readonly string[]
+  /** 찢겼으면 찢긴 방. 조각은 그 자리에 남는다(테이프로 붙인다). */
+  tornAt?: TileId | null
+  torn?: boolean
 }
 
 /**
@@ -294,6 +299,20 @@ export interface View {
    * 무엇이 적혔는지도, 누구의 비밀인지도 안 온다. 주워서 읽어야 안다.
    */
   slipsHere: { id: string }[]
+  /**
+   * 내가 선 방에 남은 **찢긴 조각.** 「한 무더기 있다」까지다.
+   *
+   * 무엇이 적혔던 종이인지도, 누가 찢었는지도 안 온다 — 테이프로
+   * 붙여서 읽어야 안다. 바닥의 쪽지와 같은 규칙이다.
+   */
+  scrapsHere: { id: string }[]
+  /**
+   * 지금 잠긴 방과 잠근 팀. **보이는 방만 온다.**
+   *
+   * 안 보이는 방의 자물쇠까지 오면 「저기 누가 있다」가 공짜로 새어
+   * 나간다 — 문을 잠근 사람은 그 방에 있었다는 뜻이다.
+   */
+  lockedTiles: { tileId: TileId; team: TeamId }[]
   /** 내가 들고 있는 쪽지. 읽은 것만 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**
@@ -390,6 +409,8 @@ export function projectView(world: World, viewerId: string): View {
       readDays: [],
       confessions: [],
       slipsHere: [],
+      scrapsHere: [],
+      lockedTiles: [],
       quizzesHere: [],
       mySlips: [],
       memories: [],
@@ -450,6 +471,11 @@ export function projectView(world: World, viewerId: string): View {
      */
     visibleIds: seen.map((p) => p.playerId),
     visibleTiles: [...visible].sort(),
+    // **보이는 방의 자물쇠만.** 안 보이는 방까지 오면 「저기 누가
+    // 있었다」가 공짜로 새어 나간다 — 문을 잠근 사람은 그 방에 있었다
+    lockedTiles: world.tiles
+      .filter((t) => t.lockedBy != null && visible.has(t.tileId))
+      .map((t) => ({ tileId: t.tileId, team: t.lockedBy as TeamId })),
 
     // 우리 팀 것
     hand: world.hands
@@ -497,6 +523,10 @@ export function projectView(world: World, viewerId: string): View {
     // 비밀인지도 안 간다 — 주워서 읽어야 안다
     slipsHere: (world.slips ?? [])
       .filter((s) => here !== null && s.tileId === here)
+      .map((s) => ({ id: s.id })),
+    // **조각도 「있다」까지만.** 적혔던 말은 붙여서 읽어야 온다
+    scrapsHere: (world.slips ?? [])
+      .filter((s) => s.torn === true && here !== null && (s.tornAt ?? null) === here)
       .map((s) => ({ id: s.id })),
     // **안 펼친 문제는 「한 장 있다」까지만.** 펼치면 그 방 사람
     // 전원에게 문제와 보기가 간다 — 다른 팀 사람 앞에서 여는 것이

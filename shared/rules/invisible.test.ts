@@ -4,15 +4,7 @@
 // 모두가 같은 이름을 적어야 한다. 그 규칙이 무너지면 매일 누군가 지워지고,
 // 그러면 이 게임이 하려는 말이 사라진다.
 import { describe, expect, it } from 'vitest'
-import {
-  canName,
-  countBallots,
-  INVISIBLE_CAN,
-  INVISIBLE_CANNOT,
-  isInvisible,
-  chatReaches,
-  pickInvisible,
-} from './invisible'
+import { INVISIBLE_CAN, INVISIBLE_CANNOT, canName, chatReaches, countBallots, eraseFrom, isInvisible, pickInvisible } from './invisible'
 import { INVISIBLE_MIN_VOTES } from './v2'
 
 const counts = (o: Record<string, number>) =>
@@ -146,5 +138,38 @@ describe('누구를 적을 수 있는가', () => {
     // 팀을 가르지 않는다. 이 투표는 호의가 아니라 배제라서,
     // 「우리 편은 못 적는다」가 붙으면 규칙이 무뎌진다
     expect(canName({ ...base, targetId: 'mate' }).ok).toBe(true)
+  })
+})
+
+describe('지우개', () => {
+  const counts = [
+    { playerId: 'a', count: 3 },
+    { playerId: 'b', count: 1 },
+  ]
+
+  it('지운 만큼만 준다', () => {
+    expect(eraseFrom(counts, { a: 1 })).toEqual([
+      { playerId: 'a', count: 2 },
+      { playerId: 'b', count: 1 },
+    ])
+  })
+
+  it('0 이 되면 목록에서 빠진다 — 0표인 사람이 남으면 동점이 엉킨다', () => {
+    expect(eraseFrom(counts, { b: 1 })).toEqual([{ playerId: 'a', count: 3 }])
+  })
+
+  it('없는 표는 못 지운다 — 음수로 안 내려간다', () => {
+    expect(eraseFrom(counts, { b: 5 })).toEqual([{ playerId: 'a', count: 3 }])
+    expect(eraseFrom(counts, { nobody: 9 })).toEqual(counts)
+  })
+
+  it('**한 장이 결과를 뒤집는다** — 지우면 동점이라 아무도 안 지워진다', () => {
+    const before = pickInvisible({ counts: [{ playerId: 'a', count: 3 }, { playerId: 'b', count: 2 }] })
+    expect(before.playerId).toBe('a')
+    const after = pickInvisible({
+      counts: eraseFrom([{ playerId: 'a', count: 3 }, { playerId: 'b', count: 2 }], { a: 1 }),
+    })
+    expect(after.playerId).toBeNull()
+    expect(after.reason).toBe('tie')
   })
 })

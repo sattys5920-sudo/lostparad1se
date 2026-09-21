@@ -52,6 +52,25 @@ export function countBallots(ballots: readonly Ballot[]): BallotCount[] {
   return [...tally].map(([playerId, count]) => ({ playerId, count })).sort((a, b) => a.playerId.localeCompare(b.playerId))
 }
 
+/**
+ * 지우개로 지운 표를 뺀다. **세고 난 다음에 뺀다.**
+ *
+ * 지우개는 「누가 적었는가」를 건드리지 않는다 — 어느 한 장을 골라
+ * 없애면 그 사람이 적은 표만 사라져서, 지운 사람이 알 수 없는 것을
+ * 판이 알게 된다. 수만 줄인다.
+ *
+ * 0 이 되면 목록에서 빠진다. 「0표인 사람」이 남아 있으면 동점 판정이
+ * 엉뚱하게 갈린다.
+ */
+export function eraseFrom(
+  counts: readonly BallotCount[],
+  erased: Readonly<Record<string, number>>,
+): BallotCount[] {
+  return counts
+    .map((c) => ({ playerId: c.playerId, count: Math.max(0, c.count - (erased[c.playerId] ?? 0)) }))
+    .filter((c) => c.count > 0)
+}
+
 export interface PickInput {
   /** 그날 사람마다 적힌 수. */
   counts: readonly BallotCount[]

@@ -66,7 +66,7 @@ import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shar
 import { note } from './records'
 import { sysLine } from './radio'
 import { sys } from '../../shared/rules/radio'
-import { gameRef, requireUid } from './index'
+import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 
 const db = getFirestore()
@@ -257,6 +257,8 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
+      // **살아 있는 것만 담는다.** 순수 함수는 시계를 모른다
+      locks: liveLocks(tiles.docs, nowOf(game)),
     },
   }
 }
@@ -580,6 +582,9 @@ export const phaseAct = onCall<{
       wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
+      // **살아 있는 것만 담는다.** 지난 자물쇠를 지우러 다시 오는
+      // 일이 없게, 시각만 보고 살았는지를 판단한다
+      locks: liveLocks(tiles.docs, nowMs),
     }
 
     /*
@@ -930,6 +935,20 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
  * 옮긴다. 정원은 여기서도 지킨다. 열넷이 좁은 방 하나에 들어가면
  * 페이즈가 열릴 때 돌려보낼 자리가 엉킨다.
  */
+/** 지금 잠겨 있는 방과 잠근 팀. 시각이 지난 자물쇠는 없는 것이다. */
+function liveLocks(
+  docs: readonly FirebaseFirestore.QueryDocumentSnapshot[],
+  nowMs: number,
+): Partial<Record<TileId, TeamId>> {
+  const out: Partial<Record<TileId, TeamId>> = {}
+  for (const d of docs) {
+    const t = d.data() as TileDoc
+    if (!t.lockedBy || (t.lockUntilMs ?? 0) <= nowMs) continue
+    out[d.id as TileId] = t.lockedBy
+  }
+  return out
+}
+
 export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, tileId } = req.data
@@ -956,6 +975,18 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     // 어차피 자유 시간 걸음은 공짜고 즉시라, 옆방씩 몇 번 눌러 가는
     // 것과 결과가 같다
     if (!canRoamTo(here, tileId)) throw new HttpsError('failed-precondition', '거기까지는 복도가 안 이어진다.')
+
+    /*
+     * **자물쇠는 자유 시간에도 잠겨 있다.**
+     *
+     * 페이즈 걸음은 occupy 의 step() 이 한 자리에서 막는데, 자유 시간
+     * 걸음은 이 문으로 들어온다. 한쪽만 막으면 잠긴 방 앞에서 페이즈가
+     * 끝나기를 기다렸다가 걸어 들어가면 그만이다
+     */
+    const tile = (await tx.get(ref.collection('tiles').doc(tileId))).data() as TileDoc | undefined
+    if (tile?.lockedBy && (tile.lockUntilMs ?? 0) > nowMs && tile.lockedBy !== p.team) {
+      throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name} 문이 잠겨 있다.`)
+    }
 
     // **정원은 사람만 센다.** 로봇은 방마다 따로 헤아린다 — 여기서
     // 같이 세면 로봇 둘이 선 좁은 방에 아무도 못 들어가고, 들어가야
