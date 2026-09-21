@@ -16,7 +16,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
-import { DEAL_TOKENS_PER_DAY, TOKENS_PER_PHASE, isShortHanded } from '../../shared/rules/occupy'
+import { DEAL_TOKENS_PER_DAY, isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
@@ -374,9 +374,19 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     batch.set(ref.collection('teams').doc(team), {
       // **자원은 팀 것이 아니다.** 돈도 지식도 사람 지갑에 있다 —
       // 아래 pawns 에 STARTING_RESOURCES 가 사람마다 하나씩 들어간다
-      // 페이즈 상자. **첫 페이즈가 열리기 전에도 거래는 한다** —
-      // 빈손으로 시작하면 첫날 아침에는 아무도 아무것도 못 건넨다
-      phaseTokens: TOKENS_PER_PHASE,
+      /*
+       * 페이즈 상자. **빈 채로 시작한다.**
+       *
+       * 전에는 여기에 한 벌을 미리 넣어 두었다 — 첫 페이즈가 열리기
+       * 전에도 토큰을 주고받게 하려던 것이다. 1인당 넷씩 곱해 주던
+       * 때에는 그 한 벌이 열여섯이라 티가 안 났는데, 지급이 팀당
+       * 여섯으로 평평해지면서 **첫 페이즈가 6이 아니라 12로 열렸다.**
+       * 「페이즈마다 여섯」이라고 해 놓고 첫 판만 두 배였다.
+       *
+       * 미리 주는 쪽을 접는다. 토큰은 페이즈가 열릴 때 들어온다 —
+       * 그 전에 건넬 것이 없다는 것은 규칙이 시키는 바 그대로다.
+       */
+      phaseTokens: 0,
       pendingRefund: 0,
       researchTier: 0,
       handCount: 0,

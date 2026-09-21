@@ -228,11 +228,14 @@ async function main(): Promise<void> {
   check(roamNow.code === 'FAILED_PRECONDITION', '페이즈 중에는 토큰을 써서 움직인다')
 
   console.log('\n── 토큰은 팀이 한 주머니를 나눠 쓴다 ──')
-  // 판이 시작할 때 한 벌, 페이즈가 열릴 때 또 한 벌. **인원을 안 본다** —
-  // 어느 팀이든 여섯씩이다
-  const wantTokens = nextWallet({ held: TOKENS_PER_PHASE })
+  /*
+   * **첫 페이즈에는 딱 한 벌이다.** 판이 시작할 때 미리 한 벌을 넣어
+   * 두던 자리가 있었다 — 그러면 첫 페이즈가 6이 아니라 12로 열려서
+   * 「페이즈마다 여섯」이 첫 판만 두 배가 됐다. 빈 상자에서 연다.
+   */
+  const wantTokens = nextWallet({ held: 0 })
   const boxA = await boxOf('A')
-  check(boxA === wantTokens, '열릴 때 팀 상자에 여섯이 더 든다', `${boxA}개 (바란 값 ${wantTokens})`)
+  check(boxA === TOKENS_PER_PHASE, '첫 페이즈는 딱 여섯으로 연다', `${boxA}개 (바란 값 ${wantTokens})`)
 
   // **인원이 달라도 같다.** 곱셈이 돌아오면 여기가 갈라진다
   const boxC = await boxOf('C')
@@ -320,11 +323,29 @@ async function main(): Promise<void> {
 
   console.log('\n── 닫으면 서 있는 자리로 정해진다 ──')
   check((await ownerOfTile('artRoom')) === null, '미술실은 처음에 주인이 없다', String(await ownerOfTile('artRoom')))
+  /*
+   * **닫는 것이 태우지는 않는지 본다.** 전에는 A팀 상자가 0보다 큰지만
+   * 봤는데, 지급이 여섯으로 줄면서 A팀은 시험 도중에 다 써 버린다 —
+   * 0을 보고 「안 남았다」로 떨어졌다. 남은 것이 **닫혀도 그대로인가**가
+   * 원래 보려던 것이라, 네 팀을 닫기 전후로 견준다.
+   */
+  const boxesBefore = Object.fromEntries(
+    await Promise.all((['A', 'B', 'C', 'D'] as TeamId[]).map(async (t) => [t, await boxOf(t)])),
+  ) as Record<TeamId, number>
   const closed = await must('closePhase', host, { gameId: GAME })
   check(Number(closed.no) === 1, '1번 페이즈가 닫혔다')
   const after = await pawnsNow()
   check(after[a0.uid].postTile === after[a0.uid].tileId, '전선이 선 자리로 옮겨졌다')
-  check((await boxOf('A')) > 0, '**남은 토큰은 들고 간다** — 거래할 물건이다', `${await boxOf('A')}개`)
+  const boxesAfter = Object.fromEntries(
+    await Promise.all((['A', 'B', 'C', 'D'] as TeamId[]).map(async (t) => [t, await boxOf(t)])),
+  ) as Record<TeamId, number>
+  const kept = (['A', 'B', 'C', 'D'] as TeamId[]).every((t) => boxesAfter[t] === boxesBefore[t])
+  const someLeft = Object.values(boxesBefore).some((n) => n > 0)
+  check(
+    kept && someLeft,
+    '**남은 토큰은 들고 간다** — 닫아도 안 태운다',
+    `${JSON.stringify(boxesBefore)} → ${JSON.stringify(boxesAfter)}`,
+  )
 
   const openWide = async () => {
     await must('openPhase', host, { gameId: GAME })
