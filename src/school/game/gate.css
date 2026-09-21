@@ -190,6 +190,8 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  /* 폰에서 연타가 「두 번 눌러 확대」로 먹히면 다섯 번이 안 세어진다 */
+  touch-action: manipulation;
 }
 
 .sc-gt__rule {
@@ -290,14 +292,50 @@
   cursor: pointer;
 }
 
-.sc-gt__foot {
+/* 바닥 한 줄 — 왼쪽에 자판기 도장, 오른쪽에 안내 문구 */
+.sc-gt__sign {
   flex: none;
   /* 남는 자리는 전부 여기 위로 몰아넣고, 이 줄은 바닥에 붙인다 */
   margin: auto 0 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/*
+ * 운영자 문. **도장처럼 보여야 한다** — 단추로 보이면 플레이어가
+ * 누르고, 아무것도 아닌 것으로 보이면 운영자가 못 찾는다.
+ */
+.sc-gt__vend {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+  /* 연타가 확대 제스처로 먹히지 않게. 제목 두드리기와 같은 값이다 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.55;
+}
+.sc-gt__vend:hover,
+.sc-gt__vend:focus-visible {
+  opacity: 1;
+}
+.sc-gt__vend img {
+  /* 16칸 그림을 **정수 배로** 늘린다. 1.5배면 도트가 뭉개진다 */
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.sc-gt__foot {
   font-size: 11px;
   line-height: 1;
   color: #8a8371;
   opacity: 0.7;
+  margin: 0 0 4px;
 }
 
 /* ── 움직임 ──────────────────────────────────────────────────── */

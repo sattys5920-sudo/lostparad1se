@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react'
 
 import { hostEnter, logIn, signUp } from '../accounts'
+import { vendingStamp } from './gateArt'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
 import './gate.css'
@@ -116,14 +117,8 @@ export function Gate({ onIn }: { onIn: () => void }) {
     }
   }
 
-  /** 제목을 잇달아 다섯 번. 사이가 뜨면 처음부터다. */
-  function tapTitle() {
-    const now = Date.now()
-    const t = taps.current
-    t.n = now - t.at > HOST_TAP_GAP_MS ? 1 : t.n + 1
-    t.at = now
-    if (t.n < HOST_TAPS) return
-    t.n = 0
+  /** 운영자 칸을 연다. 두드리기와 자판기가 같은 문을 쓴다 */
+  function openHost() {
     setMode('host')
     setError('')
     const el = holdRef.current
@@ -132,6 +127,17 @@ export function Gate({ onIn }: { onIn: () => void }) {
       void el.offsetWidth
       el.classList.add('is-crumple')
     }
+  }
+
+  /** 제목을 잇달아 다섯 번. 사이가 뜨면 처음부터다. */
+  function tapTitle() {
+    const now = Date.now()
+    const t = taps.current
+    t.n = now - t.at > HOST_TAP_GAP_MS ? 1 : t.n + 1
+    t.at = now
+    if (t.n < HOST_TAPS) return
+    t.n = 0
+    openHost()
   }
 
   function toMode(next: Mode) {
@@ -224,7 +230,21 @@ export function Gate({ onIn }: { onIn: () => void }) {
               </button>
             </div>
 
-            <p className="sc-gt__foot">왜인지는 적지 않아도 됩니다</p>
+            {/*
+              운영자 문. **제목 다섯 번 두드리기는 아무 표시가 없어서
+              만든 사람도 못 찾았다** — 찾을 수 없는 문은 문이 아니다.
+
+              글자로 「운영자」라고 적는 대신 복도의 그 기계를 종이
+              구석에 한 대 찍어 둔다. 플레이어 눈에는 도장이고, 아는
+              사람에게는 문이다 — 어차피 잠근 것은 이 그림이 아니라
+              코드다. 두드리기도 그대로 남겨 둔다.
+            */}
+            <div className="sc-gt__sign">
+              <button className="sc-gt__vend" onMouseDown={hold} onClick={openHost} aria-label="운영자로 들어가기">
+                <img src={vendingStamp()} alt="" />
+              </button>
+              <p className="sc-gt__foot">왜인지는 적지 않아도 됩니다</p>
+            </div>
           </div>
         </div>
       </div>
