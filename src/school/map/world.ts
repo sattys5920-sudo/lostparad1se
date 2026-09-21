@@ -505,6 +505,20 @@ export function drawPiece(
  * 걸을 수 있는가. lockedDoors에 든 문은 아직 A의 기록이 열지 않은 문이라 지나갈 수 없다.
  * 키는 "x,y".
  */
+/**
+ * 지금 판 위에 놓인 것들 — 문제 종이. **기물과 같이 못 지나간다.**
+ *
+ * 게시판·자판기·화분은 자리가 정해져 있어 규칙 파일에 박혀 있지만,
+ * 종이는 페이즈마다 다른 방에 떨어진다. 그래서 화면이 서버에서 받을
+ * 때마다 여기에 적어 두고, isWalkable 이 기물과 같은 자리에서 본다.
+ * 서버(standAt)도 같은 것을 본다 — 이건 걸음을 막는 쪽이다.
+ */
+const blockedNow = new Set<string>()
+export function setBlockedCells(cells: readonly { x: number; y: number }[]): void {
+  blockedNow.clear()
+  for (const c of cells) blockedNow.add(`${c.x},${c.y}`)
+}
+
 export function isWalkable(x: number, y: number, lockedDoors?: Set<string>): boolean {
   if (tileAt(x, y) === 'wall') return false
   if (props.has(key(x, y))) return false
@@ -512,6 +526,7 @@ export function isWalkable(x: number, y: number, lockedDoors?: Set<string>): boo
   // 복도의 게시판과 자판기. **소품과 같은 갈래다** — 그림만 얹혀
   // 있으면 사람이 기계를 뚫고 지나간다(rules/fixtures)
   if (isFixture(x, y)) return false
+  if (blockedNow.has(`${x},${y}`)) return false
   if (lockedDoors?.has(`${x},${y}`)) return false
   return true
 }

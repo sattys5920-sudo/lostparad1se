@@ -91,7 +91,7 @@ const cellOf = (d: Record<string, unknown>): Cell | null => {
 }
 /** 종이 옆 한 칸에 선다. 기물이 아닌 첫 자리 */
 async function standBeside(token: string, c: Cell): Promise<void> {
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]] as const) {
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
     if (isFixture(c.x + dx, c.y + dy)) continue
     const r = await call('standAt', token, { gameId: GAME, x: c.x + dx, y: c.y + dy })
     if (!r.code) return
@@ -229,6 +229,9 @@ async function main(): Promise<void> {
   await standFar(A[0].token, goal as TileId, paperCell)
   const farOpen = await call('openQuiz', A[0].token, { gameId: GAME, paperId: target.id })
   check(farOpen.code === 'FAILED_PRECONDITION', '**방 안이라도 멀면 못 편다**', String(farOpen.message ?? farOpen.code))
+  // 종이는 기물이다 — 그 위에는 못 선다
+  const onIt = await call('standAt', A[0].token, { gameId: GAME, ...paperCell })
+  check(onIt.code === 'FAILED_PRECONDITION', '**종이 위에는 못 선다**', String(onIt.message ?? onIt.code))
   await standBeside(A[0].token, paperCell)
   await must('openQuiz', A[0].token, { gameId: GAME, paperId: target.id })
   const mine = (await viewOf(A[0].uid)).quizzesHere as { id: string; opened: boolean; prompt: string | null }[]

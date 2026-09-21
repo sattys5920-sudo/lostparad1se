@@ -1076,6 +1076,16 @@ export const standAt = onCall<{ gameId: string; x: number; y: number }>(async (r
    * 기계 안에 서 있는 사람이 생긴다.
    */
   if (isFixture(x, y)) throw new HttpsError('failed-precondition', '거기에는 물건이 있다.')
+  /*
+   * **문제 종이 위에도 못 선다.** 종이는 페이즈마다 다른 방에 떨어지므로
+   * 규칙 파일에 없다 — 판의 바닥 문서를 본다. 아직 아무도 안 가져간
+   * 종이만 자리를 차지한다.
+   */
+  const papers = await gameRef(gameId).collection('secret').doc('quiz').collection('floor').where('solvedBy', '==', null).get()
+  for (const d of papers.docs) {
+    const c = (d.data() as { cell?: { x: number; y: number } }).cell
+    if (c && c.x === x && c.y === y) throw new HttpsError('failed-precondition', '거기에는 종이가 있다.')
+  }
   if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
 
   await ref.update({ at: { x, y } })

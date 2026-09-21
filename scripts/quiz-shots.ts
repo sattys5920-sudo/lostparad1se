@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { dayHourMs } from '../shared/rules/clock'
 import { START_TILE } from '../shared/rules/board'
 import { paperCellOf } from '../shared/rules/quiz'
-import { tap, walkTo } from './lib/walk'
+import { cellNow, tap, walkTo } from './lib/walk'
 
 const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
 
@@ -123,6 +123,30 @@ async function main() {
       // 십자키로 종이 옆까지 간다 — 옆에 서야 「문제 종이」 칸이 뜬다
       await walkTo({ page, fs: FS, admin: ADMIN, game, uid: uidOf(me), want: CELL, what: '종이' })
       await page.waitForTimeout(800)
+      /*
+       * **종이 위로는 못 지나간다.** 옆에 선 채로 종이 쪽 십자키를
+       * 눌러도 자리가 그대로여야 한다 — 기물과 같은 자다.
+       */
+      const beside = await cellNow(FS, ADMIN, game, uidOf(me))
+      if (beside && (beside.x !== CELL.x || beside.y !== CELL.y)) {
+        const dir =
+          CELL.y > beside.y ? 'is-down'
+          : CELL.y < beside.y ? 'is-up'
+          : CELL.x > beside.x ? 'is-right'
+          : 'is-left'
+        // 대각선이면 먼저 한 축을 맞춘다 — 십자키는 한 방향씩이다
+        if (CELL.x !== beside.x && CELL.y !== beside.y) {
+          await page.locator(`.sc-ct__key.${CELL.x > beside.x ? 'is-right' : 'is-left'}`).click().catch(() => undefined)
+          await page.waitForTimeout(700)
+        }
+        const before = await cellNow(FS, ADMIN, game, uidOf(me))
+        await page.locator(`.sc-ct__key.${dir}`).click().catch(() => undefined)
+        await page.waitForTimeout(900)
+        const after = await cellNow(FS, ADMIN, game, uidOf(me))
+        const onPaper = after?.x === CELL.x && after?.y === CELL.y
+        console.log(`  종이 쪽으로 밀어 봄 — ${before?.x},${before?.y} → ${after?.x},${after?.y} ${onPaper ? '✗ 종이 위에 섰다' : '✓ 막혔다'}`)
+        if (onPaper) missed.push(`${tag}${size.w}: 종이 위로 지나갔다`)
+      }
       await tap(page, '.sc-ct__act', '문제 종이')
       await page.waitForTimeout(600)
       await page.screenshot({ path: `${OUT}/quiz-${size.w}-접힌-${tag}.png` })

@@ -17,6 +17,7 @@ import {
   DOORS,
   drawPiece,
   isWalkable,
+  setBlockedCells,
   MAP_H,
   MAP_W,
   markAt,
@@ -494,6 +495,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   thingsRef.current = things
   potsRef.current = pots
   papersRef.current = papers
+  // 종이는 기물이다 — 그 위로는 못 지나간다. 걸음이 보는 표에 적는다
+  setBlockedCells(papers)
   frozenRef.current = frozen
   stayRef.current = stayIn
   looksRef.current = looks
@@ -697,13 +700,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       }
 
       /*
-       * **문제 종이를 짚었다.** 기물과 달리 밟을 수 있는 칸이라, 옆에
-       * 서 있을 때만 여기서 잡고 멀면 그냥 걸어간다 — 걸어가서 옆에
-       * 서면 그때 다시 탭한다.
+       * **문제 종이를 짚었다.** 기물과 같다 — 밟을 수 없는 칸이라 걸음으로
+       * 쳐 봐야 갈 데가 없다. 옆에 서 있으면 열고, 멀면 아무 일도 안 한다.
        */
       const paper = papersRef.current.find((p) => p.x === tx && p.y === ty)
-      if (paper && facing({ x: self.tx, y: self.ty }, { x: paper.x, y: paper.y })) {
-        paperRef.current?.()
+      if (paper) {
+        if (facing({ x: self.tx, y: self.ty }, { x: paper.x, y: paper.y })) paperRef.current?.()
         return
       }
 
