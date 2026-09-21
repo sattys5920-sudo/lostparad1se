@@ -175,14 +175,6 @@ async function main() {
   await card.screenshot({ path: `${OUT}/1-운영자-풀.png` })
   console.log('  찍었다 1-운영자-풀.png')
 
-  // 1층 서쪽 복도에 붙인다
-  await desk.locator('.sc-ed .sc-dr__row select').nth(1).selectOption(board.id)
-  await desk.locator('.sc-dr__go', { hasText: '붙이기' }).click()
-  await desk.waitForTimeout(1500)
-  await card.scrollIntoViewIfNeeded()
-  await card.screenshot({ path: `${OUT}/2-운영자-붙인뒤.png` })
-  console.log('  찍었다 2-운영자-붙인뒤.png')
-
   // ── 사람 ─────────────────────────────────────────────────
   const ctx = await browser.newContext({ viewport: { width: 375, height: 667 }, deviceScaleFactor: 2 })
   const page = await ctx.newPage()
@@ -197,12 +189,36 @@ async function main() {
    */
   await walkTo(page, game, meUid, board.cell)
   await page.waitForTimeout(1500)
+
+  /*
+   * **붙기 전과 붙은 뒤를 같은 자리에서 찍는다.** 판 그림이 바뀌는
+   * 것이 이 기능의 절반이라, 두 장을 나란히 놓아야 보인다. 가까이
+   * 잘라 찍는다 — 화면 전체에서는 판이 손톱만 하다.
+   */
+  const NEAR = { x: 100, y: 180, width: 180, height: 130 }
+  await page.screenshot({ path: `${OUT}/3a-빈-게시판.png`, clip: NEAR })
+  console.log('  찍었다 3a-빈-게시판.png')
+
+  // 이제 운영자가 붙인다
+  await desk.locator('.sc-ed .sc-dr__row select').nth(1).selectOption(board.id)
+  await desk.locator('.sc-dr__go', { hasText: '붙이기' }).click()
+  await desk.waitForTimeout(1500)
+  await card.scrollIntoViewIfNeeded()
+  await card.screenshot({ path: `${OUT}/2-운영자-붙인뒤.png` })
+  console.log('  찍었다 2-운영자-붙인뒤.png')
+
+  // 사람 쪽 몫이 새로 내려올 때까지 기다린다
+  await page.waitForTimeout(2500)
+  await page.screenshot({ path: `${OUT}/3b-붙은-게시판.png`, clip: NEAR })
+  console.log('  찍었다 3b-붙은-게시판.png')
   await page.screenshot({ path: `${OUT}/3-복도-게시판.png` })
   console.log('  찍었다 3-복도-게시판.png')
 
   await page.locator('.sc-ct__act', { hasText: '게시판' }).first().click()
   await page.waitForSelector('.sc-er__list', { timeout: 10_000 })
   await page.waitForTimeout(500)
+  await page.screenshot({ path: `${OUT}/4a-게시판-열었을때.png` })
+  console.log('  찍었다 4a-게시판-열었을때.png')
   await shot(page, '.sc-er__list', '4-붙은목록.png')
 
   await page.locator('.sc-er__list button', { hasText: '받기' }).first().click()
