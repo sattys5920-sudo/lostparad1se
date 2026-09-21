@@ -7,6 +7,7 @@ import type {
 } from './rules/v2'
 import type { Cell, TileId } from './rules/board'
 import type { AvatarLook } from './look'
+import type { ThingIcon } from './rules/errand'
 import type { Satchel } from './rules/items'
 import type { CaptainVote } from './rules/captain'
 
@@ -420,6 +421,8 @@ export interface PlayerViewDoc {
      * 사람이 아는 만큼이다.
      */
     carrying?: string
+    /** 그 물건의 그림. 이름과 같이 온다. */
+    carryIcon?: ThingIcon
   }[]
   /**
    * 위 목록의 아이디만. **Firestore 규칙이 이 줄을 읽는다.**
@@ -525,13 +528,15 @@ export interface PlayerViewDoc {
   myErrand?: {
     id: string
     thing: string
-    icon: string
+    icon: ThingIcon
     from: TileId
     to: TileId
     coins: number
     text: string
     minutesLeft: number
     carrying: boolean
+    /** 바닥에 놓인 자리. 그 방에 서 있고 아직 안 집었을 때만 온다. */
+    thingAt?: Cell | null
     thingHere: boolean
     canDrop: boolean
   } | null

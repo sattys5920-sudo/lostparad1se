@@ -97,6 +97,11 @@ export function ErrandStrip({
     }
   }
 
+  /*
+   * **놓기는 여기 없다.** 든 물건은 아이템창에 들어가고, 놓는 것도
+   * 거기서 한다 — 물건을 가진 곳과 쓰는 곳이 한 군데여야 한다.
+   * 이 줄은 「지금 뭘 하는 중인가」만 말한다.
+   */
   const where =
     e.carrying ? `${TILE_BY_ID[e.to]?.name}로` : `${TILE_BY_ID[e.from]?.name}에서 집는다`
 
@@ -112,15 +117,7 @@ export function ErrandStrip({
           집기
         </button>
       )}
-      {e.canDrop && (
-        <button
-          className="is-go is-inline"
-          disabled={busy}
-          onClick={() => void run(`놓았다. ${e.coins}코인.`, () => act.dropThing())}
-        >
-          놓기
-        </button>
-      )}
+      {e.carrying && <em>{e.canDrop ? '아이템창에서 놓는다' : '들고 있다'}</em>}
       <button
         className="sc-er__quit is-inline"
         disabled={busy}

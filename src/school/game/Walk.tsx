@@ -38,6 +38,7 @@ import { pixelFrame } from '../char/pixel'
 // 않고 옮기기만 하므로, 그리기 직전에 여기서 접어 넣는다
 import { normalizeLook } from '../char/look'
 import { TEAM_COLOR } from './MapPlan'
+import { goodIcon } from './goodArt'
 import {
   CHAR_PX,
   CROSS_TIMEOUT_MS,
@@ -48,6 +49,7 @@ import {
   WALK_POSES_PER_SEC,
 } from './timing'
 import type { TeamId, TileId } from '../types'
+import type { ThingIcon } from '../../../shared/rules/errand'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -88,6 +90,11 @@ export interface WalkProps {
    * 게시판은 복도에 있고 모습이 판 중에 바뀐다.
    */
   boards?: readonly { x: number; y: number; count: number }[]
+  /**
+   * 바닥에 놓인 심부름 물건. **받은 사람 화면에만 온다** — 남의
+   * 몫에는 이 좌표가 아예 실리지 않는다(views 의 myErrand).
+   */
+  things?: readonly { x: number; y: number; icon: ThingIcon }[]
   /**
    * 채팅 바 윗변의 화면 y(css px). 채팅 모드가 아니면 null.
    *
@@ -383,7 +390,7 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -438,6 +445,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const standRef = useRef(onStand)
   /** 게시판. 그리는 고리가 매 프레임 본다 — 다시 세우지 않게 ref 로 */
   const boardsRef = useRef(boards)
+  /** 바닥의 심부름 물건. 게시판과 같은 길로 간다 */
+  const thingsRef = useRef(things)
   const frozenRef = useRef(frozen)
   const stayRef = useRef(stayIn)
   const looksRef = useRef(looks)
@@ -452,6 +461,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   personRef.current = onTapPerson
   standRef.current = onStand
   boardsRef.current = boards
+  thingsRef.current = things
   frozenRef.current = frozen
   stayRef.current = stayIn
   looksRef.current = looks
@@ -1306,6 +1316,17 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             const img = sprites.props[board.count > 0 ? 'noticeBoardFull' : 'noticeBoard']
             ctx.drawImage(img, x * TILE - camX, y * TILE - camY - TILE)
           }
+          /*
+           * 바닥의 심부름 물건. **칸 가운데에 작게 놓는다**(12칸 그림을
+           * 16칸 안에). 가구처럼 칸을 채우면 밟고 지나갈 수 없어 보이고,
+           * 주울 것으로 안 읽힌다.
+           */
+          const thing = thingsRef.current.find((t) => t.x === x && t.y === y)
+          if (thing) {
+            const img = sprites.things[thing.icon]
+            const in2 = Math.round((TILE - img.width) / 2)
+            ctx.drawImage(img, x * TILE - camX + in2, y * TILE - camY + in2)
+          }
           const sign = signAt(x, y)
           // 안개 뒤의 간판은 아예 안 모은다 — 나중에 그리므로 안개가
           // 덮어 주지 못한다
@@ -1993,7 +2014,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
    * 복도를 지나가는 것은 원래 보이는 일이라 이것만 보인다.
    */
   const holding = (view?.visiblePawns ?? []).flatMap((p) =>
-    p.carrying != null && p.carrying !== '' ? [{ playerId: p.playerId, thing: p.carrying }] : [],
+    p.carrying != null && p.carrying !== ''
+      ? [{ playerId: p.playerId, thing: p.carrying, icon: p.carryIcon ?? 'box' }]
+      : [],
   )
 
   return (
@@ -2054,7 +2077,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       ))}
 
       {/* 머리 위에 든 물건. 발치 이름표와 짝이다 */}
-      {holding.map(({ playerId, thing }) => (
+      {holding.map(({ playerId, thing, icon }) => (
         <div
           key={playerId}
           className={`sc-wk__hold${playerId === me.playerId ? ' is-me' : ''}`}
@@ -2064,6 +2087,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             else m.delete(playerId)
           }}
         >
+          <img className="sc-wk__hold__i" src={goodIcon(icon)} alt="" width={12} height={12} />
           {thing}
         </div>
       ))}

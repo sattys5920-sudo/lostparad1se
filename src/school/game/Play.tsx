@@ -1260,6 +1260,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               y: b.cell.y,
               count: state.view?.boardCounts?.[b.id] ?? 0,
             }))}
+            /* 바닥에 놓인 내 심부름 물건. 서버가 자리를 보내 줄 때만 있다 —
+               남의 물건은 좌표째로 안 온다 */
+            things={
+              state.view?.myErrand?.thingAt
+                ? [{ ...state.view.myErrand.thingAt, icon: state.view.myErrand.icon }]
+                : []
+            }
             /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */
             /* 거래 탁자에 앉아 있거나, 무언가 하느라 묶여 있으면 못 움직인다 */
             frozen={(deal !== null && deal.status !== 'done' && deal.status !== 'gone') || busyLeftMs > 0}

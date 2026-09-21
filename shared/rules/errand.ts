@@ -7,15 +7,32 @@
 // 붙고 난 뒤의 규칙은 누가 붙였든 같다. 받는 사람에게는 운영자가
 // 붙였다는 티가 안 난다 — 티가 나면 그건 게임 안의 일이 아니라
 // 게임 밖의 일이 된다.
-import type { Cell, Floor, TileId } from './board'
+import { TILE_BY_ID, type Cell, type Floor, type TileId } from './board'
+
+/**
+ * 물건 그림. **네 가지뿐이다.**
+ *
+ * 운영자가 새 심부름을 만들 때 고른다 — 물건 이름은 자유롭게 적되
+ * 그림은 있는 것 중에서 고른다. 이름마다 도트를 그려 둘 수는 없고,
+ * 무엇을 안고 뛰는지는 이름이 말해 준다. 그림은 「뭔가 들었다」를
+ * 멀리서 알아보게 하는 몫이다.
+ */
+export const THING_ICONS = ['beaker', 'broom', 'tray', 'box'] as const
+export type ThingIcon = (typeof THING_ICONS)[number]
+export const THING_ICON_NAME: Record<ThingIcon, string> = {
+  beaker: '비커',
+  broom: '빗자루',
+  tray: '식판',
+  box: '상자',
+}
 
 /** 등록해 둔 일거리 하나. 운영자가 풀에 넣는다. */
 export interface ErrandSpec {
   id: string
   /** 물건 이름. 머리 위에 들고 다니는 그것이다. */
   thing: string
-  /** 도트 아이콘 이름(errandArt 의 키). 없으면 기본 상자. */
-  icon?: string
+  /** 도트 아이콘. 없으면 상자다. */
+  icon?: ThingIcon
   from: TileId
   to: TileId
   /** 보상. 먼저 놓은 사람 지갑으로 들어간다. */
@@ -76,6 +93,39 @@ export const ERRANDS_PER_PERSON = 1
 export const atBoard = (me: Cell | null | undefined, board: BoardSpot): boolean =>
   me !== null && me !== undefined && Math.abs(me.x - board.cell.x) <= 1 && Math.abs(me.y - board.cell.y) <= 1
 
+/**
+ * 물건이 놓이는 칸. **방 안 한 자리다.**
+ *
+ * 「그 방 어딘가」로 두면 방에 들어서는 순간 집을 수 있어서, 물건이
+ * 바닥에 있다는 말이 무색해진다. 자리를 정해 두면 방에 들어가 **찾아
+ * 가서** 집는다 — 그 몇 걸음이 심부름을 일로 만든다.
+ *
+ * 심부름 아이디로 정한다. 같은 심부름은 늘 같은 자리다 — 어제 거기
+ * 있었으면 오늘도 거기다. 서버가 붙일 때 한 번 계산해 문서에 적어
+ * 두므로, 나중에 방을 옮겨도 판 위의 물건은 안 움직인다.
+ *
+ * 가장자리 한 줄은 비운다. 벽에 딱 붙은 자리는 그림이 벽에 먹힌다.
+ */
+export function thingCellOf(errandId: string, room: TileId): Cell {
+  const r = TILE_BY_ID[room].plan
+  // 안쪽 한 줄을 뺀 자리. 방이 3칸보다 좁으면 뺄 것이 없으니 그대로 쓴다
+  const w = Math.max(1, r.w - 2)
+  const h = Math.max(1, r.h - 2)
+  const ox = r.w > 2 ? r.x + 1 : r.x
+  const oy = r.h > 2 ? r.y + 1 : r.y
+  let n = 0
+  for (const ch of errandId) n = (n * 31 + ch.charCodeAt(0)) % 100_000
+  return { x: ox + (n % w), y: oy + (Math.floor(n / w) % h) }
+}
+
+/**
+ * 물건 옆인가. **게시판과 같은 자다** — 둘레 한 칸.
+ *
+ * 딱 그 칸을 밟아야 하면 물건이 책상 위에 놓였을 때 집을 수가 없다.
+ */
+export const atThing = (me: Cell | null | undefined, cell: Cell | null | undefined): boolean =>
+  me != null && cell != null && Math.abs(me.x - cell.x) <= 1 && Math.abs(me.y - cell.y) <= 1
+
 /** 제한 시간이 지났는가. 지나면 받은 사람 전원 실패다. */
 export const isExpired = (postedMs: number, limitMin: number, nowMs: number): boolean =>
   nowMs - postedMs >= limitMin * 60_000
@@ -89,6 +139,7 @@ export const STARTING_ERRANDS: readonly ErrandSpec[] = [
   {
     id: 'beaker',
     thing: '비커',
+    icon: 'beaker',
     from: 'labRoom',
     to: 'annex',
     coins: 2,
@@ -98,6 +149,7 @@ export const STARTING_ERRANDS: readonly ErrandSpec[] = [
   {
     id: 'broom',
     thing: '빗자루',
+    icon: 'broom',
     from: 'gym',
     to: 'auditorium',
     coins: 1,
@@ -107,6 +159,7 @@ export const STARTING_ERRANDS: readonly ErrandSpec[] = [
   {
     id: 'tray',
     thing: '식판',
+    icon: 'tray',
     from: 'cafeteria',
     // 급식실에서 가사실로. 씻을 데가 거기다 — 처음에는 화장실(baseB)로
     // 적어 두었는데, 운영자 화면에 「급식실 → 화장실」로 떠서 고쳤다

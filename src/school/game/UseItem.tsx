@@ -10,6 +10,8 @@
 import { useState } from 'react'
 
 import { ITEM_BY_KIND, PAPER_MAX, isHandItem, type ItemKind, type Satchel } from '../../../shared/rules/items'
+import { TILE_BY_ID } from '../../../shared/rules/board'
+import { goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 
@@ -30,7 +32,16 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
 
   const scraps = view?.scrapsHere ?? []
   const rows = (Object.entries(items) as [ItemKind, number][]).filter(([, n]) => (n ?? 0) > 0)
-  if (rows.length === 0) return <p className="sc-mi__none">가진 것이 없다.</p>
+  /*
+   * 들고 있는 심부름 물건. **여기 한 줄로 선다.**
+   *
+   * 산 물건과 같은 칸에 있지만 같은 것은 아니다 — 남에게 못 넘기고,
+   * 쓰는 것도 아니고, 정해진 방에 놓는 것으로 끝난다. 그래서 줄은
+   * 여기 있고 판정은 서버가 한다.
+   */
+  const errand = view?.myErrand ?? null
+  const carrying = errand?.carrying === true ? errand : null
+  if (rows.length === 0 && carrying === null) return <p className="sc-mi__none">가진 것이 없다.</p>
 
   async function use(kind: ItemKind, more: { text?: string; scrapId?: string } = {}) {
     setBusy(true)
@@ -48,8 +59,39 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
     }
   }
 
+  async function drop() {
+    setBusy(true)
+    try {
+      const out = (await act.dropThing()) as { coins?: number }
+      onSaid(`놓았다. ${out.coins ?? 0}코인.`)
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <ul className="sc-mi__bag">
+      {carrying && (
+        <li className="is-errand">
+          <b>
+            <img className="sc-mi__icon" src={goodIcon(carrying.icon)} alt="" width={18} height={18} />
+            {carrying.thing}
+          </b>
+          <span>심부름</span>
+          <p>
+            {TILE_BY_ID[carrying.to].name}에 놓으면 끝난다. 먼저 놓는 사람이 {carrying.coins}코인을
+            받는다. 남에게 넘길 수는 없다.
+          </p>
+          {/* **놓을 수 있는지는 서버가 안다.** 여기서 방을 재서 잠그면
+              규칙이 두 군데 적힌다 — 다른 방에서 누르면 어디에 놓아야
+              하는지를 서버가 말해 준다 */}
+          <button className="sc-mi__use" disabled={busy} onClick={() => void drop()}>
+            {TILE_BY_ID[carrying.to].name}에 놓기
+          </button>
+        </li>
+      )}
       {rows.map(([kind, n]) => {
         const spec = ITEM_BY_KIND[kind]
         return (

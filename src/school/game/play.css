@@ -1115,6 +1115,9 @@ p.sc-cv { display: block; }
   color: #1a1d2e;
   pointer-events: none;
 }
+.sc-wk__hold { display: flex; align-items: center; gap: 3px; }
+/* 도트는 정수 배로만. 1.5배로 늘리면 뭉갠다 */
+.sc-wk__hold__i { image-rendering: pixelated; }
 /* 내 것만 금색 테. 여럿이 같은 것을 들고 뛰는 일이 이 놀이의 전부다 */
 .sc-wk__hold.is-me { border-color: #a8894a; background: #f6e7bf; }
 
@@ -2205,6 +2208,9 @@ p.sc-cv { display: block; }
 /* 오분 안쪽. 숫자만 바꾸면 안 읽힌다 — 테를 같이 물들인다 */
 .sc-er__strip.is-soon { border-color: #a4553f; }
 .sc-er__strip.is-soon i { color: #d2836a; }
+/* 들고 있는 중임을 알리는 꼬리말. 단추가 아니라 말이다 —
+   놓는 것은 아이템창에서 한다 */
+.sc-er__strip em { font-style: normal; font-size: 10px; color: var(--sc-text-dim); }
 .sc-er__strip button { padding: 4px 10px; font-size: 11px; }
 .sc-er__strip button.is-go { font-weight: 600; }
 .sc-er__quit { padding: 4px 8px; opacity: 0.6; }

@@ -127,6 +127,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       coins: e.coins,
       limitMin: e.limitMin,
       text: e.text,
+      cell: e.cell,
       postedMs: e.postedMs,
       takers: e.takers ?? {},
     })),

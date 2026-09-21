@@ -338,3 +338,17 @@
 .sc-ed__live span { color: #5b6070; font-size: 11px; }
 .sc-ed__live em { margin-left: auto; font-style: normal; font-size: 11px; color: #5b6070; }
 .sc-ed__live i { font-style: normal; font-size: 11px; color: #5b6070; }
+
+/* 물건 그림 고르기. 지도에 놓이는 그것과 같은 도트다 */
+.sc-ed__icons { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-ed__icons button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.sc-ed__icons button.is-on { border-color: #1c1a15; font-weight: 600; }
+.sc-ed__icons img,
+.sc-ed__icon { image-rendering: pixelated; }
+.sc-ed__pool b { display: flex; align-items: center; gap: 6px; }

@@ -18,9 +18,9 @@
 import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { CardKind, TeamId, VoteKind } from './v2'
-import { TILE_BY_ID, type TileId } from './board'
+import { TILE_BY_ID, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
-import { BOARDS, BOARD_BY_ID, atBoard, minutesLeft } from './errand'
+import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
 import type { Satchel, Satchels } from './items'
 import { canSeeConfession, canSeeMemory } from '../reveal/archive'
 import { noticesFor, type Notice } from '../reveal/notice'
@@ -85,12 +85,14 @@ export interface WorldErrand {
   id: string
   boardId: string
   thing: string
-  icon: string
+  icon: ThingIcon
   from: TileId
   to: TileId
   coins: number
   limitMin: number
   text: string
+  /** 출발 방 어디에 놓였는가. **받은 사람에게만 내려간다.** */
+  cell: Cell
   postedMs: number
   takers: Readonly<Record<string, { tookMs: number; carrying: boolean }>>
 }
@@ -381,14 +383,19 @@ export interface View {
   myErrand: {
     id: string
     thing: string
-    icon: string
+    icon: ThingIcon
     from: TileId
     to: TileId
     coins: number
     text: string
     minutesLeft: number
     carrying: boolean
-    /** 지금 선 방에 내 물건이 놓여 있는가. 집을 수 있다는 뜻이다 */
+    /**
+     * 바닥에 놓인 자리. 아직 안 집었고 **그 방에 서 있을 때만** 온다 —
+     * 다른 방에서까지 좌표가 오면 지도에 없는 물건이 찍힌다.
+     */
+    thingAt: Cell | null
+    /** 그 물건 옆에 서 있는가. 집을 수 있다는 뜻이다 */
     thingHere: boolean
     /** 여기 놓으면 끝나는가. */
     canDrop: boolean
@@ -613,7 +620,9 @@ export function projectView(world: World, viewerId: string): View {
         minutesLeft: minutesLeft(e.postedMs, e.limitMin, world.nowMs),
         carrying: took.carrying,
         // **물건은 받은 사람에게만 있다.** 남의 응답에는 이 줄이 없다
-        thingHere: !took.carrying && here === e.from,
+        thingAt: !took.carrying && here === e.from ? e.cell : null,
+        // 옆에 서야 집는다. 서버도 같은 자로 잰다(errand.ts 의 pickUpThing)
+        thingHere: !took.carrying && here === e.from && atThing(myCell, e.cell),
         canDrop: took.carrying && here === e.to,
       }
     })(),
@@ -723,15 +732,15 @@ export function projectView(world: World, viewerId: string): View {
 function withCarry(
   pawns: readonly PawnView[],
   errands: readonly WorldErrand[],
-): (PawnView & { carrying?: string })[] {
+): (PawnView & { carrying?: string; carryIcon?: ThingIcon })[] {
   if (errands.length === 0) return [...pawns]
-  const hand = new Map<string, string>()
+  const hand = new Map<string, { thing: string; icon: ThingIcon }>()
   for (const e of errands) {
-    for (const [id, t] of Object.entries(e.takers)) if (t.carrying) hand.set(id, e.thing)
+    for (const [id, t] of Object.entries(e.takers)) if (t.carrying) hand.set(id, { thing: e.thing, icon: e.icon })
   }
   return pawns.map((p) => {
-    const thing = hand.get(p.playerId)
-    return thing ? { ...p, carrying: thing } : p
+    const held = hand.get(p.playerId)
+    return held ? { ...p, carrying: held.thing, carryIcon: held.icon } : p
   })
 }
 

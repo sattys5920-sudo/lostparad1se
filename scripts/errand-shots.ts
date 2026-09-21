@@ -14,7 +14,7 @@ import { mkdirSync, readFileSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
-import { BOARDS } from '../shared/rules/errand'
+import { BOARDS, thingCellOf } from '../shared/rules/errand'
 import { isWalkable } from '../src/school/map/world'
 
 const { chromium } = pw as typeof import('playwright')
@@ -96,27 +96,6 @@ function hostCode(): string {
   return line.slice('HOST_CODE='.length).trim().replace(/^["']|["']$/g, '')
 }
 
-/**
- * 서버가 한 번 일하게 해서 몫을 다시 만든다.
- *
- * 문서만 손으로 고치면 views 는 그대로다 — 화면은 옛 몫을 보고 있고,
- * 단추가 안 뜬다. 여기서 두 번 속았다.
- */
-async function wake(game: string, host: string): Promise<void> {
-  await must('hostDrop', host, { gameId: game, tileId: 'artRoom', kind: 'memo', text: '지나가는 종이' })
-}
-
-/** 방에 세운다. 칸도 같이 비운다 — 서버가 방을 옮길 때 하는 것과 같다 */
-async function putIn(game: string, uid: string, tileId: string): Promise<void> {
-  const mask = ['tileId', 'arriveAtMs', 'at'].map((f) => `updateMask.fieldPaths=${f}`).join('&')
-  await fetch(`${FS}/games/${game}/pawns/${uid}?${mask}`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({
-      fields: { tileId: { stringValue: tileId }, arriveAtMs: { nullValue: null }, at: { nullValue: null } },
-    }),
-  })
-}
-
 /** 들어와서 화면을 덮는 것들을 사람이 하듯 넘긴다. */
 async function enter(page: Page, game: string, id: string): Promise<void> {
   page.on('pageerror', (e) => console.log('  [터짐] ' + String(e).slice(0, 200)))
@@ -153,6 +132,25 @@ async function main() {
    */
   const board = BOARDS.find((b) => b.id === 'f2w')!
   const meUid = uidOf('qa01')
+
+  /*
+   * **2층에서 걸어 닿는 심부름을 하나 만든다.**
+   *
+   * 처음 세 가지는 1층이다. 사람은 2-3 교실(2층)에서 시작하므로 그걸
+   * 쓰면 캡처가 계단 찾기부터 시작된다 — 여기서 볼 것은 물건을 집고
+   * 놓는 자리다. 미술실과 도서관은 2층 복도를 사이에 두고 붙어 있다.
+   */
+  const SPEC = {
+    id: 'plaster',
+    thing: '석고상',
+    icon: 'box',
+    from: 'artRoom',
+    to: 'library',
+    coins: 2,
+    limitMin: 40,
+    text: '떨어뜨리면 끝이다.',
+  } as const
+  await must('hostSaveErrand', host, { gameId: game, spec: SPEC })
 
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
 
@@ -200,6 +198,7 @@ async function main() {
   console.log('  찍었다 3a-빈-게시판.png')
 
   // 이제 운영자가 붙인다
+  await desk.locator('.sc-ed .sc-dr__row select').nth(0).selectOption(SPEC.id)
   await desk.locator('.sc-ed .sc-dr__row select').nth(1).selectOption(board.id)
   await desk.locator('.sc-dr__go', { hasText: '붙이기' }).click()
   await desk.waitForTimeout(1500)
@@ -226,23 +225,63 @@ async function main() {
   await page.screenshot({ path: `${OUT}/5-받은뒤.png` })
   console.log('  찍었다 5-받은뒤.png')
 
-  // 출발 방으로 간다. 걸어가는 것은 이 캡처의 관심이 아니라 손으로 옮긴다
-  await putIn(game, meUid, 'labRoom')
-  await wake(game, host)
-  await page.waitForTimeout(2500)
+  /*
+   * **출발 방까지 걸어간다.** 손으로 옮기지 않는다 — 물건이 방 안
+   * 한 자리에 놓여 있고 그 옆에 서야 집히므로, 아바타가 정말 거기
+   * 가 있어야 캡처가 거짓말을 안 한다.
+   */
+  const spot = thingCellOf(SPEC.id, SPEC.from)
+  await walkTo(page, game, meUid, spot)
+  await page.waitForTimeout(1500)
+  await page.screenshot({ path: `${OUT}/6a-바닥에-놓인-물건.png`, clip: NEAR })
+  console.log('  찍었다 6a-바닥에-놓인-물건.png')
   await page.screenshot({ path: `${OUT}/6-집기.png` })
   console.log('  찍었다 6-집기.png')
+
   // 말줄이 그 위를 덮고 있다. 좌표로 누르지 말고 단추를 바로 누른다
   await page.evaluate(() => {
     const b = [...document.querySelectorAll('.sc-er__strip button')].find((x) => x.textContent?.includes('집기'))
     ;(b as HTMLElement | undefined)?.click()
   })
-  await page.waitForTimeout(1500)
-  await putIn(game, meUid, 'annex')
-  await wake(game, host)
-  await page.waitForTimeout(2500)
+  await page.waitForTimeout(1800)
+  await page.screenshot({ path: `${OUT}/6b-들었다.png`, clip: NEAR })
+  console.log('  찍었다 6b-들었다.png')
+
+  // 놓을 방으로 걸어간다
+  await walkTo(page, game, meUid, thingCellOf('x', SPEC.to))
+  await page.waitForTimeout(1200)
+
+  /*
+   * **아이템창에서 놓는다.** 「나」 탭 → 가진 것 → 아이템.
+   * 든 물건이 거기 한 줄로 서 있고, 단추가 그 줄에 붙어 있다.
+   */
+  await page.evaluate(() => {
+    // 판이 돌아가는 동안의 탭바는 .sc-ct__tabs 다(.sc-pl__tabbar 는
+    // 시작 전 화면 것이다). 여기서 한 번 헛짚었다
+    const t = [...document.querySelectorAll('.sc-ct__tab')].find((x) => x.textContent?.trim() === '나')
+    ;(t as HTMLElement | undefined)?.click()
+  })
+  await page.waitForTimeout(1200)
+  await page.evaluate(() => {
+    const f = document.querySelector('.sc-mi__have')
+    if (f && !f.classList.contains('is-open')) (f as HTMLElement).click()
+  })
+  await page.waitForTimeout(800)
+  /*
+   * **화면째로 찍는다.** 줄만 잘라 찍어 봤더니 카드의 찢긴 테두리
+   * 때문에 상자 밖으로 글자가 나가 양쪽이 잘렸다 — 화면에서는
+   * 멀쩡한데 캡처만 그렇다.
+   */
   await page.screenshot({ path: `${OUT}/7-놓기.png` })
   console.log('  찍었다 7-놓기.png')
+
+  await page.evaluate(() => {
+    const b = [...document.querySelectorAll('.sc-mi__bag button')].find((x) => x.textContent?.includes('놓기'))
+    ;(b as HTMLElement | undefined)?.click()
+  })
+  await page.waitForTimeout(2000)
+  await page.screenshot({ path: `${OUT}/8-놓았다.png` })
+  console.log('  찍었다 8-놓았다.png')
 
   await browser.close()
   console.log(`\n${OUT} 에 담았다.`)
@@ -310,8 +349,17 @@ async function walkTo(
   uid: string,
   want: { x: number; y: number },
 ): Promise<void> {
-  for (let leg = 0; leg < 8; leg++) {
-    const at = await cellNow(game, uid)
+  for (let leg = 0; leg < 10; leg++) {
+    /*
+     * **문을 지난 직후에는 자리가 없다.** 서버가 방을 옮길 때 칸을
+     * 비우고, 화면이 반 박자 뒤에 새 자리를 적는다(500ms 마다). 그
+     * 사이에 포기하면 옆방 문턱에서 멈춘 채로 캡처가 끝난다.
+     */
+    let at = await cellNow(game, uid)
+    for (let wait = 0; !at && wait < 12; wait++) {
+      await page.waitForTimeout(400)
+      at = await cellNow(game, uid)
+    }
     if (!at) {
       await page.locator('.sc-ct__key.is-down').click({ timeout: 2000 }).catch(() => undefined)
       await page.waitForTimeout(240)

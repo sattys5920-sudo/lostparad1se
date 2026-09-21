@@ -5,7 +5,15 @@
 // 붙는다. 대신 운영자가 딴 데 보고 있으면 게시판이 종일 비어 있다.
 import { useCallback, useEffect, useState } from 'react'
 
-import { BOARDS, ERRANDS_PER_BOARD, minutesLeft, type ErrandSpec } from '../../../shared/rules/errand'
+import {
+  BOARDS,
+  ERRANDS_PER_BOARD,
+  THING_ICONS,
+  THING_ICON_NAME,
+  minutesLeft,
+  type ErrandSpec,
+} from '../../../shared/rules/errand'
+import { goodIcon } from '../game/goodArt'
 import { TILES, TILE_BY_ID, FLOOR_NAME } from '../../../shared/rules/board'
 import type { GameActions } from '../game/useGame'
 
@@ -23,7 +31,16 @@ interface Posted {
   expired: boolean
 }
 
-const EMPTY: ErrandSpec = { id: '', thing: '', from: 'labRoom', to: 'annex', coins: 1, limitMin: 30, text: '' }
+const EMPTY: ErrandSpec = {
+  id: '',
+  thing: '',
+  icon: 'box',
+  from: 'labRoom',
+  to: 'annex',
+  coins: 1,
+  limitMin: 30,
+  text: '',
+}
 
 export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {
   const [pool, setPool] = useState<ErrandSpec[]>([])
@@ -77,7 +94,10 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
       : <ul className="sc-ed__pool">
           {pool.map((e) => (
             <li key={e.id}>
-              <b>{e.thing}</b>
+              <b>
+                <img className="sc-ed__icon" src={goodIcon(e.icon ?? 'box')} alt="" width={18} height={18} />
+                {e.thing}
+              </b>
               <span>
                 {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name} · {e.coins}코인 · {e.limitMin}분
               </span>
@@ -110,6 +130,27 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
             <span>물건</span>
             <input value={form.thing} onChange={(e) => setForm({ ...form, thing: e.target.value })} />
           </label>
+          {/*
+            그림. **네 가지 중에서 고른다** — 이름은 무엇이든 적을 수
+            있지만 도트는 그려 둔 것만 있다. 멀리서 「뭔가 들었다」를
+            알아보는 몫이라, 딱 맞는 그림이 없으면 상자면 된다.
+          */}
+          <div className="sc-dr__row">
+            <span>그림</span>
+            <div className="sc-ed__icons">
+              {THING_ICONS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={(form.icon ?? 'box') === k ? 'is-on' : ''}
+                  onClick={() => setForm({ ...form, icon: k })}
+                >
+                  <img src={goodIcon(k)} alt="" width={24} height={24} />
+                  {THING_ICON_NAME[k]}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="sc-dr__row">
             <span>가져올</span>
             <select value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value as ErrandSpec['from'] })}>

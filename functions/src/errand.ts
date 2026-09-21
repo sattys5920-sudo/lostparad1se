@@ -22,9 +22,13 @@ import {
   ERRANDS_PER_BOARD,
   ERRANDS_PER_PERSON,
   STARTING_ERRANDS,
+  THING_ICONS,
   atBoard,
+  atThing,
   isExpired,
+  thingCellOf,
   type ErrandSpec,
+  type ThingIcon,
 } from '../../shared/rules/errand'
 import { TILE_BY_ID, type Cell, type TileId } from '../../shared/rules/board'
 import { earn } from '../../shared/rules/resources'
@@ -55,12 +59,14 @@ export interface ErrandDoc {
   boardId: string
   /** 붙일 때의 내용. 나중에 운영자가 풀을 고쳐도 이 장은 안 바뀐다. */
   thing: string
-  icon: string
+  icon: ThingIcon
   from: TileId
   to: TileId
   coins: number
   limitMin: number
   text: string
+  /** 출발 방 어디에 놓였는가. 붙일 때 한 번 정하고 안 움직인다. */
+  cell: Cell
   postedMs: number
   day: number
   /** 받은 사람들. 키가 사람이다. */
@@ -142,7 +148,9 @@ export const hostSaveErrand = onCall<{ gameId: string; spec: ErrandSpec }>(async
   const spec: ErrandSpec = {
     id,
     thing: String(s.thing ?? '').trim().slice(0, 40),
-    ...(s.icon ? { icon: String(s.icon).slice(0, 40) } : {}),
+    // **아는 그림만 받는다.** 모르는 이름이 들어오면 상자다 —
+    // 화면이 없는 그림을 찾다 빈칸을 그리는 것보다 낫다
+    icon: (THING_ICONS as readonly string[]).includes(String(s.icon)) ? (s.icon as ThingIcon) : 'box',
     from: s.from,
     to: s.to,
     coins: Math.max(0, Math.floor(Number(s.coins) || 0)),
@@ -219,12 +227,15 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
     specId: spec.id,
     boardId,
     thing: spec.thing,
-    icon: spec.icon ?? '',
+    icon: spec.icon ?? 'box',
     from: spec.from,
     to: spec.to,
     coins: spec.coins,
     limitMin: spec.limitMin,
     text: spec.text,
+    // **자리는 지금 정해서 적어 둔다.** 그때그때 계산하면 나중에
+    // 운영자가 풀의 출발 방을 고쳤을 때 판 위의 물건이 순간이동한다
+    cell: thingCellOf(spec.id, spec.from),
     postedMs: nowMs,
     day: game.day,
     takers: {},
@@ -284,6 +295,13 @@ export const pickUpThing = onCall<{ gameId: string }>(async (req) => {
   if (mine.doc.takers[uid]?.carrying) throw new HttpsError('failed-precondition', '이미 들고 있다.')
   if (pawn.tileId !== mine.doc.from) {
     throw new HttpsError('failed-precondition', `${TILE_BY_ID[mine.doc.from].name}에 가야 있다.`)
+  }
+  /*
+   * **물건 옆에 서야 집는다.** 방에 들어서는 것만으로 집히면 물건이
+   * 바닥에 놓여 있다는 말이 무색해진다 — 찾아가는 몇 걸음이 일이다.
+   */
+  if (!atThing((pawn.at ?? null) as Cell | null, mine.doc.cell ?? null)) {
+    throw new HttpsError('failed-precondition', '물건 옆에 서야 집는다.')
   }
   await postedOf(gameId).doc(mine.id).update({ [`takers.${uid}.carrying`]: true })
   await refreshViews(gameId)

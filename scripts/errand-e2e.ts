@@ -12,7 +12,8 @@
 import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
-import { BOARDS } from '../shared/rules/errand'
+import { TILE_BY_ID } from '../shared/rules/board'
+import { BOARDS, thingCellOf } from '../shared/rules/errand'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -187,9 +188,33 @@ async function main() {
   const noThing = await call('pickUpThing', meTok, { gameId: game })
   check(!noThing.ok, '출발 방이 아니면 못 집는다', noThing.ok ? '집었다' : (noThing.err ?? ''))
 
+  /*
+   * **물건은 방 안 한 자리에 놓인다.** 방에 들어서는 것만으로는 못
+   * 집고, 그 자리까지 가야 집는다 — 몇 걸음이 심부름을 일로 만든다.
+   */
   await putIn(game, meUid, 'labRoom')
+  const cell = thingCellOf('beaker', 'labRoom')
+  // 같은 방 안이되 물건에서는 떨어진 칸. 방 밖으로 나가면 서버가
+  // 「거기에는 설 수 없다」로 막아서 시험이 아무것도 안 재게 된다
+  const room = TILE_BY_ID.labRoom.plan
+  const far = { x: cell.x >= room.x + 2 ? room.x : room.x + room.w - 1, y: cell.y }
+  await must('standAt', meTok, { gameId: game, ...far })
+  const vAway = await viewOf(game, meUid)
+  const atFar = mapOf(vAway.myErrand)
+  check(
+    mapOf(atFar.thingAt).x !== undefined,
+    '**방에 들어가면 바닥의 물건이 보인다** — 자리째로 온다',
+    `${num(mapOf(atFar.thingAt).x)},${num(mapOf(atFar.thingAt).y)}`,
+  )
+  const tooFar = await call('pickUpThing', meTok, { gameId: game })
+  check(!tooFar.ok, '멀리서는 못 집는다', tooFar.ok ? '집었다' : (tooFar.err ?? ''))
+
+  await must('standAt', meTok, { gameId: game, x: cell.x + 1, y: cell.y })
   const vAtFrom = await viewOf(game, meUid)
-  check(mapOf(vAtFrom.myErrand).thingHere !== undefined, '출발 방에 서면 집을 수 있다고 온다')
+  check(
+    String((mapOf(vAtFrom.myErrand).thingHere as { booleanValue?: boolean })?.booleanValue) === 'true',
+    '물건 옆에 서면 집을 수 있다고 온다',
+  )
   await must('pickUpThing', meTok, { gameId: game })
   const vCarry = await viewOf(game, meUid)
   check(String((mapOf(vCarry.myErrand).carrying as { booleanValue?: boolean })?.booleanValue) === 'true', '들고 있다')
@@ -206,6 +231,10 @@ async function main() {
   const vThird2 = await viewOf(game, thirdUid)
   const meSeen = arr(vThird2.visiblePawns).find((p) => str(p.playerId) === meUid) ?? {}
   check(str(meSeen.carrying) === '비커', '같은 방 사람에게는 든 물건이 보인다', str(meSeen.carrying) ?? '없다')
+  check(
+    mapOf(mapOf(vCarry.myErrand).thingAt).x === undefined,
+    '집고 나면 바닥 자리가 사라진다',
+  )
   const bitsWhileCarrying = await errandBits(thirdUid)
   check(
     !bitsWhileCarrying.includes('비커') && !bitsWhileCarrying.includes(meUid),
@@ -215,6 +244,7 @@ async function main() {
 
   console.log('\n── 먼저 놓는 사람 ──')
   await putIn(game, youUid, 'labRoom')
+  await must('standAt', youTok, { gameId: game, x: cell.x + 1, y: cell.y })
   await must('pickUpThing', youTok, { gameId: game })
   await putIn(game, meUid, 'annex')
   await putIn(game, youUid, 'annex')

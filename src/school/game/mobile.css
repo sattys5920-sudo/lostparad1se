@@ -344,6 +344,7 @@
 }
 .sc-pl__today .sc-er__strip b { color: var(--ct-text, #e8e6f5); }
 .sc-pl__today .sc-er__strip span,
+.sc-pl__today .sc-er__strip em,
 .sc-pl__today .sc-er__strip i { color: #b9bfd4; }
 .sc-pl__today .sc-er__strip button {
   border: 1px solid var(--ct-line, #4a5070);
