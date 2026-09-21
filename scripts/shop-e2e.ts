@@ -97,9 +97,9 @@ async function standAt(game: string, uid: string, tileId: string): Promise<void>
     body: JSON.stringify({ fields: { tileId: { stringValue: tileId }, arriveAtMs: { nullValue: null } } }),
   })
 }
-/** 팀 금고에 돈을 넣는다. 값이 모자라서 못 사는 것은 따로 본다 */
-async function fund(game: string, team: string, money: number): Promise<void> {
-  await fetch(`${FS}/games/${game}/teams/${team}?updateMask.fieldPaths=resources`, {
+/** 지갑에 돈을 넣는다. **사람 문서다** — 팀 금고가 없어졌다 */
+async function fund(game: string, uid: string, money: number): Promise<void> {
+  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({
@@ -111,8 +111,8 @@ async function teamOf(game: string, uid: string): Promise<string> {
   const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
   return str(((await r.json()) as { fields?: Record<string, unknown> }).fields?.team) ?? 'A'
 }
-async function moneyOf(game: string, team: string): Promise<number> {
-  const r = await fetch(`${FS}/games/${game}/teams/${team}`, { headers: ADMIN })
+async function moneyOf(game: string, uid: string): Promise<number> {
+  const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
   const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
   const res = (f.resources as { mapValue?: { fields?: Record<string, unknown> } })?.mapValue?.fields ?? {}
   return num(res.money)
@@ -148,11 +148,11 @@ async function main() {
   check(!far.ok, '딴 방에서는 못 산다', far.ok ? '사졌다' : (far.err ?? ''))
 
   await standAt(game, meUid, SHOP_TILE)
-  await fund(game, myTeam, 40)
-  const before = await moneyOf(game, myTeam)
+  await fund(game, meUid, 40)
+  const before = await moneyOf(game, meUid)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
-  const after = await moneyOf(game, myTeam)
-  check(before - after === 4, '자물쇠 값 4가 금고에서 빠졌다', `${before} → ${after}`)
+  const after = await moneyOf(game, meUid)
+  check(before - after === 4, '자물쇠 값 4가 **내 지갑**에서 빠졌다', `${before} → ${after}`)
   check((await bagOf(game, meUid)).lock === 1, '주머니에 들어왔다')
 
   console.log('\n── 지우개는 하루에 한 개 ──')
@@ -164,7 +164,7 @@ async function main() {
   const youTok = await tok(you)
   const youUid = uidOf(you)
   await standAt(game, youUid, SHOP_TILE)
-  await fund(game, await teamOf(game, youUid), 40)
+  await fund(game, youUid, 40)
   const other = await call('buyShopItem', youTok, { gameId: game, itemId: 'eraser' })
   check(!other.ok, '남의 팀이 와도 하루 몫은 판 전체에서 하나다', other.ok ? '샀다' : (other.err ?? ''))
 
@@ -201,7 +201,7 @@ async function main() {
   console.log('\n── 빈 종이 ──')
   await standAt(game, meUid, 'artRoom')
   await standAt(game, youUid, 'artRoom')
-  await fund(game, myTeam, 40)
+  await fund(game, meUid, 40)
   const noPaper = await call('useItem', meTok, { gameId: game, kind: 'paper', text: MEMO })
   check(!noPaper.ok, '없는 물건은 못 쓴다', noPaper.ok ? '썼다' : (noPaper.err ?? ''))
 

@@ -13,10 +13,9 @@
 // 꺼내 쓴다 — 도트 그림을 0.5픽셀씩 밀면 그 순간 도트가 아니게 된다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { SHOP_ITEMS, shopPriceFor } from '../../../shared/rules/shop'
+import { SHOP_ITEMS, priceOf } from '../../../shared/rules/shop'
 import { goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
-import type { TeamId } from '../types'
 
 /** 칸 번호. 왼쪽부터 오른쪽, 위에서 아래로 — 기계에 적힌 순서다. */
 const CODES = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
@@ -37,9 +36,6 @@ const BIN_DROP = [-9, 0]
 type Step = 'idle' | 'coin' | 'think' | 'shake' | 'drop' | 'done' | 'reject'
 
 export interface VendingProps {
-  myTeam: TeamId
-  /** 상점을 차지한 팀. 값이 갈린다 — 규칙(shopPriceFor)이 정한다. */
-  owner: TeamId | null
   money: number
   /** 오늘 다 나간 품목. 서버가 보내 준다. */
   soldOut: readonly string[]
@@ -107,7 +103,7 @@ function makeNoise() {
   }
 }
 
-export function Vending({ myTeam, owner, money, soldOut, act, onSaid, onClose }: VendingProps) {
+export function Vending({ money, soldOut, act, onSaid, onClose }: VendingProps) {
   const [picked, setPicked] = useState<string | null>(null)
   const [step, setStep] = useState<Step>('idle')
   const [frame, setFrame] = useState(0)
@@ -209,10 +205,10 @@ export function Vending({ myTeam, owner, money, soldOut, act, onSaid, onClose }:
   const rows = useMemo(
     () =>
       SHOP_ITEMS.map((item, i) => {
-        const cost = shopPriceFor(item, myTeam, owner).cost.money ?? 0
+        const cost = priceOf(item)
         return { item, code: CODES[i] ?? '??', cost, why: reasonFor(item.id, cost) }
       }),
-    [myTeam, owner, reasonFor],
+    [reasonFor],
   )
 
   const chosen = rows.find((r) => r.item.id === picked) ?? null
@@ -304,11 +300,13 @@ export function Vending({ myTeam, owner, money, soldOut, act, onSaid, onClose }:
     : step === 'reject' ? (COIN_BOUNCE[frame] ?? 0)
     : null
 
-  /** 기본 상태에 뜨는 오른쪽 한 줄. 둘을 번갈아 보여 준다 */
-  const houseLine =
-    owner === myTeam ? '우리 상점이다. 무엇이든 1코인.'
-    : owner ? `${owner}팀 상점이다. 낸 돈은 그 팀 금고로 간다.`
-    : '주인 없는 상점이다. 낸 돈은 아무 데도 가지 않는다.'
+  /**
+   * 기본 상태에 뜨는 오른쪽 한 줄. 둘을 번갈아 보여 준다.
+   *
+   * **주인이 없다.** 복도에 서 있는 기계라 차지할 수가 없고, 그래서
+   * 값이 누구에게나 같고 낸 돈은 아무 데도 가지 않는다.
+   */
+  const houseLine = '주인 없는 기계다. 낸 돈은 아무 데도 가지 않는다.'
 
   return (
     <div className="sc-vd">

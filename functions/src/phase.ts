@@ -173,11 +173,18 @@ function walletsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamI
 }
 
 /** 팀 문서에서 금고만 떼어 온다. */
-function vaultsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamId, Vault>> {
-  const out: Partial<Record<TeamId, Vault>> = {}
-  for (const d of teams.docs) {
-    const t = d.data() as { resources?: Partial<Vault> }
-    out[d.id as TeamId] = { money: t.resources?.money ?? 0, knowledge: t.resources?.knowledge ?? 0 }
+/**
+ * 지갑을 사람마다 하나씩 모은다. **말 문서에서 떼어 온다.**
+ *
+ * 전에는 팀 문서에서 읽었다. 돈과 지식이 사람 것이 되면서 자리가
+ * 옮겨졌는데, 읽는 쪽을 안 고치면 **모두 0 인 지갑**이 조용히
+ * 만들어져서 연구가 영영 「지식이 모자란다」가 된다.
+ */
+function vaultsOf(pawns: FirebaseFirestore.QuerySnapshot): Partial<Record<string, Vault>> {
+  const out: Partial<Record<string, Vault>> = {}
+  for (const d of pawns.docs) {
+    const p = d.data() as { resources?: Partial<Vault> }
+    out[d.id] = { money: p.resources?.money ?? 0, knowledge: p.resources?.knowledge ?? 0 }
   }
   return out
 }
@@ -204,18 +211,19 @@ function writeSatchels(
 }
 
 /** 바뀐 금고만 적는다. 안 바뀐 팀 문서는 건드리지 않는다. */
+/** 바뀐 지갑만 적는다. 안 바뀐 사람 문서를 건드리면 쓰기만 는다. */
 function writeVaults(
   w: { update: (ref: FirebaseFirestore.DocumentReference, data: Record<string, unknown>) => unknown },
   ref: FirebaseFirestore.DocumentReference,
-  before: Readonly<Partial<Record<TeamId, Vault>>>,
-  after: Readonly<Partial<Record<TeamId, Vault>>>,
+  before: Readonly<Partial<Record<string, Vault>>>,
+  after: Readonly<Partial<Record<string, Vault>>>,
 ): void {
-  for (const team of TEAMS) {
-    const a = after[team]
-    const b = before[team]
+  for (const id of Object.keys(after)) {
+    const a = after[id]
+    const b = before[id]
     if (!a || !b) continue
     if (a.money === b.money && a.knowledge === b.knowledge) continue
-    w.update(ref.collection('teams').doc(team), { resources: { money: a.money, knowledge: a.knowledge } })
+    w.update(ref.collection('pawns').doc(id), { resources: { money: a.money, knowledge: a.knowledge } })
   }
 }
 
@@ -252,7 +260,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       disguised: h.disguised,
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
-      vaults: vaultsOf(teams),
+      vaults: vaultsOf(pawns),
       satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],
@@ -577,7 +585,7 @@ export const phaseAct = onCall<{
       disguised: h.disguised,
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
-      vaults: vaultsOf(teams),
+      vaults: vaultsOf(pawns),
       satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
       openedTiles: (game.openedTiles ?? []) as TileId[],

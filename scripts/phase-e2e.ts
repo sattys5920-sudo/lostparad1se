@@ -127,8 +127,24 @@ async function main(): Promise<void> {
   check(nowhere.code === 'FAILED_PRECONDITION' || nowhere.code === 'INVALID_ARGUMENT',
     '계단에는 설 수 없다 — 칸이 아니다', nowhere.message)
 
-  // **위장은 물건이 든다.** 자유 시간에 상점까지 걸어가서 사 둔다.
-  // 물건은 팀 주머니에 들어가므로 페이즈에 제자리로 끌려와도 남는다
+  /*
+   * **위장은 물건이 든다.** 자유 시간에 자판기까지 걸어가서 사 둔다.
+   * 물건은 산 사람 주머니에 들어가므로 페이즈에 제자리로 끌려와도 남는다.
+   *
+   * 지갑을 먼저 채운다 — 돈이 개인 것이 되면서 시작 자금이 사람당
+   * 2코인이고, 명찰은 3이다. 버는 것은 이 시험의 관심이 아니다
+   */
+  await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=resources`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        resources: {
+          mapValue: { fields: { money: { integerValue: '9' }, knowledge: { integerValue: '4' } } },
+        },
+      },
+    }),
+  })
   await must('roamTo', A[1].token, { gameId: GAME, tileId: 'classroom' })
   await must('buyShopItem', A[1].token, { gameId: GAME, itemId: 'nameTag' })
   check(true, '자유 시간에 남의 명찰을 샀다')

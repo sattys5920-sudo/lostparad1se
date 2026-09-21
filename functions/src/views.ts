@@ -113,11 +113,11 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   return {
     nowMs,
     over: game.phase === 'finished',
-    // 금고. 투영이 내 팀 것만 떼어 보낸다 — 여기서는 통째로 들고만 간다
+    // 지갑. **사람마다 하나다** — 투영이 본인 것만 떼어 보낸다
     vaults: Object.fromEntries(
-      teams.docs.map((d) => {
-        const t = d.data() as { resources?: { money?: number; knowledge?: number } }
-        return [d.id, { money: t.resources?.money ?? 0, knowledge: t.resources?.knowledge ?? 0 }]
+      pawns.docs.map((d) => {
+        const p = d.data() as { resources?: { money?: number; knowledge?: number } }
+        return [d.id, { money: p.resources?.money ?? 0, knowledge: p.resources?.knowledge ?? 0 }]
       }),
     ),
     // 주머니도 통째로 들고 간다. **사람마다 하나다** — 투영이 내

@@ -38,6 +38,45 @@ export function gain(have: Record<Resource, number>, bag: Bag): Record<Resource,
   return out
 }
 
+// ── 지갑 ────────────────────────────────────────────────────────
+
+/** 빈 지갑. 옛 판의 문서에는 이 칸이 아예 없다. */
+export const EMPTY_PURSE: Record<Resource, number> = { money: 0, knowledge: 0 }
+
+/** 그 사람 지갑. **없으면 빈 지갑이다** — 0 과 「안 적힘」을 같게 본다. */
+export const purseOf = (who: { resources?: Record<Resource, number> } | undefined): Record<Resource, number> =>
+  who?.resources ?? { ...EMPTY_PURSE }
+
+/**
+ * 번 것을 지갑에 넣는다.
+ *
+ * **상한은 없다.** 하루에 얼마를 벌든 버는 만큼 가진다 — 벌이를
+ * 막는 것은 시간과 발품이지 숫자가 아니다.
+ */
+export const earn = (
+  who: { resources?: Record<Resource, number> } | undefined,
+  bag: Bag,
+): Record<Resource, number> => gain(purseOf(who), bag)
+
+/**
+ * 팀 하나가 함께 가진 것. **지갑 넷을 더한 값이다.**
+ *
+ * 점수판은 여전히 팀 단위다 — 자원이 개인 것이 되었다고 해서
+ * 「우리 팀이 얼마나 가졌나」가 없어지는 것은 아니다. 다만 그 숫자가
+ * 금고 하나가 아니라 네 지갑의 합이 됐다.
+ */
+export function teamPurse(
+  people: readonly { team: TeamId; resources?: Record<Resource, number> }[],
+  team: TeamId,
+): Record<Resource, number> {
+  const out = { ...EMPTY_PURSE }
+  for (const p of people) {
+    if (p.team !== team) continue
+    for (const r of RESOURCES) out[r] += p.resources?.[r] ?? 0
+  }
+  return out
+}
+
 // ── 방어 ────────────────────────────────────────────────────────
 
 /**

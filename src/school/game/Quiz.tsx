@@ -110,7 +110,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
         ))}
       </ul>
       <p className="sc-qz__note">
-        맞히면 우리 팀 금고에 지식 {KNOWLEDGE_PER_QUIZ}점. 한 장은 한 팀만 가져간다 — 먼저 내는 쪽이 이긴다.
+        맞히면 <b>내</b> 지식 {KNOWLEDGE_PER_QUIZ}점. 한 장은 한 팀만 가져간다 — 먼저 내는 쪽이 이긴다.
       </p>
     </div>
   )

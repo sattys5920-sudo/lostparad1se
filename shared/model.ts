@@ -182,7 +182,6 @@ export interface TileDoc {
  */
 /** games/{gameId}/teams/{teamId} — 자원과 순위는 공개다. */
 export interface TeamDoc {
-  resources: Record<Resource, number>
   /**
    * **행동 토큰 상자. 팀에 하나뿐이다.**
    *
@@ -265,8 +264,17 @@ export interface PawnDoc {
    * 그 일 자체를 맥으로 삼는다. 판정은 한 줄도 이것을 안 본다.
    */
   radioAtMs?: GameMs
-  /** 내 주머니. **산 사람이 가진다** — 상점에 다녀온 그 사람 것이다. */
+  /** 내 주머니. **산 사람이 가진다** — 자판기에 다녀온 그 사람 것이다. */
   items?: Satchel
+  /**
+   * 내 지갑. 돈과 지식. **팀 금고가 아니다.**
+   *
+   * 한때 팀마다 하나였다. 그때는 넷이 한 금고를 보고 있어서 「누가
+   * 얼마를 썼다」가 곧 팀 회의였는데, 그 회의를 할 자리가 없었다 —
+   * 자유 시간에 흩어져 있고 페이즈에는 시간이 없다. 번 사람이 갖고,
+   * 남에게 주려면 거래로 건넨다.
+   */
+  resources?: Record<Resource, number>
   /**
    * 거래를 거는 데 쓰는 **개인 토큰**. 자정에 다시 찬다.
    *

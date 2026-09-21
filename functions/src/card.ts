@@ -11,10 +11,10 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { CARD_BY_KIND, HAND_LIMIT, type CardKind, type TeamId } from '../../shared/rules/v2'
 import { cardEffect, checkPlay, drawCard, playCard } from '../../shared/rules/cards'
-import { gain } from '../../shared/rules/resources'
+import { gain, purseOf } from '../../shared/rules/resources'
 import { rngFrom } from '../../shared/missions/assign'
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
-import type { CardDoc, PawnDoc, TeamDoc } from '../../shared/model'
+import type { CardDoc, PawnDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { gameRef, requireUid } from './index'
@@ -131,19 +131,41 @@ export const playOne = onCall<{
   batch.delete(handsOf(gameId).doc(card.id))
   batch.update(ref.collection('teams').doc(pawn.team), { handCount: left.length })
 
-  // 자원이 바로 들어온다
+  /*
+   * 자원이 바로 들어온다. **낸 사람 지갑으로.**
+   *
+   * 팀 금고가 없어졌다. 팀 넷에게 나눠 주면 1~2 짜리가 0 넷이 되어
+   * 카드가 아무 일도 안 한 것이 된다 — 카드를 낸 사람이 가진다.
+   */
   if (effect.gain) {
-    const team = (await ref.collection('teams').doc(pawn.team).get()).data() as TeamDoc
-    batch.update(ref.collection('teams').doc(pawn.team), { resources: gain(team.resources, effect.gain) })
+    const me = (await ref.collection('pawns').doc(uid).get()).data() as PawnDoc
+    batch.update(ref.collection('pawns').doc(uid), { resources: gain(purseOf(me), effect.gain) })
   }
 
-  // 대상 팀 금고에서 돈이 깎인다. 0 아래로는 안 내려간다
+  /*
+   * 대상 팀에서 돈이 깎인다. **많이 가진 사람부터 1코인씩** 돌아가며
+   * 뺀다 — 한 사람에게 몰아서 물리면 누가 맞을지가 자리 운이 되고,
+   * 고루 나누면 1짜리 타격이 0 넷이 된다. 합계는 정확히 맞는다.
+   */
   if (effect.moneyHit) {
-    const t = effect.moneyHit.team
-    const doc = (await ref.collection('teams').doc(t).get()).data() as TeamDoc
-    batch.update(ref.collection('teams').doc(t), {
-      resources: { ...doc.resources, money: Math.max(0, doc.resources.money - effect.moneyHit.amount) },
-    })
+    const theirs = await ref.collection('pawns').where('team', '==', effect.moneyHit.team).get()
+    const purses = theirs.docs.map((d) => ({
+      ref: d.ref,
+      was: purseOf(d.data() as PawnDoc),
+      money: purseOf(d.data() as PawnDoc).money,
+    }))
+    let owe = effect.moneyHit.amount
+    while (owe > 0 && purses.some((p) => p.money > 0)) {
+      purses.sort((a, b) => b.money - a.money)
+      const top = purses[0]
+      if (!top || top.money <= 0) break
+      top.money -= 1
+      owe -= 1
+    }
+    for (const p of purses) {
+      if (p.was.money === p.money) continue
+      batch.update(p.ref, { resources: { ...p.was, money: p.money } })
+    }
   }
 
   // 칸에 붙는 것 — 봉쇄

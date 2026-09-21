@@ -1675,8 +1675,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       */}
       {sheet === 'shop' && (
         <Vending
-          myTeam={me.team}
-          owner={(state.tiles[SHOP_TILE]?.ownerTeam ?? null) as TeamId | null}
           money={state.view?.myVault?.money ?? 0}
           soldOut={state.view?.soldOutItems ?? []}
           act={act}

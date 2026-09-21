@@ -371,7 +371,14 @@ export interface PhaseState {
    * 순수 함수로 두려면 금고도 상태의 일부여야 한다. 서버가 팀 문서에서
    * 읽어 넣고, 바뀐 것을 도로 적는다.
    */
-  vaults: Readonly<Partial<Record<TeamId, Vault>>>
+  /**
+   * 사람마다의 지갑. **키는 사람이다.**
+   *
+   * 한때 팀마다 하나였다. 그때는 넷이 한 금고를 보고 있어서 「누가
+   * 얼마를 썼다」가 곧 팀 회의였는데, 그 회의를 할 자리가 없었다.
+   * 번 사람이 갖고, 남에게 주려면 거래로 건넨다.
+   */
+  vaults: Readonly<Partial<Record<string, Vault>>>
 }
 
 /** 팀 금고. 돈과 지식 둘뿐이다. */
@@ -383,7 +390,7 @@ export interface Vault {
 const EMPTY_VAULT: Vault = { money: 0, knowledge: 0 }
 
 /** 그 팀 금고. 없으면 빈 것으로 친다. */
-export const vaultOf = (state: PhaseState, team: TeamId): Vault => state.vaults[team] ?? EMPTY_VAULT
+export const vaultOf = (state: PhaseState, playerId: string): Vault => state.vaults[playerId] ?? EMPTY_VAULT
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'disturb' | 'disguise' | 'dropRobot' | 'smashRobot'
 
@@ -821,19 +828,33 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       const ownsLab = landlord === mine.team
       // **지식이 모자라면 고를 수 없다.** 토큰도 안 든다
       const need = researchKnowledge(ownsLab)
-      const purse = vaultOf(state, mine.team)
+      const purse = vaultOf(state, playerId)
       if (purse.knowledge < need) return no(`지식이 모자란다. ${need}점이 든다.`)
-      // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 금고로 셋이
+      // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 지갑으로 셋이
       // 더 걸어서 없는 지식으로 넷이 연구한 판이 된다
       const paidTo = ownsLab ? null : landlord
-      let paid: Partial<Record<TeamId, Vault>> = {
+      let paid: Partial<Record<string, Vault>> = {
         ...state.vaults,
-        [mine.team]: { ...purse, knowledge: purse.knowledge - need },
+        [playerId]: { ...purse, knowledge: purse.knowledge - need },
       }
-      // 남의 연구실이면 낸 값이 주인 팀 금고로 들어간다
+      /*
+       * 남의 연구실이면 낸 값이 **그 팀에서 지식이 제일 적은 한
+       * 사람에게** 간다.
+       *
+       * 팀 금고가 없어져서 받을 곳을 정해야 했다. 넷에게 나누면
+       * 1~2 짜리가 0 넷이 되어 연구실을 쥐는 값이 사라지고, 팀장에게
+       * 몰아주면 팀장 혼자 부자가 된다. 제일 적은 사람에게 주면
+       * 값이 뭉치지 않고 흩어지면서도 한 번에 뜻이 있는 양이 된다.
+       */
       if (paidTo) {
-        const his = paid[paidTo] ?? EMPTY_VAULT
-        paid = { ...paid, [paidTo]: { ...his, knowledge: his.knowledge + need } }
+        const theirs = state.people
+          .filter((p) => p.team === paidTo)
+          .map((p) => ({ id: p.playerId, purse: paid[p.playerId] ?? EMPTY_VAULT }))
+          .sort((a, b) => a.purse.knowledge - b.purse.knowledge || a.id.localeCompare(b.id))
+        const lucky = theirs[0]
+        if (lucky) {
+          paid = { ...paid, [lucky.id]: { ...lucky.purse, knowledge: lucky.purse.knowledge + need } }
+        }
       }
       const queued: PendingResearch = { playerId, knowledge: need, paidTo, tileId: mine.tileId }
 
@@ -956,7 +977,7 @@ export function settle(state: PhaseState): SettleResult {
    * 값이라, 남은 시간을 보고 걸라는 압박이 그대로 규칙이 된다.
    */
   const robots = [...state.robots]
-  const vaults: Partial<Record<TeamId, Vault>> = { ...state.vaults }
+  const vaults: Partial<Record<string, Vault>> = { ...state.vaults }
 
   const wallets: Partial<Record<TeamId, number>> = { ...state.wallets }
 

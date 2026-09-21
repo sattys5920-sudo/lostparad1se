@@ -1,7 +1,7 @@
 // 상점 값 — 차지한 팀과 나머지가 다른 값을 낸다.
 import { describe, expect, it } from 'vitest'
 
-import { SHOP_ITEMS, SHOP_OWNER_PRICE, SHOP_TILE, shopItemById, shopPriceFor, type ShopItem } from './shop'
+import { SHOP_ITEMS, SHOP_TILE, priceOf, shopItemById, type ShopItem } from './shop'
 import { TILE_BY_ID } from './board'
 import { ITEM_BY_KIND, ITEM_KINDS, type ItemKind } from './items'
 
@@ -60,30 +60,19 @@ describe('상점', () => {
   })
 })
 
-describe('상점 값', () => {
-  it('차지한 팀은 무엇이든 1코인이고, 그 값은 아무 데도 안 간다', () => {
-    const p = shopPriceFor(pen, 'A', 'A')
-    expect(p.cost).toEqual({ money: SHOP_OWNER_PRICE })
-    expect(p.payTo).toBeNull()
-    expect(p.owned).toBe(true)
+describe('자판기 값', () => {
+  /*
+   * **주인이 없다.** 전에는 상점이 차지할 수 있는 방이라 차지한 팀은
+   * 무엇이든 1코인이었고 나머지가 낸 값은 그 팀 금고로 갔다. 자판기가
+   * 복도로 나오면서 차지할 수가 없어졌다 — 값은 하나고 낸 돈은 사라진다.
+   */
+  it('값은 붙은 그대로다', () => {
+    expect(priceOf(pen)).toBe(5)
+    for (const i of SHOP_ITEMS) expect(priceOf(i), i.id).toBe(i.cost.money)
   })
 
-  it('남은 붙은 값을 그대로, 그리고 **주인 팀에게** 낸다', () => {
-    const p = shopPriceFor(pen, 'B', 'A')
-    expect(p.cost).toEqual({ money: 5 })
-    expect(p.payTo).toBe('A')
-    expect(p.owned).toBe(false)
-  })
-
-  it('아무도 안 쥐고 있으면 값은 그대로지만 받을 팀이 없다', () => {
-    const p = shopPriceFor(pen, 'B', null)
-    expect(p.cost).toEqual({ money: 5 })
-    expect(p.payTo).toBeNull()
-    expect(p.owned).toBe(false)
-  })
-
-  it('값을 돌려주면서 물건의 값을 건드리지 않는다', () => {
-    shopPriceFor(pen, 'B', 'A').cost.money = 999
-    expect(pen.cost.money).toBe(5)
+  it('누가 사도 같은 값이다 — 깎아 주는 자리가 없다', () => {
+    const seen = new Set(SHOP_ITEMS.map((i) => `${i.id}:${priceOf(i)}`))
+    expect(seen.size).toBe(SHOP_ITEMS.length)
   })
 })

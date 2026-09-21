@@ -23,7 +23,8 @@ import {
 } from '../../shared/rules/quiz'
 import { TILES, type TileId } from '../../shared/rules/board'
 import { rngFrom } from '../../shared/missions/assign'
-import type { PawnDoc, TeamDoc } from '../../shared/model'
+import { gain, purseOf } from '../../shared/rules/resources'
+import type { PawnDoc } from '../../shared/model'
 import { freshNow } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
@@ -194,12 +195,11 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
       return { correct: false as const, explain: null }
     }
 
-    const teamRef = ref.collection('teams').doc(pawn.team)
-    const team = (await tx.get(teamRef)).data() as TeamDoc
+    // **맞힌 사람 지식이 는다.** 팀 금고가 없어졌다 — 푼 사람 것이다
+    const meRef = ref.collection('pawns').doc(uid)
+    const me = (await tx.get(meRef)).data() as PawnDoc
     tx.update(paperRef, { solvedBy: uid, solvedTeam: pawn.team })
-    tx.update(teamRef, {
-      resources: { ...team.resources, knowledge: team.resources.knowledge + KNOWLEDGE_PER_QUIZ },
-    })
+    tx.update(meRef, { resources: gain(purseOf(me), { knowledge: KNOWLEDGE_PER_QUIZ }) })
     // 해설은 맞힌 사람에게만, 그것도 응답으로만 간다. 문서에는 안 남는다
     return { correct: true as const, explain: quiz.explain || null }
   })

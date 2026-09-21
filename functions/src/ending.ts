@@ -10,6 +10,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { judge, type CaptureRecord, type GameLog, type JudgeVote, type RevealRecord, type TradeRecord } from '../../shared/missions/judge'
 import { day4Met, type Day4Choice } from '../../shared/rules/choices'
+import { teamPurse } from '../../shared/rules/resources'
 import { publicScore, rankTeams, type TeamState } from '../../shared/rules/score'
 import { snowStopped } from '../../shared/rules/snow'
 import { skippedScenes } from '../../shared/reveal/ending'
@@ -21,7 +22,7 @@ import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
 import { ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
 import type { Interval } from '../../shared/rules/presence'
 import type { TeamId } from '../../shared/rules/v2'
-import type { CaptureDoc, EventDoc, GameDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
+import type { CaptureDoc, EventDoc, GameDoc, PawnDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
 
 import { AFTERMATH, AFTERMATH_CLOSING } from './story/aftermath'
 import { COMMON_ENDING, MIRROR } from './story/mirror'
@@ -91,7 +92,7 @@ export async function buildLog(
   const nowMs = nowOf(game)
   const startedAtMs = game.startedAtMs ?? nowMs
 
-  const [rosterS, ivS, voteS, evS, capS, tileS, teamS, awakeS, choiceS, closingS] = await Promise.all([
+  const [rosterS, ivS, voteS, evS, capS, tileS, teamS, awakeS, choiceS, closingS, pawnS] = await Promise.all([
     secret(gameId, 'roster').get(),
     secret(gameId, 'intervals').get(),
     secret(gameId, 'votes').get(),
@@ -102,6 +103,7 @@ export async function buildLog(
     secret(gameId, 'awakened').get(),
     secret(gameId, 'choices').get(),
     ref.collection('secret').doc('closing').get(),
+    ref.collection('pawns').get(),
   ])
 
   const roster = rosterS.docs.map((d) => d.data() as RosterDoc)
@@ -149,16 +151,18 @@ export async function buildLog(
     }))
 
   // 최종 순위. 비밀 목표는 아직 안 넣는다 — 공개 점수로 낸다
+  // **자원은 지갑 넷의 합이다.** 금고가 없어졌다 — 점수판만 팀 단위다
+  const wallet = pawnS.docs.map((d) => d.data() as PawnDoc)
   const scores = TEAMS.map((team) => {
     const doc = teamDocs.get(team) as TeamDoc
     const state: TeamState = {
       team,
-      resources: doc.resources,
+      resources: teamPurse(wallet, team),
       researchTier: doc.researchTier,
     }
     return publicScore({ tiles, fragments: [], team: state })
   })
-  const ranked = rankTeams(scores, (team) => teamDocs.get(team)?.resources.knowledge ?? 0)
+  const ranked = rankTeams(scores, (team) => teamPurse(wallet, team).knowledge)
   const teamRank = Object.fromEntries(ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>
 
   const choices = new Map(choiceS.docs.map((d) => [d.id, d.data() as ChoiceDoc]))

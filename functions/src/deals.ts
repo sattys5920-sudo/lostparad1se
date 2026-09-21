@@ -32,7 +32,8 @@ import {
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
 import { TRADE_COST } from '../../shared/rules/occupy'
 import { cellsTouch } from '../../shared/rules/board'
-import type { PawnDoc, TeamDoc } from '../../shared/model'
+import { purseOf } from '../../shared/rules/resources'
+import type { PawnDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { sysLine } from './radio'
@@ -80,15 +81,15 @@ function cleanStake(raw: unknown): Stake {
 /** 그 사람이 지금 내놓을 수 있는 것 전부. 올릴 때도 성립 직전에도 이걸로 잰다. */
 async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<Holdings> {
   const ref = gameRef(gameId)
-  const [teamSnap, slips, bots] = await Promise.all([
-    ref.collection('teams').doc(pawn.team).get(),
+  const [slips, bots] = await Promise.all([
     slipsOf(gameId).where('heldBy', '==', uid).get(),
     ref.collection('robots').where('carriedBy', '==', uid).get(),
   ])
-  const team = teamSnap.data() as TeamDoc | undefined
+  // **올릴 수 있는 것은 내 지갑에 있는 것뿐이다.** 팀 금고가 없어졌다
+  const purse = purseOf(pawn)
   return {
-    money: team?.resources?.money ?? 0,
-    knowledge: team?.resources?.knowledge ?? 0,
+    money: purse.money,
+    knowledge: purse.knowledge,
     tokens: pawn.dealTokens ?? 0,
     items: pawn.items ?? {},
     slips: slips.size,
@@ -306,20 +307,25 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     // **여기서 한 번만 먹는다.** 둘이 같이 불러도 나중 쪽은 그냥 끝난다
     if (d.status !== 'settling') throw new HttpsError('failed-precondition', '이미 지나갔다.')
 
-    const [aTeamSnap, bTeamSnap] = await Promise.all([
-      tx.get(ref.collection('teams').doc(d.a.team)),
-      tx.get(ref.collection('teams').doc(d.b.team)),
+    const [aPawnSnap, bPawnSnap] = await Promise.all([
+      tx.get(ref.collection('pawns').doc(d.a.playerId)),
+      tx.get(ref.collection('pawns').doc(d.b.playerId)),
     ])
-    const aTeam = aTeamSnap.data() as TeamDoc
-    const bTeam = bTeamSnap.data() as TeamDoc
+    const aPurse = purseOf(aPawnSnap.data() as PawnDoc)
+    const bPurse = purseOf(bPawnSnap.data() as PawnDoc)
 
-    // 팀 금고 — 돈과 지식은 팀 것이라 팀원 전체가 함께 잃고 얻는다
-    const move = (from: TeamDoc, give: Stake, get: Stake) => ({
-      money: (from.resources?.money ?? 0) - give.money + get.money,
-      knowledge: (from.resources?.knowledge ?? 0) - give.knowledge + get.knowledge,
+    /*
+     * **지갑에서 지갑으로.** 전에는 팀 금고끼리 움직여서, 둘이 마주
+     * 서서 한 거래가 양쪽 팀 일곱 명의 돈을 움직였다. 이제 거래한
+     * 두 사람의 지갑만 바뀐다 — 마주 선 사람과 한 일이 마주 선
+     * 사람에게만 남는다.
+     */
+    const move = (had: Record<string, number>, give: Stake, get: Stake) => ({
+      money: Math.max(0, (had.money ?? 0) - give.money + get.money),
+      knowledge: Math.max(0, (had.knowledge ?? 0) - give.knowledge + get.knowledge),
     })
-    tx.update(aTeamSnap.ref, { resources: { ...aTeam.resources, ...move(aTeam, d.a.stake, d.b.stake) } })
-    tx.update(bTeamSnap.ref, { resources: { ...bTeam.resources, ...move(bTeam, d.b.stake, d.a.stake) } })
+    tx.update(aPawnSnap.ref, { resources: move(aPurse, d.a.stake, d.b.stake) })
+    tx.update(bPawnSnap.ref, { resources: move(bPurse, d.b.stake, d.a.stake) })
 
     /*
      * 금고가 눈에 띄게 줄면 그 팀 무전에 한 줄 적는다.

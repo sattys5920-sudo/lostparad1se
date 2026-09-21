@@ -108,13 +108,14 @@ export interface WorldQuiz {
 export interface World {
   nowMs: number
   /**
-   * 팀마다의 금고. **투영이 내 팀 것만 떼어 보낸다.**
+   * 사람마다의 지갑. **투영이 본인 것만 떼어 보낸다.**
    *
-   * 전에는 games/{id}/teams/{t} 를 누구나 읽을 수 있어서 남의 돈과
-   * 지식이 그대로 보였다. 「저 팀 지식이 4니까 곧 로봇이 나온다」가
-   * 추측이 아니라 계산이 되면 숨길 것이 하나도 남지 않는다.
+   * 전에는 팀 금고였고 games/{id}/teams/{t} 를 누구나 읽을 수 있어서
+   * 남의 돈과 지식이 그대로 보였다. 「저 팀 지식이 4니까 곧 로봇이
+   * 나온다」가 추측이 아니라 계산이 되면 숨길 것이 하나도 없다.
+   * 개인 것이 된 지금은 더 그렇다 — 같은 팀 것도 안 보낸다.
    */
-  vaults?: Readonly<Partial<Record<TeamId, { money: number; knowledge: number }>>>
+  vaults?: Readonly<Partial<Record<string, { money: number; knowledge: number }>>>
   /** 사람마다의 주머니. 방해와 위장에 드는 물건이 여기 있다. */
   satchels?: Readonly<Satchels>
   /** 팀마다 하나인 페이즈 토큰 상자. **자기 팀 것만 내려간다.** */
@@ -523,7 +524,9 @@ export function projectView(world: World, viewerId: string): View {
     myTeamTokens: world.wallets?.[team] ?? 0,
     myMovingTo: world.pawns.find((p) => p.playerId === viewerId)?.movingTo ?? null,
     myDealTokens: world.pawns.find((p) => p.playerId === viewerId)?.dealTokens ?? 0,
-    myVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
+    // **내 지갑 하나뿐이다.** 같은 팀 것도 안 간다 — 서로 얼마
+    // 가졌는지는 말로 알아내야 한다
+    myVault: world.vaults?.[viewerId] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[viewerId] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,

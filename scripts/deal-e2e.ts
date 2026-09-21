@@ -110,6 +110,9 @@ const M = 60_000
 const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/pawns`)).map((p) => [p.id, p.d]))
 const dealNow = async (id: string) => (await getAll(`games/${GAME}/deals`)).find((d) => d.id === id)?.d ?? {}
 const teamNow = async (t: TeamId) => (await getAll(`games/${GAME}/teams`)).find((x) => x.id === t)?.d ?? {}
+/** 그 사람 지갑. **돈과 지식은 사람 것이다** — 팀 금고가 없어졌다 */
+const purseNow = async (uid: string): Promise<Record<string, number>> =>
+  (((await pawnsNow())[uid]?.resources ?? {}) as Record<string, number>)
 const slipsNow = async () => await getAll(`games/${GAME}/secret/slips/items`)
 const side = (x: Record<string, unknown>, k: 'a' | 'b') => (x[k] ?? {}) as Record<string, unknown>
 const staked = (x: Record<string, unknown>, k: 'a' | 'b') =>
@@ -242,20 +245,20 @@ async function main(): Promise<void> {
 
   // ── 2. 가진 것보다 많이 올리면 막힌다 ───────────────────────
   console.log('── 2. 자원 부족 ──')
-  const vault = ((await teamNow('A')).resources ?? {}) as Record<string, number>
+  const vault = await purseNow(me.uid)
   const tooMuch = await call('stakeDeal', me.token, {
     gameId: GAME,
     dealId: id,
     stake: { money: (vault.money ?? 0) + 99 },
   })
-  check(!tooMuch.ok && tooMuch.code === 'FAILED_PRECONDITION', '금고에 없는 돈은 못 올린다', tooMuch.message)
+  check(!tooMuch.ok && tooMuch.code === 'FAILED_PRECONDITION', '지갑에 없는 돈은 못 올린다', tooMuch.message)
   const ghostSlip = await call('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { slips: 5 } })
   check(!ghostSlip.ok, '없는 쪽지도 못 올린다', ghostSlip.message)
   check(Number(staked(await dealNow(id), 'a').money) === 2, '막힌 뒤에도 탁자는 아까 그대로다')
 
   // ── 3. 자리를 뜨거나 페이즈가 열리면 사라진다 ───────────────
   console.log('── 3. 이탈 · 페이즈 ──')
-  const moneyBefore = (((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0
+  const moneyBefore = (await purseNow(me.uid)).money ?? 0
   // 방을 뜨기 전에, **한 걸음만 물러나도** 탁자가 접힌다
   await must('standAt', you.token, { gameId: GAME, x: rect.x + 4, y: rect.y + 3 })
   await must('dealNow', me.token, { gameId: GAME })
@@ -270,7 +273,7 @@ async function main(): Promise<void> {
   d = await dealNow(id)
   check(String(d.status) === 'gone', '방을 뜨면 사라진다', String(d.why ?? ''))
   check(
-    ((((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0) === moneyBefore,
+    ((await purseNow(me.uid)).money ?? 0) === moneyBefore,
     '올린 것은 선언일 뿐이라 **돌아올 것도 없다**',
   )
 
@@ -309,8 +312,8 @@ async function main(): Promise<void> {
   check(line === '' || !board.includes(line), '쪽지 본문도 없다')
   check(Number(staked(await dealNow(id), 'a').slips) === 1, '장수만 적힌다')
 
-  const aMoney = (((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0
-  const bKnow = (((await teamNow('B')).resources ?? {}) as Record<string, number>).knowledge ?? 0
+  const aMoney = (await purseNow(me.uid)).money ?? 0
+  const bKnow = (await purseNow(you.uid)).knowledge ?? 0
   await must('readyDeal', me.token, { gameId: GAME, dealId: id, ready: true })
   await must('readyDeal', you.token, { gameId: GAME, dealId: id, ready: true })
   const early = await call('settleDeal', me.token, { gameId: GAME, dealId: id })
@@ -325,10 +328,17 @@ async function main(): Promise<void> {
   check(both.some((r) => r.ok), '성립했다', JSON.stringify(both.map((r) => r.code ?? 'ok')))
   check(String((await dealNow(id)).status) === 'done', '탁자가 닫혔다')
 
-  const aAfter = (((await teamNow('A')).resources ?? {}) as Record<string, number>).money ?? 0
-  const bAfter = (((await teamNow('B')).resources ?? {}) as Record<string, number>).knowledge ?? 0
-  check(aAfter === aMoney - 1, 'A 금고에서 돈 하나가 나갔다', `${aMoney} → ${aAfter}`)
-  check(bAfter === bKnow - 1, 'B 금고에서 지식 하나가 나갔다', `${bKnow} → ${bAfter}`)
+  const aAfter = await purseNow(me.uid)
+  const bAfter = await purseNow(you.uid)
+  /*
+   * **지갑에서 지갑으로.** 전에는 팀 금고끼리 움직여서 둘이 마주 서서
+   * 한 거래가 일곱 명의 돈을 움직였다 — 이제 둘의 지갑만 바뀐다
+   */
+  check((aAfter.money ?? 0) === aMoney - 1, '내 지갑에서 돈 하나가 나갔다', `${aMoney} → ${aAfter.money}`)
+  check((bAfter.knowledge ?? 0) === bKnow - 1, '상대 지갑에서 지식 하나가 나갔다', `${bKnow} → ${bAfter.knowledge}`)
+  // 받은 쪽에 그대로 들어갔는가. 나가기만 하고 안 들어오면 돈이 사라진다
+  check((bAfter.money ?? 0) >= 1, '상대 지갑에 그 돈이 들어왔다', String(bAfter.money))
+  check((aAfter.knowledge ?? 0) >= 1, '내 지갑에 그 지식이 들어왔다', String(aAfter.knowledge))
 
   const pawns = await pawnsNow()
   check(

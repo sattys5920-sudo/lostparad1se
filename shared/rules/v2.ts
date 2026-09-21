@@ -138,9 +138,16 @@ export const RESOURCE_LABEL: Record<Resource, string> = {
   knowledge: '지식',
 }
 
+/**
+ * 사람 하나가 들고 시작하는 것. **팀 금고가 아니라 지갑이다.**
+ *
+ * 팀 넷이 돈 8을 함께 쓰던 때의 값을 사람 수로 나눠 옮겼다 — 팀에
+ * 셋이나 넷이 있으므로 한 사람 2, 지식 1 이면 판 전체의 양이 얼추
+ * 같다. 첫날 아침에 혼자 살 수 있는 것은 빈 종이 한 장이다.
+ */
 export const STARTING_RESOURCES: Record<Resource, number> = {
-  money: 8,
-  knowledge: 4,
+  money: 2,
+  knowledge: 1,
 }
 
 // ── 표 ──────────────────────────────────────────────────────────
@@ -215,7 +222,15 @@ export const ROLE_TITLE_LABEL: Record<RoleTitle, string> = {
 // ── 그 밖의 행동 ────────────────────────────────────────────────
 
 /** 생산 한 번에 얻는 돈. */
-export const PRODUCE_MONEY = 3
+/**
+ * 노동 한 번에 버는 돈.
+ *
+ * **3에서 1로 내렸다.** 심부름과 화분이 생기면서 돈 버는 길이 셋이
+ * 됐는데, 노동만 세 배면 나머지 둘을 아무도 안 한다. 상한은 없다 —
+ * 하고 싶은 만큼 하되, 한 번에 버는 양으로 셋의 무게를 맞춘다.
+ */
+export const PRODUCE_MONEY = 1
+
 /** 공부 한 번에 버는 팀 금고의 지식. 생산의 짝이다. */
 export const STUDY_KNOWLEDGE = 2
 // ── 교역과 동맹 ─────────────────────────────────────────────────

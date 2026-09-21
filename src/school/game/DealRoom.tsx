@@ -30,8 +30,8 @@ import type { GameActions } from './useGame'
  * 잊으면, 가진 물건인데 올릴 칸이 없는 채로 조용히 지나간다.
  */
 const SLOTS = [
-  { key: 'money', name: '돈', from: '팀 금고' },
-  { key: 'knowledge', name: '지식', from: '팀 금고' },
+  { key: 'money', name: '돈', from: '내 지갑' },
+  { key: 'knowledge', name: '지식', from: '내 지갑' },
   { key: 'tokens', name: '거래 토큰', from: '내 것' },
   ...ITEMS.map((i) => ({ key: i.kind, name: i.name, from: '내 것' })),
   { key: 'slips', name: '쪽지', from: '접힌 채' },
