@@ -178,6 +178,9 @@ export const PROP_ART = {
   statue: ART.STATUE,
   bench: ART.BENCH,
   tree: ART.TREE,
+  // 복도 — 게시판. **붙은 것이 있으면 다른 그림을 쓴다**
+  noticeBoard: ART.NOTICE_BOARD,
+  noticeBoardFull: ART.NOTICE_BOARD_FULL,
 } as const
 
 export type PropKind = keyof typeof PROP_ART

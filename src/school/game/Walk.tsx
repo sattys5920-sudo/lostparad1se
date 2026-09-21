@@ -82,6 +82,13 @@ export interface WalkProps {
    */
   says?: Readonly<Record<string, string>>
   /**
+   * 복도의 게시판. **붙은 장수에 따라 그림이 바뀐다.**
+   *
+   * 소품(furniture)이 아니라 여기로 받는다 — 소품은 방마다 고정인데
+   * 게시판은 복도에 있고 모습이 판 중에 바뀐다.
+   */
+  boards?: readonly { x: number; y: number; count: number }[]
+  /**
    * 채팅 바 윗변의 화면 y(css px). 채팅 모드가 아니면 null.
    *
    * 내 캐릭터가 이 선보다 아래에 있으면 **카메라만** 위로 밀어서 선
@@ -368,11 +375,21 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
   return c
 }
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [] }: WalkProps) {
+/**
+ * 머리 꼭대기까지의 높이(맵 화소). **그림 위쪽 빈 줄을 뺀 값이다.**
+ *
+ * 스프라이트 한 칸(CHAR_PX)에는 머리 위로 빈 줄이 남는다 — 칸 높이
+ * 그대로 띄웠더니 들고 있는 물건 이름이 머리에서 한 뼘 떠 있었다.
+ */
+const HEAD_PX = Math.round(CHAR_PX * 0.62)
+
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
   const tagElsRef = useRef(new Map<string, HTMLDivElement>())
+  /** 들고 있는 물건 이름표. 머리 위에 붙는다 */
+  const holdElsRef = useRef(new Map<string, HTMLDivElement>())
   /** 내리는 눈. 화면 좌표로 돈다 — 카메라를 따라 흐르지 않는다 */
   const flakesRef = useRef<{ x: number; y: number; vx: number; vy: number; s: number }[]>([])
   /** 가장자리를 어둡게 하는 한 장. 크기가 바뀔 때만 다시 굽는다 */
@@ -419,6 +436,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const tapRef = useRef(onTapRoom)
   const personRef = useRef(onTapPerson)
   const standRef = useRef(onStand)
+  /** 게시판. 그리는 고리가 매 프레임 본다 — 다시 세우지 않게 ref 로 */
+  const boardsRef = useRef(boards)
   const frozenRef = useRef(frozen)
   const stayRef = useRef(stayIn)
   const looksRef = useRef(looks)
@@ -432,6 +451,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   tapRef.current = onTapRoom
   personRef.current = onTapPerson
   standRef.current = onStand
+  boardsRef.current = boards
   frozenRef.current = frozen
   stayRef.current = stayIn
   looksRef.current = looks
@@ -1277,6 +1297,15 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           if (mark) ctx.drawImage(sprites.marks[mark], x * TILE - camX, y * TILE - camY)
           const prop = propAt(x, y)
           if (prop) drawPiece(ctx, sprites.props[prop.kind], prop.ox, prop.oy, x * TILE - camX, y * TILE - camY)
+          /*
+           * 게시판. **두 칸 높이라 윗칸에서 그린다** — 아랫칸 기준으로
+           * 그리면 위쪽 절반이 벽을 파고든다.
+           */
+          const board = boardsRef.current.find((b) => b.x === x && b.y === y)
+          if (board) {
+            const img = sprites.props[board.count > 0 ? 'noticeBoardFull' : 'noticeBoard']
+            ctx.drawImage(img, x * TILE - camX, y * TILE - camY - TILE)
+          }
           const sign = signAt(x, y)
           // 안개 뒤의 간판은 아예 안 모은다 — 나중에 그리므로 안개가
           // 덮어 주지 못한다
@@ -1370,6 +1399,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const hid = wipeRef.current !== 0
       placeSays(line, camX, camY, hid)
       placeTags(line, camX, camY, hid)
+      placeHolds(line, camX, camY, hid)
       placePops(camX, camY, hid)
     }
 
@@ -1502,6 +1532,44 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         // 가장자리에서는 안쪽으로 민다. 반쯤 잘린 이름은 이름이 아니다
         x = Math.min(Math.max(x, ox + w / 2), right - w / 2)
         y = Math.min(y, bottom - h)
+        el.style.transform = `translate(-50%, 0) translate(${x}px, ${y}px)`
+      }
+    }
+
+    /**
+     * 들고 있는 물건을 머리 위에 놓는다.
+     *
+     * 이름표는 발치, 이것은 머리 위다 — 둘을 한 자리에 두면 「가온」과
+     * 「비커」가 붙어서 한 이름처럼 읽힌다.
+     *
+     * 풍선도 머리 위를 쓴다. 말하는 동안에는 풍선이 이 줄을 덮는데,
+     * 그래도 괜찮다 — 말은 몇 초고 심부름은 몇십 분이다.
+     */
+    function placeHolds(line: readonly Standee[], camX: number, camY: number, hide: boolean): void {
+      const els = holdElsRef.current
+      if (els.size === 0) return
+      if (hide) {
+        for (const [, el] of els) el.style.display = 'none'
+        return
+      }
+      const k = scaleRef.current
+      const ox = canvas.offsetLeft
+      const oy = canvas.offsetTop
+      const right = ox + canvas.clientWidth
+
+      for (const [id, el] of els) {
+        const at = id === me.playerId ? { x: self.px, y: self.py } : (line.find((p) => p.playerId === id) ?? null)
+        // 걷는 중인 사람은 어느 방에도 없다. 든 것도 안 보인다
+        if (!at) {
+          el.style.display = 'none'
+          continue
+        }
+        el.style.display = ''
+        const w = el.offsetWidth
+        const h = el.offsetHeight
+        let x = Math.round(ox + (at.x - camX) * k)
+        const y = Math.max(oy, Math.round(oy + (at.y - camY - HEAD_PX) * k) - h - 1)
+        x = Math.min(Math.max(x, ox + w / 2), right - w / 2)
         el.style.transform = `translate(-50%, 0) translate(${x}px, ${y}px)`
       }
     }
@@ -1919,6 +1987,15 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     return name ? [{ playerId: p.playerId, team: p.team as string, name }] : []
   })
 
+  /*
+   * 들고 뛰는 사람들. **서버가 이름만 얹어 보낸다** — 무슨 심부름인지
+   * (어디로 가는지, 얼마짜리인지)는 본인 몫에만 있다. 비커를 안고
+   * 복도를 지나가는 것은 원래 보이는 일이라 이것만 보인다.
+   */
+  const holding = (view?.visiblePawns ?? []).flatMap((p) =>
+    p.carrying != null && p.carrying !== '' ? [{ playerId: p.playerId, thing: p.carrying }] : [],
+  )
+
   return (
     <div className="sc-wk">
       <canvas ref={canvasRef} className="sc-wk__canvas" />
@@ -1973,6 +2050,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         >
           <i aria-hidden />
           {name}
+        </div>
+      ))}
+
+      {/* 머리 위에 든 물건. 발치 이름표와 짝이다 */}
+      {holding.map(({ playerId, thing }) => (
+        <div
+          key={playerId}
+          className={`sc-wk__hold${playerId === me.playerId ? ' is-me' : ''}`}
+          ref={(el) => {
+            const m = holdElsRef.current
+            if (el) m.set(playerId, el)
+            else m.delete(playerId)
+          }}
+        >
+          {thing}
         </div>
       ))}
 

@@ -108,7 +108,9 @@ export const STARTING_ERRANDS: readonly ErrandSpec[] = [
     id: 'tray',
     thing: '식판',
     from: 'cafeteria',
-    to: 'baseB',
+    // 급식실에서 가사실로. 씻을 데가 거기다 — 처음에는 화장실(baseB)로
+    // 적어 두었는데, 운영자 화면에 「급식실 → 화장실」로 떠서 고쳤다
+    to: 'hallway',
     coins: 1,
     limitMin: 30,
     text: '한 장도 흘리지 말 것.',

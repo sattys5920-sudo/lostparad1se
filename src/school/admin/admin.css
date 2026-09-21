@@ -290,3 +290,51 @@
 .sc-dr__go:disabled { border-color: var(--sc-line); color: var(--sc-text-dim); cursor: default; }
 
 .sc-dr__hint { margin: 0; font-size: 11px; line-height: 16px; color: var(--sc-text-dim); word-break: keep-all; }
+
+/* ── 심부름 책상 ─────────────────────────────────────────── */
+
+.sc-ed { display: flex; flex-direction: column; gap: 8px; }
+.sc-ed h3 { margin: 10px 0 0; font-size: 13px; font-weight: 600; }
+.sc-ed h3:first-child { margin-top: 0; }
+
+.sc-ed__pool { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sc-ed__pool li {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid #d0d4dc;
+  border-radius: 6px;
+  background: #fff;
+}
+.sc-ed__pool b { font-size: 13px; }
+.sc-ed__pool span { font-size: 11px; color: #5b6070; }
+.sc-ed__pool p { margin: 2px 0 0; font-size: 11px; color: #5b6070; word-break: keep-all; }
+
+.sc-ed__row { display: flex; gap: 6px; margin-top: 4px; }
+.sc-ed__row button { padding: 4px 12px; font-size: 11px; }
+.sc-ed__add { align-self: flex-start; padding: 6px 14px; font-size: 12px; }
+
+.sc-ed__form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #d0d4dc;
+  border-radius: 6px;
+  background: #f7f8fa;
+}
+
+/* 지금 판 위. 읽기 전용이라 단추가 없다 */
+.sc-ed__live { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sc-ed__live li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.sc-ed__live b { font-weight: 600; }
+.sc-ed__live span { color: #5b6070; font-size: 11px; }
+.sc-ed__live em { margin-left: auto; font-style: normal; font-size: 11px; color: #5b6070; }
+.sc-ed__live i { font-style: normal; font-size: 11px; color: #5b6070; }

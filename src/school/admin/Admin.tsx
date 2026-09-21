@@ -15,6 +15,7 @@ import { gameActions, useGame } from '../game/useGame'
 import { PhaseHost } from '../game/Phase'
 import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
+import { ErrandDesk } from './Errands'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import './admin.css'
@@ -314,6 +315,15 @@ function Desk() {
               한 장 놓는다.
             </p>
             <DropHost act={act} onSaid={setSaid} />
+          </section>
+
+          <section className="sc-ad__card">
+            <h2>심부름</h2>
+            <p className="sc-ad__hint">
+              <b>자동 배치는 없다.</b> 판에 붙는 심부름이 전부 이 칸을 거친다 — 안 붙이면
+              게시판이 종일 비어 있다.
+            </p>
+            <ErrandDesk act={act} onSaid={setSaid} />
           </section>
 
           <section className="sc-ad__card">

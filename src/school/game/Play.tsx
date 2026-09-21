@@ -21,6 +21,8 @@ import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions } from './Actions'
 import { Vending } from './Vending'
+import { BoardSheet, ErrandStrip } from './Errand'
+import { BOARDS, atBoard } from '../../../shared/rules/errand'
 import { Walk, type DirWay } from './Walk'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog, leftText } from './Phase'
@@ -582,12 +584,15 @@ type Tab = 'map' | 'me' | 'radio' | 'vote' | 'note'
  * 건다. 선 방만 보면 둘이 똑같이 null 이라 복도에서 입이 막힌다.
  */
 function placeName(room: TileId | null, cell: { x: number; y: number } | null): string | null {
-  if (room) return TILE_BY_ID[room].name
+  // **복도가 먼저다.** 복도로 나서도 선 방(tileId)은 마지막 방 그대로다
+  // — 방 이름부터 보면 복도에 서서 「2-3 교실에서 말한다」가 뜬다.
+  // 서버도 선 칸으로 가른다(chat.ts) — 화면이 다르게 말하면 안 된다.
   if (cell && isHallCell(cell.x, cell.y)) return '복도'
+  if (room) return TILE_BY_ID[room].name
   return null
 }
 
-type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team'
+type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -722,6 +727,20 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null
   const standingOn = (state.view?.visiblePawns.find((p) => p.playerId === uid)?.tileId ?? null) as TileId | null
+
+  /*
+   * **방이 바뀌면 쥐고 있던 칸을 버린다.**
+   *
+   * 서버가 사람을 옮길 때는 칸을 비운다(phase.ts 의 roamTo·arrive).
+   * 화면이 들고 있던 값은 그 순간 옛 자리다 — 복도에서 방으로 끌려
+   * 들어간 뒤에도 「게시판」 단추가 남아 있었다. 다음 걸음(Walk 의
+   * 500ms 보고)이 곧 새 자리를 적어 준다.
+   */
+  useEffect(() => {
+    setMyCell(null)
+  }, [standingOn])
+  /** 복도에 서 있는가. 방 안이면 false 다 — 서버와 같은 기준이다 */
+  const inHall = myCell !== null && isHallCell(myCell.x, myCell.y)
 
   /*
    * **기계 앞을 떠나면 자판기가 저절로 닫힌다.**
@@ -1019,6 +1038,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       room.push({ key: 'buy', icon: 'buy', label: '구매', run: () => setSheet('shop') })
     }
     /*
+     * **게시판 앞.** 방이 아니라 자리라서, 선 방이 아니라 선 칸을 본다.
+     *
+     * 복도에 있으므로 어느 방에 속하지도 않는다 — 그 앞에 서는 것만이
+     * 조건이고, 그래서 이 칸은 복도에서만 뜬다.
+     */
+    if (BOARDS.some((b) => atBoard(myCell, b))) {
+      room.push({ key: 'board', icon: 'note', label: '게시판', run: () => setSheet('board') })
+    }
+    /*
      * **이 방에 놓인 완성품.** 첫 칸을 가져간다.
      *
      * 주인이 없다 — 연구를 건 사람이 제때 여기 없었다는 뜻이고, 먼저
@@ -1078,7 +1106,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
     ]
     return [...room, ...fixed, ...tail]
-  }, [phaseOpen, standingOn, phaseTokens, busyLeftMs, busyKind, state.view?.madeHere, act, say, refuse])
+  }, [phaseOpen, standingOn, myCell, phaseTokens, busyLeftMs, busyKind, state.view?.madeHere, act, say, refuse])
 
   /**
    * 여섯 칸에 다 안 들어가면 마지막 칸을 「더보기」가 쓴다.
@@ -1226,6 +1254,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               setMyCell({ x, y })
               void act.standAt(x, y).catch(() => {})
             }}
+            /* 게시판. 붙은 장수는 서버가 보내 준다 — 없으면 빈 판이다 */
+            boards={BOARDS.map((b) => ({
+              x: b.cell.x,
+              y: b.cell.y,
+              count: state.view?.boardCounts?.[b.id] ?? 0,
+            }))}
             /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */
             /* 거래 탁자에 앉아 있거나, 무언가 하느라 묶여 있으면 못 움직인다 */
             frozen={(deal !== null && deal.status !== 'done' && deal.status !== 'gone') || busyLeftMs > 0}
@@ -1259,19 +1293,38 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 {me.name}
               </span>
             </div>
-            {standingOn !== null && (
+            {/* 복도에 서 있으면 복도라고 쓴다. 말줄과 같은 이름을 쓴다 —
+                한쪽은 「2-3 교실」, 한쪽은 「복도」면 어느 쪽이 참인지
+                알 수 없다. 정원은 안 쓴다. 복도는 아무의 자리도 아니라
+                차지할 수도, 넘칠 수도 없다 */}
+            {inHall ?
               <div className="sc-pl__hud2">
-                <span className="sc-pl__where">{TILE_BY_ID[standingOn].name}</span>
-                {KIND_MARK[ROOM_KIND[standingOn]] !== '' && (
-                  <span className="sc-pl__kind" aria-hidden>{KIND_MARK[ROOM_KIND[standingOn]]}</span>
-                )}
-                {/* **보이는 사람만 센다.** 잠복한 사람은 서버가 안 보내
-                    주므로 여기 없다 — 화면이 받아 놓고 숨기는 것이 아니다 */}
-                <span className="sc-pl__crowd">
-                  {hereNow.length + 1}/{capacityOf(standingOn)}
-                </span>
+                <span className="sc-pl__where">복도</span>
               </div>
-            )}
+            : standingOn !== null && (
+                <div className="sc-pl__hud2">
+                  <span className="sc-pl__where">{TILE_BY_ID[standingOn].name}</span>
+                  {KIND_MARK[ROOM_KIND[standingOn]] !== '' && (
+                    <span className="sc-pl__kind" aria-hidden>{KIND_MARK[ROOM_KIND[standingOn]]}</span>
+                  )}
+                  {/* **보이는 사람만 센다.** 잠복한 사람은 서버가 안 보내
+                      주므로 여기 없다 — 화면이 받아 놓고 숨기는 것이 아니다 */}
+                  <span className="sc-pl__crowd">
+                    {hereNow.length + 1}/{capacityOf(standingOn)}
+                  </span>
+                </div>
+              )
+            }
+            {/*
+              받아 둔 심부름. **늘 보인다** — 시트로 만들면 열어 봐야
+              알고, 심부름은 「지금 뭘 하는 중인가」다. 안 받았으면 줄
+              자체가 없으므로 평소에는 자리를 안 먹는다.
+
+              **머리 판의 셋째 층이다.** 방 이름 아래에 붙인다. 흐름에
+              두었더니 지도 맨 아래로 내려갔고, 말줄이 그 위를 덮었다 —
+              말줄은 지도 위에 얹히는 고정 줄이라 흐름을 비켜 간다.
+            */}
+            <ErrandStrip view={state.view} act={act} onSaid={setSaid} ask={ask} />
           </header>
           {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
           {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
@@ -1697,6 +1750,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         **자판기는 시트가 아니다.** 제목 줄 달린 종이 위에 기계를
         얹으면 기계가 아니라 기계 그림이 된다 — 화면을 통째로 쓴다.
       */}
+      {/*
+        게시판. **복도에 서서 연다** — 방이 아니라 자리라, 시트를
+        여는 길도 조작부가 아니라 옆에 선 게시판이다
+      */}
+      {sheet === 'board' && (
+        <Sheet title="게시판" onClose={closeSheet}>
+          <BoardSheet view={state.view} act={act} onSaid={setSaid} onClose={closeSheet} />
+        </Sheet>
+      )}
+
       {sheet === 'shop' && (
         <Vending
           money={state.view?.myVault?.money ?? 0}

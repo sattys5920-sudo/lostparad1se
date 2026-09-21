@@ -533,7 +533,13 @@ export function projectView(world: World, viewerId: string): View {
 
   return {
     updatedAtMs: world.nowMs,
-    // 안개 밖의 말은 목록에 없다. 목적지는 어느 말에도 붙지 않는다
+    /*
+     * 안개 밖의 말은 목록에 없다. 목적지는 어느 말에도 붙지 않는다.
+     *
+     * **든 물건은 붙는다.** 손에 상자를 안고 복도를 지나가면 누구나
+     * 본다 — 무엇을 들었는지까지가 보이는 것이고, 무슨 심부름인지는
+     * 안 보인다. 보이는 사람에게만 붙으므로 새는 길도 아니다.
+     */
     roomCounts: countRooms(seenPawns, world.robots ?? [], visible, team, world.disguised ?? []),
 
     // 로봇도 안개를 거친다. 보이지 않는 방의 로봇은 아예 안 보낸다
@@ -546,7 +552,7 @@ export function projectView(world: World, viewerId: string): View {
       .filter((m) => here !== null && m.tileId === here)
       .map((m) => ({ id: m.id, byPlayerId: m.byPlayerId, mine: m.byPlayerId === viewerId })),
 
-    visiblePawns: seen,
+    visiblePawns: withCarry(seen, world.errands ?? []),
     /**
      * 위 목록에 든 사람의 아이디만. **규칙이 이것을 본다.**
      *
@@ -708,6 +714,27 @@ export function projectView(world: World, viewerId: string): View {
 }
 
 /** 열넷 몫을 한 번에. 사람마다 따로 판단한다. */
+/**
+ * 보이는 사람에게 **든 물건 이름을 얹는다.**
+ *
+ * 무엇을 들었는지는 보이고, 무슨 심부름인지는 안 보인다 — 어디서
+ * 어디로 가는지도, 보상이 얼마인지도 안 붙는다.
+ */
+function withCarry(
+  pawns: readonly PawnView[],
+  errands: readonly WorldErrand[],
+): (PawnView & { carrying?: string })[] {
+  if (errands.length === 0) return [...pawns]
+  const hand = new Map<string, string>()
+  for (const e of errands) {
+    for (const [id, t] of Object.entries(e.takers)) if (t.carrying) hand.set(id, e.thing)
+  }
+  return pawns.map((p) => {
+    const thing = hand.get(p.playerId)
+    return thing ? { ...p, carrying: thing } : p
+  })
+}
+
 export function projectAll(world: World): Record<string, View> {
   return Object.fromEntries(world.roster.map((r) => [r.playerId, projectView(world, r.playerId)]))
 }

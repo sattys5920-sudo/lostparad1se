@@ -194,11 +194,24 @@ async function main() {
   const vCarry = await viewOf(game, meUid)
   check(String((mapOf(vCarry.myErrand).carrying as { booleanValue?: boolean })?.booleanValue) === 'true', '들고 있다')
 
-  // 같은 방에 선 제삼자의 몫에 그 물건이 없다
+  /*
+   * **든 것은 보이고, 무슨 심부름인지는 안 보인다.**
+   *
+   * 비커를 안고 복도를 뛰는 사람은 원래 보인다 — 머리 위에 그려
+   * 준다. 대신 붙어 가는 것은 **이름 하나**뿐이다. 어디서 어디로
+   * 가는지도, 얼마를 받는지도, 누가 같이 받았는지도 안 간다.
+   */
   await putIn(game, thirdUid, 'labRoom')
   await must('standAt', meTok, { gameId: game, x: 55, y: 96 }).catch(() => undefined)
-  const vThird2 = JSON.stringify(await viewOf(game, thirdUid))
-  check(!vThird2.includes('"비커"'), '**같은 방 사람 몫에도 그 물건이 없다**')
+  const vThird2 = await viewOf(game, thirdUid)
+  const meSeen = arr(vThird2.visiblePawns).find((p) => str(p.playerId) === meUid) ?? {}
+  check(str(meSeen.carrying) === '비커', '같은 방 사람에게는 든 물건이 보인다', str(meSeen.carrying) ?? '없다')
+  const bitsWhileCarrying = await errandBits(thirdUid)
+  check(
+    !bitsWhileCarrying.includes('비커') && !bitsWhileCarrying.includes(meUid),
+    '**그래도 무슨 심부름인지는 제삼자 몫에 없다**',
+    bitsWhileCarrying.slice(0, 120),
+  )
 
   console.log('\n── 먼저 놓는 사람 ──')
   await putIn(game, youUid, 'labRoom')

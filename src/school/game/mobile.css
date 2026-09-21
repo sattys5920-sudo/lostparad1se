@@ -324,6 +324,34 @@
   color: #b9bfd4;
 }
 
+/*
+ * 머리 판의 셋째 층 — 받아 둔 심부름.
+ *
+ * 머리는 `pointer-events:none` 이다(뒤의 지도를 짚어야 하니까). 이
+ * 줄에는 단추가 있으므로 여기서만 되살린다.
+ *
+ * 처음에는 흐름에 두었다. 그랬더니 지도 맨 아래로 내려갔고, 말줄이
+ * (`position:fixed`) 그 위를 덮었다 — 줄이 있는데 안 보였다.
+ */
+.sc-pl__today .sc-er__strip {
+  pointer-events: auto;
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 2px solid var(--ct-line, #4a5070);
+  border-radius: 0;
+  background: rgba(28, 31, 51, 0.82);
+  color: var(--ct-text, #e8e6f5);
+}
+.sc-pl__today .sc-er__strip b { color: var(--ct-text, #e8e6f5); }
+.sc-pl__today .sc-er__strip span,
+.sc-pl__today .sc-er__strip i { color: #b9bfd4; }
+.sc-pl__today .sc-er__strip button {
+  border: 1px solid var(--ct-line, #4a5070);
+  background: rgba(58, 63, 94, 0.9);
+  color: var(--ct-text, #e8e6f5);
+}
+.sc-pl__today .sc-er__strip.is-soon { border-color: #a4553f; }
+
 .sc-pl__today .sc-pl__ghost {
   position: absolute;
   left: 0;
@@ -393,6 +421,27 @@
 .sc-pl__today.is-typing .sc-ct__bar,
 .sc-pl__today.is-typing .sc-ct__ctl {
   pointer-events: none;
+}
+
+/*
+ * 서버가 한 말. **흐름 밖에 띄운다.**
+ *
+ * 흐름에 두었더니 줄이 뜰 때마다 위가 그만큼 눌렸다 — 지도가 35px
+ * 줄고, 말줄(고정)은 제자리에 남아 자원 줄 위를 덮었다. 사는 것도
+ * 받는 것도 이 줄로 알리니 화면 절반이 그때마다 흔들린 셈이다.
+ *
+ * 탭바 위에 띄운다. 조작부를 가리지만 잠깐이고, 지도는 안 움직인다.
+ */
+.sc-pl__today > .sc-pl__said {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--row-tab) + var(--sa-bottom) + 12px);
+  z-index: 60;
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: calc(min(500px, 100vw) - 32px);
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(6, 8, 11, 0.35);
 }
 
 /* ── 나 탭 · 수첩 탭 ──────────────────────────────────────── */
