@@ -38,6 +38,8 @@ const BIN_DROP = [-9, 0]
 type Step = 'idle' | 'coin' | 'think' | 'shake' | 'drop' | 'done' | 'reject'
 
 export interface VendingProps {
+  /** 이 기계가 선 자리 이름. 간판에 그대로 뜬다 — 「1층 복도」 */
+  where: string
   money: number
   /** 오늘 다 나간 품목. 서버가 보내 준다. */
   soldOut: readonly string[]
@@ -107,7 +109,7 @@ function makeNoise() {
   }
 }
 
-export function Vending({ money, soldOut, crops = {}, act, onSaid, onClose }: VendingProps) {
+export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClose }: VendingProps) {
   const [picked, setPicked] = useState<string | null>(null)
   const [step, setStep] = useState<Step>('idle')
   const [frame, setFrame] = useState(0)
@@ -351,7 +353,7 @@ export function Vending({ money, soldOut, crops = {}, act, onSaid, onClose }: Ve
    * **주인이 없다.** 복도에 서 있는 기계라 차지할 수가 없고, 그래서
    * 값이 누구에게나 같고 낸 돈은 아무 데도 가지 않는다.
    */
-  const houseLine = '주인 없는 기계다. 낸 돈은 아무 데도 가지 않는다.'
+  const houseLine = '복도에 선 기계다. 낸 돈은 아무 데도 가지 않는다.'
 
   return (
     <div className="sc-vd">
@@ -364,7 +366,9 @@ export function Vending({ money, soldOut, crops = {}, act, onSaid, onClose }: Ve
         <div className="sc-vd__sign">
           <i className="sc-vd__tube" aria-hidden />
           <span className="sc-vd__signText">자 판 기</span>
-          <span className="sc-vd__room">2-3</span>
+          {/* **선 자리를 적는다.** 「2-3」이 박혀 있었다 — 기계는 2-3
+              교실에 있던 적이 없고, 지금은 층마다 복도에 한 대씩이다 */}
+          <span className="sc-vd__room">{where}</span>
         </div>
 
         {/* ── 진열창 ───────────────────────────────────── */}

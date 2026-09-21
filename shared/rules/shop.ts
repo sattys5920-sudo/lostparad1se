@@ -1,4 +1,4 @@
-// 상점. 5행 2열, 옛 이름은 교실.
+// 자판기. 복도에 선 기계 셋.
 //
 // **파는 것은 여섯이다.** 값은 여기 한 줄씩만 있고, 무엇을 하는
 // 물건인지는 items.ts 가 안다 — 같은 문장을 두 군데 적으면 한 군데만
@@ -8,11 +8,54 @@
 // 그러니 3짜리는 「오늘 한 번 마음먹는 것」이고, 6짜리는 하루를
 // 통째로 모아야 하는 것이다.
 import type { Resource } from './v2'
-import type { TileId } from './board'
+import type { Cell, Floor } from './board'
 import { ITEM_BY_KIND, type ItemKind } from './items'
 
-/** 물건을 살 수 있는 방. 여기 서 있어야 산다. */
-export const SHOP_TILE: TileId = 'classroom'
+/**
+ * 자판기 한 대가 선 자리.
+ *
+ * **방이 아니라 복도 칸이다.** 전에는 「상점」이라는 방 안에서 샀다 —
+ * 그러면 그 방을 차지한 팀이 사고파는 길목을 쥔다. 사고파는 것은
+ * 판을 돌리는 바탕이지 다툴 거리가 아니어서, 아무도 차지할 수 없는
+ * 자리로 내보냈다. 복도는 어느 방에도 안 속한다.
+ */
+export interface VendingSpot {
+  id: string
+  /** 사람에게 보이는 자리 이름. 기계 간판에 그대로 뜬다 */
+  name: string
+  floor: Floor
+  /** 전개도 좌표. **복도 칸이다** — spot-check 가 확인한다. */
+  cell: Cell
+}
+
+/**
+ * 층마다 하나씩 셋. 옥상에는 없다 — 복도가 없다.
+ *
+ * **복도 한가운데다.** 게시판은 끝에 둬서 보러 가게 했는데, 기계는
+ * 반대로 지나다니다 마주치는 편이 낫다. 살 생각이 없던 사람이 앞을
+ * 지나며 값을 보는 일이 이 기계가 하는 일의 절반이다.
+ *
+ * 좌표는 눈으로 찍지 않았다 — scripts/spot-check.ts 가 이 세 칸이
+ * 정말 복도인지, 게시판과 겹치지 않는지 지도에 물어본다.
+ */
+export const VENDINGS: readonly VendingSpot[] = [
+  { id: 'b1', name: '지하 복도', floor: 'b1', cell: { x: 25, y: 124 } },
+  { id: 'f1', name: '1층 복도', floor: 'f1', cell: { x: 25, y: 80 } },
+  { id: 'f2', name: '2층 복도', floor: 'f2', cell: { x: 32, y: 31 } },
+]
+
+export const VENDING_BY_ID: Record<string, VendingSpot> = Object.fromEntries(VENDINGS.map((v) => [v.id, v]))
+
+/**
+ * 어느 기계 앞에 서 있는가. 아니면 null.
+ *
+ * **한 칸 옆까지 친다** — 게시판과 같은 자다. 딱 그 칸에만 서야 하면
+ * 기계가 선 칸을 누가 밟고 있을 때 아무도 못 산다.
+ */
+export const atVending = (me: Cell | null | undefined): VendingSpot | null => {
+  if (me === null || me === undefined) return null
+  return VENDINGS.find((v) => Math.abs(me.x - v.cell.x) <= 1 && Math.abs(me.y - v.cell.y) <= 1) ?? null
+}
 
 export interface ShopItem {
   id: string

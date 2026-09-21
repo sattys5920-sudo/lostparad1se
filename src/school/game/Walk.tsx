@@ -50,9 +50,16 @@ import {
 } from './timing'
 import type { TeamId, TileId } from '../types'
 import type { ThingIcon } from '../../../shared/rules/errand'
+import { VENDINGS } from '../../../shared/rules/shop'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
+
+/**
+ * 자판기가 선 칸. **판 내내 안 바뀐다** — 그리는 고리가 프레임마다
+ * 세 칸을 훑지 않게 한 번만 만들어 둔다.
+ */
+const VENDING_CELLS = new Set(VENDINGS.map((v) => `${v.cell.x},${v.cell.y}`))
 
 export interface WalkProps {
   me: { playerId: string; team: TeamId; look: AvatarLook | null }
@@ -1323,6 +1330,17 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           if (board) {
             const img = sprites.props[board.count > 0 ? 'noticeBoardFull' : 'noticeBoard']
             ctx.drawImage(img, x * TILE - camX, y * TILE - camY - TILE)
+          }
+          /*
+           * 자판기. **판 내내 안 움직이고 안 바뀐다** — 그래서 게시판과
+           * 달리 화면 바깥에서 받지 않고 규칙에서 바로 읽는다.
+           *
+           * 게시판과 같은 자리에 같은 크기로 그리는데, 게시판은 벽에
+           * 걸려 있고 이것은 바닥에 서 있다. 두 칸 높이라 아랫단이
+           * 이 칸의 바닥에 닿는다.
+           */
+          if (VENDING_CELLS.has(`${x},${y}`)) {
+            ctx.drawImage(sprites.props.vending, x * TILE - camX, y * TILE - camY - TILE)
           }
           /*
            * 바닥의 심부름 물건. **칸 가운데에 작게 놓는다**(12칸 그림을

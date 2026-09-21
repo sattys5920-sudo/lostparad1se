@@ -402,7 +402,7 @@ export const ACT_COST: Record<ActionKind, number> = {
   move: ENTER_COST,
   research: 2,
   summon: 1,
-  // **방해와 위장은 토큰이 아니라 물건이 든다.** 물건은 상점에서만 난다
+  // **방해와 위장은 토큰이 아니라 물건이 든다.** 물건은 자판기에서만 난다
   disturb: 0,
   disguise: 0,
   // 들고 있던 것을 내려놓는 것뿐이다. 값을 물리면 아무도 안 둔다
@@ -590,7 +590,7 @@ function spent(out: ActResult, playerId: string, kind: ActionKind): ActResult {
   // **쓰는 사람 주머니에서 나간다.** 팀 주머니이던 때에는 멀리 나간
   // 사람이 사 온 것을 기지에 앉은 사람이 썼다
   const left = takeItem(out.next.satchels[playerId], need)
-  if (!left) return no(`${ITEM_BY_KIND[need].name}이(가) 없다. 상점에서 산다.`)
+  if (!left) return no(`${ITEM_BY_KIND[need].name}이(가) 없다. 자판기에서 산다.`)
   return { ...out, next: { ...out.next, satchels: { ...out.next.satchels, [playerId]: left } } }
 }
 
@@ -636,7 +636,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다
   const needItem = ITEM_FOR[act.kind] ?? null
   if (needItem && countOf(state.satchels[playerId], needItem) <= 0) {
-    return no(`${ITEM_BY_KIND[needItem].name}이(가) 없다. 상점에서 산다.`)
+    return no(`${ITEM_BY_KIND[needItem].name}이(가) 없다. 자판기에서 산다.`)
   }
 
   const people = state.people.map((p) => ({ ...p }))

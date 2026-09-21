@@ -12,7 +12,7 @@
 import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
-import { SHOP_ITEMS, SHOP_TILE } from '../shared/rules/shop'
+import { SHOP_ITEMS, VENDINGS } from '../shared/rules/shop'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -90,6 +90,28 @@ const str = (f: unknown): string | null => (f as { stringValue?: string })?.stri
 const num = (f: unknown): number => Number((f as { integerValue?: string })?.integerValue ?? 0)
 
 /** 말을 그 방에 세운다. 걸어가는 데 드는 값은 이 시험의 관심이 아니다 */
+/** 자물쇠와 드나들기를 보는 방. **이름만 바뀌었다** — 상점 → 매점 */
+const MART_TILE = 'classroom'
+/** 1층 복도의 기계. 사고파는 시험은 이 칸 앞에서 한다 */
+const MACHINE = VENDINGS.find((v) => v.floor === 'f1')!.cell
+
+/**
+ * 기계 앞에 세운다. **방이 아니라 칸이다.**
+ *
+ * 자판기가 복도로 나간 뒤로 방을 옮겨 놓는 것으로는 못 산다 — 서버는
+ * 선 칸(at)만 본다. tileId 는 건드리지 않는다: 복도에 선 사람도 마지막
+ * 방을 달고 다닌다.
+ */
+async function standBy(game: string, uid: string, cell: { x: number; y: number }): Promise<void> {
+  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=at`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: { at: { mapValue: { fields: { x: { integerValue: String(cell.x) }, y: { integerValue: String(cell.y) } } } } },
+    }),
+  })
+}
+
 async function standAt(game: string, uid: string, tileId: string): Promise<void> {
   await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=tileId&updateMask.fieldPaths=arriveAtMs`, {
     method: 'PATCH',
@@ -142,12 +164,14 @@ async function main() {
   console.log('\n── 파는 것 여섯 ──')
   check(SHOP_ITEMS.length === 6, '여섯 가지를 판다', String(SHOP_ITEMS.length))
 
-  console.log('\n── 상점에 서야 산다 ──')
+  console.log('\n── 자판기 앞에 서야 산다 ──')
   await standAt(game, meUid, 'artRoom')
+  await standBy(game, meUid, { x: MACHINE.x + 5, y: MACHINE.y })
   const far = await call('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
-  check(!far.ok, '딴 방에서는 못 산다', far.ok ? '사졌다' : (far.err ?? ''))
+  check(!far.ok, '**다섯 칸 떨어지면 못 산다** — 방이 아니라 칸을 본다', far.ok ? '사졌다' : (far.err ?? ''))
 
-  await standAt(game, meUid, SHOP_TILE)
+  // 한 칸 옆도 「앞」이다. 기계 칸을 누가 밟고 있어도 살 수 있어야 한다
+  await standBy(game, meUid, { x: MACHINE.x + 1, y: MACHINE.y })
   await fund(game, meUid, 40)
   const before = await moneyOf(game, meUid)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
@@ -163,21 +187,23 @@ async function main() {
   const you = 'qa08'
   const youTok = await tok(you)
   const youUid = uidOf(you)
-  await standAt(game, youUid, SHOP_TILE)
+  await standBy(game, youUid, MACHINE)
   await fund(game, youUid, 40)
   const other = await call('buyShopItem', youTok, { gameId: game, itemId: 'eraser' })
   check(!other.ok, '남의 팀이 와도 하루 몫은 판 전체에서 하나다', other.ok ? '샀다' : (other.err ?? ''))
 
   console.log('\n── 자물쇠 ──')
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
+  // **잠그는 것은 선 방이다.** 복도는 못 잠근다 — 매점 안으로 들여놓는다
+  await standAt(game, meUid, MART_TILE)
   const locked = await must('useItem', meTok, { gameId: game, kind: 'lock' })
-  check(String(locked.said ?? '').includes('상점'), '선 방 문을 잠갔다', String(locked.said))
+  check(String(locked.said ?? '').includes('매점'), '선 방 문을 잠갔다', String(locked.said))
   const again = await call('useItem', meTok, { gameId: game, kind: 'lock' })
   check(!again.ok, '덮어 걸 수 없다', again.ok ? '또 걸렸다' : (again.err ?? ''))
 
   // 잠긴 방으로는 못 들어간다. **같은 팀이면 들어간다**
   await standAt(game, youUid, 'artRoom')
-  const walk = await call('roamTo', youTok, { gameId: game, tileId: SHOP_TILE })
+  const walk = await call('roamTo', youTok, { gameId: game, tileId: MART_TILE })
   /*
    * **거절 이유까지 본다.** 문 앞에 세워 놓는 것을 잊으면 roamTo 가
    * 「이미 그 방이다」로 거절하고, !ok 만 보는 시험은 자물쇠가 하나도
@@ -195,7 +221,7 @@ async function main() {
   }
   const mateTok = await tok(mateId)
   await standAt(game, uidOf(mateId), 'artRoom')
-  const inn = await call('roamTo', mateTok, { gameId: game, tileId: SHOP_TILE })
+  const inn = await call('roamTo', mateTok, { gameId: game, tileId: MART_TILE })
   check(inn.ok, '같은 팀은 드나든다', inn.ok ? '' : (inn.err ?? ''))
 
   console.log('\n── 빈 종이 ──')
@@ -205,7 +231,7 @@ async function main() {
   const noPaper = await call('useItem', meTok, { gameId: game, kind: 'paper', text: MEMO })
   check(!noPaper.ok, '없는 물건은 못 쓴다', noPaper.ok ? '썼다' : (noPaper.err ?? ''))
 
-  await standAt(game, meUid, SHOP_TILE)
+  await standBy(game, meUid, MACHINE)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'paper' })
   await standAt(game, meUid, 'artRoom')
   const blank = await call('useItem', meTok, { gameId: game, kind: 'paper', text: '   ' })
@@ -244,8 +270,14 @@ async function main() {
   const dump4 = JSON.stringify(v4)
   check(!dump4.includes(MEMO) && !dump4.includes('0412'), '**조각에도 글은 없다** — 붙여야 종이가 된다')
 
-  await standAt(game, meUid, SHOP_TILE)
+  await standBy(game, meUid, MACHINE)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'tape' })
+  /*
+   * **방을 옮겨서 본다.** 기계 앞에 세우는 것(standBy)은 칸만 바꾸므로
+   * 선 방은 조각이 있는 그 방 그대로다 — 그 상태로 「딴 방에서는 못
+   * 붙인다」를 보면 붙어 버린다. 실제로 그랬다.
+   */
+  await standAt(game, meUid, 'musicRoom')
   const wrongRoom = await call('useItem', meTok, { gameId: game, kind: 'tape', scrapId: String(str(scraps[0]?.id) ?? '') })
   check(!wrongRoom.ok, '딴 방에서는 못 붙인다', wrongRoom.ok ? '붙였다' : (wrongRoom.err ?? ''))
 

@@ -13,9 +13,11 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
-import { SHOP_TILE } from '../shared/rules/shop'
 
 const { chromium } = pw as typeof import('playwright')
+
+/** 매점. 옛 이름은 상점 — 여기서는 그냥 방 하나가 필요했다 */
+const MART_TILE = 'classroom'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -329,7 +331,7 @@ async function main(): Promise<void> {
 
     // ── 후 · 4 더보기 시트 (상점에 서면 여섯을 넘친다) ────
     // 상점까지 실제로 걸어간다. 자유 시간의 방 이동은 공짜고 즉시다
-    await must('roamTo', myToken, { gameId: GAME, tileId: SHOP_TILE }).catch(() => undefined)
+    await must('roamTo', myToken, { gameId: GAME, tileId: MART_TILE }).catch(() => undefined)
     await tick(0)
     await page.waitForTimeout(2600)
     await page.locator('.sc-ct__act', { hasText: '더보기' }).click()

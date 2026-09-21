@@ -120,7 +120,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     // 물건이 드는 행동은 물건이 먼저다. 없으면 상점에 가야 한다
     const need = ITEM_FOR[kind]
     if (need && (view?.myItems?.[need] ?? 0) <= 0) {
-      return `${ITEM_BY_KIND[need].name}이(가) 없다. 상점에서 산다.`
+      return `${ITEM_BY_KIND[need].name}이(가) 없다. 자판기에서 산다.`
     }
     if (kind === 'research') {
       if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'

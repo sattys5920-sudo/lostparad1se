@@ -7,7 +7,9 @@
 //   npx vite-node scripts/pot-e2e.ts
 import { createHash } from 'node:crypto'
 import { dayHourMs } from '../shared/rules/clock'
-import { SHOP_TILE } from '../shared/rules/shop'
+
+/** 매점. 옛 이름은 상점 — 여기서는 그냥 방 하나가 필요했다 */
+const MART_TILE = 'classroom'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -113,8 +115,8 @@ async function main(): Promise<void> {
   check(opened > after, '종이 치면 들어온다', `${after} → ${opened}`)
 
   console.log('\n── 상점 구매는 페이즈 중에도 된다 ──')
-  await put(`games/${GAME}/pawns/${uMe}`, { tileId: { stringValue: SHOP_TILE } })
-  const shop = await fetch(`${FS}/games/${GAME}/tiles/${SHOP_TILE}`, { headers: ADMIN })
+  await put(`games/${GAME}/pawns/${uMe}`, { tileId: { stringValue: MART_TILE } })
+  const shop = await fetch(`${FS}/games/${GAME}/tiles/${MART_TILE}`, { headers: ADMIN })
   void shop
   const bought = await no(call('buyShopItem', tkMe, { gameId: GAME, itemId: 'whistle' }))
   check(!bought.includes('페이즈'), '페이즈라고 거절하지 않는다', bought || '샀다')
@@ -123,7 +125,7 @@ async function main(): Promise<void> {
   const ballot = await no(call('castBallot', tkMe, { gameId: GAME, targetId: uYou }))
   check(!ballot.includes('페이즈'), '투명인간 투표가 열려 있다', ballot || '적었다')
   // 신뢰표는 마주 서야 준다. 같은 자리에 세워 놓고 본다
-  await put(`games/${GAME}/pawns/${uYou}`, { tileId: { stringValue: SHOP_TILE } })
+  await put(`games/${GAME}/pawns/${uYou}`, { tileId: { stringValue: MART_TILE } })
   const trust = await no(call('castVote', tkMe, { gameId: GAME, targetId: uYou, kind: 'trust' }))
   check(!trust.includes('페이즈'), '신뢰·호감표도 열려 있다', trust || '줬다')
 

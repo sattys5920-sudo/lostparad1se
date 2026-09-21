@@ -17,8 +17,9 @@ import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
+import { walkTo as walkToCell } from './lib/walk'
 import { dayHourMs } from '../shared/rules/clock'
-import { SHOP_ITEMS, SHOP_TILE } from '../shared/rules/shop'
+import { SHOP_ITEMS, VENDINGS } from '../shared/rules/shop'
 
 const { chromium } = pw as typeof import('playwright')
 type Page = import('playwright').Page
@@ -34,6 +35,8 @@ const OUT = '/tmp/claude-0/vendshots'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 const MEMO = '3층 계단 밑 사물함, 자물쇠 번호는 0412다.'
+/** 2-3 교실과 같은 층의 기계. 걸어서 갈 수 있는 한 대다 */
+const MACHINE = VENDINGS.find((v) => v.floor === 'f2')!
 
 const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
 
@@ -89,17 +92,6 @@ const arrLen = (f: unknown): number =>
   (f as { arrayValue?: { values?: unknown[] } })?.arrayValue?.values?.length ?? 0
 
 
-/** 말을 그 방에 세운다. 걸어가는 데 드는 값은 이 캡처의 관심이 아니다 */
-async function standAt(game: string, uid: string, tileId: string): Promise<void> {
-  await fetch(
-    `${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=tileId&updateMask.fieldPaths=arriveAtMs`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...ADMIN },
-      body: JSON.stringify({ fields: { tileId: { stringValue: tileId }, arriveAtMs: { nullValue: null } } }),
-    },
-  )
-}
 /**
  * 지갑을 채운다. 값이 모자라 못 사는 화면은 여기서 볼 것이 아니다.
  *
@@ -181,9 +173,13 @@ async function openBag(page: Page): Promise<void> {
 }
 
 
-/** 자판기를 연다. 상점 칸에 서 있어야 「구매」가 선다 */
+/** 그 칸 앞까지 걸어간다. 손은 lib/walk 에 있다 — 캡처 셋이 같이 쓴다 */
+const walkTo = (page: Page, game: string, uid: string, want: { x: number; y: number }, what = '자리') =>
+  walkToCell({ page, fs: FS, admin: ADMIN, game, uid, want, what })
+
+/** 자판기를 연다. **기계 앞에 서 있어야** 「자판기」가 선다 */
 async function openVending(page: Page): Promise<void> {
-  await page.locator('.sc-ct__act', { hasText: '구매' }).first().click()
+  await page.locator('.sc-ct__act', { hasText: '자판기' }).first().click()
   await page.waitForSelector('.sc-vd__body', { timeout: 10_000 })
   // 들어오면 형광등이 두 번 깜빡인다. 켜진 뒤에 찍는다
   await page.waitForTimeout(900)
@@ -233,7 +229,6 @@ async function main() {
 
   const meUid = uidOf('qa01')
   await fund(game, meUid, 40)
-  await standAt(game, meUid, SHOP_TILE)
   /*
    * 지우개는 남이 오늘 몫을 사 갔다고 해 둔다. **판을 차리는 것**이지
    * 화면을 속이는 것이 아니다 — 서버가 세는 자리에 그대로 적는다
@@ -253,9 +248,19 @@ async function main() {
     const page = await ctx.newPage()
     page.on('pageerror', (e) => console.log('  [터짐] ' + String(e).slice(0, 200)))
     await enter(page, game, 'qa01')
-    await openVending(page)
 
     console.log(`\n── ${w}×${h} ──`)
+    /*
+     * **걸어서 간다.** 서버 문서를 고쳐 세워 봐야 소용없다 — 아바타는
+     * 화면이 쥐고 있고, 「자판기」 단추는 화면이 아는 제 칸으로 판단한다.
+     *
+     * 걸어가는 김에 복도에 선 기계를 한 장 찍는다. **이 그림이 판에서
+     * 기계를 마주치는 유일한 자리다** — 시트는 누른 뒤에나 열린다.
+     */
+    await walkTo(page, game, meUid, MACHINE.cell, '자판기')
+    await page.waitForTimeout(1200)
+    await full(page, `${w}-0-복도의-기계.png`)
+    await openVending(page)
     console.log('  잰 것:', JSON.stringify(await measure(page), null, 0))
     await full(page, `${w}-1-기본.png`)
 

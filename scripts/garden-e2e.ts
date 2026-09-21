@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
 import { CROP_BY_ID, GARDEN_TILE, HARVEST_LIMIT, POT_CELLS } from '../shared/rules/crop'
-import { SHOP_TILE } from '../shared/rules/shop'
+import { VENDINGS } from '../shared/rules/shop'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -22,6 +22,8 @@ const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/doc
 const ADMIN = { Authorization: 'Bearer owner' }
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
+/** 1층 복도의 자판기. 매입구 시험은 이 칸 앞에서 한다 */
+const MACHINE = VENDINGS.find((v) => v.floor === 'f1')!.cell
 
 let bad = 0
 const check = (ok: boolean, label: string, detail = '') => {
@@ -81,6 +83,19 @@ const str = (f: unknown): string | null => (f as { stringValue?: string })?.stri
 const num = (f: unknown): number => Number((f as { integerValue?: string })?.integerValue ?? 0)
 const mapOf = (f: unknown): Record<string, unknown> =>
   (f as { mapValue?: { fields?: Record<string, unknown> } })?.mapValue?.fields ?? {}
+
+/**
+ * 복도의 그 칸에 세운다. **tileId 는 안 건드린다** — 복도에 선 사람도
+ * 마지막 방을 달고 다니고, 자판기는 선 칸(at)만 본다.
+ */
+async function standBy(game: string, uid: string, cell: { x: number; y: number }): Promise<void> {
+  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=at`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: { at: { mapValue: { fields: { x: { integerValue: String(cell.x) }, y: { integerValue: String(cell.y) } } } } },
+    }),
+  })
+}
 
 /** 방에 세운다. 칸도 같이 비운다 — 서버가 방을 옮길 때 하는 것과 같다 */
 async function putIn(game: string, uid: string, tileId: string): Promise<void> {
@@ -308,7 +323,8 @@ async function main() {
   const farSell = await call('sellCrop', youTok, { gameId: game, cropId: soldId })
   check(!farSell.ok, '자판기 앞이 아니면 못 넣는다', farSell.ok ? '넣었다' : (farSell.err ?? ''))
 
-  await putIn(game, youUid, SHOP_TILE)
+  // **기계 앞에 세운다.** 방이 아니라 칸이다 — 복도에는 방이 없다
+  await standBy(game, youUid, MACHINE)
   const moneyBefore = await purseOf(game, youUid)
   const paid = await must('sellCrop', youTok, { gameId: game, cropId: soldId })
   check(

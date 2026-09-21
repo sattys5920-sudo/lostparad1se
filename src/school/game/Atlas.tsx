@@ -17,7 +17,6 @@ import {
   type RoomFacts,
 } from './MapPlan'
 import { TILES } from '../../../shared/rules/board'
-import { SHOP_TILE } from '../../../shared/rules/shop'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
 import type { TeamId, TileId } from '../types'
@@ -242,7 +241,8 @@ const KIND_DOT: Record<string, string> = {
 /** 그 방에서 무엇을 할 수 있는가. **규칙에서 읽어 온다 — 새 규칙이 아니다.** */
 function canDoIn(room: RoomFacts): string[] {
   const out: string[] = []
-  if (room.id === SHOP_TILE) out.push('상점 — 서서 물건을 산다')
+  // **자판기는 여기 안 적는다.** 복도에 서 있어서 어느 방의 일도
+  // 아니다 — 방마다 무엇을 하는지를 적는 목록에 낄 자리가 없다
   if (room.kind === 'lab') out.push('연구실 — 페이즈에 연구한다')
   if (room.kind === 'plant') out.push('발전소 — 연구가 그 자리에서 난다')
   if (room.kind === 'narrow') out.push('좁은 방 — 둘까지만 선다')

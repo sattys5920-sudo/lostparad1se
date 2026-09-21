@@ -30,8 +30,8 @@ import {
 } from '../../shared/rules/actions'
 import { earn as earnPurse, pay, purseOf } from '../../shared/rules/resources'
 import { type Resource } from '../../shared/rules/v2'
-import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
-import { SHOP_TILE, priceOf, shopItemById } from '../../shared/rules/shop'
+import { TILE_BY_ID, type Cell, type TileId } from '../../shared/rules/board'
+import { atVending, priceOf, shopItemById } from '../../shared/rules/shop'
 import { CROP_BY_ID } from '../../shared/rules/crop'
 import { josa } from '../../shared/text'
 import { putItem } from '../../shared/rules/items'
@@ -175,9 +175,14 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
   const ref = gameRef(gameId)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
-  if (pawn.tileId !== SHOP_TILE) {
-    throw new HttpsError('failed-precondition', `${TILE_BY_ID[SHOP_TILE].name}에 서야 살 수 있다.`)
-  }
+  /*
+   * **기계 앞에 서야 산다.** 방이 아니라 자리를 본다.
+   *
+   * 전에는 「매점」이라는 방에 서 있으면 됐다. 그러면 그 방을 차지한
+   * 팀이 사고파는 길목을 쥔다 — 자판기를 복도로 내보낸 까닭이다.
+   */
+  const spot = atVending((pawn.at ?? null) as Cell | null)
+  if (!spot) throw new HttpsError('failed-precondition', '자판기 앞에 서야 산다.')
 
   // **값은 누구에게나 같다.** 차지한 팀도, 깎아 주는 자리도 없다 —
   // 기계는 복도에 서 있고 복도는 아무도 차지할 수 없다
@@ -225,8 +230,7 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
       kind: 'shopBought',
       team: pawn.team,
       playerId: uid,
-      tileId: SHOP_TILE,
-      detail: { item: item.id, cost: cost.money },
+      detail: { item: item.id, cost: cost.money, at: spot.id },
     })
   })
 
@@ -254,9 +258,8 @@ export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) =
   const ref = gameRef(gameId)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
-  if (pawn.tileId !== SHOP_TILE) {
-    throw new HttpsError('failed-precondition', `${TILE_BY_ID[SHOP_TILE].name}에 서야 넣을 수 있다.`)
-  }
+  const spot = atVending((pawn.at ?? null) as Cell | null)
+  if (!spot) throw new HttpsError('failed-precondition', '자판기 앞에 서야 넣는다.')
 
   await db.runTransaction(async (tx) => {
     const meRef = ref.collection('pawns').doc(uid)
@@ -274,8 +277,7 @@ export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) =
       kind: 'cropSold',
       team: pawn.team,
       playerId: uid,
-      tileId: SHOP_TILE,
-      detail: { crop: spec.id, paid: spec.price },
+      detail: { crop: spec.id, paid: spec.price, at: spot.id },
     })
   })
 

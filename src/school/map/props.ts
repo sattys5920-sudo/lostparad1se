@@ -181,6 +181,8 @@ export const PROP_ART = {
   // 복도 — 게시판. **붙은 것이 있으면 다른 그림을 쓴다**
   noticeBoard: ART.NOTICE_BOARD,
   noticeBoardFull: ART.NOTICE_BOARD_FULL,
+  // 복도 — 자판기. 층마다 한 대다(shop.ts 의 VENDINGS)
+  vending: ART.VENDING,
 } as const
 
 export type PropKind = keyof typeof PROP_ART

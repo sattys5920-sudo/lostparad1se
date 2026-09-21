@@ -142,7 +142,7 @@ const F1: FloorDef = {
     ['baseA', '교무실', 4, 'zone1', { x: 9, y: 5, w: 12, h: 10 }],
     ['cafeteria', '급식실', 4, 'gate', { x: 23, y: 3, w: 10, h: 12 }],
     ['annex', '양호실', 5, 'cross', { x: 35, y: 7, w: 8, h: 8 }],
-    ['classroom', '상점', 3, 'zone1', { x: 45, y: 4, w: 9, h: 11 }],
+    ['classroom', '매점', 3, 'zone1', { x: 45, y: 4, w: 9, h: 11 }],
     ['hallway', '가사실', 1, 'zone1', { x: 9, y: 20, w: 10, h: 8 }],
     ['gym', '체육관', 4, 'gate', { x: 20, y: 20, w: 9, h: 10 }],
     ['auditorium', '강당', 6, 'core', { x: 34, y: 20, w: 9, h: 10 }],

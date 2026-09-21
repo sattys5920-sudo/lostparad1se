@@ -1,17 +1,40 @@
-// 상점 값 — 차지한 팀과 나머지가 다른 값을 낸다.
+// 자판기 값 — 누구에게나 같다. 그리고 기계는 복도에 선다.
 import { describe, expect, it } from 'vitest'
 
-import { SHOP_ITEMS, SHOP_TILE, priceOf, shopItemById, type ShopItem } from './shop'
-import { TILE_BY_ID } from './board'
+import { SHOP_ITEMS, VENDINGS, atVending, priceOf, shopItemById, type ShopItem } from './shop'
+import { FLOORS, isHallCell, roomOfCell } from './board'
 import { ITEM_BY_KIND, ITEM_KINDS, type ItemKind } from './items'
 
 /** 값 규칙은 파는 목록과 상관없이 돌아야 한다. 가짜 물건으로 본다. */
 const pen: ShopItem = { id: 'pen', name: '볼펜', text: '[작성 예정]', cost: { money: 5 } }
 
 describe('상점', () => {
-  it('상점은 한 칸이고 그 칸은 판에 있다', () => {
-    expect(TILE_BY_ID[SHOP_TILE]).toBeDefined()
-    expect(TILE_BY_ID[SHOP_TILE].name).toBe('상점')
+  /*
+   * **기계는 복도에 선다.** 방 안에 서면 그 방을 차지한 팀이 사고파는
+   * 길목을 쥔다 — 자판기를 방에서 내보낸 까닭 자체가 이것이라, 어느
+   * 한 대라도 방 안으로 들어가면 규칙이 무너진다.
+   */
+  it('자판기 셋은 모두 복도에 있고, 어느 방에도 안 속한다', () => {
+    expect(VENDINGS).toHaveLength(3)
+    for (const v of VENDINGS) {
+      expect(roomOfCell(v.cell.x, v.cell.y), v.name).toBeNull()
+      expect(isHallCell(v.cell.x, v.cell.y), v.name).toBe(true)
+    }
+  })
+
+  it('층마다 한 대다 — 옥상만 없다', () => {
+    const floors = VENDINGS.map((v) => v.floor)
+    expect(new Set(floors).size).toBe(floors.length)
+    expect([...floors].sort()).toEqual(FLOORS.filter((f) => f !== 'roof').slice().sort())
+  })
+
+  /** 둘레 한 칸까지가 「앞」이다. 딱 그 칸만이면 누가 밟고 섰을 때 못 산다 */
+  it('기계 앞 한 칸까지는 그 기계다', () => {
+    const v = VENDINGS[0]
+    expect(atVending(v.cell)?.id).toBe(v.id)
+    expect(atVending({ x: v.cell.x + 1, y: v.cell.y - 1 })?.id).toBe(v.id)
+    expect(atVending({ x: v.cell.x + 2, y: v.cell.y })).toBeNull()
+    expect(atVending(null)).toBeNull()
   })
 
   it('방해와 위장에 쓸 물건이 있다 — 없으면 그 두 행동이 판에서 사라진다', () => {

@@ -91,7 +91,7 @@ import { logOut } from '../accounts'
 import { Notes } from './Notes'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, isHallCell, type TileId } from '../../../shared/rules/board'
-import { SHOP_TILE } from '../../../shared/rules/shop'
+import { atVending } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
 import {
   ENTER_COST,
@@ -765,13 +765,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   /*
    * **기계 앞을 떠나면 자판기가 저절로 닫힌다.**
    *
-   * 화면이 남아 있으면 눌러 봐야 서버가 「상점에 서야 살 수 있다」로
+   * 화면이 남아 있으면 눌러 봐야 서버가 「자판기 앞에 서야 산다」로
    * 거절한다. 거절로 알려 주는 것보다 닫아 주는 편이 맞다 — 떠난
    * 것은 사람이 한 일이라 설명할 것이 없다.
+   *
+   * **선 방이 아니라 선 칸을 본다.** 기계가 복도로 나간 뒤로 방을
+   * 봐서는 떠났는지 알 수가 없다 — 복도에서는 방이 안 바뀐다.
    */
+  const vendingHere = atVending(myCell)
   useEffect(() => {
-    if (standingOn !== SHOP_TILE) setSheet((s) => (s === 'shop' ? null : s))
-  }, [standingOn])
+    if (vendingHere === null) setSheet((s) => (s === 'shop' ? null : s))
+  }, [vendingHere])
   // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
   const hereNow = standingOn
     ? (state.view?.visiblePawns ?? []).filter((p) => p.playerId !== uid && p.tileId === standingOn)
@@ -1025,7 +1029,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   /**
    * 여섯 칸에 무엇을 놓는가.
    *
-   * **이 방에서 되는 것이 앞 칸에 온다.** 상점에 서 있으면 「구매」가
+   * **이 방에서 되는 것이 앞 칸에 온다.** 기계 앞에 서 있으면 「자판기」가
    * 첫 칸이고, 아니면 그 칸을 다른 것이 쓴다. 여섯을 넘으면 나머지는
    * 더보기 시트로 간다 — 잘라 버리지 않는다.
    *
@@ -1051,11 +1055,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           : undefined
     // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
     const room: Act[] = []
-    // **페이즈 중에도 산다.** 상점에 서 있는 것 말고 드는 값이 없다 —
+    // **페이즈 중에도 산다.** 기계 앞에 서는 것 말고 드는 값이 없다 —
     // 서버도 시각을 안 본다. 감춰 두면 전선에서 호루라기가 떨어졌을 때
-    // 상점 칸을 쥐고도 아무것도 못 하는 셈이 된다
-    if (standingOn === SHOP_TILE) {
-      room.push({ key: 'buy', icon: 'buy', label: '구매', run: () => setSheet('shop') })
+    // 기계 앞에 서고도 아무것도 못 하는 셈이 된다
+    if (vendingHere !== null) {
+      room.push({ key: 'buy', icon: 'buy', label: '자판기', run: () => setSheet('shop') })
     }
     /*
      * **게시판 앞.** 방이 아니라 자리라서, 선 방이 아니라 선 칸을 본다.
@@ -1826,6 +1830,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
       {sheet === 'shop' && (
         <Vending
+          where={vendingHere?.name ?? ''}
           money={state.view?.myVault?.money ?? 0}
           crops={state.view?.myCrops ?? {}}
           soldOut={state.view?.soldOutItems ?? []}
