@@ -617,6 +617,42 @@ describe('두고 가게 될 로봇 셈', () => {
   })
 })
 
+describe('점령해도 드나드는 것은 못 막는다', () => {
+  /*
+   * **점령은 문이 아니다.** 남의 칸이라고 못 들어가면 한 번 가져간
+   * 방은 영영 그 팀 것이고, 페이즈마다 머릿수로 다시 정하는 규칙이
+   * 할 일이 없어진다. 막는 것은 자물쇠(물건)와 정원뿐이다.
+   */
+  it('남의 칸으로 걸어 들어간다', () => {
+    const s = board({
+      people: [person('a', 'A', 'artRoom')],
+      owners: { library: 'B' },
+    })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'library' })
+    expect(out.ok).toBe(true)
+  })
+
+  it('들어가서 더 많이 서 있으면 뺏는다', () => {
+    const s = board({
+      people: [person('a1', 'A', 'library'), person('a2', 'A', 'library'), person('b1', 'B', 'library')],
+      owners: { library: 'B' },
+    })
+    expect(settle(s).next.owners.library).toBe('A')
+  })
+
+  /** 막는 것은 자물쇠뿐이다 — 그것도 한 시간이고 물건을 써야 한다 */
+  it('잠긴 문만 막는다', () => {
+    const s = board({
+      people: [person('a', 'A', 'artRoom')],
+      owners: { library: 'B' },
+      locks: { library: 'B' },
+    })
+    const out = doAct(s, 'a', { kind: 'move', targetTile: 'library' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('잠겨')
+  })
+})
+
 describe('닫으면 서 있는 자리로 주인이 정해진다', () => {
   it('많은 쪽이 가져간다 — 파랑 둘, 빨강 하나면 파랑', () => {
     const s = board({

@@ -83,6 +83,15 @@ const boxOf = async (team: string) =>
 const ownerOfTile = async (id: string) =>
   ((await getAll(`games/${GAME}/tiles`)).find((t) => t.id === id)?.d.ownerTeam ?? null) as string | null
 
+/** 그 방 주인을 손으로 적어 둔다. 판을 만들어 놓고 보는 시험이다 */
+async function setOwner(tileId: string, team: string): Promise<void> {
+  await fetch(`${FS}/games/${GAME}/tiles/${tileId}?updateMask.fieldPaths=ownerTeam`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { ownerTeam: { stringValue: team } } }),
+  })
+}
+
 async function main(): Promise<void> {
   console.log(`판 ${GAME}\n── 판 세우기 ──`)
   const he = await signUp(`h-${GAME}@x.test`)
@@ -119,6 +128,38 @@ async function main(): Promise<void> {
   let now = (await pawnsNow())[a0.uid]
   check(now.tileId === 'library', '자유 시간에는 즉시 걸어 다닌다', String(now.tileId))
   check(now.postTile === 'centralPlaza', '**전선은 그대로다**', String(now.postTile))
+
+  /*
+   * **점령은 문이 아니다.** 남의 칸이라고 못 들어가면 한 번 가져간
+   * 방은 영영 그 팀 것이 되고, 페이즈마다 머릿수로 다시 정하는 규칙이
+   * 할 일이 없다. 자유 시간에도 페이즈에도 그냥 드나든다.
+   */
+  await setOwner('musicRoom', 'B')
+  const intoTheirs = await call('roamTo', a0.token, { gameId: GAME, tileId: 'musicRoom' })
+  check(intoTheirs.ok === true, 'B팀이 점령한 방에도 걸어 들어간다', intoTheirs.message ?? '')
+  check((await pawnsNow())[a0.uid].tileId === 'musicRoom', '정말 그 방에 서 있다')
+  check((await ownerOfTile('musicRoom')) === 'B', '들어간 것만으로 주인이 바뀌지는 않는다 — 판정은 페이즈 끝이다')
+  await must('roamTo', a0.token, { gameId: GAME, tileId: 'library' })
+
+  /*
+   * **자유 시간에는 정원이 없다.**
+   *
+   * 급식실은 좁은 방이라 페이즈에는 둘까지다(narrow). 자유 시간에는
+   * 몰려 들어가 떠드는 것이 하라는 일이라 막지 않는다 — 넷을 넣어
+   * 본다. 페이즈 중의 걸음은 여전히 정원을 본다(occupy 의 step).
+   */
+  const CROWD = [A[1], B[0], B[1], C[0]]
+  const seats = capacityOf('cafeteria')
+  for (const p of CROWD) await must('roamTo', p.token, { gameId: GAME, tileId: 'cafeteria' })
+  const inRoom = Object.values(await pawnsNow()).filter((p) => p.tileId === 'cafeteria').length
+  check(
+    inRoom === CROWD.length && CROWD.length > seats,
+    `정원 ${seats}인 방에 ${CROWD.length}명이 들어간다 — 자유 시간에는 한도가 없다`,
+    `${inRoom}명`,
+  )
+  // 원래 자리로 돌려보낸다. 여기 둔 채로 페이즈를 열면 아래의
+  // 「돌아온 사람 수」가 이 시험 때문에 달라진다
+  for (const p of CROWD) await must('roamTo', p.token, { gameId: GAME, tileId: 'centralPlaza' })
 
   // **계단은 문이라 층도 한 걸음이다.** 2층 도서관에서 1층 연구실로 곧장
   await must('roamTo', a0.token, { gameId: GAME, tileId: 'labRoom' })

@@ -1315,9 +1315,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                     <span className="sc-pl__kind" aria-hidden>{KIND_MARK[ROOM_KIND[standingOn]]}</span>
                   )}
                   {/* **보이는 사람만 센다.** 잠복한 사람은 서버가 안 보내
-                      주므로 여기 없다 — 화면이 받아 놓고 숨기는 것이 아니다 */}
+                      주므로 여기 없다 — 화면이 받아 놓고 숨기는 것이 아니다.
+
+                      정원은 **페이즈에만** 적는다. 자유 시간에는 몇 명이든
+                      들어오므로 「3/6」을 띄우면 없는 한도를 알려 주는 셈이다 */}
                   <span className="sc-pl__crowd">
-                    {hereNow.length + 1}/{capacityOf(standingOn)}
+                    {hereNow.length + 1}
+                    {phaseOpen ? `/${capacityOf(standingOn)}` : '명'}
                   </span>
                 </div>
               )

@@ -69,8 +69,9 @@ export function Actions({ tileId, where, owner = null, lockedBy = null, onClose,
             <dd>{owner ? `${owner}팀` : '없다'}</dd>
           </div>
           <div>
+            {/* **페이즈에만 걸리는 한도다.** 자유 시간에는 몇이든 들어간다 */}
             <dt>정원</dt>
-            <dd>{capacityOf(tileId)}명</dd>
+            <dd>{capacityOf(tileId)}명 · 페이즈</dd>
           </div>
         </dl>
       )}

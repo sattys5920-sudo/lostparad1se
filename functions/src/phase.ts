@@ -28,7 +28,6 @@ import {
   TOKENS_PER_PHASE,
   TOKEN_CAP,
   absenceRefunds,
-  capacityOf,
   nextWallet,
   roomsOf,
   teamRanks,
@@ -966,10 +965,7 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
 
   const ref = gameRef(gameId)
   await db.runTransaction(async (tx) => {
-    const [mine, pawns] = await Promise.all([
-      tx.get(ref.collection('pawns').doc(uid)),
-      tx.get(ref.collection('pawns')),
-    ])
+    const mine = await tx.get(ref.collection('pawns').doc(uid))
     // 페이즈가 닫히면 하던 일도 끊기지만, 그 사이에 이 문으로 들어올
     // 수 있다. 여기서도 한 번 본다
     if (mine.exists) requireFree(mine.data() as PawnDoc, nowMs)
@@ -996,14 +992,14 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
       throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name} 문이 잠겨 있다.`)
     }
 
-    // **정원은 사람만 센다.** 로봇은 방마다 따로 헤아린다 — 여기서
-    // 같이 세면 로봇 둘이 선 좁은 방에 아무도 못 들어가고, 들어가야
-    // 부술 수 있으니 그 방이 영영 그 팀 것이 된다. 규칙 쪽은 고쳤는데
-    // 자유 시간 걸음만 옛 셈이 남아 있었다
-    const seats = pawns.docs.filter((d) => d.id !== uid && (d.data() as PawnDoc).tileId === tileId).length
-    if (seats + 1 > capacityOf(tileId)) {
-      throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name}이(가) 꽉 찼다.`)
-    }
+    /*
+     * **자유 시간에는 정원이 없다.**
+     *
+     * 정원은 페이즈의 규칙이다 — 좁은 방에 몰려 서서 머릿수로 미는
+     * 것을 막자고 둔 것이고, 판정이 없는 시간에는 막을 것이 없다.
+     * 열넷이 한 교실에 들어가 떠드는 것은 이 놀이가 하라는 일이다.
+     * 페이즈 중의 걸음은 여전히 정원을 본다(occupy.ts 의 step).
+     */
     // postTile 은 건드리지 않는다. 자유 시간은 전선을 옮기지 못한다.
     // 다만 **발은 들였으니** 지도에는 남는다
     const been = new Set(p.visitedTiles ?? [])
