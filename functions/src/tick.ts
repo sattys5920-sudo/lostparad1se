@@ -5,6 +5,8 @@
 // 지났어도 다음 사람이 들어온 순간 그 사이가 전부 처리된다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import type { GameDoc } from '../../shared/model'
+import { sweepErrands } from './errand'
+import { refreshViews } from './views'
 import { catchUp, peekByHand, pushByHand } from './catchup'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
@@ -16,7 +18,16 @@ export const tick = onCall<{ gameId: string }>(async (req) => {
   const snap = await gameRef(req.data.gameId).get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
   const game = snap.data() as GameDoc
-  return catchUp(req.data.gameId, nowOf(game))
+  const nowMs = nowOf(game)
+  /*
+   * **제한 시간이 지난 심부름을 떼어낸다.**
+   *
+   * 시계를 보는 일이라 누가 두드릴 때 같이 한다. 아무도 안 두드리면
+   * 아무 일도 안 일어나는데, 그때는 볼 사람도 없다. 화면이 몇 초마다
+   * 이 문을 두드리므로 실제로는 제때 떨어진다.
+   */
+  if (await sweepErrands(req.data.gameId, nowMs)) await refreshViews(req.data.gameId)
+  return catchUp(req.data.gameId, nowMs)
 })
 
 /**

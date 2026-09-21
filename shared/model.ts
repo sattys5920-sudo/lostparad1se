@@ -495,6 +495,38 @@ export interface PlayerViewDoc {
    * 남았는지 아닌지만 있으면 칸을 그린다.
    */
   soldOutItems?: string[]
+  /** 게시판마다 붙은 장수. 복도 저쪽에서도 종이가 펄럭이는 것은 보인다. */
+  boardCounts?: Record<string, number>
+  /** 내가 선 게시판에 붙은 것들. **앞에 서야 온다.** */
+  errandsHere?: {
+    id: string
+    thing: string
+    from: TileId
+    to: TileId
+    coins: number
+    text: string
+    minutesLeft: number
+    mine: boolean
+  }[]
+  /**
+   * 내가 받아 둔 심부름. **내 것만.**
+   *
+   * 누가 같이 받았는지도, 남이 어디까지 했는지도 안 온다 — 경주하는
+   * 중이고, 보이면 그건 경주가 아니라 중계다.
+   */
+  myErrand?: {
+    id: string
+    thing: string
+    icon: string
+    from: TileId
+    to: TileId
+    coins: number
+    text: string
+    minutesLeft: number
+    carrying: boolean
+    thingHere: boolean
+    canDrop: boolean
+  } | null
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**

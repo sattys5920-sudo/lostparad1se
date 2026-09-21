@@ -163,6 +163,17 @@ export { openPhase, closePhase, phaseAct, phaseNow, roamTo, standAt } from './ph
 export { takeSlip, readSlip, dropSlip, tearSlip, giveSlip } from './slips'
 // 손으로 쓰는 물건 넷. 문이 하나다 — 물건 빼는 자리가 한 군데라야 한다
 export { useItem } from './use'
+// 심부름. 붙이는 것은 운영자뿐이고, 붙고 난 뒤는 누가 붙였든 같다
+export {
+  hostSaveErrand,
+  hostDeleteErrand,
+  hostErrands,
+  hostPostErrand,
+  takeErrand,
+  pickUpThing,
+  dropThing,
+  giveUpErrand,
+} from './errand'
 
 // 문제 종이. 정답과 해설은 여기 바깥으로 나가지 않는다 — 채점도 서버가 한다
 export { openQuiz, answerQuiz, hostQuizList, hostQuizUpsert, hostQuizRemove } from './quiz'

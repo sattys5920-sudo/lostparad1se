@@ -20,6 +20,7 @@ import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './
 import type { CardKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
+import { BOARDS, BOARD_BY_ID, atBoard, minutesLeft } from './errand'
 import type { Satchel, Satchels } from './items'
 import { canSeeConfession, canSeeMemory } from '../reveal/archive'
 import { noticesFor, type Notice } from '../reveal/notice'
@@ -74,6 +75,26 @@ export interface WorldConfession {
  * line 은 서버가 이미 이름까지 끼워 넣은 문장이다. 문장 표는
  * functions/src/story/slips.ts 에 있고 번들에 실리지 않는다.
  */
+/**
+ * 게시판에 붙은 한 장. **받은 사람 목록이 여기 있다.**
+ *
+ * 이 모양 그대로는 절대 안 내보낸다. 누가 받았는지가 새면 경주가
+ * 경주가 아니게 된다 — 남이 벌써 물건을 들었는지 보고 포기할 수 있다.
+ */
+export interface WorldErrand {
+  id: string
+  boardId: string
+  thing: string
+  icon: string
+  from: TileId
+  to: TileId
+  coins: number
+  limitMin: number
+  text: string
+  postedMs: number
+  takers: Readonly<Record<string, { tookMs: number; carrying: boolean }>>
+}
+
 export interface WorldSlip {
   id: string
   subjectId: string
@@ -172,6 +193,8 @@ export interface World {
    * 없다 — 기계가 비었다는 사실만 있다.
    */
   shopSold?: Readonly<Record<string, number>>
+  /** 지금 붙어 있는 심부름. **받은 사람 목록째로 들고 온다** — 투영이 본인 것만 뗀다. */
+  errands?: readonly WorldErrand[]
   slips?: readonly WorldSlip[]
   quizzes?: readonly WorldQuiz[]
   memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
@@ -330,6 +353,46 @@ export interface View {
    * 칸을 그린다.
    */
   soldOutItems: string[]
+  /**
+   * 게시판마다 몇 장 붙어 있는가. **장수까지만.**
+   *
+   * 종이가 펄럭이는 것은 복도 저쪽에서도 보인다 — 그게 걸어가 보게
+   * 만드는 힘이라 가리지 않는다. 무엇이 적혔는지는 앞에 서야 안다.
+   */
+  boardCounts: Record<string, number>
+  /** 내가 선 게시판에 붙은 것들. 앞에 서야 온다. */
+  errandsHere: {
+    id: string
+    thing: string
+    from: TileId
+    to: TileId
+    coins: number
+    text: string
+    minutesLeft: number
+    /** 내가 이미 받은 것인가. 받은 사람이 몇인지는 안 온다 */
+    mine: boolean
+  }[]
+  /**
+   * 내가 받아 둔 심부름. **내 것만.**
+   *
+   * 누가 같이 받았는지는 안 온다 — 경주하는 중이고, 남이 어디까지
+   * 했는지 보이면 그건 경주가 아니라 중계다.
+   */
+  myErrand: {
+    id: string
+    thing: string
+    icon: string
+    from: TileId
+    to: TileId
+    coins: number
+    text: string
+    minutesLeft: number
+    carrying: boolean
+    /** 지금 선 방에 내 물건이 놓여 있는가. 집을 수 있다는 뜻이다 */
+    thingHere: boolean
+    /** 여기 놓으면 끝나는가. */
+    canDrop: boolean
+  } | null
   /** 내가 들고 있는 쪽지. 읽은 것만 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**
@@ -427,6 +490,9 @@ export function projectView(world: World, viewerId: string): View {
       confessions: [],
       slipsHere: [],
       scrapsHere: [],
+      boardCounts: {},
+      errandsHere: [],
+      myErrand: null,
       lockedTiles: [],
       soldOutItems: [],
       quizzesHere: [],
@@ -451,6 +517,8 @@ export function projectView(world: World, viewerId: string): View {
 
   // 내가 선 방. 걷는 중이면 어느 방에도 없다 — 바닥의 쪽지도 안 보인다
   const here = seenPawns.find((p) => p.playerId === viewerId)?.tileId ?? null
+  /** 내가 멈춰 선 칸. 게시판 앞인지를 이걸로 본다 */
+  const myCell = seenPawns.find((p) => p.playerId === viewerId)?.at ?? null
 
 
   const seen = visiblePawns({
@@ -459,7 +527,7 @@ export function projectView(world: World, viewerId: string): View {
     pawns: seenPawns,
     visible,
     // 내가 선 칸. **복도에 섰으면 같은 복도 사람이 보인다**
-    at: seenPawns.find((p) => p.playerId === viewerId)?.at ?? null,
+    at: myCell,
     nowMs: world.nowMs,
   })
 
@@ -496,6 +564,53 @@ export function projectView(world: World, viewerId: string): View {
     lockedTiles: world.tiles
       .filter((t) => t.lockedBy != null && visible.has(t.tileId))
       .map((t) => ({ tileId: t.tileId, team: t.lockedBy as TeamId })),
+    /*
+     * ── 심부름 ──────────────────────────────────────────
+     *
+     * 세 겹으로 나눠 보낸다. 게시판마다 **장수**는 누구에게나,
+     * 붙은 **내용**은 그 앞에 선 사람에게, 받아서 **어디까지 했나**는
+     * 본인에게만.
+     *
+     * 남이 무엇을 받았는지는 어느 겹에도 없다. 경주하는 중이고, 남이
+     * 벌써 물건을 들었는지 보이면 그건 경주가 아니라 중계다.
+     */
+    boardCounts: Object.fromEntries(
+      BOARDS.map((b) => [b.id, (world.errands ?? []).filter((e) => e.boardId === b.id).length]),
+    ),
+    errandsHere: (world.errands ?? [])
+      .filter((e) => {
+        const b = BOARD_BY_ID[e.boardId]
+        return b !== undefined && atBoard(myCell, b)
+      })
+      .map((e) => ({
+        id: e.id,
+        thing: e.thing,
+        from: e.from,
+        to: e.to,
+        coins: e.coins,
+        text: e.text,
+        minutesLeft: minutesLeft(e.postedMs, e.limitMin, world.nowMs),
+        mine: e.takers[viewerId] !== undefined,
+      })),
+    myErrand: (() => {
+      const e = (world.errands ?? []).find((x) => x.takers[viewerId] !== undefined)
+      if (!e) return null
+      const took = e.takers[viewerId] as { tookMs: number; carrying: boolean }
+      return {
+        id: e.id,
+        thing: e.thing,
+        icon: e.icon,
+        from: e.from,
+        to: e.to,
+        coins: e.coins,
+        text: e.text,
+        minutesLeft: minutesLeft(e.postedMs, e.limitMin, world.nowMs),
+        carrying: took.carrying,
+        // **물건은 받은 사람에게만 있다.** 남의 응답에는 이 줄이 없다
+        thingHere: !took.carrying && here === e.from,
+        canDrop: took.carrying && here === e.to,
+      }
+    })(),
     // 오늘 다 나간 품목. 열넷에게 똑같이 간다 — 기계 앞에 서면 누구나
     // 보이는 것이라 가릴 것이 없다
     soldOutItems: SHOP_ITEMS.filter(

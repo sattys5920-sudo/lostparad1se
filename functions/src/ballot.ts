@@ -16,6 +16,7 @@ import { PHASES_PER_DAY } from '../../shared/rules/occupy'
 import { TOTAL_DAYS } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { GameDoc, TeamDoc } from '../../shared/model'
+import { dropAllErrands } from './errand'
 import { erasedOn } from './use'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
@@ -135,6 +136,16 @@ export async function settleBallots(
     [`invisibleByDay.${day + 1}`]: picked.playerId,
     invisibleId: picked.playerId,
   })
+  /*
+   * **지워지면 받아 둔 심부름을 놓는다.**
+   *
+   * 없는 사람에게 일을 맡길 수는 없다. 받기 자체가 막히는데 이미
+   * 받아 둔 것만 남아 있으면, 물건을 든 채로 아무에게도 안 보이는
+   * 사람이 하루를 돈다 — 도착 방에 놓아도 그 방 사람들은 물건이
+   * 저절로 생겼다고 볼 것이다.
+   */
+  if (picked.playerId) await dropAllErrands(gameId, picked.playerId)
+
   // 투명인간이 나온 팀은 그날 팀 전체로 토큰을 더 받는다. 지워진 것은
   // 한 사람인데 팀이 무너지면, 투표가 사람이 아니라 팀을 겨누게 된다
   if (picked.playerId) {

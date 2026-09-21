@@ -23,6 +23,7 @@ import { fillSubject } from '../../shared/reveal/slips'
 import { rawLine } from './story/slips'
 import type { SlipDoc } from './slips'
 import type { QuizDoc, QuizPaperDoc } from './quiz'
+import { errandWorld } from './errand'
 import { gameRef, nowOf } from './index'
 
 const db = getFirestore()
@@ -58,7 +59,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, awakened, notices] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -78,6 +79,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       gameRef(gameId).collection('secret').doc('quiz').collection('bank').get(),
       gameRef(gameId).collection('secret').doc('quiz').collection('floor').get(),
       gameRef(gameId).collection('secret').doc('shopStock').collection('items').get(),
+      errandWorld(gameId),
       secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
     ])
@@ -113,6 +115,21 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   return {
     nowMs,
     over: game.phase === 'finished',
+    // 게시판에 붙은 것. **받은 사람 목록째로 들고 온다** — 투영이
+    // 본인 것만 뗀다. 남이 무엇을 받았는지는 어느 몫에도 안 실린다
+    errands: errands.posted.map((e) => ({
+      id: e.id,
+      boardId: e.boardId,
+      thing: e.thing,
+      icon: e.icon,
+      from: e.from,
+      to: e.to,
+      coins: e.coins,
+      limitMin: e.limitMin,
+      text: e.text,
+      postedMs: e.postedMs,
+      takers: e.takers ?? {},
+    })),
     // 지갑. **사람마다 하나다** — 투영이 본인 것만 떼어 보낸다
     vaults: Object.fromEntries(
       pawns.docs.map((d) => {

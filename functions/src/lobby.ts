@@ -25,6 +25,7 @@ import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '..
 import { lookOfAccount, looksByUid } from './account'
 import { gameRef, nowOf, requireUid } from './index'
 import { refreshViews } from './views'
+import { seedErrandPool } from './errand'
 import { requireHost } from './host'
 
 const db = getFirestore()
@@ -160,6 +161,8 @@ export const createGame = onCall<{ gameId: string; seed?: string }>(async (req) 
   if ((await ref.get()).exists) throw new HttpsError('already-exists', '같은 이름의 판이 있다.')
 
   await ref.set(freshLobby(req.data.seed ?? `${gameId}-${Date.now()}`, []))
+  // 심부름 풀을 깔아 둔다. 운영자가 여기서 지우고 더한다
+  await seedErrandPool(gameId)
   return { gameId, seats: 0, need: TOTAL_SEATS }
 })
 

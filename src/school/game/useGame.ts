@@ -245,6 +245,22 @@ export function gameActions(gameId: string) {
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
     tearSlip: (slipId: string) => callServer('tearSlip', { ...g, slipId }),
     giveSlip: (slipId: string, toPlayerId: string) => callServer('giveSlip', { ...g, slipId, toPlayerId }),
+    // ── 심부름 ────────────────────────────────────────────
+    /** 게시판 앞에서 한 장 받는다. 한 번에 하나뿐이다. */
+    takeErrand: (errandId: string) => callServer('takeErrand', { ...g, errandId }),
+    /** 출발 방에서 내 물건을 집는다. */
+    pickUpThing: () => callServer('pickUpThing', g),
+    /** 도착 방에 놓는다. **먼저 놓은 사람이 가진다.** */
+    dropThing: () => callServer('dropThing', g),
+    /** 그만둔다. 남은 사람은 계속한다. */
+    giveUpErrand: () => callServer('giveUpErrand', g),
+    /** 운영자 — 풀과 판 위의 상황. */
+    hostErrands: () => callServer('hostErrands', g),
+    hostSaveErrand: (spec: unknown) => callServer('hostSaveErrand', { ...g, spec }),
+    hostDeleteErrand: (specId: string) => callServer('hostDeleteErrand', { ...g, specId }),
+    hostPostErrand: (specId: string, boardId: string) =>
+      callServer('hostPostErrand', { ...g, specId, boardId }),
+
     /**
      * 손으로 쓰는 물건 하나를 쓴다 — 자물쇠 · 빈 종이 · 지우개 · 테이프.
      *
