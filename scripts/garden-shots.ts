@@ -1,7 +1,7 @@
-// 화분 — 정원에 놓인 여덟 자리.
+// 화분 — 운영자가 심는 자리와, 사람이 보는 자리.
 //
-// 판정은 garden-e2e 가 본다. 여기서 보는 것은 **사람이 실제로 보는
-// 화면**이다. 빈 화분, 심은 뒤의 흙, 싹, 열매, 그리고 따는 자리.
+// 판정은 garden-e2e 가 본다. 여기서 보는 것은 **화면**이다. 운영자
+// 책상의 화분 여덟, 정원의 빈 화분, 흙, 열매, 그리고 따는 자리.
 //
 //   1. cd functions && npm run build  (에뮬레이터 다시 띄우기)
 //   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
@@ -14,7 +14,7 @@ import { mkdirSync, readFileSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
-import { POT_CELLS, SEED_BOX_CELL, GARDEN_TILE } from '../shared/rules/crop'
+import { POT_CELLS, GARDEN_TILE } from '../shared/rules/crop'
 import { isWalkable, tileAt } from '../src/school/map/world'
 
 const { chromium } = pw as typeof import('playwright')
@@ -308,39 +308,51 @@ async function main() {
   await page.screenshot({ path: `${OUT}/1-정원.png` })
   console.log('  찍었다 1-정원.png')
 
-  // 씨앗 상자 앞으로
-  await walkTo(page, game, meUid, SEED_BOX_CELL)
-  await page.waitForTimeout(1200)
-  // 화면째로 찍는다. 잘라 찍었더니 카메라가 사람을 따라가서 화분이
-  // 잘린 자리에 있었다 — 무엇을 보라는 그림인지가 안 남는다
-  await page.screenshot({ path: `${OUT}/2-씨앗-상자.png` })
-  console.log('  찍었다 2-씨앗-상자.png')
+  /*
+   * **운영자가 심는다.** 사람에게는 심는 문이 없다 — 운영자 화면을
+   * 따로 열어서 한 자리에 심고, 사람 쪽 화면이 그것을 받는다.
+   */
+  const deskCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
+  const desk = await deskCtx.newPage()
+  await desk.goto(`${SITE}/?game=${game}`, { waitUntil: 'domcontentloaded' })
+  await desk.waitForSelector('.sc-gt__title')
+  for (let i = 0; i < 5; i++) {
+    await desk.locator('.sc-gt__title').click()
+    await desk.waitForTimeout(80)
+  }
+  await desk.fill('#gt-code', hostCode())
+  await desk.locator('.sc-gt__submit').click()
+  await desk.waitForSelector('.sc-ga', { timeout: 20_000 })
+  await desk.waitForTimeout(1200)
+  const card = desk.locator('.sc-ad__card').filter({ has: desk.locator('h2:text-is("화분")') })
+  await card.scrollIntoViewIfNeeded()
+  await desk.waitForTimeout(300)
+  await card.screenshot({ path: `${OUT}/2-운영자-화분.png` })
+  console.log('  찍었다 2-운영자-화분.png')
 
-  await tap(page, '.sc-ct__act', '화분')
-  await page.waitForSelector('.sc-gd', { timeout: 10_000 })
-  await page.waitForTimeout(600)
-  await page.screenshot({ path: `${OUT}/3-화분-시트.png` })
-  console.log('  찍었다 3-화분-시트.png')
+  // 첫 자리에 심는다. 무엇을 심을지도 고를 수 있다
+  await desk.locator('.sc-ga .sc-dr__row select').selectOption('corn')
+  await desk.evaluate(() => {
+    const b = [...document.querySelectorAll('.sc-ga__pots button')].find((x) => x.textContent?.includes('심기'))
+    ;(b as HTMLElement | undefined)?.click()
+  })
+  await desk.waitForTimeout(1500)
+  await card.scrollIntoViewIfNeeded()
+  await card.screenshot({ path: `${OUT}/3-운영자-심은뒤.png` })
+  console.log('  찍었다 3-운영자-심은뒤.png')
 
-  await tap(page, '.sc-gd__box', '씨앗 집기')
-  await page.waitForTimeout(1500)
-  await tap(page, '.sc-sheet__panel button', '닫기')
-  await page.waitForTimeout(600)
-
-  // 첫 화분 앞으로 걸어가 심는다
+  // 사람 쪽. 화분 앞으로 걸어가 흙을 본다
   await walkTo(page, game, meUid, POT_CELLS[0])
-  await page.waitForTimeout(1200)
+  await page.waitForTimeout(1500)
+  await page.screenshot({ path: `${OUT}/4-흙.png` })
+  console.log('  찍었다 4-흙.png')
   await tap(page, '.sc-ct__act', '화분')
   await page.waitForSelector('.sc-gd', { timeout: 10_000 })
-  await page.waitForTimeout(500)
-  await tap(page, '.sc-gd__list button', '심기')
-  await page.waitForTimeout(1800)
-  await page.screenshot({ path: `${OUT}/4-심은뒤-시트.png` })
-  console.log('  찍었다 4-심은뒤-시트.png')
+  await page.waitForTimeout(600)
+  await page.screenshot({ path: `${OUT}/5-화분-시트.png` })
+  console.log('  찍었다 5-화분-시트.png')
   await tap(page, '.sc-sheet__panel button', '닫기')
-  await page.waitForTimeout(800)
-  await page.screenshot({ path: `${OUT}/5-흙.png` })
-  console.log('  찍었다 5-흙.png')
+  await page.waitForTimeout(600)
 
   // 열매까지 당긴다. 몫을 새로 쓰게 하려고 한 걸음 옮겼다 온다
   await ageToFruit(game, 0)

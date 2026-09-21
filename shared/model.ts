@@ -277,13 +277,6 @@ export interface PawnDoc {
    */
   resources?: Record<Resource, number>
   /**
-   * 쥐고 있는 씨앗. 정원 입구의 상자에서 집는다.
-   *
-   * 값은 없고 한도만 있다(SEED_LIMIT) — 여덟 자리를 혼자 다 채우지
-   * 못하게 하는 값이다.
-   */
-  seeds?: number
-  /**
    * 딴 작물. 키가 작물 아이디다. **딴 사람이 가진다.**
    *
    * 자판기에 팔면 돈이 된다. 들고 다닐 수 있는 수는 한도가 있다
@@ -567,8 +560,6 @@ export interface PlayerViewDoc {
     name: string | null
     canPick: boolean
   }[]
-  /** 쥐고 있는 씨앗. */
-  mySeeds?: number
   /** 딴 작물. 키가 작물 아이디다. */
   myCrops?: Record<string, number>
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */

@@ -23,7 +23,7 @@ import { Actions } from './Actions'
 import { Vending } from './Vending'
 import { BoardSheet, ErrandStrip } from './Errand'
 import { BOARDS, atBoard } from '../../../shared/rules/errand'
-import { GARDEN_TILE, POT_CELLS, SEED_BOX_CELL, type PotStage } from '../../../shared/rules/crop'
+import { GARDEN_TILE, POT_CELLS, type PotStage } from '../../../shared/rules/crop'
 import { GardenSheet } from './Garden'
 
 /** 단계마다 어느 그림인가. 이름은 map/thingArt 의 POT_ART 키다 */
@@ -1299,10 +1299,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             /* 화분과 씨앗 상자. 정원에 서 있을 때만 서버가 보내 준다 */
             pots={
               (state.view?.potsHere?.length ?? 0) > 0
-                ? [
-                    ...(state.view?.potsHere ?? []).map((p) => ({ ...p.cell, art: POT_ART_OF[p.stage] })),
-                    { ...SEED_BOX_CELL, art: 'seedBox' },
-                  ]
+                ? (state.view?.potsHere ?? []).map((p) => ({ ...p.cell, art: POT_ART_OF[p.stage] }))
                 : []
             }
             /* 거래창이 열려 있는 동안에는 자리를 안 뜬다 */
@@ -1817,7 +1814,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             act={act}
             onSaid={setSaid}
             myCell={myCell}
-            atBox={beside(myCell, SEED_BOX_CELL)}
             nearPot={(i) => beside(myCell, POT_CELLS[i])}
           />
         </Sheet>

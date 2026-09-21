@@ -352,3 +352,23 @@
 .sc-ed__icons img,
 .sc-ed__icon { image-rendering: pixelated; }
 .sc-ed__pool b { display: flex; align-items: center; gap: 6px; }
+
+/* 화분 여덟. 번호·상태·단추 한 줄씩 */
+.sc-ga { display: flex; flex-direction: column; gap: 8px; }
+.sc-ga__pots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sc-ga__pots li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid #c9c3b2;
+  background: #fff;
+  font-size: 12px;
+}
+.sc-ga__pots b { width: 1.4em; text-align: center; color: #7b7364; }
+.sc-ga__pots span { flex: 1; }
+/* 열매가 달린 줄만 도드라진다 — 훑을 때 그것부터 보여야 한다 */
+.sc-ga__pots li.is-fruit { border-color: #a8894a; }
+.sc-ga__pots li.is-fruit span { font-weight: 700; }
+.sc-ga__pots li.is-withered span { color: #8a8271; }
+.sc-ga__pots button { padding: 4px 12px; font-size: 11px; }

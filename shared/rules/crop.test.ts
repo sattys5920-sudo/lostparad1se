@@ -7,8 +7,6 @@ import {
   GARDEN_TILE,
   HARVEST_LIMIT,
   POT_CELLS,
-  SEED_BOX_CELL,
-  SEED_LIMIT,
   growHoursOf,
   nameShows,
   pickCrop,
@@ -38,26 +36,16 @@ describe('작물 표', () => {
 })
 
 describe('자리', () => {
-  it('화분 여덟과 씨앗 상자가 정원 안에 있다', () => {
+  it('화분 여덟이 정원 안에 있다', () => {
     expect(POT_CELLS).toHaveLength(8)
-    for (const c of [...POT_CELLS, SEED_BOX_CELL]) {
-      expect(roomOfCell(c.x, c.y), `${c.x},${c.y}`).toBe(GARDEN_TILE)
-    }
-  })
-
-  it('**씨앗 상자는 어느 화분에서도 두 칸 넘게 떨어져 있다**', () => {
-    // 붙어 있으면 한 자리에 서서 집고 심을 수 있다 — 오가는 걸음이
-    // 없어지고, 그러면 정원에 사람이 스치는 일도 없다
     for (const c of POT_CELLS) {
-      const d = Math.max(Math.abs(c.x - SEED_BOX_CELL.x), Math.abs(c.y - SEED_BOX_CELL.y))
-      expect(d, `${c.x},${c.y}`).toBeGreaterThan(1)
+      expect(roomOfCell(c.x, c.y), `${c.x},${c.y}`).toBe(GARDEN_TILE)
     }
   })
 
   it('두 화분이 같은 칸에 놓이지 않는다', () => {
     const keys = POT_CELLS.map((c) => `${c.x},${c.y}`)
     expect(new Set(keys).size).toBe(keys.length)
-    expect(keys).not.toContain(`${SEED_BOX_CELL.x},${SEED_BOX_CELL.y}`)
   })
 })
 
@@ -109,9 +97,7 @@ describe('단계', () => {
 })
 
 describe('한도', () => {
-  it('들고 다니는 수확물과 씨앗에 한도가 있다', () => {
+  it('들고 다니는 수확물에 한도가 있다', () => {
     expect(HARVEST_LIMIT).toBeGreaterThan(0)
-    expect(SEED_LIMIT).toBeGreaterThan(0)
-    expect(SEED_LIMIT).toBeLessThan(POT_CELLS.length)
   })
 })

@@ -153,7 +153,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       plantedMs: p.plantedMs,
       growMs: p.growMs,
     })),
-    seeds: Object.fromEntries(pawns.docs.map((d) => [d.id, (d.data() as { seeds?: number }).seeds ?? 0])),
     crops: Object.fromEntries(
       pawns.docs.map((d) => [d.id, (d.data() as { crops?: Record<string, number> }).crops ?? {}]),
     ),

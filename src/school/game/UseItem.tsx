@@ -49,8 +49,7 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
    */
   const crops = Object.entries(view?.myCrops ?? {}).filter(([, n]) => n > 0)
   const held = crops.reduce((a, [, n]) => a + n, 0)
-  const seeds = view?.mySeeds ?? 0
-  if (rows.length === 0 && carrying === null && crops.length === 0 && seeds === 0) {
+  if (rows.length === 0 && carrying === null && crops.length === 0) {
     return <p className="sc-mi__none">가진 것이 없다.</p>
   }
 
@@ -101,13 +100,6 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
           <button className="sc-mi__use" disabled={busy} onClick={() => void drop()}>
             {TILE_BY_ID[carrying.to].name}에 놓기
           </button>
-        </li>
-      )}
-      {seeds > 0 && (
-        <li className="is-seed">
-          <b>씨앗</b>
-          <span>{seeds}개</span>
-          <p>정원의 빈 화분에 심는다. 무엇이 날지는 심어 봐야 안다.</p>
         </li>
       )}
       {crops.length > 0 && (

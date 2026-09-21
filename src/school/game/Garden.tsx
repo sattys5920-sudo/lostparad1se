@@ -1,11 +1,14 @@
-// 화분 — 씨앗 상자 앞과, 화분 앞.
+// 화분 — 정원에서 보는 여덟 자리.
 //
-// 화면이 판단하지 않는다. 심을 수 있는지도 딸 수 있는지도 서버가
-// 정하고, 여기서는 서버가 보내 준 단계만 그린다 — **무엇을 심었는지는
-// 싹이 나야 오므로 그릴 수도 없다.** 흙 앞에서 기다리는 것이 이 일이다.
+// **심는 것은 운영자가 한다.** 여기서 할 수 있는 것은 자란 것을 보고,
+// 열매를 따고, 시든 것을 치우는 것뿐이다.
+//
+// 화면이 판단하지 않는다. 딸 수 있는지도 서버가 정하고, 여기서는
+// 서버가 보내 준 단계만 그린다 — **무엇이 심겼는지는 싹이 나야
+// 오므로 그릴 수도 없다.** 흙 앞에서 기다리는 것이 이 일이다.
 import { useState } from 'react'
 
-import { HARVEST_LIMIT, SEED_LIMIT } from '../../../shared/rules/crop'
+import { HARVEST_LIMIT } from '../../../shared/rules/crop'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 
@@ -33,21 +36,17 @@ export function GardenSheet({
   act,
   onSaid,
   myCell,
-  atBox,
   nearPot,
 }: {
   view: PlayerViewDoc | null
   act: GameActions
   onSaid: (t: string) => void
   myCell: { x: number; y: number } | null
-  /** 씨앗 상자 앞에 서 있는가. */
-  atBox: boolean
   /** 그 화분 앞에 서 있는가. */
   nearPot: (i: number) => boolean
 }) {
   const [busy, setBusy] = useState(false)
   const pots = view?.potsHere ?? []
-  const seeds = view?.mySeeds ?? 0
   const crops = Object.values(view?.myCrops ?? {}).reduce((a, n) => a + n, 0)
 
   async function run(label: string, fn: () => Promise<unknown>) {
@@ -65,17 +64,8 @@ export function GardenSheet({
   return (
     <div className="sc-gd">
       <p className="sc-gd__hand">
-        씨앗 {seeds}/{SEED_LIMIT} · 딴 것 {crops}/{HARVEST_LIMIT}
+        딴 것 {crops}/{HARVEST_LIMIT}
       </p>
-
-      <button
-        className="sc-gd__box"
-        disabled={busy || !atBox || seeds >= SEED_LIMIT}
-        onClick={() => void run('씨앗을 하나 집었다.', () => act.takeSeed())}
-      >
-        씨앗 집기
-        <span>{atBox ? '상자 앞이다' : '상자 앞으로 가야 집는다'}</span>
-      </button>
 
       <ul className="sc-gd__list">
         {pots.map((pot) => {
@@ -83,15 +73,7 @@ export function GardenSheet({
           return (
             <li key={pot.i} className={`is-${pot.stage}`}>
               <b>{lineOf(pot)}</b>
-              {!close && <span className="sc-gd__far">앞으로 가야 한다</span>}
-              {close && pot.stage === 'empty' && (
-                <button
-                  disabled={busy || seeds < 1}
-                  onClick={() => void run('심었다. 무엇이 날지는 모른다.', () => act.plantSeed(pot.i))}
-                >
-                  심기
-                </button>
-              )}
+              {!close && pot.stage !== 'empty' && <span className="sc-gd__far">앞으로 가야 한다</span>}
               {close && pot.stage === 'fruit' && (
                 <button
                   className="is-go"
@@ -121,7 +103,7 @@ export function GardenSheet({
       <p className="sc-gd__hint">
         {myCell === null ?
           '정원 안에서 연다.'
-        : '심고 나면 흙만 보인다. 싹이 나야 무엇인지 알고, 열매가 되면 누구든 먼저 온 사람이 딴다.'}
+        : '심는 것은 누군가 다른 사람의 일이다. 흙에서는 무엇인지 모르고, 싹이 나야 이름이 보인다. 열매가 되면 누구든 먼저 온 사람이 딴다.'}
       </p>
     </div>
   )

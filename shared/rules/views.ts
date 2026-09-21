@@ -219,8 +219,6 @@ export interface World {
    * 단계만 떼어 보낸다. 무엇을 심었는지는 싹이 나야 나간다.
    */
   pots?: readonly WorldPot[]
-  /** 사람마다 쥔 씨앗. */
-  seeds?: Readonly<Record<string, number>>
   /** 사람마다 딴 작물. */
   crops?: Readonly<Record<string, Readonly<Record<string, number>>>>
   slips?: readonly WorldSlip[]
@@ -331,8 +329,6 @@ export interface View {
    * 될지도 안 온다: 흙을 보고 기다리는 것이 이 일의 전부다.
    */
   potsHere: PotView[]
-  /** 쥔 씨앗. */
-  mySeeds: number
   /** 딴 작물. 키가 작물 아이디다. */
   myCrops: Readonly<Record<string, number>>
   /**
@@ -549,7 +545,6 @@ export function projectView(world: World, viewerId: string): View {
       errandsHere: [],
       myErrand: null,
       potsHere: [],
-      mySeeds: 0,
       myCrops: {},
       lockedTiles: [],
       soldOutItems: [],
@@ -740,7 +735,6 @@ export function projectView(world: World, viewerId: string): View {
             }
           })
         : [],
-    mySeeds: world.seeds?.[viewerId] ?? 0,
     myCrops: world.crops?.[viewerId] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,

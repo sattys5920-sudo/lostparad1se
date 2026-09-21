@@ -1,25 +1,18 @@
-// 화분 — 씨앗을 집고, 심고, 자라고, 딴다.
+// 화분 — 운영자가 심고, 자라고, 먼저 온 사람이 딴다.
 //
 // 붙드는 것은 여섯이다.
-//   1. 정원에서, 상자 앞에서만 씨앗을 집는다. 한도가 있다
-//   2. 화분 앞에 서야 심는다. 빈 자리에만
-//   3. **무엇을 심었는지는 싹이 나야 안다** — 심은 사람에게도
+//   1. **심는 것은 운영자뿐이다.** 사람에게는 심는 문이 없다
+//   2. 빈 자리에만 심긴다. 작물을 고를 수도, 맡길 수도 있다
+//   3. **무엇이 심겼는지는 싹이 나야 안다** — 그 방에 선 누구도
 //   4. 자랄 시간은 **어느 몫에도 없다** — 흙 앞에서 기다리는 것이 일이다
-//   5. 열매는 **누구든 먼저 온 사람이** 딴다. 심은 사람인지 안 본다
-//   6. 시들면 못 딴다. 치워야 다음 씨앗이 들어간다
+//   5. 열매는 **누구든 먼저 온 사람이** 딴다. 화분 앞에 서야 한다
+//   6. 시들면 못 딴다. 치워야 다음 것이 들어간다
 //
 //   npx vite-node scripts/garden-e2e.ts
 import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
-import {
-  CROP_BY_ID,
-  GARDEN_TILE,
-  HARVEST_LIMIT,
-  POT_CELLS,
-  SEED_BOX_CELL,
-  SEED_LIMIT,
-} from '../shared/rules/crop'
+import { CROP_BY_ID, GARDEN_TILE, HARVEST_LIMIT, POT_CELLS } from '../shared/rules/crop'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -170,32 +163,31 @@ async function main() {
   const meUid = uidOf('qa01')
   const youUid = uidOf('qa02')
 
-  console.log('── 씨앗 ──')
-  const farSeed = await call('takeSeed', meTok, { gameId: game })
-  check(!farSeed.ok, '정원 밖에서는 못 집는다', farSeed.ok ? '집었다' : (farSeed.err ?? ''))
+  console.log('── 심는 것은 운영자다 ──')
+  const asPlayer = await call('hostPlant', meTok, { gameId: game, pot: 0 })
+  check(!asPlayer.ok, '보통 사람은 못 심는다', asPlayer.ok ? '심었다' : (asPlayer.err ?? ''))
+
+  const planted = await must('hostPlant', host, { gameId: game, pot: 0, cropId: 'corn' })
+  check(String(planted.planted ?? '') === CROP_BY_ID.corn.name, '고른 작물이 심긴다', String(planted.planted))
+  check(!('growMs' in planted), '**자랄 시간은 운영자에게도 안 간다**', JSON.stringify(planted))
+  const twice = await call('hostPlant', host, { gameId: game, pot: 0 })
+  check(!twice.ok, '한 자리에 둘은 안 심긴다', twice.ok ? '심었다' : (twice.err ?? ''))
+
+  const anyOne = await must('hostPlant', host, { gameId: game, pot: 1 })
+  check(
+    Object.values(CROP_BY_ID).some((c) => c.name === String(anyOne.planted)),
+    '안 고르면 서버가 뽑는다',
+    String(anyOne.planted),
+  )
+
+  // 판에 두 번뿐인 것을 세 번 심어 본다
+  await must('hostPlant', host, { gameId: game, pot: 6, cropId: 'hers' })
+  await must('hostPlant', host, { gameId: game, pot: 7, cropId: 'hers' })
+  const third = await call('hostPlant', host, { gameId: game, pot: 4, cropId: 'hers' })
+  check(!third.ok, '**두 번뿐인 것은 세 번째가 막힌다**', third.ok ? '심었다' : (third.err ?? ''))
 
   await putIn(game, meUid, GARDEN_TILE)
   await standAt(game, meTok, POT_CELLS[0])
-  const awayFromBox = await call('takeSeed', meTok, { gameId: game })
-  check(!awayFromBox.ok, '상자 앞이 아니면 못 집는다', awayFromBox.ok ? '집었다' : (awayFromBox.err ?? ''))
-
-  await standAt(game, meTok, SEED_BOX_CELL)
-  for (let i = 0; i < SEED_LIMIT; i++) await must('takeSeed', meTok, { gameId: game })
-  const over = await call('takeSeed', meTok, { gameId: game })
-  check(!over.ok, `씨앗은 ${SEED_LIMIT}개까지다`, over.ok ? '더 집었다' : (over.err ?? ''))
-  const vSeeds = await viewOf(game, meUid)
-  check(num(vSeeds.mySeeds) === SEED_LIMIT, '쥔 씨앗이 내 몫에 있다', `${num(vSeeds.mySeeds)}개`)
-
-  console.log('\n── 심기 ──')
-  const farPlant = await call('plantSeed', meTok, { gameId: game, pot: 3 })
-  check(!farPlant.ok, '화분 앞이 아니면 못 심는다', farPlant.ok ? '심었다' : (farPlant.err ?? ''))
-
-  await standAt(game, meTok, POT_CELLS[0])
-  const planted = await must('plantSeed', meTok, { gameId: game, pot: 0 })
-  check(Object.keys(planted).join() === 'planted', '**무엇을 심었는지 안 돌려준다**', JSON.stringify(planted))
-  const twice = await call('plantSeed', meTok, { gameId: game, pot: 0 })
-  check(!twice.ok, '한 자리에 둘은 안 심긴다', twice.ok ? '심었다' : (twice.err ?? ''))
-
   const vSoil = await viewOf(game, meUid)
   const pot0 = potsOf(vSoil).find((p) => num(p.i) === 0) ?? {}
   check(str(pot0.stage) === 'soil', '흙이다', String(str(pot0.stage)))
@@ -204,7 +196,8 @@ async function main() {
   const soilJson = JSON.stringify(potsOf(vSoil))
   check(!soilJson.includes('growMs') && !soilJson.includes('plantedMs'),
     '**자랄 시간도 심은 시각도 안 온다**')
-  check(!soilJson.includes(meUid), '**누가 심었는지도 안 온다**')
+  check(!soilJson.includes('corn') && !soilJson.includes(CROP_BY_ID.corn.name),
+    '**무엇이 심겼는지도 안 온다**')
 
   console.log('\n── 남의 눈 ──')
   await putIn(game, youUid, GARDEN_TILE)
@@ -248,8 +241,7 @@ async function main() {
   check(str(empty.stage) === 'empty', '딴 자리는 빈 화분이 된다', String(str(empty.stage)))
 
   console.log('\n── 시듦 ──')
-  await standAt(game, meTok, POT_CELLS[0])
-  await must('plantSeed', meTok, { gameId: game, pot: 0 })
+  await must('hostPlant', host, { gameId: game, pot: 0 })
   const dead0 = await ageToFruit(game, 0)
   // 열매가 된 뒤로 시드는 시간만큼 더 당긴다
   await ageBy(game, 0, dead0.witherMs + 60_000)
@@ -259,7 +251,7 @@ async function main() {
   check(str(dead.stage) === 'withered', '시든다', String(str(dead.stage)))
   const pickDead = await call('harvestPot', meTok, { gameId: game, pot: 0 })
   check(!pickDead.ok, '시든 것은 못 딴다', pickDead.ok ? '땄다' : (pickDead.err ?? ''))
-  const plantOnDead = await call('plantSeed', meTok, { gameId: game, pot: 0 })
+  const plantOnDead = await call('hostPlant', host, { gameId: game, pot: 0 })
   check(!plantOnDead.ok, '치우기 전에는 못 심는다', plantOnDead.ok ? '심었다' : (plantOnDead.err ?? ''))
   await must('clearPot', meTok, { gameId: game, pot: 0 })
   const vClean = await viewOf(game, meUid)
@@ -314,10 +306,8 @@ async function main() {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { crops: { mapValue: { fields: full } } } }),
   })
-  await standAt(game, meTok, SEED_BOX_CELL)
-  await must('takeSeed', meTok, { gameId: game })
+  await must('hostPlant', host, { gameId: game, pot: 2 })
   await standAt(game, meTok, POT_CELLS[2])
-  await must('plantSeed', meTok, { gameId: game, pot: 2 })
   await ageToFruit(game, 2)
   await wake(game, meTok, POT_CELLS[2])
   const vFull = await viewOf(game, meUid)

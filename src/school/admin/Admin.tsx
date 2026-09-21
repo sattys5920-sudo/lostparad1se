@@ -16,6 +16,7 @@ import { PhaseHost } from '../game/Phase'
 import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
 import { ErrandDesk } from './Errands'
+import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import './admin.css'
@@ -324,6 +325,15 @@ function Desk() {
               게시판이 종일 비어 있다.
             </p>
             <ErrandDesk act={act} onSaid={setSaid} />
+          </section>
+
+          <section className="sc-ad__card">
+            <h2>화분</h2>
+            <p className="sc-ad__hint">
+              <b>저절로 자라는 화분은 없다.</b> 정원의 여덟 자리가 전부 이 칸을 거친다 — 안 심으면
+              종일 빈 화분이다. 딴 것은 심은 사람이 아니라 <b>먼저 온 사람</b>이 가진다.
+            </p>
+            <GardenDesk act={act} onSaid={setSaid} />
           </section>
 
           <section className="sc-ad__card">

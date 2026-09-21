@@ -1,14 +1,16 @@
-// 화분 — 씨앗을 집고, 심고, 기다리고, 딴다.
+// 화분 — 운영자가 심고, 사람이 보고, 먼저 온 사람이 딴다.
 //
-// 정원에 화분 여덟과 씨앗 상자 하나가 있다. 상자는 입구에, 화분은
-// 안쪽에 있어서 씨앗을 집고 걸어 들어가는 것이 한 번의 일이 된다.
+// 정원에 화분 여덟이 있다. **심는 것은 운영자뿐이다** — 게시판의
+// 심부름과 같다. 씨앗 상자도 씨앗도 없다: 무엇이 언제 자라기
+// 시작할지가 운영자 손에 있어야 정원이 판의 흐름과 같이 움직인다.
 //
 // ## 무엇이 자랄지는 아무도 모른다
 //
-// 심는 순간 서버가 작물과 자랄 시간을 뽑는다. **둘 다 안 보낸다** —
-// 흙만 보이는 동안에는 심은 사람도 무엇을 심었는지 모르고, 언제
-// 열매가 될지는 끝까지 모른다. 알 수 있으면 화분 앞에 설 이유가
-// 없어지고, 그러면 정원에 오갈 이유도 없어진다.
+// 심을 때 작물을 고르지 않으면 서버가 뽑는다. 자랄 시간은 **언제나**
+// 서버가 뽑고 **아무에게도 안 간다** — 운영자에게도. 흙만 보이는
+// 동안에는 그 방에 선 사람 누구도 무엇인지 모르고, 언제 열매가 될지는
+// 끝까지 모른다. 알 수 있으면 화분 앞에 설 이유가 없어지고, 그러면
+// 정원에 오갈 이유도 없어진다.
 //
 // 싹이 나면 이름이 보인다(nameShows). 그때부터는 그 방에 선 사람
 // 누구에게나 보인다 — 화분은 방 안에 놓인 물건이지 내 주머니가 아니다.
@@ -23,12 +25,11 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import {
+  CROPS,
   CROP_BY_ID,
   GARDEN_TILE,
   HARVEST_LIMIT,
   POT_CELLS,
-  SEED_BOX_CELL,
-  SEED_LIMIT,
   growHoursOf,
   nameShows,
   pickCrop,
@@ -37,6 +38,7 @@ import {
 } from '../../shared/rules/crop'
 import type { Cell, TileId } from '../../shared/rules/board'
 import type { PawnDoc } from '../../shared/model'
+import { requireHost } from './host'
 import { freshNow, myPawn } from './turn'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -135,71 +137,90 @@ export async function sweepGarden(gameId: string, nowMs: number): Promise<boolea
   return true
 }
 
-// ── 사람 ────────────────────────────────────────────────────────
-
-/** 씨앗 상자에서 하나 집는다. 값은 없다. */
-export const takeSeed = onCall<{ gameId: string }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId } = req.data
-  await freshNow(gameId)
-  const p = await myPawn(gameId, uid)
-  requireGarden(p)
-  if (!near((p.at ?? null) as Cell | null, SEED_BOX_CELL)) {
-    throw new HttpsError('failed-precondition', '씨앗 상자 앞에 서야 집는다.')
-  }
-  if ((p.seeds ?? 0) >= SEED_LIMIT) {
-    throw new HttpsError('failed-precondition', `씨앗은 ${SEED_LIMIT}개까지 쥔다.`)
-  }
-  await gameRef(gameId).collection('pawns').doc(uid).update({ seeds: FieldValue.increment(1) })
-  await refreshViews(gameId)
-  return { seeds: (p.seeds ?? 0) + 1 }
-})
+// ── 운영자 ──────────────────────────────────────────────────────
 
 /**
- * 빈 화분에 씨앗을 심는다.
+ * 빈 화분에 심는다. **운영자만 한다.**
  *
- * **무엇이 될지는 여기서 정해지고 아무에게도 안 간다.** 뽑기는
- * 트랜잭션 안에서 한다 — 둘이 같은 화분을 동시에 누르면 하나만 심긴다.
+ * 작물을 고를 수 있다 — 고르지 않으면 서버가 무게를 두고 뽑는다.
+ * 어느 쪽이든 **자랄 시간은 서버가 뽑고 아무에게도 안 간다.**
+ * 「그 애가 심은 것」처럼 판에 두 번뿐인 것은 그 수를 넘겨 못 심는다.
  */
-export const plantSeed = onCall<{ gameId: string; pot: number }>(async (req) => {
-  const uid = requireUid(req.auth)
+export const hostPlant = onCall<{ gameId: string; pot: number; cropId?: string }>(async (req) => {
+  requireHost(req.auth)
   const { gameId } = req.data
   const i = Math.floor(Number(req.data.pot))
   if (!Number.isFinite(i) || i < 0 || i >= POT_CELLS.length) {
     throw new HttpsError('invalid-argument', '그런 화분이 없다.')
   }
+  const wanted = req.data.cropId ? String(req.data.cropId) : null
+  if (wanted !== null && !CROP_BY_ID[wanted]) throw new HttpsError('invalid-argument', '그런 작물이 없다.')
   const { nowMs } = await freshNow(gameId)
-  const p = await myPawn(gameId, uid)
-  requireGarden(p)
-  if (!near((p.at ?? null) as Cell | null, POT_CELLS[i])) {
-    throw new HttpsError('failed-precondition', '그 화분 앞에 서야 심는다.')
-  }
-  if ((p.seeds ?? 0) < 1) throw new HttpsError('failed-precondition', '씨앗이 없다. 상자에서 집어 온다.')
 
+  let planted = ''
   await db.runTransaction(async (tx) => {
     const ref = potsOf(gameId).doc(String(i))
-    const mine = gameRef(gameId).collection('pawns').doc(uid)
-    const [potSnap, tallySnap, pawnSnap] = await Promise.all([tx.get(ref), tx.get(tallyRef(gameId)), tx.get(mine)])
+    const [potSnap, tallySnap] = await Promise.all([tx.get(ref), tx.get(tallyRef(gameId))])
     const pot = (potSnap.data() as PotDoc | undefined) ?? EMPTY_POT
     if (stageNow(pot, nowMs) !== 'empty') throw new HttpsError('failed-precondition', '이미 무언가 심겨 있다.')
-    if (((pawnSnap.data() as PawnDoc | undefined)?.seeds ?? 0) < 1) {
-      throw new HttpsError('failed-precondition', '씨앗이 없다.')
-    }
     const used = ((tallySnap.data() as { used?: Record<string, number> } | undefined)?.used ?? {}) as Record<
       string,
       number
     >
     const seed = `${gameId}:${i}:${nowMs}`
-    const spec = pickCrop(rollOf(seed, 1), used)
+    let spec = wanted !== null ? CROP_BY_ID[wanted] : pickCrop(rollOf(seed, 1), used)
+    // 두 번뿐인 것을 세 번째로 고르면 막는다. 뽑기 쪽은 알아서 빼고 뽑는다
+    if (spec.maxPerGame !== undefined && (used[spec.id] ?? 0) >= spec.maxPerGame) {
+      if (wanted !== null) throw new HttpsError('failed-precondition', `${spec.name}은 이 판에 다 나갔다.`)
+      spec = pickCrop(rollOf(seed, 3), used)
+    }
     const growMs = growHoursOf(spec, rollOf(seed, 2)) * HOUR_MS
-    tx.set(ref, { cropId: spec.id, byPlayerId: uid, plantedMs: nowMs, growMs, toldHers: false })
+    planted = spec.name
+    tx.set(ref, { cropId: spec.id, byPlayerId: null, plantedMs: nowMs, growMs, toldHers: false })
     tx.set(tallyRef(gameId), { used: { ...used, [spec.id]: (used[spec.id] ?? 0) + 1 } })
-    tx.update(mine, { seeds: FieldValue.increment(-1) })
   })
   await refreshViews(gameId)
-  // **무엇을 심었는지는 안 돌려준다.** 흙을 보고 기다리는 것이 이 일이다
-  return { planted: i }
+  // **운영자에게도 자랄 시간은 안 준다.** 심은 것만 돌려준다
+  return { pot: i, planted }
 })
+
+/** 화분 여덟의 지금 모습. **운영자만 본다** — 흙 속까지 보인다. */
+export const hostGarden = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const { nowMs } = await freshNow(gameId)
+  const snap = await potsOf(gameId).get()
+  const tally = ((await tallyRef(gameId).get()).data() as { used?: Record<string, number> } | undefined)?.used ?? {}
+  return {
+    nowMs,
+    crops: CROPS.map((c) => ({ id: c.id, name: c.name, price: c.price, left: c.maxPerGame === undefined ? null : Math.max(0, c.maxPerGame - (tally[c.id] ?? 0)) })),
+    pots: POT_CELLS.map((_, i) => {
+      const pot = ((snap.docs.find((d) => d.id === String(i))?.data() as PotDoc | undefined) ?? EMPTY_POT)
+      return {
+        i,
+        stage: stageNow(pot, nowMs),
+        // 운영자는 심은 것을 안다 — 제가 심었으니까
+        name: pot.cropId === null ? null : (CROP_BY_ID[pot.cropId]?.name ?? pot.cropId),
+      }
+    }),
+  }
+})
+
+/** 운영자가 화분을 비운다. 시들지 않았어도 뽑는다 — 판을 고치는 손이다. */
+export const hostPullPot = onCall<{ gameId: string; pot: number }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const i = Math.floor(Number(req.data.pot))
+  if (!Number.isFinite(i) || i < 0 || i >= POT_CELLS.length) {
+    throw new HttpsError('invalid-argument', '그런 화분이 없다.')
+  }
+  await freshNow(gameId)
+  await potsOf(gameId).doc(String(i)).set(EMPTY_POT)
+  await refreshViews(gameId)
+  return { pulled: i }
+})
+
+// ── 사람 ────────────────────────────────────────────────────────
 
 /** 열매를 딴다. **딴 사람이 가진다** — 심은 사람인지는 안 본다. */
 export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) => {
