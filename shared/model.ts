@@ -573,6 +573,8 @@ export interface PlayerViewDoc {
   quizzesHere?: {
     id: string
     kind: 'choice' | 'short'
+    /** 바닥 칸. 맵에 그려지고, 옆에 서야 편다 */
+    cell: Cell | null
     prompt: string | null
     choices: string[]
     opened: boolean

@@ -13,6 +13,8 @@ import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK, QUIZ_PER_PHASE } from '../shared/rules/quiz'
 import { stepToward } from '../shared/rules/occupy'
+import { TILE_BY_ID, roomOfCell, type TileId } from '../shared/rules/board'
+import { isFixture } from '../shared/rules/fixtures'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -82,6 +84,32 @@ const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/paw
 const viewOf = async (uid: string) => (await getAll(`games/${GAME}/views`)).find((v) => v.id === uid)?.d ?? {}
 /** 서버만 보는 바닥의 종이. 시험이 판을 짜는 데만 쓴다. */
 const floorNow = async () => await getAll(`games/${GAME}/secret/quiz/floor`)
+type Cell = { x: number; y: number }
+const cellOf = (d: Record<string, unknown>): Cell | null => {
+  const c = d.cell as Cell | undefined
+  return c && typeof c.x === 'number' ? { x: c.x, y: c.y } : null
+}
+/** 종이 옆 한 칸에 선다. 기물이 아닌 첫 자리 */
+async function standBeside(token: string, c: Cell): Promise<void> {
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]] as const) {
+    if (isFixture(c.x + dx, c.y + dy)) continue
+    const r = await call('standAt', token, { gameId: GAME, x: c.x + dx, y: c.y + dy })
+    if (!r.code) return
+  }
+  throw new Error(`${c.x},${c.y} 옆에 설 자리가 없다`)
+}
+/** 같은 방 안에서 종이와 두 칸 넘게 떨어진 자리에 선다 */
+async function standFar(token: string, room: TileId, c: Cell): Promise<void> {
+  const r = TILE_BY_ID[room].plan
+  for (let y = r.y + 1; y < r.y + r.h - 1; y++)
+    for (let x = r.x + 1; x < r.x + r.w - 1; x++) {
+      if (Math.abs(x - c.x) <= 1 && Math.abs(y - c.y) <= 1) continue
+      if (isFixture(x, y)) continue
+      const out = await call('standAt', token, { gameId: GAME, x, y })
+      if (!out.code) return
+    }
+  throw new Error(`${room} 에 멀리 설 자리가 없다`)
+}
 
 /** 시험에 쓸 문제 하나. 정답은 여기와 서버에만 있다. */
 const ANSWER = '사과'
@@ -144,6 +172,14 @@ async function main(): Promise<void> {
   const floor = await floorNow()
   // 기지는 없어졌다(76368eb). 스물다섯 방 어디에나 떨어진다
   check(floor.every((q) => q.d.openedBy === null), '전부 접힌 채로 떨어진다', floor.map((q) => q.d.tileId).join(','))
+  check(
+    floor.every((q) => {
+      const c = cellOf(q.d)
+      return c !== null && roomOfCell(c.x, c.y) === q.d.tileId && !isFixture(c.x, c.y)
+    }),
+    '**바닥 한 칸에 놓인다** — 그 방 안, 기물이 아닌 자리',
+    floor.map((q) => { const c = cellOf(q.d); return `${q.d.tileId}:${c?.x},${c?.y}` }).join(' '),
+  )
 
   console.log('\n── 정답은 누구도 직접 못 읽는다 ──')
   for (const [who, tk] of [['플레이어', A[0].token], ['운영자', host]] as const) {
@@ -165,9 +201,15 @@ async function main(): Promise<void> {
   check((await pawnsNow())[A[0].uid].tileId === goal, `${goal} 에 닿았다`)
 
   const shut = await viewOf(A[0].uid)
-  const hereQ = (shut.quizzesHere ?? []) as { id: string; opened: boolean; prompt: string | null }[]
+  const hereQ = (shut.quizzesHere ?? []) as { id: string; opened: boolean; prompt: string | null; cell: Cell | null }[]
   check(hereQ.length >= 1, '한 장 있다는 것은 보인다', `${hereQ.length}장`)
   check(hereQ.every((q) => q.opened === false && q.prompt === null), '본문은 안 온다')
+  const paperCell = cellOf(target.d)!
+  check(
+    hereQ.some((q) => q.id === target.id && q.cell?.x === paperCell.x && q.cell?.y === paperCell.y),
+    '**자리째로 온다** — 맵에 그릴 칸',
+    JSON.stringify(hereQ.find((q) => q.id === target.id)?.cell),
+  )
   const shutText = JSON.stringify(shut)
   check(!shutText.includes(ANSWER), '**정답이 응답에 없다**')
   check(!shutText.includes(EXPLAIN), '해설도 없다')
@@ -183,6 +225,11 @@ async function main(): Promise<void> {
   }
   check((await pawnsNow())[B[0].uid].tileId === goal, 'B팀 사람도 같은 방에 섰다')
 
+  // 방에 들어온 것만으로는 안 된다 — 종이 옆에 서야 편다
+  await standFar(A[0].token, goal as TileId, paperCell)
+  const farOpen = await call('openQuiz', A[0].token, { gameId: GAME, paperId: target.id })
+  check(farOpen.code === 'FAILED_PRECONDITION', '**방 안이라도 멀면 못 편다**', String(farOpen.message ?? farOpen.code))
+  await standBeside(A[0].token, paperCell)
   await must('openQuiz', A[0].token, { gameId: GAME, paperId: target.id })
   const mine = (await viewOf(A[0].uid)).quizzesHere as { id: string; opened: boolean; prompt: string | null }[]
   const theirs = (await viewOf(B[0].uid)).quizzesHere as { id: string; opened: boolean; prompt: string | null }[]
@@ -211,6 +258,11 @@ async function main(): Promise<void> {
     Number(((await pawnsNow())[uid].resources as Record<string, number> | undefined)?.knowledge ?? 0)
   const before = await knowledgeOf(B[0].uid)
   const mateBefore = await knowledgeOf(B[1].uid)
+  // 답도 옆에서만 낸다
+  await standFar(B[0].token, goal as TileId, paperCell)
+  const farAns = await call('answerQuiz', B[0].token, { gameId: GAME, paperId: target.id, given: ANSWER })
+  check(farAns.code === 'FAILED_PRECONDITION', '멀리서는 답도 못 낸다', String(farAns.message ?? farAns.code))
+  await standBeside(B[0].token, paperCell)
   // 대소문자·공백·자모를 흩뜨려 내도 맞아야 한다
   const right = await must('answerQuiz', B[0].token, { gameId: GAME, paperId: target.id, given: `  ${ANSWER.normalize('NFD')} ` })
   check(right.correct === true, '자모로 쳐도 맞는다')

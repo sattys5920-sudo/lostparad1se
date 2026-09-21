@@ -108,6 +108,10 @@ export interface WalkProps {
    * 몫에는 이 좌표가 아예 실리지 않는다(views 의 myErrand).
    */
   things?: readonly { x: number; y: number; icon: ThingIcon }[]
+  /** 바닥의 문제 종이. 내가 선 방 것만 온다 — 펼쳐진 것은 다른 그림이다 */
+  papers?: readonly { x: number; y: number; open: boolean }[]
+  /** 종이 옆에 서서 종이를 탭했다 */
+  onTapPaper?: () => void
   /**
    * 정원의 화분과 씨앗 상자. **정원에 서 있을 때만 온다** — 서버가
    * 그 방 사람에게만 단계를 보낸다.
@@ -408,7 +412,7 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onTapPaper, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -461,6 +465,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const tapRef = useRef(onTapRoom)
   const personRef = useRef(onTapPerson)
   const fixRef = useRef(onTapFixture)
+  const paperRef = useRef(onTapPaper)
   const standRef = useRef(onStand)
   /** 게시판. 그리는 고리가 매 프레임 본다 — 다시 세우지 않게 ref 로 */
   const boardsRef = useRef(boards)
@@ -468,6 +473,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const thingsRef = useRef(things)
   /** 화분. 그림만 바뀌고 자리는 고정이다 */
   const potsRef = useRef(pots)
+  /** 문제 종이. 물건과 같은 길로 간다 */
+  const papersRef = useRef(papers)
   const frozenRef = useRef(frozen)
   const stayRef = useRef(stayIn)
   const looksRef = useRef(looks)
@@ -481,10 +488,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   tapRef.current = onTapRoom
   personRef.current = onTapPerson
   fixRef.current = onTapFixture
+  paperRef.current = onTapPaper
   standRef.current = onStand
   boardsRef.current = boards
   thingsRef.current = things
   potsRef.current = pots
+  papersRef.current = papers
   frozenRef.current = frozen
   stayRef.current = stayIn
   looksRef.current = looks
@@ -684,6 +693,17 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const fix = fixtureAt(tx, ty)
       if (fix) {
         if (facing({ x: self.tx, y: self.ty }, fix.cell)) fixRef.current?.(fix.kind)
+        return
+      }
+
+      /*
+       * **문제 종이를 짚었다.** 기물과 달리 밟을 수 있는 칸이라, 옆에
+       * 서 있을 때만 여기서 잡고 멀면 그냥 걸어간다 — 걸어가서 옆에
+       * 서면 그때 다시 탭한다.
+       */
+      const paper = papersRef.current.find((p) => p.x === tx && p.y === ty)
+      if (paper && facing({ x: self.tx, y: self.ty }, { x: paper.x, y: paper.y })) {
+        paperRef.current?.()
         return
       }
 
@@ -1383,6 +1403,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             const img = sprites.things[thing.icon]
             const in2 = Math.round((TILE - img.width) / 2)
             ctx.drawImage(img, x * TILE - camX + in2, y * TILE - camY + in2)
+          }
+          /* 문제 종이. 펼쳐진 것은 그림이 달라서, 방 건너편에서도
+             「누가 열었다」가 보인다 */
+          const paper = papersRef.current.find((t) => t.x === x && t.y === y)
+          if (paper) {
+            const img = paper.open ? sprites.papers.open : sprites.papers.shut
+            const in3 = Math.round((TILE - img.width) / 2)
+            ctx.drawImage(img, x * TILE - camX + in3, y * TILE - camY + in3)
           }
           const sign = signAt(x, y)
           // 안개 뒤의 간판은 아예 안 모은다 — 나중에 그리므로 안개가

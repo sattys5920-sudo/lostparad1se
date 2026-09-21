@@ -135,6 +135,8 @@ export interface WorldSlip {
 export interface WorldQuiz {
   id: string
   tileId: TileId
+  /** 바닥 칸. 옛 문서에는 없다 — 그러면 방 어디서나 편다 */
+  cell: Cell | null
   kind: 'choice' | 'short'
   /** 펼쳐졌을 때만 찬다. 안 펼친 종이는 null 이다. */
   prompt: string | null
@@ -458,6 +460,7 @@ export interface View {
   quizzesHere: {
     id: string
     kind: 'choice' | 'short'
+    cell: Cell | null
     prompt: string | null
     choices: string[]
     opened: boolean
@@ -775,6 +778,7 @@ export function projectView(world: World, viewerId: string): View {
         return {
           id: q.id,
           kind: q.kind,
+          cell: q.cell,
           prompt: opened ? q.prompt : null,
           choices: opened ? [...q.choices] : [],
           opened,

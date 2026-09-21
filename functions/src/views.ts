@@ -245,6 +245,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return {
         id: d.id,
         tileId: paper.tileId,
+        cell: paper.cell ?? null,
         kind: quiz?.kind ?? 'short',
         prompt: quiz?.prompt ?? null,
         choices: quiz?.choices ?? [],

@@ -8,7 +8,14 @@
 //   npx vite-node scripts/quiz-shots.ts
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 
+import { createHash } from 'node:crypto'
+
 import { dayHourMs } from '../shared/rules/clock'
+import { START_TILE } from '../shared/rules/board'
+import { paperCellOf } from '../shared/rules/quiz'
+import { tap, walkTo } from './lib/walk'
+
+const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
 
 const { chromium } = pw as typeof import('playwright')
 const PROJECT = 'demo-goei'
@@ -84,10 +91,13 @@ async function main() {
           explain: { stringValue: '' },
         } }),
       })
+      // 시작 교실 바닥 한 칸. 서버가 뿌릴 때와 같은 자리 규칙이다
+      const CELL = paperCellOf('p1', START_TILE)
       await fetch(`${FS}/games/${game}/secret/quiz/floor?documentId=p1`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN },
         body: JSON.stringify({ fields: {
-          quizId: { stringValue: 'q1' }, tileId: { stringValue: 'centralPlaza' },
+          quizId: { stringValue: 'q1' }, tileId: { stringValue: START_TILE },
+          cell: { mapValue: { fields: { x: { integerValue: String(CELL.x) }, y: { integerValue: String(CELL.y) } } } },
           openedBy: { nullValue: null }, openedInPhase: { nullValue: null },
           wrongBy: { arrayValue: { values: [] } }, solvedBy: { nullValue: null },
           solvedTeam: { nullValue: null }, atMs: { integerValue: String(Date.now()) },
@@ -108,9 +118,16 @@ async function main() {
       await page.locator('.sc-home__panel button').click({ timeout: 3000 }).catch(() => undefined)
       await page.waitForTimeout(1800)
 
-      // 펼치기까지 서버가 한다. refreshViews 가 여기서 돈다
-      await call('openQuiz', meTok, { gameId: game, paperId: 'p1' })
-      await page.evaluate(() => (document.querySelectorAll('.sc-ct__tab')[1] as HTMLElement | undefined)?.click())
+      // 접힌 종이가 바닥에 그려진 맵. 아직 아무도 안 열었다
+      await page.screenshot({ path: `${OUT}/quiz-${size.w}-바닥-${tag}.png` })
+      // 십자키로 종이 옆까지 간다 — 옆에 서야 「문제 종이」 칸이 뜬다
+      await walkTo({ page, fs: FS, admin: ADMIN, game, uid: uidOf(me), want: CELL, what: '종이' })
+      await page.waitForTimeout(800)
+      await tap(page, '.sc-ct__act', '문제 종이')
+      await page.waitForTimeout(600)
+      await page.screenshot({ path: `${OUT}/quiz-${size.w}-접힌-${tag}.png` })
+      // 펼친다. 이 방에 있는 전원이 같이 본다
+      await page.locator('.sc-qz button', { hasText: '펼치기' }).click({ timeout: 3000 }).catch(() => undefined)
       await page.waitForTimeout(2600)
 
       const up = await page.locator('.sc-qz__prompt').first().isVisible().catch(() => false)

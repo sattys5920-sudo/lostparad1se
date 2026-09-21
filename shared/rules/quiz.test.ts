@@ -51,3 +51,41 @@ describe('문제 은행', () => {
     expect(bankIsThin(0)).toBe(true)
   })
 })
+
+describe('종이가 놓이는 칸', () => {
+  it('그 방 안, 가장자리를 뺀 자리다', async () => {
+    const { TILES, roomOfCell } = await import('./board')
+    const { paperCellOf } = await import('./quiz')
+    for (const t of TILES) {
+      for (const id of ['p1', 'abc', 'zzz9']) {
+        const c = paperCellOf(id, t.id)
+        expect(roomOfCell(c.x, c.y), `${t.id} ${id}`).toBe(t.id)
+        const r = t.plan
+        if (r.w > 2) expect(c.x > r.x && c.x < r.x + r.w - 1, `${t.id} x`).toBe(true)
+        if (r.h > 2) expect(c.y > r.y && c.y < r.y + r.h - 1, `${t.id} y`).toBe(true)
+      }
+    }
+  })
+
+  it('같은 아이디는 같은 자리다', async () => {
+    const { paperCellOf } = await import('./quiz')
+    expect(paperCellOf('p1', 'garden')).toEqual(paperCellOf('p1', 'garden'))
+  })
+
+  it('기물 위에는 안 놓인다 — 정원의 화분', async () => {
+    const { paperCellOf } = await import('./quiz')
+    const { isFixture } = await import('./fixtures')
+    for (let i = 0; i < 200; i++) {
+      const c = paperCellOf(`paper${i}`, 'garden')
+      expect(isFixture(c.x, c.y), `paper${i} ${c.x},${c.y}`).toBe(false)
+    }
+  })
+
+  it('옆 칸 한 줄까지가 「옆」이다', async () => {
+    const { atPaper } = await import('./quiz')
+    expect(atPaper({ x: 5, y: 5 }, { x: 6, y: 6 })).toBe(true)
+    expect(atPaper({ x: 5, y: 5 }, { x: 5, y: 5 })).toBe(true)
+    expect(atPaper({ x: 5, y: 5 }, { x: 7, y: 5 })).toBe(false)
+    expect(atPaper(null, { x: 7, y: 5 })).toBe(false)
+  })
+})

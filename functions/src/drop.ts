@@ -15,6 +15,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
+import { paperCellOf } from '../../shared/rules/quiz'
 import { CHAT_MAX } from './chat'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
@@ -116,9 +117,12 @@ export const hostDrop = onCall<DropInput>(async (req) => {
   })
   // 접힌 채로 놓는다. 펴는 것은 그 방에 선 사람이 한다 — 펴면 거기
   // 있던 사람 전원이 같이 본다는 것이 이 물건의 전부다
-  batch.set(floorOf(gameId).doc(), {
+  const paper = floorOf(gameId).doc()
+  batch.set(paper, {
     quizId: bank.id,
     tileId,
+    // 서버가 뿌리는 것과 같은 자리 규칙이다. 맵에 그려지는 칸
+    cell: paperCellOf(paper.id, tileId),
     openedBy: null,
     openedInPhase: null,
     wrongBy: [],

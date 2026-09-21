@@ -9,7 +9,8 @@
 // 틀렸는지만 온다.
 import { useEffect, useState } from 'react'
 
-import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
+import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK, atPaper } from '../../../shared/rules/quiz'
+import type { Cell } from '../../../shared/rules/board'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 
@@ -17,9 +18,11 @@ export interface QuizProps {
   view: PlayerViewDoc | null
   act: GameActions
   onSaid: (text: string) => void
+  /** 내가 선 칸. 종이 옆이어야 펼치고 답을 낸다 — 서버도 같은 자로 잰다 */
+  myCell: Cell | null
 }
 
-export function Quiz({ view, act, onSaid }: QuizProps) {
+export function Quiz({ view, act, onSaid, myCell }: QuizProps) {
   const [busy, setBusy] = useState(false)
   const [typed, setTyped] = useState<Record<string, string>>({})
   /**
@@ -30,7 +33,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
    */
   const [shook, setShook] = useState<string | null>(null)
   const papers = view?.quizzesHere ?? []
-  if (papers.length === 0) return null
+  if (papers.length === 0) return <p className="sc-qz__shut">이 방에 문제 종이가 없다.</p>
 
   async function run(label: string, fn: () => Promise<unknown>, id: string | null = null) {
     setBusy(true)
@@ -58,7 +61,10 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
         문제 종이 <span>{papers.length}장</span>
       </h2>
       <ul className="sc-qz__list">
-        {papers.map((q) => (
+        {papers.map((q) => {
+          // 자리가 없는 옛 종이는 방 어디서나 닿는다
+          const near = q.cell === null || atPaper(myCell, q.cell)
+          return (
           <li
             key={q.id}
             className={(q.opened ? 'is-open' : '') + (shook === q.id ? ' is-wrong' : '')}
@@ -66,10 +72,12 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
             {!q.opened && (
               <>
                 <p className="sc-qz__shut">접힌 문제가 한 장 있다.</p>
-                <button disabled={busy} onClick={() => void run('펼치기', () => act.openQuiz(q.id))}>
+                <button disabled={busy || !near} onClick={() => void run('펼치기', () => act.openQuiz(q.id))}>
                   펼치기
                 </button>
-                <p className="sc-qz__warn">펼치면 이 방에 있는 사람 모두가 같이 본다.</p>
+                <p className="sc-qz__warn">
+                  {near ? '펼치면 이 방에 있는 사람 모두가 같이 본다.' : '종이 옆에 서야 펼칠 수 있다.'}
+                </p>
               </>
             )}
 
@@ -77,11 +85,12 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
               <>
                 <p className="sc-qz__prompt">{q.prompt}</p>
                 {q.iFailed && <p className="sc-qz__warn">한 번 틀렸다. 이 문제는 다시 못 푼다.</p>}
+                {!q.iFailed && !near && <p className="sc-qz__warn">종이 옆에 서야 답을 낼 수 있다.</p>}
 
                 {!q.iFailed && q.kind === 'choice' && (
                   <div className="sc-qz__choices">
                     {q.choices.map((c) => (
-                      <button key={c} disabled={busy} onClick={() => void run('답', () => act.answerQuiz(q.id, c), q.id)}>
+                      <button key={c} disabled={busy || !near} onClick={() => void run('답', () => act.answerQuiz(q.id, c), q.id)}>
                         {c}
                       </button>
                     ))}
@@ -94,10 +103,11 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
                       id={`quiz-${q.id}`}
                       value={typed[q.id] ?? ''}
                       placeholder="답을 적는다"
+                      disabled={!near}
                       onChange={(e) => setTyped((t) => ({ ...t, [q.id]: e.target.value }))}
                     />
                     <button
-                      disabled={busy || (typed[q.id] ?? '').trim() === ''}
+                      disabled={busy || !near || (typed[q.id] ?? '').trim() === ''}
                       onClick={() => void run('답', () => act.answerQuiz(q.id, typed[q.id] ?? ''), q.id)}
                     >
                       낸다
@@ -107,7 +117,8 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
               </>
             )}
           </li>
-        ))}
+          )
+        })}
       </ul>
       <p className="sc-qz__note">
         맞히면 <b>내</b> 지식 {KNOWLEDGE_PER_QUIZ}점. 한 장은 한 팀만 가져간다 — 먼저 내는 쪽이 이긴다.

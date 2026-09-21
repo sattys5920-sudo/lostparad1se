@@ -19,8 +19,10 @@ import {
   bankIsThin,
   isCorrect,
   type QuizKind,
+  atPaper,
+  paperCellOf,
 } from '../../shared/rules/quiz'
-import { TILES, type TileId } from '../../shared/rules/board'
+import { TILES, type Cell, type TileId } from '../../shared/rules/board'
 import { rngFrom } from '../../shared/missions/assign'
 import { gain, purseOf } from '../../shared/rules/resources'
 import type { PawnDoc } from '../../shared/model'
@@ -57,6 +59,8 @@ export interface QuizDoc {
 export interface QuizPaperDoc {
   quizId: string
   tileId: TileId
+  /** 바닥 칸. 뿌릴 때 정한다. 옛 문서에는 없다 */
+  cell?: Cell
   /** 누가 펼쳤는가. null 이면 아직 아무도 안 열었다. */
   openedBy: string | null
   /** 페이즈가 닫히면 도로 접힌다. 그 페이즈 번호. */
@@ -75,11 +79,23 @@ const floorOf = (gameId: string) => gameRef(gameId).collection('secret').doc('qu
 /** 문제 종이가 떨어질 수 있는 방. 기지는 뺀다. */
 const DROP_TILES: TileId[] = TILES.map((t) => t.id)
 
-/** 지금 내가 선 방. 걷는 중이면 null 이다. */
-async function whereAmI(gameId: string, uid: string): Promise<TileId | null> {
+/** 내 말. 없으면 이 판 사람이 아니다. */
+async function pawnOf(gameId: string, uid: string): Promise<PawnDoc> {
   const snap = await gameRef(gameId).collection('pawns').doc(uid).get()
   if (!snap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
-  return ((snap.data() as PawnDoc).tileId ?? null) as TileId | null
+  return snap.data() as PawnDoc
+}
+
+/**
+ * 종이 옆에 서 있는가. **방에 들어온 것만으로는 안 된다.**
+ *
+ * 종이는 바닥 한 칸에 그려진다. 문턱에서 펼 수 있으면 그 그림이
+ * 아무 뜻이 없다. 옛 문서(칸이 없는 것)만 방 어디서나 편다.
+ */
+function mustBeBeside(pawn: PawnDoc, paper: QuizPaperDoc): void {
+  if (paper.cell && !atPaper((pawn.at ?? null) as Cell | null, paper.cell)) {
+    throw new HttpsError('failed-precondition', '종이 옆에 서야 한다.')
+  }
 }
 
 /**
@@ -105,9 +121,13 @@ export async function scatterQuizzes(gameId: string, phaseNo: number, nowMs: num
 
   const batch = db.batch()
   for (let i = 0; i < howMany; i++) {
+    const ref = floorOf(gameId).doc()
+    const tileId = DROP_TILES[Math.floor(rng() * DROP_TILES.length)] as TileId
     const doc: QuizPaperDoc = {
       quizId: pick(pool).id,
-      tileId: DROP_TILES[Math.floor(rng() * DROP_TILES.length)] as TileId,
+      tileId,
+      // 방 안 한 칸. 맵에 그려지는 자리다
+      cell: paperCellOf(ref.id, tileId),
       openedBy: null,
       openedInPhase: null,
       wrongBy: [],
@@ -115,7 +135,7 @@ export async function scatterQuizzes(gameId: string, phaseNo: number, nowMs: num
       solvedTeam: null,
       atMs: nowMs,
     }
-    batch.set(floorOf(gameId).doc(), doc)
+    batch.set(ref, doc)
   }
   await batch.commit()
   return howMany
@@ -139,7 +159,8 @@ export async function foldQuizzes(gameId: string): Promise<void> {
 export const openQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, paperId } = req.data
-  const [here, { game }] = await Promise.all([whereAmI(gameId, uid), freshNow(gameId)])
+  const [pawn, { game }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
+  const here = (pawn.tileId ?? null) as TileId | null
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 펼 수 있다.')
 
   await db.runTransaction(async (tx) => {
@@ -148,6 +169,7 @@ export const openQuiz = onCall<{ gameId: string; paperId: string }>(async (req) 
     if (!snap.exists) throw new HttpsError('not-found', '그런 문제가 없다.')
     const q = snap.data() as QuizPaperDoc
     if (q.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 문제다.')
+    mustBeBeside(pawn, q)
     if (q.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 가져갔다.')
     if (q.openedBy) return
     tx.update(ref, { openedBy: uid, openedInPhase: game.phaseNow?.no ?? null })
@@ -167,10 +189,10 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
   const uid = requireUid(req.auth)
   const { gameId, paperId, given } = req.data
   if (typeof given !== 'string') throw new HttpsError('invalid-argument', '답이 없다.')
-  const here = await whereAmI(gameId, uid)
+  const pawn = await pawnOf(gameId, uid)
+  const here = (pawn.tileId ?? null) as TileId | null
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 답을 낼 수 있다.')
 
-  const pawn = (await gameRef(gameId).collection('pawns').doc(uid).get()).data() as PawnDoc
   const ref = gameRef(gameId)
 
   const out = await db.runTransaction(async (tx) => {
@@ -179,6 +201,7 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
     if (!paperSnap.exists) throw new HttpsError('not-found', '그런 문제가 없다.')
     const paper = paperSnap.data() as QuizPaperDoc
     if (paper.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 문제다.')
+    mustBeBeside(pawn, paper)
     if (!paper.openedBy) throw new HttpsError('failed-precondition', '아직 안 펼친 문제다.')
     // 먼저 닿은 답이 이겼다. 뒤에 온 사람은 여기서 걸린다
     if (paper.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 가져갔다.')

@@ -96,6 +96,7 @@ function world(over = false, invisibleId: string | null = null): World {
       {
         id: 'qShut',
         tileId: 'baseA',
+        cell: null,
         kind: 'short' as const,
         prompt: QUIZ_SHUT,
         choices: [],
@@ -106,6 +107,7 @@ function world(over = false, invisibleId: string | null = null): World {
       {
         id: 'qOpen',
         tileId: 'baseA',
+        cell: null,
         kind: 'choice' as const,
         prompt: QUIZ_OPEN,
         choices: ['하나', '둘', '셋', '넷'],
@@ -117,6 +119,7 @@ function world(over = false, invisibleId: string | null = null): World {
       {
         id: 'qDone',
         tileId: 'baseA',
+        cell: null,
         kind: 'short' as const,
         prompt: '가져간 문제',
         choices: [],

@@ -4,7 +4,7 @@
 // 쪽지는 주워서 **혼자** 읽고 감추는 것이고, 문제는 그 자리에서 펴서
 // **같이** 보는 것이다. 들고 갈 수도 건넬 수도 없다.
 //
-//   서 있으면   「문제가 한 장 있다」까지만 보인다
+//   방에 있으면 바닥에 접힌 종이가 그려진다. 옆에 서서 탭한다
 //   열면        그 방에 선 사람 **전원**에게 문제가 보인다
 //   맞히면      맞힌 사람 지갑에 지식 1. 종이는 사라진다
 //
@@ -20,6 +20,40 @@
 // 개발자도구를 열 줄 아는 한 사람이 첫날 아침에 전부 읽는다. 문제와
 // 정답은 functions/src 아래 secret 에만 있고, 채점도 서버가 한다.
 // 역할의 숨긴 사실과 쪽지 문장으로 이미 두 번 겪은 일이다.
+
+import { TILE_BY_ID, type Cell, type TileId } from './board'
+import { isFixture } from './fixtures'
+
+/**
+ * 종이가 놓이는 칸. **방 안 한 자리다** — 심부름 물건(errand.ts)과 같다.
+ *
+ * 「그 방 어딘가」로 두면 방에 들어서는 순간 펼 수 있어서, 바닥에
+ * 떨어져 있다는 말이 무색해진다. 자리가 있으면 방에 들어가 **찾아
+ * 가서** 편다 — 맵에 그려지고, 옆에 선 사람이 탭한다.
+ *
+ * 종이 문서 아이디로 정한다. 서버가 뿌릴 때 한 번 계산해 문서에 적어
+ * 두므로 나중에 방을 옮겨도 판 위의 종이는 안 움직인다. 가장자리 한
+ * 줄은 비우고, 화분 같은 기물 위에 떨어지면 옆 칸으로 민다.
+ */
+export function paperCellOf(paperId: string, room: TileId): Cell {
+  const r = TILE_BY_ID[room].plan
+  const w = Math.max(1, r.w - 2)
+  const h = Math.max(1, r.h - 2)
+  const ox = r.w > 2 ? r.x + 1 : r.x
+  const oy = r.h > 2 ? r.y + 1 : r.y
+  let n = 0
+  for (const ch of paperId) n = (n * 31 + ch.charCodeAt(0)) % 100_000
+  for (let k = 0; k < w * h; k++) {
+    const i = (n + k) % (w * h)
+    const c = { x: ox + (i % w), y: oy + Math.floor(i / w) }
+    if (!isFixture(c.x, c.y)) return c
+  }
+  return { x: ox + (n % w), y: oy + (Math.floor(n / w) % h) }
+}
+
+/** 종이 옆인가. 둘레 한 칸 — 게시판·물건과 같은 자다. */
+export const atPaper = (me: Cell | null | undefined, cell: Cell | null | undefined): boolean =>
+  me != null && cell != null && Math.abs(me.x - cell.x) <= 1 && Math.abs(me.y - cell.y) <= 1
 
 /** 한 페이즈가 닫힐 때 새로 떨어지는 문제 종이 수. */
 export const QUIZ_PER_PHASE = 2

@@ -48,7 +48,6 @@ export interface MeProps {
   /** 눈발 세기. 배경에 같은 눈이 내린다. */
   snowLevel: number
   /** 문제 종이. 내 방 바닥의 일이라 여기 얹는다. */
-  quiz: ReactNode
   /** 쪽지. 「가진 것」을 펼치면 나온다. */
   slips: ReactNode
   act: GameActions
@@ -196,13 +195,6 @@ export function Me(props: MeProps) {
               ))}
             </ul>
           </Card>
-        )}
-
-        {/* 문제 종이. 이 방 바닥의 일이라 미션 다음에 둔다.
-            **빈 카드는 안 띄운다** — Quiz 는 종이가 없으면 null 을
-            돌려주는데, 카드는 그걸 모르고 테만 남는다 */}
-        {(props.view?.quizzesHere?.length ?? 0) > 0 && (
-          <Card title="문 제 종 이">{props.quiz}</Card>
         )}
 
         {/* ── ④ 받은 표 ────────────────────────────────── */}

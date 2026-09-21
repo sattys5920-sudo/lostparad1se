@@ -48,6 +48,7 @@ import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog, leftText } from './Phase'
 import { Slips } from './Slips'
 import { Quiz } from './Quiz'
+import { atPaper } from '../../../shared/rules/quiz'
 import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
@@ -612,7 +613,7 @@ function placeName(room: TileId | null, cell: { x: number; y: number } | null): 
   return null
 }
 
-type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden'
+type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden' | 'quiz'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -775,6 +776,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const vendingHere = atVending(myCell)
   useEffect(() => {
     if (vendingHere === null) setSheet((s) => (s === 'shop' ? null : s))
+    // 종이가 있는 방을 나가면 종이 시트도 닫힌다
+    if ((state.view?.quizzesHere?.length ?? 0) === 0) setSheet((s) => (s === 'quiz' ? null : s))
   }, [vendingHere])
   // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
   const hereNow = standingOn
@@ -1080,6 +1083,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       room.push({ key: 'garden', icon: 'pot', label: '화분', run: () => setSheet('garden') })
     }
     /*
+     * **문제 종이 옆.** 게시판과 같이 자리를 본다 — 방에 들어온 것만으로는
+     * 안 뜬다. 맵의 종이를 탭해도 같은 시트가 열린다
+     */
+    if ((state.view?.quizzesHere ?? []).some((q) => atPaper(myCell, q.cell))) {
+      room.push({ key: 'quiz', icon: 'note', label: '문제 종이', run: () => setSheet('quiz') })
+    }
+    /*
      * **이 방에 놓인 완성품.** 첫 칸을 가져간다.
      *
      * 주인이 없다 — 연구를 건 사람이 제때 여기 없었다는 뜻이고, 먼저
@@ -1276,6 +1286,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             onTapPerson={setPerson}
             /* 기물을 짚었다 — 앞에 서 있을 때만 온다(Walk 가 잰다) */
             onTapFixture={(kind) => setSheet(kind === 'board' ? 'board' : kind === 'pot' ? 'garden' : 'shop')}
+            onTapPaper={() => setSheet('quiz')}
             /* 머리 위에 잠깐 뜨는 말 */
             says={says}
             names={names}
@@ -1302,6 +1313,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 ? [{ ...state.view.myErrand.thingAt, icon: state.view.myErrand.icon }]
                 : []
             }
+            /* 바닥의 문제 종이. 내가 선 방 것만 서버가 보내 준다 — 자리가
+               없는 옛 종이는 못 그린다 */
+            papers={(state.view?.quizzesHere ?? []).flatMap((q) =>
+              q.cell ? [{ x: q.cell.x, y: q.cell.y, open: q.opened }] : [],
+            )}
             /* 화분과 씨앗 상자. 정원에 서 있을 때만 서버가 보내 준다 */
             pots={
               (state.view?.potsHere?.length ?? 0) > 0
@@ -1460,9 +1476,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           hereName={placeName(standingOn, myCell)}
           seats={game.seats}
           snowLevel={state.game?.snow?.level ?? 5}
-          /* 문제 종이는 페이즈 중에도 푼다. 토큰이 안 들어서, 토큰이
-             떨어진 사람이 한 시간 동안 할 수 있는 유일한 일이다 */
-          quiz={<Quiz view={state.view} act={act} onSaid={setSaid} />}
           slips={
             uid ? (
               <Slips
@@ -1827,6 +1840,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             myCell={myCell}
             nearPot={(i) => beside(myCell, POT_CELLS[i])}
           />
+        </Sheet>
+      )}
+
+      {/* 문제 종이. 맵에서 종이 옆에 서서 탭하면 열린다. **페이즈 중에도
+          푼다** — 토큰이 안 들어서, 토큰이 떨어진 사람이 한 시간 동안
+          할 수 있는 유일한 일이다 */}
+      {sheet === 'quiz' && (
+        <Sheet title="문제 종이" onClose={closeSheet}>
+          <Quiz view={state.view} act={act} onSaid={setSaid} myCell={myCell} />
         </Sheet>
       )}
 
