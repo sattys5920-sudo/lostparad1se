@@ -266,7 +266,6 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       vaults: vaultsOf(pawns),
       satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
-      openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
       // **살아 있는 것만 담는다.** 순수 함수는 시계를 모른다
       locks: liveLocks(tiles.docs, nowOf(game)),
@@ -626,7 +625,6 @@ export const phaseAct = onCall<{
       vaults: vaultsOf(pawns),
       satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
-      openedTiles: (game.openedTiles ?? []) as TileId[],
       invisibleId: game.invisibleId ?? null,
       // **살아 있는 것만 담는다.** 지난 자물쇠를 지우러 다시 오는
       // 일이 없게, 시각만 보고 살았는지를 판단한다

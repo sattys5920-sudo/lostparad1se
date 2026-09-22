@@ -18,7 +18,6 @@ import { tallyVotes, type Vote } from '../../shared/rules/votes'
 import { DEAL_TOKENS_PER_DAY } from '../../shared/rules/occupy'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
-  CORE_OPENING,
   type Resource,
   type TeamId,
   TOKEN_COMEBACK_BONUS,
@@ -81,8 +80,6 @@ interface Ctx {
  */
 async function dayStart(c: Ctx): Promise<void> {
   const ref = gameRef(c.gameId)
-  const opens = (CORE_OPENING[c.day] ?? []) as TileId[]
-  const openedTiles = [...new Set([...c.game.openedTiles, ...opens])]
   const boostedTiles = fragmentsUpTo(c.day).map((f) => f.spotTile)
 
   // **등교 예약은 없앴다.** 밤새 멈춰 있던 시절의 규칙이고, 어디든
@@ -107,7 +104,6 @@ async function dayStart(c: Ctx): Promise<void> {
 
   c.tx.update(ref, {
     day: c.day,
-    openedTiles,
     boostedTiles,
     // 어제 21:00에 정해진 사람이 오늘 지워진다
     invisibleId: c.game.invisibleByDay[c.day] ?? null,
@@ -116,7 +112,6 @@ async function dayStart(c: Ctx): Promise<void> {
     atMs: c.atMs,
     day: c.day,
     kind: 'dayStart',
-    detail: { opened: opens },
   })
 
   /*

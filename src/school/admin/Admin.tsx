@@ -413,10 +413,6 @@ function Desk() {
                 >
                   얼굴 다시 읽기
                 </button>
-                {/* 시험용. 본래는 A의 기록이 날마다 두 칸씩 연다 */}
-                <button disabled={busy} onClick={() => void run('방 다 열기', () => act.openAllTiles())}>
-                  핵심 방 다 열기
-                </button>
               </div>
               <ResetGame busy={busy} act={act} onSaid={setSaid} />
             </section>

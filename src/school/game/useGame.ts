@@ -317,7 +317,6 @@ export function gameActions(gameId: string) {
     seedPlayers: (password: string, leaveSeats = 1) =>
       callServer('seedPlayers', { ...g, password, leaveSeats }),
     /** 시험용. 핵심 칸을 미리 다 연다 — 닷새를 기다리지 않고 본다 */
-    openAllTiles: () => callServer('openAllTiles', { ...g }),
 
 
     produce: (tileId: TileId) => callServer('produce', { ...g, tileId }),

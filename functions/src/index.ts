@@ -156,7 +156,7 @@ export { radio, radioLines } from './radio'
 export { hostEnter } from './hostgate'
 
 // QA용 채우기. 운영자만, 로비에서만.
-export { seedPlayers, openAllTiles } from './qa'
+export { seedPlayers } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
 export { openPhase, closePhase, phaseAct, phaseNow, roamTo, standAt } from './phase'

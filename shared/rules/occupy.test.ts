@@ -81,7 +81,6 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   // 상자도 한 사람 몫만큼 넣어 둔다. 모자란 경우는 따로 쓴다
   wallets: Object.fromEntries(TEAM_IDS.map((t) => [t, TOKENS_PER_PHASE])),
   // 시험은 따로 적지 않는 한 핵심이 다 열린 판으로 본다
-  openedTiles: TILES.filter((t) => t.tier === 'core' || t.tier === 'plaza').map((t) => t.id),
   ...over,
 })
 
@@ -1093,39 +1092,40 @@ describe('못 박힌 방은 없다', () => {
   })
 })
 
-describe('A의 기록이 열기 전에는 핵심을 못 가진다', () => {
-  const shut = { openedTiles: [] as string[] }
+describe('방은 처음부터 다 열려 있다', () => {
+  // 전에는 A의 기록이 날마다 핵심을 두 칸씩 열어 줬고, 열리기 전에는
+  // 아무리 서 있어도 주인이 안 됐다. 그 규칙을 걷어냈다 — 열넷이
+  // 시작하는 자리(2-3 교실)가 바로 못 가지는 자리였기 때문이다
 
-  it('열리지 않은 핵심은 아무리 서 있어도 안 넘어간다', () => {
+  it('핵심도 첫 페이즈부터 넘어간다', () => {
     const s = board({
       people: [person('a', 'A', 'auditorium'), person('a2', 'A', 'auditorium')],
       owners: { auditorium: null },
-      ...shut,
-    })
-    expect(settle(s).next.owners.auditorium).toBeNull()
-  })
-
-  it('첫날 아침 2-3 교실에 열넷이 서 있어도 주인이 안 생긴다', () => {
-    const s = board({
-      people: [person('a', 'A', 'centralPlaza'), person('a2', 'A', 'centralPlaza'), person('b', 'B', 'centralPlaza')],
-      owners: { centralPlaza: null },
-      ...shut,
-    })
-    expect(settle(s).next.owners.centralPlaza).toBeNull()
-  })
-
-  it('열린 뒤에는 보통 방과 같다', () => {
-    const s = board({
-      people: [person('a', 'A', 'auditorium')],
-      owners: { auditorium: null },
-      openedTiles: ['auditorium'],
     })
     expect(settle(s).next.owners.auditorium).toBe('A')
   })
 
-  it('열리기 전이라도 이미 주인이 있으면 그대로 둔다', () => {
-    const s = board({ owners: { auditorium: 'B' }, ...shut })
-    expect(settle(s).next.owners.auditorium).toBe('B')
+  it('시작 방인 2-3 교실도 첫 페이즈부터 넘어간다', () => {
+    const s = board({
+      people: [person('a', 'A', 'centralPlaza'), person('a2', 'A', 'centralPlaza'), person('b', 'B', 'centralPlaza')],
+      owners: { centralPlaza: null },
+    })
+    expect(settle(s).next.owners.centralPlaza).toBe('A')
+  })
+
+  it('열넷이 한 방에 그대로 서 있으면 제일 많은 팀이 가져간다', () => {
+    const s = board({
+      people: [
+        person('a', 'A', 'centralPlaza'),
+        person('a2', 'A', 'centralPlaza'),
+        person('b', 'B', 'centralPlaza'),
+        person('b2', 'B', 'centralPlaza'),
+        person('c', 'C', 'centralPlaza'),
+      ],
+      owners: { centralPlaza: null },
+    })
+    // A 둘 · B 둘로 동점이라 아무도 못 가진다
+    expect(settle(s).next.owners.centralPlaza).toBeNull()
   })
 })
 

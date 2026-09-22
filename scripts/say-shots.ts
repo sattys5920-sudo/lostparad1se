@@ -135,7 +135,6 @@ async function main() {
   await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })
   await must('tick', host, { gameId: game })
   await must('markMorning', meTok, { gameId: game, read: [1] })
-  await must('openAllTiles', host, { gameId: game }).catch(() => ({}))
 
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
   const page: Page = await browser.newPage({

@@ -137,6 +137,31 @@ async function put(uid: string, fields: Record<string, unknown>): Promise<void> 
   })
 }
 
+/**
+ * 지갑에 돈을 넣는다. **시험 준비용.**
+ *
+ * 이제 모두 빈손으로 시작한다 — 거래에 걸 것이 있으려면 먼저 벌어야
+ * 하는데, 이 대본이 보려는 것은 벌이가 아니라 탁자다. 걸 것만 쥐여 준다.
+ */
+async function fund(uid: string, money: number, knowledge = 9): Promise<void> {
+  await fetch(`${FS}/games/${GAME}/pawns/${uid}?updateMask.fieldPaths=resources`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        resources: {
+          mapValue: {
+            fields: {
+              money: { integerValue: String(money) },
+              knowledge: { integerValue: String(knowledge) },
+            },
+          },
+        },
+      },
+    }),
+  })
+}
+
 async function main(): Promise<void> {
   console.log(`판 ${GAME}\n── 판 세우기 ──`)
   const he = await signUp(`h-${GAME}@x.test`)
@@ -168,6 +193,8 @@ async function main(): Promise<void> {
   const B = people.filter((p) => p.team === 'B')
   const me = A[0]
   const you = B[0]
+  // 빈손으로 시작하므로 걸 것을 먼저 쥐여 준다
+  for (const p of people) await fund(p.uid, 20)
 
   /**
    * 둘을 **바로 옆 칸**에 세운다.

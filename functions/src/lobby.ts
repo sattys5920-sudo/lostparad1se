@@ -19,7 +19,7 @@ import { assignRoles, type Player } from '../../shared/missions/assign'
 import { DEAL_TOKENS_PER_DAY, isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
-import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
+import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
 import { seedGarden } from './garden'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
@@ -85,7 +85,6 @@ function freshLobby(seed: string, seats: readonly SeatEntry[]): GameDoc {
     clock: { anchorRealMs: 0, anchorGameMs: 0, speed: 1 },
     caughtUpToMs: 0,
     day: 0,
-    openedTiles: [],
     boostedTiles: [],
     spotlightTeams: [],
     comebackTeams: [],
@@ -472,7 +471,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
 
   // DAY 1의 시작 시각은 시작 그 자체라 예정 이벤트가 없다. 그래서 첫날
   // 열리는 핵심 칸과 가치가 오르는 칸을 여기서 직접 놓는다 —
-  // 따라잡기에 맡겨 두면 첫날 운동장과 방송실이 영영 안 열린다
   batch.update(ref, {
     phase: 'running',
     // 다시 읽은 얼굴을 명단에 박아 둔다. 판이 도는 동안은 이것이 정본이다
@@ -480,7 +478,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     startedAtMs,
     caughtUpToMs: startedAtMs,
     day: 1,
-    openedTiles: [...(CORE_OPENING[1] ?? [])],
     boostedTiles: FRAGMENT_BY_DAY[1] ? [FRAGMENT_BY_DAY[1].spotTile] : [],
     startedRealMs: FieldValue.serverTimestamp(),
     captains,

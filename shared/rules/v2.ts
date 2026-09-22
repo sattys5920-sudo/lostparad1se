@@ -163,15 +163,16 @@ export const RESOURCE_LABEL: Record<Resource, string> = {
 }
 
 /**
- * 사람 하나가 들고 시작하는 것. **팀 금고가 아니라 지갑이다.**
+ * 사람 하나가 들고 시작하는 것. **빈손이다.**
  *
- * 팀 넷이 돈 8을 함께 쓰던 때의 값을 사람 수로 나눠 옮겼다 — 팀에
- * 셋이나 넷이 있으므로 한 사람 2, 지식 1 이면 판 전체의 양이 얼추
- * 같다. 첫날 아침에 혼자 살 수 있는 것은 빈 종이 한 장이다.
+ * 전에는 돈 2 · 지식 1 을 들려 보냈다. 첫날 아침에 빈 종이 한 장은
+ * 살 수 있게 하려던 것이다. 이제는 아무것도 없이 시작한다 — 첫
+ * 페이즈에 할 수 있는 일은 걸어가서 방에 서는 것뿐이고, 살 것이
+ * 있으려면 먼저 심부름이든 화분이든 손을 놀려야 한다.
  */
 export const STARTING_RESOURCES: Record<Resource, number> = {
-  money: 2,
-  knowledge: 1,
+  money: 0,
+  knowledge: 0,
 }
 
 // ── 표 ──────────────────────────────────────────────────────────
@@ -329,12 +330,13 @@ export const SCORE_RESEARCH_MULTIPLIER = 2
 /** 기록이 지목한 칸의 가치가 끝까지 오르는 값. */
 export const FRAGMENT_TILE_BONUS = 2
 
-/** 날짜마다 열리는 핵심. DAY 1·2는 마주 보는 두 칸씩. */
-export const CORE_OPENING: Record<number, readonly string[]> = {
-  1: ['playground', 'broadcastRoom'],
-  2: ['auditorium', 'studentCouncil'],
-  5: ['centralPlaza'],
-}
+// **방은 처음부터 다 열려 있다.**
+//
+// 전에는 A의 기록이 날마다 핵심을 두 칸씩 열어 줬고(CORE_OPENING),
+// 열리기 전에는 그 방을 가질 수 없었다. 그런데 열넷이 시작하는 방이
+// 바로 중앙광장이고 그것이 DAY 5에나 열려서, 첫 페이즈에 다 같이 서
+// 있는 자리가 아무도 못 가지는 자리였다. 스물다섯 방 전부 첫날부터
+// 다툰다.
 
 /** 마지막 여섯 시간이 시작되는 날. */
 export const LAST_HOURS_DAY = 5

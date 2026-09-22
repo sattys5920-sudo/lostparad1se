@@ -1,14 +1,12 @@
 // A의 기록.
 //
 // A는 판에 나타나지 않는다. 매일 08:00에 한 조각씩 열리고, 조각 하나는
-// 늘 세 가지를 한다 — 칸 하나의 가치를 올리고, 판을 바꾸고, 역할 한둘을
-// 은근히 가리킨다.
+// 칸 하나의 가치를 올린다.
 //
-// 가리켜진 역할이 무엇인지는 여기 없다. 그건 개인 미션 쪽 데이터
-// (HINT_SCHEDULE)에 있고, 표 계산에는 「정확히 짚었다」는 답만 들어온다.
-// 두 시스템을 붙이지 않으려고 일부러 갈라 뒀다.
+// **방을 열어 주는 일은 이제 안 한다.** 전에는 날마다 핵심을 두 칸씩
+// 열어 줬고 열리기 전에는 가질 수 없었다. 스물다섯 방 전부 첫날부터
+// 다툰다 — v2.ts 의 「방은 처음부터 다 열려 있다」를 보라.
 import {
-  CORE_OPENING,
   FRAGMENT_TILE_BONUS,
   LAST_HOURS_DAY,
   LAST_HOURS_START_HOUR,
@@ -16,25 +14,6 @@ import {
 } from './v2'
 import { TILE_BY_ID, type TileId } from './board'
 import { dayNumber, secondsIntoSeoulDay, seoulTimeOn } from './clock'
-
-/** 그날 열리는 칸. 아직 열리지 않은 핵심에는 깃발을 꽂을 수 없다. */
-export function openedOn(day: number): readonly TileId[] {
-  return CORE_OPENING[day] ?? []
-}
-
-/** 오늘까지 열린 칸 전부. */
-export function openTilesBy(day: number): Set<TileId> {
-  const out = new Set<TileId>()
-  for (let d = 1; d <= day; d++) for (const id of openedOn(d)) out.add(id)
-  return out
-}
-
-/** 그 칸에 지금 깃발을 꽂을 수 있는가. 핵심·중앙광장만 이 제한을 받는다. */
-export function coreOpen(tileId: TileId, day: number): boolean {
-  const tier = TILE_BY_ID[tileId].tier
-  if (tier !== 'core' && tier !== 'plaza') return true
-  return openTilesBy(day).has(tileId)
-}
 
 /** 조각이 지목한 칸. 가치가 끝까지 +2 오른다. */
 export interface Fragment {
@@ -53,18 +32,12 @@ export function tileValue(tileId: TileId, fragments: readonly Fragment[]): numbe
 
 export interface DayEvents {
   day: number
-  /** 오늘 열리는 칸. */
-  opens: readonly TileId[]
   /** 마지막 여섯 시간이 있는 날인가. */
   hasLastHours: boolean
 }
 
 export function eventsOn(day: number): DayEvents {
-  return {
-    day,
-    opens: openedOn(day),
-    hasLastHours: day === LAST_HOURS_DAY,
-  }
+  return { day, hasLastHours: day === LAST_HOURS_DAY }
 }
 
 /** 지금 마지막 여섯 시간인가. DAY 5 15:00부터 종례까지. */

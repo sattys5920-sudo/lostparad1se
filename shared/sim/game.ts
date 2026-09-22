@@ -18,7 +18,6 @@ import { addActiveSeconds, dayNumber, secondsIntoSeoulDay, seoulTimeOn } from '.
 import { gain, pay, type TileState } from '../rules/resources'
 import { ownerLookup } from '../rules/actions'
 import { ROOM_KIND, ownerOf, researchKnowledge } from '../rules/occupy'
-import { coreOpen } from '../rules/fragments'
 import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenState } from '../rules/tokens'
 import { tallyVotes, type Vote } from '../rules/votes'
 import { reveal, type Leverage } from '../rules/leverage'
@@ -386,10 +385,8 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       const wanted = goHome
         ? TILE_IDS.filter((id) => look(id) === p.team)
         : TILE_IDS.filter(
-            (id) =>
-              look(id) !== p.team &&
-              ADJACENCY[id].some((n) => look(n) === p.team) &&
-              coreOpen(id, day),
+            // 방은 처음부터 다 열려 있다. 고를 때 가릴 것이 없다
+            (id) => look(id) !== p.team && ADJACENCY[id].some((n) => look(n) === p.team),
           )
       const goal = wanted.length > 0 ? pick(wanted) : pick(ADJACENCY[p.tileId])
       const path = pathBetween(p.tileId, goal)
