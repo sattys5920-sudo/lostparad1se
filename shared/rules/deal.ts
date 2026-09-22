@@ -30,7 +30,7 @@ export type DealStatus = 'asking' | 'open' | 'settling' | 'done' | 'gone'
  * 접힌 채로 건네는 것이 쪽지다. 어느 쪽지인지는 서버만 안다.
  */
 export interface Stake {
-  /** 팀 금고에서 나간다. 팀원에게 알림이 간다. */
+  /** 내 지갑에서 나간다. 크게 움직이면 우리 팀 무전에 한 줄 남는다. */
   money: number
   knowledge: number
   /** 내 주머니의 물건. */

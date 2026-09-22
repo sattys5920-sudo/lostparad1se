@@ -14,8 +14,6 @@ export const TYPE_LINE_GAP_MS = 400
 /** 탭하면 남은 글자가 한 번에 찍힌다. 그 뒤 다음 탭까지의 최소 간격. */
 export const TAP_GUARD_MS = 200
 
-/** 미니맵으로 돌아와 지목 칸을 강조하는 시간. */
-export const SPOT_HIGHLIGHT_MS = 3000
 /** 장면과 장면 사이 넘어가는 시간. */
 export const SCENE_FADE_MS = 600
 

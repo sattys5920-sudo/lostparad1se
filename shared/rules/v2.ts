@@ -329,9 +329,9 @@ export const SCORE_RESEARCH_MULTIPLIER = 2
 //
 // 전에는 A의 기록이 날마다 핵심을 두 칸씩 열어 줬고(CORE_OPENING),
 // 열리기 전에는 그 방을 가질 수 없었다. 그런데 열넷이 시작하는 방이
-// 바로 중앙광장이고 그것이 DAY 5에나 열려서, 첫 페이즈에 다 같이 서
-// 있는 자리가 아무도 못 가지는 자리였다. 스물다섯 방 전부 첫날부터
-// 다툰다.
+// DAY 5에나 열리는 자리여서, 첫 페이즈에 다 같이 서 있는 곳이 아무도
+// 못 가지는 자리였다. 이제 스물다섯 방 전부 첫날부터 다툰다 — 다만
+// 시작하는 2-3 교실만은 **아무도 못 가진다**(occupy.settle 의 plaza).
 
 /** 마지막 여섯 시간이 시작되는 날. */
 export const LAST_HOURS_DAY = 5
@@ -418,9 +418,6 @@ export const MEMORY_TIERS: readonly Tier[] = ['gate', 'cross', 'core', 'plaza']
 // ── 그 자리와 깨달음 (③) ───────────────────────────────────────
 /** 눈발 단계. 0이 그친 것이고 5가 가장 굵다. 수치 대신 이 값만 내려보낸다. */
 export const SNOW_LEVEL_MAX = 5
-/** 눈이 그치면 전원이 받는 개인 점수. */
-export const SNOW_STOPPED_SCORE = 1
-
 // ── 다섯 시의 창고 (⑤) ─────────────────────────────────────────
 
 export const STORAGE_TILE = 'storage'

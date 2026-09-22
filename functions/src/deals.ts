@@ -346,7 +346,7 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       sysLine(tx, gameId, team, sys.vaultOut(out.money, out.knowledge), nowMs, game.day)
     }
 
-    // 개인 것 — 거래 토큰과 주머니. 값은 청한 쪽이 낸다
+    // 개인 것 — 주머니. 거는 데도 성립하는 데도 값은 안 든다
     const bag = (base: Satchel, give: Satchel, get: Satchel): Satchel => {
       const out: Satchel = { ...base }
       for (const k of ITEM_KINDS) {

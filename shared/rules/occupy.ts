@@ -179,11 +179,11 @@ export const RESEARCH_PHASES = 1
 export const RESEARCH_PHASES_WITH_PLANT = 0
 
 /**
- * 연구 한 번에 드는 **팀 금고의 지식.** 토큰과 별개로 든다.
+ * 연구 한 번에 드는 **본인 지갑의 지식.** 팀 토큰과 별개로 든다.
  *
- * 토큰은 사람마다 나오지만 지식은 팀이 함께 번다 — 문제 종이를 풀어야
- * 는다. 그래서 로봇을 뽑는 일이 개인의 부지런함이 아니라 팀의 살림이
- * 된다. 발전소를 쥐면 한 점 싸진다.
+ * 토큰은 팀이 나눠 쓰지만 지갑은 각자다 — 문제 종이를 풀거나 우리
+ * 땅에서 공부해야 는다. 그래서 로봇을 뽑는 일이 팀의 살림이 아니라
+ * 그 사람의 부지런함이다.
  */
 export const KNOWLEDGE_PER_RESEARCH = 2
 export const KNOWLEDGE_PER_RESEARCH_OWNER = 1
@@ -191,10 +191,9 @@ export const KNOWLEDGE_PER_RESEARCH_OWNER = 1
 /**
  * 이번 연구에 드는 지식.
  *
- * **연구실을 차지한 팀은 한 점, 남은 두 점이다.** 그리고 남이 낸 두
- * 점은 사라지지 않고 **연구실 주인 팀의 금고로 들어간다** — 연구실을
- * 쥔다는 것은 남의 연구로 먹고산다는 뜻이다. 아무도 안 쥐고 있으면
- * 받을 팀이 없어 그냥 사라진다.
+ * **연구실을 차지한 팀은 한 점, 남은 두 점이다.** 낸 지식은 사라진다 —
+ * 연구실을 쥐는 값은 받는 것이 아니라 덜 내는 것이다. 왜 그렇게
+ * 했는지는 act 의 research 갈래에 적어 두었다.
  */
 export const researchKnowledge = (ownsLab: boolean): number =>
   ownsLab ? KNOWLEDGE_PER_RESEARCH_OWNER : KNOWLEDGE_PER_RESEARCH
