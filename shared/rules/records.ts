@@ -27,8 +27,22 @@ export type RecordKind =
   | 'slipTear'
   | 'robotBorn'
   | 'robotSmashed'
+  // 아무도 안 부쉈는데 사라진 짝. 이적으로 한도가 넘쳐서 지워진 것이다.
+  // **기술부는 이걸 안 센다** — 사유를 칸 하나로 두는 대신 종류를 갈랐다
+  | 'robotGone'
   | 'robotOwner'
   | 'quizSolved'
+  // 자판기. **사는 것과 파는 것을 가른다** — 매점 단골은 산 것만 센다
+  | 'vendBuy'
+  | 'vendSell'
+  // 심부름. 받은 것 · 끝낸 것 · 놓은 것을 다 남긴다
+  | 'errandTake'
+  | 'errandDone'
+  | 'errandQuit'
+  // 화분
+  | 'potHarvest'
+  // 팀이 바뀐 순간. 「그 사건 시점의 팀」이 이 줄들로 되짚어진다
+  | 'teamMoved'
 
 /**
  * 일어난 일 한 줄. **secret 아래에만 쌓인다.**
@@ -43,7 +57,12 @@ export interface GameRecord {
   /** 이 일을 한 사람. */
   actorId: string
   actorTeam: TeamId
-  /** 상대가 있는 일이면 그 사람. 거래 상대, 쪽지를 받은 사람. */
+  /**
+   * 상대가 있는 일이면 그 사람. 거래 상대, 쪽지를 받은 사람.
+   *
+   * 사람이 없는 일에는 팀만 쓴다 — 부서진 짝이 어느 팀 것이었나,
+   * 이적하기 전에 어느 팀이었나.
+   */
   otherId?: string | null
   otherTeam?: TeamId | null
   /** 어디에서 일어났나. */

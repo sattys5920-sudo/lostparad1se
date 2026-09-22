@@ -581,8 +581,11 @@ export const phaseAct = onCall<{
    */
   const bot: {
     made: { id: string; team: TeamId; tileId: TileId } | null
-    smashed: { id: string; byTeam: TeamId; tileId: TileId } | null
-  } = { made: null, smashed: null }
+    /** ofTeam 은 **부서진 짝의 주인 팀**이다. 기술부의 「남의 팀 짝」이 이 칸으로 갈린다 */
+    smashed: { id: string; byTeam: TeamId; tileId: TileId; ofTeam: TeamId | null } | null
+    /** 아무도 안 부쉈는데 사라진 것들. 이적으로 한도가 넘친 자리다 */
+    gone: { id: string; team: TeamId }[]
+  } = { made: null, smashed: null, gone: [] }
   await db.runTransaction(async (tx) => {
     const [pawns, bots, tiles, hidden, teams] = await Promise.all([
       tx.get(ref.collection('pawns')),
@@ -635,7 +638,13 @@ export const phaseAct = onCall<{
     }
     if (out.log.kind === 'robotSmashed' && out.log.targetRobot && out.log.tileId) {
       const who = before.people.find((p) => p.playerId === uid) as Person
-      bot.smashed = { id: out.log.targetRobot, byTeam: who.team, tileId: out.log.tileId }
+      const victim = before.robots.find((r) => r.id === out.log.targetRobot)
+      bot.smashed = {
+        id: out.log.targetRobot,
+        byTeam: who.team,
+        tileId: out.log.tileId,
+        ofTeam: victim?.team ?? null,
+      }
     }
 
     // 사람 — 바뀐 것만 쓴다
@@ -730,7 +739,15 @@ export const phaseAct = onCall<{
 
     // 로봇 — 통째로 다시 쓴다. 열몇 기뿐이라 견줄 이유가 없다
     const now = new Set(out.next.robots.map((r) => r.id))
-    for (const d of bots.docs) if (!now.has(d.id)) tx.delete(d.ref)
+    for (const d of bots.docs) {
+      if (now.has(d.id)) continue
+      tx.delete(d.ref)
+      // 일부러 부순 것 말고 그냥 사라진 것만 따로 센다
+      if (d.id !== bot.smashed?.id) {
+        const was = before.robots.find((r) => r.id === d.id)
+        bot.gone.push({ id: d.id, team: was?.team ?? ('A' as TeamId) })
+      }
+    }
     for (const r of out.next.robots) tx.set(robotsOf(gameId).doc(r.id), { ...r })
 
     tx.set(hiddenOf(gameId), {
@@ -753,8 +770,8 @@ export const phaseAct = onCall<{
   })
 
   // 로봇이 나거나 부서졌으면 한 줄 남긴다. **개인 미션이 이것을 본다** —
-  // 과학부의 「3기 이상 만든다」와 기술부의 「3기 이상 부순다」,
-  // 심부름꾼의 「내가 만든 로봇이 남의 팀에」가 전부 여기서 나온다
+  // 과학부의 「3기 이상 만든다」와 기술부의 「남의 팀 것 3기 이상 부순다」가
+  // 여기서 나온다. 기술부는 robotGone 을 안 센다 — 아무도 안 부순 것이다
   if (bot.made) {
     await note(gameId, 'robotBorn', nowMs, { id: uid, team: bot.made.team }, {
       tileId: bot.made.tileId,
@@ -767,7 +784,14 @@ export const phaseAct = onCall<{
     await note(gameId, 'robotSmashed', nowMs, { id: uid, team: bot.smashed.byTeam }, {
       tileId: bot.smashed.tileId,
       subjectId: bot.smashed.id,
+      // **누구 것을 부쉈나.** 이게 없으면 「남의 팀 짝」을 셀 수 없다
+      ...(bot.smashed.ofTeam ? { otherTeam: bot.smashed.ofTeam } : {}),
     })
+  }
+  for (const g of bot.gone) {
+    // 부순 사람이 없으므로 actor 는 이 페이즈를 민 사람이다. 판정은
+    // 이 종류를 안 세므로 누구로 적히든 셈에 안 든다
+    await note(gameId, 'robotGone', nowMs, { id: uid, team: g.team }, { subjectId: g.id })
   }
 
   // 떠나는 순간 그 방의 체류가 끝난다. 걷는 10분 동안은 어느 방에도

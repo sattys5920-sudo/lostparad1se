@@ -40,6 +40,7 @@ import type { Cell, TileId } from '../../shared/rules/board'
 import type { PawnDoc } from '../../shared/model'
 import { requireHost } from './host'
 import { freshNow, myPawn } from './turn'
+import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 
@@ -238,6 +239,8 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
   }
 
   let got = ''
+  let grew = ''
+  let planter: string | null = null
   await db.runTransaction(async (tx) => {
     const ref = potsOf(gameId).doc(String(i))
     const mine = gameRef(gameId).collection('pawns').doc(uid)
@@ -253,8 +256,24 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
     }
     const cropId = pot.cropId as string
     got = CROP_BY_ID[cropId]?.name ?? cropId
+    grew = cropId
+    planter = pot.byPlayerId ?? null
     tx.set(ref, EMPTY_POT)
     tx.update(mine, { [`crops.${cropId}`]: FieldValue.increment(1) })
+  })
+  /*
+   * **화분은 따는 순간 비워진다.** 그래서 여기서 안 적으면 누가 무엇을
+   * 땄는지가 영영 사라진다 — 유일한 흔적이 나중에 자판기에 넣을 때
+   * 나오는 매입 줄뿐이고, 안 팔면 그마저 없다.
+   *
+   * ownerId 는 심은 사람이다. 지금은 운영자가 심으므로 늘 비어 있다 —
+   * 원예부의 「남이 심은 화분」이 이 칸 하나로 갈리는데, 심는 사람이
+   * 없으면 가를 것도 없다. 사람이 심게 되는 날 이 줄이 그대로 답이 된다
+   */
+  await note(gameId, 'potHarvest', nowMs, { id: uid, team: p.team }, {
+    subjectId: `${i}:${grew}`,
+    // 안 적는 것과 「없음」을 가른다. 심은 사람이 없으면 칸 자체가 없다
+    ...(planter ? { ownerId: planter } : {}),
   })
   await refreshViews(gameId)
   return { got }

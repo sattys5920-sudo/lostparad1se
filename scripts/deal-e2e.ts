@@ -23,6 +23,8 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1'
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
+import { of as recOf, records } from './lib/records'
+import { tradedTeams } from '../shared/rules/records'
 
 let failures = 0
 function check(ok: boolean, label: string, detail = ''): void {
@@ -347,6 +349,18 @@ async function main(): Promise<void> {
     String(pawns[me.uid].dealTokens),
   )
   check(Number(pawns[you.uid].dealTokens) === 5, '받은 쪽은 안 낸다', String(pawns[you.uid].dealTokens))
+
+  /*
+   * **매점 단골이 이 줄을 센다** — 「다른 팀 사람과 두 번 성립」.
+   * 받기만 한 쪽도 거래한 것으로 세어야 한다. 제안한 쪽만 세면
+   * 받기만 하는 사람은 아무리 거래해도 안 센 것이 된다
+   */
+  const log = await records(GAME)
+  const trade = recOf(log, 'trade').find((r) => r.actorId === me.uid || r.otherId === me.uid)
+  check(trade !== undefined, '거래가 한 줄 남았다')
+  check(trade?.actorId === me.uid && trade?.otherId === you.uid, '양쪽이 다 적힌다')
+  check(tradedTeams(log, you.uid).includes('A'), '받은 쪽도 거래한 것으로 센다')
+  check(tradedTeams(log, me.uid).includes('B'), '제안한 쪽도 센다')
 
   const moved = (await slipsNow()).find((s) => s.id === slip.id)
   check(String(moved?.d.heldBy) === you.uid, '쪽지가 받는 쪽 손에 들어갔다')

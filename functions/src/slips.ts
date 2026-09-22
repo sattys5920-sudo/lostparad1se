@@ -122,6 +122,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const { gameId, slipId } = req.data
   const here = await whereAmI(gameId, uid)
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
+  const { nowMs } = await freshNow(gameId)
 
   let subject = ''
   await db.runTransaction(async (tx) => {
@@ -134,7 +135,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     tx.update(ref, { tileId: null, heldBy: uid })
     subject = s.subjectId
   })
-  await note(gameId, 'slipTake', Date.now(), { id: uid, team: (await me(gameId, uid)).team }, {
+  await note(gameId, 'slipTake', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
     tileId: here,
     subjectId: slipId,
     ownerId: subject,
@@ -152,6 +153,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
 export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
+  const { nowMs } = await freshNow(gameId)
   let first = false
   let subject = ''
   await db.runTransaction(async (tx) => {
@@ -168,7 +170,7 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   // 두 번째부터는 안 적는다. 「세 장을 읽는다」가 한 장을 세 번 읽어서
   // 채워지면 안 된다
   if (first) {
-    await note(gameId, 'slipRead', Date.now(), { id: uid, team: (await me(gameId, uid)).team }, {
+    await note(gameId, 'slipRead', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
       subjectId: slipId,
       ownerId: subject,
     })
@@ -244,7 +246,8 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
   // **두는 것은 되고 건네는 것은 안 된다.** 손에서 손으로 가는 일이라
   // 사람과 얽히는 행동이다 — 바닥에 두는 쪽이 유일한 통로로 남는다
-  refuseIfInvisible((await freshNow(gameId)).game.invisibleId, uid, toPlayerId, '건넬')
+  const { nowMs, game } = await freshNow(gameId)
+  refuseIfInvisible(game.invisibleId, uid, toPlayerId, '건넬')
 
   let subject = ''
   let toTeam: PawnDoc['team'] = 'A'
@@ -265,7 +268,7 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
     subject = (snap.data() as SlipDoc).subjectId
     toTeam = (other.data() as PawnDoc).team
   })
-  await note(gameId, 'slipGive', Date.now(), { id: uid, team: (await me(gameId, uid)).team }, {
+  await note(gameId, 'slipGive', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
     otherId: toPlayerId,
     otherTeam: toTeam,
     tileId: here,

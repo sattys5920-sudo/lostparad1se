@@ -20,6 +20,7 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
+import { of as recOf, records } from './lib/records'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
@@ -298,6 +299,20 @@ async function main() {
   check(mapOf((await viewOf(game, youUid)).myErrand).thing === undefined, '시간이 지나면 받은 사람 전원 실패')
   const gone = arr((await viewOf(game, meUid)).errandsHere)
   check(!gone.some((e) => str(e.thing) === '빗자루'), '게시판에서도 떼어진다', `${gone.length}장 남음`)
+
+  console.log('\n── 심부름이 기록에 남는가 ──')
+  /*
+   * **주번이 이 줄을 센다.** 전에는 완료가 events 에만 남았고, 받았다가
+   * 그만두면 받은 기록이 문서에서 통째로 지워졌다 — 목록에서 빼는 것과
+   * 없던 일로 하는 것은 다르다
+   */
+  const log = await records(game)
+  const done = recOf(log, 'errandDone')
+  check(done.length >= 1, '끝낸 심부름이 줄로 남는다', `${done.length}줄`)
+  check(done.some((r) => r.actorId === meUid), '끝낸 사람으로 적힌다')
+  check(!done.some((r) => r.actorId === youUid), '진 사람은 끝낸 것으로 안 적힌다')
+  check(recOf(log, 'errandTake').length >= 2, '받은 것도 남는다', `${recOf(log, 'errandTake').length}줄`)
+  check(recOf(log, 'errandQuit', meUid).length === 1, '그만둔 것도 남는다 — 목록에서만 지운다')
 
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   process.exit(bad === 0 ? 0 : 1)

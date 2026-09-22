@@ -19,6 +19,7 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
+import { of as recOf, records } from './lib/records'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
@@ -331,6 +332,25 @@ async function main() {
   // 남은 지우개가 없으면 못 쓴다
   const none = await call('useItem', meTok, { gameId: game, kind: 'eraser' })
   check(!none.ok, '없으면 못 쓴다', none.ok ? '썼다' : (none.err ?? ''))
+
+  console.log('\n── 산 것이 기록에 남는가 ──')
+  /*
+   * **매점 단골이 이 줄을 센다.** 전에는 events 에만 남아서, 판정이
+   * 보는 기록 계층에는 자판기가 통째로 없었다. 사는 것과 파는 것을
+   * 가른 것도 미션 때문이다 — 「세 번 산다」에 매입이 들면 안 된다
+   */
+  const log = await records(game)
+  const bought = recOf(log, 'vendBuy', meUid)
+  check(bought.length >= 3, '산 횟수만큼 줄이 쌓였다', `${bought.length}줄`)
+  check(
+    bought.some((r) => r.subjectId === 'lock') && bought.some((r) => r.subjectId === 'eraser'),
+    '무엇을 샀는지가 줄마다 적힌다',
+  )
+  check(recOf(log, 'vendSell').length === 0, '안 팔았으니 매입 줄은 없다')
+  // 게임 시계로 찍혔는지. 실제 시계면 배속 판에서 날짜가 통째로 어긋난다
+  const nowGame = (await must('clockNow', meTok, { gameId: game })) as { nowMs?: number }
+  const drift = Math.abs((bought[0]?.atMs ?? 0) - (nowGame.nowMs ?? 0))
+  check(drift < 6 * 3600_000, '게임 시계로 찍혔다', `${Math.round(drift / 60000)}분 차이`)
 
   console.log('\n── 손으로 쓰는 물건이 아닌 것 ──')
   const notHand = await call('useItem', meTok, { gameId: game, kind: 'whistle' })

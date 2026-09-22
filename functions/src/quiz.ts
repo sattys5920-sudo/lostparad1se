@@ -189,7 +189,7 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
   const uid = requireUid(req.auth)
   const { gameId, paperId, given } = req.data
   if (typeof given !== 'string') throw new HttpsError('invalid-argument', '답이 없다.')
-  const pawn = await pawnOf(gameId, uid)
+  const [pawn, { nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
   const here = (pawn.tileId ?? null) as TileId | null
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 
@@ -229,7 +229,7 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
   // 맞힌 것만 남긴다. **전교 1등의 「문제를 5개 이상 맞힌다」가
   // 이 줄을 센다** — 팀이 아니라 본인이 맞혀야 한다
   if (out.correct) {
-    await note(gameId, 'quizSolved', Date.now(), { id: uid, team: pawn.team }, {
+    await note(gameId, 'quizSolved', nowMs, { id: uid, team: pawn.team }, {
       tileId: here,
       subjectId: paperId,
     })

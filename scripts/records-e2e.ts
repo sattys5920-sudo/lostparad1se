@@ -10,8 +10,9 @@
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { coStayMs, metPeople, tradedTeams, type GameRecord, type Stay } from '../shared/rules/records'
+import { coStayMs, metPeople, type GameRecord, type Stay } from '../shared/rules/records'
 import { stepToward } from '../shared/rules/occupy'
+import { LAB_MACHINE, LAB_TILE } from '../shared/rules/trap'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -202,52 +203,9 @@ async function main(): Promise<void> {
   check(metPeople(stays, A[0].uid, 1 * M, clock).includes(B[0].uid), '1분 넘게 만난 사람으로 센다')
   check(!metPeople(stays, A[0].uid, 1 * M, clock).includes(A[0].uid), '나는 안 든다')
 
-  console.log('\n── 거래 한 줄 ──')
-  const offered = await must('offerTrade', A[0].token, {
-    gameId: GAME,
-    toPlayerId: B[0].uid,
-    give: { money: 1 },
-    want: {},
-  })
-  await must('respondTrade', B[0].token, { gameId: GAME, tradeId: offered.id, accept: true })
-  const afterTrade = await recordsNow()
-  const trade = afterTrade.find((r) => r.kind === 'trade')
-  check(trade !== undefined, '거래가 한 줄 남았다')
-  check(trade?.actorId === A[0].uid && trade?.otherId === B[0].uid, '양쪽이 다 적힌다')
-  // 받기만 한 사람도 거래한 것으로 세어져야 한다
-  check(tradedTeams(afterTrade, B[0].uid).includes('A'), '**받은 쪽도 거래한 것으로 센다**')
-  check(tradedTeams(afterTrade, A[0].uid).includes('B'), '제안한 쪽도 센다')
-
-  console.log('\n── 말은 그 자리에서 끝난다 ──')
-  // 둘 다 baseA 에 서 있다. 여기서 꺼낸 말은 여기서만 산다
-  const live = await must('offerTrade', A[0].token, {
-    gameId: GAME,
-    toPlayerId: B[0].uid,
-    give: { money: 1 },
-    want: {},
-  })
-  // B0 가 자리를 뜬다
-  const away = stepToward((await pawnsNow())[B[0].uid].tileId as string, 'baseB') as string
-  await must('roamTo', B[0].token, { gameId: GAME, tileId: away })
-  const gone = await call('respondTrade', B[0].token, { gameId: GAME, tradeId: live.id, accept: true })
-  check(gone.code === 'FAILED_PRECONDITION', '**자리를 뜨면 말이 사라진다**', String(gone.code))
-  check(
-    !((await viewOf(A[0].uid)).trades as unknown[]).some((t) => (t as { id: string }).id === live.id),
-    '화면 목록에서도 사라진다 — 대기 중인 제안이라는 것이 없다',
-  )
-
-  // 남에게 온 말은 받을 수 없다
-  await walk(B[0].token, B[0].uid, (await pawnsNow())[A[0].uid].tileId as string, land)
-  const mine2 = await must('offerTrade', A[0].token, {
-    gameId: GAME,
-    toPlayerId: B[0].uid,
-    give: { money: 1 },
-    want: {},
-  })
-  const notMine = await call('respondTrade', A[1].token, { gameId: GAME, tradeId: mine2.id, accept: true })
-  check(notMine.code === 'PERMISSION_DENIED', '나에게 온 말이 아니면 못 받는다', String(notMine.code))
-  await must('respondTrade', B[0].token, { gameId: GAME, tradeId: mine2.id, accept: true })
-  check(true, '마주 선 그 사람은 받는다')
+  // 거래 기록은 deal-e2e 가 본다. 옛 offerTrade/respondTrade 로 쓰여
+  // 있던 대목을 걷어냈다 — 거래는 탁자(askDeal…settleDeal)로 바뀌었고,
+  // 그 흐름이 이미 서 있는 곳에서 확인하는 편이 짧다
 
   console.log('\n── 쪽지 처리 ──')
   await must('openPhase', host, { gameId: GAME })
@@ -291,12 +249,53 @@ async function main(): Promise<void> {
   // 연구실에 세워 둔다. **시험 준비라 자리를 직접 놓는다** — 걸어서
   // 가면 페이즈 복귀에 한 시간이 다 들어가고, 여기서 볼 것은 걸음이
   // 아니라 「로봇이 나면 한 줄 남는가」다
-  const lab = 'mainBuilding'
-  await put(A[1].uid, { tileId: lab, postTile: lab, path: [], arriveAtMs: null, fromTile: null })
+  // **연구 기계 옆에 서야 건다.** 기술실·연구실에 기계가 생기면서
+  // 방에 서 있는 것만으로는 안 된다 — 자리(at)까지 놓는다
+  await put(A[1].uid, { tileId: LAB_TILE, postTile: LAB_TILE, path: [], arriveAtMs: null, fromTile: null })
+  await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=at`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        at: {
+          mapValue: {
+            fields: {
+              x: { integerValue: String(LAB_MACHINE.x + 1) },
+              y: { integerValue: String(LAB_MACHINE.y) },
+            },
+          },
+        },
+      },
+    }),
+  })
+  // 지식을 채워 준다. 여기서 볼 것은 벌이가 아니라 「로봇이 나면 한 줄 남는가」다
+  await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=resources`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        resources: {
+          mapValue: {
+            fields: {
+              money: { integerValue: '9' },
+              knowledge: { integerValue: '9' },
+              tokens: { integerValue: '9' },
+            },
+          },
+        },
+      },
+    }),
+  })
   await must('openPhase', host, { gameId: GAME })
   const acted = await call('phaseAct', A[1].token, { gameId: GAME, kind: 'research' })
   check(acted.ok, '연구를 걸었다', acted.ok ? '' : `${acted.code} ${acted.message}`)
-  await must('closePhase', host, { gameId: GAME })
+  /*
+   * **페이즈를 안 닫는다.** 연구는 20분 걸리는데, 안 익은 채로 닫으면
+   * 규칙이 그 자리에서 버린다. 익은 연구는 열려 있는 동안에만 놓이므로
+   * 열어 둔 채로 시계를 밀고 따라잡는다
+   */
+  await land(25)
+  await must('tick', host, { gameId: GAME })
   rows = await recordsNow()
   const born = rows.find((r) => r.kind === 'robotBorn')
   check(born !== undefined, '로봇이 난 것이 한 줄 남았다')
@@ -305,9 +304,18 @@ async function main(): Promise<void> {
   console.log('\n── 짝이 서 있어도 문은 열린다 ──')
   // 로봇 둘이 선 방에 걸어 들어갈 수 있어야 한다. 정원은 사람만
   // 세기 때문이다 — 여기서 막히면 로봇으로 문을 막는 짓이 되살아난다
+  //
+  // 위에서 연구를 익히느라 페이즈를 열어 뒀다. 걸어 다니려면 닫아야 한다
+  await must('closePhase', host, { gameId: GAME })
   await land(11)
+  /*
+   * **A0 가 중앙광장에 서 있으면 다음 칸이 없다.** stepToward 가 null 을
+   * 돌려주고, 그 뒤가 전부 「그런 방은 없다」가 된다 — 목적지를 A0 가
+   * 서 있지 않은 쪽으로 고른다
+   */
   const standing = (await pawnsNow())[A[0].uid].tileId as string
-  const nextDoor = stepToward(standing, 'centralPlaza') as string
+  const goal = standing === 'centralPlaza' ? 'library' : 'centralPlaza'
+  const nextDoor = stepToward(standing, goal) as string
   for (const id of ['blockA', 'blockB']) {
     await fetch(`${FS}/games/${GAME}/robots/${id}`, {
       method: 'PATCH',

@@ -20,6 +20,7 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
+import { of as recOf, records } from './lib/records'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 /** 1층 복도의 자판기. 매입구 시험은 이 칸 앞에서 한다 */
@@ -361,6 +362,25 @@ async function main() {
   check((ripe2.canPick as { booleanValue?: boolean })?.booleanValue === false, '손이 차면 못 딴다고 온다')
   const nope = await call('harvestPot', meTok, { gameId: game, pot: 2 })
   check(!nope.ok, `${HARVEST_LIMIT}개까지만 들고 다닌다`, nope.ok ? '땄다' : (nope.err ?? ''))
+
+  console.log('\n── 딴 것이 기록에 남는가 ──')
+  /*
+   * **화분은 따는 순간 비워진다.** 그래서 여기서 안 적으면 누가 무엇을
+   * 땄는지가 영영 사라진다 — 원예부의 「다섯 번 딴다」가 셀 것이 없어진다.
+   *
+   * ownerId 는 심은 사람이다. 지금은 운영자가 심으므로 비어 있다 —
+   * 「남이 심은 화분」은 사람이 심게 되어야 갈린다
+   */
+  const log = await records(game)
+  const picked = recOf(log, 'potHarvest')
+  check(picked.length >= 1, '딴 만큼 줄이 쌓인다', `${picked.length}줄`)
+  check(picked.some((r) => r.actorId === youUid), '딴 사람으로 적힌다')
+  check(
+    picked.every((r) => typeof r.subjectId === 'string' && r.subjectId.includes(':')),
+    '어느 화분에서 무엇을 땄는지가 적힌다',
+    String(picked[0]?.subjectId),
+  )
+  check(picked.every((r) => r.ownerId === undefined), '운영자가 심었으므로 심은 사람 칸은 비어 있다')
 
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   if (bad > 0) process.exitCode = 1

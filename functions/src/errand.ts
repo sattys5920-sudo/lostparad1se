@@ -34,6 +34,7 @@ import { earn } from '../../shared/rules/resources'
 import type { PawnDoc } from '../../shared/model'
 import { requireHost } from './host'
 import { freshNow, myPawn } from './turn'
+import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 
@@ -250,6 +251,7 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
     // **여럿이 같은 것을 받는다.** 각자 경주한다
     tx.update(ref, { [`takers.${uid}`]: { tookMs: nowMs, carrying: false } })
   })
+  await note(gameId, 'errandTake', nowMs, { id: uid, team: pawn.team }, { subjectId: String(errandId) })
   await refreshViews(gameId)
   return { took: errandId, from: TILE_BY_ID[(await ref.get()).get('from') as TileId].name }
 })
@@ -331,6 +333,11 @@ export const dropThing = onCall<{ gameId: string }>(async (req) => {
     tileId: mine.doc.to,
     detail: { specId: mine.doc.specId, coins },
   })
+  // **주번이 이 줄을 센다.** 코인을 받았는지와 무관하게 끝낸 것은 끝낸 것이다
+  await note(gameId, 'errandDone', nowMs, { id: uid, team: pawn.team }, {
+    tileId: mine.doc.to,
+    subjectId: mine.id,
+  })
   await refreshViews(gameId)
   return { done: true, coins }
 })
@@ -341,7 +348,12 @@ export const giveUpErrand = onCall<{ gameId: string }>(async (req) => {
   const { gameId } = req.data
   const mine = await mineNow(gameId, uid)
   if (!mine) throw new HttpsError('failed-precondition', '받아 둔 심부름이 없다.')
+  const { nowMs } = await freshNow(gameId)
+  const pawn = await myPawn(gameId, uid)
   await postedOf(gameId).doc(mine.id).update({ [`takers.${uid}`]: FieldValue.delete() })
+  // **목록에서는 지워도 기록에는 남긴다.** 목록에서 지우는 것은 화면의
+  // 일이고, 받았다 놓았다는 사실은 지워질 일이 아니다
+  await note(gameId, 'errandQuit', nowMs, { id: uid, team: pawn.team }, { subjectId: mine.id })
   await refreshViews(gameId)
   return { gaveUp: mine.doc.specId }
 })

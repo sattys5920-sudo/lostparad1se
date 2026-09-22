@@ -36,6 +36,7 @@ import { CROP_BY_ID } from '../../shared/rules/crop'
 import { josa } from '../../shared/text'
 import { putItem } from '../../shared/rules/items'
 import type { PawnDoc, TeamDoc } from '../../shared/model'
+import { note } from './records'
 import { refreshViews } from './views'
 import { freshNow, myPawn, requireAwake, requireFree, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
@@ -234,6 +235,9 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
     })
   })
 
+  // **매점 단골이 이 줄을 센다.** 이벤트로만 남기면 판정이 못 읽는다 —
+  // 미션은 기록 계층만 본다. 매입(vendSell)과 갈라 둔 까닭도 그것이다
+  await note(gameId, 'vendBuy', nowMs, { id: uid, team: pawn.team }, { subjectId: item.id })
   await refreshViews(gameId)
   return { item: item.id, cost: cost.money }
 })
@@ -281,6 +285,8 @@ export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) =
     })
   })
 
+  // 파는 것은 사는 것이 아니다. 매점 단골의 「세 번 산다」에 안 든다
+  await note(gameId, 'vendSell', nowMs, { id: uid, team: pawn.team }, { subjectId: spec.id })
   await refreshViews(gameId)
   return { crop: spec.id, paid: spec.price }
 })
