@@ -196,6 +196,85 @@ export function tradedTeams(rows: readonly GameRecord[], who: string): TeamId[] 
   return [...out].sort()
 }
 
+// ── 그때 그 방은 누구 것이었나 ──────────────────────────────────
+
+/**
+ * 페이즈가 닫힐 때 방 하나의 주인이 정해진 한 줄.
+ *
+ * 소유는 페이즈가 닫힐 때만 바뀌므로, 이 줄들이 곧 소유 이력이다.
+ * 따로 이력을 쌓을 필요가 없었다 — 이미 쌓이고 있었다.
+ */
+export interface OwnerChange {
+  tileId: TileId
+  /** 닫힌 뒤의 주인. 아무도 안 섰으면 null. */
+  team: TeamId | null
+  /** 닫히기 전의 주인. */
+  ownerBefore: TeamId | null
+  atMs: number
+}
+
+/**
+ * 그 시각에 그 방은 누구 것이었나.
+ *
+ * **끝났을 때의 주인으로 세면 안 되는 자리가 있다.** 전학생의 「그 팀
+ * 방에 10분 서 있었다」는 서 있던 **그때** 그 팀 것이었느냐를 묻는다.
+ * 마지막 페이즈에 주인이 바뀌면, 닷새 내내 A팀 방이던 곳에 서 있던
+ * 시간이 통째로 B팀 몫이 되거나 반대가 된다.
+ *
+ * 그 시각 이전의 마지막 변경을 찾아 그 뒤의 주인을 쓴다. 그전에
+ * 아무 변경도 없었으면 첫 줄의 「닫히기 전 주인」이 답이다 —
+ * 스물다섯 방이 전부 빈 채로 시작하므로 보통 null 이다.
+ */
+export function ownerAt(
+  changes: readonly OwnerChange[],
+  tileId: TileId,
+  atMs: number,
+): TeamId | null {
+  const mine = changes.filter((c) => c.tileId === tileId).sort((a, b) => a.atMs - b.atMs)
+  if (mine.length === 0) return null
+  let owner: TeamId | null = mine[0].ownerBefore
+  for (const c of mine) {
+    if (c.atMs > atMs) break
+    owner = c.team
+  }
+  return owner
+}
+
+/**
+ * 그 사람이 **그때 그 팀 것이던** 방들에 서 있었던 시간의 합.
+ *
+ * stayInTeamRoomsMs 와 짝이다. 그쪽은 지금 주인으로 세고, 이쪽은
+ * 구간마다 그때의 주인을 되짚는다. 한 구간 안에서 주인이 바뀌면
+ * 바뀐 지점에서 잘라 센다 — 안 자르면 10분짜리 체류가 두 팀 모두에게
+ * 10분씩 들어간다.
+ */
+export function stayInTeamRoomsAtTimeMs(
+  stays: readonly Stay[],
+  playerId: string,
+  team: TeamId,
+  changes: readonly OwnerChange[],
+  nowMs: number,
+): number {
+  let total = 0
+  for (const s of stays) {
+    if (s.playerId !== playerId || s.tileId === null) continue
+    const from = s.startMs
+    const to = endOf(s, nowMs)
+    if (to <= from) continue
+    // 이 구간 안에서 주인이 바뀐 시각들. 구간을 그 지점마다 자른다
+    const cuts = changes
+      .filter((c) => c.tileId === s.tileId && c.atMs > from && c.atMs < to)
+      .map((c) => c.atMs)
+      .sort((a, b) => a - b)
+    let at = from
+    for (const cut of [...cuts, to]) {
+      if (ownerAt(changes, s.tileId, at) === team) total += cut - at
+      at = cut
+    }
+  }
+  return total
+}
+
 /** 이 사람이 낀 거래의 수. 제안한 것과 받은 것을 다 센다. */
 export const tradeCount = (rows: readonly GameRecord[], who: string): number =>
   rows.filter((r) => r.kind === 'trade' && (r.actorId === who || r.otherId === who)).length

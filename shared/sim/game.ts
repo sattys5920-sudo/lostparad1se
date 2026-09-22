@@ -264,6 +264,13 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     fragmentTiles: fragments.map((f) => f.spotTile),
     ownerAtEnd: (id) => tiles.get(id)?.ownerTeam ?? null,
     teamRank: Object.fromEntries(ranked.ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>,
+    teamTiedRank: Object.fromEntries(
+      ranked.ranked.map((r) => [r.team, r.tiedRank]),
+    ) as Record<TeamId, number>,
+    // 봇은 자판기도 심부름도 화분도 안 만진다. 자리만 채운다
+    records: [],
+    ownerChanges: [],
+    ballotDays: [],
     allianceAtEnd: Object.fromEntries(TEAM_IDS.map((t) => [t, null])) as Record<TeamId, TeamId | null>,
     leverageAtEnd: leverages.filter((l) => l.spentAtMs === null).map((l) => ({ holderId: l.holderId, aboutId: l.aboutId })),
     teamLostTile: Object.fromEntries(TEAM_IDS.map((t) => [t, teams[t].lostTile])) as Record<TeamId, boolean>,

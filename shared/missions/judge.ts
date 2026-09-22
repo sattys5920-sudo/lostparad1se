@@ -25,6 +25,20 @@ import { dayNumber } from '../rules/clock'
 import type { TileId } from '../rules/board'
 import type { RevealScope, TeamId, VoteKind } from '../rules/v2'
 import type { LeverageUse } from '../rules/leverage'
+import type { GameRecord, OwnerChange } from '../rules/records'
+
+/**
+ * 그날 투명인간 투표가 어떻게 끝났나.
+ *
+ * 뒷자리는 **동률로 무효가 된 날을 안 센다**. 그러려면 「아무도 안
+ * 지워졌다」가 왜인지가 남아 있어야 한다.
+ */
+export interface BallotDay {
+  day: number
+  invisibleId: string | null
+  /** picked · tooFew · tie · repeat */
+  reason: string
+}
 
 // ── 기록 ────────────────────────────────────────────────────────
 
@@ -101,8 +115,27 @@ export interface GameLog {
   fragmentTiles: readonly TileId[]
   /** 끝날 때 칸 주인. */
   ownerAtEnd: (tileId: TileId) => TeamId | null
-  /** 팀 순위. 1이 1위다. */
+  /** 팀 순위. 1이 1위다. 동점도 끝까지 가른다 — 화면에 줄을 세우는 수다. */
   teamRank: Record<TeamId, number>
+  /**
+   * 안 가른 팀 순위. **동점은 같은 수를 갖는다**(1·2·2·4).
+   *
+   * 「우리 팀이 1위가 아니다」를 묻는 조항이 이쪽을 본다. 공동 1위를
+   * 지식으로 갈라서 2위로 만들어 놓으면, 실제로는 제일 잘한 팀이
+   * 「1위가 아니다」를 채우게 된다.
+   */
+  teamTiedRank: Record<TeamId, number>
+  /**
+   * 쌓인 기록 전부. 자판기·심부름·화분·쪽지·짝·시험지·이적이 여기 있다.
+   *
+   * **오래 쓰기만 하고 아무도 안 읽던 자리다.** 판정이 보는 자료에
+   * 아예 안 들어가서, 기록을 아무리 쌓아도 미션이 셀 것이 없었다.
+   */
+  records: readonly GameRecord[]
+  /** 방 주인이 바뀐 이력. 「서 있던 그때 그 방 주인」이 이것으로 갈린다. */
+  ownerChanges: readonly OwnerChange[]
+  /** 날마다 투명인간 투표가 어떻게 끝났나. 동률로 무효가 된 날이 갈린다. */
+  ballotDays: readonly BallotDay[]
   allianceAtEnd: Record<TeamId, TeamId | null>
   /** 끝날 때 살아 있는 약점. */
   leverageAtEnd: readonly { holderId: string; aboutId: string }[]

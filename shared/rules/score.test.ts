@@ -135,6 +135,36 @@ describe('순위', () => {
     const out = rankTeams([row('A', 10, 0), row('B', 10, 3)], () => 2)
     expect(out[0].team).toBe('B')
   })
+
+  /*
+   * **안 가른 순위.** 화면에 줄을 세우려면 끝까지 갈라야 하지만,
+   * 「우리 팀이 1위가 아니다」를 묻는 조항은 안 가른 쪽을 봐야 한다 —
+   * 같은 점수인데 지식으로 갈라 2위를 만들어 놓으면, 제일 잘한 팀이
+   * 그 조항을 채운다.
+   */
+  it('공동 1위는 둘 다 1위다', () => {
+    const out = rankTeams([row('A', 10), row('B', 10)], (t) => (t === 'A' ? 5 : 1))
+    const tied = Object.fromEntries(out.map((r) => [r.team, r.tiedRank]))
+    expect(tied).toEqual({ A: 1, B: 1 })
+    // 가른 쪽은 그대로 1·2 다
+    expect(out.map((r) => r.rank)).toEqual([1, 2])
+  })
+
+  it('1·2·2·4 로 건너뛴다', () => {
+    const out = rankTeams([row('A', 30), row('B', 20), row('C', 20), row('D', 10)], () => 0)
+    const tied = Object.fromEntries(out.map((r) => [r.team, r.tiedRank]))
+    expect(tied).toEqual({ A: 1, B: 2, C: 2, D: 4 })
+  })
+
+  it('넷이 다 같으면 넷 다 1위다', () => {
+    const out = rankTeams([row('A', 7), row('B', 7), row('C', 7), row('D', 7)], () => 0)
+    expect(out.every((r) => r.tiedRank === 1)).toBe(true)
+  })
+
+  it('다 다르면 가른 순위와 같다', () => {
+    const out = rankTeams([row('A', 40), row('B', 30), row('C', 20), row('D', 10)], () => 0)
+    expect(out.every((r) => r.rank === r.tiedRank)).toBe(true)
+  })
 })
 
 describe('정산', () => {

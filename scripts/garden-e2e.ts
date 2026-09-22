@@ -367,9 +367,6 @@ async function main() {
   /*
    * **화분은 따는 순간 비워진다.** 그래서 여기서 안 적으면 누가 무엇을
    * 땄는지가 영영 사라진다 — 원예부의 「다섯 번 딴다」가 셀 것이 없어진다.
-   *
-   * ownerId 는 심은 사람이다. 지금은 운영자가 심으므로 비어 있다 —
-   * 「남이 심은 화분」은 사람이 심게 되어야 갈린다
    */
   const log = await records(game)
   const picked = recOf(log, 'potHarvest')
@@ -380,7 +377,7 @@ async function main() {
     '어느 화분에서 무엇을 땄는지가 적힌다',
     String(picked[0]?.subjectId),
   )
-  check(picked.every((r) => r.ownerId === undefined), '운영자가 심었으므로 심은 사람 칸은 비어 있다')
+  check(picked.every((r) => r.ownerId === undefined), '심은 사람은 안 적는다 — 화분에 주인이 없다')
 
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   if (bad > 0) process.exitCode = 1

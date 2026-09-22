@@ -353,12 +353,15 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    * 여기서는 모아만 둔다.
    */
   const movedNotes: { from: TeamId; to: TeamId; name: string }[] = []
+  /** 기록에 남길 이적. 배치가 끝난 뒤에 적는다 */
+  const movedRows: { id: string; from: TeamId; to: TeamId }[] = []
   for (const m of moved) {
     const to = m.p.movingTo as TeamId
     teamNow.set(m.id, to)
     // 무전은 여기서부터 듣는다. 옛 팀이 아침에 짠 것은 안 따라온다
     batch.update(m.ref, { team: to, movingTo: null, teamSinceMs: nowMs })
     batch.update(ref.collection('secret').doc('roster').collection('items').doc(m.id), { team: to })
+    movedRows.push({ id: m.id, from: m.p.team, to })
     const who = game.seats.find((x) => x.playerId === m.id)?.name ?? ''
     if (who) movedNotes.push({ from: m.p.team, to, name: who })
   }
@@ -496,6 +499,18 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
 
   await batch.commit()
+  /*
+   * **팀이 바뀐 순간을 한 줄씩 남긴다.**
+   *
+   * 말에는 teamSinceMs 하나뿐이라 두 번 옮기면 첫 번째가 사라진다.
+   * 개인 미션의 「그 사건이 일어난 시점의 팀」이 이 줄들을 되짚는다 —
+   * 이적 전에 한 일은 옛 팀이 한 일이다.
+   *
+   * actorTeam 은 옮겨 간 팀, otherTeam 은 떠나온 팀이다.
+   */
+  for (const m of movedRows) {
+    await note(gameId, 'teamMoved', nowMs, { id: m.id, team: m.to }, { otherTeam: m.from })
+  }
   // 돌아다니던 방의 체류가 끝나고 전선의 체류가 열린다. 안 열면
   // 페이즈 내내 아까 있던 방의 말이 계속 들린다
   await Promise.all(returning.map((m) => openInterval(gameId, m.ref.id, m.post, nowMs)))

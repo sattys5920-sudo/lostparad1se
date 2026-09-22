@@ -115,11 +115,24 @@ export function publicScore(input: ScoreInput): ScoreBreakdown {
 
 export interface Ranked extends ScoreBreakdown {
   rank: number
+  /**
+   * 점수만 보고 매긴 순위. **동점은 같은 수를 갖는다**(1·2·2·4).
+   *
+   * rank 는 화면에 줄을 세우려고 끝까지 가르는 수고, 이쪽은 「정말
+   * 1위인가」를 묻는 수다. 둘이 같은 점수인데 지식으로 갈라 놓고
+   * 「너는 2위다」라고 하면, 개인 미션의 「우리 팀이 1위가 아니다」가
+   * 팀이 실제로 얼마나 잘했는지와 무관하게 갈린다.
+   */
+  tiedRank: number
 }
 
 /**
  * 동점이면 지식이 많은 팀, 그래도 같으면 핵심을 많이 가진 팀이 앞이다.
  * 그마저 같으면 팀 이름 순으로 둔다 — 어딘가에서는 갈라야 한다.
+ *
+ * 가른 수(rank)와 안 가른 수(tiedRank)를 함께 돌려준다. 방 개수 순위
+ * (occupy.ts teamRanks)가 이미 안 가르는 쪽이라, 점수 순위만 늘 갈라
+ * 있었다. 판정이 어느 쪽을 볼지는 판정이 고른다.
  */
 export function rankTeams(
   scores: readonly ScoreBreakdown[],
@@ -132,7 +145,17 @@ export function rankTeams(
       b.core - a.core ||
       a.team.localeCompare(b.team),
   )
-  return sorted.map((s, i) => ({ ...s, rank: i + 1 }))
+  let tied = 0
+  let seen = 0
+  let last: number | null = null
+  return sorted.map((s, i) => {
+    seen += 1
+    if (s.total !== last) {
+      tied = seen
+      last = s.total
+    }
+    return { ...s, rank: i + 1, tiedRank: tied }
+  })
 }
 
 // ── 21:00 정산 ──────────────────────────────────────────────────

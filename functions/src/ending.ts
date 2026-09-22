@@ -7,7 +7,8 @@
 // 정해 주는 대신, 운영자가 사람마다 한 편씩 적는다 — 아래 세 문이다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
-import type { CaptureRecord, GameLog, JudgeVote, RevealRecord, TradeRecord } from '../../shared/missions/judge'
+import type { BallotDay, CaptureRecord, GameLog, JudgeVote, RevealRecord, TradeRecord } from '../../shared/missions/judge'
+import type { GameRecord, OwnerChange } from '../../shared/rules/records'
 import { ALL_KEY, ENDING_MAX } from '../../shared/reveal/ending'
 import { teamPurse } from '../../shared/rules/resources'
 import { publicScore, rankTeams, type TeamState } from '../../shared/rules/score'
@@ -49,7 +50,7 @@ export async function buildLog(
   const nowMs = nowOf(game)
   const startedAtMs = game.startedAtMs ?? nowMs
 
-  const [rosterS, ivS, voteS, evS, capS, tileS, teamS, awakeS, choiceS, closingS, pawnS] = await Promise.all([
+  const [rosterS, ivS, voteS, evS, capS, tileS, teamS, awakeS, choiceS, closingS, pawnS, recordS, ballotDayS] = await Promise.all([
     secret(gameId, 'roster').get(),
     secret(gameId, 'intervals').get(),
     secret(gameId, 'votes').get(),
@@ -61,6 +62,10 @@ export async function buildLog(
     secret(gameId, 'choices').get(),
     ref.collection('secret').doc('closing').get(),
     ref.collection('pawns').get(),
+    // **오래 쓰기만 하던 자리를 이제 읽는다.** 자판기·심부름·화분·쪽지·
+    // 짝·시험지·이적이 전부 여기 쌓여 있었는데 판정에는 안 들어갔다
+    ref.collection('secret').doc('records').collection('items').get(),
+    ref.collection('secret').doc('ballotDays').collection('items').get(),
   ])
 
   const roster = rosterS.docs.map((d) => d.data() as RosterDoc)
@@ -121,6 +126,27 @@ export async function buildLog(
   })
   const ranked = rankTeams(scores, (team) => teamPurse(wallet, team).knowledge)
   const teamRank = Object.fromEntries(ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>
+  // 안 가른 순위. 「우리 팀이 1위가 아니다」가 이쪽을 본다
+  const teamTiedRank = Object.fromEntries(ranked.map((r) => [r.team, r.tiedRank])) as Record<TeamId, number>
+
+  const records = recordS.docs
+    .map((d) => d.data() as GameRecord)
+    .sort((a, b) => a.atMs - b.atMs)
+  /*
+   * 방 주인이 바뀐 이력. **따로 쌓을 것이 없었다** — 소유는 페이즈가
+   * 닫힐 때만 바뀌고, 그때마다 점령 기록이 이전 주인과 이후 주인을
+   * 같이 남기고 있었다. 모양만 바꿔 넘긴다
+   */
+  const ownerChanges: OwnerChange[] = captures.map((c) => ({
+    tileId: c.tileId,
+    team: c.team,
+    ownerBefore: c.ownerBefore,
+    atMs: c.atMs,
+  }))
+  const ballotDayRows: BallotDay[] = ballotDayS.docs
+    .map((d) => d.data() as { day: number; invisibleId: string | null; reason: string })
+    .map((r) => ({ day: r.day, invisibleId: r.invisibleId ?? null, reason: r.reason }))
+    .sort((a, b) => a.day - b.day)
 
   const choices = new Map(choiceS.docs.map((d) => [d.id, d.data() as ChoiceDoc]))
   const closing = closingS.data() as
@@ -146,6 +172,10 @@ export async function buildLog(
     fragmentTiles: game.boostedTiles as TileId[],
     ownerAtEnd: (id) => ownerAt.get(id) ?? null,
     teamRank,
+    teamTiedRank,
+    records,
+    ownerChanges,
+    ballotDays: ballotDayRows,
     // 동맹은 걷어냈다. 인연 팀과 손잡는 미션은 나중에 고친다
     allianceAtEnd: Object.fromEntries(TEAMS.map((t) => [t, null])) as Record<TeamId, TeamId | null>,
     leverageAtEnd: [],

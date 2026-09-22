@@ -13,14 +13,14 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { canName, countBallots, eraseFrom, pickInvisible, type Ballot } from '../../shared/rules/invisible'
 import { PHASES_PER_DAY } from '../../shared/rules/occupy'
-import { TOTAL_DAYS } from '../../shared/rules/v2'
+import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { GameDoc, TeamDoc } from '../../shared/model'
 import { dropAllErrands } from './errand'
 import { erasedOn } from './use'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
-import { gameRef, requireUid } from './index'
+import { gameRef, nowOf, requireUid } from './index'
 
 const db = getFirestore()
 
@@ -35,10 +35,38 @@ export interface BallotDoc {
   day: number
   voterId: string
   targetId: string
+  /**
+   * **적은 그 순간의 두 팀.**
+   *
+   * 나중에 명단을 봐도 알 수 없다 — 이적하면 명단은 새 팀으로 덮이고,
+   * 말의 teamSinceMs 는 마지막 한 번뿐이라 두 번 옮기면 첫 번째가
+   * 사라진다. 뒷자리의 「그중 한 번은 우리 팀 사람」이 이 두 칸으로 갈린다.
+   */
+  voterTeam: TeamId
+  targetTeam: TeamId
+  atMs: number
+}
+
+/**
+ * 그날 표를 센 결과. **하루에 한 장.**
+ *
+ * 세는 일은 늘 있었는데 결과가 어디에도 안 남았다. 게임 문서의
+ * invisibleByDay 는 「누가 지워졌나」만 알려 주고 null 하나에
+ * 동률·표 부족·이틀 연속 금지가 다 뭉쳐 있다. 뒷자리는 **동률로
+ * 무효가 된 날을 안 세야** 하므로 셋을 갈라 둔다.
+ */
+export interface BallotDayDoc {
+  day: number
+  /** 지워진 사람. 아무도 안 지워졌으면 null. */
+  invisibleId: string | null
+  /** picked · tooFew · tie · repeat */
+  reason: string
   atMs: number
 }
 
 const ballotsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('ballots').collection('items')
+const ballotDaysOf = (gameId: string) =>
+  gameRef(gameId).collection('secret').doc('ballotDays').collection('items')
 const keyOf = (day: number, voterId: string) => `d${day}:${voterId}`
 
 /** 지금 팀장인 사람들. 팀장은 적을 수 없다. */
@@ -83,7 +111,15 @@ export const castBallot = onCall<{ gameId: string; targetId: string }>(async (re
     throw new HttpsError('failed-precondition', why[out.reason as string] ?? '적을 수 없다.')
   }
 
-  const doc: BallotDoc = { day, voterId: uid, targetId, atMs: nowMs }
+  const targetSeat = game.seats.find((s) => s.playerId === targetId)
+  const doc: BallotDoc = {
+    day,
+    voterId: uid,
+    targetId,
+    voterTeam: seat.team,
+    targetTeam: (targetSeat?.team ?? seat.team) as TeamId,
+    atMs: nowMs,
+  }
   await ballotsOf(gameId).doc(keyOf(day, uid)).set(doc)
   await refreshViews(gameId)
   // 무엇을 적었는지는 본인에게만 돌려준다
@@ -154,9 +190,32 @@ export async function settleBallots(
   } else {
     batch.update(ref, { invisibleTeam: null })
   }
+  /*
+   * **그날의 결과를 한 장 남긴다.**
+   *
+   * 전에는 이 사유(picked · tooFew · tie · repeat)가 돌려주는 값으로만
+   * 있다가 부르는 쪽에서 버려졌다. 게임 문서에는 「누가 지워졌나」만
+   * 남고, 아무도 안 지워진 날은 이유가 뭉개졌다.
+   *
+   * 뒷자리는 **동률로 무효가 된 날을 안 센다**. 그 하루를 가르려면
+   * 사유가 남아 있어야 한다.
+   */
+  const dayDoc: BallotDayDoc = {
+    day,
+    invisibleId: picked.playerId,
+    reason: picked.reason,
+    atMs: nowOf(game),
+  }
+  batch.set(ballotDaysOf(gameId).doc(`d${day}`), dayDoc)
   await batch.commit()
-  // **득표수는 어디에도 안 적는다.** 결과 한 줄만 남는다
+  // **득표수는 어디에도 안 적는다.** 누가 지워졌는지와 왜인지만 남는다
   return { invisibleId: picked.playerId, reason: picked.reason }
+}
+
+/** 그날들의 결과. **서버 안에서만 돈다** — 뒷자리 판정이 읽는다. */
+export async function ballotDays(gameId: string): Promise<BallotDayDoc[]> {
+  const snap = await ballotDaysOf(gameId).get()
+  return snap.docs.map((d) => d.data() as BallotDayDoc).sort((a, b) => a.day - b.day)
 }
 
 /**
