@@ -47,11 +47,7 @@ export const FRAGMENTS: readonly FragmentData[] = [
     papers: [
       {
         kind: 'diary',
-        lines: [
-          '투표 용지는 늘 접혀서 오지만, 글씨는 숨길 수가 없어.',
-          '처음 내 이름을 적은 건 도서관 창가 자리의 그 애. 겨우 자리 때문에.',
-          '그리고 지난주 마지막 한 장. 그 글씨는 너무 잘 알아서, 모르는 척했어.',
-        ],
+        lines: ['투표 용지는 늘 접혀서 오지만, 글씨는 숨길 수가 없어.'],
       },
     ],
   },
@@ -61,12 +57,7 @@ export const FRAGMENTS: readonly FragmentData[] = [
     implicated: ['shadow', 'witness'],
     papers: [
       {
-        kind: 'diary',
-        lines: ['금요일마다 과학실 뒤에서 봉투를 건넸어. 이번 주엔 빈손이었어. 그래서 올린 거지?'],
-      },
-      {
         kind: 'note',
-        caption: '(창고 안, 연필로 적은 메모)',
         lines: [
           '끌려오면서 복도 끝을 봤어. 누가 서 있었어. 눈이 마주쳤는데, 먼저 고개를 돌린 건 그쪽이었어.',
         ],
@@ -84,8 +75,7 @@ export const FRAGMENTS: readonly FragmentData[] = [
       {
         kind: 'diary',
         lines: [
-          '창고 앞에서 기다리다가 보냈어. 읽음 표시가 떴어. 답장 대신, 몇 분 뒤 단톡방에 내 메시지가 올라왔어.',
-          '음악실 앞에서, 같이 선생님께 가 주겠다고 했잖아. 추천서 얘기를 듣고 알았어. 난 거기까지였구나.',
+          '창고 앞에서 기다리다가 용기를 내서 보냈어. 읽음 표시가 떴어. 답장 대신, 몇 분 뒤 단톡방에 내 메시지가 올라왔어.',
         ],
       },
     ],
@@ -107,9 +97,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
   {
     // scenario_reveal.md 6장. 「철컥」 줄이 잠근 사람이 따로 있다는 것만
     // 알려 준다. 지킴이는 여전히 가리켜지는 역할이 아니다.
-    //
-    // 맨 위 줄을 마지막에 읽게 하는 이유: 그 줄은 창고에 갇히기 전,
-    // 설레며 기다리던 순간에 쓰였다. 가장 먼저 쓴 줄을 가장 마지막에.
     day: 5,
     spotTile: 'hallway',
     implicated: ['bystander', 'letter'],
@@ -118,10 +105,8 @@ export const FRAGMENTS: readonly FragmentData[] = [
         kind: 'note',
         lines: [
           '한참 뒤에 철컥, 소리가 났어. 문을 닫은 사람은 벌써 한참 전에 나갔는데.',
-          '누가 지나갔어. 두드렸는데, 발소리가 잠깐 멈췄다가 다시 멀어졌어.',
+          '누가 지나갔어. 두드렸는데, 발소리가 잠깐 멈췄다가 다시 멀어졌어. 다섯 시에는 열어 준다고 했는데, 다섯 시야. 조금만 더 기다려 볼게.',
         ],
-        topCaption: '(같은 종이 맨 위, 다른 줄보다 또박또박한 글씨)',
-        topLines: ['편지에 적힌 대로 다섯 시에 왔어. 조금만 더 기다려 볼게.'],
       },
     ],
   },

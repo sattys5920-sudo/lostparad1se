@@ -16,10 +16,6 @@ export const TYPE_LINE_GAP_MS = 400
 /** 탭하면 남은 글자가 한 번에 찍힌다. 그 뒤 다음 탭까지의 최소 간격. */
 export const TAP_GUARD_MS = 200
 
-/** 검은 화면의 날짜 카드가 머무는 시간. */
-export const DATE_CARD_MS = 2200
-/** 「오늘 일어나는 일」 카드. */
-export const TODAY_CARD_MS = 3200
 /** 미니맵으로 돌아와 지목 칸을 강조하는 시간. */
 export const SPOT_HIGHLIGHT_MS = 3000
 /** 찢긴 한 장이 끝나고 공동 엔딩 칠판까지의 암전. */

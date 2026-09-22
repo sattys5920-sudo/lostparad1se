@@ -20,8 +20,7 @@ import {
   type DayScript,
   type MorningState,
 } from '../../../shared/reveal/morning'
-import { dateCardLine, todayItems, type TodayItem } from '../../../shared/reveal/days'
-import { DATE_CARD_MS, SPOT_HIGHLIGHT_MS, TODAY_CARD_MS } from '../../../shared/reveal/staging'
+import { SPOT_HIGHLIGHT_MS } from '../../../shared/reveal/staging'
 import { FRAGMENT_TILE_BONUS } from '../../../shared/rules/v2'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import type { PaperKind } from '../../../shared/reveal/paper'
@@ -80,16 +79,8 @@ export function MorningSequence(props: MorningProps) {
     props.onFinish({ read, skipped: [...state.skipped] })
   }, [state, days, props])
 
-  // 날짜 카드와 오늘 카드는 저 혼자 넘어간다. 기록 읽기만 탭을 기다린다
+  // 기록 읽기는 탭을 기다린다. 자리를 비추는 것만 저 혼자 넘어간다
   useEffect(() => {
-    if (state.scene === 'date') {
-      const t = setTimeout(() => setState((s) => advance(s, script)), DATE_CARD_MS)
-      return () => clearTimeout(t)
-    }
-    if (state.scene === 'today') {
-      const t = setTimeout(() => setState((s) => advance(s, script)), TODAY_CARD_MS)
-      return () => clearTimeout(t)
-    }
     if (state.scene === 'map') {
       const t = setTimeout(() => setState((s) => advance(s, script)), SPOT_HIGHLIGHT_MS)
       return () => clearTimeout(t)
@@ -108,24 +99,14 @@ export function MorningSequence(props: MorningProps) {
     setState((s) => advance(s, script))
   }
 
-  const items: TodayItem[] = todayItems({
-    day,
-    invisibleName: props.invisibleNameByDay?.[day] ?? null,
-  })
   const spot = TILE_BY_ID[fragment.spotTile]
 
   return (
-    <div className="sc-rv" role="dialog" aria-label={`DAY ${day} 등교`}>
+    <div className="sc-rv" role="dialog" aria-label="기록">
       <Snow level={props.snowLevel ?? 5} />
 
-      {state.scene === 'date' && (
-        <div className="sc-rv__date">
-          <h1>{dateCardLine(day)}</h1>
-        </div>
-      )}
-
       {state.scene === 'record' && paper && (
-        <button className="sc-rv__record" onClick={onTap} aria-label="다음">
+        <button className="sc-rv__record" onClick={onTap} aria-label="넘기기">
           <PaperSheet
             kind={paper.kind}
             lines={body.shown}
@@ -134,24 +115,7 @@ export function MorningSequence(props: MorningProps) {
             topCaption={paper.topCaption}
             topShown={state.topShown}
           />
-          <span className="sc-rv__hint">
-            {body.complete && (!paper.topLines || state.topShown) ? '탭' : '탭해서 넘기기'}
-          </span>
         </button>
-      )}
-
-      {state.scene === 'today' && (
-        <div className="sc-rv__today">
-          <span className="sc-rv__today-label">오늘</span>
-          <ul>
-            {items.map((it) => (
-              <li key={it.kind + it.text} className={`sc-rv__today-${it.kind}`}>
-                {it.text}
-              </li>
-            ))}
-            {items.length === 0 && <li className="sc-rv__today-none">특별히 정해진 일은 없다</li>}
-          </ul>
-        </div>
       )}
 
       {state.scene === 'map' && (

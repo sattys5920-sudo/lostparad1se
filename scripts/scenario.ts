@@ -22,17 +22,15 @@ import {
   handledDays,
   pendingDays,
   readDays,
-  skipDay,
   startMorning,
   type DayScript,
   type MorningState,
 } from '../shared/reveal/morning'
 import { buildArchive, itemsOf, type ConfessionSource } from '../shared/reveal/archive'
 import { playedScenes, skippedScenes } from '../shared/reveal/ending'
-import { dateCardLine, todayItems } from '../shared/reveal/days'
 import { TILE_BY_ID, type TileId } from '../shared/rules/board'
 import { ROLE_IDS, ROLE_NAMES, type RoleId } from '../shared/missions/roleNames'
-import { FRAGMENTS } from '../functions/src/story/fragments'
+import { FRAGMENTS, FRAGMENT_BY_DAY } from '../functions/src/story/fragments'
 import { tornIntro } from '../functions/src/story/torn'
 
 // ── 시계 ────────────────────────────────────────────────────────
@@ -71,8 +69,6 @@ interface Bot {
   team: TeamId
   /** 아침에 안 들어오는 날. */
   absentDays: number[]
-  /** 건너뛰기를 누르는 날. */
-  skipDays: number[]
   /** 끝까지 본 날. 보관함이 「읽지 않음」을 가리는 데 쓴다. */
   seen: number[]
   skipped: number[]
@@ -89,7 +85,6 @@ function makeBots(): Bot[] {
     role,
     team: TEAMS[i % 4],
     absentDays: [],
-    skipDays: [],
     seen: [],
     skipped: [],
     handled: [],
@@ -105,18 +100,18 @@ const SCRIPTS: Record<number, DayScript> = Object.fromEntries(
   FRAGMENTS.map((f) => [f.day, { day: f.day, papers: f.papers.map((p) => ({ hasTop: !!p.topLines })) }]),
 )
 
-/** 아침 시퀀스를 끝까지 본다. 탭 횟수를 센다. */
-function watchMorning(state: MorningState, skipThese: readonly number[]): { state: MorningState; taps: number } {
+/**
+ * 아침 시퀀스를 끝까지 본다. 탭 횟수를 센다.
+ *
+ * **건너뛰는 길은 없다**(7790d6a). 안 들어온 날은 다음에 들어올 때
+ * 날짜순으로 이어서 본다.
+ */
+function watchMorning(state: MorningState): { state: MorningState; taps: number } {
   let s = state
   let taps = 0
   let guard = 0
   while (!done(s) && guard++ < 200) {
-    const day = s.queue[0]
-    if (skipThese.includes(day)) {
-      s = skipDay(s)
-      continue
-    }
-    s = advance(s, SCRIPTS[day] ?? null)
+    s = advance(s, SCRIPTS[s.queue[0]] ?? null)
     taps += 1
   }
   return { state: s, taps }
@@ -146,11 +141,9 @@ function run(opts: RunOptions): void {
   console.log(`\n── ${opts.label} ──`)
   const bots = makeBots()
 
-  // 7번은 DAY 2·3에 안 들어온다. 9번은 DAY 3에 건너뛰기를 누른다
+  // 7번은 DAY 2·3에 안 들어온다
   const away = bots[6]
   away.absentDays = [2, 3]
-  const skipper = bots[8]
-  skipper.skipDays = [3]
 
   const librarian = byRole(bots, 'librarian')
   const accuser = byRole(bots, 'accuser')
@@ -193,7 +186,7 @@ function run(opts: RunOptions): void {
       }
 
       const before = [...pending]
-      const { state } = watchMorning(startMorning(pending), bot.skipDays)
+      const { state } = watchMorning(startMorning(pending))
       // 다음 재생을 정하는 건 handled — 건너뛴 날도 여기 들어간다
       bot.handled = [...bot.handled, ...handledDays(before, state)]
       bot.seen = [...bot.seen, ...readDays(before, state)]
@@ -234,20 +227,17 @@ function run(opts: RunOptions): void {
   check(normal.seen.sort((a, b) => a - b).join(',') === '1,2,3,4,5', '매일 들어온 계정은 닷새를 다 봤다')
   check(away.seen.sort((a, b) => a - b).join(',') === '1,2,3,4,5', '돌아온 계정도 결국 닷새를 다 봤다')
   check(
-    skipper.skipped.join(',') === '3' && !skipper.seen.includes(3),
-    '건너뛴 날은 「봤다」에 들어가지 않는다',
-    `건너뜀=[${skipper.skipped.join(',')}]`,
+    bots.every((b) => b.skipped.length === 0),
+    '**건너뛴 날이 없다** — 넘기는 길이 아예 없다',
   )
   check(
-    !pendingDays(releasedDays(DAY1_0800, now(at(5, 21))), skipper.handled).includes(3),
-    '건너뛴 날을 다음 접속 때 다시 들이밀지 않는다',
+    pendingDays(releasedDays(DAY1_0800, now(at(5, 21))), normal.handled).length === 0,
+    '다 본 사람에게는 다시 들이밀 아침이 없다',
   )
 
-  // 탭 횟수: DAY 2는 종이 두 장, DAY 5는 맨 위 한 번 더
-  const taps = (day: number) => watchMorning(startMorning([day]), []).taps
-  check(taps(1) === 4, 'DAY 1은 탭 네 번', `${taps(1)}`)
-  check(taps(2) === 5, 'DAY 2는 종이 두 장이라 탭 다섯 번', `${taps(2)}`)
-  check(taps(5) === 5, 'DAY 5는 맨 위가 있어 탭 다섯 번', `${taps(5)}`)
+  // 탭 횟수. 날마다 종이 한 장이라 기록 한 번 + 자리 비추기 한 번이다
+  const taps = (day: number) => watchMorning(startMorning([day])).taps
+  for (const d of [1, 2, 3, 4, 5]) check(taps(d) === 2, `DAY ${d}는 탭 두 번`, `${taps(d)}`)
 
   // ── 1:1 고백이 들은 사람에게만 ────────────────────────────────
   const archiveOf = (bot: Bot) =>
@@ -283,10 +273,6 @@ function run(opts: RunOptions): void {
     archiveOf(bots[1]).filter((i) => i.title === 'A의 시선').length === 1,
     'A의 시선은 본인 것 한 줄뿐이다',
   )
-  check(
-    itemsOf(archiveOf(skipper), 'record').filter((i) => i.unread).length === 1,
-    '건너뛴 날이 보관함에 「읽지 않음」으로 남는다',
-  )
 
   // ── 찢긴 한 장 분기 ───────────────────────────────────────────
   const intro = tornIntro(opts.librarianReveals)
@@ -312,21 +298,14 @@ function run(opts: RunOptions): void {
     check(!scenes.map((s) => s.id).includes('unheard'), '건너뛴 장면이 목록에 없다')
   }
 
-  // ── 아침 카드가 그날 것을 말하는가 ────────────────────────────
+  // ── 아침에는 A의 기록 한 장뿐이다 ────────────────────────────
+  //
+  // 날짜 카드도 「오늘 일어나는 일」도 없앴다. 그날 무엇이 열리는지,
+  // 누가 지워졌는지를 아침이 먼저 말해 주지 않는다 — 열린 것은 지도를
+  // 보면 알고, 지워진 것은 겪으면 안다.
   for (let day = 1; day <= TOTAL_DAYS; day++) {
-    const items = todayItems({ day, invisibleName: invisibleByDay[day] })
-    const line = dateCardLine(day)
-    check(line.startsWith(`DAY ${day} · `) && line.length > 8, `DAY ${day} 날짜 카드`, line)
-    check(
-      !items.some((i) => i.text.includes('창고')),
-      `DAY ${day} 「오늘 일어나는 일」에 다섯 시의 창고가 없다`,
-    )
-    if (invisibleByDay[day]) {
-      check(
-        items.some((i) => i.kind === 'invisible' && i.text.includes(invisibleByDay[day]!)),
-        `DAY ${day} 투명인간 이름이 아침에 뜬다`,
-      )
-    }
+    const f = FRAGMENT_BY_DAY[day]
+    check(f !== undefined && f.papers.length > 0, `DAY ${day} 아침에 기록 한 장이 있다`)
   }
 }
 

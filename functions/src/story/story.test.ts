@@ -58,22 +58,21 @@ describe('A의 기록', () => {
     }
   })
 
-  it('DAY 2만 두 장이다', () => {
+  it('날마다 한 장이다', () => {
     for (const f of FRAGMENTS) {
-      expect(f.papers.length, `DAY ${f.day}`).toBe(f.day === 2 ? 2 : 1)
+      expect(f.papers.length, `DAY ${f.day}`).toBe(1)
     }
   })
 
-  it('맨 위 줄은 DAY 5에만 있다', () => {
+  it('맨 위 줄은 어느 날에도 없다', () => {
     for (const f of FRAGMENTS) {
-      const hasTop = f.papers.some((p) => p.topLines)
-      expect(hasTop, `DAY ${f.day}`).toBe(f.day === 5)
+      expect(f.papers.some((p) => p.topLines), `DAY ${f.day}`).toBe(false)
     }
   })
 
-  it('종이 종류가 문서대로다 — 1 일기장 / 2 일기장+메모 / 3 일기장 / 4 메모 / 5 메모', () => {
+  it('종이 종류가 문서대로다 — 1 일기장 / 2 메모 / 3 일기장 / 4 메모 / 5 메모', () => {
     const kinds = FRAGMENTS.map((f) => f.papers.map((p) => p.kind).join('+'))
-    expect(kinds).toEqual(['diary', 'diary+note', 'diary', 'note', 'note'])
+    expect(kinds).toEqual(['diary', 'note', 'diary', 'note', 'note'])
   })
 
   it('DAY 3은 창고 앞에서 보낸 것으로 고쳐져 있다', () => {

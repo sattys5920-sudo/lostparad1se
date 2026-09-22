@@ -1,4 +1,4 @@
-// 아침 시퀀스 — 건너뛴 날이 이어지는가, 두 장짜리와 맨 위가 제대로 넘어가는가.
+// 아침 시퀀스 — 건너뛴 날이 이어지는가, 두 장짜리가 제대로 넘어가는가.
 import { describe, expect, it } from 'vitest'
 import {
   advance,
@@ -38,12 +38,14 @@ describe('안 본 날', () => {
   })
 })
 
-describe('한 날의 네 장면', () => {
-  it('날짜 → 기록 → 오늘 → 미니맵', () => {
+describe('한 날의 두 장면', () => {
+  /**
+   * **날짜 카드와 「오늘 일어나는 일」은 없앴다.** 아침에 남는 것은
+   * A가 쓴 종이 한 장이고, 탭하면 자리를 비추고 끝난다.
+   */
+  it('기록 → 미니맵', () => {
     let s = startMorning([1])
-    expect(s.scene).toBe('date')
-    s = advance(s, one); expect(s.scene).toBe('record')
-    s = advance(s, one); expect(s.scene).toBe('today')
+    expect(s.scene).toBe('record')
     s = advance(s, one); expect(s.scene).toBe('map')
     s = advance(s, one); expect(done(s)).toBe(true)
   })
@@ -52,33 +54,35 @@ describe('한 날의 네 장면', () => {
 describe('종이가 두 장일 때 (DAY 2)', () => {
   it('두 장을 다 넘겨야 다음 장면이다', () => {
     let s = startMorning([2])
-    s = advance(s, two)
     expect(s.scene).toBe('record')
     expect(s.paperIndex).toBe(0)
     s = advance(s, two)
     expect(s.scene).toBe('record')
     expect(s.paperIndex).toBe(1)
     s = advance(s, two)
-    expect(s.scene).toBe('today')
+    expect(s.scene).toBe('map')
   })
 })
 
-describe('맨 위가 있을 때 (DAY 5)', () => {
+describe('맨 위가 있을 때', () => {
+  /**
+   * **지금 데이터에는 맨 위 줄이 없다.** 기계는 남겨 둔다 — 한 종이에
+   * 나중에 쓴 줄과 먼저 쓴 줄이 같이 있을 수 있는 모양이다.
+   */
   it('탭을 한 번 더 받아야 나온다', () => {
     let s = startMorning([5])
-    s = advance(s, withTop)
     expect(s.scene).toBe('record')
     expect(s.topShown).toBe(false)
     s = advance(s, withTop)
     expect(s.scene).toBe('record')
     expect(s.topShown).toBe(true)
     s = advance(s, withTop)
-    expect(s.scene).toBe('today')
+    expect(s.scene).toBe('map')
   })
 
   it('맨 위가 없으면 그냥 넘어간다', () => {
-    const s = advance(advance(startMorning([1]), one), one)
-    expect(s.scene).toBe('today')
+    const s = advance(startMorning([1]), one)
+    expect(s.scene).toBe('map')
   })
 })
 
@@ -86,12 +90,12 @@ describe('며칠을 건너뛰고 들어온 사람', () => {
   it('빠진 날을 날짜순으로 이어서 본다', () => {
     let s = startMorning([1, 2, 3])
     expect(currentDay(s)).toBe(1)
-    s = tap(s, one, 4)
+    s = tap(s, one, 2)
     expect(currentDay(s)).toBe(2)
-    expect(s.scene).toBe('date')
-    s = tap(s, two, 5)
+    expect(s.scene).toBe('record')
+    s = tap(s, two, 3)
     expect(currentDay(s)).toBe(3)
-    s = tap(s, one, 4)
+    s = tap(s, one, 2)
     expect(done(s)).toBe(true)
   })
 })
@@ -108,7 +112,7 @@ describe('건너뛰기는 없다', () => {
   it('넘기는 길이 없다 — 탭으로만 넘어간다', () => {
     let s = startMorning([1, 2])
     expect(s.skipped).toEqual([])
-    s = tap(s, one, 4)
+    s = tap(s, one, 2)
     expect(currentDay(s)).toBe(2)
     expect(s.skipped).toEqual([])
   })
@@ -116,9 +120,9 @@ describe('건너뛰기는 없다', () => {
   it('끝까지 본 날만 읽은 것이다', () => {
     const before = [1, 2]
     let s = startMorning(before)
-    s = tap(s, one, 4)
+    s = tap(s, one, 2)
     expect(readDays(before, s)).toEqual([1])
-    s = tap(s, one, 4)
+    s = tap(s, one, 2)
     expect(readDays(before, s)).toEqual([1, 2])
     expect(pendingDays(before, handledDays(before, s))).toEqual([])
   })
@@ -127,7 +131,7 @@ describe('건너뛰기는 없다', () => {
 
 describe('다 본 뒤', () => {
   it('더 탭해도 아무 일도 없다', () => {
-    const s = tap(startMorning([1]), one, 4)
+    const s = tap(startMorning([1]), one, 2)
     expect(done(s)).toBe(true)
     expect(advance(s, one)).toEqual(s)
   })
@@ -137,8 +141,8 @@ describe('handledDays', () => {
   it('끝까지 본 날을 돌려준다', () => {
     const before = [1, 2, 3]
     let s = startMorning(before)
-    s = tap(s, one, 4)
-    s = tap(s, one, 4)
+    s = tap(s, one, 2)
+    s = tap(s, one, 2)
     expect(readDays(before, s)).toEqual([1, 2])
     expect(handledDays(before, s)).toEqual([1, 2])
   })
