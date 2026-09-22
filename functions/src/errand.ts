@@ -230,9 +230,6 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
   mustBeFreeTime(game, '심부름을 받을')
   await sweepErrands(gameId, nowMs)
 
-  // **지워진 사람은 못 받는다.** 없는 사람에게 일을 맡길 수는 없다
-  if (game.invisibleId === uid) throw new HttpsError('failed-precondition', '오늘은 받을 수 없다.')
-
   const pawn = await myPawn(gameId, uid)
   if (await mineNow(gameId, uid)) {
     throw new HttpsError('failed-precondition', `한 번에 ${ERRANDS_PER_PERSON}개까지다.`)
