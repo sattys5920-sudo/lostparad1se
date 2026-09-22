@@ -298,6 +298,11 @@ async function main() {
   await page.waitForTimeout(1200)
   await page.screenshot({ path: `${OUT}/9-연구.png` })
   console.log('  찍었다 9-연구.png')
+  // 시트 아래쪽 — 내 지식 · 가진 물건 일곱 · 로봇. 값은 전부 그림이다
+  await page.locator('.sc-sheet__body').evaluate((el) => el.scrollBy(0, 1400)).catch(() => undefined)
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: `${OUT}/10-값-그림.png` })
+  console.log('  찍었다 10-값-그림.png')
 
   await browser.close()
   console.log(`\n${OUT} 에 담았다.`)

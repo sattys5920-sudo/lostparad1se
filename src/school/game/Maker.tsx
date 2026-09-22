@@ -13,6 +13,7 @@ import type { Cell } from '../../../shared/rules/board'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { leftText } from './Phase'
+import { Cost } from './Cost'
 
 export interface MakerProps {
   view: PlayerViewDoc | null
@@ -48,9 +49,14 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
 
   return (
     <div className="sc-mk">
+      <p className="sc-mk__bill">
+        <Cost of="token" n={TRAP_TOKEN_COST} />
+        <span aria-hidden>→</span>
+        <Cost of="trap" n={ownsTech ? 2 : 1} />
+        <Cost of="clock" n={TRAP_MAKE_MINUTES} />
+      </p>
       <p className="sc-mk__hint">
-        팀 토큰 {TRAP_TOKEN_COST}개로 덫 {ownsTech ? 2 : 1}개. {TRAP_MAKE_MINUTES}분 걸리고, 맡긴 사람만 찾는다.
-        이 페이즈 안에 안 찾으면 사라진다.
+        맡긴 사람만 찾는다. 이 페이즈 안에 안 찾으면 사라진다.
         {ownsTech ? ' 기술실이 우리 것이라 곱절이다.' : ' 기술실을 쥐면 곱절이 나온다.'}
       </p>
       <ul className="sc-mk__list">

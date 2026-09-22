@@ -62,6 +62,18 @@ const KNOW = S([
   '      33',
 ])
 
+/** 시계 — 드는 시간. 바늘 둘이 열두 시와 세 시를 가리킨다. */
+const CLOCK = S([
+  '  3333  ',
+  ' 311113 ',
+  '31131113',
+  '31131113',
+  '31133313',
+  '31111113',
+  ' 311113 ',
+  '  3333  ',
+])
+
 // ── 행동·탭 16×16 ───────────────────────────────────────────────
 
 /** 생산 — 망치. 무언가를 만드는 일이다. */
@@ -561,6 +573,7 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   token: TOKEN,
   money: MONEY,
   knowledge: KNOW,
+  clock: CLOCK,
   make: MAKE,
   study: STUDY,
   post: POST,
@@ -606,7 +619,7 @@ const ACT_ART: Record<Exclude<ActionKind, 'move'>, true> = {
 }
 
 /** 8칸짜리 셋. 나머지는 16칸이다. */
-const SMALL = new Set(['token', 'money', 'knowledge'])
+const SMALL = new Set(['token', 'money', 'knowledge', 'clock'])
 
 // 그림이 틀어진 채로 나가지 않게 여기서 막는다. 줄 수나 칸 수가 맞지
 // 않거나 모르는 색이 섞이면 화면이 뜨기 전에 터진다

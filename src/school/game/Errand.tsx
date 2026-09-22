@@ -5,6 +5,7 @@
 // 안 보내 주므로 그릴 수도 없다.** 경주하는 중이라 그게 맞다.
 import { useState } from 'react'
 
+import { Cost } from './Cost'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
@@ -47,10 +48,14 @@ export function BoardSheet({
           <span className="sc-er__way">
             {TILE_BY_ID[e.from]?.name} → {TILE_BY_ID[e.to]?.name}
           </span>
-          <em>{e.coins}코인</em>
+          <em>
+            <Cost of="money" n={e.coins} />
+          </em>
           <p>{e.text}</p>
           <div className="sc-er__row">
-            <span className="sc-er__left">{e.minutesLeft}분 남음</span>
+            <span className="sc-er__left">
+              <Cost of="clock" n={e.minutesLeft} />
+            </span>
             {e.mine ?
               <span className="sc-er__got">받아 뒀다</span>
             : <button disabled={busy} onClick={() => void take(e.id)}>
@@ -111,7 +116,9 @@ export function ErrandStrip({
     <div className={`sc-er__strip${e.minutesLeft <= 5 ? ' is-soon' : ''}`}>
       <b>{e.thing}</b>
       <span>{where}</span>
-      <i>{e.minutesLeft}분</i>
+      <i>
+        <Cost of="clock" n={e.minutesLeft} />
+      </i>
       {e.thingHere && (
         <button className="is-inline" disabled={busy} onClick={() => void run('집었다.', () => act.pickUpThing())}>
           집기

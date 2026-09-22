@@ -2281,4 +2281,48 @@ p.sc-cv { display: block; }
 .sc-mk__list > li button { grid-area: btn; min-height: 40px; padding: 0 16px; font: inherit; font-size: 13px; }
 .sc-mk__list > li em { grid-area: far; font-style: normal; font-size: 11px; color: var(--sc-text-dim); }
 .sc-mk__list > li.is-mine { border-color: var(--sc-line-strong); }
-.sc-mk__list > li.is-near b::after { content: ' ·'; color: var(--sc-text-dim); }
+/* 옆에 서지 않은 제조기. 손이 안 닿는다는 것이 한눈에 */
+.sc-mk__list > li:not(.is-near) b,
+.sc-mk__list > li:not(.is-near) span { opacity: 0.55; }
+
+/* ── 값 한 칸 — 그림과 수 ──────────────────────────────────────
+ *
+ * 「팀 토큰 2개 · 20분」을 글로 적던 자리를 그림으로 바꾼다. 단위
+ * 이름은 낭독기에만 남기고 눈에서는 치운다.
+ */
+.sc-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: -2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sc-cost + .sc-cost { margin-left: 8px; }
+.sc-cost img { image-rendering: pixelated; flex: none; }
+.sc-cost b { font-weight: 600; }
+/* 이름은 낭독기만 읽는다 */
+.sc-cost i {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* 0개인 것. 자리는 지키고 눈에서만 물러난다 */
+.sc-cost.is-dim { opacity: 0.35; }
+.sc-cost.is-dim b { font-weight: 400; }
+
+/* 행동 이름 옆에 붙는 값 줄 */
+.sc-ph__bill { display: inline-flex; align-items: center; font-size: 11.5px; color: var(--sc-text-dim); }
+.sc-ph__bill .sc-cost + .sc-cost { margin-left: 7px; }
+/* 가진 물건 일곱. 한 줄로 늘어선다 */
+.sc-ph__bag { display: flex; flex-wrap: wrap; gap: 4px 2px; font-size: 12px; }
+.sc-ph__bag .sc-cost + .sc-cost { margin-left: 6px; }
+/* 지식과 물건 사이. 가진 것 한 줄 안에서도 갈래가 둘이다 */
+.sc-ph__bagCut { width: 1px; height: 12px; margin: 0 6px 0 8px; background: var(--sc-line); }
+.sc-ph__purse strong .sc-cost b { font-size: 15px; }
+.sc-mk__bill { display: flex; align-items: center; font-size: 13px; }

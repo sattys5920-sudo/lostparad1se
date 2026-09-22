@@ -12,8 +12,6 @@ import { useEffect, useState } from 'react'
 import {
   ACT_COST,
   ACT_MINUTES,
-  ENTER_MINUTES,
-  EXIT_MINUTES,
   MAX_CARRIED_ROBOTS,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
@@ -24,12 +22,13 @@ import {
 } from '../../../shared/rules/occupy'
 import { ROAM_TO, TILE_BY_ID, TILES, type Cell } from '../../../shared/rules/board'
 import { atLabMachine } from '../../../shared/rules/trap'
-import { ITEMS, ITEM_BY_KIND, ITEM_FOR } from '../../../shared/rules/items'
+import { ITEMS, ITEM_FOR } from '../../../shared/rules/items'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
 import { uiIcon } from './uiArt'
+import { Cost } from './Cost'
 
 /** 규칙 쪽 TileId 는 string, 지도 쪽은 스물다섯 개 유니온이다. 경계를 여기 모은다. */
 const asRoom = (id: string): TileId => id as TileId
@@ -64,18 +63,41 @@ const LABEL: Record<ActionKind, string> = {
   smashRobot: '로봇 부수기',
 }
 
+/**
+ * 무엇을 하는 일인가. **드는 값은 여기 안 적는다** — 이름 옆 그림이
+ * 이미 말한다(Bill). 글로도 적으면 같은 수가 한 줄에 두 번 나온다.
+ */
 const WHAT: Record<ActionKind, string> = {
-  move: `학교 안 어느 방이든. 맵에서 걸어서 가고 ${EXIT_MINUTES + ENTER_MINUTES}분 걸린다. 계단은 문이라 값이 없다.`,
-  research: `연구실에서만. ${ACT_MINUTES.research}분 뒤에 이 방에 완성품이 놓인다 — 그때 여기 서 있어야 받는다. 발전소를 쥐었으면 바로 나온다.`,
-  summon: `같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. ${ACT_MINUTES.summon}분 — 부른 쪽도 불린 쪽도 그동안 못 움직인다.`,
-  disturb: `${ITEM_BY_KIND.whistle.name} 하나. 같은 방 상대 하나를 이번 판정에서 0명으로 만든다.`,
-  disguise: `${ITEM_BY_KIND.nameTag.name} 하나. 다른 팀에게 내 인원수가 2명으로 보인다.`,
+  move: '학교 안 어느 방이든. 맵에서 걸어서 간다. 계단은 문이라 값이 없다.',
+  research: '연구실 기계 옆에서. 다 되면 이 방에 완성품이 놓인다 — 그때 여기 서 있어야 받는다. 발전소를 쥐었으면 바로 나온다.',
+  summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 부른 쪽도 불린 쪽도 그동안 못 움직인다.',
+  disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
+  disguise: '다른 팀에게 내 인원수가 2명으로 보인다.',
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 계속 1명으로 센다.',
   smashRobot: '상대 로봇 1기를 부순다.',
 }
 
 /** 그 자리에서 쓰는 것들. 이동은 여기 없다 — 맵에서 걸어서 한다. */
 const KINDS: ActionKind[] = ['research', 'summon', 'disturb', 'disguise', 'dropRobot', 'smashRobot']
+
+/**
+ * 한 행동에 드는 것 전부 — 토큰 · 지식 · 시간 · 물건.
+ *
+ * **0인 것은 안 그린다.** 「토큰 0」이 붙어 있으면 값이 드는 것처럼
+ * 보인다. 방해와 위장은 토큰이 아니라 물건이 드는 행동이라, 그 줄에는
+ * 물건 그림만 선다.
+ */
+function Bill({ kind, ownsLab }: { kind: ActionKind; ownsLab: boolean }) {
+  const item = ITEM_FOR[kind]
+  return (
+    <span className="sc-ph__bill">
+      {ACT_COST[kind] > 0 && <Cost of="token" n={ACT_COST[kind]} />}
+      {kind === 'research' && <Cost of="knowledge" n={researchKnowledge(ownsLab)} />}
+      {ACT_MINUTES[kind] > 0 && <Cost of="clock" n={ACT_MINUTES[kind]} />}
+      {item && <Cost of={item} n={1} />}
+    </span>
+  )
+}
 
 /** 남은 시간을 분·초로. 초까지 보여야 마지막 한 칸을 갈지 말지 정한다. */
 export function leftText(ms: number): string {
@@ -119,18 +141,16 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     const busyLeft = (view?.myBusyUntilMs ?? 0) - now
     if (busyLeft > 0) return `${view?.myBusyKind ?? '하는'} 중이다. ${leftText(busyLeft)} 남았다.`
     if (!here) return '걷는 중이다. 도착해야 할 수 있다.'
-    if (tokens < ACT_COST[kind]) return `팀 토큰이 모자란다. ${ACT_COST[kind]}개가 든다.`
-    // 물건이 드는 행동은 물건이 먼저다. 없으면 상점에 가야 한다
+    // 얼마가 드는지는 이름 옆 그림이 말한다. 여기서는 모자란다는 것만
+    if (tokens < ACT_COST[kind]) return '팀 토큰이 모자란다.'
+    // 물건이 드는 행동은 물건이 먼저다. 없으면 자판기에 가야 한다
     const need = ITEM_FOR[kind]
-    if (need && (view?.myItems?.[need] ?? 0) <= 0) {
-      return `${ITEM_BY_KIND[need].name}이(가) 없다. 자판기에서 산다.`
-    }
+    if (need && (view?.myItems?.[need] ?? 0) <= 0) return '없다. 자판기에서 산다.'
     if (kind === 'research') {
       if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
       if (!atLabMachine(myCell)) return '연구 기계 옆에 서야 한다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
-      const need = researchKnowledge(ownsLab)
-      if ((view?.myVault?.knowledge ?? 0) < need) return `지식이 모자란다. ${need}점이 든다.`
+      if ((view?.myVault?.knowledge ?? 0) < researchKnowledge(ownsLab)) return '지식이 모자란다.'
       if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`
     }
     if (kind === 'summon' && teammates.length === 0) return '부를 팀원이 없다.'
@@ -168,15 +188,16 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       </h2>
 
       <p className="sc-ph__purse">
-        <strong>팀 토큰 {tokens}</strong>
-        {endsAtMs != null && <em>{overAt ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}</em>}
+        <strong>
+          <Cost of="token" n={tokens} />
+        </strong>
+        {endsAtMs != null && (
+          <em>{overAt ? '시간 끝' : <Cost of="clock" n={leftText(endsAtMs - now)} />}</em>
+        )}
       </p>
-      <p className="sc-ph__hint">
-        <b>토큰은 넷이 한 주머니를 나눠 쓴다.</b> 먼저 쓰는 사람이 임자라, 누가 몇 번 움직일지를 말로
-        정하지 않으면 마지막 사람은 아무것도 못 한다.{' '}
-        <b>방에</b> 들어설 때만 토큰 {ACT_COST.move}개와 {EXIT_MINUTES + ENTER_MINUTES}분이 든다. 나가는 것도
-        복도도 계단도 값이 없으니, 지하든 옥상이든 어디로 가도 토큰 하나에 {EXIT_MINUTES + ENTER_MINUTES}분이다.
-        들어가는 동안은 어느 방에도 없다 — 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
+<p className="sc-ph__hint">
+        <b>토큰은 넷이 한 주머니를 나눠 쓴다.</b> 먼저 쓰는 사람이 임자다. 값은 <b>방에 들어설 때만</b> 드니
+        지하든 옥상이든 어디로 가도 같다. 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
       </p>
 
       <ul className="sc-ph__list">
@@ -192,7 +213,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
                 <img className="sc-ph__art" src={uiIcon(k)} alt="" width={32} height={32} />
                 <span className="sc-ph__say">
                   <strong>
-                    {LABEL[k]} <i>{ACT_COST[k]}</i>
+                    {LABEL[k]} <Bill kind={k} ownsLab={ownsLab} />
                   </strong>
                   <em>{no ?? WHAT[k]}</em>
                 </span>
@@ -237,24 +258,29 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         })}
       </ul>
 
-      <p className="sc-ph__note">
-        연구 한 번에 토큰 {ACT_COST.research} · 지식 <b>{researchKnowledge(ownsLab)}</b>
-        {ownsLab ?
-          ' (우리 연구실이라 한 점)'
-        : labOwner ?
-          ` (${labOwner}팀 연구실이다 — 우리 것이 아니라 한 점 더 든다)`
-        : ''}
-        {' · '}내 지식 {view?.myVault?.knowledge ?? 0}
+      {/*
+        내가 가진 것 — 지식과 물건 일곱. **드는 값은 위 행동 줄이 이미
+        그렸다.** 여기는 있는 것만 센다. 이름을 다 적으면 두 줄이 넘어서
+        그림과 수만 두고, 없는 것은 자리만 남기고 물러난다.
+      */}
+      <p className="sc-ph__note sc-ph__bag">
+        <Cost of="knowledge" n={view?.myVault?.knowledge ?? 0} />
+        <span className="sc-ph__bagCut" aria-hidden />
+        {ITEMS.map((i) => {
+          const n = view?.myItems?.[i.kind] ?? 0
+          return <Cost key={i.kind} of={i.kind} n={n} dim={n === 0} />
+        })}
       </p>
+      {/* 연구 값이 갈리는 까닭. 그림은 얼마인지까지고, 왜인지는 못 그린다 */}
+      {(ownsLab || labOwner !== null) && (
+        <p className="sc-ph__note">
+          {ownsLab ? '우리 연구실이라 지식이 한 점 싸다.' : `${labOwner}팀 연구실이라 지식이 한 점 더 든다.`}
+        </p>
+      )}
       <p className="sc-ph__note">
-        가진 물건{' '}
-        {ITEMS.map((i) => `${i.name} ${view?.myItems?.[i.kind] ?? 0}`).join(' · ')}
-      </p>
-      <p className="sc-ph__note">
-        우리 팀 로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b>
+        로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b> · 데리고 있는 것{' '}
+        <b>{view?.myCarriedRobots ?? 0}/{MAX_CARRIED_ROBOTS}</b> · 한 방에 {ROBOTS_PER_ROOM}기까지
         {hasPlant && ' · 발전소를 쥐어 그 자리에서 바로 난다'}
-        {' · '}데리고 있는 것 {view?.myCarriedRobots ?? 0}기(최대 {MAX_CARRIED_ROBOTS})
-        {' · '}한 방에 {ROBOTS_PER_ROOM}기까지
       </p>
       {here && (
         <p className="sc-ph__note">

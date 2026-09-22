@@ -9,6 +9,7 @@
 // 틀렸는지만 온다.
 import { useEffect, useState } from 'react'
 
+import { Cost } from './Cost'
 import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK, atPaper } from '../../../shared/rules/quiz'
 import type { Cell } from '../../../shared/rules/board'
 import type { GameActions } from './useGame'
@@ -121,7 +122,7 @@ export function Quiz({ view, act, onSaid, myCell }: QuizProps) {
         })}
       </ul>
       <p className="sc-qz__note">
-        맞히면 <b>내</b> 지식 {KNOWLEDGE_PER_QUIZ}점. 한 장은 한 팀만 가져간다 — 먼저 내는 쪽이 이긴다.
+        맞히면 <Cost of="knowledge" n={KNOWLEDGE_PER_QUIZ} />. 한 장은 한 팀만 — 먼저 내는 쪽이 가져간다.
       </p>
     </div>
   )
