@@ -47,7 +47,8 @@ const POT_ART_OF: Record<PotStage, string> = {
  */
 const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }): boolean =>
   me !== null && Math.abs(me.x - c.x) <= 1 && Math.abs(me.y - c.y) <= 1
-import { Walk, type DirWay } from './Walk'
+import { Walk, type DirWay, type PersonAt } from './Walk'
+import { Meet } from './Meet'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog, leftText } from './Phase'
 import { Slips } from './Slips'
@@ -714,7 +715,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [radioNew, setRadioNew] = useState(0)
   const [sheet, setSheet] = useState<SheetId | null>(null)
   /** 맵에서 짚은 사람. 거래는 여기서 시작한다. */
-  const [person, setPerson] = useState<string | null>(null)
+  /**
+   * 맵에서 짚은 사람과 **그 사람이 화면 어디에 서 있는지**.
+   *
+   * 자리를 같이 쥐는 것은 차림표를 그 옆에 붙이기 위해서다. 짚은
+   * 순간의 자리로 굳힌다 — 창이 떠 있는 동안 나는 못 움직이고,
+   * 상대가 방을 나가면 창을 닫아 버리므로 따라다닐 일이 없다.
+   */
+  const [person, setPerson] = useState<{ id: string; at: PersonAt } | null>(null)
   const [archive, setArchive] = useState(false)
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
@@ -849,11 +857,24 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    */
   const myAt = state.view?.visiblePawns.find((p) => p.playerId === uid)?.at ?? null
   const nextTo = person
-    ? cellsTouch(myAt, state.view?.visiblePawns.find((p) => p.playerId === person)?.at ?? null)
+    ? cellsTouch(myAt, state.view?.visiblePawns.find((p) => p.playerId === person.id)?.at ?? null)
     : false
 
   /** 짚은 사람의 팀. 안 보이면 null 이다. */
-  const personTeam = (hereNow.find((p) => p.playerId === person)?.team ?? null) as TeamId | null
+  const personTeam = (hereNow.find((p) => p.playerId === person?.id)?.team ?? null) as TeamId | null
+
+  /*
+   * **짚은 사람이 방을 나가면 차림표를 닫는다.**
+   *
+   * 자리는 짚은 순간으로 굳혀 두었다 — 창이 떠 있는 동안 나는 못
+   * 움직이니 따라다닐 일이 없다. 다만 상대는 걸어 나갈 수 있고,
+   * 그러면 창만 빈 자리를 가리킨 채 남는다. 없는 사람에게 표를
+   * 주려다 서버에 거절당하느니 여기서 닫는다.
+   */
+  const gonePerson = person !== null && !hereIds.includes(person.id)
+  useEffect(() => {
+    if (gonePerson) setPerson(null)
+  }, [gonePerson])
 
 
   /**
@@ -995,7 +1016,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           phaseOpen,
           byId: me.playerId,
           byTeam: me.team as TeamId,
-          toId: person,
+          toId: person.id,
           toTeam: personTeam,
           bothStanding: standingOn !== null,
           nextTo,
@@ -1312,7 +1333,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               }
               goFar(id)
             }}
-            onTapPerson={setPerson}
+            onTapPerson={(id, at) => setPerson({ id, at })}
             /* 기물을 짚었다 — 앞에 서 있을 때만 온다(Walk 가 잰다) */
             onTapFixture={(kind) =>
               setSheet(
@@ -1743,82 +1764,73 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
 
       {/* ── 맵에서 짚은 사람 ────────────────────────────────
-          열세 명이 늘어선 목록은 없다. 눈앞에 선 사람 하나다 */}
+          열세 명이 늘어선 목록은 없다. 눈앞에 선 사람 하나다.
+          바텀시트가 아니라 **그 사람 옆에 붙는 작은 차림표**다 —
+          창이 떠 있는 동안에도 누가 어디 섰는지가 맵에 보여야 한다 */}
       {person && (
-        <Sheet title={nameOf(person)} onClose={() => setPerson(null)}>
-          <div className="sc-pr">
-            <p className="sc-pr__who">
-              {hereNow.find((p) => p.playerId === person)?.team ?? '?'}팀 ·{' '}
-              {nextTo ? '바로 옆 칸에 서 있다' : '같은 방에 있다'}
-            </p>
-            {/*
+        <Meet
+          name={nameOf(person.id)}
+          team={personTeam}
+          at={person.at}
+          onClose={() => setPerson(null)}
+          rows={[
+            /*
               **거래는 페이즈 중에도 한다.** 마주 선 둘이 물건을
               주고받는 일은 점령과 같이 일어나도 이상하지 않다.
               값도 안 든다 — 하루 열두 개짜리 거래 토큰을 없앴다
-            */}
-            <button
-              className="sc-pr__go"
-              disabled={deal !== null || !nextTo}
-              onClick={() => {
-                const who = person
+            */
+            {
+              key: 'deal',
+              label: '거래하기',
+              why: deal !== null ? '이미 거래 중이다' : !nextTo ? '바로 옆 칸에 서야 한다' : null,
+              onPick: () => {
+                const who = person.id
                 setPerson(null)
                 act
                   .askDeal(who)
                   .then(() => say('거래하자고 했다.'))
                   .catch((e) => refuse((e as Error).message))
-              }}
-            >
-              거래하기
-              <span>
-                {deal !== null ? '이미 거래 중이다'
-                : !nextTo ? '바로 옆 칸에 서야 한다'
-                : '옆 칸에 섰다'}
-              </span>
-            </button>
-
-            {/*
+              },
+            },
+            /*
               표. **같은 방이면 된다** — 거래처럼 옆 칸까지 갈 것은
               없다. 하루 한 장이고, 우리 팀에도 준다. 서버가 같은
-              것을 본다(canCast)
-            */}
-            {MEET_VOTES.map((k) => (
-              <button
-                key={k}
-                className="sc-pr__go sc-pr__go--vote"
-                onClick={() => {
-                  const who = person
-                  setPerson(null)
-                  act
-                    .castVote(who, k)
-                    .then(() => say(`${VOTE_LABEL[k]}를 줬다.`))
-                    .catch((e) => refuse((e as Error).message))
-                }}
-              >
-                {VOTE_LABEL[k]} 주기
-                <span>하루 한 장. 누구에게든</span>
-              </button>
-            ))}
-
-            {/* 우리 팀 사람에게는 꺼낼 말이 아니다. 아예 안 보인다 */}
-            {personTeam !== null && personTeam !== me.team && (
-              <button
-                className="sc-pr__go sc-pr__go--move"
-                disabled={moveNo !== null}
-                onClick={() => {
-                  const who = person
-                  setPerson(null)
-                  act
-                    .askTransfer(who)
-                    .then(() => say('우리 팀으로 오겠느냐고 물었다.'))
-                    .catch((e) => refuse((e as Error).message))
-                }}
-              >
-                이적 제안하기
-                {moveNo !== null && <span>{TRANSFER_NO[moveNo]}</span>}
-              </button>
-            )}
-          </div>
-        </Sheet>
+              것을 본다(canCast). 막힐 일이 없으니 까닭 줄도 없다
+            */
+            ...MEET_VOTES.map((k) => ({
+              key: k,
+              label: `${VOTE_LABEL[k]} 주기`,
+              tone: 'vote' as const,
+              onPick: () => {
+                const who = person.id
+                setPerson(null)
+                act
+                  .castVote(who, k)
+                  .then(() => say(`${VOTE_LABEL[k]}를 줬다.`))
+                  .catch((e) => refuse((e as Error).message))
+              },
+            })),
+            /* 우리 팀 사람에게는 꺼낼 말이 아니다. 아예 줄이 없다 */
+            ...(personTeam !== null && personTeam !== me.team
+              ? [
+                  {
+                    key: 'move',
+                    label: '이적 제안하기',
+                    tone: 'move' as const,
+                    why: moveNo !== null ? TRANSFER_NO[moveNo] : null,
+                    onPick: () => {
+                      const who = person.id
+                      setPerson(null)
+                      act
+                        .askTransfer(who)
+                        .then(() => say('우리 팀으로 오겠느냐고 물었다.'))
+                        .catch((e) => refuse((e as Error).message))
+                    },
+                  },
+                ]
+              : []),
+          ]}
+        />
       )}
 
       {/* ── 거래 ────────────────────────────────────────────

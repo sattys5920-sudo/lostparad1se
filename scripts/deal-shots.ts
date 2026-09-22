@@ -294,11 +294,11 @@ async function main(): Promise<void> {
     }
     await canvas.click({ position: at }).catch(() => undefined)
     await p1.waitForTimeout(500)
-    if (!(await p1.locator('.sc-pr__go').count())) continue
-    const who = await p1.locator('.sc-sheet__head h2').innerText().catch(() => '')
+    if (!(await p1.locator('.sc-mt__row').count())) continue
+    const who = await p1.locator('.sc-mt__head b').innerText().catch(() => '')
     if (who.trim() === yourName) tapped = true
     else {
-      await p1.locator('.sc-sheet__head button').click().catch(() => undefined)
+      await p1.locator('.sc-mt__back').click().catch(() => undefined)
       await p1.waitForTimeout(300)
     }
   }
@@ -313,7 +313,7 @@ async function main(): Promise<void> {
    * 화면이지 운이 아니다.**
    */
   const seat = async (): Promise<boolean> => {
-    if (tapped && (await p1.locator('.sc-pr__go').count())) await p1.locator('.sc-pr__go').click()
+    if (tapped && (await p1.locator('.sc-mt__row').count())) await p1.locator('.sc-mt__row').first().click()
     else await must('askDeal', myToken, { gameId: GAME, toPlayerId: yours }).catch(() => ({}))
     if (!(await p2.waitForSelector('.sc-da', { timeout: 8_000 }).then(() => true).catch(() => false))) return false
     await shot(p2, '1-거래요청')

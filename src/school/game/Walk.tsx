@@ -67,6 +67,18 @@ const VENDING_CELLS = new Set(VENDINGS.map((v) => `${v.cell.x},${v.cell.y}`))
 const MAKER_CELLS = new Set(MAKERS.map((m) => `${m.cell.x},${m.cell.y}`))
 const LAB_CELL = `${LAB_MACHINE.x},${LAB_MACHINE.y}`
 
+/**
+ * 짚은 사람이 화면 어디에 서 있나. **뷰포트 좌표(px)** 다.
+ *
+ * x 는 몸 한가운데, foot 은 발끝, head 는 머리끝이다. 창을 머리 위에
+ * 띄우려면 head 를, 아래로 뒤집으려면 foot 을 쓴다.
+ */
+export interface PersonAt {
+  x: number
+  head: number
+  foot: number
+}
+
 export interface WalkProps {
   me: { playerId: string; team: TeamId; look: AvatarLook | null }
   view: PlayerViewDoc | null
@@ -86,8 +98,12 @@ export interface WalkProps {
   /**
    * 내 방에 선 사람을 눌렀다. **거래는 여기서 시작한다** — 열세 명이
    * 늘어선 목록에서 고르는 것이 아니라, 눈앞에 선 사람을 짚는다.
+   *
+   * 자리(at)는 **화면 좌표**다. 짚은 사람 옆에 창을 붙이는 쪽이
+   * 쓴다 — 캔버스 안쪽 좌표로 주면 받는 쪽이 캔버스가 어디 붙어
+   * 있는지를 또 알아내야 한다.
    */
-  onTapPerson: (playerId: string) => void
+  onTapPerson: (playerId: string, at: PersonAt) => void
   /**
    * 복도의 기물을 짚었다. **앞에 서 있을 때만 온다** — 멀리서 누른
    * 것은 걸음으로 친다.
@@ -691,7 +707,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 그 사람 쪽이 열린다 — 거래는 여기서 시작한다
       const who = personAt(sx, sy, here)
       if (who) {
-        personRef.current(who)
+        // 몸이 화면 어디에 있는지 같이 넘긴다. 받는 쪽이 그 옆에 창을
+        // 붙인다 — 캔버스 안쪽 좌표를 뷰포트 좌표로 옮겨서 준다
+        const k = r.width / canvas.width
+        personRef.current(who.playerId, {
+          x: r.left + (who.x - camRef.x) * k,
+          head: r.top + (who.y - CHAR_PX - camRef.y) * k,
+          foot: r.top + (who.y - camRef.y) * k,
+        })
         return
       }
 
@@ -1992,9 +2015,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     }
 
     /** 손끝이 짚은 사람. **내 방에 선 사람만** — 먼 방 사람에게는 할 것이 없다. */
-    function personAt(sx: number, sy: number, here: TileId | null): string | null {
+    function personAt(sx: number, sy: number, here: TileId | null): Standee | null {
       if (!here) return null
-      let best: string | null = null
+      let best: Standee | null = null
       let front = -Infinity
       for (const p of standees()) {
         if (p.playerId === me.playerId || p.here !== here) continue
@@ -2007,7 +2030,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         // 겹쳐 서 있으면 앞에 선 사람이다. 그리는 순서와 같아야 한다
         if (hit && p.y > front) {
           front = p.y
-          best = p.playerId
+          best = p
         }
       }
       return best

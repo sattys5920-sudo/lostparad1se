@@ -115,6 +115,31 @@ async function put(uid: string, fields: Record<string, unknown>): Promise<void> 
   })
 }
 
+/**
+ * 지갑에 돈과 지식을 넣는다. **판을 차리는 것**이지 화면을 고치는 것이 아니다.
+ *
+ * 이제 모두 빈손으로 시작하므로, 탁자에 올릴 것이 있으려면 먼저
+ * 벌어야 한다. 이 대본이 보려는 것은 벌이가 아니라 마주침이다.
+ */
+async function fund(uid: string, money: number, knowledge: number): Promise<void> {
+  await fetch(`${FS}/games/${GAME}/pawns/${uid}?updateMask.fieldPaths=resources`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        resources: {
+          mapValue: {
+            fields: {
+              money: { integerValue: String(money) },
+              knowledge: { integerValue: String(knowledge) },
+            },
+          },
+        },
+      },
+    }),
+  })
+}
+
 type Page = import('playwright').Page
 
 async function enter(page: Page, id: string): Promise<void> {
@@ -192,9 +217,11 @@ async function main(): Promise<void> {
   // 그 사람은 **옆방**에 둔다. 거기서 걸어 들어오는 것을 찍는다
   const next = (ADJACENCY[room] ?? [])[0] ?? away[0]
   await put(yours, { tileId: next })
-  // 값을 올릴 것이 보이게 개인 토큰을 넉넉히
-  await put(mine, { dealTokens: 8 })
-  await put(yours, { dealTokens: 8 })
+  // 값을 올릴 것이 탁자에 보이게 지갑을 채운다. **처음 재산은 0** 이라
+  // 그냥 두면 탁자가 텅 빈 채로 찍힌다 — 판을 차리는 것이지 화면을 고치는 게 아니다.
+  // 돈은 말 문서의 resources 에 있다. 맨 위 필드에 써 봐야 아무도 안 읽는다
+  await fund(mine, 6, 4)
+  await fund(yours, 6, 4)
   await tick(60_000)
 
   const seats = ((plain(await (await fetch(`${FS}/games/${GAME}`, { headers: ADMIN })).json()) as {
@@ -310,11 +337,11 @@ async function main(): Promise<void> {
     }
     await canvas.click({ position: at }).catch(() => undefined)
     await p1.waitForTimeout(500)
-    if (!(await p1.locator('.sc-pr__go').count())) continue
-    const who = await p1.locator('.sc-sheet__head h2').innerText().catch(() => '')
+    if (!(await p1.locator('.sc-mt__row').count())) continue
+    const who = await p1.locator('.sc-mt__head b').innerText().catch(() => '')
     if (who.trim() === yourName) tapped = true
     else {
-      await p1.locator('.sc-sheet__head button').click().catch(() => undefined)
+      await p1.locator('.sc-mt__back').click().catch(() => undefined)
       await p1.waitForTimeout(300)
     }
   }
@@ -326,7 +353,7 @@ async function main(): Promise<void> {
 
   // ── 4~5. 청하고 앉는다 ──────────────────────────────────
   const seat = async (): Promise<boolean> => {
-    await p1.locator('.sc-pr__go').click().catch(() => undefined)
+    await p1.locator('.sc-mt__row').first().click().catch(() => undefined)
     if (!(await p2.waitForSelector('.sc-da', { timeout: 8_000 }).then(() => true).catch(() => false))) return false
     await shot(p2, '5-요청이-왔다')
     await p2.locator('.sc-da__row button.is-on').click()

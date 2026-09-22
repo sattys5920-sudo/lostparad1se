@@ -763,29 +763,91 @@
 /* 되돌릴 수 없는 것에만 쓰는 테 색. 흰 종이 위에서 읽히는 금빛이다 */
 .sc-pl-root { --sc-warn: #b8922f; }
 
-/* ── 맵에서 짚은 사람 ─────────────────────────────────────────── */
+/* ── 맵에서 짚은 사람 ───────────────────────────────────────────
+   말 옆에 붙는 작은 차림표다. 바텀시트가 400px 를 먹던 자리를
+   140×210 쯤으로 줄였다 — 맵이 덮이지 않아야 누구 옆에 섰는지가
+   창을 연 채로도 보인다. 자리 셈은 Meet.tsx 가 한다 */
 
-.sc-pr { display: flex; flex-direction: column; gap: 10px; }
-.sc-pr__who { margin: 0; font-size: 12px; color: var(--sc-text-dim); }
-.sc-pr__go {
+.sc-mt { position: fixed; inset: 0; z-index: 70; }
+/* 살짝만 어둡게 한다. 맵을 가리려고 두는 것이 아니라 흰 차림표가
+   도트 위에서 읽히게 하려고 두는 것이다 */
+.sc-mt__back {
+  position: absolute;
+  inset: 0;
   appearance: none;
+  border: 0;
+  padding: 0;
+  background: rgba(6, 8, 11, 0.32);
+}
+.sc-mt__panel {
+  position: absolute;
+  width: 148px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
   border: 2px solid var(--sc-line-strong);
+  box-shadow: 0 6px 18px rgba(6, 8, 11, 0.4);
+}
+.sc-mt__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 7px 10px;
+  border-bottom: 2px solid var(--sc-line-strong);
+}
+.sc-mt__head b { font-size: 14px; letter-spacing: 0.02em; }
+.sc-mt__head i { font-style: normal; font-size: 11px; color: var(--sc-text-dim); }
+.sc-mt__row {
+  appearance: none;
+  border: 0;
+  border-top: 1px solid var(--sc-line);
   background: #fff;
   color: var(--sc-text);
   font: inherit;
   font-size: 15px;
-  padding: 12px;
-  border-radius: 0;
+  padding: 0 10px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   align-items: flex-start;
+  justify-content: center;
+  text-align: left;
 }
-.sc-pr__go span { font-size: 11px; color: var(--sc-text-dim); font-weight: 400; }
-.sc-pr__go:disabled { opacity: 0.45; cursor: default; }
-/* 이적은 거래 옆에 서지만 같은 낯이면 안 된다. 테만 바꾼다 */
-.sc-pr__go--move { border-color: var(--sc-warn); }
+.sc-mt__row:first-of-type { border-top: 0; }
+/*
+  줄 높이는 Meet.tsx 가 준다(--mt-row). 손가락 자리다.
+
+  **클래스 둘로 잡는다.** `.sc-mt__row` 하나로는 맨 위의
+  `.sc-pl-root button { min-height: 44px }` 을 못 이긴다 — 48 을
+  주었는데 44 로 떴고, 찍어 놓고 재 보기 전에는 몰랐다.
+*/
+.sc-mt__panel .sc-mt__row { min-height: var(--mt-row, 48px); }
+/* 막힌 줄만 까닭을 단다. 그 한 줄이 늘어나는 만큼만 창이 커진다 */
+.sc-mt__row span { font-size: 10px; line-height: 1.25; color: var(--sc-text-dim); font-weight: 400; }
+.sc-mt__row:disabled { opacity: 0.45; cursor: default; }
+/* 이적은 거래 옆에 서지만 같은 낯이면 안 된다. 왼쪽에 금빛 한 줄 */
+.sc-mt__row.is-move { box-shadow: inset 3px 0 0 var(--sc-warn); }
+
+/* 꼬리. 짚은 말을 가리킨다 — 어느 사람의 차림표인지가 자리로 읽힌다 */
+.sc-mt__tail {
+  position: absolute;
+  left: var(--mt-tail, 50%);
+  width: 0;
+  height: 0;
+  margin-left: -7px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+}
+.sc-mt__panel:not(.is-below) .sc-mt__tail {
+  bottom: -9px;
+  border-top: 9px solid var(--sc-line-strong);
+}
+.sc-mt__panel.is-below .sc-mt__tail {
+  top: -9px;
+  border-bottom: 9px solid var(--sc-line-strong);
+}
 
 .sc-dl__prop {
   border: 1px solid #d8dcdf;
