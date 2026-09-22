@@ -79,6 +79,8 @@ async function main() {
     await call('saveCharacter', meTok, { nickname: '수아', avatar: FACE })
     await call('joinGame', meTok, { gameId: game, name: '수아' })
     await call('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
+    // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+    await call('assignAll', host, { gameId: game })
     await call('startGame', host, { gameId: game, startAtMs: START })
     await call('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 60 })
     await call('tick', host, { gameId: game })

@@ -140,6 +140,8 @@ async function main(): Promise<void> {
     const tk = await asPlayer(ids[i])
     await call('joinGame', tk, { gameId: GAME2, name: `사람${i}`, team: want[i] })
   }
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME2 })
   await call('startGame', host, { gameId: GAME2 })
   const r2 = await fetch(`${FS}/games/${GAME2}`, { headers: ADMIN })
   const j2 = (await r2.json()) as {

@@ -20,7 +20,7 @@ import { DEAL_TOKENS_PER_DAY, isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { CORE_OPENING, ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
-import { TEAMS, TOTAL_SEATS, canStart, mayPickTeam, openTeams, timedEvents } from '../../shared/rules/lobby'
+import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
 import { seedGarden } from './garden'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
 import { lookOfAccount, looksByUid } from './account'
@@ -51,76 +51,21 @@ export const readRoster = (
 ): Promise<FirebaseFirestore.QuerySnapshot> => tx.get(rosterOf(gameId))
 
 /**
- * 자리가 열넷이면 역할을 나누고, 아니면 나눠 둔 것을 지운다.
+ * 나눠 둔 역할을 지운다.
  *
- * **자리가 바뀌면 다시 나눈다.** 역할은 팀 구성에 매여 있어서(팀의 길
- * 하나 · 밖의 길 하나), 한 사람이 팀을 옮기면 남은 열셋의 배정도 같이
- * 틀어진다. 한 명이 나갔다가 다른 사람이 들어온 판에서 옛 배정을 그냥
- * 두면 그때부터 규칙이 안 맞는다.
+ * 자리가 바뀌면 배정은 무효다. 역할은 팀 구성에 매여 있어서(팀마다
+ * 손 갈래 하나 · ★ 셋은 서로 다른 팀), 한 사람이 빠지면 남은 열셋의
+ * 배정도 같이 틀어진다. 옛 배정을 그냥 두면 그때부터 규칙이 안 맞는다.
  *
- * assignRoles 는 (명단·씨앗)에 대해 늘 같은 답을 낸다. 그래서 이미
- * 적힌 것이 지금 나올 답과 같으면 **한 줄도 안 건드린다** — 이름만
- * 고치러 다시 들어온 사람 때문에 열넷의 역할 문서가 매번 새로 쓰이면,
- * 그 쓰기 하나하나가 「배정이 바뀌었다」는 신호로 보인다.
+ * **다시 나누지는 않는다.** 나누는 일은 운영자가 「배정」을 누를 때
+ * 딱 한 번 일어난다(assignAll) — 자리가 바뀔 때마다 몰래 다시 나누면,
+ * 이미 제 역할을 본 사람의 역할이 뒤에서 바뀐다.
  */
-export function settleRoster(
+export function clearRoster(
   tx: FirebaseFirestore.Transaction,
-  gameId: string,
   had: FirebaseFirestore.QuerySnapshot,
-  seats: readonly SeatEntry[],
-  seed: string,
 ): void {
-  const col = rosterOf(gameId)
-  if (seats.length !== TOTAL_SEATS) {
-    for (const d of had.docs) tx.delete(d.ref)
-    return
-  }
-  const players: Player[] = seats.map((s) => ({ id: s.playerId, team: s.team }))
-  let dealt
-  try {
-    dealt = assignRoles(players, seed)
-  } catch {
-    // 나눌 수 없는 명단이면(팀 정원이 안 맞는 등) 옛것을 지우고 만다.
-    // 시작할 때 canStart 가 같은 이유로 막아 세운다
-    for (const d of had.docs) tx.delete(d.ref)
-    return
-  }
-
-  const same =
-    had.size === dealt.length &&
-    dealt.every((a) => {
-      const was = had.docs.find((d) => d.id === a.playerId)?.data() as RosterRow | undefined
-      return was?.team === a.team && was?.roleId === a.roleId && was?.targetId === a.targetId
-    })
-  if (same) return
-
   for (const d of had.docs) tx.delete(d.ref)
-  for (const a of dealt) {
-    tx.set(col.doc(a.playerId), {
-      playerId: a.playerId,
-      team: a.team,
-      roleId: a.roleId,
-      targetId: a.targetId,
-      reveal: null,
-    })
-  }
-}
-
-interface RosterRow {
-  team: TeamId
-  roleId: string
-  targetId: string | null
-}
-
-function randomOpenTeam(others: readonly SeatEntry[], seed: string): TeamId | undefined {
-  const open = openTeams(others)
-  if (open.length === 0) return undefined
-  let h = 2166136261
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return open[Math.abs(h) % open.length]
 }
 
 // ── 판 만들기 ───────────────────────────────────────────────────
@@ -268,11 +213,22 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     const wanted = canPick ? req.data.team : undefined
     if (wanted && !TEAMS.includes(wanted)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
 
-    // 이미 앉아 있으면 이름·팀만 고친다
+    if (mine < 0 && seats.length >= TOTAL_SEATS) {
+      throw new HttpsError('resource-exhausted', '자리가 없다.')
+    }
+
+    /*
+     * **팀은 앉을 때 안 정해진다.** 운영자가 「배정」을 누를 때
+     * 팀과 개인 미션이 한꺼번에 정해진다. 먼저 온 사람이 빈 팀을
+     * 메우던 때에는 늦게 온 사람에게 남은 자리가 곧 자기 팀이라,
+     * 고르지 못하게 막아 둔 것이 무색했다.
+     *
+     * 운영자(와 에뮬레이터)만 미리 못 박을 수 있다 — 판을 세워 보는
+     * 문이다. 못 박은 자리는 배정이 건드리지 않는다
+     */
     const others = seats.filter((s) => s.playerId !== uid)
-    const team = wanted ?? (mine >= 0 ? seats[mine].team : randomOpenTeam(others, game.seed + uid))
-    if (!team) throw new HttpsError('resource-exhausted', '자리가 없다.')
-    if (others.filter((s) => s.team === team).length >= STARTING_TEAM_SIZES[team]) {
+    const team = wanted ?? (mine >= 0 ? seats[mine].team : null)
+    if (team && others.filter((s) => s.team === team).length >= STARTING_TEAM_SIZES[team]) {
       throw new HttpsError('resource-exhausted', `${team}팀은 다 찼다.`)
     }
 
@@ -281,9 +237,9 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     else seats.push(seat)
 
     tx.update(ref, { seats })
-    // 열넷째가 앉는 순간 역할이 나뉜다. 시작을 기다리지 않는다
-    settleRoster(tx, req.data.gameId, hadRoster, seats, game.seed)
-    return { seat, seated: seats.length, need: TOTAL_SEATS, dealt: seats.length === TOTAL_SEATS }
+    // 자리가 바뀌었으니 나눠 둔 것이 있으면 무효다
+    clearRoster(tx, hadRoster)
+    return { seat, seated: seats.length, need: TOTAL_SEATS, dealt: false }
   })
 })
 
@@ -300,18 +256,93 @@ export const leaveGame = onCall<{ gameId: string }>(async (req) => {
     tx.update(ref, { seats })
     // 한 자리가 비면 나눠 둔 역할을 **통째로 지운다.** 남은 열셋의
     // 배정도 빈 자리에 매여 있어서, 그냥 두면 규칙이 안 맞는다
-    settleRoster(tx, req.data.gameId, hadRoster, seats, game.seed)
+    clearRoster(tx, hadRoster)
     return { seated: seats.length, need: TOTAL_SEATS }
   })
 })
+
+// ── 배정 ────────────────────────────────────────────────────────
+
+/**
+ * 팀과 개인 미션을 **한꺼번에** 나눈다. 운영자가 누른다.
+ *
+ * 전에는 둘이 따로 있었다. 팀은 앉을 때 빈 팀을 메우는 식으로 하나씩
+ * 정해졌고, 역할은 열넷째가 앉는 순간 몰래 나뉘었다. 둘 다 문제가
+ * 있었다 — 늦게 온 사람에게는 남은 자리가 곧 자기 팀이었고, 자리가
+ * 한 번 바뀔 때마다 이미 제 역할을 본 사람의 역할이 뒤에서 바뀌었다.
+ *
+ * 이제 한 순간이다. 열넷이 다 앉으면 운영자가 누르고, 그 한 번의
+ * 트랜잭션에서 팀·역할·짝사랑 대상이 다 같이 정해진다.
+ *
+ * **다시 누르면 거절한다.** 누르는 순간 각자 학생증에 제 역할이
+ * 뜬다(paper.ts). 그걸 본 뒤에 다시 굴리면 본 것이 거짓말이 된다.
+ * 다시 나누고 싶으면 판을 초기화해야 한다.
+ */
+export const assignAll = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const gameId = req.data.gameId
+
+  // **얼굴을 먼저 읽는다.** 트랜잭션 안에서 다른 문서를 읽으러
+  // 나가면 재시도마다 같이 돈다
+  const ref = gameRef(gameId)
+  const before = await ref.get()
+  if (!before.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const faced = await freshFaces((before.data() as GameDoc).seats)
+
+  return db.runTransaction(async (tx) => {
+    const [snap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, gameId)])
+    if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+    const game = snap.data() as GameDoc
+    if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
+    if (!hadRoster.empty) throw new HttpsError('failed-precondition', '이미 배정했다. 다시 나누려면 판을 초기화해야 한다.')
+
+    // 트랜잭션이 재시도되는 동안 자리가 바뀌었을 수 있다. 판 문서의
+    // 자리를 기준으로 삼고, 얼굴만 미리 읽어 둔 것에서 가져온다
+    const lookOf = new Map(faced.map((s) => [s.playerId, s.look]))
+    const seats = game.seats.map((s) => ({ ...s, look: lookOf.get(s.playerId) ?? s.look }))
+
+    const ready = canAssign(seats)
+    if (!ready.ok) throw new HttpsError('failed-precondition', ready.reason as string)
+
+    const withTeams = dealTeams(seats, game.seed) as SeatEntry[]
+    const players: Player[] = withTeams.map((s) => ({ id: s.playerId, team: s.team as TeamId }))
+    let dealt
+    try {
+      dealt = assignRoles(players, game.seed)
+    } catch (e) {
+      throw new HttpsError('failed-precondition', `역할을 나누지 못했다: ${(e as Error).message}`)
+    }
+
+    tx.update(ref, { seats: withTeams })
+    for (const a of dealt) {
+      tx.set(rosterOf(gameId).doc(a.playerId), {
+        playerId: a.playerId,
+        team: a.team,
+        roleId: a.roleId,
+        targetId: a.targetId,
+      })
+    }
+    return { assigned: dealt.length, teams: countByTeam(withTeams) }
+  })
+})
+
+/** 배정 결과를 운영자 화면에 한 줄로 보여 주려고. 누가 어느 팀인지는 안 담는다. */
+const countByTeam = (seats: readonly SeatEntry[]): Record<string, number> => {
+  const out: Record<string, number> = {}
+  for (const t of TEAMS) out[t] = seats.filter((s) => s.team === t).length
+  return out
+}
 
 // ── 시작 ────────────────────────────────────────────────────────
 
 /**
  * 판을 시작한다.
  *
- * 여기서 역할을 나누고 말·팀·칸을 놓는다. 역할은 secret/roster에만
- * 적고, 각자에게는 views에 자기 한 줄만 간다(3단계).
+ * **여기서는 나누지 않는다.** 팀도 역할도 배정(assignAll)에서 이미
+ * 정해졌고, 이 함수는 그것을 읽어 말·팀·칸을 놓을 뿐이다. 전에는
+ * 여기서 한 번 더 나눴다 — assignRoles 가 결정적이라 같은 답이
+ * 나온다는 이유였는데, 그 사이에 규칙이 바뀌면 사람들이 이미 본
+ * 역할과 다른 답이 나온다. 나누는 자리는 하나여야 한다.
  */
 export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (req) => {
   requireHost(req.auth)
@@ -327,41 +358,17 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   const ready = canStart(seats)
   if (!ready.ok) throw new HttpsError('failed-precondition', ready.reason as string)
 
-  const players: Player[] = seats.map((s) => ({ id: s.playerId, team: s.team }))
-  let roles
-  try {
-    roles = assignRoles(players, game.seed)
-  } catch (e) {
-    throw new HttpsError('failed-precondition', `역할을 나누지 못했다: ${(e as Error).message}`)
-  }
-
   const startedAtMs = req.data.startAtMs ?? nowOf(game)
   const batch = db.batch()
 
   /*
-   * 역할과 인연. **여기 말고 어디에도 적지 않는다.**
-   *
-   * 보통은 열넷이 찰 때 이미 나뉘어 있다(settleRoster). 그때 적힌
-   * 것과 여기서 나오는 답은 같다 — assignRoles 가 (명단·씨앗)에
-   * 대해 결정적이고, 자리는 그 뒤로 안 바뀌었다. 그래도 한 번 더
-   * 쓰는 것은 **이 줄 하나가 배정을 보장하는 마지막 자리**여서다.
-   * 배정이 아직 없는 옛 판도 여기서 채워진다.
-   *
-   * 털어놓은 기록은 지키고 간다. 로비에서 털어놓을 길은 없지만,
-   * 있었던 것을 덮어쓰는 코드는 언젠가 덮어쓴다
+   * 역할은 배정에서 이미 적혔다. 여기서는 있는지만 확인한다 —
+   * canStart 가 자리의 팀을 보긴 하지만, 팀만 있고 역할이 없는
+   * 판을 시작해 버리면 아무도 제 미션을 못 받는다
    */
   const hadRoster = await ref.collection('secret').doc('roster').collection('items').get()
-  const revealOf = new Map(
-    hadRoster.docs.map((d) => [d.id, (d.data() as { reveal?: unknown }).reveal ?? null]),
-  )
-  for (const a of roles) {
-    batch.set(ref.collection('secret').doc('roster').collection('items').doc(a.playerId), {
-      playerId: a.playerId,
-      team: a.team,
-      roleId: a.roleId,
-      targetId: a.targetId,
-      reveal: revealOf.get(a.playerId) ?? null,
-    })
+  if (hadRoster.size !== TOTAL_SEATS) {
+    throw new HttpsError('failed-precondition', '아직 배정하지 않았다.')
   }
 
   // 팀 — 자원과 순위는 공개다.

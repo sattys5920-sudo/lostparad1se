@@ -27,7 +27,13 @@ export type GamePhase = 'lobby' | 'running' | 'finished'
 export interface SeatEntry {
   playerId: string
   name: string
-  team: TeamId
+  /**
+   * 어느 팀인가. **앉을 때는 비어 있다.**
+   *
+   * 운영자가 「배정」을 누를 때 팀과 개인 미션이 한꺼번에 정해진다.
+   * 운영자는 미리 못 박아 둘 수 있고, 그 자리는 배정이 건드리지 않는다.
+   */
+  team: TeamId | null
   /**
    * 그 사람이 만든 캐릭터. **서버가 계정에서 꺼내 적는다** — 화면이
    * 보내 주는 것이 아니다.

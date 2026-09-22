@@ -134,7 +134,7 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
   let hallAt: Cell | null = null
   if (early) {
     tileId = early.tileId
-    team = early.seat.team
+    team = early.seat.team as string
   } else {
     const pawn = await myPawn(gameId, uid)
     // 문과 문 사이에서 한 말은 어느 방에도 남지 않는다

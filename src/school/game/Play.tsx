@@ -82,7 +82,16 @@ import {
   useToast,
   type Act,
 } from './Controls'
-import { KIND_MARK, TEAM_COLOR } from './MapPlan'
+import { KIND_MARK, colorOfTeam } from './MapPlan'
+
+/**
+ * 배정 전에 말을 세워 둘 팀.
+ *
+ * 로비 화면은 사람마다 말 하나를 그리는데, 배정 전에는 팀이 없다.
+ * 색이 없으면 말을 못 그려서 한 팀으로 세워 둔다 — 완장은
+ * colorOfTeam 이 회색으로 그린다. **이 값이 화면에 뜻을 갖지는 않는다.**
+ */
+const PRE_TEAM: TeamId = 'A'
 import { uiIcon } from './uiArt'
 import type { Dir } from '../map/sprites'
 import './controls.css'
@@ -195,7 +204,7 @@ function Roll({ seats, uid }: { seats: SeatEntry[]; uid: string | null }) {
         <li
           key={s.playerId}
           className={`sc-roll__one${s.playerId === uid ? ' is-me' : ''}`}
-          style={{ '--roll-team': TEAM_COLOR[s.team] } as CSSProperties}
+          style={{ '--roll-team': colorOfTeam(s.team) } as CSSProperties}
         >
           <span className="sc-roll__face">
             {/* 계정에 캐릭터가 없으면 팀 색 점이다. 서버가 그렇게 보낸다 */}
@@ -267,7 +276,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 죽는다.
    */
   const mates = useMemo(
-    () => seats.filter((sx) => sx.playerId !== uid).map((sx) => ({ playerId: sx.playerId, team: sx.team })),
+    () => seats.filter((sx) => sx.playerId !== uid).map((sx) => ({ playerId: sx.playerId, team: sx.team ?? PRE_TEAM })),
     [seats, uid],
   )
   const looks = useMemo(
@@ -407,7 +416,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
     return (
       <Dealt
         name={me.nickname}
-        team={mine.team}
+        team={mine.team ?? PRE_TEAM}
         look={me.avatar}
         paper={card.paper}
         snowLevel={state.game?.snow?.level ?? 5}
@@ -427,7 +436,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
         <section className="sc-pl__tab sc-pl__map">
           <div className="sc-pl__room">
             <Walk
-              me={{ playerId: uid, team: mine.team, look: me.avatar }}
+              me={{ playerId: uid, team: mine.team ?? PRE_TEAM, look: me.avatar }}
               view={null}
               tiles={{}}
               nowMs={Date.now()}
@@ -461,7 +470,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
                 <span className="sc-pl__day">DAY 0</span>
                 <span className="sc-pl__clock">{seats.length} / {TOTAL_SEATS} 모였다</span>
                 <span className="sc-pl__me">
-                  <i className="sc-pl__band" style={{ background: TEAM_COLOR[mine.team] }} />
+                  <i className="sc-pl__band" style={{ background: colorOfTeam(mine.team) }} />
                   {me.nickname}
                 </span>
               </div>
@@ -737,6 +746,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
   const game = state.game
   const me = game?.seats.find((s) => s.playerId === uid)
+  /*
+   * 내 팀. **판이 돌고 있으면 반드시 있다** — 배정 없이는 시작이 안
+   * 되고, 이 화면은 시작한 뒤에만 그려진다. 타입만 그걸 모른다
+   */
+  const myTeam = (me?.team ?? 'A') as TeamId
   const invisibleName = game?.invisibleId
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null
@@ -965,7 +979,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           day: game?.day ?? 0,
           phaseOpen,
           byId: me.playerId,
-          byTeam: me.team,
+          byTeam: me.team as TeamId,
           toId: person,
           toTeam: personTeam,
           bothStanding: standingOn !== null,
@@ -1239,7 +1253,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           }}
         >
           <Walk
-            me={{ playerId: me.playerId, team: me.team, look }}
+            me={{ playerId: me.playerId, team: me.team as TeamId, look }}
             looks={looks}
             live={live}
             onLive={(at) => pushLive(gameId, me.playerId, at)}
@@ -1368,7 +1382,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               <span className="sc-pl__me">
                 {/* 팀은 글자가 아니라 완장으로 안다 — 「D팀」 두 글자가
                     9px 로 붙어 있는 것보다 색 한 점이 빨리 읽힌다 */}
-                <i className="sc-pl__band" style={{ background: TEAM_COLOR[me.team] }} />
+                <i className="sc-pl__band" style={{ background: colorOfTeam(me.team) }} />
                 {me.name}
               </span>
             </div>
@@ -1413,7 +1427,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
           {miniOn && (
             <MiniMap
-              facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
+              facts={{ here: standingOn, meId: me.playerId, myTeam: me.team as TeamId, view: state.view, tiles: state.tiles }}
               onOpen={() => setAtlas(true)}
             />
           )}
@@ -1447,7 +1461,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             money={state.view?.myVault?.money ?? null}
             knowledge={state.view?.myVault?.knowledge ?? null}
             mates={mates}
-            teamColor={TEAM_COLOR[me.team]}
+            teamColor={colorOfTeam(me.team)}
             onOpen={() => setSheet('team')}
           />
           <div className="sc-ct__ctl">
@@ -1538,10 +1552,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           /* 하루를 여는 표. 우리 팀끼리만 하고, 없으면 줄도 안 뜬다 */
           head={
             <CaptainVote
-              me={me}
+              me={{ ...me, team: me.team as TeamId }}
               seats={game.seats}
-              captainId={game.captains?.[me.team] ?? state.teams[me.team]?.captainId ?? null}
-              vote={state.teams[me.team]?.captainVote ?? null}
+              captainId={game.captains?.[myTeam] ?? state.teams[myTeam]?.captainId ?? null}
+              vote={state.teams[myTeam]?.captainVote ?? null}
               all={game.captains ?? null}
               nowMs={nowMs}
               act={act}
@@ -1566,7 +1580,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           </button>
         )}
         <Radio
-          me={me}
+          me={{ ...me, team: myTeam }}
           act={act}
           onSaid={setSaid}
           /* 페이즈 중에는 열린 뒤로 얼마나 지났는지를 적는다 */
@@ -1646,7 +1660,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           전체 화면 오버레이. 여기만 두 손가락 확대를 허용한다 */}
       {atlas && (
         <FullMap
-          facts={{ here: standingOn, meId: me.playerId, myTeam: me.team, view: state.view, tiles: state.tiles }}
+          facts={{ here: standingOn, meId: me.playerId, myTeam: myTeam, view: state.view, tiles: state.tiles }}
           clock={{ open: phaseOpen, no: phaseNo, endsAtMs: phaseEndsAtMs, nowMs }}
           snowLevel={state.game?.snow?.level ?? 5}
           onClose={() => setAtlas(false)}
@@ -1709,7 +1723,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
       {sheet === 'hand' && (
         <Sheet title="손패" onClose={closeSheet}>
-          <Hand me={me} view={state.view} act={act} onSaid={setSaid} />
+          <Hand me={{ ...me, team: myTeam }} view={state.view} act={act} onSaid={setSaid} />
         </Sheet>
       )}
 
@@ -1810,7 +1824,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {deal && deal.status !== 'asking' && (
         <Sheet title="거래" onClose={() => closeDeal(deal)}>
           <DealRoom
-            me={me}
+            me={{ ...me, team: myTeam }}
             deal={deal}
             view={state.view}
             otherName={nameOf(deal.a.playerId === me.playerId ? deal.b.playerId : deal.a.playerId)}
@@ -1892,7 +1906,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           <ul className="sc-pl__team">
             {mates.map((m) => (
               <li key={m.playerId}>
-                <i className="sc-pl__teamDot" style={{ background: m.here ? TEAM_COLOR[me.team] : 'transparent' }} />
+                <i className="sc-pl__teamDot" style={{ background: m.here ? colorOfTeam(me.team) : 'transparent' }} />
                 <span>{nameOf(m.playerId)}</span>
                 {m.captain && <em>팀장</em>}
                 <span className="sc-pl__teamState">{m.here ? '접속 중' : '자리 비움'}</span>

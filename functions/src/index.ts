@@ -93,7 +93,7 @@ export { fragmentOfDay, releasedFragments } from './fragments'
 export { hostDashboard, hostTextAudit, hostNotice, noticeTemplates } from './admin'
 
 // 로비. 역할은 시작할 때 나뉘고 secret에만 적힌다.
-export { createGame, joinGame, leaveGame, refreshFaces, resetGame, startGame } from './lobby'
+export { assignAll, createGame, joinGame, leaveGame, refreshFaces, resetGame, startGame } from './lobby'
 export { sweepSeats } from './seats'
 
 // 따라잡기. 상시 서버가 없으므로 밀린 일을 다음 요청이 민다.

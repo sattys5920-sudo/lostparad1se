@@ -127,6 +127,8 @@ async function main(): Promise<void> {
     people.push({ ...a, team: want[i] })
     await must('joinGame', a.token, { gameId: GAME, name: `봇${i}`, team: want[i] })
   }
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await must('assignAll', host, { gameId: GAME })
   await must('startGame', host, { gameId: GAME, startAtMs: START })
   const T0 = dayHourMs(START, 1, 10)
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: T0, speed: 1 })

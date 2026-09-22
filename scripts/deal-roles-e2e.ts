@@ -75,6 +75,15 @@ async function rosterSize(game: string): Promise<number> {
   return (j.documents ?? []).length
 }
 
+/** 판 문서에 적힌 자리의 팀들. 아직 안 나눴으면 빈 칸으로 온다. */
+async function seatTeams(game: string, token: string): Promise<(string | null)[]> {
+  const r = await fetch(`${FS}/games/${game}`, { headers: { Authorization: `Bearer ${token}` } })
+  const doc = (await r.json()) as {
+    fields?: { seats?: { arrayValue?: { values?: { mapValue?: { fields?: Record<string, { stringValue?: string }> } }[] } } }
+  }
+  return (doc.fields?.seats?.arrayValue?.values ?? []).map((v) => v.mapValue?.fields?.team?.stringValue ?? null)
+}
+
 async function main() {
   const game = `dl${Date.now()}`
   const host = await hostToken(game)
@@ -106,8 +115,24 @@ async function main() {
 
   console.log('\n── 열넷째 ──')
   const last = await must('joinGame', toks.get(ids[13]) as string, { gameId: game, name: '열넷째' })
-  check(last.dealt === true, '열넷째가 앉는 순간 나뉘었다고 알려 준다')
+  // **앉는 것으로는 안 나뉜다.** 나누는 자리는 운영자의 배정 하나뿐이다
+  check(last.dealt === false, '열넷째가 앉아도 아직 안 나뉘었다')
+  check((await rosterSize(game)) === 0, '자리만 찼을 뿐 역할은 없다')
+
+  console.log('\n── 배정 전에는 팀도 없다 ──')
+  const teamsBefore = await seatTeams(game, toks.get(ids[0]) as string)
+  check(teamsBefore.length === 14, '열넷이 앉았다', String(teamsBefore.length))
+  check(teamsBefore.every((t) => t === null), '아무도 팀이 없다', teamsBefore.join('/'))
+
+  console.log('\n── 배정 ──')
+  check(
+    !(await call('assignAll', toks.get(ids[0]) as string, { gameId: game })).ok,
+    '운영자가 아니면 배정 못 한다',
+  )
+  const dealt = (await must('assignAll', host, { gameId: game })) as { assigned?: number }
+  check(dealt.assigned === 14, '열넷에게 한꺼번에 나눴다', String(dealt.assigned))
   check((await rosterSize(game)) === 14, '역할 열넷이 적혔다')
+  check(!(await call('assignAll', host, { gameId: game })).ok, '두 번 배정 못 한다')
 
   console.log('\n── 팀은 전체 공개 ──')
   // 판 문서는 로그인한 누구나 읽는다. 내 토큰으로 남의 팀까지 읽힌다
@@ -119,6 +144,12 @@ async function main() {
   }).fields?.seats?.arrayValue?.values ?? []
   const teams = seats.map((v) => v.mapValue?.fields?.team?.stringValue)
   check(seats.length === 14 && teams.every((t) => typeof t === 'string'), '열넷의 팀이 거기 다 적혀 있다', teams.join(''))
+  const size = (t: string) => teams.filter((x) => x === t).length
+  check(
+    [size('A'), size('B'), size('C'), size('D')].join('/') === '4/4/3/3',
+    '4·4·3·3으로 나뉘었다',
+    [size('A'), size('B'), size('C'), size('D')].join('/'),
+  )
 
   console.log('\n── 역할은 개인 공개 ──')
   const mineUid = uidOf(ids[0])
@@ -133,6 +164,7 @@ async function main() {
   const paper = (await must('myPaper', toks.get(ids[0]) as string, { gameId: game })) as {
     roleName?: string
     secret?: string
+    flavor?: string
     main?: { text?: string }
     counting?: boolean
     pathLabel?: string
@@ -141,7 +173,9 @@ async function main() {
   // 남아 있으면 언젠가 누가 그걸 다시 그린다
   check(paper.pathLabel === undefined, '갈래(팀의 길…)는 아예 안 내려온다', String(paper.pathLabel))
   check(typeof paper.roleName === 'string' && paper.roleName.length > 0, 'myPaper 는 내 역할 이름을 준다', paper.roleName ?? '')
-  check(typeof paper.secret === 'string' && paper.secret.length > 8, '내 숨긴 사실도 온다')
+  // 숨긴 사실은 걷어냈다. 그 자리에 역할 카드 한 줄이 온다
+  check(paper.secret === undefined, '숨긴 사실은 이제 안 온다', String(paper.secret))
+  check(typeof paper.flavor === 'string' && (paper.flavor ?? '').length > 4, '역할 카드 한 줄이 온다', paper.flavor ?? '')
   check((paper.main?.text ?? '').length > 8, '내 개인 미션 문장도 온다')
   check(paper.counting === false, '로비에서는 진행도를 안 센다 — 셀 것이 아직 없다')
 
@@ -165,7 +199,10 @@ async function main() {
 
   console.log('\n── 다시 차면 ──')
   await must('joinGame', toks.get(ids[13]) as string, { gameId: game, name: '열넷째' })
-  check((await rosterSize(game)) === 14, '열넷이 되면 다시 나뉜다')
+  // 자리만 다시 찬다. **저절로 나뉘지 않는다** — 운영자가 또 눌러야 한다
+  check((await rosterSize(game)) === 0, '자리가 차도 저절로 안 나뉜다')
+  await must('assignAll', host, { gameId: game })
+  check((await rosterSize(game)) === 14, '다시 배정하면 나뉜다')
   const again = (await must('myPaper', toks.get(ids[0]) as string, { gameId: game })) as { roleName?: string }
   check(
     again.roleName === paper.roleName,

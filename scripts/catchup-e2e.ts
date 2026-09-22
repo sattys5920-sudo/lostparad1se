@@ -104,6 +104,8 @@ async function main(): Promise<void> {
     seats.push(tk)
     await call('joinGame', tk, { gameId: GAME, name: `봇${i}`, team: want[i] })
   }
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME })
   await call('startGame', host, { gameId: GAME, startAtMs: START })
   check(true, '열넷이 앉고 판이 시작했다')
 
@@ -228,6 +230,8 @@ async function main(): Promise<void> {
   for (let i = 0; i < TOTAL_SEATS; i++) {
     await call('joinGame', seats[i], { gameId: GAME2, name: `봇${i}`, team: want[i] })
   }
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME2 })
   await call('startGame', host, { gameId: GAME2, startAtMs: START })
   await call('setDevClock', host, { gameId: GAME2, anchorGameMs: dayHourMs(START, 3, 12), speed: 1 })
 

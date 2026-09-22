@@ -75,6 +75,8 @@ async function main() {
   await must('saveCharacter', meTok, { nickname: '이름없음', avatar: FACE })
   await must('joinGame', meTok, { gameId: game, name: '이름없음' })
   await must('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await must('assignAll', host, { gameId: game })
   await must('startGame', host, { gameId: game, startAtMs: START })
   // **배속 1.** 스크린샷의 판이 어떤지 모르니 실제 시계부터 본다
   await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })

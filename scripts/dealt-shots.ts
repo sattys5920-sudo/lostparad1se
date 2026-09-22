@@ -177,6 +177,8 @@ async function main() {
        * 밖이 보이고 나갈 수 있다. 복도가 한 점도 안 보이던 화면에
        * 복도가 나타나는지로 잰다.
        */
+      // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+      await call('assignAll', host, { gameId: game })
       await call('startGame', host, { gameId: game })
       // 아침 시퀀스는 여기서 볼 것이 아니다. 봤다고 적어 두고 지나간다
       await call('markMorning', meTok, { gameId: game, read: [1] }).catch(() => undefined)

@@ -107,6 +107,8 @@ async function main(): Promise<void> {
     await call('joinGame', await tok(id), { gameId: GAME, name: `C${i + 1}`, team: 'C' })
   }
   await call('seedPlayers', host, { gameId: GAME, password: QA, leaveSeats: 0 })
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME })
   await call('startGame', host, { gameId: GAME, startAtMs: START })
   const [u1, u2, u3] = ids.map(uidOf)
   const [t1, t2, t3] = await Promise.all(ids.map((id) => tok(id)))

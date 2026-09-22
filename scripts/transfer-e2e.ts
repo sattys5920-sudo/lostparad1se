@@ -98,6 +98,8 @@ async function main(): Promise<void> {
   await call('joinGame', await tok(aId), { gameId: GAME, name: '부르는쪽', team: 'A' })
   await call('joinGame', await tok(bId), { gameId: GAME, name: '넘어갈쪽', team: 'B' })
   await call('seedPlayers', host, { gameId: GAME, password: QA, leaveSeats: 0 })
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME })
   await call('startGame', host, { gameId: GAME, startAtMs: START })
 
   const a = uidOf(aId)

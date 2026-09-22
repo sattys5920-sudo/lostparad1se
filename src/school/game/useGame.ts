@@ -310,6 +310,8 @@ export function gameActions(gameId: string) {
     closePhase: () => callServer('closePhase', g),
 
     /** 닷새가 시작된다. 시각을 안 주면 지금부터다. */
+    /** 팀과 개인 미션을 한꺼번에 나눈다. 운영자만, 한 번만. */
+    assignAll: () => callServer('assignAll', { ...g }),
     startGame: (startAtMs?: number) => callServer('startGame', { ...g, startAtMs: startAtMs ?? Date.now() }),
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */
     seedPlayers: (password: string, leaveSeats = 1) =>

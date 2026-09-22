@@ -9,13 +9,12 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
-import { TOTAL_SEATS, openTeams } from '../../shared/rules/lobby'
+import { TOTAL_SEATS } from '../../shared/rules/lobby'
 import { TILES } from '../../shared/rules/board'
-import { STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, SeatEntry } from '../../shared/model'
 import type { AvatarLook } from '../../shared/look'
 import { createAccount, setAccountLook } from './account'
-import { readRoster, settleRoster } from './lobby'
+import { clearRoster, readRoster } from './lobby'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -91,29 +90,21 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
     const seats = [...now.seats]
     for (const p of made) {
       if (seats.some((s) => s.playerId === p.uid)) continue
-      const team = pickTeam(seats)
-      if (!team) break
-      const seat: SeatEntry = { playerId: p.uid, name: p.name, team, look: p.look }
+      if (seats.length >= TOTAL_SEATS) break
+      // 봇도 팀 없이 앉는다. 사람과 같은 길이라야 운영자가 「배정」을
+      // 눌렀을 때 실제로 일어나는 일을 본다
+      const seat: SeatEntry = { playerId: p.uid, name: p.name, team: null, look: p.look }
       seats.push(seat)
     }
     tx.update(ref, { seats })
-    // 봇으로 채워도 열넷이면 역할이 나뉜다. 사람이 앉을 때와 같은 길이다
-    settleRoster(tx, req.data.gameId, hadRoster, seats, now.seed)
+    // 봇으로 채워도 나누지는 않는다. 나누는 자리는 운영자의 「배정」
+    // 하나뿐이다 — 사람이 앉을 때와 같은 길이다
+    clearRoster(tx, hadRoster)
     return seats.length
   })
 
   return { seated, accounts: made.length, firstId: idOf(0), lastId: idOf(want - 1) }
 })
-
-/** 빈 팀 중 제일 덜 찬 곳. 봇끼리는 고르게 퍼지는 편이 확인하기 좋다. */
-function pickTeam(seats: readonly SeatEntry[]): TeamId | undefined {
-  const open = openTeams(seats)
-  if (open.length === 0) return undefined
-  return open.reduce((best, t) => {
-    const n = (x: TeamId) => seats.filter((s) => s.team === x).length / STARTING_TEAM_SIZES[x]
-    return n(t) < n(best) ? t : best
-  }, open[0])
-}
 
 /**
  * 핵심 칸을 전부 연다. **시험용이다.**

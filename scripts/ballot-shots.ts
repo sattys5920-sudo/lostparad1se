@@ -93,6 +93,8 @@ async function setUp(tag: string): Promise<{ game: string; me: string; host: str
   await must('saveCharacter', meTok, { nickname: '수아', avatar: FACE })
   await must('joinGame', meTok, { gameId: game, name: '수아' })
   await must('seedPlayers', host, { gameId: game, password: SEED_PW, leaveSeats: 0 })
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await must('assignAll', host, { gameId: game })
   await must('startGame', host, { gameId: game, startAtMs: START })
   await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })
   await must('tick', host, { gameId: game })

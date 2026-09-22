@@ -147,6 +147,12 @@ function Desk() {
   const game = state.game
   const seats = game?.seats ?? []
   const running = game !== null && game !== undefined && game.phase !== 'lobby'
+  /*
+   * 배정했는가. **자리의 팀으로 본다** — 역할이 적힌 곳(secret/roster)은
+   * 운영자도 못 읽는다. 팀과 역할은 한 트랜잭션에서 같이 정해지므로,
+   * 팀이 차 있으면 역할도 나뉜 것이다
+   */
+  const assigned = seats.length === TOTAL_SEATS && seats.every((s) => s.team !== null)
 
   /**
    * 다음에 넘길 것을 미리 묻는다.
@@ -250,11 +256,46 @@ function Desk() {
             <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
           </section>
         : !running ?
-          /* ── 로비. 시작이 전부다 ── */
+          /* ── 로비. 배정하고 시작한다 ── */
           <>
             <section className="sc-ad__sec">
+              <h2>배정</h2>
+              {/*
+                팀과 개인 미션을 한꺼번에 나눈다. **한 번뿐이다** —
+                누르는 순간 각자 학생증에 제 역할이 뜬다. 다시 나누려면
+                판을 초기화해야 한다
+              */}
+              <p className="sc-ad__hint">
+                {assigned ?
+                  '나눴다. 각자 학생증에 제 팀과 미션이 떴다.'
+                : seats.length < TOTAL_SEATS ?
+                  `열넷이 다 앉아야 나눈다. 지금 ${seats.length}명.`
+                : '누르면 팀과 개인 미션이 한꺼번에 정해진다. 되돌리려면 판을 초기화해야 한다.'}
+              </p>
+              <button
+                className="is-primary"
+                disabled={busy || assigned || seats.length < TOTAL_SEATS}
+                onClick={() =>
+                  void run('배정', async () => {
+                    const r = (await act.assignAll()) as { assigned?: number; teams?: Record<string, number> }
+                    const by = Object.entries(r.teams ?? {})
+                      .map(([t, n]) => `${t} ${n}`)
+                      .join(' · ')
+                    setSaid(`${r.assigned ?? 0}명에게 나눴다. ${by}`)
+                  })
+                }
+              >
+                팀 · 개인 미션 배정
+              </button>
+            </section>
+            <section className="sc-ad__sec">
               <h2>시작</h2>
-              <button className="is-primary" disabled={busy} onClick={() => void run('시작', () => act.startGame())}>
+              {!assigned && <p className="sc-ad__hint">배정을 먼저 해야 시작한다.</p>}
+              <button
+                className="is-primary"
+                disabled={busy || !assigned}
+                onClick={() => void run('시작', () => act.startGame())}
+              >
                 닷새 시작
               </button>
               <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
@@ -662,7 +703,7 @@ function EndingDesk({
   onSaid,
 }: {
   act: ReturnType<typeof gameActions>
-  seats: { playerId: string; name: string; team: string }[]
+  seats: { playerId: string; name: string; team: string | null }[]
   onSaid: (t: string) => void
 }) {
   const [rows, setRows] = useState<Record<string, string>>({})

@@ -41,6 +41,12 @@ export const TEAM_COLOR: Record<TeamId, string> = Object.fromEntries(
   TEAMS.map((t) => [t.id, t.color]),
 ) as Record<TeamId, string>
 
+/** 아직 팀이 없는 자리. 배정 전 로비의 명단이 이 색으로 선다. */
+export const NO_TEAM_COLOR = 'var(--sc-ink-dim, #6b6b6b)'
+
+export const colorOfTeam = (team: TeamId | null): string =>
+  team === null ? NO_TEAM_COLOR : TEAM_COLOR[team]
+
 export interface MapFacts {
   /** 내가 선 방. 규칙 쪽에서 온 string 을 여기서 받아 지도 이름으로 쓴다. */
   here: string | null

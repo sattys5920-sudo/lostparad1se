@@ -141,6 +141,8 @@ async function main(): Promise<void> {
   }
   // 명단 밖 구경꾼
   const outsider = await auth(await signUp(`out-${GAME}@x.test`))
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME })
   await call('startGame', host, { gameId: GAME, startAtMs: START })
   check(true, '열넷이 앉고 판이 시작했다')
 

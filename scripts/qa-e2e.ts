@@ -76,16 +76,39 @@ async function main(): Promise<void> {
   const bad = await call('logInAccount', '', { id: 'qa01', password: 'wrong-password' })
   check(bad.code === 'PERMISSION_DENIED', '틀린 비밀번호는 막힌다')
 
-  console.log('\n── 팀이 고르게 퍼졌는가 ──')
-  const g = await fetch(`${FS}/games/${GAME}`, { headers: ADMIN })
-  const doc = (await g.json()) as { fields: { seats: { arrayValue: { values: { mapValue: { fields: { team: { stringValue: string } } } }[] } } } }
-  const teams = doc.fields.seats.arrayValue.values.map((v) => v.mapValue.fields.team.stringValue)
-  const counts = ['A', 'B', 'C', 'D'].map((t) => teams.filter((x) => x === t).length)
-  check(Math.max(...counts) - Math.min(...counts) <= 1, '한 팀에 몰리지 않았다', counts.join('/'))
+  /** 지금 자리의 팀들. 아직 안 나눴으면 빈 칸으로 온다. */
+  const seatTeams = async (): Promise<(string | null)[]> => {
+    const g = await fetch(`${FS}/games/${GAME}`, { headers: ADMIN })
+    const doc = (await g.json()) as {
+      fields: { seats: { arrayValue: { values: { mapValue: { fields: { team?: { stringValue?: string } } } }[] } } }
+    }
+    return doc.fields.seats.arrayValue.values.map((v) => v.mapValue.fields.team?.stringValue ?? null)
+  }
 
-  console.log('\n── 시작한 뒤에는 ──')
+  console.log('\n── 배정 전에는 팀이 없다 ──')
+  check((await seatTeams()).every((t) => t === null), '봇도 팀 없이 앉는다')
+
+  console.log('\n── 배정 ──')
   const me = await auth(await signUp(`last-${GAME}@x.test`))
   await call('joinGame', me.token, { gameId: GAME, name: '나' })
+  check((await call('startGame', host, { gameId: GAME })).code === 'FAILED_PRECONDITION', '배정 전에는 시작 못 한다')
+  check(
+    (await call('assignAll', me.token, { gameId: GAME })).code === 'PERMISSION_DENIED',
+    '운영자가 아니면 배정 못 한다',
+  )
+
+  const dealt = await call('assignAll', host, { gameId: GAME })
+  const body = (dealt.data ?? {}) as { assigned?: number; teams?: Record<string, number> }
+  check(body.assigned === 14, '열넷에게 나눴다', JSON.stringify(body))
+  const after = await seatTeams()
+  const counts = ['A', 'B', 'C', 'D'].map((t) => after.filter((x) => x === t).length)
+  check(counts.join('/') === '4/4/3/3', '4·4·3·3으로 나뉘었다', counts.join('/'))
+  check(
+    (await call('assignAll', host, { gameId: GAME })).code === 'FAILED_PRECONDITION',
+    '두 번 배정 못 한다',
+  )
+
+  console.log('\n── 시작한 뒤에는 ──')
   await call('startGame', host, { gameId: GAME, startAtMs: Date.UTC(2026, 2, 1, 23, 0, 0) })
   check((await call('seedPlayers', host, { gameId: GAME, password: QA_PW })).code === 'FAILED_PRECONDITION', '시작한 판은 못 채운다')
 

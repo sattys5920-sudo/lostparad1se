@@ -34,6 +34,8 @@ async function main() {
   const he = await signUp(`h-${GAME}@x.test`); await setAdmin(he); const host = await auth(he)
   await must('createGame', host, { gameId: GAME, seed: 'rl' })
   await must('seedPlayers', host, { gameId: GAME, password: QA_PW, leaveSeats: 0 })
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await must('assignAll', host, { gameId: GAME })
   await must('startGame', host, { gameId: GAME, startAtMs: Date.now() })
   console.log(`판 ${GAME}`)
 

@@ -116,7 +116,8 @@ export const castBallot = onCall<{ gameId: string; targetId: string }>(async (re
     day,
     voterId: uid,
     targetId,
-    voterTeam: seat.team,
+    // 판이 돌고 있으면 자리마다 팀이 다 차 있다 — 배정 없이는 시작이 안 된다
+    voterTeam: seat.team as TeamId,
     targetTeam: (targetSeat?.team ?? seat.team) as TeamId,
     atMs: nowMs,
   }

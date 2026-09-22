@@ -287,7 +287,8 @@ export function LiveRetro({ gameId }: { gameId: string }) {
     <Retrospective
       viewerId={uid}
       look={normalizeLook({})}
-      team={me.team}
+      // 되돌아보기는 끝난 뒤에만 열린다. 그때는 팀이 다 차 있다
+      team={me.team as TeamId}
       retired={retired}
       posts={posts}
       nameOf={(id) => seats.find((s) => s.playerId === id)?.name ?? id}

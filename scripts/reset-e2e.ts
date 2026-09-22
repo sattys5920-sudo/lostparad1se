@@ -94,6 +94,8 @@ async function main(): Promise<void> {
     seats.push(await token(e))
     await call('joinGame', seats[i], { gameId: GAME, name: `봇${i}`, team: want[i] })
   }
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME })
   await call('startGame', host, { gameId: GAME, startAtMs: START })
   await call('setDevClock', host, { gameId: GAME, anchorGameMs: dayHourMs(START, 1, 12), speed: 1 })
 
@@ -135,6 +137,8 @@ async function main(): Promise<void> {
   check((await count(`games/${GAME}/secret/tokens/items`)) === 0, '지난 판의 토큰 상자가 안 남았다')
 
   console.log('\n── 다시 시작한다 ──')
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME })
   await call('startGame', host, { gameId: GAME, startAtMs: START })
   g = await doc(`games/${GAME}`)
   check(str(g?.phase) === 'running', '다시 돈다', str(g?.phase))

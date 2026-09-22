@@ -149,6 +149,8 @@ async function main(): Promise<void> {
   const host = await hostToken()
   await must('createGame', host, { gameId: GAME, seed: 'trace' })
   await must('seedPlayers', host, { gameId: GAME, password: QA_PW, leaveSeats: 0 })
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await must('assignAll', host, { gameId: GAME })
   await must('startGame', host, { gameId: GAME, startAtMs: START })
   const clock = (ms: number) => must('setDevClock', host, { gameId: GAME, anchorGameMs: ms, speed: 1 })
   // 이적은 DAY 2 부터 꺼낼 수 있다

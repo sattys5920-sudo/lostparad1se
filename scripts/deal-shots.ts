@@ -151,6 +151,8 @@ async function main(): Promise<void> {
   const host = await auth(he)
   await must('createGame', host, { gameId: GAME, seed: 'dealshots' })
   await must('seedPlayers', host, { gameId: GAME, password: QA_PW, leaveSeats: 0 })
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await must('assignAll', host, { gameId: GAME })
   await must('startGame', host, { gameId: GAME, startAtMs: START })
   let clock = dayHourMs(START, 1, 10)
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: clock, speed: 1 })

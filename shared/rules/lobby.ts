@@ -18,12 +18,22 @@ export const TEAMS = Object.keys(STARTING_TEAM_SIZES) as TeamId[]
 /** 열넷이 다 앉아야 시작한다. */
 export const TOTAL_SEATS = Object.values(STARTING_TEAM_SIZES).reduce((a, b) => a + b, 0)
 
+/**
+ * 자리 하나.
+ *
+ * **team 은 앉을 때 비어 있다.** 팀은 운영자가 「배정」을 누를 때
+ * 한꺼번에 정해진다 — 먼저 온 사람이 빈 팀을 메우는 식이면, 늦게
+ * 온 사람은 남은 자리가 곧 자기 팀이라 고른 것이나 다름없다.
+ */
 export interface Seat {
   playerId: string
-  team: TeamId
+  team: TeamId | null
 }
 
-/** 팀마다 몇 자리 남았는가. */
+/** 이미 팀이 정해진 자리. 운영자가 미리 못 박아 둔 것들이다. */
+const pinned = (seats: readonly Seat[]) => seats.filter((s) => s.team !== null)
+
+/** 팀마다 몇 자리 남았는가. 아직 안 정해진 자리는 안 센다. */
 export function seatsLeft(seats: readonly Seat[]): Record<TeamId, number> {
   return Object.fromEntries(
     TEAMS.map((t) => [t, STARTING_TEAM_SIZES[t] - seats.filter((s) => s.team === t).length]),
@@ -36,12 +46,73 @@ export function openTeams(seats: readonly Seat[]): TeamId[] {
   return TEAMS.filter((t) => left[t] > 0).sort((a, b) => left[b] - left[a] || TEAMS.indexOf(a) - TEAMS.indexOf(b))
 }
 
-/** 시작할 수 있는가. 인원과 팀별 정원이 정확히 맞아야 한다. */
+/**
+ * 배정을 누를 수 있는가.
+ *
+ * 열넷이 다 앉았고, 운영자가 미리 못 박아 둔 팀이 정원을 넘지
+ * 않으면 된다. 나머지 빈자리는 dealTeams 가 채운다.
+ */
+export function canAssign(seats: readonly Seat[]): { ok: boolean; reason: string | null } {
+  if (seats.length !== TOTAL_SEATS) return { ok: false, reason: `${TOTAL_SEATS}명이어야 한다 (${seats.length}명).` }
+  if (new Set(seats.map((s) => s.playerId)).size !== seats.length) {
+    return { ok: false, reason: '같은 사람이 두 번 앉아 있다.' }
+  }
+  for (const t of TEAMS) {
+    const got = pinned(seats).filter((s) => s.team === t).length
+    if (got > STARTING_TEAM_SIZES[t]) {
+      return { ok: false, reason: `${t}팀에 ${STARTING_TEAM_SIZES[t]}명보다 많이 못 박혀 있다 (${got}명).` }
+    }
+  }
+  return { ok: true, reason: null }
+}
+
+/**
+ * 빈자리에 팀을 채운다. 4·4·3·3이 되게.
+ *
+ * 이미 정해진 자리는 그대로 둔다 — 운영자가 판을 세워 보려고 못 박아
+ * 둔 것이고, 검수 대본 일흔둘이 그 문으로 들어온다.
+ *
+ * 씨앗을 받아 같은 씨앗이면 같은 답을 낸다. 역할 배정과 한 트랜잭션
+ * 안에서 도니까, 다시 돌려도 같은 판이 나와야 이상한 일이 안 생긴다.
+ */
+export function dealTeams(seats: readonly Seat[], seed: string): Seat[] {
+  const left = seatsLeft(seats)
+  // 남은 자리를 팀 이름으로 펼친다. B팀 두 자리면 B가 둘
+  const pool: TeamId[] = []
+  for (const t of TEAMS) for (let i = 0; i < left[t]; i++) pool.push(t)
+
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  const rnd = () => {
+    h = (h + 0x6d2b79f5) | 0
+    let t = Math.imul(h ^ (h >>> 15), 1 | h)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+
+  // 들어온 순서가 결과를 바꾸지 않게 아이디로 정렬해 나눈다
+  const order = seats
+    .filter((s) => s.team === null)
+    .map((s) => s.playerId)
+    .sort()
+  const given = new Map(order.map((id, i) => [id, pool[i]]))
+  return seats.map((s) => (s.team === null ? { ...s, team: given.get(s.playerId) ?? null } : s))
+}
+
+/** 시작할 수 있는가. 열넷이 앉았고 **배정이 끝나** 정원이 맞아야 한다. */
 export function canStart(seats: readonly Seat[]): { ok: boolean; reason: string | null } {
   if (seats.length !== TOTAL_SEATS) return { ok: false, reason: `${TOTAL_SEATS}명이어야 한다 (${seats.length}명).` }
   if (new Set(seats.map((s) => s.playerId)).size !== seats.length) {
     return { ok: false, reason: '같은 사람이 두 번 앉아 있다.' }
   }
+  if (seats.some((s) => s.team === null)) return { ok: false, reason: '아직 배정하지 않았다.' }
   for (const t of TEAMS) {
     const got = seats.filter((s) => s.team === t).length
     if (got !== STARTING_TEAM_SIZES[t]) return { ok: false, reason: `${t}팀은 ${STARTING_TEAM_SIZES[t]}명이어야 한다 (${got}명).` }

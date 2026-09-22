@@ -91,6 +91,8 @@ async function main(): Promise<void> {
   )
   check(seats.includes(uidOf(a)) && seats.includes(uidOf(b)), '먼저 앉은 둘은 그대로다')
 
+  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
+  await call('assignAll', host, { gameId: GAME })
   await call('startGame', host, { gameId: GAME })
   check((await count(`games/${GAME}/pawns`)) === TOTAL_SEATS, '말 열넷이 섰다')
 
