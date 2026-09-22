@@ -10,12 +10,10 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { TOTAL_DAYS } from '../../shared/rules/v2'
 import { releasedDays } from '../../shared/reveal/release'
-import { awakeningOf, type InvisibleSpan } from '../../shared/missions/awakening'
 import { snowView } from '../../shared/rules/snow'
 import type { Interval } from '../../shared/rules/presence'
 import type { TileId } from '../../shared/rules/board'
-import type { GameDoc, RosterDoc } from '../../shared/model'
-import { placeOf } from './story/sights'
+import type { GameDoc } from '../../shared/model'
 import { refreshViews, type ProgressDoc } from './views'
 import { freshNow } from './turn'
 import { gameRef, nowOf, requireUid } from './index'
@@ -96,58 +94,19 @@ export async function openInterval(
 // ── 깨달음과 눈발 ───────────────────────────────────────────────
 
 /**
- * 그 자리에 세 시간 서면 A의 시선이 열린다.
+ * 눈발을 다시 잰다.
  *
- * **역할과 그 자리의 짝은 서버 전용 데이터에만 있다.** 그 짝을 알면
- * 누가 어디에 오래 서 있는지만 보고 역할을 역산할 수 있다 — 창고에
- * 세 시간 서 있는 사람은 지킴이 아니면 거짓말쟁이다.
+ * A의 기록이 열린 날 수만 본다. 깨달음과 털어놓기로 돌던 자리인데
+ * 둘 다 없어졌다 — shared/rules/snow.ts 머리말을 보라.
  */
-export async function refreshAwakening(gameId: string): Promise<{ awakened: number; revealed: number }> {
+export async function refreshAwakening(gameId: string): Promise<{ released: number }> {
   const snap = await gameRef(gameId).get()
   const game = snap.data() as GameDoc
   const nowMs = nowOf(game)
   const from = game.startedAtMs ?? nowMs
 
-  const [rosterSnap, ivSnap, awakenedSnap] = await Promise.all([
-    secret(gameId, 'roster').get(),
-    secret(gameId, 'intervals').get(),
-    secret(gameId, 'awakened').get(),
-  ])
-  const intervals = ivSnap.docs.map((d) => d.data() as Interval)
-  const already = new Set(awakenedSnap.docs.map((d) => d.id))
-
-  // 투명인간이었던 구간은 체류가 두 배로 쌓인다. 지워져 본 사람이
-  // 가장 빨리 이해한다
-  const spans: InvisibleSpan[] = []
-  for (const [day, playerId] of Object.entries(game.invisibleByDay)) {
-    if (!playerId) continue
-    const d = Number(day)
-    spans.push({
-      playerId,
-      startMs: from + (d - 1) * 86_400_000,
-      endMs: from + d * 86_400_000,
-    })
-  }
-
-  const batch = db.batch()
-  let awakened = 0
-  let revealed = 0
-  for (const doc of rosterSnap.docs) {
-    const row = doc.data() as RosterDoc
-    if (row.reveal) revealed += 1
-    const place = placeOf(row.roleId as Parameters<typeof placeOf>[0])
-    if (!place) continue
-    const out = awakeningOf(intervals, row.playerId, place as TileId, spans, from, nowMs)
-    if (!out.open) continue
-    awakened += 1
-    if (!already.has(row.playerId)) {
-      batch.set(secret(gameId, 'awakened').doc(row.playerId), { atMs: nowMs })
-    }
-  }
-
-  const progress = { awakened, revealed }
-  batch.update(gameRef(gameId), { snow: snowView(progress) })
-  await batch.commit()
+  const progress = { released: releasedDays(from, nowMs).length }
+  await gameRef(gameId).update({ snow: snowView(progress) })
   return progress
 }
 

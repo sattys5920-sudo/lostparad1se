@@ -38,7 +38,7 @@ export function canChoosePerson(input: ChooseInput): { ok: boolean; reason: Choo
 
 // ── DAY 4 · 무엇을 지킬 것인가 ──────────────────────────────────
 
-export type Day4Choice = 'team' | 'self' | 'bond'
+export type Day4Choice = 'team' | 'self' | 'chosen'
 
 export interface Day4ChoiceSpec {
   id: Day4Choice
@@ -49,7 +49,7 @@ export interface Day4ChoiceSpec {
 export const DAY4_CHOICES: readonly Day4ChoiceSpec[] = [
   { id: 'team', label: '팀을 지킨다', text: '우리 팀이 최종 2위 이내' },
   { id: 'self', label: '나를 지킨다', text: '내 주 미션 달성' },
-  { id: 'bond', label: '그 사람을 지킨다', text: '내 인연 미션 달성' },
+  { id: 'chosen', label: '그 사람을 지킨다', text: '중요한 사람의 팀이 1위' },
 ]
 
 export const DAY4_CHOICE_IDS: readonly Day4Choice[] = DAY4_CHOICES.map((c) => c.id)
@@ -69,8 +69,8 @@ export interface Day4Outcome {
   teamRank: number
   /** 주 미션을 달성했는가. */
   mainMet: boolean
-  /** 인연 미션을 달성했는가. */
-  bondMet: boolean
+  /** 중요한 사람의 팀이 1위인가. 공동 1위도 1위로 본다. */
+  chosenTeamFirst: boolean
 }
 
 /**
@@ -83,7 +83,7 @@ export function day4Met(out: Day4Outcome): boolean {
   if (out.choice === null) return false
   if (out.choice === 'team') return out.teamRank <= DAY4_TEAM_RANK_WITHIN
   if (out.choice === 'self') return out.mainMet
-  return out.bondMet
+  return out.chosenTeamFirst
 }
 
 // ── 종례의 두 가지 ──────────────────────────────────────────────

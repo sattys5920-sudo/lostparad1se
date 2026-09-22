@@ -1,237 +1,173 @@
-// 역할 데이터가 기준 문서와 맞는지 본다.
+// 역할 데이터가 문서와 어긋나지 않는지 본다.
 //
-// 판정 엔진은 4단계에서 붙는다. 여기서는 데이터 자체가 어긋나 있지
-// 않은지만 확인한다 — 역할 수, 갈래 배분, 힌트 일정, 진행도 공개 정책,
-// 엔딩 자리, 인연 고리 규칙.
+// 조건 수치는 데이터에만 있다. 여기서 숫자를 확인하는 것은 **문서와
+// 맞는지**를 보려는 것이지 판정을 보려는 것이 아니다 — 판정은
+// judge.test.ts 가 본다.
 import { describe, expect, it } from 'vitest'
 import {
-  BOND_RING_SIZE,
+  ASSIGN_RULES,
+  BRANCHES,
+  BRANCH_COUNT,
   DAY4_CHOICES,
-  HINT_SCHEDULE,
-  MAX_PERSONAL_SCORE,
-  NEVER_HINTED,
   ROLES,
-  ROLES_BY_PATH,
+  ROLE_BRANCH,
+  ROLE_BY_ID,
   ROLE_IDS,
-  endingBandOf,
-  validateBondRing,
-  type BondAssignment,
+  ROLE_NAMES,
+  ROSTER_SIZE,
+  SLIP_MISSIONS,
+  STATUS_LABEL,
 } from './roles'
-import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
 
-describe('역할 14종', () => {
-  it('열네 개다', () => {
-    expect(ROLES).toHaveLength(14)
-    expect(new Set(ROLE_IDS).size).toBe(14)
+describe('역할 열넷', () => {
+  it('열네 종류다', () => {
+    expect(ROLES).toHaveLength(ROSTER_SIZE)
+    expect(ROLE_IDS).toHaveLength(ROSTER_SIZE)
   })
 
-  it('갈래가 4·6·4다', () => {
-    expect(ROLES_BY_PATH.team).toHaveLength(4)
-    expect(ROLES_BY_PATH.people).toHaveLength(6)
-    expect(ROLES_BY_PATH.outside).toHaveLength(4)
+  it('아이디가 겹치지 않는다', () => {
+    expect(new Set(ROLES.map((r) => r.id)).size).toBe(ROSTER_SIZE)
   })
 
-  it('팀마다 팀의 길 하나와 밖의 길 하나를 줄 수 있다', () => {
-    // 네 팀에 하나씩 돌아가야 하므로 각 갈래가 정확히 4개여야 한다
-    expect(ROLES_BY_PATH.team).toHaveLength(4)
-    expect(ROLES_BY_PATH.outside).toHaveLength(4)
-    // 남은 자리를 사람의 길로 채운다
-    const total = Object.values(STARTING_TEAM_SIZES).reduce((a, b) => a + b, 0)
-    expect(total).toBe(14)
-    expect(total - 4 - 4).toBe(ROLES_BY_PATH.people.length)
+  it('이름이 겹치지 않는다', () => {
+    expect(new Set(Object.values(ROLE_NAMES)).size).toBe(ROSTER_SIZE)
   })
 
-  it('모두 서사·숨긴 사실·주 미션·인연 미션을 갖는다', () => {
+  it('모두 한 줄 소개와 미션 문장을 갖는다', () => {
     for (const r of ROLES) {
-      expect(r.flavor.length).toBeGreaterThan(0)
-      expect(r.secret.length).toBeGreaterThan(0)
-      expect(r.main.clauses.length).toBeGreaterThan(0)
-      expect(r.bond.clauses.length).toBeGreaterThan(0)
-      expect(r.main.text.length).toBeGreaterThan(0)
-      expect(r.bond.text.length).toBeGreaterThan(0)
+      expect(r.flavor.length, r.id).toBeGreaterThan(0)
+      expect(r.main.text.length, r.id).toBeGreaterThan(0)
+      expect(r.main.clauses.length, r.id).toBeGreaterThan(0)
     }
   })
 
-  it('모든 조항에 기준이 있다', () => {
-    for (const r of ROLES) {
-      for (const c of [...r.main.clauses, ...r.bond.clauses]) {
-        const hasBar =
-          c.need !== undefined ||
-          c.limit !== undefined ||
-          c.hours !== undefined ||
-          c.day !== undefined ||
-          c.days !== undefined ||
-          // 기준치가 없는 것은 「했다/안 했다」로 갈리는 조항이다
-          ['teamNeverLostTile', 'neverRevealed', 'neverSpentLeverage', 'noSuspicionCast',
-           'holdLeverageOnBondAtEnd', 'teamRankNotFirst', 'bondTeamRankHigher',
-           'alliedWithBondAtEnd', 'bondPrivateRevealToMe', 'privateRevealToBond'].includes(c.kind)
-        expect(hasBar, `${r.id} · ${c.kind}`).toBe(true)
-      }
-    }
+  it('ROLE_BY_ID 가 전부 채워져 있다', () => {
+    for (const id of ROLE_IDS) expect(ROLE_BY_ID[id].id).toBe(id)
   })
 })
 
-describe('A의 기록이 가리키는 역할', () => {
-  it('닷새 동안 두 명씩, 열 명을 가리킨다', () => {
-    const hinted = Object.values(HINT_SCHEDULE).flat()
-    expect(hinted).toHaveLength(10)
-    expect(new Set(hinted).size).toBe(10)
-    for (const day of [1, 2, 3, 4, 5]) expect(HINT_SCHEDULE[day]).toHaveLength(2)
-  })
-
-  it('가리켜지지 않는 넷은 지킴이·수첩·중재자·전학생이다', () => {
-    expect([...NEVER_HINTED].sort()).toEqual(['guard', 'mediator', 'notebook', 'transfer'])
-  })
-
-  it('역할의 hintDay와 일정표가 서로 맞는다', () => {
-    for (const r of ROLES) {
-      if (r.hintDay === null) {
-        expect(NEVER_HINTED).toContain(r.id)
-      } else {
-        expect(HINT_SCHEDULE[r.hintDay]).toContain(r.id)
-      }
+describe('네 갈래', () => {
+  it('문서의 배정 표와 인원이 같다 — 3·3·5·3', () => {
+    for (const b of BRANCHES) {
+      const got = ROLE_IDS.filter((id) => ROLE_BRANCH[id] === b).length
+      expect(got, b).toBe(BRANCH_COUNT[b])
     }
+  })
+
+  it('갈래 인원을 합치면 열넷이다', () => {
+    expect(BRANCHES.reduce((n, b) => n + BRANCH_COUNT[b], 0)).toBe(ROSTER_SIZE)
+  })
+
+  it('★ 는 셋이다', () => {
+    expect(ROLE_IDS.filter((id) => ROLE_BRANCH[id] === 'astray')).toHaveLength(3)
   })
 })
 
-describe('진행도 공개 정책', () => {
-  it('받은 표에 걸린 조항은 실시간으로 보여 주지 않는다', () => {
-    const received = ['trustReceived', 'suspicionReceivedAtMost', 'suspicionAfterRevealAtMost']
+describe('조건 수치', () => {
+  // 판정 로직에 숫자를 쓰지 않으려면 조항마다 기준치가 있어야 한다.
+  // 하나라도 비면 엔진이 1로 떨어져 조용히 쉬워진다
+  it('모든 조항이 기준치를 갖는다 — 깃발 조항만 뺀다', () => {
+    const flagKinds = new Set(['teamNotFirstAtEnd'])
     for (const r of ROLES) {
-      for (const c of [...r.main.clauses, ...r.bond.clauses]) {
-        if (received.includes(c.kind)) {
-          expect(c.disclosure, `${r.id} · ${c.kind}`).toBe('settlement')
-        }
+      for (const c of r.main.clauses) {
+        if (flagKinds.has(c.kind)) continue
+        const bar = c.need ?? c.limit ?? c.minutes
+        expect(bar, `${r.id} · ${c.kind}`).toBeDefined()
+        expect(bar, `${r.id} · ${c.kind}`).toBeGreaterThan(0)
       }
     }
   })
 
-  it('보낸 사람이 특정되는 조항은 끝에만 판정한다', () => {
-    // 인연 대상에게서 받았는지를 실시간으로 보여 주면 익명 표가 무너진다
-    const traceable = ['voteReceivedFromBond', 'trustReceivedFromBond', 'bondSuspicionReceivedAtMost']
+  // 「우리 팀이 1위가 아님」의 1위는 조절할 수치가 아니라 조건 자체다.
+  // 기준치가 붙은 조항만 본다 — 그쪽이 난이도를 고칠 때 어긋난다
+  it('기준치가 있는 조항은 문구에 숫자를 박아 두지 않는다', () => {
     for (const r of ROLES) {
-      for (const c of [...r.main.clauses, ...r.bond.clauses]) {
-        if (traceable.includes(c.kind)) {
-          expect(c.disclosure, `${r.id} · ${c.kind}`).toBe('endOnly')
-        }
+      for (const c of r.main.clauses) {
+        if (c.need === undefined && c.limit === undefined && c.minutes === undefined) continue
+        expect(/[0-9]/.test(c.text), `${r.id} · ${c.text}`).toBe(false)
       }
     }
   })
 
-  it('순위·종료 소유·동맹은 끝날 때 판정이다', () => {
-    const atEnd = ['teamRankNotFirst', 'bondTeamRankHigher', 'alliedWithBondAtEnd',
-                   'ownFragmentTilesAtEnd', 'holdLeverageOnBondAtEnd']
-    for (const r of ROLES) {
-      for (const c of [...r.main.clauses, ...r.bond.clauses]) {
-        if (atEnd.includes(c.kind)) {
-          expect(c.disclosure, `${r.id} · ${c.kind}`).toBe('endOnly')
-        }
-      }
-    }
+  it('문서가 정한 수치 그대로다', () => {
+    const bar = (id: Parameters<typeof needOf>[0], kind: string) => needOf(id, kind)
+    expect(bar('classlead', 'sameRoomPeople')).toBe(9)
+    expect(bar('model', 'trustReceived')).toBe(3)
+    expect(bar('model', 'trustTeams')).toBe(2)
+    expect(bar('snacker', 'vendBuys')).toBe(3)
+    expect(bar('snacker', 'dealsWithOtherTeam')).toBe(2)
+    expect(bar('locker', 'slipsRead')).toBe(4)
+    expect(bar('bookclub', 'slipsRead')).toBe(4)
+    expect(bar('bookclub', 'slipsGiven')).toBe(2)
+    expect(bar('cleanup', 'slipsTorn')).toBe(3)
+    expect(bar('duty', 'errandsDone')).toBe(4)
+    expect(bar('gardener', 'harvests')).toBe(5)
+    expect(bar('science', 'robotsMade')).toBe(3)
+    expect(bar('tech', 'robotsSmashedOfOthers')).toBe(3)
+    expect(bar('topstudent', 'quizzesSolved')).toBe(6)
+    expect(bar('crush', 'targetSlipRead')).toBe(1)
+    expect(bar('newcomer', 'otherTeamRoomsStood')).toBe(3)
+    expect(bar('backseat', 'invisibleHits')).toBe(2)
+    expect(bar('backseat', 'invisibleHitsSameTeam')).toBe(1)
   })
 
-  it('뒤집힐 수 있는 조항에는 실패 확정을 붙이지 않는다', () => {
-    // 「받은 표」에 걸린 조항은 마지막까지 뒤집힐 수 있다
-    for (const role of ROLES) {
-      for (const c of role.main.clauses) {
-        if (c.kind === 'trustReceived' || c.kind === 'voteReceivedFromBond') {
-          expect(c.failsOnBreak).toBeUndefined()
-        }
-      }
-    }
-  })
-
-  it('되돌릴 수 없는 조항에만 실패 확정을 붙였다', () => {
-    const definite = ROLES.flatMap((r) =>
-      [...r.main.clauses, ...r.bond.clauses].filter((c) => c.failsOnBreak).map((c) => c.kind),
-    )
-    expect([...new Set(definite)].sort()).toEqual(
-      ['neverRevealed', 'neverSpentLeverage', 'noRevealUntilDay'].sort(),
-    )
+  it('시간 조건도 문서 그대로다 — 분 단위', () => {
+    expect(minutesOf('classlead', 'sameRoomPeople')).toBe(1)
+    expect(minutesOf('crush', 'coStayWithTarget')).toBe(30)
+    expect(minutesOf('newcomer', 'otherTeamRoomsStood')).toBe(10)
   })
 })
 
-describe('점수와 엔딩', () => {
-  it('최대 11점이다 — 깨달음과 눈 그침이 붙었다', () => {
-    // 눈이 그치지 않는 학교 8장이 개인 미션 v3의 9점을 11점으로 덮는다
-    expect(MAX_PERSONAL_SCORE).toBe(11)
+function clauseOf(id: Parameters<typeof roleOf>[0], kind: string) {
+  const c = roleOf(id).main.clauses.find((x) => x.kind === kind)
+  if (!c) throw new Error(`${id}에 ${kind} 조항이 없다`)
+  return c
+}
+const roleOf = (id: keyof typeof ROLE_BY_ID) => ROLE_BY_ID[id]
+const needOf = (id: keyof typeof ROLE_BY_ID, kind: string) => clauseOf(id, kind).need
+const minutesOf = (id: keyof typeof ROLE_BY_ID, kind: string) => clauseOf(id, kind).minutes
+
+describe('쪽지 미션', () => {
+  it('셋이다', () => {
+    expect(SLIP_MISSIONS).toHaveLength(3)
   })
 
-  it('DAY 4 선택은 셋이다', () => {
+  it('아이디가 겹치지 않는다', () => {
+    expect(new Set(SLIP_MISSIONS.map((m) => m.id)).size).toBe(3)
+  })
+
+  it('「2명 이하」는 상한 조항이다', () => {
+    const few = SLIP_MISSIONS.find((m) => m.id === 'fewReadMine')
+    expect(few?.limit).toBe(2)
+    expect(few?.need).toBeUndefined()
+  })
+})
+
+describe('마지막 선택', () => {
+  it('셋이다', () => {
     expect(DAY4_CHOICES).toHaveLength(3)
   })
 
-  it('구간이 0~9를 빈틈없이 덮는다', () => {
-    for (let s = 0; s <= MAX_PERSONAL_SCORE; s++) {
-      const band = endingBandOf(s)
-      expect(s >= band.min && s <= band.max, `${s}점`).toBe(true)
-    }
-    expect(endingBandOf(11).id).toBe('stayed')
-    expect(endingBandOf(8).id).toBe('stayed')
-    expect(endingBandOf(7).id).toBe('passed')
-    expect(endingBandOf(4).id).toBe('passed')
-    expect(endingBandOf(3).id).toBe('left')
-    expect(endingBandOf(0).id).toBe('left')
+  it('세 번째 줄은 중요한 사람의 팀이 1위다', () => {
+    expect(DAY4_CHOICES[2].id).toBe('chosen')
+    expect(DAY4_CHOICES[2].text).toBe('중요한 사람의 팀이 1위')
   })
-
 })
 
-describe('인연 고리', () => {
-  const teams: TeamId[] = ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'B', 'C', 'C', 'C', 'D', 'D', 'D']
-  const ids = teams.map((_, i) => `p${i}`)
-  const teamOf = (id: string) => teams[ids.indexOf(id)]
+describe('진행도 상태', () => {
+  it('네 가지다 — 진행 중 · 달성 · 실패 · 끝날 때 판정', () => {
+    expect(Object.values(STATUS_LABEL)).toEqual(['진행 중', '달성', '실패', '끝날 때 판정'])
+  })
+})
 
-  /** 이웃이 서로 다른 팀이 되도록 섞은 고리 하나. */
-  function ringFrom(order: string[]): BondAssignment[] {
-    return order.map((p, i) => ({ playerId: p, bondId: order[(i + 1) % order.length] }))
-  }
-
-  // A A A A B B B B C C C D D D 를 팀이 겹치지 않게 늘어놓는다
-  const order = ['p0', 'p4', 'p1', 'p5', 'p2', 'p6', 'p3', 'p7', 'p8', 'p11', 'p9', 'p12', 'p10', 'p13']
-
-  it('제대로 된 고리는 통과한다', () => {
-    const ring = ringFrom(order)
-    expect(ring).toHaveLength(BOND_RING_SIZE)
-    expect(validateBondRing(ring, teamOf)).toEqual({ ok: true })
+describe('배정 규칙 수치', () => {
+  it('팀마다 손 갈래 하나 이상, 같은 갈래는 둘까지', () => {
+    expect(ASSIGN_RULES.handPerTeamAtLeast).toBe(1)
+    expect(ASSIGN_RULES.sameBranchPerTeamAtMost).toBe(2)
   })
 
-  it('같은 팀끼리 이어지면 막는다', () => {
-    // p0(A) 다음에 p1(A)이 오게 뒤집는다
-    const bad = ringFrom(['p0', 'p1', 'p4', 'p5', 'p2', 'p6', 'p3', 'p7', 'p8', 'p11', 'p9', 'p12', 'p10', 'p13'])
-    const out = validateBondRing(bad, teamOf)
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.reason).toContain('같은 팀')
-  })
-
-  it('자기 자신을 받으면 막는다', () => {
-    const bad = ringFrom(order)
-    bad[0] = { playerId: 'p0', bondId: 'p0' }
-    const out = validateBondRing(bad, teamOf)
-    expect(out.ok).toBe(false)
-  })
-
-  it('작은 고리 두 개로 갈라지면 막는다', () => {
-    // 팀 규칙은 지키면서 일곱씩 두 고리로만 갈라 둔다.
-    // 그래야 「같은 팀」이 아니라 「갈라짐」에서 걸리는 걸 확인할 수 있다.
-    const half1 = ['p0', 'p4', 'p1', 'p5', 'p2', 'p8', 'p6']
-    const half2 = ['p9', 'p11', 'p10', 'p12', 'p3', 'p13', 'p7']
-    const bad = [...ringFrom(half1), ...ringFrom(half2)]
-    // 이웃은 전부 다른 팀이다 — 오직 갈라진 것만 문제다
-    for (const b of bad) expect(teamOf(b.playerId)).not.toBe(teamOf(b.bondId))
-    const out = validateBondRing(bad, teamOf)
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.reason).toContain('고리')
-  })
-
-  it('누군가 두 번 지목되면 막는다', () => {
-    const bad = ringFrom(order)
-    bad[1] = { playerId: bad[1].playerId, bondId: bad[0].bondId }
-    const out = validateBondRing(bad, teamOf)
-    expect(out.ok).toBe(false)
-  })
-
-  it('열네 명이 아니면 막는다', () => {
-    const out = validateBondRing(ringFrom(order).slice(0, 13), teamOf)
-    expect(out.ok).toBe(false)
+  it('★ 셋은 서로 다른 팀에, 그중 둘은 4인 팀에', () => {
+    expect(ASSIGN_RULES.astrayOnePerTeam).toBe(true)
+    expect(ASSIGN_RULES.astrayInBigTeams).toBe(2)
   })
 })

@@ -20,7 +20,6 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { discloseFor, judge, type Phase } from '../../shared/missions/judge'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
 import { ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
-import { dayNumber } from '../../shared/rules/clock'
 import type { GameDoc, RosterDoc } from '../../shared/model'
 
 import { buildLog } from './ending'
@@ -65,9 +64,10 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
   const head = {
     roleId,
     roleName: ROLE_NAMES[roleId],
-    // 갈래는 안 보낸다. 화면이 안 적는 것은 서버도 안 꺼낸다
-    // 내 것 한 줄. 남의 숨긴 사실은 이 응답 어디에도 없다
-    secret: role.secret,
+    // 역할 카드 맨 위 한 줄. 남의 것은 이 응답 어디에도 없다
+    flavor: role.flavor,
+    // 짝사랑만 채워진다. 이름만이고 어디 있는지는 안 보낸다
+    footnote: role.footnote,
   }
 
   /*
@@ -83,11 +83,11 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
     return {
       ...head,
       counting: false,
-      main: { text: role.main.text, clauses: [], met: null, broken: false },
-      bond: { text: role.bond.text, clauses: [], met: null, broken: false },
+      main: { text: role.main.text, clauses: [], status: 'endOnly' as const },
+      slips: [],
+      choice: 'endOnly' as const,
       votesReceived: 0,
       votesThroughDay: 0,
-      revealed: null,
     }
   }
 
@@ -98,8 +98,9 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
     ...(over ? {} : { voteCutoffDay: game.day }),
   })
 
-  const result = judge({ playerId: uid, team: mine.team, roleId, bondId: mine.bondId }, log)
-  const phase: Phase = over ? 'end' : 'settlement'
+  const result = judge({ playerId: uid, team: mine.team, roleId, targetId: mine.targetId ?? null }, log)
+  // 하루가 바뀔 때 부르는 자리다 — 받은 표 조항은 여기서만 갱신된다
+  const phase: Phase = over ? 'end' : 'dayTurned'
   const shown = discloseFor(result, phase)
 
   // 받은 표. **합계 하나뿐이다** — 신뢰인지 호감인지도, 누가 줬는지도
@@ -110,16 +111,10 @@ export const myPaper = onCall<{ gameId: string }>(async (req) => {
     ...head,
     counting: true,
     main: shown.main,
-    bond: shown.bond,
+    slips: shown.slips,
+    choice: shown.choice,
     votesReceived,
     /** 표를 어디까지 셌는가. 화면이 「어제까지」라고 적는다. */
     votesThroughDay: over ? game.day : game.day - 1,
-    revealed: mine.reveal
-      ? {
-          scope: mine.reveal.scope,
-          atMs: mine.reveal.atMs,
-          day: dayNumber(game.startedAtMs ?? mine.reveal.atMs, mine.reveal.atMs),
-        }
-      : null,
   }
 })

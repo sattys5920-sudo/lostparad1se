@@ -6,10 +6,8 @@
 import { describe, expect, it } from 'vitest'
 import { FRAGMENTS, FRAGMENT_BY_DAY } from './fragments'
 import { OPENING } from './opening'
-import { SIGHTS, SIGHT_BY_ROLE, placeOf } from './sights'
 import { MEMORIES, MEMORY_TILE_IDS } from './memories'
-import { CLUE_MAP, LINKS, HOST_RULES } from './clues'
-import { HINT_SCHEDULE, NEVER_HINTED, ROLE_IDS } from '../../../shared/missions/roles'
+import { HOST_RULES } from './hostRules'
 import { MEMORY_TILES } from '../../../shared/rules/memory'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import { TOTAL_DAYS } from '../../../shared/rules/v2'
@@ -18,17 +16,6 @@ describe('A의 기록', () => {
   it('닷새 모두 있다', () => {
     expect(FRAGMENTS).toHaveLength(TOTAL_DAYS)
     for (let d = 1; d <= TOTAL_DAYS; d++) expect(FRAGMENT_BY_DAY[d]).toBeDefined()
-  })
-
-  it('가리키는 역할이 힌트 일정과 같다', () => {
-    for (const f of FRAGMENTS) {
-      expect([...f.implicated].sort(), `DAY ${f.day}`).toEqual([...HINT_SCHEDULE[f.day]].sort())
-    }
-  })
-
-  it('가리켜지지 않는 넷은 기록에 없다', () => {
-    const named = FRAGMENTS.flatMap((f) => f.implicated)
-    for (const id of NEVER_HINTED) expect(named, id).not.toContain(id)
   })
 
   it('지목 칸이 실제 칸이고 기지가 아니다', () => {
@@ -86,30 +73,6 @@ describe('A의 기록', () => {
   })
 })
 
-describe('A의 시선과 그 자리', () => {
-  it('열네 역할 모두에게 있다', () => {
-    expect(SIGHTS).toHaveLength(14)
-    for (const id of ROLE_IDS) expect(SIGHT_BY_ROLE[id], id).toBeDefined()
-  })
-
-  it('그 자리가 실제 칸이다', () => {
-    for (const s of SIGHTS) expect(TILE_BY_ID[s.tile], s.role).toBeDefined()
-  })
-
-  it('지킴이와 거짓말쟁이는 그 자리가 같다', () => {
-    expect(placeOf('guard')).toBe('storage')
-    expect(placeOf('liar')).toBe('storage')
-  })
-
-  it('방관자의 그 자리는 중앙광장이다', () => {
-    expect(placeOf('bystander')).toBe('centralPlaza')
-  })
-
-  it('문장이 비어 있지 않다', () => {
-    for (const s of SIGHTS) expect(s.text.length, s.role).toBeGreaterThan(10)
-  })
-})
-
 describe('A의 기억', () => {
   it('규칙이 세는 열두 칸과 정확히 같다', () => {
     expect([...MEMORY_TILE_IDS].sort()).toEqual([...MEMORY_TILES].sort())
@@ -133,28 +96,8 @@ describe('오프닝', () => {
   })
 })
 
-describe('추리 지도', () => {
-  it('열네 역할이 모두 한 줄씩 있다', () => {
-    expect(CLUE_MAP).toHaveLength(14)
-    expect(new Set(CLUE_MAP.map((c) => c.role)).size).toBe(14)
-  })
-
-  it('가리켜지지 않는 넷은 기록 단서가 없거나 이름이 없다', () => {
-    for (const id of NEVER_HINTED) {
-      const row = CLUE_MAP.find((c) => c.role === id)
-      expect(row, id).toBeDefined()
-      // 지킴이만 DAY 5 「철컥」이 있지만 누구인지는 적혀 있지 않다
-      if (row?.inRecord) expect(row.inRecord, id).toContain('누구인지는 없음')
-      expect(row?.exposure, id).toBe('onlyByOwnReveal')
-    }
-  })
-
-  it('연결 단서가 넷이다', () => {
-    expect(LINKS).toHaveLength(4)
-    expect(new Set(LINKS.map((l) => l.id)).size).toBe(4)
-  })
-
-  it('운영자 수칙 세 줄이 있다', () => {
+describe('운영자 수칙', () => {
+  it('세 줄이 있다', () => {
     expect(HOST_RULES).toHaveLength(3)
     expect(HOST_RULES[0]).toContain('진상을 설명하지 않는다')
   })

@@ -31,7 +31,7 @@ const ROSTER = TEAMS.flatMap((team) =>
     playerId: `${team}${i}`,
     team,
     roleId: `role-${team}${i}`,
-    bondId: `${team}${(i + 1) % SIZES[team]}`,
+    targetId: `${team}${(i + 1) % SIZES[team]}`,
   })),
 )
 
@@ -145,7 +145,7 @@ const json = (v: unknown) => JSON.stringify(v)
 describe('역할', () => {
   it('자기 한 줄만 나간다', () => {
     const v = projectView(world(), 'A0')
-    expect(v.own).toEqual({ roleId: 'role-A0', bondId: 'A1' })
+    expect(v.own).toEqual({ roleId: 'role-A0', targetId: 'A1' })
   })
 
   it('열넷 몫 어디에도 남의 역할이 없다', () => {
@@ -342,7 +342,7 @@ describe('열넷 몫을 통째로 훑는다', () => {
   it('남의 인연 대상이 없다', () => {
     for (const r of ROSTER) {
       const v = all[r.playerId]
-      expect(v.own?.bondId).toBe(ROSTER.find((x) => x.playerId === r.playerId)?.bondId)
+      expect(v.own?.targetId).toBe(ROSTER.find((x) => x.playerId === r.playerId)?.targetId)
     }
   })
 })

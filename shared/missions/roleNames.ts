@@ -1,38 +1,46 @@
 // 역할 이름만. **화면이 import 해도 되는 유일한 역할 파일이다.**
 //
-// roles.ts에는 열네 역할의 숨긴 사실과 미션 조건이 들어 있다. 화면에서
-// 이름 하나를 쓰려고 그 파일을 부르면 숨긴 사실 열넷이 통째로 번들에
-// 실린다. 실제로 그렇게 새어 나간 적이 있어서 이 파일을 따로 뒀다.
+// roles.ts에는 열네 역할의 미션 조건과 수치가 들어 있다. 화면에서 이름
+// 하나를 쓰려고 그 파일을 부르면 조건이 통째로 번들에 실린다. 실제로
+// 그렇게 새어 나간 적이 있어서 이 파일을 따로 뒀다.
 //
-// 이름 자체는 공개다. 열네 역할이 있다는 것과 그 이름은 규칙서에 적혀
-// 있고, 추리 노트의 태그 목록에도 필요하다. 감춰야 하는 것은
-// **누가 무엇인지**와 **각 역할이 무엇을 숨기고 있는지**다.
+// 이름과 갈래는 공개다. 감춰야 하는 것은 **누가 무엇인지**다.
 
-export type RolePath = 'team' | 'people' | 'outside'
+/**
+ * 네 갈래.
+ *
+ *   사람    만나고 주고받는다
+ *   쪽지    남의 비밀을 다룬다
+ *   손      벌고, 만들고, 부순다
+ *   어긋남  팀 이익과 부딪힌다 (★)
+ */
+export type MissionBranch = 'people' | 'slip' | 'hand' | 'astray'
 
 export type RoleId =
-  // 팀의 길
-  | 'guard' | 'vanguard' | 'librarian' | 'shadow'
-  // 사람의 길
-  | 'buddy' | 'witness' | 'liar' | 'accuser' | 'notebook' | 'letter'
-  // 밖의 길
-  | 'leaver' | 'mediator' | 'transfer' | 'bystander'
+  // 사람
+  | 'classlead' | 'model' | 'snacker'
+  // 쪽지
+  | 'locker' | 'bookclub' | 'cleanup'
+  // 손
+  | 'duty' | 'gardener' | 'science' | 'tech' | 'topstudent'
+  // 어긋남 ★
+  | 'crush' | 'newcomer' | 'backseat'
 
 export const ROLE_NAMES: Record<RoleId, string> = {
-  guard: '지킴이',
-  vanguard: '선봉',
-  librarian: '도서부',
-  shadow: '그림자',
-  buddy: '단짝',
-  witness: '목격자',
-  liar: '거짓말쟁이',
-  accuser: '고발자',
-  notebook: '수첩',
-  letter: '편지',
-  leaver: '떠날 아이',
-  mediator: '중재자',
-  transfer: '전학생',
-  bystander: '방관자',
+  classlead: '반장',
+  model: '모범생',
+  snacker: '매점 단골',
+  locker: '사물함',
+  bookclub: '도서부',
+  cleanup: '미화부',
+  duty: '주번',
+  gardener: '원예부',
+  science: '과학부',
+  tech: '기술부',
+  topstudent: '전교 1등',
+  crush: '짝사랑',
+  newcomer: '전학생',
+  backseat: '뒷자리',
 }
 
 export const ROLE_IDS: readonly RoleId[] = Object.keys(ROLE_NAMES) as RoleId[]
@@ -41,8 +49,38 @@ export function roleName(id: RoleId): string {
   return ROLE_NAMES[id]
 }
 
-export const ROLE_PATH_LABEL: Record<RolePath, string> = {
-  team: '팀의 길',
-  people: '사람의 길',
-  outside: '밖의 길',
+export const ROLE_BRANCH: Record<RoleId, MissionBranch> = {
+  classlead: 'people',
+  model: 'people',
+  snacker: 'people',
+  locker: 'slip',
+  bookclub: 'slip',
+  cleanup: 'slip',
+  duty: 'hand',
+  gardener: 'hand',
+  science: 'hand',
+  tech: 'hand',
+  topstudent: 'hand',
+  crush: 'astray',
+  newcomer: 'astray',
+  backseat: 'astray',
 }
+
+export const BRANCH_LABEL: Record<MissionBranch, string> = {
+  people: '사람',
+  slip: '쪽지',
+  hand: '손',
+  astray: '어긋남',
+}
+
+export const BRANCHES: readonly MissionBranch[] = ['people', 'slip', 'hand', 'astray']
+
+export const ROLES_BY_BRANCH: Record<MissionBranch, readonly RoleId[]> = {
+  people: ROLE_IDS.filter((id) => ROLE_BRANCH[id] === 'people'),
+  slip: ROLE_IDS.filter((id) => ROLE_BRANCH[id] === 'slip'),
+  hand: ROLE_IDS.filter((id) => ROLE_BRANCH[id] === 'hand'),
+  astray: ROLE_IDS.filter((id) => ROLE_BRANCH[id] === 'astray'),
+}
+
+/** ★ — 팀 이익과 부딪히는 역할. 셋은 반드시 서로 다른 팀에 간다. */
+export const ASTRAY_BRANCH: MissionBranch = 'astray'

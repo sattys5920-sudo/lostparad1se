@@ -204,7 +204,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       const locked = t.lockedBy && (t.lockUntilMs ?? 0) > nowMs ? t.lockedBy : null
       return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, lockedBy: locked }
     }),
-    roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: r.roleId, bondId: r.bondId })),
+    roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: r.roleId, targetId: r.targetId ?? null })),
     hands: hands.docs.map((d) => {
       const c = d.data() as CardDoc & { team: 'A' | 'B' | 'C' | 'D' }
       return { id: d.id, team: c.team, kind: c.kind, ...(c.targetTeam ? { targetTeam: c.targetTeam } : {}) }

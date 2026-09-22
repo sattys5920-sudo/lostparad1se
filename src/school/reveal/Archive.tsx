@@ -15,18 +15,12 @@ import {
   type ArchiveTab,
 } from '../../../shared/reveal/archive'
 import {
-  GUESS_OPTIONS,
   NOTE_MAX,
   setEntryNote,
-  setGuess,
   setPersonNote,
   tagOf,
-  UNKNOWN,
   type DeductionNote,
-  type Guess,
 } from '../../../shared/reveal/notes'
-// 이름만 쓴다. roles.ts를 부르면 숨긴 사실 열넷이 번들에 실린다
-import { ROLE_NAMES } from '../../../shared/missions/roleNames'
 
 export interface ArchiveProps {
   items: readonly ArchiveItem[]
@@ -38,8 +32,6 @@ export interface ArchiveProps {
   onNoteChange: (next: DeductionNote) => void
   onClose?: () => void
 }
-
-const guessLabel = (g: Guess): string => (g === UNKNOWN ? '모름' : ROLE_NAMES[g])
 
 export function Archive(props: ArchiveProps) {
   const [tab, setTab] = useState<ArchiveTab>('record')
@@ -156,11 +148,6 @@ export function PersonBoard({
   classmates: readonly { id: string; name: string }[]
   onNoteChange: (n: DeductionNote) => void
 }) {
-  function pick(targetId: string, guess: Guess) {
-    const out = setGuess(note, targetId, guess, Date.now())
-    if (out.ok) onNoteChange(out.note)
-  }
-
   function jot(targetId: string, text: string) {
     const out = setPersonNote(note, targetId, text, Date.now())
     if (out.ok) onNoteChange(out.note)
@@ -178,18 +165,6 @@ export function PersonBoard({
             <li key={p.id} className="sc-ar__person">
               <div className="sc-ar__person-head">
                 <span className="sc-ar__person-name">{p.name}</span>
-                <select
-                  className={`sc-ar__guess ${tag.guess === UNKNOWN ? 'is-unknown' : ''}`}
-                  value={tag.guess}
-                  onChange={(e) => pick(p.id, e.target.value as Guess)}
-                  aria-label={`${p.name}의 역할 추리`}
-                >
-                  {GUESS_OPTIONS.map((g) => (
-                    <option key={g} value={g}>
-                      {guessLabel(g)}
-                    </option>
-                  ))}
-                </select>
               </div>
               <input
                 className="sc-ar__person-note"

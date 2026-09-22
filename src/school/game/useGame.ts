@@ -14,6 +14,7 @@
 //
 // 말의 위치도, 남의 손패도, 표도 여기 없다. 규칙이 막아서가 아니라
 // 서버가 애초에 담지 않아서다.
+import type { Day4Choice } from '../../../shared/rules/choices'
 import { useEffect, useMemo, useState } from 'react'
 import { collection, doc, onSnapshot } from 'firebase/firestore'
 
@@ -351,7 +352,7 @@ export function gameActions(gameId: string) {
       callServer('revealSecret', { ...g, scope, listenerIds }),
 
     chooseImportant: (targetId: string) => callServer('chooseImportant', { ...g, targetId }),
-    chooseDay4: (choice: 'team' | 'self' | 'bond') => callServer('chooseDay4', { ...g, choice }),
+    chooseDay4: (choice: Day4Choice) => callServer('chooseDay4', { ...g, choice }),
 
     /** 한 줄 친다. 내가 선 방에 남는다. 어떤 판정에도 쓰이지 않는다. */
     say: (text: string) => callServer('say', { ...g, text }),

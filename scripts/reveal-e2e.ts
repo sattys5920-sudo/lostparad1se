@@ -1,17 +1,16 @@
 // 진상 공개 흐름의 서버 쪽을 진짜 서버로.
 //
-// 아침 진행 · 체류 기록 · 깨달음 · 눈발 · A의 기억.
+// 아침 진행 · 체류 기록 · 눈발 · A의 기억.
 //
 //   npx -y -p firebase-tools firebase emulators:start \
 //     --only firestore,functions,auth --project demo-goei
 //   npx vite-node scripts/reveal-e2e.ts
-import { AWAKENING_STAY_GAME_HOURS, STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { MEMORY_TILES } from '../shared/rules/memory'
 import { dayHourMs } from '../shared/rules/clock'
 // 검수 script는 서버 전용 데이터를 읽어도 된다 — 번들에 실리지 않는다.
 // 게임 중에는 이 짝을 아무도 못 본다
-import { placeOf } from '../functions/src/story/sights'
 import type { RoleId } from '../shared/missions/roleNames'
 
 const PROJECT = 'demo-goei'
@@ -160,53 +159,6 @@ async function main(): Promise<void> {
   const g = (await getDoc(`games/${GAME}`)) as { snow: { level: number; stopped: boolean } }
   check(g.snow.level === 5, '판 문서에도 단계만 있다')
   check(!hasKey(g.snow, 'awakened'), '판 문서에도 사람 수가 없다')
-
-  console.log('\n── 깨달음 ──')
-  check((await view(me.uid)).sightAtMs === null, '아직 A의 시선이 안 열렸다')
-
-  // 실제로 한 명을 그 자리에 세워 본다. 「판정이 돌았다」만 보면
-  // 아무도 깨닫지 않은 판에서도 초록으로 뜬다
-  const roster = await getAll(`games/${GAME}/secret/roster/items`)
-  const walker = people.find((p) => {
-    const row = roster.find((r) => r.id === p.uid)
-    return row && placeOf(row.d.roleId as RoleId) !== undefined
-  }) as (typeof people)[0]
-  const myPlace = placeOf(
-    (roster.find((r) => r.id === walker.uid) as { d: { roleId: string } }).d.roleId as RoleId,
-  )
-  console.log(`     (${myPlace}에 세운다)`)
-
-  await must('moveTo', walker.token, { gameId: GAME, tileId: myPlace })
-  const pw = (await getDoc(`games/${GAME}/pawns/${walker.uid}`)) as { arriveAtMs: number; path: string[] }
-  await clock(Number(pw.arriveAtMs) + pw.path.length * 15 * 60_000)
-  await must('tick', walker.token, { gameId: GAME })
-  const stood = (await getDoc(`games/${GAME}/pawns/${walker.uid}`)) as { tileId: string }
-  check(stood.tileId === myPlace, '그 자리에 섰다', String(stood.tileId))
-
-  // 세 시간이 차기 직전에는 아직 안 열린다
-  const arrivedAt = Number(pw.arriveAtMs) + pw.path.length * 15 * 60_000
-  await clock(arrivedAt + (AWAKENING_STAY_GAME_HOURS - 1) * 3_600_000)
-  await must('snowNow', walker.token, { gameId: GAME })
-  check((await view(walker.uid)).sightAtMs === null, `${AWAKENING_STAY_GAME_HOURS - 1}시간으로는 안 열린다`)
-
-  await clock(arrivedAt + (AWAKENING_STAY_GAME_HOURS + 1) * 3_600_000)
-  await must('snowNow', walker.token, { gameId: GAME })
-  const opened = await getAll(`games/${GAME}/secret/awakened/items`)
-  check(opened.some((o) => o.id === walker.uid), `${AWAKENING_STAY_GAME_HOURS}시간을 서니 깨달았다`, `${opened.length}명`)
-  check((await view(walker.uid)).sightAtMs !== null, '본인에게 A의 시선이 열렸다')
-
-  // 남에게는 안 열린다
-  let sightLeaks = 0
-  for (const p of people) {
-    if (opened.some((o) => o.id === p.uid)) continue
-    if ((await view(p.uid)).sightAtMs !== null) sightLeaks += 1
-  }
-  check(sightLeaks === 0, '깨닫지 않은 사람에게는 안 열린다', `${sightLeaks}명`)
-
-  // 그 짝은 어디로도 안 나간다 — 알면 역할을 역산할 수 있다
-  let placeLeaks = 0
-  for (const p of people) if (hasKey(await getDoc(`games/${GAME}/views/${p.uid}`), 'placeTile')) placeLeaks += 1
-  check(placeLeaks === 0, '「그 자리」가 어느 몫에도 없다')
 
   console.log('\n── A의 기억 ──')
   check(MEMORY_TILES.length === 13, '기억이 묻힌 칸은 열셋', `${MEMORY_TILES.length}칸`)

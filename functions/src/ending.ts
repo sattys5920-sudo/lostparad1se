@@ -7,18 +7,16 @@
 // 정해 주는 대신, 운영자가 사람마다 한 편씩 적는다 — 아래 세 문이다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
-import type { BallotDay, CaptureRecord, GameLog, JudgeVote, RevealRecord, TradeRecord } from '../../shared/missions/judge'
+import type { BallotDay, BallotVote, GameLog, JudgeVote } from '../../shared/missions/judge'
 import type { GameRecord, OwnerChange } from '../../shared/rules/records'
 import { ALL_KEY, ENDING_MAX } from '../../shared/reveal/ending'
 import { teamPurse } from '../../shared/rules/resources'
 import { publicScore, rankTeams, type TeamState } from '../../shared/rules/score'
-import { snowStopped } from '../../shared/rules/snow'
 import { TEAMS } from '../../shared/rules/lobby'
-import { dayNumber } from '../../shared/rules/clock'
 import type { TileId } from '../../shared/rules/board'
 import type { Interval } from '../../shared/rules/presence'
 import type { TeamId } from '../../shared/rules/v2'
-import type { CaptureDoc, EventDoc, GameDoc, PawnDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
+import type { CaptureDoc, GameDoc, PawnDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
 
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
@@ -50,15 +48,13 @@ export async function buildLog(
   const nowMs = nowOf(game)
   const startedAtMs = game.startedAtMs ?? nowMs
 
-  const [rosterS, ivS, voteS, evS, capS, tileS, teamS, awakeS, choiceS, closingS, pawnS, recordS, ballotDayS] = await Promise.all([
+  const [rosterS, ivS, voteS, capS, tileS, teamS, choiceS, closingS, pawnS, recordS, ballotDayS, ballotS, slipS] = await Promise.all([
     secret(gameId, 'roster').get(),
     secret(gameId, 'intervals').get(),
     secret(gameId, 'votes').get(),
-    ref.collection('events').get(),
     ref.collection('captures').get(),
     ref.collection('tiles').get(),
     ref.collection('teams').get(),
-    secret(gameId, 'awakened').get(),
     secret(gameId, 'choices').get(),
     ref.collection('secret').doc('closing').get(),
     ref.collection('pawns').get(),
@@ -66,6 +62,8 @@ export async function buildLog(
     // 짝·시험지·이적이 전부 여기 쌓여 있었는데 판정에는 안 들어갔다
     ref.collection('secret').doc('records').collection('items').get(),
     ref.collection('secret').doc('ballotDays').collection('items').get(),
+    ref.collection('secret').doc('ballots').collection('items').get(),
+    ref.collection('secret').doc('slips').collection('items').get(),
   ])
 
   const roster = rosterS.docs.map((d) => d.data() as RosterDoc)
@@ -76,13 +74,10 @@ export async function buildLog(
     const t = d.data() as TileDoc
     return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
   })
-  const ownerAt = new Map(tiles.map((t) => [t.tileId, t.ownerTeam]))
   const teamDocs = new Map(teamS.docs.map((d) => [d.id as TeamId, d.data() as TeamDoc]))
 
-  const events = evS.docs.map((d) => d.data() as EventDoc)
-  // 페이즈가 닫힐 때마다 남긴 점령 기록. 개인 미션의 「방어 참여」·
-  // 「공격 참여」가 이것만 본다
-  const captures: CaptureRecord[] = capS.docs.map((d) => {
+  /** 페이즈가 닫힐 때마다 남긴 점령 기록. 소유 이력이 여기서 나온다. */
+  const captures = capS.docs.map((d) => {
     const c = d.data() as CaptureDoc
     return {
       tileId: c.tileId as TileId,
@@ -92,25 +87,12 @@ export async function buildLog(
       atMs: c.atMs,
     }
   })
-  const trades: TradeRecord[] = events
-    .filter((e) => e.kind === 'tradeAccepted')
-    .map((e) => ({ fromTeam: e.detail?.fromTeam as TeamId, toTeam: e.team as TeamId, atMs: e.atMs }))
-  const lostTile = new Set(events.filter((e) => e.kind === 'tileLost').map((e) => e.team as TeamId))
 
   const cutoff = opts.voteCutoffDay
   const votes: JudgeVote[] = voteS.docs
     .map((d) => d.data() as VoteDoc)
     .filter((v) => cutoff === undefined || v.day < cutoff)
     .map((v) => ({ voterId: v.voterId, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
-  const reveals: RevealRecord[] = roster
-    .filter((r) => r.reveal)
-    .map((r) => ({
-      speakerId: r.playerId,
-      scope: r.reveal!.scope,
-      listenerIds: r.reveal!.listenerIds,
-      day: dayNumber(startedAtMs, r.reveal!.atMs),
-      atMs: r.reveal!.atMs,
-    }))
 
   // 최종 순위. 비밀 목표는 아직 안 넣는다 — 공개 점수로 낸다
   // **자원은 지갑 넷의 합이다.** 금고가 없어졌다 — 점수판만 팀 단위다
@@ -125,7 +107,6 @@ export async function buildLog(
     return publicScore({ tiles, fragments: [], team: state })
   })
   const ranked = rankTeams(scores, (team) => teamPurse(wallet, team).knowledge)
-  const teamRank = Object.fromEntries(ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>
   // 안 가른 순위. 「우리 팀이 1위가 아니다」가 이쪽을 본다
   const teamTiedRank = Object.fromEntries(ranked.map((r) => [r.team, r.tiedRank])) as Record<TeamId, number>
 
@@ -143,6 +124,18 @@ export async function buildLog(
     ownerBefore: c.ownerBefore,
     atMs: c.atMs,
   }))
+  const ballots: BallotVote[] = ballotS.docs
+    .map((d) => d.data() as BallotVote & { atMs: number })
+    .map((b) => ({ day: b.day, voterId: b.voterId, targetId: b.targetId, voterTeam: b.voterTeam, targetTeam: b.targetTeam }))
+
+  /** 끝에 누가 어떤 쪽지를 쥐고 있나. 찢긴 것은 heldBy 가 비어 있다. */
+  const slipsHeldAtEnd: Record<string, string[]> = {}
+  for (const d of slipS.docs) {
+    const row = d.data() as { heldBy: string | null }
+    if (!row.heldBy) continue
+    ;(slipsHeldAtEnd[row.heldBy] ??= []).push(d.id)
+  }
+
   const ballotDayRows: BallotDay[] = ballotDayS.docs
     .map((d) => d.data() as { day: number; invisibleId: string | null; reason: string })
     .map((r) => ({ day: r.day, invisibleId: r.invisibleId ?? null, reason: r.reason }))
@@ -153,40 +146,24 @@ export async function buildLog(
     | { together: Record<string, boolean>; mutual: Record<string, boolean>; chosenBy: Record<string, string | null> }
     | undefined
 
-  const awakened = Object.fromEntries(awakeS.docs.map((d) => [d.id, true]))
-  const revealedCount = reveals.length
-  const stopped = snowStopped({ awakened: awakeS.size, revealed: revealedCount })
 
   const log: GameLog = {
     startedAtMs,
     nowMs,
     over: opts.over ?? true,
     teamOf,
+    roster: roster.map((r) => r.playerId),
     intervals: ivS.docs.map((d) => d.data() as Interval),
     votes,
-    reveals,
-    leverageUses: [],
-    captures,
-    leverageGains: [],
-    trades,
-    fragmentTiles: game.boostedTiles as TileId[],
-    ownerAtEnd: (id) => ownerAt.get(id) ?? null,
-    teamRank,
-    teamTiedRank,
+    ballots,
+    ballotDays: ballotDayRows,
     records,
     ownerChanges,
-    ballotDays: ballotDayRows,
-    // 동맹은 걷어냈다. 인연 팀과 손잡는 미션은 나중에 고친다
-    allianceAtEnd: Object.fromEntries(TEAMS.map((t) => [t, null])) as Record<TeamId, TeamId | null>,
-    leverageAtEnd: [],
-    teamLostTile: Object.fromEntries(TEAMS.map((t) => [t, lostTile.has(t)])) as Record<TeamId, boolean>,
+    teamTiedRank,
+    slipsHeldAtEnd,
     chosenBy: closing?.chosenBy ?? {},
     // 두 번 돌린다. 아래에서 채운다
     choiceMet: {},
-    closingTogether: closing?.together ?? {},
-    closingMutual: closing?.mutual ?? {},
-    awakened,
-    snowStopped: stopped,
   }
 
   return { log, roster, seats: game.seats, ranked: ranked.map((r) => ({ team: r.team, rank: r.rank, total: r.total })), choices }

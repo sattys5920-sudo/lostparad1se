@@ -90,7 +90,7 @@ export function settleRoster(
     had.size === dealt.length &&
     dealt.every((a) => {
       const was = had.docs.find((d) => d.id === a.playerId)?.data() as RosterRow | undefined
-      return was?.team === a.team && was?.roleId === a.roleId && was?.bondId === a.bondId
+      return was?.team === a.team && was?.roleId === a.roleId && was?.targetId === a.targetId
     })
   if (same) return
 
@@ -100,7 +100,7 @@ export function settleRoster(
       playerId: a.playerId,
       team: a.team,
       roleId: a.roleId,
-      bondId: a.bondId,
+      targetId: a.targetId,
       reveal: null,
     })
   }
@@ -109,7 +109,7 @@ export function settleRoster(
 interface RosterRow {
   team: TeamId
   roleId: string
-  bondId: string
+  targetId: string | null
 }
 
 function randomOpenTeam(others: readonly SeatEntry[], seed: string): TeamId | undefined {
@@ -359,7 +359,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
       playerId: a.playerId,
       team: a.team,
       roleId: a.roleId,
-      bondId: a.bondId,
+      targetId: a.targetId,
       reveal: revealOf.get(a.playerId) ?? null,
     })
   }

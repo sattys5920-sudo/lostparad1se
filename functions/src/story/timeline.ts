@@ -5,7 +5,6 @@
 //
 // 태그가 없는 문장은 목록 맨 위에 경고로 뜬다. 새 문장을 넣고 태그를
 // 잊으면 바로 눈에 띈다.
-import type { RoleId } from '../../../shared/missions/roleNames'
 
 /** 사건의 시간축. scenario_reveal 2장의 뼈대 그대로다. */
 export type TimeTag =
@@ -87,33 +86,10 @@ export const PLACES: readonly string[] = [
 //
 // 문장 자체는 각자의 파일에 있고, 여기서는 **어느 문장이 언제인지만**
 // 정한다. 문장을 고쳐도 이 표는 그대로 쓸 수 있다.
+//
+// 숨긴 사실과 목격담의 시각표가 여기 있었다. 둘 다 역할에 매여 있던
+// 것이라, 추리 층을 걷어내면서 같이 나갔다.
 
-/** 역할의 숨긴 사실이 가리키는 때. */
-export const SECRET_TIME: Record<RoleId, TimeTag> = {
-  mediator: 'term',
-  transfer: 'term',
-  librarian: 'term',
-  notebook: 'term',
-  shadow: 'term',
-  leaver: 'term',
-  buddy: 'term',
-  letter: 't1650',
-  accuser: 't1710',
-  vanguard: 't1730',
-  witness: 't1730',
-  liar: 't1800',
-  guard: 't1900',
-  bystander: 't2100',
-}
-
-/** A의 시선이 가리키는 때. 대체로 숨긴 사실과 같은 순간이다. */
-export const SIGHT_TIME: Record<RoleId, TimeTag> = {
-  ...SECRET_TIME,
-  // 지킴이의 시선은 자물쇠 소리를 들은 그 순간이다
-  guard: 't1900',
-  // 도서부의 시선은 창가 자리 이야기라 학기 중이다
-  librarian: 'term',
-}
 
 /** A의 기록 다섯 장이 적힌 때. */
 export const FRAGMENT_TIME: Record<number, TimeTag> = {

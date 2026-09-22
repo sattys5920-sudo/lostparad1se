@@ -1,4 +1,4 @@
-// 표 · 털어놓기 · 투명인간을 진짜 서버로.
+// 표 · 투명인간을 진짜 서버로.
 //
 // 여기서 제일 중요한 확인은 **보낸 사람이 어디로도 안 나가는 것**이다.
 // 표는 익명이어야 하고, 익명이 아니면 투명인간 투표가 게임이 아니라
@@ -135,12 +135,10 @@ async function main(): Promise<void> {
   // 시작하면 각자 자기 기지에 선다. A팀 기지와 B팀 기지는 다른 방이다
   const far = await call('castVote', A0[0].token, { gameId: GAME, targetId: B0[0].uid, kind: 'trust' })
   check(far.code === 'FAILED_PRECONDITION', '학교 반대편 사람에게는 표를 못 준다', far.message)
-  const farSay = await call('revealSecret', A0[0].token, { gameId: GAME, scope: 'private', listenerIds: [B0[0].uid] })
-  check(farSay.code === 'FAILED_PRECONDITION', '멀리 있는 사람에게는 못 털어놓는다', farSay.message)
   const farDeal = await call('offerTrade', A0[0].token, { gameId: GAME, toTeam: 'B', give: { money: 1 }, want: { knowledge: 1 } })
   check(farDeal.code === 'FAILED_PRECONDITION', '멀리 있는 팀에는 교역을 못 건다', farDeal.message)
 
-  // 표도 교역도 털어놓기도 그 자리에서 만나야 한다. 복도에 모인다
+  // 표도 교역도 그 자리에서 만나야 한다. 복도에 모인다
   console.log('\n── 한자리에 모은다 ──')
   await meetAt(must, GAME, 'hallway', people, (ms) => clock(ms), dayHourMs(START, 1, 16))
   const standing = await getAll(`games/${GAME}/pawns`)
@@ -185,40 +183,6 @@ async function main(): Promise<void> {
   const evJson = JSON.stringify(voteEvents)
   check(!voteEvents.some((e) => evJson.includes(String(e.d.playerId ?? 'ZZZ')) && e.d.playerId), '표 기록에 사람이 없다')
   check(!evJson.includes(A[0].uid) && !evJson.includes(B[0].uid), '표 기록에 보낸 사람도 받은 사람도 없다')
-
-  console.log('\n── 털어놓기 ──')
-  const inflBefore = (await team('A')).resources.influence
-  const first = await must('revealSecret', A[2].token, { gameId: GAME, scope: 'private', listenerIds: [B[0].uid, C[0].uid] })
-  check(Number(first.gain) === 3, '첫 1:1은 영향력 +3', `+${first.gain}`)
-  check((await team('A')).resources.influence === inflBefore + 3, '팀 영향력이 올랐다')
-
-  const second = await must('revealSecret', A[2].token, { gameId: GAME, scope: 'private', listenerIds: [B[1].uid] })
-  check(Number(second.gain) === 0, '그다음 1:1은 0 — 약점만 늘어난다', `+${second.gain}`)
-
-  const lev = await getAll(`games/${GAME}/secret/leverage/items`)
-  check(lev.length === 3, '들은 사람 셋이 약점을 쥐었다', `${lev.length}개`)
-  check(lev.every((l) => l.d.aboutId === A[2].uid), '약점의 대상이 말한 사람이다')
-
-  console.log('\n── 고백이 들은 사람에게만 ──')
-  const viewOf = async (uid: string) => (await getDoc(`games/${GAME}/views/${uid}`)) as { confessions: { id: string; speakerId: string }[] }
-  const heard = [A[2], B[0], C[0], B[1]]
-  const notHeard = people.filter((p) => !heard.some((h) => h.uid === p.uid))
-  check((await viewOf(A[2].uid)).confessions.length === 2, '말한 사람은 둘 다 본다')
-  check((await viewOf(B[0].uid)).confessions.length === 1, '첫 자리에 있던 사람은 하나만')
-  check((await viewOf(B[1].uid)).confessions.length === 1, '둘째 자리에 있던 사람도 하나만')
-  let heardLeaks = 0
-  for (const p of notHeard) if ((await viewOf(p.uid)).confessions.length > 0) heardLeaks += 1
-  check(heardLeaks === 0, '못 들은 아홉에게는 한 줄도 없다', `${heardLeaks}명`)
-
-  console.log('\n── 전체 털어놓기 ──')
-  const cls = await must('revealSecret', C[1].token, { gameId: GAME, scope: 'class' })
-  check(Number(cls.listeners) === TOTAL_SEATS - 1, '전체는 자기를 뺀 열셋이 듣는다', `${cls.listeners}명`)
-  check(Number(cls.gain) === 6, '전체는 6까지 채운다', `+${cls.gain}`)
-  let allSee = 0
-  for (const p of people) if ((await viewOf(p.uid)).confessions.some((c) => c.speakerId === C[1].uid)) allSee += 1
-  check(allSee === TOTAL_SEATS, '열넷 모두의 몫에 있다', `${allSee}명`)
-  const levAfter = await getAll(`games/${GAME}/secret/leverage/items`)
-  check(levAfter.length === 3, '전체 고백은 아무도 약점을 쥐지 않는다', `${levAfter.length}개`)
 
   console.log('\n── 투명인간 ──')
   // C[0]이 의심표를 둘 받게 만든다

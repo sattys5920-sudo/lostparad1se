@@ -6,7 +6,6 @@
 //
 // 본문 출처: personal_missions_v3.md 4장.
 // DAY 3과 DAY 5는 scenario_reveal.md 6장이 덮는다(시간선 수정과 반전 단서).
-import type { RoleId } from '../../../shared/missions/roles'
 import type { PaperKind } from '../../../shared/reveal/paper'
 
 /** 한 장의 종이. 조각 하나에 두 장일 수 있다(DAY 2). */
@@ -34,8 +33,6 @@ export interface FragmentData {
   day: number
   /** 가치가 끝까지 +2 오르는 칸. 무작위가 아니라 고정이다. */
   spotTile: string
-  /** 은근히 가리키는 역할. 정확히 짚어 의심하면 타격이 두 배다. */
-  implicated: readonly RoleId[]
   papers: readonly Paper[]
 }
 
@@ -43,7 +40,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
   {
     day: 1,
     spotTile: 'library',
-    implicated: ['librarian', 'buddy'],
     papers: [
       {
         kind: 'diary',
@@ -54,7 +50,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
   {
     day: 2,
     spotTile: 'scienceRoom',
-    implicated: ['shadow', 'witness'],
     papers: [
       {
         kind: 'note',
@@ -70,7 +65,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
     // 사실(창고 앞에서 기다리던 중)과 어긋난다.
     day: 3,
     spotTile: 'musicRoom',
-    implicated: ['accuser', 'leaver'],
     papers: [
       {
         kind: 'diary',
@@ -83,7 +77,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
   {
     day: 4,
     spotTile: 'storage',
-    implicated: ['vanguard', 'liar'],
     papers: [
       {
         kind: 'note',
@@ -99,7 +92,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
     // 알려 준다. 지킴이는 여전히 가리켜지는 역할이 아니다.
     day: 5,
     spotTile: 'hallway',
-    implicated: ['bystander', 'letter'],
     papers: [
       {
         kind: 'note',

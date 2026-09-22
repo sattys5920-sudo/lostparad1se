@@ -5,7 +5,6 @@
 // 허용하지 않는 범위로 넘어가지 않는가」다.
 import { describe, expect, it } from 'vitest'
 import { runGames, simulateGame } from './game'
-import { MAX_PERSONAL_SCORE } from '../missions/roles'
 import { TEAM_IDS } from '../rules/v2'
 
 const START = new Date('2026-03-02T08:00:00+09:00').getTime()
@@ -23,11 +22,11 @@ describe('한 판', () => {
     for (const s of out.teamScores) expect(s.total).toBeGreaterThanOrEqual(0)
   })
 
-  it('열네 명 모두 개인 점수가 나온다', () => {
+  it('열네 명 모두 판정이 나온다', () => {
     expect(out.personal).toHaveLength(14)
     for (const p of out.personal) {
-      expect(p.score).toBeGreaterThanOrEqual(0)
-      expect(p.score).toBeLessThanOrEqual(MAX_PERSONAL_SCORE)
+      expect(typeof p.main).toBe('boolean')
+      expect(typeof p.slips).toBe('number')
     }
   })
 
@@ -62,12 +61,6 @@ describe('여러 판', () => {
       expect(v).toBeGreaterThanOrEqual(0)
       expect(v).toBeLessThanOrEqual(1)
     }
-  })
-
-  it('개인 점수 분포가 0~9 안에 있다', () => {
-    expect(report.personalScore.dist).toHaveLength(10)
-    const total = report.personalScore.dist.reduce((a, b) => a + b, 0)
-    expect(total).toBe(8 * 14)
   })
 
   it('닷새 동안 깃발이 실제로 오간다 — 판이 얼어붙지 않는다', () => {

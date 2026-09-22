@@ -237,7 +237,7 @@ export const ROLE_TITLES: readonly RoleTitle[] = [
 ]
 
 export const ROLE_TITLE_LABEL: Record<RoleTitle, string> = {
-  classPresident: '반장',
+  classPresident: '학급회장',
   treasurer: '총무',
   intelOfficer: '정보부장',
   athleticDirector: '체육부장',
@@ -419,16 +419,6 @@ export const HOST_GATE_LOCK_MS = 15 * 60 * 1000
 export const MEMORY_TIERS: readonly Tier[] = ['gate', 'cross', 'core', 'plaza']
 
 // ── 그 자리와 깨달음 (③) ───────────────────────────────────────
-
-/** 그 자리에 이만큼 머물면 A의 시선이 열린다(활동 시간). */
-export const AWAKENING_STAY_GAME_HOURS = 3
-
-// ── 눈이 그친 아침 (④) ─────────────────────────────────────────
-
-/** 눈이 그치려면 깨달음에 이른 사람이 이만큼 필요하다. */
-export const SNOW_AWAKENED_NEEDED = 9
-/** 그리고 어떤 형태로든 털어놓은 사람이 이만큼. */
-export const SNOW_REVEALED_NEEDED = 7
 /** 눈발 단계. 0이 그친 것이고 5가 가장 굵다. 수치 대신 이 값만 내려보낸다. */
 export const SNOW_LEVEL_MAX = 5
 /** 눈이 그치면 전원이 받는 개인 점수. */

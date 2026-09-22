@@ -7,7 +7,7 @@
 // 투명인간 해제 같은 것은 기존 운영자 도구로만 한다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
-import { CLUE_MAP, EXPOSURE_LABEL, HOST_RULES, LINKS } from './story/clues'
+import { HOST_RULES } from './story/hostRules'
 import { auditLines } from './story/audit'
 import { SOURCE_LABEL, TIME_LABEL, placesIn } from './story/timeline'
 import { checkNotice, NOTICE_TEMPLATES } from '../../shared/reveal/notice'
@@ -31,23 +31,7 @@ export const hostDashboard = onCall<{ gameId: string }>(async (req) => {
   const snap = await db.doc(`games/${gameId}`).get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
 
-  return {
-    rules: HOST_RULES,
-    clues: CLUE_MAP.map((c) => ({
-      role: c.role,
-      inRecord: c.inRecord,
-      byOthers: c.byOthers,
-      exposure: c.exposure,
-      exposureLabel: EXPOSURE_LABEL[c.exposure],
-      note: c.note ?? null,
-    })),
-    links: LINKS.map((l) => ({
-      id: l.id,
-      left: l.left.label,
-      right: l.right.label,
-      conclusion: l.conclusion,
-    })),
-  }
+  return { rules: HOST_RULES }
 })
 
 /** 텍스트 검수. A에 관한 문장을 사건 시간순으로. */

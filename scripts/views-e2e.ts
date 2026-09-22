@@ -186,14 +186,14 @@ async function main(): Promise<void> {
   }
   check(leaks === 0, '어느 몫에도 남의 역할이 없다', leaked.slice(0, 4).join(' '))
 
-  // 인연 대상도 자기 것뿐이다
-  let bondLeaks = 0
+  // 짝사랑 대상도 자기 것뿐이다
+  let targetLeaks = 0
   for (const p of people) {
-    const view = (await getDoc(`games/${GAME}/views/${p.uid}`)) as { own?: { bondId?: string } } | null
+    const view = (await getDoc(`games/${GAME}/views/${p.uid}`)) as { own?: { targetId?: string | null } } | null
     const row = await getDoc(`games/${GAME}/secret/roster/items/${p.uid}`)
-    if (view?.own?.bondId !== row?.bondId) bondLeaks += 1
+    if ((view?.own?.targetId ?? null) !== (row?.targetId ?? null)) targetLeaks += 1
   }
-  check(bondLeaks === 0, '인연 대상도 자기 것뿐이다', `${bondLeaks}건`)
+  check(targetLeaks === 0, '짝사랑 대상도 자기 것뿐이다', `${targetLeaks}건`)
 
   console.log('\n── 안개 ──')
   const viewOf = async (uid: string) =>

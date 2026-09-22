@@ -67,7 +67,7 @@ export interface WorldRoster {
   playerId: string
   team: TeamId
   roleId: string
-  bondId: string
+  targetId: string | null
 }
 
 export interface WorldConfession {
@@ -282,7 +282,7 @@ export interface View {
   peeked: { voteKind: VoteKind; voterNickname: string }[]
   /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
   myChoice: { chosenId: string | null; day4: string | null } | null
-  own: { roleId: string; bondId: string } | null
+  own: { roleId: string; targetId: string | null } | null
   /**
    * 내 말이 걷는 중이면 도착 시각. 서 있으면 null.
    *
@@ -715,7 +715,7 @@ export function projectView(world: World, viewerId: string): View {
       return c ? { chosenId: c.chosenId, day4: c.day4 } : null
     })(),
     // 역할은 **자기 한 줄뿐이다.** 남의 것은 들어가지 않는다
-    own: me ? { roleId: me.roleId, bondId: me.bondId } : null,
+    own: me ? { roleId: me.roleId, targetId: me.targetId } : null,
     myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
     myBusyUntilMs: world.pawns.find((p) => p.playerId === viewerId)?.busyUntilMs ?? null,
     myBusyKind: world.pawns.find((p) => p.playerId === viewerId)?.busyKind ?? null,

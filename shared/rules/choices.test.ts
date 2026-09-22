@@ -35,7 +35,7 @@ describe('중요한 사람', () => {
 
 describe('DAY 4 선택', () => {
   it('셋뿐이다', () => {
-    expect(DAY4_CHOICES.map((c) => c.id)).toEqual(['team', 'self', 'bond'])
+    expect(DAY4_CHOICES.map((c) => c.id)).toEqual(['team', 'self', 'chosen'])
   })
 
   it('DAY 4에만 고른다', () => {
@@ -44,7 +44,7 @@ describe('DAY 4 선택', () => {
     expect(canChooseDay4(5).reason).toBe('wrongDay')
   })
 
-  const out = { choice: null, teamRank: 1, mainMet: true, bondMet: true } as const
+  const out = { choice: null, teamRank: 1, mainMet: true, chosenTeamFirst: true } as const
 
   // 「아무것도 고르지 않음」은 세 번째 선택지가 아니다
   it('안 골랐으면 실패다', () => {
@@ -58,10 +58,10 @@ describe('DAY 4 선택', () => {
   })
 
   it('나는 주 미션, 그 사람은 인연 미션', () => {
-    expect(day4Met({ ...out, choice: 'self', mainMet: true, bondMet: false })).toBe(true)
-    expect(day4Met({ ...out, choice: 'self', mainMet: false, bondMet: true })).toBe(false)
-    expect(day4Met({ ...out, choice: 'bond', mainMet: false, bondMet: true })).toBe(true)
-    expect(day4Met({ ...out, choice: 'bond', mainMet: true, bondMet: false })).toBe(false)
+    expect(day4Met({ ...out, choice: 'self', mainMet: true, chosenTeamFirst: false })).toBe(true)
+    expect(day4Met({ ...out, choice: 'self', mainMet: false, chosenTeamFirst: true })).toBe(false)
+    expect(day4Met({ ...out, choice: 'chosen', mainMet: false, chosenTeamFirst: true })).toBe(true)
+    expect(day4Met({ ...out, choice: 'chosen', mainMet: true, chosenTeamFirst: false })).toBe(false)
   })
 })
 

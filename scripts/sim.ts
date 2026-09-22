@@ -24,13 +24,6 @@ for (const t of TEAM_IDS) console.log(`  ${t}  ${String(r.wins[t]).padStart(3)}`
 console.log('\n팀 점수')
 console.log(`  최저 ${r.teamScore.min}  평균 ${r.teamScore.mean.toFixed(1)}  최고 ${r.teamScore.max}`)
 
-console.log('\n개인 점수 분포 (0~9)')
-for (const [score, n] of r.personalScore.dist.entries()) {
-  if (n === 0 && score > 0) continue
-  console.log(`  ${score}점  ${String(n).padStart(4)}  ${'█'.repeat(Math.round((n / (r.games * 14)) * 60))}`)
-}
-console.log(`  평균 ${r.personalScore.mean.toFixed(2)}`)
-
 console.log('\n역할별 달성률          주 미션  인연')
 const ids = Object.keys(r.mainRate).sort((a, b) => r.mainRate[b] - r.mainRate[a])
 for (const id of ids) {

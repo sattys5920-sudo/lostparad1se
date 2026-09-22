@@ -390,10 +390,8 @@ export interface RosterDoc {
   playerId: string
   team: TeamId
   roleId: string
-  /** 인연 대상. 본인에게만 알려 준다. */
-  bondId: string
-  /** 털어놓았는가. 방식과 시각까지. */
-  reveal: { scope: 'class' | 'private'; atMs: GameMs; listenerIds: string[] } | null
+  /** 짝사랑의 대상. 본인에게만 알려 준다. 다른 역할은 비어 있다. */
+  targetId: string | null
 }
 
 // ── 각자 몫 ─────────────────────────────────────────────────────
@@ -623,7 +621,7 @@ export interface PlayerViewDoc {
   // 실려 나간다. 여기에는 애초에 담지 않는다.
 
   /** 내 역할 한 줄. 남의 것은 없다. */
-  own: { roleId: string; bondId: string } | null
+  own: { roleId: string; targetId: string | null } | null
   /** 아침 시퀀스를 어디까지 처리했는가. 본 날과 건너뛴 날이 함께 들어간다. */
   handledDays: number[]
   /** 끝까지 본 날. 보관함이 「읽지 않음」을 가리는 데 쓴다. */

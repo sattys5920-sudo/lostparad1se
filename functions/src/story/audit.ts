@@ -4,19 +4,14 @@
 // 작가가 모순을 찾는 용도다.
 import { FRAGMENTS } from './fragments'
 import { MEMORIES } from './memories'
-import { SIGHTS } from './sights'
 import { OPENING, OPENING_CHALK } from './opening'
 import {
   FRAGMENT_TIME,
   MEMORY_TIME,
   OPENING_TIME,
-  SECRET_TIME,
-  SIGHT_TIME,
   sortForAudit,
   type AuditLine,
 } from './timeline'
-import { ROLES } from '../../../shared/missions/roles'
-import { ROLE_NAMES } from '../../../shared/missions/roleNames'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 
 /** 전말의 「때」 글자를 시간 태그로. 표에 적힌 말을 그대로 읽는다. */
@@ -46,30 +41,12 @@ export function auditLines(): AuditLine[] {
     }
   }
 
-  for (const r of ROLES) {
-    out.push({
-      source: 'secret',
-      where: ROLE_NAMES[r.id],
-      text: r.secret,
-      tag: SECRET_TIME[r.id] ?? null,
-    })
-  }
-
   for (const [tileId, text] of Object.entries(MEMORIES)) {
     out.push({
       source: 'memory',
       where: TILE_BY_ID[tileId]?.name ?? tileId,
       text,
       tag: MEMORY_TIME,
-    })
-  }
-
-  for (const s of SIGHTS) {
-    out.push({
-      source: 'sight',
-      where: ROLE_NAMES[s.role],
-      text: s.text,
-      tag: SIGHT_TIME[s.role] ?? null,
     })
   }
 

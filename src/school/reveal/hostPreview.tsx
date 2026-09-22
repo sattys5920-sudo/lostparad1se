@@ -5,35 +5,19 @@
 // 실린다. 한 번 옮겼다가 번들 누출 검사에 여섯 줄이 걸렸다.
 import { createRoot } from 'react-dom/client'
 import { HostTools, type AuditRow } from './HostTools'
-import type { DashboardRow, LinkStatus, SuspicionRow } from '../../../shared/reveal/dashboard'
+import type { DashboardRow } from '../../../shared/reveal/dashboard'
 import type { RoleId } from '../../../shared/missions/roleNames'
 
 const NAMES = ['한겨울', '서리', '눈보라', '고드름', '진눈깨비', '싸락']
-const ROLES: RoleId[] = ['librarian', 'guard', 'accuser', 'liar', 'witness', 'mediator']
+const ROLES: RoleId[] = ['classlead', 'duty', 'crush', 'cleanup', 'science', 'newcomer']
 
 const rows: DashboardRow[] = NAMES.map((name, i) => ({
   playerId: `p${i}`,
   name,
   role: ROLES[i],
-  hintDay: [1, null, 3, 4, 2, null][i],
-  reveal: i % 3 === 0 ? { scope: i === 0 ? 'class' : 'private', atMs: Date.UTC(2026, 2, 4, 5, 30), listeners: i === 0 ? 13 : 1 } : null,
-  exactHits: [0, 2, 1, 0, 3, 0][i],
   invisibleDays: i === 4 ? [3] : [],
-  awakened: i % 2 === 1,
-  exposure: (['byDeduction', 'onlyByOwnReveal', 'possible', 'possible', 'possible', 'onlyByOwnReveal'] as const)[i],
-}))
-
-const links: LinkStatus[] = [
-  { id: 'a', leftLabel: '왼쪽 조각 하나', rightLabel: 'DAY 5 기록', leftOpen: true, rightOpen: true, connectable: true, conclusion: '이어지면 나오는 결론 자리.' },
-  { id: 'b', leftLabel: '왼쪽 조각 둘', rightLabel: 'DAY 4 기록', leftOpen: false, rightOpen: true, connectable: false, conclusion: '아직 못 잇는 결론 자리.' },
-  { id: 'c', leftLabel: 'DAY 4 조각', rightLabel: 'DAY 5 조각', leftOpen: true, rightOpen: true, connectable: true, conclusion: '이어지면 나오는 결론 자리.' },
-  { id: 'd', leftLabel: '왼쪽 조각 넷', rightLabel: 'DAY 2 조각', leftOpen: false, rightOpen: true, connectable: false, conclusion: '아직 못 잇는 결론 자리.' },
-]
-
-const suspicion: SuspicionRow[] = NAMES.map((name, i) => ({
-  playerId: `p${i}`,
-  name,
-  received: [5, 3, 3, 1, 0, 0][i],
+  mainMet: i % 2 === 0,
+  slipsMet: i % 3,
 }))
 
 const audit: AuditRow[] = [
@@ -63,8 +47,6 @@ if (root) {
         '운영자 수칙 셋째 줄 자리.',
       ]}
       rows={rows}
-      links={links}
-      suspicion={suspicion}
       audit={audit}
       timeLabels={TIME_LABELS}
       sourceLabels={SOURCE_LABELS}

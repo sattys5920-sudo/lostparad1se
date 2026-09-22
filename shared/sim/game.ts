@@ -37,8 +37,14 @@ import {
 } from '../rules/v2'
 import type { Interval } from '../rules/presence'
 import { assignRoles, rngFrom, type Assignment, type Player } from '../missions/assign'
-import { judge, type CaptureRecord, type GameLog, type JudgeVote, type RevealRecord, type TradeRecord } from '../missions/judge'
-import { ROLE_BY_ID } from '../missions/roles'
+import { judge, type GameLog, type JudgeVote } from '../missions/judge'
+
+// 봇 시뮬레이션이 스스로 세는 것들. 판정에는 안 쓰인다 —
+// 판정이 보는 기록은 GameLog 하나뿐이다
+interface SimReveal { speakerId: string; scope: 'class' | 'private'; listenerIds: string[]; day: number; atMs: number }
+interface SimCapture { tileId: TileId; team: TeamId | null; ownerBefore: TeamId | null; standing: string[]; atMs: number }
+interface SimTrade { fromTeam: TeamId; toTeam: TeamId; atMs: number }
+import { ROLE_BY_ID, SLIP_MISSION_IDS } from '../missions/roles'
 
 const TICK_SEC = MOVE_GAME_MIN_PER_TILE * 60
 
@@ -73,8 +79,8 @@ export interface SimResult {
   /** 팀별 최종 점수. */
   teamScores: ScoreBreakdown[]
   winner: TeamId
-  /** 사람별 개인 점수. */
-  personal: { playerId: string; roleId: string; score: number; main: boolean; bond: boolean }[]
+  /** 사람별 미션 달성 여부. 점수는 매기지 않는다. */
+  personal: { playerId: string; roleId: string; main: boolean; slips: number }[]
   /** 주인이 바뀐 횟수. */
   capturesMade: number
   votesCast: number
@@ -139,10 +145,10 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   }))
   const votes: Vote[] = []
   const judgeVotes: JudgeVote[] = []
-  const reveals: RevealRecord[] = []
+  const reveals: SimReveal[] = []
   const leverages: Leverage[] = []
-  const captureLog: CaptureRecord[] = []
-  const trades: TradeRecord[] = []
+  const captureLog: SimCapture[] = []
+  const trades: SimTrade[] = []
   const fragments: { day: number; spotTile: TileId }[] = []
 
   let capturesMade = 0
@@ -254,39 +260,25 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     nowMs: endMs,
     over: true,
     teamOf,
+    roster: [...players.keys()],
     intervals,
     votes: judgeVotes,
-    reveals,
-    leverageUses: [],
-    captures: captureLog,
-    leverageGains: leverages.map((l) => ({ holderId: l.holderId, aboutId: l.aboutId, atMs: l.gainedAtMs })),
-    trades,
-    fragmentTiles: fragments.map((f) => f.spotTile),
-    ownerAtEnd: (id) => tiles.get(id)?.ownerTeam ?? null,
-    teamRank: Object.fromEntries(ranked.ranked.map((r) => [r.team, r.rank])) as Record<TeamId, number>,
-    teamTiedRank: Object.fromEntries(
-      ranked.ranked.map((r) => [r.team, r.tiedRank]),
-    ) as Record<TeamId, number>,
+    ballots: [],
+    ballotDays: [],
     // 봇은 자판기도 심부름도 화분도 안 만진다. 자리만 채운다
     records: [],
     ownerChanges: [],
-    ballotDays: [],
-    allianceAtEnd: Object.fromEntries(TEAM_IDS.map((t) => [t, null])) as Record<TeamId, TeamId | null>,
-    leverageAtEnd: leverages.filter((l) => l.spentAtMs === null).map((l) => ({ holderId: l.holderId, aboutId: l.aboutId })),
-    teamLostTile: Object.fromEntries(TEAM_IDS.map((t) => [t, teams[t].lostTile])) as Record<TeamId, boolean>,
+    teamTiedRank: Object.fromEntries(
+      ranked.ranked.map((r) => [r.team, r.tiedRank]),
+    ) as Record<TeamId, number>,
+    slipsHeldAtEnd: {},
     chosenBy: {},
     choiceMet: {},
-    closingTogether: {},
-    closingMutual: {},
-    // 봇은 그 자리를 모르고, 공동 목표도 노리지 않는다.
-    // 0단계에서는 자리만 만들어 두고 6단계 시뮬레이션에서 채운다.
-    awakened: {},
-    snowStopped: false,
   }
 
   const personal = assignments.map((a) => {
     const out = judge(a, gameLog)
-    return { playerId: a.playerId, roleId: a.roleId as string, score: out.score, main: out.main.met, bond: out.bond.met }
+    return { playerId: a.playerId, roleId: a.roleId as string, main: out.main.met, slips: out.slips.filter((x) => x.met).length }
   })
 
   return {
@@ -443,10 +435,9 @@ export interface SimReport {
   /** 팀별 우승 횟수. 한 팀이 몰아 가면 판이 기울어 있다는 뜻이다. */
   wins: Record<TeamId, number>
   teamScore: { min: number; max: number; mean: number }
-  personalScore: { mean: number; dist: number[] }
   /** 역할마다 주 미션을 깬 비율. */
   mainRate: Record<string, number>
-  bondRate: Record<string, number>
+  slipRate: Record<string, number>
   perGame: { captures: number; votes: number; reveals: number }
 }
 
@@ -456,26 +447,22 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
 
   const wins = Object.fromEntries(TEAM_IDS.map((t) => [t, 0])) as Record<TeamId, number>
   const teamTotals: number[] = []
-  const personalTotals: number[] = []
-  const dist = Array.from({ length: 10 }, () => 0)
   const mainHit = new Map<string, { met: number; n: number }>()
-  const bondHit = new Map<string, { met: number; n: number }>()
+  const slipHit = new Map<string, { met: number; n: number }>()
   const sums = { captures: 0, votes: 0, reveals: 0 }
 
   for (const r of results) {
     wins[r.winner] += 1
     for (const s of r.teamScores) teamTotals.push(s.total)
     for (const p of r.personal) {
-      personalTotals.push(p.score)
-      dist[p.score] += 1
       const m = mainHit.get(p.roleId) ?? { met: 0, n: 0 }
       m.n++
       if (p.main) m.met++
       mainHit.set(p.roleId, m)
-      const b = bondHit.get(p.roleId) ?? { met: 0, n: 0 }
-      b.n++
-      if (p.bond) b.met++
-      bondHit.set(p.roleId, b)
+      const b = slipHit.get(p.roleId) ?? { met: 0, n: 0 }
+      b.n += SLIP_MISSION_IDS.length
+      b.met += p.slips
+      slipHit.set(p.roleId, b)
     }
     sums.captures += r.capturesMade
     sums.votes += r.votesCast
@@ -490,9 +477,8 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
     games: count,
     wins,
     teamScore: { min: Math.min(...teamTotals), max: Math.max(...teamTotals), mean: mean(teamTotals) },
-    personalScore: { mean: mean(personalTotals), dist },
     mainRate: rate(mainHit),
-    bondRate: rate(bondHit),
+    slipRate: rate(slipHit),
     perGame: {
       captures: sums.captures / count,
       votes: sums.votes / count,

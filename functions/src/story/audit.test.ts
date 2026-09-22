@@ -2,23 +2,24 @@
 import { describe, expect, it } from 'vitest'
 import { auditLines } from './audit'
 import { placesIn, TIME_ORDER, untagged } from './timeline'
-import { ROLE_IDS } from '../../../shared/missions/roleNames'
 
 const lines = auditLines()
 
 describe('모으기', () => {
-  it('다섯 갈래를 다 모은다', () => {
+  // 숨긴 사실과 A의 시선은 역할에 매여 있었다. 추리 층을 걷어내면서
+  // 같이 나갔다 — 남은 것은 오프닝·A의 기록·A의 기억 셋이다
+  it('세 갈래를 다 모은다', () => {
     const sources = new Set(lines.map((l) => l.source))
-    expect([...sources].sort()).toEqual(['fragment', 'memory', 'opening', 'secret', 'sight'].sort())
+    expect([...sources].sort()).toEqual(['fragment', 'memory', 'opening'].sort())
   })
 
-  it('숨긴 사실 열넷이 다 있다', () => {
-    expect(lines.filter((l) => l.source === 'secret')).toHaveLength(14)
-  })
-
-  it('A의 시선 열넷과 A의 기억 열둘이 다 있다', () => {
-    expect(lines.filter((l) => l.source === 'sight')).toHaveLength(14)
+  it('A의 기억 열둘이 다 있다', () => {
     expect(lines.filter((l) => l.source === 'memory')).toHaveLength(12)
+  })
+
+  it('숨긴 사실과 목격담은 이제 없다', () => {
+    expect(lines.filter((l) => l.source === 'secret')).toHaveLength(0)
+    expect(lines.filter((l) => l.source === 'sight')).toHaveLength(0)
   })
 
 })
@@ -29,12 +30,6 @@ describe('시간 태그', () => {
     expect(missing.map((l) => `${l.source}/${l.where}`)).toEqual([])
   })
 
-  it('열네 역할 모두 숨긴 사실에 태그가 있다', () => {
-    const secrets = lines.filter((l) => l.source === 'secret')
-    expect(secrets.every((l) => l.tag !== null)).toBe(true)
-    expect(new Set(secrets.map((l) => l.where)).size).toBe(ROLE_IDS.length)
-  })
-
   it('시간순으로 정렬돼 있다', () => {
     const at = (t: string | null) => (t === null ? -1 : TIME_ORDER.indexOf(t as never))
     for (let i = 1; i < lines.length; i++) {
@@ -42,22 +37,6 @@ describe('시간 태그', () => {
     }
   })
 
-  it('그날 저녁의 차례가 문서와 같다', () => {
-    // 편지(16:50) → 고발자(17:10) → 선봉·목격자(17:30) → 거짓말쟁이(18:00)
-    // → 지킴이(19:00) → 방관자(21:00)
-    const order = lines
-      .filter((l) => l.source === 'secret' && l.tag !== 'term')
-      .map((l) => `${l.tag} ${l.where}`)
-    expect(order).toEqual([
-      't1650 편지',
-      't1710 고발자',
-      't1730 목격자',
-      't1730 선봉',
-      't1800 거짓말쟁이',
-      't1900 지킴이',
-      't2100 방관자',
-    ])
-  })
 })
 
 describe('장소', () => {

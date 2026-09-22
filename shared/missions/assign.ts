@@ -1,20 +1,23 @@
-// 역할과 인연 고리를 나눈다.
+// 역할과 짝사랑 대상을 나눈다.
 //
 // 서버에서만 돈다. 결과는 통째로 secret/ 밑에 들어가고, 각자에게는 자기
 // 것 한 줄만 views/{playerId}로 내려간다 — 이 파일이 돌려주는 배열이
 // 클라이언트에 그대로 닿으면 판이 끝난다.
 //
 // 씨앗을 받아 같은 씨앗이면 같은 결과가 나오게 했다. 판을 다시 열어도
-// 역할이 바뀌지 않아야 하고(한 번 배정하면 끝이다), 시험에서 천 번을
+// 역할이 바뀌지 않아야 하고(**배정은 한 번뿐이다**), 시험에서 천 번을
 // 돌려 보려면 재현이 돼야 한다.
+//
+// 규칙 수치는 roles.ts의 ASSIGN_RULES에 있다. 여기서는 읽기만 한다.
 import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
 import {
-  BOND_RING_SIZE,
-  FILLER_PATH,
-  REQUIRED_PATHS,
-  ROLES_BY_PATH,
-  validateBondRing,
-  type BondAssignment,
+  ASSIGN_RULES,
+  ASTRAY_BRANCH,
+  BRANCHES,
+  ROLE_BRANCH,
+  ROLE_IDS,
+  ROSTER_SIZE,
+  type MissionBranch,
   type RoleId,
 } from './roles'
 
@@ -27,8 +30,13 @@ export interface Assignment {
   playerId: string
   team: TeamId
   roleId: RoleId
-  /** 이 사람의 인연 대상. 고리에서 다음 사람이다. */
-  bondId: string
+  /**
+   * 짝사랑의 대상. 다른 역할은 null이다.
+   *
+   * 다른 팀 사람 중 무작위로 고른다. **대상에게는 알리지 않는다** —
+   * 본인에게도 이름만 주고 어디 있는지는 주지 않는다.
+   */
+  targetId: string | null
 }
 
 // ── 씨앗 ────────────────────────────────────────────────────────
@@ -66,7 +74,7 @@ function shuffled<T>(items: readonly T[], rnd: () => number): T[] {
 // ── 들어온 명단 확인 ────────────────────────────────────────────
 
 function checkRoster(players: readonly Player[]): void {
-  if (players.length !== BOND_RING_SIZE) {
+  if (players.length !== ROSTER_SIZE) {
     throw new Error(`열네 명이어야 한다 (${players.length}명)`)
   }
   if (new Set(players.map((p) => p.id)).size !== players.length) {
@@ -78,136 +86,98 @@ function checkRoster(players: readonly Player[]): void {
   }
 }
 
-// ── 역할 ────────────────────────────────────────────────────────
+// ── 배정이 규칙을 지키는가 ──────────────────────────────────────
+
+/** 4인 팀. ★ 둘이 여기 먼저 들어간다. */
+const bigTeams = (): TeamId[] => {
+  const sizes = Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]
+  const most = Math.max(...sizes.map(([, n]) => n))
+  return sizes.filter(([, n]) => n === most).map(([t]) => t)
+}
+
+export interface DealtRole {
+  playerId: string
+  team: TeamId
+  roleId: RoleId
+}
 
 /**
- * 팀마다 팀의 길 하나와 밖의 길 하나를 준다. 남는 자리는 사람의 길로
- * 채운다. 네 팀·네 역할이라 갈래마다 정확히 하나씩 돌아간다.
+ * 나눠 준 역할이 배정 규칙을 지키는지. 배정 코드와 시험이 같이 쓴다.
+ *
+ * 왜 어겼는지를 말로 돌려준다 — 시험이 「안 된다」만 보고는 어느
+ * 규칙이 빡빡한지 알 수 없다.
  */
-function dealRoles(players: readonly Player[], rnd: () => number): Map<string, RoleId> {
-  const pools: Record<string, RoleId[]> = {}
-  for (const path of [...REQUIRED_PATHS, FILLER_PATH]) {
-    pools[path] = shuffled(ROLES_BY_PATH[path], rnd)
+export function validateDeal(dealt: readonly DealtRole[]): { ok: true } | { ok: false; reason: string } {
+  if (dealt.length !== ROSTER_SIZE) return { ok: false, reason: `열네 명이어야 한다 (${dealt.length}명)` }
+  if (new Set(dealt.map((d) => d.roleId)).size !== ROSTER_SIZE) {
+    return { ok: false, reason: '같은 역할이 두 번 나갔다' }
   }
 
-  const out = new Map<string, RoleId>()
-  const teams = shuffled(Object.keys(STARTING_TEAM_SIZES) as TeamId[], rnd)
+  const teams = [...new Set(dealt.map((d) => d.team))]
+  const branchesIn = (team: TeamId): MissionBranch[] =>
+    dealt.filter((d) => d.team === team).map((d) => ROLE_BRANCH[d.roleId])
 
   for (const team of teams) {
-    const members = shuffled(
-      players.filter((p) => p.team === team).map((p) => p.id),
-      rnd,
-    )
-    for (const path of REQUIRED_PATHS) {
-      const who = members.shift()
-      const role = pools[path].shift()
-      if (!who || !role) throw new Error('역할이 모자란다')
-      out.set(who, role)
+    const got = branchesIn(team)
+    const hands = got.filter((b) => b === 'hand').length
+    if (hands < ASSIGN_RULES.handPerTeamAtLeast) {
+      return { ok: false, reason: `${team}팀에 손 갈래가 없다` }
     }
-    for (const who of members) {
-      const role = pools[FILLER_PATH].shift()
-      if (!role) throw new Error('사람의 길이 모자란다')
-      out.set(who, role)
+    for (const b of BRANCHES) {
+      if (got.filter((x) => x === b).length > ASSIGN_RULES.sameBranchPerTeamAtMost) {
+        return { ok: false, reason: `${team}팀에 같은 갈래가 너무 많다 (${b})` }
+      }
     }
   }
-  return out
-}
 
-// ── 인연 고리 ───────────────────────────────────────────────────
-
-/**
- * 이웃이 같은 팀이 되지 않게 팀 순서를 한 바퀴 늘어놓는다.
- *
- * 남은 수가 많은 팀부터 놓는다 — 4명짜리 팀을 뒤로 미루면 마지막에
- * 같은 팀이 붙어 버린다. 마지막 자리는 첫 자리와도 달라야 한다.
- * 4·4·3·3이면 가장 많은 팀이 절반을 넘지 않으므로 늘 답이 있다.
- */
-function teamCycle(rnd: () => number): TeamId[] | null {
-  const left: Record<string, number> = { ...STARTING_TEAM_SIZES }
-  const out: TeamId[] = []
-  const first = shuffled(Object.keys(STARTING_TEAM_SIZES) as TeamId[], rnd)[0]
-
-  for (let i = 0; i < BOND_RING_SIZE; i++) {
-    const prev = out[out.length - 1]
-    const last = i === BOND_RING_SIZE - 1
-    const can = (Object.keys(left) as TeamId[]).filter(
-      (t) => left[t] > 0 && t !== prev && !(last && t === first),
-    )
-    if (can.length === 0) return null
-    // 남은 수가 가장 많은 팀들 중에서 하나를 고른다
-    const most = Math.max(...can.map((t) => left[t]))
-    const top = can.filter((t) => left[t] === most)
-    const pick = i === 0 ? (left[first] === most ? first : top[0]) : top[Math.floor(rnd() * top.length)]
-    out.push(pick)
-    left[pick]--
+  const astrayTeams = dealt.filter((d) => ROLE_BRANCH[d.roleId] === ASTRAY_BRANCH).map((d) => d.team)
+  if (ASSIGN_RULES.astrayOnePerTeam && new Set(astrayTeams).size !== astrayTeams.length) {
+    return { ok: false, reason: '★ 둘이 같은 팀에 들어갔다' }
   }
-  return out
-}
-
-/** 팀 순서에 사람을 끼워 넣어 고리를 만든다. */
-function bondRing(players: readonly Player[], rnd: () => number): BondAssignment[] {
-  const byTeam = new Map<TeamId, string[]>()
-  for (const t of Object.keys(STARTING_TEAM_SIZES) as TeamId[]) {
-    byTeam.set(
-      t,
-      shuffled(
-        players.filter((p) => p.team === t).map((p) => p.id),
-        rnd,
-      ),
-    )
+  const big = new Set(bigTeams())
+  if (astrayTeams.filter((t) => big.has(t)).length < ASSIGN_RULES.astrayInBigTeams) {
+    return { ok: false, reason: '★ 이 4인 팀에 덜 들어갔다' }
   }
-  const cycle = teamCycle(rnd)
-  if (!cycle) throw new Error('고리를 만들 수 없다')
-  const order = cycle.map((t) => {
-    const who = byTeam.get(t)?.shift()
-    if (!who) throw new Error('고리에 넣을 사람이 모자란다')
-    return who
-  })
-  return order.map((id, i) => ({ playerId: id, bondId: order[(i + 1) % order.length] }))
+  return { ok: true }
 }
 
 // ── 배정 ────────────────────────────────────────────────────────
 
-/** 고리를 못 만들면 씨앗을 조금 비틀어 다시 시도한다. 이 횟수 안에 끝난다. */
-const MAX_TRIES = 50
-
 /**
- * 열네 명에게 역할과 인연 대상을 한 번에 나눈다.
+ * 열네 명에게 역할을 나눈다.
  *
- * 같은 명단·같은 씨앗이면 늘 같은 결과다. 판을 다시 열어도 역할이
- * 바뀌지 않게 하려면 씨앗을 게임 문서에 적어 두고 그대로 다시 넣으면 된다.
- * 들어온 순서는 결과에 영향을 주지 않는다 — 아이디로 먼저 정렬한다.
+ * 조건을 만족할 때까지 무작위로 다시 섞는다. 규칙을 하나씩 끼워 맞춰
+ * 넣으면 특정 자리에 특정 역할이 몰리는 편향이 생긴다 — 섞고 버리는
+ * 쪽이 고르다.
+ *
+ * 같은 명단·같은 씨앗이면 늘 같은 결과다. 들어온 순서는 결과에 영향을
+ * 주지 않는다 — 아이디로 먼저 정렬한다.
  */
 export function assignRoles(players: readonly Player[], seed: string): Assignment[] {
   checkRoster(players)
   const roster = [...players].sort((a, b) => a.id.localeCompare(b.id))
-  const teamOf = (id: string): TeamId => {
-    const found = roster.find((p) => p.id === id)
-    if (!found) throw new Error(`명단에 없는 사람이다: ${id}`)
-    return found.team
-  }
 
-  for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
+  for (let attempt = 0; attempt < ASSIGN_RULES.maxTries; attempt++) {
     const rnd = rngFrom(`${seed}#${attempt}`)
-    const roles = dealRoles(roster, rnd)
-    let ring: BondAssignment[]
-    try {
-      ring = bondRing(roster, rnd)
-    } catch {
-      continue
-    }
-    const check = validateBondRing(ring, teamOf)
-    if (!check.ok) continue
+    const roles = shuffled(ROLE_IDS, rnd)
+    const dealt: DealtRole[] = roster.map((p, i) => ({ playerId: p.id, team: p.team, roleId: roles[i] }))
+    if (!validateDeal(dealt).ok) continue
 
-    const bondOf = new Map(ring.map((b) => [b.playerId, b.bondId]))
-    return roster.map((p) => ({
-      playerId: p.id,
-      team: p.team,
-      roleId: roles.get(p.id) as RoleId,
-      bondId: bondOf.get(p.id) as string,
+    return dealt.map((d) => ({
+      playerId: d.playerId,
+      team: d.team,
+      roleId: d.roleId,
+      targetId: d.roleId === 'crush' ? pickTarget(d, roster, rnd) : null,
     }))
   }
-  throw new Error('인연 고리를 만들지 못했다')
+  throw new Error('배정 규칙을 만족하는 짝을 찾지 못했다')
+}
+
+/** 짝사랑의 대상. 다른 팀 사람 중 하나. */
+function pickTarget(me: DealtRole, roster: readonly Player[], rnd: () => number): string {
+  const others = roster.filter((p) => p.team !== me.team).map((p) => p.id)
+  if (others.length === 0) throw new Error('다른 팀 사람이 없다')
+  return shuffled(others, rnd)[0]
 }
 
 /** 그 사람에게 내려보낼 한 줄. 남의 역할은 절대 들어가지 않는다. */

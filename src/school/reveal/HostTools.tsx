@@ -15,7 +15,7 @@ import {
   NOTICE_MAX,
   NOTICE_TEMPLATES,
 } from '../../../shared/reveal/notice'
-import type { DashboardRow, LinkStatus, SuspicionRow } from '../../../shared/reveal/dashboard'
+import type { DashboardRow } from '../../../shared/reveal/dashboard'
 
 type HostTab = 'map' | 'notice' | 'audit'
 
@@ -36,8 +36,6 @@ export interface AuditRow {
 export interface HostToolsProps {
   rules: readonly string[]
   rows: readonly DashboardRow[]
-  links: readonly LinkStatus[]
-  suspicion: readonly SuspicionRow[]
   audit: readonly AuditRow[]
   timeLabels: Record<string, string>
   sourceLabels: Record<string, string>
@@ -46,12 +44,6 @@ export interface HostToolsProps {
   onNotice: (text: string, toPlayerId: string | null) => void
 }
 
-const scopeLabel = (s: string) => (s === 'class' ? '전체' : '1:1')
-
-function timeOf(atMs: number): string {
-  const d = new Date(atMs)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
 
 export function HostTools(props: HostToolsProps) {
   const [tab, setTab] = useState<HostTab>('map')
@@ -87,12 +79,9 @@ export function HostTools(props: HostToolsProps) {
                 <tr>
                   <th>이름</th>
                   <th>역할</th>
-                  <th>가리켜진 날</th>
-                  <th>털어놓기</th>
-                  <th>적중 의심</th>
                   <th>투명인간</th>
-                  <th>깨달음</th>
-                  <th>공개 가능성</th>
+                  <th>주 미션</th>
+                  <th>쪽지 미션</th>
                 </tr>
               </thead>
               <tbody>
@@ -100,16 +89,10 @@ export function HostTools(props: HostToolsProps) {
                   <tr key={r.playerId}>
                     <td>{r.name}</td>
                     <td>{ROLE_NAMES[r.role as RoleId]}</td>
-                    <td>{r.hintDay ? `DAY ${r.hintDay}` : '—'}</td>
-                    <td>
-                      {r.reveal
-                        ? `${scopeLabel(r.reveal.scope)} · ${timeOf(r.reveal.atMs)} · ${r.reveal.listeners}명`
-                        : '—'}
-                    </td>
-                    <td className="sc-ho__num">{r.exactHits}</td>
                     <td>{r.invisibleDays.length > 0 ? r.invisibleDays.map((d) => `D${d}`).join(' ') : '—'}</td>
-                    <td>{r.awakened ? '○' : '—'}</td>
-                    <td className="sc-ho__dim">{r.exposure === 'onlyByOwnReveal' ? '본인 고백으로만' : r.exposure === 'byDeduction' ? '추리로 가능' : '가능'}</td>
+                    {/* 끝나기 전에는 서버가 null을 준다 — 화면이 숨기는 게 아니다 */}
+                    <td>{r.mainMet === null ? '—' : r.mainMet ? '달성' : '미달'}</td>
+                    <td className="sc-ho__num">{r.slipsMet === null ? '—' : r.slipsMet}</td>
                   </tr>
                 ))}
               </tbody>
@@ -118,32 +101,6 @@ export function HostTools(props: HostToolsProps) {
           {/* 표가 화면보다 넓다. 잘린 칸이 있다는 걸 알려 준다 */}
           <p className="sc-ho__hint">옆으로 밀면 나머지 칸</p>
 
-          <h2 className="sc-ho__h2">연결 단서</h2>
-          <ul className="sc-ho__links">
-            {props.links.map((l) => (
-              <li key={l.id} className={l.connectable ? 'is-open' : ''}>
-                <span className={l.leftOpen ? 'is-on' : ''}>{l.leftLabel}</span>
-                <span className="sc-ho__plus">+</span>
-                <span className={l.rightOpen ? 'is-on' : ''}>{l.rightLabel}</span>
-                <span className="sc-ho__arrow">→</span>
-                <span className="sc-ho__conclusion">
-                  {l.connectable ? l.conclusion : '아직 이을 수 없다'}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <h2 className="sc-ho__h2">
-            받은 의심표 <span className="sc-ho__dim">· 사람별 합계. 보낸 사람은 보이지 않는다</span>
-          </h2>
-          <ul className="sc-ho__susp">
-            {props.suspicion.map((s) => (
-              <li key={s.playerId}>
-                <span>{s.name}</span>
-                <span className="sc-ho__num">{s.received}</span>
-              </li>
-            ))}
-          </ul>
         </>
       )}
 
