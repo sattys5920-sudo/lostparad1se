@@ -1105,27 +1105,52 @@ describe('방은 처음부터 다 열려 있다', () => {
     expect(settle(s).next.owners.auditorium).toBe('A')
   })
 
-  it('시작 방인 2-3 교실도 첫 페이즈부터 넘어간다', () => {
+  it('열넷이 시작하는 방 말고는 다 넘어간다', () => {
     const s = board({
-      people: [person('a', 'A', 'centralPlaza'), person('a2', 'A', 'centralPlaza'), person('b', 'B', 'centralPlaza')],
+      people: [person('a', 'A', 'playground'), person('b', 'B', 'library')],
+      owners: { playground: null, library: null },
+    })
+    const out = settle(s).next.owners
+    expect(out.playground).toBe('A')
+    expect(out.library).toBe('B')
+  })
+})
+
+describe('2-3 교실은 아무도 못 가진다', () => {
+  // 열넷이 아침마다 모이는 방이다. 서 있는 것만으로 땅이 되면
+  // 인원이 많은 팀이 가만히 앉아 한 방을 번다
+
+  it('혼자 서 있어도 주인이 안 생긴다', () => {
+    const s = board({
+      people: [person('a', 'A', 'centralPlaza')],
       owners: { centralPlaza: null },
     })
-    expect(settle(s).next.owners.centralPlaza).toBe('A')
+    expect(settle(s).next.owners.centralPlaza).toBeNull()
   })
 
-  it('열넷이 한 방에 그대로 서 있으면 제일 많은 팀이 가져간다', () => {
+  it('한 팀이 몰려가도 안 생긴다', () => {
     const s = board({
       people: [
         person('a', 'A', 'centralPlaza'),
         person('a2', 'A', 'centralPlaza'),
+        person('a3', 'A', 'centralPlaza'),
         person('b', 'B', 'centralPlaza'),
-        person('b2', 'B', 'centralPlaza'),
-        person('c', 'C', 'centralPlaza'),
       ],
       owners: { centralPlaza: null },
     })
-    // A 둘 · B 둘로 동점이라 아무도 못 가진다
     expect(settle(s).next.owners.centralPlaza).toBeNull()
+  })
+
+  it('어쩌다 주인이 적혀 있었어도 지워진다', () => {
+    const s = board({ owners: { centralPlaza: 'B' } })
+    expect(settle(s).next.owners.centralPlaza).toBeNull()
+  })
+
+  it('서 있는 것 자체는 막지 않는다 — 아침에 열넷이 여기 모인다', () => {
+    const s = board({
+      people: [person('a', 'A', 'centralPlaza'), person('b', 'B', 'centralPlaza')],
+    })
+    expect(settle(s).next.people).toHaveLength(2)
   })
 })
 

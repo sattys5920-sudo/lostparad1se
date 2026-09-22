@@ -907,6 +907,18 @@ export function settle(state: PhaseState): SettleResult {
 
   const owners: Partial<Record<TileId, TeamId | null>> = { ...state.owners }
   for (const t of TILES) {
+    /*
+     * **2-3 교실은 아무도 못 가진다.**
+     *
+     * 열넷이 아침마다 모이는 방이다. 거기 서 있는 것만으로 땅이 되면
+     * 인원이 많은 팀이 가만히 앉아 한 방을 벌고, 아침에 모이는 일이
+     * 모이는 일이 아니라 점령이 된다. 중립으로 둔다 — 서 있는 것도,
+     * 거기서 만나는 것도 막지 않는다. 주인만 안 생긴다.
+     */
+    if (t.tier === 'plaza') {
+      owners[t.id] = null
+      continue
+    }
     const w: Partial<Record<TeamId, number>> = {}
     for (const p of state.people) {
       // 걷는 중인 사람은 어느 방에도 없다. 마지막 순간의 이동은 도박이다

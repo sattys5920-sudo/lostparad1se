@@ -502,10 +502,6 @@ export function drawPiece(
 }
 
 /**
- * 걸을 수 있는가. lockedDoors에 든 문은 아직 A의 기록이 열지 않은 문이라 지나갈 수 없다.
- * 키는 "x,y".
- */
-/**
  * 지금 판 위에 놓인 것들 — 문제 종이. **기물과 같이 못 지나간다.**
  *
  * 게시판·자판기·화분은 자리가 정해져 있어 규칙 파일에 박혀 있지만,
@@ -519,7 +515,8 @@ export function setBlockedCells(cells: readonly { x: number; y: number }[]): voi
   for (const c of cells) blockedNow.add(`${c.x},${c.y}`)
 }
 
-export function isWalkable(x: number, y: number, lockedDoors?: Set<string>): boolean {
+/** 걸을 수 있는가. 키는 "x,y". */
+export function isWalkable(x: number, y: number): boolean {
   if (tileAt(x, y) === 'wall') return false
   if (props.has(key(x, y))) return false
   if (signs.has(key(x, y))) return false
@@ -527,24 +524,7 @@ export function isWalkable(x: number, y: number, lockedDoors?: Set<string>): boo
   // 있으면 사람이 기계를 뚫고 지나간다(rules/fixtures)
   if (isFixture(x, y)) return false
   if (blockedNow.has(`${x},${y}`)) return false
-  if (lockedDoors?.has(`${x},${y}`)) return false
   return true
-}
-
-/** A의 기록이 열어 주기 전에는 못 들어가는 칸. 규칙 쪽 등급이 정한다. */
-const CORE_TILES = new Set<TileId>(
-  BOARD.filter((t) => t.tier === 'core' || t.tier === 'plaza').map((t) => t.id as TileId),
-)
-
-/** 잠긴 문 목록. 아직 열리지 않은 핵심 지역으로 들어가는 문만 잠근다. */
-export function lockedDoorKeys(unlocked: TileId[]): Set<string> {
-  const open = new Set(unlocked)
-  const out = new Set<string>()
-  for (const d of DOORS) {
-    if (!CORE_TILES.has(d.a) || open.has(d.a)) continue
-    for (const t of d.tiles) out.add(`${t.x},${t.y}`)
-  }
-  return out
 }
 
 /** 그 방 한가운데 칸. */
@@ -564,8 +544,14 @@ export function spawnFor(_team: TeamId | null): { x: number; y: number } {
 /** 팀이 정해지기 전 기본 자리. */
 export const SPAWN = spawnFor(null)
 
-/** 조각이 떨어질 수 있는 곳 — 핵심 지역은 뺀다. */
-export const SPAWNABLE_TILES: TileId[] = BOARD.filter((t) => !CORE_TILES.has(t.id as TileId)).map(
+/**
+ * 조각이 떨어질 수 있는 곳 — **2-3 교실만 뺀다.**
+ *
+ * 핵심도 같이 뺐던 것은 A의 기록이 열어 주기 전에는 못 들어갔기
+ * 때문이다. 이제 방이 처음부터 다 열려 있으니 핵심에도 떨어진다.
+ * 2-3 교실은 아무도 못 가지는 중립 자리라 그대로 뺀다.
+ */
+export const SPAWNABLE_TILES: TileId[] = BOARD.filter((t) => t.tier !== 'plaza').map(
   (t) => t.id as TileId,
 )
 

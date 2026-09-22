@@ -9,7 +9,6 @@
 import {
   RESOURCES,
   SCORE_PER_CORE,
-  SCORE_PLAZA,
   SCORE_RESEARCH_MULTIPLIER,
   SCORE_RESOURCE_DIVISOR,
   type Resource,
@@ -52,13 +51,17 @@ export function connectionScore(input: ScoreInput): number {
   return connectedSize(input.team.team, (id) => owner.get(id) ?? null)
 }
 
-/** 핵심 한 칸당 3, 중앙광장 5. */
+/**
+ * 핵심 한 칸당 3.
+ *
+ * **2-3 교실 몫은 없앴다.** 아무도 가질 수 없는 방이 됐으므로 그
+ * 점수는 영영 아무에게도 안 간다 — 남겨 두면 언젠가 누가 「왜 안
+ * 들어오지」 하고 들여다본다.
+ */
 export function coreScore(input: ScoreInput): number {
   let total = 0
   for (const t of ours(input.tiles, input.team.team)) {
-    const tier = TILE_BY_ID[t.tileId].tier
-    if (tier === 'core') total += SCORE_PER_CORE
-    if (tier === 'plaza') total += SCORE_PLAZA
+    if (TILE_BY_ID[t.tileId].tier === 'core') total += SCORE_PER_CORE
   }
   return total
 }

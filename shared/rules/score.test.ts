@@ -81,9 +81,16 @@ describe('연결', () => {
 })
 
 describe('핵심', () => {
-  it('핵심 3, 중앙광장 5', () => {
-    const tiles = board({ A: ['playground', 'centralPlaza'] })
-    expect(coreScore(input({ tiles }))).toBe(8)
+  it('핵심 한 칸당 3', () => {
+    const tiles = board({ A: ['playground', 'broadcastRoom'] })
+    expect(coreScore(input({ tiles }))).toBe(6)
+  })
+
+  // 2-3 교실은 아무도 못 가지는 방이 됐다. 혹시 소유가 적혀 있어도
+  // 점수로 안 간다 — 두 군데가 어긋나도 점수판은 흔들리지 않는다
+  it('2-3 교실은 점수에 안 들어간다', () => {
+    const tiles = board({ A: ['centralPlaza'] })
+    expect(coreScore(input({ tiles }))).toBe(0)
   })
 
   it('없으면 0이다', () => {

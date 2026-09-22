@@ -318,8 +318,6 @@ export const CARD_HIDE_GAME_HOURS = 6
 
 /** 핵심 한 칸당. */
 export const SCORE_PER_CORE = 3
-/** 중앙광장. */
-export const SCORE_PLAZA = 5
 /** 남은 자원을 이 수로 나눈다(버림). */
 export const SCORE_RESOURCE_DIVISOR = 5
 /** 연구 단계에 곱하는 값. */

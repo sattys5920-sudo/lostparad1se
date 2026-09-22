@@ -128,12 +128,19 @@ describe('걸어서 갈 수 있다', () => {
     for (const d of DOORS) for (const t of d.tiles) expect(roomAt(t.x, t.y)).toBeNull()
   })
 
-  it('조각은 핵심 지역에 떨어지지 않는다', () => {
+  it('조각은 2-3 교실에만 안 떨어진다', () => {
     const bad = SPAWNABLE_TILES.filter((id: TileId) => {
       const t = TILES.find((x) => x.id === id)
-      return !t || t.tier === 'core' || t.tier === 'plaza'
+      return !t || t.tier === 'plaza'
     })
     expect(bad).toEqual([])
+  })
+
+  // 핵심도 처음부터 열려 있으니 떨어진다. 전에는 A의 기록이
+  // 열어 주기 전에는 못 들어가서 같이 뺐다
+  it('핵심에는 떨어진다', () => {
+    const cores = TILES.filter((t) => t.tier === 'core').map((t) => t.id)
+    for (const id of cores) expect(SPAWNABLE_TILES, id).toContain(id)
   })
 })
 

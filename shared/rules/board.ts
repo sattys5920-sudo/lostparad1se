@@ -305,8 +305,10 @@ export const tilesOn = (floor: Floor): readonly TileSpec[] => TILES.filter((t) =
 /**
  * 모두가 여기서 시작한다. 2-3 교실 — 2층 북쪽의 제일 큰 교실이다.
  *
- * 기지는 그대로 남는다 — 점수는 여전히 네 방을 센다. 다만 아침은
- * 다 같이 한 교실에서 연다.
+ * **아무도 못 가지는 방이다.** 열넷이 아침마다 모이는 자리라, 서 있는
+ * 것만으로 땅이 되면 인원이 많은 팀이 가만히 앉아 한 방을 번다.
+ * 중립으로 둔다 — 드나드는 것도 거기서 만나는 것도 막지 않고,
+ * 주인만 안 생긴다(occupy.ts 의 settle).
  */
 export const START_TILE: TileId = 'centralPlaza'
 
