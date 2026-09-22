@@ -325,9 +325,6 @@ export const SCORE_RESEARCH_MULTIPLIER = 2
 
 // ── A의 기록과 날짜별 사건 ──────────────────────────────────────
 
-/** 기록이 지목한 칸의 가치가 끝까지 오르는 값. */
-export const FRAGMENT_TILE_BONUS = 2
-
 // **방은 처음부터 다 열려 있다.**
 //
 // 전에는 A의 기록이 날마다 핵심을 두 칸씩 열어 줬고(CORE_OPENING),

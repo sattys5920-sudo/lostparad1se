@@ -1,21 +1,20 @@
 // 아침 등교 시퀀스의 진행.
 //
-// 두 장면이 한 날을 이룬다.
+// **한 장면뿐이다 — 기록 읽기.** 다 넘기면 그날 아침이 끝난다.
 //
-//   기록 읽기 → 미니맵 복귀
-//
-// **날짜 카드와 「오늘 일어나는 일」은 없앴다.** 날에 이름을 붙이고
-// 그날 무엇이 열리는지 미리 적어 주면, 아침이 이야기가 아니라 안내판이
-// 된다. 남는 것은 A가 쓴 종이 한 장이고, 탭하면 넘어간다.
+// 날짜 카드와 「오늘 일어나는 일」을 먼저 없앴고, 이제 미니맵 장면도
+// 없앴다. 그 장면은 A의 기록이 지목한 칸을 「+2」와 함께 비춰 주는
+// 자리였는데, 지목하는 일 자체가 없어졌다. 남는 것은 A가 쓴 종이
+// 한 장이고, 탭하면 넘어간다.
 //
 // 며칠을 건너뛰고 들어온 사람은 빠진 날을 **날짜순으로 이어서** 본다.
 // 닷새치를 한꺼번에 뿌리면 무엇이 언제 일어난 일인지 뒤섞인다.
 //
 // 화면 코드가 아니라 여기에 두는 이유: 어디까지 봤는지가 서버에 남아야
 // 하고(다시 들어와도 이어서 봐야 한다), 시험이 필요하기 때문이다.
-export type SceneId = 'record' | 'map'
+export type SceneId = 'record'
 
-export const SCENE_ORDER: readonly SceneId[] = ['record', 'map']
+export const SCENE_ORDER: readonly SceneId[] = ['record']
 
 /** 그날 재생에 필요한 최소한의 모양. 본문은 들어 있지 않다. */
 export interface DayScript {
@@ -95,16 +94,13 @@ function nextDay(s: MorningState, skippedNow: boolean): MorningState {
 export function advance(s: MorningState, script: DayScript | null): MorningState {
   if (done(s)) return s
 
-  if (s.scene === 'record') {
-    const paper = script?.papers[s.paperIndex]
-    // 맨 위가 아직 안 나왔으면 이번 탭은 그걸 여는 데 쓴다
-    if (paper?.hasTop && !s.topShown) return { ...s, topShown: true }
-    const last = (script?.papers.length ?? 1) - 1
-    if (s.paperIndex < last) return { ...s, paperIndex: s.paperIndex + 1, topShown: false }
-    return { ...s, scene: 'map' }
-  }
+  const paper = script?.papers[s.paperIndex]
+  // 맨 위가 아직 안 나왔으면 이번 탭은 그걸 여는 데 쓴다
+  if (paper?.hasTop && !s.topShown) return { ...s, topShown: true }
+  const last = (script?.papers.length ?? 1) - 1
+  if (s.paperIndex < last) return { ...s, paperIndex: s.paperIndex + 1, topShown: false }
 
-  // map — 이 날은 끝났다
+  // 마지막 장까지 넘겼다. 이 날은 끝났다
   return nextDay(s, false)
 }
 

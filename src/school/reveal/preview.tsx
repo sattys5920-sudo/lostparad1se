@@ -10,7 +10,6 @@ import { MorningSequence, type DayFragment } from './MorningSequence'
 const FAKE: DayFragment[] = [
   {
     day: 2,
-    spotTile: 'scienceRoom',
     papers: [
       {
         kind: 'diary',
@@ -30,7 +29,6 @@ const FAKE: DayFragment[] = [
   },
   {
     day: 5,
-    spotTile: 'hallway',
     papers: [
       {
         kind: 'note',

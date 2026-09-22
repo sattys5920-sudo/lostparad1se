@@ -23,8 +23,6 @@ import {
   TOKEN_COMEBACK_BONUS,
 } from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
-import type { Fragment } from '../../shared/rules/fragments'
-import { FRAGMENT_BY_DAY } from './story/fragments'
 import type {
   GameDoc,
   PawnDoc,
@@ -43,16 +41,6 @@ import { sysLine } from './radio'
 import { sys } from '../../shared/rules/radio'
 
 const db = getFirestore()
-
-/** 하루가 열리면 가치가 오르는 칸. 그날까지 나온 기록 전부다. */
-function fragmentsUpTo(day: number): Fragment[] {
-  const out: Fragment[] = []
-  for (let d = 1; d <= day; d++) {
-    const f = FRAGMENT_BY_DAY[d]
-    if (f) out.push({ day: f.day, spotTile: f.spotTile as TileId })
-  }
-  return out
-}
 
 // ── 일 하나씩 ───────────────────────────────────────────────────
 
@@ -80,7 +68,6 @@ interface Ctx {
  */
 async function dayStart(c: Ctx): Promise<void> {
   const ref = gameRef(c.gameId)
-  const boostedTiles = fragmentsUpTo(c.day).map((f) => f.spotTile)
 
   // **등교 예약은 없앴다.** 밤새 멈춰 있던 시절의 규칙이고, 어디든
   // 한 걸음이 된 뒤로는 자유 시간에 그냥 걸어가는 것과 같아졌다
@@ -104,7 +91,6 @@ async function dayStart(c: Ctx): Promise<void> {
 
   c.tx.update(ref, {
     day: c.day,
-    boostedTiles,
     // 어제 21:00에 정해진 사람이 오늘 지워진다
     invisibleId: c.game.invisibleByDay[c.day] ?? null,
   })
@@ -203,7 +189,6 @@ async function settlement(c: Ctx): Promise<void> {
   for (const d of todays) c.tx.update(d.ref, { settled: true })
 
   // 3~4. 점수와 순위, 주목과 만회
-  const fragments = fragmentsUpTo(c.day)
   const scores = TEAMS.map((team) => {
     const doc = teamDocs.get(team) as TeamDoc
     const state: TeamState = {
@@ -211,7 +196,7 @@ async function settlement(c: Ctx): Promise<void> {
       resources: after.get(team) ?? teamPurse(wallet, team),
       researchTier: doc.researchTier,
     }
-    return publicScore({ tiles, fragments, team: state })
+    return publicScore({ tiles, team: state })
   })
 
   const result = settleDay({

@@ -18,22 +18,12 @@ describe('A의 기록', () => {
     for (let d = 1; d <= TOTAL_DAYS; d++) expect(FRAGMENT_BY_DAY[d]).toBeDefined()
   })
 
-  it('지목 칸이 실제 칸이고 기지가 아니다', () => {
+  // 조각이 칸 하나를 지목해 가치를 +2 올려 주던 때가 있었다.
+  // 기록은 이제 읽을 글 한 장이고, 판 위의 무엇도 안 건드린다
+  it('판을 건드리는 칸이 안 적혀 있다', () => {
     for (const f of FRAGMENTS) {
-      const tile = TILE_BY_ID[f.spotTile]
-      expect(tile, f.spotTile).toBeDefined()
-      expect(tile.tier, f.spotTile).not.toBe('base')
+      expect((f as Record<string, unknown>).spotTile, `DAY ${f.day}`).toBeUndefined()
     }
-  })
-
-  it('지목 칸이 겹치지 않는다', () => {
-    expect(new Set(FRAGMENTS.map((f) => f.spotTile)).size).toBe(TOTAL_DAYS)
-  })
-
-  it('네 팀 1구역에 한 번씩, 관문에 한 번 떨어진다', () => {
-    const tiers = FRAGMENTS.map((f) => TILE_BY_ID[f.spotTile].tier)
-    expect(tiers.filter((t) => t === 'zone1')).toHaveLength(4)
-    expect(tiers.filter((t) => t === 'gate')).toHaveLength(1)
   })
 
   it('종이마다 본문이 있다', () => {

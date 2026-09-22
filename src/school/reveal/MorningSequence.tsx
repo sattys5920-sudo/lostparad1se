@@ -20,15 +20,11 @@ import {
   type DayScript,
   type MorningState,
 } from '../../../shared/reveal/morning'
-import { SPOT_HIGHLIGHT_MS } from '../../../shared/reveal/staging'
-import { FRAGMENT_TILE_BONUS } from '../../../shared/rules/v2'
-import { TILE_BY_ID } from '../../../shared/rules/board'
 import type { PaperKind } from '../../../shared/reveal/paper'
 
-/** 서버가 내려보낸 한 날의 조각. 가리키는 역할은 들어 있지 않다. */
+/** 서버가 내려보낸 한 날의 조각. **읽을 글이 전부다.** */
 export interface DayFragment {
   day: number
-  spotTile: string
   papers: {
     kind: PaperKind
     lines: string[]
@@ -79,15 +75,6 @@ export function MorningSequence(props: MorningProps) {
     props.onFinish({ read, skipped: [...state.skipped] })
   }, [state, days, props])
 
-  // 기록 읽기는 탭을 기다린다. 자리를 비추는 것만 저 혼자 넘어간다
-  useEffect(() => {
-    if (state.scene === 'map') {
-      const t = setTimeout(() => setState((s) => advance(s, script)), SPOT_HIGHLIGHT_MS)
-      return () => clearTimeout(t)
-    }
-    return
-  }, [state.scene, state.queue, script])
-
   if (done(state) || day === null || !fragment) return null
 
   /** 기록 읽기의 탭. 찍는 중이면 다 보여 주고, 다 찍혔으면 넘어간다. */
@@ -99,13 +86,11 @@ export function MorningSequence(props: MorningProps) {
     setState((s) => advance(s, script))
   }
 
-  const spot = TILE_BY_ID[fragment.spotTile]
-
   return (
     <div className="sc-rv" role="dialog" aria-label="기록">
       <Snow level={props.snowLevel ?? 5} />
 
-      {state.scene === 'record' && paper && (
+      {paper && (
         <button className="sc-rv__record" onClick={onTap} aria-label="넘기기">
           <PaperSheet
             kind={paper.kind}
@@ -116,13 +101,6 @@ export function MorningSequence(props: MorningProps) {
             topShown={state.topShown}
           />
         </button>
-      )}
-
-      {state.scene === 'map' && (
-        <div className="sc-rv__spot">
-          <span className="sc-rv__spot-name">{spot?.name ?? fragment.spotTile}</span>
-          <span className="sc-rv__spot-bonus">+{FRAGMENT_TILE_BONUS}</span>
-        </div>
       )}
 
     </div>

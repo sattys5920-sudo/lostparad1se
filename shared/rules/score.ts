@@ -15,7 +15,6 @@ import {
   type TeamId,
 } from './v2'
 import { TILE_BY_ID, connectedSize } from './board'
-import { tileValue, type Fragment } from './fragments'
 import type { TileState } from './resources'
 
 /** 한 팀의 지금 모습. 점수를 내는 데 필요한 전부. */
@@ -27,7 +26,6 @@ export interface TeamState {
 
 export interface ScoreInput {
   tiles: readonly TileState[]
-  fragments: readonly Fragment[]
   team: TeamState
 }
 
@@ -36,11 +34,17 @@ export interface ScoreInput {
 /** 우리 칸. **빼는 것은 없다** — 기지가 없어져서 거저 받는 방도 없다 */
 const ours = (tiles: readonly TileState[], team: TeamId) => tiles.filter((t) => t.ownerTeam === team)
 
-/** 가진 칸의 가치 합. A의 기록 보너스를 포함한다. */
+/**
+ * 가진 칸의 가치 합.
+ *
+ * A의 기록이 칸 하나를 지목해 +2 올려 주던 보너스가 여기 있었다.
+ * 걷어냈다 — 실제 점수 계산에는 애초에 안 걸려 있었고(ending.ts 가
+ * 늘 빈 목록을 넘겼다), 걸려 있었다 해도 기록은 이제 읽을 글일 뿐이다.
+ */
 export function territoryScore(input: ScoreInput): number {
   let total = 0
   for (const t of ours(input.tiles, input.team.team)) {
-    total += tileValue(t.tileId, input.fragments)
+    total += TILE_BY_ID[t.tileId].value
   }
   return total
 }

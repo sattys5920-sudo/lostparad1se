@@ -61,10 +61,16 @@ export interface SlipDoc {
 
 const slipsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('slips').collection('items')
 
-/** 쪽지가 떨어질 수 있는 방. 기지와 핵심 지역은 뺀다. */
-const DROP_TILES: TileId[] = TILES.filter((t) => t.tier !== 'core' && t.tier !== 'plaza').map(
-  (t) => t.id,
-)
+/**
+ * 쪽지가 떨어질 수 있는 방. **2-3 교실만 뺀다.**
+ *
+ * 주석에는 오래 「기지와 핵심 지역은 뺀다」고 적혀 있었는데 기지는 한
+ * 번도 안 빠지고 있었다 — baseA~D 는 교무실·화장실·기술실·시청각실이고
+ * 등급이 zone1 이다. 기지라는 것이 없어진 지 오래라 빼야 할 이유도 없다.
+ * 핵심도 이제 첫날부터 열려 있으니 같다. 아침에 열넷이 모이는 2-3
+ * 교실만 뺀다 — 거기 떨어지면 먼저 본 사람이 그냥 줍는다.
+ */
+const DROP_TILES: TileId[] = TILES.filter((t) => t.tier !== 'plaza').map((t) => t.id)
 
 /**
  * 쪽지를 뿌린다. 페이즈가 닫힐 때 서버가 부른다.

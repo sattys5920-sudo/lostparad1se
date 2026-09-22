@@ -110,9 +110,11 @@ async function main(): Promise<void> {
   check(Number(closed.slips) === SLIPS_PER_PHASE, `${SLIPS_PER_PHASE}장 떨어졌다`, `${closed.slips}장`)
   const floor = await allSlips()
   check(floor.every((s) => s.d.heldBy === null && s.d.tileId !== null), '전부 바닥에 있다')
+  // 아침에 열넷이 모이는 방에는 안 떨어진다. 거기 떨어지면 먼저 본
+  // 사람이 그냥 줍는다. 기지는 뺄 이유가 없어진 지 오래다
   check(
-    floor.every((s) => !String(s.d.tileId).startsWith('base')),
-    '기지에는 안 떨어진다',
+    floor.every((s) => s.d.tileId !== 'centralPlaza'),
+    '2-3 교실에는 안 떨어진다',
     floor.map((s) => s.d.tileId).join(','),
   )
 

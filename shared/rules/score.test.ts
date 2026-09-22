@@ -42,7 +42,6 @@ const MINE = ['baseA', 'cafeteria', 'hallway']
 
 const input = (over: Partial<ScoreInput> = {}): ScoreInput => ({
   tiles: board({ A: [...MINE] }),
-  fragments: [],
   team: team(),
   ...over,
 })
@@ -53,9 +52,10 @@ describe('영역', () => {
     expect(territoryScore(input())).toBe(9)
   })
 
-  it('A의 기록 보너스가 붙는다', () => {
-    const out = territoryScore(input({ fragments: [{ day: 1, spotTile: 'cafeteria' }] }))
-    expect(out).toBe(9 + 2)
+  // A의 기록이 칸 하나를 지목해 +2 올려 주던 보너스가 있었다.
+  // 기록이 판을 안 건드리게 되면서 같이 나갔다
+  it('기록으로 오르는 칸은 없다 — 값은 판에 박힌 것뿐이다', () => {
+    expect(territoryScore(input())).toBe(9)
   })
 })
 

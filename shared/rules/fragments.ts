@@ -1,32 +1,14 @@
 // A의 기록.
 //
-// A는 판에 나타나지 않는다. 매일 08:00에 한 조각씩 열리고, 조각 하나는
-// 칸 하나의 가치를 올린다.
+// A는 판에 나타나지 않는다. 매일 08:00에 한 조각씩 열린다. **그뿐이다** —
+// 읽을 글 한 장이고, 판 위의 무엇도 바꾸지 않는다.
 //
-// **방을 열어 주는 일은 이제 안 한다.** 전에는 날마다 핵심을 두 칸씩
-// 열어 줬고 열리기 전에는 가질 수 없었다. 스물다섯 방 전부 첫날부터
-// 다툰다 — v2.ts 의 「방은 처음부터 다 열려 있다」를 보라.
-import {
-  FRAGMENT_TILE_BONUS,
-  LAST_HOURS_DAY,
-  LAST_HOURS_START_HOUR,
-  TOTAL_DAYS,
-} from './v2'
-import { TILE_BY_ID, type TileId } from './board'
+// 전에는 둘을 더 했다. 날마다 핵심을 두 칸씩 열어 줬고(열리기 전에는
+// 가질 수 없었다), 칸 하나를 지목해 가치를 +2 올렸다. 둘 다 걷어냈다 —
+// 여는 쪽은 열넷이 시작하는 방이 영영 안 열리는 구멍이 있었고,
+// 지목하는 쪽은 애초에 점수 계산에 안 걸려 있었다.
+import { LAST_HOURS_DAY, LAST_HOURS_START_HOUR, TOTAL_DAYS } from './v2'
 import { dayNumber, secondsIntoSeoulDay, seoulTimeOn } from './clock'
-
-/** 조각이 지목한 칸. 가치가 끝까지 +2 오른다. */
-export interface Fragment {
-  day: number
-  /** 가치가 오르는 칸. */
-  spotTile: TileId
-}
-
-/** 그 칸의 지금 가치. 기본값 + 기록 보너스. */
-export function tileValue(tileId: TileId, fragments: readonly Fragment[]): number {
-  const bonus = fragments.filter((f) => f.spotTile === tileId).length * FRAGMENT_TILE_BONUS
-  return TILE_BY_ID[tileId].value + bonus
-}
 
 // ── 날마다 일어나는 일 ──────────────────────────────────────────
 

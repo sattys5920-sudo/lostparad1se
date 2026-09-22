@@ -104,7 +104,7 @@ export async function buildLog(
       resources: teamPurse(wallet, team),
       researchTier: doc.researchTier,
     }
-    return publicScore({ tiles, fragments: [], team: state })
+    return publicScore({ tiles, team: state })
   })
   const ranked = rankTeams(scores, (team) => teamPurse(wallet, team).knowledge)
   // 안 가른 순위. 「우리 팀이 1위가 아니다」가 이쪽을 본다

@@ -31,15 +31,12 @@ export interface Paper {
 
 export interface FragmentData {
   day: number
-  /** 가치가 끝까지 +2 오르는 칸. 무작위가 아니라 고정이다. */
-  spotTile: string
   papers: readonly Paper[]
 }
 
 export const FRAGMENTS: readonly FragmentData[] = [
   {
     day: 1,
-    spotTile: 'library',
     papers: [
       {
         kind: 'diary',
@@ -49,7 +46,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
   },
   {
     day: 2,
-    spotTile: 'scienceRoom',
     papers: [
       {
         kind: 'note',
@@ -64,7 +60,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
     // v3에서는 「음악실 피아노 뒤에서 보냈어」였는데, 그러면 고발자의 숨긴
     // 사실(창고 앞에서 기다리던 중)과 어긋난다.
     day: 3,
-    spotTile: 'musicRoom',
     papers: [
       {
         kind: 'diary',
@@ -76,7 +71,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
   },
   {
     day: 4,
-    spotTile: 'storage',
     papers: [
       {
         kind: 'note',
@@ -91,7 +85,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
     // scenario_reveal.md 6장. 「철컥」 줄이 잠근 사람이 따로 있다는 것만
     // 알려 준다. 지킴이는 여전히 가리켜지는 역할이 아니다.
     day: 5,
-    spotTile: 'hallway',
     papers: [
       {
         kind: 'note',

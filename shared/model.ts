@@ -122,7 +122,6 @@ export interface GameDoc {
   // 읽을 수 있어서 적는 순간 위장이 성립하지 않는다 — secret/phase 에 있다
   /** A의 기록이 열어 준 칸. */
   /** 기록이 지목해 가치가 오른 칸. */
-  boostedTiles: TileId[]
   /** 21:00 정산에서 1위(주목)·꼴찌(만회)로 지정된 팀. 동점이면 여럿. */
   spotlightTeams: TeamId[]
   comebackTeams: TeamId[]

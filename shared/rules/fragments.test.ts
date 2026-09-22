@@ -5,11 +5,8 @@ import {
   inLastHours,
   isOver,
   lastHoursStartMs,
-  tileValue,
 } from './fragments'
-import { TILE_BY_ID } from './board'
 import { TILES } from './board'
-import { FRAGMENT_TILE_BONUS } from './v2'
 
 const seoul = (iso: string) => new Date(`${iso}+09:00`).getTime()
 const START = seoul('2026-03-02T08:00:00')
@@ -19,32 +16,18 @@ const dayN = (n: number, hhmm = '10:00') =>
 describe('방은 처음부터 다 열려 있다', () => {
   // 전에는 A의 기록이 날마다 핵심을 두 칸씩 열어 줬다. 그 규칙을
   // 걷어냈으니 여는 함수도 없어야 한다 — 남아 있으면 누가 다시 쓴다
-  it('여는 일정이 아예 없다', async () => {
+  // A의 기록은 이제 읽을 글 한 장이다. 판 위의 무엇도 바꾸지 않는다 —
+  // 여는 일정도, 지목한 칸의 +2도 없다. 남아 있으면 누가 다시 쓴다
+  it('판을 바꾸는 함수가 아예 없다', async () => {
     const mod = (await import('./fragments')) as Record<string, unknown>
     expect(mod.openedOn).toBeUndefined()
     expect(mod.openTilesBy).toBeUndefined()
     expect(mod.coreOpen).toBeUndefined()
+    expect(mod.tileValue).toBeUndefined()
   })
 
   it('스물다섯 방이 전부 있다', () => {
     expect(TILES).toHaveLength(25)
-  })
-})
-
-describe('칸 가치', () => {
-  it('기록이 지목하면 +2', () => {
-    const base = TILE_BY_ID.library.value
-    expect(tileValue('library', [])).toBe(base)
-    expect(tileValue('library', [{ day: 1, spotTile: 'library' }])).toBe(base + FRAGMENT_TILE_BONUS)
-  })
-
-  it('두 번 지목되면 두 번 오른다', () => {
-    const base = TILE_BY_ID.library.value
-    const twice = [
-      { day: 1, spotTile: 'library' },
-      { day: 3, spotTile: 'library' },
-    ]
-    expect(tileValue('library', twice)).toBe(base + FRAGMENT_TILE_BONUS * 2)
   })
 })
 

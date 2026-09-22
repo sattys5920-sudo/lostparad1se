@@ -15,7 +15,6 @@ import type { GameDoc } from '../../shared/model'
 /** 화면에 내려보내는 모양. 서버 전용 타입(FragmentData)과 일부러 다르다. */
 export interface FragmentPayload {
   day: number
-  spotTile: string
   papers: {
     kind: string
     lines: string[]
@@ -36,7 +35,6 @@ function payloadOf(day: number): FragmentPayload {
   if (!data) throw new HttpsError('not-found', REFUSAL_MESSAGE.noSuchDay)
   return {
     day: data.day,
-    spotTile: data.spotTile,
     papers: data.papers.map((p) => ({
       kind: p.kind,
       lines: [...p.lines],

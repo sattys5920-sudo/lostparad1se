@@ -18,7 +18,6 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { assignRoles, type Player } from '../../shared/missions/assign'
 import { DEAL_TOKENS_PER_DAY, isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES } from '../../shared/rules/board'
-import { FRAGMENT_BY_DAY } from './story/fragments'
 import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
 import { seedGarden } from './garden'
@@ -85,7 +84,6 @@ function freshLobby(seed: string, seats: readonly SeatEntry[]): GameDoc {
     clock: { anchorRealMs: 0, anchorGameMs: 0, speed: 1 },
     caughtUpToMs: 0,
     day: 0,
-    boostedTiles: [],
     spotlightTeams: [],
     comebackTeams: [],
     lastHours: false,
@@ -478,7 +476,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     startedAtMs,
     caughtUpToMs: startedAtMs,
     day: 1,
-    boostedTiles: FRAGMENT_BY_DAY[1] ? [FRAGMENT_BY_DAY[1].spotTile] : [],
     startedRealMs: FieldValue.serverTimestamp(),
     captains,
   })

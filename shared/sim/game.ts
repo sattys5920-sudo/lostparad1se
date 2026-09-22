@@ -250,7 +250,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   })
   const tileList = [...tiles.values()]
   const scores = TEAM_IDS.map((team) =>
-    publicScore({ tiles: tileList, fragments, team: finalTeam(team) }),
+    publicScore({ tiles: tileList, team: finalTeam(team) }),
   )
   const ranked = settle(scores, (t) => teams[t].resources.knowledge)
 
@@ -414,7 +414,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     const open = TEAM_IDS.map((team) =>
       publicScore({
         tiles: list,
-        fragments,
         team: { team, resources: teams[team].resources, researchTier: teams[team].researchTier },
       }),
     )
