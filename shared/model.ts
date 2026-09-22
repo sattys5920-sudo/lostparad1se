@@ -617,8 +617,8 @@ export interface PlayerViewDoc {
   // ── 진상 공개 흐름 ──
   //
   // 보관함은 **보는 사람마다 따로 만든다.** 전체 목록을 두고 「너는 이건
-  // 못 봐」 표시를 붙이지 않는다 — 그러면 남의 1:1 고백이 제목만이라도
-  // 실려 나간다. 여기에는 애초에 담지 않는다.
+  // 못 봐」 표시를 붙이지 않는다 — 그러면 남의 팀만 아는 기억이 제목만
+  // 이라도 실려 나간다. 여기에는 애초에 담지 않는다.
 
   /** 내 역할 한 줄. 남의 것은 없다. */
   own: { roleId: string; targetId: string | null } | null
@@ -626,18 +626,9 @@ export interface PlayerViewDoc {
   handledDays: number[]
   /** 끝까지 본 날. 보관함이 「읽지 않음」을 가리는 데 쓴다. */
   readDays: number[]
-  /** 내가 말했거나 내가 들은 고백만. */
-  confessions: {
-    id: string
-    speakerId: string
-    scope: 'class' | 'private'
-    listenerIds: string[]
-    text: string
-    atMs: GameMs
-  }[]
   /** 우리 팀이 먼저 연 A의 기억. 끝나면 열셋 전부. */
   memories: { tileId: TileId; team: TeamId; atMs: GameMs }[]
-  /** A의 시선. 깨달음에 이른 본인에게만. */
+  /** A의 시선. 그 자리에 서 본 본인에게만. */
   sightAtMs: GameMs | null
   /** 나에게 온 운영자 공지. 전체 공지와 내 것만 섞여 있다. */
   notices: { id: string; text: string; atMs: GameMs }[]
@@ -651,27 +642,18 @@ export interface PlayerViewDoc {
  * 손으로 친 말과 게임이 남긴 기록을 한 줄에 섞지 않는다.
  *
  *   say     사람이 친 말. **어떤 판정에도 쓰이지 않는다.**
- *   reveal  털어놓기. 시스템 카드로 뜨고 「공인된 고백」이라 적힌다
  *   alert   우리 칸에 깃발이 꽂혔다 같은 자동 경보
- *
- * "나 털어놓을게"라고 채팅에 쓰는 것과 실제로 털어놓는 것은 완전히
- * 다른 일이다. 게임은 후자만 센다.
  */
-export type ChatKind = 'say' | 'reveal' | 'alert'
+export type ChatKind = 'say' | 'alert'
 
 export interface ChatDoc {
   kind: ChatKind
   atMs: GameMs
-  /** say·reveal은 말한 사람. alert는 없다. */
+  /** say는 말한 사람. alert는 없다. */
   playerId?: string
   nickname?: string
   team?: TeamId
-  /** say의 본문, 또는 털어놓기에 덧붙인 말. */
   text: string
-  /** reveal일 때만 — 역할의 숨긴 사실 문장 그대로. */
-  secretText?: string
-  /** reveal일 때만 — 1:1인가 전체인가. */
-  scope?: 'private' | 'class'
 }
 
 // ── 기록 ────────────────────────────────────────────────────────
@@ -699,8 +681,7 @@ export interface CaptureDoc {
  * games/{gameId}/events/{eventId} — 추가만 한다.
  *
  * 따라잡기의 근거이자 비밀 목표 판정의 근거다. 칸을 뺏긴 적,
- * 남의 칸 깃발 성공 횟수, 동맹을 먼저 깼는지, 신뢰표를 준 팀,
- * 비밀을 털어놓았는지 — 전부 여기서 센다.
+ * 남의 칸 깃발 성공 횟수, 신뢰표를 준 팀 — 전부 여기서 센다.
  */
 export type EventKind =
   | 'gameStart' | 'dayStart' | 'settlement' | 'gameEnd'

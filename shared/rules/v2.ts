@@ -204,27 +204,6 @@ export const VOTE_OPEN_HOUR = DAY_START_HOUR
 export const VOTE_CLOSE_HOUR = SETTLEMENT_HOUR
 /** 하루에 한 사람이 줄 수 있는 표. */
 export const VOTE_PER_PLAYER_DAILY = 1
-/** 정보부장이 보낸 사람을 볼 수 있는 횟수(하루). */
-export const INTEL_VOTE_PEEK_DAILY = 1
-
-// ── 털어놓기와 약점 ─────────────────────────────────────────────
-
-/**
- * 털어놓기는 **얻는 것이 없다.** 잃는 것만 있다.
- *
- * 영향력이 있을 때는 처음 한 번 +3을 받았다. 그 보상이 없어진 지금,
- * 털어놓기는 순수하게 「듣는 사람마다 나에 대한 약점이 하나 생기는」
- * 행동이다 — 그런데도 하는 이유는 상대가 나를 믿게 만들기 위해서다.
- * 값을 치르지 않는 신뢰는 신뢰가 아니다.
- */
-
-/** 털어놓는 방식. */
-export type RevealScope = 'private' | 'class'
-
-/** 발 묶기 — 말이 움직이지도 행동하지도 못한다(게임 시계). */
-export const LEVERAGE_BIND_GAME_HOURS = 6
-/** 갈취로 뜯어 오는 돈. 영향력이 없어진 자리를 돈이 받았다. */
-export const LEVERAGE_EXTORT_MONEY = 3
 
 // ── 팀 직책 ─────────────────────────────────────────────────────
 

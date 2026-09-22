@@ -46,7 +46,6 @@ export interface MyPaper {
   /** 합계뿐이다. 신뢰인지 호감인지는 오지 않는다. */
   votesReceived: number
   votesThroughDay: number
-  revealed: { scope: 'class' | 'private'; atMs: number; day: number } | null
 }
 
 export interface Paper {

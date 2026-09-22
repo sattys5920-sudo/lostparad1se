@@ -100,10 +100,4 @@ describe('시스템 줄', () => {
     expect(sys.movedOut('다솜', 'C')).toBe('다솜이 C팀으로 갔다.')
     expect(sys.movedIn('바다')).toBe('바다가 우리 팀으로 왔다.')
   })
-
-  it('금고는 움직인 것만 적는다. 숫자 뒤에 조사를 안 붙인다', () => {
-    expect(sys.vaultOut(3, 2)).toBe('금고가 줄었다 — 돈 3 · 지식 2')
-    expect(sys.vaultOut(3, 0)).toBe('금고가 줄었다 — 돈 3')
-    expect(sys.vaultOut(0, 2)).toBe('금고가 줄었다 — 지식 2')
-  })
 })

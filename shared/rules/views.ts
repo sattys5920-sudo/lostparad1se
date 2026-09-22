@@ -32,7 +32,7 @@ import {
   type PotStage,
 } from './crop'
 import type { Satchel, Satchels } from './items'
-import { canSeeConfession, canSeeMemory } from '../reveal/archive'
+import { canSeeMemory } from '../reveal/archive'
 import { noticesFor, type Notice } from '../reveal/notice'
 
 // ── 서버가 쥐고 있는 것 ─────────────────────────────────────────
@@ -67,15 +67,6 @@ export interface WorldRoster {
   team: TeamId
   roleId: string
   targetId: string | null
-}
-
-export interface WorldConfession {
-  id: string
-  speakerId: string
-  scope: 'class' | 'private'
-  listenerIds: readonly string[]
-  text: string
-  atMs: number
 }
 
 /**
@@ -205,7 +196,6 @@ export interface World {
   // ── 진상 공개 흐름 ──
   releasedDays: readonly number[]
   progress: readonly { playerId: string; handledDays: readonly number[]; readDays: readonly number[] }[]
-  confessions: readonly WorldConfession[]
   /** 판 위의 쪽지 전부. 투영이 여기서 **거의 다 잘라낸다.** */
   /**
    * 오늘 상점에서 나간 수. **품목 아이디마다 하나씩.**
@@ -388,7 +378,6 @@ export interface View {
   visitedTiles: TileId[]
   handledDays: number[]
   readDays: number[]
-  confessions: WorldConfession[]
   /**
    * 내가 선 방 바닥에 있는 쪽지. **한 장 있다는 것까지만이다.**
    *
@@ -556,7 +545,6 @@ export function projectView(world: World, viewerId: string): View {
       visitedTiles: [],
       handledDays: [],
       readDays: [],
-      confessions: [],
       slipsHere: [],
       scrapsHere: [],
       boardCounts: {},
@@ -786,10 +774,6 @@ export function projectView(world: World, viewerId: string): View {
     // 진상 공개 흐름
     handledDays: [...(world.progress.find((p) => p.playerId === viewerId)?.handledDays ?? [])].sort((a, b) => a - b),
     readDays: [...(world.progress.find((p) => p.playerId === viewerId)?.readDays ?? [])].sort((a, b) => a - b),
-    // 내가 말했거나 내가 들은 것만. 나머지는 제목조차 없다
-    confessions: world.confessions
-      .filter((c) => canSeeConfession(c, viewerId))
-      .map((c) => ({ ...c, listenerIds: [...c.listenerIds] })),
     // **바닥의 쪽지는 「한 장 있다」까지만.** 무엇이 적혔는지도, 누구의
     // 비밀인지도 안 간다 — 주워서 읽어야 안다
     slipsHere: (world.slips ?? [])

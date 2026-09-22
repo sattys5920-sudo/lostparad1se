@@ -5,8 +5,7 @@
 // 받은 표의 수뿐이고, 그 수가 모범생 미션 같은 것을 판정한다.
 //
 // 표는 익명이다. 보낸 사람은 secret/에만 있고, 정산 때 팀 합계만 나간다.
-// 여기서 「누가 줬는지」를 돌려주는 함수는 정보부장 열람 하나뿐이고,
-// 그것도 서버에서만 부른다.
+// **여기에는 「누가 줬는지」를 돌려주는 함수가 없다.**
 import {
   TEAM_IDS,
   VOTE_CLOSE_HOUR,
@@ -84,18 +83,4 @@ export function tallyVotes(input: TallyInput): Record<TeamId, TallyRow> {
   }
   for (const v of input.votes) out[v.targetTeam].received[v.kind] += 1
   return out
-}
-
-// ── 정보부장 열람 ───────────────────────────────────────────────
-
-/**
- * 우리 팀이 받은 표 한 장의 보낸 사람. **서버에서만 부른다.**
- *
- * 하루 한 번이라는 제한은 부르는 쪽에서 센다. 여기서는 그 팀이 받은
- * 표만 고르고, 다른 팀 표는 목록에 넣지 않는다.
- */
-export function peekVoter(votes: readonly Vote[], team: TeamId, index: number): string | null {
-  const mine = votes.filter((v) => v.targetTeam === team)
-  const pick = mine[Math.max(0, Math.floor(index)) % Math.max(1, mine.length)]
-  return pick ? pick.voterId : null
 }

@@ -37,16 +37,6 @@ export interface ProgressDoc {
   readDays: number[]
 }
 
-/** 털어놓기 한 번. 들은 사람까지 서버만 쥔다. */
-export interface ConfessionDoc {
-  id: string
-  speakerId: string
-  scope: 'class' | 'private'
-  listenerIds: string[]
-  text: string
-  atMs: number
-}
-
 /** 먼저 가져간 팀만 아는 A의 기억. */
 export interface MemoryDoc {
   tileId: TileId
@@ -61,7 +51,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -74,7 +64,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'peeks').get(),
       secret(gameId, 'choices').get(),
       secret(gameId, 'progress').get(),
-      secret(gameId, 'confessions').get(),
       secret(gameId, 'memories').get(),
       secret(gameId, 'slips').get(),
       gameRef(gameId).collection('secret').doc('ballots').collection('items').get(),
@@ -218,7 +207,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       const p = d.data() as ProgressDoc
       return { playerId: p.playerId ?? d.id, handledDays: p.handledDays ?? [], readDays: p.readDays ?? [] }
     }),
-    confessions: confessions.docs.map((d) => ({ ...(d.data() as ConfessionDoc), id: d.id })),
     // 쪽지는 서버가 이름까지 끼워 넣어 들고 온다. **문장 표는 여기까지만
     // 온다** — shared 에 두면 번들에 실려 열넷이 통째로 읽힌다
     slips: slips.docs.map((d) => {

@@ -110,7 +110,7 @@ function invisibleNames(state: ReturnType<typeof useGame>): Record<number, strin
 /**
  * 보관함. **내 몫(view)만으로 만든다.**
  *
- * 남의 1:1 고백은 애초에 view에 없다. 여기서 거르는 것이 아니라
+ * 남의 팀이 연 기억은 애초에 view에 없다. 여기서 거르는 것이 아니라
  * 서버가 담지 않은 것이다.
  */
 export function LiveArchive({ gameId, onClose }: { gameId: string; onClose?: () => void }) {
@@ -165,12 +165,10 @@ export function LiveArchive({ gameId, onClose }: { gameId: string; onClose?: () 
       records: (v.handledDays ?? []).map((day) => ({ day, atMs: day })),
       // 건너뛴 날이 「읽지 않음」이다 — 처리했지만 끝까지 보지 않은 날
       unreadDays: (v.handledDays ?? []).filter((d) => !read.has(d)),
-      confessions: v.confessions ?? [],
       memories: v.memories ?? [],
       sights: v.sightAtMs ? [{ ownerId: uid, atMs: v.sightAtMs }] : [],
       over: state.game?.phase === 'finished',
       tileName: (id) => TILE_BY_ID[id]?.name ?? id,
-      nameOf,
     })
   }, [state.view, state.game?.phase, uid, seats, nameOf])
 
@@ -207,11 +205,6 @@ function bodyOf(
 ): string[] {
   if (item.tab === 'record' && item.day !== undefined) return papers[item.day] ?? []
   if (!view) return []
-  if (item.tab === 'confession') {
-    const id = item.id.replace('confession:', '')
-    const c = (view.confessions ?? []).find((x) => x.id === id)
-    return c ? [c.text] : []
-  }
   // A의 기억 본문은 끝난 뒤 엔딩이 함께 내려보낸다
   return []
 }

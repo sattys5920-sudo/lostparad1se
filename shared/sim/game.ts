@@ -20,7 +20,6 @@ import { ownerLookup } from '../rules/actions'
 import { ROOM_KIND, ownerOf, researchKnowledge } from '../rules/occupy'
 import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenState } from '../rules/tokens'
 import { tallyVotes, type Vote } from '../rules/votes'
-import { reveal, type Leverage } from '../rules/leverage'
 import { acceptTrade } from '../rules/diplomacy'
 import { publicScore, settle, type ScoreBreakdown, type TeamState } from '../rules/score'
 import {
@@ -40,7 +39,6 @@ import { judge, type GameLog, type JudgeVote } from '../missions/judge'
 
 // 봇 시뮬레이션이 스스로 세는 것들. 판정에는 안 쓰인다 —
 // 판정이 보는 기록은 GameLog 하나뿐이다
-interface SimReveal { speakerId: string; scope: 'class' | 'private'; listenerIds: string[]; day: number; atMs: number }
 interface SimCapture { tileId: TileId; team: TeamId | null; ownerBefore: TeamId | null; standing: string[]; atMs: number }
 interface SimTrade { fromTeam: TeamId; toTeam: TeamId; atMs: number }
 import { ROLE_BY_ID, SLIP_MISSION_IDS } from '../missions/roles'
@@ -56,7 +54,6 @@ interface SimTeam {
   lostTile: boolean
   raidSuccesses: number
   trustFrom: Set<TeamId>
-  revealed: boolean
   spotlighted: boolean
 }
 
@@ -83,7 +80,6 @@ export interface SimResult {
   /** 주인이 바뀐 횟수. */
   capturesMade: number
   votesCast: number
-  reveals: number
   /** 판이 멈추지 않고 끝까지 갔는가. */
   finished: boolean
 }
@@ -119,7 +115,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       lostTile: false,
       raidSuccesses: 0,
       trustFrom: new Set(),
-      revealed: false,
       spotlighted: false,
     }
   }
@@ -144,8 +139,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   }))
   const votes: Vote[] = []
   const judgeVotes: JudgeVote[] = []
-  const reveals: SimReveal[] = []
-  const leverages: Leverage[] = []
   const captureLog: SimCapture[] = []
   const trades: SimTrade[] = []
   const fragments: { day: number; spotTile: TileId }[] = []
@@ -287,7 +280,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     personal,
     capturesMade,
     votesCast: votes.length,
-    reveals: reveals.length,
     finished: true,
   }
 
@@ -310,24 +302,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       judgeVotes.push({ voterId: p.id, targetId: target.playerId, kind, day, atMs: nowMs })
       if (kind === 'trust') teams[target.team].trustFrom.add(p.team)
       p.votedToday = true
-      return
-    }
-
-    // 털어놓기 — 가끔
-    if (rnd() < 0.004) {
-      const scope = rnd() < 0.3 ? 'class' : 'private'
-      const listeners =
-        scope === 'class'
-          ? assignments.map((x) => x.playerId).filter((x) => x !== p.id)
-          : [pick(assignments.filter((x) => x.playerId !== p.id)).playerId]
-      const out = reveal({
-        speakerId: p.id, scope, listenerIds: listeners, alreadyGained: p.revealGained,
-        atMs: nowMs, existing: leverages,
-      })
-      p.revealGained += 1
-      leverages.push(...out.gained)
-      team.revealed = true
-      reveals.push({ speakerId: p.id, scope, listenerIds: listeners, day, atMs: nowMs })
       return
     }
 
@@ -434,7 +408,7 @@ export interface SimReport {
   /** 역할마다 주 미션을 깬 비율. */
   mainRate: Record<string, number>
   slipRate: Record<string, number>
-  perGame: { captures: number; votes: number; reveals: number }
+  perGame: { captures: number; votes: number }
 }
 
 export function runGames(count: number, startMs: number, seedPrefix = 'sim'): SimReport {
@@ -445,7 +419,7 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
   const teamTotals: number[] = []
   const mainHit = new Map<string, { met: number; n: number }>()
   const slipHit = new Map<string, { met: number; n: number }>()
-  const sums = { captures: 0, votes: 0, reveals: 0 }
+  const sums = { captures: 0, votes: 0 }
 
   for (const r of results) {
     wins[r.winner] += 1
@@ -462,7 +436,6 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
     }
     sums.captures += r.capturesMade
     sums.votes += r.votesCast
-    sums.reveals += r.reveals
   }
 
   const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length)
@@ -478,7 +451,6 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
     perGame: {
       captures: sums.captures / count,
       votes: sums.votes / count,
-      reveals: sums.reveals / count,
     },
   }
 }

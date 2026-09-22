@@ -35,8 +35,6 @@ import { purseOf } from '../../shared/rules/resources'
 import type { PawnDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
-import { sysLine } from './radio'
-import { VAULT_NOTE_AT, sys } from '../../shared/rules/radio'
 import { note, noteAll } from './records'
 import { gameRef, requireUid } from './index'
 import {
@@ -325,26 +323,6 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     })
     tx.update(aPawnSnap.ref, { resources: move(aPurse, d.a.stake, d.b.stake) })
     tx.update(bPawnSnap.ref, { resources: move(bPurse, d.b.stake, d.a.stake) })
-
-    /*
-     * 금고가 눈에 띄게 줄면 그 팀 무전에 한 줄 적는다.
-     *
-     * **내주기만 적는다.** 들어온 것은 거래한 본인이 알고 팀 금고
-     * 숫자로도 보이지만, 나간 것은 모르는 셋이 그 돈을 세고 있다가
-     * 다음 교시에 빈손이 된다. 얼마짜리 거래였는지는 안 적는다 —
-     * 누구와 무엇을 바꿨는지는 그 사람의 일이다.
-     */
-    const loss = (give: Stake, get: Stake) => ({
-      money: Math.max(0, give.money - get.money),
-      knowledge: Math.max(0, give.knowledge - get.knowledge),
-    })
-    for (const [team, out] of [
-      [d.a.team, loss(d.a.stake, d.b.stake)],
-      [d.b.team, loss(d.b.stake, d.a.stake)],
-    ] as const) {
-      if (out.money + out.knowledge < VAULT_NOTE_AT) continue
-      sysLine(tx, gameId, team, sys.vaultOut(out.money, out.knowledge), nowMs, game.day)
-    }
 
     // 개인 것 — 주머니. 거는 데도 성립하는 데도 값은 안 든다
     const bag = (base: Satchel, give: Satchel, get: Satchel): Satchel => {

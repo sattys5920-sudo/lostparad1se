@@ -114,16 +114,6 @@ export const sys = {
       : `${room}${josa(room, '을/를')} ${to}팀에게 빼앗겼다.`,
   captain: (team: TeamId, name: string) => `${team}팀 팀장은 ${name}${josa(name, '이/가')} 됐다.`,
   invisible: (name: string): string => `${name}${josa(name, '은/는')} 오늘 보이지 않는다.`,
-  /** 숫자 뒤에는 조사를 붙이지 않는다 — 「돈 3이」가 된다 */
-  vaultOut: (money: number, knowledge: number): string => {
-    const parts: string[] = []
-    if (money !== 0) parts.push(`돈 ${money}`)
-    if (knowledge !== 0) parts.push(`지식 ${knowledge}`)
-    return `금고가 줄었다 — ${parts.join(' · ')}`
-  },
   movedOut: (name: string, to: TeamId): string => `${name}${josa(name, '이/가')} ${to}팀으로 갔다.`,
   movedIn: (name: string): string => `${name}${josa(name, '이/가')} 우리 팀으로 왔다.`,
 } as const
-
-/** 금고가 이만큼 넘게 움직이면 한 줄 적는다. 잔돈까지 적으면 시끄럽다 */
-export const VAULT_NOTE_AT = 2

@@ -408,7 +408,7 @@
 .sc-mi__votes b { font-size: 32px; line-height: 34px; color: #1c1a15; font-variant-numeric: tabular-nums; }
 .sc-mi__fine { margin: 2px 0 0; font-size: 9px; line-height: 14px; color: #7b7364; word-break: keep-all; }
 
-/* ── ⑤ 털어놓기 ─────────────────────────────────────────── */
+/* ── ⑤ 되돌릴 수 없는 것을 묻는 두 칸 ───────────────────── */
 
 .sc-mi__two { display: flex; gap: 8px; margin: 10px 0 8px; }
 .sc-mi__two button {
@@ -426,20 +426,6 @@
 .sc-mi__two button:disabled { border-color: #bdb5a1; color: #9a9486; cursor: default; }
 .sc-mi__two button.is-danger { border-color: #9a3b33; color: #7a2620; }
 .sc-mi__done { margin: 0; font-size: 12px; color: #3d382d; }
-
-.sc-mi__ears { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.sc-mi__ears label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 1px solid #4a5070;
-  font-size: 12px;
-  cursor: pointer;
-}
-.sc-mi__ears i { width: 9px; height: 9px; margin-left: auto; box-shadow: 0 0 0 1px #0b0e17; }
-.sc-mi__warn { margin: 0 0 4px; font-size: 12px; line-height: 18px; color: #e07a72; word-break: keep-all; }
 
 /* ── ⑥⑦ 링크와 바닥 ────────────────────────────────────── */
 

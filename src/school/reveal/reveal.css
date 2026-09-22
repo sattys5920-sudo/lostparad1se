@@ -381,12 +381,6 @@
   overflow: hidden;
 }
 
-/* 1:1로 들은 고백은 전체 고백과 확연히 달라야 한다 */
-.sc-ar__item.is-private {
-  border-color: #3b3350;
-  background: #15121d;
-}
-
 .sc-ar__row {
   appearance: none;
   border: 0;
@@ -409,16 +403,6 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-}
-
-.sc-ar__badge {
-  flex-shrink: 0;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: #b6a4d8;
-  border: 1px solid #3b3350;
-  border-radius: 3px;
-  padding: 1px 4px;
 }
 
 .sc-ar__unread {

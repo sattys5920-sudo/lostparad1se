@@ -2,20 +2,18 @@
 //
 // 전에는 흰 바탕에 회색 카드가 늘어서 있었다. 맵도 조작부도 탭바도
 // 남색인데 여기만 다른 앱처럼 보였고, 자원 표·사람 카드 열셋·문제
-// 종이·털어놓기 단추가 **전부 같은 굵기의 테**에 같은 둥근 모서리로
-// 서 있어서 무엇이 중요한지가 없었다.
+// 종이·단추가 **전부 같은 굵기의 테**에 같은 둥근 모서리로 서 있어서
+// 무엇이 중요한지가 없었다.
 //
 // 이제 투표용지·로그인과 같은 종이를 쓴다. 어두운 눈 바탕 위에
 // 서류철처럼 종이 카드를 얹고, 카드마다 왼쪽 위에 클립 하나를 문다.
 //
-// **남에 대한 것은 여기 없다.** 같은 방 사람 목록은 수첩 탭으로 갔고,
-// 1:1 털어놓기 상대는 누를 때 시트로 올라온다 — 평소에 열셋을 늘어
-// 놓으면 그게 화면의 절반을 먹는다.
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+// **남에 대한 것은 여기 없다.** 같은 방 사람 목록은 수첩 탭으로 갔다 —
+// 평소에 열셋을 늘어놓으면 그게 화면의 절반을 먹는다.
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
 import { Bag } from './UseItem'
-import { REVEAL_PRIVATE_WARNING } from '../../../shared/rules/reveal'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
 import { Sheet } from './Sheet'
@@ -66,27 +64,12 @@ export function Me(props: MeProps) {
   const [haveOpen, setHaveOpen] = useState(false)
   const [secretOpen, setSecretOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
-  /** 털어놓기 — 상대를 고르는 시트. 평소에는 안 뜬다 */
-  const [pick, setPick] = useState(false)
-  const [listeners, setListeners] = useState<string[]>([])
-  const [confirm, setConfirm] = useState<'class' | 'private' | null>(null)
   const [busy, setBusy] = useState(false)
 
   const items = view?.myItems ?? {}
   const itemCount = Object.values(items).reduce<number>((a, b) => a + (b ?? 0), 0)
   const slipCount = view?.mySlips?.length ?? 0
   const floorSlips = view?.slipsHere?.length ?? 0
-
-  const others = useMemo(
-    () => props.seats.filter((s) => s.playerId !== me.playerId && props.hereIds.includes(s.playerId)),
-    [props.seats, props.hereIds, me.playerId],
-  )
-
-  // 방을 옮기면 고른 사람이 남아 있을 이유가 없다. 거기 없는 사람에게
-  // 털어놓을 수는 없고, 남아 있으면 「3명」이라고 적힌 채로 거절당한다
-  useEffect(() => {
-    setListeners((ls) => ls.filter((id) => props.hereIds.includes(id)))
-  }, [props.hereIds])
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -213,39 +196,6 @@ export function Me(props: MeProps) {
           </p>
         </Card>
 
-        {/* ── ⑤ 털어놓기 ───────────────────────────────── */}
-        <Card title="털 어 놓 기">
-          {paper?.revealed ? (
-            <p className="sc-mi__done">
-              DAY {paper.revealed.day}에 {paper.revealed.scope === 'class' ? '모두에게' : '1:1로'}{' '}
-              털어놓았다.
-            </p>
-          ) : (
-            <>
-              <p className="sc-mi__fine">{REVEAL_PRIVATE_WARNING}</p>
-              <div className="sc-mi__two">
-                <button
-                  type="button"
-                  disabled={busy || others.length === 0}
-                  onClick={() => setPick(true)}
-                >
-                  1:1로{listeners.length > 0 ? ` (${listeners.length})` : ''}
-                </button>
-                <button type="button" disabled={busy} onClick={() => setConfirm('class')}>
-                  모두에게
-                </button>
-              </div>
-              <p className="sc-mi__fine">
-                {props.hereName
-                  ? others.length === 0
-                    ? `${props.hereName}에 아무도 없다. 1:1은 마주 서야 한다.`
-                    : `${props.hereName}에 ${others.length}명 있다.`
-                  : '걷는 중이다.'}
-              </p>
-            </>
-          )}
-        </Card>
-
         {/* ── ⑥ 지난 페이즈 기록 ───────────────────────── */}
         <p className="sc-mi__link">
           <button type="button" onClick={() => setLogOpen(true)}>기록 보기</button>
@@ -276,69 +226,6 @@ export function Me(props: MeProps) {
       </div>
 
       {/* ── 시트들 ────────────────────────────────────── */}
-      {pick && (
-        <Sheet title="누구에게 털어놓나" onClose={() => setPick(false)}>
-          <ul className="sc-mi__ears">
-            {others.map((s) => (
-              <li key={s.playerId}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={listeners.includes(s.playerId)}
-                    onChange={(e) =>
-                      setListeners((ls) =>
-                        e.target.checked ? [...ls, s.playerId] : ls.filter((x) => x !== s.playerId),
-                      )
-                    }
-                  />
-                  {s.name}
-                  <i style={{ background: TEAM_COLOR[s.team as TeamId] }} aria-hidden />
-                </label>
-              </li>
-            ))}
-          </ul>
-          <div className="sc-mi__two">
-            <button type="button" onClick={() => setPick(false)}>그만두기</button>
-            <button
-              type="button"
-              disabled={listeners.length === 0}
-              onClick={() => {
-                setPick(false)
-                setConfirm('private')
-              }}
-            >
-              {listeners.length}명에게
-            </button>
-          </div>
-        </Sheet>
-      )}
-
-      {confirm && (
-        <Sheet title="되돌릴 수 없다" onClose={() => setConfirm(null)}>
-          <p className="sc-mi__warn">
-            {confirm === 'class'
-              ? '반 전체가 듣는다. 되돌릴 수 없다.'
-              : `${listeners.length}명이 듣는다. 그만큼 약점이 생긴다. 되돌릴 수 없다.`}
-          </p>
-          <div className="sc-mi__two">
-            <button type="button" onClick={() => setConfirm(null)}>그만두기</button>
-            <button
-              type="button"
-              className="is-danger"
-              disabled={busy}
-              onClick={async () => {
-                const scope = confirm
-                setConfirm(null)
-                await run('털어놓기', () => act.reveal(scope, listeners))
-                setListeners([])
-              }}
-            >
-              털어놓는다
-            </button>
-          </div>
-        </Sheet>
-      )}
-
       {logOpen && (
         <Sheet title="지난 페이즈" onClose={() => setLogOpen(false)}>
           {props.log}

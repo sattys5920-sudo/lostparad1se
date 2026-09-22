@@ -4,7 +4,7 @@
 // 열세 명이 줄지어 있고 각자에게 역할 태그 하나와 한 줄을 단다.
 //
 // 이 화면은 서버가 **내 몫으로 이미 깎아 둔** 목록만 받는다. 남의 1:1
-// 고백은 목록에 없다 — 여기서 걸러 내는 게 아니라 애초에 오지 않는다.
+// 남의 팀 기억은 목록에 없다 — 여기서 걸러 내는 게 아니라 애초에 오지 않는다.
 import { useMemo, useState } from 'react'
 import './reveal.css'
 import {
@@ -90,7 +90,7 @@ export function Archive(props: ArchiveProps) {
           {list.map((item) => {
             const open = openId === item.id
             return (
-              <li key={item.id} className={`sc-ar__item ${item.private ? 'is-private' : ''}`}>
+              <li key={item.id} className="sc-ar__item">
                 <button
                   className="sc-ar__row"
                   onClick={() => setOpenId(open ? null : item.id)}
@@ -98,7 +98,6 @@ export function Archive(props: ArchiveProps) {
                 >
                   <span className="sc-ar__title">
                     {item.title}
-                    {item.private && <span className="sc-ar__badge">1:1</span>}
                   </span>
                   {item.unread && <span className="sc-ar__unread">읽지 않음</span>}
                 </button>

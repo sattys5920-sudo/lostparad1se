@@ -59,7 +59,7 @@ describe('내일의 투명인간', () => {
 })
 
 describe('지워진 하루', () => {
-  it('걷고, 행동하고, 털어놓을 수 있다', () => {
+  it('걷고, 행동하고, 벌 수 있다', () => {
     expect(INVISIBLE_CAN.walk).toBe(true)
     expect(INVISIBLE_CAN.act).toBe(true)
     expect(INVISIBLE_CAN.reveal).toBe(true)

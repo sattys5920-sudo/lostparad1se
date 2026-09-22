@@ -1,8 +1,8 @@
-// 보관함 — 남의 1:1 고백이 목록에 섞이지 않는지.
+// 보관함 — 남의 팀만 아는 기억이 목록에 섞이지 않는지.
 //
-// 여기가 새면 제목 한 줄만으로도 누가 누구에게 털어놓았는지 드러난다.
+// 여기가 새면 제목 한 줄만으로도 어느 팀이 무엇을 쥐었는지 드러난다.
 import { describe, expect, it } from 'vitest'
-import { buildArchive, canSeeConfession, canSeeMemory, itemsOf, unreadCount, type BuildInput } from './archive'
+import { buildArchive, canSeeMemory, itemsOf, unreadCount, type BuildInput } from './archive'
 
 const base: Omit<BuildInput, 'viewerId' | 'viewerTeam'> = {
   records: [
@@ -10,17 +10,12 @@ const base: Omit<BuildInput, 'viewerId' | 'viewerTeam'> = {
     { day: 2, atMs: 200 },
   ],
   unreadDays: [2],
-  confessions: [
-    { id: 'c1', speakerId: 'p1', scope: 'class', listenerIds: ['p2', 'p3'], text: '전체', atMs: 300 },
-    { id: 'c2', speakerId: 'p2', scope: 'private', listenerIds: ['p3'], text: '둘만', atMs: 400 },
-  ],
   memories: [
     { tileId: 'library', team: 'A', atMs: 500 },
     { tileId: 'gym', team: 'B', atMs: 600 },
   ],
   sights: [{ ownerId: 'p3', atMs: 700 }],
   tileName: (id) => id,
-  nameOf: (id) => id.toUpperCase(),
 }
 
 const build = (viewerId: string, viewerTeam: 'A' | 'B' | 'C' | 'D', over = false) =>
@@ -45,42 +40,6 @@ describe('기록 탭', () => {
   })
 })
 
-describe('고백 탭', () => {
-  it('전체 털어놓기는 전원 보관함에 들어간다', () => {
-    for (const who of ['p1', 'p2', 'p9']) {
-      const ids = itemsOf(build(who, 'A'), 'confession').map((i) => i.id)
-      expect(ids, who).toContain('confession:c1')
-    }
-  })
-
-  it('1:1은 들은 사람 보관함에만 들어간다', () => {
-    expect(itemsOf(build('p3', 'A'), 'confession').map((i) => i.id)).toContain('confession:c2')
-  })
-
-  it('말한 사람 보관함에도 남는다', () => {
-    expect(itemsOf(build('p2', 'A'), 'confession').map((i) => i.id)).toContain('confession:c2')
-  })
-
-  it('상관없는 사람 보관함에는 제목도 없다', () => {
-    const items = build('p9', 'A')
-    const text = JSON.stringify(items)
-    expect(text).not.toContain('c2')
-    expect(text).not.toContain('둘만')
-  })
-
-  it('1:1로 들은 것은 표시가 다르다', () => {
-    const item = itemsOf(build('p3', 'A'), 'confession').find((i) => i.id === 'confession:c2')
-    expect(item?.private).toBe(true)
-    const klass = itemsOf(build('p3', 'A'), 'confession').find((i) => i.id === 'confession:c1')
-    expect(klass?.private).toBe(false)
-  })
-
-  it('내 고백은 「나」로 뜬다', () => {
-    const item = itemsOf(build('p1', 'A'), 'confession').find((i) => i.id === 'confession:c1')
-    expect(item?.title.startsWith('나')).toBe(true)
-  })
-})
-
 describe('기억 탭', () => {
   it('우리 팀이 연 것만 보인다', () => {
     expect(itemsOf(build('p1', 'A'), 'memory').map((i) => i.tileId)).toContain('library')
@@ -100,18 +59,6 @@ describe('기억 탭', () => {
 })
 
 describe('가시성 규칙', () => {
-  it('전체 고백은 누구나', () => {
-    const c = base.confessions[0]
-    expect(canSeeConfession(c, 'p9')).toBe(true)
-  })
-
-  it('1:1은 둘만', () => {
-    const c = base.confessions[1]
-    expect(canSeeConfession(c, 'p2')).toBe(true)
-    expect(canSeeConfession(c, 'p3')).toBe(true)
-    expect(canSeeConfession(c, 'p9')).toBe(false)
-  })
-
   it('기억은 연 팀만, 끝나면 전원', () => {
     const m = base.memories[0]
     expect(canSeeMemory(m, 'A', false)).toBe(true)

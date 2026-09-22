@@ -17,8 +17,8 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { canRelease, releasedDays } from '../shared/reveal/release'
 import { TOTAL_DAYS } from '../shared/rules/v2'
-import { buildArchive, canSeeConfession, type ConfessionSource } from '../shared/reveal/archive'
-import { suspicionTotals, buildRows } from '../shared/reveal/dashboard'
+import { buildArchive, canSeeMemory } from '../shared/reveal/archive'
+import { buildRows } from '../shared/reveal/dashboard'
 
 let failures = 0
 function check(ok: boolean, label: string, detail = ''): void {
@@ -67,8 +67,9 @@ async function rulesChecks(env: RulesTestEnvironment): Promise<void> {
   await expectDenied('운영자도 남의 노트를 못 쓴다', setDoc(doc(host, notePath), { guesses: {} }))
   await expectDenied('로그인 안 한 쪽은 아예 못 읽는다', getDoc(doc(anon, notePath)))
 
-  console.log('\n── 1:1 고백 · 그 사람 몫 ──')
-  // views/{playerId}에 그 사람이 들은 고백이 담긴다
+  console.log('\n── 그 사람 몫 ──')
+  // views/{playerId}에 그 사람에게만 가는 것이 담긴다 — 손패, 쪽지,
+  // 미션 진행도. 본인만 읽고, 본인도 못 고친다
   const viewPath = `games/${GAME}/views/${ME}`
   await expectAllowed('본인은 자기 몫을 읽는다', getDoc(doc(me, viewPath)))
   await expectDenied('남의 몫은 못 읽는다', getDoc(doc(other, viewPath)))
@@ -115,68 +116,47 @@ function releaseChecks(): void {
 }
 
 function archiveChecks(): void {
-  console.log('\n── 남의 1:1 고백은 목록에도 없다 ──')
-  const c: ConfessionSource = {
-    id: 'c1',
-    speakerId: 'p3',
-    scope: 'private',
-    listenerIds: ['p4'],
-    text: '숨긴 사실 원문',
-    atMs: 1,
-  }
-  check(canSeeConfession(c, 'p3'), '말한 사람은 본다')
-  check(canSeeConfession(c, 'p4'), '들은 사람은 본다')
-  check(!canSeeConfession(c, 'p1'), '나머지는 못 본다')
+  console.log('\n── 남의 팀이 연 기억은 목록에도 없다 ──')
+  const m = { tileId: 'library' as const, team: 'B' as const, atMs: 2 }
+  check(canSeeMemory(m, 'B', false), '연 팀은 본다')
+  check(!canSeeMemory(m, 'A', false), '남의 팀은 못 본다')
+  check(canSeeMemory(m, 'A', true), '끝나면 전원이 본다')
 
   const built = buildArchive({
     viewerId: 'p1',
     viewerTeam: 'A',
     records: [],
-    confessions: [c],
-    memories: [{ tileId: 'library', team: 'B', atMs: 2 }],
+    memories: [m],
     sights: [{ ownerId: 'p3', atMs: 3 }],
     tileName: (id) => id,
-    nameOf: (id) => id,
   })
   check(built.length === 0, '못 보는 것은 제목조차 남지 않는다', `${built.length}줄`)
   const json = JSON.stringify(built)
-  check(!json.includes('p3'), '남의 이름도 안 새어 나간다')
-  check(!json.includes('숨긴 사실 원문'), '본문은 근처에도 안 온다')
+  check(!json.includes('library'), '어느 칸인지도 안 새어 나간다')
+  check(!json.includes('p3'), '남의 시선도 근처에 안 온다')
 }
 
 function dashboardChecks(): void {
   console.log('\n── 운영자 대시보드 ──')
 
-  // 표는 보낸 사람까지 다 들고 있다. 대시보드로 나갈 때 무엇이 남는지 본다
-  const votes = [
-    { voterId: 'p2', targetId: 'p1', day: 2 },
-    { voterId: 'p3', targetId: 'p1', day: 3 },
-    { voterId: 'p1', targetId: 'p2', day: 3 },
-  ]
-  const roster = [
-    { playerId: 'p1', name: '하나' },
-    { playerId: 'p2', name: '두리' },
-    { playerId: 'p3', name: '세찌' },
-  ]
-  const totals = suspicionTotals(roster, (id) => votes.filter((v) => v.targetId === id).length)
-  const json = JSON.stringify(totals)
-  check(!json.includes('voter'), '합계에 「보낸 사람」 칸이 없다', json)
-  check(!json.includes('day'), '날짜별로도 안 쪼갠다 — 투명인간 발표와 맞물려 역산된다')
-  check(totals[0].playerId === 'p1' && totals[0].received === 2, '남는 건 받은 수뿐')
-
+  /*
+   * 운영자 행에 무엇이 남는가.
+   *
+   * 여기 없어야 하는 것이 셋이다 — 표를 **보낸** 사람, 남의 추리 노트,
+   * 미션 **진행도**. 달성 여부는 오지만 몇 개째인지는 안 온다.
+   */
   const rows = buildRows({
-    roster: [{ playerId: 'p1', name: '하나', role: 'guard' }],
-    hintDayOf: () => 2,
-    exposureOf: () => 'onlyByOwnReveal',
-    reveals: [],
-    exactHitsOn: () => 1,
-    invisibleDaysOf: () => [],
-    awakenedOf: () => false,
+    roster: [{ playerId: 'p1', name: '하나', role: 'classlead' }],
+    invisibleDaysOf: () => [2, 4],
+    mainMetOf: () => true,
+    slipsMetOf: () => 1,
   })
   const rowJson = JSON.stringify(rows)
   check(!rowJson.includes('note'), '대시보드 행에 추리 노트가 없다')
   check(!rowJson.includes('voter'), '대시보드 행에 보낸 사람이 없다')
   check(!rowJson.includes('secret'), '대시보드 행에 숨긴 사실 본문이 없다')
+  check(!rowJson.includes('progress'), '대시보드 행에 진행도가 없다 — 달성 여부만이다')
+  check(rows[0].mainMet === true && rows[0].slipsMet === 1, '남는 건 달성 여부뿐')
 
   // 서버 코드가 노트를 아예 읽지 않는지 눈으로 말고 파일로 확인한다
   const admin = readFileSync(new URL('../functions/src/admin.ts', import.meta.url), 'utf8')

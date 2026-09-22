@@ -349,8 +349,6 @@ export function gameActions(gameId: string) {
     castVote: (targetId: string, kind: 'trust' | 'liking' | 'suspicion') =>
       callServer('castVote', { ...g, targetId, kind }),
     /** 털어놓기. 1:1이면 들을 사람을 골라야 한다. */
-    reveal: (scope: 'class' | 'private', listenerIds: string[] = []) =>
-      callServer('revealSecret', { ...g, scope, listenerIds }),
 
     chooseImportant: (targetId: string) => callServer('chooseImportant', { ...g, targetId }),
     chooseDay4: (choice: Day4Choice) => callServer('chooseDay4', { ...g, choice }),

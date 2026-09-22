@@ -35,5 +35,5 @@ console.log('\n한 판 평균')
 console.log(`  주인이 바뀐 횟수 ${r.perGame.captures.toFixed(1)}`)
 // 건물은 없어진 지 오래인데 이 줄만 남아 있었다 — 판은 다 돌고
 // 마지막 보고에서 터졌다
-console.log(`  표 ${r.perGame.votes.toFixed(1)} · 털어놓기 ${r.perGame.reveals.toFixed(1)}`)
+console.log(`  표 ${r.perGame.votes.toFixed(1)}`)
 console.log()

@@ -80,10 +80,6 @@ function world(over = false, invisibleId: string | null = null): World {
       { playerId: 'A0', handledDays: [1, 2], readDays: [1] },
       { playerId: 'B0', handledDays: [1], readDays: [1] },
     ],
-    confessions: [
-      { id: 'c1', speakerId: 'C0', scope: 'private', listenerIds: ['A0'], text: '조용히 한 말', atMs: 10 },
-      { id: 'c2', speakerId: 'D0', scope: 'class', listenerIds: [], text: '모두 앞에서 한 말', atMs: 20 },
-    ],
     // 쪽지 — A0 가 선 기지 바닥에 한 장, A1 이 주워서 읽은 것 한 장
     slips: [
       { id: 'sFloor', subjectId: 'C0', line: SLIP_FLOOR, tileId: 'baseA', heldBy: null, readBy: [] },
@@ -277,23 +273,6 @@ describe('투명인간', () => {
 })
 
 describe('진상 공개', () => {
-  it('1:1 고백은 말한 사람과 들은 사람만', () => {
-    const all = projectAll(world())
-    const sees = ROSTER.filter((r) => all[r.playerId].confessions.some((c) => c.id === 'c1'))
-    expect(sees.map((r) => r.playerId).sort()).toEqual(['A0', 'C0'])
-  })
-
-  it('못 들은 사람에게는 본문도 아이디도 없다', () => {
-    const v = projectView(world(), 'B1')
-    expect(json(v)).not.toContain('조용히 한 말')
-    expect(json(v)).not.toContain('c1')
-  })
-
-  it('전체 고백은 열넷 모두에게', () => {
-    const all = projectAll(world())
-    expect(ROSTER.every((r) => all[r.playerId].confessions.some((c) => c.id === 'c2'))).toBe(true)
-  })
-
   it('A의 기억은 먼저 가져간 팀만', () => {
     expect(projectView(world(), 'A0').memories.map((m) => m.tileId)).toEqual(['library'])
     expect(projectView(world(), 'C0').memories).toEqual([])

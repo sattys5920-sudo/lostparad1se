@@ -26,7 +26,7 @@ import {
   type DayScript,
   type MorningState,
 } from '../shared/reveal/morning'
-import { buildArchive, itemsOf, type ConfessionSource } from '../shared/reveal/archive'
+import { buildArchive } from '../shared/reveal/archive'
 import { TILE_BY_ID, type TileId } from '../shared/rules/board'
 import { ROLE_IDS, ROLE_NAMES, type RoleId } from '../shared/missions/roleNames'
 import { FRAGMENTS, FRAGMENT_BY_DAY } from '../functions/src/story/fragments'
@@ -36,21 +36,28 @@ import { FRAGMENTS, FRAGMENT_BY_DAY } from '../functions/src/story/fragments'
 /** 판이 시작한 실제 시각. 배속의 기준점이다. */
 const ANCHOR_REAL = Date.UTC(2026, 2, 2, 0, 0, 0)
 
-/** DAY 1 08:00 한국 시간. 서울은 UTC+9라 08:00 KST = 전날 23:00 UTC. */
-const DAY1_0800 = Date.UTC(2026, 2, 1, 23, 0, 0)
+/**
+ * DAY 1이 시작하는 한국 시간. 서울은 UTC+9라 00:00 KST = 전날 15:00 UTC.
+ *
+ * **08:00 이 아니라 자정이다.** 소등을 없애면서 날짜가 자정에 넘어가게
+ * 됐다(DAY_START_HOUR = 0). 08:00 에 걸어 둔 채로 두었더니 at(day, 21)
+ * 이 다음 날 새벽 05:00 을 가리켜서, 「21:00도 같은 날」이 날마다
+ * 떨어졌다.
+ */
+const DAY1_START = Date.UTC(2026, 2, 1, 15, 0, 0)
 
 const SPEED = 120
-const clock: DevClock = { anchorRealMs: ANCHOR_REAL, anchorGameMs: DAY1_0800, speed: SPEED }
+const clock: DevClock = { anchorRealMs: ANCHOR_REAL, anchorGameMs: DAY1_START, speed: SPEED }
 
 /** 게임 속 시각 하나를 정해 그 순간의 실제 시각을 돌려준다. */
 function realAt(gameMs: number): number {
-  return ANCHOR_REAL + (gameMs - DAY1_0800) / SPEED
+  return ANCHOR_REAL + (gameMs - DAY1_START) / SPEED
 }
 
 const HOUR = 3_600_000
 /** DAY n의 h시. 소등이 없는 계산이라 그냥 24시간 간격이다. */
 function at(day: number, hour: number): number {
-  return DAY1_0800 + (day - 1) * 24 * HOUR + (hour - DAY_START_HOUR) * HOUR
+  return DAY1_START + (day - 1) * 24 * HOUR + (hour - DAY_START_HOUR) * HOUR
 }
 
 /** 그 순간의 게임 시각. 반드시 이 함수를 거친다. */
@@ -132,7 +139,6 @@ interface RunOptions {
   /** 매일 저녁 투명인간을 뽑는가. */
   withInvisible: boolean
   /** 도서부가 기록 한 장을 털어놓는가. */
-  librarianReveals: boolean
 }
 
 function run(opts: RunOptions): void {
@@ -143,20 +149,17 @@ function run(opts: RunOptions): void {
   const away = bots[6]
   away.absentDays = [2, 3]
 
-  const librarian = byRole(bots, 'librarian')
-  const accuser = byRole(bots, 'accuser')
-  const confessions: ConfessionSource[] = []
   const invisibleByDay: Record<number, string | null> = {}
 
   for (let day = 1; day <= TOTAL_DAYS; day++) {
     const morning = now(at(day, DAY_START_HOUR))
     check(
-      dayNumber(DAY1_0800, morning) === day,
+      dayNumber(DAY1_START, morning) === day,
       `DAY ${day} 08:00 게임 시계가 ${day}일차`,
-      `= ${dayNumber(DAY1_0800, morning)}`,
+      `= ${dayNumber(DAY1_START, morning)}`,
     )
 
-    const released = releasedDays(DAY1_0800, morning)
+    const released = releasedDays(DAY1_START, morning)
     check(
       released.length === day && released[released.length - 1] === day,
       `DAY ${day} 열린 조각 ${day}장`,
@@ -165,8 +168,8 @@ function run(opts: RunOptions): void {
 
     // 날짜를 건너뛴 요청은 막힌다
     if (day < TOTAL_DAYS) {
-      check(!releasedDays(DAY1_0800, morning).includes(day + 1), `DAY ${day}에 DAY ${day + 1} 잠김`)
-      check(!releasedDays(DAY1_0800, morning).includes(TOTAL_DAYS), `DAY ${day}에 DAY ${TOTAL_DAYS} 잠김`)
+      check(!releasedDays(DAY1_START, morning).includes(day + 1), `DAY ${day}에 DAY ${day + 1} 잠김`)
+      check(!releasedDays(DAY1_START, morning).includes(TOTAL_DAYS), `DAY ${day}에 DAY ${TOTAL_DAYS} 잠김`)
     }
 
     for (const bot of bots) {
@@ -193,31 +196,9 @@ function run(opts: RunOptions): void {
 
     // 저녁 21:00 — 투명인간을 뽑는다
     const evening = now(at(day, 21))
-    check(dayNumber(DAY1_0800, evening) === day, `DAY ${day} 21:00도 같은 날`)
+    check(dayNumber(DAY1_START, evening) === day, `DAY ${day} 21:00도 같은 날`)
     invisibleByDay[day] = opts.withInvisible && day >= 2 ? bots[(day * 3) % 14].name : null
 
-    // DAY 3 저녁에 도서부가 1:1로 털어놓는다. 들은 사람은 둘
-    if (day === 3 && opts.librarianReveals) {
-      confessions.push({
-        id: 'c1',
-        speakerId: librarian.id,
-        scope: 'private',
-        listenerIds: [bots[4].id, bots[5].id],
-        text: '(숨긴 사실 원문)',
-        atMs: now(at(3, 20)),
-      })
-    }
-    // DAY 4에 고발자가 전체에 털어놓는다
-    if (day === 4) {
-      confessions.push({
-        id: 'c2',
-        speakerId: accuser.id,
-        scope: 'class',
-        listenerIds: bots.filter((b) => b.id !== accuser.id).map((b) => b.id),
-        text: '(숨긴 사실 원문)',
-        atMs: now(at(4, 19)),
-      })
-    }
   }
 
   // ── 아침 시퀀스가 제대로 돌았는가 ─────────────────────────────
@@ -229,44 +210,28 @@ function run(opts: RunOptions): void {
     '**건너뛴 날이 없다** — 넘기는 길이 아예 없다',
   )
   check(
-    pendingDays(releasedDays(DAY1_0800, now(at(5, 21))), normal.handled).length === 0,
+    pendingDays(releasedDays(DAY1_START, now(at(5, 21))), normal.handled).length === 0,
     '다 본 사람에게는 다시 들이밀 아침이 없다',
   )
 
-  // 탭 횟수. 날마다 종이 한 장이라 기록 한 번 + 자리 비추기 한 번이다
+  // 탭 횟수. **한 번이다** — 자리를 비추던 장면(지목 칸)이 없어지면서
+  // 날마다 종이 한 장 한 번으로 줄었다
   const taps = (day: number) => watchMorning(startMorning([day])).taps
-  for (const d of [1, 2, 3, 4, 5]) check(taps(d) === 2, `DAY ${d}는 탭 두 번`, `${taps(d)}`)
+  for (const d of [1, 2, 3, 4, 5]) check(taps(d) === 1, `DAY ${d}는 탭 한 번`, `${taps(d)}`)
 
-  // ── 1:1 고백이 들은 사람에게만 ────────────────────────────────
+  // ── 보관함에 제 것만 담기는가 ─────────────────────────────────
   const archiveOf = (bot: Bot) =>
     buildArchive({
       viewerId: bot.id,
       viewerTeam: bot.team,
-      records: releasedDays(DAY1_0800, now(at(5, 21))).map((d) => ({ day: d, atMs: now(at(d, 8)) })),
+      records: releasedDays(DAY1_START, now(at(5, 21))).map((d) => ({ day: d, atMs: now(at(d, 8)) })),
       unreadDays: bot.skipped,
-      confessions,
       memories: [],
       sights: [{ ownerId: bot.id, atMs: now(at(5, 20)) }],
       over: false,
       tileName,
-      nameOf: (id) => bots.find((b) => b.id === id)?.name ?? id,
     })
 
-  if (opts.librarianReveals) {
-    const heard = [librarian, bots[4], bots[5]]
-    const notHeard = bots.filter((b) => !heard.includes(b))
-    const has = (bot: Bot) => itemsOf(archiveOf(bot), 'confession').some((i) => i.id === 'confession:c1')
-    check(heard.every(has), '1:1 고백은 말한 사람과 들은 둘의 보관함에 있다')
-    check(!notHeard.some(has), '1:1 고백은 나머지 열하나의 보관함에 없다', `샌 계정 ${notHeard.filter(has).length}개`)
-    check(
-      itemsOf(archiveOf(notHeard[0]), 'confession').length === 1,
-      '못 들은 사람에게는 전체 고백 한 줄만 남는다',
-    )
-  }
-  check(
-    bots.every((b) => itemsOf(archiveOf(b), 'confession').some((i) => i.id === 'confession:c2')),
-    '전체 고백은 열넷 모두의 보관함에 있다',
-  )
   check(
     archiveOf(bots[1]).filter((i) => i.title === 'A의 시선').length === 1,
     'A의 시선은 본인 것 한 줄뿐이다',
@@ -292,8 +257,8 @@ console.log('테스트 게임 · 개발용 시계 배속 ×' + SPEED)
 console.log(`DAY 1 ${DAY_START_HOUR}:00 → DAY ${TOTAL_DAYS} 21:00`)
 console.log(`봇 ${ROLE_IDS.length}명 · ${ROLE_IDS.map((r) => ROLE_NAMES[r]).join(' ')}`)
 
-run({ label: '판 1 · 투명인간 있음 · 도서부 털어놓음', withInvisible: true, librarianReveals: true })
-run({ label: '판 2 · 투명인간 없음 · 도서부 침묵', withInvisible: false, librarianReveals: false })
+run({ label: '판 1 · 투명인간 있음', withInvisible: true })
+run({ label: '판 2 · 투명인간 없음', withInvisible: false })
 
 console.log(failures === 0 ? '\n전부 통과.' : `\n${failures}개 실패.`)
 process.exit(failures === 0 ? 0 : 1)

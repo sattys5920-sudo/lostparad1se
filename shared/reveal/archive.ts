@@ -1,18 +1,18 @@
 // 기록 보관함.
 //
-// 네 탭이 있다. 기록 · 고백 · 기억 · 내 추리.
+// 세 탭이 있다. 기록 · 기억 · 내 추리.
 //
 // 보관함은 **보는 사람마다 따로 만든다.** 전체 목록을 만들어 두고
 // 「너는 이건 못 봐」 표시를 붙이는 방식은 쓰지 않는다 — 그러면 목록에
-// 남의 1:1 고백이 제목만이라도 실려 나간다. 여기서는 애초에 담지 않는다.
+// 남의 팀만 아는 기억이 제목만이라도 실려 나간다. 여기서는 애초에
+// 담지 않는다.
 import type { TileId } from '../rules/board'
-import type { RevealScope, TeamId } from '../rules/v2'
+import type { TeamId } from '../rules/v2'
 
-export type ArchiveTab = 'record' | 'confession' | 'memory' | 'mine'
+export type ArchiveTab = 'record' | 'memory' | 'mine'
 
 export const ARCHIVE_TABS: readonly { id: ArchiveTab; label: string }[] = [
   { id: 'record', label: '기록' },
-  { id: 'confession', label: '고백' },
   { id: 'memory', label: '기억' },
   { id: 'mine', label: '내 추리' },
 ]
@@ -22,18 +22,6 @@ export const ARCHIVE_TABS: readonly { id: ArchiveTab; label: string }[] = [
 /** 공개된 A의 기록 한 조각. 전원 공통이다. */
 export interface RecordSource {
   day: number
-  atMs: number
-}
-
-/** 털어놓기 한 번. */
-export interface ConfessionSource {
-  id: string
-  speakerId: string
-  scope: RevealScope
-  /** 그 자리에서 들은 사람. 전체 털어놓기면 자기를 뺀 열세 명. */
-  listenerIds: readonly string[]
-  /** 숨긴 사실 원문. 공인된 고백이라 그대로 남는다. */
-  text: string
   atMs: number
 }
 
@@ -62,12 +50,9 @@ export interface ArchiveItem {
   title: string
   /** 아직 안 읽은 조각. 건너뛴 아침이 여기 남는다. */
   unread?: boolean
-  /** 고백이면 누가 했는지. 기억이면 어느 칸인지. */
-  subjectId?: string
+  /** 기억이면 어느 칸인지. */
   tileId?: TileId
   day?: number
-  /** 1:1로 들은 고백인가. 전체 고백과 눈에 띄게 달라야 한다. */
-  private?: boolean
 }
 
 export interface BuildInput {
@@ -76,23 +61,12 @@ export interface BuildInput {
   records: readonly RecordSource[]
   /** 건너뛰어서 아직 안 읽은 날. */
   unreadDays?: readonly number[]
-  confessions: readonly ConfessionSource[]
   memories: readonly MemorySource[]
   sights: readonly SightSource[]
   /** 끝났으면 기억 열세 장면이 전원에게 열린다. */
   over?: boolean
   /** 칸 이름을 붙이는 데 쓴다. */
   tileName: (id: TileId) => string
-  /** 사람 이름. 고백 제목에 쓴다. */
-  nameOf: (id: string) => string
-}
-
-/** 이 사람이 그 고백을 볼 수 있는가. */
-export function canSeeConfession(c: ConfessionSource, viewerId: string): boolean {
-  // 전체 털어놓기는 반 전체의 기록이다
-  if (c.scope === 'class') return true
-  // 1:1은 말한 사람과 들은 사람만
-  return c.speakerId === viewerId || c.listenerIds.includes(viewerId)
 }
 
 /** 이 사람이 그 기억을 볼 수 있는가. */
@@ -104,7 +78,7 @@ export function canSeeMemory(m: MemorySource, viewerTeam: TeamId, over: boolean)
  * 보는 사람의 보관함을 만든다.
  *
  * 담기지 않은 것은 목록에도 없다. 제목만 남기지도 않는다 —
- * 「○○의 고백(비공개)」이라는 줄 하나로도 누가 누구에게 털어놓았는지가
+ * 「A의 기억 · 과학실」이라는 줄 하나로도 어느 팀이 무엇을 쥐었는지가
  * 샌다.
  */
 export function buildArchive(input: BuildInput): ArchiveItem[] {
@@ -119,19 +93,6 @@ export function buildArchive(input: BuildInput): ArchiveItem[] {
       title: `DAY ${r.day}`,
       day: r.day,
       unread: unread.has(r.day),
-    })
-  }
-
-  for (const c of input.confessions) {
-    if (!canSeeConfession(c, input.viewerId)) continue
-    const mine = c.speakerId === input.viewerId
-    out.push({
-      id: `confession:${c.id}`,
-      tab: 'confession',
-      atMs: c.atMs,
-      title: `${mine ? '나' : input.nameOf(c.speakerId)} · 공인된 고백`,
-      subjectId: c.speakerId,
-      private: c.scope === 'private',
     })
   }
 

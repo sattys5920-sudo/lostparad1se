@@ -1,6 +1,6 @@
 // 표 — 익명과 합계.
 import { describe, expect, it } from 'vitest'
-import { canCast, peekVoter, tallyVotes, type Vote } from './votes'
+import { canCast, tallyVotes, type Vote } from './votes'
 import type { TeamId, VoteKind } from './v2'
 
 const seoul = (iso: string) => new Date(`${iso}+09:00`).getTime()
@@ -77,17 +77,4 @@ describe('합계', () => {
     expect(Object.keys(out).sort()).toEqual(['A', 'B', 'C', 'D'])
   })
 
-})
-
-describe('정보부장 열람', () => {
-  const votes = [vote('trust', 'B'), vote('liking', 'C', { voterId: 'd1', voterTeam: 'D' })]
-
-  it('우리 팀이 받은 표에서만 고른다', () => {
-    expect(peekVoter(votes, 'B', 0)).toBe('a1')
-    expect(peekVoter(votes, 'C', 0)).toBe('d1')
-  })
-
-  it('받은 표가 없으면 null이다', () => {
-    expect(peekVoter(votes, 'A', 0)).toBe(null)
-  })
 })
