@@ -72,7 +72,7 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsPro
       */}
       {scraps.length > 0 && (
         <p className="sc-sl__hint">
-          찢긴 조각이 {scraps.length}무더기 남아 있다. 테이프가 있으면 붙일 수 있다.
+          찢긴 조각 {scraps.length}무더기
         </p>
       )}
 

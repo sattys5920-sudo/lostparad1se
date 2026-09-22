@@ -188,7 +188,16 @@ async function main(): Promise<void> {
   }
 
   console.log('\n── 접힌 종이는 본문조차 안 간다 ──')
-  const target = floor[0]
+  /*
+   * **해설이 달린 문제가 떨어진 종이를 고른다.**
+   *
+   * 앞서는 floor[0] 을 그냥 썼다. 등록한 둘 중 하나만 해설이 있어서,
+   * 어느 것이 그 자리에 떨어졌느냐에 따라 「맞힌 사람에게만 해설이
+   * 간다」가 반쯤 실패했다 — 시험이 판마다 다른 답을 내면 시험이 아니다.
+   */
+  const bankNow = (await must('hostQuizList', host, { gameId: GAME })).items as { id: string; prompt: string }[]
+  const openId = bankNow.find((q) => q.prompt === PROMPT_OPEN)?.id
+  const target = floor.find((f) => f.d.quizId === openId) ?? floor[0]
   const goal = String(target.d.tileId)
   // 그 방으로 A0 를 걸어 보낸다. 자유 시간이라 걸음은 공짜다
   for (let i = 0; i < 8; i++) {

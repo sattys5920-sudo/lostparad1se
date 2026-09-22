@@ -64,7 +64,7 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
   const snap = await ref.get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
   if ((snap.data() as GameDoc).phase !== 'lobby') {
-    throw new HttpsError('failed-precondition', '이미 시작한 판이다. 로비에서만 채울 수 있다.')
+    throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
   }
 
   // 몇 자리를 비워 둘지. 기본은 하나 — 운영자가 직접 앉아 본다

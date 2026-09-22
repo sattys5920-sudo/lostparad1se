@@ -161,7 +161,7 @@ export const openQuiz = onCall<{ gameId: string; paperId: string }>(async (req) 
   const { gameId, paperId } = req.data
   const [pawn, { game }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
   const here = (pawn.tileId ?? null) as TileId | null
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 펼 수 있다.')
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 
   await db.runTransaction(async (tx) => {
     const ref = floorOf(gameId).doc(paperId)
@@ -191,7 +191,7 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
   if (typeof given !== 'string') throw new HttpsError('invalid-argument', '답이 없다.')
   const pawn = await pawnOf(gameId, uid)
   const here = (pawn.tileId ?? null) as TileId | null
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 답을 낼 수 있다.')
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 
   const ref = gameRef(gameId)
 

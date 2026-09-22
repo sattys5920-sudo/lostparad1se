@@ -1787,7 +1787,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <TransferAsk
           fromName={nameOf(moveAsk.byId)}
           toTeam={moveAsk.byTeam}
-          myTeam={me.team}
           askedAtMs={moveAsk.askedAtMs}
           nowMs={nowMs}
           onAnswer={(accept) => {

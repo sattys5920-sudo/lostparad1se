@@ -107,7 +107,7 @@ export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req
 
   await sweepDeals(gameId, nowMs)
   const mine = await myPawn(gameId, uid)
-  if (mine.tileId === null) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 말을 꺼낸다.')
+  if (mine.tileId === null) throw new HttpsError('failed-precondition', '걷는 중이다.')
   if ((mine.dealTokens ?? 0) < TRADE_COST) {
     throw new HttpsError('failed-precondition', '오늘 거래를 걸 토큰이 없다.')
   }

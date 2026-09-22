@@ -103,10 +103,7 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
               onChange={(e) => setMemo(e.target.value.slice(0, MEMO_MAX))}
             />
           </label>
-          <p className="sc-dr__hint">
-            {MEMO_MAX - memo.length}자 남았다. 누구의 비밀도 아닌 종이라, 주운 사람에게
-            「누구의 일이다」가 안 붙는다.
-          </p>
+          <p className="sc-dr__hint">{MEMO_MAX - memo.length}자 남았다.</p>
         </>
       )}
 
@@ -136,10 +133,6 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
             <input value={form.explain} onChange={(e) => setForm({ ...form, explain: e.target.value })} />
           </label>
 
-          <p className="sc-dr__hint">
-            문제 은행에도 같이 적힌다. 안 그러면 「등록된 문제 n개」와 판에 나간 것이
-            어긋나서 같은 문제를 두 번 내고도 모른다.
-          </p>
         </>
       )}
 

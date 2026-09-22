@@ -101,7 +101,7 @@ export const useItem = onCall<UseInput>(async (req) => {
 
     // 지우개 말고는 전부 **선 자리에서** 하는 일이다
     if (kind !== 'eraser' && here === null) {
-      throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 쓸 수 있다.')
+      throw new HttpsError('failed-precondition', '걷는 중이다.')
     }
 
     if (kind === 'lock') {
@@ -155,7 +155,7 @@ export const useItem = onCall<UseInput>(async (req) => {
       if (!dup.empty) throw new HttpsError('failed-precondition', '여기에는 이미 놓여 있다.')
       const doc: TrapSetDoc = { x: at.x, y: at.y, team, byPlayerId: uid, atMs: nowMs }
       tx.set(trapsOf(gameId).doc(), doc)
-      said = '덫을 놓았다. 아무에게도 안 보인다.'
+      said = '덫을 놓았다.'
     }
 
     if (kind === 'tape') {

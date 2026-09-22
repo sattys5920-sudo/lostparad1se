@@ -169,7 +169,7 @@ export function PersonBoard({
   return (
     <div className="sc-ar__board">
       <p className="sc-ar__board-hint">
-        나만 본다. 판정에는 쓰이지 않는다. 언제든 바꿀 수 있다.
+        나만 본다.
       </p>
       <ul>
         {classmates.map((p) => {

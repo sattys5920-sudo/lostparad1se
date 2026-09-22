@@ -398,7 +398,6 @@ export function Ballot(props: BallotProps) {
         {just && !playing && (
           <p className="sc-bt__done" aria-live="polite">
             넣었다.
-            <em>마감 전까지 바꿀 수 있다</em>
           </p>
         )}
 
@@ -418,13 +417,7 @@ export function Ballot(props: BallotProps) {
         {resting && (
           <p className="sc-bt__done" aria-live="polite">
             {closed ? '마감되었다' : '이미 넣었다.'}
-            <em>
-              {closed
-                ? '오늘 적은 이름은 이미 세어졌다'
-                : closesInMin === null
-                  ? '오늘 마지막 교시가 끝나면 마감된다'
-                  : `마감까지 ${closesInMin}분`}
-            </em>
+            {!closed && closesInMin !== null && <em>마감까지 {closesInMin}분</em>}
           </p>
         )}
 

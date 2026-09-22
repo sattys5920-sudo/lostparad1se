@@ -118,7 +118,7 @@ export async function standingWith(
 ): Promise<{ tileId: string; here: Map<string, { team: string }> }> {
   const pawn = await myPawn(gameId, uid)
   if (pawn.tileId === null) {
-    throw new HttpsError('failed-precondition', '걷는 중이다. 어딘가에 서야 한다.')
+    throw new HttpsError('failed-precondition', '걷는 중이다.')
   }
   const all = await gameRef(gameId).collection('pawns').get()
   const here = new Map<string, { team: string }>()

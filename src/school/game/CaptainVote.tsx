@@ -74,11 +74,6 @@ export function CaptainVote({ me, seats, captainId, all, vote, nowMs, act, onSai
           {again ? <b>다시 뽑는다 — {vote.round}번째</b> : <b>오늘의 팀장을 뽑는다</b>}
           <em>{left(vote.opensAtMs - nowMs)} 뒤에 창이 열린다</em>
         </p>
-        <p className="sc-cv__why">
-          {again
-            ? '지난번에 표가 갈렸다. 무전으로 다시 맞춰 본다.'
-            : '먼저 무전으로 상의한다. 누가 맡을지 정하고 나서 적는다.'}
-        </p>
       </div>
     )
   }
@@ -86,7 +81,7 @@ export function CaptainVote({ me, seats, captainId, all, vote, nowMs, act, onSai
   if (at === 'closed') {
     return (
       <p className="sc-cv">
-        <b>표를 세는 중이다.</b> 갈렸으면 다시 뽑는다.
+        <b>표를 세는 중이다.</b>
       </p>
     )
   }
@@ -122,11 +117,6 @@ export function CaptainVote({ me, seats, captainId, all, vote, nowMs, act, onSai
           )
         })}
       </div>
-      <p className="sc-cv__why">
-        {/* 바꿔 적을 수 있다는 것을 안 적으면 아무도 안 바꾼다 */}
-        한 장이다. 창이 닫히기 전까지는 바꿔 적을 수 있고, 누가 누구를
-        적었는지는 아무에게도 안 간다. 갈리면 다시 뽑는다.
-      </p>
     </div>
   )
 }

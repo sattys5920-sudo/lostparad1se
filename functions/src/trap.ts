@@ -113,7 +113,7 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
   const { gameId } = req.data
   const maker = Math.floor(Number(req.data.maker))
   const { game, nowMs } = await freshNow(gameId)
-  if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '페이즈가 닫혔다. 맡긴 것은 사라졌다.')
+  if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '페이즈가 닫혔다.')
 
   const pawn = await myPawn(gameId, uid)
   mustBeAtMaker(pawn, maker)
@@ -126,7 +126,7 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
     const j = job.data() as TrapJobDoc
     // 남의 것은 있는지조차 같은 말로 막는다 — 누가 맡겼는지 안 새게
     if (j.byPlayerId !== uid) throw new HttpsError('failed-precondition', '네가 맡긴 것이 아니다.')
-    if (j.phaseNo !== game.phaseNow?.no) throw new HttpsError('failed-precondition', '지난 페이즈 것이다. 사라졌다.')
+    if (j.phaseNo !== game.phaseNow?.no) throw new HttpsError('failed-precondition', '지난 페이즈 것이다.')
     if (nowMs < j.readyAtMs) {
       const left = Math.ceil((j.readyAtMs - nowMs) / 60_000)
       throw new HttpsError('failed-precondition', `아직 만드는 중이다. ${left}분 남았다.`)

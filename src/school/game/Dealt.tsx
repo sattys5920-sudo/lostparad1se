@@ -76,9 +76,6 @@ export function Dealt({ name, team, look, paper, snowLevel, onClose }: DealtProp
           open={open}
           onFold={() => setOpen((v) => !v)}
         />
-        <p className="sc-dl__mine">
-          역할과 숨긴 사실은 <b>나만 본다.</b> 팀은 모두가 안다.
-        </p>
         <button
           type="button"
           className="sc-dl__go"
@@ -89,7 +86,6 @@ export function Dealt({ name, team, look, paper, snowLevel, onClose }: DealtProp
         >
           {armed ? '접어 넣는다' : '…'}
         </button>
-        <p className="sc-dl__again">「나」 탭에서 언제든 다시 본다.</p>
       </div>
     </div>
   )

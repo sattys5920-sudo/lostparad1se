@@ -14,7 +14,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DEAL_COUNTDOWN_MS, stakeIsEmpty, type Stake } from '../../../shared/rules/deal'
 import { ITEMS, type ItemKind } from '../../../shared/rules/items'
-import { TRADE_COST } from '../../../shared/rules/occupy'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { TEAM_COLOR } from './MapPlan'
@@ -230,7 +229,7 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
         {secs !== null && secs > 0 ? (
           <b className="sc-dr__count">{secs}</b>
         ) : (
-          <i>{empty ? '탁자가 비었다' : '바꾸면 준비가 풀린다'}</i>
+          <i>{empty ? '탁자가 비었다' : ''}</i>
         )}
         <span aria-hidden="true">↑</span>
       </div>
@@ -289,9 +288,6 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
         </ul>
       </section>
 
-      <p className="sc-dr__hint">
-        성립할 때 청한 쪽이 개인 토큰 {TRADE_COST}개. 쪽지는 접힌 채로 건너간다.
-      </p>
 
       <div className="sc-dr__foot">
         <button

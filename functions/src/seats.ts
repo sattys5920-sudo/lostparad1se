@@ -47,7 +47,7 @@ export const sweepSeats = onCall<{ gameId: string }>(async (req) => {
   const snap = await ref.get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
   if ((snap.data() as GameDoc).phase !== 'lobby') {
-    throw new HttpsError('failed-precondition', '이미 시작한 판이다. 시작한 판의 자리는 못 뺀다.')
+    throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
   }
   const out = await sweepGhosts(req.data.gameId)
   return { freed: out?.freed ?? [], left: out?.left ?? 0, need: TOTAL_SEATS }

@@ -138,7 +138,7 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
                 onClick={() => {
                   // **몇 장 적혔는지는 끝내 안 나온다.** 그래서 한 번 묻는다 —
                   // 쓰고 나서 「아무 일도 없었다」로 보이는 것이 정상이다
-                  void ask('오늘 내 이름이 적힌 표를 한 장 지운다. 몇 장이었는지는 알려 주지 않는다.').then(
+                  void ask(ITEM_BY_KIND.eraser.text).then(
                     async (yes) => {
                       if (yes) await use('eraser')
                     },

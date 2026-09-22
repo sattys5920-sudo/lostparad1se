@@ -12,13 +12,12 @@ export interface TransferAskProps {
   /** 가게 될 팀. 부른 사람의 팀이다. */
   toTeam: TeamId
   /** 지금 내 팀. 떠날 팀이다. */
-  myTeam: TeamId
   askedAtMs: number
   nowMs: number
   onAnswer: (accept: boolean) => void
 }
 
-export function TransferAsk({ fromName, toTeam, myTeam, askedAtMs, nowMs, onAnswer }: TransferAskProps) {
+export function TransferAsk({ fromName, toTeam, askedAtMs, nowMs, onAnswer }: TransferAskProps) {
   const left = Math.max(0, askedAtMs + TRANSFER_ASK_MS - nowMs)
   const secs = Math.ceil(left / 1000)
   return (
@@ -30,9 +29,7 @@ export function TransferAsk({ fromName, toTeam, myTeam, askedAtMs, nowMs, onAnsw
       <p className="sc-da__say">
         <b>{toTeam}팀으로 오라고 한다.</b> 이적하시겠습니까?
       </p>
-      <p className="sc-da__fine">
-        다음 점령전이 열릴 때 넘어간다. {myTeam}팀 손패는 두고 가고, 내 지갑과 주머니는 그대로다.
-      </p>
+      <p className="sc-da__fine">다음 점령전이 열릴 때 넘어간다.</p>
       {/* 남은 시간을 줄로 보인다. 숫자만으로는 급한 줄 모른다 */}
       <div className="sc-da__bar" aria-hidden="true">
         <i style={{ width: `${(left / TRANSFER_ASK_MS) * 100}%` }} />

@@ -263,7 +263,6 @@ function Desk() {
             </section>
             <section className="sc-ad__sec">
               <h2>자리</h2>
-              <p className="sc-ad__hint">계정을 지우면 자리가 남는다. 막힌 판은 여기서 푼다.</p>
               <button
                 disabled={busy}
                 onClick={() =>
@@ -292,7 +291,6 @@ function Desk() {
           <>
             <section className="sc-ad__sec">
               <h2>페이즈 {phaseNo}</h2>
-              <p className="sc-ad__hint">저절로 열리지 않는다. 여는 것도 닫는 것도 여기서.</p>
               {phaseOpen ?
                 <button className="is-primary" disabled={busy} onClick={() => void run('닫기', () => act.closePhase())}>
                   닫고 처리
@@ -300,7 +298,7 @@ function Desk() {
                 </button>
               : <button className="is-primary" disabled={busy} onClick={() => void run('열기', () => act.openPhase())}>
                   페이즈 열기
-                  <span>한 시간 · 종이 치면 열넷이 제자리로</span>
+                  <span>한 시간</span>
                 </button>
               }
             </section>
@@ -313,7 +311,6 @@ function Desk() {
                 들어온 사람은 엔딩만 봤다. 날이 바뀌는 것도 정산도
                 끝나는 것도 여기서 민다.
               */}
-              <p className="sc-ad__hint">날은 저절로 바뀌지 않는다. 한 번 누르면 한 칸이다.</p>
               <button
                 disabled={busy || nextUp === null}
                 onClick={() =>
@@ -330,7 +327,6 @@ function Desk() {
 
             <section className="sc-ad__sec">
               <h2>시계</h2>
-              <p className="sc-ad__hint">밀린 예정을 지금 시각까지 처리한다. 아무 때나 눌러도 된다.</p>
               <button disabled={busy} onClick={() => void run('따라잡기', () => act.tick())}>
                 따라잡기
               </button>
@@ -341,17 +337,14 @@ function Desk() {
           <>
             <section className="sc-ad__sec">
               <h2>심부름</h2>
-              <p className="sc-ad__hint">자동 배치는 없다. 안 붙이면 게시판이 종일 비어 있다.</p>
               <ErrandDesk act={act} onSaid={setSaid} />
             </section>
             <section className="sc-ad__sec">
               <h2>화분</h2>
-              <p className="sc-ad__hint">저절로 자라는 화분은 없다. 딴 것은 먼저 온 사람이 가진다.</p>
               <GardenDesk act={act} onSaid={setSaid} />
             </section>
             <section className="sc-ad__sec">
               <h2>떨어뜨리기</h2>
-              <p className="sc-ad__hint">지금 그 방 바닥에 한 장 놓는다. 페이즈가 닫힐 때 서버가 뿌리는 것과 별개다.</p>
               <DropHost act={act} onSaid={setSaid} />
             </section>
           </>
@@ -453,9 +446,7 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
 
   return (
     <>
-      <p className="sc-ad__hint">
-        {rows.length}명이 가입했다. 지워도 판의 명단은 그대로다 — 같은 아이디로 다시 가입하면 자리로 돌아온다.
-      </p>
+      <p className="sc-ad__hint">{rows.length}명이 가입했다.</p>
       <ul className="sc-ad__accounts">
         {rows.map((r) => (
           <li key={r.id}>
@@ -568,7 +559,7 @@ function ResetGame({
               .resetGame()
               .then((r) => {
                 const n = (r as { seats?: number }).seats ?? 0
-                onSaid(`되돌렸다. ${n}명이 그대로 앉아 있다 — 「닷새 시작」을 누르면 DAY 1 부터다.`)
+                onSaid(`되돌렸다. ${n}명이 그대로 앉아 있다.`)
               })
               .catch((e) => onSaid((e as Error).message))
           }}
@@ -627,7 +618,7 @@ function QaSetUp({
           확인하고 싶을 때는 나머지를 QA 로 채워 넣는다 — 앉은 사람은
           그대로 두고 빈 자리만 메운다. 채팅도 거래도 그때부터 된다.
         */}
-        지금 앉은 사람은 그대로 두고 빈 자리만 QA 로 채운다. 둘이서 확인할 때 쓴다.
+        빈 자리만 QA 로 채운다.
       </p>
       {/* 비밀번호를 가리지 않는다 — 읽어서 다른 기기에 쳐야 하는 값이다 */}
       <input
@@ -641,7 +632,7 @@ function QaSetUp({
       />
       <button className="is-lead" disabled={busy || qaPw.length < 8} onClick={() => void onGo()}>
         빈 자리를 QA로 채우고 시작
-        <span>qa01 … qa14 · 역할 나누고 · 닷새 시작까지</span>
+        <span>qa01 … qa14</span>
       </button>
     </>
   )

@@ -121,7 +121,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
   const here = await whereAmI(gameId, uid)
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 주울 수 있다.')
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 
   let subject = ''
   await db.runTransaction(async (tx) => {
@@ -182,7 +182,7 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
   const here = await whereAmI(gameId, uid)
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 놓을 수 있다.')
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
@@ -205,7 +205,7 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   // **선 자리를 적어야 조각이 남는다.** 줍기·두기·건네기가 모두
   // 서 있기를 요구하는데 찢기만 걷는 중에도 됐다 — 여기서 맞춘다
   const here = await whereAmI(gameId, uid)
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 찢을 수 있다.')
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
   let subject = ''
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
@@ -241,7 +241,7 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
   const { gameId, slipId, toPlayerId } = req.data
   if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
   const here = await whereAmI(gameId, uid)
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다. 도착해야 건넬 수 있다.')
+  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
   // **두는 것은 되고 건네는 것은 안 된다.** 손에서 손으로 가는 일이라
   // 사람과 얽히는 행동이다 — 바닥에 두는 쪽이 유일한 통로로 남는다
   refuseIfInvisible((await freshNow(gameId)).game.invisibleId, uid, toPlayerId, '건넬')

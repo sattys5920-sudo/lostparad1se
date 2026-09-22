@@ -131,7 +131,7 @@ export const revealSecret = onCall<{ gameId: string; scope: RevealScope; listene
       //
       // 걷는 중인 사람은 어느 방에도 없다. 말하는 쪽도 듣는 쪽도 그렇다.
       if (me.tileId === null) {
-        throw new HttpsError('failed-precondition', '걷는 중에는 털어놓을 수 없다. 어딘가에 서야 한다.')
+        throw new HttpsError('failed-precondition', '걷는 중이다.')
       }
       const pawns = await ref.collection('pawns').get()
       const where = new Map(pawns.docs.map((d) => [d.id, (d.data() as PawnDoc).tileId]))

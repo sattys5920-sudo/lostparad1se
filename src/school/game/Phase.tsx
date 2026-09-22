@@ -69,7 +69,7 @@ const LABEL: Record<ActionKind, string> = {
 const WHAT: Record<ActionKind, string> = {
   move: '맵에서 걸어서 간다. 복도와 계단은 값이 없다.',
   research: '다 되면 이 방에 완성품이 놓인다. 발전소를 쥐었으면 바로 난다.',
-  summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 둘 다 그동안 못 움직인다.',
+  summon: '같은 팀 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
   disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
   disguise: '다른 팀에게 내 인원수가 2명으로 보인다.',
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 계속 1명으로 센다.',
@@ -136,7 +136,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     // 하던 일이 안 끝났으면 아무것도 못 한다. 서버도 같은 말로 거절한다
     const busyLeft = (view?.myBusyUntilMs ?? 0) - now
     if (busyLeft > 0) return `${view?.myBusyKind ?? '하는'} 중이다. ${leftText(busyLeft)} 남았다.`
-    if (!here) return '걷는 중이다. 도착해야 할 수 있다.'
+    if (!here) return '걷는 중이다.'
     // 얼마가 드는지는 이름 옆 그림이 말한다. 여기서는 모자란다는 것만
     if (tokens < ACT_COST[kind]) return '팀 토큰이 모자란다.'
     // 물건이 드는 행동은 물건이 먼저다. 없으면 자판기에 가야 한다

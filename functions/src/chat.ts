@@ -139,7 +139,7 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
     const pawn = await myPawn(gameId, uid)
     // 문과 문 사이에서 한 말은 어느 방에도 남지 않는다
     if (pawn.tileId === null) {
-      throw new HttpsError('failed-precondition', '걷는 중이다. 어딘가에 서야 말할 수 있다.')
+      throw new HttpsError('failed-precondition', '걷는 중이다.')
     }
     /*
      * **복도에서도 말한다.**

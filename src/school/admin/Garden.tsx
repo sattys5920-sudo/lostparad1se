@@ -82,7 +82,7 @@ export function GardenDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
           ))}
         </select>
       </label>
-      <p className="sc-ad__hint">빈 화분 {empty}자리. 언제 열매가 될지는 여기에도 안 온다 — 서버만 안다.</p>
+      <p className="sc-ad__hint">빈 화분 {empty}자리</p>
 
       <ul className="sc-ga__pots">
         {pots.map((p) => (

@@ -70,7 +70,7 @@ async function earn(
   const { game, nowMs } = await freshNow(gameId)
   if (!TILE_BY_ID[targetTile]) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
   if (!game.phaseNow?.open) {
-    throw new HttpsError('failed-precondition', '페이즈에만 할 수 있다. 자유 시간에는 만나고 거래한다.')
+    throw new HttpsError('failed-precondition', '페이즈에만 할 수 있다.')
   }
 
   const ref = gameRef(gameId)
