@@ -7,11 +7,9 @@ import { ROLE_IDS } from '../../../shared/missions/roleNames'
 const lines = auditLines()
 
 describe('모으기', () => {
-  it('여덟 갈래를 다 모은다', () => {
+  it('다섯 갈래를 다 모은다', () => {
     const sources = new Set(lines.map((l) => l.source))
-    expect([...sources].sort()).toEqual(
-      ['aftermath', 'commonEnding', 'fragment', 'memory', 'opening', 'secret', 'sight', 'torn'].sort(),
-    )
+    expect([...sources].sort()).toEqual(['fragment', 'memory', 'opening', 'secret', 'sight'].sort())
   })
 
   it('숨긴 사실 열넷이 다 있다', () => {
@@ -23,9 +21,6 @@ describe('모으기', () => {
     expect(lines.filter((l) => l.source === 'memory')).toHaveLength(12)
   })
 
-  it('전말 열일곱 줄이 다 있다', () => {
-    expect(lines.filter((l) => l.source === 'aftermath')).toHaveLength(17)
-  })
 })
 
 describe('시간 태그', () => {

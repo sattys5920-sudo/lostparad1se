@@ -1,7 +1,8 @@
-// 엔딩 데이터를 진짜 서버로.
+// 엔딩은 운영자가 적는다. 화면은 받아 적은 것만 보여 준다.
 //
-// 제일 중요한 확인은 **종례 전에는 한 줄도 안 나가는 것**이다.
-// A의 시선 열넷이 먼저 새면 닷새가 무너진다.
+// 제일 중요한 확인은 둘이다. **종례 전에는 한 줄도 안 나간다.**
+// 그리고 **남의 몫은 어떤 경로로도 안 나간다** — 운영자가 열넷에게
+// 따로 적어도, 각자에게 가는 것은 「모두에게」와 제 몫 둘뿐이다.
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
@@ -29,14 +30,6 @@ function plain(v: unknown): unknown {
   if ('fields' in o) return Object.fromEntries(Object.entries(o.fields as Record<string, unknown>).map(([k, x]) => [k, plain(x)]))
   return o
 }
-async function getDoc<T = Record<string, unknown>>(p: string): Promise<T | null> {
-  const r = await fetch(`${FS}/${p}`, { headers: ADMIN }); return r.ok ? (plain(await r.json()) as T) : null
-}
-async function getAll(p: string): Promise<{ id: string; d: Record<string, unknown> }[]> {
-  const r = await fetch(`${FS}/${p}?pageSize=300`, { headers: ADMIN }); if (!r.ok) return []
-  const j = (await r.json()) as { documents?: { name: string }[] }
-  return (j.documents ?? []).map((d) => ({ id: d.name.split('/').pop() as string, d: plain(d) as Record<string, unknown> }))
-}
 async function signUp(e: string): Promise<string> {
   await fetch(`${AUTH}/accounts:signUp?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, password: 'password', returnSecureToken: true }) }); return e
 }
@@ -63,6 +56,8 @@ async function must(n: string, tk: string, d: unknown): Promise<Record<string, u
 const GAME = `end${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
+const ALL = '전원에게 가는 글. 닷새가 끝났다.'
+
 async function main(): Promise<void> {
   console.log(`판 ${GAME}\n── 판 세우기 ──`)
   const he = await signUp(`h-${GAME}@x.test`); await setAdmin(he)
@@ -79,88 +74,69 @@ async function main(): Promise<void> {
   await must('startGame', host, { gameId: GAME, startAtMs: START })
   const clock = (ms: number) => must('setDevClock', host, { gameId: GAME, anchorGameMs: ms, speed: 1 })
   const me = people[0]
+  const other = people[7]
   check(true, '판이 시작했다')
+
+  console.log('\n── 운영자가 적는다 ──')
+  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: '__all', text: ALL })
+  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: me.uid, text: '너는 끝까지 문 앞에 있었다.' })
+  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: other.uid, text: '너는 웃으면서 복도를 지났다.' })
+  const rows = (await must('hostEndings', host, { gameId: GAME })) as { rows: { to: string; text: string }[] }
+  check(rows.rows.length === 3, '적어 둔 것이 셋이다', `${rows.rows.length}개`)
+
+  const notHost = await call('hostEndings', me.token, { gameId: GAME })
+  check(notHost.code === 'PERMISSION_DENIED', '참가자는 남의 몫을 못 본다', notHost.code)
+  const notHostWrite = await call('hostSetEnding', me.token, { gameId: GAME, toPlayerId: me.uid, text: '내가 쓴다' })
+  check(notHostWrite.code === 'PERMISSION_DENIED', '참가자는 엔딩을 못 적는다', notHostWrite.code)
 
   console.log('\n── 종례 전에는 ──')
   await clock(dayHourMs(START, 1, 12))
-  const early = await call('endingData', me.token, { gameId: GAME })
+  const early = await call('myEnding', me.token, { gameId: GAME })
   check(early.code === 'FAILED_PRECONDITION', 'DAY 1에는 아무것도 안 나온다', early.message)
-  check(!JSON.stringify(early).includes('찢긴'), '거절 응답에도 문장이 없다')
+  check(!JSON.stringify(early).includes('문 앞'), '거절 응답에도 문장이 없다')
 
   await clock(dayHourMs(START, 5, 20))
   await must('tick', me.token, { gameId: GAME })
-  const late = await call('endingData', me.token, { gameId: GAME })
+  const late = await call('myEnding', me.token, { gameId: GAME })
   check(late.code === 'FAILED_PRECONDITION', 'DAY 5 저녁에도 아직이다', late.message)
 
   console.log('\n── 종례 뒤 ──')
+  //
+  // **시계가 판을 끝내지 않는다.** 달력 칸은 운영자가 하나씩 민다 —
+  // 닷새치를 다 밀어야 phase 가 finished 가 된다
   await clock(dayHourMs(START, 5, 25))
   await must('tick', me.token, { gameId: GAME })
-  const d = (await must('endingData', me.token, { gameId: GAME })) as Record<string, unknown>
-  check(Array.isArray(d.aWords) && (d.aWords as unknown[]).length === 14, 'A의 시선 열넷', `${(d.aWords as unknown[])?.length}줄`)
-  check(Array.isArray(d.aftermath) && (d.aftermath as unknown[]).length === 17, '그날의 전말 열일곱 줄', `${(d.aftermath as unknown[])?.length}줄`)
-  check(Array.isArray(d.mirror) && (d.mirror as unknown[]).length === 8, '거울 규칙 여덟 줄')
-  check(((d.torn as { lines: string[] }).lines ?? []).length === 4, '찢긴 한 장 네 줄')
-  check(typeof (d.torn as { intro: string }).intro === 'string', '찢긴 한 장 소개가 있다', (d.torn as { intro: string }).intro)
-  check(Array.isArray(d.teamResult) && (d.teamResult as unknown[]).length === 4, '팀 결과 넷')
-  check((d.memoryTiles as unknown[]).length === 13, 'A의 기억 열셋이 전원에게')
+  for (let i = 0; i < 40; i++) {
+    const r = (await must('pushDay', host, { gameId: GAME })) as { phase?: string; pushed?: string | null }
+    if (r.phase === 'finished' || r.pushed === null) break
+  }
+  check(
+    ((await must('peekDay', host, { gameId: GAME })) as { next?: unknown }) !== null,
+    '달력을 끝까지 밀었다',
+  )
+  const mineOut = (await must('myEnding', me.token, { gameId: GAME })) as { text: string }
+  check(mineOut.text.includes(ALL), '모두에게 적은 글이 온다')
+  check(mineOut.text.includes('문 앞'), '내 몫이 온다')
+  check(!mineOut.text.includes('복도를 지났다'), '남의 몫은 안 온다', mineOut.text)
+  check(mineOut.text.indexOf(ALL) < mineOut.text.indexOf('문 앞'), '모두에게가 먼저 온다')
 
-  const personal = d.personal as { band: string; score: number; lines: string[] }
-  check(typeof personal.band === 'string' && personal.band.length > 0, '개인 엔딩 구간이 나왔다', personal.band)
-  check(personal.score >= 0 && personal.score <= 11, '개인 점수가 0~11', String(personal.score))
-  check(personal.lines.length === 3, '개인 엔딩 세 줄')
+  const otherOut = (await must('myEnding', other.token, { gameId: GAME })) as { text: string }
+  check(otherOut.text.includes('복도를 지났다') && !otherOut.text.includes('문 앞'), '사람마다 제 몫만 온다')
 
-  const board = d.myBoard as { name: string }[]
-  check(Array.isArray(board), '내 추리 보드가 있다', `${board.length}줄`)
+  const blank = people[3]
+  const blankOut = (await must('myEnding', blank.token, { gameId: GAME })) as { text: string }
+  check(blankOut.text === ALL, '안 적어 준 사람에게는 모두에게 것만 온다', blankOut.text)
 
-  console.log('\n── 남의 것이 섞였는가 ──')
-  const other = people[7]
-  const d2 = (await must('endingData', other.token, { gameId: GAME })) as Record<string, unknown>
-
-  // 역할이 다르니 미션 문장도 다르다. 봇이 아무것도 안 해서 점수는
-  // 둘 다 0이지만, 「각자의 미션」인지는 문장으로 갈린다
-  const p1 = (d.personal as { lines: string[] }).lines[0]
-  const p2 = (d2.personal as { lines: string[] }).lines[0]
-  check(p1 !== p2, '사람마다 자기 미션으로 판정한다', `${p1.slice(0, 12)}… / ${p2.slice(0, 12)}…`)
-
-  // 공동의 것은 같아야 한다
-  check(JSON.stringify(d.aWords) === JSON.stringify(d2.aWords), 'A의 시선은 모두 같다')
-
-  // 추리 노트를 한 명에게만 심고, 그 사람 보드에만 뜨는지 본다
-  await fetch(`${FS}/games/${GAME}/notes/${me.uid}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({
-      fields: {
-        ownerId: { stringValue: me.uid },
-        board: {
-          arrayValue: {
-            values: [
-              {
-                mapValue: {
-                  fields: {
-                    targetId: { stringValue: other.uid },
-                    guess: { stringValue: 'guard' },
-                    note: { stringValue: '수상하다' },
-                    updatedAtMs: { integerValue: '1' },
-                  },
-                },
-              },
-            ],
-          },
-        },
-      },
-    }),
-  })
-  const d3 = (await must('endingData', me.token, { gameId: GAME })) as { myBoard: { name: string; guess: string }[] }
-  const d4 = (await must('endingData', other.token, { gameId: GAME })) as { myBoard: unknown[] }
-  check(d3.myBoard.length === 1 && d3.myBoard[0].guess === '지킴이', '내가 적은 추리가 내 보드에 뜬다', JSON.stringify(d3.myBoard))
-  check(d4.myBoard.length === 0, '남의 보드에는 내 추리가 없다', `${d4.myBoard.length}줄`)
+  console.log('\n── 지우기 ──')
+  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: other.uid, text: '  ' })
+  const gone = (await must('myEnding', other.token, { gameId: GAME })) as { text: string }
+  check(gone.text === ALL, '빈 글을 넣으면 지워진다', gone.text)
 
   console.log('\n── 판에 없는 사람 ──')
   const outsider = await auth(await signUp(`out-${GAME}@x.test`))
-  const no = await call('endingData', outsider.token, { gameId: GAME })
+  const no = await call('myEnding', outsider.token, { gameId: GAME })
   check(no.code === 'PERMISSION_DENIED', '구경꾼에게는 안 준다', no.code)
-  check(!JSON.stringify(no).includes('A의'), '거절 응답에 문장이 없다')
+  check(!JSON.stringify(no).includes('닷새가 끝났다'), '거절 응답에 문장이 없다')
 
   console.log(failures === 0 ? '\n전부 통과.' : `\n${failures}개 실패.`)
   process.exit(failures === 0 ? 0 : 1)

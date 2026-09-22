@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Archive } from './Archive'
-import { EndingSequence, type EndingData } from './EndingSequence'
+import { Ending } from './Ending'
 import { MorningSequence, type DayFragment } from './MorningSequence'
 import { Retrospective } from './Retrospective'
 import { loadNote, saveNote } from './notesSync'
@@ -221,23 +221,7 @@ function bodyOf(
 /** 종례가 끝난 뒤에만 열린다. 그 전에는 서버가 거절한다. */
 export function LiveEnding({ gameId }: { gameId: string }) {
   const act = useMemo(() => gameActions(gameId), [gameId])
-  const [data, setData] = useState<EndingData | null>(null)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let live = true
-    act
-      .ending()
-      .then((d) => live && setData(d as EndingData))
-      .catch((e) => live && setError((e as Error).message))
-    return () => {
-      live = false
-    }
-  }, [act])
-
-  if (error) return <Problem text={error} />
-  if (!data) return null
-  return <EndingSequence data={data} />
+  return <Ending act={act} />
 }
 
 // ── 회고 ────────────────────────────────────────────────────────

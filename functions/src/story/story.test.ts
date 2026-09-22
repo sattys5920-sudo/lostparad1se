@@ -5,11 +5,9 @@
 // 드러나고, 그때는 판이 이미 끝나 있다.
 import { describe, expect, it } from 'vitest'
 import { FRAGMENTS, FRAGMENT_BY_DAY } from './fragments'
-import { AFTERMATH } from './aftermath'
-import { MIRROR, COMMON_ENDING, OPENING } from './mirror'
+import { OPENING } from './opening'
 import { SIGHTS, SIGHT_BY_ROLE, placeOf } from './sights'
 import { MEMORIES, MEMORY_TILE_IDS } from './memories'
-import { TORN_INTRO, TORN_LINES, tornIntro } from './torn'
 import { CLUE_MAP, LINKS, HOST_RULES } from './clues'
 import { HINT_SCHEDULE, NEVER_HINTED, ROLE_IDS } from '../../../shared/missions/roles'
 import { MEMORY_TILES } from '../../../shared/rules/memory'
@@ -88,40 +86,6 @@ describe('A의 기록', () => {
   })
 })
 
-describe('그날의 전말', () => {
-  it('열네 역할이 모두 한 번 이상 나온다', () => {
-    const named = new Set(AFTERMATH.flatMap((l) => l.who))
-    for (const id of ROLE_IDS) expect(named, id).toContain(id)
-  })
-
-  it('두 사람이 함께 한 줄은 선봉과 거짓말쟁이뿐이다', () => {
-    const pairs = AFTERMATH.filter((l) => l.who.length > 1)
-    expect(pairs).toHaveLength(1)
-    expect([...pairs[0].who].sort()).toEqual(['liar', 'vanguard'])
-  })
-
-  it('그날 저녁이 시간순이다', () => {
-    const evening = ['17:10', '17:30', '17:30', '18:00', '19:00', '21:00']
-    const got = AFTERMATH.map((l) => l.when).filter((w) => /^\d\d:\d\d$/.test(w))
-    expect(got).toEqual(evening)
-  })
-
-  it('자물쇠를 채운 것과 연 것이 같은 역할이다', () => {
-    const locked = AFTERMATH.find((l) => l.what.includes('자물쇠를 채운다'))
-    const opened = AFTERMATH.find((l) => l.what.includes('자물쇠를 연다'))
-    expect(locked?.who).toEqual(['guard'])
-    expect(opened?.who).toEqual(['guard'])
-  })
-
-  it('문을 닫은 사람과 잠근 사람이 다르다 — DAY 5 반전의 뿌리다', () => {
-    const closed = AFTERMATH.find((l) => l.what.includes('문을 닫는다'))
-    const locked = AFTERMATH.find((l) => l.what.includes('자물쇠를 채운다'))
-    expect(closed?.who).toEqual(['liar'])
-    expect(locked?.who).toEqual(['guard'])
-    expect(closed?.who).not.toEqual(locked?.who)
-  })
-})
-
 describe('A의 시선과 그 자리', () => {
   it('열네 역할 모두에게 있다', () => {
     expect(SIGHTS).toHaveLength(14)
@@ -159,40 +123,12 @@ describe('A의 기억', () => {
   })
 })
 
-describe('찢긴 한 장', () => {
-  it('도서부가 털어놓았는지로 소개가 갈린다', () => {
-    expect(tornIntro(true)).toBe(TORN_INTRO.revealed)
-    expect(tornIntro(false)).toBe(TORN_INTRO.hidden)
-    expect(TORN_INTRO.revealed).not.toBe(TORN_INTRO.hidden)
-  })
-
+describe('오프닝', () => {
   it('네 줄이다', () => {
-    expect(TORN_LINES).toHaveLength(4)
+    expect(OPENING).toHaveLength(4)
   })
 
-  it('도서관 창가 자리를 가리킨다 — DAY 1과 이어진다', () => {
-    expect(TORN_LINES.join(' ')).toContain('창가 자리')
-  })
-})
-
-describe('거울 규칙과 공동 엔딩', () => {
-  it('여덟 줄이다', () => {
-    expect(MIRROR).toHaveLength(8)
-  })
-
-  it('양쪽이 다 차 있다', () => {
-    for (const m of MIRROR) {
-      expect(m.rule.length).toBeGreaterThan(0)
-      expect(m.lived.length).toBeGreaterThan(0)
-    }
-  })
-
-  it('공동 엔딩이 둘이고 칠판 글씨가 다르다', () => {
-    expect(COMMON_ENDING.snowStopped.chalk).not.toBe(COMMON_ENDING.snowKept.chalk)
-  })
-
-  it('오프닝이 칠판 글씨로 이어진다', () => {
-    expect(OPENING.length).toBeGreaterThan(0)
+  it('칠판 글씨로 이어진다', () => {
     expect(OPENING.join(' ')).toContain('칠판')
   })
 })

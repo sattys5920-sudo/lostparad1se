@@ -2326,3 +2326,31 @@ p.sc-cv { display: block; }
 .sc-ph__bagCut { width: 1px; height: 12px; margin: 0 6px 0 8px; background: var(--sc-line); }
 .sc-ph__purse strong .sc-cost b { font-size: 15px; }
 .sc-mk__bill { display: flex; align-items: center; font-size: 13px; }
+
+/* ── 엔딩 — 운영자가 적은 한 편 ────────────────────────────── */
+.sc-en {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: #0b0d0f;
+  overflow-y: auto;
+}
+/* 종이 이름표(「일기장 한 장」)를 뗀다. 이건 학교에서 주운 종이가
+   아니라 닷새를 지켜본 사람이 쓴 글이다 — 무슨 종이인지는 할 말이 아니다 */
+.sc-en .sc-rv__paper-label {
+  display: none;
+}
+
+.sc-en__paper {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  width: min(560px, 100%);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}

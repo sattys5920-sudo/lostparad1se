@@ -377,7 +377,12 @@ export function gameActions(gameId: string) {
     releasedFragments: () => callServer('releasedFragments', g),
     snow: () => callServer('snowNow', g),
     /** 종례가 끝난 뒤에만. */
-    ending: () => callServer('endingData', g),
+    /** 내 엔딩. 운영자가 적어 둔 글이다 — 닷새가 끝나야 온다 */
+    myEnding: () => callServer('myEnding', g),
+    /** 운영자: 사람마다 엔딩을 적는다. 받는 사람이 '__all' 이면 전원 */
+    hostSetEnding: (toPlayerId: string, text: string) =>
+      callServer('hostSetEnding', { ...g, toPlayerId, text }),
+    hostEndings: () => callServer('hostEndings', g),
   }
 }
 

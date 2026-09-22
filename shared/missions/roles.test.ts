@@ -7,9 +7,6 @@ import { describe, expect, it } from 'vitest'
 import {
   BOND_RING_SIZE,
   DAY4_CHOICES,
-  ENDING_BANDS,
-  ENDING_PLACEHOLDER,
-  ENDING_TEXT,
   HINT_SCHEDULE,
   MAX_PERSONAL_SCORE,
   NEVER_HINTED,
@@ -177,16 +174,6 @@ describe('점수와 엔딩', () => {
     expect(endingBandOf(0).id).toBe('left')
   })
 
-  it('엔딩 자리가 42개다', () => {
-    let slots = 0
-    for (const id of ROLE_IDS) {
-      for (const b of ENDING_BANDS) {
-        expect(ENDING_TEXT[id][b.id]).toBe(ENDING_PLACEHOLDER)
-        slots++
-      }
-    }
-    expect(slots).toBe(42)
-  })
 })
 
 describe('인연 고리', () => {

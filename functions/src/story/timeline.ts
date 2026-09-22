@@ -127,24 +127,13 @@ export const FRAGMENT_TIME: Record<number, TimeTag> = {
 /** A의 기억 열세 장면은 전부 학기 중이다. 그날 저녁 일이 아니다. */
 export const MEMORY_TIME: TimeTag = 'term'
 
-/** 찢긴 한 장은 A가 처음 지워진 날이다. 그날 저녁보다 훨씬 앞이다. */
-export const TORN_TIME: TimeTag = 'term'
-
-/** 오프닝과 공동 엔딩은 게임 속 시간이라 사건 시간축 밖이다. */
+/** 오프닝은 게임 속 시간이라 사건 시간축 밖이다. */
 export const OPENING_TIME: TimeTag = 'anytime'
-export const COMMON_ENDING_TIME: TimeTag = 'anytime'
 
 // ── 검수 항목 ───────────────────────────────────────────────────
 
-export type AuditSource =
-  | 'opening'
-  | 'fragment'
-  | 'secret'
-  | 'memory'
-  | 'sight'
-  | 'aftermath'
-  | 'torn'
-  | 'commonEnding'
+// 엔딩 열 장면을 없애면서 전말 · 찢긴 한 장 · 공동 엔딩이 빠졌다
+export type AuditSource = 'opening' | 'fragment' | 'secret' | 'memory' | 'sight'
 
 export const SOURCE_LABEL: Record<AuditSource, string> = {
   opening: '오프닝',
@@ -152,9 +141,6 @@ export const SOURCE_LABEL: Record<AuditSource, string> = {
   secret: '숨긴 사실',
   memory: 'A의 기억',
   sight: 'A의 시선',
-  aftermath: '그날의 전말',
-  torn: '찢긴 한 장',
-  commonEnding: '공동 엔딩',
 }
 
 export interface AuditLine {

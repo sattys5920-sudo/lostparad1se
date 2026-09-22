@@ -24,6 +24,7 @@ import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
+import { ALL_KEY, ENDING_MAX } from '../../../shared/reveal/ending'
 import './admin.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
@@ -379,6 +380,10 @@ function Desk() {
               <ResetGame busy={busy} act={act} onSaid={setSaid} />
             </section>
             <section className="sc-ad__sec">
+              <h2>엔딩</h2>
+              <EndingDesk act={act} seats={seats} onSaid={setSaid} />
+            </section>
+            <section className="sc-ad__sec">
               <h2>문제 은행</h2>
               <QuizHost act={act} onSaid={setSaid} />
             </section>
@@ -635,5 +640,109 @@ function QaSetUp({
         <span>qa01 … qa14</span>
       </button>
     </>
+  )
+}
+
+/**
+ * 엔딩 책상.
+ *
+ * **열 장면을 없앤 자리다.** 전에는 전말·거울 규칙·A가 남긴 말·찢긴
+ * 한 장·공동 엔딩을 화면이 차례로 틀어 줬다. 무엇을 깨달을지를 화면이
+ * 정해 주는 대신, 닷새를 지켜본 사람이 여기서 한 편씩 적는다.
+ *
+ * **저장은 사람 단위다.** 「모두에게」를 고르면 열넷 화면 맨 위에 같이
+ * 붙고, 이름을 고르면 그 사람 화면에만 그 아래로 붙는다. 남의 몫은
+ * 서버가 문서 두 개만 읽어서 보내므로 어떤 경로로도 안 섞인다.
+ *
+ * 글은 닷새가 끝나야 나간다. 그 전에 적어 둬도 화면에는 안 뜬다.
+ */
+function EndingDesk({
+  act,
+  seats,
+  onSaid,
+}: {
+  act: ReturnType<typeof gameActions>
+  seats: { playerId: string; name: string; team: string }[]
+  onSaid: (t: string) => void
+}) {
+  const [rows, setRows] = useState<Record<string, string>>({})
+  const [who, setWho] = useState(ALL_KEY)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    const r = (await act.hostEndings()) as { rows?: { to: string; text: string }[] }
+    setRows(Object.fromEntries((r.rows ?? []).map((x) => [x.to, x.text])))
+  }, [act])
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  /** 고른 사람이 바뀌면 적어 둔 것을 꺼내 온다 */
+  useEffect(() => {
+    setText(rows[who] ?? '')
+  }, [who, rows])
+
+  const nameOf = (id: string) => (id === ALL_KEY ? '모두에게' : (seats.find((s) => s.playerId === id)?.name ?? id))
+  const written = Object.entries(rows).filter(([, t]) => t.trim() !== '')
+
+  async function save() {
+    setBusy(true)
+    try {
+      await act.hostSetEnding(who, text)
+      await load()
+      onSaid(text.trim() === '' ? `${nameOf(who)} 몫을 지웠다.` : `${nameOf(who)} 몫을 저장했다.`)
+    } catch (e) {
+      onSaid(String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="sc-ad__end">
+      <div className="sc-ad__row">
+        <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="받는 사람">
+          <option value={ALL_KEY}>모두에게{rows[ALL_KEY] ? ' ✓' : ''}</option>
+          {seats.map((s) => (
+            <option key={s.playerId} value={s.playerId}>
+              {s.team} · {s.name}
+              {rows[s.playerId] ? ' ✓' : ''}
+            </option>
+          ))}
+        </select>
+        <span className="sc-ad__pill">
+          {written.length}/{seats.length + 1}
+        </span>
+      </div>
+      <textarea
+        className="sc-ad__endbox"
+        value={text}
+        maxLength={ENDING_MAX}
+        rows={8}
+        onChange={(e) => setText(e.target.value)}
+        aria-label={`${nameOf(who)} 엔딩`}
+      />
+      <div className="sc-ad__row">
+        <button className="is-primary" disabled={busy} onClick={() => void save()}>
+          저장
+        </button>
+        <span className="sc-ad__pill">
+          {text.length}/{ENDING_MAX}
+        </span>
+      </div>
+      {written.length > 0 && (
+        <ul className="sc-ad__endlist">
+          {written.map(([to, t]) => (
+            <li key={to}>
+              <button className={to === who ? 'is-on' : ''} onClick={() => setWho(to)}>
+                {nameOf(to)}
+              </button>
+              <span>{t.slice(0, 40)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

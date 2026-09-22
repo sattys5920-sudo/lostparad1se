@@ -9,8 +9,6 @@
 
 /** 한 글자를 찍는 데 걸리는 시간. */
 export const TYPE_MS_PER_CHAR = 45
-/** 찢긴 한 장은 절반 속도로 찍는다. 마지막 글이니까. */
-export const TORN_TYPE_FACTOR = 2
 /** 줄과 줄 사이 쉼. */
 export const TYPE_LINE_GAP_MS = 400
 /** 탭하면 남은 글자가 한 번에 찍힌다. 그 뒤 다음 탭까지의 최소 간격. */
@@ -18,10 +16,6 @@ export const TAP_GUARD_MS = 200
 
 /** 미니맵으로 돌아와 지목 칸을 강조하는 시간. */
 export const SPOT_HIGHLIGHT_MS = 3000
-/** 찢긴 한 장이 끝나고 공동 엔딩 칠판까지의 암전. */
-export const TORN_BLACKOUT_MS = 3000
-/** 엔딩에서 전말 한 줄과 다음 줄 사이. 도트 캐릭터가 하나씩 선다. */
-export const AFTERMATH_LINE_MS = 1800
 /** 장면과 장면 사이 넘어가는 시간. */
 export const SCENE_FADE_MS = 600
 

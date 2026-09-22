@@ -15,7 +15,7 @@ import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { meetAt } from './meet'
-import { INVISIBLE_CHAT_MASK, ROOM_SAY_MAX } from '../shared/rules/v2'
+import { ROOM_SAY_MAX } from '../shared/rules/v2'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -168,17 +168,18 @@ async function main(): Promise<void> {
 
   check((await linesOf(C[0].token)).some((l) => l.text === GHOST_SAID && l.muted), '본인 화면에만 원문이 남는다')
 
+  // **줄 자체가 안 간다.** 전에는 「…」로 가려서 보냈는데, 가려진 줄
+  // 하나가 「지금 이 방에 있다」를 그대로 알려 줬다
   let ghostLeaks = 0
-  let maskedFor = 0
+  let anyLine = 0
   for (const p of people) {
     if (p.uid === C[0].uid) continue
     const ls = await linesOf(p.token)
     if (JSON.stringify(ls).includes(GHOST_SAID)) ghostLeaks += 1
-    if (ls.some((l) => l.playerId === C[0].uid && l.text === INVISIBLE_CHAT_MASK && l.muted)) maskedFor += 1
+    if (ls.some((l) => l.playerId === C[0].uid)) anyLine += 1
   }
   check(ghostLeaks === 0, '남에게는 원문이 한 글자도 안 간다', `${ghostLeaks}명`)
-  // 반대쪽도 본다 — 줄 자체가 안 갔으면 위 검사는 아무것도 안 보고 통과한다
-  check(maskedFor === TOTAL_SEATS - 1, `같은 방 열셋에게 「${INVISIBLE_CHAT_MASK}」로 간다`, `${maskedFor}명`)
+  check(anyLine === 0, '가린 줄조차 안 간다 — 있는 방을 알려 주니까', `${anyLine}명`)
 
   console.log('\n── 원문은 어디에 있는가 ──')
   const asPlayer = await fetch(`${FS}/games/${GAME}/secret/chat/items`, { headers: { Authorization: `Bearer ${A[0].token}` } })
@@ -191,20 +192,6 @@ async function main(): Promise<void> {
     if (v.includes(GHOST_SAID) || v.includes(HALL_SAID) || v.includes(BEFORE_SAID)) viewLeaks += 1
   }
   check(viewLeaks === 0, '각자 몫에는 채팅이 아예 없다', `${viewLeaks}건`)
-
-  console.log('\n── 종례 뒤 되돌아오는가 ──')
-  const early = await call('endingData', C[0].token, { gameId: GAME })
-  check(early.code === 'FAILED_PRECONDITION', '닷새가 끝나기 전에는 안 돌려준다')
-  check(!JSON.stringify(early).includes(GHOST_SAID), '거절 응답에도 원문이 없다')
-
-  await clock(dayHourMs(START, 5, 25))
-  await must('tick', A[0].token, { gameId: GAME })
-  const d = (await must('endingData', B[0].token, { gameId: GAME })) as { unheard: { name: string; day: number; text: string }[] }
-  check(d.unheard.some((u) => u.text === GHOST_SAID), '「들리지 않았던 말」에 원문으로 돌아온다')
-  check(d.unheard.every((u) => u.text !== HALL_SAID), '지워지지 않은 채로 한 말은 여기 없다')
-  const ghost = d.unheard.find((u) => u.text === GHOST_SAID)
-  check(ghost?.day === 2, '며칠에 한 말인지 남는다', `DAY ${ghost?.day}`)
-  check(typeof ghost?.name === 'string' && ghost.name.length > 0, '누가 한 말인지 남는다', String(ghost?.name))
 
   console.log(failures === 0 ? '\n전부 통과.' : `\n${failures}개 실패.`)
   process.exit(failures === 0 ? 0 : 1)

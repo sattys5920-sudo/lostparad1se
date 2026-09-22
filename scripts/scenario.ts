@@ -27,11 +27,9 @@ import {
   type MorningState,
 } from '../shared/reveal/morning'
 import { buildArchive, itemsOf, type ConfessionSource } from '../shared/reveal/archive'
-import { playedScenes, skippedScenes } from '../shared/reveal/ending'
 import { TILE_BY_ID, type TileId } from '../shared/rules/board'
 import { ROLE_IDS, ROLE_NAMES, type RoleId } from '../shared/missions/roleNames'
 import { FRAGMENTS, FRAGMENT_BY_DAY } from '../functions/src/story/fragments'
-import { tornIntro } from '../functions/src/story/torn'
 
 // ── 시계 ────────────────────────────────────────────────────────
 
@@ -274,29 +272,8 @@ function run(opts: RunOptions): void {
     'A의 시선은 본인 것 한 줄뿐이다',
   )
 
-  // ── 찢긴 한 장 분기 ───────────────────────────────────────────
-  const intro = tornIntro(opts.librarianReveals)
-  check(
-    opts.librarianReveals ? intro.includes('내놓은') : intro.includes('사물함'),
-    `찢긴 한 장 소개가 도서부 ${opts.librarianReveals ? '고백' : '침묵'} 쪽으로 갈렸다`,
-    intro,
-  )
-
-  // ── 엔딩 장면 수 ──────────────────────────────────────────────
   const hadInvisible = Object.values(invisibleByDay).some((v) => v !== null)
   check(hadInvisible === opts.withInvisible, `투명인간 ${opts.withInvisible ? '있던' : '없던'} 판`)
-  const scenes = playedScenes({ hadInvisible })
-  const skippedIds = skippedScenes({ hadInvisible })
-  if (opts.withInvisible) {
-    check(scenes.length === 10 && skippedIds.length === 0, '투명인간이 있었으면 열 장면 전부')
-  } else {
-    check(
-      scenes.length === 9 && skippedIds.join(',') === 'unheard',
-      '투명인간이 없었으면 6번 「들리지 않았던 말」을 건너뛴다',
-      `${scenes.length}장면`,
-    )
-    check(!scenes.map((s) => s.id).includes('unheard'), '건너뛴 장면이 목록에 없다')
-  }
 
   // ── 아침에는 A의 기록 한 장뿐이다 ────────────────────────────
   //

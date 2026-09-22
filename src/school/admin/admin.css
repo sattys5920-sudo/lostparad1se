@@ -446,3 +446,58 @@
 .sc-ga__pots li.is-fruit span { font-weight: 700; }
 .sc-ga__pots li.is-withered span { color: var(--sc-text-dim); }
 .sc-ga__pots button { min-height: 36px; padding: 0 14px; font-size: 13px; }
+
+/* ── 엔딩 책상 ────────────────────────────────────────────────────
+ *
+ * 받는 사람 하나, 글 한 통. 그 아래에 적어 둔 것들이 한 줄씩 쌓인다 —
+ * 열넷을 다 적었는지는 눈으로 세는 것보다 목록이 빠르다.
+ */
+.sc-ad__end {
+  display: grid;
+  gap: 8px;
+}
+.sc-ad__end .sc-ad__row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.sc-ad__endbox {
+  width: 100%;
+  min-height: 160px;
+  line-height: 22px;
+  resize: vertical;
+}
+.sc-ad__endlist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--sc-line);
+  padding-top: 8px;
+}
+.sc-ad__endlist li {
+  display: grid;
+  grid-template-columns: minmax(0, 8em) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+.sc-ad__endlist button {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-ad__endlist button.is-on {
+  border-color: var(--sc-accent);
+  color: var(--sc-accent);
+}
+.sc-ad__endlist span {
+  font-size: 13px;
+  color: var(--sc-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

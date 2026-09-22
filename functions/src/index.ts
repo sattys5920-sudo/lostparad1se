@@ -139,7 +139,7 @@ export { chooseImportant, chooseDay4 } from './choice'
 export { playOne } from './card'
 
 // 엔딩. 종례가 끝난 뒤에만 내려간다.
-export { endingData } from './ending'
+export { hostSetEnding, hostEndings, myEnding } from './ending'
 export { myPaper } from './paper'
 export { hostDrop } from './drop'
 

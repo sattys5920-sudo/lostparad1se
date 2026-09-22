@@ -540,29 +540,6 @@ export function endingBandOf(score: number): EndingBandSpec {
   return band ?? ENDING_BANDS[ENDING_BANDS.length - 1]
 }
 
-/** 아직 쓰지 않은 자리. 문장은 사람이 직접 쓴다. */
-export const ENDING_PLACEHOLDER = '[작성 예정]'
-
-/**
- * 역할 14 × 구간 3 = 42개 자리.
- *
- * 비워 두지 않고 자리만 만들어 둔다 — 구조가 먼저 있어야 빠진 것이
- * 눈에 보이고, 판정 코드가 문장을 기다리지 않고 돌아간다.
- */
-export const ENDING_TEXT: Record<RoleId, Record<EndingBand, string>> = Object.fromEntries(
-  ROLE_IDS.map((id) => [
-    id,
-    Object.fromEntries(ENDING_BANDS.map((b) => [b.id, ENDING_PLACEHOLDER])) as Record<EndingBand, string>,
-  ]),
-) as Record<RoleId, Record<EndingBand, string>>
-
-/**
- * 서로를 중요한 사람으로 고른 두 사람에게 덧붙는 문장.
- * {name} 자리에 상대 이름이 들어간다.
- */
-export const MUTUAL_ENDING_TEMPLATE = ENDING_PLACEHOLDER
-export const MUTUAL_ENDING_NAME_SLOT = '{name}'
-
 // ── 인연 고리 ───────────────────────────────────────────────────
 
 /**

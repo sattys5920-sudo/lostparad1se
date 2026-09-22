@@ -1,73 +1,30 @@
-// 엔딩 데이터를 모은다. **종례가 끝난 뒤에만.**
+// 닷새의 기록을 GameLog 하나로 모은다. 판정 규칙은
+// shared/missions/judge.ts 에 있고 여기서는 재료만 모은다.
+// 「나」 탭의 학생증(paper.ts)이 이걸 쓴다.
 //
-// 닷새 동안 흩어져 있던 기록을 GameLog 하나로 모아 judge를 돌린다.
-// 판정 규칙은 shared/missions/judge.ts에 있고 여기서는 재료만 모은다.
-//
-// 문장은 전부 서버 전용 데이터에서 온다. 끝나기 전에는 이 엔드포인트가
-// 아무것도 내려보내지 않는다 — A의 시선 열넷이 한 줄이라도 먼저 나가면
-// 닷새가 무너진다.
+// **엔딩 열 장면은 없앴다.** 전말·거울 규칙·A가 남긴 말·찢긴 한 장·
+// 공동 엔딩을 화면이 차례로 틀어 주던 자리다. 무엇을 깨달을지를 화면이
+// 정해 주는 대신, 운영자가 사람마다 한 편씩 적는다 — 아래 세 문이다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
-import { judge, type CaptureRecord, type GameLog, type JudgeVote, type RevealRecord, type TradeRecord } from '../../shared/missions/judge'
-import { day4Met, type Day4Choice } from '../../shared/rules/choices'
+import type { CaptureRecord, GameLog, JudgeVote, RevealRecord, TradeRecord } from '../../shared/missions/judge'
+import { ALL_KEY, ENDING_MAX } from '../../shared/reveal/ending'
 import { teamPurse } from '../../shared/rules/resources'
 import { publicScore, rankTeams, type TeamState } from '../../shared/rules/score'
 import { snowStopped } from '../../shared/rules/snow'
-import { skippedScenes } from '../../shared/reveal/ending'
-import { boardResult, scoreBoard, type DeductionNote } from '../../shared/reveal/notes'
-import { MEMORY_TILES } from '../../shared/rules/memory'
 import { TEAMS } from '../../shared/rules/lobby'
 import { dayNumber } from '../../shared/rules/clock'
-import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
-import { ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
+import type { TileId } from '../../shared/rules/board'
 import type { Interval } from '../../shared/rules/presence'
 import type { TeamId } from '../../shared/rules/v2'
 import type { CaptureDoc, EventDoc, GameDoc, PawnDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
 
-import { AFTERMATH, AFTERMATH_CLOSING } from './story/aftermath'
-import { COMMON_ENDING, MIRROR } from './story/mirror'
-import { SIGHTS } from './story/sights'
-import { TORN_LINES, tornIntro } from './story/torn'
-import { unheardLines } from './chat'
 import { gameRef, nowOf, requireUid } from './index'
+import { requireHost } from './host'
 import type { ChoiceDoc } from './choice'
 
 const secret = (gameId: string, name: string) =>
   gameRef(gameId).collection('secret').doc(name).collection('items')
-
-/**
- * 추리 노트를 쓸 수 있는 모양으로 고친다.
- *
- * notes/{playerId}는 규칙이 클라이언트에게 직접 쓰기를 열어 준
- * 유일한 문서다(판정에 쓰이지 않는 개인 메모라 서버를 거칠 이유가
- * 없다). 대신 읽는 쪽이 모양을 믿으면 안 된다 — 칸 하나가 빠진 문서
- * 하나로 엔딩 전체가 터진다.
- */
-function normalizeNote(ownerId: string, raw: unknown): DeductionNote {
-  const o = (raw ?? {}) as Partial<DeductionNote>
-  const rows = Array.isArray(o.board) ? o.board : []
-  const hist = Array.isArray(o.history) ? o.history : []
-  return {
-    ownerId,
-    entryNotes: typeof o.entryNotes === 'object' && o.entryNotes !== null ? o.entryNotes : {},
-    board: rows
-      .filter((t) => t && typeof t.targetId === 'string')
-      .map((t) => ({
-        targetId: t.targetId,
-        guess: t.guess ?? 'unknown',
-        note: typeof t.note === 'string' ? t.note : '',
-        updatedAtMs: Number(t.updatedAtMs) || 0,
-      })),
-    history: hist
-      .filter((h) => h && typeof h.targetId === 'string')
-      .map((h) => ({
-        targetId: h.targetId,
-        from: h.from ?? 'unknown',
-        to: h.to ?? 'unknown',
-        atMs: Number(h.atMs) || 0,
-      })),
-  }
-}
 
 /**
  * 닷새치 기록을 GameLog 하나로.
@@ -206,112 +163,69 @@ export async function buildLog(
 }
 
 /**
- * 엔딩 한 사람 몫.
+ * 엔딩 — **운영자가 적는다.**
  *
- * **끝나기 전에는 아무것도 내려보내지 않는다.** A의 시선 열넷이 한 줄이라도
- * 먼저 나가면 닷새가 무너진다.
+ * 열 장면을 화면이 틀어 주던 자리다. 그 자리에는 그날의 전말도, 거울
+ * 규칙도, A가 남긴 말 열넷도 미리 적혀 있었다. 닷새를 지켜본 사람이
+ * 그 자리에서 쓰는 한 편이 미리 적은 마흔두 문장보다 낫다.
+ *
+ * 문서 하나가 한 사람 몫이다. `__all` 은 전원에게 같이 붙는 글이라,
+ * 각자 화면에는 「모두에게」가 먼저 오고 그다음 제 몫이 온다.
  */
-export const endingData = onCall<{ gameId: string }>(async (req) => {
+const endingsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('ending').collection('lines')
+
+export interface EndingLineDoc {
+  /** 받는 사람. ALL_KEY 면 전원이다. */
+  toPlayerId: string
+  text: string
+  atMs: number
+}
+
+/** 적거나 고친다. **운영자만.** 빈 글을 넣으면 지운다. */
+export const hostSetEnding = onCall<{ gameId: string; toPlayerId: string; text: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const to = String(req.data.toPlayerId ?? '').trim()
+  if (to === '') throw new HttpsError('invalid-argument', '누구에게 줄지 골라야 한다.')
+  const text = String(req.data.text ?? '').trim().slice(0, ENDING_MAX)
+  const ref = endingsOf(gameId).doc(to)
+  if (text === '') {
+    await ref.delete()
+    return { to, removed: true }
+  }
+  const doc: EndingLineDoc = { toPlayerId: to, text, atMs: Date.now() }
+  await ref.set(doc)
+  return { to, saved: true }
+})
+
+/** 지금까지 적어 둔 것 전부. **운영자만.** */
+export const hostEndings = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const snap = await endingsOf(req.data.gameId).get()
+  return { rows: snap.docs.map((d) => ({ to: d.id, text: (d.data() as EndingLineDoc).text })) }
+})
+
+/**
+ * 내 엔딩. **종례가 끝난 뒤에만.**
+ *
+ * 남의 몫은 어떤 경로로도 안 나간다 — 문서 두 개만 읽는다.
+ */
+export const myEnding = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const snap = await gameRef(gameId).get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  const game = snap.data() as GameDoc
-  if (game.phase !== 'finished') throw new HttpsError('failed-precondition', '아직 종례가 끝나지 않았다.')
-
-  const { log, roster, seats, ranked, choices } = await buildLog(gameId, game)
-  const me = roster.find((r) => r.playerId === uid)
-  if (!me) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
-
-  // 한 번 돌려 주·인연 미션 결과를 얻고, 그걸로 DAY 4 선택을 판정한 뒤
-  // 다시 돌린다. judge는 순수 함수라 두 번 돌려도 같은 값이다
-  const first = new Map(
-    roster.map((r) => [r.playerId, judge({ playerId: r.playerId, team: r.team, roleId: r.roleId as RoleId, bondId: r.bondId }, log)]),
-  )
-  log.choiceMet = Object.fromEntries(
-    roster.map((r) => {
-      const f = first.get(r.playerId)
-      return [
-        r.playerId,
-        day4Met({
-          choice: (choices.get(r.playerId)?.day4 ?? null) as Day4Choice | null,
-          teamRank: log.teamRank[r.team],
-          mainMet: f?.main.met === true,
-          bondMet: f?.bond.met === true,
-        }),
-      ]
-    }),
-  )
-  const mine = judge({ playerId: me.playerId, team: me.team, roleId: me.roleId as RoleId, bondId: me.bondId }, log)
-
-  const nameOf = (id: string) => seats.find((s) => s.playerId === id)?.name ?? id
-
-  // 내 추리 보드. **내 노트만** 읽는다.
-  //
-  // notes/는 클라이언트가 **직접 쓰는 유일한 문서다.** 그래서 모양을
-  // 믿지 않는다 — 칸이 빠진 채로 올라와도 서버가 터지면 안 된다.
-  const noteSnap = await gameRef(gameId).collection('notes').doc(uid).get()
-  const note = normalizeNote(uid, noteSnap.data())
-  const roleMap = new Map(roster.map((r) => [r.playerId, r.roleId as RoleId]))
-  const actualOf = (id: string): RoleId => roleMap.get(id) ?? 'mediator'
-  const everyone = roster.map((r) => r.playerId)
-  const scored = scoreBoard(note, actualOf, log.startedAtMs)
-  const board = boardResult(note, actualOf, log.startedAtMs, everyone)
-
-  const hadInvisible = Object.values(game.invisibleByDay).some((v) => v !== null)
-
-  return {
-    hadInvisible,
-    skipped: skippedScenes({ hadInvisible }),
-    people: seats.map((s) => ({ playerId: s.playerId, name: s.name, team: s.team })),
-    teamResult: ranked,
-    personal: {
-      band: mine.band.name,
-      bandLine: mine.band.line,
-      score: mine.score,
-      // 세 줄 — 주 미션 · 인연 미션 · 엔딩 구간. 「후회·반성·깨달음」
-      // 42문장은 아직 [작성 예정]이라 미션 문장을 그대로 보인다
-      lines: [mine.main.text, mine.bond.text, mine.band.line],
-      mainMet: mine.main.met,
-      bondMet: mine.bond.met,
-    },
-    // 그날의 전말 — 열네 명이 한 일이 시간순으로
-    aftermath: AFTERMATH.map((row) => ({
-      when: row.when,
-      what: row.what,
-      who: row.who.map((r) => ROLE_NAMES[r]),
-      names: row.who.map((r) => {
-        const found = roster.find((x) => x.roleId === r)
-        return found ? nameOf(found.playerId) : ROLE_NAMES[r]
-      }),
-    })),
-    aftermathClosing: AFTERMATH_CLOSING,
-    mirror: MIRROR,
-    // 지워진 동안 「…」로만 보였던 말. 여기서 원문으로 돌아온다
-    unheard: await unheardLines(gameId),
-    // A의 시선 열넷. 끝났으니 전원이 다 본다
-    aWords: SIGHTS.map((s) => {
-      const who = roster.find((r) => r.roleId === s.role)
-      return { name: who ? nameOf(who.playerId) : ROLE_NAMES[s.role], text: s.text }
-    }),
-    // 찢긴 한 장. 도서부가 털어놓았는지로 소개가 갈린다
-    torn: {
-      intro: tornIntro(roster.some((r) => r.roleId === 'librarian' && r.reveal !== null)),
-      lines: TORN_LINES,
-    },
-    commonEnding: {
-      ...(log.snowStopped ? COMMON_ENDING.snowStopped : COMMON_ENDING.snowKept),
-      chalk: log.snowStopped ? '이제 보여?' : '다음 주에도.',
-    },
-    myBoard: scored.map((row) => ({
-      name: nameOf(row.targetId),
-      guess: row.guess === 'unknown' ? '모름' : ROLE_NAMES[row.guess as RoleId],
-      actual: ROLE_NAMES[row.actual],
-      correct: row.correct,
-      firstDay: row.firstCorrectDay,
-    })),
-    boardResult: board,
-    // 기억 열셋이 전원에게 열렸다
-    memoryTiles: MEMORY_TILES.map((id) => ({ tileId: id, name: TILE_BY_ID[id].name })),
+  if ((snap.data() as GameDoc).phase !== 'finished') {
+    throw new HttpsError('failed-precondition', '아직 닷새가 안 끝났다.')
   }
+  const seat = await secret(gameId, 'roster').doc(uid).get()
+  if (!seat.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
+  const [all, mine] = await Promise.all([
+    endingsOf(gameId).doc(ALL_KEY).get(),
+    endingsOf(gameId).doc(uid).get(),
+  ])
+  const parts: string[] = []
+  if (all.exists) parts.push((all.data() as EndingLineDoc).text)
+  if (mine.exists) parts.push((mine.data() as EndingLineDoc).text)
+  return { text: parts.join('\n\n') }
 })
