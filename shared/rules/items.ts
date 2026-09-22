@@ -17,7 +17,7 @@
 import type { ActionKind } from './occupy'
 
 /** 학교에서 주울 만한 것들. 그럴듯한 물건이어야 쓸 때 말이 된다. */
-export type ItemKind = 'whistle' | 'nameTag' | 'lock' | 'paper' | 'eraser' | 'tape'
+export type ItemKind = 'whistle' | 'nameTag' | 'lock' | 'paper' | 'eraser' | 'tape' | 'trap'
 
 export interface ItemSpec {
   kind: ItemKind
@@ -67,6 +67,15 @@ export const ITEMS: readonly ItemSpec[] = [
     name: '테이프',
     text: '이 방에 남은 찢긴 조각을 한 무더기 붙인다. 접힌 채로 내 손에 온다.',
     needs: 'scrap',
+  },
+  /*
+   * **상점에 없다.** 기술실 제조기에서만 나온다(rules/trap). 여기 있는
+   * 것은 손에 든 뒤의 일이다 — 복도에 놓고, 놓으면 안 보인다.
+   */
+  {
+    kind: 'trap',
+    name: '덫',
+    text: '선 복도 칸에 놓는다. 놓으면 아무에게도 안 보인다. 다른 팀이 밟으면 10분 동안 못 움직인다. 우리 팀은 밟아도 안 걸린다.',
   },
 ]
 

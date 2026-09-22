@@ -49,6 +49,8 @@ import { Phase, PhaseLog, leftText } from './Phase'
 import { Slips } from './Slips'
 import { Quiz } from './Quiz'
 import { atPaper } from '../../../shared/rules/quiz'
+import { TECH_TILE, makerBeside } from '../../../shared/rules/trap'
+import { MakerSheet } from './Maker'
 import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
@@ -613,7 +615,7 @@ function placeName(room: TileId | null, cell: { x: number; y: number } | null): 
   return null
 }
 
-type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden' | 'quiz'
+type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden' | 'quiz' | 'maker'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -778,6 +780,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     if (vendingHere === null) setSheet((s) => (s === 'shop' ? null : s))
     // 종이가 있는 방을 나가면 종이 시트도 닫힌다
     if ((state.view?.quizzesHere?.length ?? 0) === 0) setSheet((s) => (s === 'quiz' ? null : s))
+    if (standingOn !== TECH_TILE) setSheet((s) => (s === 'maker' ? null : s))
   }, [vendingHere])
   // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
   const hereNow = standingOn
@@ -1050,7 +1053,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
      * 서버가 거절한다. 그 말을 미리 대신 해 줄 뿐이다.
      */
     const stop = busyLeftMs > 0
-      ? `${busyKind ?? '하는'} 중이다 — ${leftText(busyLeftMs)} 남았다`
+      ? busyKind === '덫'
+        ? `덫에 걸렸다 — ${leftText(busyLeftMs)} 남았다`
+        : `${busyKind ?? '하는'} 중이다 — ${leftText(busyLeftMs)} 남았다`
       : walking
         ? '걷는 중이다 — 멈춰야 한다'
         : phaseTokens === 0
@@ -1088,6 +1093,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
      */
     if ((state.view?.quizzesHere ?? []).some((q) => atPaper(myCell, q.cell))) {
       room.push({ key: 'quiz', icon: 'note', label: '문제 종이', run: () => setSheet('quiz') })
+    }
+    /* **제조기 옆.** 기술실 안에서 제조기 옆에 섰을 때만 뜬다 */
+    if (standingOn === TECH_TILE && makerBeside(myCell) !== null) {
+      room.push({ key: 'maker', icon: 'pot', label: '제조기', run: () => setSheet('maker') })
     }
     /*
      * **이 방에 놓인 완성품.** 첫 칸을 가져간다.
@@ -1285,7 +1294,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             }}
             onTapPerson={setPerson}
             /* 기물을 짚었다 — 앞에 서 있을 때만 온다(Walk 가 잰다) */
-            onTapFixture={(kind) => setSheet(kind === 'board' ? 'board' : kind === 'pot' ? 'garden' : 'shop')}
+            onTapFixture={(kind) =>
+              setSheet(
+                kind === 'board' ? 'board'
+                : kind === 'pot' ? 'garden'
+                : kind === 'maker' ? 'maker'
+                : kind === 'lab' ? 'act'
+                : 'shop',
+              )
+            }
+            /* 덫에 걸리면 서버가 세운 칸이다. 거기서 못 벗어난다 */
+            pinAt={busyKind === '덫' && busyLeftMs > 0 ? (state.view?.mySnaredAt ?? null) : null}
             onTapPaper={() => setSheet('quiz')}
             /* 머리 위에 잠깐 뜨는 말 */
             says={says}
@@ -1296,9 +1315,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             /* 멈춰 선 자리를 서버가 알아야 「바로 옆 칸」을 판정한다.
                거절은 흘려보낸다 — 걷다 멈춘 자리를 못 적었다고 화면에
                빨간 글씨가 뜰 일은 아니다 */
-            onStand={(x, y) => {
+            onStand={(x, y, via) => {
               setMyCell({ x, y })
-              void act.standAt(x, y).catch(() => {})
+              void act.standAt(x, y, via).catch(() => {})
             }}
             /* 게시판. 붙은 장수는 서버가 보내 준다 — 없으면 빈 판이다 */
             boards={BOARDS.map((b) => ({
@@ -1669,6 +1688,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               act={act}
               onSaid={setSaid}
               ask={ask}
+              myCell={myCell}
             />
           ) : (
             <>
@@ -1852,6 +1872,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </Sheet>
       )}
 
+      {/* 덫 제조기. 기술실에서 제조기 옆에 서서 탭하면 열린다 */}
+      {sheet === 'maker' && (
+        <Sheet title="덫 제조기" onClose={closeSheet}>
+          <MakerSheet
+            view={state.view}
+            act={act}
+            onSaid={setSaid}
+            myCell={myCell}
+            phaseOpen={phaseOpen}
+            nowMs={nowMs}
+            ownsTech={state.tiles[TECH_TILE]?.ownerTeam === me.team}
+          />
+        </Sheet>
+      )}
+
       {sheet === 'shop' && (
         <Vending
           where={vendingHere?.name ?? ''}
@@ -1988,9 +2023,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       */}
       {busyLeftMs > 0 && (
         <div className="sc-pl__busy" role="status">
-          <p className="sc-pl__busyWhat">{busyKind ?? '하는 중'}</p>
+          <p className="sc-pl__busyWhat">{busyKind === '덫' ? '덫에 걸렸다' : (busyKind ?? '하는 중')}</p>
           <p className="sc-pl__busyLeft">{leftText(busyLeftMs)}</p>
-          <p className="sc-pl__busyWhy">끝날 때까지 그 자리에 있는다.</p>
+          <p className="sc-pl__busyWhy">{busyKind === '덫' ? '풀릴 때까지 못 움직인다.' : '끝날 때까지 그 자리에 있는다.'}</p>
         </div>
       )}
 

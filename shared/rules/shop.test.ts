@@ -63,10 +63,16 @@ describe('상점', () => {
     }
   })
 
-  it('물건 카탈로그에 있는 것은 모두 어디선가 산다', () => {
+  it('물건 카탈로그에 있는 것은 모두 어디선가 산다 — 덫만 빼고', () => {
     for (const kind of ITEM_KINDS) {
+      // 덫은 파는 것이 아니라 기술실에서 만드는 것이다(rules/trap)
+      if (kind === 'trap') continue
       expect(SHOP_ITEMS.some((i) => i.gives === kind), kind).toBe(true)
     }
+  })
+
+  it('**덫은 상점에 없다** — 기술실 제조기에서만 나온다', () => {
+    expect(SHOP_ITEMS.some((i) => i.gives === 'trap')).toBe(false)
   })
 
   it('**지우개만 하루 몫이 걸려 있다**', () => {

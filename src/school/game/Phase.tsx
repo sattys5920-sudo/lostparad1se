@@ -22,7 +22,8 @@ import {
   researchKnowledge,
   leftBehindCount,
 } from '../../../shared/rules/occupy'
-import { ROAM_TO, TILE_BY_ID, TILES } from '../../../shared/rules/board'
+import { ROAM_TO, TILE_BY_ID, TILES, type Cell } from '../../../shared/rules/board'
+import { atLabMachine } from '../../../shared/rules/trap'
 import { ITEMS, ITEM_BY_KIND, ITEM_FOR } from '../../../shared/rules/items'
 import type { ActionKind } from '../../../shared/rules/occupy'
 import type { GameActions } from './useGame'
@@ -47,6 +48,8 @@ export interface PhaseProps {
   nowMs: number
   act: GameActions
   onSaid: (text: string) => void
+  /** 내가 선 칸. 연구는 연구 기계 옆에서만 — 서버도 같은 자로 잰다 */
+  myCell?: Cell | null
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
   ask: (text: string) => Promise<boolean>
 }
@@ -80,7 +83,7 @@ export function leftText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: now, act, onSaid, ask }: PhaseProps) {
+export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: now, act, onSaid, ask, myCell = null }: PhaseProps) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<ActionKind | null>(null)
 
@@ -124,6 +127,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     }
     if (kind === 'research') {
       if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
+      if (!atLabMachine(myCell)) return '연구 기계 옆에 서야 한다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
       const need = researchKnowledge(ownsLab)
       if ((view?.myVault?.knowledge ?? 0) < need) return `지식이 모자란다. ${need}점이 든다.`

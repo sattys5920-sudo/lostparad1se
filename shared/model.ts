@@ -553,6 +553,16 @@ export interface PlayerViewDoc {
    * 단계와 — 싹이 난 뒤에는 — 이름까지다. 누가 심었는지도, 언제
    * 열매가 될지도 어느 몫에도 없다.
    */
+  /** 기술실 제조기 셋. 기술실에 서 있을 때만 온다 */
+  makersHere?: {
+    i: number
+    cell: Cell
+    state: 'free' | 'busy' | 'mine'
+    readyAtMs: number | null
+    count: number
+  }[]
+  /** 덫에 걸린 칸. 걸려 있는 동안만 */
+  mySnaredAt?: Cell | null
   potsHere?: {
     i: number
     cell: Cell

@@ -19,9 +19,9 @@ describe('물건', () => {
 
   // **손으로 쓰는 물건은 행동에 딸리지 않는다.** 딸린 것으로 잘못
   // 적으면 ITEM_FOR 가 엉뚱한 행동을 그 물건으로 잠근다
-  it('손으로 쓰는 넷은 어느 행동에도 안 걸려 있다', () => {
+  it('손으로 쓰는 다섯은 어느 행동에도 안 걸려 있다', () => {
     const hand = ITEMS.filter((i) => isHandItem(i.kind)).map((i) => i.kind)
-    expect(hand).toEqual(['lock', 'paper', 'eraser', 'tape'])
+    expect(hand).toEqual(['lock', 'paper', 'eraser', 'tape', 'trap'])
     expect(Object.values(ITEM_FOR)).toEqual(['whistle', 'nameTag'])
   })
 

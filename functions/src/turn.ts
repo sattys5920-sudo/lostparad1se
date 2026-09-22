@@ -68,7 +68,8 @@ export function busyLeft(pawn: PawnDoc, nowMs: number): number {
 export function requireFree(pawn: PawnDoc, nowMs: number): void {
   const left = busyLeft(pawn, nowMs)
   if (left > 0) {
-    const what = pawn.busyKind ? `${pawn.busyKind} 중이다` : '하던 일이 안 끝났다'
+    // 덫은 하는 일이 아니라 당한 일이다. 「덫 중이다」로 읽히면 안 된다
+    const what = pawn.busyKind === '덫' ? '덫에 걸려 있다' : pawn.busyKind ? `${pawn.busyKind} 중이다` : '하던 일이 안 끝났다'
     throw new HttpsError('failed-precondition', `${what}. ${left}분 남았다.`)
   }
 }

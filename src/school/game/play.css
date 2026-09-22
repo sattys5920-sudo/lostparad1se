@@ -2259,3 +2259,26 @@ p.sc-cv { display: block; }
   border: 1px solid var(--sc-line-strong);
   border-radius: 999px;
 }
+
+/* ── 덫 제조기 ────────────────────────────────────────────── */
+.sc-mk { display: flex; flex-direction: column; gap: 10px; }
+.sc-mk__hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--sc-text-dim); word-break: keep-all; }
+.sc-mk__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sc-mk__list > li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'name btn' 'state btn' 'far far';
+  align-items: center;
+  gap: 2px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+  background: var(--sc-bg);
+  font-size: 13px;
+}
+.sc-mk__list > li b { grid-area: name; font-weight: 600; }
+.sc-mk__list > li span { grid-area: state; font-size: 12px; color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+.sc-mk__list > li button { grid-area: btn; min-height: 40px; padding: 0 16px; font: inherit; font-size: 13px; }
+.sc-mk__list > li em { grid-area: far; font-style: normal; font-size: 11px; color: var(--sc-text-dim); }
+.sc-mk__list > li.is-mine { border-color: var(--sc-line-strong); }
+.sc-mk__list > li.is-near b::after { content: ' ·'; color: var(--sc-text-dim); }

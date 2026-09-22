@@ -6,11 +6,12 @@ import { BOARDS } from './errand'
 import { VENDINGS } from './shop'
 import { GARDEN_TILE, POT_CELLS } from './crop'
 import { isHallCell, roomOfCell } from './board'
+import { MAKERS } from './trap'
 
 describe('기물', () => {
-  it('게시판 여섯 · 자판기 셋 · 화분 여덟이 전부다', () => {
-    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length + POT_CELLS.length)
-    expect(FIXTURE_CELLS.size).toBe(17)
+  it('게시판 여섯 · 자판기 셋 · 화분 여덟 · 제조기 셋 · 연구 기계 하나가 전부다', () => {
+    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length + POT_CELLS.length + MAKERS.length + 1)
+    expect(FIXTURE_CELLS.size).toBe(21)
   })
 
   /*

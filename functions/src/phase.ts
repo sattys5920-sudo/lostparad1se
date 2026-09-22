@@ -43,6 +43,9 @@ import {
 import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { isFixture } from '../../shared/rules/fixtures'
+import { LAB_TILE, SNARE_MINUTES, atLabMachine } from '../../shared/rules/trap'
+import { clearTrapJobs, springTrap } from './trap'
+import type { Cell } from '../../shared/rules/board'
 import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
@@ -543,6 +546,18 @@ export const phaseAct = onCall<{
   if (kind === 'summon') {
     refuseIfInvisible(game.invisibleId, uid, req.data.targetPlayer ?? null, '호출할')
   }
+  /*
+   * **연구는 연구 기계 앞에서.** 방 안이면 되던 것을 자리로 좁힌다 —
+   * 기술실 제조기와 같은 자다. 규칙 엔진은 방만 보므로 여기서 한 번
+   * 더 본다. 화면이 보내는 자리를 믿지 않고 pawns 의 at 을 본다
+   */
+  if (kind === 'research') {
+    const meSnap = await gameRef(gameId).collection('pawns').doc(uid).get()
+    const me = meSnap.data() as PawnDoc | undefined
+    if (me?.tileId !== LAB_TILE || !atLabMachine((me.at ?? null) as Cell | null)) {
+      throw new HttpsError('failed-precondition', '연구 기계 옆에 서야 한다.')
+    }
+  }
 
   const ref = gameRef(gameId)
   const act: Act = {
@@ -928,6 +943,8 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   const dropped = await scatterSlips(gameId, no, nowMs)
   // 펴 둔 문제는 도로 접히고, 새 종이가 몇 장 떨어진다
   await foldQuizzes(gameId)
+  // 제조기에 남은 덫은 사라진다. 다음 페이즈로 안 넘어간다
+  await clearTrapJobs(gameId)
   const papers = await scatterQuizzes(gameId, no, nowMs)
   await refreshViews(gameId)
   return {
@@ -1041,12 +1058,21 @@ export { ACT_COST, TOKENS_PER_PHASE }
  * 우기는 것까지는 막지 않는다 — 그래 봐야 예전 규칙(같은 방이면 된다)
  * 만큼이고, 그 이상은 벽과 가구를 서버가 다 들고 있어야 한다.
  */
-export const standAt = onCall<{ gameId: string; x: number; y: number }>(async (req) => {
+export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x: number; y: number }[] }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const x = Math.floor(Number(req.data.x))
   const y = Math.floor(Number(req.data.y))
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
+  /*
+   * **지나온 칸들.** 화면은 멈춘 뒤에 한 번만 적어 보내므로, 그 사이
+   * 밟고 지나간 복도 칸은 여기에 실려 온다 — 덫은 그 칸들에서 걸린다.
+   * 복도 칸만 본다. 방 안에는 덫이 없다
+   */
+  const via: Cell[] = (Array.isArray(req.data.via) ? req.data.via : [])
+    .slice(0, 200)
+    .map((c) => ({ x: Math.floor(Number(c?.x)), y: Math.floor(Number(c?.y)) }))
+    .filter((c) => Number.isFinite(c.x) && Number.isFinite(c.y) && isHallCell(c.x, c.y))
 
   const ref = gameRef(gameId).collection('pawns').doc(uid)
   const snap = await ref.get()
@@ -1077,6 +1103,14 @@ export const standAt = onCall<{ gameId: string; x: number; y: number }>(async (r
    */
   if (isFixture(x, y)) throw new HttpsError('failed-precondition', '거기에는 물건이 있다.')
   /*
+   * **덫에 걸려 있으면 그 자리다.** 걸린 칸 말고 다른 칸을 적어 오면
+   * 거절한다 — 화면은 pin 으로 도로 세운다
+   */
+  const { nowMs } = await freshNow(gameId)
+  if (p.busyKind === '덫' && (p.busyUntilMs ?? 0) > nowMs && !(p.at?.x === x && p.at?.y === y)) {
+    throw new HttpsError('failed-precondition', `덫에 걸려 있다. ${Math.ceil(((p.busyUntilMs ?? 0) - nowMs) / 60_000)}분 남았다.`)
+  }
+  /*
    * **문제 종이 위에도 못 선다.** 종이는 페이즈마다 다른 방에 떨어지므로
    * 규칙 파일에 없다 — 판의 바닥 문서를 본다. 아직 아무도 안 가져간
    * 종이만 자리를 차지한다.
@@ -1087,6 +1121,24 @@ export const standAt = onCall<{ gameId: string; x: number; y: number }>(async (r
     if (c && c.x === x && c.y === y) throw new HttpsError('failed-precondition', '거기에는 종이가 있다.')
   }
   if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
+
+  /*
+   * **덫.** 지나온 복도 칸과 지금 선 칸 중 다른 팀 덫이 있는 첫 칸에서
+   * 걸린다. 걸리면 거기 선 것으로 적히고 열 분 동안 묶인다 — 걸음도
+   * 행동도 requireFree 가 막는다. 밟은 덫은 사라진다.
+   */
+  const snared = await springTrap(gameId, p.team as TeamId, [...via, { x, y }])
+  if (snared) {
+    const until = nowMs + SNARE_MINUTES * 60_000
+    await ref.update({ at: snared, busyUntilMs: until, busyKind: '덫' })
+    await gameRef(gameId).collection('notices').doc().set({
+      toPlayerId: uid,
+      text: `덫에 걸렸다. ${SNARE_MINUTES}분 동안 못 움직인다.`,
+      atMs: nowMs,
+    })
+    await refreshViews(gameId)
+    return { ok: true, same: false, snared: { ...snared, untilMs: until } }
+  }
 
   await ref.update({ at: { x, y } })
   await refreshViews(gameId)

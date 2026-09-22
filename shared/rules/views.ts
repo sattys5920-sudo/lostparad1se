@@ -20,6 +20,7 @@ import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './
 import type { CardKind, TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
+import { MAKERS, TECH_TILE } from './trap'
 import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
 import {
   CROP_BY_ID,
@@ -225,6 +226,8 @@ export interface World {
   crops?: Readonly<Record<string, Readonly<Record<string, number>>>>
   slips?: readonly WorldSlip[]
   quizzes?: readonly WorldQuiz[]
+  /** 기술실 제조기에 걸린 건들. 복도의 덫은 세계에도 안 실린다 */
+  trapJobs?: readonly { i: number; team: TeamId; byPlayerId: string; count: number; readyAtMs: number }[]
   memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
   /** 깨달음에 이른 시각. A의 시선이 그때 열린다. */
   awakenedAtMs: Readonly<Record<string, number>>
@@ -333,6 +336,19 @@ export interface View {
    * 될지도 안 온다: 흙을 보고 기다리는 것이 이 일의 전부다.
    */
   potsHere: PotView[]
+  /**
+   * 기술실에 서 있을 때만 — 제조기 셋. 남이 맡긴 것은 「돌고 있다」까지다.
+   * 몇 개가 나오는지, 언제 되는지는 맡긴 사람만 본다.
+   */
+  makersHere: {
+    i: number
+    cell: Cell
+    state: 'free' | 'busy' | 'mine'
+    readyAtMs: number | null
+    count: number
+  }[]
+  /** 덫에 걸려 있으면 그 칸. 화면이 아바타를 여기에 도로 세운다 */
+  mySnaredAt: Cell | null
   /** 딴 작물. 키가 작물 아이디다. */
   myCrops: Readonly<Record<string, number>>
   /**
@@ -550,6 +566,8 @@ export function projectView(world: World, viewerId: string): View {
       errandsHere: [],
       myErrand: null,
       potsHere: [],
+      makersHere: [],
+      mySnaredAt: null,
       myCrops: {},
       lockedTiles: [],
       soldOutItems: [],
@@ -718,6 +736,24 @@ export function projectView(world: World, viewerId: string): View {
      * 알고 있고, 여기서는 그걸로 단계만 만든다. 자랄 시간도 심은
      * 사람도 안 싣는다.
      */
+    makersHere:
+      here === TECH_TILE
+        ? MAKERS.map((m) => {
+            const job = (world.trapJobs ?? []).find((j) => j.i === m.i) ?? null
+            const mine = job !== null && job.byPlayerId === viewerId
+            return {
+              i: m.i,
+              cell: m.cell,
+              state: job === null ? 'free' : mine ? 'mine' : 'busy',
+              readyAtMs: mine ? job.readyAtMs : null,
+              count: mine ? job.count : 0,
+            }
+          })
+        : [],
+    mySnaredAt: (() => {
+      const me = world.pawns.find((p) => p.playerId === viewerId)
+      return me && me.busyKind === '덫' && (me.busyUntilMs ?? 0) > world.nowMs ? (me.at ?? null) : null
+    })(),
     potsHere:
       here === (GARDEN_TILE as TileId)
         ? (world.pots ?? []).map((pot) => {

@@ -53,6 +53,7 @@ import type { TeamId, TileId } from '../types'
 import type { ThingIcon } from '../../../shared/rules/errand'
 import { VENDINGS } from '../../../shared/rules/shop'
 import { facing, fixtureAt, type FixtureKind } from '../../../shared/rules/fixtures'
+import { LAB_MACHINE, MAKERS } from '../../../shared/rules/trap'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -62,6 +63,9 @@ import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from 
  * 세 칸을 훑지 않게 한 번만 만들어 둔다.
  */
 const VENDING_CELLS = new Set(VENDINGS.map((v) => `${v.cell.x},${v.cell.y}`))
+/** 기술실 제조기 셋과 연구실 연구 기계. 기물이라 칸 그대로 그린다 */
+const MAKER_CELLS = new Set(MAKERS.map((m) => `${m.cell.x},${m.cell.y}`))
+const LAB_CELL = `${LAB_MACHINE.x},${LAB_MACHINE.y}`
 
 export interface WalkProps {
   me: { playerId: string; team: TeamId; look: AvatarLook | null }
@@ -139,7 +143,10 @@ export interface WalkProps {
    * 칸마다 보내지 않는다 — 한 칸에 160ms 인 걸음을 칸마다 적으면
    * 열넷이 종일 서버를 두드린다. 멈춰 선 뒤 한 번만 보낸다.
    */
-  onStand: (x: number, y: number) => void
+  /** 멈춰 선 칸. **지나온 칸들도 같이** — 서버가 그 칸들에서 덫을 본다 */
+  onStand: (x: number, y: number, via: { x: number; y: number }[]) => void
+  /** 덫에 걸렸다. 서버가 세운 칸이다 — 여기서 못 벗어난다 */
+  pinAt?: { x: number; y: number } | null
   /**
    * 걸음을 묶어 둔다. **거래창이 열려 있는 동안 쓴다** — 마주 선 채로만
    * 흥정하는데, 시트 위로 삐져나온 지도를 잘못 누르면 한 걸음 물러나
@@ -413,7 +420,7 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onTapPaper, onStand, padRef, placeAtMs = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onTapPaper, onStand, padRef, placeAtMs = null, pinAt = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -511,6 +518,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   walkingRef.current = walking
   const placeRef = useRef(placeAtMs)
   placeRef.current = placeAtMs
+  const pinRef = useRef(pinAt)
+  pinRef.current = pinAt
 
   const [ready, setReady] = useState(false)
 
@@ -783,6 +792,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           self.ty += sy
           self.moving = true
           stepLeft = STEP_MS
+          walked.push({ x: self.tx, y: self.ty })
           return
         }
         return
@@ -791,6 +801,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       self.ty = ny
       self.moving = true
       stepLeft = STEP_MS
+      walked.push({ x: nx, y: ny })
     }
 
     /**
@@ -804,6 +815,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      * 누르면 알아서 걸어가게 한다.
      */
     let autoPath: { x: number; y: number }[] = []
+    /**
+     * 멈춘 뒤 서버에 적어 보낼 때까지 **밟고 지나간 칸들.** 화면은 멈춰야
+     * 한 번 적으므로, 그 사이 복도에서 밟은 것은 여기에 모아 같이 보낸다 —
+     * 덫은 지나가는 칸에서 걸린다.
+     */
+    const walked: { x: number; y: number }[] = []
 
     /** 갇혀 있는데 그 칸이 이 방 밖인가. 벽도 문도 복도도 다 밖이다. */
     function shutIn(x: number, y: number): boolean {
@@ -1025,6 +1042,19 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 그냥 둔다. 평소에는 그게 맞다 — 복도로 나서자마자 도로
       // 방 안으로 튕기면 걸을 수가 없으니까. 그런데 종이 쳐서 서버가
       // 사람을 통째로 옮긴 순간만은 예외다
+      /*
+       * **덫에 걸렸다.** 서버가 세운 칸이 내 자리와 다르면 도로 세운다.
+       * 걸음 자체는 frozen 이 막고, 이건 걸리기 전에 이미 지나쳐 온
+       * 만큼을 되돌리는 것이다 — 걸린 칸에서 못 벗어났다는 것이 화면에도
+       * 보여야 한다
+       */
+      const pin = pinRef.current
+      if (pin && (self.tx !== pin.x || self.ty !== pin.y)) {
+        standAt(pin.x, pin.y)
+        autoPath = []
+        walked.length = 0
+      }
+
       if (placeRef.current !== lastPlaceAt) {
         lastPlaceAt = placeRef.current
         if (serverTile) {
@@ -1382,6 +1412,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
            * 걸려 있고 이것은 바닥에 서 있다. 두 칸 높이라 아랫단이
            * 이 칸의 바닥에 닿는다.
            */
+          if (MAKER_CELLS.has(`${x},${y}`)) {
+            ctx.drawImage(sprites.props.trapMaker, x * TILE - camX, y * TILE - camY)
+          }
+          if (LAB_CELL === `${x},${y}`) {
+            ctx.drawImage(sprites.props.labMachine, x * TILE - camX, y * TILE - camY)
+          }
           if (VENDING_CELLS.has(`${x},${y}`)) {
             ctx.drawImage(sprites.props.vending, x * TILE - camX, y * TILE - camY - TILE)
           }
@@ -2066,7 +2102,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const here = `${self.tx},${self.ty}`
       if (here === told) return
       told = here
-      standRef.current(self.tx, self.ty)
+      standRef.current(self.tx, self.ty, walked.splice(0))
     }, 500)
 
     raf = requestAnimationFrame(frame)

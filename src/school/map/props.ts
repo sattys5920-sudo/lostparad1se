@@ -183,6 +183,8 @@ export const PROP_ART = {
   noticeBoardFull: ART.NOTICE_BOARD_FULL,
   // 복도 — 자판기. 층마다 한 대다(shop.ts 의 VENDINGS)
   vending: ART.VENDING,
+  trapMaker: ART.TRAP_MAKER,
+  labMachine: ART.LAB_MACHINE,
 } as const
 
 export type PropKind = keyof typeof PROP_ART

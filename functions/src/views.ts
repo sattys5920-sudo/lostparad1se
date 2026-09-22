@@ -25,6 +25,7 @@ import type { SlipDoc } from './slips'
 import type { QuizDoc, QuizPaperDoc } from './quiz'
 import { errandWorld } from './errand'
 import { gardenWorld } from './garden'
+import { trapWorld } from './trap'
 import { gameRef, nowOf } from './index'
 
 const db = getFirestore()
@@ -60,7 +61,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, confessions, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -84,6 +85,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       gardenWorld(gameId),
       secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
+      trapWorld(gameId),
     ])
 
   const rosterRows = roster.docs.map((d) => d.data() as RosterDoc)
@@ -147,6 +149,9 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     ),
     // 화분 여덟. **심은 것과 뽑아 둔 시간째로** 들고 가고, 투영이
     // 단계만 떼어 보낸다 — 무엇을 심었는지는 싹이 나야 나간다
+    // 제조기 셋. 누가 맡겼는지째로 들고 가고, 투영이 「내 것 / 남의 것 /
+    // 빈 것」으로 줄인다. 복도에 놓인 덫은 여기 없다
+    trapJobs: traps.jobs.map((j) => ({ i: j.i, team: j.team, byPlayerId: j.byPlayerId, count: j.count, readyAtMs: j.readyAtMs })),
     pots: garden.pots.map((p) => ({
       i: p.i,
       cropId: p.cropId,

@@ -12,7 +12,8 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { LOCK_MS, PAPER_MAX, countOf, isHandItem, takeItem, type ItemKind, type Satchel } from '../../shared/rules/items'
-import { TILE_BY_ID, type TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, isHallCell, type TileId } from '../../shared/rules/board'
+import { trapsOf, type TrapSetDoc } from './trap'
 import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import type { SlipDoc } from './slips'
@@ -60,6 +61,8 @@ interface UseInput {
   /** 테이프로 붙일 조각. */
   scrapId?: string
 }
+
+/** 덫을 놓을 자리는 지금 선 복도 칸이다. 방 안에는 못 놓는다 */
 
 /**
  * 물건 하나를 쓴다.
@@ -142,6 +145,17 @@ export const useItem = onCall<UseInput>(async (req) => {
        * 안 적혔어도 지우개는 똑같이 닳는다.
        */
       said = '한 장 지웠다.'
+    }
+
+    if (kind === 'trap') {
+      const at = me.at ?? null
+      if (!at || !isHallCell(at.x, at.y)) throw new HttpsError('failed-precondition', '복도에 서서 놓는다.')
+      // 한 칸에 하나. 우리 것이든 남의 것이든 겹쳐 놓지 않는다
+      const dup = await tx.get(trapsOf(gameId).where('x', '==', at.x).where('y', '==', at.y))
+      if (!dup.empty) throw new HttpsError('failed-precondition', '여기에는 이미 놓여 있다.')
+      const doc: TrapSetDoc = { x: at.x, y: at.y, team, byPlayerId: uid, atMs: nowMs }
+      tx.set(trapsOf(gameId).doc(), doc)
+      said = '덫을 놓았다. 아무에게도 안 보인다.'
     }
 
     if (kind === 'tape') {

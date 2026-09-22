@@ -17,6 +17,22 @@ import { ITEMS } from '../../../shared/rules/items'
 /** 12×12 한 칸. 짧게 적은 줄은 오른쪽을 공백으로 채운다. */
 const P = (rows: string[]): string[] => rows.map((r) => r.padEnd(12, ' ').slice(0, 12))
 
+/** 덫 — 벌린 집게. 위아래 이빨과 가운데 발판. */
+const TRAP = P([
+  '            ',
+  ' 3 3 3  3 3 ',
+  ' 33333333 3 ',
+  '  3222223   ',
+  '  32111123  ',
+  '  32133123  ',
+  '  32133123  ',
+  '  32111123  ',
+  '  3222223   ',
+  ' 33333333 3 ',
+  ' 3 3 3  3 3 ',
+  '            ',
+])
+
 /** 돈 — 가운데가 뚫린 옛 동전. */
 const COIN = P([
   '            ',
@@ -211,6 +227,7 @@ export const GOOD_ART: Readonly<Record<string, readonly string[]>> = {
   paper: BLANK,
   eraser: ERASER,
   tape: TAPE,
+  trap: TRAP,
   // 심부름 물건. **지도에 놓이는 그것과 같은 그림이다**(map/thingArt)
   ...THING_ART,
 }

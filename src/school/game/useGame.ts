@@ -233,7 +233,8 @@ export function gameActions(gameId: string) {
      *
      * 거래가 이것을 본다 — 같은 방이 아니라 바로 옆 칸이라야 한다.
      */
-    standAt: (x: number, y: number) => callServer('standAt', { ...g, x, y }),
+    standAt: (x: number, y: number, via: { x: number; y: number }[] = []) =>
+      callServer('standAt', { ...g, x, y, ...(via.length > 0 ? { via } : {}) }),
     /** 이번 페이즈에 할 일. 닫히기 전까지는 바꿀 수 있다. */
     phaseAct: (
       kind: string,
@@ -283,6 +284,10 @@ export function gameActions(gameId: string) {
       callServer('useItem', { ...g, kind, ...more }),
     /** 문제 종이를 펼친다. **그 방 사람 전원에게 보이게 된다.** */
     openQuiz: (paperId: string) => callServer('openQuiz', { ...g, paperId }),
+    /** 기술실 제조기에 덫을 맡긴다. 팀 토큰 1 */
+    commissionTrap: (maker: number) => callServer('commissionTrap', { ...g, maker }),
+    /** 다 된 덫을 찾는다. 맡긴 사람만 */
+    takeTrap: (maker: number) => callServer('takeTrap', { ...g, maker }),
     /** 답을 낸다. 채점은 서버가 한다 — 화면은 정답을 모른다. */
     answerQuiz: (paperId: string, given: string) => callServer('answerQuiz', { ...g, paperId, given }),
     /** 오늘의 투명인간 투표. 한 명을 적는다 — 기권은 없다. */

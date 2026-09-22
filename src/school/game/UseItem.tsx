@@ -124,6 +124,12 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
               <p className="sc-mi__howto">페이즈에서 그 행동을 걸 때 한 개 쓰인다.</p>
             )}
 
+            {kind === 'trap' && (
+              <button className="sc-mi__use" disabled={busy} onClick={() => void use('trap')}>
+                이 복도 칸에 놓기
+              </button>
+            )}
+
             {kind === 'lock' && (
               <button className="sc-mi__use" disabled={busy} onClick={() => void use('lock')}>
                 이 방 문에 걸기
