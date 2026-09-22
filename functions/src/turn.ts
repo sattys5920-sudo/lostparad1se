@@ -23,6 +23,24 @@ export async function freshNow(gameId: string): Promise<{ game: GameDoc; nowMs: 
   return { game, nowMs: nowOf(game) }
 }
 
+/**
+ * **벌이는 자유 시간의 일이다.** 페이즈가 열려 있으면 거절한다.
+ *
+ * 페이즈 한 시간은 어디에서 끝낼 것인가를 다투는 시간이다. 그 사이에
+ * 심부름을 하거나 화분을 따러 갈 수 있으면, 그 걸음이 팀의 점령
+ * 예산(한 시간에 여섯 번)을 축내면서도 개인에게는 이득이 된다 —
+ * 팀을 위해 서 있는 사람과 제 몫을 버는 사람이 같은 자원을 두고
+ * 다투게 되고, 그건 팀전이 아니라 눈치 게임이 된다.
+ *
+ * 갈라 둔다. 페이즈에는 걷고 서고 만들고 부순다. 벌고 사고 파는 일은
+ * 페이즈와 페이즈 사이에 한다.
+ */
+export function mustBeFreeTime(game: GameDoc, what: string): void {
+  if (game.phaseNow?.open) {
+    throw new HttpsError('failed-precondition', `페이즈 중에는 ${what} 수 없다. 자유 시간에 한다.`)
+  }
+}
+
 export function tileStates(docs: readonly DocumentSnapshot[]): TileState[] {
   return docs.map((d) => {
     const t = d.data() as TileDoc

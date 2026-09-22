@@ -375,6 +375,45 @@ async function main(): Promise<void> {
     }
   }
 
+  console.log('\n── 다음 페이즈는 전선에서 시작한다 ──')
+  // 닫힌 뒤 자유 시간에 학교 반대편까지 걸어가 본다. 페이즈가 열리면
+  // **직전 페이즈가 끝난 자리로 돌아와** 거기서 한 시간을 시작한다
+  const frontline = (await pawnsNow())[a0.uid].postTile as string
+  await must('roamTo', a0.token, { gameId: GAME, tileId: 'centralPlaza' })
+  await must('roamTo', a0.token, { gameId: GAME, tileId: 'musicRoom' })
+  const roamed = (await pawnsNow())[a0.uid]
+  check(roamed.tileId === 'musicRoom', '자유 시간에 멀리 갔다', String(roamed.tileId))
+  check(roamed.postTile === frontline, '그래도 전선은 안 움직였다', String(roamed.postTile))
+
+  await must('openPhase', host, { gameId: GAME })
+  const back = (await pawnsNow())[a0.uid]
+  check(back.tileId === frontline, '페이즈가 열리자 전선으로 돌아왔다', `${roamed.tileId} → ${back.tileId}`)
+  check(back.path?.length === 0 || back.path == null, '걷는 중이 아니라 이미 서 있다')
+  await must('closePhase', host, { gameId: GAME })
+
+  console.log('\n── 페이즈 중에는 벌이를 못 한다 ──')
+  // 벌이는 자유 시간의 일이다. 페이즈 한 시간에 심부름을 하러 가면
+  // 그 걸음이 팀의 점령 예산을 축내면서 개인에게만 이득이 된다
+  await must('openPhase', host, { gameId: GAME })
+  for (const [name, data] of [
+    ['takeErrand', { gameId: GAME, errandId: 'nope' }],
+    ['pickUpThing', { gameId: GAME }],
+    ['dropThing', { gameId: GAME }],
+    ['harvestPot', { gameId: GAME, pot: 0 }],
+    ['openQuiz', { gameId: GAME, paperId: 'nope' }],
+    ['answerQuiz', { gameId: GAME, paperId: 'nope', given: 'x' }],
+    ['buyShopItem', { gameId: GAME, itemId: 'paper' }],
+    ['sellCrop', { gameId: GAME, cropId: 'potato' }],
+  ] as const) {
+    const out = await call(name, a0.token, data)
+    check(
+      !out.ok && String(out.message ?? '').includes('자유 시간'),
+      `${name} 은 페이즈 중에 안 된다`,
+      out.ok ? '됐다' : String(out.message),
+    )
+  }
+  await must('closePhase', host, { gameId: GAME })
+
   console.log('\n── 머릿수가 많은 팀이 가져간다 ──')
   await openWide()
   await walkTo(a0, 'artRoom')

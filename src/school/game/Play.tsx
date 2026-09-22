@@ -54,6 +54,17 @@ import { MakerSheet } from './Maker'
 import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
 import { Sheet, useAsk } from './Sheet'
+
+/**
+ * 페이즈 중에 벌이 창구를 열었을 때 대신 뜨는 한 줄.
+ *
+ * **서버가 이미 거절한다**(turn.ts 의 mustBeFreeTime). 여기서 막는 것은
+ * 규칙이 아니라 헛도는 버튼을 안 내밀기 위해서다 — 누르면 거절당하는
+ * 버튼은 누를 수 있는 것처럼 생겼다는 것만으로 거짓말이다.
+ */
+function FreeTimeOnly({ what }: { what: string }) {
+  return <p className="sc-pl__none">{what}는 자유 시간에 한다. 지금은 페이즈 중이다.</p>
+}
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Say } from './Say'
 import { bubbleText, bubbleUp, useChatLines } from './useChat'
@@ -1846,13 +1857,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       */}
       {sheet === 'board' && (
         <Sheet title="게시판" onClose={closeSheet}>
-          <BoardSheet view={state.view} act={act} onSaid={setSaid} onClose={closeSheet} />
+          {phaseOpen ?
+            <FreeTimeOnly what="심부름" />
+          : <BoardSheet view={state.view} act={act} onSaid={setSaid} onClose={closeSheet} />}
         </Sheet>
       )}
 
       {/* 화분. 정원 안에서만 열린다 — 씨앗 상자와 여덟 자리가 한 목록이다 */}
       {sheet === 'garden' && (
         <Sheet title="화분" onClose={closeSheet}>
+          {phaseOpen && <FreeTimeOnly what="화분" />}
           <GardenSheet
             view={state.view}
             act={act}
@@ -1863,12 +1877,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </Sheet>
       )}
 
-      {/* 문제 종이. 맵에서 종이 옆에 서서 탭하면 열린다. **페이즈 중에도
-          푼다** — 토큰이 안 들어서, 토큰이 떨어진 사람이 한 시간 동안
-          할 수 있는 유일한 일이다 */}
+      {/* 문제 종이. 맵에서 종이 옆에 서서 탭하면 열린다. **자유 시간의
+          것이다** — 페이즈 한 시간은 어디에서 끝낼까를 다투는 시간이고,
+          벌이는 그 사이에 한다 */}
       {sheet === 'quiz' && (
         <Sheet title="문제 종이" onClose={closeSheet}>
-          <Quiz view={state.view} act={act} onSaid={setSaid} myCell={myCell} />
+          {phaseOpen ?
+            <FreeTimeOnly what="문제 풀기" />
+          : <Quiz view={state.view} act={act} onSaid={setSaid} myCell={myCell} />}
         </Sheet>
       )}
 
@@ -1887,7 +1903,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </Sheet>
       )}
 
-      {sheet === 'shop' && (
+      {sheet === 'shop' && phaseOpen && (
+        <Sheet title={vendingHere?.name ?? '자판기'} onClose={closeSheet}>
+          <FreeTimeOnly what="자판기" />
+        </Sheet>
+      )}
+
+      {sheet === 'shop' && !phaseOpen && (
         <Vending
           where={vendingHere?.name ?? ''}
           money={state.view?.myVault?.money ?? 0}

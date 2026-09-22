@@ -33,7 +33,7 @@ import { TILE_BY_ID, type Cell, type TileId } from '../../shared/rules/board'
 import { earn } from '../../shared/rules/resources'
 import type { PawnDoc } from '../../shared/model'
 import { requireHost } from './host'
-import { freshNow, myPawn } from './turn'
+import { freshNow, mustBeFreeTime, myPawn } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -227,6 +227,7 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
   const uid = requireUid(req.auth)
   const { gameId, errandId } = req.data
   const { game, nowMs } = await freshNow(gameId)
+  mustBeFreeTime(game, '심부름을 받을')
   await sweepErrands(gameId, nowMs)
 
   // **지워진 사람은 못 받는다.** 없는 사람에게 일을 맡길 수는 없다
@@ -260,7 +261,8 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
 export const pickUpThing = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  mustBeFreeTime(game, '물건을 집을')
   await sweepErrands(gameId, nowMs)
   const pawn = await myPawn(gameId, uid)
   const mine = await mineNow(gameId, uid)
@@ -292,6 +294,7 @@ export const dropThing = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const { game, nowMs } = await freshNow(gameId)
+  mustBeFreeTime(game, '물건을 놓을')
   await sweepErrands(gameId, nowMs)
   const pawn = await myPawn(gameId, uid)
   const mine = await mineNow(gameId, uid)

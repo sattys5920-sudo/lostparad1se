@@ -26,7 +26,7 @@ import { TILES, type Cell, type TileId } from '../../shared/rules/board'
 import { rngFrom } from '../../shared/missions/assign'
 import { gain, purseOf } from '../../shared/rules/resources'
 import type { PawnDoc } from '../../shared/model'
-import { freshNow } from './turn'
+import { freshNow, mustBeFreeTime } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -160,6 +160,7 @@ export const openQuiz = onCall<{ gameId: string; paperId: string }>(async (req) 
   const uid = requireUid(req.auth)
   const { gameId, paperId } = req.data
   const [pawn, { game }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
+  mustBeFreeTime(game, '문제를 펼')
   const here = (pawn.tileId ?? null) as TileId | null
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 
@@ -189,7 +190,8 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
   const uid = requireUid(req.auth)
   const { gameId, paperId, given } = req.data
   if (typeof given !== 'string') throw new HttpsError('invalid-argument', '답이 없다.')
-  const [pawn, { nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
+  const [pawn, { game, nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
+  mustBeFreeTime(game, '문제를 풀')
   const here = (pawn.tileId ?? null) as TileId | null
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 

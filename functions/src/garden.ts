@@ -39,7 +39,7 @@ import {
 import type { Cell, TileId } from '../../shared/rules/board'
 import type { PawnDoc } from '../../shared/model'
 import { requireHost } from './host'
-import { freshNow, myPawn } from './turn'
+import { freshNow, mustBeFreeTime, myPawn } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -231,7 +231,8 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
   if (!Number.isFinite(i) || i < 0 || i >= POT_CELLS.length) {
     throw new HttpsError('invalid-argument', '그런 화분이 없다.')
   }
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  mustBeFreeTime(game, '화분을 딸')
   const p = await myPawn(gameId, uid)
   requireGarden(p)
   if (!near((p.at ?? null) as Cell | null, POT_CELLS[i])) {
@@ -282,7 +283,8 @@ export const clearPot = onCall<{ gameId: string; pot: number }>(async (req) => {
   if (!Number.isFinite(i) || i < 0 || i >= POT_CELLS.length) {
     throw new HttpsError('invalid-argument', '그런 화분이 없다.')
   }
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  mustBeFreeTime(game, '화분을 치울')
   const p = await myPawn(gameId, uid)
   requireGarden(p)
   if (!near((p.at ?? null) as Cell | null, POT_CELLS[i])) {

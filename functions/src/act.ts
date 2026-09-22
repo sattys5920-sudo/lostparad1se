@@ -38,7 +38,7 @@ import { putItem } from '../../shared/rules/items'
 import type { PawnDoc, TeamDoc } from '../../shared/model'
 import { note } from './records'
 import { refreshViews } from './views'
-import { freshNow, myPawn, requireAwake, requireFree, tileStates } from './turn'
+import { freshNow, mustBeFreeTime, myPawn, requireAwake, requireFree, tileStates } from './turn'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -173,6 +173,9 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
   if (!item) throw new HttpsError('invalid-argument', '그런 물건은 없다.')
 
   const { nowMs, game } = await freshNow(gameId)
+  // 자판기는 자유 시간의 것이다. 파는 쪽만 막고 사는 쪽을 열어 두면
+  // 같은 기계의 반쪽만 잠기는 셈이라 둘 다 막는다
+  mustBeFreeTime(game, '자판기를 쓸')
   const ref = gameRef(gameId)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
@@ -259,6 +262,7 @@ export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) =
   if (!spec) throw new HttpsError('invalid-argument', '그런 작물은 없다.')
 
   const { nowMs, game } = await freshNow(gameId)
+  mustBeFreeTime(game, '자판기를 쓸')
   const ref = gameRef(gameId)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
