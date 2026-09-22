@@ -13,14 +13,13 @@ import {
   ACT_COST,
   ACT_MINUTES,
   MAX_CARRIED_ROBOTS,
-  ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
   ROOM_KIND,
   SMASHES_PER_PHASE,
   researchKnowledge,
   leftBehindCount,
 } from '../../../shared/rules/occupy'
-import { ROAM_TO, TILE_BY_ID, TILES, type Cell } from '../../../shared/rules/board'
+import { ROAM_TO, TILE_BY_ID, type Cell } from '../../../shared/rules/board'
 import { atLabMachine } from '../../../shared/rules/trap'
 import { ITEMS, ITEM_FOR } from '../../../shared/rules/items'
 import type { ActionKind } from '../../../shared/rules/occupy'
@@ -68,9 +67,9 @@ const LABEL: Record<ActionKind, string> = {
  * 이미 말한다(Bill). 글로도 적으면 같은 수가 한 줄에 두 번 나온다.
  */
 const WHAT: Record<ActionKind, string> = {
-  move: '학교 안 어느 방이든. 맵에서 걸어서 간다. 계단은 문이라 값이 없다.',
-  research: '연구실 기계 옆에서. 다 되면 이 방에 완성품이 놓인다 — 그때 여기 서 있어야 받는다. 발전소를 쥐었으면 바로 나온다.',
-  summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 부른 쪽도 불린 쪽도 그동안 못 움직인다.',
+  move: '맵에서 걸어서 간다. 복도와 계단은 값이 없다.',
+  research: '다 되면 이 방에 완성품이 놓인다. 발전소를 쥐었으면 바로 난다.',
+  summon: '같은 팀 한 명을 내 쪽으로 한 칸 끌어온다. 둘 다 그동안 못 움직인다.',
   disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
   disguise: '다른 팀에게 내 인원수가 2명으로 보인다.',
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 계속 1명으로 센다.',
@@ -111,9 +110,6 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
 
   const here: TileId | null = hereIn ? asRoom(hereIn) : null
   const hereName = here ? TILE_BY_ID[here].name : '걷는 중'
-  // 발전소를 쥐면 연구한 로봇이 그 자리에서 바로 나온다.
-  // 방 주인은 누구나 보이는 값이라 화면이 직접 세도 새는 것이 없다
-  const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && tiles[t.id]?.ownerTeam === me.team)
   /** 지금 선 연구실을 누가 쥐고 있는가. 값이 여기서 갈린다. */
   const labOwner = here && ROOM_KIND[here] === 'lab' ? (tiles[here]?.ownerTeam ?? null) : null
   const ownsLab = labOwner === me.team
@@ -195,11 +191,6 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
           <em>{overAt ? '시간 끝' : <Cost of="clock" n={leftText(endsAtMs - now)} />}</em>
         )}
       </p>
-<p className="sc-ph__hint">
-        <b>토큰은 넷이 한 주머니를 나눠 쓴다.</b> 먼저 쓰는 사람이 임자다. 값은 <b>방에 들어설 때만</b> 드니
-        지하든 옥상이든 어디로 가도 같다. 닫히는 순간 <b>서 있는 방</b>의 머릿수로 주인이 정해진다.
-      </p>
-
       <ul className="sc-ph__list">
         {KINDS.map((k) => {
           const no = why(k)
@@ -271,35 +262,27 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
           return <Cost key={i.kind} of={i.kind} n={n} dim={n === 0} />
         })}
       </p>
-      {/* 연구 값이 갈리는 까닭. 그림은 얼마인지까지고, 왜인지는 못 그린다 */}
-      {(ownsLab || labOwner !== null) && (
-        <p className="sc-ph__note">
-          {ownsLab ? '우리 연구실이라 지식이 한 점 싸다.' : `${labOwner}팀 연구실이라 지식이 한 점 더 든다.`}
-        </p>
-      )}
       <p className="sc-ph__note">
         로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b> · 데리고 있는 것{' '}
-        <b>{view?.myCarriedRobots ?? 0}/{MAX_CARRIED_ROBOTS}</b> · 한 방에 {ROBOTS_PER_ROOM}기까지
-        {hasPlant && ' · 발전소를 쥐어 그 자리에서 바로 난다'}
+        <b>{view?.myCarriedRobots ?? 0}/{MAX_CARRIED_ROBOTS}</b>
       </p>
-      {here && (
-        <p className="sc-ph__note">
-          갈 수 있는 곳:{' '}
-          {(ROAM_TO[here] ?? []).map((n, i) => {
-            // **옮기기 전에 알려 준다.** 저쪽에 로봇 자리가 모자라면
-            // 사람은 가고 넘치는 로봇만 이 방에 남는다
+      {/*
+        **갈 곳을 다 적지 않는다.** 복도가 층을 통째로 잇고 있어서 스물다섯
+        방이 늘 다 나왔다 — 「어디든 간다」를 스물다섯 번 적은 셈이었다.
+        남기는 것은 경고뿐이다: 저쪽에 로봇 자리가 모자라면 사람만 가고
+        넘치는 로봇은 이 방에 남는다.
+      */}
+      {here &&
+        (() => {
+          const full = (ROAM_TO[here] ?? []).flatMap((n) => {
             const seen = view?.robotCounts?.[asRoom(n)]
             const drop = seen === undefined ? 0 : leftBehindCount(view?.myCarriedRobots ?? 0, seen)
-            return (
-              <span key={n}>
-                {i > 0 && ' · '}
-                {TILE_BY_ID[n].name}
-                {drop > 0 && <em className="sc-ph__warn"> 로봇 {drop}기를 두고 간다</em>}
-              </span>
-            )
-          })}
-        </p>
-      )}
+            return drop > 0 ? [`${TILE_BY_ID[n].name} ${drop}기`] : []
+          })
+          return full.length === 0 ? null : (
+            <p className="sc-ph__note sc-ph__warn">로봇을 두고 간다 — {full.join(' · ')}</p>
+          )
+        })()}
     </div>
   )
 }

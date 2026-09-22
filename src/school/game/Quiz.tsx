@@ -122,7 +122,7 @@ export function Quiz({ view, act, onSaid, myCell }: QuizProps) {
         })}
       </ul>
       <p className="sc-qz__note">
-        맞히면 <Cost of="knowledge" n={KNOWLEDGE_PER_QUIZ} />. 한 장은 한 팀만 — 먼저 내는 쪽이 가져간다.
+        맞히면 <Cost of="knowledge" n={KNOWLEDGE_PER_QUIZ} />
       </p>
     </div>
   )

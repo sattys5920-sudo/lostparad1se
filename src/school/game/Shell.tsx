@@ -131,10 +131,6 @@ export function AddToHome() {
     <div className="sc-home" role="dialog" aria-label="홈 화면에 추가">
       <div className="sc-home__panel">
         <h2>홈 화면에 추가</h2>
-        <p>
-          주소창 없이 전체 화면으로 열립니다. 닷새 동안 자주 켜게 되니
-          한 번 해 두는 편이 낫습니다.
-        </p>
         <ShareHint />
         <button onClick={close}>알겠습니다</button>
       </div>
@@ -257,7 +253,6 @@ export function Waiting({
           로그아웃
         </button>
       </div>
-      <p className="sc-wait__why">그래도 안 되면 앱을 완전히 닫았다 열어라.</p>
     </div>
   )
 }
@@ -282,7 +277,7 @@ export function Waiting({
 export function SignOut({ ask, note }: { ask?: (text: string) => Promise<boolean>; note?: string }) {
   const [busy, setBusy] = useState(false)
   async function go(): Promise<void> {
-    if (ask && !(await ask('로그아웃한다. 다시 들어오려면 아이디와 비밀번호가 있어야 한다.'))) return
+    if (ask && !(await ask('로그아웃한다.'))) return
     setBusy(true)
     await logOut().catch(() => undefined)
     location.reload()

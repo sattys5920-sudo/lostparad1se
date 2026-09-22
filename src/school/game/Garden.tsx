@@ -105,11 +105,7 @@ export function GardenSheet({
 
       {/* **언제 열매가 되는지는 안 적는다.** 서버도 안 보내 준다 —
           알 수 있으면 화분 앞에 설 이유가 없어진다 */}
-      <p className="sc-gd__hint">
-        {myCell === null ?
-          '정원 안에서 연다.'
-        : '심는 것은 누군가 다른 사람의 일이다. 흙에서는 무엇인지 모르고, 싹이 나야 이름이 보인다. 열매가 되면 누구든 먼저 온 사람이 딴다.'}
-      </p>
+      {myCell === null && <p className="sc-gd__hint">정원 안에서 연다.</p>}
     </div>
   )
 }

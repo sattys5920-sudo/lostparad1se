@@ -211,7 +211,6 @@ export function Me(props: MeProps) {
                   ? `DAY ${paper.votesThroughDay}까지 셌다. 오늘 것은 내일 더해진다.`
                   : '끝났다. 다 셌다.'}
           </p>
-          <p className="sc-mi__fine">누가 줬는지는 끝나야 알 수 있다.</p>
         </Card>
 
         {/* ── ⑤ 털어놓기 ───────────────────────────────── */}
@@ -241,7 +240,7 @@ export function Me(props: MeProps) {
                   ? others.length === 0
                     ? `${props.hereName}에 아무도 없다. 1:1은 마주 서야 한다.`
                     : `${props.hereName}에 ${others.length}명 있다.`
-                  : '걷는 중이다. 어딘가에 서야 1:1로 털어놓는다.'}
+                  : '걷는 중이다.'}
               </p>
             </>
           )}
@@ -261,7 +260,7 @@ export function Me(props: MeProps) {
             type="button"
             className="sc-mi__out"
             onClick={() => {
-              void props.ask('나가면 이 판에서 로그아웃된다.').then((ok) => {
+              void props.ask('나간다.').then((ok) => {
                 if (ok) props.onSignOut()
               })
             }}
@@ -279,7 +278,6 @@ export function Me(props: MeProps) {
       {/* ── 시트들 ────────────────────────────────────── */}
       {pick && (
         <Sheet title="누구에게 털어놓나" onClose={() => setPick(false)}>
-          <p className="sc-mi__fine">{props.hereName ?? '어딘가'}에 같이 있는 사람만 고를 수 있다.</p>
           <ul className="sc-mi__ears">
             {others.map((s) => (
               <li key={s.playerId}>

@@ -243,10 +243,9 @@ function canDoIn(room: RoomFacts): string[] {
   const out: string[] = []
   // **자판기는 여기 안 적는다.** 복도에 서 있어서 어느 방의 일도
   // 아니다 — 방마다 무엇을 하는지를 적는 목록에 낄 자리가 없다
-  if (room.kind === 'lab') out.push('연구실 — 페이즈에 연구한다')
-  if (room.kind === 'plant') out.push('발전소 — 연구가 그 자리에서 난다')
-  if (room.kind === 'narrow') out.push('좁은 방 — 둘까지만 선다')
-  else out.push('페이즈가 닫힐 때 서 있으면 머릿수에 든다')
+  if (room.kind === 'lab') out.push('연구실')
+  if (room.kind === 'plant') out.push('발전소')
+  if (room.kind === 'narrow') out.push('좁은 방 — 둘까지')
   return out
 }
 

@@ -53,7 +53,7 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsPro
       {floor.length > 0 && (
         <>
           <p className="sc-sl__hint">
-            바닥에 {floor.length}장 떨어져 있다. 주워야 무엇이 적혔는지 안다.
+            바닥에 {floor.length}장 떨어져 있다.
           </p>
           <div className="sc-sl__row">
             {floor.map((s) => (
@@ -141,9 +141,6 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsPro
         </ul>
       )}
 
-      <p className="sc-sl__note">
-        값을 부르려면 그냥 건네지 말고 교역에 실어 보낸다. 찢은 쪽지는 영영 사라진다.
-      </p>
     </section>
   )
 }

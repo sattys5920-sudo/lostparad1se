@@ -45,7 +45,7 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
     }
   }
 
-  if (makers.length === 0) return <p className="sc-mk__hint">기술실에 들어가야 제조기가 보인다.</p>
+  if (makers.length === 0) return <p className="sc-mk__hint">제조기가 없다.</p>
 
   return (
     <div className="sc-mk">
@@ -54,10 +54,6 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
         <span aria-hidden>→</span>
         <Cost of="trap" n={ownsTech ? 2 : 1} />
         <Cost of="clock" n={TRAP_MAKE_MINUTES} />
-      </p>
-      <p className="sc-mk__hint">
-        맡긴 사람만 찾는다. 이 페이즈 안에 안 찾으면 사라진다.
-        {ownsTech ? ' 기술실이 우리 것이라 곱절이다.' : ' 기술실을 쥐면 곱절이 나온다.'}
       </p>
       <ul className="sc-mk__list">
         {makers.map((m) => {
@@ -94,7 +90,7 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
           )
         })}
       </ul>
-      {!phaseOpen && <p className="sc-mk__hint">페이즈에만 만든다. 지금은 자유 시간이다.</p>}
+      {!phaseOpen && <p className="sc-mk__hint">지금은 자유 시간이다.</p>}
       {phaseOpen && tokens < TRAP_TOKEN_COST && <p className="sc-mk__hint">팀 토큰이 없다.</p>}
     </div>
   )

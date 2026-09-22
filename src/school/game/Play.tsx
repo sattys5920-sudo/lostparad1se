@@ -288,7 +288,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 전부 흐리다. **빈 조작부는 만들다 만 화면처럼 보이고**, 시작하고
    * 나서 손가락이 자리를 다시 외워야 한다.
    */
-  const NOT_YET = '아직 시작 전이다. 운영자가 열어야 할 수 있다.'
+  const NOT_YET = '아직 시작 전이다.'
   const beforeDirs = useMemo(() => padFace(ways, false, 0, ENTER_COST), [ways])
   const beforeGrid: Act[] = [
     { key: 'hand', icon: 'hand', label: '손패', why: NOT_YET, run: () => {} },
@@ -340,8 +340,6 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
         <div className="sc-lb__body is-bare">
           <p className="sc-lb__none">
             아직 열린 판이 없다.
-            <br />
-            운영자가 만들어야 한다.
           </p>
         </div>
         <footer className="sc-lb__foot">
@@ -513,7 +511,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
         {roster && (
           <Sheet title="모인 사람" onClose={() => setRoster(false)}>
             <p className="sc-dl__none">
-              {seats.length}명이 모였다. 열넷이 차면 진행자가 닷새를 시작한다.
+              {seats.length}명이 모였다.
             </p>
             <Roll seats={seats} uid={uid} />
             {error && <p className="sc-pl__error">{error}</p>}
@@ -647,14 +645,7 @@ function NoSeat({ phase }: { phase: GamePhase }) {
   return (
     <div className="sc-wait">
       <p className="sc-wait__what">{over ? '이 판은 끝났다.' : '이 판에 네 자리가 없다.'}</p>
-      <p className="sc-wait__why">
-        {over
-          ? '끝난 판에는 들어갈 수 없다. 운영자가 새 판을 열어야 한다.'
-          : '닷새가 이미 시작했다. 시작한 뒤에는 앉을 수 없다 — 처음 열넷이 끝까지 같은 열넷이어야 인연이 이어진다.'}
-      </p>
-      <p className="sc-wait__why">
-        네 아이디로 앉은 판이 따로 있으면 그 아이디로 다시 들어와라.
-      </p>
+      {!over && <p className="sc-wait__why">닷새가 이미 시작했다.</p>}
       <SignOut />
     </div>
   )
@@ -1739,7 +1730,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 setPerson(null)
                 act
                   .askDeal(who)
-                  .then(() => say('거래하자고 했다. 열다섯 초 안에 답이 온다.'))
+                  .then(() => say('거래하자고 했다.'))
                   .catch((e) => refuse((e as Error).message))
               }}
             >
@@ -1750,8 +1741,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   : deal !== null
                     ? '이미 거래 중이다'
                     : !nextTo
-                      ? '바로 옆 칸에 서야 한다 — 한 걸음 더 다가간다'
-                      : `성립하면 개인 토큰 1개 · 오늘 ${state.view?.myDealTokens ?? 0}개 남았다`}
+                      ? '바로 옆 칸에 서야 한다'
+                      : `오늘 ${state.view?.myDealTokens ?? 0}개 남았다`}
               </span>
             </button>
 
@@ -1765,16 +1756,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   setPerson(null)
                   act
                     .askTransfer(who)
-                    .then(() => say('우리 팀으로 오겠느냐고 물었다. 열다섯 초 안에 답이 온다.'))
+                    .then(() => say('우리 팀으로 오겠느냐고 물었다.'))
                     .catch((e) => refuse((e as Error).message))
                 }}
               >
                 이적 제안하기
-                <span>
-                  {moveNo !== null
-                    ? TRANSFER_NO[moveNo]
-                    : `받아들이면 다음 점령전부터 ${me.team}팀이다`}
-                </span>
+                {moveNo !== null && <span>{TRANSFER_NO[moveNo]}</span>}
               </button>
             )}
           </div>
@@ -2025,7 +2012,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <div className="sc-pl__busy" role="status">
           <p className="sc-pl__busyWhat">{busyKind === '덫' ? '덫에 걸렸다' : (busyKind ?? '하는 중')}</p>
           <p className="sc-pl__busyLeft">{leftText(busyLeftMs)}</p>
-          <p className="sc-pl__busyWhy">{busyKind === '덫' ? '풀릴 때까지 못 움직인다.' : '끝날 때까지 그 자리에 있는다.'}</p>
         </div>
       )}
 

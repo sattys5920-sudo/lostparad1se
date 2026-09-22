@@ -9,7 +9,8 @@
 // 하나뿐이다 — 테이프는 붙일 조각이 눈앞에 없으면 누를 데가 없다.
 import { useState } from 'react'
 
-import { ITEM_BY_KIND, PAPER_MAX, isHandItem, type ItemKind, type Satchel } from '../../../shared/rules/items'
+import { ITEM_BY_KIND, PAPER_MAX, type ItemKind, type Satchel } from '../../../shared/rules/items'
+import { Cost } from './Cost'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
 import { goodIcon } from './goodArt'
@@ -91,8 +92,7 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
           </b>
           <span>심부름</span>
           <p>
-            {TILE_BY_ID[carrying.to].name}에 놓으면 끝난다. 먼저 놓는 사람이 {carrying.coins}코인을
-            받는다. 남에게 넘길 수는 없다.
+            <Cost of="money" n={carrying.coins} />
           </p>
           {/* **놓을 수 있는지는 서버가 안다.** 여기서 방을 재서 잠그면
               규칙이 두 군데 적힌다 — 다른 방에서 누르면 어디에 놓아야
@@ -118,11 +118,6 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
             <b>{spec?.name ?? kind}</b>
             <span>{n}개</span>
             <p>{spec?.text ?? ''}</p>
-
-            {/* 행동에 딸린 물건. 여기서는 쓸 일이 없다 */}
-            {!isHandItem(kind) && (
-              <p className="sc-mi__howto">페이즈에서 그 행동을 걸 때 한 개 쓰인다.</p>
-            )}
 
             {kind === 'trap' && (
               <button className="sc-mi__use" disabled={busy} onClick={() => void use('trap')}>

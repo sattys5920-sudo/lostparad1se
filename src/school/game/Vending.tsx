@@ -120,8 +120,6 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
   /** 형광등이 꺼진 프레임인가. 진열창도 같이 어두워진다. */
   const [dark, setDark] = useState(true)
   const [jitter, setJitter] = useState(false)
-  /** 기본 문구를 둘로 번갈아 보여 준다. */
-  const [alt, setAlt] = useState(false)
   /**
    * 방금 사서 다 나간 품목. **서버가 보내 줄 때까지의 사이를 메운다** —
    * 사자마자 칸이 그대로면 한 번 더 누르게 된다.
@@ -189,12 +187,6 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
     }, 2000)
     return () => clearInterval(id)
   }, [slow])
-
-  // 기본 문구 둘을 4초마다 번갈아
-  useEffect(() => {
-    const id = window.setInterval(() => setAlt((v) => !v), 4000)
-    return () => clearInterval(id)
-  }, [])
 
   const gone = useMemo(() => new Set([...soldOut, ...justGone]), [soldOut, justGone])
 
@@ -347,14 +339,6 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
     : step === 'reject' ? (COIN_BOUNCE[frame] ?? 0)
     : null
 
-  /**
-   * 기본 상태에 뜨는 오른쪽 한 줄. 둘을 번갈아 보여 준다.
-   *
-   * **주인이 없다.** 복도에 서 있는 기계라 차지할 수가 없고, 그래서
-   * 값이 누구에게나 같고 낸 돈은 아무 데도 가지 않는다.
-   */
-  const houseLine = '복도에 선 기계다. 낸 돈은 아무 데도 가지 않는다.'
-
   return (
     <div className="sc-vd">
       <button className="sc-vd__out" onClick={onClose}>
@@ -415,7 +399,7 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
             </>
           : <>
               <span className="sc-vd__line">돈 {money}</span>
-              <span className="sc-vd__sub">{alt ? houseLine : '거스름돈 없음'}</span>
+              <span className="sc-vd__sub">거스름돈 없음</span>
             </>
           }
         </div>
