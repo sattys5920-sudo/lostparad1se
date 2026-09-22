@@ -16,7 +16,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
-import { DEAL_TOKENS_PER_DAY, isShortHanded } from '../../shared/rules/occupy'
+import { isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
@@ -441,7 +441,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         asleep: false,
         tokensUsedToday: 0,
         // 거래를 거는 개인 토큰. 자정에 다시 찬다
-        dealTokens: DEAL_TOKENS_PER_DAY,
         votedToday: false,
         peeksToday: 0,
       })

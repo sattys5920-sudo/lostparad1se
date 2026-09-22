@@ -33,8 +33,6 @@ export interface Stake {
   /** 팀 금고에서 나간다. 팀원에게 알림이 간다. */
   money: number
   knowledge: number
-  /** 개인 거래 토큰. */
-  tokens: number
   /** 내 주머니의 물건. */
   items: Satchel
   /** 접힌 쪽지 장수. */
@@ -43,13 +41,12 @@ export interface Stake {
   robots: number
 }
 
-export const EMPTY_STAKE: Stake = { money: 0, knowledge: 0, tokens: 0, items: {}, slips: 0, robots: 0 }
+export const EMPTY_STAKE: Stake = { money: 0, knowledge: 0, items: {}, slips: 0, robots: 0 }
 
 /** 내가 실제로 내놓을 수 있는 양. 올릴 때도 성립 직전에도 이걸로 잰다. */
 export interface Holdings {
   money: number
   knowledge: number
-  tokens: number
   items: Satchel
   slips: number
   robots: number
@@ -82,7 +79,6 @@ export function stakeIsEmpty(s: Stake): boolean {
   return (
     s.money === 0 &&
     s.knowledge === 0 &&
-    s.tokens === 0 &&
     s.slips === 0 &&
     s.robots === 0 &&
     itemKinds(s.items).every((k) => countOf(s.items, k) === 0)
@@ -111,7 +107,6 @@ export type StakeRefusal =
   | 'notOpen'
   | 'shortMoney'
   | 'shortKnowledge'
-  | 'shortTokens'
   | 'shortItems'
   | 'shortSlips'
   | 'shortRobots'
@@ -120,7 +115,6 @@ export type StakeRefusal =
 export function shortOf(stake: Stake, have: Holdings): StakeRefusal | null {
   if (stake.money > have.money) return 'shortMoney'
   if (stake.knowledge > have.knowledge) return 'shortKnowledge'
-  if (stake.tokens > have.tokens) return 'shortTokens'
   if (stake.slips > have.slips) return 'shortSlips'
   if (stake.robots > have.robots) return 'shortRobots'
   for (const k of itemKinds(stake.items)) {
@@ -134,7 +128,6 @@ export const SHORT_MESSAGE: Record<StakeRefusal, string> = {
   notOpen: '이미 끝난 거래다.',
   shortMoney: '돈이 모자라다.',
   shortKnowledge: '지식이 모자라다.',
-  shortTokens: '거래 토큰이 모자라다.',
   shortItems: '그 물건이 모자라다.',
   shortSlips: '쪽지가 모자라다.',
   shortRobots: '데리고 있는 짝이 모자라다.',

@@ -16,6 +16,10 @@ import { randomLook } from '../char/look'
 // 지도 쪽 TileId 는 스물다섯 방짜리 유니온이다. 규칙 쪽(string)과
 // 이름이 같아서 여기서만 다른 이름으로 받는다
 import type { TeamId, TileId as RoomId } from '../types'
+import { VOTE_LABEL, type VoteKind } from '../../../shared/rules/v2'
+
+/** 마주친 사람에게 줄 수 있는 표. 투명인간 투표는 다른 화면이다. */
+const MEET_VOTES: VoteKind[] = ['trust', 'liking']
 import type { AvatarLook } from '../../../shared/look'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
@@ -1747,9 +1751,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               {hereNow.find((p) => p.playerId === person)?.team ?? '?'}팀 ·{' '}
               {nextTo ? '바로 옆 칸에 서 있다' : '같은 방에 있다'}
             </p>
+            {/*
+              **거래는 페이즈 중에도 한다.** 마주 선 둘이 물건을
+              주고받는 일은 점령과 같이 일어나도 이상하지 않다.
+              값도 안 든다 — 하루 열두 개짜리 거래 토큰을 없앴다
+            */}
             <button
               className="sc-pr__go"
-              disabled={phaseOpen || deal !== null || !nextTo}
+              disabled={deal !== null || !nextTo}
               onClick={() => {
                 const who = person
                 setPerson(null)
@@ -1761,15 +1770,34 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             >
               거래하기
               <span>
-                {phaseOpen
-                  ? '페이즈 중에는 흥정하지 않는다'
-                  : deal !== null
-                    ? '이미 거래 중이다'
-                    : !nextTo
-                      ? '바로 옆 칸에 서야 한다'
-                      : `오늘 ${state.view?.myDealTokens ?? 0}개 남았다`}
+                {deal !== null ? '이미 거래 중이다'
+                : !nextTo ? '바로 옆 칸에 서야 한다'
+                : '옆 칸에 섰다'}
               </span>
             </button>
+
+            {/*
+              표. **같은 방이면 된다** — 거래처럼 옆 칸까지 갈 것은
+              없다. 하루 한 장이고 우리 팀에는 못 준다. 서버가
+              같은 것을 본다(canCast)
+            */}
+            {MEET_VOTES.map((k) => (
+              <button
+                key={k}
+                className="sc-pr__go sc-pr__go--vote"
+                onClick={() => {
+                  const who = person
+                  setPerson(null)
+                  act
+                    .castVote(who, k)
+                    .then(() => say(`${VOTE_LABEL[k]}를 줬다.`))
+                    .catch((e) => refuse((e as Error).message))
+                }}
+              >
+                {VOTE_LABEL[k]} 주기
+                <span>하루 한 장. 우리 팀에는 못 준다</span>
+              </button>
+            ))}
 
             {/* 우리 팀 사람에게는 꺼낼 말이 아니다. 아예 안 보인다 */}
             {personTeam !== null && personTeam !== me.team && (

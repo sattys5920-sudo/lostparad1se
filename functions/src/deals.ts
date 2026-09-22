@@ -30,7 +30,6 @@ import {
   type Stake,
 } from '../../shared/rules/deal'
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
-import { TRADE_COST } from '../../shared/rules/occupy'
 import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
 import type { PawnDoc } from '../../shared/model'
@@ -71,7 +70,6 @@ function cleanStake(raw: unknown): Stake {
   return {
     money: n(r.money),
     knowledge: n(r.knowledge),
-    tokens: n(r.tokens),
     slips: n(r.slips),
     robots: n(r.robots),
     items,
@@ -90,7 +88,6 @@ async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<H
   return {
     money: purse.money,
     knowledge: purse.knowledge,
-    tokens: pawn.dealTokens ?? 0,
     items: pawn.items ?? {},
     slips: slips.size,
     robots: bots.size,
@@ -102,15 +99,14 @@ export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req
   const uid = requireUid(req.auth)
   const { gameId, toPlayerId } = req.data
   const { game, nowMs } = await freshNow(gameId)
-  if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '페이즈 중에는 거래하지 않는다.')
+  // **페이즈 중에도 흥정한다.** 마주 선 둘이 물건을 주고받는 일은
+  // 점령과 같이 일어나도 이상하지 않다 — 옆 칸에 서 있어야 하는
+  // 것은 그대로다
   if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
 
   await sweepDeals(gameId, nowMs)
   const mine = await myPawn(gameId, uid)
   if (mine.tileId === null) throw new HttpsError('failed-precondition', '걷는 중이다.')
-  if ((mine.dealTokens ?? 0) < TRADE_COST) {
-    throw new HttpsError('failed-precondition', '오늘 거래를 걸 토큰이 없다.')
-  }
   const theirSnap = await gameRef(gameId).collection('pawns').doc(toPlayerId).get()
   if (!theirSnap.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
   const their = theirSnap.data() as PawnDoc
@@ -277,7 +273,7 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   const a = aPawn.data() as PawnDoc
   const b = bPawn.data() as PawnDoc
   // 옆 칸이면 된다 — 복도에서 마주 선 둘도 흥정한다
-  if (game.phaseNow?.open || !cellsTouch(a.at, b.at)) {
+  if (!cellsTouch(a.at, b.at)) {
     await endDeal(gameId, dealId, '자리를 잃어 사라졌다.')
     throw new HttpsError('failed-precondition', '거래가 사라졌다.')
   }
@@ -360,13 +356,11 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       }
       return out
     }
-    const fee = (id: string) => (id === d.askedBy ? TRADE_COST : 0)
+
     tx.update(aPawn.ref, {
-      dealTokens: (a.dealTokens ?? 0) - d.a.stake.tokens + d.b.stake.tokens - fee(d.aId),
       items: bag(a.items ?? {}, d.a.stake.items, d.b.stake.items),
     })
     tx.update(bPawn.ref, {
-      dealTokens: (b.dealTokens ?? 0) - d.b.stake.tokens + d.a.stake.tokens - fee(d.bId),
       items: bag(b.items ?? {}, d.b.stake.items, d.a.stake.items),
     })
 

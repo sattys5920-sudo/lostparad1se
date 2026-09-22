@@ -1,5 +1,4 @@
 // 교역과 동맹.
-import { DEAL_TOKENS_PER_DAY, TRADE_COST } from './occupy'
 import { tradeEpoch } from './diplomacy'
 import { describe, expect, it } from 'vitest'
 import {
@@ -80,18 +79,13 @@ describe('교역 성립', () => {
   })
 })
 
-describe('거래를 거는 값은 개인 토큰이다', () => {
-  it('하루에 열둘', () => {
-    expect(DEAL_TOKENS_PER_DAY).toBe(12)
-  })
-
-  it('한 번 거는 데 하나', () => {
-    expect(TRADE_COST).toBe(1)
-  })
-
-  it('하루치로 열두 번까지 건다', () => {
-    // 자유 시간이 하루 다섯 번이니 한 번에 두어 차례꼴이다
-    expect(Math.floor(DEAL_TOKENS_PER_DAY / TRADE_COST)).toBe(12)
+describe('거래는 값이 안 든다', () => {
+  // 거는 쪽이 개인 토큰 하나를 내고 하루 열두 개를 쥐고 시작했다.
+  // 만나라고 있는 시간에 만남을 값으로 조이고 있었다 — 없앴다
+  it('거래 토큰이라는 것이 없다', async () => {
+    const mod = (await import('./occupy')) as Record<string, unknown>
+    expect(mod.DEAL_TOKENS_PER_DAY).toBeUndefined()
+    expect(mod.TRADE_COST).toBeUndefined()
   })
 })
 

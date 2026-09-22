@@ -31,7 +31,6 @@ import type { GameActions } from './useGame'
 const SLOTS = [
   { key: 'money', name: '돈', from: '내 지갑' },
   { key: 'knowledge', name: '지식', from: '내 지갑' },
-  { key: 'tokens', name: '거래 토큰', from: '내 것' },
   ...ITEMS.map((i) => ({ key: i.kind, name: i.name, from: '내 것' })),
   { key: 'slips', name: '쪽지', from: '접힌 채' },
   { key: 'robots', name: '짝', from: '데리고 있는' },
@@ -59,7 +58,7 @@ function pileOf(stake: Stake | undefined): Pile {
 function stakeOf(p: Pile): Stake {
   const items: Partial<Record<ItemKind, number>> = {}
   for (const i of ITEMS) if (p[i.kind] > 0) items[i.kind] = p[i.kind]
-  return { money: p.money, knowledge: p.knowledge, tokens: p.tokens, slips: p.slips, robots: p.robots, items }
+  return { money: p.money, knowledge: p.knowledge, slips: p.slips, robots: p.robots, items }
 }
 
 /** 내가 지금 내놓을 수 있는 양. **이만큼만 집힌다.** */
@@ -67,7 +66,6 @@ function haveOf(view: PlayerViewDoc | null): Pile {
   const out = { ...ZERO }
   out.money = view?.myVault?.money ?? 0
   out.knowledge = view?.myVault?.knowledge ?? 0
-  out.tokens = view?.myDealTokens ?? 0
   out.slips = view?.mySlips?.length ?? 0
   out.robots = view?.myCarriedRobots ?? 0
   for (const i of ITEMS) out[i.kind] = view?.myItems?.[i.kind] ?? 0

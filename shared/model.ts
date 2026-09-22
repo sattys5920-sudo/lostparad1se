@@ -293,7 +293,6 @@ export interface PawnDoc {
    * 팀 상자와 따로다 — 한 사람이 하루 종일 말을 걸고 다녀도 팀이
    * 페이즈에 쓸 것은 안 준다. 많이 거는 사람은 제 몫을 쓰는 것이다.
    */
-  dealTokens?: number
   /**
    * 한 번이라도 발을 들인 방. 사람마다 따로 쌓인다.
    *
@@ -467,7 +466,6 @@ export interface PlayerViewDoc {
   /** 거래를 걸 수 있는 내 개인 토큰. 하루치다. */
   /** 다음 점령전부터 갈 팀. 본인만 본다. */
   myMovingTo: TeamId | null
-  myDealTokens: number
   /**
    * **우리 팀** 금고. 돈과 지식 둘뿐이고, 남의 팀 것은 오지 않는다.
    *

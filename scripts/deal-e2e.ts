@@ -16,7 +16,7 @@ import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { ADJACENCY, TILE_BY_ID } from '../shared/rules/board'
 import { dayHourMs } from '../shared/rules/clock'
 import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
-import { TRADE_COST, stepToward } from '../shared/rules/occupy'
+import { stepToward } from '../shared/rules/occupy'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -308,14 +308,49 @@ async function main(): Promise<void> {
     '올린 것은 선언일 뿐이라 **돌아올 것도 없다**',
   )
 
+  /*
+   * **페이즈가 열렸다고 탁자가 접히지는 않는다.**
+   *
+   * 전에는 페이즈가 열리는 것만으로 살아 있는 거래가 전부 사라졌다.
+   * 마주 선 둘이 물건을 주고받는 일은 점령과 같이 일어나도 이상하지
+   * 않다 — 접히는 것은 자리를 잃을 때뿐이다.
+   *
+   * 페이즈가 열리면 다들 전선으로 옮겨 세워지므로 대개는 갈라진다.
+   * 여기서는 손으로 나란히 세워 두고, 그래도 살아 있는지를 본다.
+   */
   await face()
   id = await open()
   await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1 } })
   await must('openPhase', host, { gameId: GAME })
+
+  // roamTo 는 페이즈 중에 안 된다. 손으로 나란히 세운다
+  const mineNow = (await pawnsNow())[me.uid].tileId as string
+  const r2 = TILE_BY_ID[mineNow as keyof typeof TILE_BY_ID].plan
+  await must('standAt', me.token, { gameId: GAME, x: r2.x + 2, y: r2.y + 2 })
+  await must('standAt', you.token, { gameId: GAME, x: r2.x + 3, y: r2.y + 2 })
   await must('dealNow', me.token, { gameId: GAME })
-  check(String((await dealNow(id)).status) === 'gone', '페이즈가 열리면 사라진다')
-  const inPhase = await call('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
-  check(!inPhase.ok, '페이즈 중에는 걸 수도 없다', inPhase.message)
+  check(String((await dealNow(id)).status) === 'open', '페이즈가 열려도 탁자는 그대로다')
+  check(
+    Number(((await dealNow(id)) as { a: { stake: { money: number } } }).a.stake.money) === 1,
+    '올려 둔 것도 그대로다',
+  )
+
+  // 페이즈 중에 한 걸음 떨어지면 그때는 접힌다 — 자리를 잃어서다
+  await must('standAt', you.token, { gameId: GAME, x: r2.x + 6, y: r2.y + 4 })
+  await must('dealNow', me.token, { gameId: GAME })
+  check(String((await dealNow(id)).status) === 'gone', '자리가 갈리면 사라진다')
+
+  // 다시 마주 서면 페이즈 중에도 새로 연다. **값은 안 든다**
+  await must('standAt', you.token, { gameId: GAME, x: r2.x + 3, y: r2.y + 2 })
+  await push(0)
+  const pid = await open()
+  check(String((await dealNow(pid)).status) === 'open', '페이즈 중에도 새 탁자가 열린다', pid)
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: pid, stake: { money: 1 } })
+  check(
+    Number(((await dealNow(pid)) as { a: { stake: { money: number } } }).a.stake.money) === 1,
+    '페이즈 중에도 물건을 올린다',
+  )
+  await must('cancelDeal', me.token, { gameId: GAME, dealId: pid })
   await must('closePhase', host, { gameId: GAME })
   await push(20 * M)
 
@@ -329,8 +364,6 @@ async function main(): Promise<void> {
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { heldBy: { stringValue: me.uid } } }),
   })
-  await put(me.uid, { dealTokens: 5 })
-  await put(you.uid, { dealTokens: 5 })
 
   id = await open()
   await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1, slips: 1 } })
@@ -371,13 +404,6 @@ async function main(): Promise<void> {
   check((bAfter.money ?? 0) >= 1, '상대 지갑에 그 돈이 들어왔다', String(bAfter.money))
   check((aAfter.knowledge ?? 0) >= 1, '내 지갑에 그 지식이 들어왔다', String(aAfter.knowledge))
 
-  const pawns = await pawnsNow()
-  check(
-    Number(pawns[me.uid].dealTokens) === 5 - TRADE_COST,
-    `청한 쪽만 개인 토큰 ${TRADE_COST}개를 낸다`,
-    String(pawns[me.uid].dealTokens),
-  )
-  check(Number(pawns[you.uid].dealTokens) === 5, '받은 쪽은 안 낸다', String(pawns[you.uid].dealTokens))
 
   /*
    * **매점 단골이 이 줄을 센다** — 「다른 팀 사람과 두 번 성립」.
@@ -396,14 +422,12 @@ async function main(): Promise<void> {
   const myView = (await getAll(`games/${GAME}/views`)).find((v) => v.id === me.uid)?.d ?? {}
   check(!JSON.stringify(myView).includes(slip.id), '넘긴 사람 몫에서는 그 쪽지가 사라졌다')
 
-  // 걸었다가 무시당하면 값이 안 든다
-  console.log('── 덤. 답 없는 청은 값이 안 든다 ──')
-  const before = Number((await pawnsNow())[me.uid].dealTokens)
+  console.log('── 덤. 답이 없으면 사라진다 ──')
   const asked = await must('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
   await push(20_000)
   await must('dealNow', me.token, { gameId: GAME })
   check(String((await dealNow(String(asked.id))).status) === 'gone', '열다섯 초가 지나면 사라진다')
-  check(Number((await pawnsNow())[me.uid].dealTokens) === before, '값은 안 들었다')
+
 
   console.log(failures === 0 ? '\n전부 통과' : `\n${failures}개 실패`)
   if (failures > 0) process.exitCode = 1

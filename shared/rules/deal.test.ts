@@ -41,7 +41,6 @@ const put = (over: Partial<Stake>): Stake => ({ ...EMPTY_STAKE, ...over })
 const have = (over: Partial<Holdings>): Holdings => ({
   money: 0,
   knowledge: 0,
-  tokens: 0,
   items: {},
   slips: 0,
   robots: 0,
@@ -154,15 +153,14 @@ describe('성립 직전에 다시 센다', () => {
 
   it('무엇이 모자란지 갈라서 말한다', () => {
     expect(shortOf(put({ knowledge: 1 }), have({}))).toBe('shortKnowledge')
-    expect(shortOf(put({ tokens: 1 }), have({}))).toBe('shortTokens')
     expect(shortOf(put({ slips: 1 }), have({}))).toBe('shortSlips')
     expect(shortOf(put({ robots: 1 }), have({}))).toBe('shortRobots')
     expect(shortOf(put({ items: { whistle: 2 } }), have({ items: { whistle: 1 } }))).toBe('shortItems')
   })
 
   it('가진 만큼이면 통과한다', () => {
-    const all = put({ money: 1, knowledge: 1, tokens: 1, slips: 1, robots: 1, items: { whistle: 1 } })
-    expect(shortOf(all, have({ money: 1, knowledge: 1, tokens: 1, slips: 1, robots: 1, items: { whistle: 1 } }))).toBeNull()
+    const all = put({ money: 1, knowledge: 1, slips: 1, robots: 1, items: { whistle: 1 } })
+    expect(shortOf(all, have({ money: 1, knowledge: 1, slips: 1, robots: 1, items: { whistle: 1 } }))).toBeNull()
   })
 })
 

@@ -49,8 +49,13 @@ export async function endDeal(gameId: string, dealId: string, why: string): Prom
 /**
  * 시들거나 자리를 잃은 거래를 접는다.
  *
- * 열다섯 초가 지난 요청, 페이즈가 열린 뒤에도 남은 판, 둘 중 하나가
- * 방을 떠났거나 투명인간이 된 판이 여기서 없어진다.
+ * 열다섯 초가 지난 요청, 둘 중 하나가 자리를 떠났거나 투명인간이 된
+ * 판이 여기서 없어진다.
+ *
+ * **페이즈가 열렸다는 것만으로는 안 접는다.** 마주 선 둘이 물건을
+ * 주고받는 일은 점령과 같이 일어나도 이상하지 않다. 페이즈가 열릴 때
+ * 다들 전선으로 옮겨 세워지므로 대개는 자리가 갈려서 접히는데, 그건
+ * 자리를 잃은 것이지 페이즈라서가 아니다 — 다시 마주 서면 또 흥정한다.
  */
 export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
   const ref = gameRef(gameId)
@@ -71,7 +76,6 @@ export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
     const deal = d.data() as DealDoc
     let why: string | null = null
     if (askExpired(deal, nowMs)) why = '답이 없어 사라졌다.'
-    else if (game.phaseNow?.open) why = '페이즈가 열려 거래가 사라졌다.'
     else if (game.invisibleId === deal.aId || game.invisibleId === deal.bId) why = '한 사람이 사라졌다.'
     else if (!cellsTouch(at.get(deal.aId), at.get(deal.bId))) {
       /*

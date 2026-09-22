@@ -41,7 +41,6 @@ export interface WorldPawn extends PawnPosition {
   /** 정보부장이면 우리 팀 시야가 한 겹 넓어진다. */
   intelOfficer: boolean
   /** 거래를 걸 수 있는 개인 토큰. 투영이 본인 몫에만 싣는다. */
-  dealTokens?: number
   /** 옮기기로 한 팀. **본인 몫에만 실린다** — 남의 배신은 안 보인다. */
   movingTo?: TeamId | null
   /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
@@ -323,7 +322,6 @@ export interface View {
    * 뒤에 마주쳐서 완장이 바뀐 것을 보고 아는 것이 이 규칙의 전부다.
    */
   myMovingTo: TeamId | null
-  myDealTokens: number
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
   myVault: { money: number; knowledge: number }
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
@@ -548,7 +546,6 @@ export function projectView(world: World, viewerId: string): View {
       myPost: null,
       myTeamTokens: 0,
       myMovingTo: null,
-      myDealTokens: 0,
       myVault: { money: 0, knowledge: 0 },
       myItems: {},
       myTeamRobots: 0,
@@ -724,7 +721,6 @@ export function projectView(world: World, viewerId: string): View {
     // 읽힌다 — 그게 이 게임의 절반이다
     myTeamTokens: world.wallets?.[team] ?? 0,
     myMovingTo: world.pawns.find((p) => p.playerId === viewerId)?.movingTo ?? null,
-    myDealTokens: world.pawns.find((p) => p.playerId === viewerId)?.dealTokens ?? 0,
     // **내 지갑 하나뿐이다.** 같은 팀 것도 안 간다 — 서로 얼마
     // 가졌는지는 말로 알아내야 한다
     myVault: world.vaults?.[viewerId] ?? { money: 0, knowledge: 0 },

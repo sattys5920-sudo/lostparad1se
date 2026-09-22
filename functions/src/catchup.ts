@@ -15,7 +15,6 @@ import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore, type TeamState } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
-import { DEAL_TOKENS_PER_DAY } from '../../shared/rules/occupy'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   type Resource,
@@ -73,7 +72,7 @@ async function dayStart(c: Ctx): Promise<void> {
   // 한 걸음이 된 뒤로는 자유 시간에 그냥 걸어가는 것과 같아졌다
   const pawns = await c.tx.get(ref.collection('pawns'))
   for (const p of pawns.docs) {
-    c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0, dealTokens: DEAL_TOKENS_PER_DAY })
+    c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0 })
   }
 
   /*
