@@ -33,8 +33,10 @@ describe('던질 수 있는가', () => {
     expect(canCast({ ...base, atMs: seoul('2026-03-02T21:00:00') }).reason).toBe('closed')
   })
 
-  it('같은 팀에는 못 준다', () => {
-    expect(canCast({ ...base, targetTeam: 'A' }).reason).toBe('ownTeam')
+  // 남의 팀에만 줄 수 있던 때가 있었다. 표를 팀 사이의 외교로 본
+  // 것인데, 표는 닷새를 같이 지낸 사람에게 한 장을 건네는 일이다
+  it('우리 팀에도 준다', () => {
+    expect(canCast({ ...base, targetTeam: 'A' }).ok).toBe(true)
   })
 
   it('자기에게는 못 준다', () => {

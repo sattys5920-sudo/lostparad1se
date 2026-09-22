@@ -31,7 +31,7 @@ export interface Vote {
   atMs: number
 }
 
-export type VoteRefusal = 'ownTeam' | 'self' | 'alreadyToday' | 'closed'
+export type VoteRefusal = 'self' | 'alreadyToday' | 'closed'
 
 export interface CastInput {
   voterId: string
@@ -43,12 +43,20 @@ export interface CastInput {
   votedToday: boolean
 }
 
-/** 던질 수 있는가. 하루 한 장, 같은 팀에는 못 준다, 08:00~21:00. */
+/**
+ * 던질 수 있는가. 하루 한 장, 08:00~21:00.
+ *
+ * **우리 팀에도 준다.** 남의 팀에만 줄 수 있던 때가 있었다. 표를
+ * 팀 사이의 외교로 본 것인데, 표는 그런 것이 아니다 — 닷새를 같이
+ * 지낸 사람에게 한 장을 건네는 일이고, 그 사람이 옆자리일 수도 있다.
+ * 막아 두면 제 팀에게는 고맙다는 말도 못 한다.
+ *
+ * 나에게는 여전히 못 준다. 그건 건네는 것이 아니다.
+ */
 export function canCast(input: CastInput): { ok: boolean; reason: VoteRefusal | null } {
   const s = secondsIntoSeoulDay(input.atMs)
   if (s < VOTE_OPEN_HOUR * 3600 || s >= VOTE_CLOSE_HOUR * 3600) return { ok: false, reason: 'closed' }
   if (input.voterId === input.targetId) return { ok: false, reason: 'self' }
-  if (input.voterTeam === input.targetTeam) return { ok: false, reason: 'ownTeam' }
   if (input.votedToday) return { ok: false, reason: 'alreadyToday' }
   return { ok: true, reason: null }
 }

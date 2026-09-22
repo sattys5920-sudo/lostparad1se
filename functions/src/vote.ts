@@ -52,7 +52,6 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
     const why: Record<string, string> = {
       closed: '지금은 표를 던질 수 없다.',
       self: '자기에게는 못 준다.',
-      ownTeam: '같은 팀에는 못 준다.',
       alreadyToday: '오늘은 이미 던졌다.',
     }
     throw new HttpsError('failed-precondition', why[out.reason as string] ?? '던질 수 없다.')

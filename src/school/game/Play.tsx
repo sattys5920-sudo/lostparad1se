@@ -1778,8 +1778,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
             {/*
               표. **같은 방이면 된다** — 거래처럼 옆 칸까지 갈 것은
-              없다. 하루 한 장이고 우리 팀에는 못 준다. 서버가
-              같은 것을 본다(canCast)
+              없다. 하루 한 장이고, 우리 팀에도 준다. 서버가 같은
+              것을 본다(canCast)
             */}
             {MEET_VOTES.map((k) => (
               <button
@@ -1795,7 +1795,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 }}
               >
                 {VOTE_LABEL[k]} 주기
-                <span>하루 한 장. 우리 팀에는 못 준다</span>
+                <span>하루 한 장. 누구에게든</span>
               </button>
             ))}
 
