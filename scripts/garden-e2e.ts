@@ -296,7 +296,6 @@ async function main() {
     body: JSON.stringify({
       fields: {
         cropId: { stringValue: 'hers' },
-        byPlayerId: { stringValue: meUid },
         plantedMs: { integerValue: String(dayHourMs(START, 1, 1)) },
         growMs: { integerValue: String(10 * H) },
         toldHers: { booleanValue: false },

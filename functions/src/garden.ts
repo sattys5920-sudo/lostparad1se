@@ -55,8 +55,6 @@ const HOUR_MS = 3_600_000
 /** 화분 한 자리. 비어 있으면 cropId 가 null 이다. */
 export interface PotDoc {
   cropId: string | null
-  /** 심은 사람. **어느 몫에도 안 실린다** — 누가 심었는지는 보이지 않는다. */
-  byPlayerId: string | null
   plantedMs: number | null
   /** 뽑아 둔 자랄 시간. 이것도 안 실린다 */
   growMs: number | null
@@ -64,7 +62,7 @@ export interface PotDoc {
   toldHers: boolean
 }
 
-const EMPTY_POT: PotDoc = { cropId: null, byPlayerId: null, plantedMs: null, growMs: null, toldHers: false }
+const EMPTY_POT: PotDoc = { cropId: null, plantedMs: null, growMs: null, toldHers: false }
 
 /** 지금 그 화분이 어느 단계인가. **시간만 본다.** */
 export function stageNow(pot: PotDoc, nowMs: number): PotStage {
@@ -177,7 +175,7 @@ export const hostPlant = onCall<{ gameId: string; pot: number; cropId?: string }
     }
     const growMs = growHoursOf(spec, rollOf(seed, 2)) * HOUR_MS
     planted = spec.name
-    tx.set(ref, { cropId: spec.id, byPlayerId: null, plantedMs: nowMs, growMs, toldHers: false })
+    tx.set(ref, { cropId: spec.id, plantedMs: nowMs, growMs, toldHers: false })
     tx.set(tallyRef(gameId), { used: { ...used, [spec.id]: (used[spec.id] ?? 0) + 1 } })
   })
   await refreshViews(gameId)
@@ -223,7 +221,12 @@ export const hostPullPot = onCall<{ gameId: string; pot: number }>(async (req) =
 
 // ── 사람 ────────────────────────────────────────────────────────
 
-/** 열매를 딴다. **딴 사람이 가진다** — 심은 사람인지는 안 본다. */
+/**
+ * 열매를 딴다. **딴 사람이 가진다.**
+ *
+ * 「심은 사람인지」를 볼 일이 없다 — 심는 것은 운영자만 하므로
+ * 화분에 주인이 없다. 원예부 미션도 딴 횟수만 센다.
+ */
 export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
@@ -265,8 +268,8 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
    * 땄는지가 영영 사라진다 — 유일한 흔적이 나중에 자판기에 넣을 때
    * 나오는 매입 줄뿐이고, 안 팔면 그마저 없다.
    *
-   * **심은 사람은 안 적는다.** 심는 것은 운영자만 하므로 화분에 주인이
-   * 없다. 늘 비어 있을 칸을 남겨 두면 나중에 그 칸을 믿는 판정이 생긴다
+   * **심은 사람은 어디에도 안 적는다.** 화분 문서에도 칸이 없다 —
+   * 늘 비어 있을 칸을 남겨 두면 나중에 그 칸을 믿는 판정이 생긴다.
    */
   await note(gameId, 'potHarvest', nowMs, { id: uid, team: p.team }, {
     subjectId: `${i}:${grew}`,
