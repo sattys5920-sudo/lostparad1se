@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "sim": "vite-node scripts/sim.ts",
     "check:bundle": "vite-node scripts/check-bundle.ts",
+    "check:doc": "vite-node scripts/check-doc.ts",
     "fonts:sync": "cp node_modules/galmuri/dist/Galmuri11.woff2 public/fonts/ && cp node_modules/galmuri/ofl.md public/fonts/Galmuri-OFL.md"
   },
   "dependencies": {
