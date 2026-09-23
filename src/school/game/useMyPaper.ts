@@ -11,42 +11,24 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type { GameActions } from './useGame'
 
-/** 조항 한 줄. 서버가 **빼고 만들어** 보낸다(judge.ts 의 ClauseView). */
-export interface ClauseShown {
-  text: string
-  shown: boolean
-  unit: 'count' | 'hours' | 'days' | 'flag'
-  mode: 'atLeast' | 'atMost'
-  /** null 이면 그 숫자는 문서에 아예 없다. 가려 둔 것이 아니다. */
-  have: number | null
-  bar: number
-  met: boolean | null
-  note: string | null
-}
+/*
+ * **모양은 서버와 같은 파일에서 온다**(shared/missions/paper.ts).
+ *
+ * 전에는 여기에 따로 적어 두었다. 콜러블 응답은 any 로 넘어와서 타입
+ * 검사가 안 걸린다 — 서버가 인연 미션을 쪽지 미션으로 바꿨을 때 화면은
+ * 그대로 paper.bond.text 를 읽고 있었고, 「나」 탭이 열리는 순간 터졌다.
+ * 컴파일도 시험도 조용히 지나갔다.
+ *
+ * **import type 이라 한 줄도 번들에 안 실린다.** 역할 데이터는 이
+ * 경로로 새지 않는다(scripts/check-bundle.ts 가 본다).
+ */
+import type { ClauseView, MissionView, SlipMissionView } from '../../../shared/missions/judge'
+import type { MyPaperDoc } from '../../../shared/missions/paper'
 
-export interface MissionShown {
-  text: string
-  clauses: ClauseShown[]
-  met: boolean | null
-  broken: boolean
-}
-
-export interface MyPaper {
-  roleId: string
-  roleName: string
-  /** 내 것 한 줄. 남의 숨긴 사실은 이 응답 어디에도 없다. */
-  secret: string
-  /**
-   * 진행도를 세고 있는가. 로비에서는 false 다 — 팀 금고도 칸도
-   * 아직 안 놓여서 셀 것이 없다. 미션 **문장**은 그때도 온다.
-   */
-  counting: boolean
-  main: MissionShown
-  bond: MissionShown
-  /** 합계뿐이다. 신뢰인지 호감인지는 오지 않는다. */
-  votesReceived: number
-  votesThroughDay: number
-}
+export type ClauseShown = ClauseView
+export type MissionShown = MissionView
+export type SlipShown = SlipMissionView
+export type MyPaper = MyPaperDoc
 
 export interface Paper {
   paper: MyPaper | null

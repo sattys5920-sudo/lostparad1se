@@ -7,8 +7,7 @@ import type { MissionShown } from './useMyPaper'
 const m = (over: Partial<MissionShown> = {}): MissionShown => ({
   text: '무엇무엇을 한다',
   clauses: [],
-  met: false,
-  broken: false,
+  status: 'running',
   ...over,
 })
 
@@ -39,20 +38,19 @@ describe('여덟 칸 막대', () => {
   })
 })
 
+/*
+ * 카드 오른쪽 위 한 마디.
+ *
+ * **판정은 서버가 끝내 놓고 보낸다.** 화면은 네 가지 상태를 말로
+ * 바꾸기만 한다 — 전에는 met·broken 두 값을 화면이 조합해서
+ * 「실패가 달성보다 먼저」 같은 규칙이 여기 있었는데, 같은 규칙이
+ * judge.statusOf 에도 있어서 둘이 어긋날 자리였다.
+ */
 describe('카드 오른쪽 위 한 마디', () => {
-  it('깨졌으면 실패다. 달성 여부보다 먼저 본다', () => {
-    expect(stateOf(m({ broken: true, met: false }))).toBe('실패')
-  })
-
-  it('이뤘으면 달성', () => {
-    expect(stateOf(m({ met: true }))).toBe('달성')
-  })
-
-  it('아직 알려 줄 수 없으면 「끝날 때 판정」 — 서버가 met 을 null 로 준다', () => {
-    expect(stateOf(m({ met: null }))).toBe('끝날 때 판정')
-  })
-
-  it('그 밖에는 진행 중', () => {
-    expect(stateOf(m())).toBe('진행 중')
+  it('네 가지 상태가 그대로 말이 된다', () => {
+    expect(stateOf(m({ status: 'failed' }))).toBe('실패')
+    expect(stateOf(m({ status: 'met' }))).toBe('달성')
+    expect(stateOf(m({ status: 'endOnly' }))).toBe('끝날 때 판정')
+    expect(stateOf(m({ status: 'running' }))).toBe('진행 중')
   })
 })

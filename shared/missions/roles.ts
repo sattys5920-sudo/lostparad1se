@@ -42,15 +42,13 @@ export const ROSTER_SIZE = 14
  */
 export type Disclosure = 'realtime' | 'daily' | 'afterBallot' | 'endOnly'
 
-/** 진행도 한 줄에 뜨는 네 가지 상태. */
-export type MissionStatus = 'running' | 'met' | 'failed' | 'endOnly'
-
-export const STATUS_LABEL: Record<MissionStatus, string> = {
-  running: '진행 중',
-  met: '달성',
-  failed: '실패',
-  endOnly: '끝날 때 판정',
-}
+/*
+ * 상태 네 가지는 **roleNames.ts 에 있다.** 화면도 읽어야 하는데
+ * 이 파일은 화면이 부르면 안 되기 때문이다. 여기서는 도로 내보내
+ * 주기만 한다 — 판정 쪽 코드가 roles 하나만 보고도 되게.
+ */
+export type { MissionStatus } from './roleNames'
+export { STATUS_LABEL } from './roleNames'
 
 // ── 조항 ────────────────────────────────────────────────────────
 

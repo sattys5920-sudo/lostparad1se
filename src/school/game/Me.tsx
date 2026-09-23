@@ -13,6 +13,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
+import { STATUS_LABEL, type MissionStatus } from '../../../shared/missions/roleNames'
 import { Bag } from './UseItem'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
@@ -136,8 +137,8 @@ export function Me(props: MeProps) {
           )}
         </Card>
 
-        {/* ── ③ 미션 ───────────────────────────────────── */}
-        <Card title="미 션" state={paper?.counting ? stateOf(paper.main) : null}>
+        {/* ── ③ 주 미션 ─────────────────────────────────── */}
+        <Card title="미 션" state={paper?.counting ? STATUS_LABEL[paper.main.status] : null}>
           {!paper && <p className="sc-mi__none">{props.paperErr ?? '불러오는 중…'}</p>}
           {paper && (
             <>
@@ -151,16 +152,30 @@ export function Me(props: MeProps) {
           )}
         </Card>
 
-        {paper && (
-          <Card title="인 연" state={paper.counting ? stateOf(paper.bond) : null}>
-            <p className="sc-mi__mission is-small">{paper.bond.text}</p>
-            {paper.counting && <Clauses m={paper.bond} />}
+        {/*
+          쪽지 미션. **서버가 셋을 늘 보낸다** — 한 장도 안 주웠어도
+          0/1 로 뜬다. 주운 뒤에 생기는 것이 아니라, 쪽지를 만지는
+          동안 따라붙는 조건 셋이다(roles.ts 의 SLIP_MISSIONS).
+
+          카드에는 상태 한 마디를 안 단다 — 셋이 따로 도는 것이라
+          하나로 묶으면 어느 것이 달성인지가 사라진다. 줄마다 붙인다
+        */}
+        {paper && paper.slips.length > 0 && (
+          <Card title="쪽 지">
+            <ul className="sc-mi__slips">
+              {paper.slips.map((s) => (
+                <li key={s.id}>
+                  <p className="sc-mi__mission is-small">{s.text}</p>
+                  <Gauge shown={s.shown} have={s.have} bar={s.bar} status={s.status} />
+                </li>
+              ))}
+            </ul>
           </Card>
         )}
 
         {/* 마지막 선택. **그날에만 카드가 생긴다** */}
         {props.day === DAY4_CHOICE_DAY && (
-          <Card title="마 지 막 선 택">
+          <Card title="마 지 막 선 택" state={paper ? STATUS_LABEL[paper.choice] : null}>
             {!view?.myChoice?.day4 && <p className="sc-mi__none">아직 고르지 않았다.</p>}
             <ul className="sc-mi__pick">
               {DAY4_CHOICES.map((c) => (
@@ -290,20 +305,23 @@ export function IdCard({
         <span className="sc-mi__band" style={{ background: TEAM_COLOR[team] }} aria-hidden />
       </div>
 
-      {/* 숨긴 사실. **기본은 접힘** — 남에게 화면을 보여 줄 일이
-          생기는 게임이라, 펴 두면 그게 사고가 된다 */}
+      {/* 역할 한 줄. **기본은 접힘** — 남에게 화면을 보여 줄 일이
+          생기는 게임이라, 펴 두면 그게 사고가 된다.
+          짝사랑만 딸린 한 줄(footnote)이 더 붙는다 — 이름뿐이고
+          그 사람이 어디 있는지는 안 온다 */}
       <button
         type="button"
         className={'sc-mi__fold' + (open ? ' is-open' : '')}
         aria-expanded={open}
         onClick={onFold}
       >
-        숨긴 사실
+        내 역할
         <i aria-hidden>{open ? '▲' : '▼'}</i>
       </button>
       {open && (
         <p className="sc-mi__secret">
-          {paper ? paper.secret : err ? `못 받아왔다 — ${err}` : '…'}
+          {paper ? paper.flavor : err ? `못 받아왔다 — ${err}` : '…'}
+          {paper?.footnote && <em className="sc-mi__foot">{paper.footnote}</em>}
         </p>
       )}
     </Card>
@@ -369,27 +387,53 @@ function Clauses({ m }: { m: MissionShown }) {
       {m.clauses.map((c, i) => (
         <li key={`${i}-${c.text}`}>
           <p>{c.text}</p>
-          {c.have === null ? (
-            <span className="sc-mi__later">{c.note ?? '아직'}</span>
-          ) : c.unit === 'flag' ? (
-            <span className={'sc-mi__flag' + (c.met ? ' is-met' : '')}>
-              {c.met ? '했다' : '아직'}
-            </span>
-          ) : (
-            <span className="sc-mi__bar">
-              <i aria-hidden>
-                {Array.from({ length: BAR_CELLS }, (_, k) => (
-                  <em key={k} className={k < cells(c.have as number, c.bar) ? 'is-on' : ''} />
-                ))}
-              </i>
-              <b>
-                {c.have}/{c.bar}
-              </b>
-            </span>
-          )}
+          <Gauge shown={c.shown} have={c.have} bar={c.bar} status={c.status} unit={c.unit} />
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * 진행도 한 칸. 조항에도 쪽지 미션에도 같은 것이 붙는다.
+ *
+ * **have 가 null 이면 숫자가 아예 안 온 것이다.** 가려 둔 게 아니라
+ * 서버가 담지 않았다(discloseFor). 그때는 상태 한 마디만 적는다 —
+ * 「끝날 때 판정」이라고 쓰면 가린 것이 아니라 아직 셀 때가 아니라는
+ * 뜻이 된다.
+ */
+function Gauge({
+  shown,
+  have,
+  bar,
+  status,
+  unit = 'count',
+}: {
+  shown: boolean
+  have: number | null
+  bar: number
+  status: MissionStatus
+  unit?: 'count' | 'minutes' | 'flag'
+}) {
+  if (!shown || have === null) {
+    return <span className="sc-mi__later">{STATUS_LABEL[status]}</span>
+  }
+  if (unit === 'flag') {
+    const met = status === 'met'
+    return <span className={'sc-mi__flag' + (met ? ' is-met' : '')}>{met ? '했다' : '아직'}</span>
+  }
+  return (
+    <span className="sc-mi__bar">
+      <i aria-hidden>
+        {Array.from({ length: BAR_CELLS }, (_, k) => (
+          <em key={k} className={k < cells(have, bar) ? 'is-on' : ''} />
+        ))}
+      </i>
+      <b>
+        {have}/{bar}
+        {unit === 'minutes' && '분'}
+      </b>
+    </span>
   )
 }
 
@@ -403,8 +447,5 @@ export function cells(have: number, bar: number): number {
 
 /** 카드 오른쪽 위에 적을 한 마디. */
 export function stateOf(m: MissionShown): string {
-  if (m.broken) return '실패'
-  if (m.met === true) return '달성'
-  if (m.met === null) return '끝날 때 판정'
-  return '진행 중'
+  return STATUS_LABEL[m.status]
 }

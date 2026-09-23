@@ -18,6 +18,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { discloseFor, judge, type Phase } from '../../shared/missions/judge'
+import type { MyPaperDoc } from '../../shared/missions/paper'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
 import { ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
 import type { GameDoc, RosterDoc } from '../../shared/model'
@@ -33,7 +34,7 @@ import { gameRef, nowOf, requireUid } from './index'
  * 'settlement' 인데, 오늘 표를 로그에서 빼 두었으므로 「정산 때
  * 갱신」짜리 조항도 안전하게 숫자를 보여 줄 수 있다.
  */
-export const myPaper = onCall<{ gameId: string }>(async (req) => {
+export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   if (typeof gameId !== 'string' || gameId.length === 0) {

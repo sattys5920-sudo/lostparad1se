@@ -363,6 +363,18 @@
 
 /* 숫자가 안 온 조항. **막대도 안 그린다** — 없는 값이라 그릴 것이 없다 */
 .sc-mi__later { flex: 0 0 auto; font-size: 9px; color: #8a8271; }
+
+/* 쪽지 미션. 조항과 달리 미션 문장 아래에 게이지가 붙어서, 줄이
+   길어도 숫자가 오른쪽 끝에 매달리지 않는다 */
+.sc-mi__slips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.sc-mi__slips li { display: flex; flex-direction: column; gap: 5px; }
+.sc-mi__slips li + li { border-top: 1px solid #ccc4b0; padding-top: 10px; }
+.sc-mi__slips .sc-mi__mission { margin: 0; }
+/* 게이지는 왼쪽에 붙인다 — 카드 폭을 안 넘게 */
+.sc-mi__slips .sc-mi__bar, .sc-mi__slips .sc-mi__later, .sc-mi__slips .sc-mi__flag { align-self: flex-start; }
+
+/* 짝사랑에게만 붙는 한 줄. 역할 문장 아래에 한 칸 띄워 붙는다 */
+.sc-mi__foot { display: block; margin-top: 6px; font-style: normal; font-size: 10px; line-height: 15px; color: #8a8271; }
 .sc-mi__flag { flex: 0 0 auto; font-size: 9px; color: #8a8271; }
 .sc-mi__flag.is-met { color: #3f6b3a; }
 

@@ -16,6 +16,24 @@
  */
 export type MissionBranch = 'people' | 'slip' | 'hand' | 'astray'
 
+/**
+ * 진행도 한 줄에 뜨는 네 가지 상태.
+ *
+ * **여기 있는 이유는 화면이 읽어야 하기 때문이다.** 판정은 roles·judge
+ * 쪽에서 하지만, 그 결과를 적는 말은 「나」 탭이 그대로 쓴다. 두 군데에
+ * 따로 적어 두면 한 군데만 고치는 날이 온다.
+ *
+ * 감출 것이 없는 말이다 — 어느 역할의 상태인지는 여기에 없다.
+ */
+export type MissionStatus = 'running' | 'met' | 'failed' | 'endOnly'
+
+export const STATUS_LABEL: Record<MissionStatus, string> = {
+  running: '진행 중',
+  met: '달성',
+  failed: '실패',
+  endOnly: '끝날 때 판정',
+}
+
 export type RoleId =
   // 사람
   | 'classlead' | 'model' | 'snacker'

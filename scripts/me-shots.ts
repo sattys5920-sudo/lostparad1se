@@ -174,6 +174,58 @@ async function main() {
     if (votesCard === '(없다)') bad.push(`${size.w}: 받은 표 카드가 없다`)
     console.log(`  ${size.w} 나가기`, JSON.stringify(look.나가기))
 
+    /*
+     * **미션 두 장이 실제로 그려졌는가.**
+     *
+     * 여기가 오래 비어 있었다. 서버가 인연 미션을 쪽지 미션으로 바꾼
+     * 뒤에도 화면은 paper.bond 를 읽고 있었는데, 콜러블 응답이 any 라
+     * 컴파일도 시험도 지나갔다 — 탭을 여는 순간 undefined.text 로
+     * 터졌고, 그걸 아무도 안 쟀다. 이제 잰다.
+     */
+    const cards = await page.evaluate(() => {
+      const of = (name: string) => {
+        const h = [...document.querySelectorAll('.sc-mi__head h3')].find(
+          (x) => (x.textContent ?? '').replace(/\s/g, '') === name,
+        )
+        const card = h?.closest('.sc-mi__card') as HTMLElement | null
+        if (!card) return null
+        return {
+          글: card.innerText,
+          상태: (card.querySelector('.sc-mi__state') as HTMLElement | null)?.innerText ?? null,
+          줄: card.querySelectorAll('.sc-mi__clauses li, .sc-mi__slips li').length,
+          게이지: card.querySelectorAll('.sc-mi__bar, .sc-mi__flag, .sc-mi__later').length,
+        }
+      }
+      return { 미션: of('미션'), 쪽지: of('쪽지') }
+    })
+    for (const [name, c] of Object.entries(cards)) {
+      if (!c) {
+        bad.push(`${size.w}: 「${name}」 카드가 없다`)
+        continue
+      }
+      if (c.줄 === 0) bad.push(`${size.w}: 「${name}」 카드에 줄이 하나도 없다`)
+      if (c.게이지 !== c.줄) bad.push(`${size.w}: 「${name}」 줄 ${c.줄}에 진행도가 ${c.게이지}개다`)
+      // 이게 터진 자리였다. 한 칸이라도 못 읽으면 글에 그대로 찍힌다
+      if (/undefined|NaN|\[object/.test(c.글)) bad.push(`${size.w}: 「${name}」에 ${c.글}`)
+      console.log(`  ${size.w} ${name} — ${c.상태 ?? '상태 없음'} · ${c.줄}줄`)
+    }
+    if (cards.미션 && cards.미션.상태 === null) bad.push(`${size.w}: 미션 카드에 상태 한 마디가 없다`)
+
+    /*
+     * 미션 두 장이 있는 데까지 굴려서 한 장. **화면 높이가 고정이라
+     * fullPage 로는 안 잡힌다** — 안쪽이 구르는 틀이다
+     */
+    await page.evaluate(() => {
+      const box = document.querySelector('.sc-pl__scroll') as HTMLElement | null
+      const h = [...document.querySelectorAll('.sc-mi__head h3')].find(
+        (x) => (x.textContent ?? '').replace(/\s/g, '') === '미션',
+      )
+      const card = h?.closest('.sc-mi__card') as HTMLElement | null
+      if (box && card) box.scrollTop = card.offsetTop - 8
+    })
+    await page.waitForTimeout(500)
+    await shot('1b-미션과쪽지')
+
     // ── 2. 가진 것 펼침 ──
     await page.evaluate(() => (document.querySelector('.sc-mi__have') as HTMLElement | null)?.click())
     await page.waitForTimeout(400)
