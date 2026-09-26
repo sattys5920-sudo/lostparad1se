@@ -143,11 +143,27 @@ async function main() {
       await page.locator('.sc-home__panel button').click({ timeout: 3000 }).catch(() => undefined)
       await page.waitForTimeout(1800)
 
-      // 접힌 종이가 바닥에 그려진 맵. 아직 아무도 안 열었다
-      await page.screenshot({ path: `${OUT}/quiz-${size.w}-바닥-${tag}.png` })
       // 십자키로 종이 옆까지 간다 — 옆에 서야 「문제 종이」 칸이 뜬다
       await walkTo({ page, fs: FS, admin: ADMIN, game, uid: uidOf(me), want: CELL, what: '종이' })
       await page.waitForTimeout(800)
+      /*
+       * 바닥에 놓인 종이. **여기서 찍는다** — 복도 것은 복도에 서야
+       * 보이므로, 교실에서 찍으면 아무것도 안 나온다. 전에 그랬다
+       */
+      await page.screenshot({ path: `${OUT}/quiz-${size.w}-바닥-${tag}.png` })
+      /* 종이 한 칸만 크게. 12×12 스프라이트가 어떻게 보이나 확인용 */
+      const box = await page.locator('canvas').first().boundingBox()
+      if (box) {
+        const side = 170
+        await page.screenshot({
+          path: `${OUT}/quiz-${size.w}-바닥확대-${tag}.png`,
+          clip: {
+            x: box.x + box.width / 2 - side / 2,
+            y: box.y + box.height / 2 - side / 2,
+            width: side, height: side,
+          },
+        })
+      }
       /*
        * **종이 위로는 못 지나간다.** 옆에 선 채로 종이 쪽 십자키를
        * 눌러도 자리가 그대로여야 한다 — 기물과 같은 자다.
