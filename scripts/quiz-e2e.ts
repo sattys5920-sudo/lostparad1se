@@ -1,20 +1,21 @@
 // 문제 종이를 진짜 서버로.
 //
-// 확인할 것은 셋이다.
+// 확인할 것은 넷이다.
 //
+//   **운영자가 놓는다** — 서버는 더 이상 안 뿌린다. 복도에도 놓인다
 //   **정답이 어디로도 안 나간다** — 플레이어에게도, 운영자 아닌
-//   누구에게도. 안 펼친 문제는 본문조차 안 간다
-//   **펼치면 그 방 사람 전원이 본다** — 다른 팀이라도
-//   **한 장은 한 팀만 가져간다** — 먼저 낸 답이 이긴다
+//   누구에게도. 바닥에 있는 종이는 본문조차 안 간다
+//   **주운 사람만 본다** — 남에게는 있다는 것도 안 간다
+//   **한 장은 한 사람만** — 먼저 줍는 손이 이긴다
 //
 //   npx vite-node scripts/quiz-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK, QUIZ_PER_PHASE } from '../shared/rules/quiz'
+import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK, canDropQuizAt } from '../shared/rules/quiz'
 import { stepToward } from '../shared/rules/occupy'
-import { TILE_BY_ID, roomOfCell, type TileId } from '../shared/rules/board'
-import { isFixture } from '../shared/rules/fixtures'
+import { HALLS, TILE_BY_ID, roomOfCell, type TileId } from '../shared/rules/board'
+import { FIXTURE_CELLS, isFixture } from '../shared/rules/fixtures'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -114,7 +115,8 @@ async function standFar(token: string, room: TileId, c: Cell): Promise<void> {
 /** 시험에 쓸 문제 하나. 정답은 여기와 서버에만 있다. */
 const ANSWER = '사과'
 const PROMPT_SHUT = '접힌 채로 두는 문제'
-const PROMPT_OPEN = '펼쳐서 같이 보는 문제'
+const PROMPT_OPEN = '주워서 혼자 푸는 문제'
+const PROMPT_WIN = '맞히는 데 쓰는 문제'
 const EXPLAIN = '맞힌 사람에게만 가는 해설'
 
 async function main(): Promise<void> {
@@ -153,10 +155,14 @@ async function main(): Promise<void> {
   })
   await must('hostQuizUpsert', host, {
     gameId: GAME,
-    quiz: { kind: 'short', prompt: PROMPT_OPEN, choices: [], answers: [ANSWER, '능금'], explain: EXPLAIN },
+    quiz: { kind: 'short', prompt: PROMPT_OPEN, choices: [], answers: [ANSWER, '능금'], explain: '' },
+  })
+  await must('hostQuizUpsert', host, {
+    gameId: GAME,
+    quiz: { kind: 'short', prompt: PROMPT_WIN, choices: [], answers: [ANSWER], explain: EXPLAIN },
   })
   const two = await must('hostQuizList', host, { gameId: GAME })
-  check(Number(two.count) === 2, '두 문제가 등록됐다', `${two.count}개`)
+  check(Number(two.count) === 3, '세 문제가 등록됐다', `${two.count}개`)
 
   const badChoice = await call('hostQuizUpsert', host, {
     gameId: GAME,
@@ -164,131 +170,171 @@ async function main(): Promise<void> {
   })
   check(badChoice.code === 'INVALID_ARGUMENT', '**객관식은 받지 않는다** — 주관식뿐', String(badChoice.message ?? badChoice.code))
   const stillTwo = await must('hostQuizList', host, { gameId: GAME })
-  check(Number(stillTwo.count) === 2, '막힌 것은 은행에 안 남는다', `${stillTwo.count}개`)
+  check(Number(stillTwo.count) === 3, '막힌 것은 은행에 안 남는다', `${stillTwo.count}개`)
 
-  console.log('\n── 페이즈가 닫히면 종이가 떨어진다 ──')
+  console.log('\n── 서버는 더 이상 안 뿌린다 ──')
   check((await floorNow()).length === 0, '처음에는 바닥에 없다')
   await must('openPhase', host, { gameId: GAME })
   const closed = await must('closePhase', host, { gameId: GAME })
-  check(Number(closed.quizzes) === QUIZ_PER_PHASE, `${QUIZ_PER_PHASE}장 떨어졌다`, `${closed.quizzes}장`)
+  check(closed.quizzes === undefined, '**페이즈가 닫혀도 안 떨어진다** — 운영자가 놓는다', JSON.stringify(closed.quizzes))
+  check((await floorNow()).length === 0, '바닥은 그대로 비어 있다')
+
+  console.log('\n── 운영자가 자리를 짚어 놓는다 ──')
+  const bankNow = (await must('hostQuizList', host, { gameId: GAME })).items as { id: string; prompt: string }[]
+  const openQ = bankNow.find((q) => q.prompt === PROMPT_OPEN)
+  const shutQ = bankNow.find((q) => q.prompt === PROMPT_SHUT)
+  if (!openQ || !shutQ) throw new Error('등록한 문제를 못 찾았다')
+
+  // 벽에는 못 놓는다
+  const onWall = await call('hostDrop', host, { gameId: GAME, kind: 'quiz', quizId: openQ.id, x: -5, y: -5 })
+  check(onWall.code === 'FAILED_PRECONDITION', '**벽에는 못 놓는다**', String(onWall.message ?? onWall.code))
+  // 기물 위에도 못 놓는다
+  const fx = [...FIXTURE_CELLS][0].split(',').map(Number)
+  const onFix = await call('hostDrop', host, { gameId: GAME, kind: 'quiz', quizId: openQ.id, x: fx[0], y: fx[1] })
+  check(onFix.code === 'FAILED_PRECONDITION', '**기물 위에는 못 놓는다**', String(onFix.message ?? onFix.code))
+
+  /*
+   * **복도에 놓는다.** 이게 주소를 방에서 칸으로 옮긴 까닭이다 —
+   * 복도는 어느 방에도 안 속해서 방 주소로는 가리킬 수가 없었다.
+   */
+  const hallCell = (() => {
+    for (const h of HALLS) {
+      for (let y = h.rect.y; y < h.rect.y + h.rect.h; y++)
+        for (let x = h.rect.x; x < h.rect.x + h.rect.w; x++)
+          if (canDropQuizAt(x, y) && roomOfCell(x, y) === null) return { x, y }
+    }
+    throw new Error('복도 칸을 못 찾았다')
+  })()
+  const inHall = await must('hostDrop', host, { gameId: GAME, kind: 'quiz', quizId: shutQ.id, x: hallCell.x, y: hallCell.y })
+  check(inHall.where === '복도', '**복도에 놓인다**', String(inHall.where))
+
+  // 같은 문제를 두 번은 못 놓는다
+  const twice = await call('hostDrop', host, { gameId: GAME, kind: 'quiz', quizId: shutQ.id, x: hallCell.x + 1, y: hallCell.y })
+  check(twice.code === 'FAILED_PRECONDITION', '같은 문제를 두 번은 못 놓는다', String(twice.message ?? twice.code))
+
+  // 시험에 쓸 한 장은 A 팀이 닿기 쉬운 방 안에 놓는다
+  const goal = 'centralPlaza' as TileId
+  const r = TILE_BY_ID[goal].plan
+  const paperCell = (() => {
+    for (let y = r.y + 1; y < r.y + r.h - 1; y++)
+      for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (canDropQuizAt(x, y)) return { x, y }
+    throw new Error(`${goal} 에 놓을 자리가 없다`)
+  })()
+  const put = await must('hostDrop', host, { gameId: GAME, kind: 'quiz', quizId: openQ.id, x: paperCell.x, y: paperCell.y })
+  check(put.where === TILE_BY_ID[goal].name, `${TILE_BY_ID[goal].name} 에 놓였다`, String(put.where))
   const floor = await floorNow()
-  // 기지는 없어졌다(76368eb). 스물다섯 방 어디에나 떨어진다
-  check(floor.every((q) => q.d.openedBy === null), '전부 접힌 채로 떨어진다', floor.map((q) => q.d.tileId).join(','))
-  check(
-    floor.every((q) => {
-      const c = cellOf(q.d)
-      return c !== null && roomOfCell(c.x, c.y) === q.d.tileId && !isFixture(c.x, c.y)
-    }),
-    '**바닥 한 칸에 놓인다** — 그 방 안, 기물이 아닌 자리',
-    floor.map((q) => { const c = cellOf(q.d); return `${q.d.tileId}:${c?.x},${c?.y}` }).join(' '),
-  )
+  check(floor.length === 2, '바닥에 두 장', `${floor.length}장`)
+  check(floor.every((q) => q.d.heldBy === null), '아무도 안 주운 채다')
+  const target = floor.find((q) => q.d.quizId === openQ.id)
+  if (!target) throw new Error('놓은 종이를 못 찾았다')
 
   console.log('\n── 정답은 누구도 직접 못 읽는다 ──')
   for (const [who, tk] of [['플레이어', A[0].token], ['운영자', host]] as const) {
-    const r = await fetch(`${FS}/games/${GAME}/secret/quiz/bank`, { headers: { Authorization: `Bearer ${tk}` } })
-    check(r.status === 403, `${who}도 문제 은행 문서를 직접 못 읽는다`, String(r.status))
+    const r2 = await fetch(`${FS}/games/${GAME}/secret/quiz/bank`, { headers: { Authorization: `Bearer ${tk}` } })
+    check(r2.status === 403, `${who}도 문제 은행 문서를 직접 못 읽는다`, String(r2.status))
   }
 
-  console.log('\n── 접힌 종이는 본문조차 안 간다 ──')
-  /*
-   * **해설이 달린 문제가 떨어진 종이를 고른다.**
-   *
-   * 앞서는 floor[0] 을 그냥 썼다. 등록한 둘 중 하나만 해설이 있어서,
-   * 어느 것이 그 자리에 떨어졌느냐에 따라 「맞힌 사람에게만 해설이
-   * 간다」가 반쯤 실패했다 — 시험이 판마다 다른 답을 내면 시험이 아니다.
-   */
-  const bankNow = (await must('hostQuizList', host, { gameId: GAME })).items as { id: string; prompt: string }[]
-  const openId = bankNow.find((q) => q.prompt === PROMPT_OPEN)?.id
-  const target = floor.find((f) => f.d.quizId === openId) ?? floor[0]
-  const goal = String(target.d.tileId)
-  // 그 방으로 A0 를 걸어 보낸다. 자유 시간이라 걸음은 공짜다
-  for (let i = 0; i < 8; i++) {
-    const here = (await pawnsNow())[A[0].uid].tileId as string
-    if (here === goal) break
-    const next = stepToward(here, goal)
-    if (!next) break
-    await must('roamTo', A[0].token, { gameId: GAME, tileId: next })
+  console.log('\n── 바닥에 있는 동안에는 자리까지만 ──')
+  for (const p of [A[0], A[1]]) {
+    const here = (await pawnsNow())[p.uid].tileId as string
+    for (let i = 0; i < 30 && (await pawnsNow())[p.uid].tileId !== goal; i++) {
+      const at = (await pawnsNow())[p.uid].tileId as string
+      const next = stepToward(at as TileId, goal)
+      if (!next) break
+      await must('roamTo', p.token, { gameId: GAME, tileId: next })
+    }
+    check((await pawnsNow())[p.uid].tileId === goal, `${goal} 에 닿았다`, `${here} → ${(await pawnsNow())[p.uid].tileId}`)
   }
-  check((await pawnsNow())[A[0].uid].tileId === goal, `${goal} 에 닿았다`)
+  const onFloorView = (await viewOf(A[0].uid)).quizzesHere as { id: string; x: number; y: number }[]
+  const seen = onFloorView.find((q) => q.id === target.id)
+  check(seen !== undefined, '같은 방이면 자리가 보인다')
+  check(seen !== undefined && !('prompt' in seen), '**자리뿐이다** — 문장 칸이 아예 없다', JSON.stringify(seen))
+  check(!JSON.stringify(await viewOf(A[0].uid)).includes(PROMPT_OPEN), '본문이 어디에도 안 실린다')
+  const hallSeen = (onFloorView).some((q) => q.x === hallCell.x && q.y === hallCell.y)
+  check(!hallSeen, '복도에 놓인 것은 방 안에서 안 보인다')
 
-  const shut = await viewOf(A[0].uid)
-  const hereQ = (shut.quizzesHere ?? []) as { id: string; opened: boolean; prompt: string | null; cell: Cell | null }[]
-  check(hereQ.length >= 1, '한 장 있다는 것은 보인다', `${hereQ.length}장`)
-  check(hereQ.every((q) => q.opened === false && q.prompt === null), '본문은 안 온다')
-  const paperCell = cellOf(target.d)!
-  check(
-    hereQ.some((q) => q.id === target.id && q.cell?.x === paperCell.x && q.cell?.y === paperCell.y),
-    '**자리째로 온다** — 맵에 그릴 칸',
-    JSON.stringify(hereQ.find((q) => q.id === target.id)?.cell),
-  )
-  const shutText = JSON.stringify(shut)
-  check(!shutText.includes(ANSWER), '**정답이 응답에 없다**')
-  check(!shutText.includes(EXPLAIN), '해설도 없다')
-
-  console.log('\n── 펼치면 그 방 사람 전원이 본다 ──')
-  // B0 도 같은 방으로 보낸다. 다른 팀 앞에서 여는 것이 이 물건의 전부다
-  for (let i = 0; i < 8; i++) {
-    const here = (await pawnsNow())[B[0].uid].tileId as string
-    if (here === goal) break
-    const next = stepToward(here, goal)
-    if (!next) break
-    await must('roamTo', B[0].token, { gameId: GAME, tileId: next })
-  }
-  check((await pawnsNow())[B[0].uid].tileId === goal, 'B팀 사람도 같은 방에 섰다')
-
-  // 방에 들어온 것만으로는 안 된다 — 종이 옆에 서야 편다
-  await standFar(A[0].token, goal as TileId, paperCell)
-  const farOpen = await call('openQuiz', A[0].token, { gameId: GAME, paperId: target.id })
-  check(farOpen.code === 'FAILED_PRECONDITION', '**방 안이라도 멀면 못 편다**', String(farOpen.message ?? farOpen.code))
-  // 종이는 기물이다 — 그 위에는 못 선다
+  console.log('\n── 옆에 서야 줍는다 ──')
+  await standFar(A[0].token, goal, paperCell)
+  const farTake = await call('takeQuiz', A[0].token, { gameId: GAME, paperId: target.id })
+  check(farTake.code === 'FAILED_PRECONDITION', '**방 안이라도 멀면 못 줍는다**', String(farTake.message ?? farTake.code))
   const onIt = await call('standAt', A[0].token, { gameId: GAME, ...paperCell })
   check(onIt.code === 'FAILED_PRECONDITION', '**종이 위에는 못 선다**', String(onIt.message ?? onIt.code))
-  await standBeside(A[0].token, paperCell)
-  await must('openQuiz', A[0].token, { gameId: GAME, paperId: target.id })
-  const mine = (await viewOf(A[0].uid)).quizzesHere as { id: string; opened: boolean; prompt: string | null }[]
-  const theirs = (await viewOf(B[0].uid)).quizzesHere as { id: string; opened: boolean; prompt: string | null }[]
-  const mineOne = mine.find((q) => q.id === target.id)
-  const theirsOne = theirs.find((q) => q.id === target.id)
-  check(mineOne?.opened === true && mineOne.prompt !== null, '편 사람에게 본문이 간다')
-  check(theirsOne?.opened === true && theirsOne.prompt !== null, '**다른 팀 사람에게도 같이 간다**')
-  check(!JSON.stringify(await viewOf(B[0].uid)).includes(ANSWER), '그래도 정답은 안 간다')
 
-  const far = await viewOf(A[1].uid)
-  check(
-    ((far.quizzesHere ?? []) as unknown[]).length === 0 || (await pawnsNow())[A[1].uid].tileId === goal,
-    '다른 방 사람에게는 있다는 것조차 안 간다',
-  )
+  console.log('\n── 먼저 줍는 손이 이긴다 ──')
+  await standBeside(A[0].token, paperCell)
+  await standBeside(A[1].token, paperCell)
+  await must('takeQuiz', A[0].token, { gameId: GAME, paperId: target.id })
+  const second = await call('takeQuiz', A[1].token, { gameId: GAME, paperId: target.id })
+  check(second.code === 'FAILED_PRECONDITION', '**둘째 손은 거절된다** — 한 장은 한 사람만', String(second.message ?? second.code))
+
+  console.log('\n── 주운 사람만 본다 ──')
+  const mineV = (await viewOf(A[0].uid)).myQuizzes as { id: string; prompt: string | null }[]
+  const mineOne = mineV.find((q) => q.id === target.id)
+  check(mineOne?.prompt === PROMPT_OPEN, '주운 사람에게 문장이 간다')
+  check(!JSON.stringify(await viewOf(A[0].uid)).includes(ANSWER), '그래도 정답은 안 간다')
+  for (const p of [A[1], B[0]]) {
+    const v = await viewOf(p.uid)
+    const held = ((v.myQuizzes ?? []) as { id: string }[]).some((q) => q.id === target.id)
+    const onF = ((v.quizzesHere ?? []) as { id: string }[]).some((q) => q.id === target.id)
+    check(!held && !onF, '**남에게는 있다는 것조차 안 간다**')
+    check(!JSON.stringify(v).includes(PROMPT_OPEN), '본문도 안 간다')
+  }
 
   console.log('\n── 틀리면 그 사람만 다시 못 푼다 ──')
+  const notMine = await call('answerQuiz', A[1].token, { gameId: GAME, paperId: target.id, given: ANSWER })
+  check(notMine.code === 'FAILED_PRECONDITION', '**안 든 사람은 답을 못 낸다**', String(notMine.message ?? notMine.code))
   const wrong = await must('answerQuiz', A[0].token, { gameId: GAME, paperId: target.id, given: '배' })
   check(wrong.correct === false, '틀렸다고 온다')
   check(wrong.explain === null, '틀린 사람에게는 해설이 안 간다')
   const again = await call('answerQuiz', A[0].token, { gameId: GAME, paperId: target.id, given: ANSWER })
   check(again.code === 'FAILED_PRECONDITION', '같은 사람은 다시 못 푼다', String(again.code))
 
-  console.log('\n── 맞히면 맞힌 사람이 가져간다. 한 장은 한 팀만 ──')
-  // 지식은 팀 금고가 아니라 **그 사람 지갑**에 붙는다(7d045ae)
+  console.log('\n── 맞히면 지갑에 지식이 붙고 종이는 끝난다 ──')
+  /*
+   * **안 틀린 사람으로 잰다.** A[0] 은 방금 틀려서 이 종이를 다시
+   * 못 푼다 — 그 사람으로 정답을 재면 「맞히면 지식이 는다」가 아니라
+   * 「틀린 사람은 못 낸다」를 한 번 더 재는 셈이 된다.
+   */
+  const winQ = (await must('hostQuizList', host, { gameId: GAME })).items as { id: string; prompt: string }[]
+  const win = winQ.find((q) => q.prompt === PROMPT_WIN)
+  if (!win) throw new Error('맞힐 문제를 못 찾았다')
+  const winCell = (() => {
+    for (let y = r.y + 1; y < r.y + r.h - 1; y++)
+      for (let x = r.x + 1; x < r.x + r.w - 1; x++) {
+        if (x === paperCell.x && y === paperCell.y) continue
+        if (canDropQuizAt(x, y)) return { x, y }
+      }
+    throw new Error('둘째 자리가 없다')
+  })()
+  await must('hostDrop', host, { gameId: GAME, kind: 'quiz', quizId: win.id, x: winCell.x, y: winCell.y })
+  const winPaper = (await floorNow()).find((q) => q.d.quizId === win.id)
+  if (!winPaper) throw new Error('놓은 둘째 종이를 못 찾았다')
+
   const knowledgeOf = async (uid: string) =>
     Number(((await pawnsNow())[uid].resources as Record<string, number> | undefined)?.knowledge ?? 0)
-  const before = await knowledgeOf(B[0].uid)
-  const mateBefore = await knowledgeOf(B[1].uid)
-  // 답도 옆에서만 낸다
-  await standFar(B[0].token, goal as TileId, paperCell)
-  const farAns = await call('answerQuiz', B[0].token, { gameId: GAME, paperId: target.id, given: ANSWER })
-  check(farAns.code === 'FAILED_PRECONDITION', '멀리서는 답도 못 낸다', String(farAns.message ?? farAns.code))
-  await standBeside(B[0].token, paperCell)
+  const before = await knowledgeOf(A[1].uid)
+  const mateBefore = await knowledgeOf(A[2].uid)
+
+  await standBeside(A[1].token, winCell)
+  await must('takeQuiz', A[1].token, { gameId: GAME, paperId: winPaper.id })
   // 대소문자·공백·자모를 흩뜨려 내도 맞아야 한다
-  const right = await must('answerQuiz', B[0].token, { gameId: GAME, paperId: target.id, given: `  ${ANSWER.normalize('NFD')} ` })
+  const right = await must('answerQuiz', A[1].token, {
+    gameId: GAME,
+    paperId: winPaper.id,
+    given: `  ${ANSWER.normalize('NFD')} `,
+  })
   check(right.correct === true, '자모로 쳐도 맞는다')
   check(right.explain === EXPLAIN, '맞힌 사람에게만 해설이 간다')
-  const after = await knowledgeOf(B[0].uid)
+  const after = await knowledgeOf(A[1].uid)
   check(after === before + KNOWLEDGE_PER_QUIZ, `**맞힌 사람 지갑에 지식 ${KNOWLEDGE_PER_QUIZ}점**`, `${before} → ${after}`)
-  const mate = await knowledgeOf(B[1].uid)
+  const mate = await knowledgeOf(A[2].uid)
   check(mate === mateBefore, '같은 팀 다른 사람 지갑은 그대로다', `${mateBefore} → ${mate}`)
 
-  const late = await call('answerQuiz', A[1].token, { gameId: GAME, paperId: target.id, given: ANSWER })
-  check(late.code === 'FAILED_PRECONDITION', '뒤에 온 답은 거절된다 — 한 장은 한 팀만', String(late.code))
-  check(((await viewOf(A[0].uid)).quizzesHere as unknown[]).every((q) => (q as { id: string }).id !== target.id), '가져간 종이는 사라진다')
+  // **푼 종이는 손에서 사라진다.** 그게 「끝났다」의 표시다
+  const handAfter = ((await viewOf(A[1].uid)).myQuizzes ?? []) as { id: string }[]
+  check(!handAfter.some((q) => q.id === winPaper.id), '푼 종이는 손패에서 사라진다')
+  const lateAns = await call('answerQuiz', A[1].token, { gameId: GAME, paperId: winPaper.id, given: ANSWER })
+  check(lateAns.code === 'FAILED_PRECONDITION', '끝난 종이에는 답을 더 못 낸다', String(lateAns.code))
 
   console.log('\n── 판에 나간 문제는 못 지운다 ──')
   const bank = await must('hostQuizList', host, { gameId: GAME })

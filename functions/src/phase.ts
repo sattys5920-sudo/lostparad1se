@@ -1148,14 +1148,14 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
     throw new HttpsError('failed-precondition', `덫에 걸려 있다. ${Math.ceil(((p.busyUntilMs ?? 0) - nowMs) / 60_000)}분 남았다.`)
   }
   /*
-   * **문제 종이 위에도 못 선다.** 종이는 페이즈마다 다른 방에 떨어지므로
-   * 규칙 파일에 없다 — 판의 바닥 문서를 본다. 아직 아무도 안 가져간
-   * 종이만 자리를 차지한다.
+   * **문제 종이 위에도 못 선다.** 종이는 운영자가 아무 칸에나 놓으므로
+   * 규칙 파일에 없다 — 판의 바닥 문서를 본다. **아직 아무도 안 주운
+   * 종이만** 자리를 차지한다. 주워 간 자리는 그냥 바닥이다.
    */
-  const papers = await gameRef(gameId).collection('secret').doc('quiz').collection('floor').where('solvedBy', '==', null).get()
+  const papers = await gameRef(gameId).collection('secret').doc('quiz').collection('floor').where('heldBy', '==', null).get()
   for (const d of papers.docs) {
-    const c = (d.data() as { cell?: { x: number; y: number } }).cell
-    if (c && c.x === x && c.y === y) throw new HttpsError('failed-precondition', '거기에는 종이가 있다.')
+    const q = d.data() as { x?: number; y?: number }
+    if (q.x === x && q.y === y) throw new HttpsError('failed-precondition', '거기에는 종이가 있다.')
   }
   if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
 
