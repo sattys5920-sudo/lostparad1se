@@ -300,11 +300,20 @@ export function gameActions(gameId: string) {
     hostQuizList: () => callServer('hostQuizList', g),
     hostQuizUpsert: (quiz: unknown, id?: string) => callServer('hostQuizUpsert', { ...g, id, quiz }),
     hostQuizRemove: (id: string) => callServer('hostQuizRemove', { ...g, id }),
-    /** 바닥에 한 장 놓는다. **운영자만** — 서버가 토큰을 본다 */
+    /**
+     * 바닥에 한 장 놓는다. **운영자만** — 서버가 토큰을 본다.
+     *
+     * 메모는 **방**(tileId), 문제는 **칸**(x·y)이다. 문제만 칸인 것은
+     * 복도에 놓기 위해서다 — 복도는 어느 방에도 안 속한다.
+     */
     hostDrop: (drop: {
-      tileId: string
+      tileId?: string
+      x?: number
+      y?: number
       kind: 'quiz' | 'memo'
       text?: string
+      /** 은행에 있는 문제를 놓을 때. 새로 적을 때는 quiz 를 준다 */
+      quizId?: string
       quiz?: { kind: 'choice' | 'short'; prompt: string; choices?: string[]; answers?: string[]; explain?: string }
     }) => callServer('hostDrop', { ...g, ...drop }),
     openPhase: () => callServer('openPhase', g),

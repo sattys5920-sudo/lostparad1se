@@ -1,17 +1,19 @@
 // 바닥에 한 장 놓는다 — 문제 종이 또는 메모.
 //
-// 평소에는 서버가 페이즈가 닫힐 때 알아서 뿌린다. 어디에 떨어질지는
-// 씨앗이 정하고, 무엇이 떨어질지는 미리 등록해 둔 것 중에서 고른다.
+// **문제는 여기서만 나온다.** 서버가 페이즈마다 뿌리던 것을 걷어냈다 —
+// 어디에 무엇을 놓을지가 운영자의 수다. 쪽지는 아직 서버도 뿌린다.
 //
-// **여기는 운영자가 그 자리에서 정하는 길이다.** 자유 시간에 「저기
-// 미술실에 이런 쪽지가 있으면 좋겠다」가 생기는데, 그때 기다릴 수
-// 있는 것은 다음 페이즈가 닫힐 때까지다.
+// 둘의 자리 고르는 법이 다르다.
 //
-// 놓는 것까지가 전부다. 줍고 읽고 찢는 것도, 문제를 펴고 푸는 것도
+//   메모   **방** 하나를 목록에서 고른다. 쪽지와 같은 규칙이다
+//   문제   **칸** 하나를 작은 판에서 짚는다. 복도에도 놓인다
+//
+// 놓는 것까지가 전부다. 줍고 읽고 찢는 것도, 문제를 줍고 푸는 것도
 // 원래 규칙 그대로다 — 운영자가 놓았다고 해서 다르게 굴지 않는다.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { FLOOR_NAME, TILES } from '../../../shared/rules/board'
+import { SpotPick, type Spot, type SpotMark } from './Spot'
 import type { GameActions } from '../game/useGame'
 
 /** 메모 한 장에 적을 수 있는 길이. 서버(drop.ts)와 같은 값이다. */
@@ -29,9 +31,27 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
   /** 문제인가 메모인가. 한 번에 하나만 놓는다 */
   const [what, setWhat] = useState<'memo' | 'quiz'>('memo')
   const [tileId, setTileId] = useState<string>(TILES[0]?.id ?? '')
+  /** 문제를 놓을 칸. 작은 판에서 짚는다 */
+  const [spot, setSpot] = useState<Spot | null>(null)
+  /** 이미 판에 나가 있는 종이. 겹쳐 놓지 않게 점으로 찍는다 */
+  const [marks, setMarks] = useState<SpotMark[]>([])
   const [memo, setMemo] = useState('')
   const [form, setForm] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
+
+  /** 놓여 있는 것을 읽어 온다. 문제 쪽을 볼 때만 필요하다 */
+  async function loadMarks() {
+    try {
+      const out = (await act.hostQuizList()) as { onFloor?: SpotMark[] }
+      setMarks(out.onFloor ?? [])
+    } catch {
+      // 못 읽어도 놓는 데는 지장이 없다. 점이 안 찍힐 뿐이다
+    }
+  }
+  useEffect(() => {
+    if (what === 'quiz') void loadMarks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [what])
 
   async function drop() {
     setBusy(true)
@@ -40,7 +60,8 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
         what === 'memo'
           ? { tileId, kind: 'memo', text: memo }
           : {
-              tileId,
+              x: spot?.x,
+              y: spot?.y,
               kind: 'quiz',
               quiz: {
                 kind: form.kind,
@@ -54,8 +75,14 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
             },
       )) as { where?: string }
       onSaid(`${res.where ?? tileId} 바닥에 놓았다.`)
-      if (what === 'memo') setMemo('')
-      else setForm(EMPTY)
+      if (what === 'memo') {
+        setMemo('')
+      } else {
+        setForm(EMPTY)
+        // 방금 놓은 것이 점으로 찍히게. 자리는 그대로 둔다 —
+        // 한 방에 여러 장 깔 때 층을 다시 찾지 않아도 된다
+        await loadMarks()
+      }
     } catch (e) {
       onSaid((e as Error).message)
     } finally {
@@ -64,10 +91,9 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
   }
 
   const ready =
-    tileId !== '' &&
-    (what === 'memo'
-      ? memo.trim().length > 0
-      : form.prompt.trim().length > 0 && form.answers.trim().length > 0)
+    what === 'memo'
+      ? tileId !== '' && memo.trim().length > 0
+      : spot !== null && form.prompt.trim().length > 0 && form.answers.trim().length > 0
 
   return (
     <div className="sc-dr">
@@ -80,16 +106,18 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
         </button>
       </div>
 
-      <label className="sc-dr__row">
-        <span>어느 방</span>
-        <select value={tileId} onChange={(e) => setTileId(e.target.value)}>
-          {TILES.map((t) => (
-            <option key={t.id} value={t.id}>
-              {FLOOR_NAME[t.floor]} · {t.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {what === 'memo' && (
+        <label className="sc-dr__row">
+          <span>어느 방</span>
+          <select value={tileId} onChange={(e) => setTileId(e.target.value)}>
+            {TILES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {FLOOR_NAME[t.floor]} · {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {what === 'memo' && (
         <>
@@ -109,6 +137,9 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
 
       {what === 'quiz' && (
         <>
+          {/* 자리를 먼저 짚는다. 복도도 여기서 고른다 */}
+          <SpotPick value={spot} onPick={setSpot} marks={marks} />
+
           <label className="sc-dr__row sc-dr__row--tall">
             <span>문제</span>
             <textarea
@@ -140,8 +171,9 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
         떨어뜨리기
       </button>
       <p className="sc-dr__hint">
-        접힌 채로 놓인다. 그 방에 선 사람에게는 「한 장 있다」까지만 보이고, 펴거나
-        주워야 무엇이 적혔는지 안다.
+        {what === 'quiz'
+          ? '접힌 채로 놓인다. 옆에 선 사람에게는 「한 장 있다」까지만 보이고, 주워야 무엇이 적혔는지 안다. 먼저 맞히는 한 사람이 가져간다.'
+          : '접힌 채로 놓인다. 그 방에 선 사람에게는 「한 장 있다」까지만 보이고, 주워야 무엇이 적혔는지 안다.'}
       </p>
     </div>
   )

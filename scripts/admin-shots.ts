@@ -191,6 +191,51 @@ async function main() {
     console.log(`  찍었다 ${file} (+ 폰 크기)`)
   }
 
+  /*
+   * **자리를 짚는 작은 판.** 문제 쪽으로 넘겨서 복도 칸을 찍는다 —
+   * 복도에 놓을 수 있다는 것이 이 판을 만든 까닭이라, 거기가 눌리는지
+   * 를 봐야 한다.
+   */
+  console.log('\n── 문제 놓는 자리 ──')
+  await page.setViewportSize({ width: W, height: 844 })
+  await page.locator('.sc-ad__tabs button', { hasText: '놓기' }).click()
+  await page.waitForTimeout(500)
+  await page.locator('.sc-dr__what button', { hasText: '문제' }).click()
+  await page.waitForSelector('.sc-sp__board canvas', { timeout: 10_000 })
+  await page.waitForTimeout(400)
+
+  // 1층 복도 한 칸을 짚는다. 판 좌표를 칸 좌표로 거꾸로 셈해서 누른다
+  const hit = await page.locator('.sc-sp__board canvas').evaluate((el) => {
+    const c = el as HTMLCanvasElement
+    const r = c.getBoundingClientRect()
+    return { w: r.width, h: r.height }
+  })
+  /*
+   * **복도 칸을 찾아서 누른다.** 방이 아니라 복도다 — 복도에 놓을 수
+   * 있다는 것이 이 판을 만든 까닭이라, 방을 하나 짚어 보는 것으로는
+   * 아무것도 안 잰다. 판을 격자로 훑어서 「복도」라고 뜨는 칸을 찾는다.
+   */
+  const picked = await (async () => {
+    for (let row = 1; row < 24; row++) {
+      for (let col = 1; col < 40; col++) {
+        await page.locator('.sc-sp__board canvas').click({
+          position: { x: (hit.w * col) / 40, y: (hit.h * row) / 24 },
+        })
+        const t = (await page.locator('.sc-sp__where').innerText()).replace(/\s+/g, ' ').trim()
+        // **「고른 자리」까지 같이 본다.** 아직 안 고른 안내문에도
+        // 「복도에도 놓을 수 있다」가 들어 있어서, 복도만 찾으면
+        // 아무 칸도 안 눌린 것을 성공으로 읽는다 — 실제로 그랬다
+        if (t.startsWith('고른 자리') && t.includes('· 복도')) return t
+      }
+    }
+    return null
+  })()
+  console.log(`  ${picked ?? '판에서 복도 칸을 못 짚었다 ✗'}`)
+  if (!picked) process.exitCode = 1
+  await fit(page, '.sc-ad')
+  await page.locator('.sc-ad').screenshot({ path: `${OUT}/4-문제-자리.png` })
+  console.log('  찍었다 4-문제-자리.png')
+
   await browser.close()
   console.log(`\n${OUT} 에 담았다.`)
 }

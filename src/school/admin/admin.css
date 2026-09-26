@@ -501,3 +501,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── 자리를 짚는 작은 판 ─────────────────────────────────────
+   층 하나를 작게 그린다. 방은 밝고 복도는 어둡다 — 복도에도
+   놓을 수 있다는 것이 눈으로 보여야 한다 */
+
+.sc-sp { display: flex; flex-direction: column; gap: 8px; }
+.sc-sp__floors { display: flex; gap: 6px; }
+.sc-sp__floors button { flex: 1; min-height: 32px; font-size: 13px; }
+.sc-sp__floors button.is-on { border-color: var(--sc-line-strong); font-weight: 600; }
+
+/* 판이 화면보다 넓으면 판만 가로로 구른다. 화면 전체가 밀리면
+   아래쪽 입력칸이 같이 따라가서 글을 쓰다 말고 자리를 잃는다 */
+.sc-sp__board {
+  overflow-x: auto;
+  border: 1px solid var(--sc-line);
+  background: #1b1e26;
+  padding: 6px;
+}
+.sc-sp__board canvas { display: block; image-rendering: pixelated; cursor: crosshair; }
+
+.sc-sp__where { margin: 0; font-size: 13px; color: var(--sc-text-dim); }
+.sc-sp__where b { color: var(--sc-text); }
+.sc-sp__where span { font-variant-numeric: tabular-nums; }

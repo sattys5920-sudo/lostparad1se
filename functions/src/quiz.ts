@@ -201,10 +201,27 @@ export const hostQuizList = onCall<{ gameId: string }>(async (req) => {
   const used = new Set(papers.docs.map((d) => (d.data() as QuizPaperDoc).quizId))
   return {
     count: bank.size,
-    /** 아직 안 나온 문제 수. 0이면 더 안 떨어진다 */
+    /** 아직 안 놓은 문제 수. */
     left: bank.docs.filter((d) => !used.has(d.id)).length,
     thin: bankIsThin(bank.size),
     items: bank.docs.map((d) => ({ id: d.id, ...(d.data() as QuizDoc), used: used.has(d.id) })),
+    /**
+     * 지금 판에 나가 있는 종이. **운영자 판에 점으로 찍힌다** —
+     * 어디에 이미 놓았는지 안 보이면 같은 자리에 겹쳐 놓게 된다.
+     * 문장은 안 싣는다. 운영자는 은행 목록에서 읽는다
+     */
+    onFloor: papers.docs.map((d) => {
+      const p = d.data() as QuizPaperDoc
+      return {
+        id: d.id,
+        quizId: p.quizId,
+        x: p.x,
+        y: p.y,
+        /** 주워 갔는가. 주운 것은 거둘 수 없다 */
+        taken: p.heldBy !== null,
+        solved: p.solvedBy !== null,
+      }
+    }),
   }
 })
 
