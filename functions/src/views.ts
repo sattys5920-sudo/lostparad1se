@@ -236,12 +236,12 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       const quiz = quizBank.docs.find((b) => b.id === paper.quizId)?.data() as QuizDoc | undefined
       return {
         id: d.id,
-        tileId: paper.tileId,
-        cell: paper.cell ?? null,
+        x: paper.x,
+        y: paper.y,
         kind: quiz?.kind ?? 'short',
         prompt: quiz?.prompt ?? null,
         choices: quiz?.choices ?? [],
-        openedBy: paper.openedBy ?? null,
+        heldBy: paper.heldBy ?? null,
         solvedTeam: (paper.solvedTeam ?? null) as 'A' | 'B' | 'C' | 'D' | null,
         wrongBy: paper.wrongBy ?? [],
       }

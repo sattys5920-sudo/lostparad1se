@@ -1,17 +1,20 @@
-// 문제 종이 — 그 자리에서 펴서 같이 푼다.
+// 문제 종이 — 주워서 손패에서 푼다.
 //
-// 쪽지와 반대다. 쪽지는 주워서 혼자 읽고 감추지만, 문제는 펼치는
-// 순간 **그 방에 선 사람 전원**이 같이 본다. 들고 갈 수도, 건넬 수도
-// 없다. 다른 팀 사람 앞에서 여는 것이 이 물건의 전부다 — 열지 않으면
-// 아무도 못 풀고, 열면 상대도 같이 본다.
+// 쪽지와 같은 방식이다. 옆에 서서 줍고, 주운 사람만 본다. 다만 쪽지는
+// 남의 비밀이고 이건 문제다 — **먼저 맞히는 한 사람이 가져간다.**
+// 같은 문제를 들고 있던 나머지는 그 순간 못 적게 되고, 손에서 사라진다.
+//
+// 전에는 줍는 것이 아니라 그 자리에서 펴는 물건이었고, 펴면 그 방에
+// 선 사람 전원이 같이 봤다. 「다른 팀 앞에서 펴는 위험」이 그 설계의
+// 전부였는데, 주워서 혼자 푸는 쪽으로 바꾸면서 그 긴장은 없어지고
+// **먼저 줍는 사람이 임자**가 됐다.
 //
 // **화면은 정답을 모른다.** 채점은 서버가 하고, 여기로는 맞았는지
-// 틀렸는지만 온다.
+// 틀렸는지만 온다. 문장조차 주운 사람에게만 온다(views 의 myQuizzes).
 import { useEffect, useState } from 'react'
 
 import { Cost } from './Cost'
-import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK, atPaper } from '../../../shared/rules/quiz'
-import type { Cell } from '../../../shared/rules/board'
+import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 
@@ -19,11 +22,10 @@ export interface QuizProps {
   view: PlayerViewDoc | null
   act: GameActions
   onSaid: (text: string) => void
-  /** 내가 선 칸. 종이 옆이어야 펼치고 답을 낸다 — 서버도 같은 자로 잰다 */
-  myCell: Cell | null
 }
 
-export function Quiz({ view, act, onSaid, myCell }: QuizProps) {
+/** 손패에 든 문제. 손패 안에 얹는다 — 탭이 아니라 주머니 속이다. */
+export function Quiz({ view, act, onSaid }: QuizProps) {
   const [busy, setBusy] = useState(false)
   const [typed, setTyped] = useState<Record<string, string>>({})
   /**
@@ -33,21 +35,19 @@ export function Quiz({ view, act, onSaid, myCell }: QuizProps) {
    * 맞았는지 틀렸는지를 글을 읽어야 알았다. 흔들림은 읽기 전에 온다.
    */
   const [shook, setShook] = useState<string | null>(null)
-  const papers = view?.quizzesHere ?? []
-  if (papers.length === 0) return <p className="sc-qz__shut">이 방에 문제 종이가 없다.</p>
+  const papers = view?.myQuizzes ?? []
+  if (papers.length === 0) return null
 
-  async function run(label: string, fn: () => Promise<unknown>, id: string | null = null) {
+  async function run(fn: () => Promise<unknown>, id: string) {
     setBusy(true)
     try {
       const out = (await fn()) as { correct?: boolean; explain?: string | null }
       if (out?.correct === true) {
         onSaid(`맞혔다. 지식 ${KNOWLEDGE_PER_QUIZ}점.${out.explain ? ` ${out.explain}` : ''}`)
-      } else if (out?.correct === false) {
+      } else {
         onSaid('틀렸다. 이 문제는 다시 못 푼다.')
         setShook(id)
         window.setTimeout(() => setShook((k) => (k === id ? null : k)), 260)
-      } else {
-        onSaid(`${label} 했다.`)
       }
     } catch (e) {
       onSaid((e as Error).message)
@@ -59,70 +59,35 @@ export function Quiz({ view, act, onSaid, myCell }: QuizProps) {
   return (
     <div className="sc-qz">
       <h2>
-        문제 종이 <span>{papers.length}장</span>
+        들고 있는 문제 <span>{papers.length}장</span>
       </h2>
       <ul className="sc-qz__list">
-        {papers.map((q) => {
-          // 자리가 없는 옛 종이는 방 어디서나 닿는다
-          const near = q.cell === null || atPaper(myCell, q.cell)
-          return (
-          <li
-            key={q.id}
-            className={(q.opened ? 'is-open' : '') + (shook === q.id ? ' is-wrong' : '')}
-          >
-            {!q.opened && (
-              <>
-                <p className="sc-qz__shut">접힌 문제가 한 장 있다.</p>
-                <button disabled={busy || !near} onClick={() => void run('펼치기', () => act.openQuiz(q.id))}>
-                  펼치기
+        {papers.map((q) => (
+          <li key={q.id} className={'is-open' + (shook === q.id ? ' is-wrong' : '')}>
+            <p className="sc-qz__prompt">{q.prompt}</p>
+            {q.iFailed && <p className="sc-qz__warn">한 번 틀렸다. 이 문제는 다시 못 푼다.</p>}
+
+            {!q.iFailed && (
+              <div className="sc-qz__short">
+                <input
+                  id={`quiz-${q.id}`}
+                  value={typed[q.id] ?? ''}
+                  placeholder="답을 적는다"
+                  onChange={(e) => setTyped((t) => ({ ...t, [q.id]: e.target.value }))}
+                />
+                <button
+                  disabled={busy || (typed[q.id] ?? '').trim() === ''}
+                  onClick={() => void run(() => act.answerQuiz(q.id, typed[q.id] ?? ''), q.id)}
+                >
+                  낸다
                 </button>
-                <p className="sc-qz__warn">
-                  {near ? '펼치면 이 방에 있는 사람 모두가 같이 본다.' : '종이 옆에 서야 펼칠 수 있다.'}
-                </p>
-              </>
-            )}
-
-            {q.opened && (
-              <>
-                <p className="sc-qz__prompt">{q.prompt}</p>
-                {q.iFailed && <p className="sc-qz__warn">한 번 틀렸다. 이 문제는 다시 못 푼다.</p>}
-                {!q.iFailed && !near && <p className="sc-qz__warn">종이 옆에 서야 답을 낼 수 있다.</p>}
-
-                {!q.iFailed && q.kind === 'choice' && (
-                  <div className="sc-qz__choices">
-                    {q.choices.map((c) => (
-                      <button key={c} disabled={busy || !near} onClick={() => void run('답', () => act.answerQuiz(q.id, c), q.id)}>
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {!q.iFailed && q.kind === 'short' && (
-                  <div className="sc-qz__short">
-                    <input
-                      id={`quiz-${q.id}`}
-                      value={typed[q.id] ?? ''}
-                      placeholder="답을 적는다"
-                      disabled={!near}
-                      onChange={(e) => setTyped((t) => ({ ...t, [q.id]: e.target.value }))}
-                    />
-                    <button
-                      disabled={busy || !near || (typed[q.id] ?? '').trim() === ''}
-                      onClick={() => void run('답', () => act.answerQuiz(q.id, typed[q.id] ?? ''), q.id)}
-                    >
-                      낸다
-                    </button>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </li>
-          )
-        })}
+        ))}
       </ul>
       <p className="sc-qz__note">
-        맞히면 <Cost of="knowledge" n={KNOWLEDGE_PER_QUIZ} />
+        맞히면 <Cost of="knowledge" n={KNOWLEDGE_PER_QUIZ} /> · 먼저 맞히는 한 사람이 가져간다
       </p>
     </div>
   )
@@ -216,10 +181,8 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
             등록된 문제 <b>{bank.count}개</b> · 권장 최소 {QUIZ_MIN_BANK}개
             {bank.thin && ' — 모자란다'}
           </p>
-          {bank.left === 0 && bank.count > 0 && (
-            <p className="sc-qzh__thin">남은 문제가 없다. 이제 문제 종이가 안 떨어진다.</p>
-          )}
-          {bank.left > 0 && <p className="sc-qzh__count">아직 안 나온 문제 {bank.left}개</p>}
+          {bank.left > 0 && <p className="sc-qzh__count">아직 안 놓은 문제 {bank.left}개</p>}
+          {bank.left === 0 && bank.count > 0 && <p className="sc-qzh__thin">등록한 문제를 다 놓았다.</p>}
         </>
       )}
 

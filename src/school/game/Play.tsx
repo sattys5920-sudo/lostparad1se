@@ -52,7 +52,6 @@ import { Meet } from './Meet'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { Phase, PhaseLog, leftText } from './Phase'
 import { Slips } from './Slips'
-import { Quiz } from './Quiz'
 import { atPaper } from '../../../shared/rules/quiz'
 import { TECH_TILE, makerBeside } from '../../../shared/rules/trap'
 import { MakerSheet } from './Maker'
@@ -1130,10 +1129,23 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     }
     /*
      * **문제 종이 옆.** 게시판과 같이 자리를 본다 — 방에 들어온 것만으로는
-     * 안 뜬다. 맵의 종이를 탭해도 같은 시트가 열린다
+     * 안 뜬다. 맵의 종이를 탭해도 같은 일이 일어난다.
+     *
+     * 여기서 하는 일은 **줍는 것뿐이다.** 푸는 것은 손패에서 한다
      */
-    if ((state.view?.quizzesHere ?? []).some((q) => atPaper(myCell, q.cell))) {
-      room.push({ key: 'quiz', icon: 'note', label: '문제 종이', run: () => setSheet('quiz') })
+    const paperHere = (state.view?.quizzesHere ?? []).find((q) => atPaper(myCell, q))
+    if (paperHere) {
+      room.push({
+        key: 'quiz',
+        icon: 'note',
+        label: '문제 종이를 줍는다',
+        run: () => {
+          void act
+            .takeQuiz(paperHere.id)
+            .then(() => setSaid('문제를 주웠다. 손패에서 푼다.'))
+            .catch((e: Error) => refuse(e.message))
+        },
+      })
     }
     /* **제조기 옆.** 기술실 안에서 제조기 옆에 섰을 때만 뜬다 */
     if (standingOn === TECH_TILE && makerBeside(myCell) !== null) {
@@ -1373,11 +1385,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 ? [{ ...state.view.myErrand.thingAt, icon: state.view.myErrand.icon }]
                 : []
             }
-            /* 바닥의 문제 종이. 내가 선 방 것만 서버가 보내 준다 — 자리가
-               없는 옛 종이는 못 그린다 */
-            papers={(state.view?.quizzesHere ?? []).flatMap((q) =>
-              q.cell ? [{ x: q.cell.x, y: q.cell.y, open: q.opened }] : [],
-            )}
+            /* 바닥의 문제 종이. 내가 선 자리 것만 서버가 보내 준다.
+               **접힌 채로만 그린다** — 펴는 물건이 아니라 줍는 물건이다 */
+            papers={(state.view?.quizzesHere ?? []).map((q) => ({ x: q.x, y: q.y, open: false }))}
             /* 화분과 씨앗 상자. 정원에 서 있을 때만 서버가 보내 준다 */
             pots={
               (state.view?.potsHere?.length ?? 0) > 0
@@ -1914,17 +1924,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             myCell={myCell}
             nearPot={(i) => beside(myCell, POT_CELLS[i])}
           />
-        </Sheet>
-      )}
-
-      {/* 문제 종이. 맵에서 종이 옆에 서서 탭하면 열린다. **자유 시간의
-          것이다** — 페이즈 한 시간은 어디에서 끝낼까를 다투는 시간이고,
-          벌이는 그 사이에 한다 */}
-      {sheet === 'quiz' && (
-        <Sheet title="문제 종이" onClose={closeSheet}>
-          {phaseOpen ?
-            <FreeTimeOnly what="문제 풀기" />
-          : <Quiz view={state.view} act={act} onSaid={setSaid} myCell={myCell} />}
         </Sheet>
       )}
 

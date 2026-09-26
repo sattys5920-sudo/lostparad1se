@@ -1,29 +1,23 @@
-// 문제 종이 — 바닥에 떨어진 시험지 한 장.
+// 문제 종이 — 운영자가 바닥에 놓는 시험지 한 장.
 //
-// **정답은 끝까지 secret 아래에만 둔다.** 열린 문제도 클라이언트에게는
-// 문제와 보기까지만 간다. 정답을 실어 보내고 화면에서 가리면
-// 개발자도구로 다 보이고, 그러면 이 물건은 아무 값도 없다. 채점은 전부
-// 여기서 한다.
+// **정답은 끝까지 secret 아래에만 둔다.** 주운 사람에게도 문제 문장까지만
+// 간다. 정답을 실어 보내고 화면에서 가리면 개발자도구로 다 보이고,
+// 그러면 이 물건은 아무 값도 없다. 채점은 전부 여기서 한다.
 //
-// 쪽지와 반대다. 쪽지는 주워서 혼자 읽고 감추는 것이고, 문제는 그
-// 자리에서 펴서 같이 보는 것이다 — 들고 갈 수도 건넬 수도 없다.
-// 다른 팀 사람 앞에서 여는 것이 이 물건의 전부고, 열면 상대도 같이
-// 본다. 먼저 푸는 쪽이 가져간다.
+// 쪽지와 같은 방식이 됐다 — 주워서 손패에 넣고 혼자 푼다. 다만 쪽지는
+// 남의 비밀이고 이건 문제다. **먼저 맞히는 한 사람이 가져간다** —
+// 같은 문제를 들고 있던 나머지는 그 순간 못 적게 된다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import {
   KNOWLEDGE_PER_QUIZ,
-  QUIZ_ON_FLOOR_MAX,
-  QUIZ_PER_PHASE,
   bankIsThin,
   isCorrect,
   type QuizKind,
   atPaper,
-  paperCellOf,
 } from '../../shared/rules/quiz'
-import { TILES, type Cell, type TileId } from '../../shared/rules/board'
-import { rngFrom } from '../../shared/missions/assign'
+import type { Cell } from '../../shared/rules/board'
 import { gain, purseOf } from '../../shared/rules/resources'
 import type { PawnDoc } from '../../shared/model'
 import { freshNow, mustBeFreeTime } from './turn'
@@ -51,20 +45,21 @@ export interface QuizDoc {
 }
 
 /**
- * 바닥에 놓인 종이 한 장. **secret/quiz/floor 아래에 있다.**
+ * 놓인 종이 한 장. **secret/quiz/floor 아래에 있다.**
  *
  * 푼 사람이 생기면 지우지 않고 solvedBy 를 채운다 — 누가 무엇을
  * 가져갔는지가 나중에 이야기가 되고, 개인 미션도 이 기록을 본다.
  */
 export interface QuizPaperDoc {
   quizId: string
-  tileId: TileId
-  /** 바닥 칸. 뿌릴 때 정한다. 옛 문서에는 없다 */
-  cell?: Cell
-  /** 누가 펼쳤는가. null 이면 아직 아무도 안 열었다. */
-  openedBy: string | null
-  /** 페이즈가 닫히면 도로 접힌다. 그 페이즈 번호. */
-  openedInPhase: number | null
+  /**
+   * 놓인 칸. **방이 아니라 생짜 칸이다** — 복도에도 놓이기 때문이다.
+   * 주워 간 뒤에도 그대로 둔다. 어디서 나온 종이인지가 기록이다.
+   */
+  x: number
+  y: number
+  /** 주워 간 사람. null 이면 아직 바닥에 있다. */
+  heldBy: string | null
   /** 틀린 사람들. 그 사람만 다시 못 푼다 — 같은 팀 다른 사람은 할 수 있다. */
   wrongBy: string[]
   /** 맞힌 사람. 차면 이 종이는 끝이다. */
@@ -75,9 +70,6 @@ export interface QuizPaperDoc {
 
 const bankOf = (gameId: string) => gameRef(gameId).collection('secret').doc('quiz').collection('bank')
 const floorOf = (gameId: string) => gameRef(gameId).collection('secret').doc('quiz').collection('floor')
-
-/** 문제 종이가 떨어질 수 있는 방. 기지는 뺀다. */
-const DROP_TILES: TileId[] = TILES.map((t) => t.id)
 
 /** 내 말. 없으면 이 판 사람이 아니다. */
 async function pawnOf(gameId: string, uid: string): Promise<PawnDoc> {
@@ -93,107 +85,62 @@ async function pawnOf(gameId: string, uid: string): Promise<PawnDoc> {
  * 아무 뜻이 없다. 옛 문서(칸이 없는 것)만 방 어디서나 편다.
  */
 function mustBeBeside(pawn: PawnDoc, paper: QuizPaperDoc): void {
-  if (paper.cell && !atPaper((pawn.at ?? null) as Cell | null, paper.cell)) {
+  if (!atPaper((pawn.at ?? null) as Cell | null, { x: paper.x, y: paper.y })) {
     throw new HttpsError('failed-precondition', '종이 옆에 서야 한다.')
   }
 }
 
-/**
- * 문제 종이를 뿌린다. 페이즈가 닫힐 때 서버가 부른다.
- *
- * **한 게임에서 같은 문제는 한 번만 나온다.** 이미 쓴 문제를 빼고
- * 남은 것 중에서 고른다. 남은 것이 없으면 그 페이즈에는 안 떨어지고,
- * 운영자 화면이 그 사실을 본다(hostQuizStatus).
- */
-export async function scatterQuizzes(gameId: string, phaseNo: number, nowMs: number): Promise<number> {
-  const [bank, papers] = await Promise.all([bankOf(gameId).get(), floorOf(gameId).get()])
-  const used = new Set(papers.docs.map((d) => (d.data() as QuizPaperDoc).quizId))
-  const left = bank.docs.filter((d) => !used.has(d.id))
-  // 아직 아무도 안 푼 종이가 바닥에 몇 장인가
-  const onFloor = papers.docs.filter((d) => (d.data() as QuizPaperDoc).solvedBy === null).length
-  const room = Math.max(0, QUIZ_ON_FLOOR_MAX - onFloor)
-  const howMany = Math.min(QUIZ_PER_PHASE, room, left.length)
-  if (howMany === 0) return 0
-
-  const rng = rngFrom(`${gameId}:quiz:${phaseNo}`)
-  const pick = <T>(xs: T[]): T => xs.splice(Math.floor(rng() * xs.length), 1)[0] as T
-  const pool = [...left]
-
-  const batch = db.batch()
-  for (let i = 0; i < howMany; i++) {
-    const ref = floorOf(gameId).doc()
-    const tileId = DROP_TILES[Math.floor(rng() * DROP_TILES.length)] as TileId
-    const doc: QuizPaperDoc = {
-      quizId: pick(pool).id,
-      tileId,
-      // 방 안 한 칸. 맵에 그려지는 자리다
-      cell: paperCellOf(ref.id, tileId),
-      openedBy: null,
-      openedInPhase: null,
-      wrongBy: [],
-      solvedBy: null,
-      solvedTeam: null,
-      atMs: nowMs,
-    }
-    batch.set(ref, doc)
-  }
-  await batch.commit()
-  return howMany
-}
-
-/** 페이즈가 닫히면 펴 둔 종이가 도로 접힌다. */
-export async function foldQuizzes(gameId: string): Promise<void> {
-  const open = await floorOf(gameId).where('openedBy', '!=', null).get()
-  if (open.empty) return
-  const batch = db.batch()
-  for (const d of open.docs) batch.update(d.ref, { openedBy: null, openedInPhase: null })
-  await batch.commit()
-}
+/** 운영자가 아직 아무도 안 주운 종이를 도로 거둔다. */
+export const hostPullQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId, paperId } = req.data
+  await db.runTransaction(async (tx) => {
+    const ref = floorOf(gameId).doc(paperId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 종이가 없다.')
+    const paper = snap.data() as QuizPaperDoc
+    if (paper.heldBy) throw new HttpsError('failed-precondition', '누가 주워 갔다.')
+    tx.delete(ref)
+  })
+  await refreshViews(gameId)
+  return { ok: true }
+})
 
 /**
- * 펼친다. **그 방에 선 사람 전원에게 보이게 된다.**
+ * 줍는다. **손패에 들어온다.**
  *
- * 다른 팀 사람 앞에서 여는 것이 이 물건의 전부다. 열지 않으면 아무도
- * 못 풀고, 열면 상대도 같이 본다.
+ * 옆 칸에 서야 한다 — 기물·심부름 물건과 같은 자다. 주우면 문제
+ * 문장이 그 사람에게만 간다. 바닥에 있는 동안에는 누구에게도 문장이
+ * 안 간다(views 의 quizFloor 가 자리만 싣는다).
  */
-export const openQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
+export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, paperId } = req.data
   const [pawn, { game }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
-  mustBeFreeTime(game, '문제를 펼')
-  const here = (pawn.tileId ?? null) as TileId | null
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
+  mustBeFreeTime(game, '문제를 주울')
 
   await db.runTransaction(async (tx) => {
     const ref = floorOf(gameId).doc(paperId)
     const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 문제가 없다.')
     const q = snap.data() as QuizPaperDoc
-    if (q.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 문제다.')
-    mustBeBeside(pawn, q)
+    // **먼저 줍는 손이 임자다.** 남이 가져간 뒤에는 자리만 남는다
+    if (q.heldBy) throw new HttpsError('failed-precondition', '이미 누가 주워 갔다.')
     if (q.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 가져갔다.')
-    if (q.openedBy) return
-    tx.update(ref, { openedBy: uid, openedInPhase: game.phaseNow?.no ?? null })
+    mustBeBeside(pawn, q)
+    tx.update(ref, { heldBy: uid })
   })
+
   await refreshViews(gameId)
-  return { paperId }
+  return { ok: true }
 })
 
-/**
- * 답을 낸다. **채점은 여기서만 한다.**
- *
- * 여럿이 동시에 내면 트랜잭션이 도착 순서대로 줄을 세운다 — 먼저 닿은
- * 답이 맞으면 그 팀이 가져가고, 뒤에 온 답은 「이미 누가 가져갔다」를
- * 받는다.
- */
 export const answerQuiz = onCall<{ gameId: string; paperId: string; given: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, paperId, given } = req.data
   if (typeof given !== 'string') throw new HttpsError('invalid-argument', '답이 없다.')
   const [pawn, { game, nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
   mustBeFreeTime(game, '문제를 풀')
-  const here = (pawn.tileId ?? null) as TileId | null
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
 
   const ref = gameRef(gameId)
 
@@ -202,9 +149,11 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
     const paperSnap = await tx.get(paperRef)
     if (!paperSnap.exists) throw new HttpsError('not-found', '그런 문제가 없다.')
     const paper = paperSnap.data() as QuizPaperDoc
-    if (paper.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 문제다.')
-    mustBeBeside(pawn, paper)
-    if (!paper.openedBy) throw new HttpsError('failed-precondition', '아직 안 펼친 문제다.')
+    /*
+     * **들고 있어야 푼다.** 어디에 서 있는지는 안 본다 — 주워서
+     * 손패에 넣은 뒤로는 걸어 다니며 생각해도 된다.
+     */
+    if (paper.heldBy !== uid) throw new HttpsError('failed-precondition', '들고 있지 않은 문제다.')
     // 먼저 닿은 답이 이겼다. 뒤에 온 사람은 여기서 걸린다
     if (paper.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 가져갔다.')
     if (paper.wrongBy.includes(uid)) throw new HttpsError('failed-precondition', '한 번 틀린 문제다.')
@@ -232,7 +181,7 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
   // 이 줄을 센다** — 팀이 아니라 본인이 맞혀야 한다
   if (out.correct) {
     await note(gameId, 'quizSolved', nowMs, { id: uid, team: pawn.team }, {
-      tileId: here,
+      tileId: pawn.tileId ?? undefined,
       subjectId: paperId,
     })
   }

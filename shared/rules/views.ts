@@ -18,7 +18,7 @@
 import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { CardKind, TeamId, VoteKind } from './v2'
-import { TILE_BY_ID, type Cell, type TileId } from './board'
+import { TILE_BY_ID, isHallCell, roomOfCell, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
 import { MAKERS, TECH_TILE } from './trap'
 import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
@@ -118,21 +118,22 @@ export interface WorldSlip {
 }
 
 /**
- * 바닥의 문제 종이 한 장. **정답은 여기에 없다.**
+ * 놓인 문제 종이 한 장. **정답은 여기에 없다.**
  *
- * 서버가 은행에서 문제와 보기만 떼어 실어 보낸다. 정답과 해설은 어떤
+ * 서버가 은행에서 문제 문장만 떼어 실어 보낸다. 정답과 해설은 어떤
  * 경로로도 나가지 않고, 채점은 서버가 한다.
  */
 export interface WorldQuiz {
   id: string
-  tileId: TileId
-  /** 바닥 칸. 옛 문서에는 없다 — 그러면 방 어디서나 편다 */
-  cell: Cell | null
+  /** 놓인 칸. **방이 아니라 생짜 칸이다** — 복도에도 놓이기 때문이다. */
+  x: number
+  y: number
   kind: 'choice' | 'short'
-  /** 펼쳐졌을 때만 찬다. 안 펼친 종이는 null 이다. */
+  /** **투영이 든 사람에게만 실어 준다.** 바닥에 있는 동안에는 안 간다. */
   prompt: string | null
   choices: readonly string[]
-  openedBy: string | null
+  /** 주워 간 사람. null 이면 아직 바닥에 있다. */
+  heldBy: string | null
   solvedTeam: TeamId | null
   /** 틀린 사람들. 투영이 내 것만 본다. */
   wrongBy: readonly string[]
@@ -454,19 +455,23 @@ export interface View {
   /** 내가 들고 있는 쪽지. 읽은 것만 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**
-   * 내가 선 방의 문제 종이. **안 펼친 것은 「한 장 있다」까지만이다.**
+   * 눈에 띄는 문제 종이. **자리만이다.**
    *
-   * 펼치면 그 방 사람 전원에게 문제와 보기가 간다 — 다른 팀 사람 앞에서
-   * 여는 것이 이 물건의 전부라, 여기서 팀을 가르면 규칙이 성립하지 않는다.
-   * 정답과 해설은 어느 쪽이든 안 온다.
+   * 바닥에 놓인 것은 어디에 한 장 있다까지고, 문장은 안 온다. 맵이
+   * 이걸로 접힌 종이를 그린다. 주우면 myQuizzes 로 옮겨 간다.
    */
-  quizzesHere: {
+  quizzesHere: { id: string; x: number; y: number }[]
+  /**
+   * 내가 주워 든 문제. **나에게만 온다.**
+   *
+   * 여기서만 문장이 실린다 — 남이 들고 있는 종이는 무엇이 적혔는지도,
+   * 누가 들었는지도 안 온다. 정답과 해설은 어느 쪽이든 안 온다.
+   */
+  myQuizzes: {
     id: string
     kind: 'choice' | 'short'
-    cell: Cell | null
     prompt: string | null
     choices: string[]
-    opened: boolean
     /** 내가 이미 틀렸는가. 남이 틀렸는지는 안 온다. */
     iFailed: boolean
   }[]
@@ -557,6 +562,7 @@ export function projectView(world: World, viewerId: string): View {
       lockedTiles: [],
       soldOutItems: [],
       quizzesHere: [],
+      myQuizzes: [],
       mySlips: [],
       memories: [],
       sightAtMs: null,
@@ -580,6 +586,22 @@ export function projectView(world: World, viewerId: string): View {
   const here = seenPawns.find((p) => p.playerId === viewerId)?.tileId ?? null
   /** 내가 멈춰 선 칸. 게시판 앞인지를 이걸로 본다 */
   const myCell = seenPawns.find((p) => p.playerId === viewerId)?.at ?? null
+
+  /**
+   * 그 칸이 내 눈에 들어오는가. **문제 종이가 이걸로 걸러진다.**
+   *
+   * 종이는 방이 아니라 생짜 칸에 놓인다(복도 때문에). 그래서 「같은
+   * 방인가」 하나로는 복도에 놓인 것을 가릴 수가 없다 — 방 안 것은
+   * 같은 방일 때, 복도 것은 나도 복도에 섰을 때 보인다.
+   *
+   * 층을 안 본다. 복도는 층마다 따로 있고 한 층의 복도 칸이 다른
+   * 층의 복도 칸과 좌표가 겹치지 않는다(board.ts 의 HALLS).
+   */
+  const seesCell = (x: number, y: number): boolean => {
+    const room = roomOfCell(x, y)
+    if (room !== null) return room === here
+    return here === null && myCell !== null && isHallCell(myCell.x, myCell.y)
+  }
 
 
   const seen = visiblePawns({
@@ -783,26 +805,32 @@ export function projectView(world: World, viewerId: string): View {
     scrapsHere: (world.slips ?? [])
       .filter((s) => s.torn === true && here !== null && (s.tornAt ?? null) === here)
       .map((s) => ({ id: s.id })),
-    // **안 펼친 문제는 「한 장 있다」까지만.** 펼치면 그 방 사람
-    // 전원에게 문제와 보기가 간다 — 다른 팀 사람 앞에서 여는 것이
-    // 이 물건의 전부라, 여기서 팀을 가르면 규칙이 성립하지 않는다.
-    // 정답과 해설은 어느 쪽이든 안 간다
+    /*
+     * **바닥의 문제는 자리만 간다.** 무엇이 적혔는지는 주워야 온다.
+     *
+     * 남이 주워 간 종이는 여기서 아예 빠진다 — 자리만 남기면 「저기
+     * 있던 것을 누가 가져갔다」가 보이는데, 그건 아무도 못 본 일이다.
+     */
     quizzesHere: (world.quizzes ?? [])
-      .filter((q) => here !== null && q.tileId === here && q.solvedTeam === null)
-      .map((q) => {
-        const opened = q.openedBy !== null
-        return {
-          id: q.id,
-          kind: q.kind,
-          cell: q.cell,
-          prompt: opened ? q.prompt : null,
-          choices: opened ? [...q.choices] : [],
-          opened,
-          // 남이 틀렸는지는 안 간다. 「저 사람은 이미 틀렸다」를 알면
-          // 누가 무엇을 모르는지가 공개 정보가 된다
-          iFailed: q.wrongBy.includes(viewerId),
-        }
-      }),
+      .filter((q) => q.heldBy === null && q.solvedTeam === null && seesCell(q.x, q.y))
+      .map((q) => ({ id: q.id, x: q.x, y: q.y })),
+    /*
+     * **내가 든 것만 문장이 온다.**
+     *
+     * 푼 종이는 목록에서 빠진다 — 손에서 사라지는 것이 「끝났다」의
+     * 표시다. 남이 먼저 맞혀서 끝난 것도 그렇게 사라진다
+     */
+    myQuizzes: (world.quizzes ?? [])
+      .filter((q) => q.heldBy === viewerId && q.solvedTeam === null)
+      .map((q) => ({
+        id: q.id,
+        kind: q.kind,
+        prompt: q.prompt,
+        choices: [...q.choices],
+        // 남이 틀렸는지는 안 간다. 「저 사람은 이미 틀렸다」를 알면
+        // 누가 무엇을 모르는지가 공개 정보가 된다
+        iFailed: q.wrongBy.includes(viewerId),
+      })),
     // 들고 있는 것. **읽은 것만 문장이 실린다** — 주웠다고 저절로
     // 읽히면 「읽는다」가 아무 일도 아닌 것이 된다
     mySlips: (world.slips ?? [])

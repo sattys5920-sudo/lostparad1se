@@ -284,7 +284,8 @@ export function gameActions(gameId: string) {
     useItem: (kind: string, more: { text?: string; scrapId?: string } = {}) =>
       callServer('useItem', { ...g, kind, ...more }),
     /** 문제 종이를 펼친다. **그 방 사람 전원에게 보이게 된다.** */
-    openQuiz: (paperId: string) => callServer('openQuiz', { ...g, paperId }),
+    /** 문제 종이를 줍는다. **손패에 들어온다** — 옆 칸에 서야 한다 */
+    takeQuiz: (paperId: string) => callServer('takeQuiz', { ...g, paperId }),
     /** 기술실 제조기에 덫을 맡긴다. 팀 토큰 1 */
     commissionTrap: (maker: number) => callServer('commissionTrap', { ...g, maker }),
     /** 다 된 덫을 찾는다. 맡긴 사람만 */

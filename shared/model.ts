@@ -575,17 +575,22 @@ export interface PlayerViewDoc {
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
   mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
   /**
-   * 내가 선 방의 문제 종이. 안 펼친 것은 「한 장 있다」까지다.
-   * **정답과 해설은 어떤 경로로도 오지 않는다.**
+   * 눈에 띄는 문제 종이. **자리까지다** — 무엇이 적혔는지는 주워야 온다.
+   *
+   * 방이 아니라 생짜 칸이다. 복도에도 놓이기 때문이다.
    */
-  quizzesHere?: {
+  quizzesHere?: { id: string; x: number; y: number }[]
+  /**
+   * 내가 주워 든 문제. **나에게만 온다.**
+   *
+   * 여기서만 문장이 실린다. 남이 들고 있는 종이는 무엇이 적혔는지도,
+   * 누가 들었는지도 안 온다. **정답과 해설은 어느 쪽이든 안 온다.**
+   */
+  myQuizzes?: {
     id: string
     kind: 'choice' | 'short'
-    /** 바닥 칸. 맵에 그려지고, 옆에 서야 편다 */
-    cell: Cell | null
     prompt: string | null
     choices: string[]
-    opened: boolean
     iFailed: boolean
   }[]
   /** 내가 가 본 방. 지도가 채워지는 것은 개인의 기록이다. */

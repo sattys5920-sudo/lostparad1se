@@ -63,7 +63,6 @@ import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { scatterSlips } from './slips'
-import { foldQuizzes, scatterQuizzes } from './quiz'
 import { settleBallots } from './ballot'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { note } from './records'
@@ -978,18 +977,19 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   }
 
   const dropped = await scatterSlips(gameId, no, nowMs)
-  // 펴 둔 문제는 도로 접히고, 새 종이가 몇 장 떨어진다
-  await foldQuizzes(gameId)
   // 제조기에 남은 덫은 사라진다. 다음 페이즈로 안 넘어간다
   await clearTrapJobs(gameId)
-  const papers = await scatterQuizzes(gameId, no, nowMs)
+  /*
+   * **문제 종이는 여기서 안 뿌린다.** 운영자가 손으로 놓는다(drop.ts).
+   * 펴 둔 것을 도로 접는 일도 없다 — 이제 펴는 물건이 아니라 줍는
+   * 물건이고, 주운 사람 손패에 그대로 남는다.
+   */
   await refreshViews(gameId)
   return {
     no,
     captured: out.log.filter((l) => l.kind === 'captured').length,
     lines: out.log.length,
     slips: dropped,
-    quizzes: papers,
   }
 })
 

@@ -8,6 +8,7 @@
 // 적어 놓고 그 계산을 아무도 안 불러서, 맺어도 판에 아무 일이 없었다.
 import { useState } from 'react'
 
+import { Quiz } from './Quiz'
 import { CARD_BY_KIND } from '../../../shared/rules/v2'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { GameActions } from './useGame'
@@ -50,6 +51,10 @@ export function Hand({ view, act, onSaid }: HandProps) {
           </li>
         ))}
       </ul>
+
+      {/* 주워 든 문제. **주머니 속이라 여기 있다** — 자리도 안 보고
+          푸는 것이라 맵과는 상관이 없다 */}
+      <Quiz view={view} act={act} onSaid={onSaid} />
     </div>
   )
 }

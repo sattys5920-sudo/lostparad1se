@@ -88,38 +88,39 @@ function world(over = false, invisibleId: string | null = null): World {
       { id: 'sTorn', subjectId: 'D1', line: SLIP_TORN, tileId: null, heldBy: null, readBy: ['A0'] },
     ],
     quizzes: [
-      // A기지에 두 장 — 한 장은 접혀 있고 한 장은 B0 가 펼쳐 두었다
+      // 바닥에 한 장 — 아직 아무도 안 주웠다
       {
         id: 'qShut',
-        tileId: 'baseA',
-        cell: null,
+        x: 12,
+        y: 68,
         kind: 'short' as const,
         prompt: QUIZ_SHUT,
         choices: [],
-        openedBy: null,
+        heldBy: null,
         solvedTeam: null,
         wrongBy: [],
       },
+      // B0 가 주워 간 한 장. **B0 에게만 문장이 간다**
       {
         id: 'qOpen',
-        tileId: 'baseA',
-        cell: null,
+        x: 13,
+        y: 68,
         kind: 'choice' as const,
         prompt: QUIZ_OPEN,
         choices: ['하나', '둘', '셋', '넷'],
-        openedBy: 'B0',
+        heldBy: 'B0',
         solvedTeam: null,
         wrongBy: ['A1'],
       },
       // 이미 누가 가져간 종이. 아무에게도 안 보인다
       {
         id: 'qDone',
-        tileId: 'baseA',
-        cell: null,
+        x: 14,
+        y: 68,
         kind: 'short' as const,
         prompt: '가져간 문제',
         choices: [],
-        openedBy: 'A0',
+        heldBy: 'A0',
         solvedTeam: 'A' as const,
         wrongBy: [],
       },
@@ -326,37 +327,42 @@ describe('열넷 몫을 통째로 훑는다', () => {
   })
 })
 
-describe('문제 종이 — 펼쳐야 보이고, 정답은 안 온다', () => {
-  it('안 펼친 것은 **한 장 있다는 것까지만** 안다', () => {
+describe('문제 종이 — 주워야 보이고, 정답은 안 온다', () => {
+  it('바닥에 있는 동안에는 **자리까지만** 간다', () => {
     const v = projectView(world(), 'A0')
     const shut = v.quizzesHere.find((q) => q.id === 'qShut')
-    expect(shut?.opened).toBe(false)
-    expect(shut?.prompt).toBeNull()
-    expect(shut?.choices).toEqual([])
+    expect(shut).toEqual({ id: 'qShut', x: 12, y: 68 })
     // 본문이 어디에도 안 실린다
     expect(JSON.stringify(v)).not.toContain(QUIZ_SHUT)
   })
 
-  it('펼치면 그 방 사람 **전원**에게 본문이 간다 — 남의 팀도', () => {
-    // A기지에 B0 를 세워 둔다. 다른 팀 앞에서 여는 것이 이 물건의
-    // 전부라, 여기서 팀을 가르면 규칙이 성립하지 않는다
-    const shared = world()
-    const mixed = {
-      ...shared,
-      pawns: shared.pawns.map((p) => (p.playerId === 'B0' ? { ...p, tileId: 'baseA' } : p)),
-    }
-    for (const who of ['A0', 'A1', 'B0']) {
-      const q = projectView(mixed, who).quizzesHere.find((x) => x.id === 'qOpen')
-      expect(q?.opened).toBe(true)
-      expect(q?.prompt).toBe(QUIZ_OPEN)
-      expect(q?.choices).toHaveLength(4)
+  it('**든 사람에게만** 문장이 간다', () => {
+    const mine = projectView(world(), 'B0').myQuizzes.find((q) => q.id === 'qOpen')
+    expect(mine?.prompt).toBe(QUIZ_OPEN)
+    expect(mine?.choices).toHaveLength(4)
+  })
+
+  it('남이 든 종이는 **있다는 것도 안 간다**', () => {
+    for (const who of ['A0', 'A1', 'C0']) {
+      const v = projectView(world(), who)
+      expect(v.myQuizzes.map((q) => q.id), who).not.toContain('qOpen')
+      // 바닥 목록에서도 빠진다 — 자리만 남기면 「누가 가져갔다」가 보인다
+      expect(v.quizzesHere.map((q) => q.id), who).not.toContain('qOpen')
+      expect(JSON.stringify(v), who).not.toContain(QUIZ_OPEN)
     }
   })
 
-  it('다른 방 사람에게는 있다는 것조차 안 간다', () => {
+  it('푼 종이는 든 사람 손에서도 사라진다', () => {
+    const v = projectView(world(), 'A0')
+    expect(v.myQuizzes.map((q) => q.id)).not.toContain('qDone')
+    expect(JSON.stringify(v)).not.toContain('가져간 문제')
+  })
+
+  it('다른 방 사람에게는 **있다는 것조차** 안 간다', () => {
+    // qShut 은 A기지 안 칸(10,10)에 있다. D0 는 거기 없다
     const v = projectView(world(), 'D0')
-    expect(v.quizzesHere).toEqual([])
-    expect(JSON.stringify(v)).not.toContain(QUIZ_OPEN)
+    expect(v.quizzesHere.map((q) => q.id)).not.toContain('qShut')
+    expect(JSON.stringify(v)).not.toContain(QUIZ_SHUT)
   })
 
   it('이미 누가 가져간 종이는 사라진다', () => {
@@ -364,12 +370,12 @@ describe('문제 종이 — 펼쳐야 보이고, 정답은 안 온다', () => {
     expect(ids).not.toContain('qDone')
   })
 
-  it('내가 틀렸는지만 오고, 남이 틀렸는지는 안 온다', () => {
-    // A1 이 틀렸다. 본인은 알고 남은 모른다 — 「저 사람은 이미
+  it('든 사람에게 **내가 틀렸는지만** 오고, 남이 틀렸는지는 안 온다', () => {
+    // wrongBy 에 A1 이 있는데 든 사람은 B0 다. 「저 사람은 이미
     // 틀렸다」를 알면 누가 무엇을 모르는지가 공개 정보가 된다
-    expect(projectView(world(), 'A1').quizzesHere.find((q) => q.id === 'qOpen')?.iFailed).toBe(true)
-    expect(projectView(world(), 'A0').quizzesHere.find((q) => q.id === 'qOpen')?.iFailed).toBe(false)
-    expect(JSON.stringify(projectView(world(), 'A0').quizzesHere)).not.toContain('A1')
+    const mine = projectView(world(), 'B0').myQuizzes.find((q) => q.id === 'qOpen')
+    expect(mine?.iFailed).toBe(false)
+    expect(JSON.stringify(projectView(world(), 'B0').myQuizzes)).not.toContain('A1')
   })
 })
 

@@ -176,7 +176,7 @@ export {
 } from './errand'
 
 // 문제 종이. 정답과 해설은 여기 바깥으로 나가지 않는다 — 채점도 서버가 한다
-export { openQuiz, answerQuiz, hostQuizList, hostQuizUpsert, hostQuizRemove } from './quiz'
+export { takeQuiz, answerQuiz, hostQuizList, hostQuizUpsert, hostQuizRemove, hostPullQuiz } from './quiz'
 export { commissionTrap, takeTrap } from './trap'
 
 // 투명인간 투표. 누가 누구를 적었는지는 어떤 API로도 안 나간다
