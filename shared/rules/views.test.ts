@@ -35,6 +35,12 @@ const ROSTER = TEAMS.flatMap((team) =>
   })),
 )
 
+/**
+ * 시험용 말 하나.
+ *
+ * **자리(at)를 안 주면** 방까지만 아는 사람이 된다. 문제 종이가 칸으로
+ * 견주므로, 자리 있는 말과 없는 말이 둘 다 지나가야 한다.
+ */
 const pawn = (playerId: string, team: TeamId, tileId: TileId | null, extra: Partial<WorldPawn> = {}): WorldPawn => ({
   playerId,
   team,
@@ -111,6 +117,18 @@ function world(over = false, invisibleId: string | null = null): World {
         heldBy: 'B0',
         solvedTeam: null,
         wrongBy: ['A1'],
+      },
+      // 1층 복도에 한 장. **복도에 선 사람에게만 보인다**
+      {
+        id: 'qHall',
+        x: 10,
+        y: 79,
+        kind: 'short' as const,
+        prompt: '복도 문제',
+        choices: [],
+        heldBy: null,
+        solvedTeam: null,
+        wrongBy: [],
       },
       // 이미 누가 가져간 종이. 아무에게도 안 보인다
       {
@@ -363,6 +381,42 @@ describe('문제 종이 — 주워야 보이고, 정답은 안 온다', () => {
     const v = projectView(world(), 'D0')
     expect(v.quizzesHere.map((q) => q.id)).not.toContain('qShut')
     expect(JSON.stringify(v)).not.toContain(QUIZ_SHUT)
+  })
+
+  /*
+   * **복도 것은 복도에 서야 보인다.**
+   *
+   * 여기가 한동안 비어 있었다. 「방 안에서는 안 보인다」만 재고
+   * 「복도에서는 보인다」를 안 재는 바람에, 복도 종이가 **아무에게도**
+   * 안 보이던 것을 한참 못 봤다 — tileId 는 복도에 서 있어도 마지막
+   * 방으로 남아 있는데 그걸로 「복도에 섰나」를 봤기 때문이다.
+   */
+  it('복도 것은 **복도에 선 사람에게 보인다**', () => {
+    const w = world()
+    const inHall = {
+      ...w,
+      pawns: w.pawns.map((p) => (p.playerId === 'A0' ? { ...p, at: { x: 11, y: 79 } } : p)),
+    }
+    const ids = projectView(inHall, 'A0').quizzesHere.map((q) => q.id)
+    expect(ids).toContain('qHall')
+    // 같은 복도에 섰으니 방 안 것은 안 보인다
+    expect(ids).not.toContain('qShut')
+  })
+
+  it('복도 것은 방 안에서 안 보인다', () => {
+    const ids = projectView(world(), 'A0').quizzesHere.map((q) => q.id)
+    expect(ids).not.toContain('qHall')
+  })
+
+  it('다른 층 복도 것도 안 보인다', () => {
+    const w = world()
+    // A0 는 1층 복도, 종이는 2층 복도
+    const twoFloors = {
+      ...w,
+      pawns: w.pawns.map((p) => (p.playerId === 'A0' ? { ...p, at: { x: 11, y: 79 } } : p)),
+      quizzes: (w.quizzes ?? []).map((q) => (q.id === 'qHall' ? { ...q, x: 10, y: 30 } : q)),
+    }
+    expect(projectView(twoFloors, 'A0').quizzesHere.map((q) => q.id)).not.toContain('qHall')
   })
 
   it('이미 누가 가져간 종이는 사라진다', () => {

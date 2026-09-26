@@ -253,6 +253,47 @@ async function main(): Promise<void> {
   const hallSeen = (onFloorView).some((q) => q.x === hallCell.x && q.y === hallCell.y)
   check(!hallSeen, '복도에 놓인 것은 방 안에서 안 보인다')
 
+  /*
+   * **복도에 서면 보인다.** 이걸 안 재는 바람에 복도 종이가 아무에게도
+   * 안 보이던 것을 한참 못 봤다 — 「방 안에서 안 보인다」만 재면 아예
+   * 안 보이는 것도 통과한다.
+   *
+   * 복도로는 roamTo 가 아니라 standAt 으로 나선다. 복도는 방이 아니라
+   * 걸어서 지나는 자리라 목적지가 될 수 없다.
+   */
+  // 복도에서 돌아올 자리. 방 안 빈 칸 하나면 된다
+  const winCellPre = (() => {
+    const rr = TILE_BY_ID[goal].plan
+    for (let y = rr.y + 1; y < rr.y + rr.h - 1; y++)
+      for (let x = rr.x + 1; x < rr.x + rr.w - 1; x++) {
+        if (x === paperCell.x && y === paperCell.y) continue
+        if (canDropQuizAt(x, y)) return { x, y }
+      }
+    throw new Error('돌아올 자리가 없다')
+  })()
+  const stepOut = await call('standAt', A[1].token, { gameId: GAME, x: hallCell.x + 1, y: hallCell.y })
+  if (stepOut.code) {
+    check(false, '복도로 못 나섰다', String(stepOut.message ?? stepOut.code))
+  } else {
+    const hallView = (await viewOf(A[1].uid)).quizzesHere as { id: string; x: number; y: number }[]
+    check(
+      hallView.some((q) => q.x === hallCell.x && q.y === hallCell.y),
+      '**복도에 서면 복도 것이 보인다**',
+      JSON.stringify(hallView),
+    )
+    check(!hallView.some((q) => q.id === target.id), '복도에 서면 방 안 것은 안 보인다')
+    // 옆 칸이니 주울 수도 있어야 한다
+    const hallPaperId = (await floorNow()).find((q) => q.d.quizId === shutQ.id)?.id
+    const grab = await call('takeQuiz', A[1].token, { gameId: GAME, paperId: String(hallPaperId) })
+    check(!grab.code, '**복도에서 주울 수 있다**', String(grab.message ?? ''))
+    /*
+     * 도로 방 안 칸으로 들여보낸다. **roamTo 가 아니다** — standAt 은
+     * tileId 를 안 고치므로 복도에 서 있어도 방은 goal 그대로고,
+     * roamTo(goal) 은 「이미 그 방이다」로 거절한다.
+     */
+    await standBeside(A[1].token, winCellPre)
+  }
+
   console.log('\n── 옆에 서야 줍는다 ──')
   await standFar(A[0].token, goal, paperCell)
   const farTake = await call('takeQuiz', A[0].token, { gameId: GAME, paperId: target.id })

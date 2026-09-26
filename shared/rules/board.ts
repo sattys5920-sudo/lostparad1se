@@ -636,6 +636,18 @@ export function isHallCell(x: number, y: number): boolean {
   return HALLS.some((h) => inRect(h.rect, x, y))
 }
 
+/**
+ * 그 칸이 몇 층인가. 방도 복도도 아니면 null 이다.
+ *
+ * **복도끼리 견줄 때 쓴다.** 복도는 층마다 따로 있는데 셋 다 「방이
+ * 아니다」라서, 방 이름만으로는 1층 복도와 2층 복도를 못 가른다.
+ */
+export function floorOfCell(x: number, y: number): Floor | null {
+  const room = roomOfCell(x, y)
+  if (room !== null) return TILE_BY_ID[room].floor
+  return HALLS.find((h) => inRect(h.rect, x, y))?.floor ?? null
+}
+
 /** 서 있을 수 있는 칸인가. 방 안이거나 복도면 된다. */
 export const canStandAt = (x: number, y: number): boolean => roomOfCell(x, y) !== null || isHallCell(x, y)
 

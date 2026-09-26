@@ -18,7 +18,7 @@
 import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { CardKind, TeamId, VoteKind } from './v2'
-import { TILE_BY_ID, isHallCell, roomOfCell, type Cell, type TileId } from './board'
+import { TILE_BY_ID, floorOfCell, roomOfCell, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
 import { MAKERS, TECH_TILE } from './trap'
 import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
@@ -590,17 +590,24 @@ export function projectView(world: World, viewerId: string): View {
   /**
    * 그 칸이 내 눈에 들어오는가. **문제 종이가 이걸로 걸러진다.**
    *
-   * 종이는 방이 아니라 생짜 칸에 놓인다(복도 때문에). 그래서 「같은
-   * 방인가」 하나로는 복도에 놓인 것을 가릴 수가 없다 — 방 안 것은
-   * 같은 방일 때, 복도 것은 나도 복도에 섰을 때 보인다.
+   * 종이는 방이 아니라 생짜 칸에 놓인다(복도 때문에). 그래서 **내가
+   * 선 칸**과 견준다 — 같은 방이면 보이고, 둘 다 복도면 보인다.
    *
-   * 층을 안 본다. 복도는 층마다 따로 있고 한 층의 복도 칸이 다른
-   * 층의 복도 칸과 좌표가 겹치지 않는다(board.ts 의 HALLS).
+   * **tileId 로 견주면 안 된다.** 복도에 서 있어도 tileId 는 마지막
+   * 방으로 남아 있다(standAt 은 at 만 고친다). 그걸로 「복도에 섰나」를
+   * 보려다 복도에 놓인 종이가 아무에게도 안 보인 적이 있다.
+   *
+   * 층은 따로 본다. 복도는 층마다 따로 있는데 셋 다 「방이 아니다」라
+   * 방 이름만으로는 1층 복도와 2층 복도를 못 가른다.
    */
   const seesCell = (x: number, y: number): boolean => {
+    // 칸이 없으면 방까지는 안다. 막 도착해서 아직 안 선 사람이 그렇다
+    const myRoom = myCell !== null ? roomOfCell(myCell.x, myCell.y) : here
     const room = roomOfCell(x, y)
-    if (room !== null) return room === here
-    return here === null && myCell !== null && isHallCell(myCell.x, myCell.y)
+    if (room !== null) return room === myRoom
+    // 복도 것은 **나도 복도에 서 있어야** 보인다. 층까지 같아야 한다
+    if (myRoom !== null || myCell === null) return false
+    return floorOfCell(x, y) === floorOfCell(myCell.x, myCell.y)
   }
 
 
