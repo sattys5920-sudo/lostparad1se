@@ -10,6 +10,8 @@
 import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
+import { TILE_BY_ID } from '../shared/rules/board'
+import { canDropQuizAt } from '../shared/rules/quiz'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -158,15 +160,42 @@ async function main() {
   check(str(read[0]?.line) === MEMO, '읽으면 운영자가 쓴 그대로 온다', String(str(read[0]?.line)))
   check(str(read[0]?.subjectId) === '', '누구의 비밀도 아니다 — 주인 자리가 비어 있다')
 
+  /*
+   * 문제 종이. **방이 아니라 칸에 놓는다** — 복도에도 놓을 수 있어야
+   * 해서 방 이름이 아니라 좌표를 받는다. 그리고 펴는 물건이 아니라
+   * **줍는 물건이다**: 바닥에서는 자리만 보이고, 주운 한 사람에게만
+   * 문장이 간다.
+   */
   console.log('\n── 문제 종이 ──')
+  /*
+   * **먼저 칸에 세운다.** 방에 들어온 것만으로는 pawn.at 이 안 찬다 —
+   * roamTo 는 방만 바꾸고 칸은 standAt 이 정한다. 안 세우고 좌표를
+   * 물었더니 「모른다」가 나왔다.
+   */
+  // **plan 이 칸 좌표다.** rect 는 미니맵 쪽 네모라, 그걸로 훑었더니
+  // 다른 층 방(rooftop)의 칸이 나왔다 — roomOfCell 도 plan 을 본다
+  const rect = TILE_BY_ID[HERE].plan
+  let stand: { x: number; y: number } | null = null
+  let spot: { x: number; y: number } | undefined
+  for (let y = rect.y; y < rect.y + rect.h && spot === undefined; y++) {
+    for (let x = rect.x; x < rect.x + rect.w && spot === undefined; x++) {
+      if (!canDropQuizAt(x, y) || !canDropQuizAt(x + 1, y)) continue
+      stand = { x, y }
+      spot = { x: x + 1, y }
+    }
+  }
+  check(stand !== null && spot !== undefined, '설 칸과 놓을 칸을 찾았다', stand && spot ? `${stand.x},${stand.y} 옆 ${spot.x},${spot.y}` : '못 찾았다')
+  await must('standAt', meTok, { gameId: game, x: stand?.x, y: stand?.y })
+
   const q = await must('hostDrop', host, {
     gameId: game,
-    tileId: HERE,
     kind: 'quiz',
+    x: spot?.x,
+    y: spot?.y,
     quiz: {
-      kind: 'choice',
+      kind: 'short',
       prompt: '눈이 가장 많이 오는 달은?',
-      choices: ['열두 달', '한 달', '두 달', '세 달'],
+      choices: [],
       answers: ['한 달'],
       explain: '',
     },
@@ -176,25 +205,34 @@ async function main() {
 
   const v5 = await viewOf(game, meUid)
   const papers = arr(v5.quizzesHere)
-  check(papers.length === 1, '그 방에 종이 한 장이 놓였다', `${papers.length}장`)
+  check(papers.length === 1, '그 칸에 종이 한 장이 놓였다', `${papers.length}장`)
   check(
     str(papers[0]?.prompt) === null,
-    '**펴기 전에는 문제도 안 온다**',
+    '**줍기 전에는 문제도 안 온다**',
     String(str(papers[0]?.prompt)),
   )
   check(!JSON.stringify(v5).includes('한 달'), '정답은 어느 쪽이든 안 샌다')
+  check(!JSON.stringify(v5).includes('눈이 가장 많이'), '문제 문장도 안 샌다')
 
   const paperId = str(papers[0]?.id)
-  await must('openQuiz', meTok, { gameId: game, paperId: paperId as string })
+  await must('takeQuiz', meTok, { gameId: game, paperId: paperId as string })
   const v6 = await viewOf(game, meUid)
-  const open = arr(v6.quizzesHere)
-  check(str(open[0]?.prompt) === '눈이 가장 많이 오는 달은?', '펴면 문제가 온다', String(str(open[0]?.prompt)))
-  check(!JSON.stringify(v6).includes('"explain"'), '해설은 편 뒤에도 안 온다')
+  check(arr(v6.quizzesHere).length === 0, '주웠으니 바닥에서 사라진다')
+  const mine = arr(v6.myQuizzes)
+  check(str(mine[0]?.prompt) === '눈이 가장 많이 오는 달은?', '주우면 문제가 온다', String(str(mine[0]?.prompt)))
+  check(!JSON.stringify(v6).includes('"explain"'), '해설은 주운 뒤에도 안 온다')
+  check(!JSON.stringify(v6).includes('한 달'), '정답은 주운 뒤에도 안 샌다')
+
+  /* **다른 사람 눈에는 여전히 없다.** 남의 손패가 새면 다 새는 것이다 */
+  const vOther = await viewOf(game, uidOf(other))
+  check(!JSON.stringify(vOther).includes('눈이 가장 많이'), '남의 손에 든 문제는 안 보인다')
 
   const wrong = (await must('answerQuiz', meTok, { gameId: game, paperId: paperId as string, given: '두 달' })) as {
     correct?: boolean
   }
   check(wrong.correct === false, '틀린 답은 틀렸다고 한다')
+  const again = await call('answerQuiz', meTok, { gameId: game, paperId: paperId as string, given: '한 달' })
+  check(!again.ok, '한 번 틀리면 다시 못 낸다', again.ok ? '받아 버렸다' : (again.err ?? ''))
 
   console.log('\n── 없는 방 ──')
   const nowhere = await call('hostDrop', host, { gameId: game, tileId: '옥탑방', kind: 'memo', text: '어디에' })

@@ -130,7 +130,7 @@ export interface WalkProps {
    */
   things?: readonly { x: number; y: number; icon: ThingIcon }[]
   /** 바닥의 문제 종이. 내가 선 방 것만 온다 — 펼쳐진 것은 다른 그림이다 */
-  papers?: readonly { x: number; y: number; open: boolean }[]
+  papers?: readonly { x: number; y: number }[]
   /** 종이 옆에 서서 종이를 탭했다 */
   onTapPaper?: () => void
   /**
@@ -1465,11 +1465,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             const in2 = Math.round((TILE - img.width) / 2)
             ctx.drawImage(img, x * TILE - camX + in2, y * TILE - camY + in2)
           }
-          /* 문제 종이. 펼쳐진 것은 그림이 달라서, 방 건너편에서도
-             「누가 열었다」가 보인다 */
+          /* 문제 종이. **접힌 것 하나뿐이다** — 주우면 지도에서 사라지고
+             손패에서 펼친 그림이 된다. 전에는 그 자리에서 펴는 물건이라
+             펼친 그림도 그렸는데, 이제 바닥에 펼쳐진 종이는 없다 */
           const paper = papersRef.current.find((t) => t.x === x && t.y === y)
           if (paper) {
-            const img = paper.open ? sprites.papers.open : sprites.papers.shut
+            const img = sprites.paper
             const in3 = Math.round((TILE - img.width) / 2)
             ctx.drawImage(img, x * TILE - camX + in3, y * TILE - camY + in3)
           }

@@ -1937,6 +1937,10 @@ p.sc-cv { display: block; }
   .sc-qz__list > li.is-wrong { animation: none; }
 }
 .sc-qz__shut { margin: 0; font-size: 12px; color: var(--sc-text-dim); }
+
+/* 펼친 종이 그림과 문제 문장. 그림은 글 첫 줄에 맞춰 위로 붙인다 */
+.sc-qz__head { display: flex; gap: 8px; align-items: flex-start; }
+.sc-qz__pic { flex: none; image-rendering: pixelated; margin-top: 1px; }
 .sc-qz__prompt { margin: 0; font-size: 13px; line-height: 1.5; }
 .sc-qz__warn { margin: 0; font-size: 11px; color: var(--sc-quiz-mark); }
 .sc-qz__choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }

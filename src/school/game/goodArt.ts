@@ -11,7 +11,7 @@
 // 글자만 있던 때는 슬롯 넷이 다 똑같이 생겨서, 탁자에 무엇이 올라왔는지
 // 읽어야 알았다. 흥정은 흘깃 보는 것이라 읽을 틈이 없다.
 import { PAL } from '../map/sprites'
-import { THING_ART } from '../map/thingArt'
+import { PAPER_OPEN, THING_ART } from '../map/thingArt'
 import { ITEMS } from '../../../shared/rules/items'
 
 /** 12×12 한 칸. 짧게 적은 줄은 오른쪽을 공백으로 채운다. */
@@ -228,6 +228,12 @@ export const GOOD_ART: Readonly<Record<string, readonly string[]>> = {
   eraser: ERASER,
   tape: TAPE,
   trap: TRAP,
+  /*
+   * 손에 든 문제. **펼친 그림이다** — 바닥의 것은 접혀 있고, 주운
+   * 순간부터는 펴서 읽고 있는 것이라 다르게 생겨야 한다. 지도에서
+   * 쓰던 그림을 그대로 가져온다(map/thingArt).
+   */
+  quizOpen: PAPER_OPEN,
   // 심부름 물건. **지도에 놓이는 그것과 같은 그림이다**(map/thingArt)
   ...THING_ART,
 }

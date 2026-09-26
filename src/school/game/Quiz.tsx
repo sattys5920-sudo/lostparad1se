@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react'
 
 import { Cost } from './Cost'
+import { goodIcon } from './goodArt'
 import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
@@ -64,7 +65,15 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
       <ul className="sc-qz__list">
         {papers.map((q) => (
           <li key={q.id} className={'is-open' + (shook === q.id ? ' is-wrong' : '')}>
-            <p className="sc-qz__prompt">{q.prompt}</p>
+            {/*
+              **펼친 종이 그림.** 바닥의 것은 접혀 있다 — 주운 뒤로는
+              펴서 읽고 있는 것이라, 손패에서는 다르게 생겨야 한다.
+              alt 가 비어 있는 것은 옆 글이 곧 문제 문장이어서다
+            */}
+            <div className="sc-qz__head">
+              <img className="sc-qz__pic" src={goodIcon('quizOpen')} alt="" width={24} height={24} />
+              <p className="sc-qz__prompt">{q.prompt}</p>
+            </div>
             {q.iFailed && <p className="sc-qz__warn">한 번 틀렸다. 이 문제는 다시 못 푼다.</p>}
 
             {!q.iFailed && (

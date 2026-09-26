@@ -1386,8 +1386,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 : []
             }
             /* 바닥의 문제 종이. 내가 선 자리 것만 서버가 보내 준다.
-               **접힌 채로만 그린다** — 펴는 물건이 아니라 줍는 물건이다 */
-            papers={(state.view?.quizzesHere ?? []).map((q) => ({ x: q.x, y: q.y, open: false }))}
+               **접힌 것 하나뿐이다** — 펴는 물건이 아니라 줍는 물건이다 */
+            papers={state.view?.quizzesHere ?? []}
             /* 화분과 씨앗 상자. 정원에 서 있을 때만 서버가 보내 준다 */
             pots={
               (state.view?.potsHere?.length ?? 0) > 0

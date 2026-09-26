@@ -4,7 +4,7 @@
 // 있는지는 props.ts 가 안다. 여기서는 바닥·벽·문·계단과 흔적만 굽는다.
 import { MAP } from '../skin'
 import { PROP_ART, PROP_KINDS, type PropKind } from './props'
-import { PAPER_OPEN, PAPER_SHUT, POT_ART, POT_FRUIT_ART, THING_ART } from './thingArt'
+import { PAPER_SHUT, POT_ART, POT_FRUIT_ART, THING_ART } from './thingArt'
 import { CROPS } from '../../../shared/rules/crop'
 import { THING_ICONS, type ThingIcon } from '../../../shared/rules/errand'
 
@@ -432,7 +432,8 @@ export interface SpriteSet {
   /** 화분 다섯 단계와 씨앗 상자. 같은 자리에서 그림만 바뀐다 */
   pots: Record<string, HTMLCanvasElement>
   /** 바닥의 문제 종이. 접힌 것과 펼친 것 */
-  papers: { shut: HTMLCanvasElement; open: HTMLCanvasElement }
+  /** 바닥의 문제 종이. **접힌 것 하나뿐이다** — 주우면 지도에서 사라진다 */
+  paper: HTMLCanvasElement
   marks: Record<MarkKind, HTMLCanvasElement>
   shadow: HTMLCanvasElement
 }
@@ -461,7 +462,7 @@ export function buildSprites(): SpriteSet {
     things: Object.fromEntries(
       THING_ICONS.map((k) => [k, bake(THING_ART[k] as unknown as string[])]),
     ) as Record<ThingIcon, HTMLCanvasElement>,
-    papers: { shut: bake(PAPER_SHUT as unknown as string[]), open: bake(PAPER_OPEN as unknown as string[]) },
+    paper: bake(PAPER_SHUT as unknown as string[]),
     /*
      * 화분 그림. 단계 다섯에 **작물마다의 열매**를 더한다 —
      * 열매 알(0)만 그 작물 색으로 굽고 화분과 잎은 그대로 둔다.

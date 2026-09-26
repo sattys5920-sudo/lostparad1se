@@ -207,6 +207,17 @@ async function main() {
         missed.push(`${tag}${size.w}: 손패에 문제가 안 뜸`)
       } else {
         await page.screenshot({ path: `${OUT}/quiz-${size.w}-손패-${tag}.png` })
+        /*
+         * **펼친 종이 그림.** goodIcon 이 모르는 이름을 받으면 빈
+         * 문자열을 주고, 화면에는 깨진 그림이 조용히 남는다 — 눈으로는
+         * 안 보이니 그린 크기를 잰다.
+         */
+        const pic = await page.evaluate(() => {
+          const img = document.querySelector('.sc-qz__pic') as HTMLImageElement | null
+          if (!img) return '(없다)'
+          return `${img.naturalWidth}x${img.naturalHeight}`
+        })
+        if (pic !== '12x12') missed.push(`${tag}${size.w}: 펼친 종이 그림이 ${pic}`)
 
         /*
          * **흔들림은 260ms 만 산다.** 누른 뒤에 자를 대면 대개 이미
