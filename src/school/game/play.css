@@ -498,10 +498,15 @@
 
 /* ── 거래 ─────────────────────────────────────────────────────── */
 
-.sc-dl { display: flex; flex-direction: column; gap: 7px; }
-.sc-dl h2 { margin: 8px 0 0; font-size: 14px; display: flex; gap: 7px; align-items: baseline; }
-.sc-dl h2 span { font-size: 11px; color: var(--sc-text-dim); font-weight: 400; }
-.sc-dl__none { margin: 0; font-size: 11.5px; color: #6b7280; }
+/* ── 손패 ────────────────────────────────────────────────────
+   **sc-hd 다.** 전에는 sc-dl 이었는데 배정 알림(Dealt.tsx)이 같은
+   이름을 쓰고 있었다 — 그쪽은 position: fixed 에 어두운 바탕이라,
+   뒤에 오는 me.css 가 이겨서 손패가 통째로 어두운 전체화면이 됐다.
+   손패에 문제 종이를 넣기 전까지는 글이 몇 줄뿐이라 안 보였다 */
+.sc-hd { display: flex; flex-direction: column; gap: 7px; }
+.sc-hd h2 { margin: 8px 0 0; font-size: 14px; display: flex; gap: 7px; align-items: baseline; }
+.sc-hd h2 span { font-size: 11px; color: var(--sc-text-dim); font-weight: 400; }
+.sc-hd__none { margin: 0; font-size: 11.5px; color: #6b7280; }
 
 /* 거래창. **세로 세 단** — 위가 상대, 가운데가 오가는 방향, 아래가 나 */
 .sc-dr { display: flex; flex-direction: column; gap: 6px; }

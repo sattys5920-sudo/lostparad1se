@@ -1,4 +1,8 @@
-// 시험지 한 장 — 펼친 것과 틀린 것.
+// 시험지 한 장 — **복도에서 줍고 손패에서 푼다.**
+//
+// 운영자가 놓은 종이를 복도에서 주워 손패에 넣고, 거기서 답을 적는
+// 한 줄기를 찍는다. 복도를 쓰는 것은 일부러다 — 복도에 놓을 수 있게
+// 하려고 주소를 방에서 칸으로 옮겼고, 그게 도는지는 복도에서만 보인다.
 //
 // **본 대본(look-shots)에서 떼어 냈다.** 거기서는 아침 시퀀스를 지나고
 // 화면을 다시 불러온 뒤라, 탭을 눌러도 「나」로 안 넘어갔다. 무엇이
@@ -11,8 +15,8 @@ import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
-import { START_TILE } from '../shared/rules/board'
-import { paperCellOf } from '../shared/rules/quiz'
+import { HALLS, START_TILE, TILE_BY_ID, roomOfCell } from '../shared/rules/board'
+import { canDropQuizAt } from '../shared/rules/quiz'
 import { cellNow, tap, walkTo } from './lib/walk'
 
 const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
@@ -93,14 +97,33 @@ async function main() {
           explain: { stringValue: '' },
         } }),
       })
-      // 시작 교실 바닥 한 칸. 서버가 뿌릴 때와 같은 자리 규칙이다
-      const CELL = paperCellOf('p1', START_TILE)
+      /*
+       * **시작 교실에서 가장 가까운 복도 칸.** 방이 아니라 복도다 —
+       * 방에 놓는 것은 전에도 됐고, 이번에 새로 되는 것이 복도다.
+       */
+      const CELL = (() => {
+        const r = TILE_BY_ID[START_TILE].plan
+        const cx = r.x + r.w / 2
+        const cy = r.y + r.h / 2
+        let best: { x: number; y: number; d: number } | null = null
+        for (const h of HALLS) {
+          for (let y = h.rect.y; y < h.rect.y + h.rect.h; y++)
+            for (let x = h.rect.x; x < h.rect.x + h.rect.w; x++) {
+              if (!canDropQuizAt(x, y) || roomOfCell(x, y) !== null) continue
+              const d = Math.abs(x - cx) + Math.abs(y - cy)
+              if (!best || d < best.d) best = { x, y, d }
+            }
+        }
+        if (!best) throw new Error('복도 칸을 못 찾았다')
+        return { x: best.x, y: best.y }
+      })()
       await fetch(`${FS}/games/${game}/secret/quiz/floor?documentId=p1`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN },
         body: JSON.stringify({ fields: {
-          quizId: { stringValue: 'q1' }, tileId: { stringValue: START_TILE },
-          cell: { mapValue: { fields: { x: { integerValue: String(CELL.x) }, y: { integerValue: String(CELL.y) } } } },
-          openedBy: { nullValue: null }, openedInPhase: { nullValue: null },
+          quizId: { stringValue: 'q1' },
+          x: { integerValue: String(CELL.x) },
+          y: { integerValue: String(CELL.y) },
+          heldBy: { nullValue: null },
           wrongBy: { arrayValue: { values: [] } }, solvedBy: { nullValue: null },
           solvedTeam: { nullValue: null }, atMs: { integerValue: String(Date.now()) },
         } }),
@@ -149,18 +172,26 @@ async function main() {
         console.log(`  종이 쪽으로 밀어 봄 — ${before?.x},${before?.y} → ${after?.x},${after?.y} ${onPaper ? '✗ 종이 위에 섰다' : '✓ 막혔다'}`)
         if (onPaper) missed.push(`${tag}${size.w}: 종이 위로 지나갔다`)
       }
-      await tap(page, '.sc-ct__act', '문제 종이')
-      await page.waitForTimeout(600)
-      await page.screenshot({ path: `${OUT}/quiz-${size.w}-접힌-${tag}.png` })
-      // 펼친다. 이 방에 있는 전원이 같이 본다
-      await page.locator('.sc-qz button', { hasText: '펼치기' }).click({ timeout: 3000 }).catch(() => undefined)
-      await page.waitForTimeout(2600)
+      /*
+       * **줍는다.** 행동 칸이 「문제 종이를 줍는다」로 바뀌었다 —
+       * 전에는 그 자리에서 펴는 물건이라 시트가 열렸다.
+       */
+      await tap(page, '.sc-ct__act', '문제 종이를 줍는다')
+      await page.waitForTimeout(1600)
+      await page.screenshot({ path: `${OUT}/quiz-${size.w}-주웠다-${tag}.png` })
 
+      /*
+       * **손패에서 푼다.** 어디에 서 있는지는 이제 안 본다 —
+       * 주머니 속 물건이라 걸어 다니며 생각해도 된다.
+       */
+      await tap(page, '.sc-ct__act', '손패')
+      await page.waitForTimeout(1200)
       const up = await page.locator('.sc-qz__prompt').first().isVisible().catch(() => false)
       if (!up) {
-        missed.push(`${tag}${size.w}: 시험지 안 뜸`)
+        missed.push(`${tag}${size.w}: 손패에 문제가 안 뜸`)
       } else {
-        await page.screenshot({ path: `${OUT}/quiz-${size.w}-시험지-${tag}.png` })
+        await page.screenshot({ path: `${OUT}/quiz-${size.w}-손패-${tag}.png` })
+
         // 틀린 답을 적어 낸다(정답은 「한 달」). 종이가 한 화소 흔들린다
         await page.locator('.sc-qz__short input').fill('열두 달')
         await page.locator('.sc-qz__short button').click()
@@ -172,8 +203,8 @@ async function main() {
         await page.waitForSelector('.sc-qz__list > li.is-wrong', { timeout: 5000 }).catch(() => undefined)
         /*
          * **흔들리는지는 눈이 아니라 자로 잰다.** 한 화소는 캡처에서
-         * 알아보기 어렵고, 오답이면 보기 단추가 사라져서 두 장을
-         * 맞대 봐도 무엇이 옮겨진 것인지 안 보인다.
+         * 알아보기 어렵고, 두 장을 맞대 봐도 무엇이 옮겨진 것인지
+         * 안 보인다.
          */
         const shake = await page.evaluate(() => {
           const li = document.querySelector('.sc-qz__list > li')
@@ -183,8 +214,65 @@ async function main() {
         })
         console.log(`  ${tag}${size.w} 흔들림 ${shake}`)
         await page.screenshot({ path: `${OUT}/quiz-${size.w}-오답-${tag}.png` })
-        await page.waitForTimeout(600)
+        await page.waitForTimeout(700)
         await page.screenshot({ path: `${OUT}/quiz-${size.w}-오답뒤-${tag}.png` })
+
+        /*
+         * **맞히면 손에서 사라진다.** 한 번 틀린 사람은 다시 못 내므로
+         * 새 종이를 하나 더 놓고, 그걸 주워서 맞힌다.
+         */
+        /*
+         * 서 있는 칸의 **이웃 중 놓을 수 있는 칸.** 그냥 x+1 로 잡았더니
+         * 벽이어서 서버가 안 받았고, 둘째 문제를 못 주웠다.
+         */
+        const at = await cellNow(FS, ADMIN, game, uidOf(me))
+        const here2 = at ?? CELL
+        const next = (() => {
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+            const c = { x: here2.x + dx, y: here2.y + dy }
+            if (canDropQuizAt(c.x, c.y)) return c
+          }
+          throw new Error('옆에 놓을 칸이 없다')
+        })()
+        /*
+         * **진짜 hostDrop 으로 놓는다.** Firestore 에 직접 쓰면
+         * refreshViews 가 안 돌아서 화면에 안 뜬다 — 문서는 생겼는데
+         * 「줍는다」 칸이 안 나와서 한참 헤맸다.
+         */
+        const put2 = await call('hostDrop', host, {
+          gameId: game,
+          kind: 'quiz',
+          x: next.x,
+          y: next.y,
+          quiz: {
+            kind: 'short',
+            prompt: '창고 문을 잠근 사람은 누구인가?',
+            choices: [],
+            answers: ['아무도'],
+            explain: '아무도 잠그지 않았다. 문은 원래 그랬다.',
+          },
+        })
+        if (!put2 || (put2 as { where?: string }).where === undefined) {
+          missed.push(`${tag}${size.w}: 둘째 문제를 못 놓았다 ${JSON.stringify(put2)}`)
+        }
+        await call('tick', host, { gameId: game })
+        await page.waitForTimeout(1800)
+        await tap(page, '.sc-ct__act', '문제 종이를 줍는다')
+        await page.waitForTimeout(1600)
+        await tap(page, '.sc-ct__act', '손패')
+        await page.waitForTimeout(1200)
+        const boxes = page.locator('.sc-qz__short input')
+        const n = await boxes.count()
+        if (n === 0) {
+          missed.push(`${tag}${size.w}: 둘째 문제를 못 주웠다`)
+        } else {
+          await boxes.last().fill('아무도')
+          await page.locator('.sc-qz__short button').last().click()
+          await page.waitForTimeout(2200)
+          const left = await page.locator('.sc-qz__prompt').count()
+          console.log(`  ${tag}${size.w} 맞힌 뒤 손에 남은 문제 ${left}장`)
+          await page.screenshot({ path: `${OUT}/quiz-${size.w}-맞혔다-${tag}.png` })
+        }
       }
       await ctx.close()
     }

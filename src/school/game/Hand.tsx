@@ -38,9 +38,9 @@ export function Hand({ view, act, onSaid }: HandProps) {
   const hand = view?.hand ?? []
 
   return (
-    <div className="sc-dl">
+    <div className="sc-hd">
       <h2>손패 <span>{hand.length}장</span></h2>
-      {hand.length === 0 && <p className="sc-dl__none">없다.</p>}
+      {hand.length === 0 && <p className="sc-hd__none">없다.</p>}
       <ul className="sc-ac__menu">
         {hand.map((c) => (
           <li key={c.id}>
