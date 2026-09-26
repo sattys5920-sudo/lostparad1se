@@ -208,27 +208,44 @@ async function main() {
       } else {
         await page.screenshot({ path: `${OUT}/quiz-${size.w}-손패-${tag}.png` })
 
+        /*
+         * **흔들림은 260ms 만 산다.** 누른 뒤에 자를 대면 대개 이미
+         * 지나간 뒤라, 같은 코드가 한 번은 「틀린표시」 한 번은
+         * 「표시없음」을 냈다 — 게임이 아니라 검사가 흔들린 것이다.
+         * 누르기 전에 지켜보게 해 두고 나중에 묻는다.
+         */
+        await page.evaluate(() => {
+          const w = window as unknown as { __shook?: boolean }
+          w.__shook = false
+          const ul = document.querySelector('.sc-qz__list')
+          if (!ul) return
+          new MutationObserver(() => {
+            if (ul.querySelector('li.is-wrong')) w.__shook = true
+          }).observe(ul, { attributes: true, subtree: true, attributeFilter: ['class'] })
+        })
         // 틀린 답을 적어 낸다(정답은 「한 달」). 종이가 한 화소 흔들린다
         await page.locator('.sc-qz__short input').fill('열두 달')
         await page.locator('.sc-qz__short button').click()
-        /*
-         * **답이 돌아온 다음에야 흔들린다.** 채점은 서버가 하므로,
-         * 누른 직후에 재면 아직 아무 일도 안 일어난 참이다 — 70ms
-         * 뒤에 쟀더니 네 번 다 「표시없음」이 나왔다.
-         */
-        await page.waitForSelector('.sc-qz__list > li.is-wrong', { timeout: 5000 }).catch(() => undefined)
-        /*
-         * **흔들리는지는 눈이 아니라 자로 잰다.** 한 화소는 캡처에서
-         * 알아보기 어렵고, 두 장을 맞대 봐도 무엇이 옮겨진 것인지
-         * 안 보인다.
-         */
-        const shake = await page.evaluate(() => {
-          const li = document.querySelector('.sc-qz__list > li')
-          if (!li) return '(종이 없다)'
-          const m = new DOMMatrixReadOnly(getComputedStyle(li).transform)
-          return `${li.className.includes('is-wrong') ? '틀린표시' : '표시없음'} x=${m.m41}`
-        })
-        console.log(`  ${tag}${size.w} 흔들림 ${shake}`)
+        // 채점은 서버가 한다. 글줄이 뜨는 것이 「돌아왔다」는 신호다
+        const warned = await page
+          .waitForSelector('.sc-qz__warn', { timeout: 5000 })
+          .then(() => true)
+          .catch(() => false)
+        if (!warned) missed.push(`${tag}${size.w}: 틀렸는데 글줄이 안 떴다`)
+        const shook = await page.evaluate(
+          () => (window as unknown as { __shook?: boolean }).__shook === true,
+        )
+        if (!shook) missed.push(`${tag}${size.w}: 틀렸는데 안 흔들렸다`)
+        if (warned) {
+          const warn = (await page.locator('.sc-qz__warn').first().innerText()).trim()
+          if (warn !== '한 번 틀렸다. 이 문제는 다시 못 푼다.') {
+            missed.push(`${tag}${size.w}: 틀린 글줄이 다르다 — ${warn}`)
+          }
+        }
+        // **다시 못 낸다.** 글줄만 뜨고 칸이 남아 있으면 소용없다
+        const canRetry = await page.locator('.sc-qz__short').count()
+        if (canRetry !== 0) missed.push(`${tag}${size.w}: 틀린 뒤에도 답을 낼 수 있다`)
+        console.log(`  ${tag}${size.w} 흔들림 ${shook ? '봤다' : '못 봤다'} · 다시내기 ${canRetry}칸`)
         await page.screenshot({ path: `${OUT}/quiz-${size.w}-오답-${tag}.png` })
         await page.waitForTimeout(700)
         await page.screenshot({ path: `${OUT}/quiz-${size.w}-오답뒤-${tag}.png` })
