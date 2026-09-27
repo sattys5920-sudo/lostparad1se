@@ -1566,8 +1566,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
        * **꽂힌 깃발.** 보이는 방의 것만 서버가 보내 준다(flagCounts).
        *
        * 깃발에는 자리가 없다 — 방에 꽂히는 것이지 칸에 꽂히는 것이
-       * 아니다. 그래서 방 안쪽 윗줄부터 빈 칸에 차례로 세운다. 많이
-       * 꽂은 팀이 앞이라, 들어서면 누가 이기고 있는지 줄만 봐도 안다.
+       * 아니다. 그래서 방 한가운데부터 바깥으로 빈 칸에 차례로 세운다.
+       * 많이 꽂은 팀이 가운데라, 들어서면 누가 이기고 있는지 보인다.
        */
       for (const [roomId, byTeam] of Object.entries(viewRef.current?.flagCounts ?? {})) {
         const slots = flagSlots(roomId as TileId)
@@ -2329,25 +2329,39 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
  * 무늬가 비쳐야 「칠해진 교실」이지 「색칠된 사각형」이 아니다.
  */
 /**
- * 방에 꽂힌 깃발 하나 — 한 칸(16px) 안에. 깃대와 팀색 천, 발치에
+ * 삼각기 한 줄씩. 깃대에 붙은 쪽이 넓고 끝으로 갈수록 좁아진다.
+ * [줄, 어두운 테의 길이] — 천은 테 안쪽 한 칸 짧게 칠한다.
+ */
+const PENNANT: readonly [number, number][] = [
+  [0, 3], [1, 5], [2, 7], [3, 9], [4, 7], [5, 5], [6, 3],
+]
+
+/**
+ * 방에 꽂힌 깃발 하나 — 한 칸(16px) 안에. 깃대에 삼각기, 발치에
  * 작은 그림자. **천은 원색 그대로다** — 바닥 물빛과 섞이면 안 된다.
  */
 function drawFlag(ctx: CanvasRenderingContext2D, x: number, y: number, team: TeamId): void {
   ctx.fillStyle = 'rgba(0,0,0,0.25)'
-  ctx.fillRect(x + 3, y + 14, 6, 1)
+  ctx.fillRect(x + 2, y + 14, 6, 1)
   // 깃대
   ctx.fillStyle = MAP.outline
-  ctx.fillRect(x + 4, y + 2, 1, 13)
-  // 천 — 어두운 테 안에 팀색
-  ctx.fillRect(x + 5, y + 2, 8, 7)
+  ctx.fillRect(x + 3, y + 2, 1, 13)
+  // 삼각기 — 어두운 테를 먼저 깔고 안쪽을 팀색으로
+  for (const [row, len] of PENNANT) ctx.fillRect(x + 4, y + 2 + row, len, 1)
   ctx.fillStyle = TEAM_COLOR[team]
-  ctx.fillRect(x + 5, y + 3, 7, 5)
+  for (const [row, len] of PENNANT) {
+    if (row === 0 || row === PENNANT.length - 1) continue
+    ctx.fillRect(x + 4, y + 2 + row, len - 1, 1)
+  }
   // 꼭대기 구슬
   ctx.fillStyle = '#f2d36b'
-  ctx.fillRect(x + 4, y + 1, 1, 1)
+  ctx.fillRect(x + 3, y + 1, 1, 1)
 }
 
-/** 방마다 깃발을 세울 칸. 윗줄부터, 설 수 있고 기물이 없는 칸. 한 번 구해 둔다 */
+/**
+ * 방마다 깃발을 세울 칸. **방 한가운데부터** 바깥으로 — 가까운 칸
+ * 순서다. 설 수 있고 기물이 없는 칸만. 한 번 구해 둔다.
+ */
 const FLAG_SLOTS = new Map<TileId, { x: number; y: number }[]>()
 function flagSlots(room: TileId): { x: number; y: number }[] {
   const had = FLAG_SLOTS.get(room)
@@ -2358,6 +2372,10 @@ function flagSlots(room: TileId): { x: number; y: number }[] {
     for (let y = r.y; y < r.y + r.h; y++) {
       for (let x = r.x; x < r.x + r.w; x++) if (canDropQuizAt(x, y)) out.push({ x, y })
     }
+    // 가운데에서 가까운 순. 같은 거리면 위·왼쪽이 먼저라 늘 같은 자리에 선다
+    const cx = r.x + (r.w - 1) / 2
+    const cy = r.y + (r.h - 1) / 2
+    out.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy) || a.y - b.y || a.x - b.x)
   }
   FLAG_SLOTS.set(room, out)
   return out
