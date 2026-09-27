@@ -76,6 +76,9 @@ import { bubbleText, bubbleUp, useChatLines } from './useChat'
 import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
+import { Arcade, ArcadeAsk } from './Arcade'
+import { useArcade } from './useArcade'
+import { atArcade } from '../../../shared/rules/arcade'
 import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
 import { TransferAsk } from './TransferAsk'
 import { CaptainVote } from './CaptainVote'
@@ -637,7 +640,7 @@ function placeName(room: TileId | null, cell: { x: number; y: number } | null): 
   return null
 }
 
-type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden' | 'quiz' | 'maker'
+type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden' | 'quiz' | 'maker' | 'arcade'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -803,6 +806,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 봐서는 떠났는지 알 수가 없다 — 복도에서는 방이 안 바뀐다.
    */
   const vendingHere = atVending(myCell)
+  /** 오락기 옆인가. 자판기와 같다 — 떠나면 창이 닫힌다 */
+  const arcadeHere = atArcade(myCell)
+  useEffect(() => {
+    if (!arcadeHere) setSheet((s) => (s === 'arcade' ? null : s))
+  }, [arcadeHere])
   useEffect(() => {
     if (vendingHere === null) setSheet((s) => (s === 'shop' ? null : s))
     // 종이가 있는 방을 나가면 종이 시트도 닫힌다
@@ -846,6 +854,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 상대가 물건을 올리는 것이 그 자리에서 보여야 흥정이다.
    */
   const { deal, dismiss: leaveDeal } = useDeal(gameId, uid)
+  // 오락기 대결. 먼저 낸 수는 이 문서에 없다 — 서버가 봉인한다
+  const { match: arcadeMatch, dismiss: dismissMatch } = useArcade(gameId, uid)
   const { ask: moveAsk, dismiss: dropMoveAsk } = useTransfer(gameId, uid)
   /**
    * 그 사람이 **바로 옆 칸**에 서 있는가.
@@ -1097,6 +1107,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     if (vendingHere !== null) {
       room.push({ key: 'buy', icon: 'buy', label: '자판기', run: () => setSheet('shop') })
     }
+    // **오락기 옆.** 페이즈 중에도 된다 — 대신 그동안 방을 비운다
+    if (arcadeHere) {
+      room.push({ key: 'arcade', icon: 'arcade', label: '오락기', run: () => setSheet('arcade') })
+    }
     /*
      * **게시판 앞.** 방이 아니라 자리라서, 선 방이 아니라 선 칸을 본다.
      *
@@ -1324,6 +1338,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 : kind === 'pot' ? 'garden'
                 : kind === 'maker' ? 'maker'
                 : kind === 'lab' ? 'act'
+                : kind === 'arcade' ? 'arcade'
                 : 'shop',
               )
             }
@@ -1814,6 +1829,37 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 ]
               : []),
           ]}
+        />
+      )}
+
+      {/* ── 오락기 ──────────────────────────────────────────
+          기계 옆에 선 사람만 대결 상대로 뜬다. 안 보이는 사람은
+          서버가 안 보냈으므로 여기에도 없다 */}
+      {sheet === 'arcade' && (
+        <Sheet title="오락기" onClose={closeSheet}>
+          <Arcade
+            act={act}
+            meId={me.playerId}
+            beside={(state.view?.visiblePawns ?? [])
+              .filter((p) => p.playerId !== me.playerId && atArcade(p.at ?? null))
+              .map((p) => ({ id: p.playerId, name: nameOf(p.playerId) }))}
+            nameOf={nameOf}
+            match={arcadeMatch}
+            onDismissMatch={dismissMatch}
+          />
+        </Sheet>
+      )}
+      {/* 대결 신청은 창이 닫혀 있어도 뜬다. 받으면 창이 열린다 */}
+      {arcadeMatch?.status === 'asked' && arcadeMatch.bId === me.playerId && sheet !== 'arcade' && (
+        <ArcadeAsk
+          fromName={nameOf(arcadeMatch.aId)}
+          game={arcadeMatch.game}
+          onAnswer={(yes) => {
+            act
+              .arcadeAnswer(arcadeMatch.id, yes)
+              .then(() => (yes ? setSheet('arcade') : dismissMatch()))
+              .catch((e) => refuse((e as Error).message))
+          }}
         />
       )}
 

@@ -352,6 +352,16 @@ export function gameActions(gameId: string) {
       callServer('answerTransfer', { ...g, askId, accept }),
 
 
+    // ── 오락기 ──────────────────────────────────────────────────
+    // 답은 서버가 쥔다. 화면은 물어보고 받은 것을 그리기만 한다
+    arcadeStart: (game: string) => callServer('arcadeStart', { ...g, game }),
+    arcadeMove: (n: number) => callServer('arcadeMove', { ...g, n }),
+    arcadeChallenge: (game: string, toPlayerId: string) =>
+      callServer('arcadeChallenge', { ...g, game, toPlayerId }),
+    arcadeAnswer: (matchId: string, accept: boolean) => callServer('arcadeAnswer', { ...g, matchId, accept }),
+    arcadePick: (matchId: string, pick: string) => callServer('arcadePick', { ...g, matchId, pick }),
+    arcadeLeave: (matchId: string) => callServer('arcadeLeave', { ...g, matchId }),
+
     castVote: (targetId: string, kind: 'trust' | 'liking' | 'suspicion') =>
       callServer('castVote', { ...g, targetId, kind }),
     /** 털어놓기. 1:1이면 들을 사람을 골라야 한다. */

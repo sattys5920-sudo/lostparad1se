@@ -148,6 +148,15 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // 오락기 대결. 거래와 같다 — 그 대결의 두 사람만 본다.
+      // 먼저 낸 수는 이 문서에 없다(secret 에 봉인). 「냈다」 표시뿐이라
+      // 상대가 이 문서를 열어도 내 수는 안 보인다.
+      match /arcadeMatches/{matchId} {
+        allow read: if request.auth != null
+          && (request.auth.uid == resource.data.aId || request.auth.uid == resource.data.bId);
+        allow write: if false;
+      }
+
       // 이적 제안. 거래와 같다 — 마주 선 둘만 본다.
       //
       // 부른 쪽도 읽어야 「거절당했다」가 보인다. 나머지 열둘에게는

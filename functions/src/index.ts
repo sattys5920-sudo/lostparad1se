@@ -176,6 +176,8 @@ export {
 // 문제 종이. 정답과 해설은 여기 바깥으로 나가지 않는다 — 채점도 서버가 한다
 export { takeQuiz, answerQuiz, hostQuizList, hostQuizUpsert, hostQuizRemove, hostPullQuiz } from './quiz'
 export { commissionTrap, takeTrap } from './trap'
+// 오락기. 답은 서버가 쥐고, 대결에서 먼저 낸 수는 봉인한다
+export { arcadeStart, arcadeMove, arcadeChallenge, arcadeAnswer, arcadePick, arcadeLeave } from './arcade'
 
 // 투명인간 투표. 누가 누구를 적었는지는 어떤 API로도 안 나간다
 export { castBallot, clearInvisible } from './ballot'

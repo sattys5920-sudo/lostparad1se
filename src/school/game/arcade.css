@@ -1,0 +1,208 @@
+/*
+ * 오락기 — 어두운 몸통, 전구 간판, 줄 가는 화면.
+ *
+ * 흰 시트 위에 **기계 한 대가 서 있는** 것으로 보이게 한다. 색은 조작부
+ * 판(--ct-*)에서 가져온다 — 같은 학교의 기계다. 글자는 Galmuri11 을
+ * 제 크기(11px)와 그 두 배(22px)로만 쓴다. 중간 크기는 번진다.
+ */
+.sc-ar {
+  --ar-body: var(--ct-bg, #1c1f33);
+  --ar-screen: #0b0d18;
+  --ar-glow: #9fd4e8;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  /* 시트 몸통이 세로 flex 라, 줄어들게 두면 낮은 화면(375×667)에서
+     숫자판이 기계 밖으로 흘러 나온다. 기계는 제 키를 지키고 시트가
+     스크롤한다 */
+  flex: none;
+  margin: 0 0 10px;
+  border: 3px solid var(--ct-line, #4a5070);
+  background: var(--ar-body);
+  color: var(--ct-text, #e8e6f5);
+  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+}
+
+/* 간판 — 금빛 글자와 번갈아 켜지는 전구 */
+.sc-ar__marquee {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-bottom: 3px solid var(--ct-line, #4a5070);
+  background: #2a2140;
+}
+.sc-ar__marquee span {
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  color: var(--ct-gold, #f0d68a);
+}
+.sc-ar__marquee i {
+  width: 6px;
+  height: 6px;
+  background: var(--ct-gold, #f0d68a);
+  animation: sc-ar-bulb 0.8s steps(1, end) infinite;
+}
+.sc-ar__marquee i:nth-child(even),
+.sc-ar__marquee span ~ i:nth-child(odd) { animation-delay: 0.4s; }
+@keyframes sc-ar-bulb {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.25; }
+}
+
+/* 화면 — 가로줄이 옅게 흐른다(주사선). 글자는 그 위에 떠 있다 */
+.sc-ar__screen {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px;
+  padding: 10px;
+  min-height: 250px;
+  border: 2px solid #000;
+  background:
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
+    var(--ar-screen);
+  box-shadow: inset 0 0 0 1px #262b44;
+}
+
+.sc-ar__title {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ar-glow);
+  letter-spacing: 0.06em;
+}
+.sc-ar__title span { color: #7d86ad; }
+.sc-ar__none { margin: 18px 0; text-align: center; font-size: 11px; line-height: 20px; color: #b9bfd4; }
+.sc-ar__say { margin: 0 8px 8px; padding: 6px 8px; font-size: 11px; color: var(--ct-down, #e07a72); border: 1px solid #5a2f35; background: #1f1016; }
+
+/* 단추 — 오락기 단추처럼 두툼하게. 눌리면 한 칸 들어간다 */
+.sc-ar button {
+  appearance: none;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 2px solid var(--ct-line, #4a5070);
+  border-radius: 0;
+  background: var(--ct-face, #353a57);
+  color: var(--ct-text, #e8e6f5);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: inset -2px -2px 0 var(--ct-bevel-dim, #0e1120), inset 2px 2px 0 var(--ct-bevel-lit, #4a5070);
+}
+.sc-ar button:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
+.sc-ar button:disabled { opacity: 0.45; cursor: default; }
+.sc-ar button:focus-visible { outline: 2px solid var(--ct-gold, #f0d68a); outline-offset: 1px; }
+.sc-ar button.is-go { background: #6b5a2a; border-color: var(--ct-gold, #f0d68a); color: #fff5d6; }
+.sc-ar__row { display: flex; gap: 6px; margin-top: auto; }
+.sc-ar__row button { flex: 1 1 0; }
+
+/* ── 고르기 — 두 줄로 꽂힌 팩 ── */
+.sc-ar__menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.sc-ar__menu button {
+  width: 100%;
+  min-height: 58px;
+  padding: 6px 8px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: baseline;
+  gap: 3px 6px;
+  text-align: left;
+}
+.sc-ar__menu b { font-weight: 400; font-size: 11px; color: #fff; }
+.sc-ar__menu em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ar-glow);
+}
+.sc-ar__menu em.is-duo { color: var(--ct-gold, #f0d68a); }
+.sc-ar__menu span {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  line-height: 14px;
+  color: #8f97bb;
+}
+.sc-ar__menu button.is-off b { color: #6f7699; }
+.sc-ar__menu button.is-off span { color: #555b7a; }
+
+/* ── 업다운 ── */
+.sc-ud { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sc-ud__lives { margin: 0; display: flex; gap: 4px; }
+.sc-ud__lives i { width: 12px; height: 12px; border: 2px solid #4a5070; }
+.sc-ud__lives i.is-on { background: var(--ct-gold, #f0d68a); border-color: var(--ct-gold, #f0d68a); }
+.sc-ud__big {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 22px;
+  line-height: 30px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.sc-ud__big.is-up { color: var(--ct-ice, #9fd4e8); }
+.sc-ud__big.is-down { color: #f0a870; }
+.sc-ud__big.is-win { color: var(--ct-gold, #f0d68a); animation: sc-ar-bulb 0.5s steps(1, end) 4; }
+.sc-ud__big.is-lose { color: var(--ct-down, #e07a72); }
+.sc-ud__big.is-draw { color: #b9bfd4; }
+.sc-ud__answer { margin: 0; text-align: center; font-size: 11px; color: #b9bfd4; }
+.sc-ud__answer b { font-weight: 400; font-size: 22px; color: #fff; vertical-align: -3px; }
+.sc-ud__typed { margin: 0; text-align: center; font-size: 11px; color: #7d86ad; font-variant-numeric: tabular-nums; }
+.sc-ud__log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 22px;
+}
+.sc-ud__log li { padding: 2px 5px; font-size: 11px; border: 1px solid #2f3552; font-variant-numeric: tabular-nums; }
+.sc-ud__log li.is-up { color: var(--ct-ice, #9fd4e8); }
+.sc-ud__log li.is-down { color: #f0a870; }
+.sc-ud__log li.is-hit { color: var(--ct-gold, #f0d68a); border-color: var(--ct-gold, #f0d68a); }
+/* 화면 안 자판. 세 줄 넷 칸 — 마지막 줄이 ← 0 부른다 */
+.sc-ud__pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: auto; }
+.sc-ud__pad button { font-size: 22px; min-height: 46px; padding: 0; font-variant-numeric: tabular-nums; }
+.sc-ud__pad button.is-go { grid-column: 3; font-size: 11px; }
+
+/* ── 대결 ── */
+.sc-ar__foes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sc-ar__foes button { width: 100%; text-align: left; font-size: 11px; color: #fff; }
+.sc-ar__foes span { color: #8f97bb; }
+.sc-du { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sc-du__them { margin: 0; font-size: 11px; color: #b9bfd4; }
+.sc-du__them b { font-weight: 400; color: #7d86ad; }
+.sc-du__them b.is-in { color: var(--ct-gold, #f0d68a); }
+.sc-du__picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: auto; }
+.sc-du__picks button { min-height: 64px; font-size: 22px; }
+.sc-du__rounds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.sc-du__rounds li {
+  display: grid;
+  grid-template-columns: 30px 1fr 12px 1fr 34px;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11px;
+  color: #b9bfd4;
+}
+.sc-du__rounds li b { font-weight: 400; text-align: center; color: #fff; }
+.sc-du__rounds li em { font-style: normal; text-align: center; color: #555b7a; }
+.sc-du__rounds li span:last-child { text-align: right; }
+.sc-du__rounds li.is-win span:last-child { color: var(--ct-gold, #f0d68a); }
+.sc-du__rounds li.is-lose span:last-child { color: var(--ct-down, #e07a72); }
+
+/* 대결 신청 띠 — 거래 띠와 같은 틀에 오락기 색 테 */
+.sc-da--arcade { border-color: #6b5a2a; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-ar__marquee i, .sc-ud__big.is-win { animation: none; }
+}

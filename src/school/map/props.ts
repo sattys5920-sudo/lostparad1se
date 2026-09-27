@@ -183,6 +183,8 @@ export const PROP_ART = {
   noticeBoardFull: ART.NOTICE_BOARD_FULL,
   // 복도 — 자판기. 층마다 한 대다(shop.ts 의 VENDINGS)
   vending: ART.VENDING,
+  // 복도 — 오락기. 1층에 한 대(rules/arcade 의 ARCADE_CELL)
+  arcade: ART.ARCADE,
   trapMaker: ART.TRAP_MAKER,
   labMachine: ART.LAB_MACHINE,
 } as const

@@ -54,6 +54,7 @@ import type { ThingIcon } from '../../../shared/rules/errand'
 import { VENDINGS } from '../../../shared/rules/shop'
 import { facing, fixtureAt, type FixtureKind } from '../../../shared/rules/fixtures'
 import { LAB_MACHINE, MAKERS } from '../../../shared/rules/trap'
+import { ARCADE_CELL } from '../../../shared/rules/arcade'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -1443,6 +1444,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           }
           if (VENDING_CELLS.has(`${x},${y}`)) {
             ctx.drawImage(sprites.props.vending, x * TILE - camX, y * TILE - camY - TILE)
+          }
+          // 오락기는 두 칸 높이 — 기물 칸에 발을 딛고 벽 칸까지 솟는다
+          if (x === ARCADE_CELL.x && y === ARCADE_CELL.y) {
+            ctx.drawImage(sprites.props.arcade, x * TILE - camX, y * TILE - camY - TILE)
           }
           /*
            * 바닥의 심부름 물건. **칸 가운데에 작게 놓는다**(12칸 그림을

@@ -43,6 +43,9 @@ export type RecordKind =
   | 'potHarvest'
   // 팀이 바뀐 순간. 「그 사건 시점의 팀」이 이 줄들로 되짚어진다
   | 'teamMoved'
+  // 오락기 한 판이 끝났다. subjectId 는 「게임:결과」(updown:win),
+  // 대결이면 otherId 가 상대다. **보상을 붙일 날 이 줄을 센다**
+  | 'arcadeDone'
 
 /**
  * 일어난 일 한 줄. **secret 아래에만 쌓인다.**
