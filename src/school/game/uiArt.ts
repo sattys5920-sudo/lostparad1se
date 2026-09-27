@@ -301,6 +301,26 @@ const PLANT = M([
   '  3333333       ',
 ])
 
+/** 호루라기로 뽑기 — 호루라기. 아이템 그림과 같은 뜻이다. */
+const BLOW = M([
+  '                ',
+  '                ',
+  '         555    ',
+  '        5   5   ',
+  '                ',
+  '  3333333333    ',
+  ' 31111111113    ',
+  '3111111111113   ',
+  '3111133311113333',
+  '3111311131111113',
+  '3111311131111113',
+  ' 311133311113333',
+  '  31111111113   ',
+  '   333333333    ',
+  '                ',
+  '                ',
+])
+
 /** 깃발 뽑기 — 뽑혀 올라가는 삼각기와 위로 가는 화살. */
 const PULL = M([
   '          5     ',
@@ -576,6 +596,7 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   mate: MATE,
   plant: PLANT,
   pull: PULL,
+  blow: BLOW,
   dropRobot: DROP_ROBOT,
   smashRobot: SMASH_ROBOT,
   pot: POT,
@@ -598,6 +619,7 @@ const ACT_ART: Record<Exclude<ActionKind, 'move'>, true> = {
   summon: true,
   plant: true,
   pull: true,
+  blow: true,
   dropRobot: true,
   smashRobot: true,
 }

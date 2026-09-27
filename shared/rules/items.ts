@@ -3,14 +3,13 @@
 // 쓰는 길이 둘이다.
 //
 //   행동에 딸린 것   use 가 찬 물건. 그 행동을 걸 때 저절로 하나 빠진다
-//                    (지금은 없다 — 깃발 뽑기에 들던 호루라기를 걷어냈다.
-//                    뽑기는 이제 로봇이 든다)
+//                    (호루라기 — 로봇 없이 깃발을 뽑는다)
 //   손으로 쓰는 것   use 가 빈 물건. 「쓰기」를 눌러야 쓰인다
 //                    (자물쇠 · 빈 종이 · 지우개 · 테이프)
 import type { ActionKind } from './occupy'
 
 /** 학교에서 주울 만한 것들. 그럴듯한 물건이어야 쓸 때 말이 된다. */
-export type ItemKind = 'lock' | 'paper' | 'eraser' | 'tape' | 'trap'
+export type ItemKind = 'whistle' | 'lock' | 'paper' | 'eraser' | 'tape' | 'trap'
 
 export interface ItemSpec {
   kind: ItemKind
@@ -27,6 +26,16 @@ export interface ItemSpec {
 }
 
 export const ITEMS: readonly ItemSpec[] = [
+  /*
+   * **심판의 호루라기.** 반칙을 불고 깃발을 뽑는다. 로봇 뽑기는 팀마다
+   * 페이즈에 한 번뿐이라, 상대가 둘을 꽂고 가면 이것으로 따라간다.
+   */
+  {
+    kind: 'whistle',
+    name: '호루라기',
+    text: '페이즈 중에, 선 방에 꽂힌 다른 팀 깃발 하나를 뽑는다. 로봇도 토큰도 안 든다.',
+    use: 'blow',
+  },
   {
     kind: 'lock',
     name: '자물쇠',

@@ -60,6 +60,7 @@ const LABEL: Record<ActionKind, string> = {
   summon: '호출',
   plant: '깃발 꽂기',
   pull: '깃발 뽑기',
+  blow: '호루라기로 뽑기',
   dropRobot: '로봇 두고 가기',
   smashRobot: '로봇 부수기',
 }
@@ -74,12 +75,13 @@ const WHAT: Record<ActionKind, string> = {
   summon: '같은 팀 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
   plant: '이 방에 우리 팀 깃발을 꽂는다. 뽑히기 전까지 남는다.',
   pull: '우리 로봇이 있는 방에서 다른 팀 깃발 하나를 뽑는다. 팀마다 페이즈에 한 번.',
+  blow: '로봇 없이 다른 팀 깃발 하나를 뽑는다. 한도가 없다.',
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 깃발 하나로 센다.',
   smashRobot: '상대 로봇 1기를 부순다.',
 }
 
 /** 그 자리에서 쓰는 것들. 이동은 여기 없다 — 맵에서 걸어서 한다. */
-const KINDS: ActionKind[] = ['plant', 'pull', 'research', 'summon', 'dropRobot', 'smashRobot']
+const KINDS: ActionKind[] = ['plant', 'pull', 'blow', 'research', 'summon', 'dropRobot', 'smashRobot']
 
 /**
  * 한 행동에 드는 것 전부 — 토큰 · 지식 · 시간 · 물건.
@@ -164,6 +166,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       if (myRobots.length === 0) return '우리 팀 로봇이 이 방에 있어야 뽑는다.'
       if (pullable.length === 0) return '이 방에 뽑을 깃발이 없다.'
     }
+    if (kind === 'blow' && pullable.length === 0) return '이 방에 뽑을 깃발이 없다.'
     // 이 방에 서 있는 우리 로봇이 아니라 **데리고 있는 것**을 본다
     if (kind === 'dropRobot' && (view?.myCarriedRobots ?? 0) === 0) return '데리고 있는 로봇이 없다.'
     if (kind === 'smashRobot') {
@@ -183,7 +186,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       setOpen(null)
       onSaid(
         kind === 'plant' ? `${hereName}에 깃발을 꽂았다.`
-        : kind === 'pull' ? `${hereName}에서 ${t.targetTeam ?? ''}팀 깃발을 뽑았다.`
+        : kind === 'pull' || kind === 'blow' ? `${hereName}에서 ${t.targetTeam ?? ''}팀 깃발을 뽑았다.`
         : `${LABEL[kind]}. 팀 토큰 ${out.tokens ?? '?'}개 남았다.`,
       )
     } catch (e) {
@@ -231,14 +234,15 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         {KINDS.map((k) => {
           const no = why(k)
           // 뽑기는 고를 팀이 둘 이상일 때만 펼친다. 하나면 바로 뽑는다
-          const fold = k === 'summon' || (k === 'pull' && pullable.length > 1) || k === 'dropRobot' || k === 'smashRobot'
+          const picking = (k === 'pull' || k === 'blow') && pullable.length > 1
+          const fold = k === 'summon' || picking || k === 'dropRobot' || k === 'smashRobot'
           return (
             <li key={k}>
               <button
                 disabled={busy || no !== null}
                 onClick={() =>
                   fold ? setOpen(open === k ? null : k)
-                  : k === 'pull' ? void send(k, { targetTeam: pullable[0]?.[0] })
+                  : k === 'pull' || k === 'blow' ? void send(k, { targetTeam: pullable[0]?.[0] })
                   : void send(k)
                 }
               >
@@ -261,10 +265,10 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
                 </div>
               )}
 
-              {open === k && k === 'pull' && (
+              {open === k && (k === 'pull' || k === 'blow') && (
                 <div className="sc-ph__targets">
                   {pullable.map(([t, n]) => (
-                    <button key={t} disabled={busy} onClick={() => void send('pull', { targetTeam: t })}>
+                    <button key={t} disabled={busy} onClick={() => void send(k, { targetTeam: t })}>
                       {t}팀 깃발 <em>{n}</em>
                     </button>
                   ))}

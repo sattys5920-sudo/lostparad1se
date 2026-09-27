@@ -81,6 +81,7 @@ const ACT_LABEL: Record<ActionKind, string> = {
   summon: '호출',
   plant: '깃발 꽂기',
   pull: '깃발 뽑기',
+  blow: '호루라기',
   dropRobot: '로봇 두기',
   smashRobot: '로봇 부수기',
 }
@@ -91,6 +92,7 @@ const ACTION_KINDS: readonly ActionKind[] = [
   'summon',
   'plant',
   'pull',
+  'blow',
   'dropRobot',
   'smashRobot',
 ]

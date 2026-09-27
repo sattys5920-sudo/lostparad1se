@@ -164,8 +164,8 @@ async function main() {
   const meUid = uidOf(me)
   const myTeam = await teamOf(game, meUid)
 
-  console.log('\n── 파는 것 다섯 ──')
-  check(SHOP_ITEMS.length === 5, '다섯 가지를 판다 — 깃발·자물쇠·빈 종이·지우개·테이프', String(SHOP_ITEMS.length))
+  console.log('\n── 파는 것 여섯 ──')
+  check(SHOP_ITEMS.length === 6, '여섯 가지를 판다 — 호루라기·깃발·자물쇠·빈 종이·지우개·테이프', String(SHOP_ITEMS.length))
 
   console.log('\n── 자판기 앞에 서야 산다 ──')
   await standAt(game, meUid, 'artRoom')

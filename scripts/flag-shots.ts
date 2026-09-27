@@ -83,6 +83,7 @@ async function main() {
     at: { mapValue: { fields: { x: int(stand.x), y: int(stand.y) } } },
     visitedTiles: { arrayValue: { values: [{ stringValue: 'centralPlaza' }, { stringValue: ROOM }] } },
   })
+  await patch(`games/${game}/pawns/${me}`, { items: { mapValue: { fields: { whistle: int(1) } } } })
   await patch(`games/${game}/robots/bot-shot`, {
     id: { stringValue: 'bot-shot' },
     team: { stringValue: team },

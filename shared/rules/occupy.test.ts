@@ -1050,6 +1050,50 @@ describe('ownerOf', () => {
   })
 })
 
+describe('호루라기로 뽑기 — 로봇도 토큰도 안 들고 한도도 없다', () => {
+  const planted: FlagMap = { library: { B: 2 } }
+  const base = (over: Partial<PhaseState> = {}) =>
+    board({ people: [person('a', 'A', 'library')], flags: planted, satchels: { a: { whistle: 2 } }, ...over })
+
+  it('로봇 없이 뽑고, 호루라기가 하나 준다', () => {
+    const s = must(base(), 'a', { kind: 'blow' })
+    expect(s.flags.library?.B).toBe(1)
+    expect(s.satchels.a?.whistle).toBe(1)
+    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
+  })
+
+  it('**상대가 둘을 꽂고 가도 둘 다 뽑는다** — 팀 한도에 안 든다', () => {
+    let s = base({ robots: [robot('r1', 'A', 'library')] })
+    s = must(s, 'a', { kind: 'pull' })
+    // 로봇 뽑기는 이번 페이즈에 끝났다. 호루라기는 된다
+    expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(false)
+    s = must(s, 'a', { kind: 'blow' })
+    expect(s.flags.library?.B).toBeUndefined()
+  })
+
+  it('호루라기가 없으면 못 한다', () => {
+    const out = doAct(base({ satchels: { a: {} } }), 'a', { kind: 'blow' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('호루라기')
+  })
+
+  it('**같은 팀이라도 남의 호루라기는 못 쓴다**', () => {
+    const s = base({ people: [person('a', 'A', 'library'), person('c', 'A', 'library')], satchels: { a: { whistle: 1 }, c: {} } })
+    expect(doAct(s, 'c', { kind: 'blow' }).ok).toBe(false)
+    expect(doAct(s, 'a', { kind: 'blow' }).ok).toBe(true)
+  })
+
+  it('뽑을 것이 없으면 호루라기를 안 먹는다', () => {
+    const s = base({ flags: {} })
+    expect(doAct(s, 'a', { kind: 'blow' }).ok).toBe(false)
+    expect(s.satchels.a?.whistle).toBe(2)
+  })
+
+  it('지워진 사람은 못 분다', () => {
+    expect(doAct(base({ invisibleId: 'a' }), 'a', { kind: 'blow' }).ok).toBe(false)
+  })
+})
+
 describe('물건은 페이즈를 넘어 남는다', () => {
   it('닫혀도 주머니는 그대로다', () => {
     const s = board({ people: [person('a', 'A', 'storage')], satchels: { a: { lock: 3 } } })

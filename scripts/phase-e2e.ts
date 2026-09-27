@@ -183,7 +183,7 @@ async function main(): Promise<void> {
    * 물건은 산 사람 주머니에 들어가므로 페이즈에 제자리로 끌려와도 남는다.
    *
    * 지갑을 먼저 채운다 — 돈이 개인 것이 되면서 시작 자금이 사람당
-   * 2코인이다. 버는 것은 이 시험의 관심이 아니다
+   * 2코인이고, 호루라기는 3이다. 버는 것은 이 시험의 관심이 아니다
    */
   await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
@@ -203,8 +203,8 @@ async function main(): Promise<void> {
    * 기계 칸이 아니라 **한 칸 옆**이다. 기물이라 밟을 수 없다.
    */
   await must('standAt', A[1].token, { gameId: GAME, x: MACHINE.x + 1, y: MACHINE.y })
-  await must('buyShopItem', A[1].token, { gameId: GAME, itemId: 'paper' })
-  check(true, '자유 시간에 자판기에서 빈 종이를 샀다')
+  await must('buyShopItem', A[1].token, { gameId: GAME, itemId: 'whistle' })
+  check(true, '자유 시간에 자판기에서 호루라기를 샀다')
 
   const openedAt = dayHourMs(START, 1, 10)
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: openedAt, speed: 1 })
@@ -491,9 +491,16 @@ async function main(): Promise<void> {
   check((await boxOf('A')) === tokensBeforePull - ACT_COST.pull, `토큰 ${ACT_COST.pull}개가 들었다`)
   const second = await call('phaseAct', A[1].token, { gameId: GAME, kind: 'pull', targetTeam: 'B' })
   check(second.code === 'FAILED_PRECONDITION' && String(second.message).includes('이미 뽑았다'), '팀마다 한 페이즈에 한 번', second.message)
+  // 로봇 뽑기는 끝났지만 **호루라기는 한도에 안 든다**
+  const tokensBeforeBlow = await boxOf('A')
+  const blown = await call('phaseAct', A[1].token, { gameId: GAME, kind: 'blow', targetTeam: 'B' })
+  check(blown.ok, '호루라기로는 한 번 더 뽑는다', blown.message)
+  check((await boxOf('A')) === tokensBeforeBlow, '호루라기 뽑기에는 토큰이 안 든다')
+  const bagAfterBlow = (await pawnsNow())[A[1].uid].items as Record<string, number> | undefined
+  check((bagAfterBlow?.whistle ?? 0) === 0, '호루라기가 하나 빠졌다', JSON.stringify(bagAfterBlow))
   await must('closePhase', host, { gameId: GAME })
-  // A 깃발 1 + 로봇 1 = 2 대 B 깃발 1
-  check((await ownerOfTile('artRoom')) === 'A', '하나 뽑고 로봇까지 세어 A 가 되찾았다', String(await ownerOfTile('artRoom')))
+  // A 깃발 1 + 로봇 1 = 2 대 B 깃발 0
+  check((await ownerOfTile('artRoom')) === 'A', '둘 다 뽑고 로봇까지 세어 A 가 되찾았다', String(await ownerOfTile('artRoom')))
 
   console.log('\n── 깃발은 남는다 ──')
   // 다들 떠나도 꽂힌 깃발과 두고 간 로봇은 그 방에 있다

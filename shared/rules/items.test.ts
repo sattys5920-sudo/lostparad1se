@@ -5,7 +5,8 @@ import { ITEMS, ITEM_BY_KIND, ITEM_FOR, countOf, isHandItem, putItem, takeItem }
 import { ACT_COST } from './occupy'
 
 describe('물건', () => {
-  it('깃발 꽂기·뽑기에는 물건이 안 든다 — 뽑기는 로봇이 든다', () => {
+  it('호루라기는 「호루라기로 뽑기」에 든다 — 로봇 뽑기·꽂기에는 물건이 안 든다', () => {
+    expect(ITEM_FOR.blow).toBe('whistle')
     expect(ITEM_FOR.pull).toBeUndefined()
     expect(ITEM_FOR.plant).toBeUndefined()
   })
@@ -22,7 +23,7 @@ describe('물건', () => {
   it('손으로 쓰는 다섯은 어느 행동에도 안 걸려 있다', () => {
     const hand = ITEMS.filter((i) => isHandItem(i.kind)).map((i) => i.kind)
     expect(hand).toEqual(['lock', 'paper', 'eraser', 'tape', 'trap'])
-    expect(Object.values(ITEM_FOR)).toEqual([])
+    expect(Object.values(ITEM_FOR)).toEqual(['whistle'])
   })
 
   it('이름과 설명이 비어 있지 않다', () => {

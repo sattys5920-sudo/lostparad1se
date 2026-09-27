@@ -50,8 +50,8 @@ describe('상점', () => {
     expect(shopItemById('pen')).toBeNull()
   })
 
-  it('다섯 가지를 팔고, 파는 것은 모두 무엇을 남긴다', () => {
-    expect(SHOP_ITEMS.map((i) => i.id)).toEqual(['flag', 'lock', 'paper', 'eraser', 'tape'])
+  it('여섯 가지를 팔고, 파는 것은 모두 무엇을 남긴다', () => {
+    expect(SHOP_ITEMS.map((i) => i.id)).toEqual(['whistle', 'flag', 'lock', 'paper', 'eraser', 'tape'])
     // 물건이든 깃발이든 하나는 남는다. 값만 받는 것은 없다
     for (const i of SHOP_ITEMS) expect(Boolean(i.gives) || (i.flags ?? 0) > 0, i.id).toBe(true)
   })

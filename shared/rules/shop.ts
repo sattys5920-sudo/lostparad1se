@@ -80,9 +80,11 @@ const of = (kind: ItemKind) => ({ name: ITEM_BY_KIND[kind].name, text: ITEM_BY_K
 /**
  * 파는 물건.
  *
- * 넷은 손으로 쓰는 것이고, 깃발은 팀 상자로 간다. 갈래를 여기서 적지 않는다 — items.ts 의 use 가 그것을 안다.
+ * 호루라기는 행동에 딸린 것이고, 넷은 손으로 쓰는 것이며, 깃발은 팀
+ * 상자로 간다. 갈래를 여기서 적지 않는다 — items.ts 의 use 가 그것을 안다.
  */
 export const SHOP_ITEMS: readonly ShopItem[] = [
+  { id: 'whistle', ...of('whistle'), cost: { money: 3 } },
   /*
    * **깃발.** 팀 상자로 들어간다. 학교 전체에 하루 몇 개뿐이라 먼저
    * 오는 쪽이 가져간다 — 돈이 많아도 기계 앞에 늦게 오면 없다.
