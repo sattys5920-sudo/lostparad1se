@@ -138,11 +138,18 @@ async function main() {
   if (!pulled.includes(`${other[0]} 1`)) missed.push(`뽑았는데 ${other[0]}이 1이 아니다: ${pulled}`)
   await page.screenshot({ path: `${OUT}/${tag}-뽑음.png` })
 
+  // 시트를 닫고 맵을 본다 — 방에 꽂힌 깃발이 팀 색으로 서 있는가
+  await page.locator('button', { hasText: /^닫기$/ }).first().click()
+  await page.waitForTimeout(900)
+  await page.screenshot({ path: `${OUT}/${tag}-맵-꽂힌깃발.png` })
+
   // 닫으면 깃발로 주인이 정해진다 — 우리 2 · 다른 1 · 1
   await must('closePhase', host, { gameId: game })
   const owner = (await fetch(`${FS}/games/${game}/tiles/${ROOM}`, { headers: ADMIN }).then((r) => r.json())) as { fields: { ownerTeam?: { stringValue?: string } } }
   console.log(`  닫은 뒤 도서관 주인: ${owner.fields.ownerTeam?.stringValue}`)
   if (owner.fields.ownerTeam?.stringValue !== team) missed.push('닫은 뒤 우리 팀 것이 아니다')
+  await page.waitForTimeout(2500)
+  await page.screenshot({ path: `${OUT}/${tag}-맵-닫은뒤.png` })
 
   // 자판기에서 깃발을 사는 흐름(팀 상자 · 하루 몫)은 phase-e2e 가 본다
 

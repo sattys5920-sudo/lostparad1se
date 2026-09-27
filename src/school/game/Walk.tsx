@@ -55,7 +55,8 @@ import { VENDINGS } from '../../../shared/rules/shop'
 import { facing, fixtureAt, type FixtureKind } from '../../../shared/rules/fixtures'
 import { LAB_MACHINE, MAKERS } from '../../../shared/rules/trap'
 import { ARCADE_MACHINES, machineAtSeat } from '../../../shared/rules/arcade'
-import { isAlleyCell } from '../../../shared/rules/board'
+import { TILE_BY_ID, isAlleyCell } from '../../../shared/rules/board'
+import { canDropQuizAt } from '../../../shared/rules/quiz'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -1561,6 +1562,25 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         ctx.fillRect(fx + 1, fy + 1, 4, 4)
       }
 
+      /*
+       * **꽂힌 깃발.** 보이는 방의 것만 서버가 보내 준다(flagCounts).
+       *
+       * 깃발에는 자리가 없다 — 방에 꽂히는 것이지 칸에 꽂히는 것이
+       * 아니다. 그래서 방 안쪽 윗줄부터 빈 칸에 차례로 세운다. 많이
+       * 꽂은 팀이 앞이라, 들어서면 누가 이기고 있는지 줄만 봐도 안다.
+       */
+      for (const [roomId, byTeam] of Object.entries(viewRef.current?.flagCounts ?? {})) {
+        const slots = flagSlots(roomId as TileId)
+        const row = (Object.entries(byTeam ?? {}) as [TeamId, number][])
+          .filter(([, n]) => n > 0)
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .flatMap(([t, n]) => Array.from({ length: n }, () => t))
+        row.slice(0, slots.length).forEach((team, i) => {
+          const c = slots[i]
+          drawFlag(ctx, c.x * TILE - camX, c.y * TILE - camY, team)
+        })
+      }
+
       // 남들. 방 한가운데에 선 것으로 그린다 — 서버가 아는 것도 거기까지다.
       //
       // **걷는 사람은 그리지 않는다.** 문과 문 사이에 있는 사람은 어느
@@ -2308,6 +2328,41 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
  * 완장 색을 그대로 곱하면 바닥 무늬가 다 죽어 한 덩어리 색판이 된다.
  * 무늬가 비쳐야 「칠해진 교실」이지 「색칠된 사각형」이 아니다.
  */
+/**
+ * 방에 꽂힌 깃발 하나 — 한 칸(16px) 안에. 깃대와 팀색 천, 발치에
+ * 작은 그림자. **천은 원색 그대로다** — 바닥 물빛과 섞이면 안 된다.
+ */
+function drawFlag(ctx: CanvasRenderingContext2D, x: number, y: number, team: TeamId): void {
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'
+  ctx.fillRect(x + 3, y + 14, 6, 1)
+  // 깃대
+  ctx.fillStyle = MAP.outline
+  ctx.fillRect(x + 4, y + 2, 1, 13)
+  // 천 — 어두운 테 안에 팀색
+  ctx.fillRect(x + 5, y + 2, 8, 7)
+  ctx.fillStyle = TEAM_COLOR[team]
+  ctx.fillRect(x + 5, y + 3, 7, 5)
+  // 꼭대기 구슬
+  ctx.fillStyle = '#f2d36b'
+  ctx.fillRect(x + 4, y + 1, 1, 1)
+}
+
+/** 방마다 깃발을 세울 칸. 윗줄부터, 설 수 있고 기물이 없는 칸. 한 번 구해 둔다 */
+const FLAG_SLOTS = new Map<TileId, { x: number; y: number }[]>()
+function flagSlots(room: TileId): { x: number; y: number }[] {
+  const had = FLAG_SLOTS.get(room)
+  if (had) return had
+  const r = TILE_BY_ID[room]?.plan
+  const out: { x: number; y: number }[] = []
+  if (r) {
+    for (let y = r.y; y < r.y + r.h; y++) {
+      for (let x = r.x; x < r.x + r.w; x++) if (canDropQuizAt(x, y)) out.push({ x, y })
+    }
+  }
+  FLAG_SLOTS.set(room, out)
+  return out
+}
+
 const TEAM_WASH: Record<TeamId, string> = {
   A: '#ffd8d6',
   B: '#d6e2ff',
