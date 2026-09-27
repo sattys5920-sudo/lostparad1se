@@ -20,6 +20,8 @@ import {
   leftBehindCount,
 } from '../../../shared/rules/occupy'
 import { ROAM_TO, TILE_BY_ID, type Cell } from '../../../shared/rules/board'
+import { canHoldFlags } from '../../../shared/rules/flag'
+import { TEAM_COLOR } from './MapPlan'
 import { atLabMachine } from '../../../shared/rules/trap'
 import { ITEMS, ITEM_FOR } from '../../../shared/rules/items'
 import type { ActionKind } from '../../../shared/rules/occupy'
@@ -56,8 +58,8 @@ const LABEL: Record<ActionKind, string> = {
   move: '이동',
   research: '연구',
   summon: '호출',
-  disturb: '방해',
-  disguise: '위장',
+  plant: '깃발 꽂기',
+  pull: '깃발 뽑기',
   dropRobot: '로봇 두고 가기',
   smashRobot: '로봇 부수기',
 }
@@ -70,21 +72,21 @@ const WHAT: Record<ActionKind, string> = {
   move: '맵에서 걸어서 간다. 복도와 계단은 값이 없다.',
   research: '다 되면 이 방에 완성품이 놓인다. 발전소를 쥐었으면 바로 난다.',
   summon: '같은 팀 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
-  disturb: '같은 방 상대 하나를 이번 판정에서 0명으로 만든다.',
-  disguise: '다른 팀에게 내 인원수가 2명으로 보인다.',
-  dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 계속 1명으로 센다.',
+  plant: '이 방에 우리 팀 깃발을 꽂는다. 뽑히기 전까지 남는다.',
+  pull: '이 방에 꽂힌 다른 팀 깃발 하나를 뽑는다.',
+  dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 깃발 하나로 센다.',
   smashRobot: '상대 로봇 1기를 부순다.',
 }
 
 /** 그 자리에서 쓰는 것들. 이동은 여기 없다 — 맵에서 걸어서 한다. */
-const KINDS: ActionKind[] = ['research', 'summon', 'disturb', 'disguise', 'dropRobot', 'smashRobot']
+const KINDS: ActionKind[] = ['plant', 'pull', 'research', 'summon', 'dropRobot', 'smashRobot']
 
 /**
  * 한 행동에 드는 것 전부 — 토큰 · 지식 · 시간 · 물건.
  *
  * **0인 것은 안 그린다.** 「토큰 0」이 붙어 있으면 값이 드는 것처럼
- * 보인다. 방해와 위장은 토큰이 아니라 물건이 드는 행동이라, 그 줄에는
- * 물건 그림만 선다.
+ * 보인다. 깃발 꽂기는 팀 깃발, 뽑기는 호루라기가 드는 행동이라 그 줄에는
+ * 그 그림만 선다.
  */
 function Bill({ kind, ownsLab }: { kind: ActionKind; ownsLab: boolean }) {
   const item = ITEM_FOR[kind]
@@ -92,6 +94,7 @@ function Bill({ kind, ownsLab }: { kind: ActionKind; ownsLab: boolean }) {
     <span className="sc-ph__bill">
       {ACT_COST[kind] > 0 && <Cost of="token" n={ACT_COST[kind]} />}
       {kind === 'research' && <Cost of="knowledge" n={researchKnowledge(ownsLab)} />}
+      {kind === 'plant' && <Cost of="flag" n={1} />}
       {ACT_MINUTES[kind] > 0 && <Cost of="clock" n={ACT_MINUTES[kind]} />}
       {item && <Cost of={item} n={1} />}
     </span>
@@ -114,15 +117,16 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
   const labOwner = here && ROOM_KIND[here] === 'lab' ? (tiles[here]?.ownerTeam ?? null) : null
   const ownsLab = labOwner === me.team
   const tokens = view?.myTeamTokens ?? 0
-  const pawns = view?.visiblePawns ?? []
   const robots = view?.visibleRobots ?? []
   const overAt = endsAtMs != null && now >= endsAtMs
 
-  // 같은 방 사람들
-  const withMe = pawns.filter((p) => p.playerId !== me.playerId && p.tileId !== null && asRoom(p.tileId) === here)
-  const enemiesHere = withMe.filter((p) => p.team !== me.team)
   const teammates = seats.filter((s) => s.playerId !== me.playerId && s.team === me.team)
   const enemyRobotsHere = robots.filter((r) => asRoom(r.tileId) === here && r.team !== me.team)
+  /** 이 방에 꽂힌 깃발 — 팀마다. 들어와 있는 방이라 서버가 보내 준다 */
+  const flagsHere = (here ? view?.flagCounts?.[here] : undefined) ?? {}
+  const flagRows = (Object.entries(flagsHere) as [TeamId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  const pullable = flagRows.filter(([t]) => t !== me.team)
+  const teamFlags = view?.myTeamFlags ?? 0
   const myRobots = robots.filter((r) => asRoom(r.tileId) === here && r.team === me.team)
 
   /**
@@ -150,9 +154,11 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`
     }
     if (kind === 'summon' && teammates.length === 0) return '부를 팀원이 없다.'
-    if (kind === 'disturb' && enemiesHere.length === 0 && enemyRobotsHere.length === 0) {
-      return '이 방에 상대가 없다.'
+    if (kind === 'plant') {
+      if (!canHoldFlags(here)) return `${hereName}에는 깃발을 못 꽂는다.`
+      if (teamFlags <= 0) return '팀 깃발이 없다. 하루에 한 번 들어오고, 자판기에서도 산다.'
     }
+    if (kind === 'pull' && pullable.length === 0) return '이 방에 뽑을 깃발이 없다.'
     if (kind === 'dropRobot' && myRobots.length === 0) return '데리고 있는 로봇이 없다.'
     if (kind === 'smashRobot') {
       if (enemyRobotsHere.length === 0) return '이 방에 상대 로봇이 없다.'
@@ -162,14 +168,18 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     return null
   }
 
-  async function send(kind: ActionKind, t: { targetPlayer?: string; targetRobot?: string } = {}) {
+  async function send(kind: ActionKind, t: { targetPlayer?: string; targetRobot?: string; targetTeam?: TeamId } = {}) {
     // 부순 로봇은 돌아오지 않는다. 손가락이 스친 것만으로 일어나면 안 된다
     if (kind === 'smashRobot' && !(await ask('로봇을 부순다. 되돌릴 수 없다.'))) return
     setBusy(true)
     try {
       const out = (await act.phaseAct(kind, t)) as { tokens?: number }
       setOpen(null)
-      onSaid(`${LABEL[kind]}. 팀 토큰 ${out.tokens ?? '?'}개 남았다.`)
+      onSaid(
+        kind === 'plant' ? `${hereName}에 깃발을 꽂았다.`
+        : kind === 'pull' ? `${hereName}에서 ${t.targetTeam ?? ''}팀 깃발을 뽑았다.`
+        : `${LABEL[kind]}. 팀 토큰 ${out.tokens ?? '?'}개 남았다.`,
+      )
     } catch (e) {
       onSaid((e as Error).message)
     } finally {
@@ -186,20 +196,45 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       <p className="sc-ph__purse">
         <strong>
           <Cost of="token" n={tokens} />
+          <Cost of="flag" n={teamFlags} />
         </strong>
         {endsAtMs != null && (
           <em>{overAt ? '시간 끝' : <Cost of="clock" n={leftText(endsAtMs - now)} />}</em>
         )}
       </p>
+      {/*
+        이 방의 깃발. **주인을 정하는 수다** — 페이즈가 끝날 때 이것과
+        로봇을 세서 가장 많은 팀이 가진다. 안 보이면 아직 아무도 안 꽂았다.
+      */}
+      {here && canHoldFlags(here) && (
+        <p className="sc-ph__flags" aria-label="이 방의 깃발">
+          <span>이 방 깃발</span>
+          {flagRows.length === 0 ? (
+            <em>아직 없다</em>
+          ) : (
+            flagRows.map(([t, n]) => (
+              <b key={t} className={t === me.team ? 'is-mine' : ''}>
+                <i style={{ background: TEAM_COLOR[t] }} />
+                {t} {n}
+              </b>
+            ))
+          )}
+        </p>
+      )}
       <ul className="sc-ph__list">
         {KINDS.map((k) => {
           const no = why(k)
-          const fold = k === 'summon' || k === 'disturb' || k === 'dropRobot' || k === 'smashRobot'
+          // 뽑기는 고를 팀이 둘 이상일 때만 펼친다. 하나면 바로 뽑는다
+          const fold = k === 'summon' || (k === 'pull' && pullable.length > 1) || k === 'dropRobot' || k === 'smashRobot'
           return (
             <li key={k}>
               <button
                 disabled={busy || no !== null}
-                onClick={() => (fold ? setOpen(open === k ? null : k) : void send(k))}
+                onClick={() =>
+                  fold ? setOpen(open === k ? null : k)
+                  : k === 'pull' ? void send(k, { targetTeam: pullable[0]?.[0] })
+                  : void send(k)
+                }
               >
                 <img className="sc-ph__art" src={uiIcon(k)} alt="" width={32} height={32} />
                 <span className="sc-ph__say">
@@ -220,16 +255,11 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
                 </div>
               )}
 
-              {open === k && k === 'disturb' && (
+              {open === k && k === 'pull' && (
                 <div className="sc-ph__targets">
-                  {enemiesHere.map((p) => (
-                    <button key={p.playerId} disabled={busy} onClick={() => void send('disturb', { targetPlayer: p.playerId })}>
-                      {nameOf(seats, p.playerId)} <em>{p.team}</em>
-                    </button>
-                  ))}
-                  {enemyRobotsHere.map((r) => (
-                    <button key={r.id} disabled={busy} onClick={() => void send('disturb', { targetRobot: r.id })}>
-                      로봇 <em>{r.team}</em>
+                  {pullable.map(([t, n]) => (
+                    <button key={t} disabled={busy} onClick={() => void send('pull', { targetTeam: t })}>
+                      {t}팀 깃발 <em>{n}</em>
                     </button>
                   ))}
                 </div>
@@ -350,9 +380,8 @@ const SAYS: Record<string, (l: Line, seats: readonly SeatEntry[]) => string> = {
   moveBlocked: (l, s) => `${who(l, s)}은(는) ${room(l)}에 못 들어갔다 — ${l.why ?? ''}`,
   summoned: (l, s) => `${who(l, s)}이(가) ${nameOf(s, l.targetPlayer ?? '')}을(를) 불렀다.`,
   summonFailed: (l, s) => `${who(l, s)}의 호출이 불발됐다 — ${l.why ?? ''}`,
-  disturbed: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 누군가를 붙잡았다.`,
-  disturbFailed: (l, s) => `${who(l, s)}의 방해가 빗나갔다 — ${l.why ?? ''}`,
-  disguised: (l, s) => `${who(l, s)}이(가) 수를 부풀렸다.`,
+  flagPlanted: (l, s) => `${who(l, s)}이(가) ${room(l)}에 ${l.team}팀 깃발을 꽂았다.`,
+  flagPulled: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 ${l.team}팀 깃발을 뽑았다.`,
   robotLeft: (l, s) => `${who(l, s)}이(가) ${room(l)}에 로봇을 두고 갔다.`,
   robotSmashed: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 로봇을 부쉈다.`,
   smashFailed: (l, s) => `${who(l, s)}이(가) 로봇을 못 부쉈다 — ${l.why ?? ''}`,

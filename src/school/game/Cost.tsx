@@ -17,12 +17,16 @@ const WORD: Record<string, string> = {
   money: '돈',
   knowledge: '지식',
   clock: '분',
+  flag: '팀 깃발',
 }
 
-export type CostOf = 'token' | 'money' | 'knowledge' | 'clock' | ItemKind
+/** 조작부 그림(uiArt)에서 오는 것. 나머지는 물건 그림(goodArt)이다 */
+const UI_KEYS = new Set(['token', 'money', 'knowledge', 'clock'])
+
+export type CostOf = 'token' | 'money' | 'knowledge' | 'clock' | 'flag' | ItemKind
 
 const wordOf = (of: CostOf): string => WORD[of] ?? ITEM_BY_KIND[of as ItemKind]?.name ?? of
-const srcOf = (of: CostOf): string => (of in WORD ? uiIcon(of) : goodIcon(of))
+const srcOf = (of: CostOf): string => (UI_KEYS.has(of) ? uiIcon(of) : goodIcon(of))
 
 export function Cost({ of, n, dim = false }: { of: CostOf; n: number | string; dim?: boolean }) {
   const word = wordOf(of)

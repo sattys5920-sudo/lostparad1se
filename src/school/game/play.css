@@ -1349,7 +1349,28 @@ p.sc-cv { display: block; }
   background: var(--sc-surface);
 }
 
-.sc-ph__purse strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.sc-ph__purse strong { font-size: 15px; font-variant-numeric: tabular-nums; display: inline-flex; gap: 10px; }
+
+/* 이 방의 깃발 — 팀마다 색 네모와 수. 주인을 정하는 수다 */
+.sc-ph__flags {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+  color: var(--sc-text-dim);
+}
+.sc-ph__flags b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--sc-text);
+  font-variant-numeric: tabular-nums;
+}
+.sc-ph__flags b.is-mine { text-decoration: underline; text-underline-offset: 3px; }
+.sc-ph__flags i { width: 8px; height: 8px; display: inline-block; }
+.sc-ph__flags em { font-style: normal; }
 .sc-ph__purse em {
   font-style: normal;
   font-size: 12.5px;

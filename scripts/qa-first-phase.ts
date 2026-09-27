@@ -172,9 +172,7 @@ async function main() {
     // 생산·공부는 **우리 땅** 위에서만(ACTION_STAND 의 ourZone)
     if (mine && tokens >= 1) can.push('생산 · 공부')
     if (room === 'labRoom' && tokens >= ACT_COST.research) can.push(`연구(${ACT_COST.research})`)
-    for (const [kind, label] of [['whistle', '방해'], ['nameTag', '위장']] as const) {
-      if (num(items[kind]) > 0) can.push(`${label}(${ITEM_BY_KIND[kind].name})`)
-    }
+    if (num(items.whistle) > 0) can.push(`깃발 뽑기(${ITEM_BY_KIND.whistle.name})`)
     const spot = atVending(me)
     if (spot) {
       const afford = SHOP_ITEMS.filter((i) => priceOf(i) <= money)

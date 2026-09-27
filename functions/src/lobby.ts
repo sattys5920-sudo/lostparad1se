@@ -16,7 +16,6 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
-import { isShortHanded } from '../../shared/rules/occupy'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
@@ -427,9 +426,8 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         tileId: START_TILE,
         // 전투 자리. 처음에는 서 있는 자리와 같다
         postTile: START_TILE,
-        // 세 명뿐인 팀의 첫 사람이 주장이다. 점령 판정에서 둘로 센다 —
-        // 네 명인 팀과 머릿수를 맞추는 유일한 장치다
-        captain: isShortHanded(members.length) && i === 0,
+        // 판정에서 둘로 세던 주장은 없앴다. 방은 깃발로 정한다
+        captain: false,
         // 처음부터 이 팀이었다. 오늘 오간 무전은 다 내 것이다
         teamSinceMs: startedAtMs,
         // 2-3 교실은 이미 가 본 곳이다. 지도는 여기서부터 채워진다

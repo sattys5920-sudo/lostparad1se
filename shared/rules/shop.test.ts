@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { SHOP_ITEMS, VENDINGS, atVending, priceOf, shopItemById, type ShopItem } from './shop'
 import { FLOORS, isHallCell, roomOfCell } from './board'
 import { ITEM_BY_KIND, ITEM_KINDS, type ItemKind } from './items'
+import { FLAG_PRICE, FLAG_STOCK_PER_DAY } from './flag'
 
 /** 값 규칙은 파는 목록과 상관없이 돌아야 한다. 가짜 물건으로 본다. */
 const pen: ShopItem = { id: 'pen', name: '볼펜', text: '[작성 예정]', cost: { money: 5 } }
@@ -37,26 +38,34 @@ describe('상점', () => {
     expect(atVending(null)).toBeNull()
   })
 
-  it('방해와 위장에 쓸 물건이 있다 — 없으면 그 두 행동이 판에서 사라진다', () => {
-    for (const kind of ['whistle', 'nameTag'] as const) {
-      const item = SHOP_ITEMS.find((i) => i.gives === kind)
-      expect(item, kind).toBeDefined()
-      expect(ITEM_BY_KIND[kind].use, kind).toBeTruthy()
-    }
+  it('깃발 뽑기에 쓸 호루라기를 판다 — 없으면 꽂힌 깃발을 아무도 못 뽑는다', () => {
+    const item = SHOP_ITEMS.find((i) => i.gives === 'whistle')
+    expect(item).toBeDefined()
+    expect(ITEM_BY_KIND.whistle.use).toBe('pull')
+  })
+
+  it('**깃발도 판다** — 팀 상자로 가고, 학교 전체 하루 몇 개뿐이다', () => {
+    const flag = shopItemById('flag')
+    expect(flag?.flags).toBe(1)
+    expect(flag?.gives).toBeUndefined()
+    expect(flag?.cost.money).toBe(FLAG_PRICE)
+    expect(flag?.stockPerDay).toBe(FLAG_STOCK_PER_DAY)
   })
 
   it('없는 물건은 못 찾는다', () => {
     expect(shopItemById('pen')).toBeNull()
   })
 
-  it('여섯 가지를 팔고, 파는 것은 모두 물건을 남긴다', () => {
-    expect(SHOP_ITEMS.map((i) => i.id)).toEqual(['whistle', 'nameTag', 'lock', 'paper', 'eraser', 'tape'])
-    // gives 가 없으면 사도 아무것도 안 남는다. 값만 받는 물건은 없다
-    for (const i of SHOP_ITEMS) expect(i.gives, i.id).toBeTruthy()
+  it('여섯 가지를 팔고, 파는 것은 모두 무엇을 남긴다', () => {
+    expect(SHOP_ITEMS.map((i) => i.id)).toEqual(['whistle', 'flag', 'lock', 'paper', 'eraser', 'tape'])
+    // 물건이든 깃발이든 하나는 남는다. 값만 받는 것은 없다
+    for (const i of SHOP_ITEMS) expect(Boolean(i.gives) || (i.flags ?? 0) > 0, i.id).toBe(true)
   })
 
   it('이름과 설명을 카탈로그에서 그대로 가져온다', () => {
     for (const i of SHOP_ITEMS) {
+      // 깃발은 물건 카탈로그 밖이다 — 주머니가 아니라 팀 상자로 간다
+      if (!i.gives) continue
       const spec = ITEM_BY_KIND[i.gives as ItemKind]
       expect(i.name, i.id).toBe(spec.name)
       expect(i.text, i.id).toBe(spec.text)
@@ -75,10 +84,10 @@ describe('상점', () => {
     expect(SHOP_ITEMS.some((i) => i.gives === 'trap')).toBe(false)
   })
 
-  it('**지우개만 하루 몫이 걸려 있다**', () => {
+  it('**지우개와 깃발만 하루 몫이 걸려 있다**', () => {
     const limited = SHOP_ITEMS.filter((i) => i.stockPerDay !== undefined)
-    expect(limited.map((i) => i.id)).toEqual(['eraser'])
-    expect(limited[0]?.stockPerDay).toBe(1)
+    expect(limited.map((i) => i.id)).toEqual(['flag', 'eraser'])
+    expect(shopItemById('eraser')?.stockPerDay).toBe(1)
   })
 
   it('값은 모두 돈이고, 0원짜리는 없다', () => {

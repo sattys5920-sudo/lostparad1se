@@ -39,12 +39,6 @@ export const TEAM_IDS: readonly TeamId[] = ['A', 'B', 'C', 'D']
  */
 export const STARTING_TEAM_SIZES: Record<TeamId, number> = { A: 4, B: 4, C: 3, D: 3 }
 
-/** 주장을 두는 팀의 인원. 이보다 적은 팀이 주장을 둔다. */
-export const FULL_TEAM_SIZE = 4
-
-/** 주장은 점령 판정에서 이만큼으로 센다. */
-export const CAPTAIN_HEAD_COUNT = 2
-
 /** 지금 팀마다 몇 명인가. **명단을 센다** — 상수를 읽지 않는다. */
 export function teamSizesOf(roster: readonly { team: TeamId }[]): Record<TeamId, number> {
   const out = Object.fromEntries(TEAM_IDS.map((t) => [t, 0])) as Record<TeamId, number>

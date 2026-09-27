@@ -10,6 +10,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { projectAll, type World, type WorldPawn } from '../../shared/rules/views'
 import type { TileId } from '../../shared/rules/board'
+import type { FlagMap } from '../../shared/rules/flag'
 import type {
   GameDoc,
   NoticeDoc,
@@ -49,7 +50,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps, flagDoc] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -72,6 +73,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
       trapWorld(gameId),
+      gameRef(gameId).collection('secret').doc('flags').get(),
     ])
 
   const rosterRows = roster.docs.map((d) => d.data() as RosterDoc)
@@ -152,10 +154,11 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 자유 시간 상자. 팀에 남은 수와 사람마다 오늘 쓴 수가 같이 있다
     invisibleId: game.invisibleId ?? null,
     pawns: worldPawns,
-    // 위장은 secret 에만 있다. 판 문서는 누구나 읽을 수 있어서, 거기
-    // 적으면 누가 위장했는지 개발자도구로 다 보인다 — 실제로 그랬다.
-    // 페이즈가 닫히면 서버가 지우므로 여기서 기한을 따질 것이 없다
-    disguised: ((hiddenPhase.data() as { disguised?: string[] } | undefined)?.disguised ?? []),
+    // 방마다 꽂힌 깃발. **secret 에서 여기까지만 온다** — 투영이
+    // 보이는 방의 것만 떼어 보낸다
+    flags: ((flagDoc.data() as { tiles?: FlagMap } | undefined)?.tiles ?? {}),
+    // 깃발 상자. 토큰 상자처럼 투영이 자기 팀 것만 보낸다
+    flagBoxes: Object.fromEntries(teams.docs.map((d) => [d.id, (d.data() as { flags?: number }).flags ?? 0])),
     smashedBy: ((hiddenPhase.data() as { smashedBy?: string[] } | undefined)?.smashedBy ?? []),
     // 오늘 적은 표. **투영이 본인 것만 떼어 보낸다** — 여기까지는
     // 서버 안이라 전부 들고 있어도 된다

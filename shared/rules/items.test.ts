@@ -1,13 +1,13 @@
-// 아이템 — 방해와 위장은 물건이 든다.
+// 아이템 — 깃발을 뽑는 데는 물건이 든다.
 import { describe, expect, it } from 'vitest'
 
 import { ITEMS, ITEM_BY_KIND, ITEM_FOR, countOf, isHandItem, putItem, takeItem } from './items'
 import { ACT_COST } from './occupy'
 
 describe('물건', () => {
-  it('호루라기는 방해, 명찰은 위장에 든다', () => {
-    expect(ITEM_FOR.disturb).toBe('whistle')
-    expect(ITEM_FOR.disguise).toBe('nameTag')
+  it('호루라기는 깃발 뽑기에 든다', () => {
+    expect(ITEM_FOR.pull).toBe('whistle')
+    expect(ITEM_FOR.plant).toBeUndefined()
   })
 
   it('물건이 드는 행동에는 토큰이 안 든다', () => {
@@ -22,7 +22,7 @@ describe('물건', () => {
   it('손으로 쓰는 다섯은 어느 행동에도 안 걸려 있다', () => {
     const hand = ITEMS.filter((i) => isHandItem(i.kind)).map((i) => i.kind)
     expect(hand).toEqual(['lock', 'paper', 'eraser', 'tape', 'trap'])
-    expect(Object.values(ITEM_FOR)).toEqual(['whistle', 'nameTag'])
+    expect(Object.values(ITEM_FOR)).toEqual(['whistle'])
   })
 
   it('이름과 설명이 비어 있지 않다', () => {

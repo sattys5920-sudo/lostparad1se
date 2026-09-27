@@ -59,7 +59,8 @@ import {
 } from '../../shared/model'
 import { freshNow, refuseIfInvisible, requireFree } from './turn'
 import { researchTierUp, type Brewing } from './made'
-import { countsDouble, roundAt } from '../../shared/rules/captain'
+import { roundAt } from '../../shared/rules/captain'
+import { grantFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
 import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
@@ -78,8 +79,8 @@ const ACT_LABEL: Record<ActionKind, string> = {
   move: '이동',
   research: '연구',
   summon: '호출',
-  disturb: '방해',
-  disguise: '위장',
+  plant: '깃발 꽂기',
+  pull: '깃발 뽑기',
   dropRobot: '로봇 두기',
   smashRobot: '로봇 부수기',
 }
@@ -88,8 +89,8 @@ const ACTION_KINDS: readonly ActionKind[] = [
   'move',
   'research',
   'summon',
-  'disturb',
-  'disguise',
+  'plant',
+  'pull',
   'dropRobot',
   'smashRobot',
 ]
@@ -99,15 +100,31 @@ const robotsOf = (gameId: string) => gameRef(gameId).collection('robots')
 /**
  * 이번 페이즈의 감출 것들. **판 문서에 두면 안 된다.**
  *
- * 누가 위장했는지, 누가 방해받았는지가 여기 있다. 판 문서는 누구나
- * 읽을 수 있어서, 거기 적으면 위장이라는 것이 아예 성립하지 않는다.
+ * 누가 무엇을 걸어 두었는지가 여기 있다. 판 문서는 누구나 읽을 수 있다.
  */
 const hiddenOf = (gameId: string) => gameRef(gameId).collection('secret').doc('phase')
 
+/**
+ * 방마다 꽂힌 깃발. **secret 에 둔다.**
+ *
+ * 주인은 누구에게나 보이지만(tiles), 몇 개 차이로 쥐고 있는지는 그
+ * 방에 들어가야 안다 — 판 문서나 tiles 에 적으면 개발자도구로 온
+ * 학교의 깃발 수가 다 보인다. 투영이 보이는 방의 것만 떼어 보낸다.
+ */
+const flagsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('flags')
+
+/** 깃발 문서에서 방마다의 수만 떼어 온다. */
+const flagMapOf = (snap: FirebaseFirestore.DocumentSnapshot): FlagMap =>
+  ((snap.data() as { tiles?: FlagMap } | undefined)?.tiles ?? {})
+
+/** 팀 문서에서 깃발 상자만 떼어 온다. 토큰 상자 옆에 있다 — 같은 팀만 읽는다. */
+function flagBoxesOf(teams: FirebaseFirestore.QuerySnapshot): FlagBoxes {
+  const out: Partial<Record<TeamId, number>> = {}
+  for (const d of teams.docs) out[d.id as TeamId] = (d.data() as TeamDoc).flags ?? 0
+  return out
+}
+
 interface HiddenPhase {
-  disguised: string[]
-  zeroedPeople: string[]
-  zeroedRobots: string[]
   pendingResearch: Brewing[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: string[]
@@ -136,9 +153,6 @@ function queued(raw: unknown): Brewing[] {
 }
 
 const EMPTY_HIDDEN: HiddenPhase = {
-  disguised: [],
-  zeroedPeople: [],
-  zeroedRobots: [],
   pendingResearch: [],
   smashedBy: [],
   actedBy: [],
@@ -163,7 +177,6 @@ function personOf(id: string, p: PawnDoc): Person {
     // 메우면 문 사이에 있는 사람이 전선에 서 있는 것으로 세어진다
     tileId: (p.tileId ?? null) as TileId | null,
     toTile: (p.path?.[0] ?? null) as TileId | null,
-    captain: p.captain === true,
   }
 }
 
@@ -231,13 +244,14 @@ function writeVaults(
 
 async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: GameDoc }> {
   const ref = gameRef(gameId)
-  const [snap, pawns, tiles, bots, hidden, teams] = await Promise.all([
+  const [snap, pawns, tiles, bots, hidden, teams, flags] = await Promise.all([
     ref.get(),
     ref.collection('pawns').get(),
     ref.collection('tiles').get(),
     robotsOf(gameId).get(),
     hiddenOf(gameId).get(),
     ref.collection('teams').get(),
+    flagsOf(gameId).get(),
   ])
   const game = snap.data() as GameDoc
   const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
@@ -257,9 +271,8 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       robots,
       owners,
       pendingResearch: queued(h.pendingResearch),
-      zeroedPeople: h.zeroedPeople,
-      zeroedRobots: h.zeroedRobots,
-      disguised: h.disguised,
+      flags: flagMapOf(flags),
+      flagBoxes: flagBoxesOf(teams),
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(pawns),
@@ -416,10 +429,19 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    * 팀이 여기서 정리되고, 얹은 다음에 깎으면 보정이 그 자리에서
    * 사라져 아무 뜻이 없어진다
    */
+  /*
+   * **깃발은 하루에 한 번 들어온다.** 그날 첫 페이즈가 열릴 때 팀마다
+   * 같은 수(rules/flag). 남은 것은 그대로 간다 — 아껴 두었다가 한
+   * 페이즈에 몰아 꽂아도 된다.
+   */
+  const today = Math.floor((game.phaseDone ?? 0) / PHASES_PER_DAY) + 1
   for (const d of teams.docs) {
     const team = d.id as TeamId
     const t = d.data() as TeamDoc
+    const flagGrant = grantFlags(t.flags ?? 0, t.flagDay ?? null, today)
     batch.update(d.ref, {
+      flags: flagGrant.held,
+      flagDay: flagGrant.day,
       phaseTokens: nextWallet({
         held: t.phaseTokens ?? 0,
         // 결석 보정에 투명인간 보정을 더한다. 둘 다 이때만 한도를
@@ -442,9 +464,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    * 뽑기로 한 자리를 규칙이 말없이 채우면 그게 곧 걷어낸 옛 교대다.
    * 남은 사람들이 상의하고 다시 뽑을 때까지 그 팀에는 팀장이 없다.
    *
-   * **남아 있으면 머릿수만 다시 센다.** 점령 판정에서 둘로 세는 것은
-   * 세 명인 팀의 팀장뿐이라, 셋이 넷이 되면 그 자리에서 떼고 넷이
-   * 셋이 되면 붙여야 한다. 건드리지 않은 팀은 그대로 둔다.
+   * 남아 있으면 그대로 둔다. 팀장은 이제 판정에서 따로 세지 않는다.
    */
   const touched = new Set<TeamId>(moved.flatMap((m) => [m.p.team, m.p.movingTo as TeamId]))
   for (const team of touched) {
@@ -459,11 +479,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
         captainVote: roundAt(day, 1, nowMs),
       })
       batch.update(ref.collection('pawns').doc(head), { captain: false })
-      continue
     }
-    const is = countsDouble(members.length, true)
-    const was = (pawns.docs.find((d) => d.id === head)?.data() as PawnDoc | undefined)?.captain === true
-    if (was !== is) batch.update(ref.collection('pawns').doc(head), { captain: is })
   }
 
 
@@ -492,7 +508,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     sysLine(batch, gameId, m.from, sys.movedOut(m.name, m.to), nowMs, day)
     sysLine(batch, gameId, m.to, sys.movedIn(m.name), nowMs, day)
   }
-  // 지난 페이즈의 위장·방해는 여기서 지운다. 연구 대기는 남긴다 —
+  // 지난 페이즈의 기록은 여기서 지운다. 연구 대기는 남긴다 —
   // 이번 페이즈가 닫힐 때 로봇이 될 것들이다
   batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
 
@@ -537,6 +553,7 @@ export const phaseAct = onCall<{
   targetTile?: TileId
   targetPlayer?: string
   targetRobot?: string
+  targetTeam?: TeamId
 }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, kind } = req.data
@@ -554,7 +571,7 @@ export const phaseAct = onCall<{
    * 자리로 끌려와 거기 누가 있는지 알게 되고, 남이 지워진 사람을
    * 부르면 안 보이는 말이 제 쪽으로 다가온다.
    *
-   * 나머지 행동(이동·연구·방해·위장·로봇)에는 막는 것이 없다.
+   * 나머지 행동(이동·연구·깃발·로봇)은 규칙 엔진이 가른다.
    */
   if (kind === 'summon') {
     refuseIfInvisible(game.invisibleId, uid, req.data.targetPlayer ?? null, '호출할')
@@ -578,6 +595,7 @@ export const phaseAct = onCall<{
     ...(req.data.targetTile ? { targetTile: req.data.targetTile } : {}),
     ...(req.data.targetPlayer ? { targetPlayer: req.data.targetPlayer } : {}),
     ...(req.data.targetRobot ? { targetRobot: req.data.targetRobot } : {}),
+    ...(req.data.targetTeam ? { targetTeam: req.data.targetTeam } : {}),
   }
 
   /** 내가 방을 떠났다면 그 방. 체류 기록을 닫아야 한다. */
@@ -600,12 +618,13 @@ export const phaseAct = onCall<{
     gone: { id: string; team: TeamId }[]
   } = { made: null, smashed: null, gone: [] }
   await db.runTransaction(async (tx) => {
-    const [pawns, bots, tiles, hidden, teams] = await Promise.all([
+    const [pawns, bots, tiles, hidden, teams, flagSnap] = await Promise.all([
       tx.get(ref.collection('pawns')),
       tx.get(robotsOf(gameId)),
       tx.get(ref.collection('tiles')),
       tx.get(hiddenOf(gameId)),
       tx.get(ref.collection('teams')),
+      tx.get(flagsOf(gameId)),
     ])
     const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
     const before: PhaseState = {
@@ -616,9 +635,8 @@ export const phaseAct = onCall<{
       }),
       owners: Object.fromEntries(tiles.docs.map((d) => [d.id, (d.data() as TileDoc).ownerTeam ?? null])),
       pendingResearch: queued(h.pendingResearch),
-      zeroedPeople: h.zeroedPeople,
-      zeroedRobots: h.zeroedRobots,
-      disguised: h.disguised,
+      flags: flagMapOf(flagSnap),
+      flagBoxes: flagBoxesOf(teams),
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(pawns),
@@ -736,12 +754,19 @@ export const phaseAct = onCall<{
       }
     }
 
-    // 팀 상자 — 값을 치른 팀만 쓴다
+    // 팀 상자 — 값을 치른 팀만 쓴다. 토큰과 깃발
     for (const d of teams.docs) {
       const team = d.id as TeamId
+      const patch: Record<string, number> = {}
       const after = out.next.wallets[team] ?? 0
-      if (after === (before.wallets[team] ?? 0)) continue
-      tx.update(d.ref, { phaseTokens: after })
+      if (after !== (before.wallets[team] ?? 0)) patch.phaseTokens = after
+      const flagsLeft = out.next.flagBoxes[team] ?? 0
+      if (flagsLeft !== (before.flagBoxes[team] ?? 0)) patch.flags = flagsLeft
+      if (Object.keys(patch).length > 0) tx.update(d.ref, patch)
+    }
+    // 꽂히거나 뽑힌 깃발. 바뀐 때만 쓴다
+    if (JSON.stringify(out.next.flags) !== JSON.stringify(before.flags)) {
+      tx.set(flagsOf(gameId), { tiles: out.next.flags })
     }
     left = out.next.wallets[(before.people.find((p) => p.playerId === uid) as Person).team] ?? 0
 
@@ -763,9 +788,6 @@ export const phaseAct = onCall<{
     for (const r of out.next.robots) tx.set(robotsOf(gameId).doc(r.id), { ...r })
 
     tx.set(hiddenOf(gameId), {
-      disguised: out.next.disguised,
-      zeroedPeople: out.next.zeroedPeople,
-      zeroedRobots: out.next.zeroedRobots,
       /*
        * **익는 시각은 서버가 찍는다.** 규칙은 시계를 안 본다 —
        * 어느 연구실에 걸었는지까지가 규칙의 몫이고, 언제 익는지는
@@ -834,10 +856,10 @@ export const phaseNow = onCall<{ gameId: string }>(async (req) => {
 // ── 관리자: 페이즈 닫기 ─────────────────────────────────────────
 
 /**
- * 페이즈를 닫는다. **서 있는 자리로 주인을 정한다.**
+ * 페이즈를 닫는다. **꽂힌 깃발과 로봇으로 주인을 정한다.**
  *
- * 행동은 이미 그때그때 처리됐다. 여기서 하는 일은 머릿수를 세는 것과,
- * 지난 페이즈에 걸어 둔 연구를 로봇으로 만드는 것뿐이다.
+ * 행동은 이미 그때그때 처리됐다. 여기서 하는 일은 깃발을 세는 것뿐이다.
+ * 깃발은 그대로 남는다 — 뽑히기 전까지 다음 페이즈에도 그 방에 있다.
  *
  * 판정은 shared/rules/occupy.ts 의 순수 함수가 한다. 여기서는 재료를
  * 모아 주고 결과를 적기만 한다 — 규칙이 서버 안에 흩어지면 시험할 수 없다.
@@ -950,7 +972,7 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
     pendingResearch: out.next.pendingResearch,
   })
   for (const t of TEAMS) sysLine(batch, gameId, t, sys.phaseClose(no), nowMs, game.phaseNow.day)
-  // 위장도 방해도 페이즈와 함께 끝난다. **남겨 두면 나중에 다 들통난다**
+  // 이번 페이즈의 기록은 페이즈와 함께 끝난다
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 
   await batch.commit()

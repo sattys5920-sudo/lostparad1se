@@ -98,18 +98,19 @@ const WHISTLE = P([
 ])
 
 /** 남의 명찰 — 위에 집게가 달린 이름표. */
-const NAMETAG = P([
-  '            ',
-  '     33     ',
-  '    3  3    ',
-  '  33333333  ',
-  '  31111113  ',
-  '  31333113  ',
-  '  31111113  ',
-  '  31333313  ',
-  '  31111113  ',
-  '  33333333  ',
-  '            ',
+/** 깃발 — 깃대 하나에 삼각기. 팀 상자로 가는 것이다(rules/flag). */
+const FLAG = P([
+  '  3         ',
+  '  3333      ',
+  '  311133    ',
+  '  31111133  ',
+  '  3111113   ',
+  '  31133     ',
+  '  333       ',
+  '  3         ',
+  '  3         ',
+  '  3         ',
+  ' 333        ',
   '            ',
 ])
 
@@ -222,7 +223,7 @@ export const GOOD_ART: Readonly<Record<string, readonly string[]>> = {
   slips: NOTE,
   robots: ROBOT,
   whistle: WHISTLE,
-  nameTag: NAMETAG,
+  flag: FLAG,
   lock: LOCK,
   paper: BLANK,
   eraser: ERASER,

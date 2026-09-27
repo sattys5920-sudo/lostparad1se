@@ -15,7 +15,7 @@
 //   3. 걷는 말의 **목적지는 어느 view에도 없다.** 본인 팀 것도.
 //
 // 순수 함수다. Firestore를 모른다 — 그래야 시험할 수 있다.
-import { DISGUISE_SHOWN_AS } from './occupy'
+import type { FlagBoxes, FlagMap } from './flag'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { TeamId, VoteKind } from './v2'
 import { floorOfCell, roomOfCell, type Cell, type TileId } from './board'
@@ -170,8 +170,10 @@ export interface World {
   robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
   /** 연구실에 놓인 주인 없는 완성품. */
   made?: readonly { id: string; tileId: TileId; byPlayerId: string }[]
-  /** 지금 위장하고 있는 사람들. 남에게 보이는 숫자를 서버가 부풀린다. */
-  disguised?: readonly string[]
+  /** 방마다 꽂힌 깃발. **보이는 방의 것만 내려간다.** */
+  flags?: FlagMap
+  /** 팀마다 깃발 상자. 자기 팀 것만 내려간다. */
+  flagBoxes?: FlagBoxes
   /** 이번 페이즈에 로봇을 부순 사람. 투영이 내 것만 세어 보낸다. */
   smashedBy?: readonly string[]
   /**
@@ -369,6 +371,15 @@ export interface View {
    */
   robotCounts: Record<TileId, number>
   /**
+   * 보이는 방마다 꽂힌 깃발 — 팀마다 몇 개. 안 보이는 방은 아예 없다.
+   *
+   * 주인은 누구에게나 보이지만 **몇 개 차이로 쥐고 있는지는** 그 방에
+   * 들어가야 안다. 머릿수와 같은 안개다.
+   */
+  flagCounts: Record<TileId, Partial<Record<TeamId, number>>>
+  /** 우리 팀 깃발 상자에 남은 수. 넷이 나눠 쓴다. */
+  myTeamFlags: number
+  /**
    * 내가 가 본 방. **한 번도 안 간 방은 지도에 검게 남는다.**
    *
    * 지금 보이는 방(visibleTiles)과는 다르다. 관측소로 멀리 보는 것과
@@ -489,22 +500,18 @@ export interface View {
 /**
  * 방마다 보이는 머릿수. 안 보이는 방은 아예 넣지 않는다.
  *
- * 걷는 사람은 어느 방에도 없다. 위장한 남은 둘로 센다 — 판정이 아니라
- * **보이는 숫자**라서, 여기만 거짓말을 한다.
+ * 걷는 사람은 어느 방에도 없다. 판정에는 안 쓰는 수다 — 주인은 깃발로
+ * 정한다. 방이 몇 명 찼는지(정원)를 보라고 간다.
  */
 function countRooms(
   pawns: readonly { playerId: string; team: TeamId; tileId: TileId | null }[],
   robots: readonly { team: TeamId; tileId: TileId }[],
   visible: ReadonlySet<TileId>,
-  viewerTeam: TeamId,
-  disguised: readonly string[],
 ): Record<TileId, number> {
-  const wearing = new Set(disguised)
   const out: Record<TileId, number> = {}
   for (const p of pawns) {
     if (p.tileId === null || !visible.has(p.tileId)) continue
-    const n = p.team !== viewerTeam && wearing.has(p.playerId) ? DISGUISE_SHOWN_AS : 1
-    out[p.tileId] = (out[p.tileId] ?? 0) + n
+    out[p.tileId] = (out[p.tileId] ?? 0) + 1
   }
   for (const r of robots) {
     if (!visible.has(r.tileId)) continue
@@ -552,6 +559,8 @@ export function projectView(world: World, viewerId: string): View {
       mySmashes: 0,
       myBallot: null,
       robotCounts: {},
+      flagCounts: {},
+      myTeamFlags: 0,
       visitedTiles: [],
       handledDays: [],
       readDays: [],
@@ -636,7 +645,7 @@ export function projectView(world: World, viewerId: string): View {
      * 본다 — 무엇을 들었는지까지가 보이는 것이고, 무슨 심부름인지는
      * 안 보인다. 보이는 사람에게만 붙으므로 새는 길도 아니다.
      */
-    roomCounts: countRooms(seenPawns, world.robots ?? [], visible, team, world.disguised ?? []),
+    roomCounts: countRooms(seenPawns, world.robots ?? [], visible),
 
     // 로봇도 안개를 거친다. 보이지 않는 방의 로봇은 아예 안 보낸다
     visibleRobots: (world.robots ?? [])
@@ -799,6 +808,10 @@ export function projectView(world: World, viewerId: string): View {
     robotCounts: Object.fromEntries(
       [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.tileId === t).length]),
     ) as Record<TileId, number>,
+    flagCounts: Object.fromEntries(
+      [...visible].filter((t) => world.flags?.[t] !== undefined).map((t) => [t, { ...world.flags?.[t] }]),
+    ) as Record<TileId, Partial<Record<TeamId, number>>>,
+    myTeamFlags: world.flagBoxes?.[team] ?? 0,
     visitedTiles: [...(world.pawns.find((p) => p.playerId === viewerId)?.visitedTiles ?? [])].sort(),
 
     // 진상 공개 흐름

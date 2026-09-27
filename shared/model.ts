@@ -205,6 +205,13 @@ export interface TeamDoc {
    * 지운다 — 남겨 두면 매 페이즈 되풀이해서 얹힌다.
    */
   pendingRefund?: number
+  /**
+   * **깃발 상자.** 토큰 상자처럼 팀에 하나다(rules/flag). 하루 한 번
+   * 들어오고, 자판기에서 사면 산 사람 팀 상자로 들어온다. 꽂으면 빠진다.
+   */
+  flags?: number
+  /** 깃발을 마지막으로 넣어 준 날. 같은 날 두 번 안 들어온다. */
+  flagDay?: number | null
 
   researchTier: number
   /**
@@ -476,6 +483,10 @@ export interface PlayerViewDoc {
   myBallot?: string | null
   /** 보이는 방마다 서 있는 로봇 수. 정원과 별개다. */
   robotCounts?: Record<TileId, number>
+  /** 보이는 방마다 꽂힌 깃발 — 팀마다 몇 개. 주인을 정하는 수다. */
+  flagCounts?: Record<TileId, Partial<Record<TeamId, number>>>
+  /** 우리 팀 깃발 상자에 남은 수. */
+  myTeamFlags?: number
   /**
    * 내가 선 방 바닥에 있는 쪽지. **한 장 있다는 것까지만이다.**
    *

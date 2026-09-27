@@ -90,11 +90,6 @@ export function tallyCaptain(
   return best.length === 1 ? { winner: best[0], tied: false } : { winner: null, tied: true }
 }
 
-/** 점령 판정에서 둘로 세는가. **세 명인 팀의 팀장만이다.** */
-export function countsDouble(teamSize: number, isCaptain: boolean): boolean {
-  return isCaptain && teamSize < 4
-}
-
 /** 화면에 적는 한 줄. 서버가 거절할 때와 같은 말이다. */
 export const CAPTAIN_NO = {
   notOpen: '아직 투표 창이 안 열렸다',

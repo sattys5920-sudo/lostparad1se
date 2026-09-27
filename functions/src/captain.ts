@@ -15,7 +15,6 @@ import { getFirestore } from 'firebase-admin/firestore'
 import {
   CAPTAIN_NO,
   announceCaptain,
-  countsDouble,
   roundAt,
   tallyCaptain,
   whyNotVote,
@@ -115,10 +114,6 @@ export async function settleCaptainVotes(gameId: string): Promise<void> {
       continue
     }
     await d.ref.update({ captainId: out.winner, captainVote: null })
-    // 머릿수 두 배는 세 명인 팀의 팀장에게만 붙는다
-    if (out.winner && countsDouble(members.length, true)) {
-      await ref.collection('pawns').doc(out.winner).update({ captain: true })
-    }
 
     // **뽑혔으면 숨기지 않는다.** 판 문서에 적고(모두가 읽는 자리다),
     // 공지로 한 줄 내보내고, 무전에도 한 줄 남긴다

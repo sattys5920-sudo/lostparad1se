@@ -13,7 +13,7 @@ import { atVending, priceOf, shopItemById } from '../../shared/rules/shop'
 import { CROP_BY_ID } from '../../shared/rules/crop'
 import { josa } from '../../shared/text'
 import { putItem } from '../../shared/rules/items'
-import type { PawnDoc } from '../../shared/model'
+import type { PawnDoc, TeamDoc } from '../../shared/model'
 import { note } from './records'
 import { refreshViews } from './views'
 import { freshNow, mustBeFreeTime, myPawn, requireAwake } from './turn'
@@ -78,7 +78,7 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
     const [meSnap, stockSnap] = await Promise.all([tx.get(meRef), stockRef ? tx.get(stockRef) : null])
     const soldToday = ((stockSnap?.data() as { n?: number } | undefined)?.n ?? 0)
     if (stockRef && item.stockPerDay && soldToday >= item.stockPerDay) {
-      throw new HttpsError('failed-precondition', `오늘 ${item.name}은(는) 다 나갔다.`)
+      throw new HttpsError('failed-precondition', `오늘 ${item.name}${josa(item.name, '은/는')} 다 나갔다.`)
     }
     /*
      * **내 지갑에서 낸다.** 팀 금고가 없어졌다.
@@ -90,6 +90,14 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
     const meNow = meSnap.data() as PawnDoc
     const left = pay(purseOf(meNow), cost)
     if (!left) throw new HttpsError('failed-precondition', '돈이 모자라다.')
+    /*
+     * **깃발은 주머니가 아니라 팀 상자로 간다.** 산 사람이 누구든 그
+     * 팀 넷이 같이 꽂는다(rules/flag). 읽기를 쓰기보다 먼저 한다 —
+     * 트랜잭션은 읽기가 앞서야 한다
+     */
+    const teamRef = ref.collection('teams').doc(meNow.team)
+    const teamNow = item.flags ? ((await tx.get(teamRef)).data() as TeamDoc | undefined) : undefined
+    if (item.flags) tx.update(teamRef, { flags: (teamNow?.flags ?? 0) + item.flags })
 
     if (stockRef) tx.set(stockRef, { day: game.day, itemId: item.id, n: soldToday + 1 })
     tx.update(meRef, {

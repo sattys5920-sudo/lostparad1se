@@ -178,19 +178,10 @@ async function main(): Promise<void> {
   check(c3.captainId === u2, '최다가 팀장이 됐다', String(c3.captainId))
   check(c3.round === 0, '차례가 끝났다')
 
-  console.log('\n── 머릿수 두 배는 세 명인 팀의 팀장만 ──')
+  console.log('\n── 팀장이라고 판정에서 더 세지 않는다 ──')
+  // 방은 깃발로 정한다. 둘로 세던 주장은 없앴다
   const pawn = await doc(`games/${GAME}/pawns/${u2}`)
-  check((pawn.captain as { booleanValue?: boolean })?.booleanValue === true, 'C팀(3명) 팀장은 둘로 센다')
-  const aTeam = await teamDoc('A')
-  if (aTeam.captainId) {
-    const ap = await doc(`games/${GAME}/pawns/${aTeam.captainId}`)
-    check(
-      (ap.captain as { booleanValue?: boolean })?.booleanValue !== true,
-      'A팀(4명) 팀장은 하나로 센다',
-    )
-  } else {
-    check(true, 'A팀은 아직 못 정했다 — 4인 팀이라 어차피 두 배는 없다')
-  }
+  check((pawn.captain as { booleanValue?: boolean })?.booleanValue !== true, 'C팀(3명) 팀장도 둘로 세지 않는다')
 
   console.log('\n── 정해진 뒤에는 못 적는다 ──')
   check(

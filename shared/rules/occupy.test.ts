@@ -1,7 +1,7 @@
 // 점령 규칙. 페이즈는 한 시간짜리 라이브 판이고, 행동은 그때그때 처리된다.
 //
 // 여기서 지키려는 것은 두 가지다. **토큰을 쓴 만큼만 움직인다**는 것과,
-// **끝나는 순간 서 있는 자리로만 주인이 정해진다**는 것.
+// **끝나는 순간 꽂힌 깃발과 로봇으로만 주인이 정해진다**는 것.
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -32,7 +32,6 @@ import {
   vaultOf,
   robotsOfTeam,
   settle,
-  shownCount,
   stepToward,
   type Act,
   type PhaseState,
@@ -41,12 +40,12 @@ import {
 } from './occupy'
 import { TILES, isAdjacent } from './board'
 import { TEAM_IDS, type TeamId } from './v2'
+import type { FlagMap } from './flag'
 
-const person = (playerId: string, team: TeamId, tileId: string, captain = false): Person => ({
+const person = (playerId: string, team: TeamId, tileId: string): Person => ({
   playerId,
   team,
   tileId,
-  captain,
 })
 
 /** 그 팀 상자에 남은 토큰. **지갑은 팀에 하나다.** */
@@ -64,9 +63,9 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   robots: [],
   owners: {},
   pendingResearch: [],
-  zeroedPeople: [],
-  zeroedRobots: [],
-  disguised: [],
+  flags: {},
+  // 깃발 상자도 넉넉히. 모자란 경우는 따로 쓴다
+  flagBoxes: Object.fromEntries(TEAM_IDS.map((t) => [t, 9])),
   smashedBy: [],
   actedBy: [],
   // 시험에서는 금고도 주머니도 넉넉하다고 본다. 모자란 경우는 따로 쓴다
@@ -76,7 +75,7 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   ),
   // 주머니는 **사람마다**다. 시험에 나오는 이름을 넉넉히 채워 둔다
   satchels: Object.fromEntries(
-    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { whistle: 9, nameTag: 9 }]),
+    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { whistle: 9 }]),
   ),
   // 상자도 한 사람 몫만큼 넣어 둔다. 모자란 경우는 따로 쓴다
   wallets: Object.fromEntries(TEAM_IDS.map((t) => [t, TOKENS_PER_PHASE])),
@@ -111,10 +110,10 @@ describe('토큰이 한 페이즈의 전부다', () => {
     expect(at(s2, 'a').toTile).toBeNull()
   })
 
-  it('걷는 중에는 아무 방에도 없다 — 그때 닫히면 아무 데도 못 센다', () => {
+  it('걷는 중에는 아무 방에도 없다 — 깃발을 못 꽂는다', () => {
     let s = board({ people: [person('a', 'A', 'library')], owners: { library: null } })
     s = must(s, 'a', { kind: 'move', targetTile: 'artRoom' })
-    expect(settle(s).next.owners.library).toBeNull()
+    expect(doAct(s, 'a', { kind: 'plant' }).ok).toBe(false)
     expect(settle(s).next.owners.artRoom).toBeNull()
   })
 
@@ -295,48 +294,100 @@ describe('호출', () => {
   })
 })
 
-describe('방해 — 숫자만 빠지고 사람은 그대로 선다', () => {
-  it('같은 방 상대를 판정에서 0으로 만든다', () => {
-    let s = board({
-      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
-      owners: { library: null },
-    })
-    s = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
-    expect(s.zeroedPeople).toContain('b')
-    // 방해당한 사람은 여전히 그 방에 서 있다
-    expect(at(s, 'b').tileId).toBe('library')
-    // 1대1이었는데 상대가 0이 되어 A가 가져간다
-    expect(settle(s).next.owners.library).toBe('A')
+describe('깃발 꽂기', () => {
+  it('선 방에 우리 팀 깃발이 하나 꽂히고 상자에서 하나 빠진다', () => {
+    const s = must(board({ people: [person('a', 'A', 'library')] }), 'a', { kind: 'plant' })
+    expect(s.flags.library?.A).toBe(1)
+    expect(s.flagBoxes.A).toBe(8)
   })
 
-  it('다른 방 사람은 못 건드린다', () => {
-    const s = board({ people: [person('a', 'A', 'library'), person('b', 'B', 'classroom')] })
-    expect(doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
-  })
-
-  it('같은 사람을 두 번 방해하지 못한다 — 팀 상자만 축날 일이다', () => {
-    let s = board({
-      people: [person('a', 'A', 'library'), person('c', 'A', 'library'), person('b', 'B', 'library')],
-    })
-    s = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
-    expect(doAct(s, 'c', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
+  it('**토큰은 안 든다** — 깃발이 든다', () => {
+    const s = must(board({ people: [person('a', 'A', 'library')] }), 'a', { kind: 'plant' })
     expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
+    expect(ACT_COST.plant).toBe(0)
+  })
+
+  it('상자가 비면 못 꽂는다', () => {
+    const s = board({ people: [person('a', 'A', 'library')], flagBoxes: { A: 0 } })
+    const out = doAct(s, 'a', { kind: 'plant' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('깃발이 없다')
+  })
+
+  it('**상자는 팀이 같이 쓴다** — 한 사람이 꽂으면 팀원 몫이 준다', () => {
+    let s = board({ people: [person('a', 'A', 'library'), person('c', 'A', 'artRoom')], flagBoxes: { A: 1 } })
+    s = must(s, 'a', { kind: 'plant' })
+    expect(doAct(s, 'c', { kind: 'plant' }).ok).toBe(false)
+  })
+
+  it('**주인 팀이 서 있어도 꽂는다**', () => {
+    const s = board({
+      people: [person('a', 'A', 'library'), person('b1', 'B', 'library'), person('b2', 'B', 'library')],
+      owners: { library: 'B' },
+    })
+    expect(doAct(s, 'a', { kind: 'plant' }).ok).toBe(true)
+  })
+
+  it('2-3 교실에는 못 꽂는다', () => {
+    const out = doAct(board({ people: [person('a', 'A', 'centralPlaza')] }), 'a', { kind: 'plant' })
+    expect(out.ok).toBe(false)
+  })
+
+  it('지워진 사람은 못 꽂는다', () => {
+    const s = board({ people: [person('a', 'A', 'library')], invisibleId: 'a' })
+    expect(doAct(s, 'a', { kind: 'plant' }).ok).toBe(false)
+  })
+
+  it('**꽂은 깃발은 페이즈가 닫혀도 남는다**', () => {
+    const s = must(board({ people: [person('a', 'A', 'library')] }), 'a', { kind: 'plant' })
+    const done = settle(s).next
+    expect(done.flags.library?.A).toBe(1)
+    // 다음 페이즈에 아무도 안 서 있어도 그대로다
+    expect(settle({ ...done, people: [] }).next.owners.library).toBe('A')
   })
 })
 
-describe('위장 — 판정은 그대로, 보이는 숫자만 바뀐다', () => {
-  it('남에게는 둘로 보이고 판정은 하나다', () => {
-    let s = board({
-      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
-      owners: { library: null },
-    })
-    s = must(s, 'a', { kind: 'disguise' })
-    expect(shownCount(s, 'library', 'B', s.disguised)).toBe(3)
-    expect(shownCount(s, 'library', 'A', s.disguised)).toBe(2)
-    // 1대1이라 주인이 안 바뀐다 — 위장은 판정을 못 바꾼다
-    expect(settle(s).next.owners.library).toBeNull()
+describe('깃발 뽑기 — 호루라기가 든다', () => {
+  const planted: FlagMap = { library: { B: 2, C: 1 } }
+
+  it('선 방의 남의 깃발 하나를 뽑는다. 안 고르면 제일 많은 팀 것', () => {
+    const s = must(board({ people: [person('a', 'A', 'library')], flags: planted }), 'a', { kind: 'pull' })
+    expect(s.flags.library?.B).toBe(1)
+    expect(s.flags.library?.C).toBe(1)
+    expect(s.satchels.a?.whistle).toBe(8)
+  })
+
+  it('팀을 골라 뽑는다', () => {
+    const s = must(board({ people: [person('a', 'A', 'library')], flags: planted }), 'a', { kind: 'pull', targetTeam: 'C' })
+    expect(s.flags.library?.C).toBeUndefined()
+  })
+
+  it('호루라기가 없으면 못 뽑는다', () => {
+    const s = board({ people: [person('a', 'A', 'library')], flags: planted, satchels: { a: {} } })
+    const out = doAct(s, 'a', { kind: 'pull' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('호루라기')
+  })
+
+  it('우리 팀 것은 안 뽑는다', () => {
+    const s = board({ people: [person('b', 'B', 'library')], flags: { library: { B: 1 } } })
+    expect(doAct(s, 'b', { kind: 'pull' }).ok).toBe(false)
+    expect(doAct(s, 'b', { kind: 'pull', targetTeam: 'B' }).ok).toBe(false)
+  })
+
+  it('**뽑을 것이 없으면 호루라기를 안 먹는다**', () => {
+    const s = board({ people: [person('a', 'A', 'library')] })
+    expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(false)
+    expect(s.satchels.a?.whistle).toBe(9)
+  })
+
+  it('다른 방 깃발은 못 뽑는다', () => {
+    const s = board({ people: [person('a', 'A', 'artRoom')], flags: planted })
+    expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(false)
   })
 })
+
+
 
 describe('로봇', () => {
   it('두고 가면 그 방에 남고 점령에 센다', () => {
@@ -393,6 +444,7 @@ describe('로봇', () => {
     s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
     s = must(s, 'a2', { kind: 'smashRobot', targetRobot: 'r2' })
     expect(s.robots).toHaveLength(0)
+    s = must(s, 'a', { kind: 'plant' })
     expect(settle(s).next.owners.library).toBe('A')
   })
 
@@ -616,8 +668,7 @@ describe('두고 가게 될 로봇 셈', () => {
 describe('점령해도 드나드는 것은 못 막는다', () => {
   /*
    * **점령은 문이 아니다.** 남의 칸이라고 못 들어가면 한 번 가져간
-   * 방은 영영 그 팀 것이고, 페이즈마다 머릿수로 다시 정하는 규칙이
-   * 할 일이 없어진다. 막는 것은 자물쇠(물건)와 정원뿐이다.
+   * 방은 영영 그 팀 것이다. 막는 것은 자물쇠(물건)와 정원뿐이다.
    */
   it('남의 칸으로 걸어 들어간다', () => {
     const s = board({
@@ -628,11 +679,15 @@ describe('점령해도 드나드는 것은 못 막는다', () => {
     expect(out.ok).toBe(true)
   })
 
-  it('들어가서 더 많이 서 있으면 뺏는다', () => {
-    const s = board({
-      people: [person('a1', 'A', 'library'), person('a2', 'A', 'library'), person('b1', 'B', 'library')],
+  it('들어가서 깃발을 더 꽂으면 뺏는다', () => {
+    let s = board({
+      people: [person('a1', 'A', 'library'), person('a2', 'A', 'library')],
       owners: { library: 'B' },
+      flags: { library: { B: 1 } },
     })
+    s = must(s, 'a1', { kind: 'plant' })
+    expect(settle(s).next.owners.library).toBe('B')
+    s = must(s, 'a2', { kind: 'plant' })
     expect(settle(s).next.owners.library).toBe('A')
   })
 
@@ -649,65 +704,48 @@ describe('점령해도 드나드는 것은 못 막는다', () => {
   })
 })
 
-describe('닫으면 서 있는 자리로 주인이 정해진다', () => {
+describe('닫으면 깃발과 로봇으로 주인이 정해진다', () => {
   it('많은 쪽이 가져간다 — 파랑 둘, 빨강 하나면 파랑', () => {
+    const s = board({ flags: { library: { B: 2, A: 1 } }, owners: { library: null } })
+    expect(settle(s).next.owners.library).toBe('B')
+  })
+
+  it('**서 있는 사람은 안 센다** — 셋이 서 있어도 깃발 하나에 진다', () => {
     const s = board({
-      people: [person('b1', 'B', 'library'), person('b2', 'B', 'library'), person('a1', 'A', 'library')],
-      owners: { library: null },
+      people: [person('a1', 'A', 'library'), person('a2', 'A', 'library'), person('a3', 'A', 'library')],
+      flags: { library: { B: 1 } },
+      owners: { library: 'A' },
     })
     expect(settle(s).next.owners.library).toBe('B')
   })
 
   it('동점이면 주인이 그대로다', () => {
-    const held = board({
-      people: [person('a1', 'A', 'library'), person('b1', 'B', 'library')],
-      owners: { library: 'A' },
-    })
-    expect(settle(held).next.owners.library).toBe('A')
-    const empty = board({
-      people: [person('a1', 'A', 'library'), person('b1', 'B', 'library')],
-      owners: { library: null },
-    })
-    expect(settle(empty).next.owners.library).toBeNull()
+    expect(settle(board({ flags: { library: { A: 1, B: 1 } }, owners: { library: 'A' } })).next.owners.library).toBe('A')
+    expect(settle(board({ flags: { library: { A: 1, B: 1 } }, owners: { library: null } })).next.owners.library).toBeNull()
   })
 
-  it('아무도 안 서 있으면 주인이 없어진다', () => {
+  it('아무것도 없으면 주인이 없어진다', () => {
     expect(settle(board({ owners: { library: 'C' } })).next.owners.library).toBeNull()
   })
 
-  it('서 있으면 지킨다', () => {
-    const s = board({ people: [person('c1', 'C', 'library')], owners: { library: 'C' } })
-    expect(settle(s).next.owners.library).toBe('C')
-  })
-
-  it('주장은 둘로 센다', () => {
+  it('로봇은 깃발 하나로 센다 — 깃발 하나와 로봇 하나면 둘', () => {
     const s = board({
-      people: [person('c1', 'C', 'library', true), person('a1', 'A', 'library'), person('a2', 'A', 'library')],
-      owners: { library: null },
+      flags: { library: { A: 1, B: 1 } },
+      robots: [robot('r1', 'A', 'library')],
+      owners: { library: 'B' },
     })
-    // 주장 하나(2) 대 둘(2) — 동점이라 안 바뀐다
-    expect(settle(s).next.owners.library).toBeNull()
-  })
-
-  it('닫으면 방해와 위장이 풀린다', () => {
-    let s = board({ people: [person('a', 'A', 'library'), person('b', 'B', 'library')] })
-    s = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
-    s = must(s, 'a', { kind: 'disguise' })
-    const done = settle(s)
-    expect(done.next.zeroedPeople).toEqual([])
-    expect(done.next.disguised).toEqual([])
+    expect(settle(s).next.owners.library).toBe('A')
   })
 
   it('걸어 둔 연구는 판정에 안 낀다 — 로봇이 아직 없다', () => {
-    // A 하나가 연구를 걸어 둔 방에 B 하나가 서 있다
     const s = board({
-      people: [person('a', 'A', lab.id), person('b', 'B', lab.id)],
+      people: [person('a', 'A', lab.id)],
+      flags: { [lab.id]: { B: 1 } },
       owners: { [lab.id]: null },
       pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, tileId: lab.id }],
     })
     const done = settle(s)
-    // 로봇이 끼었다면 A가 2대1로 가져갔을 것이다. 1대1이라 안 바뀐다
-    expect(done.next.owners[lab.id]).toBeNull()
+    expect(done.next.owners[lab.id]).toBe('B')
     expect(done.next.robots).toHaveLength(0)
   })
 })
@@ -739,14 +777,10 @@ describe('판이 네 팀에게 공평하다', () => {
 })
 
 describe('투명인간은 없는 사람이다', () => {
-  it('점령 판정에서 0명으로 센다', () => {
-    // 파랑 둘 중 하나가 지워지면 빨강 하나와 같아져 주인이 안 바뀐다
-    const s = board({
-      people: [person('b1', 'B', 'library'), person('b2', 'B', 'library'), person('a1', 'A', 'library')],
-      owners: { library: null },
-      invisibleId: 'b2',
-    })
-    expect(settle(s).next.owners.library).toBe(null)
+  it('깃발을 못 꽂고 못 뽑는다', () => {
+    const s = board({ people: [person('b', 'B', 'library')], flags: { library: { A: 1 } }, invisibleId: 'b' })
+    expect(doAct(s, 'b', { kind: 'plant' }).ok).toBe(false)
+    expect(doAct(s, 'b', { kind: 'pull' }).ok).toBe(false)
   })
 
   it('지워진 사람은 부를 수 없다', () => {
@@ -767,14 +801,6 @@ describe('투명인간은 없는 사람이다', () => {
     const out = doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('보이지 않는')
-  })
-
-  it('지워진 사람은 방해의 대상이 안 된다', () => {
-    const s = board({
-      people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
-      invisibleId: 'b',
-    })
-    expect(doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(false)
   })
 
   it('그래도 데리고 있는 짝은 부술 수 있다', () => {
@@ -919,7 +945,7 @@ describe('움직인 사람 기록', () => {
 
   it('한 사람이 여러 번 해도 한 번만 적힌다', () => {
     let s = board({ people: [person('a', 'A', 'baseA')] })
-    s = must(s, 'a', { kind: 'disguise' })
+    s = must(s, 'a', { kind: 'plant' })
     const before = s.actedBy.length
     s = must(s, 'a', { kind: 'move', targetTile: 'cafeteria' })
     expect(s.actedBy).toHaveLength(before)
@@ -991,69 +1017,21 @@ describe('ownerOf', () => {
   })
 })
 
-describe('방해와 위장에는 물건이 든다', () => {
+describe('물건은 쓰는 사람 것이 든다', () => {
   /** 아무도 아무것도 안 가진 판. 주머니는 사람마다다. */
   const empty = { a: {}, b: {}, c: {} }
+  const planted: FlagMap = { storage: { B: 1 } }
 
-  it('토큰은 안 든다', () => {
-    expect(ACT_COST.disturb).toBe(0)
-    expect(ACT_COST.disguise).toBe(0)
-  })
-
-  it('호루라기가 없으면 방해를 못 한다 — 토큰도 안 든다', () => {
+  it('**같은 팀이라도 남의 호루라기는 못 쓴다**', () => {
     const s = board({
-      people: [person('a', 'A', 'storage'), person('b', 'B', 'storage')],
-      satchels: empty,
-    })
-    const out = doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('호루라기')
-    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
-  })
-
-  it('방해하면 호루라기가 하나 준다', () => {
-    const s = board({
-      people: [person('a', 'A', 'storage'), person('b', 'B', 'storage')],
-      satchels: { ...empty, a: { whistle: 2 } },
-    })
-    const next = must(s, 'a', { kind: 'disturb', targetPlayer: 'b' })
-    expect(next.satchels.a?.whistle).toBe(1)
-    expect(next.zeroedPeople).toContain('b')
-  })
-
-  it('명찰이 없으면 위장을 못 한다', () => {
-    const s = board({ people: [person('a', 'A', 'storage')], satchels: empty })
-    const out = doAct(s, 'a', { kind: 'disguise' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('명찰')
-  })
-
-  it('위장하면 명찰이 하나 준다', () => {
-    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, a: { nameTag: 1 } } })
-    const next = must(s, 'a', { kind: 'disguise' })
-    expect(next.satchels.a?.nameTag).toBe(0)
-    expect(next.disguised).toContain('a')
-  })
-
-  it('거절당한 방해는 물건을 먹지 않는다', () => {
-    const s = board({ people: [person('a', 'A', 'storage')], satchels: { ...empty, a: { whistle: 1 } } })
-    const out = doAct(s, 'a', { kind: 'disturb', targetPlayer: 'nobody' })
-    expect(out.ok).toBe(false)
-    expect(s.satchels.a?.whistle).toBe(1)
-  })
-
-  it('**같은 팀이라도 남의 물건은 못 쓴다**', () => {
-    // 주머니가 팀 것이던 때에는 상점에 다녀온 사람과 쓰는 사람이
-    // 달라도 됐다. 멀리 나가 사 온 것을 앉아 있던 사람이 쓴다
-    const s = board({
-      people: [person('a', 'A', 'storage'), person('c', 'A', 'storage'), person('b', 'B', 'storage')],
+      people: [person('a', 'A', 'storage'), person('c', 'A', 'storage')],
+      flags: planted,
       satchels: { ...empty, a: { whistle: 1 } },
     })
-    const out = doAct(s, 'c', { kind: 'disturb', targetPlayer: 'b' })
+    const out = doAct(s, 'c', { kind: 'pull' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('호루라기')
-    // a 는 제 것으로 할 수 있다
-    expect(doAct(s, 'a', { kind: 'disturb', targetPlayer: 'b' }).ok).toBe(true)
+    expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(true)
   })
 
   it('물건은 페이즈를 넘어 남는다', () => {
@@ -1064,26 +1042,20 @@ describe('방해와 위장에는 물건이 든다', () => {
 
 describe('못 박힌 방은 없다', () => {
   /*
-   * **기지를 없앴다.** 전에는 네 방이 판정 밖이라 아무도 안 서
-   * 있어도 제 팀 것이었고 남이 몰려 서도 안 뺏겼다. 이제 스물다섯
-   * 방이 전부 같은 규칙을 받는다.
+   * **기지를 없앴다.** 스물다섯 방이 전부 같은 규칙을 받는다 — 깃발을
+   * 더 꽂은 팀의 것이다.
    */
-  it('아무도 안 서 있으면 놓친다 — 전에는 기지라고 남았다', () => {
+  it('깃발이 없으면 놓친다 — 전에는 기지라고 남았다', () => {
     const out = settle(board({ owners: { baseA: 'A' } })).next.owners
     expect(out.baseA).toBeNull()
   })
 
-  it('남이 몰려 서면 뺏긴다 — 전에는 기지라고 안 뺏겼다', () => {
-    const s = board({
-      people: [person('b1', 'B', 'baseA'), person('b2', 'B', 'baseA'), person('b3', 'B', 'baseA')],
-      owners: { baseA: 'A' },
-    })
+  it('남이 더 꽂으면 뺏긴다 — 전에는 기지라고 안 뺏겼다', () => {
+    const s = board({ flags: { baseA: { B: 3, A: 1 } }, owners: { baseA: 'A' } })
     expect(settle(s).next.owners.baseA).toBe('B')
   })
 
   it('계단에는 아예 설 수가 없다 — 칸이 아니다', () => {
-    // 전에는 계단이 칸이라 「서 있어도 아무도 못 가진다」를 재야 했다.
-    // 이제는 갈 수 있는 자리 목록에 없다
     expect(TILES.some((t) => t.id.startsWith('stair'))).toBe(false)
     const s = board({ people: [person('a', 'A', 'centralPlaza')] })
     const out = doAct(s, 'a', { kind: 'move', targetTile: 'stair_f1_w' as never })
@@ -1093,23 +1065,13 @@ describe('못 박힌 방은 없다', () => {
 })
 
 describe('방은 처음부터 다 열려 있다', () => {
-  // 전에는 A의 기록이 날마다 핵심을 두 칸씩 열어 줬고, 열리기 전에는
-  // 아무리 서 있어도 주인이 안 됐다. 그 규칙을 걷어냈다 — 열넷이
-  // 시작하는 자리(2-3 교실)가 바로 못 가지는 자리였기 때문이다
-
   it('핵심도 첫 페이즈부터 넘어간다', () => {
-    const s = board({
-      people: [person('a', 'A', 'auditorium'), person('a2', 'A', 'auditorium')],
-      owners: { auditorium: null },
-    })
+    const s = must(board({ people: [person('a', 'A', 'auditorium')] }), 'a', { kind: 'plant' })
     expect(settle(s).next.owners.auditorium).toBe('A')
   })
 
   it('열넷이 시작하는 방 말고는 다 넘어간다', () => {
-    const s = board({
-      people: [person('a', 'A', 'playground'), person('b', 'B', 'library')],
-      owners: { playground: null, library: null },
-    })
+    const s = board({ flags: { playground: { A: 1 }, library: { B: 1 } } })
     const out = settle(s).next.owners
     expect(out.playground).toBe('A')
     expect(out.library).toBe('B')
@@ -1117,27 +1079,10 @@ describe('방은 처음부터 다 열려 있다', () => {
 })
 
 describe('2-3 교실은 아무도 못 가진다', () => {
-  // 열넷이 아침마다 모이는 방이다. 서 있는 것만으로 땅이 되면
-  // 인원이 많은 팀이 가만히 앉아 한 방을 번다
+  // 열넷이 아침마다 모이는 방이다. 깃발도 못 꽂는다
 
-  it('혼자 서 있어도 주인이 안 생긴다', () => {
-    const s = board({
-      people: [person('a', 'A', 'centralPlaza')],
-      owners: { centralPlaza: null },
-    })
-    expect(settle(s).next.owners.centralPlaza).toBeNull()
-  })
-
-  it('한 팀이 몰려가도 안 생긴다', () => {
-    const s = board({
-      people: [
-        person('a', 'A', 'centralPlaza'),
-        person('a2', 'A', 'centralPlaza'),
-        person('a3', 'A', 'centralPlaza'),
-        person('b', 'B', 'centralPlaza'),
-      ],
-      owners: { centralPlaza: null },
-    })
+  it('어쩌다 깃발이 적혀 있어도 주인이 안 생긴다', () => {
+    const s = board({ flags: { centralPlaza: { A: 3 } }, owners: { centralPlaza: null } })
     expect(settle(s).next.owners.centralPlaza).toBeNull()
   })
 

@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   CAPTAIN_TALK_MINUTES,
   CAPTAIN_VOTE_MINUTES,
-  countsDouble,
   phaseOf,
   roundAt,
   tallyCaptain,
@@ -83,13 +82,5 @@ describe('못 던지는 까닭', () => {
 
   it('이미 정해졌으면 못 던진다', () => {
     expect(at(v.opensAtMs, { settled: true })).toBe('settled')
-  })
-})
-
-describe('머릿수 두 배는 세 명인 팀만', () => {
-  it('세 명인 팀의 팀장만 둘로 센다', () => {
-    expect(countsDouble(3, true)).toBe(true)
-    expect(countsDouble(4, true)).toBe(false)
-    expect(countsDouble(3, false)).toBe(false)
   })
 })

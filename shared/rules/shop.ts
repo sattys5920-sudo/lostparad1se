@@ -11,6 +11,7 @@
 import type { Resource } from './v2'
 import type { Cell, Floor } from './board'
 import { ITEM_BY_KIND, type ItemKind } from './items'
+import { FLAG_PRICE, FLAG_STOCK_PER_DAY } from './flag'
 
 /**
  * 자판기 한 대가 선 자리.
@@ -69,6 +70,8 @@ export interface ShopItem {
   gives?: ItemKind
   /** 하루에 판 전체에서 이만큼까지만. 없으면 제한 없다. */
   stockPerDay?: number
+  /** 사면 **산 사람 팀의 깃발 상자에** 이만큼 들어간다(rules/flag). 주머니가 아니다 */
+  flags?: number
 }
 
 /** 물건 이름과 설명은 카탈로그에서 그대로 가져온다. */
@@ -77,12 +80,23 @@ const of = (kind: ItemKind) => ({ name: ITEM_BY_KIND[kind].name, text: ITEM_BY_K
 /**
  * 파는 물건.
  *
- * 둘은 행동에 딸린 것이고(호루라기 · 명찰), 넷은 손으로 쓰는 것이다.
- * 갈래를 여기서 적지 않는다 — items.ts 의 use 가 그것을 안다.
+ * 호루라기는 행동에 딸린 것이고, 넷은 손으로 쓰는 것이며, 깃발은 팀
+ * 상자로 간다. 갈래를 여기서 적지 않는다 — items.ts 의 use 가 그것을 안다.
  */
 export const SHOP_ITEMS: readonly ShopItem[] = [
   { id: 'whistle', ...of('whistle'), cost: { money: 3 } },
-  { id: 'nameTag', ...of('nameTag'), cost: { money: 3 } },
+  /*
+   * **깃발.** 팀 상자로 들어간다. 학교 전체에 하루 몇 개뿐이라 먼저
+   * 오는 쪽이 가져간다 — 돈이 많아도 기계 앞에 늦게 오면 없다.
+   */
+  {
+    id: 'flag',
+    name: '깃발',
+    text: '우리 팀 깃발 상자에 하나 들어간다. 페이즈 중에 방에 꽂는다.',
+    cost: { money: FLAG_PRICE },
+    stockPerDay: FLAG_STOCK_PER_DAY,
+    flags: 1,
+  },
   { id: 'lock', ...of('lock'), cost: { money: 4 } },
   // 제일 싸다. 종이가 흔해야 바닥에 뭔가 떨어져 있는 학교가 된다
   { id: 'paper', ...of('paper'), cost: { money: 2 } },

@@ -1235,7 +1235,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
      */
     const fixed: Act[] = phaseOpen
       ? [
-          { key: 'post', icon: 'post', label: '자리 차지', cost: ENTER_COST, run: () => setSheet('act') },
+          // 페이즈의 일은 깃발이 먼저다. 누르면 행동 시트가 열리고 맨 위가 꽂기다
+          { key: 'post', icon: 'plant', label: '깃발', run: () => setSheet('act') },
           { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
         ]
       : [
@@ -1762,7 +1763,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <Sheet
           title={
             phaseOpen
-              ? '자리 차지하기'
+              ? '깃발 · 페이즈 행동'
               : far && far !== standingRoom
                 ? `${TILE_BY_ID[far].name}(으)로`
                 : '행동'

@@ -370,7 +370,7 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
                 aria-pressed={picked === r.item.id}
                 onClick={() => tapCell(r.item.id)}
               >
-                <img className="sc-vd__icon" src={goodIcon(r.item.gives ?? '')} alt="" />
+                <img className="sc-vd__icon" src={goodIcon(r.item.gives ?? r.item.id)} alt="" />
                 <b>{r.item.name}</b>
                 <em>{r.why ? r.why : `${r.code} · ${r.cost}`}</em>
               </button>
@@ -427,7 +427,7 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
             <img
               className="sc-vd__out2"
               style={{ transform: `translateY(${step === 'drop' ? (BIN_DROP[frame] ?? 0) : 0}px)` }}
-              src={goodIcon(SHOP_ITEMS.find((i) => i.id === (bin ?? picked))?.gives ?? '')}
+              src={goodIcon((() => { const it = SHOP_ITEMS.find((i) => i.id === (bin ?? picked)); return it?.gives ?? it?.id ?? '' })())}
               alt=""
             />
           )}
