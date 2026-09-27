@@ -285,6 +285,51 @@
   border: 1px solid var(--mp-outline, #1a1d2e);
 }
 
+/*
+ * 팀 점수. 판 모양은 위 두 층과 같다. 넷을 **늘 같은 순서**로 둔다 —
+ * 점수 순으로 줄 세우면 바뀔 때마다 자리가 뒤섞여 내 팀을 다시 찾아야
+ * 한다. 글자는 Galmuri11 제 크기(11px)라 번지지 않는다.
+ */
+.sc-sb {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 4px;
+  border: 2px solid var(--ct-line, #4a5070);
+  background: rgba(28, 31, 51, 0.82);
+}
+.sc-sb__team {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px 1px 2px;
+  font-size: 11px;
+  color: var(--ct-text, #e8e6f5);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sc-sb__team i {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border: 1px solid var(--mp-outline, #1a1d2e);
+}
+.sc-sb__team b { font-weight: 400; }
+/* 내 팀은 금빛 테 — 넷 중 어디를 봐야 하는지 */
+.sc-sb__team.is-mine { box-shadow: inset 0 0 0 1px var(--ct-gold, #f0d68a); }
+.sc-sb__team em { font-style: normal; }
+.sc-sb__team em.is-up { color: var(--ct-gold, #f0d68a); }
+.sc-sb__team em.is-down { color: var(--ct-down, #e07a72); }
+/* 바뀐 팀은 두 번 깜빡인다. 도트 화면이라 부드럽게 녹이지 않고 끊는다 */
+.sc-sb__team.is-hit { animation: sc-sb-hit 0.5s steps(1, end) 4; }
+@keyframes sc-sb-hit {
+  0%, 49% { background: rgba(240, 214, 138, 0.28); }
+  50%, 100% { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-sb__team.is-hit { animation: none; background: rgba(240, 214, 138, 0.2); }
+}
+
 /* **시계가 제일 크고 밝다.** 페이즈 중에 한 가지만 본다면 이것이다.
    자유 시간에는 「종이 치면 2-3 교실」이 뒤에 붙어 줄이 길어진다 —
    날짜와 내 이름을 밀어내지 않도록 여기서만 줄인다 */

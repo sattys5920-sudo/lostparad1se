@@ -50,6 +50,7 @@ const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }
 import { Walk, type DirWay, type PersonAt } from './Walk'
 import { Meet } from './Meet'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
+import { ScoreBar } from './Score'
 import { Phase, PhaseLog, leftText } from './Phase'
 import { Slips } from './Slips'
 import { atPaper } from '../../../shared/rules/quiz'
@@ -1402,6 +1403,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 {me.name}
               </span>
             </div>
+            {/* 팀마다 차지한 방. **늘 떠 있고**, 페이즈가 닫혀 주인이
+                바뀌면 몇 초 번쩍이며 +1·−1 을 붙인다 */}
+            <ScoreBar tiles={state.tiles} myTeam={me.team as TeamId} />
             {/* 복도에 서 있으면 복도라고 쓴다. 말줄과 같은 이름을 쓴다 —
                 한쪽은 「2-3 교실」, 한쪽은 「복도」면 어느 쪽이 참인지
                 알 수 없다. 정원은 안 쓴다. 복도는 아무의 자리도 아니라

@@ -10,11 +10,103 @@
 //
 // **안 아는 방은 서버가 숫자를 안 보낸다.** 여기서 감추는 것이 아니라
 // 애초에 없다. 받아다 가리면 개발자도구로 다 보인다.
+import { useEffect, useRef, useState } from 'react'
+
 import { TEAMS } from '../char/palette'
 import { ADJACENCY, FLOOR_NAME, FLOORS, HALLS, STAIRWELLS, TILES, TILE_BY_ID } from '../../../shared/rules/board'
 import { OPEN_TILES, ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
+
+/**
+ * 미니맵 글자의 **화면** 크기(px).
+ *
+ * 88px 미니맵에 8px 로 적으면 이름끼리 겹치는 화면이 25 개 중 하나고,
+ * 그 하나는 아래(miniLabels)가 방 아래쪽으로 비켜 준다. 9px 로 올리면
+ * 여섯이 겹친다 — 재 본 값이다(MapPlan.test.ts).
+ */
+export const MINI_FONT_PX = 8
+
+/** 글자 하나의 폭(글자 크기 배수). 한글은 네모 한 칸, 나머지는 좁다. */
+const glyphEm = (ch: string) => (/[\uac00-\ud7a3\u3130-\u318f]/.test(ch) ? 1 : 0.6)
+export const textWidth = (s: string, font: number) => [...s].reduce((a, c) => a + glyphEm(c) * font, 0)
+
+export interface MiniLabel {
+  id: TileId
+  text: string
+  /** 글자 가운데 x 와 밑줄 y. SVG text 가 그대로 받는다. */
+  x: number
+  y: number
+  /** 방 위쪽에 앉았나. 아니면 아래쪽 — 점은 그 반대편으로 비킨다. */
+  top: boolean
+  box: { l: number; r: number; t: number; b: number }
+}
+
+/**
+ * 미니맵 방 이름을 놓는다. **서로 안 겹치게.**
+ *
+ * 먼저 방 위쪽에 앉혀 보고, 앞서 놓은 이름과 부딪치면 방 아래쪽으로
+ * 내린다. 방 폭을 조금 넘는 것은 괜찮다 — 방 사이가 복도라 옆 방
+ * 이름과 안 부딪치는 한 읽힌다. 겹치는 것만 안 된다.
+ *
+ * **위도 아래도 막힌 이웃 방은 이름을 안 적는다.** 강당에 서서 볼 때의
+ * 운동장이 그렇다 — 두 방이 88px 에서 17px 높이라 위·아래에 나눠 앉혀도
+ * 2px 가 겹치고, 옆으로 밀면 미니맵 밖으로 나간다. 겹친 두 이름은 둘 다
+ * 안 읽히므로 하나를 빼는 편이 낫다. 한 칸 다가가면 다시 나오고, 전체
+ * 맵에는 늘 있다. **내 방 이름은 절대 안 뺀다.**
+ *
+ * 좌표는 전개도 단위다. font 도 단위로 받는다(화면 px 를 배율로 나눈 값).
+ *
+ * **내 방(first)을 맨 먼저 놓는다** — 겹쳐서 비켜야 한다면 비키는 쪽은
+ * 남의 방이다. 순서를 여기서 정해야 그리는 쪽과 시험이 같은 순서를 본다.
+ */
+export function miniLabels(
+  rooms: readonly { id: TileId; mini: string; box: { x: number; y: number; w: number; h: number } }[],
+  font: number,
+  first: string | null = null,
+): MiniLabel[] {
+  const pad = font * 0.2
+  const out: MiniLabel[] = []
+  const order = [...rooms].sort((a, b) => Number(b.id === first) - Number(a.id === first))
+  const hits = (b: MiniLabel['box']) =>
+    out.some((o) => o.box.l < b.r && b.l < o.box.r && o.box.t < b.b && b.t < o.box.b)
+  for (const r of order) {
+    const w = textWidth(r.mini, font)
+    const cx = r.box.x + r.box.w / 2
+    const at = (top: boolean): MiniLabel['box'] => {
+      const t = top ? r.box.y + pad : r.box.y + r.box.h - pad - font
+      return { l: cx - w / 2, r: cx + w / 2, t, b: t + font }
+    }
+    let top = true
+    let box = at(true)
+    if (hits(box)) {
+      const low = at(false)
+      if (!hits(low)) {
+        top = false
+        box = low
+      } else if (r.id !== first) {
+        continue
+      }
+    }
+    // 한글의 윗선은 글자 크기의 0.86 쯤 위다 — 밑줄을 거기에 맞춘다
+    out.push({ id: r.id, text: r.mini, x: cx, y: box.t + font * 0.86, top, box })
+  }
+  return out
+}
+
+/**
+ * 그릴 방들을 감싸는 테두리 — SVG 의 viewBox 다.
+ *
+ * **그리는 쪽과 시험이 같은 것을 부른다.** 시험이 이 계산을 따로 베껴
+ * 두면, 여백을 고친 날 시험만 옛 여백으로 「안 겹친다」고 말한다.
+ */
+export function planFrame(shown: readonly { box: { x: number; y: number; w: number; h: number } }[]) {
+  const x0 = Math.min(...shown.map((r) => r.box.x)) - PLAN_PAD
+  const y0 = Math.min(...shown.map((r) => r.box.y)) - PLAN_PAD
+  const w = Math.max(...shown.map((r) => r.box.x + r.box.w)) + PLAN_PAD - x0
+  const h = Math.max(...shown.map((r) => r.box.y + r.box.h)) + PLAN_PAD - y0
+  return { x0, y0, w, h }
+}
 
 /** 걸어 다니는 칸 하나를 전개도에서 몇으로 그리는가. */
 export const PLAN_SCALE = 6
@@ -60,6 +152,8 @@ export interface MapFacts {
 export interface RoomFacts {
   id: TileId
   name: string
+  /** 미니맵에 적는 두세 글자(board.ts 의 miniName). */
+  mini: string
   /** 전개도에서의 네모. 걸어 다니는 지도와 같은 자리, 같은 크기다. */
   box: { x: number; y: number; w: number; h: number }
   owner: TeamId | null
@@ -102,6 +196,7 @@ export function readMap(f: MapFacts): RoomFacts[] {
     return {
       id,
       name: t.shortName,
+      mini: t.miniName,
       box: {
         x: t.plan.x * PLAN_SCALE,
         y: t.plan.y * PLAN_SCALE,
@@ -187,15 +282,40 @@ export interface PlanProps {
  * viewBox 만 바꾸면 100px 짜리와 화면 가득한 것이 같은 그림이 된다.
  */
 export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProps) {
+  /*
+   * **그려진 크기를 잰다.** SVG 는 viewBox 를 상자에 맞춰 늘리므로,
+   * 전개도 단위로 글자 크기를 적으면 화면에서 몇 px 이 될지 모른다 —
+   * 미니맵은 88~140px 이고 보이는 방 수에 따라 배율이 또 바뀐다.
+   * 재어 두고 거꾸로 나눠서 늘 MINI_FONT_PX 가 되게 한다.
+   */
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [px, setPx] = useState<{ w: number; h: number } | null>(null)
+  useEffect(() => {
+    const el = svgRef.current
+    if (!compact || !el) return
+    const measure = () => {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) setPx({ w: r.width, h: r.height })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [compact])
+
   const shown = only ? rooms.filter((r) => only.has(r.id)) : rooms
   if (shown.length === 0) return null
 
-  const x0 = Math.min(...shown.map((r) => r.box.x)) - PLAN_PAD
-  const y0 = Math.min(...shown.map((r) => r.box.y)) - PLAN_PAD
-  const w = Math.max(...shown.map((r) => r.box.x + r.box.w)) + PLAN_PAD - x0
-  const h = Math.max(...shown.map((r) => r.box.y + r.box.h)) + PLAN_PAD - y0
+  const { x0, y0, w, h } = planFrame(shown)
   /** 방 한가운데. 이름과 점이 여기를 기준으로 놓인다. */
   const mid = (r: RoomFacts) => ({ x: r.box.x + r.box.w / 2, y: r.box.y + r.box.h / 2 })
+
+  /*
+   * 미니맵 이름. 재기 전(첫 그림)에는 안 그린다 — 틀린 크기로 한 번
+   * 번쩍 그렸다가 고쳐 그리면 그게 더 눈에 띈다.
+   */
+  const fontUnits = compact && px ? MINI_FONT_PX / Math.min(px.w / w, px.h / h) : null
+  const labels = fontUnits ? new Map(miniLabels(shown, fontUnits, here).map((l) => [l.id, l])) : null
 
   /** 지금 그리는 테두리 안에 걸치는가. 미니맵은 둘레만 잘라 보여 준다. */
   const inView = (b: { x: number; y: number; w: number; h: number }) =>
@@ -203,6 +323,7 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
 
   return (
     <svg
+      ref={svgRef}
       className={compact ? 'sc-mp sc-mp--small' : 'sc-mp'}
       viewBox={`${x0} ${y0} ${w} ${h}`}
       role="img"
@@ -268,7 +389,31 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
                 「?」만 찍었는데, 그러면 배치도의 절반이 검은 네모라
                 어디가 어딘지 못 읽는다. 머릿수만 물음표로 남긴다 */}
             {compact ? (
-              <Dots cx={c.x} cy={c.y} dots={r.dots} />
+              (() => {
+                const l = labels?.get(r.id)
+                if (!l || !fontUnits) return <Dots cx={c.x} cy={c.y} dots={r.dots} />
+                /*
+                 * 점은 **이름 반대편**으로 비킨다. 가장 낮은 방이 88px 에서
+                 * 11px 인데, 이름이 8px 이라 한가운데 점이 이름 위에 얹힌다.
+                 */
+                const cy = l.top
+                  ? Math.min(y + bh - 5, Math.max(c.y, l.box.b + 5))
+                  : Math.max(y + 5, Math.min(c.y, l.box.t - 5))
+                return (
+                  <>
+                    <Dots cx={c.x} cy={cy} dots={r.dots} />
+                    <text
+                      x={l.x}
+                      y={l.y}
+                      fontSize={fontUnits}
+                      strokeWidth={fontUnits * 0.3}
+                      className="sc-mp__mini"
+                    >
+                      {l.text}
+                    </text>
+                  </>
+                )
+              })()
             ) : (
               <>
                 <text x={c.x} y={c.y - 4} className="sc-mp__name">

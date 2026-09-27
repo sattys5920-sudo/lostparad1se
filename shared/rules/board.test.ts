@@ -51,6 +51,16 @@ describe('판', () => {
     expect(new Set(TILES.map((t) => t.name)).size).toBe(TILES.length)
   })
 
+  /*
+   * 미니맵 이름은 **세 글자까지.** 넷이면 88px 미니맵의 좁은 방에서
+   * 옆 방 이름과 부딪친다. 그리고 겹치면 안 된다 — 「과학」이 둘이면
+   * 미니맵만 보고는 어느 쪽인지 모른다.
+   */
+  it('미니맵 이름은 세 글자까지고 서로 다르다', () => {
+    for (const t of TILES) expect([...t.miniName].length, t.name).toBeLessThanOrEqual(3)
+    expect(new Set(TILES.map((t) => t.miniName)).size).toBe(TILES.length)
+  })
+
   it('인접은 서로에게 성립한다', () => {
     for (const [a, ns] of Object.entries(ADJACENCY)) {
       for (const n of ns) expect(ADJACENCY[n]).toContain(a)

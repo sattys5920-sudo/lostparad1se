@@ -1462,6 +1462,25 @@ p.sc-cv { display: block; }
 /* 시작 전에는 할 일 줄이 없다. 단추 하나뿐이라 한 칸으로 펴 준다 */
 .sc-pl__before .sc-pl__acts { grid-template-columns: 1fr; grid-template-rows: 44px; }
 
+/*
+ * 미니맵 방 이름. **크기는 그리는 쪽이 재서 준다**(MINI_FONT_PX) —
+ * 여기서 font-size 를 적으면 viewBox 배율을 한 번 더 타서 틀린다.
+ * 어두운 테를 두르는 것은 방 테두리선과 점 위를 지날 때도 읽히라고다.
+ */
+.sc-mp__mini {
+  text-anchor: middle;
+  fill: #f2f3f4;
+  stroke: rgba(20, 22, 36, 0.92);
+  stroke-linejoin: round;
+  paint-order: stroke;
+  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  pointer-events: none;
+}
+/* 내가 선 방은 금빛 — 미니맵을 흘깃 볼 때 찾는 것은 나다 */
+.sc-mp__room.is-here .sc-mp__mini { fill: var(--ct-gold, #f0d68a); }
+/* 안 가 본 방도 이름은 판에 드러난 것이라 적는다. 조금 흐리게만 */
+.sc-mp__room.is-unseen .sc-mp__mini { opacity: 0.6; }
+
 /* ── 미니맵 ───────────────────────────────────────────────────── */
 
 .sc-mm {

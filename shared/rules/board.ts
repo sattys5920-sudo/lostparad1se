@@ -66,6 +66,15 @@ export interface TileSpec {
   name: string
   /** 전개도처럼 좁은 데에 적는 이름. 계단참은 「계단」 두 자로 줄인다. */
   shortName: string
+  /**
+   * 미니맵에 적는 이름. **두 글자, 많아야 세 글자다.**
+   *
+   * 미니맵은 폰에서 88px 이고, 거기 그려지는 방은 폭이 15~42px 이다.
+   * 8px 글자로 「급식실」은 24px 라 절반이 넘는 방에서 넘친다 — 재 보니
+   * 83 자리 중 29 자리만 들어갔다. 「실」을 떼면 겹치는 화면이 25 개
+   * 중 하나로 준다(MINI_NAME).
+   */
+  miniName: string
   floor: Floor
   value: number
   tier: Tier
@@ -274,11 +283,40 @@ const STAIR_HALL_AT = (() => {
   return out
 })()
 
+/**
+ * 미니맵 이름. **여기 없는 방은 제 이름을 그대로 쓴다.**
+ *
+ * 떼는 것은 「실·관」처럼 없어도 읽히는 꼬리뿐이다. 「운동장」을
+ * 「운동」으로, 「화장실」을 「화장」으로 줄이면 다른 말이 되므로
+ * 그 둘은 세 글자로 둔다. 2-3 교실은 반 번호만 남긴다.
+ */
+const MINI_NAME: Readonly<Record<string, string>> = {
+  기술실: '기술',
+  경비실: '경비',
+  교무실: '교무',
+  급식실: '급식',
+  양호실: '양호',
+  가사실: '가사',
+  체육관: '체육',
+  연구실: '연구',
+  '2-3 교실': '2-3',
+  과학실: '과학',
+  음악실: '음악',
+  미술실: '미술',
+  도서관: '도서',
+  무용실: '무용',
+  방송실: '방송',
+  시청각실: '시청각',
+  학생회실: '학생회',
+  동아리실: '동아리',
+}
+
 const ROOM_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
   PLAN_BY_FLOOR[floor].rooms.map(([id, name, value, tier, rect]) => ({
     id,
     name,
     shortName: name,
+    miniName: MINI_NAME[name] ?? name,
     floor,
     value,
     tier,
