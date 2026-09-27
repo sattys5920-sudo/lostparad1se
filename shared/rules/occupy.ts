@@ -2,9 +2,8 @@
 //
 // 한때는 페이즈가 끝날 때 **그 방에 서 있는 머릿수**로 주인을 정했다.
 // 이제는 **꽂힌 깃발 수**로 정한다(rules/flag). 깃발은 페이즈 중에만
-// 꽂고, 뽑히기 전까지 남는다. 뽑는 길은 둘이다 — 우리 팀 로봇이 같은
-// 방에 있거나(토큰, 팀마다 페이즈에 한 번), 호루라기를 쓰거나(물건 하나,
-// 횟수 한도 없음). 로봇은 옮길 수 있는 깃발 하나로도 센다.
+// 꽂고, 뽑히기 전까지 남는다. 뽑으려면 우리 팀 로봇이 같은 방에 있어야
+// 한다(토큰, 팀마다 페이즈에 한 번). 로봇은 옮길 수 있는 깃발 하나로도 센다.
 //
 // **페이즈는 한 시간짜리 라이브 판이다.** 관리자가 열면 한 시간이 흐르고,
 // 그동안 각자 토큰만큼 움직이고 깃발을 꽂는다. 한 시간이 끝난 순간 방마다
@@ -374,7 +373,7 @@ const EMPTY_VAULT: Vault = { money: 0, knowledge: 0 }
 /** 그 팀 금고. 없으면 빈 것으로 친다. */
 export const vaultOf = (state: PhaseState, playerId: string): Vault => state.vaults[playerId] ?? EMPTY_VAULT
 
-export type ActionKind = 'move' | 'research' | 'summon' | 'plant' | 'pull' | 'blow' | 'dropRobot' | 'smashRobot'
+export type ActionKind = 'move' | 'research' | 'summon' | 'plant' | 'pull' | 'dropRobot' | 'smashRobot'
 
 /**
  * 행동에 드는 토큰. 이동은 **방 하나에 들어서는 값**이다.
@@ -386,13 +385,12 @@ export type ActionKind = 'move' | 'research' | 'summon' | 'plant' | 'pull' | 'bl
 export const ACT_COST: Record<ActionKind, number> = {
   move: ENTER_COST,
   research: 2,
-  summon: 1,
+  // **호출은 토큰이 아니라 호루라기가 든다**(items). 불어서 부른다
+  summon: 0,
   // **깃발은 토큰이 아니라 깃발이 든다.** 팀 상자에서 하나 빠진다
   plant: 0,
   // 뽑기는 토큰이 들고, 우리 로봇이 같은 방에 있어야 한다(rules/flag)
   pull: PULL_COST,
-  // 호루라기로 뽑기는 토큰이 아니라 호루라기가 든다(items)
-  blow: 0,
   // 들고 있던 것을 내려놓는 것뿐이다. 값을 물리면 아무도 안 둔다
   dropRobot: 0,
   smashRobot: 1,
@@ -415,7 +413,6 @@ export const ACT_MINUTES: Record<ActionKind, number> = {
   summon: 10,
   plant: 0,
   pull: 0,
-  blow: 0,
   dropRobot: 0,
   smashRobot: 0,
 }
@@ -756,26 +753,6 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
         spent: cost,
         log: { kind: 'flagPulled', playerId, tileId: mine.tileId, team: whose },
         next: { ...state, people, robots, flags: after, pulledTeams: [...state.pulledTeams, mine.team] },
-      }
-    }
-
-    /*
-     * **호루라기로 뽑기.** 로봇도 토큰도 안 들고, 팀 한도에도 안 든다 —
-     * 상대가 와서 둘을 꽂고 가면 로봇 뽑기 한 번으로는 못 따라간다.
-     * 그때 쓰라고 있는 물건이다. 호루라기는 runAct 머리에서 먼저 보고,
-     * 된 뒤에 쓰는 사람 주머니에서 하나 빠진다(spent).
-     */
-    case 'blow': {
-      if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
-      if (state.invisibleId === playerId) return no('보이지 않는 동안에는 깃발을 못 뽑는다.')
-      if (act.targetTeam === mine.team) return no('우리 팀 깃발은 뽑지 않는다.')
-      const whose = act.targetTeam ?? pullTarget(state.flags, mine.tileId, mine.team)
-      if (!whose || flagsIn(state.flags, mine.tileId, whose) <= 0) return no('이 방에 뽑을 깃발이 없다.')
-      return {
-        ok: true,
-        spent: cost,
-        log: { kind: 'flagPulled', playerId, tileId: mine.tileId, team: whose },
-        next: { ...state, people, robots, flags: withPulled(state.flags, mine.tileId, whose) as FlagMap },
       }
     }
 

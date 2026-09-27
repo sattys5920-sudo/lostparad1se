@@ -76,7 +76,7 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   ),
   // 주머니는 **사람마다**다. 시험에 나오는 이름을 넉넉히 채워 둔다
   satchels: Object.fromEntries(
-    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { lock: 9 }]),
+    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { lock: 9, whistle: 9 }]),
   ),
   // 상자도 한 사람 몫만큼 넣어 둔다. 모자란 경우는 따로 쓴다
   wallets: Object.fromEntries(TEAM_IDS.map((t) => [t, TOKENS_PER_PHASE])),
@@ -279,7 +279,36 @@ describe('호출', () => {
     const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')] })
     const s1 = land(must(s0, 'a', { kind: 'summon', targetPlayer: 'b' }), 'b')
     expect(at(s1, 'b').tileId).toBe(stepToward('library', 'baseA'))
-    expect(purse(s1, 'A')).toBe(TOKENS_PER_PHASE - ACT_COST.summon)
+  })
+
+  it('**호루라기가 하나 든다** — 토큰은 안 든다', () => {
+    const s0 = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')] })
+    const s1 = must(s0, 'a', { kind: 'summon', targetPlayer: 'b' })
+    expect(s1.satchels.a?.whistle).toBe(8)
+    expect(purse(s1, 'A')).toBe(TOKENS_PER_PHASE)
+    expect(ACT_COST.summon).toBe(0)
+  })
+
+  it('호루라기가 없으면 못 부른다', () => {
+    const s = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'library')], satchels: { a: {} } })
+    const out = doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('호루라기')
+  })
+
+  it('**같은 팀이라도 남의 호루라기는 못 쓴다**', () => {
+    const s = board({
+      people: [person('a', 'A', 'baseA'), person('c', 'A', 'baseA'), person('b', 'A', 'library')],
+      satchels: { a: { whistle: 1 }, c: {} },
+    })
+    expect(doAct(s, 'c', { kind: 'summon', targetPlayer: 'b' }).ok).toBe(false)
+    expect(doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' }).ok).toBe(true)
+  })
+
+  it('못 부르면 호루라기를 안 먹는다', () => {
+    const s = board({ people: [person('a', 'A', 'baseA'), person('b', 'A', 'baseA')], satchels: { a: { whistle: 1 } } })
+    expect(doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' }).ok).toBe(false)
+    expect(s.satchels.a?.whistle).toBe(1)
   })
 
   it('남의 팀은 못 부른다', () => {
@@ -1047,50 +1076,6 @@ describe('ownerOf', () => {
   it('아무도 없으면 주인이 없어진다 — 전 주인도 남지 않는다', () => {
     expect(ownerOf({}, 'D')).toBeNull()
     expect(ownerOf({ A: 0 }, 'D')).toBeNull()
-  })
-})
-
-describe('호루라기로 뽑기 — 로봇도 토큰도 안 들고 한도도 없다', () => {
-  const planted: FlagMap = { library: { B: 2 } }
-  const base = (over: Partial<PhaseState> = {}) =>
-    board({ people: [person('a', 'A', 'library')], flags: planted, satchels: { a: { whistle: 2 } }, ...over })
-
-  it('로봇 없이 뽑고, 호루라기가 하나 준다', () => {
-    const s = must(base(), 'a', { kind: 'blow' })
-    expect(s.flags.library?.B).toBe(1)
-    expect(s.satchels.a?.whistle).toBe(1)
-    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
-  })
-
-  it('**상대가 둘을 꽂고 가도 둘 다 뽑는다** — 팀 한도에 안 든다', () => {
-    let s = base({ robots: [robot('r1', 'A', 'library')] })
-    s = must(s, 'a', { kind: 'pull' })
-    // 로봇 뽑기는 이번 페이즈에 끝났다. 호루라기는 된다
-    expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(false)
-    s = must(s, 'a', { kind: 'blow' })
-    expect(s.flags.library?.B).toBeUndefined()
-  })
-
-  it('호루라기가 없으면 못 한다', () => {
-    const out = doAct(base({ satchels: { a: {} } }), 'a', { kind: 'blow' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('호루라기')
-  })
-
-  it('**같은 팀이라도 남의 호루라기는 못 쓴다**', () => {
-    const s = base({ people: [person('a', 'A', 'library'), person('c', 'A', 'library')], satchels: { a: { whistle: 1 }, c: {} } })
-    expect(doAct(s, 'c', { kind: 'blow' }).ok).toBe(false)
-    expect(doAct(s, 'a', { kind: 'blow' }).ok).toBe(true)
-  })
-
-  it('뽑을 것이 없으면 호루라기를 안 먹는다', () => {
-    const s = base({ flags: {} })
-    expect(doAct(s, 'a', { kind: 'blow' }).ok).toBe(false)
-    expect(s.satchels.a?.whistle).toBe(2)
-  })
-
-  it('지워진 사람은 못 분다', () => {
-    expect(doAct(base({ invisibleId: 'a' }), 'a', { kind: 'blow' }).ok).toBe(false)
   })
 })
 

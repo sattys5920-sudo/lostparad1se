@@ -262,25 +262,6 @@ const MATE = M([
   '                ',
 ])
 
-const SUMMON = M([
-  '                ',
-  '                ',
-  '                ',
-  '          33    ',
-  '        3310    ',
-  '      331110 44 ',
-  ' 33333111110    ',
-  ' 31113111110 444',
-  ' 31113111110    ',
-  ' 33333111110 44 ',
-  '      331110    ',
-  '        3310    ',
-  '          33    ',
-  '                ',
-  '                ',
-  '                ',
-])
-
 /** 깃발 꽂기 — 바닥에 선 깃대와 금빛 삼각기. */
 const PLANT = M([
   '    33          ',
@@ -301,7 +282,7 @@ const PLANT = M([
   '  3333333       ',
 ])
 
-/** 호루라기로 뽑기 — 호루라기. 아이템 그림과 같은 뜻이다. */
+/** 호출 — 호루라기. 불어서 부른다. 아이템 그림과 같은 뜻이다. */
 const BLOW = M([
   '                ',
   '                ',
@@ -591,12 +572,11 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   // uiIcon(kind) 로 바로 집는다. 아래 자기 검사가 빠진 것을 잡는다
   research: RESEARCH,
   made: MADE,
-  summon: SUMMON,
+  summon: BLOW,
   slip: SLIP,
   mate: MATE,
   plant: PLANT,
   pull: PULL,
-  blow: BLOW,
   dropRobot: DROP_ROBOT,
   smashRobot: SMASH_ROBOT,
   pot: POT,
@@ -619,7 +599,6 @@ const ACT_ART: Record<Exclude<ActionKind, 'move'>, true> = {
   summon: true,
   plant: true,
   pull: true,
-  blow: true,
   dropRobot: true,
   smashRobot: true,
 }

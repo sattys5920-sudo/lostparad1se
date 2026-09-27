@@ -491,16 +491,9 @@ async function main(): Promise<void> {
   check((await boxOf('A')) === tokensBeforePull - ACT_COST.pull, `토큰 ${ACT_COST.pull}개가 들었다`)
   const second = await call('phaseAct', A[1].token, { gameId: GAME, kind: 'pull', targetTeam: 'B' })
   check(second.code === 'FAILED_PRECONDITION' && String(second.message).includes('이미 뽑았다'), '팀마다 한 페이즈에 한 번', second.message)
-  // 로봇 뽑기는 끝났지만 **호루라기는 한도에 안 든다**
-  const tokensBeforeBlow = await boxOf('A')
-  const blown = await call('phaseAct', A[1].token, { gameId: GAME, kind: 'blow', targetTeam: 'B' })
-  check(blown.ok, '호루라기로는 한 번 더 뽑는다', blown.message)
-  check((await boxOf('A')) === tokensBeforeBlow, '호루라기 뽑기에는 토큰이 안 든다')
-  const bagAfterBlow = (await pawnsNow())[A[1].uid].items as Record<string, number> | undefined
-  check((bagAfterBlow?.whistle ?? 0) === 0, '호루라기가 하나 빠졌다', JSON.stringify(bagAfterBlow))
   await must('closePhase', host, { gameId: GAME })
-  // A 깃발 1 + 로봇 1 = 2 대 B 깃발 0
-  check((await ownerOfTile('artRoom')) === 'A', '둘 다 뽑고 로봇까지 세어 A 가 되찾았다', String(await ownerOfTile('artRoom')))
+  // A 깃발 1 + 로봇 1 = 2 대 B 깃발 1
+  check((await ownerOfTile('artRoom')) === 'A', '하나 뽑고 로봇까지 세어 A 가 되찾았다', String(await ownerOfTile('artRoom')))
 
   console.log('\n── 깃발은 남는다 ──')
   // 다들 떠나도 꽂힌 깃발과 두고 간 로봇은 그 방에 있다

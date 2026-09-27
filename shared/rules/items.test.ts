@@ -5,8 +5,8 @@ import { ITEMS, ITEM_BY_KIND, ITEM_FOR, countOf, isHandItem, putItem, takeItem }
 import { ACT_COST } from './occupy'
 
 describe('물건', () => {
-  it('호루라기는 「호루라기로 뽑기」에 든다 — 로봇 뽑기·꽂기에는 물건이 안 든다', () => {
-    expect(ITEM_FOR.blow).toBe('whistle')
+  it('호루라기는 호출에 든다 — 깃발 꽂기·뽑기와는 상관없다', () => {
+    expect(ITEM_FOR.summon).toBe('whistle')
     expect(ITEM_FOR.pull).toBeUndefined()
     expect(ITEM_FOR.plant).toBeUndefined()
   })
