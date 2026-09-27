@@ -7,4 +7,6 @@
 - 공개 시각 전에는 어떤 API로도 내려가지 않는다. 날짜를 건너뛴 요청도 서버가 막는다.
 
 문장은 기준 문서에서 한 글자도 바꾸지 않고 옮긴다. 우선순위는
-`scenario_reveal.md` > `otherworld_setting.md` > `personal_missions_v3.md` > `team_rules_v2.md`.
+`scenario_reveal.md` > `otherworld_setting.md` > `personal_missions_v3.md`.
+(`team_rules_v2.md` 가 맨 뒤에 있었는데, 건물과 21:00 정산이 있던 시절의
+문서라 지웠다.)
