@@ -3,7 +3,7 @@
 // 그림은 MapPlan 하나가 그린다. 여기서는 **어디에 띄우고 어떻게
 // 만지는지**만 다룬다 — 미니맵은 구석에 떠 있고, 전체 맵은 화면을
 // 덮고 손가락으로 넓혔다 줄였다 한다.
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import {
   MapPlan,
@@ -494,12 +494,19 @@ export function FullMap({
                 className={[
                   'sc-at__room',
                   r.known ? '' : 'is-unseen',
+                  r.owner ? 'is-owned' : '',
                   r.id === facts.here ? 'is-here' : '',
                   picked === r.id ? 'is-picked' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+                style={{
+                  left: box.x,
+                  top: box.y,
+                  width: box.w,
+                  height: box.h,
+                  ...(r.owner ? ({ '--own': TEAM_COLOR[r.owner] } as CSSProperties) : {}),
+                }}
                 onClick={(e) => {
                   e.stopPropagation()
                   setPicked(r.id)

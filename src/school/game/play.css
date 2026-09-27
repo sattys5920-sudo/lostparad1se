@@ -1734,7 +1734,8 @@ p.sc-cv { display: block; }
   overflow: hidden;
   touch-action: none;
 }
-.sc-at__plan { position: absolute; left: 4px; top: 4px; }
+/* 여백은 도면 안(PAD)에 이미 있다. 여기서 또 밀면 그만큼 상자 밖으로 샌다 */
+.sc-at__plan { position: absolute; left: 0; top: 0; }
 
 /* 층 — 굵은 구분선과 왼쪽에 세워 붙인 이름 */
 .sc-at__rule { position: absolute; left: 0; height: 2px; background: #39405e; }
@@ -1791,8 +1792,18 @@ p.sc-cv { display: block; }
   cursor: pointer;
 }
 .sc-at__room.is-unseen { background: #232840; border-color: #333a5c; color: #767ca6; }
+/* 차지한 방은 면 전체를 팀 색으로 옅게 — 판세가 한눈에 읽힌다.
+   색은 --own 으로 받는다(Atlas.tsx). 이름은 어느 색 위에서도 읽히게 밝게 */
+.sc-at__room.is-owned {
+  background: color-mix(in srgb, var(--own) 34%, #232840);
+  border-color: color-mix(in srgb, var(--own) 70%, #232840);
+  color: #f2f3f7;
+}
+.sc-at__room.is-owned .sc-at__q { color: color-mix(in srgb, var(--own) 45%, #d8dbe8); }
 .sc-at__room.is-here { border-color: #f2f3f4; border-width: 2px; }
 .sc-at__room.is-picked { background: #4a5280; border-color: #aab2dd; }
+/* 고른 방도 주인 색은 남긴다 — 조금 밝게만 */
+.sc-at__room.is-owned.is-picked { background: color-mix(in srgb, var(--own) 48%, #4a5280); border-color: #aab2dd; }
 
 /* 완장 — 주인은 테두리가 아니라 위에 두른 띠로 말한다 */
 .sc-at__band {
