@@ -78,7 +78,8 @@ import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
 import { Arcade, ArcadeAsk } from './Arcade'
 import { useArcade } from './useArcade'
-import { atArcade } from '../../../shared/rules/arcade'
+import { ARCADE_COUNT, ARCADE_BY_ID, LIVE_ROOM, machineAtSeat } from '../../../shared/rules/arcade'
+import { unlockChip } from './chip'
 import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
 import { TransferAsk } from './TransferAsk'
 import { CaptainVote } from './CaptainVote'
@@ -121,7 +122,7 @@ import { useMyPaper } from './useMyPaper'
 import { logOut } from '../accounts'
 import { Notes } from './Notes'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
-import { ADJACENCY, START_TILE, TILE_BY_ID, cellsTouch, isHallCell, type TileId } from '../../../shared/rules/board'
+import { ADJACENCY, ALLEY_NAME, START_TILE, TILE_BY_ID, cellsTouch, isAlleyCell, isHallCell, type TileId } from '../../../shared/rules/board'
 import { atVending } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
 import {
@@ -635,6 +636,7 @@ function placeName(room: TileId | null, cell: { x: number; y: number } | null): 
   // **복도가 먼저다.** 복도로 나서도 선 방(tileId)은 마지막 방 그대로다
   // — 방 이름부터 보면 복도에 서서 「2-3 교실에서 말한다」가 뜬다.
   // 서버도 선 칸으로 가른다(chat.ts) — 화면이 다르게 말하면 안 된다.
+  if (cell && isAlleyCell(cell.x, cell.y)) return ALLEY_NAME
   if (cell && isHallCell(cell.x, cell.y)) return '복도'
   if (room) return TILE_BY_ID[room].name
   return null
@@ -806,8 +808,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 봐서는 떠났는지 알 수가 없다 — 복도에서는 방이 안 바뀐다.
    */
   const vendingHere = atVending(myCell)
-  /** 오락기 옆인가. 자판기와 같다 — 떠나면 창이 닫힌다 */
-  const arcadeHere = atArcade(myCell)
+  /**
+   * 앉은 오락기. **기계 앞자리에 선 것이 앉은 것이다**(rules/arcade).
+   * 자판기와 같다 — 일어나면 창이 닫힌다.
+   */
+  const myMachine = machineAtSeat(myCell)
+  const arcadeHere = myMachine !== null
   useEffect(() => {
     if (!arcadeHere) setSheet((s) => (s === 'arcade' ? null : s))
   }, [arcadeHere])
@@ -854,8 +860,22 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 상대가 물건을 올리는 것이 그 자리에서 보여야 흥정이다.
    */
   const { deal, dismiss: leaveDeal } = useDeal(gameId, uid)
-  // 오락기 대결. 먼저 낸 수는 이 문서에 없다 — 서버가 봉인한다
-  const { match: arcadeMatch, dismiss: dismissMatch } = useArcade(gameId, uid)
+  // 오락실 방. 먼저 낸 수와 먼저 끝낸 점수는 이 문서에 없다 — 서버가 봉인한다
+  const { room: arcadeRoom, invites: arcadeInvites, dismiss: dismissRoom } = useArcade(gameId, uid)
+  /*
+   * **자리에서 일어나면 판에서 빠진다.** 앉아 있던 사람이 걸어 나가면
+   * 서버는 다음 수를 둘 때에야 안다 — 그동안 상대는 안 올 수를 기다린다.
+   * 일어나는 순간 화면이 알린다. 앉았다 일어나는 그 한 번만 본다 —
+   * 화면이 켜지는 동안 자리가 잠깐 비는 것을 일어난 것으로 치면 안 된다.
+   */
+  const satRef = useRef(arcadeHere)
+  useEffect(() => {
+    const was = satRef.current
+    satRef.current = arcadeHere
+    if (!was || arcadeHere) return
+    if (arcadeRoom && LIVE_ROOM.has(arcadeRoom.status)) void act.arcadeLeave(arcadeRoom.id).catch(() => undefined)
+  }, [arcadeHere, arcadeRoom, act])
+
   const { ask: moveAsk, dismiss: dropMoveAsk } = useTransfer(gameId, uid)
   /**
    * 그 사람이 **바로 옆 칸**에 서 있는가.
@@ -903,6 +923,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     (id: string | null) => (id ? (game?.seats.find((s) => s.playerId === id)?.name ?? '누군가') : '누군가'),
     [game],
   )
+  /** 기계마다 앉은 사람. 골목은 한눈에 보이니 보이는 사람으로 다 안다 */
+  const seatedAt = useMemo(() => {
+    const out: ({ id: string; name: string } | null)[] = Array.from({ length: ARCADE_COUNT }, () => null)
+    for (const p of state.view?.visiblePawns ?? []) {
+      if (p.walking) continue
+      const m = machineAtSeat(p.at ?? null)
+      if (m !== null) out[m] = { id: p.playerId, name: nameOf(p.playerId) }
+    }
+    return out
+  }, [state.view?.visiblePawns, nameOf])
   /**
    * 누가 어떻게 생겼는가. 명단에서 한 번 펴 두고 지도에 건넨다.
    *
@@ -1427,7 +1457,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 차지할 수도, 넘칠 수도 없다 */}
             {inHall ?
               <div className="sc-pl__hud2">
-                <span className="sc-pl__where">복도</span>
+                <span className="sc-pl__where">{placeName(standingOn, myCell)}</span>
               </div>
             : standingOn !== null && (
                 <div className="sc-pl__hud2">
@@ -1833,31 +1863,33 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
 
       {/* ── 오락기 ──────────────────────────────────────────
-          기계 옆에 선 사람만 대결 상대로 뜬다. 안 보이는 사람은
-          서버가 안 보냈으므로 여기에도 없다 */}
-      {sheet === 'arcade' && (
+          뒷골목 기계 앞자리에 앉은 사람만 연다. 다른 기계에 누가
+          앉았는지는 보이는 사람으로 안다 — 안 보이는 사람은 서버가
+          안 보냈으므로 여기에도 없다 */}
+      {sheet === 'arcade' && myMachine !== null && (
         <Sheet title="오락기" onClose={closeSheet}>
           <Arcade
             act={act}
             meId={me.playerId}
-            beside={(state.view?.visiblePawns ?? [])
-              .filter((p) => p.playerId !== me.playerId && atArcade(p.at ?? null))
-              .map((p) => ({ id: p.playerId, name: nameOf(p.playerId) }))}
-            nameOf={nameOf}
-            match={arcadeMatch}
-            onDismissMatch={dismissMatch}
+            machine={myMachine}
+            seated={seatedAt}
+            room={arcadeRoom}
+            invites={arcadeInvites}
+            onDismiss={dismissRoom}
           />
         </Sheet>
       )}
-      {/* 대결 신청은 창이 닫혀 있어도 뜬다. 받으면 창이 열린다 */}
-      {arcadeMatch?.status === 'asked' && arcadeMatch.bId === me.playerId && sheet !== 'arcade' && (
+      {/* 부름은 창이 닫혀 있어도 뜬다. 받으면 창이 열린다 */}
+      {arcadeInvites[0] && sheet !== 'arcade' && (
         <ArcadeAsk
-          fromName={nameOf(arcadeMatch.aId)}
-          game={arcadeMatch.game}
+          room={arcadeInvites[0]}
           onAnswer={(yes) => {
-            act
-              .arcadeAnswer(arcadeMatch.id, yes)
-              .then(() => (yes ? setSheet('arcade') : dismissMatch()))
+            const r = arcadeInvites[0]
+            if (yes && ARCADE_BY_ID[r.game].kind === 'live') unlockChip()
+            ;(yes ? act.arcadeAnswer(r.id, true) : act.arcadeLeave(r.id))
+              .then(() => {
+                if (yes) setSheet('arcade')
+              })
               .catch((e) => refuse((e as Error).message))
           }}
         />
@@ -2079,7 +2111,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               <li><span>날짜</span><span>DAY {game.day}</span></li>
               <li><span>시간</span><span>{phaseOpen ? `${phaseNo}교시` : '자유 시간'}</span></li>
               <li><span>선 방</span><span>{standingOn ? TILE_BY_ID[standingOn].name : '걷는 중'}</span></li>
-              <li><span>내 칸</span><span>{standingRoom ? TILE_BY_ID[standingRoom].name : '복도'}</span></li>
+              <li><span>내 칸</span><span>{standingRoom ? TILE_BY_ID[standingRoom].name : (placeName(null, myCell) ?? '복도')}</span></li>
               <li>
                 <span>옆방</span>
                 <span>

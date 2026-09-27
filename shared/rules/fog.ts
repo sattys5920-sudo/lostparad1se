@@ -5,7 +5,7 @@
 // 아예 들어가지 않는다. 받은 뒤 숨기면 개발자도구로 다 보인다.
 //
 // 걷는 말의 목적지는 어느 view에도 들어가지 않는다 — 본인 팀 것도.
-import { HALLS, TILE_BY_ID, type Cell, type TileId } from './board'
+import { HALLS, TILE_BY_ID, isAlleyCell, type Cell, type TileId } from './board'
 import { HALL_SIGHT, type TeamId } from './v2'
 
 /**
@@ -114,6 +114,13 @@ export interface PawnVisionInput {
 export function nearInHall(a: Cell | null | undefined, b: Cell | null | undefined): boolean {
   if (!a || !b) return false
   if (!inAnyHall(a) || !inAnyHall(b)) return false
+  /*
+   * **뒷골목은 한눈에 들어온다.** 가로 열넷 칸짜리 골목이라 HALL_SIGHT
+   * 로 자르면 오락기 줄 끝에 앉은 사람이 반대쪽 끝 사람을 못 본다 —
+   * 다른 기계에 대결을 걸려면 거기 누가 앉았는지 보여야 한다.
+   * 둘 다 골목 안일 때만이다. 골목 입구에서 학교 복도까지 트이지 않는다.
+   */
+  if (isAlleyCell(a.x, a.y) && isAlleyCell(b.x, b.y)) return true
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= HALL_SIGHT
 }
 

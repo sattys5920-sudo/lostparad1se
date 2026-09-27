@@ -6,10 +6,13 @@ import { describe, expect, it } from 'vitest'
 import {
   AMBUSH_HIDDEN_FROM_OWN_TEAM,
   isAmbushed,
+  nearInHall,
   visiblePawns,
   visibleTiles,
   type PawnPosition,
 } from './fog'
+import { ALLEY, HALLS } from './board'
+import { HALL_SIGHT } from './v2'
 
 const pawn = (over: Partial<PawnPosition> & Pick<PawnPosition, 'playerId' | 'team'>): PawnPosition => ({
   tileId: null,
@@ -204,5 +207,25 @@ describe('복도에서 마주치기', () => {
       pawns: [pawn({ playerId: 'x', team: 'B', tileId: 'baseB', at: hall, hiddenUntilMs: 9999 })],
     })
     expect(out.map((p) => p.playerId)).not.toContain('x')
+  })
+})
+
+describe('뒷골목은 한눈에 들어온다', () => {
+  const lane = ALLEY[1]
+  const left = { x: lane.x, y: lane.y + 1 }
+  const right = { x: lane.x + lane.w - 1, y: lane.y + lane.h - 1 }
+
+  it('골목 양끝은 HALL_SIGHT 보다 멀다 — 그래서 이 규칙이 필요하다', () => {
+    expect(Math.max(Math.abs(left.x - right.x), Math.abs(left.y - right.y))).toBeGreaterThan(HALL_SIGHT)
+  })
+
+  it('둘 다 골목 안이면 끝과 끝이어도 서로 보인다', () => {
+    expect(nearInHall(left, right)).toBe(true)
+  })
+
+  it('한 사람이 학교 복도에 있으면 골목 규칙은 안 먹는다 — 멀면 안 보인다', () => {
+    const main = HALLS.find((h) => h.floor === 'f1')!.rect
+    const far = { x: main.x + 1, y: main.y + 1 }
+    expect(nearInHall(left, far)).toBe(false)
   })
 })

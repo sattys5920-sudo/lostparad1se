@@ -354,13 +354,14 @@ export function gameActions(gameId: string) {
 
     // ── 오락기 ──────────────────────────────────────────────────
     // 답은 서버가 쥔다. 화면은 물어보고 받은 것을 그리기만 한다
-    arcadeStart: (game: string) => callServer('arcadeStart', { ...g, game }),
-    arcadeMove: (n: number) => callServer('arcadeMove', { ...g, n }),
-    arcadeChallenge: (game: string, toPlayerId: string) =>
-      callServer('arcadeChallenge', { ...g, game, toPlayerId }),
-    arcadeAnswer: (matchId: string, accept: boolean) => callServer('arcadeAnswer', { ...g, matchId, accept }),
-    arcadePick: (matchId: string, pick: string) => callServer('arcadePick', { ...g, matchId, pick }),
-    arcadeLeave: (matchId: string) => callServer('arcadeLeave', { ...g, matchId }),
+    arcadeOpen: (game: string) => callServer('arcadeOpen', { ...g, game }),
+    arcadeInvite: (roomId: string, playerId: string) => callServer('arcadeInvite', { ...g, roomId, playerId }),
+    arcadeAnswer: (roomId: string, accept: boolean) => callServer('arcadeAnswer', { ...g, roomId, accept }),
+    arcadeBegin: (roomId: string) => callServer('arcadeBegin', { ...g, roomId }),
+    arcadeLeave: (roomId: string) => callServer('arcadeLeave', { ...g, roomId }),
+    arcadeMove: (roomId: string, n: number) => callServer('arcadeMove', { ...g, roomId, n }),
+    arcadePick: (roomId: string, pick: string) => callServer('arcadePick', { ...g, roomId, pick }),
+    arcadeSubmit: (roomId: string, log: unknown) => callServer('arcadeSubmit', { ...g, roomId, log }),
 
     castVote: (targetId: string, kind: 'trust' | 'liking' | 'suspicion') =>
       callServer('castVote', { ...g, targetId, kind }),

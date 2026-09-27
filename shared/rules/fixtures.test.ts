@@ -1,5 +1,6 @@
 // 복도의 기물 — 못 밟고, 앞에 서야 열린다.
 import { describe, expect, it } from 'vitest'
+import { ARCADE_MACHINES } from './arcade'
 
 import { FIXTURE_CELLS, facing, fixtureAt, isFixture } from './fixtures'
 import { BOARDS } from './errand'
@@ -9,9 +10,9 @@ import { isHallCell, roomOfCell } from './board'
 import { MAKERS } from './trap'
 
 describe('기물', () => {
-  it('게시판 여섯 · 자판기 셋 · 화분 여덟 · 제조기 셋 · 연구 기계 하나 · 오락기 하나가 전부다', () => {
-    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length + POT_CELLS.length + MAKERS.length + 1 + 1)
-    expect(FIXTURE_CELLS.size).toBe(22)
+  it('게시판 여섯 · 자판기 셋 · 화분 여덟 · 제조기 셋 · 연구 기계 하나 · 오락기 열이 전부다', () => {
+    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length + POT_CELLS.length + MAKERS.length + 1 + ARCADE_MACHINES.length)
+    expect(FIXTURE_CELLS.size).toBe(31)
   })
 
   /*

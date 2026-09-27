@@ -1,70 +1,252 @@
-// 오락기 — 복도 구석의 기계 한 대와 그 안의 게임들.
+// 오락실 — 뒷골목에 줄지어 선 기계 열 대와 그 안의 게임들.
 //
-// **답은 늘 서버가 쥔다.** 화면이 「이겼다」를 보내는 게임이면
-// 개발자도구로 누구나 이긴다. 그래서 여기 있는 게임은 전부 서버가
-// 숨긴 것(업다운의 숫자)이나 봉인한 것(대결에서 먼저 낸 수)으로
-// 승부가 난다. 화면은 물어보고 그리기만 한다.
+// **판정은 늘 서버가 한다.** 화면이 「이겼다」를 보내는 게임이면
+// 개발자도구로 누구나 이긴다. 그래서
+//
+//   ㆍ 차례로 두는 게임(업다운·가위바위보)은 서버가 숨긴 것이나 봉인한
+//     것으로 승부가 난다
+//   ㆍ 손이 빠른 게임(리듬 같은 것)은 서버가 판(씨앗)을 정하고, 화면이
+//     누른 기록을 보내면 **서버가 같은 규칙으로 다시 돌려** 점수를 낸다.
+//     화면이 적어 보낸 점수는 안 받는다
 //
 // **보상은 아직 없다.** 무엇을 줄지는 나중에 정한다 — 그때 붙일
 // 자리가 하나이도록, 판이 끝나면 늘 같은 모양(ArcadeOutcome)으로
 // 끝을 알린다.
 //
 // 이 파일은 순수 함수만 둔다. 굴림(roll)은 부르는 쪽이 쥔다.
-import type { Cell } from './board'
+import { ALLEY, type Cell } from './board'
 
 // ── 기계 ────────────────────────────────────────────────────────
 
-/**
- * 오락기가 선 칸. **1층 복도, 자판기에서 네 칸.**
- *
- * 벽에 등을 대고 선다 — 복도 한가운데에 두면 길을 막는다. 둘레에
- * 설 칸이 다섯이라 둘이 나란히 붙어 대결할 수 있다. 자리를 고른
- * 자는 복도가 끊기지 않는지까지 재서 골랐다(시험이 다시 잰다).
- */
-export const ARCADE_CELL: Cell = { x: 28, y: 79 }
 export const ARCADE_NAME = '오락기'
 
-/** 옆인가. 둘레 한 칸 — 자판기·게시판과 같은 자다. */
-export const atArcade = (me: Cell | null | undefined): boolean =>
-  !!me && Math.abs(me.x - ARCADE_CELL.x) <= 1 && Math.abs(me.y - ARCADE_CELL.y) <= 1 &&
-  !(me.x === ARCADE_CELL.x && me.y === ARCADE_CELL.y)
+/** 기계 수. 골목 윗벽을 따라 한 줄로 선다. */
+export const ARCADE_COUNT = 10
+
+export interface ArcadeMachine {
+  /** 0 부터. 화면에는 +1 해서 「1번 기계」로 적는다. */
+  i: number
+  /** 기계가 선 칸. 기물이라 못 밟는다. */
+  cell: Cell
+  /**
+   * 앉는 칸. **기계 바로 앞 한 칸이다.** 여기 서 있는 것이 곧 앉은
+   * 것이다 — 따로 「앉는다」를 누르지 않는다. 한 칸에는 한 사람만
+   * 설 수 있으니(standAt 이 막는다) 한 기계에 한 사람이다.
+   */
+  seat: Cell
+}
+
+/**
+ * 기계 열 대. **골목(ALLEY 의 둘째 네모) 윗줄, 왼쪽에서 두 칸 띄고.**
+ *
+ * 윗줄이라 위는 벽이다 — 두 칸 높이 그림이 벽에 기대 선다. 줄 끝을
+ * 두 칸씩 비워서 골목 양끝으로 사람이 드나드는 길이 남는다.
+ */
+export const ARCADE_MACHINES: readonly ArcadeMachine[] = (() => {
+  const r = ALLEY[1]
+  return Array.from({ length: ARCADE_COUNT }, (_, i) => {
+    const x = r.x + 2 + i
+    return { i, cell: { x, y: r.y }, seat: { x, y: r.y + 1 } }
+  })
+})()
+
+/** 그 칸이 몇 번 기계의 자리인가. 자리가 아니면 null. */
+export function machineAtSeat(me: Cell | null | undefined): number | null {
+  if (!me) return null
+  const m = ARCADE_MACHINES.find((k) => k.seat.x === me.x && k.seat.y === me.y)
+  return m ? m.i : null
+}
+
+/** 그 칸에 기계가 서 있는가. 몇 번인지. */
+export function machineAtCell(x: number, y: number): number | null {
+  const m = ARCADE_MACHINES.find((k) => k.cell.x === x && k.cell.y === y)
+  return m ? m.i : null
+}
+
+export const machineName = (i: number): string => `${i + 1}번 기계`
 
 // ── 게임 목록 ───────────────────────────────────────────────────
 
 export type ArcadeGameId =
-  | 'updown' | 'baseball' | 'rpsMachine' | 'highLow' | 'blackjack' | 'bombBox'
-  | 'rps' | 'mukjjippa' | 'chamchamcham' | 'holjjak'
+  | 'updown' | 'rhythm' | 'snake'
+  | 'rps' | 'quickdraw' | 'duet'
+  | 'nunchi' | 'tower'
+  | 'oneToFifty' | 'mole'
+
+/**
+ * 어떻게 겨루는가.
+ *
+ *   solo    혼자. 이기고 지는 것은 기계와다
+ *   versus  여럿이 겨룬다. 제일 잘한 사람이 이긴다
+ *   coop    여럿이 한편이다. 다 같이 넘기거나 다 같이 진다
+ */
+export type ArcadeMode = 'solo' | 'versus' | 'coop'
 
 export interface ArcadeGame {
   id: ArcadeGameId
   name: string
-  /** 1 은 기계와, 2 는 오락기 옆에 선 사람과. */
-  players: 1 | 2
+  mode: ArcadeMode
+  /** 몇 명이 하는가. 다른 기계에 앉은 사람을 불러 채운다. */
+  min: number
+  max: number
   /** 고르는 화면에 한 줄. */
   blurb: string
+  /**
+   * 어떻게 판을 굴리는가.
+   *
+   *   turn  한 수씩 서버에 묻는다(업다운·가위바위보)
+   *   live  화면이 제 손으로 굴리고, 끝나면 누른 기록을 통째로 보낸다.
+   *         서버는 같은 규칙으로 다시 돌려 점수를 낸다
+   */
+  kind: 'turn' | 'live'
   /** 들어갈 수 있는가. 아직 안 만든 게임은 고르는 화면에 「준비 중」으로 선다. */
   ready: boolean
 }
 
 export const ARCADE_GAMES: readonly ArcadeGame[] = [
-  { id: 'updown', name: '업다운', players: 1, blurb: '1~100 숨은 숫자를 여섯 번 안에', ready: true },
-  { id: 'baseball', name: '숫자야구', players: 1, blurb: '세 자리 숫자, 스트라이크와 볼', ready: false },
-  { id: 'rpsMachine', name: '가위바위보 기계', players: 1, blurb: '이기면 불빛이 돈다', ready: false },
-  { id: 'highLow', name: '하이로우', players: 1, blurb: '다음 카드가 높을까 낮을까', ready: false },
-  { id: 'blackjack', name: '블랙잭', players: 1, blurb: '21 을 넘지 않게', ready: false },
-  { id: 'bombBox', name: '폭탄 상자', players: 1, blurb: '폭탄을 피해 상자를 연다', ready: false },
-  { id: 'rps', name: '가위바위보', players: 2, blurb: '옆 사람과 한 판', ready: true },
-  { id: 'mukjjippa', name: '묵찌빠', players: 2, blurb: '공격권을 쥐고 따라오게', ready: false },
-  { id: 'chamchamcham', name: '참참참', players: 2, blurb: '고개를 돌려라', ready: false },
-  { id: 'holjjak', name: '홀짝', players: 2, blurb: '쥔 구슬이 홀이냐 짝이냐', ready: false },
+  { id: 'updown', name: '업다운', mode: 'solo', min: 1, max: 1, blurb: '1~100 숨은 숫자를 여섯 번 안에', kind: 'turn', ready: true },
+  { id: 'rhythm', name: '리듬 스타', mode: 'solo', min: 1, max: 1, blurb: '떨어지는 음표를 박자에 맞춰', kind: 'live', ready: true },
+  { id: 'snake', name: '뱀', mode: 'solo', min: 1, max: 1, blurb: '먹을수록 길어진다. 꼬리를 물지 마라', kind: 'live', ready: false },
+  { id: 'rps', name: '가위바위보', mode: 'versus', min: 2, max: 2, blurb: '다른 기계와 한 판', kind: 'turn', ready: true },
+  { id: 'quickdraw', name: '먼저 쏴', mode: 'versus', min: 2, max: 2, blurb: '신호가 뜨면 먼저 누른 쪽이 이긴다', kind: 'live', ready: false },
+  { id: 'duet', name: '둘이서 한 곡', mode: 'coop', min: 2, max: 2, blurb: '한 곡을 둘이 나눠 친다', kind: 'live', ready: false },
+  { id: 'nunchi', name: '눈치 게임', mode: 'versus', min: 2, max: 4, blurb: '1부터 외친다. 겹치거나 꼴찌면 탈락', kind: 'live', ready: false },
+  { id: 'tower', name: '탑 쌓기', mode: 'coop', min: 2, max: 4, blurb: '돌아가며 쌓는다. 무너지면 끝', kind: 'live', ready: false },
+  { id: 'oneToFifty', name: '1 to 50', mode: 'versus', min: 1, max: 4, blurb: '1부터 50까지 누가 먼저', kind: 'live', ready: false },
+  { id: 'mole', name: '두더지 잡기', mode: 'versus', min: 1, max: 4, blurb: '30초 동안 누가 더 많이', kind: 'live', ready: false },
 ]
 
 export const ARCADE_BY_ID: Readonly<Record<ArcadeGameId, ArcadeGame>> = Object.fromEntries(
   ARCADE_GAMES.map((g) => [g.id, g]),
 ) as Record<ArcadeGameId, ArcadeGame>
 
+export const isArcadeGameId = (v: unknown): v is ArcadeGameId => typeof v === 'string' && v in ARCADE_BY_ID
+
 /** 판이 끝나면 늘 이 모양이다. 보상을 붙일 날 여기에 붙인다. */
 export type ArcadeOutcome = 'win' | 'lose' | 'draw'
+
+/** 인원 줄. 고르는 화면의 딱지다. */
+export const playersLabel = (g: ArcadeGame): string =>
+  g.min === g.max ? `${g.max}P` : `${g.min}~${g.max}P`
+
+// ── 방 ──────────────────────────────────────────────────────────
+//
+// 한 판은 늘 「방」 하나다. 혼자 하는 게임도 방이 하나 서고 사람이
+// 하나뿐일 뿐이다 — 그래야 혼자든 넷이든 같은 길로 시작하고 끝난다.
+//
+//   lobby    고른 사람이 다른 기계에 앉은 사람을 부르는 중
+//   playing  시작했다
+//   done     끝났다. 결과가 적혀 있다
+//   gone     누가 일어나거나 그만둬서 판이 깨졌다
+
+export type RoomStatus = 'lobby' | 'playing' | 'done' | 'gone'
+/** 방 안의 자리. 불렀다 · 들어왔다 · 안 한다 · 나갔다. */
+export type MemberState = 'invited' | 'in' | 'declined' | 'left'
+
+export interface RoomMember {
+  id: string
+  name: string
+  /** 앉은 기계. 불렀을 때의 기계다. */
+  machine: number
+  state: MemberState
+}
+
+/** 끝난 뒤 한 사람의 결과. */
+export interface RoomResult {
+  outcome: ArcadeOutcome
+  /** 겨룬 수. 게임마다 뜻이 다르다(리듬은 점수, 업다운은 남은 기회). */
+  score: number
+  /** 화면에 한 줄로 적을 것. 「A · 92.5%」 같은. */
+  line: string
+}
+
+export interface RoomDoc {
+  game: ArcadeGameId
+  hostId: string
+  members: RoomMember[]
+  /** 이 방을 읽을 수 있는 사람. **부른 사람까지 든다** — 부름을 봐야 받는다. */
+  memberIds: string[]
+  status: RoomStatus
+  /** 판의 씨앗. 시작할 때 정해진다. 손이 빠른 게임은 이것으로 같은 판을 만든다. */
+  seed: number | null
+  /** 시작 시각(서버 시계). 이 전까지 화면은 카운트다운을 센다. */
+  startAtMs: number | null
+  /** 결과를 낸 사람. **점수는 끝날 때까지 여기 없다** — 서버 봉인에 있다. */
+  doneIds: string[]
+  /** 다 끝나면 한꺼번에. */
+  results: Record<string, RoomResult> | null
+  /** 업다운 — 드러난 쪽. 혼자 하는 방이라 방 문서에 둬도 본인만 본다. */
+  updown: UpDownView | null
+  /** 가위바위보 — 이번 판에 낸 사람과 지난 판들. 무엇을 냈는지는 봉인에 있다. */
+  rps: { inIds: string[]; rounds: RpsRound[] } | null
+  atMs: number
+}
+
+/** 카운트다운. 시작을 누른 뒤 이만큼 뒤에 판이 열린다. */
+export const ARCADE_COUNTDOWN_MS = 3000
+
+export const LIVE_ROOM: ReadonlySet<RoomStatus> = new Set(['lobby', 'playing'])
+
+/** 들어와 있는 사람. */
+export const inMembers = (r: Pick<RoomDoc, 'members'>): RoomMember[] => r.members.filter((m) => m.state === 'in')
+
+/**
+ * 한 사람이 방을 떠난 뒤의 방. **부름을 안 받은 것도 떠난 것이다.**
+ *
+ *   ㆍ 부른 사람(방장)이 고르는 중에 떠나면 방이 깨진다
+ *   ㆍ 차례 게임(업다운·가위바위보)은 한 사람만 떠나도 깨진다 — 둘이
+ *     번갈아 두는 판에서 한쪽이 사라지면 판이 안 굴러간다
+ *   ㆍ 손 게임은 남은 사람끼리 계속한다. 떠난 사람은 진 것으로 친다.
+ *     아무도 안 남으면 깨진다
+ */
+export function roomAfterLeave(room: Pick<RoomDoc, 'game' | 'hostId' | 'members' | 'status'>, uid: string): { members: RoomMember[]; status: RoomStatus } {
+  const members = room.members.map((m) =>
+    m.id !== uid ? m : { ...m, state: m.state === 'invited' ? ('declined' as const) : m.state === 'in' ? ('left' as const) : m.state },
+  )
+  if (!LIVE_ROOM.has(room.status)) return { members, status: room.status }
+  const anyone = members.some((m) => m.state === 'in')
+  let status = room.status
+  if (room.status === 'lobby' && (uid === room.hostId || !anyone)) status = 'gone'
+  if (room.status === 'playing' && (ARCADE_BY_ID[room.game].kind === 'turn' || !anyone)) status = 'gone'
+  return { members, status }
+}
+
+/** 손 게임에서 한 사람이 낸 것. 서버가 기록을 다시 돌려 얻는다. */
+export interface Scored {
+  id: string
+  score: number
+  line: string
+  /** 혼자 기준의 이김·짐. 혼자 하는 게임이면 그대로 쓴다. */
+  solo: ArcadeOutcome
+}
+
+/**
+ * 손 게임의 끝. 방식에 따라 이김·짐을 가른다.
+ *
+ *   solo    제 기준 그대로
+ *   versus  제일 높은 사람이 이긴다. 같으면 그 사람들끼리 비긴다.
+ *           혼자 남아 끝냈으면 이긴다
+ *   coop    다 같이. 한 사람이라도 깨면 다 같이 깬 것이다
+ *
+ * **중간에 일어난 사람은 진다.** 점수 없이.
+ */
+export function settleRoom(mode: ArcadeMode, scored: readonly Scored[], leftIds: readonly string[]): Record<string, RoomResult> {
+  const out: Record<string, RoomResult> = {}
+  const best = Math.max(...scored.map((s) => s.score))
+  const top = scored.filter((s) => s.score === best).length
+  const team: ArcadeOutcome = scored.some((s) => s.solo === 'win') ? 'win' : 'lose'
+  for (const s of scored) {
+    const outcome: ArcadeOutcome =
+      mode === 'solo' ? s.solo
+      : mode === 'coop' ? team
+      : scored.length === 1 ? 'win'
+      : s.score === best ? (top > 1 ? 'draw' : 'win')
+      : 'lose'
+    out[s.id] = { outcome, score: s.score, line: s.line }
+  }
+  for (const id of leftIds) out[id] = { outcome: 'lose', score: 0, line: '중간에 일어났다' }
+  return out
+}
 
 // ── 업다운 ──────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { TEAMS } from '../char/palette'
-import { ADJACENCY, FLOOR_NAME, FLOORS, HALLS, STAIRWELLS, TILES, TILE_BY_ID } from '../../../shared/rules/board'
+import { ADJACENCY, ALLEY, ALLEY_NAME, FLOOR_NAME, FLOORS, HALLS, STAIRWELLS, TILES, TILE_BY_ID } from '../../../shared/rules/board'
 import { OPEN_TILES, ROOM_KIND, capacityOf } from '../../../shared/rules/occupy'
 import type { PlayerViewDoc, TileDoc } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
@@ -240,18 +240,20 @@ export interface Cell {
 }
 
 /** 복도와 계단통 — **칸 단위다.** 몇 배로 그릴지는 부르는 쪽이 정한다. */
-export function hallCells(): (Cell & { stair: boolean })[] {
+export function hallCells(): (Cell & { stair: boolean; alley: boolean })[] {
   const stairAt = new Set(STAIRWELLS.map((w) => `${w.plan.x},${w.plan.y}`))
+  const alleyAt = new Set(ALLEY.map((r) => `${r.x},${r.y}`))
   return HALLS.map((h) => ({
     x: h.rect.x,
     y: h.rect.y,
     w: h.rect.w,
     h: h.rect.h,
     stair: stairAt.has(`${h.rect.x},${h.rect.y}`),
+    alley: alleyAt.has(`${h.rect.x},${h.rect.y}`),
   }))
 }
 
-export function halls(): (Cell & { stair: boolean })[] {
+export function halls(): (Cell & { stair: boolean; alley: boolean })[] {
   return hallCells().map((c) => ({ ...c, x: c.x * PLAN_SCALE, y: c.y * PLAN_SCALE, w: c.w * PLAN_SCALE, h: c.h * PLAN_SCALE }))
 }
 
@@ -362,9 +364,26 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
             y={g.y}
             width={g.w}
             height={g.h}
-            className={g.stair ? 'sc-mp__hall is-stair' : 'sc-mp__hall'}
+            className={g.stair ? 'sc-mp__hall is-stair' : g.alley ? 'sc-mp__hall is-alley' : 'sc-mp__hall'}
           />
         ))}
+      {/* 뒷골목. **방이 아니라 이름표만 단다** — 차지할 수 없는 자리라
+          주인 색도 머릿수도 없다. 오락기가 거기 있다는 것만 알면 된다 */}
+      {(() => {
+        const r = ALLEY[ALLEY.length - 1]
+        const box = { x: r.x * PLAN_SCALE, y: r.y * PLAN_SCALE, w: r.w * PLAN_SCALE, h: r.h * PLAN_SCALE }
+        if (!inView(box) || (compact && !fontUnits)) return null
+        return (
+          <text
+            x={box.x + box.w / 2}
+            y={box.y + box.h / 2}
+            className="sc-mp__alley"
+            style={compact && fontUnits ? { fontSize: fontUnits } : undefined}
+          >
+            {ALLEY_NAME}
+          </text>
+        )
+      })()}
 
       {shown.map((r) => {
         const { x, y, w: bw, h: bh } = r.box

@@ -41,26 +41,9 @@ export interface Assignment {
 
 // ── 씨앗 ────────────────────────────────────────────────────────
 
-/** 글자열 씨앗을 32비트로. */
-function hashSeed(seed: string): number {
-  let h = 2166136261
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-/** mulberry32. 짧고 재현되면 충분하다 — 암호에 쓰지 않는다. */
-export function rngFrom(seed: string): () => number {
-  let a = hashSeed(seed)
-  return () => {
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
+// 주사위는 shared/rand 에 있다. 이 파일을 거쳐 가져가던 곳이 있어 그대로 내보낸다
+import { rngFrom } from '../rand'
+export { rngFrom }
 
 function shuffled<T>(items: readonly T[], rnd: () => number): T[] {
   const out = [...items]

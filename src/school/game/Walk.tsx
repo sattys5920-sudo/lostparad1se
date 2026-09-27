@@ -54,7 +54,8 @@ import type { ThingIcon } from '../../../shared/rules/errand'
 import { VENDINGS } from '../../../shared/rules/shop'
 import { facing, fixtureAt, type FixtureKind } from '../../../shared/rules/fixtures'
 import { LAB_MACHINE, MAKERS } from '../../../shared/rules/trap'
-import { ARCADE_CELL } from '../../../shared/rules/arcade'
+import { ARCADE_MACHINES, machineAtSeat } from '../../../shared/rules/arcade'
+import { isAlleyCell } from '../../../shared/rules/board'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -311,6 +312,11 @@ const CAM_GAP_PX = 40
 
 /** 하늘이 보이는 방. 눈이 쌓여 바닥이 한 단계 밝다 */
 const OUTDOOR: ReadonlySet<string> = new Set(['playground', 'garden', 'rooftop'])
+
+/** 오락기 칸 → 몇 번 기계. 그릴 때 칸마다 묻는다 */
+const ARCADE_CELLS: ReadonlyMap<string, number> = new Map(ARCADE_MACHINES.map((m) => [`${m.cell.x},${m.cell.y}`, m.i]))
+/** 기계 몸통 셋. 번갈아 세운다 */
+const CABINETS = ['arcade', 'arcadeB', 'arcadeC'] as const
 
 /**
  * 시작 전에 보이는 만큼.
@@ -728,6 +734,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
        */
       const fix = fixtureAt(tx, ty)
       if (fix) {
+        /*
+         * **오락기는 앞자리에 앉아야 연다.** 옆에 서서 누르면 그 기계
+         * 앞자리로 걸어가 앉는다 — 앉은 채 누르면 연다. 누가 앉아 있으면
+         * 길이 없으니 아무 일도 안 한다.
+         */
+        const cab = ARCADE_CELLS.get(`${tx},${ty}`)
+        if (cab !== undefined) {
+          const seat = ARCADE_MACHINES[cab].seat
+          if (self.tx === seat.x && self.ty === seat.y) fixRef.current?.(fix.kind)
+          else {
+            const found = pathTo(seat.x, seat.y)
+            if (found.length > 0) autoPath = found
+          }
+          return
+        }
         if (facing({ x: self.tx, y: self.ty }, fix.cell)) fixRef.current?.(fix.kind)
         return
       }
@@ -1356,11 +1377,17 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
              */
             const base =
               kind === 'hall'
-                ? sprites.tiles.floorHall
+                ? isAlleyCell(x, y)
+                  ? sprites.tiles.floorAlley
+                  : sprites.tiles.floorHall
                 : room !== null && OUTDOOR.has(room)
                   ? sprites.tiles.floorOut
                   : sprites.tiles.floorRoom
             ctx.drawImage(base, x * TILE - camX, y * TILE - camY)
+            // 골목 잔금은 몇 칸에만. 자리로 고르니 매 프레임 같은 칸이다
+            if (base === sprites.tiles.floorAlley && (x * 7 + y * 13) % 9 === 0) {
+              ctx.drawImage(sprites.tiles.alleyCrack, x * TILE - camX, y * TILE - camY)
+            }
             /*
              * 창으로 드는 빛. **위가 벽인 방 바닥에만**, 세 칸 걸러
              * 한 칸씩 둔다 — 창이 벽마다 줄지어 난 학교의 모습이다.
@@ -1445,9 +1472,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           if (VENDING_CELLS.has(`${x},${y}`)) {
             ctx.drawImage(sprites.props.vending, x * TILE - camX, y * TILE - camY - TILE)
           }
-          // 오락기는 두 칸 높이 — 기물 칸에 발을 딛고 벽 칸까지 솟는다
-          if (x === ARCADE_CELL.x && y === ARCADE_CELL.y) {
-            ctx.drawImage(sprites.props.arcade, x * TILE - camX, y * TILE - camY - TILE)
+          // 오락기는 두 칸 높이 — 기물 칸에 발을 딛고 벽 칸까지 솟는다.
+          // 열 대가 붙어 서니 몸통 색을 셋으로 돌린다. 한 색이면 한 덩어리
+          // 벽으로 보이고 몇 대인지 안 세어진다
+          const cab = ARCADE_CELLS.get(`${x},${y}`)
+          if (cab !== undefined) {
+            ctx.drawImage(sprites.props[CABINETS[cab % CABINETS.length]], x * TILE - camX, y * TILE - camY - TILE)
           }
           /*
            * 바닥의 심부름 물건. **칸 가운데에 작게 놓는다**(12칸 그림을
@@ -1542,7 +1572,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       for (const p of line) {
         // 걷는 사람은 다리가 움직인다. 멈춘 사람은 첫 자세로 선다
         const pose = p.moving ? Math.floor((now / 1000) * WALK_POSES_PER_SEC) : 0
-        person(p.x - camX, p.y - camY, p.team as TeamId, p.look, p.asleep, p.dir, pose)
+        // 기계 앞자리에 멈춰 선 사람은 기계를 본다 — 앉아서 하는 중이다
+        const seated = !p.moving && machineAtSeat({ x: Math.floor(p.x / TILE), y: Math.floor(p.y / TILE) }) !== null
+        person(p.x - camX, p.y - camY, p.team as TeamId, p.look, p.asleep, seated ? 'up' : p.dir, pose)
       }
 
       // 나는 늘 맨 위다. 앞줄에 누가 서더라도 **나를 잃어버리면 안 된다**
@@ -1552,7 +1584,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         me.team,
         me.look,
         false,
-        self.dir,
+        !self.moving && machineAtSeat({ x: self.tx, y: self.ty }) !== null ? 'up' : self.dir,
         self.moving ? Math.floor(self.phase) : 0,
       )
 

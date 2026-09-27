@@ -1,52 +1,100 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  ARCADE_CELL,
+  ARCADE_COUNT,
   ARCADE_GAMES,
+  ARCADE_MACHINES,
   RPS_MAX_ROUNDS,
   UPDOWN_MAX,
   UPDOWN_TRIES,
-  atArcade,
+  machineAtCell,
+  machineAtSeat,
+  roomAfterLeave,
   rpsJudge,
   rpsResolve,
+  settleRoom,
   updownGuess,
   updownNew,
+  type RoomMember,
 } from './arcade'
-import { HALLS, canStandAt, roomOfCell } from './board'
+import { ALLEY, HALLS, TILES, canStandAt, isAlleyCell, isHallCell, roomOfCell } from './board'
 import { isFixture } from './fixtures'
 
-describe('오락기 자리', () => {
-  it('복도 칸에 선다 — 방 안이 아니다', () => {
-    expect(roomOfCell(ARCADE_CELL.x, ARCADE_CELL.y)).toBeNull()
-    expect(HALLS.some((h) => h.floor === 'f1' && ARCADE_CELL.x >= h.rect.x && ARCADE_CELL.x < h.rect.x + h.rect.w && ARCADE_CELL.y >= h.rect.y && ARCADE_CELL.y < h.rect.y + h.rect.h)).toBe(true)
-  })
+/** 걸어서 닿는 칸 전부. 기물은 못 밟는다. 계단은 안 탄다(같은 층만) */
+function walkFrom(start: { x: number; y: number }): Set<string> {
+  const seen = new Set<string>([`${start.x},${start.y}`])
+  const q = [start]
+  while (q.length) {
+    const c = q.shift() as { x: number; y: number }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = { x: c.x + dx, y: c.y + dy }
+      const k = `${n.x},${n.y}`
+      if (seen.has(k) || !canStandAt(n.x, n.y) || isFixture(n.x, n.y)) continue
+      seen.add(k)
+      q.push(n)
+    }
+  }
+  return seen
+}
 
-  it('기물이라 못 밟는다', () => {
-    expect(isFixture(ARCADE_CELL.x, ARCADE_CELL.y)).toBe(true)
-  })
-
-  /*
-   * **둘이 붙어 설 자리가 있다.** 대결은 둘 다 오락기 옆에 서야 하므로
-   * 둘레에 설 칸이 둘은 넘어야 한다. 「옆이다」만 재면 설 칸이 하나도
-   * 없어도 통과하므로, 실제로 설 수 있는 칸을 센다.
-   */
-  it('둘레에 설 수 있는 칸이 넉넉하다', () => {
-    let n = 0
-    for (let dx = -1; dx <= 1; dx++)
-      for (let dy = -1; dy <= 1; dy++) {
-        const c = { x: ARCADE_CELL.x + dx, y: ARCADE_CELL.y + dy }
-        if ((dx || dy) && canStandAt(c.x, c.y) && !isFixture(c.x, c.y)) {
-          n++
-          expect(atArcade(c)).toBe(true)
+describe('뒷골목', () => {
+  it('복도 종류다 — 어느 방도 아니고, 규칙이 보는 칸(점령 대상)과 안 겹친다', () => {
+    for (const r of ALLEY) {
+      for (let y = r.y; y < r.y + r.h; y++)
+        for (let x = r.x; x < r.x + r.w; x++) {
+          expect(isHallCell(x, y)).toBe(true)
+          expect(roomOfCell(x, y)).toBeNull()
+          expect(TILES.some((t) => x >= t.plan.x && x < t.plan.x + t.plan.w && y >= t.plan.y && y < t.plan.y + t.plan.h)).toBe(false)
         }
-      }
-    expect(n).toBeGreaterThanOrEqual(3)
+    }
   })
 
-  it('기계 칸 자체나 두 칸 밖은 옆이 아니다', () => {
-    expect(atArcade(ARCADE_CELL)).toBe(false)
-    expect(atArcade({ x: ARCADE_CELL.x + 2, y: ARCADE_CELL.y })).toBe(false)
-    expect(atArcade(null)).toBe(false)
+  it('1층 복도에서 걸어서 닿는다', () => {
+    const main = HALLS.find((h) => h.floor === 'f1')!.rect
+    const reach = walkFrom({ x: main.x + 1, y: main.y + 1 })
+    const r = ALLEY[1]
+    expect(reach.has(`${r.x + 1},${r.y + r.h - 1}`)).toBe(true)
+  })
+
+  it('골목 밖 복도 칸은 골목이 아니다', () => {
+    const main = HALLS.find((h) => h.floor === 'f1')!.rect
+    expect(isAlleyCell(main.x + 1, main.y + 1)).toBe(false)
+  })
+})
+
+describe('오락기 열 대', () => {
+  it('열 대, 칸이 안 겹친다', () => {
+    expect(ARCADE_MACHINES).toHaveLength(ARCADE_COUNT)
+    expect(ARCADE_COUNT).toBe(10)
+    const cells = new Set(ARCADE_MACHINES.flatMap((m) => [`${m.cell.x},${m.cell.y}`, `${m.seat.x},${m.seat.y}`]))
+    expect(cells.size).toBe(ARCADE_COUNT * 2)
+  })
+
+  it('기계는 골목 칸의 기물이고, 위는 벽이다(두 칸 그림이 벽에 기댄다)', () => {
+    for (const m of ARCADE_MACHINES) {
+      expect(isAlleyCell(m.cell.x, m.cell.y)).toBe(true)
+      expect(isFixture(m.cell.x, m.cell.y)).toBe(true)
+      expect(canStandAt(m.cell.x, m.cell.y - 1)).toBe(false)
+      expect(machineAtCell(m.cell.x, m.cell.y)).toBe(m.i)
+    }
+  })
+
+  it('앞자리는 골목 칸이고 밟을 수 있다 — 거기 선 것이 앉은 것이다', () => {
+    const r = ALLEY[1]
+    const reach = walkFrom({ x: r.x + 1, y: r.y + r.h - 1 })
+    for (const m of ARCADE_MACHINES) {
+      expect(isAlleyCell(m.seat.x, m.seat.y)).toBe(true)
+      expect(isFixture(m.seat.x, m.seat.y)).toBe(false)
+      expect(reach.has(`${m.seat.x},${m.seat.y}`), `${m.i}번 앞자리`).toBe(true)
+      expect(machineAtSeat(m.seat)).toBe(m.i)
+    }
+  })
+
+  it('앞자리가 아니면 몇 번 기계도 아니다', () => {
+    const m = ARCADE_MACHINES[0]
+    expect(machineAtSeat({ x: m.seat.x, y: m.seat.y + 1 })).toBeNull()
+    expect(machineAtSeat(m.cell)).toBeNull()
+    expect(machineAtSeat(null)).toBeNull()
   })
 })
 
@@ -55,9 +103,74 @@ describe('게임 목록', () => {
     expect(ARCADE_GAMES).toHaveLength(10)
     expect(new Set(ARCADE_GAMES.map((g) => g.id)).size).toBe(10)
   })
-  it('혼자 하는 것과 둘이 하는 것이 다 있다', () => {
-    expect(ARCADE_GAMES.some((g) => g.players === 1 && g.ready)).toBe(true)
-    expect(ARCADE_GAMES.some((g) => g.players === 2 && g.ready)).toBe(true)
+
+  it('혼자 · 둘 · 넷까지 — 새 여덟 가운데 1인 둘, 2인 둘, 4인 둘', () => {
+    const fresh = ARCADE_GAMES.filter((g) => g.id !== 'updown' && g.id !== 'rps')
+    expect(fresh.filter((g) => g.max === 1)).toHaveLength(2)
+    expect(fresh.filter((g) => g.min === 2 && g.max === 2)).toHaveLength(2)
+    expect(fresh.filter((g) => g.min === 2 && g.max === 4)).toHaveLength(2)
+  })
+
+  it('인원 줄이 말이 된다', () => {
+    for (const g of ARCADE_GAMES) {
+      expect(g.min).toBeGreaterThanOrEqual(1)
+      expect(g.max).toBeGreaterThanOrEqual(g.min)
+      expect(g.max).toBeLessThanOrEqual(4)
+      if (g.mode === 'solo') expect(g.max).toBe(1)
+    }
+  })
+})
+
+describe('방에서 나가기', () => {
+  const m = (id: string, state: RoomMember['state']): RoomMember => ({ id, name: id, machine: 0, state })
+
+  it('고르는 중에 방장이 나가면 방이 깨진다', () => {
+    const r = roomAfterLeave({ game: 'rps', hostId: 'a', status: 'lobby', members: [m('a', 'in'), m('b', 'in')] }, 'a')
+    expect(r.status).toBe('gone')
+  })
+
+  it('고르는 중에 부름을 안 받으면 거절한 것이고 방은 남는다', () => {
+    const r = roomAfterLeave({ game: 'rps', hostId: 'a', status: 'lobby', members: [m('a', 'in'), m('b', 'invited')] }, 'b')
+    expect(r.status).toBe('lobby')
+    expect(r.members[1].state).toBe('declined')
+  })
+
+  it('차례 게임은 한 사람만 나가도 깨진다', () => {
+    const r = roomAfterLeave({ game: 'rps', hostId: 'a', status: 'playing', members: [m('a', 'in'), m('b', 'in')] }, 'b')
+    expect(r.status).toBe('gone')
+  })
+
+  it('손 게임은 남은 사람끼리 이어 간다 — 아무도 안 남으면 깨진다', () => {
+    const two = roomAfterLeave({ game: 'mole', hostId: 'a', status: 'playing', members: [m('a', 'in'), m('b', 'in')] }, 'b')
+    expect(two.status).toBe('playing')
+    expect(two.members[1].state).toBe('left')
+    const none = roomAfterLeave({ game: 'rhythm', hostId: 'a', status: 'playing', members: [m('a', 'in')] }, 'a')
+    expect(none.status).toBe('gone')
+  })
+
+  it('끝난 방은 그대로다', () => {
+    const r = roomAfterLeave({ game: 'rps', hostId: 'a', status: 'done', members: [m('a', 'in'), m('b', 'in')] }, 'a')
+    expect(r.status).toBe('done')
+  })
+})
+
+describe('손 게임 끝내기', () => {
+  const s = (id: string, score: number, solo: 'win' | 'lose' = 'win') => ({ id, score, solo, line: '' })
+
+  it('혼자 — 제 기준 그대로', () => {
+    expect(settleRoom('solo', [s('a', 10, 'lose')], []).a.outcome).toBe('lose')
+  })
+
+  it('겨루기 — 제일 높은 사람이 이기고, 같으면 비긴다, 떠난 사람은 진다', () => {
+    const r = settleRoom('versus', [s('a', 30), s('b', 20), s('c', 30)], ['d'])
+    expect([r.a.outcome, r.b.outcome, r.c.outcome, r.d.outcome]).toEqual(['draw', 'lose', 'draw', 'lose'])
+    expect(settleRoom('versus', [s('a', 5)], ['b']).a.outcome).toBe('win')
+  })
+
+  it('협동 — 다 같이 이기거나 다 같이 진다', () => {
+    const r = settleRoom('coop', [s('a', 1, 'lose'), s('b', 1, 'win')], [])
+    expect(r.a.outcome).toBe('win')
+    expect(r.b.outcome).toBe('win')
   })
 })
 

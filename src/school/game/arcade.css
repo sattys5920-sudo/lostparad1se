@@ -176,9 +176,6 @@
 .sc-ud__pad button.is-go { grid-column: 3; font-size: 11px; }
 
 /* ── 대결 ── */
-.sc-ar__foes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.sc-ar__foes button { width: 100%; text-align: left; font-size: 11px; color: #fff; }
-.sc-ar__foes span { color: #8f97bb; }
 .sc-du { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .sc-du__them { margin: 0; font-size: 11px; color: #b9bfd4; }
 .sc-du__them b { font-weight: 400; color: #7d86ad; }
@@ -200,8 +197,112 @@
 .sc-du__rounds li.is-win span:last-child { color: var(--ct-gold, #f0d68a); }
 .sc-du__rounds li.is-lose span:last-child { color: var(--ct-down, #e07a72); }
 
-/* 대결 신청 띠 — 거래 띠와 같은 틀에 오락기 색 테 */
+/* 부름 띠 — 거래 띠와 같은 틀에 오락기 색 테 */
 .sc-da--arcade { border-color: #6b5a2a; }
+
+/* ── 부름 띠(창 안) — 하던 판 위에 한 줄 선다 ── */
+.sc-ar__ask {
+  margin: 8px 8px 0;
+  padding: 8px;
+  border: 2px solid var(--ct-gold, #f0d68a);
+  background: #2a2140;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sc-ar__ask p { margin: 0; font-size: 11px; line-height: 16px; color: #e8e6f5; }
+.sc-ar__ask b { font-weight: 400; color: var(--ct-gold, #f0d68a); }
+.sc-ar__ask span { color: #8f97bb; }
+.sc-ar__ask .sc-ar__row { margin-top: 0; }
+
+/* ── 부르기 ── */
+.sc-lb { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sc-lb__members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.sc-lb__members li {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  color: #b9bfd4;
+}
+.sc-lb__members li span { color: #7d86ad; }
+.sc-lb__members li b { font-weight: 400; color: #fff; }
+.sc-lb__members li em { font-style: normal; }
+.sc-lb__members li.is-in em { color: var(--ct-gold, #f0d68a); }
+.sc-lb__members li.is-invited em { color: var(--ar-glow); }
+.sc-lb__members li.is-declined, .sc-lb__members li.is-left { opacity: 0.5; }
+.sc-lb__hint { margin: 4px 0 0; font-size: 11px; color: var(--ar-glow); }
+/* 골목 기계 열 대. 다섯씩 두 줄 — 골목에 선 그대로의 차례다 */
+.sc-lb__cabs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.sc-lb__cabs button {
+  width: 100%;
+  min-height: 58px;
+  padding: 4px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+}
+.sc-lb__cabs span { color: #7d86ad; }
+.sc-lb__cabs b {
+  font-weight: 400;
+  color: #fff;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-lb__cabs em { font-style: normal; white-space: nowrap; color: var(--ct-gold, #f0d68a); }
+.sc-lb__cabs button.is-empty b { color: #555b7a; }
+.sc-lb__cabs button.is-me { border-color: var(--ar-glow); }
+.sc-lb__cabs button.is-me b { color: var(--ar-glow); }
+.sc-lb__cabs button.is-in { border-color: var(--ct-gold, #f0d68a); opacity: 1; }
+.sc-lb__cabs button.is-invited em { color: var(--ar-glow); }
+
+/* ── 리듬 ── */
+.sc-rh { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sc-rh__stage { position: relative; }
+.sc-rh__canvas {
+  display: block;
+  width: 100%;
+  /* **치는 동안 누르는 판이 화면 안에 있어야 한다.** 낮은 폰(667)에서
+     300px 로 두면 판이 접힌 아래로 내려가 곡 도중에 스크롤을 해야
+     했다. 시트 머리·간판·판·단추를 뺀 나머지만 쓴다 */
+  height: clamp(150px, calc(100dvh - 500px), 300px);
+  border: 2px solid #000;
+  box-shadow: inset 0 0 0 1px #262b44;
+  touch-action: none;
+}
+.sc-rh__over {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(11, 13, 24, 0.72);
+}
+/* 누르는 판 셋. 줄 색을 테로 두르고, 누르면 속까지 찬다 */
+.sc-rh__pads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sc-ar .sc-rh__pads button {
+  min-height: 64px;
+  border-color: var(--lane);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sc-rh__pads button i { display: block; width: 60%; height: 6px; margin: 0 auto; background: var(--lane); opacity: 0.5; }
+.sc-ar .sc-rh__pads button.is-down { background: var(--lane); }
+.sc-rh__pads button.is-down i { opacity: 0; }
+.sc-rh__grade { margin: 6px 0 0; text-align: center; font-size: 22px; line-height: 1; color: #fff; transform: scale(2); transform-origin: center top; height: 44px; }
+.sc-rh__grade.is-win { color: var(--ct-gold, #f0d68a); }
+.sc-rh__grade.is-lose { color: var(--ct-down, #e07a72); }
+.sc-rh__line { margin: 0; text-align: center; font-size: 11px; color: #b9bfd4; }
 
 @media (prefers-reduced-motion: reduce) {
   .sc-ar__marquee i, .sc-ud__big.is-win { animation: none; }

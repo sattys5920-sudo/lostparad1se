@@ -79,6 +79,51 @@ const FLOOR_ROOM = Array.from({ length: 16 }, (_, y) =>
 )
 /** 복도. 방보다 어둡다 — 문을 넘는 순간 안과 밖이 갈린다 */
 const FLOOR_HALL = Array.from({ length: 16 }, () => '6'.repeat(16))
+/**
+ * 뒷골목 바닥. **아스팔트다.** 복도보다 한 단 어둡고 잔금과 얼룩이
+ * 있다 — 계단통 옆구리로 나서는 순간 학교 밖이라는 것이 발밑으로
+ * 먼저 온다.
+ */
+const FLOOR_ALLEY = [
+  '2222222222222222',
+  '2222222222222722',
+  '2272222222222222',
+  '2222222222222222',
+  '2222222222222222',
+  '2222222227222222',
+  '2222222222222222',
+  '2222222222222222',
+  '2722222222222222',
+  '2222222222222222',
+  '2222222222222222',
+  '2222272222222222',
+  '2222222222222222',
+  '2222222222222272',
+  '2222222222222222',
+  '2222222222222222',
+]
+/**
+ * 아스팔트 잔금. **몇 칸에만** 얹는다(자리로 골라서). 모든 칸에 같은
+ * 금이 가 있으면 금이 아니라 빗줄기 무늬로 보인다 — 실제로 그랬다.
+ */
+const ALLEY_CRACK = [
+  '                ',
+  '                ',
+  '                ',
+  '     7          ',
+  '      7         ',
+  '      77        ',
+  '        7       ',
+  '         7      ',
+  '         77     ',
+  '           7    ',
+  '                ',
+  '                ',
+  '                ',
+  '                ',
+  '                ',
+  '                ',
+]
 /** 실외. 눈이 덮여 한 단계 밝다 */
 const FLOOR_OUT = Array.from({ length: 16 }, () => '5'.repeat(16))
 
@@ -415,6 +460,8 @@ export type MarkKind = 'flowers' | 'chalk' | 'shoes' | 'tape' | 'poster' | 'crac
 export interface SpriteSet {
   tiles: {
     floorHall: HTMLCanvasElement
+    floorAlley: HTMLCanvasElement
+    alleyCrack: HTMLCanvasElement
     floorRoom: HTMLCanvasElement
     floorOut: HTMLCanvasElement
     wall: HTMLCanvasElement
@@ -443,6 +490,8 @@ export function buildSprites(): SpriteSet {
   return {
     tiles: {
       floorHall: bake(FLOOR_HALL),
+      floorAlley: bake(FLOOR_ALLEY),
+      alleyCrack: bake(ALLEY_CRACK),
       floorRoom: bake(FLOOR_ROOM),
       floorOut: bake(FLOOR_OUT),
       wall: bake(WALL),

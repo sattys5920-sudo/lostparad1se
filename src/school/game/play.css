@@ -1564,6 +1564,8 @@ p.sc-cv { display: block; }
 /* 복도는 칠한 바닥이다. 선으로 그으면 배치도가 아니라 가계도가 된다 */
 .sc-mp__hall { fill: #e4e8ee; stroke: none; }
 .sc-mp__hall.is-stair { fill: #d6dce6; }
+.sc-mp__hall.is-alley { fill: #c9ced8; }
+.sc-mp__alley { font-size: 9px; fill: var(--sc-text-dim); text-anchor: middle; dominant-baseline: middle; letter-spacing: 0.08em; }
 /* 층 바닥판 — 쌓아 놓은 층이 한 건물로 읽히게 */
 .sc-mp__slab rect { fill: #fcfcfd; stroke: var(--sc-line); stroke-width: 1; stroke-dasharray: 3 4; }
 .sc-mp__floor { font-size: 9px; fill: var(--sc-text-dim); letter-spacing: 0.08em; }
@@ -1599,6 +1601,8 @@ p.sc-cv { display: block; }
 /* 작게 그릴 때는 어두운 판 위다 */
 .sc-mp--small .sc-mp__hall { fill: rgba(242, 243, 244, 0.22); stroke: none; }
 .sc-mp--small .sc-mp__hall.is-stair { fill: rgba(242, 243, 244, 0.3); }
+.sc-mp--small .sc-mp__hall.is-alley { fill: rgba(242, 243, 244, 0.14); }
+.sc-mp--small .sc-mp__alley { fill: rgba(242, 243, 244, 0.6); }
 .sc-mp--small .sc-mp__room rect { fill: rgba(242, 243, 244, 0.16); stroke: rgba(242, 243, 244, 0.4); }
 .sc-mp--small .sc-mp__room.is-unseen rect { fill: rgba(242, 243, 244, 0.08); stroke-dasharray: 3 3; }
 .sc-mp--small .sc-mp__room.is-here rect { stroke: #fff; stroke-width: 3; }

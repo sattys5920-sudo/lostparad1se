@@ -43,6 +43,7 @@ import {
 import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { isFixture } from '../../shared/rules/fixtures'
+import { machineAtSeat } from '../../shared/rules/arcade'
 import { LAB_TILE, SNARE_MINUTES, atLabMachine } from '../../shared/rules/trap'
 import { clearTrapJobs, springTrap } from './trap'
 import type { Cell } from '../../shared/rules/board'
@@ -1139,6 +1140,15 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 기계 안에 서 있는 사람이 생긴다.
    */
   if (isFixture(x, y)) throw new HttpsError('failed-precondition', '거기에는 물건이 있다.')
+  /*
+   * **오락기 앞자리는 한 사람이다.** 그 칸에 선 것이 곧 앉은 것이라
+   * (rules/arcade), 둘이 한 칸에 서면 한 기계에 둘이 앉는다. 화면은
+   * 남이 선 칸으로 안 걷지만, 화면이 보내는 값만 믿으면 끼어 앉는다.
+   */
+  if (machineAtSeat({ x, y }) !== null && !(p.at?.x === x && p.at?.y === y)) {
+    const there = await gameRef(gameId).collection('pawns').where('at.x', '==', x).where('at.y', '==', y).get()
+    if (there.docs.some((d) => d.id !== uid)) throw new HttpsError('failed-precondition', '그 기계에는 누가 앉아 있다.')
+  }
   /*
    * **덫에 걸려 있으면 그 자리다.** 걸린 칸 말고 다른 칸을 적어 오면
    * 거절한다 — 화면은 pin 으로 도로 세운다

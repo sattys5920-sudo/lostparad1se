@@ -1,8 +1,9 @@
-// 오락기 화면 — 기계 한 대, 그 안의 게임 고르기와 게임들.
+// 오락기 화면 — 뒷골목 기계 한 대. 게임 고르기, 다른 기계 부르기, 게임들.
 //
 // **화면은 답을 모른다.** 업다운의 숫자는 판이 끝나야 온다. 대결에서
-// 상대가 낸 수는 둘 다 내야 온다. 여기서 하는 일은 물어보고, 받은 것을
-// 그리는 것뿐이다 — 승부를 여기서 정하면 개발자도구로 누구나 이긴다.
+// 상대가 낸 수는 둘 다 내야 온다. 리듬은 화면이 제 손으로 굴리지만
+// 점수는 서버가 누른 기록을 다시 돌려 낸다 — 여기서 승부를 정하면
+// 개발자도구로 누구나 이긴다.
 //
 // 숫자는 **화면 안 자판**으로 누른다. 휴대폰 자판이 올라오면 지도와
 // 조작부가 통째로 밀려 올라간다 — 이 앱이 여러 번 겪었다. 오락기에는
@@ -13,37 +14,52 @@ import './arcade.css'
 
 import {
   ARCADE_BY_ID,
+  ARCADE_COUNT,
   ARCADE_GAMES,
   RPS_LABEL,
   RPS_PICKS,
   UPDOWN_MAX,
   UPDOWN_TRIES,
+  inMembers,
+  machineName,
+  playersLabel,
   type ArcadeGameId,
   type RpsPick,
-  type UpDownView,
+  type RpsRound,
 } from '../../../shared/rules/arcade'
+import { josa } from '../../../shared/text'
+import { BIG, EndRow } from './ArcadeEnd'
+import { unlockChip } from './chip'
+import { Rhythm } from './Rhythm'
 import type { GameActions } from './useGame'
-import type { LiveMatch } from './useArcade'
+import type { LiveRoom } from './useArcade'
+
+export interface Seated {
+  id: string
+  name: string
+}
 
 export interface ArcadeProps {
   act: GameActions
   meId: string
-  /** 지금 오락기 옆에 선 사람들(나 빼고). 대결 상대는 여기서 고른다. */
-  beside: readonly { id: string; name: string }[]
-  nameOf: (id: string | null) => string
-  /** 내가 낀 대결. 있으면 그 화면이 먼저다. */
-  match: LiveMatch | null
-  onDismissMatch: () => void
+  /** 내가 앉은 기계. */
+  machine: number
+  /** 기계마다 앉은 사람. 빈 자리는 null. 골목은 한눈에 보이니 다 안다. */
+  seated: readonly (Seated | null)[]
+  /** 내가 든 방. 없으면 고르는 화면이다. */
+  room: LiveRoom | null
+  /** 나를 부른 방들. */
+  invites: readonly LiveRoom[]
+  onDismiss: (roomId: string) => void
 }
 
-type Screen = { kind: 'menu' } | { kind: 'updown'; view: UpDownView } | { kind: 'foe'; game: ArcadeGameId }
+type Run = <T>(fn: () => Promise<T>) => Promise<T | null>
 
-export function Arcade({ act, meId, beside, nameOf, match, onDismissMatch }: ArcadeProps) {
-  const [screen, setScreen] = useState<Screen>({ kind: 'menu' })
+export function Arcade({ act, meId, machine, seated, room, invites, onDismiss }: ArcadeProps) {
   const [busy, setBusy] = useState(false)
   const [say, setSay] = useState<string | null>(null)
 
-  async function run<T>(fn: () => Promise<T>): Promise<T | null> {
+  const run: Run = async (fn) => {
     setBusy(true)
     setSay(null)
     try {
@@ -56,44 +72,90 @@ export function Arcade({ act, meId, beside, nameOf, match, onDismissMatch }: Arc
     }
   }
 
-  const start = async (id: ArcadeGameId) => {
-    const g = ARCADE_BY_ID[id]
-    if (g.players === 2) return setScreen({ kind: 'foe', game: id })
-    const r = (await run(() => act.arcadeStart(id))) as { view?: UpDownView } | null
-    if (r?.view) setScreen({ kind: 'updown', view: r.view })
+  const open = (id: ArcadeGameId) => {
+    // 소리는 누른 손끝에서만 켜진다(휴대폰이 그렇다). 판이 열리기 전에 깨워 둔다
+    if (ARCADE_BY_ID[id].kind === 'live') unlockChip()
+    void run(() => act.arcadeOpen(id))
+  }
+  const again = (r: LiveRoom) => {
+    onDismiss(r.id)
+    open(r.game)
+  }
+  const toMenu = (r: LiveRoom) => onDismiss(r.id)
+
+  let body
+  if (!room) {
+    body = <Menu busy={busy} onPick={open} />
+  } else if (room.status === 'lobby') {
+    body = <Lobby room={room} meId={meId} machine={machine} seated={seated} busy={busy} run={run} act={act} />
+  } else if (room.status === 'gone') {
+    body = (
+      <>
+        <p className="sc-ar__title">{ARCADE_BY_ID[room.game].name}</p>
+        <p className="sc-ar__none">판이 깨졌다.<br />누가 그만두거나 자리에서 일어났다.</p>
+        <div className="sc-ar__row">
+          <button disabled={busy} onClick={() => toMenu(room)}>게임 고르기</button>
+        </div>
+      </>
+    )
+  } else if (room.game === 'updown') {
+    body = <UpDown room={room} meId={meId} busy={busy} run={run} act={act} onAgain={() => again(room)} onMenu={() => toMenu(room)} />
+  } else if (room.game === 'rps') {
+    body = <Rps room={room} meId={meId} busy={busy} run={run} act={act} onAgain={() => again(room)} onMenu={() => toMenu(room)} />
+  } else if (room.game === 'rhythm') {
+    body = (
+      <Rhythm
+        room={room}
+        meId={meId}
+        act={act}
+        onAgain={() => again(room)}
+        onMenu={() => toMenu(room)}
+        onQuit={() => void run(() => act.arcadeLeave(room.id))}
+      />
+    )
+  } else {
+    body = <p className="sc-ar__none">아직 준비 중인 게임이다.</p>
   }
 
-  // 대결 중이면 그게 먼저다 — 신청을 받아 앉았거나, 내가 걸고 기다리는 중
-  const body = match ? (
-    <Duel match={match} meId={meId} nameOf={nameOf} act={act} busy={busy} run={run} onLeave={() => {
-      onDismissMatch()
-      setScreen({ kind: 'menu' })
-    }} />
-  ) : screen.kind === 'updown' ? (
-    <UpDown view={screen.view} busy={busy} run={run} act={act}
-      onView={(view) => setScreen({ kind: 'updown', view })}
-      onMenu={() => setScreen({ kind: 'menu' })} />
-  ) : screen.kind === 'foe' ? (
-    <PickFoe game={screen.game} beside={beside} busy={busy}
-      onPick={(id) => void run(() => act.arcadeChallenge(screen.game, id))}
-      onBack={() => setScreen({ kind: 'menu' })} />
-  ) : (
-    <Menu busy={busy} onPick={(id) => void start(id)} />
-  )
-
+  const ask = invites[0]
   return (
     <div className="sc-ar">
       {/* 간판. 전구가 번갈아 켜진다 — 오락실 앞을 지나갈 때 보던 그것 */}
       <div className="sc-ar__marquee" aria-hidden>
         <i /><i /><i />
-        <span>오락기</span>
+        <span>{machine + 1}번 기계</span>
         <i /><i /><i />
       </div>
+      {/* 다른 기계가 부르면 화면 위에 띠가 선다. 하던 판은 그대로 둔다 */}
+      {ask && (
+        <div className="sc-ar__ask" role="alert">
+          <p>
+            <b>{hostOf(ask)?.name || '누군가'}</b> <span>{machineName(hostOf(ask)?.machine ?? 0)}</span>
+            <br />
+            {ARCADE_BY_ID[ask.game].name} 하자고 한다
+          </p>
+          <div className="sc-ar__row">
+            <button disabled={busy} onClick={() => void run(() => act.arcadeLeave(ask.id))}>안 한다</button>
+            <button
+              className="is-go"
+              disabled={busy}
+              onClick={() => {
+                if (ARCADE_BY_ID[ask.game].kind === 'live') unlockChip()
+                void run(() => act.arcadeAnswer(ask.id, true))
+              }}
+            >
+              한다
+            </button>
+          </div>
+        </div>
+      )}
       <div className="sc-ar__screen">{body}</div>
       {say && <p className="sc-ar__say" role="alert">{say}</p>}
     </div>
   )
 }
+
+const hostOf = (r: LiveRoom) => r.members.find((m) => m.id === r.hostId)
 
 // ── 고르기 ──────────────────────────────────────────────────────
 
@@ -104,13 +166,9 @@ function Menu({ busy, onPick }: { busy: boolean; onPick: (id: ArcadeGameId) => v
       <ul className="sc-ar__menu">
         {ARCADE_GAMES.map((g) => (
           <li key={g.id}>
-            <button
-              className={g.ready ? '' : 'is-off'}
-              disabled={busy || !g.ready}
-              onClick={() => onPick(g.id)}
-            >
+            <button className={g.ready ? '' : 'is-off'} disabled={busy || !g.ready} onClick={() => onPick(g.id)}>
               <b>{g.name}</b>
-              <em className={g.players === 2 ? 'is-duo' : ''}>{g.players === 2 ? '2P' : '1P'}</em>
+              <em className={g.max > 1 ? 'is-duo' : ''}>{playersLabel(g)}</em>
               <span>{g.ready ? g.blurb : '준비 중'}</span>
             </button>
           </li>
@@ -120,34 +178,117 @@ function Menu({ busy, onPick }: { busy: boolean; onPick: (id: ArcadeGameId) => v
   )
 }
 
+// ── 부르기 ──────────────────────────────────────────────────────
+
+const STATE_WORD = { in: '들어옴', invited: '부르는 중…', declined: '안 한대', left: '나감' } as const
+
+/**
+ * 고르는 중. **방장은 다른 기계를 부르고, 받은 사람은 기다린다.**
+ *
+ * 골목 기계 열 대를 그대로 늘어놓는다. 누가 몇 번에 앉았는지는 골목이
+ * 한눈에 보이니 화면도 안다 — 그 사람에게 부름을 보낸다.
+ */
+function Lobby({ room, meId, machine, seated, busy, run, act }: {
+  room: LiveRoom
+  meId: string
+  machine: number
+  seated: readonly (Seated | null)[]
+  busy: boolean
+  run: Run
+  act: GameActions
+}) {
+  const spec = ARCADE_BY_ID[room.game]
+  const host = room.hostId === meId
+  const inN = inMembers(room).length
+  const taken = room.members.filter((m) => m.state === 'in' || m.state === 'invited').length
+  const stateOf = (id: string) => room.members.find((m) => m.id === id)?.state ?? null
+  const hostName = hostOf(room)?.name || '고른 사람'
+
+  return (
+    <div className="sc-lb">
+      <p className="sc-ar__title">{spec.name} <span>{playersLabel(spec)} · 지금 {inN}명</span></p>
+
+      <ul className="sc-lb__members">
+        {room.members.map((m) => (
+          <li key={m.id} className={`is-${m.state}`}>
+            <span>{machineName(m.machine)}</span>
+            <b>{m.id === meId ? '나' : m.name}</b>
+            <em>{m.id === room.hostId ? '고른 사람' : STATE_WORD[m.state]}</em>
+          </li>
+        ))}
+      </ul>
+
+      {host ? (
+        <>
+          <p className="sc-lb__hint">다른 기계에 앉은 사람을 부른다</p>
+          <ol className="sc-lb__cabs">
+            {Array.from({ length: ARCADE_COUNT }, (_, i) => {
+              const who = seated[i]
+              const st = who ? stateOf(who.id) : null
+              const mine = i === machine
+              const can = !!who && !mine && who.id !== meId && st !== 'in' && st !== 'invited' && taken < spec.max
+              return (
+                <li key={i}>
+                  <button
+                    className={mine ? 'is-me' : st ? `is-${st}` : who ? '' : 'is-empty'}
+                    disabled={busy || !can}
+                    onClick={() => who && void run(() => act.arcadeInvite(room.id, who.id))}
+                  >
+                    <span>{i + 1}</span>
+                    <b>{mine ? '나' : who ? who.name : '빈 자리'}</b>
+                    {!mine && who && <em>{st === 'in' ? '들어옴' : st === 'invited' ? '부름' : st === 'declined' ? '다시' : '부르기'}</em>}
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
+          <div className="sc-ar__row">
+            <button disabled={busy} onClick={() => void run(() => act.arcadeLeave(room.id))}>그만둔다</button>
+            <button
+              className="is-go"
+              disabled={busy || inN < spec.min}
+              onClick={() => {
+                if (spec.kind === 'live') unlockChip()
+                void run(() => act.arcadeBegin(room.id))
+              }}
+            >
+              {inN < spec.min ? `${spec.min - inN}명 더 있어야` : '시작'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="sc-ar__none">{hostName}{josa(hostName, '이/가')} 시작하기를 기다린다…</p>
+          <div className="sc-ar__row">
+            <button disabled={busy} onClick={() => void run(() => act.arcadeLeave(room.id))}>나간다</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── 업다운 ──────────────────────────────────────────────────────
 
-function UpDown({ view, busy, run, act, onView, onMenu }: {
-  view: UpDownView
+function UpDown({ room, meId, busy, run, act, onAgain, onMenu }: {
+  room: LiveRoom
+  meId: string
   busy: boolean
-  run: <T>(fn: () => Promise<T>) => Promise<T | null>
+  run: Run
   act: GameActions
-  onView: (v: UpDownView) => void
+  onAgain: () => void
   onMenu: () => void
 }) {
   const [typed, setTyped] = useState('')
+  const view = room.updown ?? { guesses: [], left: UPDOWN_TRIES, outcome: null, answer: null }
   const last = view.guesses.at(-1)
-  const over = view.outcome !== null
+  const over = room.status === 'done'
+  const outcome = room.results?.[meId]?.outcome ?? view.outcome
 
   const call = async () => {
     const n = Number(typed)
-    const r = (await run(() => act.arcadeMove(n))) as { view?: UpDownView } | null
-    if (r?.view) {
-      onView(r.view)
-      setTyped('')
-    }
-  }
-  const again = async () => {
-    const r = (await run(() => act.arcadeStart('updown'))) as { view?: UpDownView } | null
-    if (r?.view) {
-      onView(r.view)
-      setTyped('')
-    }
+    const r = await run(() => act.arcadeMove(room.id, n))
+    if (r) setTyped('')
   }
   const press = (k: string) => {
     if (k === '←') return setTyped((t) => t.slice(0, -1))
@@ -162,13 +303,13 @@ function UpDown({ view, busy, run, act, onView, onMenu }: {
         {Array.from({ length: UPDOWN_TRIES }, (_, i) => <i key={i} className={i < view.left ? 'is-on' : ''} />)}
       </p>
 
-      <p className={`sc-ud__big${over ? ` is-${view.outcome}` : last ? ` is-${last.hint}` : ''}`} aria-live="polite">
-        {over
-          ? view.outcome === 'win' ? 'YOU WIN' : 'GAME OVER'
+      <p className={`sc-ud__big${over && outcome ? ` is-${outcome}` : last ? ` is-${last.hint}` : ''}`} aria-live="polite">
+        {over && outcome
+          ? outcome === 'win' ? 'YOU WIN' : 'GAME OVER'
           : last ? (last.hint === 'up' ? `${last.n}  UP ▲` : `${last.n}  DOWN ▼`)
           : typed || '?'}
       </p>
-      {over && <p className="sc-ud__answer">정답은 <b>{view.answer}</b></p>}
+      {over && view.answer !== null && <p className="sc-ud__answer">정답은 <b>{view.answer}</b></p>}
       {!over && last && <p className="sc-ud__typed">{typed || '다음 숫자'}</p>}
 
       <ol className="sc-ud__log">
@@ -178,10 +319,7 @@ function UpDown({ view, busy, run, act, onView, onMenu }: {
       </ol>
 
       {over ? (
-        <div className="sc-ar__row">
-          <button disabled={busy} onClick={onMenu}>게임 고르기</button>
-          <button className="is-go" disabled={busy} onClick={() => void again()}>한 판 더</button>
-        </div>
+        <EndRow busy={busy} onAgain={onAgain} onMenu={onMenu} />
       ) : (
         <div className="sc-ud__pad">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9', '←', '0'].map((k) => (
@@ -194,76 +332,36 @@ function UpDown({ view, busy, run, act, onView, onMenu }: {
   )
 }
 
-// ── 대결 상대 고르기 ────────────────────────────────────────────
+// ── 가위바위보 ──────────────────────────────────────────────────
 
-function PickFoe({ game, beside, busy, onPick, onBack }: {
-  game: ArcadeGameId
-  beside: readonly { id: string; name: string }[]
-  busy: boolean
-  onPick: (id: string) => void
-  onBack: () => void
-}) {
-  return (
-    <>
-      <p className="sc-ar__title">{ARCADE_BY_ID[game].name} <span>누구와?</span></p>
-      {beside.length === 0 ? (
-        <p className="sc-ar__none">오락기 옆에 선 사람이 없다.<br />옆에 누가 와야 한 판 할 수 있다.</p>
-      ) : (
-        <ul className="sc-ar__foes">
-          {beside.map((p) => (
-            <li key={p.id}>
-              <button disabled={busy} onClick={() => onPick(p.id)}>{p.name}<span>에게 한 판 하자고 한다</span></button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="sc-ar__row">
-        <button disabled={busy} onClick={onBack}>게임 고르기</button>
-      </div>
-    </>
-  )
-}
-
-// ── 대결 ────────────────────────────────────────────────────────
-
-function Duel({ match, meId, nameOf, act, busy, run, onLeave }: {
-  match: LiveMatch
+function Rps({ room, meId, busy, run, act, onAgain, onMenu }: {
+  room: LiveRoom
   meId: string
-  nameOf: (id: string | null) => string
-  act: GameActions
   busy: boolean
-  run: <T>(fn: () => Promise<T>) => Promise<T | null>
-  onLeave: () => void
+  run: Run
+  act: GameActions
+  onAgain: () => void
+  onMenu: () => void
 }) {
-  const side: 'a' | 'b' = match.aId === meId ? 'a' : 'b'
-  const foe = nameOf(side === 'a' ? match.bId : match.aId)
-  const mineIn = side === 'a' ? match.aIn : match.bIn
-  const theirsIn = side === 'a' ? match.bIn : match.aIn
-  const title = ARCADE_BY_ID[match.game]?.name ?? '대결'
-  const leave = async () => {
-    if (match.status === 'asked' || match.status === 'playing') await run(() => act.arcadeLeave(match.id))
-    onLeave()
-  }
-  // 내 쪽에서 본 판. 서버는 a 쪽에서 적는다
-  const mine = (r: LiveMatch['rounds'][number]) => (side === 'a' ? r.a : r.b)
-  const theirs = (r: LiveMatch['rounds'][number]) => (side === 'a' ? r.b : r.a)
-  const won = (w: 'a' | 'b' | 'tie' | 'draw' | null) => (w === side ? 'win' : w === 'tie' || w === 'draw' ? 'draw' : 'lose')
+  // a 는 부른 사람, b 는 받은 사람 — 서버가 그렇게 적는다
+  const players = room.members.filter((m) => m.state === 'in' || m.state === 'left')
+  const side: 'a' | 'b' = players[0]?.id === meId ? 'a' : 'b'
+  const foe = players.find((m) => m.id !== meId)
+  const state = room.rps ?? { inIds: [], rounds: [] }
+  const mineIn = state.inIds.includes(meId)
+  const theirsIn = !!foe && state.inIds.includes(foe.id)
+  const mine = (r: RpsRound) => (side === 'a' ? r.a : r.b)
+  const theirs = (r: RpsRound) => (side === 'a' ? r.b : r.a)
+  const won = (w: RpsRound['winner']) => (w === side ? 'win' : w === 'tie' ? 'draw' : 'lose')
+  const outcome = room.results?.[meId]?.outcome ?? null
 
   return (
     <div className="sc-du">
-      <p className="sc-ar__title">{title} <span>나 vs {foe}</span></p>
+      <p className="sc-ar__title">가위바위보 <span>나 vs {foe?.name ?? '?'}</span></p>
 
-      {match.status === 'asked' && (
-        match.aId === meId
-          ? <p className="sc-ar__none">{foe}에게 신청했다.<br />받기를 기다린다…</p>
-          : <p className="sc-ar__none">{foe}가 한 판 하자고 한다.</p>
-      )}
-      {match.status === 'declined' && <p className="sc-ar__none">{foe}가 안 한다고 했다.</p>}
-      {match.status === 'gone' && <p className="sc-ar__none">대결이 흩어졌다.</p>}
-
-      {match.rounds.length > 0 && (
+      {state.rounds.length > 0 && (
         <ol className="sc-du__rounds">
-          {match.rounds.map((r, i) => (
+          {state.rounds.map((r, i) => (
             <li key={i} className={`is-${won(r.winner)}`}>
               <span>{i + 1}판</span>
               <b>{RPS_LABEL[mine(r)]}</b>
@@ -275,40 +373,35 @@ function Duel({ match, meId, nameOf, act, busy, run, onLeave }: {
         </ol>
       )}
 
-      {match.status === 'playing' && (
+      {room.status === 'playing' && (
         <>
           {/* 상대가 냈는지는 보인다. **무엇을 냈는지는 안 보인다** — 서버가 봉인했다 */}
           <p className="sc-du__them">
-            {foe}: <b className={theirsIn ? 'is-in' : ''}>{theirsIn ? '냈다' : '고민 중'}</b>
+            {foe?.name}: <b className={theirsIn ? 'is-in' : ''}>{theirsIn ? '냈다' : '고민 중'}</b>
           </p>
           {mineIn ? (
             <p className="sc-ar__none">냈다. 상대를 기다린다…</p>
           ) : (
             <div className="sc-du__picks">
               {RPS_PICKS.map((p: RpsPick) => (
-                <button key={p} disabled={busy} onClick={() => void run(() => act.arcadePick(match.id, p))}>
+                <button key={p} disabled={busy} onClick={() => void run(() => act.arcadePick(room.id, p))}>
                   {RPS_LABEL[p]}
                 </button>
               ))}
             </div>
           )}
+          <div className="sc-ar__row">
+            <button disabled={busy} onClick={() => void run(() => act.arcadeLeave(room.id))}>그만둔다</button>
+          </div>
         </>
       )}
 
-      {match.status === 'done' && (
-        <p className={`sc-ud__big is-${won(match.outcome)}`}>
-          {won(match.outcome) === 'win' ? 'YOU WIN' : won(match.outcome) === 'lose' ? 'YOU LOSE' : 'DRAW'}
-        </p>
+      {room.status === 'done' && outcome && (
+        <>
+          <p className={`sc-ud__big is-${outcome}`}>{BIG[outcome]}</p>
+          <EndRow busy={busy} onAgain={onAgain} onMenu={onMenu} />
+        </>
       )}
-
-      <div className="sc-ar__row">
-        {match.status === 'asked' && match.bId === meId && (
-          <button className="is-go" disabled={busy} onClick={() => void run(() => act.arcadeAnswer(match.id, true))}>한다</button>
-        )}
-        <button disabled={busy} onClick={() => void leave()}>
-          {match.status === 'asked' || match.status === 'playing' ? '그만둔다' : '게임 고르기'}
-        </button>
-      </div>
     </div>
   )
 }
@@ -316,11 +409,12 @@ function Duel({ match, meId, nameOf, act, busy, run, onLeave }: {
 // ── 받는 쪽 한 줄 ───────────────────────────────────────────────
 
 /** 오락기 창이 닫혀 있어도 뜬다. 거래 신청(DealAsk)과 같은 자리다. */
-export function ArcadeAsk({ fromName, game, onAnswer }: { fromName: string; game: ArcadeGameId; onAnswer: (yes: boolean) => void }) {
+export function ArcadeAsk({ room, onAnswer }: { room: LiveRoom; onAnswer: (yes: boolean) => void }) {
+  const host = hostOf(room)
   return (
     <div className="sc-da sc-da--arcade">
-      <p className="sc-da__who"><b>{fromName}</b><span>오락기</span></p>
-      <p className="sc-da__say">{ARCADE_BY_ID[game]?.name ?? '게임'} 한 판 하자고 한다.</p>
+      <p className="sc-da__who"><b>{host?.name || '누군가'}</b><span>{machineName(host?.machine ?? 0)}</span></p>
+      <p className="sc-da__say">{ARCADE_BY_ID[room.game]?.name ?? '게임'} 하자고 한다.</p>
       <div className="sc-da__row">
         <button onClick={() => onAnswer(false)}>안 한다</button>
         <button className="is-on" onClick={() => onAnswer(true)}>한다</button>

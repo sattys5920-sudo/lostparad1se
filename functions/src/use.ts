@@ -12,7 +12,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { LOCK_MS, PAPER_MAX, countOf, isHandItem, takeItem, type ItemKind, type Satchel } from '../../shared/rules/items'
-import { TILE_BY_ID, isHallCell, type TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, isAlleyCell, isHallCell, type TileId } from '../../shared/rules/board'
 import { trapsOf, type TrapSetDoc } from './trap'
 import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
@@ -150,6 +150,8 @@ export const useItem = onCall<UseInput>(async (req) => {
     if (kind === 'trap') {
       const at = me.at ?? null
       if (!at || !isHallCell(at.x, at.y)) throw new HttpsError('failed-precondition', '복도에 서서 놓는다.')
+      // 뒷골목은 땅 싸움 밖이다. 오락하러 온 사람을 묶는 덫은 없다
+      if (isAlleyCell(at.x, at.y)) throw new HttpsError('failed-precondition', '뒷골목에는 덫을 못 놓는다.')
       // 한 칸에 하나. 우리 것이든 남의 것이든 겹쳐 놓지 않는다
       const dup = await tx.get(trapsOf(gameId).where('x', '==', at.x).where('y', '==', at.y))
       if (!dup.empty) throw new HttpsError('failed-precondition', '여기에는 이미 놓여 있다.')

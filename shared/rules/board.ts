@@ -128,6 +128,30 @@ const B1: FloorDef = {
 }
 
 /**
+ * 뒷골목 — 학교 동쪽 계단 옆으로 난 샛길 끝의 오락실 골목.
+ *
+ * **복도다. 방이 아니다.** 그래서 점령도 깃발도 없고, 페이즈의 땅
+ * 싸움과 아무 상관이 없다 — 규칙이 보는 칸(TILES)에 애초에 안 든다.
+ * 새로 방 종류를 만들어 「여기는 못 가진다」고 막는 것보다, 가질 수
+ * 없는 종류로 짓는 편이 새는 데가 없다.
+ *
+ * 1층 동쪽 끝에 붙인다. 층은 위아래로 쌓여 있어서 아래로 늘리면 지하의
+ * 좌표가 통째로 밀린다 — 옆으로 늘리면 아무것도 안 움직인다.
+ *
+ *   계단통 ┐
+ *          ├ 샛길 ─ ┌뒷골목──────────────┐
+ *          ┘         └────────────────────┘
+ *
+ * 윗줄은 오락기 열 대가 벽에 등을 대고 선다(rules/arcade). 층 좌표다.
+ */
+const ALLEY_LOCAL: readonly Rect[] = [
+  // 샛길. 계단통(57..62) 동쪽 벽에 바로 붙는다
+  { x: 63, y: 18, w: 3, h: 3 },
+  // 골목
+  { x: 66, y: 12, w: 14, h: 10 },
+]
+
+/**
  * 1층 — 긴 복도 하나가 가운데에서 아래로 갈라지고, 그 끝에서 다시
  * 좌우로 뻗는다. 갈라진 아래쪽에 정원과 화장실이 따로 떨어져 있다.
  *
@@ -142,6 +166,8 @@ const F1: FloorDef = {
     { x: 30, y: 19, w: 3, h: 12 },
     { x: 18, y: 31, w: 30, h: 3 },
     { x: 53, y: 19, w: 3, h: 11 },
+    // 뒷골목(ALLEY_LOCAL). 동쪽 계단통 옆구리로 샛길이 나 있다
+    ...ALLEY_LOCAL,
   ],
   stairs: [
     { end: 'w', rect: { x: 2, y: 11, w: 6, h: 13 } },
@@ -672,6 +698,18 @@ export function roomOfCell(x: number, y: number): TileId | null {
  */
 export function isHallCell(x: number, y: number): boolean {
   return HALLS.some((h) => inRect(h.rect, x, y))
+}
+
+/** 뒷골목. 전개도 좌표다. 샛길까지 친다. */
+export const ALLEY: readonly Rect[] = ALLEY_LOCAL.map((r) => toPlan('f1', r))
+export const ALLEY_NAME = '뒷골목'
+
+/**
+ * 뒷골목 칸인가. **복도이기도 하다** — isHallCell 도 참이다. 골목만
+ * 다르게 다룰 데(이름표, 안개, 덫)가 이걸 먼저 본다.
+ */
+export function isAlleyCell(x: number, y: number): boolean {
+  return ALLEY.some((r) => inRect(r, x, y))
 }
 
 /**
