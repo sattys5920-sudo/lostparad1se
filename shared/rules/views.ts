@@ -17,7 +17,7 @@
 // 순수 함수다. Firestore를 모른다 — 그래야 시험할 수 있다.
 import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
-import type { CardKind, TeamId, VoteKind } from './v2'
+import type { TeamId, VoteKind } from './v2'
 import { TILE_BY_ID, floorOfCell, roomOfCell, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
 import { MAKERS, TECH_TILE } from './trap'
@@ -183,7 +183,6 @@ export interface World {
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
-  hands: readonly { id: string; team: TeamId; kind: CardKind; targetTeam?: TeamId }[]
   /** 가짜 깃발. 꽂은 팀만 안다. */
   /** 정보부장이 들여다본 결과. 본 사람만 안다. */
   peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
@@ -268,7 +267,6 @@ export interface View {
    */
   roomCounts: Record<TileId, number>
   visibleTiles: TileId[]
-  hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   peeked: { voteKind: VoteKind; voterNickname: string }[]
   /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
   myChoice: { chosenId: string | null; day4: string | null } | null
@@ -530,7 +528,6 @@ export function projectView(world: World, viewerId: string): View {
       madeHere: [],
       roomCounts: {},
       visibleTiles: [],
-      hand: [],
       peeked: [],
       myChoice: null,
       own: null,
@@ -714,11 +711,6 @@ export function projectView(world: World, viewerId: string): View {
     soldOutItems: SHOP_ITEMS.filter(
       (i) => i.stockPerDay !== undefined && (world.shopSold?.[i.id] ?? 0) >= i.stockPerDay,
     ).map((i) => i.id),
-
-    // 우리 팀 것
-    hand: world.hands
-      .filter((c) => c.team === team)
-      .map((c) => ({ id: c.id, kind: c.kind, ...(c.targetTeam ? { targetTeam: c.targetTeam } : {}) })),
 
     // 내 것
     peeked: world.peeks

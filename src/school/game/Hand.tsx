@@ -1,15 +1,12 @@
-// 손패.
+// 손패 — 주워 든 것.
+//
+// 카드는 없앴다. 손패가 카드 넉 장을 쥐던 자리였는데, 카드로 가는
+// 입구(로봇이 태어날 때 한 장)가 바늘구멍이라 한 판에 한 장도 안
+// 돌았다. 지금 손에 드는 것은 주운 문제 종이뿐이다.
 //
 // 거래는 여기 없다. 마주 선 사람을 맵에서 짚어 시작하고, 흥정은 따로
-// 뜨는 거래창에서 한다 — 손패와 흥정이 같은 창에 있으면 흥정하다 말고
-// 카드를 내게 된다.
-//
-// 동맹도 여기 있었다. 걷어냈다 — 「깃발 판정에서 우리 편으로 센다」고
-// 적어 놓고 그 계산을 아무도 안 불러서, 맺어도 판에 아무 일이 없었다.
-import { useState } from 'react'
-
+// 뜨는 거래창에서 한다.
 import { Quiz } from './Quiz'
-import { CARD_BY_KIND } from '../../../shared/rules/v2'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
@@ -22,36 +19,11 @@ export interface HandProps {
 }
 
 export function Hand({ view, act, onSaid }: HandProps) {
-  const [busy, setBusy] = useState(false)
-  async function run(label: string, fn: () => Promise<unknown>) {
-    setBusy(true)
-    try {
-      await fn()
-      onSaid(`${label} 했다.`)
-    } catch (e) {
-      onSaid((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const hand = view?.hand ?? []
-
+  const papers = view?.myQuizzes ?? []
   return (
     <div className="sc-hd">
-      <h2>손패 <span>{hand.length}장</span></h2>
-      {hand.length === 0 && <p className="sc-hd__none">없다.</p>}
-      <ul className="sc-ac__menu">
-        {hand.map((c) => (
-          <li key={c.id}>
-            <button disabled={busy} onClick={() => run(CARD_BY_KIND[c.kind].name, () => act.playCard(c.kind))}>
-              {CARD_BY_KIND[c.kind].name}
-              <span>{CARD_BY_KIND[c.kind].text}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-
+      <h2>손패 <span>{papers.length}장</span></h2>
+      {papers.length === 0 && <p className="sc-hd__none">없다.</p>}
       {/* 주워 든 문제. **주머니 속이라 여기 있다** — 자리도 안 보고
           푸는 것이라 맵과는 상관이 없다 */}
       <Quiz view={view} act={act} onSaid={onSaid} />

@@ -135,8 +135,6 @@ export { markMorning, snowNow } from './reveal'
 // DAY 3 중요한 사람, DAY 4 무엇을 지킬 것인가.
 export { chooseImportant, chooseDay4 } from './choice'
 
-// 카드. 손패 내용은 우리 팀만 안다.
-export { playOne } from './card'
 
 // 엔딩. 종례가 끝난 뒤에만 내려간다.
 export { hostSetEnding, hostEndings, myEnding } from './ending'

@@ -16,7 +16,6 @@ import type { TileId } from '../../shared/rules/board'
 import type { TeamId } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import { gameRef, nowOf, requireUid } from './index'
-import { drawForTeam } from './card'
 import { note } from './records'
 import { refreshViews } from './views'
 
@@ -71,13 +70,14 @@ async function bornFor(
  * 오른다 — 로봇이 그 팀 것이 되는 것과 같은 이치다. 누가 만들었는지는
  * 기록에 따로 남는다.
  */
-export async function researchTierUp(gameId: string, team: TeamId, playerId: string, day: number) {
+export async function researchTierUp(gameId: string, team: TeamId) {
   const ref = gameRef(gameId).collection('teams').doc(team)
   const snap = await ref.get()
   const tier = ((snap.data()?.researchTier as number | undefined) ?? 0) + 1
+  // **카드는 없앴다.** 로봇이 태어날 때 한 장 뽑히던 자리다 — 카드로
+  // 가는 입구가 여기 하나뿐이라, 종이를 안 놓으면 열두 종이 한 장도
+  // 안 돌았다. 남는 것은 연구 단계 하나다
   await ref.update({ researchTier: tier })
-  // 손패가 차 있으면 그대로 사라진다
-  await drawForTeam(gameId, team, playerId, day)
 }
 
 /**
@@ -112,7 +112,7 @@ export async function landResearch(gameId: string): Promise<void> {
           subjectId: id,
           ownerId: r.playerId,
         })
-        await researchTierUp(gameId, team, r.playerId, game.phaseNow.day)
+        await researchTierUp(gameId, team)
         continue
       }
       // 한도가 찼으면 받지 못한다. 물건은 그대로 놓인다
@@ -179,7 +179,7 @@ export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) =
     // **만든 사람은 따로 남긴다.** 남의 것을 주워 간 판이 기록에 보여야 한다
     ownerId: made.byPlayerId,
   })
-  await researchTierUp(gameId, pawn.team, uid, game.phaseNow?.day ?? game.day)
+  await researchTierUp(gameId, pawn.team)
   await refreshViews(gameId)
   return {
     took: true,

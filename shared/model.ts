@@ -1,5 +1,4 @@
 import type {
-  CardKind,
   Resource,
   RoleTitle,
   TeamId,
@@ -208,8 +207,6 @@ export interface TeamDoc {
   pendingRefund?: number
 
   researchTier: number
-  /** 손패는 장수만 공개한다. 내용은 secret에 있다. */
-  handCount: number
   /**
    * 오늘의 팀장. **네 팀이 다 뽑는다.**
    *
@@ -370,15 +367,6 @@ export interface VoteDoc {
   castAtMs: GameMs
   /** 21:00 정산에 반영됐는가. */
   settled: boolean
-}
-
-/** games/{gameId}/secret/hands/items/{cardId} — 카드 내용. */
-export interface CardDoc {
-  team: TeamId
-  kind: CardKind
-  drawnAtMs: GameMs
-  /** 라이벌 카드처럼 대상이 붙는 카드. */
-  targetTeam?: TeamId
 }
 
 /**
@@ -603,8 +591,6 @@ export interface PlayerViewDoc {
   roomCounts: Record<TileId, number>
   /** 안개가 걷힌 칸. 나머지는 어둡게 덮는다. */
   visibleTiles: TileId[]
-  /** 우리 팀 손패. 내용까지 보인다. */
-  hand: { id: string; kind: CardKind; targetTeam?: TeamId }[]
   /** 우리 팀 비밀 목표. */
   /** 우리가 꽂은 깃발 중 가짜인 것. 우리 팀만 안다. */
   /** 정보부장이 들여다본 결과. */
@@ -694,7 +680,6 @@ export type EventKind =
   | 'tileCaptured' | 'tileLost'
   | 'research' | 'shopBought'
   | 'vote' | 'rumor' | 'reveal' | 'leverageGained' | 'leverageSpent'
-  | 'cardDrawn' | 'cardPlayed'
   | 'tradeProposed' | 'tradeAccepted' | 'tradeDeclined'
   | 'goalRevealed' | 'spotlight' | 'comeback'
 

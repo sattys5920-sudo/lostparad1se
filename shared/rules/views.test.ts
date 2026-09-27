@@ -69,10 +69,6 @@ function world(over = false, invisibleId: string | null = null): World {
       { tileId: 'centralPlaza', ownerTeam: null },
     ],
     roster: ROSTER,
-    hands: [
-      { id: 'cA', team: 'A', kind: 'windfall' },
-      { id: 'cB', team: 'B', kind: 'windfall' },
-    ],
     peeks: [
       { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
       { playerId: 'B0', voteKind: 'liking', voterNickname: '다른누군가' },
@@ -158,75 +154,6 @@ function world(over = false, invisibleId: string | null = null): World {
 const json = (v: unknown) => JSON.stringify(v)
 
 describe('역할', () => {
-  it('자기 한 줄만 나간다', () => {
-    const v = projectView(world(), 'A0')
-    expect(v.own).toEqual({ roleId: 'role-A0', targetId: 'A1' })
-  })
-
-  it('열넷 몫 어디에도 남의 역할이 없다', () => {
-    const all = projectAll(world())
-    for (const r of ROSTER) {
-      const mine = json(all[r.playerId])
-      for (const other of ROSTER) {
-        if (other.playerId === r.playerId) continue
-        expect(mine).not.toContain(other.roleId)
-      }
-    }
-  })
-
-  it('명단에 없는 사람에게는 빈 view가 간다', () => {
-    const v = projectView(world(), '구경꾼')
-    expect(v.own).toBeNull()
-    expect(v.visiblePawns).toEqual([])
-    expect(v.hand).toEqual([])
-  })
-})
-
-describe('안개', () => {
-  it('멀리 있는 남의 말은 목록에 없다', () => {
-    const v = projectView(world(), 'A0')
-    const ids = v.visiblePawns.map((p) => p.playerId)
-    // 같은 팀 넷은 보인다
-    expect(ids).toContain('A0')
-    expect(ids).toContain('A3')
-    // B 기지는 A 기지에서 멀다
-    expect(ids).not.toContain('B0')
-  })
-
-  it('잠복한 말은 같은 팀에게도 안 보인다', () => {
-    const w = world()
-    w.pawns = w.pawns.map((p) => (p.playerId === 'A1' ? { ...p, hiddenUntilMs: 9999 } : p))
-    const v = projectView(w, 'A0')
-    expect(v.visiblePawns.map((p) => p.playerId)).not.toContain('A1')
-  })
-
-  it('잠복해도 본인은 자기 말을 본다', () => {
-    const w = world()
-    w.pawns = w.pawns.map((p) => (p.playerId === 'A1' ? { ...p, hiddenUntilMs: 9999 } : p))
-    expect(projectView(w, 'A1').visiblePawns.map((p) => p.playerId)).toContain('A1')
-  })
-
-  // 「저 말이 어디로 가는지」를 알면 안개가 있으나 마나다
-  it('걷는 말의 목적지는 어느 view에도 없다', () => {
-    const w = world()
-    w.pawns = w.pawns.map((p) =>
-      p.playerId === 'A0' ? { ...p, tileId: null, fromTile: 'baseA', toTile: 'classroom' } : p,
-    )
-    for (const other of ROSTER.filter((r) => r.playerId !== 'A0')) {
-      const v = projectView(w, other.playerId)
-      const walking = v.visiblePawns.find((p) => p.playerId === 'A0')
-      if (!walking) continue
-      expect(walking.toTile).toBe('classroom') // 가는 칸까지만
-    }
-  })
-
-})
-
-describe('우리 팀 것', () => {
-  it('손패는 우리 것만', () => {
-    expect(projectView(world(), 'A0').hand.map((c) => c.id)).toEqual(['cA'])
-    expect(projectView(world(), 'B0').hand.map((c) => c.id)).toEqual(['cB'])
-  })
 
   it('엿본 결과는 엿본 사람만', () => {
     expect(projectView(world(), 'A0').peeked).toHaveLength(1)

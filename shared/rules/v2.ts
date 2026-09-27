@@ -239,45 +239,11 @@ export const ROLE_TITLE_LABEL: Record<RoleTitle, string> = {
 // 그래서 「몇 개까지 보낼 수 있는가」를 셀 일이 없다.
 
 // ── 카드 ────────────────────────────────────────────────────────
-
-export type CardKind =
-  | 'forcedMarch' | 'ambush'
-  | 'windfall' | 'cramming'
-  | 'falseRumor' | 'blockade'
-  | 'secretLetter' | 'accord'
-  | 'ambushHide'
-
-export interface CardSpec {
-  kind: CardKind
-  name: string
-  group: '확장' | '방어' | '생산' | '견제' | '외교' | '특수'
-  text: string
-  /** 대상 팀을 골라야 하는가. */
-  needsTeam?: boolean
-  /** 대상 칸을 골라야 하는가. */
-  needsTile?: boolean
-  /** 우리 말 하나를 골라야 하는가. */
-  needsPawn?: boolean
-}
-
-export const CARDS: readonly CardSpec[] = [
-  { kind: 'forcedMarch', name: '강행군', group: '확장', text: '우리 말 하나의 다음 이동이 즉시 끝난다(최대 두 칸).', needsPawn: true },
-  { kind: 'ambush', name: '기습', group: '확장', text: '다음에 꽂는 깃발 하나의 시간이 절반.' },
-  { kind: 'windfall', name: '특별 매출', group: '생산', text: '돈 +4.' },
-  { kind: 'cramming', name: '벼락치기', group: '생산', text: '지식 +4.' },
-  { kind: 'falseRumor', name: '헛소문', group: '견제', text: '대상 팀 돈 −2.', needsTeam: true },
-  { kind: 'blockade', name: '봉쇄', group: '견제', text: '칸 하나에 여섯 시간 동안 새 깃발을 못 꽂고, 꽂힌 깃발은 멈춘다.', needsTile: true },
-  { kind: 'secretLetter', name: '밀서', group: '외교', text: '다른 팀 한 명과 한 시간짜리 비밀 대화방을 연다.' },
-  { kind: 'accord', name: '협정서', group: '외교', text: '다음 교역이 성립하면 양쪽 팀 모두 돈 +2.' },
-  { kind: 'ambushHide', name: '잠복', group: '특수', text: '우리 말 하나가 여섯 시간 동안 누구에게도 보이지 않는다. 판정에서는 센다.', needsPawn: true },
-]
-
-export const CARD_BY_KIND: Record<CardKind, CardSpec> = Object.fromEntries(
-  CARDS.map((c) => [c.kind, c]),
-) as Record<CardKind, CardSpec>
-
-/** 팀 손패 한도. */
-export const HAND_LIMIT = 4
+//
+// **없앴다.** 열두 종(강행군·기습·특별 매출·벼락치기·헛소문·봉쇄·밀서·
+// 협정서·잠복…)이 여기 있었다. 로봇이 태어날 때만 한 장 뽑혔는데,
+// 로봇은 연구, 연구는 지식, 지식은 문제 종이뿐이라 — 종이를 안 놓으면
+// 카드 전체가 한 장도 안 돌았다. 만들어 놓고 입구가 바늘구멍이었다.
 
 export const CARD_FORCED_MARCH_TILES = 2
 export const CARD_WINDFALL_MONEY = 4

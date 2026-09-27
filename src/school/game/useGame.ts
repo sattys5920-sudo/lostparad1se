@@ -351,8 +351,6 @@ export function gameActions(gameId: string) {
     answerTransfer: (askId: string, accept: boolean) =>
       callServer('answerTransfer', { ...g, askId, accept }),
 
-    playCard: (kind: string, target: { targetTeam?: TeamId; targetTile?: TileId; targetPawn?: string } = {}) =>
-      callServer('playOne', { ...g, kind, ...target }),
 
     castVote: (targetId: string, kind: 'trust' | 'liking' | 'suspicion') =>
       callServer('castVote', { ...g, targetId, kind }),

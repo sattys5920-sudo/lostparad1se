@@ -11,7 +11,6 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { projectAll, type World, type WorldPawn } from '../../shared/rules/views'
 import type { TileId } from '../../shared/rules/board'
 import type {
-  CardDoc,
   GameDoc,
   NoticeDoc,
   PawnDoc,
@@ -51,7 +50,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, hands, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -60,7 +59,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       sub(gameId, 'robots').get(),
       sub(gameId, 'made').get(),
       secret(gameId, 'roster').get(),
-      secret(gameId, 'hands').get(),
       secret(gameId, 'peeks').get(),
       secret(gameId, 'choices').get(),
       secret(gameId, 'progress').get(),
@@ -193,10 +191,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, lockedBy: locked }
     }),
     roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: r.roleId, targetId: r.targetId ?? null })),
-    hands: hands.docs.map((d) => {
-      const c = d.data() as CardDoc & { team: 'A' | 'B' | 'C' | 'D' }
-      return { id: d.id, team: c.team, kind: c.kind, ...(c.targetTeam ? { targetTeam: c.targetTeam } : {}) }
-    }),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
     choices: choices.docs.map((d) => {
       const c = d.data() as { chosenId: string | null; day4: string | null }

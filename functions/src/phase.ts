@@ -790,7 +790,7 @@ export const phaseAct = onCall<{
       subjectId: bot.made.id,
       ownerId: uid,
     })
-    await researchTierUp(gameId, bot.made.team, uid, game.phaseNow.day)
+    await researchTierUp(gameId, bot.made.team)
   }
   if (bot.smashed) {
     await note(gameId, 'robotSmashed', nowMs, { id: uid, team: bot.smashed.byTeam }, {
