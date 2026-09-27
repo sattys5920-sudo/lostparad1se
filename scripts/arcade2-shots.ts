@@ -1,6 +1,6 @@
 // 오락실 2단계 — 새 게임 일곱을 폰 화면으로 끝까지 한다. **재면서 찍는다.**
 //
-//   뱀 · 1 to 50(봇과) · 두더지 · 둘이서 한 곡(봇과) · 먼저 쏴(봇과)
+//   뱀 · 1 to 50(봇과) · 두더지 · 둘이서 한 곡(봇과 번갈아) · 먼저 쏴(봇과)
 //   · 눈치 게임(봇 둘과) · 탑 쌓기(봇과)
 //
 // 봇은 서버에 바로 둔다(API). 나는 화면을 눌러 둔다 — 결과는 늘 서버가
@@ -29,7 +29,7 @@ import { mkdirSync } from 'node:fs'
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
 import { ARCADE_MACHINES } from '../shared/rules/arcade'
-import { RHYTHM_END_MS, duetPart, rhythmChart } from '../shared/rules/arcadeRhythm'
+import { relayTimes, relayWho, type RelayState } from '../shared/rules/arcadeBeat'
 import { MOLE_MS } from '../shared/rules/arcadeMole'
 import { fiftyBoard, fiftyStart, fiftyTap, type FiftyTap } from '../shared/rules/arcadeFifty'
 import { towerHitT } from '../shared/rules/arcadeTower'
@@ -368,28 +368,49 @@ async function main() {
   }
 
   if (!ONLY || ONLY === 'duet') {
-    console.log('\n── 둘이서 한 곡 — 봇과 ──')
+    console.log('\n── 둘이서 한 곡 — 봇과 번갈아 ──')
     const dId = await withBots('duet', '둘이서 한 곡', 1)
-    const dr = await playing(dId)
-    const chart = rhythmChart(dr.seed)
-    const minePart = duetPart(chart, 0, 2)
-    const botPart = duetPart(chart, 1, 2).map((n) => ({ t: n.t, lane: n.lane }))
-    const LANE_KEY = ['d', 'f', 'j']
-    let duetShot = false
-    for (const n of minePart) {
-      const when = dr.startAtMs + n.t
-      if (!duetShot && when > dr.startAtMs + 12_000) {
-        duetShot = true
-        await sleep(dr.startAtMs + 12_000 - Date.now())
-        await shot('둘이서')
-        await onScreen('.sc-rh__pads', '둘이서 한 곡')
+    await playing(dId)
+    const PAD_KEY = ['d', 'f', 'j', 'k']
+    // 나는 곡을 따라 치고 두 칸 뒤에 「딱」을 보탠다. 봇은 두 번 잘 치고 그다음부터 틀린다
+    let botTurns = 0
+    let shotListen = false
+    let shotMine = false
+    for (let i = 0; i < 12; i++) {
+      const r = await full(dId)
+      if (r.status !== 'playing') break
+      const st = r.relay as RelayState
+      const tm = relayTimes(st)
+      const last = st.notes.at(-1)!.step
+      if (relayWho(st) === uidOf(me)) {
+        if (!shotListen) {
+          await sleep(tm.listenZero + st.notes[1].step * tm.e + 40 - Date.now())
+          shotListen = true
+          await shot('둘이서-듣기')
+          await onScreen('.sc-bt__pads', '둘이서 한 곡')
+        }
+        for (const n of st.notes) {
+          await sleep(tm.answerZero + n.step * tm.e - Date.now() - 8)
+          await page.keyboard.press(PAD_KEY[n.pad])
+        }
+        await sleep(tm.answerZero + (last + 2) * tm.e - Date.now())
+        if (!shotMine) {
+          shotMine = true
+          await shot('둘이서-보태기')
+        }
+        await page.keyboard.press('k')
+      } else {
+        const good = botTurns++ < 2
+        const taps = st.notes.map((n) => ({ t: Math.round(tm.answerZero + n.step * tm.e - st.turnAtMs), pad: n.pad }))
+        if (good) taps.push({ t: Math.round(tm.answerZero + (last + 1) * tm.e - st.turnAtMs), pad: 1 })
+        await sleep(tm.closeAt + 150 - Date.now())
+        await call('arcadePlay', botTok[0], { gameId: game, roomId: dId, move: { taps } })
       }
-      await sleep(when - Date.now())
-      await page.keyboard.press(LANE_KEY[n.lane])
+      await sleep(tm.closeAt + 1200 - Date.now())
     }
-    await sleep(dr.startAtMs + RHYTHM_END_MS + 400 - Date.now())
-    await call('arcadeSubmit', botTok[0], { gameId: game, roomId: dId, log: botPart })
-    await expectEnd('둘이서 한 곡', /CLEAR/)
+    await expectEnd('둘이서 한 곡', /FAILED|CLEAR/)
+    const endText = await endLine()
+    if (!/\d+박짜리 곡/.test(endText)) missed.push(`둘이서 한 곡 결과에 곡 길이가 없다: ${endText}`)
     await shot('둘이서끝')
   }
 

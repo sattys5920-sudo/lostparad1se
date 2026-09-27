@@ -22,10 +22,11 @@ export const TOWER_SWING = 70
  * 내는 50ms 어긋남에 한 번에 열 칸씩 잘려 서너 층에서 무너졌다. 실제로
  * 그랬다. 일정하게 오가면 어디서든 같은 빠르기라 눈으로 맞출 수 있다.
  */
-export const TOWER_CROSS_MS = 1600
-export const TOWER_CROSS_MIN_MS = 700
-export const TOWER_SPEEDUP_MS = 70
-/** 이 안으로 떨어지면 딱 맞은 것으로 치고 안 자른다. 첫 층 빠르기로 ±57ms 쯤이다. */
+export const TOWER_CROSS_MS = 2000
+export const TOWER_CROSS_MIN_MS = 600
+/** 쉽게 시작해 어려워진다 — 열다섯 층쯤이면 바닥(0.6초)에 닿는다 */
+export const TOWER_SPEEDUP_MS = 95
+/** 이 안으로 떨어지면 딱 맞은 것으로 치고 안 자른다. 첫 층 빠르기로 ±70ms 쯤이다. */
 export const TOWER_SNAP = 5
 /** 제 차례에 이만큼 안 누르면 그 자리에서 저절로 떨어진다. */
 export const TOWER_TURN_MS = 7000

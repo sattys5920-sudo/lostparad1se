@@ -13,7 +13,7 @@ import type { ArcadeOutcome } from './arcade'
 export const MOLE_HOLES = 9
 export const MOLE_MS = 30_000
 /** 혼자 할 때 이만큼 넘기면 깬 것이다. */
-export const MOLE_PASS = 20
+export const MOLE_PASS = 25
 
 export type MoleKind = 'mole' | 'gold' | 'bomb'
 export const MOLE_POINTS: Record<MoleKind, number> = { mole: 1, gold: 3, bomb: -3 }
@@ -40,16 +40,18 @@ export const MOLE_TUNE = {
   /** 끝 이만큼 전부터는 안 나온다 — 나오자마자 판이 닫히면 억울하다 */
   tailMs: 500,
   /** 다음 두더지까지. 처음 → 끝으로 갈수록 줄어든다 */
-  gapFromMs: 700,
-  gapToMs: 320,
-  /** 떠 있는 시간. 처음 → 끝 */
-  upFromMs: 950,
-  upToMs: 550,
+  gapFromMs: 750,
+  gapToMs: 250,
+  /** 떠 있는 시간. 처음 → 끝. 처음엔 느긋하고 끝에는 손이 못 따라간다 */
+  upFromMs: 1000,
+  upToMs: 430,
   /** 사이 간격을 이만큼 흔든다(0.7~1.3배) */
   jitter: 0.3,
-  /** 금두더지와 폭탄이 나올 몫 */
+  /** 금두더지가 나올 몫 */
   goldShare: 0.1,
-  bombShare: 0.12,
+  /** 폭탄이 나올 몫. 처음 → 끝으로 는다 — 끝에는 다섯에 하나가 폭탄이다 */
+  bombFrom: 0.06,
+  bombTo: 0.22,
   /** 금두더지는 이만큼만 떠 있다 */
   goldUp: 0.7,
 } as const
@@ -64,7 +66,8 @@ export function moleSchedule(seed: number | string): Pop[] {
     const gap = T.gapFromMs + (T.gapToMs - T.gapFromMs) * k
     const dur = T.upFromMs + (T.upToMs - T.upFromMs) * k
     const r = rnd()
-    const kind: MoleKind = r < T.goldShare ? 'gold' : r < T.goldShare + T.bombShare ? 'bomb' : 'mole'
+    const bomb = T.bombFrom + (T.bombTo - T.bombFrom) * k
+    const kind: MoleKind = r < T.goldShare ? 'gold' : r < T.goldShare + bomb ? 'bomb' : 'mole'
     const busy = new Set(out.filter((p) => p.t + p.dur > t).map((p) => p.hole))
     const free = Array.from({ length: MOLE_HOLES }, (_, i) => i).filter((h) => !busy.has(h))
     if (free.length > 0) {

@@ -60,3 +60,54 @@ export function Results({ room, meId, title, onAgain, onMenu }: {
   )
 }
 
+
+const PAD_COLOR = ['#ff8fb0', '#f0d68a', '#6fd3ff', '#9fe0a0']
+
+/**
+ * 드럼 패드 넷. 2×2 로 크게 — 손가락이 안 보고도 찾는다. lit 은 지금
+ * 불이 들어온 패드(들을 때 기계가 친 것, 칠 때 내가 친 것).
+ */
+export function BeatPads({ lit, names, onHit, disabled = false }: {
+  lit: readonly boolean[]
+  names: readonly string[]
+  onHit: (pad: number) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="sc-bt__pads">
+      {names.map((n, i) => (
+        <button
+          key={i}
+          className={lit[i] ? 'is-lit' : ''}
+          style={{ ['--pad' as string]: PAD_COLOR[i] }}
+          disabled={disabled}
+          aria-label={n}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            onHit(i)
+          }}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** 목숨. 하트 대신 네모 — 오락기 화면이다 */
+export function Lives({ left, of }: { left: number; of: number }) {
+  return (
+    <span className="sc-bt__lives" aria-label={`목숨 ${left}`}>
+      {Array.from({ length: of }, (_, i) => <i key={i} className={i < left ? 'is-on' : ''} />)}
+    </span>
+  )
+}
+
+/** 리듬의 박 수만큼 점. 칠 때는 맞춘 박이 찬다 */
+export function BeatDots({ n, filled }: { n: number; filled: readonly boolean[] }) {
+  return (
+    <ol className="sc-bt__dots" aria-label={`${n}박`}>
+      {Array.from({ length: n }, (_, i) => <li key={i} className={filled[i] ? 'is-on' : ''} />)}
+    </ol>
+  )
+}

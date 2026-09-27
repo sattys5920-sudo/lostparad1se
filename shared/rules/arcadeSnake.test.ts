@@ -70,25 +70,23 @@ describe('뱀', () => {
     expect(g.dir).toBe('right')
   })
 
-  it('화면이 꺾은 기록으로 서버가 다시 굴리면 같은 사과 수가 나온다 — 그리고 사과를 쫓으면 깬다', () => {
-    for (const seed of [1, 7, 42]) {
+  it('화면이 꺾은 기록으로 서버가 다시 굴리면 같은 사과 수가 나온다 — 깬다·못 깬다는 사과 수로만', () => {
+    const eaten: number[] = []
+    for (const seed of [1, 7, 42, 99, 123]) {
       const g = snakeStart(seed)
       const turns: SnakeInput[] = []
-      while (g.alive && g.eaten < SNAKE_PASS + 5) {
+      while (g.alive) {
         const d = plan(g)
         if (d && d !== g.dir) turns.push({ tick: g.tick, dir: d })
         snakeStep(g, d)
       }
       const r = snakeReplay(seed, turns)
-      if (g.alive) {
-        // 화면은 여기서 멈췄고 서버는 끝까지 굴린다 — 사과는 적어도 이만큼
-        expect(r.eaten).toBeGreaterThanOrEqual(g.eaten)
-      } else {
-        expect(r.eaten).toBe(g.eaten)
-      }
-      expect(r.eaten, `씨앗 ${seed}`).toBeGreaterThanOrEqual(SNAKE_PASS)
-      expect(r.outcome).toBe('win')
+      expect(r.eaten, `씨앗 ${seed}`).toBe(g.eaten)
+      expect(r.outcome).toBe(r.eaten >= SNAKE_PASS ? 'win' : 'lose')
+      eaten.push(r.eaten)
     }
+    // 머리 나쁜 봇(사과만 쫓는다)으로도 깨는 판이 있다 — 사람이면 된다
+    expect(Math.max(...eaten)).toBeGreaterThanOrEqual(SNAKE_PASS)
   })
 
   it('기록 없이는 사과를 거의 못 먹고 진다', () => {

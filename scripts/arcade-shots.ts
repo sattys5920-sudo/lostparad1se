@@ -4,8 +4,8 @@
 //     이름표가 「뒷골목」이 되고, 골목 끝 기계에 앉은 사람까지 보인다
 //   ㆍ 기계 앞자리에 서면 「오락기」 단추가 뜬다. 앉은 사람은 기계를 본다
 //   ㆍ 고르는 화면에 열 개 — 다 들어간다(2단계에서 일곱을 채웠다)
-//   ㆍ 리듬 스타를 악보대로 쳐서 서버가 CLEAR 를 준다(화면 점수가 아니라
-//     서버가 누른 기록을 다시 돌린 결과다)
+//   ㆍ 리듬 쌓기를 두 판 들은 대로 쳐서 서버가 「2판」을 준다(화면 점수가
+//     아니라 서버가 누른 기록을 다시 돌린 결과다)
 //   ㆍ 가위바위보를 골라 옆 기계의 봇을 부른다 — 봇이 받고, 시작하고, 이긴다
 //   ㆍ 봇이 나를 부르면 창 안에도, 창을 닫아도 부름이 뜬다
 //   ㆍ 낮은 화면(375×667)에서 숫자판·누르는 판이 기계 밖으로 안 나간다
@@ -18,7 +18,7 @@ import { mkdirSync } from 'node:fs'
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
 import { ARCADE_MACHINES } from '../shared/rules/arcade'
-import { RHYTHM_END_MS, rhythmChart } from '../shared/rules/arcadeRhythm'
+import { soloReplay, soloRun } from '../shared/rules/arcadeBeat'
 import { doorHere, isWalkable } from '../src/school/map/world'
 
 const { chromium } = pw as typeof import('playwright')
@@ -225,42 +225,49 @@ async function main() {
   if (!menu.some((m) => m.text.includes('2~4P'))) missed.push('넷까지 하는 게임 딱지(2~4P)가 없다')
   await shot('고르기')
 
-  console.log('\n── 리듬 스타 ──')
-  await page.locator('.sc-ar__menu button', { hasText: '리듬 스타' }).click()
-  await page.waitForSelector('.sc-rh__canvas', { timeout: 5000 })
-  // 낮은 화면에서도 누르는 판이 기계 안에 있어야 한다
-  const pads = await page.locator('.sc-rh__pads').boundingBox()
+  console.log('\n── 리듬 쌓기 ──')
+  await page.locator('.sc-ar__menu button', { hasText: '리듬 쌓기' }).click()
+  await page.waitForSelector('.sc-bt__pads', { timeout: 5000 })
+  // 낮은 화면에서도 패드가 기계 안에, 처음부터 화면 안에 있어야 한다
+  const pads = await page.locator('.sc-bt__pads').boundingBox()
   const scr = await page.locator('.sc-ar__screen').boundingBox()
-  if (pads && scr && pads.y + pads.height > scr.y + scr.height + 0.5) missed.push('누르는 판이 기계 화면 밖으로 나온다')
-  // 치는 동안 스크롤할 수는 없다 — 판이 처음부터 화면 안에 보여야 한다
-  if (pads && pads.y + pads.height > H) missed.push(`누르는 판이 화면 아래로 ${Math.round(pads.y + pads.height - H)}px 잘린다`)
+  if (pads && scr && pads.y + pads.height > scr.y + scr.height + 0.5) missed.push('패드가 기계 화면 밖으로 나온다')
+  if (pads && pads.y + pads.height > H) missed.push(`패드가 화면 아래로 ${Math.round(pads.y + pads.height - H)}px 잘린다`)
   const rooms = await roomsOf(game)
   const rhythmRoom = rooms.find((r) => r.game === 'rhythm' && r.hostId === uidOf(me))
   if (!rhythmRoom) throw new Error('리듬 방이 안 섰다')
-  const rr = await roomOf(game, rhythmRoom.id)
-  const chart = rhythmChart(rr.seed)
-  const LANE_KEY = ['d', 'f', 'j']
-  // 음표 시각마다 키를 누른다. 화면이 시계를 들고 판정하고, 나중에 서버가 다시 채점한다
-  const begin = Date.now()
-  const shotAt = rr.startAtMs + 18_000
-  let shotMid = false
-  for (const n of chart) {
-    const when = rr.startAtMs + n.t
-    const wait = when - Date.now()
-    if (!shotMid && when > shotAt) {
-      shotMid = true
-      await shot('리듬')
-      continue
-    }
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait))
-    await page.keyboard.press(LANE_KEY[n.lane])
+  let rr = await roomOf(game, rhythmRoom.id)
+  for (let i = 0; i < 20 && !rr.startAtMs; i++) {
+    await page.waitForTimeout(200)
+    rr = await roomOf(game, rhythmRoom.id)
   }
-  const left = rr.startAtMs + RHYTHM_END_MS - Date.now()
-  await page.waitForTimeout(Math.max(0, left) + 500)
-  const result = await page.waitForSelector('.sc-rh__grade', { timeout: 15000 }).then(() => true).catch(() => false)
-  const line = result ? (await page.locator('.sc-rh').innerText()).replace(/\s+/g, ' ') : ''
+  const PAD_KEY = ['d', 'f', 'j', 'k']
+  // 두 판을 들은 대로 친다. 셋째 판부터는 손을 뗀다 — 목숨 셋을 쓰고 끝난다
+  const mine: { t: number; pad: number }[] = []
+  let untilT = 0
+  const begin = Date.now()
+  for (let i = 0; i < 2; i++) {
+    const cur = soloRun(rr.seed, mine, untilT).current!
+    if (i === 1) {
+      // 듣는 중 — 기계가 치는 패드에 불이 들어온다
+      await page.waitForTimeout(rr.startAtMs + cur.listenZero + cur.notes[1].step * cur.e + 40 - Date.now())
+      await shot('리듬-듣기')
+    }
+    for (const n of cur.notes) {
+      const tt = cur.answerZero + n.step * cur.e
+      await page.waitForTimeout(Math.max(0, rr.startAtMs + tt - Date.now() - 8))
+      await page.keyboard.press(PAD_KEY[n.pad])
+      mine.push({ t: Math.round(tt), pad: n.pad })
+      if (i === 1 && n === cur.notes[1]) await shot('리듬-치기')
+    }
+    untilT = cur.closeAt + 1000
+  }
+  const end = soloReplay(rr.seed, mine).endMs
+  await page.waitForTimeout(Math.max(0, rr.startAtMs + end - Date.now()) + 800)
+  const result = await page.waitForSelector('.sc-kit__end', { timeout: 15000 }).then(() => true).catch(() => false)
+  const line = result ? (await page.locator('.sc-kit__end').innerText()).replace(/\s+/g, ' ') : ''
   console.log(`  ${Math.round((Date.now() - begin) / 1000)}초 · ${line.slice(0, 80)}`)
-  if (!line.includes('CLEAR')) missed.push(`악보대로 쳤는데 CLEAR 가 아니다: ${line}`)
+  if (!/2판/.test(line)) missed.push(`두 판을 쳤는데 결과가 「2판」이 아니다: ${line}`)
   await shot('리듬끝')
 
   console.log('\n── 가위바위보 — 옆 기계를 부른다 ──')

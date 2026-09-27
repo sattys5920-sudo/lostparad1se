@@ -18,6 +18,7 @@ import { ALLEY, type Cell } from './board'
 import type { DrawState } from './arcadeDraw'
 import type { NunchiState } from './arcadeNunchi'
 import type { TowerState } from './arcadeTower'
+import type { RelayState } from './arcadeBeat'
 
 // ── 기계 ────────────────────────────────────────────────────────
 
@@ -111,11 +112,11 @@ export interface ArcadeGame {
 
 export const ARCADE_GAMES: readonly ArcadeGame[] = [
   { id: 'updown', name: '업다운', mode: 'solo', min: 1, max: 1, blurb: '1~100 숨은 숫자를 여섯 번 안에', kind: 'turn', ready: true },
-  { id: 'rhythm', name: '리듬 스타', mode: 'solo', min: 1, max: 1, blurb: '떨어지는 음표를 박자에 맞춰', kind: 'live', ready: true },
+  { id: 'rhythm', name: '리듬 쌓기', mode: 'solo', min: 1, max: 1, blurb: '들은 리듬을 따라 친다. 판마다 한 박씩 는다', kind: 'live', ready: true },
   { id: 'snake', name: '뱀', mode: 'solo', min: 1, max: 1, blurb: '먹을수록 길어진다. 꼬리를 물지 마라', kind: 'live', ready: true },
   { id: 'rps', name: '가위바위보', mode: 'versus', min: 2, max: 2, blurb: '다른 기계와 한 판', kind: 'turn', ready: true },
   { id: 'quickdraw', name: '먼저 쏴', mode: 'versus', min: 2, max: 2, blurb: '신호가 뜨면 먼저 누른 쪽이 이긴다', kind: 'turn', ready: true },
-  { id: 'duet', name: '둘이서 한 곡', mode: 'coop', min: 2, max: 2, blurb: '한 곡을 둘이 나눠 친다', kind: 'live', ready: true },
+  { id: 'duet', name: '둘이서 한 곡', mode: 'coop', min: 2, max: 2, blurb: '따라 치고 한 박씩 보태 곡을 만든다', kind: 'table', ready: true },
   { id: 'nunchi', name: '눈치 게임', mode: 'versus', min: 2, max: 4, blurb: '1부터 외친다. 겹치거나 꼴찌면 탈락', kind: 'table', ready: true },
   { id: 'tower', name: '탑 쌓기', mode: 'coop', min: 2, max: 4, blurb: '돌아가며 쌓는다. 무너지면 끝', kind: 'table', ready: true },
   { id: 'oneToFifty', name: '1 to 50', mode: 'versus', min: 1, max: 4, blurb: '1부터 50까지 누가 먼저', kind: 'live', ready: true },
@@ -191,10 +192,19 @@ export interface RoomDoc {
   nunchi?: NunchiState | null
   /** 탑 쌓기 — 쌓인 블록과 차례. */
   tower?: TowerState | null
+  /** 둘이서 한 곡 — 지금까지 만든 곡과 차례. */
+  relay?: RelayState | null
   /** 판이 저절로 닫히는 때(벽시계). 아무도 안 누르고 있어도 누구든 닫을 수 있다. */
   deadlineMs?: number | null
   atMs: number
 }
+
+/**
+ * **어느 판이든 5분을 못 넘긴다.** 게임마다 갈수록 빨라지고 길어져서
+ * 사람 손으로 5분을 버티기 어렵게 짰고, 그래도 버티면 여기서 끊는다
+ * (서버 마감). 오락실에 한 사람이 한 기계를 오래 붙들지 않게.
+ */
+export const ARCADE_MAX_MS = 5 * 60_000
 
 /** 카운트다운. 시작을 누른 뒤 이만큼 뒤에 판이 열린다. */
 export const ARCADE_COUNTDOWN_MS = 3000

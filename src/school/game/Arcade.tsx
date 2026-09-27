@@ -30,14 +30,15 @@ import {
 import { josa } from '../../../shared/text'
 import { EndRow } from './ArcadeEnd'
 import { unlockChip } from './chip'
-import { Rhythm } from './Rhythm'
+import { Beat } from './Beat'
+import { Relay } from './Relay'
 import { Fifty } from './Fifty'
 import { Mole } from './Mole'
 import { Nunchi } from './Nunchi'
 import { Quickdraw } from './Quickdraw'
 import { Snake } from './Snake'
 import { Tower } from './Tower'
-import { BIG, playerIndex, serverNow, syncClock } from './arcadeTime'
+import { BIG, serverNow, syncClock } from './arcadeTime'
 import type { GameActions } from './useGame'
 import type { LiveRoom } from './useArcade'
 
@@ -128,21 +129,11 @@ export function Arcade({ act, meId, machine, seated, room, invites, onDismiss }:
     body = <UpDown room={room} meId={meId} busy={busy} run={run} act={act} onAgain={() => again(room)} onMenu={() => toMenu(room)} />
   } else if (room.game === 'rps') {
     body = <Rps room={room} meId={meId} busy={busy} run={run} act={act} onAgain={() => again(room)} onMenu={() => toMenu(room)} />
-  } else if (room.game === 'rhythm') {
-    body = (
-      <Rhythm
-        room={room}
-        meId={meId}
-        act={act}
-        onAgain={() => again(room)}
-        onMenu={() => toMenu(room)}
-        onQuit={() => void run(() => act.arcadeLeave(room.id))}
-      />
-    )
   } else {
     const props = { room, meId, act, onAgain: () => again(room), onMenu: () => toMenu(room), onQuit: () => void run(() => act.arcadeLeave(room.id)) }
     body =
-      room.game === 'duet' ? <Rhythm {...props} part={playerIndex(room, meId)} />
+      room.game === 'rhythm' ? <Beat {...props} />
+      : room.game === 'duet' ? <Relay {...props} />
       : room.game === 'snake' ? <Snake {...props} />
       : room.game === 'oneToFifty' ? <Fifty {...props} />
       : room.game === 'mole' ? <Mole {...props} />

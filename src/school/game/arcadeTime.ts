@@ -78,11 +78,5 @@ export async function submitLog(act: GameActions, roomId: string, log: unknown):
 export const countdown = (room: LiveRoom, now: number): number =>
   room.startAtMs === null ? 0 : Math.max(0, Math.ceil((room.startAtMs - now) / 1000))
 
-/** 방에서 내 차례 순서(0 부터). 둘이서 한 곡은 이 순서로 마디를 나눈다 — 서버와 같은 셈이다 */
-export const playerIndex = (room: LiveRoom, meId: string): { who: number; of: number } => {
-  const ids = room.members.filter((m) => m.state === 'in' || m.state === 'left').map((m) => m.id)
-  return { who: Math.max(0, ids.indexOf(meId)), of: Math.max(1, ids.length) }
-}
-
 /** 끝났을 때 크게 띄우는 글자. */
 export const BIG: Record<ArcadeOutcome, string> = { win: 'YOU WIN', lose: 'YOU LOSE', draw: 'DRAW' }

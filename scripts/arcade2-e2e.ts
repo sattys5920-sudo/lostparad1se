@@ -2,13 +2,15 @@
 // 한꺼번에 굴린다** — 손 게임은 판이 끝나기 전 기록을 안 받으므로, 하나씩
 // 하면 기다림만 몇 분이다.
 //
-//   ㆍ 뱀 · 1 to 50 · 두더지 · 둘이서 한 곡 — 서버가 기록을 다시 돌려 채점한다.
+//   ㆍ 뱀 · 1 to 50 · 두더지 — 서버가 기록을 다시 돌려 채점한다.
 //     여럿이면 **다 끝날 때까지 남의 점수가 방 문서에 없다.** 끝까지 안 낸
 //     사람은 마감 뒤 누구든 판을 밀면 「일어난 것」으로 친다
 //   ㆍ 먼저 쏴 — 먼저 쏜 값은 봉인된다. 신호 전·100ms 안은 부정출발
 //   ㆍ 눈치 게임 — 서버에 닿은 순서로 매기고, 거의 같이 닿으면 겹친다
 //   ㆍ 탑 쌓기 — 차례가 아니면 못 떨어뜨리고, 차례인 사람이 사라지면
 //     마감 뒤 저절로 떨어진다
+//   ㆍ 둘이서 한 곡 — 따라 치고 보태면 곡에 한 박이 붙는다. 미리 낸 기록,
+//     남의 차례, 보태지 않은 차례, 안 친 차례를 가려낸다
 //
 // 읽기 검사는 그 사람 열쇠로 한다. 운영자 열쇠는 규칙을 건너뛴다.
 //
@@ -21,8 +23,8 @@ import { DRAW_TIMEOUT_MS } from '../shared/rules/arcadeDraw'
 import { fiftyBoard, fiftyStart, fiftyTap, type FiftyTap } from '../shared/rules/arcadeFifty'
 import { MOLE_MS, moleSchedule } from '../shared/rules/arcadeMole'
 import { NUNCHI_SAME_MS } from '../shared/rules/arcadeNunchi'
-import { RHYTHM_END_MS, duetPart, rhythmChart } from '../shared/rules/arcadeRhythm'
-import { SNAKE_H, SNAKE_W, canTurn, snakeStart, snakeStep, type SnakeDir, type SnakeGame, type SnakeInput } from '../shared/rules/arcadeSnake'
+import { RELAY_GOAL, RELAY_LIVES, RELAY_START_NOTES, relayTimes, relayWho, type RelayState } from '../shared/rules/arcadeBeat'
+import { SNAKE_H, SNAKE_PASS, SNAKE_W, canTurn, snakeStart, snakeStep, type SnakeDir, type SnakeGame, type SnakeInput } from '../shared/rules/arcadeSnake'
 import { TOWER_GOAL, TOWER_TURN_MS, towerHitT } from '../shared/rules/arcadeTower'
 
 const PROJECT = 'demo-goei'
@@ -127,6 +129,7 @@ interface Room {
   draw?: { round: number; signalAtMs: number; inIds: string[]; wins: Record<string, number> }
   nunchi?: { calls: { id: string; n: number }[]; clash: string[] | null; closeAtMs: number | null }
   tower?: { blocks: unknown[]; order: string[]; turn: number; turnAtMs: number; fell: boolean }
+  relay?: RelayState
 }
 
 /** 뱀 — 사과까지 넓게 찾아 가는 손. 없으면 안 죽는 아무 쪽 */
@@ -199,7 +202,7 @@ async function main() {
     s.ok(r.status === 'playing' && r.deadlineMs !== null, '혼자 하는 게임은 고르자마자 열리고 마감이 선다')
     const g = snakeStart(r.seed)
     const turns: SnakeInput[] = []
-    while (g.alive && g.eaten < 12) {
+    while (g.alive && g.eaten < SNAKE_PASS + 2) {
       const d = plan(g)
       if (d && d !== g.dir) turns.push({ tick: g.tick, dir: d })
       snakeStep(g, d)
@@ -211,7 +214,9 @@ async function main() {
     const sub = await call('arcadeSubmit', T.qa01, { gameId: game, roomId: rid, log: turns, eaten: 999 })
     s.ok(sub.ok, '시간이 차면 받는다', sub.ok ? '' : sub.err)
     const e = await room(rid)
-    s.ok(e.status === 'done' && e.results?.[U('qa01')]?.outcome === 'win', '사과를 쫓은 기록은 깬다 — 화면이 적은 사과 수는 안 본다', e.results?.[U('qa01')]?.line)
+    const got = Number(/사과 (\d+)개/.exec(e.results?.[U('qa01')]?.line ?? '')?.[1] ?? -1)
+    s.ok(e.status === 'done' && got >= g.eaten, '서버가 기록을 다시 굴려 사과를 센다 — 화면이 적은 수(999)는 안 본다', e.results?.[U('qa01')]?.line)
+    s.ok(e.results?.[U('qa01')]?.outcome === (got >= SNAKE_PASS ? 'win' : 'lose'), `사과 ${SNAKE_PASS}개부터 깬 것이다`)
     return s.lines
   }
 
@@ -264,20 +269,52 @@ async function main() {
   }
 
   const duet = async () => {
-    const s = section('둘이서 한 곡 — 다 같이')
+    const s = section('둘이서 한 곡 — 번갈아 따라 치고 보태기')
     const rid = await table('duet', ['qa06', 'qa07'])
-    const r = await room(rid)
-    const chart = rhythmChart(r.seed)
-    const a = duetPart(chart, 0, 2).map((n) => ({ t: n.t, lane: n.lane }))
-    const b = duetPart(chart, 1, 2).map((n) => ({ t: n.t, lane: n.lane }))
-    await sleep(r.startAtMs + RHYTHM_END_MS + 300 - Date.now())
-    // 한 사람은 제 몫만, 한 사람은 반만 친다 — 합치면 75% 라 깬다
-    await must('arcadeSubmit', T.qa06, { gameId: game, roomId: rid, log: a })
-    await must('arcadeSubmit', T.qa07, { gameId: game, roomId: rid, log: b.filter((_, i) => i % 2 === 0) })
+    let r = await room(rid)
+    const name = (uid: string) => (uid === U('qa06') ? 'qa06' : 'qa07')
+    /** 곡을 딱 맞게 따라 치고, 곡 끝 두 칸 뒤에 pad 를 보태는 손. t 는 차례가 열린 때부터 */
+    const play = (st: RelayState, pad: number, add = true) => {
+      const tm = relayTimes(st)
+      const last = st.notes.at(-1)!.step
+      const copy = st.notes.map((n) => ({ t: Math.round(tm.answerZero + n.step * tm.e - st.turnAtMs), pad: n.pad }))
+      return add ? [...copy, { t: Math.round(tm.answerZero + (last + 2) * tm.e + 10 - st.turnAtMs), pad }] : copy
+    }
+    s.ok(r.relay?.notes.length === RELAY_START_NOTES && r.relay.lives === RELAY_LIVES, `곡은 ${RELAY_START_NOTES}박, 목숨 ${RELAY_LIVES}로 시작한다`)
+    for (let i = 0; i < 3; i++) {
+      r = await room(rid)
+      const st = r.relay!
+      const who = name(relayWho(st)!)
+      const other = who === 'qa06' ? 'qa07' : 'qa06'
+      if (i === 0) {
+        const notMine = await call('arcadePlay', T[other], { gameId: game, roomId: rid, move: { taps: play(st, 1) } })
+        s.ok(!notMine.ok, '내 차례가 아니면 못 낸다', notMine.ok ? '냈다' : (notMine.err ?? ''))
+        const early = await call('arcadePlay', T[who], { gameId: game, roomId: rid, move: { taps: play(st, 1) } })
+        s.ok(!early.ok, '곡을 다 듣고 치기 전에 미리 낸 기록은 안 받는다', early.ok ? '받았다' : (early.err ?? ''))
+      }
+      await sleep(relayTimes(st).closeAt + 100 - Date.now())
+      await must('arcadePlay', T[who], { gameId: game, roomId: rid, move: { taps: play(st, i % 4) } })
+      const after = (await room(rid)).relay!
+      s.ok(after.notes.length === st.notes.length + 1 && after.notes.at(-1)!.pad === i % 4 && relayWho(after) !== relayWho(st), `${i + 1}번째 차례 — 따라 치고 보태면 한 박이 붙고 차례가 넘어간다`, `${after.notes.length}박`)
+    }
+    // 보태지 않고 따라만 친다 → 틀린 것
+    r = await room(rid)
+    let st = r.relay!
+    await sleep(relayTimes(st).closeAt + 100 - Date.now())
+    await must('arcadePlay', T[name(relayWho(st)!)], { gameId: game, roomId: rid, move: { taps: play(st, 0, false) } })
+    let after = (await room(rid)).relay!
+    s.ok(after.lives === RELAY_LIVES - 1 && after.notes.length === st.notes.length, '보태지 않으면 틀린 것 — 곡은 그대로, 목숨 하나')
+    // 가만히 있다 → 마감 뒤 누구든 밀면 틀린 것
+    for (let k = 0; k < 2; k++) {
+      st = (await room(rid)).relay!
+      const dl = (await room(rid)).deadlineMs ?? 0
+      await sleep(dl + 300 - Date.now())
+      await must('arcadeTick', T.qa06, { gameId: game, roomId: rid })
+    }
     const e = await room(rid)
-    const [ra, rb] = [e.results?.[U('qa06')], e.results?.[U('qa07')]]
-    s.ok(ra?.outcome === 'win' && rb?.outcome === 'win', '합친 몫으로 다 같이 깬다(한 사람은 반만 쳤어도)', `${ra?.line} / ${rb?.line}`)
-    s.ok(!!ra?.line.includes('100') && !(rb?.line.includes('100')), '줄은 제 몫만 매긴다')
+    s.ok(e.status === 'done', '목숨을 다 쓰면 끝난다(안 친 차례는 마감 뒤 틀린 것)')
+    const res = [e.results?.[U('qa06')], e.results?.[U('qa07')]]
+    s.ok(res.every((x) => x?.outcome === 'lose' && x.line.startsWith(`${RELAY_START_NOTES + 3}박`)), `${RELAY_GOAL}박을 못 채우면 다 같이 진다`, res[0]?.line)
     return s.lines
   }
 

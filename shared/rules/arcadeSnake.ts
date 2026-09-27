@@ -8,20 +8,26 @@
 // 시각이 아니라 **틱 번호**로 적는다. 시각으로 적으면 화면이 조금만
 // 늦어도 서버에서는 한 칸 먼저 꺾어 벽에 박는다.
 import { rngFrom } from '../rand'
-import type { ArcadeOutcome } from './arcade'
+import { ARCADE_MAX_MS, type ArcadeOutcome } from './arcade'
 import type { Cell } from './board'
 
 export const SNAKE_W = 15
 export const SNAKE_H = 15
 export const SNAKE_START_LEN = 3
-/** 처음 한 칸 가는 시간. 사과를 먹을수록 줄어든다. */
-export const SNAKE_TICK_MS = 150
-export const SNAKE_TICK_MIN_MS = 80
-export const SNAKE_SPEEDUP_MS = 4
-/** 판 끝. 이만큼 버티면 살아 있어도 끝낸다. */
-export const SNAKE_MAX_TICKS = 1500
+/**
+ * 한 칸 가는 시간. **처음엔 느리고 사과를 먹을수록 빨라진다.** 170ms 면
+ * 처음 잡은 사람도 벽을 피한다. 사과 스무 개쯤이면 바닥(65ms)에 닿아
+ * 눈으로 따라가기도 벅차다.
+ */
+export const SNAKE_TICK_MS = 170
+export const SNAKE_TICK_MIN_MS = 65
+export const SNAKE_SPEEDUP_MS = 5
+/** 판 끝(오락실 공통 5분). 살아 있어도 여기서 끝낸다. */
+export const SNAKE_MAX_MS = ARCADE_MAX_MS
+/** 기록을 받을 틱의 끝. 제일 빨라도 5분이면 이 안이다. */
+export const SNAKE_MAX_TICKS = Math.ceil(SNAKE_MAX_MS / SNAKE_TICK_MIN_MS)
 /** 사과를 이만큼 먹으면 깬 것이다. */
-export const SNAKE_PASS = 10
+export const SNAKE_PASS = 15
 
 export type SnakeDir = 'up' | 'down' | 'left' | 'right'
 export const SNAKE_DIRS: readonly SnakeDir[] = ['up', 'down', 'left', 'right']
@@ -89,7 +95,7 @@ export function snakeStep(g: SnakeGame, turn: SnakeDir | null): void {
     g.eaten++
     g.food = dropFood(g)
   }
-  if (g.tick >= SNAKE_MAX_TICKS) g.alive = false
+  if (g.tick >= SNAKE_MAX_TICKS || g.timeMs >= SNAKE_MAX_MS) g.alive = false
 }
 
 /** 화면이 보낸 꺾기 기록을 믿을 수 있는 모양으로. 틱 순서, 한 틱에 하나. */

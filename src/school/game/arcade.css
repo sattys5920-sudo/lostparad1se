@@ -265,17 +265,6 @@
 /* ── 리듬 ── */
 .sc-rh { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .sc-rh__stage { position: relative; }
-.sc-rh__canvas {
-  display: block;
-  width: 100%;
-  /* **치는 동안 누르는 판이 화면 안에 있어야 한다.** 낮은 폰(667)에서
-     300px 로 두면 판이 접힌 아래로 내려가 곡 도중에 스크롤을 해야
-     했다. 시트 머리·간판·판·단추를 뺀 나머지만 쓴다 */
-  height: clamp(150px, calc(100dvh - 500px), 300px);
-  border: 2px solid #000;
-  box-shadow: inset 0 0 0 1px #262b44;
-  touch-action: none;
-}
 .sc-rh__over {
   position: absolute;
   inset: 0;
@@ -287,21 +276,6 @@
   color: #fff;
   background: rgba(11, 13, 24, 0.72);
 }
-/* 누르는 판 셋. 줄 색을 테로 두르고, 누르면 속까지 찬다 */
-.sc-rh__pads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.sc-ar .sc-rh__pads button {
-  min-height: 64px;
-  border-color: var(--lane);
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.sc-rh__pads button i { display: block; width: 60%; height: 6px; margin: 0 auto; background: var(--lane); opacity: 0.5; }
-.sc-ar .sc-rh__pads button.is-down { background: var(--lane); }
-.sc-rh__pads button.is-down i { opacity: 0; }
-.sc-rh__grade { margin: 6px 0 0; text-align: center; font-size: 22px; line-height: 1; color: #fff; transform: scale(2); transform-origin: center top; height: 44px; }
-.sc-rh__grade.is-win { color: var(--ct-gold, #f0d68a); }
-.sc-rh__grade.is-lose { color: var(--ct-down, #e07a72); }
 .sc-rh__line { margin: 0; text-align: center; font-size: 11px; color: #b9bfd4; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -529,3 +503,32 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-ff__grid.is-shake, .sc-tw__pop { animation: none; }
 }
+
+/* ── 리듬 쌓기 · 둘이서 한 곡 ── */
+.sc-bt { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sc-bt__head { display: flex; align-items: center; gap: 10px; }
+.sc-bt__lives { display: flex; gap: 3px; }
+.sc-bt__lives i { width: 10px; height: 10px; border: 2px solid #5a2f35; }
+.sc-bt__lives i.is-on { background: var(--ct-down, #e07a72); border-color: var(--ct-down, #e07a72); }
+.sc-bt__say { margin: 0; flex: 1; text-align: right; font-size: 11px; color: #b9bfd4; }
+.sc-bt__say.is-listen { color: var(--ar-glow); }
+.sc-bt__say.is-ok { color: var(--ct-gold, #f0d68a); }
+.sc-bt__say.is-bad { color: var(--ct-down, #e07a72); }
+.sc-bt__say.is-add { color: #1c1f33; background: var(--ct-gold, #f0d68a); padding: 0 6px; }
+/* 박 수만큼 점 — 길어질수록 줄이 는다 */
+.sc-bt__dots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; min-height: 10px; }
+.sc-bt__dots li { width: 8px; height: 8px; border: 1px solid #4a5070; }
+.sc-bt__dots li.is-on { background: var(--ct-gold, #f0d68a); border-color: var(--ct-gold, #f0d68a); }
+/* 패드 넷 — 2×2. 불이 들어오면 속까지 찬다 */
+.sc-bt__pads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sc-ar .sc-bt__pads button {
+  min-height: 0;
+  height: clamp(64px, calc((100dvh - 520px) / 2), 120px);
+  border-color: var(--pad);
+  color: var(--pad);
+  font-size: 22px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sc-ar .sc-bt__pads button.is-lit { background: var(--pad); color: #1c1f33; box-shadow: 0 0 12px var(--pad); }

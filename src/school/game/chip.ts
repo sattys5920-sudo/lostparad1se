@@ -67,3 +67,25 @@ export function hat(a: AudioContext, when: number, vol = 0.035): void {
   s.connect(g).connect(a.destination)
   s.start(when)
 }
+
+/** 짝. 잡음에 짧은 몸통 소리를 얹는다 */
+export function snare(a: AudioContext, when: number, vol = 0.12): void {
+  hat(a, when, vol)
+  tone(a, when, 190, 0.09, vol * 0.6, 'triangle')
+}
+
+/**
+ * 패드 넷의 소리 — 쿵(큰북) · 짝(작은북) · 칙(찰박) · 딱(나무 소리).
+ * 리듬 쌓기의 패드와 순서가 같다(rules/arcadeBeat 의 PAD_NAME).
+ */
+export function pad(a: AudioContext, which: number, when: number): void {
+  if (which === 0) kick(a, when, 0.3)
+  else if (which === 1) snare(a, when)
+  else if (which === 2) hat(a, when, 0.07)
+  else tone(a, when, 1200, 0.05, 0.08, 'square')
+}
+
+/** 셈 소리. 마디 첫 박은 높게 */
+export function click(a: AudioContext, when: number, strong: boolean): void {
+  tone(a, when, strong ? 1760 : 1320, 0.03, 0.035, 'square')
+}

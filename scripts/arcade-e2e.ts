@@ -7,8 +7,8 @@
 //   ㆍ 다른 기계를 불러 방을 채운다. 인원이 모자라면 못 열고 넘치면 못 부른다
 //   ㆍ 가위바위보에서 먼저 낸 수는 봉인된다 — 상대가 제 열쇠로 방 문서를
 //     열어도 「냈다」만 보이고, 봉인 문서는 아예 못 연다
-//   ㆍ 리듬은 서버가 누른 기록을 다시 돌려 채점한다 — 곡이 끝나기 전에는
-//     안 받고, 마구 두드린 기록은 진다
+//   ㆍ 리듬 쌓기는 서버가 누른 기록을 다시 돌려 채점한다 — 판이 끝나기
+//     전에는 안 받고, 마구 두드린 기록은 한 판도 못 깬다
 //   ㆍ 끝나면 기록(arcadeDone)이 남는다 — 보상을 붙일 자리
 //
 // 읽기 검사는 **운영자 열쇠가 아니라 그 사람 열쇠로** 한다. 운영자 열쇠는
@@ -18,8 +18,8 @@
 import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
-import { ARCADE_MACHINES, UPDOWN_TRIES } from '../shared/rules/arcade'
-import { RHYTHM_END_MS, RHYTHM_LANES, rhythmChart } from '../shared/rules/arcadeRhythm'
+import { ARCADE_MACHINES, ARCADE_MAX_MS, UPDOWN_TRIES } from '../shared/rules/arcade'
+import { BEAT_PADS, SOLO_PASS_ROUNDS, soloReplay, soloRun } from '../shared/rules/arcadeBeat'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -120,6 +120,7 @@ async function main() {
     status: string; members: { id: string; state: string }[]; memberIds: string[]; results: Record<string, { outcome: string; line: string }> | null
     updown: { answer: number | null; left: number; guesses: { hint: string }[] } | null; seed: number; startAtMs: number
     rps: { inIds: string[]; rounds: unknown[] } | null
+    deadlineMs: number | null
   }
   const [m0, m1, m2] = ARCADE_MACHINES
 
@@ -141,6 +142,7 @@ async function main() {
   const r0 = await room(soloId)
   check(r0.status === 'playing', '혼자 하는 게임은 고르자마자 열린다', r0.status)
   check(r0.updown?.left === UPDOWN_TRIES && r0.updown.answer === null, `처음에 ${UPDOWN_TRIES}번, 답은 없다`)
+  check(r0.deadlineMs !== null && r0.deadlineMs - r0.startAtMs === ARCADE_MAX_MS, '어느 판이든 5분 마감이 선다', String((r0.deadlineMs ?? 0) - r0.startAtMs))
   // 숫자를 운영자 열쇠로만 몰래 본다 — 검사용이다
   const secret = flat(await fetch(`${FS}/games/${game}/secret/arcade/solo/${soloId}`, { headers: ADMIN }).then((r) => r.json())) as { target: number }
   const target = secret.target
@@ -236,34 +238,45 @@ async function main() {
   const orphan = await call('arcadeAnswer', tb, { gameId: game, roomId: String(o2.roomId), accept: true })
   check(!orphan.ok, '고른 사람이 그만두면 그 부름은 못 받는다', orphan.ok ? '받았다' : (orphan.err ?? ''))
 
-  console.log('\n── 리듬 — 서버가 다시 돌려 채점한다 ──')
+  console.log('\n── 리듬 쌓기 — 서버가 다시 돌려 채점한다 ──')
   const ra = String((await must('arcadeOpen', ta, { gameId: game, game: 'rhythm' })).roomId)
   const rb = String((await must('arcadeOpen', tb, { gameId: game, game: 'rhythm' })).roomId)
   const [ja, jb] = [await room(ra), await room(rb)]
   check(ja.status === 'playing' && typeof ja.seed === 'number' && ja.startAtMs > Date.now(), '고르면 씨앗과 시작 시각(셋 센 뒤)이 선다')
-  const perfect = rhythmChart(ja.seed).map((n) => ({ t: n.t, lane: n.lane }))
-  const tooSoon = await call('arcadeSubmit', ta, { gameId: game, roomId: ra, log: perfect })
-  check(!tooSoon.ok, '곡이 끝나기 전에는 기록을 안 받는다', tooSoon.ok ? '받았다' : (tooSoon.err ?? ''))
-  const stranger = await call('arcadeSubmit', tc, { gameId: game, roomId: ra, log: perfect })
+  // a: 두 판을 딱 맞게 치고 손을 뗀다(목숨 셋을 다 쓰고 끝) — 판마다 한 박씩 는다
+  const played: { t: number; pad: number }[] = []
+  let now = 0
+  for (let i = 0; i < 2; i++) {
+    const cur = soloRun(ja.seed, played, now).current!
+    for (const n of cur.notes) played.push({ t: Math.round(cur.answerZero + n.step * cur.e), pad: n.pad })
+    now = cur.closeAt + 1000
+  }
+  const want = soloReplay(ja.seed, played)
+  const tooSoon = await call('arcadeSubmit', ta, { gameId: game, roomId: ra, log: played })
+  check(!tooSoon.ok, '판이 끝나기 전에는 기록을 안 받는다', tooSoon.ok ? '받았다' : (tooSoon.err ?? ''))
+  const stranger = await call('arcadeSubmit', tc, { gameId: game, roomId: ra, log: played })
   check(!stranger.ok, '남의 판에는 못 낸다')
-  const mash: { t: number; lane: number }[] = []
-  for (let t = 0; t < RHYTHM_END_MS; t += 40) for (let lane = 0; lane < RHYTHM_LANES; lane++) mash.push({ t, lane })
-  const wait = Math.max(ja.startAtMs, jb.startAtMs) + RHYTHM_END_MS - Date.now() + 200
-  console.log(`  (곡이 끝나기를 ${Math.round(wait / 1000)}초 기다린다)`)
+  // b: 네 패드를 마구 두드린다
+  const mash: { t: number; pad: number }[] = []
+  for (let t = 0; t < 40_000; t += 40) for (let p = 0; p < BEAT_PADS; p++) mash.push({ t, pad: p })
+  const endB = soloReplay(jb.seed, mash).endMs
+  const wait = Math.max(ja.startAtMs + want.endMs, jb.startAtMs + endB) - Date.now() + 300
+  console.log(`  (판이 끝나기를 ${Math.round(wait / 1000)}초 기다린다)`)
   await new Promise((r) => setTimeout(r, wait))
-  // 화면이 「만점」이라고 우겨도 소용없게 점수 칸을 같이 실어 본다
-  await must('arcadeSubmit', ta, { gameId: game, roomId: ra, log: perfect })
-  await must('arcadeSubmit', tb, { gameId: game, roomId: rb, log: mash, score: 999999 })
+  // 화면이 「다 깼다」고 우겨도 소용없게 점수 칸을 같이 실어 본다
+  await must('arcadeSubmit', ta, { gameId: game, roomId: ra, log: played, cleared: 99 })
+  await must('arcadeSubmit', tb, { gameId: game, roomId: rb, log: mash })
   const [ea, eb] = [await room(ra), await room(rb)]
-  check(ea.status === 'done' && ea.results?.[ua]?.outcome === 'win' && ea.results[ua].line.startsWith('S · 100%'), '박자대로 친 기록은 S · 100%', ea.results?.[ua]?.line)
-  check(eb.results?.[ub]?.outcome === 'lose', '마구 두드린 기록은 진다 — 화면이 보낸 점수는 안 본다', eb.results?.[ub]?.line)
-  const twiceSubmit = await call('arcadeSubmit', ta, { gameId: game, roomId: ra, log: perfect })
+  check(ea.status === 'done' && ea.results?.[ua]?.line.startsWith('2판'), '두 판 깬 기록은 「2판」 — 화면이 적은 숫자는 안 본다', ea.results?.[ua]?.line)
+  check(ea.results?.[ua]?.outcome === 'lose', `${SOLO_PASS_ROUNDS}판을 못 깨면 CLEAR 가 아니다`)
+  check(eb.results?.[ub]?.line.startsWith('0판'), '마구 두드린 기록은 한 판도 못 깬다', eb.results?.[ub]?.line)
+  const twiceSubmit = await call('arcadeSubmit', ta, { gameId: game, roomId: ra, log: played })
   check(!twiceSubmit.ok, '끝난 판에는 또 못 낸다')
 
   const recs = await fetch(`${FS}/games/${game}/secret/records/items?pageSize=300`, { headers: ADMIN }).then((r) => r.text())
   check(recs.includes('updown:win'), '업다운 기록이 남는다')
   check(recs.includes('rps:win') && recs.includes('rps:lose'), '대결은 양쪽에 이김·짐이 따로 남는다')
-  check(recs.includes('rhythm:win') && recs.includes('rhythm:lose'), '리듬도 남는다')
+  check(recs.includes('rhythm:lose'), '리듬 쌓기도 남는다')
 
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   if (bad > 0) process.exitCode = 1

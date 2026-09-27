@@ -25,6 +25,7 @@ import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 import {
   ARCADE_BY_ID,
   ARCADE_COUNTDOWN_MS,
+  ARCADE_MAX_MS,
   LIVE_ROOM,
   UPDOWN_NO,
   inMembers,
@@ -50,15 +51,18 @@ import { FIFTY_LIMIT_MS, cleanFiftyTaps, fiftyReplay } from '../../shared/rules/
 import { MOLE_MS, cleanMoleTaps, moleReplay } from '../../shared/rules/arcadeMole'
 import { NUNCHI_LIMIT_MS, NUNCHI_NO, nunchiCall, nunchiNew, nunchiResult } from '../../shared/rules/arcadeNunchi'
 import {
-  RHYTHM_END_MS,
-  cleanTaps,
-  duetPart,
-  rhythmChart,
-  rhythmPts,
-  rhythmReplay,
-  rhythmReplayChart,
-} from '../../shared/rules/arcadeRhythm'
-import { SNAKE_MAX_TICKS, SNAKE_TICK_MS, cleanTurns, snakeReplay } from '../../shared/rules/arcadeSnake'
+  RELAY_GRACE_MS,
+  cleanBeatTaps,
+  relayClose,
+  relayLeave,
+  relayNew,
+  relayOutcome,
+  relayOver,
+  relayTimes,
+  relayWho,
+  soloReplay,
+} from '../../shared/rules/arcadeBeat'
+import { SNAKE_MAX_MS, cleanTurns, snakeReplay } from '../../shared/rules/arcadeSnake'
 import { TOWER_TURN_MS, towerDrop, towerHeight, towerLeave, towerNew, towerOutcome, towerOver, whoseTurn } from '../../shared/rules/arcadeTower'
 import type { Cell } from '../../shared/rules/board'
 import type { TeamId } from '../../shared/rules/v2'
@@ -145,12 +149,17 @@ async function leaveIn(tx: Transaction, gameId: string, roomId: string, uid: str
       after.tower = towerLeave(after.tower, uid, wall)
       after.deadlineMs = after.tower.turnAtMs + TOWER_TURN_MS
     }
+    if (after.relay) {
+      after.relay = relayLeave(after.relay, uid, wall)
+      after.deadlineMs = relayTimes(after.relay).closeAt + RELAY_GRACE_MS
+    }
+    const board = { tower: after.tower ?? null, relay: after.relay ?? null }
     const results = tableResults(after, wall)
     if (results) {
-      tx.update(ref, { members: after.members, tower: after.tower ?? null, status: 'done', results })
+      tx.update(ref, { members: after.members, ...board, status: 'done', results })
       return { room: after, results }
     }
-    tx.update(ref, { members: after.members, tower: after.tower ?? null, deadlineMs: after.deadlineMs ?? null })
+    tx.update(ref, { members: after.members, ...board, deadlineMs: after.deadlineMs ?? null })
     return null
   }
   // 손 게임 — 남은 사람이 다 끝냈으면 지금 닫는다
@@ -195,9 +204,12 @@ function beginPatch(gameId: string, tx: Transaction, roomId: string, room: RoomD
     tx.set(soloOf(gameId).doc(roomId), secret)
     patch.updown = view
     patch.startAtMs = wall
+    // 오락실 공통 5분. 붙들고만 있으면 마감에 깨진다
+    patch.deadlineMs = wall + ARCADE_MAX_MS
   } else if (room.game === 'rps') {
     patch.rps = { inIds: [], rounds: [] }
     patch.startAtMs = wall
+    patch.deadlineMs = wall + ARCADE_MAX_MS
   } else {
     // 셋을 세고 연다. 여럿이면 다 같이 센다
     const startAtMs = wall + ARCADE_COUNTDOWN_MS
@@ -212,6 +224,9 @@ function beginPatch(gameId: string, tx: Transaction, roomId: string, room: RoomD
     } else if (room.game === 'tower') {
       patch.tower = towerNew(ids, startAtMs)
       patch.deadlineMs = startAtMs + TOWER_TURN_MS
+    } else if (room.game === 'duet') {
+      patch.relay = relayNew(seed, ids, startAtMs)
+      patch.deadlineMs = relayTimes(patch.relay).closeAt + RELAY_GRACE_MS
     } else {
       // 손 게임 — 제일 긴 판 뒤로 넉넉히. 그때까지 안 낸 사람은 일어난 것으로 친다
       patch.deadlineMs = startAtMs + (LIVE_LONGEST_MS[room.game] ?? 0) + LIVE_GRACE_MS
@@ -481,35 +496,25 @@ export const arcadePick = onCall<{ gameId: string; roomId: string; pick: RpsPick
  * 뱀은 살아 있는 한 이어지므로 끝 틱까지를 다 친다.
  */
 const LIVE_LONGEST_MS: Partial<Record<ArcadeGameId, number>> = {
-  rhythm: RHYTHM_END_MS,
-  duet: RHYTHM_END_MS,
-  snake: SNAKE_MAX_TICKS * SNAKE_TICK_MS,
+  rhythm: ARCADE_MAX_MS,
+  snake: SNAKE_MAX_MS,
   oneToFifty: FIFTY_LIMIT_MS,
   mole: MOLE_MS,
 }
 /** 마감 여유. 화면이 결과를 보내는 데 걸리는 시간과 시계 어긋남 */
 const LIVE_GRACE_MS = 15_000
 
-/** 판을 같이 한 사람. 방에 든 순서 그대로 — 둘이서 한 곡은 이 순서로 마디를 나눈다 */
-const playersOf = (r: RoomDoc) => r.members.filter((m) => m.state === 'in' || m.state === 'left').map((m) => m.id)
-
 /**
  * 기록 하나를 점수로. **서버가 점수를 내는 길은 이것뿐이다.**
  * endMs 는 그 기록이 끝나는 때(판 시작부터) — 그보다 먼저 닿은 기록은
  * 손으로 친 것이 아니다.
  */
-function scoreLive(room: RoomDoc, uid: string, raw: unknown): Omit<Scored, 'id'> & { endMs: number } {
+function scoreLive(room: RoomDoc, raw: unknown): Omit<Scored, 'id'> & { endMs: number } {
   const seed = room.seed ?? 0
   switch (room.game) {
     case 'rhythm': {
-      const r = rhythmReplay(seed, cleanTaps(raw))
-      return { score: r.score, solo: r.outcome, line: `${r.grade} · ${r.percent}% · 최대 콤보 ${r.maxCombo}`, endMs: RHYTHM_END_MS }
-    }
-    case 'duet': {
-      const ids = playersOf(room)
-      const part = duetPart(rhythmChart(seed), Math.max(0, ids.indexOf(uid)), ids.length)
-      const r = rhythmReplayChart(part, cleanTaps(raw))
-      return { score: r.score, solo: r.outcome, pts: rhythmPts(r), max: part.length * 2, line: `내 몫 ${r.percent}% · 최대 콤보 ${r.maxCombo}`, endMs: RHYTHM_END_MS }
+      const r = soloReplay(seed, cleanBeatTaps(raw))
+      return { score: r.score, solo: r.outcome, line: `${r.cleared}판 · 최대 ${r.longest}박`, endMs: r.endMs }
     }
     case 'snake': {
       const r = snakeReplay(seed, cleanTurns(raw))
@@ -551,7 +556,7 @@ export const arcadeSubmit = onCall<{ gameId: string; roomId: string; log: unknow
     if (r.status !== 'playing' || r.seed === null || r.startAtMs === null) throw new HttpsError('failed-precondition', '지금은 낼 수 없다.')
     if (r.doneIds.includes(uid)) throw new HttpsError('failed-precondition', '이미 냈다.')
     if (ARCADE_BY_ID[r.game].kind !== 'live') throw new HttpsError('invalid-argument', '기록을 받는 게임이 아니다.')
-    const { endMs, ...scored } = scoreLive(r, uid, req.data.log)
+    const { endMs, ...scored } = scoreLive(r, req.data.log)
     if (Date.now() < r.startAtMs + endMs - LIVE_EARLY_SLACK_MS) throw new HttpsError('failed-precondition', '아직 판이 안 끝났다.')
 
     const mine: Scored = { id: uid, ...scored }
@@ -580,6 +585,9 @@ export const arcadeSubmit = onCall<{ gameId: string; roomId: string; log: unknow
 // 마감이 지나면 **든 사람 누구나** arcadeTick 으로 판을 민다 — 차례인
 // 사람이 사라져도 나머지가 영영 기다리지 않는다.
 
+/** 둘이서 한 곡 — 차례가 닫히기 이만큼 전부터는 받는다(시계 어긋남). */
+const RELAY_EARLY_SLACK_MS = 1500
+
 /** 탑 쌓기 — 「차례가 열리고 몇 ms 뒤」를 서버에 닿은 때보다 이만큼 넘게 우기면 깎는다. */
 const TOWER_SLACK_MS = 1500
 
@@ -602,8 +610,17 @@ function tableResults(r: RoomDoc, wall: number): Record<string, RoomResult> | nu
     }
     return out
   }
+  if (r.game === 'duet' && r.relay && r.startAtMs !== null) {
+    if (!relayOver(r.relay, r.startAtMs) && ids.length > 0) return null
+    const n = r.relay.notes.length
+    const o = relayOutcome(r.relay)
+    for (const id of ids) out[id] = { outcome: o, score: n, line: `${n}박짜리 곡` }
+    return out
+  }
   if (r.game === 'tower' && r.tower) {
-    if (!towerOver(r.tower) && ids.length > 0) return null
+    // 오락실 공통 5분이 지나면 거기서 끝이다
+    const capped = r.startAtMs !== null && wall - r.startAtMs >= ARCADE_MAX_MS
+    if (!towerOver(r.tower) && !capped && ids.length > 0) return null
     const h = towerHeight(r.tower)
     const o = towerOutcome(r.tower)
     for (const id of ids) out[id] = { outcome: o, score: h, line: `${h}층` }
@@ -649,11 +666,24 @@ function dropTower(tx: Transaction, gameId: string, roomId: string, r: RoomDoc, 
   return null
 }
 
+/** 둘이서 한 곡 — 한 차례를 닫는다. taps 가 null 이면 안 친 것(마감). 끝났으면 결과. */
+function closeRelay(tx: Transaction, gameId: string, roomId: string, r: RoomDoc, by: string, taps: { t: number; pad: number }[] | null, wall: number) {
+  const ref = roomsOf(gameId).doc(roomId)
+  const relay = relayClose(r.relay as NonNullable<RoomDoc['relay']>, by, taps, wall)
+  const results = tableResults({ ...r, relay }, wall)
+  if (results) {
+    tx.update(ref, { relay, status: 'done', results, deadlineMs: null })
+    return results
+  }
+  tx.update(ref, { relay, deadlineMs: relayTimes(relay).closeAt + RELAY_GRACE_MS })
+  return null
+}
+
 /**
  * 판 게임에서 한 수. 먼저 쏴는 한 발(몇 ms), 눈치 게임은 외치기, 탑
  * 쌓기는 떨어뜨리기(차례가 열리고 몇 ms 뒤).
  */
-export const arcadePlay = onCall<{ gameId: string; roomId: string; move?: { round?: number; shot?: unknown; t?: number } }>(async (req) => {
+export const arcadePlay = onCall<{ gameId: string; roomId: string; move?: { round?: number; shot?: unknown; t?: number; taps?: unknown } }>(async (req) => {
   /*
    * **닿은 때는 맨 먼저 잰다.** 앉았는지 보고 판을 읽는 데 몇백 ms 가
    * 걸리고, 둘이 한꺼번에 오면 트랜잭션이 한쪽을 다시 돌린다 — 그 안에서
@@ -703,6 +733,17 @@ export const arcadePlay = onCall<{ gameId: string; roomId: string; move?: { roun
       return results
     }
 
+    if (r.game === 'duet' && r.relay) {
+      const s = r.relay
+      if (relayWho(s) !== uid) throw new HttpsError('failed-precondition', '내 차례가 아니다.')
+      const tm = relayTimes(s)
+      // 곡을 다 듣고 따라 치고 보탤 칸까지 지나야 낸다 — 미리 지어 온 기록을 안 받는다
+      if (wall < tm.closeAt - RELAY_EARLY_SLACK_MS) throw new HttpsError('failed-precondition', '아직 차례가 안 끝났다.')
+      // 화면은 차례가 열린 때부터의 ms 로 적어 보낸다. 벽시계로 바꿔 판정한다
+      const taps = cleanBeatTaps((move as { taps?: unknown }).taps, tm.closeAt - s.turnAtMs + RELAY_EARLY_SLACK_MS).map((x) => ({ ...x, t: x.t + s.turnAtMs }))
+      return closeRelay(tx, gameId, roomId, r, uid, taps, wall)
+    }
+
     if (r.game === 'tower' && r.tower) {
       if (whoseTurn(r.tower) !== uid) throw new HttpsError('failed-precondition', '내 차례가 아니다.')
       if (wall < r.tower.turnAtMs) throw new HttpsError('failed-precondition', '아직 차례가 안 열렸다.')
@@ -748,9 +789,27 @@ export const arcadeTick = onCall<{ gameId: string; roomId: string }>(async (req)
       return closeDraw(tx, gameId, roomId, r, seal?.round === r.draw.round ? (seal.shots ?? {}) : {}, wall)
     }
     if (r.game === 'tower' && r.tower) {
+      // 5분이 지났으면 떨어뜨리지 않고 거기서 닫는다
+      const capped = tableResults(r, wall)
+      if (capped) {
+        tx.update(ref, { status: 'done', results: capped, deadlineMs: null })
+        return capped
+      }
       const who = whoseTurn(r.tower)
       if (!who) return null
       return dropTower(tx, gameId, roomId, r, who, TOWER_TURN_MS, wall)
+    }
+    if (r.game === 'duet' && r.relay) {
+      const who = relayWho(r.relay)
+      if (!who) return null
+      return closeRelay(tx, gameId, roomId, r, who, null, wall)
+    }
+    // 업다운·가위바위보 — 5분을 붙들고만 있었다. 판을 깬다
+    if (r.game === 'updown' || r.game === 'rps') {
+      tx.update(ref, { status: 'gone', deadlineMs: null })
+      tx.delete(sealOf(gameId).doc(roomId))
+      tx.delete(soloOf(gameId).doc(roomId))
+      return null
     }
     if (ARCADE_BY_ID[r.game].kind === 'live') {
       const scoreSnap = await tx.get(scoreOf(gameId).doc(roomId))
