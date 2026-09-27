@@ -1160,8 +1160,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
     const room: Act[] = []
     // **페이즈 중에도 산다.** 기계 앞에 서는 것 말고 드는 값이 없다 —
-    // 서버도 시각을 안 본다. 감춰 두면 전선에서 호루라기가 떨어졌을 때
-    // 기계 앞에 서고도 아무것도 못 하는 셈이 된다
+    // 서버도 시각을 안 본다. 기계 앞에 서고도 아무것도 못 하는 셈이
+    // 되지 않게 단추는 늘 둔다
     if (vendingHere !== null) {
       room.push({ key: 'buy', icon: 'buy', label: '자판기', run: () => setSheet('shop') })
     }

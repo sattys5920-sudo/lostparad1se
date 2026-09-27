@@ -126,6 +126,8 @@ function flagBoxesOf(teams: FirebaseFirestore.QuerySnapshot): FlagBoxes {
 
 interface HiddenPhase {
   pendingResearch: Brewing[]
+  /** 이번 페이즈에 깃발을 뽑은 팀. 팀마다 한도가 있다(rules/flag). */
+  pulledTeams: TeamId[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: string[]
   /** 이번 페이즈에 무엇이든 한 사람. 결석 보정이 이 목록을 본다. */
@@ -154,6 +156,7 @@ function queued(raw: unknown): Brewing[] {
 
 const EMPTY_HIDDEN: HiddenPhase = {
   pendingResearch: [],
+  pulledTeams: [],
   smashedBy: [],
   actedBy: [],
 }
@@ -273,6 +276,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       pendingResearch: queued(h.pendingResearch),
       flags: flagMapOf(flags),
       flagBoxes: flagBoxesOf(teams),
+      pulledTeams: h.pulledTeams ?? [],
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(pawns),
@@ -637,6 +641,7 @@ export const phaseAct = onCall<{
       pendingResearch: queued(h.pendingResearch),
       flags: flagMapOf(flagSnap),
       flagBoxes: flagBoxesOf(teams),
+      pulledTeams: h.pulledTeams ?? [],
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(pawns),
@@ -800,6 +805,7 @@ export const phaseAct = onCall<{
       ),
       smashedBy: out.next.smashedBy,
       actedBy: out.next.actedBy,
+      pulledTeams: out.next.pulledTeams,
     })
   })
 

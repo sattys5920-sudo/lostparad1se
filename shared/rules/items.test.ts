@@ -1,12 +1,12 @@
-// 아이템 — 깃발을 뽑는 데는 물건이 든다.
+// 아이템 — 손으로 쓰는 물건들.
 import { describe, expect, it } from 'vitest'
 
 import { ITEMS, ITEM_BY_KIND, ITEM_FOR, countOf, isHandItem, putItem, takeItem } from './items'
 import { ACT_COST } from './occupy'
 
 describe('물건', () => {
-  it('호루라기는 깃발 뽑기에 든다', () => {
-    expect(ITEM_FOR.pull).toBe('whistle')
+  it('깃발 꽂기·뽑기에는 물건이 안 든다 — 뽑기는 로봇이 든다', () => {
+    expect(ITEM_FOR.pull).toBeUndefined()
     expect(ITEM_FOR.plant).toBeUndefined()
   })
 
@@ -22,7 +22,7 @@ describe('물건', () => {
   it('손으로 쓰는 다섯은 어느 행동에도 안 걸려 있다', () => {
     const hand = ITEMS.filter((i) => isHandItem(i.kind)).map((i) => i.kind)
     expect(hand).toEqual(['lock', 'paper', 'eraser', 'tape', 'trap'])
-    expect(Object.values(ITEM_FOR)).toEqual(['whistle'])
+    expect(Object.values(ITEM_FOR)).toEqual([])
   })
 
   it('이름과 설명이 비어 있지 않다', () => {
@@ -41,20 +41,20 @@ describe('물건', () => {
 
 describe('주머니', () => {
   it('넣으면 늘고 꺼내면 준다', () => {
-    const one = putItem(undefined, 'whistle')
-    expect(countOf(one, 'whistle')).toBe(1)
-    const none = takeItem(one, 'whistle')
-    expect(countOf(none ?? {}, 'whistle')).toBe(0)
+    const one = putItem(undefined, 'lock')
+    expect(countOf(one, 'lock')).toBe(1)
+    const none = takeItem(one, 'lock')
+    expect(countOf(none ?? {}, 'lock')).toBe(0)
   })
 
   it('없는 것은 못 꺼낸다', () => {
-    expect(takeItem({}, 'whistle')).toBeNull()
-    expect(takeItem({ whistle: 0 }, 'whistle')).toBeNull()
+    expect(takeItem({}, 'lock')).toBeNull()
+    expect(takeItem({ lock: 0 }, 'lock')).toBeNull()
   })
 
   it('꺼내도 원래 주머니는 그대로다', () => {
-    const bag = { whistle: 2 }
-    takeItem(bag, 'whistle')
-    expect(bag.whistle).toBe(2)
+    const bag = { lock: 2 }
+    takeItem(bag, 'lock')
+    expect(bag.lock).toBe(2)
   })
 })

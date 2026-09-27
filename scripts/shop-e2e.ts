@@ -164,8 +164,8 @@ async function main() {
   const meUid = uidOf(me)
   const myTeam = await teamOf(game, meUid)
 
-  console.log('\n── 파는 것 여섯 ──')
-  check(SHOP_ITEMS.length === 6, '여섯 가지를 판다', String(SHOP_ITEMS.length))
+  console.log('\n── 파는 것 다섯 ──')
+  check(SHOP_ITEMS.length === 5, '다섯 가지를 판다 — 깃발·자물쇠·빈 종이·지우개·테이프', String(SHOP_ITEMS.length))
 
   console.log('\n── 자판기 앞에 서야 산다 ──')
   await standAt(game, meUid, 'artRoom')
@@ -354,9 +354,9 @@ async function main() {
   const drift = Math.abs((bought[0]?.atMs ?? 0) - (nowGame.nowMs ?? 0))
   check(drift < 6 * 3600_000, '게임 시계로 찍혔다', `${Math.round(drift / 60000)}분 차이`)
 
-  console.log('\n── 손으로 쓰는 물건이 아닌 것 ──')
+  console.log('\n── 없는 물건 ──')
   const notHand = await call('useItem', meTok, { gameId: game, kind: 'whistle' })
-  check(!notHand.ok, '호루라기는 여기서 못 쓴다 — 행동에 딸려 있다', notHand.ok ? '썼다' : (notHand.err ?? ''))
+  check(!notHand.ok, '없어진 호루라기는 못 쓴다', notHand.ok ? '썼다' : (notHand.err ?? ''))
 
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   process.exit(bad === 0 ? 0 : 1)

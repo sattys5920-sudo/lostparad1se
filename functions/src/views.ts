@@ -11,6 +11,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { projectAll, type World, type WorldPawn } from '../../shared/rules/views'
 import type { TileId } from '../../shared/rules/board'
 import type { FlagMap } from '../../shared/rules/flag'
+import type { TeamId } from '../../shared/rules/v2'
 import type {
   GameDoc,
   NoticeDoc,
@@ -160,6 +161,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 깃발 상자. 토큰 상자처럼 투영이 자기 팀 것만 보낸다
     flagBoxes: Object.fromEntries(teams.docs.map((d) => [d.id, (d.data() as { flags?: number }).flags ?? 0])),
     smashedBy: ((hiddenPhase.data() as { smashedBy?: string[] } | undefined)?.smashedBy ?? []),
+    pulledTeams: ((hiddenPhase.data() as { pulledTeams?: TeamId[] } | undefined)?.pulledTeams ?? []),
     // 오늘 적은 표. **투영이 본인 것만 떼어 보낸다** — 여기까지는
     // 서버 안이라 전부 들고 있어도 된다
     myBallots: Object.fromEntries(

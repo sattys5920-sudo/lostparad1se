@@ -171,7 +171,7 @@ async function giveItems(game: string, uid: string): Promise<void> {
   await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=items&updateMask.fieldPaths=resources`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: {
-      items: { mapValue: { fields: { whistle: { integerValue: '1' }, lock: { integerValue: '2' }, trap: { integerValue: '1' } } } },
+      items: { mapValue: { fields: { lock: { integerValue: '2' }, trap: { integerValue: '1' } } } },
       resources: { mapValue: { fields: { money: { integerValue: '4' }, knowledge: { integerValue: '3' } } } },
     } }),
   })

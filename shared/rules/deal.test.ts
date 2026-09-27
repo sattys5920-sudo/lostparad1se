@@ -155,12 +155,12 @@ describe('성립 직전에 다시 센다', () => {
     expect(shortOf(put({ knowledge: 1 }), have({}))).toBe('shortKnowledge')
     expect(shortOf(put({ slips: 1 }), have({}))).toBe('shortSlips')
     expect(shortOf(put({ robots: 1 }), have({}))).toBe('shortRobots')
-    expect(shortOf(put({ items: { whistle: 2 } }), have({ items: { whistle: 1 } }))).toBe('shortItems')
+    expect(shortOf(put({ items: { lock: 2 } }), have({ items: { lock: 1 } }))).toBe('shortItems')
   })
 
   it('가진 만큼이면 통과한다', () => {
-    const all = put({ money: 1, knowledge: 1, slips: 1, robots: 1, items: { whistle: 1 } })
-    expect(shortOf(all, have({ money: 1, knowledge: 1, slips: 1, robots: 1, items: { whistle: 1 } }))).toBeNull()
+    const all = put({ money: 1, knowledge: 1, slips: 1, robots: 1, items: { lock: 1 } })
+    expect(shortOf(all, have({ money: 1, knowledge: 1, slips: 1, robots: 1, items: { lock: 1 } }))).toBeNull()
   })
 })
 
@@ -176,7 +176,7 @@ describe('누가 무엇을 주고받는가', () => {
 
   it('빈 더미는 비었다고 센다', () => {
     expect(stakeIsEmpty(EMPTY_STAKE)).toBe(true)
-    expect(stakeIsEmpty(put({ items: { whistle: 0 } }))).toBe(true)
-    expect(stakeIsEmpty(put({ items: { whistle: 1 } }))).toBe(false)
+    expect(stakeIsEmpty(put({ items: { lock: 0 } }))).toBe(true)
+    expect(stakeIsEmpty(put({ items: { lock: 1 } }))).toBe(false)
   })
 })

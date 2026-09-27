@@ -2,8 +2,8 @@
 //
 // 한때는 페이즈가 끝날 때 **그 방에 서 있는 머릿수**로 주인을 정했다.
 // 이제는 **꽂힌 깃발 수**로 정한다(rules/flag). 깃발은 페이즈 중에만
-// 꽂고, 뽑히기 전까지 남는다. 뽑으려면 호루라기가 든다. 로봇은
-// 옮길 수 있는 깃발 하나로 센다.
+// 꽂고, 뽑히기 전까지 남는다. 뽑으려면 우리 팀 로봇이 같은 방에 있어야
+// 한다. 로봇은 옮길 수 있는 깃발 하나로도 센다.
 //
 // **페이즈는 한 시간짜리 라이브 판이다.** 관리자가 열면 한 시간이 흐르고,
 // 그동안 각자 토큰만큼 움직이고 깃발을 꽂는다. 한 시간이 끝난 순간 방마다
@@ -18,7 +18,7 @@
 import { ROAM_TO, TILE_BY_ID, TILES, canRoamTo, type TileId } from './board'
 import { ITEM_BY_KIND, ITEM_FOR, countOf, takeItem, type Satchels } from './items'
 import { TOTAL_SEATS } from './lobby'
-import { canHoldFlags, flagsIn, pullTarget, withPlanted, withPulled, type FlagBoxes, type FlagMap } from './flag'
+import { PULLS_PER_PHASE, PULL_COST, canHoldFlags, flagsIn, pullTarget, withPlanted, withPulled, type FlagBoxes, type FlagMap } from './flag'
 import type { TeamId, Tier } from './v2'
 import { josa } from '../text'
 
@@ -310,9 +310,11 @@ export interface PhaseState {
   flags: FlagMap
   /** 팀마다 깃발 상자. 꽂으면 하나씩 빠진다. */
   flagBoxes: FlagBoxes
+  /** 이번 페이즈에 깃발을 뽑은 팀 — 뽑을 때마다 한 줄. 팀마다 한도가 있다. */
+  pulledTeams: readonly TeamId[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: readonly string[]
-  /** 사람마다 가진 물건. 호루라기가 **쓰는 사람 것에서** 하나씩 빠진다. */
+  /** 사람마다 가진 물건. 행동에 딸린 물건은 **쓰는 사람 것에서** 빠진다. */
   satchels: Satchels
   /**
    * 팀이 함께 쓰는 토큰 상자. **한 팀에 하나다.**
@@ -386,8 +388,8 @@ export const ACT_COST: Record<ActionKind, number> = {
   summon: 1,
   // **깃발은 토큰이 아니라 깃발이 든다.** 팀 상자에서 하나 빠진다
   plant: 0,
-  // 뽑기는 호루라기가 든다(items). 토큰은 안 든다
-  pull: 0,
+  // 뽑기는 토큰이 들고, 우리 로봇이 같은 방에 있어야 한다(rules/flag)
+  pull: PULL_COST,
   // 들고 있던 것을 내려놓는 것뿐이다. 값을 물리면 아무도 안 둔다
   dropRobot: 0,
   smashRobot: 1,
@@ -530,7 +532,7 @@ export function teamRanks(
  *   아무것도 없다         **주인이 없어진다**
  *
  * 깃발은 뽑히기 전까지 남으므로, 한 번 꽂은 땅은 누가 더 꽂거나
- * 호루라기로 뽑기 전에는 그대로다.
+ * 뽑기 전에는 그대로다.
  */
 export function ownerOf(
   weights: Readonly<Partial<Record<TeamId, number>>>,
@@ -726,6 +728,22 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (state.invisibleId === playerId) return no('보이지 않는 동안에는 깃발을 못 뽑는다.')
       // 우리 팀 것은 못 뽑는다. 잘못 꽂았어도 그대로 둔다
       if (act.targetTeam === mine.team) return no('우리 팀 깃발은 뽑지 않는다.')
+      /*
+       * **우리 로봇이 같은 방에 있어야 한다.** 사람 하나에 로봇 하나 —
+       * 두 사람이 가야 하게 두면 세 명짜리 팀만 셋 중 둘이 묶인다.
+       * 데리고 온 것이든 두고 간 것이든 된다. 걷는 사람이 데려가는
+       * 로봇은 아직 안 온 것이다
+       */
+      const here = mine.tileId
+      const helper = robots.some(
+        (r) =>
+          r.team === mine.team &&
+          r.tileId === here &&
+          (r.carriedBy === null || byId.get(r.carriedBy)?.tileId === here),
+      )
+      if (!helper) return no('우리 팀 로봇이 이 방에 있어야 뽑는다.')
+      const used = state.pulledTeams.filter((t) => t === mine.team).length
+      if (used >= PULLS_PER_PHASE) return no('이번 페이즈에는 우리 팀이 이미 뽑았다.')
       const whose = act.targetTeam ?? pullTarget(state.flags, mine.tileId, mine.team)
       if (!whose || flagsIn(state.flags, mine.tileId, whose) <= 0) return no('이 방에 뽑을 깃발이 없다.')
       const after = withPulled(state.flags, mine.tileId, whose) as FlagMap
@@ -733,7 +751,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
         ok: true,
         spent: cost,
         log: { kind: 'flagPulled', playerId, tileId: mine.tileId, team: whose },
-        next: { ...state, people, robots, flags: after },
+        next: { ...state, people, robots, flags: after, pulledTeams: [...state.pulledTeams, mine.team] },
       }
     }
 
@@ -942,6 +960,7 @@ export function settle(state: PhaseState): SettleResult {
       // 깃발은 남는다. 페이즈가 끝나도 뽑히기 전까지 그 방에 있다
       flags: state.flags,
       flagBoxes: state.flagBoxes,
+      pulledTeams: [],
       smashedBy: [],
       actedBy: [],
       // 물건은 페이즈를 넘어 남는다. 산 것을 못 쓰고 잃으면 아무도 안 산다

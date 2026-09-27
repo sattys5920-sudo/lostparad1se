@@ -75,14 +75,19 @@ async function main() {
   const other = ['A', 'B', 'C', 'D'].filter((t) => t !== team)
   console.log(`판 ${game} · qa01 은 ${team}팀`)
 
-  // qa01 을 도서관에 세우고(전선도 거기), 호루라기 하나를 쥐여 준다
+  // qa01 을 도서관에 세우고(전선도 거기), 우리 팀 로봇 한 기를 거기 둔다 — 뽑기의 둘째 손
   const { stand } = standAndSpot(ROOM)
   await patch(`games/${game}/pawns/${me}`, {
     tileId: { stringValue: ROOM },
     postTile: { stringValue: ROOM },
     at: { mapValue: { fields: { x: int(stand.x), y: int(stand.y) } } },
     visitedTiles: { arrayValue: { values: [{ stringValue: 'centralPlaza' }, { stringValue: ROOM }] } },
-    items: { mapValue: { fields: { whistle: int(1) } } },
+  })
+  await patch(`games/${game}/robots/bot-shot`, {
+    id: { stringValue: 'bot-shot' },
+    team: { stringValue: team },
+    tileId: { stringValue: ROOM },
+    carriedBy: { nullValue: null },
   })
   // 도서관에는 이미 깃발이 꽂혀 있다 — 우리 1, 다른 두 팀이 2와 1
   await patch(`games/${game}/secret/flags`, {

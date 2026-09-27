@@ -1,19 +1,16 @@
 // 아이템 — 토큰으로는 살 수 없는 것들.
 //
-// **깃발을 뽑는 것은 토큰이 아니라 물건이 든다.** 토큰은 누구에게나
-// 페이즈마다 똑같이 떨어지는 시간이다. 그것만으로 남의 깃발을 뽑을 수
-// 있으면 꽂은 깃발이 아무것도 지키지 못한다.
-//
 // 쓰는 길이 둘이다.
 //
 //   행동에 딸린 것   use 가 찬 물건. 그 행동을 걸 때 저절로 하나 빠진다
-//                    (호루라기)
+//                    (지금은 없다 — 깃발 뽑기에 들던 호루라기를 걷어냈다.
+//                    뽑기는 이제 로봇이 든다)
 //   손으로 쓰는 것   use 가 빈 물건. 「쓰기」를 눌러야 쓰인다
 //                    (자물쇠 · 빈 종이 · 지우개 · 테이프)
 import type { ActionKind } from './occupy'
 
 /** 학교에서 주울 만한 것들. 그럴듯한 물건이어야 쓸 때 말이 된다. */
-export type ItemKind = 'whistle' | 'lock' | 'paper' | 'eraser' | 'tape' | 'trap'
+export type ItemKind = 'lock' | 'paper' | 'eraser' | 'tape' | 'trap'
 
 export interface ItemSpec {
   kind: ItemKind
@@ -30,16 +27,6 @@ export interface ItemSpec {
 }
 
 export const ITEMS: readonly ItemSpec[] = [
-  /*
-   * **심판의 호루라기.** 반칙을 불고 깃발을 뽑는다. 깃발은 이것 말고는
-   * 뽑을 길이 없다 — 꽂은 깃발이 남는다는 규칙이 이 물건 하나에 걸려 있다.
-   */
-  {
-    kind: 'whistle',
-    name: '호루라기',
-    text: '페이즈 중에, 선 방에 꽂힌 다른 팀 깃발 하나를 뽑는다.',
-    use: 'pull',
-  },
   {
     kind: 'lock',
     name: '자물쇠',

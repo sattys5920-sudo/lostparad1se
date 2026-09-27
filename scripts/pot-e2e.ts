@@ -120,7 +120,7 @@ async function main(): Promise<void> {
   await put(`games/${GAME}/pawns/${uMe}`, { tileId: { stringValue: MART_TILE } })
   const shop = await fetch(`${FS}/games/${GAME}/tiles/${MART_TILE}`, { headers: ADMIN })
   void shop
-  const bought = await no(call('buyShopItem', tkMe, { gameId: GAME, itemId: 'whistle' }))
+  const bought = await no(call('buyShopItem', tkMe, { gameId: GAME, itemId: 'paper' }))
   check(!bought.includes('페이즈'), '페이즈라고 거절하지 않는다', bought || '샀다')
 
   console.log('\n── 두 투표도 페이즈 중에 된다 ──')

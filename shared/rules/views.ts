@@ -176,6 +176,8 @@ export interface World {
   flagBoxes?: FlagBoxes
   /** 이번 페이즈에 로봇을 부순 사람. 투영이 내 것만 세어 보낸다. */
   smashedBy?: readonly string[]
+  /** 이번 페이즈에 깃발을 뽑은 팀. 투영이 우리 팀 것만 센다. */
+  pulledTeams?: readonly TeamId[]
   /**
    * 사람마다 오늘 적은 이름. **투영이 본인 것만 떼어 보낸다.**
    *
@@ -379,6 +381,8 @@ export interface View {
   flagCounts: Record<TileId, Partial<Record<TeamId, number>>>
   /** 우리 팀 깃발 상자에 남은 수. 넷이 나눠 쓴다. */
   myTeamFlags: number
+  /** 이번 페이즈에 우리 팀이 뽑은 수. 한도가 있다(rules/flag). */
+  myTeamPulls: number
   /**
    * 내가 가 본 방. **한 번도 안 간 방은 지도에 검게 남는다.**
    *
@@ -561,6 +565,7 @@ export function projectView(world: World, viewerId: string): View {
       robotCounts: {},
       flagCounts: {},
       myTeamFlags: 0,
+      myTeamPulls: 0,
       visitedTiles: [],
       handledDays: [],
       readDays: [],
@@ -804,6 +809,7 @@ export function projectView(world: World, viewerId: string): View {
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
     mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,
+    myTeamPulls: (world.pulledTeams ?? []).filter((t) => t === team).length,
     myBallot: world.myBallots?.[viewerId] ?? null,
     robotCounts: Object.fromEntries(
       [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.tileId === t).length]),

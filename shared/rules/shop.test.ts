@@ -38,12 +38,6 @@ describe('상점', () => {
     expect(atVending(null)).toBeNull()
   })
 
-  it('깃발 뽑기에 쓸 호루라기를 판다 — 없으면 꽂힌 깃발을 아무도 못 뽑는다', () => {
-    const item = SHOP_ITEMS.find((i) => i.gives === 'whistle')
-    expect(item).toBeDefined()
-    expect(ITEM_BY_KIND.whistle.use).toBe('pull')
-  })
-
   it('**깃발도 판다** — 팀 상자로 가고, 학교 전체 하루 몇 개뿐이다', () => {
     const flag = shopItemById('flag')
     expect(flag?.flags).toBe(1)
@@ -56,8 +50,8 @@ describe('상점', () => {
     expect(shopItemById('pen')).toBeNull()
   })
 
-  it('여섯 가지를 팔고, 파는 것은 모두 무엇을 남긴다', () => {
-    expect(SHOP_ITEMS.map((i) => i.id)).toEqual(['whistle', 'flag', 'lock', 'paper', 'eraser', 'tape'])
+  it('다섯 가지를 팔고, 파는 것은 모두 무엇을 남긴다', () => {
+    expect(SHOP_ITEMS.map((i) => i.id)).toEqual(['flag', 'lock', 'paper', 'eraser', 'tape'])
     // 물건이든 깃발이든 하나는 남는다. 값만 받는 것은 없다
     for (const i of SHOP_ITEMS) expect(Boolean(i.gives) || (i.flags ?? 0) > 0, i.id).toBe(true)
   })

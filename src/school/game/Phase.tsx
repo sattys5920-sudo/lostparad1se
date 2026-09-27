@@ -20,7 +20,7 @@ import {
   leftBehindCount,
 } from '../../../shared/rules/occupy'
 import { ROAM_TO, TILE_BY_ID, type Cell } from '../../../shared/rules/board'
-import { canHoldFlags } from '../../../shared/rules/flag'
+import { PULLS_PER_PHASE, canHoldFlags } from '../../../shared/rules/flag'
 import { TEAM_COLOR } from './MapPlan'
 import { atLabMachine } from '../../../shared/rules/trap'
 import { ITEMS, ITEM_FOR } from '../../../shared/rules/items'
@@ -73,7 +73,7 @@ const WHAT: Record<ActionKind, string> = {
   research: '다 되면 이 방에 완성품이 놓인다. 발전소를 쥐었으면 바로 난다.',
   summon: '같은 팀 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
   plant: '이 방에 우리 팀 깃발을 꽂는다. 뽑히기 전까지 남는다.',
-  pull: '이 방에 꽂힌 다른 팀 깃발 하나를 뽑는다.',
+  pull: '우리 로봇이 있는 방에서 다른 팀 깃발 하나를 뽑는다. 팀마다 페이즈에 한 번.',
   dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 깃발 하나로 센다.',
   smashRobot: '상대 로봇 1기를 부순다.',
 }
@@ -85,8 +85,8 @@ const KINDS: ActionKind[] = ['plant', 'pull', 'research', 'summon', 'dropRobot',
  * 한 행동에 드는 것 전부 — 토큰 · 지식 · 시간 · 물건.
  *
  * **0인 것은 안 그린다.** 「토큰 0」이 붙어 있으면 값이 드는 것처럼
- * 보인다. 깃발 꽂기는 팀 깃발, 뽑기는 호루라기가 드는 행동이라 그 줄에는
- * 그 그림만 선다.
+ * 보인다. 깃발 꽂기는 토큰이 아니라 팀 깃발이 드는 행동이라 그 줄에는
+ * 깃발 그림만 선다.
  */
 function Bill({ kind, ownsLab }: { kind: ActionKind; ownsLab: boolean }) {
   const item = ITEM_FOR[kind]
@@ -158,8 +158,14 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       if (!canHoldFlags(here)) return `${hereName}에는 깃발을 못 꽂는다.`
       if (teamFlags <= 0) return '팀 깃발이 없다. 하루에 한 번 들어오고, 자판기에서도 산다.'
     }
-    if (kind === 'pull' && pullable.length === 0) return '이 방에 뽑을 깃발이 없다.'
-    if (kind === 'dropRobot' && myRobots.length === 0) return '데리고 있는 로봇이 없다.'
+    if (kind === 'pull') {
+      if ((view?.myTeamPulls ?? 0) >= PULLS_PER_PHASE) return '이번 페이즈에는 우리 팀이 이미 뽑았다.'
+      // 이 방의 우리 로봇 — 데리고 있든 두고 갔든. 뽑기의 둘째 손이다
+      if (myRobots.length === 0) return '우리 팀 로봇이 이 방에 있어야 뽑는다.'
+      if (pullable.length === 0) return '이 방에 뽑을 깃발이 없다.'
+    }
+    // 이 방에 서 있는 우리 로봇이 아니라 **데리고 있는 것**을 본다
+    if (kind === 'dropRobot' && (view?.myCarriedRobots ?? 0) === 0) return '데리고 있는 로봇이 없다.'
     if (kind === 'smashRobot') {
       if (enemyRobotsHere.length === 0) return '이 방에 상대 로봇이 없다.'
       // 상대가 보고 있어도 부순다. 대신 한 사람 한 페이즈에 한 기다
