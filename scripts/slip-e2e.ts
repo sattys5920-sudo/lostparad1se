@@ -10,7 +10,9 @@
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { SLIPS_PER_PHASE } from '../shared/reveal/slips'
+import { SLIPS_PER_PERSON } from '../shared/reveal/slips'
+import { TILE_BY_ID, type TileId } from '../shared/rules/board'
+import { standAndSpot } from './lib/spot'
 import { stepToward } from '../shared/rules/occupy'
 
 const PROJECT = 'demo-goei'
@@ -103,20 +105,48 @@ async function main(): Promise<void> {
   const B = people.filter((p) => p.team === 'B')
   check(true, '판이 시작했다')
 
-  console.log('\n── 페이즈가 닫히면 쪽지가 떨어진다 ──')
+  console.log('\n── 서버는 뿌리지 않는다 ──')
   check((await allSlips()).length === 0, '처음에는 한 장도 없다')
   await must('openPhase', host, { gameId: GAME })
-  const closed = await must('closePhase', host, { gameId: GAME })
-  check(Number(closed.slips) === SLIPS_PER_PHASE, `${SLIPS_PER_PHASE}장 떨어졌다`, `${closed.slips}장`)
+  await must('closePhase', host, { gameId: GAME })
+  check((await allSlips()).length === 0, '**페이즈가 닫혀도 안 떨어진다** — 운영자가 놓는다')
+
+  console.log('\n── 운영자가 칸을 짚어 놓는다 ──')
+  const goal = String((await pawnsNow())[A[0].uid].tileId) as TileId
+  const { stand, spot } = standAndSpot(goal)
+  await must('standAt', A[0].token, { gameId: GAME, x: stand.x, y: stand.y })
+  const TEXT = '{이름}은/는 그날 밤 옥상 문을 열어 두었다.'
+  const byPlayer = await call('hostDrop', A[0].token, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: B[0].uid, text: TEXT })
+  check(!byPlayer.ok, '보통 사람은 못 놓는다', byPlayer.message)
+  const nobody = await call('hostDrop', host, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: 'nobody', text: TEXT })
+  check(nobody.code === 'INVALID_ARGUMENT', '판에 없는 사람의 쪽지는 못 놓는다', nobody.message)
+  const put = await must('hostDrop', host, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: B[0].uid, text: TEXT })
+  check(put.where === TILE_BY_ID[goal].name, '짚은 칸의 방 이름을 알려 준다', String(put.where))
+  const same = await call('hostDrop', host, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: B[0].uid, text: '또' })
+  check(same.code === 'FAILED_PRECONDITION', '**한 칸에 한 장** — 같은 칸에는 못 겹친다', same.message)
+
+  // 같은 사람 앞으로 세 장 더 — 넉 장이 차면 다섯째는 막힌다
+  const used = [spot]
+  const extra: string[] = []
+  for (let i = 0; i < SLIPS_PER_PERSON - 1; i++) {
+    const c = standAndSpot('library', used).spot
+    used.push(c)
+    extra.push(String((await must('hostDrop', host, { gameId: GAME, kind: 'slip', x: c.x, y: c.y, subjectId: B[0].uid, text: `${i}` })).slipId))
+  }
+  const fifth = standAndSpot('library', used).spot
+  const over = await call('hostDrop', host, { gameId: GAME, kind: 'slip', x: fifth.x, y: fifth.y, subjectId: B[0].uid, text: '다섯째' })
+  check(over.code === 'FAILED_PRECONDITION', `**한 사람 앞으로 ${SLIPS_PER_PERSON}장까지**`, over.message)
+  const board = (await must('hostSlipList', host, { gameId: GAME })) as { people: { id: string; placed: number }[]; onFloor: { id: string }[] }
+  check(board.people.find((p) => p.id === B[0].uid)?.placed === SLIPS_PER_PERSON, '운영자 판에 넉 장이 잡힌다')
+  check(board.onFloor.length === SLIPS_PER_PERSON, '바닥에 넉 장')
+  // 하나를 거두면 한 자리가 빈다
+  await must('hostPullSlip', host, { gameId: GAME, slipId: extra[0] })
+  const again = await call('hostDrop', host, { gameId: GAME, kind: 'slip', x: fifth.x, y: fifth.y, subjectId: B[0].uid, text: '다시' })
+  check(again.ok, '거두면 그 사람 몫이 한 자리 빈다', again.message)
+
   const floor = await allSlips()
-  check(floor.every((s) => s.d.heldBy === null && s.d.tileId !== null), '전부 바닥에 있다')
-  // 아침에 열넷이 모이는 방에는 안 떨어진다. 거기 떨어지면 먼저 본
-  // 사람이 그냥 줍는다. 기지는 뺄 이유가 없어진 지 오래다
-  check(
-    floor.every((s) => s.d.tileId !== 'centralPlaza'),
-    '2-3 교실에는 안 떨어진다',
-    floor.map((s) => s.d.tileId).join(','),
-  )
+  const target = floor.find((f) => f.id === String(put.slipId)) as { id: string; d: Record<string, unknown> }
+  check(target.d.x === spot.x && target.d.y === spot.y && target.d.tileId === null, '방이 아니라 칸에 놓였다')
 
   console.log('\n── 누구도 직접 못 읽는다 ──')
   const asPlayer = await fetch(`${FS}/games/${GAME}/secret/slips/items`, {
@@ -124,31 +154,37 @@ async function main(): Promise<void> {
   })
   check(asPlayer.status === 403, '쪽지 컬렉션을 못 읽는다', String(asPlayer.status))
   const asHost = await fetch(`${FS}/games/${GAME}/secret/slips/items`, { headers: { Authorization: `Bearer ${host}` } })
-  check(asHost.status === 403, '운영자도 못 읽는다', String(asHost.status))
+  check(asHost.status === 403, '운영자도 직접은 못 읽는다', String(asHost.status))
 
-  console.log('\n── 같은 방이어야 보인다 ──')
-  // 쪽지 한 장을 고르고, 그 방으로 A0 를 걸어 보낸다
-  const target = floor[0]
-  const goal = String(target.d.tileId)
-  for (let i = 0; i < 8; i++) {
-    const here = (await pawnsNow())[A[0].uid].tileId as string
-    if (here === goal) break
-    const next = stepToward(here, goal)
-    if (!next) break
-    const r = await call('roamTo', A[0].token, { gameId: GAME, tileId: next })
-    if (!r.ok) break
-  }
-  check((await pawnsNow())[A[0].uid].tileId === goal, `${goal}까지 걸어갔다`)
-
+  console.log('\n── 바닥에는 자리만 보인다 ──')
+  // B1 은 옆방으로 보낸다 — 다른 방 사람 몫에는 있다는 것조차 안 가야 한다
+  const away = B[1]
+  const next = stepToward(goal, 'library') ?? 'library'
+  await call('roamTo', away.token, { gameId: GAME, tileId: next })
+  await must('tick', host, { gameId: GAME })
   const mine = await viewOf(A[0].uid)
-  const others = await viewOf(B[0].uid)
-  const hereIds = ((mine.slipsHere as { id: string }[]) ?? []).map((s) => s.id)
-  check(hereIds.includes(target.id), '그 방에 서니 한 장 있는 것이 보인다', `${hereIds.length}장`)
-  check(!JSON.stringify(mine.slipsHere).includes(String(target.d.subjectId)), '**누구 것인지는 안 온다**')
-  check(
-    !((others.slipsHere as { id: string }[]) ?? []).some((s) => s.id === target.id),
-    '다른 방 사람에게는 있다는 것조차 안 간다',
-  )
+  const papers = (mine.slipPapers as { id: string; x: number; y: number }[]) ?? []
+  check(papers.some((p) => p.id === target.id && p.x === spot.x && p.y === spot.y), '그 방에 선 사람에게 그 칸에 한 장이 보인다', `${papers.length}장`)
+  check(!JSON.stringify(mine.slipPapers).includes(B[0].uid), '**누구 것인지는 안 온다**')
+  check(!JSON.stringify(mine).includes('옥상 문'), '**적힌 말도 안 온다**')
+  const far = await viewOf(away.uid)
+  if ((await pawnsNow())[away.uid].tileId !== goal) {
+    check(!((far.slipPapers as { id: string }[]) ?? []).some((p) => p.id === target.id), '다른 방 사람에게는 있다는 것조차 안 간다')
+  }
+
+  console.log('\n── 옆에 서야 줍는다 ──')
+  // A1 을 종이에서 떨어진 칸에 세운다
+  let farOk = false
+  for (let dx = 4; dx < 12 && !farOk; dx++) {
+    const c = { x: spot.x + dx, y: spot.y }
+    const r = await call('standAt', A[1].token, { gameId: GAME, x: c.x, y: c.y })
+    farOk = r.ok
+  }
+  check(farOk, '종이에서 떨어진 칸에 섰다')
+  if (farOk) {
+    const notBeside = await call('takeSlip', A[1].token, { gameId: GAME, slipId: target.id })
+    check(notBeside.code === 'FAILED_PRECONDITION', '멀리 선 사람은 못 줍는다', notBeside.message)
+  }
 
   console.log('\n── 주워도 읽어야 보인다 ──')
   await must('takeSlip', A[0].token, { gameId: GAME, slipId: target.id })
@@ -156,7 +192,7 @@ async function main(): Promise<void> {
   const one = held.find((s) => s.id === target.id)
   check(one !== undefined, '손에 들어왔다')
   check(one?.read === false && one?.line === null, '**들고만 있으면 문장이 안 온다**')
-  check(!((await viewOf(A[0].uid)).slipsHere as unknown[]).some((s) => (s as { id: string }).id === target.id), '바닥에서 사라졌다')
+  check(!((await viewOf(A[0].uid)).slipPapers as unknown[]).some((s) => (s as { id: string }).id === target.id), '바닥에서 사라졌다')
 
   const gone = await call('takeSlip', B[0].token, { gameId: GAME, slipId: target.id })
   check(gone.code === 'FAILED_PRECONDITION', '남이 주운 것은 못 줍는다', gone.message)
@@ -165,6 +201,7 @@ async function main(): Promise<void> {
   held = ((await viewOf(A[0].uid)).mySlips as { id: string; read: boolean; line: string | null }[]) ?? []
   const read = held.find((s) => s.id === target.id)
   check(read?.read === true && typeof read?.line === 'string', '읽으니 문장이 왔다', String(read?.line))
+  check(String(read?.line).startsWith(`봇${people.indexOf(B[0])}은`), '**{이름}이 쪽지 주인 이름으로 바뀌었다**', String(read?.line))
   check(!JSON.stringify(await viewOf(B[0].uid)).includes(String(read?.line)), '**남에게는 안 간다**')
 
   console.log('\n── 처리: 두기 · 건네기 · 찢기 ──')
@@ -185,8 +222,8 @@ async function main(): Promise<void> {
     const r = await call('roamTo', mate.token, { gameId: GAME, tileId: next })
     if (!r.ok) break
   }
-  const far = await call('giveSlip', A[0].token, { gameId: GAME, slipId: target.id, toPlayerId: B[0].uid })
-  check(far.code === 'FAILED_PRECONDITION', '멀리 있는 사람에게는 못 건넨다', far.message)
+  const farGive = await call('giveSlip', A[0].token, { gameId: GAME, slipId: target.id, toPlayerId: away.uid })
+  check(farGive.code === 'FAILED_PRECONDITION', '멀리 있는 사람에게는 못 건넨다', farGive.message)
   await must('giveSlip', A[0].token, { gameId: GAME, slipId: target.id, toPlayerId: mate.uid })
   const mateSlips = ((await viewOf(mate.uid)).mySlips as { id: string; read: boolean }[]) ?? []
   check(mateSlips.some((s) => s.id === target.id), '건네받았다')

@@ -131,10 +131,13 @@ export interface WalkProps {
    * 몫에는 이 좌표가 아예 실리지 않는다(views 의 myErrand).
    */
   things?: readonly { x: number; y: number; icon: ThingIcon }[]
-  /** 바닥의 문제 종이. 내가 선 방 것만 온다 — 펼쳐진 것은 다른 그림이다 */
-  papers?: readonly { x: number; y: number }[]
-  /** 종이 옆에 서서 종이를 탭했다 */
-  onTapPaper?: () => void
+  /**
+   * 바닥의 종이 — 문제 종이와 비밀 쪽지. 보이는 칸 것만 온다.
+   * 둘은 그림만 다르고 밟을 수 없는 것도, 옆에서 탭해 줍는 것도 같다.
+   */
+  papers?: readonly { x: number; y: number; kind?: 'quiz' | 'slip' }[]
+  /** 종이 옆에 서서 종이를 탭했다. 어느 칸의 종이인지 준다 */
+  onTapPaper?: (at: { x: number; y: number }) => void
   /**
    * 정원의 화분과 씨앗 상자. **정원에 서 있을 때만 온다** — 서버가
    * 그 방 사람에게만 단계를 보낸다.
@@ -759,7 +762,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
        */
       const paper = papersRef.current.find((p) => p.x === tx && p.y === ty)
       if (paper) {
-        if (facing({ x: self.tx, y: self.ty }, { x: paper.x, y: paper.y })) paperRef.current?.()
+        if (facing({ x: self.tx, y: self.ty }, { x: paper.x, y: paper.y })) paperRef.current?.({ x: paper.x, y: paper.y })
         return
       }
 
@@ -1505,7 +1508,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
              펼친 그림도 그렸는데, 이제 바닥에 펼쳐진 종이는 없다 */
           const paper = papersRef.current.find((t) => t.x === x && t.y === y)
           if (paper) {
-            const img = sprites.paper
+            const img = paper.kind === 'slip' ? sprites.slip : sprites.paper
             const in3 = Math.round((TILE - img.width) / 2)
             ctx.drawImage(img, x * TILE - camX + in3, y * TILE - camY + in3)
           }

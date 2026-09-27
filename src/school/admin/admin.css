@@ -375,6 +375,29 @@
 .sc-dr__go { font-weight: 600; }
 .sc-dr__hint { margin: 0; font-size: 13px; line-height: 20px; color: var(--sc-text-dim); word-break: keep-all; }
 
+/* 바닥에 남은 비밀 쪽지. 누구 것 · 어디 · 적은 말 · 거두기 */
+.sc-dr__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sc-dr__list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--sc-line);
+  font-size: 13px;
+  line-height: 18px;
+}
+.sc-dr__list span { color: var(--sc-text-2); }
+.sc-dr__list em {
+  grid-column: 1;
+  font-style: normal;
+  color: var(--sc-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-dr__list button { grid-column: 2; grid-row: 1 / span 2; }
+
 /* 지금 판 위. 읽기 전용이라 단추가 없다 */
 .sc-ed__live { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .sc-ed__live li {

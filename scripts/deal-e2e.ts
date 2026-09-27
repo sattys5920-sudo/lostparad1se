@@ -25,6 +25,7 @@ const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/doc
 const ADMIN = { Authorization: 'Bearer owner' }
 import { of as recOf, records } from './lib/records'
 import { tradedTeams } from '../shared/rules/records'
+import { standAndSpot } from './lib/spot'
 
 let failures = 0
 function check(ok: boolean, label: string, detail = ''): void {
@@ -357,12 +358,15 @@ async function main(): Promise<void> {
   // ── 4·5·6. 동시 성립 · 값 · 쪽지 ────────────────────────────
   console.log('── 4·5·6. 성립 ──')
   await face()
-  // 쪽지 한 장을 손에 쥐어 준다 — 접힌 채로 건너가는지 볼 것이다
+  // 쪽지 한 장을 손에 쥐어 준다 — 접힌 채로 건너가는지 볼 것이다.
+  // 쪽지는 운영자가 놓는다. 아무 칸에나 놓고 손으로 옮겨 쥐여 준다
+  const { spot } = standAndSpot('library')
+  await must('hostDrop', host, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: me.uid, text: '거래에 실릴 쪽지' })
   const slip = (await slipsNow())[0]
-  await fetch(`${FS}/games/${GAME}/secret/slips/items/${slip.id}?updateMask.fieldPaths=heldBy`, {
+  await fetch(`${FS}/games/${GAME}/secret/slips/items/${slip.id}?updateMask.fieldPaths=heldBy&updateMask.fieldPaths=x&updateMask.fieldPaths=y`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ fields: { heldBy: { stringValue: me.uid } } }),
+    body: JSON.stringify({ fields: { heldBy: { stringValue: me.uid }, x: { nullValue: null }, y: { nullValue: null } } }),
   })
 
   id = await open()
@@ -372,7 +376,7 @@ async function main(): Promise<void> {
   // 쪽지 내용이 거래판에 없는지 먼저 본다
   const board = JSON.stringify(await dealNow(id))
   check(!board.includes(slip.id), '거래판에 **어느 쪽지인지가 없다**')
-  const line = String(slip.d.line ?? '')
+  const line = String(slip.d.text ?? '')
   check(line === '' || !board.includes(line), '쪽지 본문도 없다')
   check(Number(staked(await dealNow(id), 'a').slips) === 1, '장수만 적힌다')
 

@@ -642,7 +642,7 @@ function placeName(room: TileId | null, cell: { x: number; y: number } | null): 
   return null
 }
 
-type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden' | 'quiz' | 'maker' | 'arcade'
+type SheetId = 'act' | 'more' | 'hand' | 'shop' | 'team' | 'board' | 'garden' | 'maker' | 'arcade'
 
 /**
  * 오늘 하루. **맵이 화면이다.**
@@ -714,6 +714,36 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [bad, setBad] = useState(false)
   const say = useCallback((text: string) => { setBad(false); setSaid(text) }, [])
   const refuse = useCallback((text: string) => { setBad(true); setSaid(text) }, [])
+  /** 바닥의 종이 둘 — 문제와 비밀 쪽지. 맵에는 한 목록으로 그린다 */
+  const floorPapers = useMemo(
+    () => [
+      ...(state.view?.quizzesHere ?? []).map((q) => ({ x: q.x, y: q.y, kind: 'quiz' as const })),
+      ...(state.view?.slipPapers ?? []).map((q) => ({ x: q.x, y: q.y, kind: 'slip' as const })),
+    ],
+    [state.view?.quizzesHere, state.view?.slipPapers],
+  )
+  /**
+   * 옆 칸의 종이를 줍는다. 맵에서 탭해도, 아래 단추를 눌러도 여기로 온다.
+   * 어느 종이인지는 칸으로 찾는다 — 한 칸에 한 장뿐이다(서버가 막는다).
+   */
+  const takePaper = useCallback(
+    (at: { x: number; y: number }) => {
+      const quiz = (state.view?.quizzesHere ?? []).find((q) => q.x === at.x && q.y === at.y)
+      const slip = (state.view?.slipPapers ?? []).find((q) => q.x === at.x && q.y === at.y)
+      if (quiz) {
+        void act
+          .takeQuiz(quiz.id)
+          .then(() => setSaid('문제를 주웠다. 손패에서 푼다.'))
+          .catch((e: Error) => refuse(e.message))
+      } else if (slip) {
+        void act
+          .takeSlip(slip.id)
+          .then(() => setSaid('쪽지를 주웠다. 손패에서 읽는다.'))
+          .catch((e: Error) => refuse(e.message))
+      }
+    },
+    [act, refuse, state.view?.quizzesHere, state.view?.slipPapers],
+  )
   const [tab, setTab] = useState<Tab>('map')
   /** 무전에 안 읽은 줄이 몇인가. 탭 그림 모서리에 점을 찍는다 */
   const [radioNew, setRadioNew] = useState(0)
@@ -819,8 +849,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   }, [arcadeHere])
   useEffect(() => {
     if (vendingHere === null) setSheet((s) => (s === 'shop' ? null : s))
-    // 종이가 있는 방을 나가면 종이 시트도 닫힌다
-    if ((state.view?.quizzesHere?.length ?? 0) === 0) setSheet((s) => (s === 'quiz' ? null : s))
     if (standingOn !== TECH_TILE) setSheet((s) => (s === 'maker' ? null : s))
   }, [vendingHere])
   // 같은 자리에 서 있는 사람들. 걷는 사람은 어느 자리에도 없다
@@ -1167,17 +1195,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
      */
     const paperHere = (state.view?.quizzesHere ?? []).find((q) => atPaper(myCell, q))
     if (paperHere) {
-      room.push({
-        key: 'quiz',
-        icon: 'note',
-        label: '문제 종이를 줍는다',
-        run: () => {
-          void act
-            .takeQuiz(paperHere.id)
-            .then(() => setSaid('문제를 주웠다. 손패에서 푼다.'))
-            .catch((e: Error) => refuse(e.message))
-        },
-      })
+      room.push({ key: 'quiz', icon: 'note', label: '문제 종이를 줍는다', run: () => takePaper(paperHere) })
+    }
+    /* **비밀 쪽지 옆.** 문제 종이와 같은 자다. 누구 것인지는 주워서 읽어야 안다 */
+    const slipPaperHere = (state.view?.slipPapers ?? []).find((q) => atPaper(myCell, q))
+    if (slipPaperHere) {
+      room.push({ key: 'slipPaper', icon: 'note', label: '쪽지를 줍는다', run: () => takePaper(slipPaperHere) })
     }
     /* **제조기 옆.** 기술실 안에서 제조기 옆에 섰을 때만 뜬다 */
     if (standingOn === TECH_TILE && makerBeside(myCell) !== null) {
@@ -1226,7 +1249,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
     ]
     return [...room, ...fixed, ...tail]
-  }, [phaseOpen, standingOn, myCell, phaseTokens, busyLeftMs, busyKind, state.view?.madeHere, act, say, refuse])
+  }, [phaseOpen, standingOn, myCell, phaseTokens, busyLeftMs, busyKind, state.view?.madeHere, state.view?.quizzesHere, state.view?.slipPapers, takePaper, act, say, refuse])
 
   /**
    * 여섯 칸에 다 안 들어가면 마지막 칸을 「더보기」가 쓴다.
@@ -1374,7 +1397,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             }
             /* 덫에 걸리면 서버가 세운 칸이다. 거기서 못 벗어난다 */
             pinAt={busyKind === '덫' && busyLeftMs > 0 ? (state.view?.mySnaredAt ?? null) : null}
-            onTapPaper={() => setSheet('quiz')}
+            onTapPaper={takePaper}
             /* 머리 위에 잠깐 뜨는 말 */
             says={says}
             names={names}
@@ -1401,9 +1424,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 ? [{ ...state.view.myErrand.thingAt, icon: state.view.myErrand.icon }]
                 : []
             }
-            /* 바닥의 문제 종이. 내가 선 자리 것만 서버가 보내 준다.
-               **접힌 것 하나뿐이다** — 펴는 물건이 아니라 줍는 물건이다 */
-            papers={state.view?.quizzesHere ?? []}
+            /* 바닥의 종이 — 문제 종이와 비밀 쪽지. 보이는 칸 것만 서버가
+               보내 준다. **접힌 것뿐이다** — 펴는 물건이 아니라 줍는 물건이다 */
+            papers={floorPapers}
             /* 화분과 씨앗 상자. 정원에 서 있을 때만 서버가 보내 준다 */
             pots={
               (state.view?.potsHere?.length ?? 0) > 0

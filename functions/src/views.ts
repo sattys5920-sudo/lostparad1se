@@ -19,7 +19,6 @@ import type {
 } from '../../shared/model'
 import { releasedDays } from '../../shared/reveal/release'
 import { fillSubject } from '../../shared/reveal/slips'
-import { rawLine } from './story/slips'
 import type { SlipDoc } from './slips'
 import type { QuizDoc, QuizPaperDoc } from './quiz'
 import { errandWorld } from './errand'
@@ -200,18 +199,21 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       const p = d.data() as ProgressDoc
       return { playerId: p.playerId ?? d.id, handledDays: p.handledDays ?? [], readDays: p.readDays ?? [] }
     }),
-    // 쪽지는 서버가 이름까지 끼워 넣어 들고 온다. **문장 표는 여기까지만
-    // 온다** — shared 에 두면 번들에 실려 열넷이 통째로 읽힌다
+    // 쪽지는 서버가 이름까지 끼워 넣어 들고 온다. 문장은 운영자가 놓을
+    // 때 적은 것이다 — secret 에서 여기까지만 오고, 투영이 읽은 사람
+    // 몫에만 싣는다
     slips: slips.docs.map((d) => {
       const s2 = d.data() as SlipDoc
       const who = game.seats.find((x) => x.playerId === s2.subjectId)?.name ?? null
       return {
         id: d.id,
         subjectId: s2.subjectId,
-        // 운영자가 손으로 쓴 메모는 표를 안 거친다. 이름을 끼워
-        // 넣을 자리도 없다 — 누구의 비밀도 아닌 종이다
-        line: s2.text ? s2.text : fillSubject(rawLine(s2.textId), who),
+        // 주인이 없는 종이(메모·빈 종이)는 이름 자리를 「누군가」로 둔다
+        line: s2.text ? fillSubject(s2.text, who) : '',
         tileId: s2.tileId ?? null,
+        // 칸에 놓인 것. 주우면 비워진다
+        x: typeof s2.x === 'number' ? s2.x : null,
+        y: typeof s2.y === 'number' ? s2.y : null,
         heldBy: s2.heldBy ?? null,
         readBy: s2.readBy ?? [],
         // 찢긴 조각. 붙일 수 있는 사람이 그 방에 와야 다시 종이가 된다

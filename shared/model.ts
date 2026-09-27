@@ -569,6 +569,12 @@ export interface PlayerViewDoc {
    */
   quizzesHere?: { id: string; x: number; y: number }[]
   /**
+   * 눈에 띄는 비밀 쪽지 — 운영자가 칸을 짚어 놓은 것. **자리까지다.**
+   *
+   * 누구의 비밀인지도, 무엇이 적혔는지도 안 온다. 주워서 읽어야 안다.
+   */
+  slipPapers?: { id: string; x: number; y: number }[]
+  /**
    * 내가 주워 든 문제. **나에게만 온다.**
    *
    * 여기서만 문장이 실린다. 남이 들고 있는 종이는 무엇이 적혔는지도,

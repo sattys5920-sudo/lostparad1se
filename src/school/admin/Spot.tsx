@@ -25,6 +25,8 @@ export interface SpotMark {
   x: number
   y: number
   taken: boolean
+  /** 비밀 쪽지는 봉인 색으로 찍는다. 문제 종이와 한눈에 갈려야 한다 */
+  kind?: 'quiz' | 'slip'
 }
 
 export interface SpotPickProps {
@@ -98,7 +100,7 @@ export function SpotPick({ value, onPick, marks = [] }: SpotPickProps) {
       const x = m.x - b.x0
       const y = m.y - b.y0
       if (x < 0 || y < 0 || x >= b.w || y >= b.h) continue
-      g.fillStyle = m.taken ? '#7b7364' : '#b8922f'
+      g.fillStyle = m.taken ? '#7b7364' : m.kind === 'slip' ? '#b4534b' : '#b8922f'
       g.beginPath()
       g.arc(x * PX + PX / 2 - 0.5, y * PX + PX / 2 - 0.5, PX / 3, 0, Math.PI * 2)
       g.fill()

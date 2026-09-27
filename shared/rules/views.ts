@@ -68,12 +68,6 @@ export interface WorldRoster {
 }
 
 /**
- * 판 위의 쪽지 하나. **서버만 통째로 본다.**
- *
- * line 은 서버가 이미 이름까지 끼워 넣은 문장이다. 문장 표는
- * functions/src/story/slips.ts 에 있고 번들에 실리지 않는다.
- */
-/**
  * 게시판에 붙은 한 장. **받은 사람 목록이 여기 있다.**
  *
  * 이 모양 그대로는 절대 안 내보낸다. 누가 받았는지가 새면 경주가
@@ -103,11 +97,20 @@ export interface WorldPot {
   growMs: number | null
 }
 
+/**
+ * 판 위의 쪽지 하나. **서버만 통째로 본다.**
+ *
+ * line 은 서버가 이미 이름까지 끼워 넣은 문장이다. 운영자가 놓을 때
+ * 적은 글이라 secret 에만 있고 번들에 실리지 않는다.
+ */
 export interface WorldSlip {
   id: string
   subjectId: string
   line: string
   tileId: TileId | null
+  /** 칸에 놓인 것(운영자가 짚어 놓은 비밀 쪽지). 방 바닥의 것은 비어 있다. */
+  x?: number | null
+  y?: number | null
   heldBy: string | null
   readBy: readonly string[]
   /** 찢겼으면 찢긴 방. 조각은 그 자리에 남는다(테이프로 붙인다). */
@@ -458,6 +461,13 @@ export interface View {
    */
   quizzesHere: { id: string; x: number; y: number }[]
   /**
+   * 눈에 띄는 비밀 쪽지 — 운영자가 칸을 짚어 놓은 것. **자리만이다.**
+   *
+   * 누구의 비밀인지도, 무엇이 적혔는지도 안 온다. 맵이 이걸로 바닥에
+   * 접힌 쪽지를 그리고, 옆에 서서 탭하면 줍는다(takeSlip).
+   */
+  slipPapers: { id: string; x: number; y: number }[]
+  /**
    * 내가 주워 든 문제. **나에게만 온다.**
    *
    * 여기서만 문장이 실린다 — 남이 들고 있는 종이는 무엇이 적혔는지도,
@@ -557,6 +567,7 @@ export function projectView(world: World, viewerId: string): View {
       lockedTiles: [],
       soldOutItems: [],
       quizzesHere: [],
+      slipPapers: [],
       myQuizzes: [],
       mySlips: [],
       memories: [],
@@ -811,6 +822,16 @@ export function projectView(world: World, viewerId: string): View {
     quizzesHere: (world.quizzes ?? [])
       .filter((q) => q.heldBy === null && q.solvedTeam === null && seesCell(q.x, q.y))
       .map((q) => ({ id: q.id, x: q.x, y: q.y })),
+    /*
+     * **칸에 놓인 쪽지도 자리만 간다.** 문제 종이와 같은 규칙이다 —
+     * 보이는 칸의 것만, 누구 것인지는 빼고.
+     */
+    slipPapers: (world.slips ?? [])
+      .filter(
+        (s): s is typeof s & { x: number; y: number } =>
+          s.heldBy === null && s.torn !== true && typeof s.x === 'number' && typeof s.y === 'number' && seesCell(s.x, s.y),
+      )
+      .map((s) => ({ id: s.id, x: s.x, y: s.y })),
     /*
      * **내가 든 것만 문장이 온다.**
      *

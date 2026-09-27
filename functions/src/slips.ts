@@ -12,15 +12,15 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
-import { SLIPS_ON_FLOOR_MAX, SLIPS_PER_PHASE } from '../../shared/reveal/slips'
-import { SLIP_TEXTS } from './story/slips'
-import { TILES, type TileId } from '../../shared/rules/board'
-import { rngFrom } from '../../shared/missions/assign'
-import type { GameDoc, PawnDoc } from '../../shared/model'
+import type { Cell, TileId } from '../../shared/rules/board'
+import { atPaper } from '../../shared/rules/quiz'
+import { SLIPS_PER_PERSON } from '../../shared/reveal/slips'
+import type { PawnDoc } from '../../shared/model'
 import { freshNow, refuseIfInvisible } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
+import { requireHost } from './host'
 
 const db = getFirestore()
 
@@ -32,18 +32,28 @@ const db = getFirestore()
  * 무엇을 없앴는지가 나중에 이야기가 된다.
  */
 export interface SlipDoc {
+  /** 옛 문장 표의 번호. 서버가 뿌리던 때의 것이라 이제 늘 비어 있다. */
   textId: string
   /**
-   * 운영자가 손으로 쓴 글. 있으면 이것이 문장이다(drop.ts).
-   *
-   * 뿌려지는 쪽지는 textId 로 서버 전용 표를 가리킨다. 운영자 메모는
-   * 가리킬 표가 없어서 글을 그대로 담는다 — **그래도 secret 아래다.**
-   * 주워서 읽은 사람에게만 간다는 규칙은 똑같다.
+   * 적힌 글. 비밀 쪽지와 메모는 운영자가 놓을 때 적었고(drop.ts), 빈
+   * 종이는 사람이 적었다(use.ts). **그래도 secret 아래다** — 주워서
+   * 읽은 사람에게만 간다.
    */
   text?: string
-  /** 누구의 비밀인가. 뿌려질 때 정해진다. 운영자 메모는 비어 있다. */
+  /** 누구의 비밀인가. 운영자가 놓을 때 고른다. 운영자 메모는 비어 있다. */
   subjectId: string
+  /**
+   * 방 바닥에 있으면 그 방. 들어온 사람에게 「한 장 있다」가 뜨고
+   * 방 어디서나 줍는다. 사람이 두고 간 것·힌트 메모가 이쪽이다.
+   */
   tileId: TileId | null
+  /**
+   * **칸 하나에 놓인 것.** 운영자가 짚어 놓은 비밀 쪽지가 이쪽이다 —
+   * 맵 바닥에 종이가 그려지고, 그 옆 칸에 서야 줍는다. 복도에도
+   * 놓이므로 방이 아니라 칸이다. 주우면 비운다.
+   */
+  x?: number | null
+  y?: number | null
   heldBy: string | null
   /** 한 번이라도 읽은 사람들. 넘겨줘도 읽은 것은 안 잊는다. */
   readBy: string[]
@@ -61,73 +71,35 @@ export interface SlipDoc {
 
 const slipsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('slips').collection('items')
 
-/**
- * 쪽지가 떨어질 수 있는 방. **2-3 교실만 뺀다.**
- *
- * 주석에는 오래 「기지와 핵심 지역은 뺀다」고 적혀 있었는데 기지는 한
- * 번도 안 빠지고 있었다 — baseA~D 는 교무실·화장실·기술실·시청각실이고
- * 등급이 zone1 이다. 기지라는 것이 없어진 지 오래라 빼야 할 이유도 없다.
- * 핵심도 이제 첫날부터 열려 있으니 같다. 아침에 열넷이 모이는 2-3
- * 교실만 뺀다 — 거기 떨어지면 먼저 본 사람이 그냥 줍는다.
- */
-const DROP_TILES: TileId[] = TILES.filter((t) => t.tier !== 'plaza').map((t) => t.id)
-
-/**
- * 쪽지를 뿌린다. 페이즈가 닫힐 때 서버가 부른다.
- *
- * 같은 씨앗이면 같은 결과가 나오게 판 아이디와 페이즈 번호로 뽑는다 —
- * 다시 돌려 봐야 할 때 같은 판이 나와야 한다.
- */
-export async function scatterSlips(gameId: string, phaseNo: number, nowMs: number): Promise<number> {
-  const [seats, onFloor] = await Promise.all([
-    gameRef(gameId).get(),
-    slipsOf(gameId).where('tileId', '!=', null).get(),
-  ])
-  const game = seats.data() as GameDoc
-  const room = Math.max(0, SLIPS_ON_FLOOR_MAX - onFloor.size)
-  const howMany = Math.min(SLIPS_PER_PHASE, room)
-  if (howMany === 0 || game.seats.length === 0) return 0
-
-  const rng = rngFrom(`${gameId}:slips:${phaseNo}`)
-  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)] as T
-
-  const batch = db.batch()
-  for (let i = 0; i < howMany; i++) {
-    const doc: SlipDoc = {
-      textId: pick(SLIP_TEXTS).id,
-      subjectId: pick(game.seats).playerId,
-      tileId: pick(DROP_TILES),
-      heldBy: null,
-      readBy: [],
-      tornBy: null,
-      tornAt: null,
-      atMs: nowMs,
-    }
-    batch.set(slipsOf(gameId).doc(), doc)
-  }
-  await batch.commit()
-  return howMany
-}
-
 /** 지금 내가 선 방. 걷는 중이면 null 이다. */
 async function whereAmI(gameId: string, uid: string): Promise<TileId | null> {
   return (await me(gameId, uid)).tileId
 }
 
-/** 나. 기록에 팀이 들어가므로 자리와 팀을 같이 가져온다. */
-async function me(gameId: string, uid: string): Promise<{ tileId: TileId | null; team: PawnDoc['team'] }> {
+/** 나. 기록에 팀이 들어가므로 자리와 팀을 같이 가져온다. 선 칸도 같이 — 칸에 놓인 쪽지는 옆에 서야 줍는다. */
+async function me(gameId: string, uid: string): Promise<{ tileId: TileId | null; team: PawnDoc['team']; at: Cell | null }> {
   const snap = await gameRef(gameId).collection('pawns').doc(uid).get()
   if (!snap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
   const p = snap.data() as PawnDoc
-  return { tileId: (p.tileId ?? null) as TileId | null, team: p.team }
+  return { tileId: (p.tileId ?? null) as TileId | null, team: p.team, at: (p.at ?? null) as Cell | null }
 }
 
-/** 바닥에서 줍는다. **그 방에 서 있어야 한다.** */
+/** 바닥의 한 칸에 놓인 쪽지인가. */
+const onCell = (s: SlipDoc): s is SlipDoc & { x: number; y: number } =>
+  s.heldBy === null && s.tornBy === null && typeof s.x === 'number' && typeof s.y === 'number'
+
+/**
+ * 바닥에서 줍는다.
+ *
+ * 방 바닥에 있는 것은 **그 방에 서 있으면** 줍고, 칸에 놓인 것은
+ * **그 옆 칸에 서야** 줍는다 — 문제 종이와 같은 자다. 복도에 놓인
+ * 쪽지도 있으므로 칸 쪽은 방을 안 본다.
+ */
 export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
-  const here = await whereAmI(gameId, uid)
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
+  const self = await me(gameId, uid)
+  const here = self.tileId
   const { nowMs } = await freshNow(gameId)
 
   let subject = ''
@@ -137,12 +109,17 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
     const s = snap.data() as SlipDoc
     // 먼저 주운 사람만 가진다. 둘이 같은 쪽지를 노리면 여기서 갈린다
-    if (s.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 쪽지다.')
-    tx.update(ref, { tileId: null, heldBy: uid })
+    if (onCell(s)) {
+      if (!atPaper(self.at, { x: s.x, y: s.y })) throw new HttpsError('failed-precondition', '쪽지 옆에 서야 한다.')
+    } else {
+      if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
+      if (s.heldBy !== null || s.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 쪽지다.')
+    }
+    tx.update(ref, { tileId: null, x: null, y: null, heldBy: uid })
     subject = s.subjectId
   })
-  await note(gameId, 'slipTake', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
-    tileId: here,
+  await note(gameId, 'slipTake', nowMs, { id: uid, team: self.team }, {
+    tileId: here ?? undefined,
     subjectId: slipId,
     ownerId: subject,
   })
@@ -283,4 +260,61 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
   })
   await refreshViews(gameId)
   return { toPlayerId }
+})
+
+/**
+ * 운영자가 아직 아무도 안 주운 쪽지를 도로 거둔다. **칸에 놓인 것만.**
+ *
+ * 잘못 놓았을 때 쓴다. 문서를 지우므로 그 사람 앞으로 넉 장 중 한
+ * 자리가 다시 빈다. 한 번이라도 누가 주웠던 것은 이미 이야기가 됐으니
+ * 못 거둔다.
+ */
+export const hostPullSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId, slipId } = req.data
+  await db.runTransaction(async (tx) => {
+    const ref = slipsOf(gameId).doc(slipId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    const s = snap.data() as SlipDoc
+    if (!onCell(s) || s.readBy.length > 0) throw new HttpsError('failed-precondition', '누가 주워 갔다.')
+    tx.delete(ref)
+  })
+  await refreshViews(gameId)
+  return { ok: true }
+})
+
+/**
+ * 운영자가 쪽지 판을 본다. **운영자만.**
+ *
+ * 사람마다 몇 장 나갔는지와, 아직 바닥에 있는 쪽지의 자리. 운영자가
+ * 적은 글도 같이 간다 — 제가 쓴 것이고, 어느 칸에 무엇을 놓았는지
+ * 안 보이면 같은 말을 두 번 놓는다. 누가 주워 갔고 읽었는지는 안
+ * 싣는다 — 판을 돌리는 데 필요 없는 남의 행동이다.
+ */
+export const hostSlipList = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const [snap, all] = await Promise.all([gameRef(gameId).get(), slipsOf(gameId).get()])
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const seats = ((snap.data() as { seats?: { playerId: string; name: string }[] }).seats ?? [])
+  const docs = all.docs.map((d) => ({ id: d.id, s: d.data() as SlipDoc }))
+  return {
+    perPerson: SLIPS_PER_PERSON,
+    people: seats.map((st) => ({
+      id: st.playerId,
+      name: st.name,
+      placed: docs.filter((d) => d.s.subjectId === st.playerId).length,
+    })),
+    onFloor: docs
+      .filter((d) => onCell(d.s))
+      .map((d) => ({
+        id: d.id,
+        x: d.s.x as number,
+        y: d.s.y as number,
+        subjectId: d.s.subjectId,
+        text: d.s.text ?? '',
+        taken: false,
+      })),
+  }
 })

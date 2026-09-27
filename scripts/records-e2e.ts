@@ -13,6 +13,8 @@ import { dayHourMs } from '../shared/rules/clock'
 import { coStayMs, metPeople, type GameRecord, type Stay } from '../shared/rules/records'
 import { stepToward } from '../shared/rules/occupy'
 import { LAB_MACHINE, LAB_TILE } from '../shared/rules/trap'
+import type { TileId } from '../shared/rules/board'
+import { standAndSpot } from './lib/spot'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -210,13 +212,13 @@ async function main(): Promise<void> {
   // 그 흐름이 이미 서 있는 곳에서 확인하는 편이 짧다
 
   console.log('\n── 쪽지 처리 ──')
-  await must('openPhase', host, { gameId: GAME })
-  await land(15)
-  await must('closePhase', host, { gameId: GAME })
-  const floor = (await allSlips()).filter((s) => s.d.tileId !== null)
-  check(floor.length > 0, '쪽지가 떨어졌다', `${floor.length}장`)
-  const slip = floor[0]
-  await walk(A[0].token, A[0].uid, String(slip.d.tileId), land)
+  // 쪽지는 운영자가 칸을 짚어 놓는다. A0 가 선 방에 B0 의 쪽지 한 장
+  const room = String((await pawnsNow())[A[0].uid].tileId) as TileId
+  const { stand, spot } = standAndSpot(room)
+  await must('standAt', A[0].token, { gameId: GAME, x: stand.x, y: stand.y })
+  const dropped = await must('hostDrop', host, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: B[0].uid, text: '{이름}은 그날 옥상에 있었다.' })
+  const slip = { id: String(dropped.slipId), d: { tileId: room, subjectId: B[0].uid } }
+  check((await allSlips()).some((s) => s.id === slip.id), '쪽지가 놓였다')
   await must('takeSlip', A[0].token, { gameId: GAME, slipId: slip.id })
   await must('readSlip', A[0].token, { gameId: GAME, slipId: slip.id })
   await must('readSlip', A[0].token, { gameId: GAME, slipId: slip.id })

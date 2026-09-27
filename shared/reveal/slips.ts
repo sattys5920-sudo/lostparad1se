@@ -8,27 +8,54 @@
 // 「추리 노트」(reveal/notes.ts)와는 다른 것이다. 그쪽은 내가 혼자 적는
 // 메모고, 이쪽은 판 위에 굴러다니는 물건이다.
 //
-// **문장은 여기 없다.** functions/src/story/slips.ts 에 있다 — 서버 전용이다.
-// 이 파일은 shared 라 번들에 실린다. 여기에 적으면 열넷이 통째로 실려
-// 나가서, 개발자도구를 열 줄 아는 한 사람이 첫날 아침에 다 읽는다.
-// 역할의 숨긴 사실로 한 번 겪은 일이다.
+// **운영자가 한 장씩 손으로 놓는다.** 서버가 페이즈마다 무작위로
+// 뿌리던 것을 걷어냈다 — 어디에 누구의 비밀을 놓을지가 운영자의 수다.
 //
-// 문장 안의 {이름}은 서버가 그 쪽지 주인의 이름으로 바꾼다. 주인은
-// 뿌려질 때 정해지므로, 문장은 누구에게나 들어맞게 써야 한다.
+//   누구의 것   열넷 중 한 사람을 고른다. 한 사람 앞으로 넉 장까지
+//   무엇을      놓을 때 운영자가 적는다. 파일에 미리 적어 두는 문장이 없다
+//   어디에      칸 하나를 짚는다. 방이든 복도든. 바닥에 종이가 그려진다
+//
+// **문장은 번들에 없다.** 운영자가 적은 글은 secret 아래에만 들어가고
+// 주워서 읽은 사람에게만 간다(functions/src/slips.ts).
+//
+// 문장 안의 {이름}은 서버가 그 쪽지 주인의 이름으로 바꾼다. 운영자가
+// 이름을 직접 적어도 되고, {이름}으로 적어 두어도 된다.
 
-/** 한 페이즈가 닫힐 때 새로 떨어지는 쪽지 수. */
-export const SLIPS_PER_PHASE = 2
+import { josa, type Pair } from '../text'
 
 /**
- * 바닥에 동시에 굴러다닐 수 있는 쪽지의 한도.
+ * 한 사람 앞으로 놓을 수 있는 쪽지 수. 열넷이면 쉰여섯 장이다.
  *
- * 아무도 안 줍는 쪽지가 계속 쌓이면 학교가 종이밭이 되고 「주웠다」가
- * 아무 뜻도 없어진다. 한도에 닿으면 더 안 뿌린다.
+ * 찢기거나 주워 간 것도 센다 — 판에 나간 수다. 운영자가 거둔 것만
+ * 빠진다(거두면 문서가 지워진다).
  */
-export const SLIPS_ON_FLOOR_MAX = 6
+export const SLIPS_PER_PERSON = 4
+
+/** 쪽지 한 장에 적을 수 있는 길이. 주워서 읽는 것이라 말보다 길다. */
+export const SLIP_TEXT_MAX = 300
 
 /** 문장 안에서 쪽지 주인의 이름으로 바뀌는 자리. */
 export const SLIP_SUBJECT_MARK = '{이름}'
+
+/**
+ * 이름 뒤에 붙여 쓰는 조사. 「{이름}은/는」처럼 적으면 이름 끝을 보고
+ * 하나를 고른다 — 운영자가 누구 앞으로 쓸지에 따라 「봇4은」이 되는
+ * 일이 없다. 순서를 거꾸로 적어도 알아듣는다.
+ */
+const PARTICLES: Readonly<Record<string, Pair>> = {
+  '을/를': '을/를',
+  '를/을': '을/를',
+  '이/가': '이/가',
+  '가/이': '이/가',
+  '은/는': '은/는',
+  '는/은': '은/는',
+  '와/과': '와/과',
+  '과/와': '와/과',
+}
+const MARK_RE = new RegExp(
+  `${SLIP_SUBJECT_MARK.replace(/[{}]/g, (c) => `\\${c}`)}(${Object.keys(PARTICLES).join('|')})?`,
+  'g',
+)
 
 /**
  * 이름을 끼워 넣은 한 줄. **서버가 부른다.**
@@ -37,7 +64,8 @@ export const SLIP_SUBJECT_MARK = '{이름}'
  * 화면에서 {이름} 그대로 보이면 안 된다.
  */
 export function fillSubject(raw: string, subjectName: string | null): string {
-  return raw.split(SLIP_SUBJECT_MARK).join(subjectName ?? '누군가')
+  const name = subjectName ?? '누군가'
+  return raw.replace(MARK_RE, (_m, p: string | undefined) => name + (p ? josa(name, PARTICLES[p]) : ''))
 }
 
 /** 아직 안 쓴 자리인가. 화면이 이것으로 「준비 중」을 가른다. */

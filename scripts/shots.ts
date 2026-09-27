@@ -135,7 +135,8 @@ async function main(): Promise<void> {
   // 흩어진 것은 기지에 떨어지지 않는다. 찍으려면 내가 선 자리로
   // 한 장씩 옮겨 둬야 한다 — 화면을 고치는 것이 아니라 판을 차리는 것이다
   await moveToMe('secret/quiz/floor', 'baseA')
-  await moveToMe('secret/slips/items', 'baseA')
+  // 쪽지는 운영자가 놓는다. 발밑 방에 메모 한 장
+  await must('hostDrop', host, { gameId: GAME, kind: 'memo', tileId: 'baseA', text: '누가 여기 두고 갔다.' })
   // **views 는 손으로 고친 것을 모른다.** 시계를 조금 밀고 따라잡기를
   // 불러야 서버가 다시 깎아 내려보낸다
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: dayHourMs(START, 1, 10) + 60_000, speed: 1 })
