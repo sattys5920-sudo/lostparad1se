@@ -165,12 +165,23 @@ describe('손 게임 끝내기', () => {
     const r = settleRoom('versus', [s('a', 30), s('b', 20), s('c', 30)], ['d'])
     expect([r.a.outcome, r.b.outcome, r.c.outcome, r.d.outcome]).toEqual(['draw', 'lose', 'draw', 'lose'])
     expect(settleRoom('versus', [s('a', 5)], ['b']).a.outcome).toBe('win')
+    // 처음부터 혼자면 혼자 기준 — 못 깼으면 진다
+    expect(settleRoom('versus', [s('a', 0, 'lose')], []).a.outcome).toBe('lose')
+    expect(settleRoom('versus', [s('a', 30, 'win')], []).a.outcome).toBe('win')
   })
 
-  it('협동 — 다 같이 이기거나 다 같이 진다', () => {
-    const r = settleRoom('coop', [s('a', 1, 'lose'), s('b', 1, 'win')], [])
-    expect(r.a.outcome).toBe('win')
-    expect(r.b.outcome).toBe('win')
+  it('협동 — 합친 몫으로 다 같이 이기거나 다 같이 진다', () => {
+    const part = (id: string, pts: number) => ({ ...s(id, pts, 'lose'), pts, max: 20 })
+    // 혼자서는 둘 다 못 깼어도(10/20) 합치면 75% 라 깬다
+    const r = settleRoom('coop', [part('a', 10), part('b', 20)], [])
+    expect([r.a.outcome, r.b.outcome]).toEqual(['win', 'win'])
+    const low = settleRoom('coop', [part('a', 10), part('b', 12)], [])
+    expect([low.a.outcome, low.b.outcome]).toEqual(['lose', 'lose'])
+  })
+
+  it('협동 — 누가 중간에 일어나면 남은 사람도 진다', () => {
+    const r = settleRoom('coop', [{ ...s('a', 20), pts: 20, max: 20 }], ['b'])
+    expect([r.a.outcome, r.b.outcome]).toEqual(['lose', 'lose'])
   })
 })
 

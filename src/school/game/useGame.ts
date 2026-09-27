@@ -362,6 +362,10 @@ export function gameActions(gameId: string) {
     arcadeMove: (roomId: string, n: number) => callServer('arcadeMove', { ...g, roomId, n }),
     arcadePick: (roomId: string, pick: string) => callServer('arcadePick', { ...g, roomId, pick }),
     arcadeSubmit: (roomId: string, log: unknown) => callServer('arcadeSubmit', { ...g, roomId, log }),
+    arcadePlay: (roomId: string, move: { round?: number; shot?: number | 'early' | null; t?: number } = {}) =>
+      callServer('arcadePlay', { ...g, roomId, move }),
+    arcadeTick: (roomId: string) => callServer('arcadeTick', { ...g, roomId }),
+    arcadeClock: () => callServer('arcadeClock', {}),
 
     castVote: (targetId: string, kind: 'trust' | 'liking' | 'suspicion') =>
       callServer('castVote', { ...g, targetId, kind }),

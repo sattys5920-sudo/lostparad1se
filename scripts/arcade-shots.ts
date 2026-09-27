@@ -3,7 +3,7 @@
 //   ㆍ 급식실에서 방향키로 걸어 나가 동쪽 계단 옆 샛길로 뒷골목에 든다.
 //     이름표가 「뒷골목」이 되고, 골목 끝 기계에 앉은 사람까지 보인다
 //   ㆍ 기계 앞자리에 서면 「오락기」 단추가 뜬다. 앉은 사람은 기계를 본다
-//   ㆍ 고르는 화면에 열 개 — 들어가는 것은 셋, 나머지는 「준비 중」
+//   ㆍ 고르는 화면에 열 개 — 다 들어간다(2단계에서 일곱을 채웠다)
 //   ㆍ 리듬 스타를 악보대로 쳐서 서버가 CLEAR 를 준다(화면 점수가 아니라
 //     서버가 누른 기록을 다시 돌린 결과다)
 //   ㆍ 가위바위보를 골라 옆 기계의 봇을 부른다 — 봇이 받고, 시작하고, 이긴다
@@ -220,7 +220,8 @@ async function main() {
   const open = menu.filter((m) => !m.off).map((m) => m.text.split(' ')[0])
   console.log(`  ${menu.length}개 · 들어가는 것 ${open.join(', ')}`)
   if (menu.length !== 10) missed.push(`고르는 화면이 ${menu.length}개다`)
-  if (open.length !== 3) missed.push(`들어가는 게임이 셋이 아니다: ${open.join(',')}`)
+  if (open.length !== 10) missed.push(`열 개가 다 열려야 한다: ${open.join(',')}`)
+  if (menu.some((m) => m.text.includes('준비 중'))) missed.push('「준비 중」이 남아 있다')
   if (!menu.some((m) => m.text.includes('2~4P'))) missed.push('넷까지 하는 게임 딱지(2~4P)가 없다')
   await shot('고르기')
 

@@ -32,6 +32,8 @@ export const GOOD_MS = 110
  * 마구 두드린 손은 음표가 오기 한참 전에 그 음표를 닫아 버린다.
  */
 export const BAD_MS = 200
+/** 토막마다 반 박(8분음표)이 끼어드는 몫. 뒤로 갈수록 빽빽하다 */
+export const RHYTHM_HALF_BEAT: readonly number[] = [0, 0.3, 0.6, 0.6]
 /** 이 퍼센트를 넘기면 깬 것이다(혼자 하는 판의 이김). */
 export const RHYTHM_PASS = 70
 
@@ -94,7 +96,7 @@ export function rhythmChart(seed: number | string): Note[] {
       } else {
         out.push({ t: at(beat), lane: pick() })
       }
-      const half = level === 0 ? 0 : level === 1 ? 0.3 : 0.6
+      const half = RHYTHM_HALF_BEAT[level] ?? 0
       if (rnd() < half) out.push({ t: at(beat + 0.5), lane: pick() })
     }
   }
@@ -244,11 +246,44 @@ export function cleanTaps(raw: unknown): Tap[] {
   return out.sort((a, b) => a.t - b.t)
 }
 
-/** 기록 하나로 판 전체를 다시 판정한다. **서버가 점수를 내는 길은 이것뿐이다.** */
-export function rhythmReplay(seed: number | string, taps: readonly Tap[]): RhythmResult {
-  const chart = rhythmChart(seed)
+/** 악보 하나에 기록 하나를 처음부터 넣는다. */
+export function rhythmReplayChart(chart: readonly Note[], taps: readonly Tap[]): RhythmResult {
   let j = rhythmStart(chart)
   for (const tap of taps) j = rhythmTap(chart, j, tap).j
   j = rhythmSweep(chart, j, Infinity)
   return rhythmResult(chart, j)
+}
+
+/** 기록 하나로 판 전체를 다시 판정한다. **서버가 점수를 내는 길은 이것뿐이다.** */
+export function rhythmReplay(seed: number | string, taps: readonly Tap[]): RhythmResult {
+  return rhythmReplayChart(rhythmChart(seed), taps)
+}
+
+// ── 둘이서 한 곡 ────────────────────────────────────────────────
+//
+// 같은 곡을 **두 마디씩 번갈아** 친다. 한 사람이 치는 동안 다른 사람은
+// 쉬며 제 차례를 기다린다 — 주고받는 합주다. 둘의 판정을 합쳐 곡 하나로
+// 매긴다. 한 사람만 잘해서는 못 깬다.
+
+/** 몇 마디씩 번갈아 치는가. */
+export const DUET_BARS = 2
+
+/** 그 음표가 몇 번째 사람의 것인가. */
+export function duetOwner(n: Note, players: number): number {
+  const bar = Math.floor((n.t / BEAT_MS - RHYTHM_LEAD_BEATS) / 4)
+  return Math.floor(bar / DUET_BARS) % players
+}
+
+/** 그 사람이 칠 음표만. */
+export const duetPart = (chart: readonly Note[], who: number, players: number): Note[] =>
+  chart.filter((n) => duetOwner(n, players) === who)
+
+/** 판정을 점수로 합칠 때 쓰는 수. PERFECT 2, GOOD 1, 만점은 음표 수의 두 배. */
+export const rhythmPts = (r: Pick<RhythmResult, 'perfect' | 'good'>): number => r.perfect * 2 + r.good
+
+/** 둘의 점수를 합쳐 곡 하나로. */
+export function duetPercent(parts: readonly { pts: number; max: number }[]): number {
+  const max = parts.reduce((a, p) => a + p.max, 0)
+  const pts = parts.reduce((a, p) => a + p.pts, 0)
+  return max === 0 ? 0 : Math.round((pts / max) * 1000) / 10
 }

@@ -13,10 +13,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BAD_MS,
   BEAT_MS,
+  DUET_BARS,
   RHYTHM_BARS,
   RHYTHM_END_MS,
   RHYTHM_LANES,
   RHYTHM_LEAD_BEATS,
+  duetOwner,
   rhythmChart,
   rhythmStart,
   rhythmSweep,
@@ -26,6 +28,8 @@ import {
 } from '../../../shared/rules/arcadeRhythm'
 import { chip, hat, kick, tone } from './chip'
 import { EndRow } from './ArcadeEnd'
+import { Results } from './arcadeKit'
+import { serverNow, submitLog } from './arcadeTime'
 import type { GameActions } from './useGame'
 import type { LiveRoom } from './useArcade'
 
@@ -39,9 +43,6 @@ const KEYS: Record<string, number> = { ArrowLeft: 0, ArrowDown: 1, ArrowRight: 2
 const POP_MS = 450
 /** 곡. 가단조 5음 음계를 줄과 마디로 돌려 뽑는다 */
 const SCALE = [220, 261.6, 293.7, 329.6, 392, 440, 523.3, 587.3]
-/** 서버가 「아직」이라고 하면 이만큼 기다렸다 다시 낸다. 시계가 조금 어긋난 것이다 */
-const RETRY_MS = 1500
-const RETRIES = 4
 
 type Phase = 'play' | 'send' | 'sent' | 'fail'
 
@@ -70,15 +71,31 @@ function score(notes: ReturnType<typeof rhythmChart>): Ev[] {
   return out.sort((x, y) => x.t - y.t)
 }
 
-export function Rhythm({ room, meId, act, onAgain, onMenu, onQuit }: {
+export function Rhythm({ room, meId, act, part = null, onAgain, onMenu, onQuit }: {
   room: LiveRoom
   meId: string
   act: GameActions
+  /**
+   * 둘이서 한 곡이면 몇 번째 사람인가. 제 마디 음표만 판정하고, 남의
+   * 음표는 흐리게 흘려보낸다(반주처럼 소리는 난다).
+   */
+  part?: { who: number; of: number } | null
   onAgain: () => void
   onMenu: () => void
   onQuit: () => void
 }) {
-  const chart = useMemo(() => rhythmChart(room.seed ?? 0), [room.seed])
+  const full = useMemo(() => rhythmChart(room.seed ?? 0), [room.seed])
+  // **객체 말고 숫자로 붙든다.** 부르는 쪽이 그릴 때마다 새 객체를 넘기면,
+  // 그걸 딛는 판 전체가 매 프레임 새로 켜진다 — 닻도 판정도 날아간다
+  const who = part?.who ?? -1
+  const of = part?.of ?? 1
+  const duet = part !== null
+  const mineOf = useMemo(
+    () => (who >= 0 ? full.map((n) => duetOwner(n, of) === who) : full.map(() => true)),
+    [full, who, of],
+  )
+  const chart = useMemo(() => full.filter((_, i) => mineOf[i]), [full, mineOf])
+  const others = useMemo(() => full.filter((_, i) => !mineOf[i]), [full, mineOf])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [phase, setPhase] = useState<Phase>(room.doneIds.includes(meId) ? 'sent' : 'play')
   const [err, setErr] = useState<string | null>(null)
@@ -95,13 +112,14 @@ export function Rhythm({ room, meId, act, onAgain, onMenu, onQuit }: {
     const ctx: CanvasRenderingContext2D = g
 
     // 닻: 서버가 정한 시작 시각이 화면 시계로 언제인가
-    const anchor = performance.now() + (room.startAtMs - Date.now())
+    const anchor = performance.now() + (room.startAtMs - serverNow())
     const clock = () => performance.now() - anchor
     let judge = rhythmStart(chart)
     const taps: Tap[] = []
     const flash = Array.from({ length: RHYTHM_LANES }, () => -Infinity)
     let pop: { mark: Mark; at: number } | null = null
-    const evs = score(chart)
+    // 반주는 곡 전체다 — 짝의 마디도 소리는 난다
+    const evs = score(full)
     let ei = 0
     let sent = false
     let raf = 0
@@ -131,21 +149,11 @@ export function Rhythm({ room, meId, act, onAgain, onMenu, onQuit }: {
 
     const send = async () => {
       setPhase('send')
-      for (let i = 0; i <= RETRIES; i++) {
-        try {
-          await act.arcadeSubmit(room.id, taps)
-          setPhase('sent')
-          return
-        } catch (e) {
-          const msg = (e as Error).message
-          if (!msg.includes('아직') || i === RETRIES) {
-            setErr(msg)
-            setPhase('fail')
-            return
-          }
-          await new Promise((r) => setTimeout(r, RETRY_MS))
-        }
-      }
+      const bad = await submitLog(act, room.id, taps)
+      if (bad) {
+        setErr(bad)
+        setPhase('fail')
+      } else setPhase('sent')
     }
 
     const frame = () => {
@@ -201,8 +209,18 @@ export function Rhythm({ room, meId, act, onAgain, onMenu, onQuit }: {
         }
       }
 
-      // 음표. 아직 판정 안 난 것만
       const noteH = 10 * dpr
+      // 짝의 음표. 흐리게, 판정선에 닿으면 사라진다
+      ctx.globalAlpha = 0.22
+      for (const n of others) {
+        if (n.t - FALL_MS > now) break
+        if (n.t < now) continue
+        const y = judgeY - ((n.t - now) / FALL_MS) * judgeY
+        ctx.fillStyle = LANE_COLOR[n.lane]
+        ctx.fillRect(n.lane * laneW + 6 * dpr, y - noteH / 2, laneW - 12 * dpr, noteH)
+      }
+      ctx.globalAlpha = 1
+      // 음표. 아직 판정 안 난 것만
       for (let i = 0; i < chart.length; i++) {
         const n = chart[i]
         if (n.t - FALL_MS > now) break
@@ -263,6 +281,22 @@ export function Rhythm({ room, meId, act, onAgain, onMenu, onQuit }: {
         ctx.fillText(left <= 1 ? 'GO!' : 'READY', w / 2, h * 0.4)
       }
 
+      // 둘이서 칠 때 — 지금 누구 마디인가
+      if (who >= 0 && now >= firstNote) {
+        const bar = Math.floor((now / BEAT_MS - RHYTHM_LEAD_BEATS) / 4)
+        const mineNow = Math.floor(bar / DUET_BARS) % of === who
+        // 판정선 바로 위 가운데 줄에 판을 깔고 적는다 — 음표가 지나가도 안 가린다
+        const label = mineNow ? '내 차례' : '쉬어'
+        ctx.font = font(11)
+        const tw = ctx.measureText(label).width + 12 * dpr
+        const ty = judgeY + 20 * dpr
+        ctx.fillStyle = mineNow ? '#f0d68a' : '#262b44'
+        ctx.fillRect(w - tw - 4 * dpr, ty - 9 * dpr, tw, 18 * dpr)
+        ctx.textAlign = 'center'
+        ctx.fillStyle = mineNow ? '#1c1f33' : '#7d86ad'
+        ctx.fillText(label, w - tw / 2 - 4 * dpr, ty)
+      }
+
       // 아래 구석: 지금까지
       ctx.textAlign = 'left'
       ctx.fillStyle = '#7d86ad'
@@ -276,9 +310,10 @@ export function Rhythm({ room, meId, act, onAgain, onMenu, onQuit }: {
       window.removeEventListener('keydown', onKey, true)
       tapRef.current = () => undefined
     }
-  }, [act, chart, done, phase, room.id, room.startAtMs])
+  }, [act, chart, full, others, who, of, done, phase, room.id, room.startAtMs])
 
   // ── 끝 ──
+  if (done && duet) return <Results room={room} meId={meId} onAgain={onAgain} onMenu={onMenu} />
   if (done) {
     const mine = room.results?.[meId]
     const grade = mine?.line.split(' · ')[0] ?? '?'
@@ -295,7 +330,7 @@ export function Rhythm({ room, meId, act, onAgain, onMenu, onQuit }: {
 
   return (
     <div className="sc-rh">
-      <p className="sc-ar__title">리듬 스타 <span>판정선에 닿을 때 누른다</span></p>
+      <p className="sc-ar__title">{duet ? '둘이서 한 곡' : '리듬 스타'} <span>{duet ? '밝은 음표가 내 몫' : '판정선에 닿을 때 누른다'}</span></p>
       <div className="sc-rh__stage">
         <canvas ref={canvasRef} className="sc-rh__canvas" aria-label="떨어지는 음표" />
         {phase !== 'play' && (

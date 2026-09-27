@@ -307,3 +307,225 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-ar__marquee i, .sc-ud__big.is-win { animation: none; }
 }
+
+/* ── 같이 쓰는 것 ── */
+/* 셈 덮개. 판 위에 크게 */
+.sc-kit__count {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transform: scale(2.4);
+  color: var(--ct-gold, #f0d68a);
+  pointer-events: none;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+}
+.sc-kit__end { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sc-kit__rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sc-kit__rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 34px;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid #2f3552;
+  font-size: 11px;
+  color: #b9bfd4;
+}
+.sc-kit__rows li b { font-weight: 400; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-kit__rows li em { font-style: normal; text-align: right; }
+.sc-kit__rows li.is-win { border-color: #6b5a2a; }
+.sc-kit__rows li.is-win em { color: var(--ct-gold, #f0d68a); }
+.sc-kit__rows li.is-lose em { color: var(--ct-down, #e07a72); }
+/* 판 높이. 리듬과 같은 셈 — 치는 동안 단추가 화면 안에 남게 */
+.sc-sn, .sc-ff, .sc-ml, .sc-qd, .sc-nc, .sc-tw { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+
+/* ── 뱀 ── */
+.sc-sn__canvas {
+  display: block;
+  width: min(100%, calc(100dvh - 470px));
+  min-width: 180px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border: 2px solid #000;
+  touch-action: none;
+}
+.sc-sn__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(2, 40px);
+  justify-content: center;
+  gap: 4px;
+}
+.sc-ar .sc-sn__pad button { min-height: 0; padding: 0; font-size: 11px; touch-action: none; }
+.sc-sn__pad .is-up { grid-column: 2; grid-row: 1; }
+.sc-sn__pad .is-left { grid-column: 1; grid-row: 2; }
+.sc-sn__pad .is-down { grid-column: 2; grid-row: 2; }
+.sc-sn__pad .is-right { grid-column: 3; grid-row: 2; }
+
+/* ── 1 to 50 ── */
+.sc-ff__clock { margin: 0; text-align: center; font-size: 22px; color: #fff; font-variant-numeric: tabular-nums; }
+.sc-ff__grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.sc-ar .sc-ff__grid button {
+  min-height: 0;
+  aspect-ratio: 1;
+  max-height: calc((100dvh - 440px) / 5);
+  padding: 0;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  touch-action: manipulation;
+}
+.sc-ar .sc-ff__grid button.is-back { background: #2a2140; color: var(--ct-gold, #f0d68a); }
+.sc-ar .sc-ff__grid button.is-empty { visibility: hidden; }
+.sc-ff__grid.is-locked { opacity: 0.45; }
+.sc-ff__grid.is-shake { animation: sc-ar-shake 0.26s linear; }
+@keyframes sc-ar-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* ── 두더지 ── */
+.sc-ml__bar { height: 4px; background: #262b44; }
+.sc-ml__bar i { display: block; height: 100%; background: var(--ar-glow); }
+.sc-ml__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sc-ar .sc-ml__hole {
+  position: relative;
+  min-height: 0;
+  aspect-ratio: 1.25;
+  max-height: calc((100dvh - 440px) / 3);
+  padding: 0;
+  background: #1a1d30;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+/* 구멍 — 아래쪽 어두운 타원 */
+.sc-ml__hole::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 12%;
+  height: 22%;
+  border-radius: 50%;
+  background: #05060c;
+}
+/* 튀어나온 것 — 구멍 위로 올라온 네모 얼굴 */
+.sc-ml__hole i {
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 18%;
+  height: 0;
+  transition: height 60ms steps(2, end);
+  z-index: 1;
+}
+.sc-ml__hole.is-mole i { height: 52%; background: #a07850; box-shadow: inset 0 6px 0 #c49a6c; }
+.sc-ml__hole.is-gold i { height: 52%; background: var(--ct-gold, #f0d68a); box-shadow: inset 0 6px 0 #fff5d6; }
+.sc-ml__hole.is-bomb i { height: 46%; background: #0b0d18; border: 2px solid #e07a72; border-radius: 50%; left: 32%; right: 32%; }
+.sc-ml__hole em {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  font-style: normal;
+  font-size: 11px;
+  text-align: center;
+}
+.sc-ml__hole em.is-plus { color: var(--ct-gold, #f0d68a); }
+.sc-ml__hole em.is-minus { color: var(--ct-down, #e07a72); }
+
+/* ── 먼저 쏴 ── */
+.sc-ar button.sc-qd__field {
+  width: 100%;
+  min-height: 170px;
+  height: clamp(150px, calc(100dvh - 520px), 240px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 22px;
+  background: #140d0d;
+  border-color: #5a2f35;
+  touch-action: manipulation;
+}
+.sc-qd__field small { font-size: 11px; color: #b9bfd4; }
+.sc-ar button.sc-qd__field.is-go { background: var(--ct-gold, #f0d68a); color: #1c1f33; border-color: #fff5d6; }
+.sc-ar button.sc-qd__field.is-go small { color: #3a3320; }
+.sc-ar button.sc-qd__field.is-fired { background: #1c1f33; }
+.sc-qd__last { margin: 0; font-size: 11px; text-align: center; color: #b9bfd4; }
+.sc-qd__last.is-win { color: var(--ct-gold, #f0d68a); }
+.sc-qd__last.is-lose { color: var(--ct-down, #e07a72); }
+
+/* ── 눈치 게임 ── */
+.sc-ar button.sc-nc__shout {
+  width: 100%;
+  min-height: 150px;
+  height: clamp(130px, calc(100dvh - 560px), 220px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 22px;
+  transform-origin: center;
+  touch-action: manipulation;
+}
+.sc-nc__shout small { font-size: 11px; color: #b9bfd4; }
+.sc-ar button.sc-nc__shout.is-clash { background: #3a1418; border-color: var(--ct-down, #e07a72); color: var(--ct-down, #e07a72); opacity: 1; }
+.sc-nc__calls { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.sc-nc__calls li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  border: 1px solid #2f3552;
+  font-size: 11px;
+  color: #b9bfd4;
+}
+.sc-nc__calls li b { font-weight: 400; font-size: 22px; color: #fff; }
+.sc-nc__calls li span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-nc__calls li.is-me { border-color: var(--ar-glow); }
+.sc-nc__calls li.is-clash { border-color: var(--ct-down, #e07a72); }
+.sc-nc__calls li.is-clash b { color: var(--ct-down, #e07a72); }
+.sc-nc__calls li.is-wait b { color: #555b7a; }
+
+/* ── 탑 쌓기 ── */
+.sc-tw__order { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.sc-tw__order li { padding: 2px 6px; font-size: 11px; color: #7d86ad; border: 1px solid #2f3552; }
+.sc-tw__order li.is-turn { color: #1c1f33; background: var(--ct-gold, #f0d68a); border-color: var(--ct-gold, #f0d68a); }
+.sc-tw__canvas {
+  display: block;
+  width: 100%;
+  height: clamp(150px, calc(100dvh - 540px), 280px);
+  border: 2px solid #000;
+  touch-action: none;
+}
+.sc-tw__pop {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 22px;
+  color: #b9bfd4;
+  pointer-events: none;
+  animation: sc-tw-pop 0.9s ease-out forwards;
+}
+.sc-tw__pop.is-perfect { color: var(--ct-gold, #f0d68a); }
+@keyframes sc-tw-pop {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+.sc-ar button.sc-tw__drop { min-height: 52px; font-size: 11px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-ff__grid.is-shake, .sc-tw__pop { animation: none; }
+}

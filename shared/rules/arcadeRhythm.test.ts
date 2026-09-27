@@ -124,3 +124,17 @@ describe('기록 받기', () => {
     expect(cleanTaps('nope')).toEqual([])
   })
 })
+
+describe('둘이서 한 곡', () => {
+  it('음표마다 주인이 딱 하나 — 둘 다 칠 것이 있고 합치면 곡 전체다', async () => {
+    const { duetOwner, duetPart, duetPercent } = await import('./arcadeRhythm')
+    const chart = rhythmChart(8)
+    const a = duetPart(chart, 0, 2)
+    const b = duetPart(chart, 1, 2)
+    expect(a.length).toBeGreaterThan(10)
+    expect(b.length).toBeGreaterThan(10)
+    expect(a.length + b.length).toBe(chart.length)
+    for (const n of chart) expect([0, 1]).toContain(duetOwner(n, 2))
+    expect(duetPercent([{ pts: a.length * 2, max: a.length * 2 }, { pts: 0, max: b.length * 2 }])).toBeLessThan(70)
+  })
+})

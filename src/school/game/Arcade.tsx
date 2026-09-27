@@ -8,7 +8,7 @@
 // 숫자는 **화면 안 자판**으로 누른다. 휴대폰 자판이 올라오면 지도와
 // 조작부가 통째로 밀려 올라간다 — 이 앱이 여러 번 겪었다. 오락기에는
 // 오락기의 단추가 있는 편이 맞기도 하다.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import './arcade.css'
 
@@ -28,9 +28,16 @@ import {
   type RpsRound,
 } from '../../../shared/rules/arcade'
 import { josa } from '../../../shared/text'
-import { BIG, EndRow } from './ArcadeEnd'
+import { EndRow } from './ArcadeEnd'
 import { unlockChip } from './chip'
 import { Rhythm } from './Rhythm'
+import { Fifty } from './Fifty'
+import { Mole } from './Mole'
+import { Nunchi } from './Nunchi'
+import { Quickdraw } from './Quickdraw'
+import { Snake } from './Snake'
+import { Tower } from './Tower'
+import { BIG, playerIndex, serverNow, syncClock } from './arcadeTime'
 import type { GameActions } from './useGame'
 import type { LiveRoom } from './useArcade'
 
@@ -71,6 +78,25 @@ export function Arcade({ act, meId, machine, seated, room, invites, onDismiss }:
       setBusy(false)
     }
   }
+
+  // 서버 시계와 얼마나 어긋났는지 한 번 잰다 — 신호와 차례가 같은 때 뜨게
+  useEffect(() => {
+    void syncClock(act)
+  }, [act])
+
+  /*
+   * **마감이 지나면 판을 민다.** 차례인 사람이 사라지거나 누가 결과를
+   * 안 보내면 판이 멈춘다. 마감(deadlineMs)이 지나면 든 사람 누구의
+   * 화면이든 서버에 「밀어라」를 보낸다 — 서버가 마감을 다시 재고 민다.
+   */
+  const deadline = room?.status === 'playing' ? (room.deadlineMs ?? null) : null
+  const roomId = room?.id ?? null
+  useEffect(() => {
+    if (deadline === null || roomId === null) return
+    const wait = Math.max(0, deadline - serverNow()) + 400
+    const t = setTimeout(() => void act.arcadeTick(roomId).catch(() => undefined), wait)
+    return () => clearTimeout(t)
+  }, [deadline, roomId, act])
 
   const open = (id: ArcadeGameId) => {
     // 소리는 누른 손끝에서만 켜진다(휴대폰이 그렇다). 판이 열리기 전에 깨워 둔다
@@ -114,7 +140,16 @@ export function Arcade({ act, meId, machine, seated, room, invites, onDismiss }:
       />
     )
   } else {
-    body = <p className="sc-ar__none">아직 준비 중인 게임이다.</p>
+    const props = { room, meId, act, onAgain: () => again(room), onMenu: () => toMenu(room), onQuit: () => void run(() => act.arcadeLeave(room.id)) }
+    body =
+      room.game === 'duet' ? <Rhythm {...props} part={playerIndex(room, meId)} />
+      : room.game === 'snake' ? <Snake {...props} />
+      : room.game === 'oneToFifty' ? <Fifty {...props} />
+      : room.game === 'mole' ? <Mole {...props} />
+      : room.game === 'quickdraw' ? <Quickdraw {...props} />
+      : room.game === 'nunchi' ? <Nunchi {...props} />
+      : room.game === 'tower' ? <Tower {...props} />
+      : <p className="sc-ar__none">아직 준비 중인 게임이다.</p>
   }
 
   const ask = invites[0]

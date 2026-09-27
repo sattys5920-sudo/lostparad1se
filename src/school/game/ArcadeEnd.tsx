@@ -1,7 +1,4 @@
-// 오락기 끝 화면 조각. 게임마다 같은 두 단추와 같은 큰 글자를 쓴다.
-import type { ArcadeOutcome } from '../../../shared/rules/arcade'
-
-export const BIG: Record<ArcadeOutcome, string> = { win: 'YOU WIN', lose: 'YOU LOSE', draw: 'DRAW' }
+// 오락기 끝 화면 조각. 게임마다 같은 두 단추를 쓴다(큰 글자 BIG 은 arcadeTime).
 
 export function EndRow({ busy, onAgain, onMenu }: { busy?: boolean; onAgain: () => void; onMenu: () => void }) {
   return (

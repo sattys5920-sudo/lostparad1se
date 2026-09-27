@@ -15,6 +15,9 @@
 //
 // 이 파일은 순수 함수만 둔다. 굴림(roll)은 부르는 쪽이 쥔다.
 import { ALLEY, type Cell } from './board'
+import type { DrawState } from './arcadeDraw'
+import type { NunchiState } from './arcadeNunchi'
+import type { TowerState } from './arcadeTower'
 
 // ── 기계 ────────────────────────────────────────────────────────
 
@@ -94,11 +97,14 @@ export interface ArcadeGame {
   /**
    * 어떻게 판을 굴리는가.
    *
-   *   turn  한 수씩 서버에 묻는다(업다운·가위바위보)
-   *   live  화면이 제 손으로 굴리고, 끝나면 누른 기록을 통째로 보낸다.
-   *         서버는 같은 규칙으로 다시 돌려 점수를 낸다
+   *   turn   한 수씩 서버에 묻는다(업다운·가위바위보·먼저 쏴). 한
+   *          사람만 나가도 판이 깨진다
+   *   live   화면이 제 손으로 굴리고, 끝나면 누른 기록을 통째로 보낸다.
+   *          서버는 같은 규칙으로 다시 돌려 점수를 낸다
+   *   table  여럿이 판 하나를 같이 본다(눈치 게임·탑 쌓기). 서버가 판을
+   *          쥐고, 나간 사람은 빼고 남은 사람끼리 이어 간다
    */
-  kind: 'turn' | 'live'
+  kind: 'turn' | 'live' | 'table'
   /** 들어갈 수 있는가. 아직 안 만든 게임은 고르는 화면에 「준비 중」으로 선다. */
   ready: boolean
 }
@@ -106,14 +112,14 @@ export interface ArcadeGame {
 export const ARCADE_GAMES: readonly ArcadeGame[] = [
   { id: 'updown', name: '업다운', mode: 'solo', min: 1, max: 1, blurb: '1~100 숨은 숫자를 여섯 번 안에', kind: 'turn', ready: true },
   { id: 'rhythm', name: '리듬 스타', mode: 'solo', min: 1, max: 1, blurb: '떨어지는 음표를 박자에 맞춰', kind: 'live', ready: true },
-  { id: 'snake', name: '뱀', mode: 'solo', min: 1, max: 1, blurb: '먹을수록 길어진다. 꼬리를 물지 마라', kind: 'live', ready: false },
+  { id: 'snake', name: '뱀', mode: 'solo', min: 1, max: 1, blurb: '먹을수록 길어진다. 꼬리를 물지 마라', kind: 'live', ready: true },
   { id: 'rps', name: '가위바위보', mode: 'versus', min: 2, max: 2, blurb: '다른 기계와 한 판', kind: 'turn', ready: true },
-  { id: 'quickdraw', name: '먼저 쏴', mode: 'versus', min: 2, max: 2, blurb: '신호가 뜨면 먼저 누른 쪽이 이긴다', kind: 'live', ready: false },
-  { id: 'duet', name: '둘이서 한 곡', mode: 'coop', min: 2, max: 2, blurb: '한 곡을 둘이 나눠 친다', kind: 'live', ready: false },
-  { id: 'nunchi', name: '눈치 게임', mode: 'versus', min: 2, max: 4, blurb: '1부터 외친다. 겹치거나 꼴찌면 탈락', kind: 'live', ready: false },
-  { id: 'tower', name: '탑 쌓기', mode: 'coop', min: 2, max: 4, blurb: '돌아가며 쌓는다. 무너지면 끝', kind: 'live', ready: false },
-  { id: 'oneToFifty', name: '1 to 50', mode: 'versus', min: 1, max: 4, blurb: '1부터 50까지 누가 먼저', kind: 'live', ready: false },
-  { id: 'mole', name: '두더지 잡기', mode: 'versus', min: 1, max: 4, blurb: '30초 동안 누가 더 많이', kind: 'live', ready: false },
+  { id: 'quickdraw', name: '먼저 쏴', mode: 'versus', min: 2, max: 2, blurb: '신호가 뜨면 먼저 누른 쪽이 이긴다', kind: 'turn', ready: true },
+  { id: 'duet', name: '둘이서 한 곡', mode: 'coop', min: 2, max: 2, blurb: '한 곡을 둘이 나눠 친다', kind: 'live', ready: true },
+  { id: 'nunchi', name: '눈치 게임', mode: 'versus', min: 2, max: 4, blurb: '1부터 외친다. 겹치거나 꼴찌면 탈락', kind: 'table', ready: true },
+  { id: 'tower', name: '탑 쌓기', mode: 'coop', min: 2, max: 4, blurb: '돌아가며 쌓는다. 무너지면 끝', kind: 'table', ready: true },
+  { id: 'oneToFifty', name: '1 to 50', mode: 'versus', min: 1, max: 4, blurb: '1부터 50까지 누가 먼저', kind: 'live', ready: true },
+  { id: 'mole', name: '두더지 잡기', mode: 'versus', min: 1, max: 4, blurb: '30초 동안 누가 더 많이', kind: 'live', ready: true },
 ]
 
 export const ARCADE_BY_ID: Readonly<Record<ArcadeGameId, ArcadeGame>> = Object.fromEntries(
@@ -179,6 +185,14 @@ export interface RoomDoc {
   updown: UpDownView | null
   /** 가위바위보 — 이번 판에 낸 사람과 지난 판들. 무엇을 냈는지는 봉인에 있다. */
   rps: { inIds: string[]; rounds: RpsRound[] } | null
+  /** 먼저 쏴 — 이번 판에 쏜 사람과 지난 판들. 몇 ms 였는지는 봉인에 있다. */
+  draw?: DrawState | null
+  /** 눈치 게임 — 외친 차례. 서버에 닿은 순서 그대로다. */
+  nunchi?: NunchiState | null
+  /** 탑 쌓기 — 쌓인 블록과 차례. */
+  tower?: TowerState | null
+  /** 판이 저절로 닫히는 때(벽시계). 아무도 안 누르고 있어도 누구든 닫을 수 있다. */
+  deadlineMs?: number | null
   atMs: number
 }
 
@@ -207,6 +221,7 @@ export function roomAfterLeave(room: Pick<RoomDoc, 'game' | 'hostId' | 'members'
   const anyone = members.some((m) => m.state === 'in')
   let status = room.status
   if (room.status === 'lobby' && (uid === room.hostId || !anyone)) status = 'gone'
+  // 손 게임과 판 게임은 남은 사람끼리 이어 간다(판 게임은 서버가 판에서도 뺀다)
   if (room.status === 'playing' && (ARCADE_BY_ID[room.game].kind === 'turn' || !anyone)) status = 'gone'
   return { members, status }
 }
@@ -218,15 +233,25 @@ export interface Scored {
   line: string
   /** 혼자 기준의 이김·짐. 혼자 하는 게임이면 그대로 쓴다. */
   solo: ArcadeOutcome
+  /**
+   * 협동 게임에서 합칠 몫. 이 사람이 딴 것(pts)과 딸 수 있던 것(max).
+   * 둘이서 한 곡은 둘의 판정을 합쳐 곡 하나로 매긴다.
+   */
+  pts?: number
+  max?: number
 }
+
+/** 협동 게임을 합친 몫으로 가를 때 이 퍼센트를 넘기면 깬다. */
+export const COOP_PASS = 70
 
 /**
  * 손 게임의 끝. 방식에 따라 이김·짐을 가른다.
  *
  *   solo    제 기준 그대로
  *   versus  제일 높은 사람이 이긴다. 같으면 그 사람들끼리 비긴다.
- *           혼자 남아 끝냈으면 이긴다
- *   coop    다 같이. 한 사람이라도 깨면 다 같이 깬 것이다
+ *           상대가 일어나 혼자 남았으면 이긴다. 처음부터 혼자였으면
+ *           혼자 기준(깼나)으로 가른다
+ *   coop    다 같이. 합친 몫으로 가르고, 누가 일어나면 다 같이 진다
  *
  * **중간에 일어난 사람은 진다.** 점수 없이.
  */
@@ -234,12 +259,23 @@ export function settleRoom(mode: ArcadeMode, scored: readonly Scored[], leftIds:
   const out: Record<string, RoomResult> = {}
   const best = Math.max(...scored.map((s) => s.score))
   const top = scored.filter((s) => s.score === best).length
-  const team: ArcadeOutcome = scored.some((s) => s.solo === 'win') ? 'win' : 'lose'
+  /*
+   * 협동은 **합친 몫**으로 가른다(몫이 있으면). 한 사람만 잘해서는 안
+   * 된다. **누가 중간에 일어나면 다 같이 진다** — 곡 절반이 빈다.
+   */
+  const pts = scored.reduce((a, s) => a + (s.pts ?? 0), 0)
+  const max = scored.reduce((a, s) => a + (s.max ?? 0), 0)
+  const team: ArcadeOutcome =
+    leftIds.length > 0 ? 'lose'
+    : max > 0 ? (pts / max) * 100 >= COOP_PASS ? 'win' : 'lose'
+    : scored.every((s) => s.solo === 'win') ? 'win' : 'lose'
   for (const s of scored) {
     const outcome: ArcadeOutcome =
       mode === 'solo' ? s.solo
       : mode === 'coop' ? team
-      : scored.length === 1 ? 'win'
+      // 혼자 한 판(1~4인 게임을 혼자)은 혼자 기준으로 — 0점이어도 이기면 안 된다.
+      // 상대가 일어나서 혼자 남은 것은 이긴 것이다
+      : scored.length === 1 ? (leftIds.length === 0 ? s.solo : 'win')
       : s.score === best ? (top > 1 ? 'draw' : 'win')
       : 'lose'
     out[s.id] = { outcome, score: s.score, line: s.line }
