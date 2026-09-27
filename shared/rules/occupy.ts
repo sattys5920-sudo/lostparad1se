@@ -113,21 +113,18 @@ export function nextWallet(input: {
  * 두 배가 되고, 그러면 아무도 층을 안 넘는다.
  *
  * 그래서 어디서 어디로 가든 값은 토큰 하나다. 조이는 것은 시계다 —
- * 문 하나를 넘는 데 10분이라, 계단 둘을 거치는 길은 값이 아니라
- * 시간이 비싸다.
+ * 문 하나를 넘는 데 5분이라, 계단 둘을 거치는 길도 값은 하나다.
  */
 export const ENTER_COST = 1
 
 /**
- * 나가는 데 5분, 들어가는 데 5분. **토큰과 별개로 시간이 든다.**
+ * 방 하나 옮기는 데 5분. **토큰과 별개로 시간이 든다.**
  *
- * 그래서 한 방 옮기는 데 열 시간분이 아니라 10분이 통째로 사라지고,
- * 그동안은 어느 방에도 없다 — 그때 페이즈가 닫히면 아무 데도 못 센다.
- * 토큰이 남아도 시계가 안 남으면 못 움직이는 것이 이 게임의 조임쇠다.
+ * 그동안은 어느 방에도 없다. 전에는 10분이었는데, 한 시간짜리 페이즈에서
+ * 갔다 오기만 해도 3분의 1이 걸음으로 사라졌다. 5분이면 「우리 방에
+ * 누가 꽂았다 → 로봇 데리고 뽑으러 간다」가 같은 페이즈 안에서 난다.
  */
-export const EXIT_MINUTES = 5
-export const ENTER_MINUTES = 5
-export const MOVE_MINUTES = EXIT_MINUTES + ENTER_MINUTES
+export const MOVE_MINUTES = 5
 
 // **거래는 값이 안 든다.**
 //
@@ -259,7 +256,7 @@ export interface Person {
   /**
    * 지금 선 방. **걷는 중이면 null 이다.**
    *
-   * 문을 넘는 10분 동안은 어느 방에도 없다. 그때 페이즈가 닫히면
+   * 문을 넘는 5분 동안은 어느 방에도 없다. 그때 페이즈가 닫히면
    * 어느 방에도 안 세어진다 — 마지막 순간의 이동은 도박이다.
    */
   tileId: TileId | null
@@ -410,7 +407,8 @@ export const ACT_COST: Record<ActionKind, number> = {
 export const ACT_MINUTES: Record<ActionKind, number> = {
   move: MOVE_MINUTES,
   research: 20,
-  summon: 10,
+  // 불려 오는 사람이 한 방 걷는 동안 둘 다 묶인다. 걸음과 같은 5분
+  summon: MOVE_MINUTES,
   plant: 0,
   pull: 0,
   dropRobot: 0,
@@ -633,11 +631,11 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   /**
    * 사람 하나를 문 밖으로 내보낸다. **바로 도착하지 않는다.**
    *
-   * 나가는 데 5분, 들어가는 데 5분. 그동안은 어느 방에도 없고, 데리고
+   * 걷는 데 5분(MOVE_MINUTES). 그동안은 어느 방에도 없고, 데리고
    * 있는 로봇도 함께 사라진다. 도착은 서버의 시계가 시킨다 — 이 함수는
    * 「떠났다」까지만 안다.
    *
-   * 계단을 몇 번 오르내리든 이 10분 안이다. 계단은 문이지 칸이 아니다.
+   * 계단을 몇 번 오르내리든 이 5분 안이다. 계단은 문이지 칸이 아니다.
    */
   function step(p: Person, to: TileId): string | null {
     if (p.tileId === null) return '이미 걷는 중이다.'
@@ -685,7 +683,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
 
     case 'summon': {
       // 같은 팀 한 명을 내 쪽으로 한 걸음 끌어온다. 부르는 것도 걸음이라
-      // 끌려오는 사람은 10분 동안 어느 방에도 없다
+      // 끌려오는 사람은 걷는 동안(MOVE_MINUTES) 어느 방에도 없다
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const target = act.targetPlayer ? byId.get(act.targetPlayer) : undefined
       if (!target) return no('그런 사람이 없다.')

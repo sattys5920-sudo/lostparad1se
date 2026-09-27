@@ -96,7 +96,7 @@ export const DEV_CLOCK_SPEED_MAX = 120
  * 본래는 「이웃 칸 하나를 걷는 데 드는 게임 시간」이었다. 복도가
  * 생기고 계단이 문이 된 뒤로 어느 방이든 한 걸음이라 여러 칸을
  * 걷는 일이 없어졌고, 걷기와 등교 예약을 같이 들어냈다.
- * 페이즈의 걸음 값은 occupy.ts 의 MOVE_MINUTES(10분)다.
+ * 페이즈의 걸음 값은 occupy.ts 의 MOVE_MINUTES(5분)다.
  */
 export const MOVE_GAME_MIN_PER_TILE = 15
 

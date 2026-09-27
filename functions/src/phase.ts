@@ -710,7 +710,7 @@ export const phaseAct = onCall<{
         continue
       }
 
-      // 문을 넘었다. 나가는 데 5분, 들어가는 데 5분 — 그동안 어느 방에도 없다
+      // 문을 넘었다. 걷는 5분 동안 어느 방에도 없다
       const to = p.toTile as TileId
       tx.update(doc.ref, {
         tileId: null,

@@ -1354,7 +1354,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
               // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
               // 아무도 안 움직인다. 값은 페이즈가 열릴 때 한 번 치른다
-              // 페이즈 중에는 들어가는 데 토큰이 들고 10분이 걸린다.
+              // 페이즈 중에는 들어가는 데 토큰이 들고 5분이 걸린다.
               // 자유 시간에는 공짜고 즉시다
               const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to)
               // **됐는지 안 됐는지를 돌려준다.** 안 돌려주면 화면이 대답을

@@ -102,7 +102,7 @@ describe('토큰이 한 페이즈의 전부다', () => {
   it('다른 방에 들어가면 토큰이 하나 준다', () => {
     const s0 = board({ people: [person('a', 'A', 'baseA')] })
     const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
-    // **바로 도착하지 않는다.** 나가는 데 5분, 들어가는 데 5분
+    // **바로 도착하지 않는다.** 걷는 데 5분
     expect(at(s1, 'a').tileId).toBeNull()
     expect(at(s1, 'a').toTile).toBe('cafeteria')
     expect(purse(s1, 'A')).toBe(TOKENS_PER_PHASE - ACT_COST.move)
