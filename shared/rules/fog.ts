@@ -5,8 +5,8 @@
 // 아예 들어가지 않는다. 받은 뒤 숨기면 개발자도구로 다 보인다.
 //
 // 걷는 말의 목적지는 어느 view에도 들어가지 않는다 — 본인 팀 것도.
-import { ADJACENCY, HALLS, TILE_BY_ID, tileDistance, type Cell, type TileId } from './board'
-import { HALL_SIGHT, INTEL_VISION_BONUS, VISION_RANGE, type TeamId } from './v2'
+import { HALLS, TILE_BY_ID, type Cell, type TileId } from './board'
+import { HALL_SIGHT, type TeamId } from './v2'
 
 /**
  * 잠복한 말을 같은 팀도 못 보는가.
@@ -53,40 +53,21 @@ export interface PawnView {
   at?: Cell | null
 }
 
-export interface VisionInput {
-  /** 우리 칸 전부. 기지를 포함한다. */
-  ownedTiles: Iterable<TileId>
-  /** 우리 말이 선 칸. 걷는 중인 말은 다음 칸으로 넣는다. */
-  myPawnTiles: Iterable<TileId>
-  /** 정보부장이 있으면 말 시야가 한 겹 넓어진다. */
-  intelOfficer?: boolean
-}
-
-function spread(center: TileId, range: number, into: Set<TileId>): void {
-  if (!TILE_BY_ID[center]) return
-  if (range <= VISION_RANGE) {
-    into.add(center)
-    if (range >= 1) for (const n of ADJACENCY[center]) into.add(n)
-    return
-  }
-  // 격자 거리로 잰다
-  for (const id of Object.keys(ADJACENCY)) {
-    if (tileDistance(center, id) <= range) into.add(id)
-  }
-}
-
 /**
- * 지금 이 팀에게 안개가 걷힌 칸.
+ * 안개가 걷힌 방. **내가 들어가 있는 방 하나뿐이다.**
  *
- *   우리 칸은 늘 보인다
- *   우리 말이 선 칸과 그 이웃 (정보부장이 있으면 한 겹 더)
+ * 몇 명이 있는지는 들어가야만 안다. 전에는 우리 팀이 쥔 방 전부와,
+ * 우리 팀 누구든 선 방의 **이웃까지** 보였다(정보부장은 한 겹 더).
+ * 그러면 문 앞에 서기만 해도 옆 교실이 몇 명인지 알아서, 들어갈지
+ * 말지를 재 볼 일이 없었다. 이제 문을 열어야 안다.
+ *
+ * 같은 팀 사람은 여전히 어디 있든 보인다(visiblePawns) — 그건 방의
+ * 머릿수가 아니라 우리 편이 어디 있나다. 복도에서 눈앞에 보이는
+ * 사람도 그대로다(nearInHall).
  */
-export function visibleTiles(input: VisionInput): Set<TileId> {
+export function visibleTiles(input: { myRoom: TileId | null }): Set<TileId> {
   const out = new Set<TileId>()
-  for (const id of input.ownedTiles) if (TILE_BY_ID[id]) out.add(id)
-
-  const range = VISION_RANGE + (input.intelOfficer ? INTEL_VISION_BONUS : 0)
-  for (const id of input.myPawnTiles) spread(id, range, out)
+  if (input.myRoom !== null && TILE_BY_ID[input.myRoom]) out.add(input.myRoom)
   return out
 }
 

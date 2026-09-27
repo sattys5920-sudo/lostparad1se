@@ -91,7 +91,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       // 방 안 어디에 서 있는가. 거래가 이것을 본다
       at: p.at ?? null,
       hiddenUntilMs: p.hiddenUntilMs ?? null,
-      intelOfficer: p.title === 'intelOfficer',
       // 투영이 본인 몫에만 싣는다. 여기서는 그냥 들고만 간다
       arriveAtMs: p.arriveAtMs ?? null,
       busyUntilMs: p.busyUntilMs ?? null,

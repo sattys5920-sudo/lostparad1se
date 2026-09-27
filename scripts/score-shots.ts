@@ -170,6 +170,53 @@ async function main() {
     if (settled !== 0) missed.push(`${tag}: 4초 뒤에도 +N 이 ${settled}개 남았다`)
     const final = await chips()
     console.log(`  4초 뒤: ${final.join(' · ')}`)
+
+    /*
+     * **차지한 팀은 면 색으로.** 옆 방(과학실)을 노랑 팀에 준다 — 노랑
+     * 바탕의 흰 이름이 가장 안 읽힐 자리라 거기서 본다.
+     */
+    await own('scienceRoom', 'D')
+    await page.waitForTimeout(900)
+    const TEAM_RGB: Record<string, string> = {
+      A: 'rgb(224, 69, 63)', B: 'rgb(63, 122, 224)', C: 'rgb(47, 168, 102)', D: 'rgb(224, 160, 42)',
+    }
+    const rooms = await page.evaluate(() =>
+      [...document.querySelectorAll('.sc-mini .sc-mp__room')].map((g) => {
+        const rect = g.querySelector('rect') as SVGRectElement
+        const b = rect.getBoundingClientRect()
+        return {
+          name: g.querySelector('.sc-mp__mini')?.textContent ?? '',
+          fill: rect.style.fill,
+          here: g.classList.contains('is-here'),
+          box: { l: b.left, r: b.right, t: b.top, b: b.bottom },
+        }
+      }),
+    )
+    console.log(`\n── ${tag} 면 색 ──\n  ${rooms.map((r) => `${r.name}=${r.fill || '없음'}`).join(' · ')}`)
+    const want: Record<string, string> = { 미술: TEAM_RGB[myTeam], 과학: TEAM_RGB.D, '2-3': '' }
+    for (const [name, fill] of Object.entries(want)) {
+      const got = rooms.find((r) => r.name === name)
+      if (!got) missed.push(`${tag}: 미니맵에 「${name}」이 없다`)
+      else if (got.fill !== fill) missed.push(`${tag}: 「${name}」 면 색이 ${got.fill || '없음'} — ${fill || '없음'}이어야 한다`)
+    }
+
+    /*
+     * **머릿수는 들어가야만.** 미니맵의 점은 전부 내 방 안에 있어야 한다.
+     * 옆 방 사람이 서버에서 안 오므로 점도 없다 — 여기서는 그 결과를 잰다.
+     */
+    const hereRoom = rooms.find((r) => r.here)
+    const dots = await page.evaluate(() =>
+      [...document.querySelectorAll('.sc-mini circle')].map((c) => {
+        const b = c.getBoundingClientRect()
+        return { x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2 }
+      }),
+    )
+    const stray = dots.filter((d) => !hereRoom || d.x < hereRoom.box.l || d.x > hereRoom.box.r || d.y < hereRoom.box.t || d.y > hereRoom.box.b)
+    console.log(`  점 ${dots.length}개 · 내 방 밖 ${stray.length}개`)
+    if (dots.length === 0) missed.push(`${tag}: 미니맵에 점이 하나도 없다(내 방에는 있어야 한다)`)
+    if (stray.length > 0) missed.push(`${tag}: 내 방 밖에 점이 ${stray.length}개`)
+    const mbox = await page.locator('.sc-mini').boundingBox()
+    if (mbox) await page.screenshot({ path: `${OUT}/score-${tag}-면색.png`, clip: { x: mbox.x - 4, y: mbox.y - 4, width: mbox.width + 8, height: mbox.height + 8 } })
     await ctx.close()
   }
 

@@ -251,8 +251,9 @@ function canDoIn(room: RoomFacts): string[] {
 
 /** 인원 점. **분수 대신 네모를 늘어놓는다** — 얼마나 찼는지가 바로 보인다. */
 function Seats({ room, big }: { room: RoomFacts; big?: boolean }) {
-  if (!room.known) return null
-  const count = room.count ?? 0
+  // 머릿수는 들어가 있는 방에만 온다. 가 본 방이라도 지금 밖이면 모른다
+  if (room.count === null) return null
+  const count = room.count
   // 열린 칸은 정원이 없다. 찬 만큼만 찍는다
   const slots = room.open ? count : room.capacity
   const known = room.dots.filter((d) => !d.robot)
@@ -509,7 +510,7 @@ export function FullMap({
                 {label.length > 0 && <span className="sc-at__nm">{label}</span>}
                 {/* **가리는 것은 머릿수뿐이다.** 이름도 정원도 차지한
                     팀도 판에 드러난 것이라 처음부터 보인다 */}
-                {r.known ? <Seats room={r} /> : <span className="sc-at__q">?</span>}
+                {r.count !== null ? <Seats room={r} /> : <span className="sc-at__q">?</span>}
                 {KIND_DOT[r.kind] && <i className={`sc-at__kind ${KIND_DOT[r.kind]}`} />}
                 {r.id === facts.here && <i className="sc-at__me" />}
               </button>
@@ -560,7 +561,7 @@ const RoomSheet = forwardRef<
         <div>
           <dt>지금 인원</dt>
           <dd>
-            {room.known ? (
+            {room.count !== null ? (
               <>
                 <Seats room={room} big />
                 <em>
@@ -579,7 +580,13 @@ const RoomSheet = forwardRef<
           <li key={line}>{line}</li>
         ))}
       </ul>
-      {!room.known && <p className="sc-at__why">아직 안을 본 적이 없다.</p>}
+      {/* 모르는 까닭을 가른다 — 가 본 적이 없는 것과, 가 봤어도 지금
+          밖이라 모르는 것은 다르다. 뒤엣것을 「안 가 봤다」로 적으면 거짓말이다 */}
+      {room.count === null && (
+        <p className="sc-at__why">
+          {room.known ? '몇 명 있는지는 들어가야 안다.' : '아직 안을 본 적이 없다.'}
+        </p>
+      )}
     </div>
   )
 })

@@ -18,7 +18,7 @@
 import { DISGUISE_SHOWN_AS } from './occupy'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
 import type { TeamId, VoteKind } from './v2'
-import { TILE_BY_ID, floorOfCell, roomOfCell, type Cell, type TileId } from './board'
+import { floorOfCell, roomOfCell, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
 import { MAKERS, TECH_TILE } from './trap'
 import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
@@ -38,8 +38,6 @@ import { noticesFor, type Notice } from '../reveal/notice'
 // ── 서버가 쥐고 있는 것 ─────────────────────────────────────────
 
 export interface WorldPawn extends PawnPosition {
-  /** 정보부장이면 우리 팀 시야가 한 겹 넓어진다. */
-  intelOfficer: boolean
   /** 거래를 걸 수 있는 개인 토큰. 투영이 본인 몫에만 싣는다. */
   /** 옮기기로 한 팀. **본인 몫에만 실린다** — 남의 배신은 안 보인다. */
   movingTo?: TeamId | null
@@ -567,22 +565,24 @@ export function projectView(world: World, viewerId: string): View {
     }
   }
 
-  const ours = seenPawns.filter((p) => p.team === team)
-  // 걷는 말은 다음 칸을 기준으로 본다. 목적지가 아니다
-  const myPawnTiles = ours
-    .map((p) => p.tileId ?? p.toTile)
-    .filter((id): id is TileId => id !== null && Boolean(TILE_BY_ID[id]))
-
-  const visible = visibleTiles({
-    ownedTiles: world.tiles.filter((t) => t.ownerTeam === team).map((t) => t.tileId),
-    myPawnTiles,
-    intelOfficer: ours.some((p) => p.intelOfficer),
-  })
-
   // 내가 선 방. 걷는 중이면 어느 방에도 없다 — 바닥의 쪽지도 안 보인다
   const here = seenPawns.find((p) => p.playerId === viewerId)?.tileId ?? null
   /** 내가 멈춰 선 칸. 게시판 앞인지를 이걸로 본다 */
   const myCell = seenPawns.find((p) => p.playerId === viewerId)?.at ?? null
+  /**
+   * **내가 지금 안에 들어가 있는 방.** 안개도 문제 종이도 이것 하나를 본다.
+   *
+   * 칸과 방이 둘 다 있으면 **둘이 맞아야** 그 방 안이다. 복도에 서
+   * 있으면 tileId 는 마지막 방으로 남아 있고(standAt 은 at 만 고친다),
+   * 반대로 방을 옮기고 아직 안 섰으면 at 이 옛 자리다 — 어느 쪽이든
+   * 어긋나면 **어느 방에도 없는 것으로** 친다. 헷갈릴 때 보여 주면
+   * 들어가지 않은 방의 머릿수가 샌다. 칸이 없으면(막 들어와 아직 안
+   * 섰으면) 방까지만 믿는다.
+   */
+  const myRoom: TileId | null =
+    myCell === null ? here : roomOfCell(myCell.x, myCell.y) === here ? here : null
+
+  const visible = visibleTiles({ myRoom })
 
   /**
    * 그 칸이 내 눈에 들어오는가. **문제 종이가 이걸로 걸러진다.**
@@ -598,8 +598,6 @@ export function projectView(world: World, viewerId: string): View {
    * 방 이름만으로는 1층 복도와 2층 복도를 못 가른다.
    */
   const seesCell = (x: number, y: number): boolean => {
-    // 칸이 없으면 방까지는 안다. 막 도착해서 아직 안 선 사람이 그렇다
-    const myRoom = myCell !== null ? roomOfCell(myCell.x, myCell.y) : here
     const room = roomOfCell(x, y)
     if (room !== null) return room === myRoom
     // 복도 것은 **나도 복도에 서 있어야** 보인다. 층까지 같아야 한다

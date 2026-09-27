@@ -106,8 +106,11 @@ export const DEV_CLOCK_SPEED_MAX = 120
  */
 export const MOVE_GAME_MIN_PER_TILE = 15
 
-/** 안개 — 내가 선 칸에서 이만큼 떨어진 칸까지 보인다(우리 칸은 항상 보인다). */
-export const VISION_RANGE = 1
+/*
+ * 안개의 시야(VISION_RANGE)와 정보부장의 한 겹(INTEL_VISION_BONUS)은
+ * 없앴다. **방 안의 머릿수는 들어가야만 안다** — 이웃 방이 보이는
+ * 거리라는 것이 없어졌다(fog.ts 의 visibleTiles).
+ */
 
 /**
  * 복도에서 **보이고 들리는 거리**. 칸 수다.
@@ -120,8 +123,6 @@ export const VISION_RANGE = 1
  * 들린다 — 두 숫자로 두면 「보이는데 말은 안 걸리는」 자리가 생긴다.
  */
 export const HALL_SIGHT = 6
-/** 정보부장은 한 겹 더 본다. */
-export const INTEL_VISION_BONUS = 1
 
 // ── 행동 토큰 ───────────────────────────────────────────────────
 //

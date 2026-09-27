@@ -159,7 +159,10 @@ export interface RoomFacts {
   owner: TeamId | null
   /** 가 봤거나 지금 보이는 방. 어느 쪽도 아니면 지도에 검게 남는다. */
   known: boolean
-  /** 서버가 준 머릿수. 위장이 이미 반영돼 있다. 모르는 방은 null. */
+  /**
+   * 서버가 준 머릿수. 위장이 이미 반영돼 있다. **내가 들어가 있는 방
+   * 말고는 null** — 머릿수는 들어가야만 안다(fog.ts).
+   */
   count: number | null
   capacity: number
   /** 인원 제한이 없는 방. 머릿수만 적고 정원은 안 적는다. */
@@ -180,8 +183,15 @@ export function readMap(f: MapFacts): RoomFacts[] {
   return TILES.map((t) => {
     const id = t.id as TileId
     const known = visited.has(id) || visible.has(id)
+    /*
+     * **머릿수와 점은 서버가 보여 준 방에서만.** 전에는 「가 본 방」이면
+     * `counts[id] ?? 0` 을 적었다 — 서버가 그 방 숫자를 안 보냈을 뿐인데
+     * 화면이 「0명」이라고 단정했다. 이제 서버는 내가 들어가 있는 방
+     * 하나만 보내므로, 그대로 두면 가 본 방이 전부 빈방으로 거짓말한다.
+     */
+    const inside = visible.has(id)
     const dots: RoomFacts['dots'] = []
-    if (known) {
+    if (inside) {
       for (const p of pawns) {
         if (p.tileId !== id) continue
         dots.push({ key: p.playerId, team: p.team as TeamId, me: p.playerId === f.meId, robot: false })
@@ -205,7 +215,7 @@ export function readMap(f: MapFacts): RoomFacts[] {
       },
       owner: (f.tiles[id]?.ownerTeam ?? null) as TeamId | null,
       known,
-      count: known ? (counts[id] ?? 0) : null,
+      count: inside ? (counts[id] ?? 0) : null,
       capacity: capacityOf(id),
       open: OPEN_TILES.has(id),
       kind: ROOM_KIND[id],
@@ -374,13 +384,24 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
             onClick={onPick ? () => onPick(r.id) : undefined}
             style={onPick ? { cursor: 'pointer' } : undefined}
           >
+            {/*
+              차지한 팀. **미니맵은 면을 칠한다** — 88px 에서 1~2px 테두리
+              색은 안 읽힌다. 전체 맵은 방 안에 글자가 많아 테두리로 둔다.
+            */}
             <rect
               x={x}
               y={y}
               width={bw}
               height={bh}
               rx={2}
-              style={r.owner ? { stroke: TEAM_COLOR[r.owner] } : undefined}
+              className={compact && r.owner ? 'is-owned' : undefined}
+              style={
+                r.owner
+                  ? compact
+                    ? { fill: TEAM_COLOR[r.owner] }
+                    : { stroke: TEAM_COLOR[r.owner] }
+                  : undefined
+              }
             />
 
             {/* **가리는 것은 안에 누가 있는지뿐이다.**
@@ -427,9 +448,9 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
                 <text
                   x={c.x}
                   y={y + bh - 5}
-                  className={`sc-mp__count${r.known && !r.open && (r.count ?? 0) >= r.capacity ? ' is-full' : ''}`}
+                  className={`sc-mp__count${r.count !== null && !r.open && r.count >= r.capacity ? ' is-full' : ''}`}
                 >
-                  {!r.known
+                  {r.count === null
                     ? r.open
                       ? '?명'
                       : `? / ${r.capacity}`

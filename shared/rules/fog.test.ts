@@ -10,7 +10,6 @@ import {
   visibleTiles,
   type PawnPosition,
 } from './fog'
-import { INTEL_VISION_BONUS } from './v2'
 
 const pawn = (over: Partial<PawnPosition> & Pick<PawnPosition, 'playerId' | 'team'>): PawnPosition => ({
   tileId: null,
@@ -21,35 +20,30 @@ const pawn = (over: Partial<PawnPosition> & Pick<PawnPosition, 'playerId' | 'tea
   ...over,
 })
 
-describe('보이는 칸', () => {
-  it('우리 칸은 늘 보인다', () => {
-    // 기지가 없어져서 「시작 칸」이 없다. 쥐고 있는 방을 직접 적는다
-    const mine = ['baseA', 'cafeteria', 'hallway'] as const
-    const out = visibleTiles({ ownedTiles: mine, myPawnTiles: [] })
-    for (const id of mine) expect(out.has(id)).toBe(true)
+/*
+ * **머릿수는 들어가야만 안다.** 보이는 방은 내가 안에 있는 방 하나다.
+ *
+ * 「안 보인다」만 재는 시험은 아무것도 안 보이는 고장에도 통과한다 —
+ * 복도 종이가 그렇게 숨었었다. 그래서 늘 「내 방은 보인다」와 짝으로 잰다.
+ */
+describe('보이는 방', () => {
+  it('내가 들어가 있는 방은 보인다', () => {
+    expect([...visibleTiles({ myRoom: 'centralPlaza' })]).toEqual(['centralPlaza'])
   })
 
-  it('말이 선 칸과 그 이웃이 보인다', () => {
-    const out = visibleTiles({ ownedTiles: [], myPawnTiles: ['centralPlaza'] })
-    expect(out.has('centralPlaza')).toBe(true)
-    // 2-3 교실의 이웃 — 옆 교실, 복도 건너, 서쪽 계단
-    expect(out.has('scienceRoom')).toBe(true)
-    expect(out.has('artRoom')).toBe(true)
-    // 두 칸 떨어진 곳은 안 보인다
-    expect(out.has('musicRoom')).toBe(false)
+  it('바로 옆 방도 안 보인다 — 문을 열어야 안다', () => {
+    const out = visibleTiles({ myRoom: 'centralPlaza' })
+    // 전에는 2-3 교실에 서면 이웃(과학실·미술실)이 보였다
+    expect(out.has('scienceRoom')).toBe(false)
+    expect(out.has('artRoom')).toBe(false)
   })
 
-  it('정보부장이 있으면 한 겹 더 본다', () => {
-    const out = visibleTiles({ ownedTiles: [], myPawnTiles: ['centralPlaza'], intelOfficer: true })
-    expect(INTEL_VISION_BONUS).toBe(1)
-    expect(out.has('musicRoom')).toBe(true)
-    // 세 칸은 여전히 안 보인다
-    expect(out.has('baseD')).toBe(false)
+  it('복도에 서 있으면 어느 방도 안 보인다', () => {
+    expect(visibleTiles({ myRoom: null }).size).toBe(0)
   })
 
-  it('없는 칸은 무시한다', () => {
-    const out = visibleTiles({ ownedTiles: ['nowhere'], myPawnTiles: ['nowhere'] })
-    expect(out.size).toBe(0)
+  it('없는 방은 무시한다', () => {
+    expect(visibleTiles({ myRoom: 'nowhere' }).size).toBe(0)
   })
 })
 

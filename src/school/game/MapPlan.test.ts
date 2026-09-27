@@ -35,26 +35,38 @@ describe('안 가 본 방도 이름과 자리는 남는다', () => {
     for (const r of readMap(blank)) expect(r.capacity, r.id).toBeGreaterThan(0)
   })
 
-  it('가리는 것은 머릿수뿐이다 — 모르는 방은 null, 아는 방은 숫자', () => {
+  /*
+   * **머릿수는 들어가 있는 방에만.** 가 본 방이라도 지금 밖이면 null 이다.
+   *
+   * 전에는 가 본 방이면 숫자를 적었다. 서버가 그 방 숫자를 안 보내면
+   * `?? 0` 으로 「0명」이 돼서, 가 본 방이 전부 빈방으로 거짓말했다.
+   * 가 본 방(artRoom)에 숫자가 딸려 와도 — 서버가 그러지는 않지만 —
+   * 화면은 들어가 있는 방(library)의 숫자만 믿는다.
+   */
+  it('가리는 것은 머릿수뿐이다 — 들어가 있는 방은 숫자, 나머지는 null', () => {
     const before = readMap(blank)
     expect(before.every((r) => r.count === null && r.dots.length === 0)).toBe(true)
 
     const seen = readMap({
       ...blank,
       view: {
-        visitedTiles: ['artRoom'],
-        visibleTiles: [],
-        roomCounts: { artRoom: 3 },
+        visitedTiles: ['artRoom', 'library'],
+        visibleTiles: ['library'],
+        roomCounts: { artRoom: 3, library: 2 },
         visiblePawns: [],
         visibleRobots: [],
       } as unknown as MapFacts['view'],
     })
     const art = seen.find((r) => r.id === 'artRoom')
-    const other = seen.find((r) => r.id === 'library')
-    expect(art?.count).toBe(3)
-    expect(other?.count).toBeNull()
+    const lib = seen.find((r) => r.id === 'library')
+    const never = seen.find((r) => r.id === 'musicRoom')
+    expect(lib?.count).toBe(2)
+    // 가 봤지만 지금 밖 — 「0명」이 아니라 모른다
+    expect(art?.known).toBe(true)
+    expect(art?.count).toBeNull()
+    expect(never?.count).toBeNull()
     // 안 가 본 방도 이름은 그대로다
-    expect(other?.name).toBe('도서관')
+    expect(never?.name).toBe('음악실')
   })
 })
 

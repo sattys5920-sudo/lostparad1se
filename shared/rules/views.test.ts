@@ -49,7 +49,6 @@ const pawn = (playerId: string, team: TeamId, tileId: TileId | null, extra: Part
   toTile: null,
   asleep: false,
   hiddenUntilMs: null,
-  intelOfficer: false,
   ...extra,
 })
 
@@ -414,5 +413,69 @@ describe('쪽지 — 주워서 읽어야 안다', () => {
       expect(j).not.toContain(SLIP_BLIND)
       expect(j).not.toContain(SLIP_TORN)
     }
+  })
+})
+
+/*
+ * **머릿수는 들어가야만 안다.**
+ *
+ * 투영이 옆 방 사람을 **아예 안 싣는지** 본다 — 화면이 받아 놓고 안
+ * 그리는 것이 아니다. 늘 짝으로 잰다: 내 방 사람은 실리고, 옆 방
+ * 사람은 안 실린다. 「안 실린다」만 재면 아무도 안 실리는 고장에도
+ * 통과한다.
+ *
+ * A0 는 baseA(교무실)에 선다. 그 이웃은 cafeteria(급식실)다.
+ */
+describe('방 안의 머릿수', () => {
+  const inside = { x: 15, y: 72 } // baseA(11..22, 68..77) 안쪽
+  const setUp = (a0: Partial<WorldPawn>) => {
+    const w = world()
+    w.pawns = [
+      pawn('A0', 'A', 'baseA', { at: inside, ...a0 }),
+      pawn('B0', 'B', 'baseA'), // 내 방의 남
+      pawn('C0', 'C', 'cafeteria'), // 옆 방의 남
+      pawn('A1', 'A', 'cafeteria'), // 옆 방의 우리 편
+    ]
+    return projectView(w, 'A0')
+  }
+
+  it('내가 들어가 있는 방의 남은 보이고 센다', () => {
+    const v = setUp({})
+    expect(v.visiblePawns.map((p) => p.playerId)).toContain('B0')
+    expect(v.roomCounts.baseA).toBe(2)
+    expect(v.visibleTiles).toEqual(['baseA'])
+  })
+
+  it('바로 옆 방의 남은 안 실린다 — 머릿수도 없다', () => {
+    const v = setUp({})
+    expect(v.visiblePawns.map((p) => p.playerId)).not.toContain('C0')
+    expect(v.roomCounts.cafeteria).toBeUndefined()
+    expect(json(v)).not.toContain('"C0"')
+  })
+
+  it('우리 편은 어디 있든 보인다 — 그건 방의 머릿수가 아니다', () => {
+    const v = setUp({})
+    expect(v.visiblePawns.map((p) => p.playerId)).toContain('A1')
+    // 우리 편이 있어도 그 방의 머릿수는 안 온다
+    expect(v.roomCounts.cafeteria).toBeUndefined()
+  })
+
+  /*
+   * **자리와 방이 어긋나면 어느 방에도 없다.** 방을 옮기고 아직 안
+   * 섰으면 at 이 옛 방에 남는다. 그때 at 을 믿으면 이미 나온 방이,
+   * tileId 를 믿으면 복도에서 마지막 방이 보인다 — 어느 쪽이든
+   * 들어가 있지 않은 방의 머릿수가 샌다.
+   */
+  it('자리(at)가 딴 방이면 아무 방도 안 보인다', () => {
+    const v = setUp({ at: { x: 26, y: 70 } }) // cafeteria 안쪽인데 tileId 는 baseA
+    expect(v.visibleTiles).toEqual([])
+    expect(v.visiblePawns.map((p) => p.playerId)).not.toContain('B0')
+    expect(v.visiblePawns.map((p) => p.playerId)).not.toContain('C0')
+  })
+
+  it('자리가 없으면(막 들어와 아직 안 섰으면) 방까지는 믿는다', () => {
+    const v = setUp({ at: null })
+    expect(v.visibleTiles).toEqual(['baseA'])
+    expect(v.visiblePawns.map((p) => p.playerId)).toContain('B0')
   })
 })

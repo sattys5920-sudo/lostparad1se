@@ -1602,6 +1602,11 @@ p.sc-cv { display: block; }
 .sc-mp--small .sc-mp__room rect { fill: rgba(242, 243, 244, 0.16); stroke: rgba(242, 243, 244, 0.4); }
 .sc-mp--small .sc-mp__room.is-unseen rect { fill: rgba(242, 243, 244, 0.08); stroke-dasharray: 3 3; }
 .sc-mp--small .sc-mp__room.is-here rect { stroke: #fff; stroke-width: 3; }
+/*
+ * 차지한 방은 팀 색으로 칠한다(색은 인라인). 절반만 칠해 어두운 판이
+ * 비치게 한다 — 꽉 칠하면 노랑 방 위의 흰 이름이 안 읽힌다.
+ */
+.sc-mp--small .sc-mp__room rect.is-owned { fill-opacity: 0.55; }
 
 /* ── 미니맵 ───────────────────────────────────────────────────── */
 
