@@ -287,22 +287,15 @@ async function main() {
   // 이제 우리 땅이 생겼으니 생산·공부가 열린다. 한 사람으로 확인한다
   const firstOwner = nowOwned[0]
   if (firstOwner) {
+    /*
+     * **생산은 없앴다.** 여기서 「땅이 생기니 생산이 열린다」를
+     * 보여 주고 있었는데, 페이즈에 토큰을 쓰는 길이 점령(이동)과
+     * 연구 둘로 좁혀지면서 그 행동 자체가 사라졌다. 땅을 쥐어서
+     * 열리는 것은 이제 **연구값이 절반**(지식 2 → 1)인 연구실뿐이다.
+     */
     const tileId = firstOwner.name.split('/').pop() as TileId
     const team = str(firstOwner.fields?.ownerTeam)
-    const who = rows.find((r) => r.team === team)
-    if (who) {
-      const tk = await tok(who.id)
-      await must('openPhase', host, { gameId: game })
-      const p2 = await pawnOf(game, uidOf(who.id))
-      const stood = str(p2.tileId)
-      const earn = await call('produce', tk, { gameId: game, tileId: stood as TileId })
-      console.log(
-        `\n  ── 땅이 생기니 생산이 열린다 ──\n  ${who.id}(${team}팀) 가 ${TILE_BY_ID[stood as TileId]?.name}` +
-          `(우리 땅) 에서 생산 — ` +
-          (earn.ok ? `${JSON.stringify(earn.result)}` : `✗ ${earn.err}`),
-      )
-      void tileId
-    }
+    console.log(`\n  ── 첫 땅 ──\n  ${team}팀이 ${TILE_BY_ID[tileId]?.name ?? tileId} 를 쥐었다`)
   }
 
   // ── 구멍 찾기 ───────────────────────────────────────────────

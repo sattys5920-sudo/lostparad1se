@@ -127,7 +127,6 @@ import {
   ROOM_KIND,
   capacityOf,
 } from '../../../shared/rules/occupy'
-import { ACTION_TOKEN_COST } from '../../../shared/rules/actions'
 import { armSfx } from './sfx'
 import './play.css'
 import { ringTile, tearTile } from './noteArt'
@@ -1084,23 +1083,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    */
   const phaseTokens = state.view?.myTeamTokens ?? null
   const acts = useMemo<Act[]>(() => {
-    const walking = standingOn === null
-    /**
-     * 못 하는 까닭.
-     *
-     * **화면이 규칙을 판단하지 않는다.** 여기서 보는 것은 서버가 이미
-     * 보내 준 숫자뿐이다 — 페이즈 상자가 비었으면 무엇을 눌러도
-     * 서버가 거절한다. 그 말을 미리 대신 해 줄 뿐이다.
+    /*
+     * 「못 하는 까닭」을 여기서 짓던 것은 없앴다. 생산·공부 두 단추만
+     * 그걸 썼고, 남은 단추들은 시트를 여는 일뿐이라 까닭이 없다 —
+     * 페이즈 안에서 무엇이 왜 안 되는지는 Phase 가 제 자리에서 말한다.
      */
-    const stop = busyLeftMs > 0
-      ? busyKind === '덫'
-        ? `덫에 걸렸다 — ${leftText(busyLeftMs)} 남았다`
-        : `${busyKind ?? '하는'} 중이다 — ${leftText(busyLeftMs)} 남았다`
-      : walking
-        ? '걷는 중이다 — 멈춰야 한다'
-        : phaseTokens === 0
-          ? '팀 토큰이 없다'
-          : undefined
     // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
     const room: Act[] = []
     // **페이즈 중에도 산다.** 기계 앞에 서는 것 말고 드는 값이 없다 —
@@ -1173,31 +1160,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       })
     }
     /*
-     * **생산과 공부는 페이즈에만 있다.**
-     *
-     * 자유 시간은 만나고 거래하고 이야기하는 시간이다. 거기에 값을
-     * 치르는 일이 섞여 있으면 「자유」가 아니라 그냥 짧은 페이즈가
-     * 된다 — 실제로 자유 시간마다 생산부터 누르고 흩어졌다.
+     * **페이즈에 토큰을 쓰는 길은 둘뿐이다** — 방을 먹는 것(자리
+     * 차지·이동)과 연구. 전에는 여기에 생산·공부가 더 있었는데,
+     * 토큰이 넷으로 갈리니 페이즈가 「무엇을 고르나」가 아니라
+     * 「몇 개 남았나」가 됐다.
      */
     const fixed: Act[] = phaseOpen
       ? [
           { key: 'post', icon: 'post', label: '자리 차지', cost: ENTER_COST, run: () => setSheet('act') },
-          {
-            key: 'make',
-            icon: 'make',
-            label: '생산',
-            cost: ACTION_TOKEN_COST.produce,
-            why: stop,
-            run: () => void act.produce(standingOn as TileId).then((r) => say(String((r as { said?: string }).said ?? '생산했다.'))).catch((e) => refuse((e as Error).message)),
-          },
-          {
-            key: 'study',
-            icon: 'study',
-            label: '공부',
-            cost: ACTION_TOKEN_COST.study,
-            why: stop,
-            run: () => void act.study(standingOn as TileId).then((r) => say(String((r as { said?: string }).said ?? '공부했다.'))).catch((e) => refuse((e as Error).message)),
-          },
           { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
         ]
       : [

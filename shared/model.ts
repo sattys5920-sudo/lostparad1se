@@ -330,7 +330,7 @@ export interface PawnDoc {
    * 판정에서는 둘 다 그대로 센다. 그 자리에 몸이 있기 때문이다.
    */
   busyUntilMs?: GameMs
-  /** 무엇을 하느라 묶였는가. 화면이 「생산 중」이라 적는 데 쓴다. */
+  /** 무엇을 하느라 묶였는가. 화면이 「연구 중」이라 적는 데 쓴다. */
   busyKind?: string
   /** 발 묶기 — 움직이지도 행동하지도 못한다. 판정에서는 센다. */
   boundUntilMs?: GameMs
@@ -446,7 +446,7 @@ export interface PlayerViewDoc {
   /**
    * 무언가 하느라 손이 묶인 시각. 걷는 중이 아닌데도 못 움직인다.
    *
-   * 화면이 이것으로 「생산 중 · 7:12」를 띄우고 걸음을 잠근다.
+   * 화면이 이것으로 「연구 중 · 7:12」를 띄우고 걸음을 잠근다.
    * **판정과는 상관이 없다** — 묶여 있어도 그 자리에 몸이 있어서
    * 머릿수로는 그대로 센다.
    */
@@ -692,7 +692,7 @@ export type EventKind =
   | 'gameStart' | 'dayStart' | 'settlement' | 'gameEnd'
   | 'move' | 'arrive'
   | 'tileCaptured' | 'tileLost'
-  | 'research' | 'produce' | 'study' | 'shopBought'
+  | 'research' | 'shopBought'
   | 'vote' | 'rumor' | 'reveal' | 'leverageGained' | 'leverageSpent'
   | 'cardDrawn' | 'cardPlayed'
   | 'tradeProposed' | 'tradeAccepted' | 'tradeDeclined'

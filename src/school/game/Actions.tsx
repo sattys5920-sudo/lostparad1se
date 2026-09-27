@@ -36,7 +36,7 @@ export interface ActionsProps {
   owner?: TeamId | null
   /** 먼 방 패널에만 있다. 잘못 눌렀으면 닫는다. */
   onClose?: () => void
-  /** 제목 바로 아래에 끼울 것. 선 자리의 생산이 여기 들어온다. */
+  /** 제목 바로 아래에 끼울 것. 선 자리에서만 되는 일이 여기 들어온다. */
   children?: ReactNode
 }
 
