@@ -34,7 +34,7 @@ import {
   type Door,
 } from '../map/world'
 import { PAL, buildSprites, type Dir } from '../map/sprites'
-import { MAP } from '../skin'
+import { MAP, UI } from '../skin'
 import { pixelFrame } from '../char/pixel'
 // 명단에서 온 생김새는 어떤 값이 들어 있을지 모른다. 서버는 검사하지
 // 않고 옮기기만 하므로, 그리기 직전에 여기서 접어 넣는다
@@ -83,6 +83,28 @@ export interface PersonAt {
   foot: number
 }
 
+/**
+ * 맵에서 짚은 물건. **멀어도 온다** — 받는 쪽이 그 옆에 차림표를 띄우고,
+ * 손이 안 닿으면 「가까이 가야 한다」를 적는다. 멀다고 아무 일도 안
+ * 일어나면 눌러야 할 곳을 찾아 더듬게 된다.
+ */
+export interface TapThing {
+  what: FixtureKind | 'quiz' | 'slip'
+  /** 기물 이름(「2층 게시판」 등). 종이에는 없다 */
+  name?: string
+  cell: { x: number; y: number }
+  /** 손이 닿는가 — 옆 여덟 칸 안이다 */
+  near: boolean
+  /** 손이 닿으려면 몇 칸 더 가야 하나 */
+  steps: number
+  /** 오락기 번호 */
+  cabinet?: number
+  /** 오락기 앞자리에 이미 앉아 있나 */
+  seated?: boolean
+  /** 오락기 앞자리로 가서 앉는다. 옆에 섰을 때만 있다 */
+  sit?: () => void
+}
+
 export interface WalkProps {
   me: { playerId: string; team: TeamId; look: AvatarLook | null }
   view: PlayerViewDoc | null
@@ -112,7 +134,7 @@ export interface WalkProps {
    * 복도의 기물을 짚었다. **앞에 서 있을 때만 온다** — 멀리서 누른
    * 것은 걸음으로 친다.
    */
-  onTapFixture?: (kind: FixtureKind) => void
+  onTapThing?: (thing: TapThing, at: PersonAt) => void
   /**
    * 지금 머리 위에 띄울 말. 사람 아이디 → 한 줄.
    *
@@ -138,8 +160,6 @@ export interface WalkProps {
    * 둘은 그림만 다르고 밟을 수 없는 것도, 옆에서 탭해 줍는 것도 같다.
    */
   papers?: readonly { x: number; y: number; kind?: 'quiz' | 'slip' }[]
-  /** 종이 옆에 서서 종이를 탭했다. 어느 칸의 종이인지 준다 */
-  onTapPaper?: (at: { x: number; y: number }) => void
   /**
    * 정원의 화분과 씨앗 상자. **정원에 서 있을 때만 온다** — 서버가
    * 그 방 사람에게만 단계를 보낸다.
@@ -450,7 +470,7 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onTapPaper, onStand, padRef, placeAtMs = null, pinAt = null, frozen = false, looks = {}, live, onLive, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, pinAt = null, frozen = false, looks = {}, live, onLive, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -502,8 +522,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const roomRef = useRef(onRoom)
   const tapRef = useRef(onTapRoom)
   const personRef = useRef(onTapPerson)
-  const fixRef = useRef(onTapFixture)
-  const paperRef = useRef(onTapPaper)
+  const thingRef = useRef(onTapThing)
   const standRef = useRef(onStand)
   /** 게시판. 그리는 고리가 매 프레임 본다 — 다시 세우지 않게 ref 로 */
   const boardsRef = useRef(boards)
@@ -525,8 +544,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   roomRef.current = onRoom
   tapRef.current = onTapRoom
   personRef.current = onTapPerson
-  fixRef.current = onTapFixture
-  paperRef.current = onTapPaper
+  thingRef.current = onTapThing
   standRef.current = onStand
   boardsRef.current = boards
   thingsRef.current = things
@@ -720,8 +738,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
 
       // **사람이 먼저다.** 내 방에 선 사람을 짚었으면 걸음이 아니라
       // 그 사람 쪽이 열린다 — 거래는 여기서 시작한다
+      /*
+       * 다만 **짚은 칸에 물건이나 종이가 있으면 그쪽이다.** 사람 그림은
+       * 칸보다 크고 손끝도 넓어서, 종이 옆에 선 사람이 종이를 가린다.
+       * 종이와 기물 칸에는 아무도 못 서니, 그 칸을 짚었으면 물건을 뜻한 것이다
+       */
       const who = personAt(sx, sy, here)
-      if (who) {
+      const thingThere = fixtureAt(tx, ty) !== null || papersRef.current.some((p) => p.x === tx && p.y === ty)
+      if (who && !thingThere) {
         // 몸이 화면 어디에 있는지 같이 넘긴다. 받는 쪽이 그 옆에 창을
         // 붙인다 — 캔버스 안쪽 좌표를 뷰포트 좌표로 옮겨서 준다
         const k = r.width / canvas.width
@@ -734,40 +758,62 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       }
 
       /*
-       * **기물을 짚었다.** 게시판이나 자판기, 정원의 화분이다.
+       * **기물이나 바닥의 종이를 짚었다.** 게시판·자판기·화분·제조기·
+       * 오락기, 문제 종이와 쪽지.
        *
-       * 밟을 수 없는 칸이라 걸음으로 쳐 봐야 갈 데가 없다. 앞에 서
-       * 있으면 열고, 멀면 아무 일도 안 한다 — 멀리서 눌러 열리면
-       * 「앞까지 걸어간다」가 아무 뜻이 없어진다.
+       * 밟을 수 없는 칸이라 걸음으로 쳐 봐야 갈 데가 없다. **멀어도
+       * 알린다** — 받는 쪽이 그 옆에 차림표를 띄우고, 손이 안 닿으면
+       * 「가까이 가야 한다」를 적는다. 걸어가 주지는 않는다.
        */
+      const k = r.width / canvas.width
+      const screenAt = (c: { x: number; y: number }): PersonAt => ({
+        x: r.left + ((c.x + 0.5) * TILE - camRef.x) * k,
+        head: r.top + (c.y * TILE - camRef.y) * k,
+        foot: r.top + ((c.y + 1) * TILE - camRef.y) * k,
+      })
+      const me = { x: self.tx, y: self.ty }
+      const gap = (c: { x: number; y: number }) => Math.max(0, Math.max(Math.abs(me.x - c.x), Math.abs(me.y - c.y)) - 1)
       const fix = fixtureAt(tx, ty)
       if (fix) {
-        /*
-         * **오락기는 앞자리에 앉아야 연다.** 옆에 서서 누르면 그 기계
-         * 앞자리로 걸어가 앉는다 — 앉은 채 누르면 연다. 누가 앉아 있으면
-         * 길이 없으니 아무 일도 안 한다.
-         */
         const cab = ARCADE_CELLS.get(`${tx},${ty}`)
         if (cab !== undefined) {
+          // 오락기는 앞자리에 앉아서 한다. 옆에 섰으면 그 자리로 가서 앉는다
           const seat = ARCADE_MACHINES[cab].seat
-          if (self.tx === seat.x && self.ty === seat.y) fixRef.current?.(fix.kind)
-          else {
-            const found = pathTo(seat.x, seat.y)
-            if (found.length > 0) autoPath = found
-          }
+          const seated = me.x === seat.x && me.y === seat.y
+          const near = seated || facing(me, seat)
+          thingRef.current?.(
+            {
+              what: 'arcade',
+              name: fix.name,
+              cell: fix.cell,
+              near,
+              steps: gap(seat),
+              cabinet: cab,
+              seated,
+              sit: near && !seated
+                ? () => {
+                    const found = pathTo(seat.x, seat.y)
+                    if (found.length > 0) autoPath = found
+                  }
+                : undefined,
+            },
+            screenAt(fix.cell),
+          )
           return
         }
-        if (facing({ x: self.tx, y: self.ty }, fix.cell)) fixRef.current?.(fix.kind)
+        thingRef.current?.(
+          { what: fix.kind, name: fix.name, cell: fix.cell, near: facing(me, fix.cell), steps: gap(fix.cell) },
+          screenAt(fix.cell),
+        )
         return
       }
-
-      /*
-       * **문제 종이를 짚었다.** 기물과 같다 — 밟을 수 없는 칸이라 걸음으로
-       * 쳐 봐야 갈 데가 없다. 옆에 서 있으면 열고, 멀면 아무 일도 안 한다.
-       */
       const paper = papersRef.current.find((p) => p.x === tx && p.y === ty)
       if (paper) {
-        if (facing({ x: self.tx, y: self.ty }, { x: paper.x, y: paper.y })) paperRef.current?.({ x: paper.x, y: paper.y })
+        const cell = { x: paper.x, y: paper.y }
+        thingRef.current?.(
+          { what: paper.kind === 'slip' ? 'slip' : 'quiz', cell, near: facing(me, cell), steps: gap(cell) },
+          screenAt(cell),
+        )
         return
       }
 
@@ -1310,6 +1356,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       liftRef.current += (want - liftRef.current) * (1 - Math.exp(-dt / 80))
       if (Math.abs(want - liftRef.current) < 0.5) liftRef.current = want
       const camY = Math.round(Math.max(0, Math.min(MAP_H * TILE - h, baseY + liftRef.current)))
+      /*
+       * 시험 스크립트가 맵의 한 칸을 짚으려면 카메라가 어디 있는지 알아야
+       * 한다. 바뀔 때만 적는다 — 매 프레임 DOM 을 건드리지 않는다
+       */
+      if (camRef.x !== camX || camRef.y !== camY) canvas.dataset.cam = `${camX},${camY}`
       camRef.x = camX
       camRef.y = camY
 
@@ -1615,6 +1666,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         self.moving ? Math.floor(self.phase) : 0,
       )
 
+      marks(line, camX, camY, now)
+
       snow(dt, w, h, camX, camY)
       wipe(now, w, h)
 
@@ -1633,6 +1686,61 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       placeTags(line, camX, camY, hid)
       placeHolds(line, camX, camY, hid)
       placePops(camX, camY, hid)
+    }
+
+    /**
+     * **손이 닿는 것 위에 「!」.** 짚으면 할 일이 뜬다는 표시다.
+     *
+     * 옆 여덟 칸의 기물, 바닥의 종이, 앉을 수 있는 오락기, 바로 옆에 선
+     * 사람. 멀리 있는 것에는 안 뜬다 — 방 안이 느낌표로 뒤덮이면 무엇이
+     * 가까운지를 도로 못 읽는다.
+     *
+     * 도트라 두 걸음으로만 까딱인다. 연출 줄이기면 가만히 있다.
+     */
+    function marks(line: Standee[], camX: number, camY: number, now: number): void {
+      const me = { x: self.tx, y: self.ty }
+      const spots: { x: number; y: number }[] = []
+      const seen = new Set<string>()
+      const add = (px: number, py: number) => {
+        const key = `${Math.round(px)},${Math.round(py)}`
+        if (seen.has(key)) return
+        seen.add(key)
+        spots.push({ x: px, y: py })
+      }
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const f = fixtureAt(me.x + dx, me.y + dy)
+          if (f && f.kind !== 'arcade') add((f.cell.x + 0.5) * TILE, f.cell.y * TILE)
+        }
+      }
+      for (const m of ARCADE_MACHINES) {
+        if ((me.x === m.seat.x && me.y === m.seat.y) || facing(me, m.seat)) add((m.cell.x + 0.5) * TILE, m.cell.y * TILE)
+      }
+      for (const p of papersRef.current) {
+        if (facing(me, p)) add((p.x + 0.5) * TILE, p.y * TILE)
+      }
+      for (const p of line) {
+        if (!p.placed) continue
+        const cx = Math.floor(p.x / TILE)
+        const cy = Math.floor(p.y / TILE)
+        if (facing(me, { x: cx, y: cy }) && !(cx === me.x && cy === me.y)) add(p.x, p.y - CHAR_PX)
+      }
+      if (spots.length === 0) return
+      const still = document.documentElement.hasAttribute('data-plain')
+      const bob = still ? 0 : Math.floor(now / 420) % 2
+      for (const s of spots) {
+        const x = Math.round(s.x - camX) - 3
+        const y = Math.round(s.y - camY) - 11 - bob
+        // 검은 테 → 금색 판 → 검은 느낌표. 7×9 에 꼬리 한 칸
+        ctx.fillStyle = UI.bevelDim
+        ctx.fillRect(x - 1, y - 1, 9, 11)
+        ctx.fillRect(x + 2, y + 10, 3, 1)
+        ctx.fillStyle = UI.gold
+        ctx.fillRect(x, y, 7, 9)
+        ctx.fillStyle = UI.bevelDim
+        ctx.fillRect(x + 3, y + 1, 1, 5)
+        ctx.fillRect(x + 3, y + 7, 1, 1)
+      }
     }
 
     /**
@@ -1943,6 +2051,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       dir: Dir
       /** 걷는 중인가. 다리를 움직일지 정한다. */
       moving: boolean
+      /**
+       * 선 칸을 아는가. 자리를 모르는 사람은 방 한가운데에 줄 세워
+       * 그리는데, 그 그림 자리로 「옆 칸」을 재면 틀린다 — 「!」가 안 붙는다
+       */
+      placed?: boolean
     }
 
     /**
@@ -2019,6 +2132,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             here: now.tileId as TileId,
             x: at.x,
             y: at.y,
+            placed: true,
           })
         }
         for (const id of gone) shown.delete(id)
@@ -2047,12 +2161,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const now = liveOf(p.playerId)
         if (now && now.tileId === p.tileId) {
           const at = ease(p.playerId, now.x * TILE, now.y * TILE, dt)
-          out.push({ ...who, dir: now.dir, moving: now.moving, here: p.tileId as TileId, x: at.x, y: at.y })
+          out.push({ ...who, dir: now.dir, moving: now.moving, here: p.tileId as TileId, x: at.x, y: at.y, placed: true })
           continue
         }
         if (p.at) {
           const at = ease(p.playerId, p.at.x * TILE + TILE / 2, p.at.y * TILE + TILE / 2, dt)
-          out.push({ ...who, here: p.tileId as TileId, x: at.x, y: at.y })
+          out.push({ ...who, here: p.tileId as TileId, x: at.x, y: at.y, placed: true })
           continue
         }
         const row = byRoom.get(p.tileId) ?? []

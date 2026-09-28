@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
-import { walkTo as walkToCell } from './lib/walk'
+import { pickOnMap, walkTo as walkToCell } from './lib/walk'
 import { dayHourMs } from '../shared/rules/clock'
 import { SHOP_ITEMS, VENDINGS } from '../shared/rules/shop'
 
@@ -177,9 +177,9 @@ async function openBag(page: Page): Promise<void> {
 const walkTo = (page: Page, game: string, uid: string, want: { x: number; y: number }, what = '자리') =>
   walkToCell({ page, fs: FS, admin: ADMIN, game, uid, want, what })
 
-/** 자판기를 연다. **기계 앞에 서 있어야** 「자판기」가 선다 */
-async function openVending(page: Page): Promise<void> {
-  await page.locator('.sc-ct__act', { hasText: '자판기' }).first().click()
+/** 자판기를 연다. 맵에서 기계를 짚고 옆 차림표의 「고른다」를 누른다 */
+async function openVending(page: Page, at: { x: number; y: number }): Promise<void> {
+  if (!(await pickOnMap(page, at, '고른다'))) throw new Error('자판기를 짚었는데 「고른다」가 없다')
   await page.waitForSelector('.sc-vd__body', { timeout: 10_000 })
   // 들어오면 형광등이 두 번 깜빡인다. 켜진 뒤에 찍는다
   await page.waitForTimeout(900)
@@ -254,7 +254,7 @@ async function main() {
     console.log(`\n── ${w}×${h} ──`)
     /*
      * **걸어서 간다.** 서버 문서를 고쳐 세워 봐야 소용없다 — 아바타는
-     * 화면이 쥐고 있고, 「자판기」 단추는 화면이 아는 제 칸으로 판단한다.
+     * 화면이 쥐고 있고, 손이 닿는지는 화면이 아는 제 칸으로 판단한다.
      *
      * 걸어가는 김에 복도에 선 기계를 한 장 찍는다. **이 그림이 판에서
      * 기계를 마주치는 유일한 자리다** — 시트는 누른 뒤에나 열린다.
@@ -263,7 +263,7 @@ async function main() {
     await page.waitForTimeout(1200)
     await full(page, `${w}-0-복도의-기계.png`)
 
-    await openVending(page)
+    await openVending(page, MACHINE.cell)
     console.log('  잰 것:', JSON.stringify(await measure(page), null, 0))
     await full(page, `${w}-1-기본.png`)
 

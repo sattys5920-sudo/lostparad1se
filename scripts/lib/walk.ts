@@ -6,7 +6,7 @@
 // 여기서 붙드는 것 하나: **아바타는 화면이 쥐고 있다.** 서버에는 멈출 때
 // 한 번 적히므로, 걸음마다 서버를 읽으면 늘 한 박자 늦은 자리가 온다.
 // 길은 지도에서 미리 내고, 끝까지 누른 뒤에 한 번 맞춰 본다.
-import { isWalkable, tileAt } from '../../src/school/map/world'
+import { TILE, isWalkable, tileAt } from '../../src/school/map/world'
 
 type Page = import('playwright').Page
 export interface Cell {
@@ -145,4 +145,39 @@ export async function tap(page: Page, sel: string, text: string): Promise<void> 
     },
     [sel, text],
   )
+}
+
+/**
+ * 맵의 한 칸을 손가락으로 짚는다. 물건·종이·사람을 누르는 시험이 쓴다.
+ *
+ * 카메라 자리는 캔버스가 data-cam 에 적어 둔다(Walk). 그 칸이 화면
+ * 밖이면 false 다 — 걸어가서 다시 짚어야 한다.
+ */
+export async function tapCell(page: Page, cell: Cell): Promise<boolean> {
+  const canvas = page.locator('canvas').first()
+  const got = await canvas.evaluate((c: HTMLCanvasElement) => {
+    const r = c.getBoundingClientRect()
+    return { cam: c.dataset.cam ?? '0,0', w: c.width, h: c.height, bw: r.width, bh: r.height }
+  })
+  const [cx, cy] = got.cam.split(',').map(Number)
+  const k = got.bw / got.w
+  const x = ((cell.x + 0.5) * TILE - cx) * k
+  const y = ((cell.y + 0.5) * TILE - cy) * k
+  if (x < 0 || y < 0 || x > got.bw || y > got.bh) return false
+  await canvas.click({ position: { x, y } })
+  return true
+}
+
+/** 맵의 물건을 짚고, 옆에 뜬 차림표에서 한 줄을 누른다 */
+export async function pickOnMap(page: Page, cell: Cell, row: string): Promise<boolean> {
+  if (!(await tapCell(page, cell))) return false
+  const b = page.locator('.sc-mt__row', { hasText: row })
+  try {
+    await b.first().waitFor({ timeout: 3000 })
+  } catch {
+    return false
+  }
+  if (await b.first().isDisabled()) return false
+  await b.first().click()
+  return true
 }

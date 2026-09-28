@@ -803,8 +803,17 @@
   padding: var(--sp-2) var(--sp-2);
   border-bottom: 2px solid var(--sc-line-strong);
 }
-.sc-mt__head b { font-size: var(--fs-label); letter-spacing: 0.02em; }
-.sc-mt__head i { font-style: normal; font-size: var(--fs-cap); color: var(--sc-text-dim); }
+.sc-mt__head b { font-size: var(--fs-label); letter-spacing: 0.02em; white-space: nowrap; }
+/* 물건 차림표는 여기에 자리(「2층 서쪽 복도」)가 온다. 두 줄로 꺾이지 않고 줄인다 */
+.sc-mt__head i {
+  min-width: 0;
+  font-style: normal;
+  font-size: var(--fs-cap);
+  color: var(--sc-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sc-mt__row {
   appearance: none;
   border: 0;

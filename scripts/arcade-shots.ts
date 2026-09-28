@@ -18,6 +18,7 @@ import { mkdirSync } from 'node:fs'
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
 import { ARCADE_MACHINES } from '../shared/rules/arcade'
+import { pickOnMap } from './lib/walk'
 import { soloReplay, soloRun } from '../shared/rules/arcadeBeat'
 import { doorHere, isWalkable } from '../src/school/map/world'
 
@@ -189,7 +190,8 @@ async function main() {
   const path = route(await cell(), mySeat)
   if (path.length === 0) missed.push('급식실에서 2번 기계까지 길이 없다')
   const KEY = (dx: number, dy: number) => (dx > 0 ? 'ArrowRight' : dx < 0 ? 'ArrowLeft' : dy > 0 ? 'ArrowDown' : 'ArrowUp')
-  for (const step of path) {
+  // 마지막 한 걸음은 남긴다 — 옆에 서서 기계를 짚고 「앉는다」로 앉는다
+  for (const step of path.slice(0, -1)) {
     const c = await cell()
     await page.keyboard.press(KEY(step.x - c.x, step.y - c.y))
     for (let i = 0; i < 20; i++) {
@@ -198,6 +200,10 @@ async function main() {
       await page.waitForTimeout(40)
     }
   }
+  await page.waitForTimeout(600)
+  if (!(await pickOnMap(page, ARCADE_MACHINES[2].cell, '앉는다'))) missed.push('기계 옆에서 짚었는데 「앉는다」가 없다')
+  await page.waitForSelector('.sc-ar__menu', { timeout: 5000 }).catch(() => missed.push('「앉는다」로 앉았는데 기계가 안 켜졌다'))
+  console.log(`  「앉는다」 뒤 기계 ${(await page.locator('.sc-ar__menu').count()) > 0 ? '켜짐' : '안 켜짐'}`)
   const at = await cell()
   console.log(`  ${path.length}걸음 · 선 자리 ${at.x},${at.y}`)
   if (at.x !== mySeat.x || at.y !== mySeat.y) missed.push(`2번 기계 앞자리까지 못 걸었다(${at.x},${at.y})`)
@@ -206,11 +212,13 @@ async function main() {
   const where = (await page.locator('.sc-pl__where').first().innerText().catch(() => '')).trim()
   console.log(`  이름표: ${where}`)
   if (where !== '뒷골목') missed.push(`이름표가 「뒷골목」이 아니다: ${where}`)
-  if ((await page.locator('.sc-ct__act', { hasText: '오락기' }).count()) === 0) missed.push('앞자리에 앉았는데 「오락기」 단추가 없다')
+  // 아래 칸에는 오락기가 없다. 기계를 짚으면 옆에 「켠다」가 뜬다
+  if ((await page.locator('.sc-ct__act', { hasText: '오락기' }).count()) > 0) missed.push('아래 칸에 「오락기」가 남아 있다')
   await shot('골목')
 
   console.log('\n── 고르는 화면 ──')
-  await page.locator('.sc-ct__act', { hasText: '오락기' }).click()
+  // 「앉는다」로 이미 켜져 있다. 꺼져 있으면 기계를 짚어 「켠다」
+  if ((await page.locator('.sc-ar__menu').count()) === 0 && !(await pickOnMap(page, ARCADE_MACHINES[2].cell, '켠다'))) missed.push('앞자리에서 기계를 짚었는데 「켠다」가 없다')
   await page.waitForSelector('.sc-ar__menu', { timeout: 5000 })
   const marquee = (await page.locator('.sc-ar__marquee').innerText()).trim()
   if (!marquee.includes('3번 기계')) missed.push(`간판에 3번 기계가 아니다: ${marquee}`)

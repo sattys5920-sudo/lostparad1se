@@ -351,15 +351,23 @@
   color: var(--ct-gold);
 }
 
-/* 행동 3열 2행 */
+/* 행동 두 줄. 넷이면 2×2, 다섯이면 위 둘 · 아래 셋(여섯 칸 눈금에 3·3 / 2·2·2) */
 .sc-ct__acts {
   flex: 1;
   min-width: 0;
   height: calc(var(--ct-key) * 3 + var(--sp-1) * 2);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(2, 1fr);
   gap: var(--sp-1);
+}
+.sc-ct__acts[data-n='5'] {
+  grid-template-columns: repeat(6, 1fr);
+}
+.sc-ct__acts[data-n='5'] > :nth-child(-n + 2) { grid-column: span 3; }
+.sc-ct__acts[data-n='5'] > :nth-child(n + 3) { grid-column: span 2; }
+.sc-ct__acts[data-n='6'] {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .sc-ct__act {

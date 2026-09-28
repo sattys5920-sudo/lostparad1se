@@ -187,7 +187,11 @@ async function main(): Promise<void> {
   }
 
   console.log('\n── 주워도 읽어야 보인다 ──')
+  // 같은 방에 선 **다른 사람**(A1)도 그 종이를 보고 있다
+  const sees = async (uid: string) => (((await viewOf(uid)).slipPapers as { id: string }[]) ?? []).some((p) => p.id === target.id)
+  check(await sees(A[1].uid), '줍기 전 — 같은 방의 다른 사람에게도 보인다')
   await must('takeSlip', A[0].token, { gameId: GAME, slipId: target.id })
+  check(!(await sees(A[1].uid)), '**주운 뒤 — 같은 방의 다른 사람 화면에서도 사라졌다**')
   let held = ((await viewOf(A[0].uid)).mySlips as { id: string; read: boolean; line: string | null }[]) ?? []
   const one = held.find((s) => s.id === target.id)
   check(one !== undefined, '손에 들어왔다')

@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
-import { walkTo as walkToCell } from './lib/walk'
+import { pickOnMap, walkTo as walkToCell } from './lib/walk'
 import { dayHourMs } from '../shared/rules/clock'
 import { BOARDS, ERRAND_BY_ID, thingCellOf } from '../shared/rules/errand'
 import { isWalkable, tileAt } from '../src/school/map/world'
@@ -219,7 +219,8 @@ async function main() {
   await page.screenshot({ path: `${OUT}/3-복도-게시판.png` })
   console.log('  찍었다 3-복도-게시판.png')
 
-  await page.locator('.sc-ct__act', { hasText: '게시판' }).first().click()
+  // 게시판을 짚으면 옆에 차림표가 뜬다
+  if (!(await pickOnMap(page, board.cell, '심부름 보기'))) throw new Error('게시판을 짚었는데 「심부름 보기」가 없다')
   await page.waitForSelector('.sc-er__list', { timeout: 10_000 })
   await page.waitForTimeout(500)
   await page.screenshot({ path: `${OUT}/4a-게시판-열었을때.png` })

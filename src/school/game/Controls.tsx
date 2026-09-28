@@ -295,7 +295,7 @@ export function Pad({
   )
 }
 
-// ── 행동 여섯 ───────────────────────────────────────────────────
+// ── 행동 칸 ─────────────────────────────────────────────────────
 
 export interface Act {
   key: string
@@ -309,15 +309,13 @@ export interface Act {
 }
 
 /**
- * 3열 2행.
- *
- * **지금 이 방에서 되는 것이 앞 칸에 온다.** 기계 앞에 서 있으면 「자판기」가
- * 첫 칸이고, 그렇지 않으면 그 칸은 다른 것이 쓴다. 여섯을 넘치면
- * 나머지는 더보기 시트로 간다 — 잘라 버리지 않는다.
+ * 두 줄. **칸은 늘 같다** — 자유 시간에는 넷(2×2), 페이즈에는 깃발이
+ * 붙어 다섯(위 둘 · 아래 셋). 서는 자리에 따라 바뀌는 칸은 없다.
+ * 물건에 붙은 일은 맵에서 그 물건을 짚는다.
  */
 export function ActionGrid({ acts, onBlocked }: { acts: readonly Act[]; onBlocked: (why: string) => void }) {
   return (
-    <div className="sc-ct__acts" role="group" aria-label="할 수 있는 일">
+    <div className="sc-ct__acts" data-n={acts.length} role="group" aria-label="할 수 있는 일">
       {acts.map((a) => (
         <button
           key={a.key}

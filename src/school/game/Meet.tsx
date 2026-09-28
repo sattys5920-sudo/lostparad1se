@@ -39,6 +39,11 @@ export interface MeetRow {
 export interface MeetProps {
   name: string
   team: TeamId | null
+  /**
+   * 팀 자리에 대신 적는 말. **물건 차림표가 쓴다** — 쪽지에는 팀이
+   * 없고 「발밑」 같은 자리가 있다.
+   */
+  sub?: string
   /** 짚은 사람이 화면 어디에 서 있나. Walk 가 재서 준다. */
   at: PersonAt
   rows: readonly MeetRow[]
@@ -79,7 +84,7 @@ export function placeMenu(
   return { left, top, below, tail }
 }
 
-export function Meet({ name, team, at, rows, onClose }: MeetProps) {
+export function Meet({ name, team, sub, at, rows, onClose }: MeetProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const [box, setBox] = useState<Box | null>(null)
 
@@ -118,7 +123,7 @@ export function Meet({ name, team, at, rows, onClose }: MeetProps) {
       : { ...vars, left: `${box.left}px`, top: `${box.top}px` }
 
   return (
-    <div className="sc-mt" role="dialog" aria-label={`${name}에게`}>
+    <div className="sc-mt" role="dialog" aria-label={sub !== undefined ? name : `${name}에게`}>
       {/* 차림표 밖은 전부 닫기 자리다. **이게 없으면 바깥 탭이 걸음이 된다** —
           닫으려고 누른 것이 「저기로 걸어가기」로 읽히면 한 수를 잃는다 */}
       <button className="sc-mt__back" aria-label="닫기" onClick={onClose} />
@@ -129,7 +134,7 @@ export function Meet({ name, team, at, rows, onClose }: MeetProps) {
       >
         <header className="sc-mt__head">
           <b>{name}</b>
-          <i>{team === null ? '?' : team}팀</i>
+          <i>{sub ?? `${team === null ? '?' : team}팀`}</i>
         </header>
         {rows.map((r) => (
           <button

@@ -4,7 +4,7 @@
 //
 //   ㆍ 운영자 책상의 「비밀 쪽지」 — 누구 것 · 넉 장 중 몇 장 · 칸 짚기 · 거두기
 //   ㆍ 맵 바닥의 쪽지 — 문제 종이와 한눈에 갈리는가
-//   ㆍ 옆에 서면 「쪽지를 줍는다」가 뜨고, 주워서 읽으면 이름이 끼워진 문장
+//   ㆍ 쪽지를 짚으면 옆에 「줍는다 · 그냥 둔다」가 뜨고, 주워서 읽으면 이름이 끼워진 문장
 //
 //   1. cd functions && npm run build
 //   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
@@ -20,6 +20,8 @@ import { dayHourMs } from '../shared/rules/clock'
 import { HALLS, TILES, type Floor } from '../shared/rules/board'
 import { canDropQuizAt } from '../shared/rules/quiz'
 import { standAndSpot } from './lib/spot'
+import { tapCell } from './lib/walk'
+import { BOARDS } from '../shared/rules/errand'
 
 const { chromium } = pw as typeof import('playwright')
 type Page = import('playwright').Page
@@ -191,14 +193,33 @@ async function main() {
   if (cv) {
     await me.screenshot({ path: `${OUT}/slip-${W}-발밑.png`, clip: { x: cv.x + cv.width / 2 - 90, y: cv.y + cv.height / 2 - 70, width: 180, height: 140 } })
   }
-  const takeBtn = me.locator('button', { hasText: '쪽지를 줍는다' })
-  if ((await takeBtn.count()) === 0) missed.push('옆에 섰는데 「쪽지를 줍는다」가 없다')
+  /*
+   * **쪽지를 짚는다.** 아래 칸은 늘 같고, 쪽지 옆에 작은 차림표가 뜬다 —
+   * 「줍는다」와 「그냥 둔다」. 문제 종이도 짚어서 차림표만 본다
+   */
+  await tapCell(me, side[1])
+  await me.waitForTimeout(500)
+  const quizRows = await me.locator('.sc-mt__row').allInnerTexts()
+  console.log(`  문제 종이 차림표: ${quizRows.join(' / ')}`)
+  if (!quizRows.some((r) => r.includes('그냥 둔다'))) missed.push('문제 종이 차림표에 「그냥 둔다」가 없다')
+  await me.locator('.sc-mt__row', { hasText: '그냥 둔다' }).click().catch(() => undefined)
+  await me.waitForTimeout(300)
+  if ((await me.locator('.sc-mt').count()) > 0) missed.push('「그냥 둔다」를 눌렀는데 차림표가 남았다')
+  await tapCell(me, side[0])
+  await me.waitForTimeout(500)
+  await me.screenshot({ path: `${OUT}/slip-${W}-차림표.png` })
+  console.log(`  찍었다 slip-${W}-차림표.png — ${(await me.locator('.sc-mt__row').allInnerTexts()).join(' / ')}`)
+  const takeBtn = me.locator('.sc-mt__row', { hasText: '줍는다' })
+  if ((await takeBtn.count()) === 0) missed.push('쪽지를 짚었는데 「줍는다」가 없다')
   else {
     await takeBtn.first().click()
     await me.waitForTimeout(1200)
     await me.screenshot({ path: `${OUT}/slip-${W}-주움.png` })
     console.log(`  찍었다 slip-${W}-주움.png`)
   }
+  const bottom = await me.locator('.sc-ct__act').allInnerTexts()
+  console.log(`  아래 칸: ${bottom.map((b) => b.trim()).join(' / ')}`)
+  if (bottom.some((b) => b.includes('줍는다'))) missed.push('아래 칸에 줍기가 아직 있다')
 
   // 「나」 → 가진 것 → 쪽지에서 읽는다
   await me.evaluate(() => {
@@ -215,6 +236,30 @@ async function main() {
   const line = (await me.locator('.sc-sl__line').first().innerText()).trim()
   console.log(`  찍었다 slip-${W}-읽음.png — ${line}`)
   if (line.includes('{이름}')) missed.push(`이름이 안 끼워졌다: ${line}`)
+
+  /*
+   * **먼 물건을 짚는다.** 걸어가 주지 않는다 — 차림표는 뜨되 줄이 흐리고
+   * 몇 칸 더 가야 하는지가 적힌다. 교실에서 보이는 복도 게시판을 짚는다
+   */
+  await me.evaluate(() => {
+    const t = [...document.querySelectorAll('.sc-ct__tab')].find((e) => e.textContent?.trim() === '맵')
+    ;(t as HTMLElement | undefined)?.click()
+  })
+  await me.waitForTimeout(800)
+  let farSeen = false
+  for (const b of BOARDS) {
+    if (!(await tapCell(me, b.cell))) continue
+    await me.waitForTimeout(500)
+    if ((await me.locator('.sc-mt').count()) === 0) continue
+    const rows = await me.locator('.sc-mt__row').allInnerTexts()
+    console.log(`  먼 게시판(${b.name}) 차림표: ${rows.map((r) => r.replace(/\s+/g, ' ')).join(' / ')}`)
+    await me.screenshot({ path: `${OUT}/slip-${W}-먼물건.png` })
+    farSeen = rows.some((r) => r.includes('가까이 가야 한다'))
+    const off = await me.locator('.sc-mt__row').first().isDisabled()
+    if (!off) missed.push('먼 게시판인데 줄이 눌린다')
+    break
+  }
+  if (!farSeen) missed.push('먼 물건을 짚었는데 「가까이 가야 한다」가 안 떴다')
 
   await browser.close()
   console.log(`\n놓침 ${JSON.stringify(missed)}`)

@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto'
 import { dayHourMs } from '../shared/rules/clock'
 import { HALLS, START_TILE, TILE_BY_ID, roomOfCell } from '../shared/rules/board'
 import { canDropQuizAt } from '../shared/rules/quiz'
-import { cellNow, tap, walkTo } from './lib/walk'
+import { cellNow, pickOnMap, tap, walkTo } from './lib/walk'
 
 const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
 
@@ -189,10 +189,9 @@ async function main() {
         if (onPaper) missed.push(`${tag}${size.w}: 종이 위로 지나갔다`)
       }
       /*
-       * **줍는다.** 행동 칸이 「문제 종이를 줍는다」로 바뀌었다 —
-       * 전에는 그 자리에서 펴는 물건이라 시트가 열렸다.
+       * **줍는다.** 맵에서 종이를 짚으면 옆에 「줍는다 · 그냥 둔다」가 뜬다
        */
-      await tap(page, '.sc-ct__act', '문제 종이를 줍는다')
+      if (!(await pickOnMap(page, CELL, '줍는다'))) missed.push(`${tag}${size.w}: 종이를 짚었는데 「줍는다」가 없다`)
       await page.waitForTimeout(1600)
       await page.screenshot({ path: `${OUT}/quiz-${size.w}-주웠다-${tag}.png` })
 
@@ -301,7 +300,10 @@ async function main() {
         }
         await call('tick', host, { gameId: game })
         await page.waitForTimeout(1800)
-        await tap(page, '.sc-ct__act', '문제 종이를 줍는다')
+        // 손패가 열려 있다. 닫아야 맵을 짚는다
+        await page.locator('.sc-sheet__back').first().click().catch(() => undefined)
+        await page.waitForTimeout(400)
+        if (!(await pickOnMap(page, next, '줍는다'))) missed.push(`${tag}${size.w}: 둘째 종이를 짚었는데 「줍는다」가 없다`)
         await page.waitForTimeout(1600)
         await tap(page, '.sc-ct__act', '손패')
         await page.waitForTimeout(1200)

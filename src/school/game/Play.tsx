@@ -26,8 +26,8 @@ import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
 import { Actions } from './Actions'
 import { Vending } from './Vending'
 import { BoardSheet, ErrandStrip } from './Errand'
-import { BOARDS, atBoard } from '../../../shared/rules/errand'
-import { GARDEN_TILE, POT_CELLS, type PotStage } from '../../../shared/rules/crop'
+import { BOARDS } from '../../../shared/rules/errand'
+import { POT_CELLS, type PotStage } from '../../../shared/rules/crop'
 import { GardenSheet } from './Garden'
 
 /** 단계마다 어느 그림인가. 이름은 map/thingArt 의 POT_ART 키다 */
@@ -47,14 +47,13 @@ const POT_ART_OF: Record<PotStage, string> = {
  */
 const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }): boolean =>
   me !== null && Math.abs(me.x - c.x) <= 1 && Math.abs(me.y - c.y) <= 1
-import { Walk, type DirWay, type PersonAt } from './Walk'
-import { Meet } from './Meet'
+import { Walk, type DirWay, type PersonAt, type TapThing } from './Walk'
+import { Meet, type MeetRow } from './Meet'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { ScoreBar } from './Score'
 import { Phase, PhaseLog, leftText } from './Phase'
 import { Slips } from './Slips'
-import { atPaper } from '../../../shared/rules/quiz'
-import { TECH_TILE, makerBeside } from '../../../shared/rules/trap'
+import { TECH_TILE } from '../../../shared/rules/trap'
 import { MakerSheet } from './Maker'
 import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
@@ -784,6 +783,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 상대가 방을 나가면 창을 닫아 버리므로 따라다닐 일이 없다.
    */
   const [person, setPerson] = useState<{ id: string; at: PersonAt } | null>(null)
+  /**
+   * 맵에서 짚은 물건과 그 자리. 사람과 같은 작은 차림표가 그 옆에 뜬다.
+   * **멀어도 뜬다** — 손이 안 닿으면 줄마다 몇 칸 더 가야 하는지 적는다.
+   */
+  const [thing, setThing] = useState<{ t: TapThing; at: PersonAt } | null>(null)
+  /** 「앉는다」를 눌렀다. 자리에 닿으면 오락기가 켜진다 */
+  const [sitting, setSitting] = useState(false)
   const [archive, setArchive] = useState(false)
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
@@ -873,6 +879,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   useEffect(() => {
     if (!arcadeHere) setSheet((s) => (s === 'arcade' ? null : s))
   }, [arcadeHere])
+  /*
+   * 「앉는다」로 걸어갔다. **멈춘 자리가 앞자리면 기계를 켠다.** 다른
+   * 데서 멈췄으면 잊는다 — 한참 뒤 우연히 앉았는데 창이 튀어나오면 안 된다
+   */
+  useEffect(() => {
+    if (!sitting) return
+    if (arcadeHere) setSheet('arcade')
+    setSitting(false)
+  }, [myCell]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (vendingHere === null) setSheet((s) => (s === 'shop' ? null : s))
     if (standingOn !== TECH_TILE) setSheet((s) => (s === 'maker' ? null : s))
@@ -1166,92 +1181,24 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   )
 
   /**
-   * 여섯 칸에 무엇을 놓는가.
+   * 아래 칸에 무엇을 놓는가.
    *
-   * **이 방에서 되는 것이 앞 칸에 온다.** 기계 앞에 서 있으면 「자판기」가
-   * 첫 칸이고, 아니면 그 칸을 다른 것이 쓴다. 여섯을 넘으면 나머지는
-   * 더보기 시트로 간다 — 잘라 버리지 않는다.
-   *
-   * 못 하는 것도 칸에 남긴다. 사라지면 그런 것이 있는 줄도 모르고,
-   * 흐린 채로 있으면 눌러서 까닭을 들을 수 있다.
+   * **늘 같다.** 손패 · 이 방 · 전체 맵 · 더보기, 페이즈 중에는 앞에
+   * 깃발이 붙는다. 서는 자리에 따라 칸이 바뀌면 같은 자리를 눌러도
+   * 다른 일이 일어난다 — 물건에 붙은 일은 맵에서 그 물건을 짚는다.
    */
-  const phaseTokens = state.view?.myTeamTokens ?? null
   const acts = useMemo<Act[]>(() => {
     /*
      * 「못 하는 까닭」을 여기서 짓던 것은 없앴다. 생산·공부 두 단추만
      * 그걸 썼고, 남은 단추들은 시트를 여는 일뿐이라 까닭이 없다 —
      * 페이즈 안에서 무엇이 왜 안 되는지는 Phase 가 제 자리에서 말한다.
      */
-    // 지금 이 방에서만 되는 것. 있으면 첫 칸을 가져간다
-    const room: Act[] = []
-    // **페이즈 중에도 산다.** 기계 앞에 서는 것 말고 드는 값이 없다 —
-    // 서버도 시각을 안 본다. 기계 앞에 서고도 아무것도 못 하는 셈이
-    // 되지 않게 단추는 늘 둔다
-    if (vendingHere !== null) {
-      room.push({ key: 'buy', icon: 'buy', label: '자판기', run: () => setSheet('shop') })
-    }
-    // **오락기 옆.** 페이즈 중에도 된다 — 대신 그동안 방을 비운다
-    if (arcadeHere) {
-      room.push({ key: 'arcade', icon: 'arcade', label: '오락기', run: () => setSheet('arcade') })
-    }
     /*
-     * **게시판 앞.** 방이 아니라 자리라서, 선 방이 아니라 선 칸을 본다.
-     *
-     * 복도에 있으므로 어느 방에 속하지도 않는다 — 그 앞에 서는 것만이
-     * 조건이고, 그래서 이 칸은 복도에서만 뜬다.
+     * **이 방에서만 되는 것은 여기 없다.** 자판기·오락기·게시판·화분·
+     * 종이·제조기·완성품은 맵에서 그 물건을 짚으면 옆에 차림표가 뜬다.
+     * 손이 닿는 것에는 머리 위에 「!」가 선다(Walk). 아래 칸은 늘 같은
+     * 넷이라, 서는 자리마다 단추가 바뀌어 손이 헛짚는 일이 없다.
      */
-    if (BOARDS.some((b) => atBoard(myCell, b))) {
-      room.push({ key: 'board', icon: 'note', label: '게시판', run: () => setSheet('board') })
-    }
-    /*
-     * **화분.** 정원에 서 있으면 뜬다.
-     *
-     * 게시판과 달리 방 하나에 다 모여 있어서, 자리까지 보지 않고
-     * 방으로 연다 — 어느 화분 앞인지는 시트 안에서 가른다.
-     */
-    if (standingOn === (GARDEN_TILE as TileId)) {
-      room.push({ key: 'garden', icon: 'pot', label: '화분', run: () => setSheet('garden') })
-    }
-    /*
-     * **문제 종이 옆.** 게시판과 같이 자리를 본다 — 방에 들어온 것만으로는
-     * 안 뜬다. 맵의 종이를 탭해도 같은 일이 일어난다.
-     *
-     * 여기서 하는 일은 **줍는 것뿐이다.** 푸는 것은 손패에서 한다
-     */
-    const paperHere = (state.view?.quizzesHere ?? []).find((q) => atPaper(myCell, q))
-    if (paperHere) {
-      room.push({ key: 'quiz', icon: 'note', label: '문제 종이를 줍는다', run: () => takePaper(paperHere) })
-    }
-    /* **비밀 쪽지 옆.** 문제 종이와 같은 자다. 누구 것인지는 주워서 읽어야 안다 */
-    const slipPaperHere = (state.view?.slipPapers ?? []).find((q) => atPaper(myCell, q))
-    if (slipPaperHere) {
-      room.push({ key: 'slipPaper', icon: 'note', label: '쪽지를 줍는다', run: () => takePaper(slipPaperHere) })
-    }
-    /* **제조기 옆.** 기술실 안에서 제조기 옆에 섰을 때만 뜬다 */
-    if (standingOn === TECH_TILE && makerBeside(myCell) !== null) {
-      room.push({ key: 'maker', icon: 'pot', label: '제조기', run: () => setSheet('maker') })
-    }
-    /*
-     * **이 방에 놓인 완성품.** 첫 칸을 가져간다.
-     *
-     * 주인이 없다 — 연구를 건 사람이 제때 여기 없었다는 뜻이고, 먼저
-     * 누른 사람이 가진다. 남의 팀 것도 가져갈 수 있다. 자유 시간에는
-     * 나와 있지 않으므로 이 칸도 안 뜬다.
-     */
-    const made = phaseOpen ? (state.view?.madeHere ?? []) : []
-    if (made.length > 0) {
-      const first = made[0]
-      room.push({
-        key: 'made',
-        icon: 'made',
-        label: made.length > 1 ? `완성품 ${made.length}` : '완성품',
-        run: () =>
-          void act
-            .takeMade(first.id)
-            .then((r) => say(String((r as { said?: string }).said ?? '가져갔다.')))
-            .catch((e) => refuse((e as Error).message)),
-      })
-    }
     /*
      * **페이즈에 토큰을 쓰는 길은 둘뿐이다** — 방을 먹는 것(자리
      * 차지·이동)과 연구. 전에는 여기에 생산·공부가 더 있었는데,
@@ -1274,20 +1221,93 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       { key: 'room', icon: 'room', label: '이 방', run: () => setSheet('act') },
       { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
     ]
-    return [...room, ...fixed, ...tail]
-  }, [phaseOpen, standingOn, myCell, phaseTokens, busyLeftMs, busyKind, state.view?.madeHere, state.view?.quizzesHere, state.view?.slipPapers, takePaper, act, say, refuse])
+    return [...fixed, ...tail]
+  }, [phaseOpen])
 
-  /**
-   * 여섯 칸에 다 안 들어가면 마지막 칸을 「더보기」가 쓴다.
-   *
-   * **잘라 버리지 않는다.** 넘친 것은 시트에 그대로 있고, 거기서도
-   * 같은 그림과 같은 이름으로 나온다 — 자리만 옮긴 것이지 없어진
-   * 것이 아니라는 게 보여야 한다.
-   */
+  /** 마지막 칸은 늘 더보기다. 설정과 보관함이 그 뒤에 있다 */
   const more: Act = { key: 'more', icon: 'more', label: '더보기', run: () => setSheet('more') }
-  // 마지막 칸은 늘 더보기다. 설정과 보관함이 그 뒤에 있어서, 칸이
-  // 남는 날에만 열리게 두면 어떤 날은 아예 못 연다
-  const grid = [...acts.slice(0, 5), more]
+  const grid = [...acts, more]
+
+  /*
+   * ── 짚은 물건의 차림표 ─────────────────────────────────────
+   *
+   * 물건마다 할 수 있는 일이 한두 줄이다. **손이 안 닿으면 줄을 흐리고
+   * 몇 칸 더 가야 하는지 적는다** — 눌러도 아무 일이 없는 것보다
+   * 무엇이 모자란지 보이는 편이 낫다. 종이에는 「그냥 둔다」가 늘 있다.
+   * 주울지 말지를 고르는 자리라서, 안 줍는 것도 고르는 것으로 둔다.
+   */
+  const THING_NAME: Record<TapThing['what'], string> = {
+    board: '게시판',
+    vending: '자판기',
+    pot: '화분',
+    maker: '제조기',
+    lab: '연구 기계',
+    arcade: '오락기',
+    quiz: '문제 종이',
+    slip: '쪽지',
+  }
+  // 머리줄은 「무엇 · 어디」. 멀고 가까운 것은 줄마다 적으니 여기 또 안 적는다
+  const thingName = (t: TapThing) => THING_NAME[t.what]
+  const thingSub = (t: TapThing) =>
+    t.what === 'quiz' || t.what === 'slip' ? '바닥' : t.name !== undefined && t.name !== THING_NAME[t.what] ? t.name : ''
+  const thingRows = (t: TapThing): MeetRow[] => {
+    const far = t.near ? null : `가까이 가야 한다 · ${t.steps}칸`
+    const pick = (fn: () => void) => () => {
+      setThing(null)
+      fn()
+    }
+    const open = (key: string, label: string, id: SheetId): MeetRow => ({ key, label, why: far, onPick: pick(() => setSheet(id)) })
+    const leave: MeetRow = { key: 'leave', label: '그냥 둔다', onPick: () => setThing(null) }
+    switch (t.what) {
+      case 'quiz':
+      case 'slip':
+        return [{ key: 'take', label: '줍는다', why: far, onPick: pick(() => takePaper(t.cell)) }, leave]
+      case 'board':
+        return [open('board', '심부름 보기', 'board')]
+      case 'vending':
+        return [open('shop', '고른다', 'shop')]
+      case 'pot':
+        return [open('garden', '들여다본다', 'garden')]
+      case 'maker':
+        return [open('maker', '만든다', 'maker')]
+      case 'lab': {
+        /*
+         * **완성품은 여기서 가져간다.** 연구가 끝난 방에 주인 없이 놓인다 —
+         * 먼저 짚은 사람 것이고, 남의 팀 것도 된다. 자유 시간에는 안 나와 있다
+         */
+        const made = phaseOpen ? (state.view?.madeHere ?? []) : []
+        const rows: MeetRow[] = [open('lab', '연구하기', 'act')]
+        if (made.length > 0) {
+          rows.push({
+            key: 'made',
+            label: made.length > 1 ? `완성품 가져가기 · ${made.length}` : '완성품 가져가기',
+            onPick: pick(() =>
+              void act
+                .takeMade(made[0].id)
+                .then((r) => say(String((r as { said?: string }).said ?? '가져갔다.')))
+                .catch((e) => refuse((e as Error).message)),
+            ),
+          })
+        }
+        return rows
+      }
+      case 'arcade':
+        // 앞자리에 앉아 있으면 켜고, 옆에 섰으면 그 자리로 가서 앉는다
+        return t.seated
+          ? [open('arcade', '켠다', 'arcade')]
+          : [
+              {
+                key: 'sit',
+                label: '앉는다',
+                why: far,
+                onPick: pick(() => {
+                  setSitting(true)
+                  t.sit?.()
+                }),
+              },
+            ]
+    }
+  }
   const spill = acts.slice(5)
 
   /**
@@ -1409,21 +1429,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               }
               goFar(id)
             }}
-            onTapPerson={(id, at) => setPerson({ id, at })}
-            /* 기물을 짚었다 — 앞에 서 있을 때만 온다(Walk 가 잰다) */
-            onTapFixture={(kind) =>
-              setSheet(
-                kind === 'board' ? 'board'
-                : kind === 'pot' ? 'garden'
-                : kind === 'maker' ? 'maker'
-                : kind === 'lab' ? 'act'
-                : kind === 'arcade' ? 'arcade'
-                : 'shop',
-              )
-            }
+            onTapPerson={(id, at) => {
+              setThing(null)
+              setPerson({ id, at })
+            }}
+            /* 기물이나 종이를 짚었다 — 멀어도 온다. 옆에 차림표를 띄운다 */
+            onTapThing={(t, at) => {
+              setPerson(null)
+              setThing({ t, at })
+            }}
             /* 덫에 걸리면 서버가 세운 칸이다. 거기서 못 벗어난다 */
             pinAt={busyKind === '덫' && busyLeftMs > 0 ? (state.view?.mySnaredAt ?? null) : null}
-            onTapPaper={takePaper}
             /* 머리 위에 잠깐 뜨는 말 */
             says={says}
             names={names}
@@ -1845,6 +1861,20 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           열세 명이 늘어선 목록은 없다. 눈앞에 선 사람 하나다.
           바텀시트가 아니라 **그 사람 옆에 붙는 작은 차림표**다 —
           창이 떠 있는 동안에도 누가 어디 섰는지가 맵에 보여야 한다 */}
+      {/* ── 맵에서 짚은 물건 ───────────────────────────────
+          사람과 같은 차림표다. **멀어도 뜬다** — 줄은 흐려지고 몇 칸 더
+          가야 하는지가 적힌다. 걸어가 주지는 않는다 */}
+      {thing && (
+        <Meet
+          name={thingName(thing.t)}
+          team={null}
+          sub={thingSub(thing.t)}
+          at={thing.at}
+          onClose={() => setThing(null)}
+          rows={thingRows(thing.t)}
+        />
+      )}
+
       {person && (
         <Meet
           name={nameOf(person.id)}

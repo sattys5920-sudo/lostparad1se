@@ -29,6 +29,7 @@ import { mkdirSync } from 'node:fs'
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
 import { ARCADE_MACHINES } from '../shared/rules/arcade'
+import { pickOnMap } from './lib/walk'
 import { relayTimes, relayWho, type RelayState } from '../shared/rules/arcadeBeat'
 import { MOLE_MS } from '../shared/rules/arcadeMole'
 import { fiftyBoard, fiftyStart, fiftyTap, type FiftyTap } from '../shared/rules/arcadeFifty'
@@ -212,12 +213,13 @@ async function main() {
   const where = (await page.locator('.sc-pl__where').first().innerText().catch(() => '')).trim()
   console.log(`  이름표: ${where}`)
   if (where !== '뒷골목') missed.push(`이름표가 「뒷골목」이 아니다: ${where}`)
-  if ((await page.locator('.sc-ct__act', { hasText: '오락기' }).count()) === 0) missed.push('앞자리에 앉았는데 「오락기」 단추가 없다')
+  // 아래 칸에는 오락기가 없다. 기계를 짚으면 옆에 「켠다」가 뜬다
+  if ((await page.locator('.sc-ct__act', { hasText: '오락기' }).count()) > 0) missed.push('아래 칸에 「오락기」가 남아 있다')
   await shot('골목')
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, Math.max(0, ms)))
   const openSheet = async () => {
-    if ((await page.locator('.sc-ar').count()) === 0) await page.locator('.sc-ct__act', { hasText: '오락기' }).click()
+    if ((await page.locator('.sc-ar').count()) === 0) await pickOnMap(page, ARCADE_MACHINES[2].cell, '켠다')
     await page.waitForSelector('.sc-ar', { timeout: 5000 })
   }
   const toMenu = async () => {
