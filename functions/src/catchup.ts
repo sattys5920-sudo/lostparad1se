@@ -36,6 +36,7 @@ import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
 import { tellReadyTraps } from './trap'
+import { flushQueue } from './notify'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
 import { sysLine } from './radio'
@@ -419,6 +420,8 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   await landResearch(gameId)
   // 다 된 덫을 맡긴 사람에게 알린다
   await tellReadyTraps(gameId, toMs)
+  // 조용한 시간에 미뤄 둔 제작 완료 — 08:00 이 지났으면 지금 보낸다
+  await flushQueue()
   // 창이 닫힌 팀장 투표를 여기서 센다. 동점이면 다음 차례가 걸린다
   await settleCaptainVotes(gameId)
   if (applied > 0) await refreshViews(gameId)

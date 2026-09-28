@@ -11,12 +11,13 @@
 // 지키는 것
 //   같은 알림 두 번     dedupe 키로 한 번만(secret/notifyKeys)
 //   몰아치기            한 사람에게 1분에 다섯 건을 넘으면 「알림 n건」 한 줄로 묶는다
-//   조용한 시간         00:00~08:00(서울) 에는 앱 밖으로 안 보낸다. 제작 완료만 08:00 에 모아 보낸다
+//   조용한 시간         00:00~08:00(서울) 에는 앱 밖으로 안 보낸다. 제작 완료만 모아 두었다가
+//                       08:00 뒤 첫 따라잡기(누가 앱을 열 때)에 보낸다 — 예약 작업은 이 프로젝트
+//                       권한으로 못 만든다(배포가 거절했다)
 //   기록                종류 · 받는 사람 · 시각 · 길(앱 안/밖) · 성공 여부(secret/notifyLog)
 import { createHash } from 'node:crypto'
 
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { getFirestore } from 'firebase-admin/firestore'
 import webpush from 'web-push'
 
@@ -45,7 +46,7 @@ const db = getFirestore()
 
 const inboxOf = (gameId: string) => gameRef(gameId).collection('inbox')
 const secretOf = (gameId: string, name: string) => gameRef(gameId).collection('secret').doc(name).collection('items')
-/** 조용한 시간에 미뤄 둔 제작 완료. 판을 가리지 않고 08:00 에 한 번에 턴다 */
+/** 조용한 시간에 미뤄 둔 제작 완료. 08:00 이 지나면 따라잡기가 턴다 */
 const queue = () => db.collection('notifyQueue')
 
 // ── 웹 푸시 열쇠 ─────────────────────────────────────────────────
@@ -182,8 +183,12 @@ async function notifyOne(gameId: string, uid: string, type: NotifyType, key: str
   await pushTo(gameId, uid, { text: NOTIFY_TEXT[type], type, link: NOTIFY_LINK[type], badge: out.unread }, fullKey)
 }
 
-/** 미뤄 둔 제작 완료를 턴다 — 사람마다 한 줄로 묶어서 */
+/**
+ * 미뤄 둔 제작 완료를 턴다 — 사람마다 한 줄로 묶어서.
+ * 따라잡기(catchUp)가 부른다. 조용한 시간이면 아무것도 안 한다.
+ */
 export async function flushQueue(nowMs = Date.now()): Promise<number> {
+  if (isQuiet(nowMs)) return 0
   const due = await queue().where('dueAtMs', '<=', nowMs).get()
   const groups = new Map<string, { gameId: string; uid: string; n: number }>()
   for (const d of due.docs) {
@@ -204,10 +209,6 @@ export async function flushQueue(nowMs = Date.now()): Promise<number> {
   return groups.size
 }
 
-/** 서울 08:00 — 조용한 시간이 끝나면 미뤄 둔 것을 보낸다. 예약 작업은 이것 하나다 */
-export const notifyMorning = onSchedule({ schedule: '0 8 * * *', timeZone: 'Asia/Seoul', region: 'asia-northeast3' }, async () => {
-  await flushQueue()
-})
 
 // ── 참가자가 부르는 것 ───────────────────────────────────────────
 
