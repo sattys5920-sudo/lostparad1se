@@ -5,7 +5,7 @@
 // 사람 화면에 뜨는 종이 한 장.
 //
 //   1. cd functions && npm run build  (에뮬레이터 다시 띄우기)
-//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
+//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve --emptyOutDir
 //   3. python3 -m http.server 8899 --bind 127.0.0.1 --directory /tmp/claude-0/serve
 //   4. npx vite-node scripts/ending-shots.ts
 //
@@ -23,7 +23,7 @@ const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const ADMIN = { Authorization: 'Bearer owner' }
-const SITE = 'http://127.0.0.1:8899/lostparad1se'
+const SITE = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/endshots'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)

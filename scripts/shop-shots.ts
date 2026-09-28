@@ -4,7 +4,7 @@
 // 화면**이다. 상점 목록 여섯 줄과, 주머니에서 물건을 쓰는 칸.
 //
 //   1. cd functions && npm run build  (에뮬레이터 다시 띄우기)
-//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
+//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve --emptyOutDir
 //   3. python3 -m http.server 8899 --bind 127.0.0.1 --directory /tmp/claude-0/serve
 //   4. npx vite-node scripts/drop-shots.ts
 //
@@ -24,7 +24,7 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
-const SITE = 'http://127.0.0.1:8899/lostparad1se'
+const SITE = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/shopshots'
 
 const QA_PW = 'seed-password-1'

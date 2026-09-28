@@ -180,7 +180,7 @@ export function useStaticCache(): void {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return
-    void navigator.serviceWorker.register('/lostparad1se/sw.js', { scope: '/lostparad1se/' }).catch(() => {
+    void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
       // 못 붙어도 게임은 그대로 돌아간다. 캐시는 덤이다
     })
   }, [])

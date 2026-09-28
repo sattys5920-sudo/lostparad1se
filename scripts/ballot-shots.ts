@@ -7,7 +7,7 @@
 //
 //   1. cd functions && npm run build
 //   2. firebase emulators:start --only firestore,functions,auth --project demo-goei
-//   3. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se
+//   3. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve
 //   4. npx vite-node scripts/ballot-shots.ts
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { dayHourMs } from '../shared/rules/clock'
@@ -18,7 +18,7 @@ const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const ADMIN = { Authorization: 'Bearer owner' }
-const SITE = 'http://127.0.0.1:8899/lostparad1se'
+const SITE = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/shots'
 
 const MY_PW = 'ballot-shot-pass1'

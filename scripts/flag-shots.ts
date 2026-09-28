@@ -7,7 +7,7 @@
 // 서버 문서에 직접 적는다. 꽂기·뽑기가 맞게 도는지는 phase-e2e 가 본다.
 //
 //   1. cd functions && npm run build
-//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
+//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve --emptyOutDir
 //   3. npx vite-node scripts/flag-shots.ts        (W=375 H=667 로 작은 화면)
 import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
@@ -22,7 +22,7 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
-const SITE = 'http://127.0.0.1:8899/lostparad1se'
+const SITE = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/shots'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)

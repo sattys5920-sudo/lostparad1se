@@ -1,4 +1,10 @@
-name: Deploy to GitHub Pages
+name: Deploy site
+
+# 화면을 Firebase Hosting 에 올린다 — https://<프로젝트>.web.app/
+#
+# 예전에는 GitHub Pages(https://<계정>.github.io/lostparad1se/)에 올렸다. 그
+# 주소에는 계정 이름이 박혀서 옮겼다. 옛 주소로 들어온 사람은 새 주소로
+# 넘긴다 — Pages 에는 넘기는 한 장만 올린다(아래 redirect 잡).
 
 on:
   push:
@@ -26,7 +32,7 @@ env:
   VITE_FIREBASE_APP_ID: ${{ secrets.APPID }}
 
 jobs:
-  build:
+  hosting:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,10 +43,12 @@ jobs:
       # 값이 비어 있으면 빌드는 그대로 성공하고 배포된 화면에서만 "Firebase가 연결되지
       # 않았다"로 나타나 원인을 찾기 어렵다. 어떤 항목이 비었는지만 남긴다(값은 찍지 않는다).
       - name: Check firebase secrets are present
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           missing=0
           for name in VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID \
-                      VITE_FIREBASE_STORAGE_BUCKET VITE_FIREBASE_MESSAGING_SENDER_ID VITE_FIREBASE_APP_ID; do
+                      VITE_FIREBASE_STORAGE_BUCKET VITE_FIREBASE_MESSAGING_SENDER_ID VITE_FIREBASE_APP_ID SA; do
             if [ -n "${!name}" ]; then
               echo "$name: 설정됨"
             else
@@ -58,16 +66,53 @@ jobs:
       # 첫날 아침에 읽힌다. 되돌릴 수 없으므로 배포 전에 막는다.
       - name: Check server-only story text did not leak into the bundle
         run: npm run check:bundle
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+      - name: Deploy to Firebase Hosting
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT: ${{ secrets.PROJECTID }}
+        run: |
+          # 열쇠는 파일로 건넨다. 명령줄에 두면 실패한 명령이 로그에 통째로 찍힐 수 있다
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          npx -y firebase-tools@13 deploy --only hosting --project "$PROJECT" --non-interactive
+          echo "올렸다: https://$PROJECT.web.app/"
 
-  deploy:
-    needs: build
+  # 옛 주소(GitHub Pages)로 들어온 사람을 새 주소로 넘긴다. ?game= 같은 꼬리는 그대로 단다
+  redirect:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Write the forwarding page
+        env:
+          PROJECT: ${{ secrets.PROJECTID }}
+        run: |
+          mkdir -p out
+          cat > out/index.html <<HTML
+          <!doctype html>
+          <html lang="ko">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="robots" content="noindex" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>투명인간</title>
+              <script>
+                // 옛 주소의 어느 쪽으로 왔든 새 주소의 같은 자리로. 꼬리(?game=)는 그대로
+                var rest = location.pathname.replace(/^\/lostparad1se\/?/, '')
+                location.replace('https://${PROJECT}.web.app/' + rest + location.search + location.hash)
+              </script>
+            </head>
+            <body style="background:#0c0e12;color:#ddd;font-family:sans-serif;padding:24px">
+              <p>주소가 바뀌었다. <a style="color:#e8c877" href="https://${PROJECT}.web.app/">https://${PROJECT}.web.app/</a></p>
+            </body>
+          </html>
+          HTML
+          cp out/index.html out/404.html
+          cp out/index.html out/play.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
       - id: deployment
         uses: actions/deploy-pages@v4

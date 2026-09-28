@@ -7,8 +7,9 @@ const root = fileURLToPath(new URL('.', import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
-  // GitHub Pages가 저장소 이름 아래로 서빙한다: /lostparad1se/
-  base: '/lostparad1se/',
+  // Firebase Hosting 이 뿌리에서 서빙한다: https://<프로젝트>.web.app/
+  // (예전에는 GitHub Pages 의 /lostparad1se/ 아래였다 — 그 주소는 이제 여기로 넘긴다)
+  base: '/',
   plugins: [react()],
   build: {
     rollupOptions: {

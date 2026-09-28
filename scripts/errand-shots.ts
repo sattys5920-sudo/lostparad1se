@@ -4,7 +4,7 @@
 // 화면**이다. 운영자 책상의 심부름 칸, 복도 게시판, 받아 둔 한 줄.
 //
 //   1. cd functions && npm run build  (에뮬레이터 다시 띄우기)
-//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
+//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve --emptyOutDir
 //   3. python3 -m http.server 8899 --bind 127.0.0.1 --directory /tmp/claude-0/serve
 //   4. npx vite-node scripts/drop-shots.ts
 //
@@ -26,7 +26,7 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
-const SITE = 'http://127.0.0.1:8899/lostparad1se'
+const SITE = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/errandshots'
 
 const QA_PW = 'seed-password-1'

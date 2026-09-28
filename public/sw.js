@@ -14,7 +14,7 @@
 // 화면이 서버보다 새것인 창은 이미 한 번 검은 화면을 냈다. 서비스
 // 워커가 옛 껍데기를 쥐고 있으면 그 창이 더 오래 산다 — 그래서
 // html 은 언제나 서버가 먼저고, 새 워커는 기다리지 않고 곧장 넘겨받는다.
-const CACHE = 'sc-static-v1'
+const CACHE = 'sc-static-v2'
 
 self.addEventListener('install', (e) => {
   // 기다리지 않는다. 낡은 껍데기를 오래 쥐고 있을수록 손해다
@@ -35,7 +35,7 @@ self.addEventListener('activate', (e) => {
 
 /** 이름에 해시가 박힌 것만. 그 밖은 서버에 묻는다. */
 function immutable(url) {
-  return url.pathname.includes('/assets/') || url.pathname.startsWith('/lostparad1se/fonts/')
+  return url.pathname.includes('/assets/') || url.pathname.startsWith('/fonts/')
 }
 
 self.addEventListener('fetch', (e) => {

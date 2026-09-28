@@ -24,7 +24,7 @@ async function main() {
       isMobile: true,
       hasTouch: true,
     })
-    await page.goto('http://127.0.0.1:8899/lostparad1se/', { waitUntil: 'networkidle' })
+    await page.goto('http://127.0.0.1:8899/', { waitUntil: 'networkidle' })
     await page.fill('#gt-id', ID)
     await page.fill('#gt-pw', PW)
     await page.click('.sc-gt__submit')

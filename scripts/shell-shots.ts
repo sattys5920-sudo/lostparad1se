@@ -5,7 +5,7 @@
 //   ㆍ 글꼴이 실제로 받아졌는가 · color-scheme · 입력칸 글자 크기 · 탭 하이라이트
 //
 //   1. cd functions && npm run build
-//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
+//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve --emptyOutDir
 //   3. W=375 H=667 npx vite-node scripts/shell-shots.ts   (390×844 · 430×932 도)
 import { mkdirSync } from 'node:fs'
 
@@ -19,7 +19,7 @@ const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const ADMIN = { Authorization: 'Bearer owner' }
-const SITE = 'http://127.0.0.1:8899/lostparad1se'
+const SITE = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/shots'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)

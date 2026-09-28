@@ -22,7 +22,7 @@ async function main() {
       isMobile: true,
       hasTouch: true,
     })
-    await page.goto('http://127.0.0.1:8899/lostparad1se/', { waitUntil: 'networkidle' })
+    await page.goto('http://127.0.0.1:8899/', { waitUntil: 'networkidle' })
     await page.waitForSelector('.sc-gt__paper')
     await page.waitForTimeout(800)
 
