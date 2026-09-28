@@ -25,8 +25,11 @@ import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 import { requireHost } from './host'
+import { docId } from './ids'
 
 const db = getFirestore()
+
+const NO_PAPER = '그런 문제가 없다.'
 
 /**
  * 문제 하나. **secret/quiz/bank 아래에 있다.**
@@ -93,7 +96,8 @@ function mustBeBeside(pawn: PawnDoc, paper: QuizPaperDoc): void {
 /** 운영자가 아직 아무도 안 주운 종이를 도로 거둔다. */
 export const hostPullQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
   requireHost(req.auth)
-  const { gameId, paperId } = req.data
+  const { gameId } = req.data
+  const paperId = docId(req.data.paperId, '그런 종이가 없다.')
   await db.runTransaction(async (tx) => {
     const ref = floorOf(gameId).doc(paperId)
     const snap = await tx.get(ref)
@@ -115,7 +119,8 @@ export const hostPullQuiz = onCall<{ gameId: string; paperId: string }>(async (r
  */
 export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, paperId } = req.data
+  const { gameId } = req.data
+  const paperId = docId(req.data.paperId, NO_PAPER)
   const [pawn, { game, nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
   mustBeFreeTime(game, '문제를 주울')
 
@@ -141,7 +146,8 @@ export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) 
 
 export const answerQuiz = onCall<{ gameId: string; paperId: string; given: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, paperId, given } = req.data
+  const { gameId, given } = req.data
+  const paperId = docId(req.data.paperId, NO_PAPER)
   if (typeof given !== 'string') throw new HttpsError('invalid-argument', '답이 없다.')
   const [pawn, { game, nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
   mustBeFreeTime(game, '문제를 풀')

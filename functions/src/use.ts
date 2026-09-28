@@ -19,6 +19,7 @@ import type { TeamId } from '../../shared/rules/v2'
 import type { SlipDoc } from './slips'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
+import { bumpSlips } from './qaLog'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -133,6 +134,8 @@ export const useItem = onCall<UseInput>(async (req) => {
         atMs: nowMs,
       }
       tx.set(slipsOf(gameId).doc(), doc)
+      // 쪽지 문서 하나가 생긴다 — 불변식의 기대 장수도 하나 올린다
+      bumpSlips(tx, gameId, 1)
       said = `${TILE_BY_ID[here as TileId].name} 바닥에 놓았다.`
     }
 

@@ -37,6 +37,20 @@ const secretRef = (id: string) => db.doc(`schoolSessions/live/accounts/${id}/aut
 
 const normalizeId = (raw: string) => String(raw ?? '').trim().toLowerCase()
 
+/**
+ * 사람 이름(닉네임 · 자리 이름)을 다듬는다.
+ *
+ * **보이지 않는 글자를 뺀다** — 제어 문자, 폭 없는 글자(U+200B…), 방향
+ * 제어(U+202A…U+202E · U+2066…U+2069), BOM. 그런 글자만으로 된 이름은
+ * 비어 보이는데 「1~12자」검사는 통과했다 — 이름 없는 사람이 앉을 수 있었다.
+ * 문자열이 아니면 빈 것으로 친다(trim 이 숫자에서 터지지 않게).
+ */
+export function cleanName(raw: unknown): string {
+  return String(typeof raw === 'string' ? raw : '')
+    .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁤⁦-⁩﻿]/g, '')
+    .trim()
+}
+
 async function hashPassword(password: string, salt: string): Promise<string> {
   const bits = await pbkdf2Async(password, salt, ITERATIONS, 32, 'sha256')
   return bits.toString('hex')
@@ -126,8 +140,10 @@ export async function mintToken(uid: string, claims: Record<string, unknown>): P
 }
 
 function check(id: string, password: string): void {
-  if (!ID_RE.test(id)) throw new HttpsError('invalid-argument', '아이디는 영문 소문자·숫자·_·- 로 3~16자여야 한다.')
-  if (String(password ?? '').length < MIN_PASSWORD) {
+  // 「__x__」는 Firestore 가 예약한 문서 이름이라 doc() 이 던진다 — 규칙에 맞아도 거절한다
+  if (!ID_RE.test(id) || /^__.*__$/.test(id)) throw new HttpsError('invalid-argument', '아이디는 영문 소문자·숫자·_·- 로 3~16자여야 한다.')
+  // 문자열이 아니면 해시 함수가 던진다. 화면은 늘 문자열을 보낸다
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
     throw new HttpsError('invalid-argument', `비밀번호는 ${MIN_PASSWORD}자 이상이어야 한다.`)
   }
 }
@@ -290,7 +306,7 @@ export async function setAccountLook(rawId: string, avatar: AvatarLook): Promise
 export const saveCharacter = onCall<{ nickname: string; avatar: unknown }>(async (req) => {
   const accountId = req.auth?.token?.accountId as string | undefined
   if (!accountId) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
-  const nickname = String(req.data.nickname ?? '').trim()
+  const nickname = cleanName(req.data.nickname)
   if (nickname.length === 0 || nickname.length > 12) {
     throw new HttpsError('invalid-argument', '이름은 1~12자다.')
   }

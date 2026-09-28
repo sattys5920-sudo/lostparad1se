@@ -137,6 +137,8 @@ export interface BallotProps {
   onSaid: (text: string) => void
   /** 오늘 표가 이미 집계됐는가. 마지막 교시가 닫히면 끝이다. */
   closed: boolean
+  /** 잠긴 까닭 한 마디. 없으면 「마감되었다」 */
+  closedText?: string
   /** 마감까지 몇 분. 언제 닫힐지 모르면 null 이다. */
   closesInMin: number | null
   /** 종이 위에 얹는 줄. 팀장 판이 여기로 들어온다. */
@@ -145,6 +147,7 @@ export interface BallotProps {
 
 export function Ballot(props: BallotProps) {
   const { me, seats, captainIds, invisibleId, day, view, act, onSaid, closed, closesInMin } = props
+  const closedText = props.closedText ?? '마감되었다'
   const mine = view?.myBallot ?? null
 
   const [pick, setPick] = useState<string | null>(null)
@@ -417,7 +420,7 @@ export function Ballot(props: BallotProps) {
         )}
         {resting && (
           <p className="sc-bt__done" aria-live="polite">
-            {closed ? '마감되었다' : '이미 넣었다.'}
+            {closed ? closedText : '이미 넣었다.'}
             {!closed && closesInMin !== null && <em>마감까지 {closesInMin}분</em>}
           </p>
         )}

@@ -145,6 +145,11 @@ export interface GameDoc {
   /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
   invisibleByDay: Record<number, string | null>
   /**
+   * 투명인간 투표의 문. 운영자가 연다 · 닫는다. 없으면 아직 한 번도 안 연 것.
+   * 닫으면 그 자리에서 센다(ballotGate). 안 닫고 날을 넘기면 정산이 센다
+   */
+  ballot?: { day: number; open: boolean; openedAtMs: number; closedAtMs?: number }
+  /**
    * 오늘 투명인간이 나온 팀. 그날 토큰을 더 받는다.
    *
    * 투명인간이 누구인지는 어차피 아침에 다 알므로 팀도 공개다 —

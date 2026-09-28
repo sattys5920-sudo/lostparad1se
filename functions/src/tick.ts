@@ -12,6 +12,7 @@ import { catchUp, peekByHand, pushByHand } from './catchup'
 import { catchUpMissionDays } from './missionDays'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
+import { logEvent } from './qaLog'
 
 /** 운영자만. 화면이 하는 말을 믿지 않는다. */
 
@@ -47,7 +48,12 @@ export const tick = onCall<{ gameId: string }>(async (req) => {
  */
 export const pushDay = onCall<{ gameId: string }>(async (req) => {
   requireHost(req.auth)
-  return pushByHand(req.data.gameId)
+  const out = await pushByHand(req.data.gameId)
+  if (out.pushed) {
+    const game = (await gameRef(req.data.gameId).get()).data() as GameDoc
+    await logEvent(req.data.gameId, 'dayPushed', nowOf(game), null, { kind: out.pushed.kind, day: out.pushed.day }, { day: game.day })
+  }
+  return out
 })
 
 /** 다음에 무엇을 넘기게 되는가. 누르기 전에 알아야 누를 수 있다. */

@@ -64,7 +64,6 @@ import { freshNow, refuseIfInvisible, requireFree } from './turn'
 import { madeOf, researchTierUp, type Brewing } from './made'
 import { roundAt } from '../../shared/rules/captain'
 import { FLAGS_PER_PHASE, spendFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
-import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { note } from './records'
@@ -74,6 +73,9 @@ import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { notify } from './notify'
 import { cellsOf, claimSeat, pickSeat, seatPawn, takenFrom } from './seat'
+import { checkInvariants } from './invariants'
+import { inTx } from './contended'
+import { logEvent, logSecret } from './qaLog'
 
 const db = getFirestore()
 
@@ -323,24 +325,14 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   for (const d of tiles.docs) owners[d.id as TileId] = (d.data() as TileDoc).ownerTeam ?? null
   const batch = db.batch()
 
-  // **자유 시간에 어디까지 갔든 종이 치면 제자리다.**
-  //
-  // 전에는 걸어서 돌아왔다. 한 칸에 15분이라, 2층 끝에서 1층 끝까지
-  // 다섯 칸이면 75분 — 한 시간짜리 페이즈가 끝나고도 못 닿는다.
-  // 자유 시간에 멀리 가는 것이 그대로 그 페이즈를 버리는 일이 되니
-  // 아무도 제 전선을 안 떠났고, 돌아다니라고 만든 시간이 죽었다.
-  //
-  // 그래서 옮겨 세운다. 자유 시간은 만나는 시간이고, 페이즈는 서 있는
-  // 자리로 겨루는 시간이다 — 둘을 걸음으로 잇지 않는다.
-  const returning: { ref: FirebaseFirestore.DocumentReference; post: TileId }[] = []
-  for (const d of pawns.docs) {
-    const p = d.data() as PawnDoc
-    const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
-    // 걷는 중(tileId === null)인 사람도 데려온다. 자유 시간에 찍어 둔
-    // 길이 남아 있으면 페이즈 한복판에 엉뚱한 도착이 떨어진다
-    if (p.tileId !== post) returning.push({ ref: d.ref, post })
-  }
-  await Promise.all(returning.map((m) => clearArrivals(gameId, m.ref.id)))
+  /*
+   * **페이즈는 지금 서 있는 그 자리에서 시작한다.** 되돌아가는 이동은 없다.
+   *
+   * 전에는 「직전 페이즈가 끝난 자리」로 옮겨 세웠다. 자유 시간에 어디까지
+   * 갔든 종이 치면 제자리였는데, 그 규칙을 지웠다 — 자유 시간이 페이즈가
+   * 끝난 자리에서 이어지듯, 페이즈도 자유 시간이 끝난 자리에서 이어진다.
+   * 걷는 중인 사람(tileId === null)은 걷던 대로 도착한다.
+   */
 
   /*
    * **이적은 여기서 발효된다.**
@@ -396,31 +388,14 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    */
   const invisibleShare = game.invisibleTeam ? INVISIBLE_TEAM_TOKEN_BONUS : 0
 
-  let returned = 0
+  // 아무도 옮기지 않는다. 전선(postTile)만 지금 선 방으로 맞추고, 하던 일을 끊는다 —
+  // 종이 치면 「생산 중」 같은 표시가 남아 있으면 그 자리에서 아무것도 못 한다.
+  // 걷는 중인 사람은 길(path · arriveAtMs)을 그대로 둔다
+  const returned = 0
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
-    const post = (p.postTile ?? p.tileId ?? `base${p.team}`) as TileId
-    const came = returning.some((m) => m.ref.id === d.id)
-    if (!came) {
-      // 제 전선에 그대로 서 있었다. 자리는 안 건드린다
-      batch.update(d.ref, { postTile: post, fromTile: null, path: [], arriveAtMs: null, busyUntilMs: null, busyKind: null })
-      continue
-    }
-    returned += 1
-    batch.update(d.ref, {
-      tileId: post,
-      postTile: post,
-      fromTile: p.tileId ?? null,
-      path: [],
-      arriveAtMs: null,
-      asleep: false,
-      // 종이 치면 하던 일도 끊긴다. 옮겨 세워 놓고 「생산 중」이라
-      // 적혀 있으면 그 자리에서 아무것도 못 한다
-      busyUntilMs: null,
-      busyKind: null,
-      // 앞 방의 칸은 버린다. 칸은 커밋 뒤에 한 사람씩 빈 칸으로 정한다(seatPawn)
-      at: null,
-    })
+    const post = (p.tileId ?? p.postTile ?? `base${p.team}`) as TileId
+    batch.update(d.ref, { postTile: post, asleep: false, busyUntilMs: null, busyKind: null })
   }
 
   /**
@@ -530,22 +505,12 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
 
   await batch.commit()
   /*
-   * **돌아온 사람은 전선 방의 빈 칸에 선다.** 칸을 비워 두면 화면마다 문 앞
-   * 같은 칸을 골라 한 칸에 겹쳐 선다. 한 사람씩 트랜잭션으로 — 먼저 선
-   * 사람의 칸을 다음 사람이 본다
-   */
-  for (const m of returning) await seatPawn(gameId, m.ref.id, m.post, nowMs)
-  /*
-   * 제자리 방에 있었는데 **방 안 칸이 아닌** 사람도 방 안에 세운다 — 칸이 없거나
-   * (칸을 나눠 주기 전에 시작한 판) 방 앞 복도에 서 있던 사람. 전에는 화면이
-   * 저마다 방 안으로 옮겨 세웠는데, 서버가 막 세운 사람과 같은 칸을 골라
-   * 거절당하고 복도로 도로 튕겼다
+   * 칸이 없는 사람만 세운다(칸을 나눠 주기 전에 시작한 판). 복도에 선 사람도
+   * 방 안 사람도 **그 자리 그대로다** — 여는 순간 아무도 옮기지 않는다
    */
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
-    if (!p.tileId || returning.some((m) => m.ref.id === d.id)) continue
-    if (p.at && roomOfCell(p.at.x, p.at.y) === p.tileId) continue
-    await seatPawn(gameId, d.id, p.tileId as TileId, nowMs)
+    if (p.tileId && !p.at) await seatPawn(gameId, d.id, p.tileId as TileId, nowMs)
   }
   // 열넷 모두에게 — 결과는 없다, 열렸다는 것뿐
   await notify(gameId, everyone, 'phaseStart', `phaseStart:${no}`)
@@ -561,10 +526,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   for (const m of movedRows) {
     await note(gameId, 'teamMoved', nowMs, { id: m.id, team: m.to }, { otherTeam: m.from })
   }
-  // 돌아다니던 방의 체류가 끝나고 전선의 체류가 열린다. 안 열면
-  // 페이즈 내내 아까 있던 방의 말이 계속 들린다
-  await Promise.all(returning.map((m) => openInterval(gameId, m.ref.id, m.post, nowMs)))
+  // 아무도 안 옮겼으니 체류도 그대로다 — 서 있던 방의 체류가 이어진다
   await refreshViews(gameId)
+  await logEvent(gameId, 'phaseOpen', nowMs, null, { no, day, endsAtMs, returned }, { day })
   // allInAtMs 는 남겨 둔다 — 이제는 늘 지금이다. 아무도 걷지 않는다
   /*
    * **granted 는 실제로 나눠 준 토큰이다.** 여기에 팀 인원수(sizes)가
@@ -657,7 +621,7 @@ export const phaseAct = onCall<{
   } = { made: null, smashed: null, gone: [] }
   /** 연구를 건 기계. 연구일 때만 정해진다 */
   let labMachine: number | null = null
-  await db.runTransaction(async (tx) => {
+  await inTx(async (tx) => {
     const [pawns, bots, tiles, hidden, teams, flagSnap, madeSnap, papers] = await Promise.all([
       tx.get(ref.collection('pawns')),
       tx.get(robotsOf(gameId)),
@@ -915,6 +879,8 @@ export const phaseAct = onCall<{
   // 곧바로 연다 — 안 열면 계단에 서서 떠난 방의 말을 계속 듣는다
   if (steppedTo) await openInterval(gameId, uid, steppedTo, nowMs)
   await refreshViews(gameId)
+  // 비밀 기록 — 페이즈 중 행동은 닫힐 때까지 숨긴다. events 는 참가자가 읽는다
+  await logSecret(gameId, 'phaseAct', nowMs, uid, { kind, ...(req.data.targetTile ? { targetTile: req.data.targetTile } : {}) }, { day: game.day })
   return { kind, tokens: left, walking: leftFor !== null }
 })
 
@@ -948,6 +914,17 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   requireHost(req.auth)
   const { gameId } = req.data
   const { game, nowMs } = await freshNow(gameId)
+  // 한 시간이 다 돼 따라잡기가 먼저 닫았으면 그것으로 답한다 — 오류가 아니다
+  if (!game.phaseNow?.open) return { no: game.phaseDone ?? 0, captured: 0, lines: 0, alreadyClosed: true }
+  return closePhaseNow(gameId, game, nowMs)
+})
+
+/**
+ * 페이즈를 닫는다 — 운영자가 닫든, **한 시간이 지나 저절로 닫히든** 같은 길이다.
+ * 따라잡기(catchup)가 endsAtMs 를 지나면 그 시각으로 부른다. 그 순간 각 방의
+ * 깃발과 로봇으로 주인이 정해지고, 걷는 중이던 사람은 어느 방에도 안 센다.
+ */
+export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number) {
   if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '열린 페이즈가 없다.')
 
   const { state } = await loadBoard(gameId)
@@ -1071,12 +1048,15 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
    * 물건이고, 주운 사람 손패에 그대로 남는다.
    */
   await refreshViews(gameId)
+  await logEvent(gameId, 'phaseClose', nowMs, null, { no, day: game.phaseNow.day, captured: out.log.filter((l) => l.kind === 'captured').length, lines: out.log.length }, { day: game.phaseNow.day })
+  // 불변 조건 — 페이즈가 닫힐 때마다 판을 훑어 어긋난 것을 secret/qa 에 남긴다
+  try { await checkInvariants(gameId, nowMs) } catch (e) { console.warn('invariants', e) }
   return {
     no,
     captured: out.log.filter((l) => l.kind === 'captured').length,
     lines: out.log.length,
   }
-})
+}
 
 // ── 자유 시간의 걸음 ────────────────────────────────────────────
 
@@ -1118,7 +1098,7 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
 
   const ref = gameRef(gameId)
   let seat: Cell | null = null
-  await db.runTransaction(async (tx) => {
+  await inTx(async (tx) => {
     const mine = await tx.get(ref.collection('pawns').doc(uid))
     // 페이즈가 닫히면 하던 일도 끊기지만, 그 사이에 이 문으로 들어올
     // 수 있다. 여기서도 한 번 본다
@@ -1180,6 +1160,7 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
   // 방의 지난 말까지 읽히거나, 떠난 방의 말이 계속 들린다
   await openInterval(gameId, uid, tileId, nowMs)
   await refreshViews(gameId)
+  await logSecret(gameId, 'roamTo', nowMs, uid, { at: seat }, { day: game.day, tileId })
   return { tileId, at: seat }
 })
 
@@ -1315,7 +1296,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
     }
     const cellRef = cellsOf(gameId).doc(`${x}_${y}`)
     const oldRef = p.at ? cellsOf(gameId).doc(`${p.at.x}_${p.at.y}`) : null
-    const took = await db.runTransaction(async (tx) => {
+    const took = await inTx(async (tx) => {
       const [claim, old] = await Promise.all([tx.get(cellRef), oldRef ? tx.get(oldRef) : null])
       const by = claim.exists ? (claim.data() as { by: string }).by : null
       if (by && by !== uid) {
@@ -1358,10 +1339,12 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
       text: `덫에 걸렸다. ${SNARE_MINUTES}분 동안 못 움직인다.`,
       atMs: nowMs,
     })
+    await logSecret(gameId, 'standAt', nowMs, uid, { x, y }, { tileId: p.tileId })
     await refreshViews(gameId)
     return { ok: true, same: false, snared: { ...stay, untilMs: until } }
   }
 
+  await logSecret(gameId, 'standAt', nowMs, uid, { x, y }, { tileId: p.tileId })
   await refreshViews(gameId)
   return { ok: true, same: false }
 })

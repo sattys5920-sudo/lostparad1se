@@ -153,7 +153,7 @@ export const hostPlant = onCall<{ gameId: string; pot: number; cropId?: string }
     throw new HttpsError('invalid-argument', '그런 화분이 없다.')
   }
   const wanted = req.data.cropId ? String(req.data.cropId) : null
-  if (wanted !== null && !CROP_BY_ID[wanted]) throw new HttpsError('invalid-argument', '그런 작물이 없다.')
+  if (wanted !== null && !Object.prototype.hasOwnProperty.call(CROP_BY_ID, wanted)) throw new HttpsError('invalid-argument', '그런 작물이 없다.')
   const { nowMs } = await freshNow(gameId)
 
   let planted = ''
@@ -251,6 +251,9 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
     const pot = (potSnap.data() as PotDoc | undefined) ?? EMPTY_POT
     const stage = stageNow(pot, nowMs)
     if (stage === 'withered') throw new HttpsError('failed-precondition', '시들었다. 치우고 다시 심는다.')
+    // 둘이 같은 열매를 동시에 따면 늦은 쪽은 여기서 빈 화분을 본다 — 「아직
+    // 열매가 아니다」로 답하면 방금 열매를 본 사람이 어리둥절하다
+    if (stage === 'empty') throw new HttpsError('failed-precondition', '빈 화분이다.')
     if (stage !== 'fruit') throw new HttpsError('failed-precondition', '아직 열매가 아니다.')
     const bag = ((pawnSnap.data() as PawnDoc | undefined)?.crops ?? {}) as Record<string, number>
     const held = Object.values(bag).reduce((a, n) => a + n, 0)

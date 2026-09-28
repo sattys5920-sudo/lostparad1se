@@ -31,6 +31,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { TEAM_IDS, type TeamId } from '../../shared/rules/v2'
 import { freshNow, myPawn } from './turn'
 import { gameRef, nowOf, requireUid } from './index'
+import { sinceOf } from './chat'
 import { requireHost } from './host'
 import { notify } from './notify'
 
@@ -149,7 +150,7 @@ export const radioLines = onCall<{ gameId: string; sinceMs?: number; channel?: '
   // **옮겨 온 사람은 옮긴 뒤부터 듣는다.** 방에서 하는 말이 「들어온
   // 뒤의 말만」인 것과 같다 — 배신 한 번에 그 팀 하루치가 넘어가면
   // 안 된다. 전원 채널은 팀과 상관없으니 처음부터 다 듣는다
-  const since = toAll ? Number(req.data.sinceMs ?? 0) : Math.max(Number(req.data.sinceMs ?? 0), pawn.teamSinceMs ?? 0)
+  const since = toAll ? sinceOf(req.data.sinceMs) : Math.max(sinceOf(req.data.sinceMs), pawn.teamSinceMs ?? 0)
 
   /*
    * **켜 둔 사람을 센다.** 「수신 n」이 이 수다.
@@ -253,7 +254,7 @@ export const hostRadioLines = onCall<{ gameId: string; channel: string; sinceMs?
   if (ch !== ALL_CHANNEL && !(TEAM_IDS as readonly string[]).includes(ch)) {
     throw new HttpsError('invalid-argument', '그런 채널이 없다.')
   }
-  const since = Number(req.data.sinceMs ?? 0)
+  const since = sinceOf(req.data.sinceMs)
   const snap = await radioOf(gameId).where('team', '==', ch).where('atMs', '>', since).orderBy('atMs', 'desc').limit(300).get()
   return { channel: ch, lines: hostRows([...snap.docs].reverse()) }
 })

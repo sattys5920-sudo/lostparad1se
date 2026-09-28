@@ -21,6 +21,23 @@ export const dealSlipsOf = (gameId: string) =>
 export const slipsOf = (gameId: string) =>
   gameRef(gameId).collection('secret').doc('slips').collection('items')
 
+/**
+ * 사람마다 하나 — **마지막으로 끼어든 거래.** 문서 아이디가 사람이다.
+ *
+ * 「한 사람에 살아 있는 거래 하나」를 liveDealOf(질의)로만 지키면 둘이
+ * 같은 순간에 청할 때 둘 다 통과한다 — 질의는 트랜잭션이 못 잡는다.
+ * askDeal 이 이 문서를 트랜잭션 안에서 읽고 쓰므로 같은 사람을 두고
+ * 다투는 둘 중 한쪽만 이긴다. 가리키는 거래가 접혔으면 없는 것으로
+ * 친다 — 접을 때 지우지 않아도 된다. **참가자는 못 읽는다**(secret).
+ */
+export const dealLocksOf = (gameId: string) =>
+  gameRef(gameId).collection('secret').doc('dealLocks').collection('items')
+
+export interface DealLockDoc {
+  dealId: string
+  atMs: number
+}
+
 /** 살아 있는 거래. 이 셋 말고는 지나간 것이다. */
 export const LIVE = ['asking', 'open', 'settling']
 

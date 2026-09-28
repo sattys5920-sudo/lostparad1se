@@ -68,6 +68,17 @@ const HALL_EARSHOT_MS = 3 * 60_000
 const chatOf = (gameId: string) => gameRef(gameId).collection('secret').doc('chat').collection('items')
 
 /**
+ * 화면이 보낸 「이 뒤로」 시각. **숫자가 아니면 0 이다.**
+ *
+ * NaN 을 질의에 넣으면 Firestore 가 던지고 콜러블은 INTERNAL 로 답한다 —
+ * 글자 하나 잘못 온 요청에 목록 전체가 영어 넉 자로 끝나면 안 된다.
+ */
+export function sinceOf(v: unknown): number {
+  const n = Number(v ?? 0)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/**
  * 내가 지금 이 방에 **언제 들어왔는지**.
  *
  * 체류 기록이 이미 그 시각을 들고 있다. 걸어 들어올 때마다 새 칸이
@@ -201,7 +212,7 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
    * 시작 시각으로 열어서, 그보다 앞선 말은 다시 안 온다.
    */
   if (early) {
-    const since = Number(req.data.sinceMs ?? 0)
+    const since = sinceOf(req.data.sinceMs)
     const rows = await chatOf(gameId)
       .where('tileId', '==', early.tileId)
       .where('atMs', '>', since)
@@ -271,7 +282,7 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
   let stay: string
   if (inHall) {
     stay = 'hall'
-    since = Math.max(Number(req.data.sinceMs ?? 0), nowMs - HALL_EARSHOT_MS)
+    since = Math.max(sinceOf(req.data.sinceMs), nowMs - HALL_EARSHOT_MS)
     // 방 이름으로 못 거른다 — 복도 줄에는 방 이름이 없다. 시각으로
     // 좁혀 오고 거리로 거른다
     all = await chatOf(gameId).where('atMs', '>', since).orderBy('atMs').limit(300).get()
@@ -281,7 +292,7 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
       await openInterval(gameId, uid, pawn.tileId, nowMs)
       arrived = nowMs
     }
-    since = Math.max(Number(req.data.sinceMs ?? 0), arrived)
+    since = Math.max(sinceOf(req.data.sinceMs), arrived)
     stay = `${pawn.tileId}@${arrived}`
     all = await chatOf(gameId)
       .where('tileId', '==', pawn.tileId)

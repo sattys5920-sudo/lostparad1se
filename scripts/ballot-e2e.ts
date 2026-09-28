@@ -119,6 +119,10 @@ async function main(): Promise<void> {
   check(true, '판이 시작했다')
 
   console.log('\n── 적을 수 있는 사람 ──')
+  // 투표는 운영자가 연다 — 열기 전에는 아무도 못 적는다
+  const shut = await call('castBallot', A[0].token, { gameId: GAME, targetId: A[1].uid })
+  check(shut.code === 'FAILED_PRECONDITION' && String(shut.message).includes('열리지'), '열기 전에는 못 적는다', String(shut.message))
+  await must('hostOpenBallot', host, { gameId: GAME })
   const self = await call('castBallot', A[0].token, { gameId: GAME, targetId: A[0].uid })
   check(self.code === 'FAILED_PRECONDITION', '나 자신은 못 적는다', String(self.code))
 
@@ -170,8 +174,15 @@ async function main(): Promise<void> {
   check((pushed.pushed as { kind?: string } | null)?.kind === 'settlement', '달력을 넘기면 그날 정산이다', JSON.stringify(pushed.pushed))
   const late = await call('castBallot', A[2].token, { gameId: GAME, targetId: B[0].uid })
   check(late.code === 'FAILED_PRECONDITION', '센 뒤에는 더 못 적는다', String(late.message))
+  const g0 = await gameNow()
+  check((g0.invisibleByDay as Record<string, string | null> | undefined)?.['2'] === B[0].uid, '가장 많이 적힌 사람이 **내일** 지워진다', JSON.stringify(g0.invisibleByDay))
+  // 설정 문서 「투명인간의 하루 (다음 날 08:00 ~ 24:00)」 — 오늘 밤은 아직 보인다
+  check((g0.invisibleId ?? null) === null, '오늘 밤에는 아직 지워지지 않는다', String(g0.invisibleId))
+  // 자정을 넘긴다 — 여기서부터 하루
+  const dawn = await must('pushDay', host, { gameId: GAME })
+  check((dawn.pushed as { kind?: string } | null)?.kind === 'dayStart', '달력을 한 번 더 넘기면 자정이다', JSON.stringify(dawn.pushed))
   const g = await gameNow()
-  check(g.invisibleId === B[0].uid, '가장 많이 적힌 사람이 지워진다', String(g.invisibleId))
+  check(g.invisibleId === B[0].uid, '아침부터 지워진다', String(g.invisibleId))
   check(g.invisibleTeam === 'B', '그 팀이 기록된다', String(g.invisibleTeam))
 
   const said = await noticesNow()
@@ -194,23 +205,22 @@ async function main(): Promise<void> {
     await must('roamTo', A[0].token, { gameId: GAME, tileId: next })
   }
 
-  const tradeOut = await call('offerTrade', B[0].token, {
-    gameId: GAME, toPlayerId: A[0].uid, give: { money: 1 }, want: {},
-  })
+  // 옛 offerTrade 는 없다 — 거래는 askDeal 로 건다(옆 칸이 아니어도 지워진 쪽이 먼저 막힌다)
+  const tradeOut = await call('askDeal', B[0].token, { gameId: GAME, toPlayerId: A[0].uid })
   check(tradeOut.code === 'FAILED_PRECONDITION', '거래를 걸 수 없다', String(tradeOut.code))
-  const tradeIn = await call('offerTrade', A[0].token, {
-    gameId: GAME, toPlayerId: B[0].uid, give: { money: 1 }, want: {},
-  })
+  const tradeIn = await call('askDeal', A[0].token, { gameId: GAME, toPlayerId: B[0].uid })
   check(tradeIn.code === 'FAILED_PRECONDITION', '**남이 거는 것도 막힌다**', String(tradeIn.code))
 
   const voteOut = await call('castVote', B[0].token, { gameId: GAME, targetId: A[0].uid, kind: 'trust' })
-  check(voteOut.ok === false, '표를 줄 수 없다', String(voteOut.code))
+  // 설정 문서: 「표를 받을 수 없다 | 줄 수는 있다」
+  check(voteOut.ok === true, '표를 **줄 수는 있다** — 믿는다고 말하는 일은 안 빼앗는다', voteOut.ok ? '' : String(voteOut.message))
   const voteIn = await call('castVote', A[0].token, { gameId: GAME, targetId: B[0].uid, kind: 'trust' })
   check(voteIn.ok === false, '표를 받을 수도 없다', String(voteIn.code))
 
   console.log('\n── 지워진 사람이 할 수 있는 일 ──')
   // 팀장이 아닌 사람을 고른다. 팀장은 누구도 못 적는다
   const freeTarget = people.find((p) => p.uid !== B[0].uid && p.uid !== capC) as (typeof people)[number]
+  await must('hostOpenBallot', host, { gameId: GAME })
   const ballotStill = await call('castBallot', B[0].token, { gameId: GAME, targetId: freeTarget.uid })
   check(ballotStill.ok, '투명인간 투표는 던질 수 있다', ballotStill.ok ? '' : `${ballotStill.code} ${ballotStill.message}`)
   const neighbours = (await pawnsNow())[B[0].uid].tileId as string

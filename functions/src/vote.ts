@@ -13,6 +13,7 @@ import type { PawnDoc, VoteDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
+import { docId } from './ids'
 
 const db = getFirestore()
 
@@ -22,8 +23,9 @@ const VOTE_KINDS: VoteKind[] = ['trust', 'liking']
 /** 하루 한 장. 같은 팀에는 못 준다. 자정~21:00. */
 export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKind }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, targetId, kind } = req.data
+  const { gameId, kind } = req.data
   if (!VOTE_KINDS.includes(kind)) throw new HttpsError('invalid-argument', '그런 표는 없다.')
+  const targetId = docId(req.data.targetId, '그런 사람이 없다.')
   const { game, nowMs } = await freshNow(gameId)
   const ref = gameRef(gameId)
 

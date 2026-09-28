@@ -31,6 +31,7 @@ import type { SlipDoc } from './slips'
 import { refreshViews } from './views'
 import { gameRef, nowOf } from './index'
 import { requireHost } from './host'
+import { bumpSlips, logEvent } from './qaLog'
 
 const db = getFirestore()
 
@@ -127,8 +128,12 @@ async function place(
       atMs: nowOf(game),
     }
     tx.set(ref, doc)
+    // 문서 하나가 생긴다 — 불변식의 기대 장수도 하나 올린다
+    bumpSlips(tx, gameId, 1)
   })
   taken.add(`${cell.x},${cell.y}`)
+  // 어느 쪽지인지(noteId)는 안 적는다 — 번호 앞자리가 역할이다
+  await logEvent(gameId, 'slipScattered', nowOf(game), null, {}, { day: game.day, tileId: room })
   return cell
 }
 

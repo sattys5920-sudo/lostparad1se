@@ -71,6 +71,9 @@ import { josa } from '../../shared/text'
 import { note } from './records'
 import { freshNow, myPawn, refuseIfInvisible, requireAwake } from './turn'
 import { gameRef, requireUid } from './index'
+import { docId } from './ids'
+
+const NO_ROOM = '그런 방이 없다.'
 
 const db = getFirestore()
 
@@ -278,8 +281,9 @@ export const arcadeOpen = onCall<{ gameId: string; game: ArcadeGameId }>(async (
 /** 다른 기계에 앉은 사람을 부른다. 방장만, 고르는 중에만. */
 export const arcadeInvite = onCall<{ gameId: string; roomId: string; playerId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, playerId } = req.data
-  if (!playerId || playerId === uid) throw new HttpsError('invalid-argument', '부를 사람을 골라야 한다.')
+  const { gameId } = req.data
+  const playerId = docId(req.data.playerId, '부를 사람을 골라야 한다.')
+  if (playerId === uid) throw new HttpsError('invalid-argument', '부를 사람을 골라야 한다.')
   const { game, nowMs } = await freshNow(gameId)
   // 지워진 사람은 없는 사람이다 — 부르지도, 불리지도 않는다
   refuseIfInvisible(game.invisibleId, uid, playerId, '다른 기계를 부를')
@@ -288,7 +292,7 @@ export const arcadeInvite = onCall<{ gameId: string; roomId: string; playerId: s
   mustSit(me)
   const machine = mustSit(them, '그 사람도 ')
 
-  const ref = roomsOf(gameId).doc(String(req.data.roomId))
+  const ref = roomsOf(gameId).doc(docId(req.data.roomId, NO_ROOM))
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 방이 없다.')
@@ -311,7 +315,7 @@ export const arcadeInvite = onCall<{ gameId: string; roomId: string; playerId: s
 export const arcadeAnswer = onCall<{ gameId: string; roomId: string; accept: boolean }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   const { nowMs } = await freshNow(gameId)
   if (req.data.accept) {
     const me = await myPawn(gameId, uid)
@@ -348,7 +352,7 @@ export const arcadeAnswer = onCall<{ gameId: string; roomId: string; accept: boo
 export const arcadeBegin = onCall<{ gameId: string; roomId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   const { nowMs } = await freshNow(gameId)
   const ref = roomsOf(gameId).doc(roomId)
   const first = await ref.get()
@@ -377,7 +381,7 @@ export const arcadeBegin = onCall<{ gameId: string; roomId: string }>(async (req
 export const arcadeLeave = onCall<{ gameId: string; roomId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   const { nowMs } = await freshNow(gameId)
   const ref = roomsOf(gameId).doc(roomId)
   const snap = await ref.get()
@@ -405,7 +409,7 @@ async function playingRoom(tx: Transaction, gameId: string, roomId: string, uid:
 export const arcadeMove = onCall<{ gameId: string; roomId: string; n: number }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   const { nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
@@ -446,7 +450,7 @@ export const arcadeMove = onCall<{ gameId: string; roomId: string; n: number }>(
 export const arcadePick = onCall<{ gameId: string; roomId: string; pick: RpsPick }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   if (!isRpsPick(req.data.pick)) throw new HttpsError('invalid-argument', '가위·바위·보 중에 낸다.')
   const pick = req.data.pick
   const { nowMs } = await freshNow(gameId)
@@ -541,7 +545,7 @@ function scoreLive(room: RoomDoc, raw: unknown): Omit<Scored, 'id'> & { endMs: n
 export const arcadeSubmit = onCall<{ gameId: string; roomId: string; log: unknown }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   const { nowMs } = await freshNow(gameId)
   const me = await myPawn(gameId, uid)
   mustSit(me)
@@ -692,7 +696,7 @@ export const arcadePlay = onCall<{ gameId: string; roomId: string; move?: { roun
   const arrived = Date.now()
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   const move = req.data.move ?? {}
   const { nowMs } = await freshNow(gameId)
   const me = await myPawn(gameId, uid)
@@ -768,7 +772,7 @@ export const arcadePlay = onCall<{ gameId: string; roomId: string; move?: { roun
 export const arcadeTick = onCall<{ gameId: string; roomId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const roomId = String(req.data.roomId)
+  const roomId = docId(req.data.roomId, NO_ROOM)
   const { nowMs } = await freshNow(gameId)
   const ref = roomsOf(gameId).doc(roomId)
   const closed = await db.runTransaction(async (tx) => {

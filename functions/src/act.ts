@@ -133,7 +133,9 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
 export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const spec = CROP_BY_ID[String(req.data.cropId)]
+  // 첨자로 바로 찾지 않는다 — 'constructor' 가 작물로 통과하면 안 된다
+  const cropId = String(req.data.cropId)
+  const spec = Object.prototype.hasOwnProperty.call(CROP_BY_ID, cropId) ? CROP_BY_ID[cropId] : undefined
   if (!spec) throw new HttpsError('invalid-argument', '그런 작물은 없다.')
 
   const { nowMs, game } = await freshNow(gameId)

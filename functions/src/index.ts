@@ -149,6 +149,8 @@ export { say, chatLines } from './chat'
 
 // 무전 — 방에 매이지 않고 같은 팀끼리만 통한다.
 export { radio, radioLines, hostRadioOverview, hostRadioLines, hostSetAllChannel } from './radio'
+// 투명인간 투표의 문. 운영자가 열고 닫는다
+export { hostOpenBallot, hostCloseBallot } from './ballotGate'
 
 // 운영자 코드. 코드는 저장소가 아니라 배포 환경변수에 있다.
 export { hostEnter } from './hostgate'
@@ -188,3 +190,7 @@ export { castBallot, clearInvisible } from './ballot'
 
 // 운영자 지도 — 열넷의 자리와 하는 일, 방마다 오간 말
 export { hostLiveMap, hostRoomChat } from './hostLive'
+
+// QA — 시각순 로그와 불변식 검사. 운영자만.
+export { hostEventLog } from './qaLog'
+export { hostInvariants } from './invariants'

@@ -9,6 +9,9 @@
 // 왜 없는지 알 수 없고, 이유 없이 막으면 왜 안 되는지 알 수 없다.
 import { useEffect, useRef, useState } from 'react'
 
+import type { DevClock } from '../../../shared/rules/clock'
+import { useGameNow } from './Shell'
+
 import {
   ACT_COST,
   ACT_MINUTES,
@@ -351,19 +354,19 @@ export function PhaseHost({
   endsAtMs,
   act,
   onSaid,
+  clock,
 }: {
   open: boolean
   no: number
   endsAtMs: number | null
   act: GameActions
   onSaid: (t: string) => void
+  /** 판의 시계. 없으면 실제 시각 */
+  clock?: DevClock
 }) {
   const [busy, setBusy] = useState(false)
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
+  // 판의 시계로 센다. 기기 시계로 세면 배속을 건 판에서 남은 시간이 안 맞는다
+  const now = useGameNow(clock)
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
     try {

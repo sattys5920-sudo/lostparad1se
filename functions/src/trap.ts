@@ -29,6 +29,7 @@ import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 import { notify } from './notify'
+import { logEvent } from './qaLog'
 
 const db = getFirestore()
 
@@ -116,6 +117,7 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
     tx.set(jobRef, doc)
     return n
   })
+  await logEvent(gameId, 'trapCommissioned', nowMs, uid, { maker, count }, { day: game.day, tileId: TECH_TILE, team })
   await refreshViews(gameId)
   return { maker, count, readyAtMs: nowMs + TRAP_MAKE_MINUTES * 60_000 }
 })
@@ -155,6 +157,7 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
     tx.delete(jobRef)
     return j.count
   })
+  await logEvent(gameId, 'trapTaken', nowMs, uid, { maker, got }, { day: game.day, tileId: TECH_TILE })
   await refreshViews(gameId)
   return { maker, got }
 })

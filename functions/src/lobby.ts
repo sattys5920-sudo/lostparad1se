@@ -22,10 +22,11 @@ import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } fro
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
 import { seedGarden } from './garden'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
-import { lookOfAccount, looksByUid } from './account'
+import { cleanName, lookOfAccount, looksByUid } from './account'
 import { gameRef, nowOf, requireUid } from './index'
 import { refreshViews } from './views'
 import { requireHost } from './host'
+import { logEvent } from './qaLog'
 
 const db = getFirestore()
 
@@ -169,6 +170,7 @@ export const resetGame = onCall<{ gameId: string }>(async (req) => {
   const seats = await freshFaces(game.seats ?? [])
   await db.recursiveDelete(ref)
   await ref.set(freshLobby(`${req.data.gameId}-${Date.now()}`, seats))
+  await logEvent(req.data.gameId, 'reset', nowOf(game), null, { seats: seats.length })
   return { seats: seats.length, need: TOTAL_SEATS }
 })
 
@@ -182,7 +184,7 @@ export const resetGame = onCall<{ gameId: string }>(async (req) => {
  */
 export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(async (req) => {
   const uid = requireUid(req.auth)
-  const name = (req.data.name ?? '').trim()
+  const name = cleanName(req.data.name)
   if (name.length === 0 || name.length > 12) {
     throw new HttpsError('invalid-argument', '이름은 1~12자다.')
   }
@@ -286,7 +288,7 @@ export const assignAll = onCall<{ gameId: string }>(async (req) => {
   if (!before.exists) throw new HttpsError('not-found', '그런 판이 없다.')
   const faced = await freshFaces((before.data() as GameDoc).seats)
 
-  return db.runTransaction(async (tx) => {
+  const out = await db.runTransaction(async (tx) => {
     const [snap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, gameId)])
     if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
     const game = snap.data() as GameDoc
@@ -321,6 +323,9 @@ export const assignAll = onCall<{ gameId: string }>(async (req) => {
     }
     return { assigned: dealt.length, teams: countByTeam(withTeams) }
   })
+  // 누가 어느 팀인지도 역할도 안 적는다 — 나눴다는 것과 몇 명인지만
+  await logEvent(gameId, 'assigned', nowOf(before.data() as GameDoc), null, { assigned: out.assigned })
+  return out
 })
 
 /** 배정 결과를 운영자 화면에 한 줄로 보여 주려고. 누가 어느 팀인지는 안 담는다. */

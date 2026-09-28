@@ -33,10 +33,12 @@ import { announceBallots } from './ballot'
 import { gameRef, nowOf } from './index'
 import { claimSeat, pickSeat } from './seat'
 import { catchUpMissionDays } from './missionDays'
+import { dropAllErrands } from './errand'
 import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
 import { tellReadyTraps } from './trap'
+import { closePhaseNow } from './phase'
 import { flushQueue } from './notify'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
@@ -92,10 +94,14 @@ async function dayStart(c: Ctx): Promise<void> {
    */
   openCaptainVotes(c.tx, c.gameId, c.day, c.atMs, pawns)
 
+  // 어제 투표로 정해진 사람이 **오늘부터** 지워진다. 팀도 여기서 적는다 —
+  // 투명인간이 나온 팀은 오늘 토큰을 더 받는다(openPhase). 아무도 없으면 둘 다 비운다
+  const todayHidden = c.game.invisibleByDay[c.day] ?? null
+  const hiddenTeam = todayHidden ? ((pawns.docs.find((d) => d.id === todayHidden)?.data() as PawnDoc | undefined)?.team ?? null) : null
   c.tx.update(ref, {
     day: c.day,
-    // 어제 21:00에 정해진 사람이 오늘 지워진다
-    invisibleId: c.game.invisibleByDay[c.day] ?? null,
+    invisibleId: todayHidden,
+    invisibleTeam: hiddenTeam,
   })
   c.tx.set(ref.collection('events').doc(), {
     atMs: c.atMs,
@@ -361,6 +367,18 @@ async function applyItem(
     // 실제로 넘긴 시각(게임 시계). 자정 판정을 나중에 따라잡을 때 「그날 밤」을 여기서 자른다
     tx.update(itemRef, { doneAtMs: item.dueAtMs, pushedAtMs: nowOf(game) })
     return true
+  }).then(async (applied) => {
+    /*
+     * **지워지면 받아 둔 심부름을 놓는다.** 없는 사람에게 일을 맡길 수는
+     * 없다. 받기 자체가 막히는데 이미 받아 둔 것만 남아 있으면, 물건을 든
+     * 채로 아무에게도 안 보이는 사람이 하루를 돈다. 트랜잭션이 끝난 뒤에
+     * 한다 — 안에서 다른 문서를 읽고 쓰면 잠금이 서로 기다린다
+     */
+    if (applied && item.kind === 'dayStart') {
+      const g = (await ref.get()).data() as GameDoc | undefined
+      if (g?.invisibleId) await dropAllErrands(gameId, g.invisibleId)
+    }
+    return applied
   })
 }
 
@@ -398,13 +416,31 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
 
   let applied = 0
   const landed: Ctx['landed'] = []
-  // **시계가 미는 것은 도착뿐이다.** 날이 바뀌는 것도 정산도 끝나는
-  // 것도 운영자가 pushByHand 로 민다 — 아무도 없는 사이에 닷새가
-  // 지나가 버리는 일을 막는다
-  for (const item of clockItems(due, toMs)) {
-    const payload = pending.docs.find((d) => d.id === item.id)?.data() as ScheduleDoc
-    if (await applyItem(gameId, item, payload, landed)) applied += 1
+  /** 이 시각까지 밀린 것을 순서대로 */
+  const applyUpTo = async (limitMs: number) => {
+    const part = due.filter((d) => d.dueAtMs <= limitMs && d.doneAtMs === null)
+    for (const item of clockItems(part, limitMs)) {
+      const payload = pending.docs.find((d) => d.id === item.id)?.data() as ScheduleDoc
+      if (await applyItem(gameId, item, payload, landed)) {
+        applied += 1
+        const hit = due.find((d) => d.id === item.id)
+        if (hit) hit.doneAtMs = limitMs
+      }
+    }
   }
+  /*
+   * **한 시간이 지난 페이즈는 저절로 닫힌다.** 끝나는 시각까지의 도착을 먼저
+   * 처리하고, 그 시각으로 닫는다 — 그보다 뒤에 닿는 사람은 닫힌 뒤 도착이라
+   * 어느 방에도 안 센다. 운영자가 없어도 판은 멈추지 않는다
+   */
+  if (game.phaseNow?.open && game.phaseNow.endsAtMs != null && game.phaseNow.endsAtMs <= toMs) {
+    const endMs = game.phaseNow.endsAtMs
+    await applyUpTo(endMs)
+    const fresh = (await ref.get()).data() as GameDoc
+    if (fresh.phaseNow?.open) await closePhaseNow(gameId, fresh, endMs)
+    game = (await ref.get()).data() as GameDoc
+  }
+  await applyUpTo(toMs)
 
   await ref.update({ caughtUpToMs: toMs })
 

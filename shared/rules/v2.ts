@@ -86,7 +86,7 @@ export const ACTIVE_SECONDS_PER_DAY = (LIGHTS_OUT_HOUR - DAY_START_HOUR) * 3600
 
 /** 개발용 시계가 허용하는 배속 범위. */
 export const DEV_CLOCK_SPEED_MIN = 1
-export const DEV_CLOCK_SPEED_MAX = 120
+export const DEV_CLOCK_SPEED_MAX = 240
 
 // ── 말과 이동 ───────────────────────────────────────────────────
 

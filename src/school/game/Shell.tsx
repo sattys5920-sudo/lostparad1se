@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { logOut } from '../accounts'
 import { josa } from '../text'
 import { gameNow } from '../../../shared/rules/clock'
+import { correctedNow, onSkew } from './skew'
 import type { GameDoc } from '../../../shared/model'
 import { Sure } from './Sheet'
 
@@ -200,10 +201,16 @@ export function useStaticCache(): void {
  * 재고 있었다 — **같은 함수로 재야 같은 값이 나온다.**
  */
 export function useGameNow(clock: DevClock | undefined, everyMs = 1000): number {
-  const [realNow, setRealNow] = useState(() => Date.now())
+  // 기기 시각이 아니라 **서버에 맞춘 시각**이다(skew.ts). 폰 시계가
+  // 10분 틀려도 타이머는 서버와 같은 순간에 0을 찍는다
+  const [realNow, setRealNow] = useState(() => correctedNow())
   useEffect(() => {
-    const t = setInterval(() => setRealNow(Date.now()), everyMs)
-    return () => clearInterval(t)
+    const t = setInterval(() => setRealNow(correctedNow()), everyMs)
+    const off = onSkew(() => setRealNow(correctedNow()))
+    return () => {
+      clearInterval(t)
+      off()
+    }
   }, [everyMs])
   return gameNow(clock, realNow)
 }

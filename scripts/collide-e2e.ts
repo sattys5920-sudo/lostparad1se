@@ -215,19 +215,19 @@ async function main(): Promise<void> {
   check(onSome.at != null && legacyAt !== null, '거절하면서 빈 칸에 세워 돌려준다 — 화면이 그 칸으로 선다', JSON.stringify(onSome.at))
   check(stacked(await pawnsAll()).length === 0, '한 칸에 둘이 선 곳이 없다')
 
-  console.log('\n── 종이 치면 제자리 — 서로 다른 칸 ──')
+  console.log('\n── 종이 쳐도 그 자리 — 서로 다른 칸 ──')
   // 몇 사람을 다른 방으로 보내 두고 연다. 끌려 오는 사람들이 한 문으로 몰린다
   await Promise.all(people.slice(0, 6).map((p) => call('roamTo', p.token, { gameId: GAME, tileId: next2 })))
   const openedAt = dayHourMs(START, 1, 10)
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: openedAt, speed: 1 })
   const opened = await must('openPhase', host, { gameId: GAME })
   const afterOpen = await pawnsAll()
-  check(Number(opened.returned) >= 6, '다른 방에 갔던 사람들이 끌려 왔다', `${opened.returned}명`)
+  check(Number(opened.returned) === 0, '페이즈가 열려도 아무도 안 끌려 온다 — 그 자리 그대로', `${opened.returned}명`)
   check(afterOpen.every((r) => r.at !== null), '열넷 모두 칸이 있다', afterOpen.filter((r) => r.at === null).map((r) => r.id).join(' '))
   check(stacked(afterOpen).length === 0, '열넷이 서로 다른 칸에 섰다', stacked(afterOpen).join(' '))
   check(afterOpen.every(fits), '모두 제 방 안(또는 복도), 물건 없는 칸이다')
   check(afterOpen.filter((r) => people.slice(0, 6).some((p) => p.uid === r.id)).every((r) => r.at && !inLane(r.at.x, r.at.y)),
-    '끌려 온 사람들은 문 앞 길 밖에 선다')
+    '방을 옮긴 사람들은 들어설 때 문 앞 길 밖에 앉혀졌다')
 
   console.log('\n── 페이즈 중에 걸어서 도착 — 서로 다른 칸 ──')
   // 팀마다 한 사람씩 같은 방으로 걸어간다(팀 상자에서 토큰 하나씩)

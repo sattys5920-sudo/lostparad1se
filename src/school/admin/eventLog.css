@@ -1,0 +1,135 @@
+/* 운영자 「로그」 탭. 접두사 sc-lg */
+
+.sc-lg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* ── 불변식 띠 ─────────────────────────────────────────────── */
+
+.sc-lg__alarm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 2px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-2));
+  color: var(--sc-text);
+}
+.sc-lg__alarmHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-label);
+}
+.sc-lg__alarmHead b { color: var(--danger); font-size: var(--fs-body); }
+.sc-lg__alarmHead span { color: var(--sc-text-dim); }
+.sc-ad .sc-lg__alarmHead button,
+.sc-ad .sc-lg__ok button,
+.sc-ad .sc-lg__hist > button {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-label);
+}
+.sc-ad .sc-lg__hist > button { margin-left: 0; }
+.sc-lg__ok {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-label);
+  color: var(--sc-text-dim);
+}
+.sc-lg__bad {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  font-size: var(--fs-label);
+}
+.sc-lg__bad li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-2);
+  min-width: 0;
+}
+.sc-lg__bad li b { color: var(--danger); }
+.sc-lg__bad li span { color: var(--sc-text); overflow-wrap: anywhere; }
+.sc-lg__bad li em { flex-basis: 100%; font-style: normal; color: var(--sc-text-dim); overflow-wrap: anywhere; }
+.sc-lg__bad li time { color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+.sc-lg__bad.is-hist li b { color: var(--sc-text-2); }
+.sc-lg__hist { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+/* ── 거르기 ────────────────────────────────────────────────── */
+
+.sc-lg__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.sc-lg__bar input[type='search'] { flex: 1; min-width: 0; }
+.sc-lg__bar select { flex: none; max-width: 40%; }
+.sc-ad .sc-lg__bar button { min-height: 36px; padding: 0 var(--sp-2); font-size: var(--fs-label); }
+.sc-ad .sc-lg__bar button.sc-lg__follow.is-on { background: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-bg); }
+.sc-lg__count { margin-left: auto; font-size: var(--fs-label); color: var(--sc-text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.sc-lg__chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.sc-ad .sc-lg__chips button {
+  min-height: 28px;
+  padding: 0 var(--sp-2);
+  border-radius: 0;
+  background: transparent;
+  color: var(--sc-text-2);
+  font-size: var(--fs-label);
+  white-space: nowrap;
+}
+.sc-ad .sc-lg__chips button.is-on { background: var(--sc-text); border-color: var(--sc-text); color: var(--sc-bg); }
+
+/* ── 줄 ────────────────────────────────────────────────────── */
+
+.sc-ad button.sc-lg__more { min-height: 32px; font-size: var(--fs-label); background: transparent; }
+.sc-lg__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sc-lg__row {
+  display: grid;
+  grid-template-columns: 62px 64px 1fr;
+  gap: 0 var(--sp-2);
+  align-items: baseline;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--sc-line);
+  font-size: var(--fs-label);
+  line-height: 1.35;
+  min-width: 0;
+}
+.sc-lg__row time {
+  display: flex;
+  flex-direction: column;
+  color: var(--sc-text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sc-lg__row time small { font-size: 11px; line-height: 1; }
+.sc-lg__row b { color: var(--sc-text-2); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-lg__row span { color: var(--sc-text); overflow-wrap: anywhere; min-width: 0; }
+.sc-lg__row.is-records b { color: var(--sc-accent); }
+.sc-lg__row.is-qa b { color: var(--team-c, var(--sc-accent)); }
+.sc-lg__row.is-notifyLog b,
+.sc-lg__row.is-notifyLog span { color: var(--sc-text-dim); }
+.sc-lg__row.is-schedule b,
+.sc-lg__row.is-phaseLog b,
+.sc-lg__row.is-game b { color: var(--sc-text); }
+/* 게임 시각보다 뒤에 놓인 줄 — 개발용 시계를 건 판에서 로비 때(실제 시각) 적힌 것 */
+.sc-lg__row.is-future time,
+.sc-lg__row.is-future b,
+.sc-lg__row.is-future span { color: var(--sc-text-dim); font-style: italic; }

@@ -26,6 +26,9 @@ import { RadioDesk } from './RadioDesk'
 import { LiveMap } from './LiveMap'
 import { MissionDesk } from './MissionDesk'
 import { NotifyDesk } from './NotifyDesk'
+import { EventLog } from './EventLog'
+import { BallotDesk } from './BallotDesk'
+import { ClockDesk } from './ClockDesk'
 import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
@@ -70,7 +73,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'map' | 'put' | 'slips' | 'missions' | 'papers' | 'radio' | 'manage'
+type Tab = 'go' | 'map' | 'put' | 'slips' | 'missions' | 'papers' | 'radio' | 'log' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -96,11 +99,6 @@ function Desk() {
   const [nextUp, setNextUp] = useState<{ kind: string; day: number } | null>(null)
   const nowMs = useGameNow(state.game?.clock)
   /** 페이즈 남은 시간을 세는 초침 */
-  const [tick, setTick] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setTick(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -195,7 +193,8 @@ function Desk() {
   const phaseOpen = game?.phaseNow?.open === true
   const phaseEndsAtMs = game?.phaseNow?.endsAtMs ?? null
   const phaseLeft =
-    phaseOpen && phaseEndsAtMs !== null ? (tick >= phaseEndsAtMs ? '시간 끝' : `${leftText(phaseEndsAtMs - tick)} 남음`) : null
+    // 판의 시계로 센다 — 배속을 건 판에서 기기 시계로 세면 남은 시간이 안 맞는다
+    phaseOpen && phaseEndsAtMs !== null ? (nowMs >= phaseEndsAtMs ? '시간 끝' : `${leftText(phaseEndsAtMs - nowMs)} 남음`) : null
 
   return (
     <div className="sc-ad">
@@ -243,6 +242,7 @@ function Desk() {
                 ['missions', '미션'],
                 ['papers', '이력'],
                 ['radio', '무전'],
+                ['log', '로그'],
                 ['manage', '관리'],
               ] as const
             ).map(([id, name]) => (
@@ -380,7 +380,13 @@ function Desk() {
             </section>
 
             <section className="sc-ad__sec">
+              <h2>투명인간 투표</h2>
+              {game && <BallotDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+
+            <section className="sc-ad__sec">
               <h2>시계</h2>
+              {game && <ClockDesk game={game} nowMs={nowMs} act={act} onSaid={setSaid} />}
               <button disabled={busy} onClick={() => void run('따라잡기', () => act.tick())}>
                 따라잡기
               </button>
@@ -431,6 +437,12 @@ function Desk() {
           <section className="sc-ad__sec">
             <h2>종이 이력</h2>
             <PaperDesk act={act} onSaid={setSaid} />
+          </section>
+        : tab === 'log' ?
+          /* ── QA 로그. 모든 상태 변화를 시각순으로 · 불변식 검사 ── */
+          <section className="sc-ad__sec">
+            <h2>로그</h2>
+            <EventLog act={act} seats={seats} onSaid={setSaid} />
           </section>
         : /* ── 관리. 가끔 손보는 것 ── */
           <>

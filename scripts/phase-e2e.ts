@@ -214,14 +214,15 @@ async function main(): Promise<void> {
   const openedAt = dayHourMs(START, 1, 10)
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: openedAt, speed: 1 })
 
-  console.log('\n── 페이즈를 열면 곧바로 제자리로 ──')
+  console.log('\n── 페이즈는 지금 선 자리에서 시작한다 ──')
   // 자유 시간에 어디까지 갔든 종이 치면 전선이다. 걸어 돌아오지
   // 않는다 — 걸리면 그 페이즈를 통째로 길에서 버리게 된다
   const opened = await must('openPhase', host, { gameId: GAME })
   check(opened.no === 1, '첫 페이즈가 열렸다', `${opened.no}번`)
   now = (await pawnsNow())[a0.uid]
-  check(now.tileId === 'centralPlaza', '멀리 있던 사람이 **곧바로** 전선에 섰다', String(now.tileId))
-  check(now.postTile === 'centralPlaza', '전투 자리도 그대로다', String(now.postTile))
+  // 되돌아가는 이동은 없다 — 연구실까지 갔으면 연구실에서 한 시간을 시작한다
+  check(now.tileId === 'labRoom', '멀리 있던 사람이 **그 자리에서** 시작한다', String(now.tileId))
+  check(now.postTile === 'labRoom', '전선이 지금 선 방으로 맞춰진다', String(now.postTile))
   check(now.arriveAtMs === null, '걷는 중이 아니다', String(now.arriveAtMs))
   /*
    * 도서관까지 **방을 옮겨** 간 a0 하나만 끌려 온다.
@@ -230,7 +231,7 @@ async function main(): Promise<void> {
    * 그대로다(standAt 은 at 만 적는다) — 떠난 적이 없으니 돌아올 것도
    * 없다. 기계가 방 안에 있던 때에는 이 사람도 둘째로 세어졌다.
    */
-  check(Number(opened.returned) === 1, '방을 옮겨 갔던 사람만 끌려 온다', `${opened.returned}명`)
+  check(Number(opened.returned) === 0, '아무도 끌려 오지 않는다', `${opened.returned}명`)
   check(Number(opened.allInAtMs) - openedAt < 60_000, '다 모인 시각은 곧 지금이다 — 아무도 안 걷는다',
     `${Number(opened.allInAtMs) - openedAt}ms`)
 
@@ -349,19 +350,20 @@ async function main(): Promise<void> {
     `${purse}개 남기고 — ${broke.message}`,
   )
 
-  console.log('\n── 시간이 끝나면 아무도 못 움직인다 ──')
+  console.log('\n── 시간이 끝나면 저절로 닫힌다 ──')
+  check((await ownerOfTile('artRoom')) === null, '미술실은 처음에 주인이 없다', String(await ownerOfTile('artRoom')))
   const ends = Number(opened.endsAtMs)
   check(ends > openedAt, '끝나는 시각이 정해졌다', `${(ends - openedAt) / 60000}분`)
   clockAt = ends + 1000
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: clockAt, speed: 1 })
+  // 시각이 지난 뒤 첫 호출이 따라잡기(catchUp)로 페이즈를 닫는다 — 운영자가 안 눌러도
   const late = await call('phaseAct', B[0].token, { gameId: GAME, kind: 'plant' })
-  check(late.code === 'FAILED_PRECONDITION' && String(late.message).includes('시간'), '시간이 끝났다', late.message)
+  check(late.code === 'FAILED_PRECONDITION' && /페이즈|시간/.test(String(late.message)), '시간이 끝나면 더는 못 한다', late.message)
   const info = await must('phaseNow', B[0].token, { gameId: GAME })
-  check(info.open === true && info.alive === false, '열려 있지만 살아 있지는 않다')
+  check(info.open === false, '**시간이 지나면 저절로 닫힌다** — 운영자가 안 눌러도', JSON.stringify(info))
   check(!JSON.stringify(info).includes('plant'), '**누가 무엇을 했는지는 안 나간다**')
 
-  console.log('\n── 닫으면 깃발로 정해진다 ──')
-  check((await ownerOfTile('artRoom')) === null, '미술실은 처음에 주인이 없다', String(await ownerOfTile('artRoom')))
+  console.log('\n── 닫히면 깃발로 정해진다 ──')
   /*
    * **닫는 것이 태우지는 않는지 본다.** 전에는 A팀 상자가 0보다 큰지만
    * 봤는데, 지급이 여섯으로 줄면서 A팀은 시험 도중에 다 써 버린다 —
@@ -372,7 +374,7 @@ async function main(): Promise<void> {
     await Promise.all((['A', 'B', 'C', 'D'] as TeamId[]).map(async (t) => [t, await boxOf(t)])),
   ) as Record<TeamId, number>
   const closed = await must('closePhase', host, { gameId: GAME })
-  check(Number(closed.no) === 1, '1번 페이즈가 닫혔다')
+  check(Number(closed.no) === 1 && closed.alreadyClosed === true, '1번 페이즈는 이미 닫혔다 — 운영자 닫기는 헛손질이 아니라 그대로 알려 준다', JSON.stringify(closed))
   check((await ownerOfTile('artRoom')) === 'A', '깃발 하나를 꽂은 미술실이 A팀 것이 됐다', String(await ownerOfTile('artRoom')))
 
   console.log('\n── 자판기 깃발은 팀 상자로, 학교 전체 하루 몫까지 ──')
@@ -451,7 +453,8 @@ async function main(): Promise<void> {
 
   await must('openPhase', host, { gameId: GAME })
   const back = (await pawnsNow())[a0.uid]
-  check(back.tileId === frontline, '페이즈가 열리자 전선으로 돌아왔다', `${roamed.tileId} → ${back.tileId}`)
+  check(back.tileId === 'musicRoom', '페이즈가 열려도 그 자리 그대로다', `${roamed.tileId} → ${back.tileId}`)
+  check(back.postTile === 'musicRoom', '전선은 지금 선 방이다', String(back.postTile))
   check(back.path?.length === 0 || back.path == null, '걷는 중이 아니라 이미 서 있다')
   await must('closePhase', host, { gameId: GAME })
 

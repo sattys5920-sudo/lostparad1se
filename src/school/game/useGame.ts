@@ -21,6 +21,8 @@ import { collection, doc, onSnapshot } from 'firebase/firestore'
 import type { InboxDoc } from '../../../shared/missions/mail'
 
 import { auth, callServer, db } from '../../firebase'
+import { applyProbe, isStale } from './skew'
+import type { DevClock } from '../../../shared/rules/clock'
 import type { GameDoc, PlayerViewDoc, TeamDoc, TileDoc } from '../../../shared/model'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { TileId } from '../../../shared/rules/board'
@@ -97,6 +99,29 @@ export function useGame(gameId: string | null): GameState {
     const stop: (() => void)[] = []
     const fail = (e: unknown) => setState((s) => ({ ...s, loading: false, error: (e as Error).message }))
 
+    /*
+     * **기기 시계 보정.** 들어올 때 한 번, 화면이 다시 켜질 때(잠금 해제·
+     * 탭 복귀) 오래됐으면 다시 서버 시각을 묻는다. 그 차이를 skew.ts 가
+     * 들고 있고 useGameNow 가 모든 타이머에 더한다. 실패해도 조용하다 —
+     * 보정 없이 기기 시각으로 간다
+     */
+    let latestClock: DevClock | undefined
+    const probe = async () => {
+      if (!uid) return
+      const sent = Date.now()
+      try {
+        const out = await callServer<{ nowMs: number }>('clockNow', { gameId })
+        applyProbe(out.nowMs, latestClock, sent, Date.now())
+      } catch {
+        /* 다음에 다시 */
+      }
+    }
+    const onShow = () => {
+      if (document.visibilityState === 'visible' && isStale()) void probe()
+    }
+    document.addEventListener('visibilitychange', onShow)
+    stop.push(() => document.removeEventListener('visibilitychange', onShow))
+
     stop.push(
       onSnapshot(
         base,
@@ -112,6 +137,14 @@ export function useGame(gameId: string | null): GameState {
           })),
         fail,
       ),
+    )
+    stop.push(
+      onSnapshot(base, (snap) => {
+        const g = snap.data() as GameDoc | undefined
+        if (!g || snap.metadata.fromCache) return
+        latestClock = g.clock
+        if (isStale()) void probe()
+      }),
     )
     // 팀 문서는 **우리 팀 것 하나만** 본다.
     //
@@ -323,6 +356,11 @@ export function gameActions(gameId: string) {
     hostSlipBoard: () => callServer('hostSlipBoard', g),
     hostPapers: () => callServer('hostPapers', g),
     hostRadioOverview: () => callServer('hostRadioOverview', g),
+    /** 투명인간 투표를 연다 · 닫는다(닫으면 그 자리에서 센다) */
+    hostOpenBallot: () => callServer('hostOpenBallot', g),
+    hostCloseBallot: () => callServer('hostCloseBallot', g),
+    /** 개발용 시계 — 이 시각부터 이 배속으로 */
+    setDevClock: (anchorGameMs: number, speed: number) => callServer('setDevClock', { ...g, anchorGameMs, speed }),
     /** 전원 채널을 여닫는다 */
     hostSetAllChannel: (open: boolean) => callServer('hostSetAllChannel', { ...g, open }),
     /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
@@ -332,6 +370,10 @@ export function gameActions(gameId: string) {
       callServer('hostRoomChat', { ...g, room, sinceMs, summary }),
     /** 알림 보낸 기록 — 최근 200줄 · 실패 수 */
     hostNotifyLog: () => callServer('hostNotifyLog', g),
+    /** QA — 시각순 로그. sinceMs 뒤만 · kinds 만 · limit 을 넘으면 최근 */
+    hostEventLog: (o: { sinceMs?: number; untilMs?: number; kinds?: string[]; limit?: number } = {}) => callServer('hostEventLog', { ...g, ...o }),
+    /** QA — 불변식을 지금 검사하고 쌓인 기록과 함께 돌려준다 */
+    hostInvariants: () => callServer('hostInvariants', g),
     /** 날짜별 개인 미션 판정. 날을 안 주면 가장 최근 날 */
     hostMissionDay: (day?: number) => callServer('hostMissionDay', { ...g, ...(day ? { day } : {}) }),
     /** 한 사람의 그날 결과를 뒤집는다. null 이면 뒤집기를 거둔다. 까닭은 꼭 */
@@ -374,7 +416,8 @@ export function gameActions(gameId: string) {
     /** 닷새가 시작된다. 시각을 안 주면 지금부터다. */
     /** 팀과 개인 미션을 한꺼번에 나눈다. 운영자만, 한 번만. */
     assignAll: () => callServer('assignAll', { ...g }),
-    startGame: (startAtMs?: number) => callServer('startGame', { ...g, startAtMs: startAtMs ?? Date.now() }),
+    // 시각을 안 보낸다 — 서버가 판의 시계(개발용 배속 포함)로 적는다. 기기 시계를 보내면 배속 판에서 시작 시각이 어긋난다
+    startGame: (startAtMs?: number) => callServer('startGame', { ...g, ...(startAtMs ? { startAtMs } : {}) }),
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */
     seedPlayers: (password: string, leaveSeats = 1) =>
       callServer('seedPlayers', { ...g, password, leaveSeats }),

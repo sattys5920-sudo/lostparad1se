@@ -23,7 +23,9 @@ import type { GameDoc, PawnDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { refreshViews } from './views'
+import { logSecret } from './qaLog'
 import { gameRef, requireUid } from './index'
+import { docId } from './ids'
 
 const db = getFirestore()
 
@@ -52,7 +54,8 @@ async function liveAskOf(gameId: string, uid: string, nowMs: number): Promise<bo
  */
 export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, toPlayerId } = req.data
+  const { gameId } = req.data
+  const toPlayerId = docId(req.data.toPlayerId, '그런 사람이 없다.')
   const { game, nowMs } = await freshNow(gameId)
   const mine = await myPawn(gameId, uid)
 
@@ -91,6 +94,8 @@ export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async 
     status: 'asking',
   }
   const doc = await asksOf(gameId).add(ask)
+  // 이적은 본인만 아는 일이다 — 공개 events 가 아니라 QA 몫에 적는다
+  await logSecret(gameId, 'transferAsked', nowMs, uid, { askId: doc.id, toTeam: mine.team }, { day: game.day, targetId: toPlayerId })
   return { id: doc.id }
 })
 
@@ -102,7 +107,8 @@ export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async 
  */
 export const answerTransfer = onCall<{ gameId: string; askId: string; accept: boolean }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, askId, accept } = req.data
+  const { gameId, accept } = req.data
+  const askId = docId(req.data.askId, '그런 제안이 없다.')
   const { game, nowMs } = await freshNow(gameId)
   const ref = asksOf(gameId).doc(askId)
 
@@ -131,6 +137,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
     return ask.byTeam
   })
 
+  await logSecret(gameId, 'transferAnswered', nowMs, uid, { askId, accept: team !== null, ...(team ? { team } : {}) }, { day: game.day })
   await refreshViews(gameId)
   return team === null
     ? { moved: false }

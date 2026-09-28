@@ -19,8 +19,14 @@ import type { PawnDoc } from '../../shared/model'
 import { freshNow, refuseIfInvisible } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
-import { gameRef, requireUid } from './index'
+import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
+import { docId } from './ids'
+
+const NO_SLIP = '그런 쪽지가 없다.'
+const NO_ONE = '그런 사람이 없다.'
+import { bumpSlips, logEvent } from './qaLog'
+import type { GameDoc } from '../../shared/model'
 
 const db = getFirestore()
 
@@ -112,7 +118,8 @@ const onCell = (s: SlipDoc): s is SlipDoc & { x: number; y: number } =>
  */
 export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, slipId } = req.data
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
   const self = await me(gameId, uid)
   const here = self.tileId
   const { nowMs } = await freshNow(gameId)
@@ -121,7 +128,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
-    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    if (!snap.exists) throw new HttpsError('not-found', NO_SLIP)
     const s = snap.data() as SlipDoc
     // 먼저 주운 사람만 가진다. 둘이 같은 쪽지를 노리면 여기서 갈린다
     if (onCell(s)) {
@@ -150,7 +157,8 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
  */
 export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, slipId } = req.data
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
   const { nowMs } = await freshNow(gameId)
   let first = false
   let subject = ''
@@ -186,7 +194,8 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
  */
 export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, slipId } = req.data
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
   const self = await me(gameId, uid)
   const here = self.tileId
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
@@ -216,7 +225,8 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
 /** 찢는다. **영영 사라진다.** 내 비밀이 적힌 쪽지를 주웠을 때 할 일이다. */
 export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, slipId } = req.data
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
   const { nowMs } = await freshNow(gameId)
   // **선 자리를 적어야 조각이 남는다.** 줍기·두기·건네기가 모두
   // 서 있기를 요구하는데 찢기만 걷는 중에도 됐다 — 여기서 맞춘다
@@ -256,7 +266,9 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
  */
 export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, slipId, toPlayerId } = req.data
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
+  const toPlayerId = docId(req.data.toPlayerId, NO_ONE)
   if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
   const here = await whereAmI(gameId, uid)
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
@@ -304,16 +316,21 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
  */
 export const hostPullSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   requireHost(req.auth)
-  const { gameId, slipId } = req.data
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
-    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
+    if (!snap.exists) throw new HttpsError('not-found', NO_SLIP)
     const s = snap.data() as SlipDoc
     // 한 번이라도 누가 주웠으면 못 거둔다 — 바닥에 도로 놓였어도 이미 이야기가 됐다
     if (!onCell(s) || s.everHeld === true || s.readBy.length > 0) throw new HttpsError('failed-precondition', '누가 주워 갔다.')
     tx.delete(ref)
+    // 문서 하나가 사라진다 — 불변식의 기대 장수도 하나 내린다
+    bumpSlips(tx, gameId, -1)
   })
+  const game = (await gameRef(gameId).get()).data() as GameDoc
+  await logEvent(gameId, 'slipPulled', nowOf(game), null, {}, { day: game.day })
   await refreshViews(gameId)
   return { ok: true }
 })

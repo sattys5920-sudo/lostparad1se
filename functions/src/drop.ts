@@ -24,6 +24,7 @@ import { CHAT_MAX } from './chat'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { refreshViews } from './views'
+import { bumpSlips, logEvent } from './qaLog'
 import type { GameDoc } from '../../shared/model'
 
 const db = getFirestore()
@@ -95,6 +96,8 @@ export const hostDrop = onCall<DropInput>(async (req) => {
       placedAtMs: nowMs,
       atMs: nowMs,
     })
+    await bumpSlips(null, gameId, 1)
+    await logEvent(gameId, 'memoDropped', nowMs, null, {}, { day: game.day, tileId })
     await refreshViews(gameId)
     return { dropped: 'memo', tileId, where: TILE_BY_ID[tileId].name }
   }

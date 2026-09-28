@@ -16,10 +16,10 @@ import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { GameDoc, TeamDoc } from '../../shared/model'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
-import { dropAllErrands } from './errand'
 import { erasedOn } from './use'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
+import { logSecret } from './qaLog'
 import { gameRef, nowOf, requireUid } from './index'
 
 const db = getFirestore()
@@ -97,9 +97,14 @@ export const castBallot = onCall<{ gameId: string; targetId: string }>(async (re
 
   const day = game.day
   if (day >= TOTAL_DAYS) throw new HttpsError('failed-precondition', '마지막 날에는 적지 않는다.')
-  // 오늘 표를 이미 셌으면 더 받지 않는다 — 운영자가 정산을 넘긴 뒤다
+  // 오늘 표를 이미 셌으면 더 받지 않는다 — 닫혔거나 정산을 넘긴 뒤다.
+  // 문이 닫혔는지보다 먼저 본다 — 늦게 온 사람에게 「아직 안 열렸다」는 거짓말이다
   if ((await ballotDaysOf(gameId).doc(`d${day}`).get()).exists) {
     throw new HttpsError('failed-precondition', '오늘 표는 이미 셌다.')
+  }
+  // 운영자가 연 뒤에만 적는다(ballotGate). 열기 전에는 탭도 잠겨 있다
+  if (!(game.ballot?.open === true && game.ballot.day === day)) {
+    throw new HttpsError('failed-precondition', '아직 투표가 열리지 않았다.')
   }
   const out = canName({
     voterId: uid,
@@ -127,6 +132,10 @@ export const castBallot = onCall<{ gameId: string; targetId: string }>(async (re
     atMs: nowMs,
   }
   await ballotsOf(gameId).doc(keyOf(day, uid)).set(doc)
+  // **적었다는 것만**, 그것도 **운영자 로그에만** 남긴다. events 는 로그인한 누구나 읽는
+  // 컬렉션이라(firestore.rules) 거기에 playerId 를 적으면 「누가 적었는가」가 열넷에게 새고,
+  // 그 목록을 발표와 맞춰 보면 무기명이 무너진다. 누구를 적었는지는 어디에도 안 나간다
+  await logSecret(gameId, 'ballotCast', nowMs, uid, {}, { day })
   await refreshViews(gameId)
   // 무엇을 적었는지는 본인에게만 돌려준다
   return { targetId }
@@ -172,28 +181,18 @@ export async function settleBallots(
 
   const ref = gameRef(gameId)
   const batch = db.batch()
+  /*
+   * **내일 것만 적는다.** 지워지는 것은 다음 날 08:00부터다(설정 문서
+   * 「투명인간의 하루 (다음 날 08:00 ~ 24:00)」). 전에는 여기서 invisibleId
+   * 까지 바로 적어서, 운영자가 오후 두 시에 투표를 닫으면 그 사람이 그날
+   * 남은 시간까지 지워졌다 — 하루가 아니라 하루 반이었다. 오늘 지워지는
+   * 사람·팀·심부름 정리는 자정의 dayStart(catchup.ts)가 한다
+   */
   batch.update(ref, {
     [`invisibleByDay.${day + 1}`]: picked.playerId,
-    invisibleId: picked.playerId,
+    // 세고 나면 문은 닫힌 것이다 — 운영자가 안 닫고 날을 넘겼어도
+    ...(game.ballot?.day === day ? { 'ballot.open': false } : {}),
   })
-  /*
-   * **지워지면 받아 둔 심부름을 놓는다.**
-   *
-   * 없는 사람에게 일을 맡길 수는 없다. 받기 자체가 막히는데 이미
-   * 받아 둔 것만 남아 있으면, 물건을 든 채로 아무에게도 안 보이는
-   * 사람이 하루를 돈다 — 도착 방에 놓아도 그 방 사람들은 물건이
-   * 저절로 생겼다고 볼 것이다.
-   */
-  if (picked.playerId) await dropAllErrands(gameId, picked.playerId)
-
-  // 투명인간이 나온 팀은 그날 팀 전체로 토큰을 더 받는다. 지워진 것은
-  // 한 사람인데 팀이 무너지면, 투표가 사람이 아니라 팀을 겨누게 된다
-  if (picked.playerId) {
-    const team = game.seats.find((s) => s.playerId === picked.playerId)?.team
-    if (team) batch.update(ref, { invisibleTeam: team })
-  } else {
-    batch.update(ref, { invisibleTeam: null })
-  }
   /*
    * **그날의 결과를 한 장 남긴다.**
    *

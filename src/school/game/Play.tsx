@@ -59,6 +59,7 @@ import { TECH_TILE } from '../../../shared/rules/trap'
 import { MakerSheet } from './Maker'
 import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
+import { correctedNow } from './skew'
 import { Sheet } from './Sheet'
 
 /**
@@ -1120,7 +1121,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const pops = usePops(state.view?.teamVault?.money ?? null, state.view?.teamVault?.knowledge ?? null)
 
   const says = useMemo(() => {
-    const realNow = Date.now()
+    // 말풍선 수명도 서버에 맞춘 시각으로 잰다 — 폰 시계가 틀리면 말이 안 뜨거나 안 사라졌다
+    const realNow = correctedNow()
     const out: Record<string, string> = {}
     for (const l of talk.lines) {
       if (!bubbleUp(l.atMs, state.game?.clock, realNow)) continue
@@ -1191,10 +1193,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 마지막 날에는 내일이 없어서 처음부터 잠겨 있다.
    */
   const ballotDay = state.game?.day ?? 0
-  const ballotClosed =
-    state.game?.phase !== 'running' ||
-    ballotDay >= TOTAL_DAYS ||
-    String(ballotDay + 1) in (state.game?.invisibleByDay ?? {})
+  const ballotCounted = String(ballotDay + 1) in (state.game?.invisibleByDay ?? {})
+  /** 운영자가 오늘 문을 열었는가(ballotGate). 열기 전에는 탭이 잠겨 있다 */
+  const ballotOpened = state.game?.ballot?.open === true && state.game.ballot.day === ballotDay
+  const ballotClosed = state.game?.phase !== 'running' || ballotDay >= TOTAL_DAYS || ballotCounted || !ballotOpened
   /**
    * 마감까지 몇 분인가. **모르면 안 적는다.**
    *
@@ -1788,6 +1790,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           act={act}
           onSaid={setSaid}
           closed={ballotClosed}
+          closedText={ballotCounted || ballotDay >= TOTAL_DAYS ? '마감되었다' : '아직 열리지 않았다'}
           closesInMin={ballotClosesInMin}
           /* 하루를 여는 표. 우리 팀끼리만 하고, 없으면 줄도 안 뜬다 */
           head={

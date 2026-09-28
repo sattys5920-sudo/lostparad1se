@@ -32,14 +32,17 @@ import {
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
 import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
-import type { PawnDoc, TeamDoc } from '../../shared/model'
+import type { GameDoc, PawnDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { note, noteAll } from './records'
-import { gameRef, requireUid } from './index'
+import { logEvent } from './qaLog'
+import { gameRef, nowOf, requireUid } from './index'
+import { docId } from './ids'
 import {
   LIVE,
   asDoc,
+  dealLocksOf,
   dealSlipsOf,
   dealsOf,
   endDeal,
@@ -47,9 +50,12 @@ import {
   slipsOf,
   sweepDeals,
   type DealDoc,
+  type DealLockDoc,
 } from './dealroom'
 
 const db = getFirestore()
+
+const NO_DEAL = '그런 거래가 없다.'
 
 /** 덜어 낸 숫자 하나. 음수도 소수도 안 받는다. */
 const n = (v: unknown): number => {
@@ -95,7 +101,8 @@ async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<H
 /** 거래를 걸자고 청한다. 답이 없으면 열다섯 초 뒤에 사라진다 — 값도 안 든다. */
 export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, toPlayerId } = req.data
+  const { gameId } = req.data
+  const toPlayerId = docId(req.data.toPlayerId, '그런 사람이 없다.')
   const { game, nowMs } = await freshNow(gameId)
   // **페이즈 중에도 흥정한다.** 마주 선 둘이 물건을 주고받는 일은
   // 점령과 같이 일어나도 이상하지 않다 — 옆 칸에 서 있어야 하는
@@ -123,34 +130,65 @@ export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req
   }
   refuseIfInvisible(game.invisibleId, uid, toPlayerId, '거래할')
 
+  const busy = (who: string) => (who === uid ? '이미 거래 중이다.' : '상대가 이미 거래 중이다.')
+  // 자리표를 안 남긴 옛 거래도 걸러 낸다. 빠른 길이고, 갈림은 아래 트랜잭션이 한다
   for (const who of [uid, toPlayerId]) {
-    if (await liveDealOf(gameId, who)) {
-      throw new HttpsError('failed-precondition', who === uid ? '이미 거래 중이다.' : '상대가 이미 거래 중이다.')
-    }
+    if (await liveDealOf(gameId, who)) throw new HttpsError('failed-precondition', busy(who))
   }
 
-  const doc = dealsOf(gameId).doc()
-  await doc.set(
-    asDoc(
-      newDeal({
-        askedBy: uid,
-        a: { playerId: uid, team: mine.team },
-        b: { playerId: toPlayerId, team: their.team },
-        tileId: mine.tileId,
-        nowMs,
+  /*
+   * **한 사람에 살아 있는 거래 하나 — 트랜잭션으로 지킨다.**
+   *
+   * 위의 liveDealOf 는 질의라 트랜잭션 밖이다. 둘이 같은 셋째에게 같은
+   * 순간에 청하면(한 사람이 두 번 눌러도) 둘 다 「거래 중이 아니다」를 보고
+   * 둘 다 판을 만들었다 — 100번에 37번. 사람마다 자리표(dealLocks)를 두고
+   * 읽기와 쓰기를 한 트랜잭션에 넣는다. 자리표가 가리키는 거래가 아직
+   * 살아 있으면 거절하고, 아니면 새 판을 만들며 둘의 자리표를 덮어쓴다.
+   * 같은 자리표를 두고 다투는 둘 중 늦은 쪽은 다시 읽고 여기서 걸린다.
+   */
+  const tile = mine.tileId
+  const dealId = await db.runTransaction(async (tx) => {
+    const who = [uid, toPlayerId]
+    const locks = await Promise.all(who.map((id) => tx.get(dealLocksOf(gameId).doc(id))))
+    const live = await Promise.all(
+      locks.map(async (lock) => {
+        const id = lock.exists ? ((lock.data() as DealLockDoc).dealId ?? null) : null
+        if (!id) return false
+        const d = await tx.get(dealsOf(gameId).doc(id))
+        return d.exists && LIVE.includes((d.data() as DealDoc).status)
       }),
-    ),
-  )
-  await dealSlipsOf(gameId).doc(doc.id).set({ a: [], b: [] })
-  return { id: doc.id, expiresAtMs: nowMs + DEAL_ASK_MS }
+    )
+    for (const [i, id] of who.entries()) if (live[i]) throw new HttpsError('failed-precondition', busy(id))
+
+    const doc = dealsOf(gameId).doc()
+    tx.set(
+      doc,
+      asDoc(
+        newDeal({
+          askedBy: uid,
+          a: { playerId: uid, team: mine.team },
+          b: { playerId: toPlayerId, team: their.team },
+          tileId: tile,
+          nowMs,
+        }),
+      ),
+    )
+    tx.set(dealSlipsOf(gameId).doc(doc.id), { a: [], b: [] })
+    const lock: DealLockDoc = { dealId: doc.id, atMs: nowMs }
+    for (const id of who) tx.set(dealLocksOf(gameId).doc(id), lock)
+    return doc.id
+  })
+  await logEvent(gameId, 'dealAsked', nowMs, uid, { dealId }, { day: game.day, tileId: tile, targetId: toPlayerId })
+  return { id: dealId, expiresAtMs: nowMs + DEAL_ASK_MS }
 })
 
 /** 청한 거래를 받거나 물린다. */
 export const answerDeal = onCall<{ gameId: string; dealId: string; accept: boolean }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, dealId, accept } = req.data
-  const { nowMs } = await freshNow(gameId)
-  return db.runTransaction(async (tx) => {
+  const { gameId, accept } = req.data
+  const dealId = docId(req.data.dealId, NO_DEAL)
+  const { game, nowMs } = await freshNow(gameId)
+  const out = await db.runTransaction(async (tx) => {
     const ref = dealsOf(gameId).doc(dealId)
     const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 거래가 없다.')
@@ -169,12 +207,15 @@ export const answerDeal = onCall<{ gameId: string; dealId: string; accept: boole
     tx.update(ref, { status: 'open' })
     return { ok: true, open: true }
   })
+  await logEvent(gameId, 'dealAnswered', nowMs, uid, { dealId, accept: out.open }, { day: game.day })
+  return out
 })
 
 /** 탁자에 올리거나 내린다. **둘의 준비가 함께 풀린다.** */
 export const stakeDeal = onCall<{ gameId: string; dealId: string; stake: unknown }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, dealId } = req.data
+  const { gameId } = req.data
+  const dealId = docId(req.data.dealId, NO_DEAL)
   const stake = cleanStake(req.data.stake)
   const { nowMs } = await freshNow(gameId)
   await sweepDeals(gameId, nowMs)
@@ -211,7 +252,8 @@ export const stakeDeal = onCall<{ gameId: string; dealId: string; stake: unknown
 /** 준비를 누르거나 무른다. 둘 다 눌리면 세기 시작한다. */
 export const readyDeal = onCall<{ gameId: string; dealId: string; ready: boolean }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, dealId, ready } = req.data
+  const { gameId, ready } = req.data
+  const dealId = docId(req.data.dealId, NO_DEAL)
   const { nowMs } = await freshNow(gameId)
   return db.runTransaction(async (tx) => {
     const ref = dealsOf(gameId).doc(dealId)
@@ -231,13 +273,15 @@ export const readyDeal = onCall<{ gameId: string; dealId: string; ready: boolean
 /** 거래를 접는다. 세는 중에도 누구든 무를 수 있다. */
 export const cancelDeal = onCall<{ gameId: string; dealId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, dealId } = req.data
+  const { gameId } = req.data
+  const dealId = docId(req.data.dealId, NO_DEAL)
   const snap = await dealsOf(gameId).doc(dealId).get()
   if (!snap.exists) return { ok: true }
   const deal = snap.data() as DealDoc
   if (!sideOf(deal, uid)) throw new HttpsError('permission-denied', '이 거래의 사람이 아니다.')
   if (!LIVE.includes(deal.status)) return { ok: true }
   await endDeal(gameId, dealId, '한 사람이 나갔다.')
+  await logEvent(gameId, 'dealCancelled', nowOf((await gameRef(gameId).get()).data() as GameDoc), uid, { dealId })
   return { ok: true }
 })
 
@@ -249,7 +293,8 @@ export const cancelDeal = onCall<{ gameId: string; dealId: string }>(async (req)
  */
 export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, dealId } = req.data
+  const { gameId } = req.data
+  const dealId = docId(req.data.dealId, NO_DEAL)
   const { game, nowMs } = await freshNow(gameId)
   const ref = gameRef(gameId)
 
@@ -427,6 +472,11 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       })),
     )
   }
+  await logEvent(gameId, 'dealSettled', nowMs, seen.askedBy, { dealId }, {
+    day: game.day,
+    tileId: seen.tileId,
+    targetId: askedIsA ? seen.bId : seen.aId,
+  })
   await refreshViews(gameId)
   return { ok: true, already: false }
 })

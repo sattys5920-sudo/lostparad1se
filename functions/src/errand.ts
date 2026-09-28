@@ -37,6 +37,7 @@ import { freshNow, mustBeFreeTime, myPawn } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
+import { docId } from './ids'
 
 const db = getFirestore()
 
@@ -225,7 +226,8 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
 /** 게시판 앞에서 한 장 받는다. **한 사람에 하나뿐이다.** */
 export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  const { gameId, errandId } = req.data
+  const { gameId } = req.data
+  const errandId = docId(req.data.errandId, '그런 심부름이 없다.')
   const { game, nowMs } = await freshNow(gameId)
   mustBeFreeTime(game, '심부름을 받을')
   await sweepErrands(gameId, nowMs)
@@ -235,7 +237,7 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
     throw new HttpsError('failed-precondition', `한 번에 ${ERRANDS_PER_PERSON}개까지다.`)
   }
 
-  const ref = postedOf(gameId).doc(String(errandId))
+  const ref = postedOf(gameId).doc(errandId)
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 심부름이 없다.')
@@ -249,7 +251,7 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
     // **여럿이 같은 것을 받는다.** 각자 경주한다
     tx.update(ref, { [`takers.${uid}`]: { tookMs: nowMs, carrying: false } })
   })
-  await note(gameId, 'errandTake', nowMs, { id: uid, team: pawn.team }, { subjectId: String(errandId) })
+  await note(gameId, 'errandTake', nowMs, { id: uid, team: pawn.team }, { subjectId: errandId })
   await refreshViews(gameId)
   return { took: errandId, from: TILE_BY_ID[(await ref.get()).get('from') as TileId].name }
 })
