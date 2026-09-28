@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client'
 
+// 색·간격·글자 크기. **맨 먼저 싣는다** — 나머지가 전부 이 값을 쓴다
+import './tokens.css'
 // 겨울 학교의 색과 눈발 바탕
 import './theme.css'
 // **mobile.css 가 마지막이다.** play.css 는 이 페이지가 평범하게

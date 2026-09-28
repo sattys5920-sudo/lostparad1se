@@ -13,10 +13,10 @@
   z-index: 60;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px 10px;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2);
   box-sizing: border-box;
-  background: #1a1d26;
+  background: var(--bg-2);
   overflow: hidden;
 }
 
@@ -24,12 +24,12 @@
 .sc-vd__out {
   flex: 0 0 auto;
   align-self: flex-start;
-  padding: 2px 4px;
+  padding: var(--sp-1) var(--sp-1);
   border: 0;
   background: transparent;
-  color: #5e6678;
+  color: var(--text-2);
   font: inherit;
-  font-size: 9px;
+  font-size: var(--fs-cap);
   cursor: pointer;
 }
 
@@ -41,13 +41,13 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
   box-sizing: border-box;
-  background: #2c3140;
-  border: 3px solid #3e4456;
+  background: var(--bg-3);
+  border: 3px solid var(--line);
   /* 바깥 1px 은 더 어둡다. 기계가 벽에서 떨어져 보인다 */
-  box-shadow: 0 0 0 1px #0e1016;
+  box-shadow: 0 0 0 1px var(--bg-0);
   border-radius: 0;
 }
 
@@ -56,7 +56,7 @@
 .sc-vd__body.is-dark .sc-vd__sign {
   filter: brightness(0.55);
 }
-.sc-vd__body.is-dark .sc-vd__tube { background: #23303c; }
+.sc-vd__body.is-dark .sc-vd__tube { background: var(--bg-3); }
 
 /* ── 간판 ──────────────────────────────────────────────── */
 
@@ -67,16 +67,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1c1f28;
-  border: 1px solid #0e1016;
+  background: var(--bg-2);
+  border: 1px solid var(--bg-0);
   box-sizing: border-box;
 }
 .sc-vd__signText {
-  font-size: 15px;
+  font-size: var(--fs-body);
   letter-spacing: 0.32em;
   /* 자간이 넓으면 마지막 글자 뒤에도 자리가 남는다. 그만큼 당긴다 */
   text-indent: 0.32em;
-  color: #6fa8d9;
+  color: var(--text-2);
 }
 /* 형광등 한 줄. 1px 이라 켜졌는지 꺼졌는지만 보인다 */
 .sc-vd__tube {
@@ -85,14 +85,14 @@
   right: 8px;
   top: 5px;
   height: 1px;
-  background: #6fa8d9;
+  background: var(--bg-3);
 }
 .sc-vd__room {
   position: absolute;
   right: 5px;
   bottom: 3px;
-  font-size: 8px;
-  color: #3e4456;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
 }
 
 /* ── 진열창 ────────────────────────────────────────────── */
@@ -108,23 +108,23 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: repeat(3, 1fr);
-  gap: 6px;
+  gap: var(--sp-1);
 }
 .sc-vd__cell {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--sp-1);
   min-height: 0;
-  padding: 4px;
-  background: #1c1f28;
-  border: 1px solid #0e1016;
-  color: #c9cedc;
+  padding: var(--sp-1);
+  background: var(--bg-2);
+  border: 1px solid var(--bg-0);
+  color: var(--text-1);
   font: inherit;
   cursor: pointer;
 }
-.sc-vd__cell.is-on { border-color: #6fa8d9; }
+.sc-vd__cell.is-on { border-color: var(--line-strong); }
 /* 못 사는 칸. 사유는 값 자리에 들어간다 */
 .sc-vd__cell.is-off { filter: brightness(0.5); }
 /* 한 프레임 흔들린다. 정수 화소다 */
@@ -137,17 +137,17 @@
   image-rendering: pixelated;
 }
 .sc-vd__cell b {
-  font-size: 12px;
+  font-size: var(--fs-label);
   font-weight: 400;
-  color: #c9cedc;
+  color: var(--text-1);
   text-align: center;
   word-break: keep-all;
   line-height: 15px;
 }
 .sc-vd__cell em {
   font-style: normal;
-  font-size: 9px;
-  color: #f0d68a;
+  font-size: var(--fs-cap);
+  color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -160,7 +160,7 @@
   top: -40%;
   width: 1px;
   height: 180%;
-  background: repeating-linear-gradient(to bottom, #6fa8d9 0 1px, transparent 1px 3px);
+  background: repeating-linear-gradient(to bottom, var(--bg-3) 0 1px, transparent 1px 3px);
   opacity: 0.22;
   transform: rotate(-32deg);
   pointer-events: none;
@@ -176,20 +176,20 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
-  padding: 0 8px;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2);
   box-sizing: border-box;
-  background: #0e1016;
-  box-shadow: inset 0 0 0 1px #3e4456;
-  color: #6fa8d9;
+  background: var(--bg-0);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text-2);
   overflow: hidden;
 }
 /* 2초에 한 번 1px. 오래된 기계다 */
 .sc-vd__panel.is-jit { transform: translateX(1px); }
-.sc-vd__line { font-size: 11px; white-space: nowrap; }
+.sc-vd__line { font-size: var(--fs-cap); white-space: nowrap; }
 .sc-vd__sub {
-  font-size: 9px;
-  color: #5e6678;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -201,19 +201,19 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-1);
 }
 .sc-vd__push {
-  padding: 5px 14px;
-  background: #1c1f28;
-  border: 1px solid #3e4456;
-  color: #c9cedc;
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--text-1);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-cap);
   cursor: pointer;
 }
-.sc-vd__push:disabled { color: #3e4456; cursor: default; }
-.sc-vd__coinLab { margin-left: auto; font-size: 9px; color: #5e6678; }
+.sc-vd__push:disabled { color: var(--text-2); cursor: default; }
+.sc-vd__coinLab { margin-left: auto; font-size: var(--fs-cap); color: var(--text-2); }
 /*
  * 4px 슬롯. **보이는 것은 좁고 판정은 넓다.**
  *
@@ -226,8 +226,8 @@
   width: 4px;
   height: 14px;
   padding: 0;
-  background: #0e1016;
-  border: 1px solid #3e4456;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
   cursor: pointer;
   box-sizing: content-box;
 }
@@ -237,7 +237,7 @@
   top: -6px;
   width: 4px;
   height: 4px;
-  background: #f0d68a;
+  background: var(--accent);
 }
 
 /* ── 배출구 ────────────────────────────────────────────── */
@@ -250,8 +250,8 @@
   padding: 0;
   display: block;
   width: 100%;
-  background: #0e1016;
-  border: 1px solid #3e4456;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
   cursor: pointer;
   /* 나온 물건은 구멍 밖으로 반쯤 걸친다. 안에 가두면 잘린 그림이 된다 */
   overflow: visible;
@@ -260,8 +260,8 @@
   position: absolute;
   right: 4px;
   top: 1px;
-  font-size: 8px;
-  color: #3e4456;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
   letter-spacing: 0.1em;
 }
 /* 나온 물건. 두 배로 늘린다 — 배출구가 낮아서 세 배는 안 들어간다 */
@@ -280,7 +280,7 @@
   position: absolute;
   width: 2px;
   height: 2px;
-  background: #0e1016;
+  background: var(--bg-0);
   pointer-events: none;
 }
 .sc-vd__scr--1 { left: 7px; bottom: 26px; }
@@ -293,7 +293,7 @@
   top: 96px;
   width: 9px;
   height: 12px;
-  background: #343a4c;
+  background: var(--bg-3);
   pointer-events: none;
 }
 
@@ -308,47 +308,47 @@
 .sc-vd__buy {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 6px 8px;
-  border: 1px solid #3e4456;
-  background: #12141c;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
 }
 .sc-vd__buyLab {
   flex: 0 0 auto;
-  font-size: 9px;
+  font-size: var(--fs-cap);
   letter-spacing: 0.08em;
-  color: #7c86a0;
+  color: var(--text-2);
 }
-.sc-vd__buyNone { font-size: 10px; color: #545c72; }
-.sc-vd__buyRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-vd__buyNone { font-size: var(--fs-cap); color: var(--text-2); }
+.sc-vd__buyRow { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 /* 작물 한 칸 — 색 점 · 이름 · 값. 값은 표에 적힌 그대로다 */
 .sc-vd__crop {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
-  border: 1px solid #4a5170;
-  background: #1b1f2e;
-  color: #e8e6f5;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-2);
+  color: var(--text-1);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-cap);
   cursor: pointer;
 }
 .sc-vd__crop i {
   width: 8px;
   height: 8px;
-  border: 1px solid #0e1016;
+  border: 1px solid var(--bg-0);
   border-radius: 999px;
 }
-.sc-vd__crop em { font-style: normal; color: #f0d68a; font-variant-numeric: tabular-nums; }
+.sc-vd__crop em { font-style: normal; color: var(--accent); font-variant-numeric: tabular-nums; }
 /* 두 개 이상이면 이름 뒤에 수를 붙인다.
    **얹지 않는다** — 모서리에 띄운 배지가 매입구 테두리 위로 잘려
    나갔다. 줄 안에 들어오는 글자가 잘리지 않는다 */
 .sc-vd__crop b {
   font-weight: 400;
-  font-size: 10px;
-  color: #9aa3bd;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
 }
 .sc-vd__crop:disabled { opacity: 0.5; cursor: default; }

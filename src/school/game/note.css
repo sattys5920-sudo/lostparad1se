@@ -12,28 +12,28 @@
 
 .sc-nb-root {
   /* 거의 흰 종이. 투표용지의 누런 갱지와 달라야 같은 물건으로 안 보인다 */
-  --nb-paper: #f6f5f2;
-  --nb-rule: #dfe3e8;
-  --nb-under: #bcc3cb;
-  --nb-margin: #c2564e;
-  --nb-ink: #262a31;
-  --nb-pencil: #3f444c;
+  --nb-paper: var(--paper);
+  --nb-rule: var(--ink-3);
+  --nb-under: var(--ink-3);
+  --nb-margin: var(--danger);
+  --nb-ink: var(--ink);
+  --nb-pencil: var(--ink-2);
   /* 흰 바탕에서 읽히는 가장 흐린 회색. 4.7:1 */
-  --nb-soft: #686e76;
+  --nb-soft: var(--ink-2);
 
-  background: #171b24;
-  gap: 14px;
-  padding: 0 0 calc(16px + var(--sa-bottom));
+  background: var(--bg-2);
+  gap: var(--sp-3);
+  padding: 0 0 calc(var(--sp-4) + var(--sa-bottom));
 }
 
 /* 맨 윗줄. 투표 탭과 같은 자리, 같은 크기 */
 .sc-nb__top {
   flex: none;
   margin: 0;
-  padding: 14px 16px 2px;
-  font-size: 12px;
+  padding: var(--sp-3) var(--sp-4) var(--sp-1);
+  font-size: var(--fs-label);
   letter-spacing: 0.08em;
-  color: #7f8aa3;
+  color: var(--text-2);
   text-align: center;
 }
 
@@ -43,14 +43,14 @@
 .sc-nb {
   position: relative;
   flex: none;
-  margin: 0 14px;
+  margin: 0 var(--sp-3);
   /* 스프링이 종이 밖으로 나가는 자리. 철사가 가장자리를 물어야 한다 */
-  padding-left: 26px;
+  padding-left: var(--sp-6);
 }
 
 .sc-nb__page {
   position: relative;
-  padding: 18px 16px 14px 58px;
+  padding: var(--sp-4) var(--sp-4) var(--sp-3) 58px;
   background-color: var(--nb-paper);
   /* 아주 흐린 줄. 읽는 줄이 아니라 결이다 — 진하게 그으면 글자와 싸운다 */
   background-image: repeating-linear-gradient(
@@ -58,7 +58,7 @@
     transparent 0 29px,
     var(--nb-rule) 29px 30px
   );
-  box-shadow: 2px 2px 0 #0d1019;
+  box-shadow: 2px 2px 0 var(--bg-0);
 }
 
 /* 붉은 마진선. 스프링과 글자 사이를 가른다 */
@@ -94,7 +94,7 @@
   image-rendering: pixelated;
   background-repeat: repeat-x;
   background-size: 20px 12px;
-  filter: drop-shadow(2px 2px 0 #0d1019);
+  filter: drop-shadow(2px 2px 0 var(--bg-0));
 }
 
 /* ── 종이 위의 판 ─────────────────────────────────────────────
@@ -110,8 +110,8 @@
 }
 
 .sc-nb .sc-ar__board-hint {
-  margin: 0 0 14px;
-  font-size: 10px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-cap);
   line-height: 1.7;
   color: var(--nb-soft);
   letter-spacing: 0.02em;
@@ -125,17 +125,17 @@
 .sc-nb .sc-ar__person {
   border: 0;
   border-radius: 0;
-  padding: 0 0 8px;
+  padding: 0 0 var(--sp-2);
   gap: 0;
 }
 
 .sc-nb .sc-ar__person-head {
-  gap: 8px;
+  gap: var(--sp-2);
   min-height: 42px;
 }
 
 .sc-nb .sc-ar__person-name {
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 700;
   color: var(--nb-ink);
 }
@@ -144,12 +144,12 @@
 .sc-nb .sc-ar__guess {
   width: 108px;
   min-height: 40px;
-  padding: 0 6px;
+  padding: 0 var(--sp-1);
   border: 1px solid var(--nb-ink);
   border-radius: 0;
   background: transparent;
   color: var(--nb-ink);
-  font-size: 16px;
+  font-size: var(--fs-body);
   letter-spacing: 0.02em;
 }
 
@@ -163,18 +163,18 @@
 /* 한 줄 메모는 줄 위에 얹는다. 상자가 아니라 밑줄이다 */
 .sc-nb .sc-ar__person-note {
   height: 40px;
-  padding: 0 2px;
+  padding: 0 var(--sp-1);
   border: 0;
   border-bottom: 1px solid var(--nb-under);
   border-radius: 0;
   background: transparent;
   color: var(--nb-pencil);
   /* 16px 아래로 내려가면 아이폰이 칸을 누를 때 화면을 확대한다 */
-  font-size: 16px;
+  font-size: var(--fs-body);
 }
 
 .sc-nb .sc-ar__person-note::placeholder {
-  color: #979da5;
+  color: var(--text-2);
 }
 
 .sc-nb .sc-ar__person-note:focus {
@@ -187,31 +187,31 @@
  */
 .sc-nb__sub {
   flex: none;
-  margin: 4px 16px -4px;
-  font-size: 12px;
+  margin: var(--sp-1) var(--sp-4) -4px;
+  font-size: var(--fs-label);
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: #7f8aa3;
+  color: var(--text-2);
 }
 
 .sc-nb-root .sc-ph__log {
   flex: none;
-  margin: 0 16px;
+  margin: 0 var(--sp-4);
 }
-.sc-nb-root .sc-ph__log h2 { color: #d8e2f0; }
-.sc-nb-root .sc-ph__log h2 span { color: #6f7f99; }
-.sc-nb-root .sc-ph__log li { color: #9fb0c8; }
-.sc-nb-root .sc-ph__log li.is-big { color: #e6edf7; }
+.sc-nb-root .sc-ph__log h2 { color: var(--text-1); }
+.sc-nb-root .sc-ph__log h2 span { color: var(--text-2); }
+.sc-nb-root .sc-ph__log li { color: var(--text-2); }
+.sc-nb-root .sc-ph__log li.is-big { color: var(--text-1); }
 
 .sc-nb__open {
   flex: none;
-  margin: 0 16px;
+  margin: 0 var(--sp-4);
   min-height: 44px;
-  border: 1px solid #3a4254;
-  border-radius: 2px;
-  background: #1b2030;
-  color: #b3c2d6;
+  border: 1px solid var(--line);
+  border-radius: var(--r-game);
+  background: var(--bg-2);
+  color: var(--text-1);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }

@@ -18,19 +18,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
 
 .school-root {
-  --sc-bg: #eef0f2;
-  --sc-bg-2: #e2e5e7;
-  --sc-text: #0b0d0f;
-  --sc-text-2: #2f353a;
-  --sc-text-dim: #4d545a;
-  --sc-line: #c9ced2;
-  --sc-line-strong: #0b0d0f;
-  --sc-accent: #0b0d0f;
-  --sc-accent-dim: #4d545a;
-  --sc-danger: #7a2620;
-  --sc-surface: #e2e5e7;
-  --sc-font-body:
-    'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', system-ui, sans-serif;
+  /*
+   * **겨울 저녁 한 벌이다.** 전에는 여기가 밝은 낮 테마였고(#eef0f2 바탕에
+   * 검은 글자), 시트·관리자 화면이 그것을 썼다. 조작부와 탭은 어둡고
+   * 시트만 하얗게 뜨던 것을 걷어낸다. 값은 전부 tokens.css 를 가리킨다.
+   */
+  --sc-bg: var(--bg-1);
+  --sc-bg-2: var(--bg-2);
+  --sc-text: var(--text-1);
+  --sc-text-2: var(--text-1);
+  --sc-text-dim: var(--text-2);
+  --sc-line: var(--line);
+  --sc-line-strong: var(--line-strong);
+  --sc-accent: var(--accent);
+  --sc-accent-dim: var(--text-2);
+  --sc-danger: var(--danger);
+  --sc-warn: var(--accent);
+  --sc-surface: var(--bg-2);
+  --sc-ink-dim: var(--text-3);
+  --sc-font-body: var(--font-body);
   /* 제목도 같은 한 벌이다. 굵기와 자간으로 가른다 */
   --sc-font-title: var(--sc-font-body);
   /* 큰 제목 전용. 20px 아래로는 쓰지 않는다 */
@@ -38,10 +44,10 @@
 
   /* 바닥에 떨어진 두 가지. **눈으로 갈려야 한다** — 쪽지는 접힌
      종이라 판 바탕색을 쓰고, 문제 종이는 시험지라 잉크색을 쓴다 */
-  --sc-slip-mark: #6b5a3a;
-  --sc-quiz-mark: #2f5d7a;
-  --sc-quiz-edge: #9db6c4;
-  --sc-quiz-bg: #e6edf1;
+  --sc-slip-mark: var(--paper);
+  --sc-quiz-mark: var(--text-1);
+  --sc-quiz-edge: var(--line-strong);
+  --sc-quiz-bg: var(--bg-2);
 
   /* 완장 색은 여기 없다. char/palette.ts 의 TEAMS 가 정본이고,
      play.css 가 --pl-* 로 잇는다. 전에는 여기에도 네 줄이 있었는데
@@ -51,7 +57,7 @@
   width: 100%;
   height: 100%;
   position: relative;
-  background-color: var(--sc-bg);
+  background-color: var(--bg-0);
   background-image:
     radial-gradient(circle at 12% 18%, #ffffff 0 1.6px, transparent 2.2px),
     radial-gradient(circle at 78% 9%, #ffffff 0 1.2px, transparent 1.8px),
@@ -65,7 +71,7 @@
   color: var(--sc-text);
   font-family: var(--sc-font-body);
   font-weight: 400;
-  font-size: 14px;
+  font-size: var(--fs-label);
   /* 한글은 자간을 조금 좁혀야 덩어리로 읽힌다. 라틴 숫자는 표에서
      자리가 흔들리지 않게 따로 고정한다(쓰는 곳에서 tabular-nums) */
   letter-spacing: -0.01em;

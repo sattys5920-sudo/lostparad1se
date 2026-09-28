@@ -1,0 +1,78 @@
+/*
+ * 디자인 토큰 — 겨울 저녁.
+ *
+ * **모든 화면은 이 값만 쓴다.** 색·간격·모서리·글자 크기를 파일마다
+ * 따로 적던 것을 여기 한 곳으로 모은다. 파일마다 있는 --ct-* · --lb-* ·
+ * --rd-* 같은 이름은 남겨 두되 값은 전부 여기를 가리킨다(별칭).
+ *
+ * 규칙
+ *   색        아래 열셋과 팀 넷뿐. 흐린 변형이 필요하면 color-mix 로 두
+ *             토큰을 섞는다 — 새 색을 만들지 않는다
+ *   간격      4 8 12 16 24 32 만. 그 사이 값은 쓰지 않는다
+ *   모서리    게임 UI 0~2px(각지게), 종이와 시트 8px
+ *   테두리    1px --line. 단추만 베벨(위·왼쪽 밝게, 아래·오른쪽 어둡게)
+ *   글자      20 제목 / 16 본문·입력 / 13 라벨 / 11 캡션
+ *             픽셀 글꼴(Galmuri11)은 정수 배율로만 — 11 · 22
+ *   본문 대비 4.5:1 이상. --text-3 은 캡션에만 쓴다
+ *
+ * 팀 색은 char/palette.ts 의 TEAMS 와 같아야 한다(skin.test.ts 가 본다).
+ * 캔버스에 그리는 완장이 CSS 를 못 읽기 때문에 두 곳에 있다.
+ */
+:root {
+  /* ── 색 ── */
+  --bg-0: #0d0f16; /* 화면 바닥 */
+  --bg-1: #161a26; /* 패널 */
+  --bg-2: #22273a; /* 카드, 단추 면 */
+  --bg-3: #2c3249; /* 누른 면 — bg-2 보다 한 단계 밝다 */
+  --line: #333a52; /* 구분선 */
+  --line-strong: #4a5470;
+  --text-1: #e4e8f2; /* 본문 */
+  --text-2: #8a93ab; /* 보조 */
+  --text-3: #5a6480; /* 흐린 것. 캡션에만 */
+  --accent: #f0d68a; /* 강조 — 숫자, 활성 탭 */
+  --danger: #c4564e;
+  --paper: #d5cebc; /* 종이 — 투표용지, 쪽지, 수첩 */
+  --ink: #2e2a20; /* 종이 위 글자 */
+
+  --team-a: #c4564e;
+  --team-b: #5b87c4;
+  --team-c: #6ba86b;
+  --team-d: #d4a64a;
+
+  /* 종이 위의 흐린 글자·줄. 두 토큰을 섞은 것이지 새 색이 아니다 */
+  --ink-2: color-mix(in srgb, var(--ink) 62%, var(--paper));
+  --ink-3: color-mix(in srgb, var(--ink) 38%, var(--paper));
+
+  /* ── 간격 ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ── 모서리 ── */
+  --r-game: 2px;
+  --r-paper: 8px;
+
+  /* ── 글자 ── */
+  --fs-title: 20px;
+  --fs-body: 16px;
+  --fs-label: 13px;
+  --fs-cap: 11px;
+  /* 픽셀 글꼴은 이 둘만. 13 · 16 · 20 으로 찍으면 획이 번진다 */
+  --fs-pixel: 11px;
+  --fs-pixel-2: 22px;
+
+  --font-pixel: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-body: 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', system-ui, sans-serif;
+
+  /* ── 단추 ── */
+  --hit: 44px;
+  --bevel: inset 1px 1px 0 var(--line-strong), inset -1px -1px 0 var(--bg-0);
+
+  /* ── 움직임 ── */
+  --t-screen: 0.2s;
+  --t-sheet: 0.25s;
+  --ease-sheet: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

@@ -9,13 +9,13 @@
  * 밀려나면 만들 방법이 없는 화면이 된다.
  */
 .sc-cc {
-  --cc-bg: #1c1f33;
-  --cc-face: #262b44;
-  --cc-line: #3b4266;
-  --cc-line-on: #f0d68a;
-  --cc-text: #e8e6f5;
-  --cc-dim: #9aa0c0;
-  --cc-gold: #f0d68a;
+  --cc-bg: var(--bg-1);
+  --cc-face: var(--bg-2);
+  --cc-line: var(--line);
+  --cc-line-on: var(--accent);
+  --cc-text: var(--text-1);
+  --cc-dim: var(--text-2);
+  --cc-gold: var(--accent);
 
   display: flex;
   flex-direction: column;
@@ -23,8 +23,8 @@
   height: 100%;
   background: var(--cc-bg);
   color: var(--cc-text);
-  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  font-size: 11px;
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
   line-height: 1.45;
 }
 
@@ -37,10 +37,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 8px 0;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) 0;
   /* 바닥에 깔린 빛 한 덩이. 서 있는 자리가 있어야 인물로 보인다 */
-  background: radial-gradient(ellipse 55% 40% at 50% 84%, #2b3152 0%, var(--cc-bg) 70%);
+  background: radial-gradient(ellipse 55% 40% at 50% 84%, var(--bg-3) 0%, var(--cc-bg) 70%);
   border-bottom: 1px solid var(--cc-line);
 }
 
@@ -48,7 +48,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 14px;
+  gap: var(--sp-3);
 }
 
 .sc-cc__mirror canvas {
@@ -65,7 +65,7 @@
   background: var(--cc-face);
   color: var(--cc-text);
   font-family: inherit;
-  font-size: 22px;
+  font-size: var(--fs-pixel-2);
   line-height: 1;
   cursor: pointer;
 }
@@ -91,12 +91,12 @@
 
 .sc-cc__corner .sc-out__go {
   min-height: 32px;
-  padding: 0 6px;
+  padding: 0 var(--sp-1);
   border: 0;
   background: none;
   font-family: inherit;
-  font-size: 11px;
-  color: #5b6187;
+  font-size: var(--fs-pixel);
+  color: var(--text-2);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -107,13 +107,13 @@
   top: 6px;
   right: 6px;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 var(--sp-2);
   border: 1px solid var(--cc-line);
   border-radius: 0;
   background: var(--cc-face);
   color: var(--cc-gold);
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-pixel);
   letter-spacing: 1px;
   cursor: pointer;
 }
@@ -122,7 +122,7 @@
 /* 완장 한 줄. 고를 수 없는 것이라 단추처럼 보이면 안 된다 */
 .sc-cc__band {
   margin: 0;
-  padding: 5px 8px;
+  padding: var(--sp-1) var(--sp-2);
   width: 100%;
   box-sizing: border-box;
   text-align: center;
@@ -136,8 +136,8 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--cc-line);
 }
 
@@ -159,19 +159,19 @@
   font-family: inherit;
   /* 16px 아래로 내려가면 아이폰이 화면을 확대한다. 갈무리는 11 의
      정수 배에서만 또렷하니 22 다 */
-  font-size: 22px;
+  font-size: var(--fs-pixel-2);
   line-height: 1;
   color: var(--cc-text);
-  padding: 10px 0 2px;
+  padding: var(--sp-2) 0 var(--sp-1);
 }
 /* 채울 자리를 알려 주는 글씨는 적은 글씨보다 작아야 한다. 칸 자체는
    22px 이라 아이폰이 확대하지 않는다 — 이것만 줄인다 */
-.sc-cc .sc-cc__name input::placeholder { color: #4d5378; font-size: 11px; }
+.sc-cc .sc-cc__name input::placeholder { color: var(--text-2); font-size: var(--fs-cap); }
 .sc-cc .sc-cc__name input:focus {
   outline: none;
   border-bottom-color: var(--cc-gold);
   border-bottom-width: 3px;
-  padding-bottom: 1px;
+  padding-bottom: 0;
 }
 
 /* ── 서랍 꼭지 ──────────────────────────────────────────────── */
@@ -189,15 +189,15 @@
   align-items: center;
   /* 그림 크기가 서로 달라서 글자를 바닥에 맞춰야 줄이 안 흔들린다 */
   justify-content: flex-end;
-  gap: 2px;
+  gap: var(--sp-1);
   min-height: 56px;
-  padding: 4px 0;
+  padding: var(--sp-1) 0;
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
   background: none;
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-pixel);
   color: var(--cc-dim);
   cursor: pointer;
 }
@@ -224,19 +224,19 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 10px 10px 14px;
+  padding: var(--sp-2) var(--sp-2) var(--sp-3);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--sp-3);
 }
 
 .sc-cc__secHead {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin: 0 0 6px;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-1);
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-pixel);
   font-weight: 400;
   letter-spacing: 2px;
   color: var(--cc-dim);
@@ -257,7 +257,7 @@
 .sc-cc__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
-  gap: 6px;
+  gap: var(--sp-1);
 }
 
 .sc-cc__pick {
@@ -265,15 +265,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: var(--sp-1);
   /* 손가락으로 누른다 */
   min-height: 48px;
-  padding: 5px 2px;
+  padding: var(--sp-1) var(--sp-1);
   border: 1px solid var(--cc-line);
   border-radius: 0;
   background: var(--cc-face);
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-pixel);
   color: var(--cc-dim);
   cursor: pointer;
 }
@@ -292,7 +292,7 @@
 .sc-cc__pick.is-on {
   border-color: var(--cc-line-on);
   box-shadow: inset 0 0 0 1px var(--cc-line-on);
-  background: #2f3558;
+  background: var(--bg-3);
   color: var(--cc-gold);
 }
 
@@ -311,15 +311,15 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-2) calc(var(--sp-2) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--cc-line);
   background: var(--cc-bg);
 }
 
 .sc-cc__error {
   margin: 0;
-  color: #e07a72;
+  color: var(--danger);
 }
 
 .sc-cc__done {
@@ -328,11 +328,11 @@
   border: 1px solid var(--cc-gold);
   border-radius: 0;
   background: var(--cc-gold);
-  color: #241f16;
+  color: var(--ink);
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-pixel);
   letter-spacing: 3px;
-  padding-left: 3px;
+  padding-left: var(--sp-1);
   cursor: pointer;
 }
 .sc-cc__done:disabled { opacity: 0.45; cursor: default; }
@@ -340,7 +340,7 @@
 /* 짧은 화면에서는 거울 언저리의 여백부터 줄인다. 그림 자체는
    CharacterCreator.tsx 가 정수 배로 한 칸 내린다 */
 @media (max-height: 719px) {
-  .sc-cc__stage { padding-top: 4px; gap: 4px; }
-  .sc-cc__name { padding: 4px 12px; }
-  .sc-cc__drawer { padding-top: 8px; }
+  .sc-cc__stage { padding-top: var(--sp-1); gap: var(--sp-1); }
+  .sc-cc__name { padding: var(--sp-1) var(--sp-3); }
+  .sc-cc__drawer { padding-top: var(--sp-2); }
 }

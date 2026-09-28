@@ -34,25 +34,26 @@ export const MAP = {
 
 /** UI — 맵보다 어둡되 같은 계열. */
 export const UI = {
-  bg: '#1c1f33',
-  face: '#353a57',
-  line: '#4a5070',
+  // tokens.css 와 같은 값이다(skin.test.ts 가 본다). 캔버스는 CSS 변수를 못 읽는다
+  bg: '#161a26',
+  face: '#22273a',
+  line: '#333a52',
   /** 베벨 — 위·왼쪽은 밝고 아래·오른쪽은 어둡다 */
-  bevelLit: '#4a5070',
-  bevelDim: '#0e1120',
-  text: '#e8e6f5',
+  bevelLit: '#4a5470',
+  bevelDim: '#0d0f16',
+  text: '#e4e8f2',
   gold: '#f0d68a',
-  ice: '#9fd4e8',
-  down: '#e07a72',
+  ice: '#e4e8f2',
+  down: '#c4564e',
   /** 로그 본문. 이름은 팀 완장 색이 맡는다 */
-  logText: '#d8dce8',
+  logText: '#e4e8f2',
 } as const
 
 /** 종이 — 투표용지·쪽지·이벤트 화면이 같은 종이를 쓴다. */
 export const PAPER = {
-  sheet: '#f4f1e8',
-  ink: '#1a1d2e',
-  rule: '#c2564e',
+  sheet: '#d5cebc',
+  ink: '#2e2a20',
+  rule: '#c4564e',
 } as const
 
 /**

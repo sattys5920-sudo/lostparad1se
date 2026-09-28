@@ -10,10 +10,10 @@
 
 .sc-bt {
   --bt-w: 300px;
-  --bt-ink: #2e2a22;
-  --bt-faint: #8a8371;
-  --bt-red: #7a2e2a;
-  --bt-rule: #c0b8a5;
+  --bt-ink: var(--ink);
+  --bt-faint: var(--ink-3);
+  --bt-red: var(--danger);
+  --bt-rule: var(--ink-3);
 
   position: relative;
   display: flex;
@@ -21,7 +21,7 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: #161a26;
+  background: var(--bg-1);
 }
 
 /* ── 맨 윗줄 ─────────────────────────────────────────────── */
@@ -29,31 +29,31 @@
 .sc-bt__top {
   flex: none;
   margin: 0;
-  padding: 14px 16px 10px;
-  font-size: 12px;
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+  font-size: var(--fs-label);
   letter-spacing: 0.08em;
-  color: #7f8aa3;
+  color: var(--text-2);
   text-align: center;
 }
 
 /* 팀장 판이 여기로 들어온다. 어두운 바탕에 맞춰 다시 칠한다 */
 .sc-bt .sc-cv {
   flex: none;
-  margin: 0 16px 10px;
-  padding: 8px 12px;
-  border: 1px solid #2a3040;
-  border-radius: 2px;
-  background: #1b2030;
-  color: #9fb0c8;
-  font-size: 12px;
+  margin: 0 var(--sp-4) var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-game);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: var(--fs-label);
   line-height: 1.6;
 }
-.sc-bt .sc-cv b { color: #d8e2f0; }
-.sc-bt .sc-cv em { color: #6f7f99; font-style: normal; }
+.sc-bt .sc-cv b { color: var(--text-1); }
+.sc-bt .sc-cv em { color: var(--text-2); font-style: normal; }
 .sc-bt .sc-cv__who button {
-  border: 1px solid #3a4254;
-  background: #232a3c;
-  color: #cfdbe9;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text-1);
 }
 
 /* ── 가운데 ──────────────────────────────────────────────── */
@@ -66,10 +66,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: var(--sp-4);
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 0 8px;
+  padding: 0 0 var(--sp-2);
 }
 
 .sc-bt__hold {
@@ -98,7 +98,7 @@
   bottom: 0;
   left: 50%;
   width: 28%;
-  background: #e6e0cf;
+  background: var(--paper);
 }
 /* 넘어온 장의 바깥 끝. 그늘이 한 줄 진다 */
 .sc-bt__back::after {
@@ -108,7 +108,7 @@
   bottom: 0;
   right: 0;
   width: 2px;
-  background: #c9c1ad;
+  background: var(--paper);
 }
 
 .sc-bt__line {
@@ -118,7 +118,7 @@
   left: 50%;
   width: 2px;
   margin-left: -2px;
-  background: #c2baa7;
+  background: var(--paper);
 }
 
 /* 종이를 치울 때. **자리는 남긴다** — 높이를 재야 접힘 그림을 굽는다 */
@@ -143,13 +143,13 @@
 .sc-bt__sheet {
   position: absolute;
   inset: 0;
-  filter: drop-shadow(2px 2px 0 #0d1019);
+  filter: drop-shadow(2px 2px 0 var(--bg-0));
 }
 
 .sc-bt__flat {
   position: absolute;
   inset: 28px;
-  background: #d5cebc;
+  background: var(--paper);
 }
 
 .sc-bt__c,
@@ -197,13 +197,13 @@
  */
 .sc-bt__in {
   position: relative;
-  padding: 26px 28px 22px;
+  padding: var(--sp-6) var(--sp-6) var(--sp-6);
   font-family: var(--sc-font-body, inherit);
 }
 
 .sc-bt__label {
-  margin: 0 0 14px;
-  font-size: 11px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-cap);
   letter-spacing: 0.5em;
   /* 자간이 오른쪽에도 붙는다. 그만큼 왼쪽으로 당겨야 가운데에 온다 */
   text-indent: 0.5em;
@@ -231,7 +231,7 @@
   grid-auto-flow: column;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: repeat(var(--bt-rows, 7), auto);
-  column-gap: 18px;
+  column-gap: var(--sp-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -244,15 +244,15 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 4px;
+  gap: var(--sp-1);
   width: 100%;
   min-height: 34px;
   margin: 0;
-  padding: 0 2px 7px;
+  padding: 0 var(--sp-1) var(--sp-2);
   border: 0;
   background: none;
   font: inherit;
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.5;
   color: var(--bt-ink);
   text-align: left;
@@ -274,7 +274,7 @@
 
 .sc-bt__name i {
   font-style: normal;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--bt-red);
   opacity: 0;
 }
@@ -288,16 +288,16 @@
 /* ── 아래 글 ─────────────────────────────────────────────── */
 
 .sc-bt__murmur {
-  margin: 14px 0 0;
-  color: #a79e88;
-  font-size: 9px;
+  margin: var(--sp-3) 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-cap);
   line-height: 1.8;
 }
 .sc-bt__murmur p { margin: 0; }
 
 .sc-bt__foot {
-  margin: 10px 0 0;
-  font-size: 8px;
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-cap);
   letter-spacing: 0.02em;
   color: var(--bt-faint);
 }
@@ -313,7 +313,7 @@
   left: 0;
   image-rendering: pixelated;
   background-repeat: no-repeat;
-  filter: drop-shadow(2px 2px 0 #0d1019);
+  filter: drop-shadow(2px 2px 0 var(--bg-0));
   will-change: transform;
 }
 
@@ -335,7 +335,7 @@
 .sc-bt__rest {
   image-rendering: pixelated;
   background-repeat: no-repeat;
-  filter: drop-shadow(2px 2px 0 #0d1019);
+  filter: drop-shadow(2px 2px 0 var(--bg-0));
 }
 
 .sc-bt__box {
@@ -363,19 +363,19 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px 14px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
 }
 
 .sc-bt__go {
   width: var(--bt-w);
   min-height: 48px;
   border: 0;
-  border-radius: 2px;
+  border-radius: var(--r-game);
   background: var(--bt-red);
-  color: #ede5d4;
+  color: var(--paper);
   font: inherit;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 700;
   letter-spacing: 0.1em;
   cursor: pointer;
@@ -383,8 +383,8 @@
 }
 
 .sc-bt__go:disabled {
-  background: #2a3040;
-  color: #5c6780;
+  background: var(--bg-2);
+  color: var(--text-2);
   font-weight: 400;
   letter-spacing: 0.04em;
   cursor: default;
@@ -392,40 +392,40 @@
 
 .sc-bt__again {
   min-height: 44px;
-  padding: 0 20px;
-  border: 1px solid #3a4254;
-  border-radius: 2px;
-  background: #1b2030;
-  color: #b3c2d6;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-game);
+  background: var(--bg-2);
+  color: var(--text-1);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 
 .sc-bt__done {
   margin: 0;
   text-align: center;
-  font-size: 17px;
-  color: #dfe7f2;
+  font-size: var(--fs-body);
+  color: var(--text-1);
 }
 .sc-bt__done em {
   display: block;
-  margin-top: 6px;
+  margin-top: var(--sp-1);
   font-style: normal;
-  font-size: 11px;
-  color: #6f7f99;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
 }
 
 .sc-bt__picked {
   margin: 0;
-  font-size: 11px;
-  color: #6f7f99;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
 }
 
 .sc-bt__oops {
   margin: 0;
-  font-size: 12px;
-  color: #c2564e;
+  font-size: var(--fs-label);
+  color: var(--danger);
 }
 
 /* 기기에서 움직임을 줄여 두었으면 접힘과 흔들림을 다 뺀다.
@@ -445,6 +445,6 @@
 
 /* 서버가 물린 이름. 줄이 그어진 것처럼 둔다 — 눌러도 안 되는 것을
    눌러 보게 두면 같은 자리에서 두 번 막힌다 */
-.sc-bt__name.is-no { color: #9a937f; }
+.sc-bt__name.is-no { color: var(--ink-3); }
 .sc-bt__name.is-no span { text-decoration: line-through; }
-.sc-bt__name.is-no i { opacity: 0.6; color: #9a937f; }
+.sc-bt__name.is-no i { opacity: 0.6; color: var(--ink-3); }

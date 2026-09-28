@@ -16,19 +16,21 @@
  * 활성 탭이 금색이 아니라 흰색으로 떴다 — 캡처에서 잡혔다.
  */
 .sc-pl-root {
-  --ct-bg: #1c1f33;
-  --ct-face: #353a57;
-  --ct-line: #4a5070;
-  --ct-text: #e8e6f5;
-  --ct-gold: #f0d68a;
-  --ct-ice: #9fd4e8;
-  --ct-down: #e07a72;
+  /* 값은 전부 tokens.css 를 가리킨다. 이름은 이 파일 안에서만 쓰는 별칭이다 */
+  --ct-bg: var(--bg-1);
+  --ct-face: var(--bg-2);
+  --ct-line: var(--line);
+  --ct-text: var(--text-1);
+  --ct-gold: var(--accent);
+  /* 지식 숫자. 돈과 갈리게 흰 글자로 — 무엇인지는 옆 라벨이 말한다 */
+  --ct-ice: var(--text-1);
+  --ct-down: var(--danger);
   /* 베벨 — 위·왼쪽은 밝고 아래·오른쪽은 어둡다. 이것만으로 눌리는
      물건이라는 게 보인다 */
-  --ct-bevel-lit: #4a5070;
-  --ct-bevel-dim: #0e1120;
+  --ct-bevel-lit: var(--line-strong);
+  --ct-bevel-dim: var(--bg-0);
   /* 로그 본문. 이름은 팀 완장 색이 맡는다 */
-  --ct-log: #d8dce8;
+  --ct-log: var(--text-1);
   /* 맵 — UI 가 맵과 이어져 보이게, 같은 값을 여기서도 쓴다 */
   --mp-floor: #c8cdd8;
   --mp-wall: #2a2f42;
@@ -36,13 +38,13 @@
 
   /*
    * 지도 아래에 깔린 것들의 총 높이 — 자원 줄 36 · 조작 영역 96 ·
-   * 탭바 48 + 안전 영역. 평소에 말줄이 이 위에 앉는다.
+   * 탭바 56 + 안전 영역. 평소에 말줄이 이 위에 앉는다.
    *
    * 뿌리에 두는 이유: 말줄이 `position:fixed` 라 `.sc-ct` 바깥에
    * 서고, 거기 정의된 --ct-ctl 을 못 읽는다.
    */
   --ct-ctl: 96px;
-  --ct-chrome: calc(36px + var(--ct-ctl) + 48px + var(--sa-bottom));
+  --ct-chrome: calc(36px + var(--ct-ctl) + 56px + var(--sa-bottom));
 }
 
 /*
@@ -64,6 +66,8 @@
   flex: 0 0 auto;
   background: var(--ct-bg);
   color: var(--ct-text);
+  /* 조작부는 게임 화면이다 — 픽셀 글꼴. 크기는 11 · 22 만 쓴다 */
+  font-family: var(--font-pixel);
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -130,29 +134,30 @@
   font: inherit;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 10px;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-3);
   cursor: pointer;
 }
 
 .sc-ct__res {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: var(--sp-1);
+  font-size: var(--fs-pixel);
   line-height: 1;
 }
 .sc-ct__res b {
   /* 숫자는 크고 밝게, 라벨은 작고 흐리게 — 눈이 숫자부터 잡는다 */
   font-weight: 700;
-  font-size: 16px;
+  /* 픽셀 글꼴 두 배. 16 은 획이 번진다 */
+  font-size: var(--fs-pixel-2);
   font-variant-numeric: tabular-nums;
   color: var(--ct-gold);
 }
 .sc-ct__res i {
   font-style: normal;
-  font-size: 9px;
-  color: #9aa0c0;
+  font-size: var(--fs-pixel);
+  color: var(--text-2);
 }
 /* 지식만 다른 계열. 돈과 헷갈리지 않게.
    **자리로 잡지 않는다** — 자유 시간에는 토큰 칸이 빠져서
@@ -168,8 +173,8 @@
 .sc-ct__res.is-down b { animation: sc-ct-blink-down 0.3s steps(1, end); }
 
 @keyframes sc-ct-blink-up {
-  0%, 50% { color: #fff3cf; }
-  25%, 75% { color: var(--ct-text); }
+  0%, 50% { color: var(--text-1); }
+  25%, 75% { color: var(--ct-gold); }
 }
 @keyframes sc-ct-blink-down {
   0%, 50% { color: var(--ct-down); }
@@ -177,7 +182,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-ct__res.is-up b { animation: none; color: #fff3cf; }
+  .sc-ct__res.is-up b { animation: none; color: var(--text-1); }
   .sc-ct__res.is-down b { animation: none; color: var(--ct-down); }
 }
 
@@ -185,7 +190,7 @@
 .sc-ct__mates {
   margin-left: auto;
   display: flex;
-  gap: 3px;
+  gap: var(--sp-1);
   align-items: center;
 }
 .sc-ct__mate {
@@ -214,8 +219,8 @@
   height: var(--ct-ctl);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
 }
 
 /* 자원 줄이 없는 자리(시작 전 로비)에서는 조작 영역이 맨 위다 */
@@ -256,19 +261,19 @@
 /* 십자키와 액션 사이 한 줄. 두 무리가 다른 일을 한다는 표시 */
 .sc-ct__ctl .sc-ct__pad {
   border-right: 1px solid var(--ct-bevel-dim);
-  padding-right: 8px;
+  padding-right: var(--sp-2);
 }
 
 /* 십자 다섯 칸. 가운데는 비어 있다 */
 .sc-ct__pad {
   flex: 0 0 auto;
   position: relative;
-  width: calc(var(--ct-key) * 3 + 6px);
-  height: calc(var(--ct-key) * 3 + 6px);
+  width: calc(var(--ct-key) * 3 + var(--sp-1) * 2);
+  height: calc(var(--ct-key) * 3 + var(--sp-1) * 2);
   display: grid;
   grid-template-columns: repeat(3, var(--ct-key));
   grid-template-rows: repeat(3, var(--ct-key));
-  gap: 3px;
+  gap: var(--sp-1);
 }
 
 .sc-ct__key {
@@ -279,7 +284,7 @@
   background: var(--ct-face);
   color: var(--ct-text);
   font: inherit;
-  font-size: 16px;
+  font-size: var(--fs-pixel-2);
   line-height: 1;
   display: flex;
   align-items: center;
@@ -309,17 +314,17 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 44px;
-  height: 44px;
+  width: var(--hit);
+  height: var(--hit);
   transform: translate(-50%, -50%);
 }
 .sc-ct__key.is-mid::after { content: none; }
 
 /* 문이 없는 쪽. 눌러도 아무 일 없다 */
 .sc-ct__key.is-shut {
-  background: #1f2237;
-  border-color: #2c3049;
-  color: #474c6b;
+  background: var(--bg-1);
+  border-color: var(--line);
+  color: var(--text-3);
   cursor: default;
 }
 .sc-ct__key.is-shut::after { content: none; }
@@ -330,7 +335,7 @@
   right: 2px;
   bottom: 0;
   font-style: normal;
-  font-size: 9px;
+  font-size: var(--fs-pixel);
   line-height: 1;
   color: var(--ct-gold);
 }
@@ -339,17 +344,17 @@
 .sc-ct__acts {
   flex: 1;
   min-width: 0;
-  height: calc(var(--ct-key) * 3 + 6px);
+  height: calc(var(--ct-key) * 3 + var(--sp-1) * 2);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: 3px;
+  gap: var(--sp-1);
 }
 
 .sc-ct__act {
   appearance: none;
   min-width: 0;
-  padding: 0 2px;
+  padding: 0 var(--sp-1);
   border: 2px solid var(--ct-line);
   background: var(--ct-face);
   color: var(--ct-text);
@@ -358,11 +363,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--sp-1);
   cursor: pointer;
 }
 .sc-ct__act span {
-  font-size: 9px;
+  font-size: var(--fs-pixel);
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
@@ -371,18 +376,18 @@
 }
 .sc-ct__act em {
   font-style: normal;
-  font-size: 9px;
-  margin-left: 3px;
+  font-size: var(--fs-pixel);
+  margin-left: var(--sp-1);
   color: var(--ct-gold);
 }
 /* 못 하는 것. 눌리기는 한다 — 눌러야 까닭을 들을 수 있다 */
 .sc-ct__act.is-off {
-  background: #262a42;
-  border-color: #333855;
-  color: #6b7192;
+  background: var(--bg-1);
+  border-color: var(--line);
+  color: var(--text-2);
 }
 .sc-ct__act.is-off img { opacity: 0.45; }
-.sc-ct__act.is-off em { color: #6b7192; }
+.sc-ct__act.is-off em { color: var(--text-2); }
 
 /*
  * 누르는 느낌.
@@ -394,16 +399,18 @@
 .sc-ct__key:active,
 .sc-ct__act:active,
 .sc-ct__tab:active {
-  background: #444a6d;
+  background: var(--bg-3);
   transform: translateY(1px);
 }
-.sc-ct__key.is-shut:active { background: #1f2237; transform: none; }
+.sc-ct__key.is-shut:active { background: var(--bg-1); transform: none; }
 
-/* ── 탭바 48 ────────────────────────────────────────────────── */
+/* ── 탭바 56 ──────────────────────────────────────────────────
+ * 늘 같은 자리. 아이콘 + 11px 라벨. 홈 바 자리는 스스로 비운다 */
 
 .sc-ct__tabs {
   flex: 0 0 auto;
-  height: calc(48px + var(--sa-bottom));
+  font-family: var(--font-pixel);
+  height: calc(56px + var(--sa-bottom));
   padding-bottom: var(--sa-bottom);
   display: grid;
   /* 칸 수를 세지 않는다. 탭이 늘어도 한 줄에 나란히 선다 */
@@ -417,14 +424,14 @@
   appearance: none;
   border: 0;
   background: transparent;
-  color: #7d83a6;
+  color: var(--text-2);
   font: inherit;
-  font-size: 9px;
+  font-size: var(--fs-cap);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--sp-1);
   cursor: pointer;
   /* 활성 표시가 자리를 먹지 않게 테두리를 미리 깔아 둔다 */
   border-top: 2px solid transparent;
@@ -452,32 +459,32 @@
 
 .sc-ct__toast {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: calc(100% + 6px);
+  left: var(--sp-2);
+  right: var(--sp-2);
+  bottom: calc(100% + var(--sp-2));
   z-index: 40;
   margin: 0;
-  padding: 7px 10px;
+  padding: var(--sp-2) var(--sp-3);
   background: var(--ct-bg);
   border: 2px solid var(--ct-line);
   color: var(--ct-text);
-  font-size: 12px;
-  line-height: 17px;
+  font-size: var(--fs-pixel);
+  line-height: 16px;
   text-align: center;
 }
 
 /*
  * 낮은 화면.
  *
- * 조작부는 36 + 96 + 48 = 180 이고 나머지 세로는 전부 지도가 가져간다.
- * 지도가 280 을 못 채우는 것은 화면이 **460 보다 낮을 때**다(180 + 280).
+ * 조작부는 36 + 96 + 56 = 188 이고 나머지 세로는 전부 지도가 가져간다.
+ * 지도가 280 을 못 채우는 것은 화면이 **468 보다 낮을 때**다(188 + 280).
  * 375×667 이나 390×844 에서는 지도가 각각 487·664 라 줄일 까닭이 없다 —
  * 무턱대고 700 아래에서 줄이면 멀쩡한 화면의 키만 작아진다.
  *
- * 줄이면 36 + 88 + 48 = 172 다. 십자 칸은 28 이 되지만 **히트박스 44 는
+ * 줄이면 36 + 88 + 56 = 180 이다. 십자 칸은 28 이 되지만 **히트박스 44 는
  * 위에서 절대값으로 잡아 두어 그대로다** — 보이는 면만 작아진다.
  */
-@media (max-height: 459px) {
+@media (max-height: 467px) {
   .sc-pl-root, .sc-ct { --ct-ctl: 88px; }
   .sc-ct { --ct-key: 28px; }
 }
@@ -514,9 +521,9 @@
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  transition: bottom 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  transition: bottom var(--t-sheet) var(--ease-sheet);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -541,8 +548,8 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 6px 10px 5px;
-  font-size: 12px;
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-pixel);
   line-height: 16px;
   text-align: left;
   overflow: hidden;
@@ -551,8 +558,8 @@
   transition: background-color 0.25s ease;
 }
 .sc-sy.is-open .sc-sy__log {
-  border-top: 1px solid rgba(120, 132, 168, 0.55);
-  background: rgba(10, 12, 20, 0.72);
+  border-top: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--bg-0) 72%, transparent);
   pointer-events: auto;
 }
 
@@ -561,16 +568,16 @@
    석 자를 읽기 전에 **몇 팀이 말하고 있는지**가 먼저 보인다 */
 .sc-sy__line {
   display: block;
-  padding-left: 6px;
+  padding-left: var(--sp-2);
   border-left: 2px solid var(--say-team, transparent);
   opacity: var(--fade, 1);
-  color: var(--ct-log, #d8dce8);
+  color: var(--ct-log);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   /* 배경이 없는 동안 글자가 지도에 묻히지 않게. 면 대신 테 하나 */
   text-shadow:
-    1px 0 0 #0a0c14, -1px 0 0 #0a0c14, 0 1px 0 #0a0c14, 0 -1px 0 #0a0c14;
+    1px 0 0 var(--bg-0), -1px 0 0 var(--bg-0), 0 1px 0 var(--bg-0), 0 -1px 0 var(--bg-0);
   animation: sc-sy-rise 160ms steps(4, end);
 }
 /* 면이 깔리면 테는 필요 없다 */
@@ -587,7 +594,7 @@
 
 /* 이름은 완장 색. 색만으로 누구 팀인지 읽힌다 */
 .sc-sy__line b {
-  margin-right: 5px;
+  margin-right: var(--sp-1);
   font-weight: 700;
 }
 /* 판이 적은 줄. 이름이 없고, 가운데에 회색으로 선다 — 사람이 한
@@ -595,26 +602,26 @@
 .sc-sy__line.is-sys {
   padding-left: 0;
   border-left: 0;
-  color: #8b93a8;
+  color: var(--text-2);
   text-align: center;
 }
 
 /* 지워진 채로 친 말. 본인에게만 원문이 보인다 */
-.sc-sy__line.is-muted { color: #6b7386; font-style: italic; }
+.sc-sy__line.is-muted { color: var(--text-2); font-style: italic; }
 
 .sc-sy__bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   width: 100%;
   /* 평소 40, 채팅 모드 48 */
   height: 40px;
   /* 2px 픽셀 프레임. 맵 위에 얹히는 판은 위쪽 표시와 같은 테를 쓴다 */
   border: 2px solid var(--ct-line);
   border-radius: 0;
-  background: rgba(12, 14, 24, 0.82);
-  padding: 0 4px 0 0;
-  transition: height 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  background: color-mix(in srgb, var(--bg-0) 82%, transparent);
+  padding: 0 var(--sp-1) 0 0;
+  transition: height var(--t-sheet) var(--ease-sheet);
 }
 .sc-sy.is-open .sc-sy__bar {
   height: 48px;
@@ -635,23 +642,24 @@
   flex: 1;
   min-width: 0;
   height: 100%;
-  padding: 0 10px;
+  padding: 0 var(--sp-3);
   border: 0;
   background: transparent;
-  color: #e6edf7;
-  font-family: inherit;
+  color: var(--text-1);
+  /* 적는 칸은 본문 글꼴이다. 픽셀 글꼴을 16 으로 찍으면 번진다 */
+  font-family: var(--font-body);
   /* 16 미만이면 아이폰이 초점 갈 때 화면을 확대하고, 확대하면
      레이아웃이 통째로 무너진다 */
-  font-size: 16px;
+  font-size: var(--fs-body);
 }
-.sc-sy__box::placeholder { color: #6b7386; font-size: 12px; }
+.sc-sy__box::placeholder { color: var(--text-2); font-size: var(--fs-body); }
 
 /* 상한이 가까울 때만 뜬다. 늘 떠 있으면 잔소리다 */
 .sc-sy__left {
   flex: 0 0 auto;
   min-width: 16px;
-  color: #7d83a6;
-  font-size: 9px;
+  color: var(--text-2);
+  font-size: var(--fs-pixel);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -660,12 +668,12 @@
 /* 가져오기가 계속 실패할 때. 조용히 비어 있는 것이 제일 나쁘다 */
 .sc-sy__stuck {
   width: 100%;
-  margin: 4px 0 0;
+  margin: var(--sp-1) 0 0;
   color: var(--ct-down);
-  font-size: 12px;
-  line-height: 14px;
+  font-size: var(--fs-pixel);
+  line-height: 16px;
 }
-.sc-sy__box:disabled { color: #5a6076; }
+.sc-sy__box:disabled { color: var(--text-3); }
 .sc-sy__box:focus { outline: none; }
 .sc-sy.is-open .sc-sy__bar { border-color: var(--ct-gold); }
 
@@ -678,11 +686,11 @@
   border: 0;
   background: transparent;
   color: var(--ct-gold);
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1;
   cursor: pointer;
 }
-.sc-sy__send:disabled { color: #545a74; cursor: default; }
+.sc-sy__send:disabled { color: var(--text-3); cursor: default; }
 .sc-sy__send::after {
   content: '';
   position: absolute;

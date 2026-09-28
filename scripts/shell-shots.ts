@@ -12,6 +12,7 @@ import { mkdirSync } from 'node:fs'
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import type { Page } from 'playwright'
 import { dayHourMs } from '../shared/rules/clock'
+import { auditText, type AuditHit } from './lib/audit'
 
 const { chromium } = pw as typeof import('playwright')
 const PROJECT = 'demo-goei'
@@ -94,6 +95,14 @@ async function facts(page: Page) {
   })
 }
 
+const hits = new Map<string, AuditHit & { screen: string }>()
+async function audit(page: Page, screen: string) {
+  for (const h of await auditText(page)) {
+    const k = `${h.kind}|${h.where}|${h.what}`
+    if (!hits.has(k)) hits.set(k, { ...h, screen })
+  }
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true })
   const tag = `shell-${W}x${H}`
@@ -136,6 +145,7 @@ async function main() {
   await page.waitForSelector('#gt-id', { timeout: 15000 })
   await page.waitForTimeout(800)
   await page.screenshot({ path: `${OUT}/${tag}-1로그인.png` })
+  await audit(page, '로그인')
   report.push(`로그인 노치 밑: ${JSON.stringify(await underNotch(page))}`)
   report.push(`사실: ${JSON.stringify(await facts(page))}`)
 
@@ -151,6 +161,19 @@ async function main() {
   await page.locator('.sc-home__panel button').click({ timeout: 3000 }).catch(() => undefined)
   await page.waitForTimeout(1800)
   await page.screenshot({ path: `${OUT}/${tag}-2맵.png` })
+  await audit(page, '맵')
+
+  // 시트 셋 — 깃발(페이즈 행동) · 손패 · 더보기
+  for (const [label, file] of [['깃발', '7시트-깃발'], ['손패', '7시트-손패'], ['더보기', '7시트-더보기']] as const) {
+    const b = page.locator('.sc-ct__act', { hasText: label }).first()
+    if (!(await b.count())) continue
+    await b.evaluate((el) => (el as HTMLElement).click())
+    await page.waitForTimeout(700)
+    await page.screenshot({ path: `${OUT}/${tag}-${file}.png` })
+    await audit(page, `시트 ${label}`)
+    await page.locator('.sc-sheet__head button, button:has-text("닫기")').first().evaluate((el) => (el as HTMLElement).click()).catch(() => undefined)
+    await page.waitForTimeout(400)
+  }
   report.push(`맵 노치 밑: ${JSON.stringify(await underNotch(page))}`)
 
   // 탭마다
@@ -160,6 +183,7 @@ async function main() {
     await page.waitForTimeout(700)
     const name = tabs[i].trim()
     await page.screenshot({ path: `${OUT}/${tag}-3탭-${name}.png` })
+    await audit(page, `탭 ${name}`)
     const under = await underNotch(page)
     if (under.length) report.push(`${name} 노치 밑: ${JSON.stringify(under)}`)
   }
@@ -183,6 +207,7 @@ async function main() {
     await atlas.evaluate((el) => (el as HTMLElement).click())
     await page.waitForTimeout(900)
     await page.screenshot({ path: `${OUT}/${tag}-5전체맵.png` })
+    await audit(page, '전체 맵')
     report.push(`전체 맵 노치 밑: ${JSON.stringify(await underNotch(page))}`)
     await page.locator('.sc-atlas__done, button:has-text("닫기")').first().click().catch(() => undefined)
     await page.waitForTimeout(500)
@@ -197,6 +222,12 @@ async function main() {
 
   await browser.close()
   console.log(report.join('\n'))
+  const byKind = (k: AuditHit['kind']) => [...hits.values()].filter((h) => h.kind === k)
+  for (const [k, title] of [['pixel', '픽셀 글꼴이 정수 배율이 아니다'], ['scale', '눈금 밖 글자 크기'], ['contrast', '대비 부족']] as const) {
+    const list = byKind(k)
+    console.log(`\n${title}: ${list.length}`)
+    for (const h of list) console.log(`  [${h.screen}] ${h.where} ${h.what}`)
+  }
   if (errors.length) console.log(`터짐: ${JSON.stringify(errors)}`)
 }
 

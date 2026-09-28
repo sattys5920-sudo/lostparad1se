@@ -13,11 +13,15 @@ import { MAP, TYPE, UI } from './skin'
 const CSS = readFileSync(join(__dirname, 'game', 'controls.css'), 'utf8')
 const PLAY = readFileSync(join(__dirname, 'game', 'play.css'), 'utf8')
 const THEME = readFileSync(join(__dirname, 'theme.css'), 'utf8')
+const TOKENS = readFileSync(join(__dirname, 'tokens.css'), 'utf8')
 
-/** `--이름: #값;` 을 찾아 소문자 hex 로 돌려준다. */
-function cssVar(name: string): string | null {
-  const m = CSS.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{3,8})\\s*;`))
-  return m ? m[1].toLowerCase() : null
+/** `--이름: #값;` 을 찾아 소문자 hex 로 돌려준다. `var(--토큰)` 이면 tokens.css 까지 따라간다. */
+function cssVar(name: string, src = CSS): string | null {
+  const m = src.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{3,8}|var\\(--[a-z0-9-]+\\))\\s*;`))
+  if (!m) return null
+  const v = m[1]
+  if (v.startsWith('var(')) return cssVar(v.slice(6, -1), TOKENS)
+  return v.toLowerCase()
 }
 
 describe('맵과 UI 가 같은 팔레트를 본다', () => {
@@ -98,12 +102,20 @@ describe('팔레트가 한 벌이다', () => {
 })
 
 describe('완장 색도 한 벌이다', () => {
-  it('play.css 의 --pl-* 가 char/palette.ts 의 TEAMS 와 같다', () => {
+  it('tokens.css 의 --team-* 가 char/palette.ts 의 TEAMS 와 같다', () => {
     // 같은 팀이 지도에서는 붉고 조작부에서는 다른 붉은색이면, 그
     // 미묘한 차이가 제일 먼저 눈에 띈다
     for (const t of TEAMS) {
-      const got = PLAY.match(new RegExp(`--pl-${t.id.toLowerCase()}:\\s*([^;]+);`))
+      const got = TOKENS.match(new RegExp(`--team-${t.id.toLowerCase()}:\\s*([^;]+);`))
       expect(got?.[1].trim()).toBe(t.color)
+    }
+  })
+
+  it('play.css 의 --pl-* 는 토큰을 가리킨다 — 값을 따로 들지 않는다', () => {
+    for (const t of TEAMS) {
+      const id = t.id.toLowerCase()
+      const got = PLAY.match(new RegExp(`--pl-${id}:\\s*([^;]+);`))
+      expect(got?.[1].trim()).toBe(`var(--team-${id})`)
     }
   })
 

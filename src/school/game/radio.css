@@ -10,12 +10,12 @@
  * (본문 10.9:1 · 이름 7.1:1 · 흐린 글자 4.8:1)
  */
 .sc-rd {
-  --rd-bg: #141822;
-  --rd-line: #2a3040;
-  --rd-text: #b8cce0;
-  --rd-on: #6fa8d9;
-  --rd-faint: #3e4a5e;
-  --rd-dim: #7286a0;
+  --rd-bg: var(--bg-1);
+  --rd-line: var(--line);
+  --rd-text: var(--text-1);
+  --rd-on: var(--accent);
+  --rd-faint: var(--text-2);
+  --rd-dim: var(--text-2);
 
   flex: 1;
   min-height: 0;
@@ -23,8 +23,8 @@
   flex-direction: column;
   background: var(--rd-bg);
   color: var(--rd-text);
-  font-family: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  font-size: 11px;
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
 }
 
 /* ── 수신 상태 ─────────────────────────────────────────────── */
@@ -36,8 +36,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 5px;
-  padding: 0 10px;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2);
   border-bottom: 1px solid var(--rd-line);
 }
 
@@ -45,12 +45,12 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--sp-2);
   line-height: 1;
 }
 
 .sc-rd__freq { color: var(--rd-dim); letter-spacing: 0.06em; }
-.sc-rd__freq b { color: var(--rd-on); font-weight: 400; font-size: 11px; }
+.sc-rd__freq b { color: var(--rd-on); font-weight: 400; font-size: var(--fs-pixel); }
 
 .sc-rd__conn { color: var(--rd-faint); letter-spacing: 0.06em; }
 .sc-rd__conn.is-on { color: var(--rd-dim); }
@@ -59,7 +59,7 @@
 .sc-rd__wave {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
+  gap: var(--sp-1);
 }
 .sc-rd__wave span {
   flex: 1;
@@ -76,7 +76,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 10px 10px 12px;
+  padding: var(--sp-2) var(--sp-2) var(--sp-3);
 }
 
 .sc-rd__none { margin: 0; color: var(--rd-dim); }
@@ -87,7 +87,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 /*
@@ -101,7 +101,7 @@
   /* 시각 · 이름 · 내용. 이름 칸을 76px 로 잡아 두면 두세 글자 이름이
      세로로 줄을 맞춘다 — 눈이 이름만 훑고 내려갈 수 있다 */
   grid-template-columns: 38px 76px 1fr;
-  gap: 8px;
+  gap: var(--sp-2);
   line-height: 1.6;
   /* 한국어는 낱말 단위로 접는다. 「점수 / 에는」처럼 갈라지면 안 된다 */
   word-break: keep-all;
@@ -135,7 +135,7 @@
   font-style: normal;
   font-weight: 400;
   color: var(--rd-dim);
-  margin-left: 4px;
+  margin-left: var(--sp-1);
 }
 
 .sc-rd__text { color: var(--rd-text); }
@@ -148,8 +148,8 @@
 .sc-rd__sys {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 4px 0;
+  gap: var(--sp-2);
+  margin: var(--sp-1) 0;
   color: var(--rd-dim);
   text-align: center;
   line-height: 1.6;
@@ -169,15 +169,15 @@
 .sc-rd__behind {
   flex: none;
   align-self: center;
-  margin: 0 0 6px;
+  margin: 0 0 var(--sp-1);
   min-height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   border: 1px solid var(--rd-on);
   border-radius: 0;
   background: var(--rd-bg);
   color: var(--rd-on);
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-pixel);
   cursor: pointer;
 }
 
@@ -186,8 +186,8 @@
 .sc-rd__bar {
   flex: none;
   display: flex;
-  gap: 6px;
-  padding: 8px 10px 0;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-2) 0;
   border-top: 1px solid var(--rd-line);
 }
 
@@ -199,16 +199,16 @@
   box-sizing: border-box;
   border: 1px solid var(--rd-line);
   border-radius: 0;
-  background: #0f131b;
+  background: var(--bg-1);
   font-family: inherit;
   /* 16px 아래면 아이폰이 화면을 확대한다. 갈무리는 11 의 정수 배에서만
      또렷하니 22 다 — 두 조건이 만나는 자리가 여기뿐이다 */
-  font-size: 22px;
+  font-size: var(--fs-pixel-2);
   line-height: 1;
   color: var(--rd-text);
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
 }
-.sc-rd .sc-rd__bar input::placeholder { color: var(--rd-faint); font-size: 11px; }
+.sc-rd .sc-rd__bar input::placeholder { color: var(--rd-faint); font-size: var(--fs-cap); }
 .sc-rd .sc-rd__bar input:focus { outline: none; border-color: var(--rd-on); }
 
 .sc-rd__send {
@@ -219,9 +219,9 @@
   border: 1px solid var(--rd-on);
   border-radius: 0;
   background: var(--rd-on);
-  color: #0f131b;
+  color: var(--bg-0);
   font-family: inherit;
-  font-size: 16px;
+  font-size: var(--fs-pixel-2);
   line-height: 1;
   cursor: pointer;
 }
@@ -235,7 +235,7 @@
 .sc-rd__note {
   flex: none;
   margin: 0;
-  padding: 6px 10px calc(6px + var(--sa-bottom));
+  padding: var(--sp-1) var(--sp-2) calc(var(--sp-1) + var(--sa-bottom));
   color: var(--rd-dim);
   line-height: 1.6;
   word-break: keep-all;

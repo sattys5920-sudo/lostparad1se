@@ -136,7 +136,7 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck }
             /* 판이 적은 줄에는 이름이 없다. 가운데에 회색으로 둔다 —
                사람이 한 말과 같은 모양이면 누가 한 말인지 헷갈린다 */
             const sys = isSystem(l)
-            const tone = (TEAM_COLOR as Record<string, string>)[l.team] ?? '#d8dde8'
+            const tone = (TEAM_COLOR as Record<string, string>)[l.team] ?? 'var(--text-1)'
             return (
               <span
                 key={`${l.atMs}-${l.playerId}-${i}`}

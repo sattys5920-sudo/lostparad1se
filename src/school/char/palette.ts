@@ -129,10 +129,10 @@ export interface TeamDef {
 }
 
 export const TEAMS: TeamDef[] = [
-  { id: 'A', name: '붉은 완장', color: '#e0453f' },
-  { id: 'B', name: '푸른 완장', color: '#3f7ae0' },
-  { id: 'C', name: '초록 완장', color: '#2fa866' },
-  { id: 'D', name: '노랑 완장', color: '#e0a02a' },
+  { id: 'A', name: '붉은 완장', color: '#c4564e' },
+  { id: 'B', name: '푸른 완장', color: '#5b87c4' },
+  { id: 'C', name: '초록 완장', color: '#6ba86b' },
+  { id: 'D', name: '노랑 완장', color: '#d4a64a' },
 ]
 
 /**
