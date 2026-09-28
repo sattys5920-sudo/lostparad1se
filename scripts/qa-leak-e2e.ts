@@ -66,9 +66,17 @@ async function auth(e: string): Promise<{ uid: string; token: string }> {
 }
 interface Res { ok: boolean; data?: Record<string, unknown>; code?: string; message?: string; raw: string }
 /** 부하가 큰 기계에서 연결이 끊기면 한 번 더 — 서버의 답이 아니라 회선의 일이다 */
-async function fetchRetry(url: string, init: RequestInit, tries = 3): Promise<Response> {
+async function fetchRetry(url: string, init: RequestInit, tries = 5): Promise<Response> {
   for (let i = 0; ; i++) {
-    try { return await fetch(url, { ...init, signal: AbortSignal.timeout(180_000) }) } catch (e) { if (i >= tries - 1) throw e }
+    try {
+      const r = await fetch(url, { ...init, signal: AbortSignal.timeout(300_000) })
+      // 5xx 인데 콜러블 오류 봉투가 아니면 워커가 죽은 것이다(부하) — 한 번 더 두드린다
+      if (r.status >= 500 && i < tries - 1) {
+        const t = await r.clone().text()
+        if (!t.includes('"error"')) { await new Promise((f) => setTimeout(f, 2000)); continue }
+      }
+      return r
+    } catch (e) { if (i >= tries - 1) throw e }
   }
 }
 async function call(n: string, tk: string, d: unknown): Promise<Res> {
@@ -215,10 +223,6 @@ async function main(): Promise<void> {
   const farRoom = (TILE_IDS.find((t) => t !== START_TILE && !canRoamTo(START_TILE, t)) ?? TILE_IDS.filter((t) => t !== START_TILE && t !== GARDEN_TILE).at(-1)) as TileId
   const farCell = dropCellsIn(farRoom).find((c) => !isBlockedCell(c.x, c.y)) as { x: number; y: number }
   await must('hostDrop', host, { gameId: GAME, kind: 'quiz', x: farCell.x, y: farCell.y, quiz: { kind: 'short', prompt: PROMPT_FAR, answers: [ANSWER + '2'], explain: EXPLAIN + '2' } })
-  // 화분 — 운영자가 셋 심는다(흙만 보인다)
-  await must('hostPlant', host, { gameId: GAME, pot: 0, cropId: 'tomato' })
-  await must('hostPlant', host, { gameId: GAME, pot: 1, cropId: 'strawberry' })
-  await must('hostPlant', host, { gameId: GAME, pot: 2 })
   // 심부름 한 장
   const board = 'f2w'
   const errandSpec = ERRANDS.find((e) => e.from !== START_TILE) ?? ERRANDS[0]
@@ -325,6 +329,10 @@ async function main(): Promise<void> {
   check((v.own as { roleId: string }).roleId === ownRole, 'own 에는 내 역할만 있다')
   const notices = JSON.stringify(v.notices)
   check(!notices.includes('truth') && !/달성|실패/.test(notices), '공지에 판정이 섞이지 않았다')
+  // 화분 — 운영자가 **지금** 셋 심는다(흙만 보인다). 시계를 넘긴 뒤에 심어야 자라 버리지 않는다
+  await must('hostPlant', host, { gameId: GAME, pot: 0, cropId: 'tomato' })
+  await must('hostPlant', host, { gameId: GAME, pot: 1, cropId: 'strawberry' })
+  await must('hostPlant', host, { gameId: GAME, pot: 2 })
   // 정원으로 가서 화분을 본다
   const toGarden = canRoamTo(START_TILE, GARDEN_TILE as TileId)
   if (toGarden) await must('roamTo', Y.token, { gameId: GAME, tileId: GARDEN_TILE })
@@ -443,7 +451,7 @@ async function main(): Promise<void> {
   check(inbox.status === 404 || !inbox.text.includes('missions'), '보내기 전 내 우편함에 판정(missions)이 없다 — 판정은 secret 에만', `${inbox.status} ${inbox.text.slice(0, 80)}`)
   const gameDoc = plain(JSON.parse((await readAs(Y.token, `games/${GAME}`)).text)) as Record<string, unknown>
   check(gameDoc.invisibleId === X.uid && !('roles' in gameDoc) && !JSON.stringify(gameDoc.seats).includes('role'), '판 문서에는 오늘의 투명인간 이름만 있고 역할은 없다(공개 설계)')
-  const events = ((plain(JSON.parse((await readAs(Y.token, `games/${GAME}/events`, true)).text)) as { documents?: Record<string, unknown>[] }).documents ?? []) as { kind: string; playerId?: string; targetId?: string; tileId?: string; detail?: unknown }[]
+  const events = ((JSON.parse((await readAs(Y.token, `games/${GAME}/events`, true)).text) as { documents?: unknown[] }).documents ?? []).map(plain) as { kind: string; playerId?: string; targetId?: string; tileId?: string; detail?: unknown }[]
   const voteEv = events.filter((e) => e.kind === 'vote')
   check(voteEv.length === 5 && voteEv.every((e) => !e.playerId && !e.targetId && JSON.stringify(e.detail) === '{}'), 'events 의 표(vote) 기록에는 누가 누구에게가 없다', `${voteEv.length}줄`)
   const ballotEv = events.filter((e) => e.kind === 'ballotCast')

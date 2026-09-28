@@ -58,9 +58,17 @@ async function auth(e: string): Promise<{ uid: string; token: string }> {
 interface Res { ok: boolean; data?: Record<string, unknown>; code?: string; message?: string; status: number; raw: string }
 /** 콜러블 하나. body 를 통째로 줄 수도 있다(형이 틀린 요청을 보내려고). */
 /** 부하가 큰 기계에서 연결이 끊기면 한 번 더 — 서버의 답이 아니라 회선의 일이다 */
-async function fetchRetry(url: string, init: RequestInit, tries = 3): Promise<Response> {
+async function fetchRetry(url: string, init: RequestInit, tries = 5): Promise<Response> {
   for (let i = 0; ; i++) {
-    try { return await fetch(url, { ...init, signal: AbortSignal.timeout(180_000) }) } catch (e) { if (i >= tries - 1) throw e }
+    try {
+      const r = await fetch(url, { ...init, signal: AbortSignal.timeout(300_000) })
+      // 5xx 인데 콜러블 오류 봉투가 아니면 워커가 죽은 것이다(부하) — 한 번 더 두드린다
+      if (r.status >= 500 && i < tries - 1) {
+        const t = await r.clone().text()
+        if (!t.includes('"error"')) { await new Promise((f) => setTimeout(f, 2000)); continue }
+      }
+      return r
+    } catch (e) { if (i >= tries - 1) throw e }
   }
 }
 async function callRaw(n: string, tk: string | null, body: string): Promise<Res> {

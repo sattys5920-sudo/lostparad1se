@@ -7,7 +7,7 @@
 // 찍히고, 다음 요청이 나머지를 이어서 민다. **두 번 밀려도 같은
 // 결과여야 한다** — 그래서 효과를 적는 것과 doneAtMs를 찍는 것이 한
 // 트랜잭션 안에 있다.
-import { getFirestore, type Transaction } from 'firebase-admin/firestore'
+import type { Transaction } from 'firebase-admin/firestore'
 
 import { clockItems, nextByHand, type Due } from '../../shared/rules/catchup'
 import type { TileState } from '../../shared/rules/resources'
@@ -39,13 +39,13 @@ import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
 import { tellReadyTraps } from './trap'
 import { closePhaseNow } from './phase'
+import { inTx } from './contended'
 import { flushQueue } from './notify'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
 import { sysLine } from './radio'
 import { sys } from '../../shared/rules/radio'
 
-const db = getFirestore()
 
 // ── 일 하나씩 ───────────────────────────────────────────────────
 
@@ -344,7 +344,7 @@ async function applyItem(
 ): Promise<boolean> {
   const ref = gameRef(gameId)
   const handler = HANDLERS[item.kind]
-  return db.runTransaction(async (tx) => {
+  return inTx(async (tx) => {
     // 트랜잭션 안에서 다시 읽는다 — 다른 요청이 먼저 밀었을 수 있다
     const itemRef = ref.collection('schedule').doc(item.id)
     const [fresh, gameFresh] = await Promise.all([tx.get(itemRef), tx.get(ref)])
