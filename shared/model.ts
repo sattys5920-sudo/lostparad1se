@@ -156,6 +156,11 @@ export interface GameDoc {
    * 된다. 조건 숫자는 공개하지 않는다 — 눈발이 대신 알려 준다.
    */
   snow: { level: number; stopped: boolean }
+  /**
+   * 자정 판정을 어느 날까지 했나(functions/src/missionDays.ts). 없으면 0.
+   * 따라잡기가 이것만 보고 할 일이 없으면 곧장 나간다
+   */
+  missionJudgedThrough?: number
 }
 
 /** games/{gameId}/tiles/{tileId} — 주인은 숨길 것이 없다. */
@@ -739,6 +744,8 @@ export interface ScheduleDoc {
   kind: ScheduleKind
   payload: Record<string, unknown>
   doneAtMs: GameMs | null
+  /** 실제로 넘긴 시각(게임 시계). 운영자가 늦게 넘기면 dueAtMs 보다 뒤다 */
+  pushedAtMs?: GameMs
 }
 
 /** 같은 시각에 겹치면 이동 도착 → 깃발 판정 → 정시 이벤트 순이다. */

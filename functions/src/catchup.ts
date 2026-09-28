@@ -30,7 +30,8 @@ import type {
   VoteDoc,
 } from '../../shared/model'
 import { announceBallots } from './ballot'
-import { gameRef } from './index'
+import { gameRef, nowOf } from './index'
+import { catchUpMissionDays } from './missionDays'
 import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
@@ -352,7 +353,8 @@ async function applyItem(
         payload.payload ?? {},
       )
     }
-    tx.update(itemRef, { doneAtMs: item.dueAtMs })
+    // 실제로 넘긴 시각(게임 시계). 자정 판정을 나중에 따라잡을 때 「그날 밤」을 여기서 자른다
+    tx.update(itemRef, { doneAtMs: item.dueAtMs, pushedAtMs: nowOf(game) })
     return true
   })
 }
@@ -480,6 +482,8 @@ export async function pushByHand(gameId: string): Promise<HandResult> {
   if (did && item.kind === 'settlement') {
     await announceBallots(gameId, (payload.payload?.day as number) ?? game.day)
   }
+  // **자정 판정.** 날이 넘어갔거나 판이 끝났으면 어제(마지막 날)까지 판정해 굳힌다
+  if (did && (item.kind === 'dayStart' || item.kind === 'gameEnd')) await catchUpMissionDays(gameId)
 
   // 판이 바뀌었으니 각자 몫을 다시 짠다. 틀린 안개는 새는 안개다
   for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs)

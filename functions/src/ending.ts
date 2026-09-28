@@ -35,7 +35,18 @@ const secret = (gameId: string, name: string) =>
 export async function buildLog(
   gameId: string,
   game: GameDoc,
-  opts: { over?: boolean; voteCutoffDay?: number } = {},
+  opts: {
+    over?: boolean
+    voteCutoffDay?: number
+    /**
+     * **이 시각까지만 센다.** 자정 판정(missionDays.ts)이 쓴다 — 밀린 날을
+     * 나중에 따라잡아 판정해도 그날 밤까지의 기록만 들어가야 한다.
+     * 체류 구간은 판정이 nowMs 에서 자르므로 nowMs 를 이 값으로 둔다
+     */
+    asOfMs?: number
+    /** 이날까지의 표 · 투명인간 투표만 센다(자정 판정). voteCutoffDay 보다 먼저 본다 */
+    throughDay?: number
+  } = {},
 ): Promise<{
   log: GameLog
   roster: RosterDoc[]
@@ -44,7 +55,9 @@ export async function buildLog(
   choices: Map<string, ChoiceDoc>
 }> {
   const ref = gameRef(gameId)
-  const nowMs = nowOf(game)
+  const nowMs = opts.asOfMs ?? nowOf(game)
+  const inTime = (atMs: number) => opts.asOfMs === undefined || atMs <= opts.asOfMs
+  const inDays = (day: number) => opts.throughDay === undefined || day <= opts.throughDay
   const startedAtMs = game.startedAtMs ?? nowMs
 
   const [rosterS, ivS, voteS, capS, tileS, choiceS, closingS, recordS, ballotDayS, ballotS, slipS] = await Promise.all([
@@ -73,21 +86,23 @@ export async function buildLog(
   })
 
   /** 페이즈가 닫힐 때마다 남긴 점령 기록. 소유 이력이 여기서 나온다. */
-  const captures = capS.docs.map((d) => {
-    const c = d.data() as CaptureDoc
-    return {
-      tileId: c.tileId as TileId,
-      team: c.team,
-      ownerBefore: c.ownerBefore,
-      standing: c.standing,
-      atMs: c.atMs,
-    }
-  })
+  const captures = capS.docs
+    .map((d) => {
+      const c = d.data() as CaptureDoc
+      return {
+        tileId: c.tileId as TileId,
+        team: c.team,
+        ownerBefore: c.ownerBefore,
+        standing: c.standing,
+        atMs: c.atMs,
+      }
+    })
+    .filter((c) => inTime(c.atMs))
 
   const cutoff = opts.voteCutoffDay
   const votes: JudgeVote[] = voteS.docs
     .map((d) => d.data() as VoteDoc)
-    .filter((v) => cutoff === undefined || v.day < cutoff)
+    .filter((v) => (opts.throughDay !== undefined ? inDays(v.day) : cutoff === undefined || v.day < cutoff))
     .map((v) => ({ voterId: v.voterId, voterTeam: v.voterTeam, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
 
   // 최종 순위. **가진 방 개수다** — 개인 지갑은 팀 점수에 안 들어간다
@@ -98,6 +113,7 @@ export async function buildLog(
 
   const records = recordS.docs
     .map((d) => d.data() as GameRecord)
+    .filter((r) => inTime(r.atMs))
     .sort((a, b) => a.atMs - b.atMs)
   /*
    * 방 주인이 바뀐 이력. **따로 쌓을 것이 없었다** — 소유는 페이즈가
@@ -112,6 +128,7 @@ export async function buildLog(
   }))
   const ballots: BallotVote[] = ballotS.docs
     .map((d) => d.data() as BallotVote & { atMs: number })
+    .filter((b) => inDays(b.day))
     .map((b) => ({ day: b.day, voterId: b.voterId, targetId: b.targetId, voterTeam: b.voterTeam, targetTeam: b.targetTeam }))
 
   /** 끝에 누가 어떤 쪽지를 쥐고 있나. 찢긴 것은 heldBy 가 비어 있다. */
@@ -125,6 +142,7 @@ export async function buildLog(
   const ballotDayRows: BallotDay[] = ballotDayS.docs
     .map((d) => d.data() as { day: number; invisibleId: string | null; reason: string })
     .map((r) => ({ day: r.day, invisibleId: r.invisibleId ?? null, reason: r.reason }))
+    .filter((r) => inDays(r.day))
     .sort((a, b) => a.day - b.day)
 
   const choices = new Map(choiceS.docs.map((d) => [d.id, d.data() as ChoiceDoc]))

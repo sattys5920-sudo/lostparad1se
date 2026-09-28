@@ -9,6 +9,7 @@ import { sweepErrands } from './errand'
 import { sweepGarden } from './garden'
 import { refreshViews } from './views'
 import { catchUp, peekByHand, pushByHand } from './catchup'
+import { catchUpMissionDays } from './missionDays'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 
@@ -31,7 +32,10 @@ export const tick = onCall<{ gameId: string }>(async (req) => {
   const swept = await sweepErrands(req.data.gameId, nowMs)
   const grew = await sweepGarden(req.data.gameId, nowMs)
   if (swept || grew) await refreshViews(req.data.gameId)
-  return catchUp(req.data.gameId, nowMs)
+  const out = await catchUp(req.data.gameId, nowMs)
+  // 빠진 자정 판정이 있으면 날짜순으로 따라잡는다. 없으면 게임 문서만 보고 나간다
+  await catchUpMissionDays(req.data.gameId, game)
+  return out
 })
 
 /**
