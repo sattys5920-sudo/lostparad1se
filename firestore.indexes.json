@@ -55,6 +55,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tileId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "atMs",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

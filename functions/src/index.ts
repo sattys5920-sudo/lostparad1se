@@ -185,3 +185,6 @@ export { arcadeOpen, arcadeInvite, arcadeAnswer, arcadeBegin, arcadeLeave, arcad
 
 // 투명인간 투표. 누가 누구를 적었는지는 어떤 API로도 안 나간다
 export { castBallot, clearInvisible } from './ballot'
+
+// 운영자 지도 — 열넷의 자리와 하는 일, 방마다 오간 말
+export { hostLiveMap, hostRoomChat } from './hostLive'

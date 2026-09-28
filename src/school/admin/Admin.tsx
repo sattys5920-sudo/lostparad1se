@@ -23,6 +23,7 @@ import { DropHost } from './Drop'
 import { SlipDesk } from './SlipDesk'
 import { PaperDesk } from './PaperDesk'
 import { RadioDesk } from './RadioDesk'
+import { LiveMap } from './LiveMap'
 import { MissionDesk } from './MissionDesk'
 import { NotifyDesk } from './NotifyDesk'
 import { ErrandDesk } from './Errands'
@@ -69,7 +70,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'put' | 'slips' | 'missions' | 'papers' | 'radio' | 'manage'
+type Tab = 'go' | 'map' | 'put' | 'slips' | 'missions' | 'papers' | 'radio' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -236,6 +237,7 @@ function Desk() {
             {(
               [
                 ['go', '진행'],
+                ['map', '지도'],
                 ['put', '놓기'],
                 ['slips', '쪽지'],
                 ['missions', '미션'],
@@ -384,6 +386,12 @@ function Desk() {
               </button>
             </section>
           </>
+        : tab === 'map' ?
+          /* ── 지도. 열넷이 어디서 무엇을 하는가 · 방마다 오간 말 ── */
+          <section className="sc-ad__sec">
+            <h2>지도</h2>
+            <LiveMap act={act} onSaid={setSaid} />
+          </section>
         : tab === 'put' ?
           /* ── 놓기. 판 위에 무엇을 둔다 ── */
           <>

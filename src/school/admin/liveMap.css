@@ -1,0 +1,279 @@
+/* ── 운영자 지도(LiveMap) ─────────────────────────────────────
+   층 단추 · 도트 지도 상자 · 누른 사람/방 · 팀 거르기 · 방마다 목록.
+   폰 폭에서 옆으로 안 밀린다 — 지도는 제 상자 안에서만 움직인다.
+   단추는 공통 손잡이(.sc-ad button)보다 한 겹 올려서 작게 쓴다. */
+.sc-lvm { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+
+/* 층 */
+.sc-lvm__floors { display: flex; gap: 2px; }
+.sc-ad .sc-lvm__floors button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 4px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--sc-text-dim);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.sc-ad .sc-lvm__floors button em { font-style: normal; font-size: var(--fs-cap); font-variant-numeric: tabular-nums; color: var(--sc-text-dim); }
+.sc-ad .sc-lvm__floors button.is-on { color: var(--sc-text); border-color: var(--sc-line-strong); background: var(--bg-2); font-weight: 600; }
+.sc-ad .sc-lvm__floors button.is-on em { color: var(--sc-text); }
+.sc-ad .sc-lvm__floors .sc-lvm__chatall { flex: 0 0 auto; margin-left: 4px; padding: 0 10px; }
+
+/* 지도 상자 — 여기서만 끌고 넓힌다. 페이지는 안 밀린다 */
+.sc-lvm__box {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: #14161c;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.sc-lvm__cv { position: absolute; left: 0; top: 0; transform-origin: 0 0; display: block; }
+
+/* 팻말이 안 읽힐 때 띄우는 방 이름 */
+.sc-lvm__rn {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 3px;
+  font-size: 10px;
+  line-height: 12px;
+  color: #eef0f2;
+  background: rgba(12, 14, 18, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.sc-lvm__rn i { flex: none; width: 3px; align-self: stretch; background: var(--own); }
+/* 그 방에서 오간 말 수. 말풍선 — 꼬리가 왼쪽 아래로 */
+.sc-lvm__rn em {
+  position: relative;
+  flex: none;
+  font-style: normal;
+  font-size: 9px;
+  line-height: 11px;
+  padding: 0 3px;
+  margin-left: 1px;
+  border-radius: 3px;
+  background: #eef0f2;
+  color: #14161c;
+  font-variant-numeric: tabular-nums;
+}
+.sc-lvm__rn em::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  bottom: 0;
+  border-right: 3px solid #eef0f2;
+  border-top: 3px solid transparent;
+}
+.sc-lvm__pick { position: absolute; z-index: 1; box-sizing: border-box; border: 2px solid var(--sc-accent); pointer-events: none; }
+
+/* 사람 — 발끝이 (left, top) 이다 */
+.sc-ad .sc-lvm__who {
+  position: absolute;
+  z-index: 2;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+.sc-ad .sc-lvm__who:active:not(:disabled) { transform: translateX(-50%); }
+.sc-lvm__who img { display: block; image-rendering: pixelated; pointer-events: none; }
+.sc-lvm__pin {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--tm);
+  box-shadow: 0 0 0 1.5px #fff;
+}
+.sc-lvm__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 1px;
+  padding: 0 3px;
+  font-size: 11px;
+  line-height: 14px;
+  color: #fff;
+  background: rgba(12, 14, 18, 0.78);
+  border-left: 2px solid var(--tm);
+  white-space: nowrap;
+}
+.sc-lvm__who.is-guess .sc-lvm__tag::after { content: '?'; color: #b9bec8; }
+.sc-lvm__who.is-walk .sc-lvm__tag::after { content: '→'; color: #7fb2f0; }
+.sc-lvm__who.is-guess .sc-lvm__pin { box-shadow: 0 0 0 1.5px #fff, 0 0 0 3px rgba(255, 255, 255, 0.35); }
+.sc-lvm__who.is-on { z-index: 3; }
+.sc-lvm__who.is-on .sc-lvm__tag { background: var(--sc-accent); color: var(--sc-bg); }
+.sc-lvm__who.is-on .sc-lvm__pin { box-shadow: 0 0 0 2px var(--sc-accent), 0 0 0 4px #fff; }
+.sc-lvm__who.is-on img { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff); }
+.sc-lvm__who.is-off { opacity: 0.25; }
+.sc-lvm__who.is-invis img, .sc-lvm__who.is-invis .sc-lvm__pin { opacity: 0.5; }
+.sc-lvm__k { width: 6px; height: 6px; border-radius: 50%; background: var(--sc-text-dim); flex: none; }
+.is-walk .sc-lvm__k { background: #7fb2f0; }
+.is-trap .sc-lvm__k { background: var(--danger, #d9534f); }
+.is-deal .sc-lvm__k { background: #e7b84a; }
+.is-arcade .sc-lvm__k { background: #b48cf0; }
+.is-errand .sc-lvm__k { background: #6cc28a; }
+.is-busy .sc-lvm__k, .is-bound .sc-lvm__k { background: #e0894a; }
+.is-hidden .sc-lvm__k { background: #8a93a6; }
+
+/* 넓히기 */
+.sc-lvm__zoom { position: absolute; right: 6px; bottom: 6px; z-index: 4; display: flex; gap: 4px; }
+.sc-ad .sc-lvm__zoom button {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  background: rgba(34, 39, 58, 0.92);
+}
+
+.sc-lvm__warn { margin: 0; font-size: var(--fs-cap); color: var(--danger, #d9534f); }
+
+/* 누른 사람 · 누른 방 */
+.sc-lvm__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--r-game);
+  background: var(--bg-2);
+  min-width: 0;
+  scroll-margin: 120px 0 16px;
+}
+.sc-lvm__card header { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.sc-lvm__card header b { font-size: var(--fs-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-lvm__team { font-size: var(--fs-label); color: var(--sc-text-dim); white-space: nowrap; }
+.sc-lvm__badge { font-size: var(--fs-cap); padding: 1px 5px; border: 1px solid var(--sc-line-strong); color: var(--sc-text-2); }
+.sc-ad .sc-lvm__x { margin-left: auto; min-height: 32px; min-width: 32px; padding: 0; background: transparent; border-color: transparent; color: var(--sc-text-dim); }
+.sc-lvm__card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px var(--sp-3); margin: 0; font-size: var(--fs-label); }
+.sc-lvm__card dl > div { display: contents; }
+.sc-lvm__card dt { color: var(--sc-text-dim); white-space: nowrap; }
+.sc-lvm__card dd { margin: 0; overflow-wrap: anywhere; }
+.sc-lvm__card dd.is-walk { color: #7fb2f0; }
+.sc-lvm__card dd.is-trap { color: var(--danger, #d9534f); }
+.sc-lvm__card dd.is-deal { color: #e7b84a; }
+.sc-ad .sc-lvm__go { min-height: 36px; align-self: flex-start; }
+.sc-lvm__facts { margin: 0; display: flex; flex-wrap: wrap; gap: 4px var(--sp-3); font-size: var(--fs-label); color: var(--sc-text-2); }
+
+.sc-lvm__inside { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sc-ad .sc-lvm__inside button {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+}
+.sc-lvm__inside em { margin-left: auto; font-style: normal; color: var(--sc-text-dim); font-size: var(--fs-cap); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+.sc-lvm__chatbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.sc-lvm__chatbar label { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; flex: 1; font-size: var(--fs-label); color: var(--sc-text-dim); }
+.sc-lvm__chatbar select {
+  min-width: 0;
+  flex: 1;
+  max-width: 220px;
+  min-height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: var(--bg-1);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: var(--fs-label);
+}
+.sc-lvm__chatbar .sc-rk__live { flex: none; }
+.sc-lvm__logwrap { position: relative; }
+.sc-lvm__log {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2);
+  max-height: 46dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sc-lvm__log li { font-size: var(--fs-label); line-height: 1.5; overflow-wrap: anywhere; }
+.sc-lvm__log time { color: var(--sc-text-dim); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.sc-lvm__log b { font-weight: 600; margin-right: 6px; }
+.sc-lvm__log b small { margin-left: 4px; font-size: var(--fs-cap); font-weight: 400; padding: 0 4px; border: 1px solid var(--sc-line-strong); color: var(--sc-text-dim); }
+.sc-lvm__log span { color: var(--sc-text); }
+.sc-lvm__log li.is-hidden span { color: var(--sc-text-dim); }
+.sc-lvm__where { font-style: normal; font-size: var(--fs-cap); color: var(--sc-text-dim); margin-right: 6px; padding: 0 4px; background: var(--bg-2); }
+.sc-lvm__empty { margin: var(--sp-3) 0; text-align: center; color: var(--sc-text-dim); font-size: var(--fs-label); }
+.sc-ad .sc-lvm__down { position: absolute; right: 8px; bottom: 8px; min-height: 30px; padding: 0 10px; background: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-bg); }
+
+/* 팀 거르기 */
+.sc-lvm__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.sc-ad .sc-lvm__chips button {
+  min-height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  color: var(--sc-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.sc-ad .sc-lvm__chips button.is-on { color: var(--sc-text); border-color: var(--sc-line-strong); background: var(--bg-2); }
+.sc-lvm__chips i { width: 8px; height: 8px; border-radius: 50%; }
+
+/* 방마다 목록 */
+.sc-lvm__list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sc-lvm__list h3 { margin: 0 0 4px; font-size: var(--fs-label); font-weight: 600; display: flex; gap: var(--sp-2); align-items: baseline; }
+.sc-lvm__list h3 em { font-style: normal; font-weight: 400; color: var(--sc-text-dim); font-size: var(--fs-cap); }
+.sc-lvm__list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sc-ad button.sc-lvm__row {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  text-align: left;
+  background: var(--bg-1);
+}
+.sc-ad button.sc-lvm__row.is-on { border-color: var(--sc-accent); }
+.sc-lvm__row b { font-weight: 600; white-space: nowrap; }
+.sc-lvm__row span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--sc-text-2); }
+.sc-lvm__row.is-idle span { color: var(--sc-text-dim); }
+.sc-lvm__row.is-walk span { color: #7fb2f0; }
+.sc-lvm__row.is-trap span { color: var(--danger, #d9534f); }
+.sc-lvm__row.is-deal span { color: #e7b84a; }
+.sc-lvm__row.is-arcade span { color: #b48cf0; }
+.sc-lvm__row.is-errand span { color: #6cc28a; }
+.sc-lvm__row time { font-size: var(--fs-cap); color: var(--sc-text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sc-lvm__dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--sc-text-dim); }
+.sc-lvm__inv { margin-left: 4px; padding: 0 4px; font-size: var(--fs-cap); font-weight: 400; border: 1px dashed var(--sc-line-strong); color: var(--sc-text-dim); }
+.sc-lvm__who.is-invis .sc-lvm__tag { outline: 1px dashed #b9bec8; outline-offset: -1px; }

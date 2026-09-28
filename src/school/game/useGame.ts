@@ -325,6 +325,11 @@ export function gameActions(gameId: string) {
     hostRadioOverview: () => callServer('hostRadioOverview', g),
     /** 전원 채널을 여닫는다 */
     hostSetAllChannel: (open: boolean) => callServer('hostSetAllChannel', { ...g, open }),
+    /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
+    hostLiveMap: () => callServer('hostLiveMap', g),
+    /** 운영자 — 방에서 오간 말. room 은 방 아이디 · 'hall' · 'all'. summary 면 방마다 줄 수 */
+    hostRoomChat: (room: string | null, sinceMs = 0, summary = false) =>
+      callServer('hostRoomChat', { ...g, room, sinceMs, summary }),
     /** 알림 보낸 기록 — 최근 200줄 · 실패 수 */
     hostNotifyLog: () => callServer('hostNotifyLog', g),
     /** 날짜별 개인 미션 판정. 날을 안 주면 가장 최근 날 */
