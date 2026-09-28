@@ -79,7 +79,9 @@ jobs:
           echo "올렸다: https://$PROJECT.web.app/"
 
   # 옛 주소(GitHub Pages)로 들어온 사람을 새 주소로 넘긴다. ?game= 같은 꼬리는 그대로 단다
+  # **새 주소가 올라간 뒤에만** 넘긴다. 올리기가 실패했는데 옛 주소를 넘기면 둘 다 죽는다
   redirect:
+    needs: hosting
     runs-on: ubuntu-latest
     environment:
       name: github-pages
