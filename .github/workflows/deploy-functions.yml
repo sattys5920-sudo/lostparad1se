@@ -25,6 +25,10 @@
 # 필요한 시크릿 둘 (Settings → Secrets and variables → Actions)
 #   PROJECTID                  이미 등록돼 있다. 화면 빌드가 쓰던 것
 #   FIREBASE_SERVICE_ACCOUNT   서비스 계정 열쇠(JSON) 통째로
+# 있으면 쓰는 것
+#   HOST_CODE                  운영자 코드
+#   VAPID_PUBLIC_KEY           웹 푸시 공개 열쇠
+#   VAPID_PRIVATE_KEY          웹 푸시 비밀 열쇠
 name: Deploy functions
 
 on:
@@ -96,11 +100,26 @@ jobs:
         env:
           HOST_CODE: ${{ secrets.HOST_CODE }}
         run: |
+          : > functions/.env
           if [ -z "$HOST_CODE" ]; then
             echo "::warning::HOST_CODE 시크릿이 없다. 운영자 코드 입력이 동작하지 않는다."
           else
-            printf 'HOST_CODE=%s\n' "$HOST_CODE" > functions/.env
+            printf 'HOST_CODE=%s\n' "$HOST_CODE" >> functions/.env
             echo "운영자 코드: 실었다"
+          fi
+
+      # 앱 밖 알림(웹 푸시) 열쇠. 없으면 앱 안 알림만 간다 — 배포는 막지 않는다.
+      # 공개 열쇠도 여기서 싣는다. 화면은 notifyConfig 로 서버에게 받아 간다
+      - name: Put the web push keys in the functions environment
+        env:
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: |
+          if [ -z "$VAPID_PUBLIC_KEY" ] || [ -z "$VAPID_PRIVATE_KEY" ]; then
+            echo "::warning::VAPID_PUBLIC_KEY · VAPID_PRIVATE_KEY 시크릿이 없다. 앱 밖 알림이 안 간다."
+          else
+            printf 'VAPID_PUBLIC_KEY=%s\nVAPID_PRIVATE_KEY=%s\n' "$VAPID_PUBLIC_KEY" "$VAPID_PRIVATE_KEY" >> functions/.env
+            echo "웹 푸시 열쇠: 실었다"
           fi
 
       - name: Deploy

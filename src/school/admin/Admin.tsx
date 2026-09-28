@@ -23,6 +23,8 @@ import { DropHost } from './Drop'
 import { SlipDesk } from './SlipDesk'
 import { PaperDesk } from './PaperDesk'
 import { RadioDesk } from './RadioDesk'
+import { MissionDesk } from './MissionDesk'
+import { NotifyDesk } from './NotifyDesk'
 import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
@@ -67,7 +69,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'put' | 'slips' | 'papers' | 'radio' | 'manage'
+type Tab = 'go' | 'put' | 'slips' | 'missions' | 'papers' | 'radio' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -236,6 +238,7 @@ function Desk() {
                 ['go', '진행'],
                 ['put', '놓기'],
                 ['slips', '쪽지'],
+                ['missions', '미션'],
                 ['papers', '이력'],
                 ['radio', '무전'],
                 ['manage', '관리'],
@@ -403,6 +406,12 @@ function Desk() {
             <h2>쪽지 배포</h2>
             <SlipDesk act={act} onSaid={setSaid} />
           </section>
+        : tab === 'missions' ?
+          /* ── 개인 미션. 날마다 열넷의 판정을 보고, 뒤집고, 보낸다 ── */
+          <section className="sc-ad__sec">
+            <h2>개인 미션</h2>
+            <MissionDesk act={act} onSaid={setSaid} />
+          </section>
         : tab === 'radio' ?
           /* ── 무전. 네 팀과 전원 채널을 목록으로, 들어가면 실시간으로 ── */
           <section className="sc-ad__sec">
@@ -417,6 +426,10 @@ function Desk() {
           </section>
         : /* ── 관리. 가끔 손보는 것 ── */
           <>
+            <section className="sc-ad__sec">
+              <h2>알림 기록</h2>
+              <NotifyDesk act={act} onSaid={setSaid} />
+            </section>
             <section className="sc-ad__sec">
               <h2>판</h2>
               {/*

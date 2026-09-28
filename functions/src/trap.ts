@@ -28,6 +28,7 @@ import type { TeamId } from '../../shared/rules/v2'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
+import { notify } from './notify'
 
 const db = getFirestore()
 
@@ -157,6 +158,20 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
   await refreshViews(gameId)
   return { maker, got }
 })
+
+/**
+ * 다 된 덫을 맡긴 사람에게 알린다(제작 완료). 따라잡기가 부른다.
+ * 한 건에 한 번 — 알린 건에는 표시를 남긴다.
+ */
+export async function tellReadyTraps(gameId: string, nowMs: number): Promise<void> {
+  const snap = await jobsOf(gameId).where('readyAtMs', '<=', nowMs).get()
+  for (const d of snap.docs) {
+    const j = d.data() as TrapJobDoc & { told?: boolean }
+    if (j.told) continue
+    await d.ref.update({ told: true })
+    await notify(gameId, [j.byPlayerId], 'made', `made:trap:${d.id}:${j.atMs}`)
+  }
+}
 
 /** 투영이 들고 갈 제조기 상태. 덫 자체(set)는 여기 없다 — 아무에게도 안 간다 */
 export async function trapWorld(gameId: string): Promise<{ jobs: (TrapJobDoc & { i: number })[] }> {

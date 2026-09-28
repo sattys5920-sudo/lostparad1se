@@ -1,0 +1,129 @@
+/* 알림 — 배너(sc-ntb) · 「나」 탭 설정과 보관함(sc-np) */
+
+.sc-ntb {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + var(--sp-2));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 2 * var(--sp-4)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  z-index: 60;
+  pointer-events: none;
+}
+.sc-ntb__one {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--sp-3);
+  background: #1c1f33;
+  border: 2px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-label);
+  text-align: left;
+  cursor: pointer;
+  touch-action: none;
+  animation: sc-ntb-in 0.18s steps(3) both;
+}
+.sc-ntb__one:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sc-ntb__dot { flex: none; width: 6px; height: 6px; background: var(--accent); }
+.sc-ntb__text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-ntb__at { flex: none; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* 페이즈 — 크게, 가운데에 */
+.sc-ntb__one.is-big {
+  min-height: 64px;
+  justify-content: center;
+  border-color: var(--accent);
+  font-size: var(--fs-body);
+}
+.sc-ntb__one.is-big .sc-ntb__text { flex: none; }
+
+@keyframes sc-ntb-in {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-ntb__one { animation: none; }
+}
+
+/* ── 「나」 탭 ─────────────────────────────────────────── */
+
+.sc-np {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--bg-1);
+  border: 2px solid var(--line);
+  color: var(--text-1);
+}
+.sc-np__head { display: flex; align-items: center; justify-content: space-between; }
+.sc-np__head b { font-weight: 400; letter-spacing: 0.3em; }
+.sc-np__master { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-label); color: var(--text-2); }
+.sc-np__master input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+.sc-np__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.sc-np__list.is-off { opacity: 0.45; }
+.sc-np__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.sc-np__name { font-size: var(--fs-label); }
+.sc-np__seg { display: grid; grid-template-columns: repeat(3, auto); border: 1px solid var(--line-strong); }
+.sc-np__seg button {
+  min-height: 32px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-left: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sc-np__seg button:first-child { border-left: 0; }
+.sc-np__seg button.is-on { background: var(--bg-3); color: var(--accent); }
+.sc-np__seg button:disabled { cursor: default; }
+.sc-np__seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sc-np__hint { margin: var(--sp-1) 0 0; font-size: 12px; color: var(--text-3); line-height: 1.5; }
+.sc-np__why { margin: 0; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--danger); font-size: 12px; line-height: 1.6; color: var(--text-1); }
+
+.sc-np__archive {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-label);
+  cursor: pointer;
+}
+.sc-np__archive span { margin-left: auto; font-size: 10px; }
+.sc-np__dot { display: inline-block; width: 6px; height: 6px; background: var(--accent); }
+.sc-np__notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sc-np__notes button {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-label);
+  text-align: left;
+  cursor: pointer;
+}
+.sc-np__notes span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-np__notes time { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }

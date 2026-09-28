@@ -31,8 +31,14 @@ export interface MyPaperDoc {
   roleName: string
   /** 역할 카드 맨 위 한 줄. */
   flavor: string
-  /** 짝사랑만 채워진다. 이름뿐이고 어디 있는지는 안 온다. */
+  /** 조건 표 아래 단서(문서 원문). 없으면 null */
   footnote: string | null
+  /** 학생증 뒷면 「그해 겨울, 나는」 문단들. 내 것만 온다 */
+  situation: readonly string[]
+  /** 미션 한 줄 — 「이번에는 …」 */
+  line: string
+  /** 짝사랑만 채워진다. **이름뿐이고** 어디 있는지 · 어느 팀인지는 안 온다 */
+  targetName: string | null
   /**
    * 진행도를 세고 있는가. 로비에서는 false 다 — 칸도 지갑도 아직
    * 안 놓여서 셀 것이 없다. 미션 **문장**은 그때도 온다.

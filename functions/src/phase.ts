@@ -71,6 +71,7 @@ import { sysLine } from './radio'
 import { sys } from '../../shared/rules/radio'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
+import { notify } from './notify'
 
 const db = getFirestore()
 
@@ -516,6 +517,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   })
   // 네 팀 무전에 종이 울린다. 무전만 보고 있어도 교시가 열린 줄 안다
   for (const t of TEAMS) sysLine(batch, gameId, t, sys.phaseOpen(no), nowMs, day)
+  const everyone = game.seats.map((s) => s.playerId)
   for (const m of movedNotes) {
     sysLine(batch, gameId, m.from, sys.movedOut(m.name, m.to), nowMs, day)
     sysLine(batch, gameId, m.to, sys.movedIn(m.name), nowMs, day)
@@ -525,6 +527,8 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
 
   await batch.commit()
+  // 열넷 모두에게 — 결과는 없다, 열렸다는 것뿐
+  await notify(gameId, everyone, 'phaseStart', `phaseStart:${no}`)
   /*
    * **팀이 바뀐 순간을 한 줄씩 남긴다.**
    *
@@ -1023,6 +1027,8 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 
   await batch.commit()
+  // 열넷 모두에게 — **결과는 안 싣는다.** 끝났다는 것뿐
+  await notify(gameId, game.seats.map((s) => s.playerId), 'phaseEnd', `phaseEnd:${no}`)
   // 내일의 투명인간은 여기서 안 고른다. 하루에 몇 교시를 열지는 날마다
   // 달라서, 운영자가 그날 정산을 넘길 때 센다(ballot.announceBallots)
 

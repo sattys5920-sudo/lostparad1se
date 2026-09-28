@@ -118,7 +118,10 @@ import { uiIcon } from './uiArt'
 import type { Dir } from '../map/sprites'
 import './controls.css'
 import { Around } from './People'
-import { Me } from './Me'
+import { Me, PastVerdicts } from './Me'
+import { MissionMailbox } from './MissionPopup'
+import { NotifyBanner } from './notify/NotifyBanner'
+import type { NotifyLink } from '../../../shared/notify/notifyData'
 import { Dealt, dealtSeen, markDealtSeen } from './Dealt'
 import { useMyPaper } from './useMyPaper'
 import { logOut } from '../accounts'
@@ -575,7 +578,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
 function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
   const [morningDone, setMorningDone] = useState(false)
-  const [afterEnding, setAfterEnding] = useState(false)
+  /** 끝난 판의 세 칸 — 엔딩 · 회고 · 판정(마지막 날까지의 개인 미션) */
+  const [endTab, setEndTab] = useState<'ending' | 'retro' | 'verdicts'>('ending')
 
   // 들어올 때마다 밀린 일을 따라잡는다. 아무도 없던 사이의 아침과
   // 정산이 여기서 처리된다
@@ -599,10 +603,21 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   if (game.phase === 'finished') {
     return (
       <div className="sc-pl">
-        {afterEnding ? <LiveRetro gameId={gameId} /> : <LiveEnding gameId={gameId} />}
+        {endTab === 'retro' ? (
+          <LiveRetro gameId={gameId} />
+        ) : endTab === 'verdicts' ? (
+          <div className="sc-pl__verdicts">
+            <PastVerdicts inbox={state.inbox} />
+          </div>
+        ) : (
+          <LiveEnding gameId={gameId} />
+        )}
+        {/* 마지막 날 판정은 판이 끝난 뒤에 온다. 엔딩 위에도 뜬다 */}
+        <MissionMailbox inbox={state.inbox} act={gameActions(gameId)} />
         <nav className="sc-pl__tabbar">
-          <button className={!afterEnding ? 'is-on' : ''} onClick={() => setAfterEnding(false)}>엔딩</button>
-          <button className={afterEnding ? 'is-on' : ''} onClick={() => setAfterEnding(true)}>회고</button>
+          <button className={endTab === 'ending' ? 'is-on' : ''} onClick={() => setEndTab('ending')}>엔딩</button>
+          <button className={endTab === 'retro' ? 'is-on' : ''} onClick={() => setEndTab('retro')}>회고</button>
+          <button className={endTab === 'verdicts' ? 'is-on' : ''} onClick={() => setEndTab('verdicts')}>판정</button>
         </nav>
       </div>
     )
@@ -773,6 +788,29 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     },
     [tab],
   )
+  /** 알림이 가리키는 곳으로. 알림의 「memo」는 수첩 탭이다 */
+  const goLink = useCallback(
+    (link: NotifyLink) => pickTab(link === 'memo' ? 'note' : link),
+    [pickTab],
+  )
+  /*
+   * 앱 밖 알림을 눌러 들어왔다 — 주소의 ?tab= 이 갈 곳이다. 이미 열린
+   * 창이면 서비스 워커가 말로 알려 준다(public/sw.js notificationclick).
+   */
+  useEffect(() => {
+    const want = new URLSearchParams(location.search).get('tab')
+    if (want && ['map', 'me', 'radio', 'vote', 'memo'].includes(want)) goLink(want as NotifyLink)
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data as { kind?: string; url?: string } | null
+      if (d?.kind !== 'open-tab' || !d.url) return
+      const t = new URL(d.url).searchParams.get('tab')
+      if (t && ['map', 'me', 'radio', 'vote', 'memo'].includes(t)) goLink(t as NotifyLink)
+    }
+    navigator.serviceWorker?.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker?.removeEventListener('message', onMsg)
+    // 처음 한 번만 — 주소는 들어올 때의 것이다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useLayoutEffect(() => {
     for (const [el, top] of scrollKept.current.get(tab) ?? []) el.scrollTop = top
   }, [tab])
@@ -1707,6 +1745,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             ) : null
           }
           log={<PhaseLog rows={state.phaseLog} seats={game.seats} />}
+          inbox={state.inbox}
+          onGo={goLink}
           act={act}
           onSaid={setSaid}
           onSignOut={() => {
@@ -2289,6 +2329,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           {said}
         </p>
       )}
+
+      {/* 판정 팝업. 운영자가 보낸 날 중 아직 안 닫은 것이 있으면 어느
+          탭에서든 뜬다 — 오래된 날부터 한 장씩 */}
+      <MissionMailbox inbox={state.inbox} act={act} />
+      {/* 앱 안 알림 배너. 무엇을 띄울지는 서버가 이미 골랐다 */}
+      <NotifyBanner notes={state.inbox?.notes} onGo={goLink} />
     </div>
   )
 }

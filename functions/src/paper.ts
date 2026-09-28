@@ -82,8 +82,12 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     roleName: ROLE_NAMES[roleId],
     // 역할 카드 맨 위 한 줄. 남의 것은 이 응답 어디에도 없다
     flavor: role.flavor,
-    // 짝사랑만 채워진다. 이름만이고 어디 있는지는 안 보낸다
     footnote: role.footnote,
+    // 학생증 뒷면. 내 역할 것만 꺼내 보낸다
+    situation: role.situation,
+    line: role.line,
+    // 짝사랑만 채워진다. 이름만이고 어디 있는지 · 어느 팀인지는 안 보낸다
+    targetName: roleId === 'crush' && mine.targetId ? (game.seats.find((x) => x.playerId === mine.targetId)?.name ?? null) : null,
   }
 
   /*

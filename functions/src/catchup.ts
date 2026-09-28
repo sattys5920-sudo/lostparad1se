@@ -35,6 +35,7 @@ import { catchUpMissionDays } from './missionDays'
 import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
+import { tellReadyTraps } from './trap'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
 import { sysLine } from './radio'
@@ -416,6 +417,8 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   // 스무 분이 찬 연구를 여기서 익힌다. 본인이 그 연구실에 서 있으면
   // 받고, 아니면 주인 없는 완성품이 되어 그 방에 놓인다
   await landResearch(gameId)
+  // 다 된 덫을 맡긴 사람에게 알린다
+  await tellReadyTraps(gameId, toMs)
   // 창이 닫힌 팀장 투표를 여기서 센다. 동점이면 다음 차례가 걸린다
   await settleCaptainVotes(gameId)
   if (applied > 0) await refreshViews(gameId)

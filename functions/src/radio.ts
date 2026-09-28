@@ -30,6 +30,7 @@ import { TEAM_IDS, type TeamId } from '../../shared/rules/v2'
 import { freshNow, myPawn } from './turn'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
+import { notify } from './notify'
 
 /** games/{gameId}/secret/radio/items/{id} — 팀 것만 골라 내려보낸다. */
 /** 전원 채널. 팀 무전과 같은 통에 이 값으로 적는다 */
@@ -113,6 +114,13 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
     invisible: game.invisibleId === uid,
   }
   await radioOf(gameId).add(row)
+  // 팀 무전에서 팀원 이름이 나오면 그 사람에게 알린다(태그). **무슨 말인지는 안 싣는다**
+  if (!toAll) {
+    const called = game.seats
+      .filter((s) => s.playerId !== uid && s.team === pawn.team && s.name.length > 0 && text.includes(s.name))
+      .map((s) => s.playerId)
+    if (called.length > 0) await notify(gameId, called, 'tag', `tag:${uid}:${nowMs}`)
+  }
   // 지워져 있어도 팀에게는 닿는다
   return { said: true, heard: true }
 })

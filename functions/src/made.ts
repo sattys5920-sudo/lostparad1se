@@ -19,6 +19,7 @@ import type { GameDoc, PawnDoc } from '../../shared/model'
 import { gameRef, nowOf, requireUid } from './index'
 import { note } from './records'
 import { refreshViews } from './views'
+import { notify } from './notify'
 
 const db = getFirestore()
 
@@ -100,6 +101,8 @@ export async function landResearch(gameId: string): Promise<void> {
   )
   const ripe = rows.filter((r) => r.doneAtMs <= nowMs)
   if (ripe.length === 0) return
+  // 맡긴 사람에게 알린다(제작 완료). 받았든 놓였든 다 된 것은 같다
+  for (const r of ripe) await notify(gameId, [r.playerId], 'made', `made:research:${r.playerId}:${r.doneAtMs}`)
 
   for (const r of ripe) {
     const pawn = (await gameRef(gameId).collection('pawns').doc(r.playerId).get()).data() as PawnDoc | undefined

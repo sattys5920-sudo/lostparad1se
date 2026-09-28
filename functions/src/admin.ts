@@ -12,6 +12,7 @@ import { auditLines } from './story/audit'
 import { SOURCE_LABEL, TIME_LABEL, placesIn } from './story/timeline'
 import { checkNotice, NOTICE_TEMPLATES } from '../../shared/reveal/notice'
 import { requireHost } from './host'
+import { notify } from './notify'
 
 const db = getFirestore()
 
@@ -66,6 +67,10 @@ export const hostNotice = onCall<{ gameId: string; text: string; toPlayerId?: st
       byId: uid,
     }
     const ref = await db.collection(`games/${req.data.gameId}/notices`).add(notice)
+    // 「새 공지」만 간다 — 본문은 앱 안 공지 칸에서 읽는다
+    const game = (await db.doc(`games/${req.data.gameId}`).get()).data() as { seats?: { playerId: string }[] } | undefined
+    const to = notice.toPlayerId ? [notice.toPlayerId] : (game?.seats ?? []).map((s) => s.playerId)
+    await notify(req.data.gameId, to, 'notice', `notice:${ref.id}`)
     return { id: ref.id, ...notice }
   },
 )

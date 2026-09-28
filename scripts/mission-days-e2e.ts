@@ -205,6 +205,39 @@ async function main(): Promise<void> {
   }
   check(leaks === 0, '열넷 누구의 화면 문서에도 판정이 없다', `${leaks}`)
 
+  console.log('\n── 뒤집기 · 보내기 · 우편함 ──')
+  const [p1, p2] = people
+  const inboxOf = async (who: { uid: string }, tk: string) =>
+    fetch(`${FS}/games/${GAME}/inbox/${who.uid}`, { headers: { Authorization: `Bearer ${tk}` } })
+  check((await inboxOf(p1, p1.token)).status === 404, '보내기 전에는 우편함이 비어 있다')
+  const noReason = await call('hostMissionOverride', host, { gameId: GAME, day: 1, playerId: p1.uid, status: 'met', reason: '' })
+  check(!noReason.ok, '까닭 없이는 못 뒤집는다', noReason.message)
+  const flip = await call('hostMissionOverride', p1.token, { gameId: GAME, day: 1, playerId: p1.uid, status: 'met', reason: '나' })
+  check(flip.code === 'PERMISSION_DENIED', '참가자는 못 뒤집는다', flip.code)
+  await must('hostMissionOverride', host, { gameId: GAME, day: 1, playerId: p1.uid, status: 'met', reason: '기록이 빠졌다' })
+  const d1 = await day(1)
+  const r1 = rowOf(d1, p1.uid) as unknown as { override: { status: string; reason: string } | null }
+  check(r1.override?.status === 'met' && r1.override.reason === '기록이 빠졌다', '뒤집은 값과 까닭이 남는다')
+  const sendOne = (await must('hostMissionSend', host, { gameId: GAME, day: 1, playerIds: [p1.uid] })) as { sent: number }
+  check(sendOne.sent === 1, '한 사람에게만 보낸다')
+  const mine = await inboxOf(p1, p1.token)
+  const mailText = await mine.text()
+  check(mine.status === 200, '받은 사람은 제 우편함을 읽는다', String(mine.status))
+  const mail = (plain(JSON.parse(mailText)) as { missions?: Record<string, { status: string; day: number; roleName: string }> }).missions?.d1
+  check(mail?.status === 'met' && mail.day === 1, '뒤집은 결과가 간다', JSON.stringify(mail?.status))
+  check(!/기록이 빠졌다|"truth"|reason|byId/.test(mailText), '까닭 · 운영자 판(truth)은 안 간다')
+  check((await inboxOf(p1, p2.token)).status === 403, '남의 우편함은 못 읽는다')
+  check((await inboxOf(p2, p2.token)).status === 404, '안 보낸 사람에게는 아무것도 없다')
+  await must('seenMissionDay', p1.token, { gameId: GAME, day: 1 })
+  const seen = plain(JSON.parse(await (await inboxOf(p1, p1.token)).text())) as { seen?: Record<string, boolean> }
+  check(seen.seen?.d1 === true, '닫으면 다시 안 뜬다')
+  const all = (await must('hostMissionSend', host, { gameId: GAME, day: 1 })) as { sent: number }
+  check(all.sent === people.length, '전부 보낸다', String(all.sent))
+  const again = plain(JSON.parse(await (await inboxOf(p1, p1.token)).text())) as { seen?: Record<string, boolean> }
+  check(again.seen?.d1 !== true, '다시 보내면 팝업이 다시 뜬다')
+  const logd = (await day(1)) as unknown as { log: { kind: string }[] }
+  check(logd.log.filter((l) => l.kind === 'send').length === 2 && logd.log.some((l) => l.kind === 'override'), '뒤집기 · 보내기가 기록에 남는다')
+
   console.log('\n── 마지막 날 — 최종 판정 ──')
   for (let i = 0; i < 40; i++) {
     const r = (await must('pushDay', host, { gameId: GAME })) as { phase: string; pushed: unknown }

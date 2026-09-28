@@ -108,7 +108,7 @@ async function setPhaseTokens(team: string, n: number): Promise<void> {
  * **하루 몫은 새벽에만 초기화되므로** 이쪽을 적어야 그대로 남는다.
  * 실제로 세 번 쓴 사람과 같은 자리다.
  */
-async function useUpDaily(team: string, uid: string, n: number): Promise<void> {
+async function spendDaily(team: string, uid: string, n: number): Promise<void> {
   await fetch(`${FS}/games/${GAME}/secret/tokens/items/${team}?updateMask.fieldPaths=usedToday.${uid}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
@@ -318,7 +318,7 @@ async function main(): Promise<void> {
     // **가짜로 흐리게 칠하지 않는다.** 토큰 상자를 실제로 비워서,
     // 서버가 정말 거절할 자리를 만든 다음 찍는다. 눌러서 사유가
     // 뜨는 것까지 한 장에 담는다
-    await useUpDaily(myTeam, mine, 3)
+    await spendDaily(myTeam, mine, 3)
     await nudge(page)
     const off = page.locator('.sc-ct__act.is-off').first()
     if (await off.count()) await off.click().catch(() => undefined)
@@ -328,7 +328,7 @@ async function main(): Promise<void> {
       흐린칸: await page.locator('.sc-ct__act.is-off').count(),
       토스트: (await page.locator('.sc-ct__toast').textContent().catch(() => null)) ?? null,
     }
-    await useUpDaily(myTeam, mine, 0)
+    await spendDaily(myTeam, mine, 0)
     await nudge(page)
 
     // ── 후 · 4 더보기 시트 (상점에 서면 여섯을 넘친다) ────

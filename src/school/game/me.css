@@ -267,16 +267,73 @@
   cursor: pointer;
 }
 .sc-mi__fold i { font-style: normal; }
-.sc-mi__secret {
-  margin: var(--sp-2) 0 0;
-  padding: var(--sp-2) var(--sp-2);
-  background: var(--paper);
-  border-left: 2px solid var(--danger);
+
+/* ── 앞뒤 ──
+ * 한 면만 선다. 바뀔 때 가로로 세 걸음 펴진다 — 도트 화면의 장면
+ * 바꾸기다. 3D 로 돌리면 뒤집히는 동안 글자가 번진다 */
+.sc-mi__face2 {
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  animation: sc-mi-flip 180ms steps(3, end) both;
+}
+@keyframes sc-mi-flip {
+  0% { transform: scaleX(0.1); }
+  100% { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-mi__face2 { animation: none; }
+}
+
+/* 소개 한 줄 — 사진 아래 한 칸 띄워 */
+.sc-mi__intro {
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) 0 0;
+  border-top: 1px dashed var(--ink-3);
   font-size: var(--fs-pixel);
   line-height: 18px;
   color: var(--ink);
   word-break: keep-all;
 }
+
+/* 뒷면 */
+.sc-mi__back { display: flex; flex-direction: column; gap: var(--sp-2); }
+.sc-mi__winter {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+}
+.sc-mi__para {
+  margin: 0;
+  font-size: var(--fs-pixel);
+  line-height: 18px;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+/* 미션 한 줄 — 왼쪽 붉은 선. 이번에 무엇을 할지가 이 한 줄이다 */
+.sc-mi__line {
+  margin: var(--sp-1) 0 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-left: 2px solid var(--danger);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink);
+  word-break: keep-all;
+}
+/* 짝사랑의 그 사람. 이름뿐이다 */
+.sc-mi__target {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-pixel);
+  color: var(--ink-2);
+}
+.sc-mi__target b { font-family: var(--font-body); font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
+.sc-mi__back .sc-mi__clauses { padding-top: var(--sp-2); border-top: 1px dashed var(--ink-3); }
+.sc-mi__foot2 { margin: 0; font-size: var(--fs-pixel); line-height: 15px; color: var(--ink-3); word-break: keep-all; }
 
 /* ── ② 가진 것 ──────────────────────────────────────────── */
 
@@ -481,6 +538,63 @@
 .sc-mi__pick b { font-size: var(--fs-pixel); }
 .sc-mi__pick span { font-size: var(--fs-pixel); line-height: 14px; color: var(--ink-2); word-break: keep-all; }
 
+/* ── 지난 판정 ─────────────────────────────────────────── */
+
+.sc-mi__past { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sc-mi__past li + li { border-top: 1px dashed var(--ink-3); }
+.sc-pl-root .sc-mi__past button,
+.sc-mi__past button {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-pixel);
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sc-mi__past b { font-weight: 400; font-size: 12px; letter-spacing: 0.1em; }
+.sc-mi__past i { font-style: normal; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.sc-mi__word.is-failed { color: var(--danger); }
+.sc-mi__word.is-running,
+.sc-mi__word.is-endOnly { color: var(--ink-2); }
+
+/* 나흘 표 */
+.sc-mi__days {
+  width: 100%;
+  margin: var(--sp-3) 0 0;
+  border-collapse: collapse;
+  font-size: var(--fs-pixel);
+  line-height: 18px;
+}
+.sc-mi__days caption {
+  caption-side: top;
+  padding: 0 0 var(--sp-1);
+  text-align: left;
+  letter-spacing: 0.2em;
+  color: var(--ink-2);
+}
+.sc-mi__days th,
+.sc-mi__days td {
+  padding: var(--sp-1) var(--sp-1);
+  border: 1px solid var(--ink-3);
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+}
+.sc-mi__days thead th { color: var(--ink-2); }
+.sc-mi__days tbody th { text-align: left; color: var(--ink-2); }
+.sc-mi__days td { color: var(--ink); }
+.sc-mi__days td.is-failed { color: var(--danger); }
+
 /* ── ④ 받은 표 ──────────────────────────────────────────── */
 
 .sc-mi__votes { margin: 0 0 var(--sp-1); }
@@ -673,3 +787,15 @@
 .sc-dl__go:disabled { color: var(--text-2); cursor: default; }
 
 .sc-dl__again { margin: 0; text-align: center; font-size: var(--fs-pixel); color: var(--text-2); }
+
+/* 끝난 판의 「판정」 칸 — 지난 판정 카드 하나를 가운데에 */
+.sc-pl__verdicts {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-4) calc(var(--sp-8) * 2);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}

@@ -26,6 +26,10 @@ import { uiIcon } from './uiArt'
 import type { MyPaper, MissionShown } from './useMyPaper'
 import type { GameActions } from './useGame'
 import type { AvatarLook } from '../../../shared/look'
+import type { InboxDoc, MissionMail } from '../../../shared/missions/mail'
+import type { NotifyLink } from '../../../shared/notify/notifyData'
+import { NotifyPanel } from './notify/NotifyPanel'
+import { MissionPopup, finalMail, receivedMails, resultWord, sentText } from './MissionPopup'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 import type { TeamId } from '../types'
 import { buzz } from './Controls'
@@ -59,6 +63,10 @@ export interface MeProps {
   /** 지난 페이즈 기록. 링크를 누르면 시트가 올라온다. */
   log: ReactNode
   onSignOut: () => void
+  /** 우편함 — 운영자가 보낸 내 판정. 지난 판정이 여기서 나온다 */
+  inbox?: InboxDoc | null
+  /** 알림 보관함에서 한 줄을 누르면 그 화면으로 */
+  onGo?: (link: NotifyLink) => void
 }
 
 /** 진행도 막대 칸 수. 도트 막대는 칸이 적어야 한 칸이 읽힌다. */
@@ -67,8 +75,9 @@ const BAR_CELLS = 8
 export function Me(props: MeProps) {
   const { me, view, paper, act, onSaid } = props
   const [haveOpen, setHaveOpen] = useState(false)
-  const [secretOpen, setSecretOpen] = useState(false)
+  const [flipped, setFlipped] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
+  /** 지난 판정에서 다시 펴 본 날. 「봤다」는 안 건드린다 */
   const [busy, setBusy] = useState(false)
 
   const items = view?.myItems ?? {}
@@ -111,8 +120,8 @@ export function Me(props: MeProps) {
           paper={paper}
           err={props.paperErr}
           invisible={props.invisible}
-          open={secretOpen}
-          onFold={() => setSecretOpen((v) => !v)}
+          open={flipped}
+          onFold={() => setFlipped((v) => !v)}
         />
 
         {/* ── ② 가진 것 ────────────────────────────────── */}
@@ -233,6 +242,13 @@ export function Me(props: MeProps) {
           </Card>
         )}
 
+        {/* ── 지난 판정 ────────────────────────────────── */}
+        {/*
+          운영자가 보낸 날마다 한 줄. 누르면 그날 종이가 다시 뜬다.
+          마지막 날 판정이 오면 나흘을 한 표로 편다
+        */}
+        <PastVerdicts inbox={props.inbox} />
+
         {/* ── ④ 받은 표 ────────────────────────────────── */}
         {/*
           **빈 줄을 안 둔다.** 전에는 학생증이 오기 전에도 설명 줄 자리가
@@ -260,6 +276,9 @@ export function Me(props: MeProps) {
             </>
           )}
         </Card>
+
+        {/* ── 알림 — 설정과 받은 알림 ──────────────────── */}
+        <NotifyPanel act={act} inbox={props.inbox ?? null} onGo={(l) => props.onGo?.(l)} />
 
         {/* ── ⑥ 지난 페이즈 기록 ───────────────────────── */}
         <p className="sc-mi__link">
@@ -293,7 +312,16 @@ export function Me(props: MeProps) {
 }
 
 /**
- * 학생증 한 장.
+ * 학생증 한 장. **앞뒤가 있다.**
+ *
+ * 앞면은 사진 · 이름 · 반 · 역할 · 소개 한 줄. 누르면 뒤집혀서
+ * 「그해 겨울, 나는」과 미션 한 줄, 조건마다 어디까지 왔는지가 나온다.
+ * **기본은 앞면이다** — 남에게 화면을 보여 줄 일이 생기는 게임이라,
+ * 뒷면을 펴 두면 그게 사고가 된다.
+ *
+ * 뒤집기는 3D 가 아니라 **도트식 장면 바꾸기**다. 한 면만 세우고,
+ * 바뀔 때 가로로 세 걸음 펴진다. 두 면을 겹쳐 세우면 카드 키가 긴 쪽
+ * (뒷면)에 맞춰져 앞면 아래가 텅 빈다.
  *
  * **두 군데가 같은 것을 쓴다** — 열넷이 차서 배정이 끝나면 화면
  * 가운데로 이 카드가 넘어오고(Dealt.tsx), 그 뒤로는 「나」 탭 맨 위에
@@ -316,8 +344,9 @@ export function IdCard({
   err: string | null
   /** 오늘 지워진 사람인가. 카드째 흐려진다. */
   invisible?: boolean
-  /** 숨긴 사실이 펴져 있는가. */
+  /** 뒷면이 보이는가. */
   open: boolean
+  /** 뒤집는다. */
   onFold: () => void
 }) {
   /* 정면 한 칸. pixelFrame 은 32×32 를 돌려주고, 화면에서 4배로
@@ -327,49 +356,153 @@ export function IdCard({
     [look, team],
   )
   const undealt = !paper && err === NOT_DEALT
+  const waiting = undealt ? '아직 배정되지 않았다' : err ? `못 받아왔다 — ${err}` : null
   return (
-    <Card title="학 생 증" className={invisible ? 'is-gone' : ''}>
-      <div className="sc-mi__id">
-        <span
-          className="sc-mi__face"
-          aria-hidden
-          style={face ? { backgroundImage: `url(${face})` } : undefined}
-        />
-        <div className="sc-mi__who">
-          <b>{name}</b>
-          <span className="sc-mi__cls">2학년 3반 · {team}팀</span>
-          {/* 역할 이름만. 갈래(팀의 길·사람의 길·밖의 길)는 안 적는다 —
-              이름이 이미 그보다 많은 것을 말하고, 갈래까지 붙으면
-              남에게 화면을 한 번 보여 줄 때 넷 중 하나로 좁혀진다 */}
-          <span className="sc-mi__role">
-            {paper ? paper.roleName : undealt ? <span className="sc-mi__cls">배정 전</span> : <Dots />}
-          </span>
-          {invisible && <span className="sc-mi__gone">오늘은 보이지 않는다</span>}
-        </div>
-        {/* 완장. 이름을 읽기 전에 몇 팀인지가 먼저 보인다 */}
-        <span className="sc-mi__band" style={{ background: TEAM_COLOR[team] }} aria-hidden />
+    <Card title="학 생 증" className={'sc-mi__idcard' + (invisible ? ' is-gone' : '')}>
+      {/*
+        면을 누르면 뒤집힌다(손가락). 키보드와 읽어 주는 기계는 아래
+        단추로 뒤집는다 — 면 전체를 단추로 만들면 뒷면 문단이 통째로
+        단추 이름이 된다
+      */}
+      <div
+        key={open ? 'back' : 'front'}
+        className={'sc-mi__face2 ' + (open ? 'is-back' : 'is-front')}
+        onClick={onFold}
+      >
+        {!open ? (
+          <>
+            <div className="sc-mi__id">
+              <span
+                className="sc-mi__face"
+                aria-hidden
+                style={face ? { backgroundImage: `url(${face})` } : undefined}
+              />
+              <div className="sc-mi__who">
+                <b>{name}</b>
+                <span className="sc-mi__cls">2학년 3반 · {team}팀</span>
+                {/* 역할 이름만. 갈래(팀의 길·사람의 길·밖의 길)는 안 적는다 —
+                    이름이 이미 그보다 많은 것을 말하고, 갈래까지 붙으면
+                    남에게 화면을 한 번 보여 줄 때 넷 중 하나로 좁혀진다 */}
+                <span className="sc-mi__role">
+                  {paper ? paper.roleName : undealt ? <span className="sc-mi__cls">배정 전</span> : <Dots />}
+                </span>
+                {invisible && <span className="sc-mi__gone">오늘은 보이지 않는다</span>}
+              </div>
+              {/* 완장. 이름을 읽기 전에 몇 팀인지가 먼저 보인다 */}
+              <span className="sc-mi__band" style={{ background: TEAM_COLOR[team] }} aria-hidden />
+            </div>
+            {/* 소개 한 줄. 문서 원문 그대로 */}
+            {(paper || waiting) && <p className="sc-mi__intro">{paper ? paper.flavor : waiting}</p>}
+          </>
+        ) : (
+          <div className="sc-mi__back">
+            <h4 className="sc-mi__winter">그해 겨울, 나는</h4>
+            {!paper ? (
+              waiting ? <p className="sc-mi__none">{waiting}</p> : <Dots />
+            ) : (
+              <>
+                {paper.situation.map((para, i) => (
+                  <p key={i} className="sc-mi__para">
+                    {para}
+                  </p>
+                ))}
+                <p className="sc-mi__line">{paper.line}</p>
+                {/* 짝사랑만. **이름뿐이다** — 어디 있는지 · 어느 팀인지는 안 온다 */}
+                {paper.targetName && (
+                  <p className="sc-mi__target">
+                    <span>그 사람</span>
+                    <b>{paper.targetName}</b>
+                  </p>
+                )}
+                {paper.counting ? <Clauses m={paper.main} /> : <p className="sc-mi__fine">판이 열리면 센다.</p>}
+                {paper.footnote && <p className="sc-mi__foot2">{paper.footnote}</p>}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 역할 한 줄. **기본은 접힘** — 남에게 화면을 보여 줄 일이
-          생기는 게임이라, 펴 두면 그게 사고가 된다.
-          짝사랑만 딸린 한 줄(footnote)이 더 붙는다 — 이름뿐이고
-          그 사람이 어디 있는지는 안 온다 */}
       <button
         type="button"
         className={'sc-mi__fold' + (open ? ' is-open' : '')}
-        aria-expanded={open}
+        aria-pressed={open}
         onClick={onFold}
       >
-        내 역할
-        <i aria-hidden>{open ? '▲' : '▼'}</i>
+        {open ? '앞면으로' : '뒤집어 보기'}
+        <i aria-hidden>{open ? '◀' : '▶'}</i>
       </button>
-      {open && (
-        <p className="sc-mi__secret">
-          {paper ? paper.flavor : undealt ? '아직 배정되지 않았다' : err ? `못 받아왔다 — ${err}` : <Dots />}
-          {paper?.footnote && <em className="sc-mi__foot">{paper.footnote}</em>}
-        </p>
-      )}
     </Card>
+  )
+}
+
+/**
+ * 나흘 표. **마지막 날 판정이 온 뒤에만** 편다.
+ *
+ * 줄은 날, 칸은 그날 결과. 마지막 선택은 마지막 날에만 정해져서 그 줄에만
+ * 적는다. 안 온 날은 「—」 — 운영자가 그날을 안 보냈을 수도 있다.
+ */
+/**
+ * 지난 판정 — 운영자가 보낸 날마다 한 줄. 누르면 그날 종이가 다시 뜬다
+ * (「봤다」는 안 건드린다). 마지막 날 판정이 오면 나흘을 한 표로 편다.
+ *
+ * 「나」 탭과 엔딩 화면의 「판정」 탭이 같이 쓴다 — 마지막 날 판정은
+ * 판이 끝난 뒤에 오고, 그때는 「나」 탭이 없다.
+ */
+export function PastVerdicts({ inbox }: { inbox: InboxDoc | null | undefined }) {
+  const [replay, setReplay] = useState<number | null>(null)
+  const mails = receivedMails(inbox)
+  const lastMail = finalMail(inbox)
+  const replayMail = replay === null ? null : (mails.find((m) => m.day === replay) ?? null)
+  return (
+    <>
+      <Card title="지 난 판 정">
+        {mails.length === 0 ? (
+          <p className="sc-mi__none">아직 받은 판정이 없다.</p>
+        ) : (
+          <ul className="sc-mi__past">
+            {mails.map((m) => (
+              <li key={m.day}>
+                <button type="button" onClick={() => setReplay(m.day)}>
+                  <b>DAY {m.day}</b>
+                  <span className={`sc-mi__word is-${m.status}`}>{resultWord(m.status)}</span>
+                  <i>{sentText(m.sentAtMs)}</i>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {lastMail && <DaysTable mails={mails} last={lastMail.day} />}
+      </Card>
+      {replayMail && <MissionPopup key={`again-${replayMail.day}`} mail={replayMail} onClose={() => setReplay(null)} />}
+    </>
+  )
+}
+
+function DaysTable({ mails, last }: { mails: readonly MissionMail[]; last: number }) {
+  const days = Array.from({ length: Math.max(last, 1) }, (_, i) => i + 1)
+  return (
+    <table className="sc-mi__days">
+      <caption>나흘</caption>
+      <thead>
+        <tr>
+          <th scope="col">날</th>
+          <th scope="col">결과</th>
+          <th scope="col">마지막 선택</th>
+        </tr>
+      </thead>
+      <tbody>
+        {days.map((d) => {
+          const m = mails.find((x) => x.day === d)
+          return (
+            <tr key={d}>
+              <th scope="row">DAY {d}</th>
+              <td className={m ? `is-${m.status}` : ''}>{m ? resultWord(m.status) : '—'}</td>
+              <td className={m?.final ? `is-${m.choice}` : ''}>{m?.final ? STATUS_LABEL[m.choice] : ''}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 

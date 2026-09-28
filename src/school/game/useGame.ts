@@ -18,6 +18,8 @@ import type { Day4Choice } from '../../../shared/rules/choices'
 import { useEffect, useMemo, useState } from 'react'
 import { collection, doc, onSnapshot } from 'firebase/firestore'
 
+import type { InboxDoc } from '../../../shared/missions/mail'
+
 import { auth, callServer, db } from '../../firebase'
 import type { GameDoc, PlayerViewDoc, TeamDoc, TileDoc } from '../../../shared/model'
 import type { TeamId } from '../../../shared/rules/v2'
@@ -29,6 +31,8 @@ export interface GameState {
   game: GameDoc | null
   /** 내 몫. 로그인 전이거나 판에 없으면 null. */
   view: PlayerViewDoc | null
+  /** 우편함 — 운영자가 보낸 내 미션 판정. 본인만 읽는다 */
+  inbox: InboxDoc | null
   teams: Partial<Record<TeamId, TeamDoc>>
   tiles: Partial<Record<TileId, TileDoc>>
   /** 페이즈가 끝날 때마다 한 줄씩. 무슨 일이 있었는지 여기 남는다. */
@@ -46,7 +50,7 @@ export interface PhaseLogLine {
   why?: string
 }
 
-const EMPTY: GameState = { loading: true, game: null, view: null, teams: {}, tiles: {}, phaseLog: [], error: null }
+const EMPTY: GameState = { loading: true, game: null, view: null, inbox: null, teams: {}, tiles: {}, phaseLog: [], error: null }
 
 /**
  * 판을 구독한다.
@@ -174,6 +178,14 @@ export function useGame(gameId: string | null): GameState {
           fail,
         ),
       )
+      stop.push(
+        onSnapshot(
+          doc(base, 'inbox', uid),
+          (snap) => setState((s) => ({ ...s, inbox: (snap.data() as InboxDoc | undefined) ?? null })),
+          // 우편함이 막혀도 판은 돈다 — 화면 전체를 오류로 바꾸지 않는다
+          () => undefined,
+        ),
+      )
     }
     return () => stop.forEach((f) => f())
   }, [gameId, uid])
@@ -226,6 +238,14 @@ export function gameActions(gameId: string) {
     peekDay: () => callServer('peekDay', g),
     /** 내 학생증과 생활기록부. **서버가 내 몫만 깎아서 준다** */
     myPaper: () => callServer('myPaper', g),
+    // ── 알림 ──
+    notifyConfig: () => callServer('notifyConfig', {}),
+    setNotifySettings: (settings: unknown) => callServer('setNotifySettings', { ...g, settings }),
+    pushSubscribe: (sub: unknown) => callServer('pushSubscribe', { ...g, sub }),
+    pushUnsubscribe: (endpoint: string) => callServer('pushUnsubscribe', { ...g, endpoint }),
+    readNotes: () => callServer('readNotes', g),
+    /** 판정 팝업을 닫았다 */
+    seenMissionDay: (day: number) => callServer('seenMissionDay', { ...g, day }),
     // ── 페이즈 ──────────────────────────────────────────────────
     /** 자유 시간에 옆방으로. 즉시 간다. 전선은 안 움직인다. */
     roamTo: (tileId: TileId) => callServer('roamTo', { ...g, tileId }),
@@ -303,6 +323,16 @@ export function gameActions(gameId: string) {
     hostSlipBoard: () => callServer('hostSlipBoard', g),
     hostPapers: () => callServer('hostPapers', g),
     hostRadioOverview: () => callServer('hostRadioOverview', g),
+    /** 알림 보낸 기록 — 최근 200줄 · 실패 수 */
+    hostNotifyLog: () => callServer('hostNotifyLog', g),
+    /** 날짜별 개인 미션 판정. 날을 안 주면 가장 최근 날 */
+    hostMissionDay: (day?: number) => callServer('hostMissionDay', { ...g, ...(day ? { day } : {}) }),
+    /** 한 사람의 그날 결과를 뒤집는다. null 이면 뒤집기를 거둔다. 까닭은 꼭 */
+    hostMissionOverride: (day: number, playerId: string, status: 'met' | 'failed' | null, reason: string) =>
+      callServer('hostMissionOverride', { ...g, day, playerId, status, reason }),
+    /** 그날 판정을 보낸다. playerIds 를 안 주면 전부 */
+    hostMissionSend: (day: number, playerIds?: string[]) =>
+      callServer('hostMissionSend', { ...g, day, ...(playerIds ? { playerIds } : {}) }),
     hostRadioLines: (channel: string, sinceMs = 0) => callServer('hostRadioLines', { ...g, channel, sinceMs }),
     /** 한 장을 고른 방에 뿌린다. 2짝을 DAY 3 전에 뿌리려면 confirmEarly */
     hostScatterSlip: (noteId: string, tileId: string, confirmEarly = false) =>

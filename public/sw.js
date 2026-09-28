@@ -14,7 +14,7 @@
 // 화면이 서버보다 새것인 창은 이미 한 번 검은 화면을 냈다. 서비스
 // 워커가 옛 껍데기를 쥐고 있으면 그 창이 더 오래 산다 — 그래서
 // html 은 언제나 서버가 먼저고, 새 워커는 기다리지 않고 곧장 넘겨받는다.
-const CACHE = 'sc-static-v2'
+const CACHE = 'sc-static-v3'
 
 self.addEventListener('install', (e) => {
   // 기다리지 않는다. 낡은 껍데기를 오래 쥐고 있을수록 손해다
@@ -70,6 +70,58 @@ self.addEventListener('fetch', (e) => {
         if (hit) return hit
         throw err
       }
+    })(),
+  )
+})
+
+// ── 앱 밖 알림(웹 푸시) ──────────────────────────────────────────
+//
+// 서버(functions/src/notify.ts)가 보낸다. **내용은 없다** — 「새 공지」,
+// 「팀 무전에서 누가 나를 불렀다」 같은 한 줄뿐이다. 같은 종류는 tag 로
+// 한 칸에 겹친다. 누르면 그 화면(?tab=…)으로 연다 — 이미 열린 창이 있으면 그 창으로.
+self.addEventListener('push', (e) => {
+  let d = {}
+  try {
+    d = e.data ? e.data.json() : {}
+  } catch {
+    d = { body: e.data ? e.data.text() : '' }
+  }
+  const title = d.title || '투명인간'
+  e.waitUntil(
+    (async () => {
+      if (typeof d.badge === 'number' && self.navigator && 'setAppBadge' in self.navigator) {
+        try {
+          await self.navigator.setAppBadge(d.badge)
+        } catch {
+          /* 배지를 못 다는 기기 */
+        }
+      }
+      await self.registration.showNotification(title, {
+        body: d.body || '',
+        tag: d.tag || 'note',
+        renotify: true,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url: d.url || '/' },
+      })
+    })(),
+  )
+})
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const url = new URL((e.notification.data && e.notification.data.url) || '/', location.origin).href
+  e.waitUntil(
+    (async () => {
+      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const w of wins) {
+        if (new URL(w.url).origin === location.origin) {
+          // 열린 창에게 어디로 갈지 알리고 앞으로 가져온다
+          w.postMessage({ kind: 'open-tab', url })
+          return w.focus()
+        }
+      }
+      return self.clients.openWindow(url)
     })(),
   )
 })

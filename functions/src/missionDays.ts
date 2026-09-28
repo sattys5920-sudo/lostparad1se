@@ -16,16 +16,18 @@
 // 다음에 누가 두드릴 때(tick) **날짜순으로** 따라잡는다. 따라잡을 때도 그날
 // 밤까지의 기록만 센다 — 넘긴 시각(pushedAtMs)에서 자른다.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { judge } from '../../shared/missions/judge'
 import { dayVerdict, dayView, type DayVerdict, type DayVerdictView } from '../../shared/missions/daily'
-import { canonRoleId, type RoleId } from '../../shared/missions/roleNames'
+import type { MissionMail } from '../../shared/missions/mail'
+import { ROLE_BY_ID } from '../../shared/missions/roles'
+import { ROLE_NAMES, canonRoleId, type RoleId } from '../../shared/missions/roleNames'
 import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, RosterDoc, ScheduleDoc } from '../../shared/model'
 
 import { buildLog } from './ending'
-import { gameRef } from './index'
+import { gameRef, requireUid } from './index'
 import { requireHost } from './host'
 
 const db = getFirestore()
@@ -34,6 +36,12 @@ export const missionDaysOf = (gameId: string) =>
   gameRef(gameId).collection('secret').doc('missionDays').collection('items')
 export const missionSnapsOf = (gameId: string) =>
   gameRef(gameId).collection('secret').doc('missionSnaps').collection('items')
+
+/** 운영자가 뒤집고 보낸 기록 — 언제 누가 무엇을 */
+export const missionLogOf = (gameId: string) =>
+  gameRef(gameId).collection('secret').doc('missionLog').collection('items')
+/** 본인만 읽는 우편함(firestore.rules) */
+export const inboxOf = (gameId: string) => gameRef(gameId).collection('inbox')
 
 export const snapId = (day: number, playerId: string) => `d${day}_${playerId}`
 
@@ -161,11 +169,27 @@ export async function catchUpMissionDays(gameId: string, game?: GameDoc): Promis
   return judged
 }
 
+
+/** 운영자가 남기는 기록 한 줄 */
+export interface MissionLogDoc {
+  kind: 'override' | 'send'
+  day: number
+  playerIds: string[]
+  /** 뒤집기 — 전 값과 새 값(null 이면 뒤집기를 거뒀다) · 까닭 */
+  from?: DayVerdict['status'] | null
+  to?: DayVerdict['status'] | null
+  reason?: string
+  byId: string
+  atMs: number
+}
+
+const nameIn = (game: GameDoc) => (id: string) => game.seats.find((s) => s.playerId === id)?.name ?? ''
+
 /**
  * 운영자가 날짜별 판정을 본다. 날을 안 주면 가장 최근 날.
  *
  * **운영자만.** 4단계 화면이 이것을 그린다. 남의 추리 노트나 A의 기록은
- * 여기 없다 — 미션 판정뿐이다.
+ * 여기 없다 — 미션 판정뿐이다. 그날 뒤집고 보낸 기록도 같이 준다.
  */
 export const hostMissionDay = onCall<{ gameId: string; day?: number }>(async (req) => {
   requireHost(req.auth)
@@ -175,17 +199,129 @@ export const hostMissionDay = onCall<{ gameId: string; day?: number }>(async (re
   await catchUpMissionDays(gameId, gameSnap.data() as GameDoc)
   const days = (await missionDaysOf(gameId).get()).docs.map((d) => d.data() as MissionDayDoc).sort((a, b) => a.day - b.day)
   const day = typeof req.data.day === 'number' ? req.data.day : (days[days.length - 1]?.day ?? null)
-  if (day === null) return { days, day: null, rows: [], prev: [] }
-  const [rows, prev] = await Promise.all([
+  if (day === null) return { days, day: null, rows: [], prev: [], log: [] }
+  const [rows, prev, log] = await Promise.all([
     missionSnapsOf(gameId).where('day', '==', day).get(),
     day > 1 ? missionSnapsOf(gameId).where('day', '==', day - 1).get() : null,
+    missionLogOf(gameId).where('day', '==', day).get(),
   ])
-  const game = gameSnap.data() as GameDoc
-  const nameOf = (id: string) => game.seats.find((s) => s.playerId === id)?.name ?? ''
+  const nameOf = nameIn(gameSnap.data() as GameDoc)
   return {
     days,
     day,
-    rows: rows.docs.map((d) => ({ ...(d.data() as MissionSnapDoc), name: nameOf((d.data() as MissionSnapDoc).playerId) })),
+    rows: rows.docs.map((d) => {
+      const r = d.data() as MissionSnapDoc
+      return { ...r, name: nameOf(r.playerId), roleName: ROLE_NAMES[r.roleId] ?? r.roleId, mail: mailOf(r) }
+    }),
     prev: prev ? prev.docs.map((d) => d.data() as MissionSnapDoc) : [],
+    log: log.docs
+      .map((d) => d.data() as MissionLogDoc)
+      .sort((a, b) => b.atMs - a.atMs)
+      .map((l) => ({ ...l, names: l.playerIds.map(nameOf) })),
   }
+})
+
+/**
+ * 본인에게 갈 한 장. **view 에서만 만든다** — truth 는 한 글자도 안 섞는다.
+ * 운영자가 뒤집었으면 결과만 그 값으로 바꾼다. 까닭은 안 보낸다.
+ */
+export function mailOf(snap: MissionSnapDoc, sentAtMs = snap.sentAtMs ?? 0): MissionMail {
+  const role = ROLE_BY_ID[snap.roleId]
+  return {
+    day: snap.day,
+    final: snap.final,
+    status: snap.override?.status ?? snap.view.status,
+    clauses: snap.view.clauses,
+    slips: snap.view.slips,
+    choice: snap.view.choice,
+    roleName: ROLE_NAMES[snap.roleId] ?? '',
+    line: role?.line ?? '',
+    sentAtMs,
+  }
+}
+
+const OVERRIDE_TO = new Set(['met', 'failed'])
+const REASON_MAX = 200
+
+/**
+ * 운영자가 한 사람의 그날 결과를 뒤집는다. status 가 null 이면 뒤집기를 거둔다.
+ *
+ * **까닭을 꼭 적는다.** 기록에 남는다(secret/missionLog). 이미 보낸 뒤라면
+ * 다시 보내야 그 사람에게 간다 — 보낸 것을 몰래 바꾸지 않는다.
+ */
+export const hostMissionOverride = onCall<{
+  gameId: string
+  day: number
+  playerId: string
+  status: 'met' | 'failed' | null
+  reason: string
+}>(async (req) => {
+  const hostId = requireHost(req.auth)
+  const { gameId, day, playerId } = req.data
+  const status = req.data.status ?? null
+  const reason = String(req.data.reason ?? '').trim().slice(0, REASON_MAX)
+  if (status !== null && !OVERRIDE_TO.has(status)) throw new HttpsError('invalid-argument', '달성 아니면 실패로만 바꾼다.')
+  if (status !== null && reason.length === 0) throw new HttpsError('invalid-argument', '바꾸는 까닭을 적어라.')
+  const ref = missionSnapsOf(gameId).doc(snapId(Number(day), String(playerId)))
+  const atMs = Date.now()
+  const out = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그날 판정이 없다.')
+    const cur = snap.data() as MissionSnapDoc
+    const from = cur.override?.status ?? null
+    tx.update(ref, { override: status === null ? null : { status, reason, byId: hostId, atMs } })
+    tx.create(missionLogOf(gameId).doc(), {
+      kind: 'override',
+      day: cur.day,
+      playerIds: [cur.playerId],
+      from,
+      to: status,
+      reason,
+      byId: hostId,
+      atMs,
+    } satisfies MissionLogDoc)
+    return { sent: cur.sentAtMs !== null }
+  })
+  return { ok: true, ...out }
+})
+
+/**
+ * 운영자가 그날 판정을 보낸다 — 한 사람 · 고른 사람 · 전부.
+ *
+ * 받는 사람의 우편함(inbox/{사람})에 **본인 몫(view)만** 적는다. 다시 보내면
+ * 덮어쓰고, 그 사람의 팝업이 다시 뜬다(seen 을 지운다).
+ */
+export const hostMissionSend = onCall<{ gameId: string; day: number; playerIds?: string[] }>(async (req) => {
+  const hostId = requireHost(req.auth)
+  const { gameId } = req.data
+  const day = Number(req.data.day)
+  const snaps = await missionSnapsOf(gameId).where('day', '==', day).get()
+  if (snaps.empty) throw new HttpsError('failed-precondition', '그날 판정이 아직 없다.')
+  const want = Array.isArray(req.data.playerIds) ? new Set(req.data.playerIds.map(String)) : null
+  const pick = snaps.docs.filter((d) => !want || want.has((d.data() as MissionSnapDoc).playerId))
+  if (pick.length === 0) throw new HttpsError('invalid-argument', '보낼 사람이 없다.')
+  const atMs = Date.now()
+  const batch = db.batch()
+  for (const d of pick) {
+    const snap = d.data() as MissionSnapDoc
+    batch.update(d.ref, { sentAtMs: atMs })
+    batch.set(
+      inboxOf(gameId).doc(snap.playerId),
+      { missions: { [`d${day}`]: mailOf(snap, atMs) }, seen: { [`d${day}`]: FieldValue.delete() } },
+      { merge: true },
+    )
+  }
+  const ids = pick.map((d) => (d.data() as MissionSnapDoc).playerId)
+  batch.create(missionLogOf(gameId).doc(), { kind: 'send', day, playerIds: ids, byId: hostId, atMs } satisfies MissionLogDoc)
+  await batch.commit()
+  return { ok: true, sent: ids.length }
+})
+
+/** 본인이 팝업을 닫았다. 다음에 앱을 열어도 다시 안 뜬다 */
+export const seenMissionDay = onCall<{ gameId: string; day: number }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const day = Number(req.data.day)
+  if (!Number.isInteger(day) || day < 1) throw new HttpsError('invalid-argument', '날이 이상하다.')
+  await inboxOf(req.data.gameId).doc(uid).set({ seen: { [`d${day}`]: true } }, { merge: true })
+  return { ok: true }
 })

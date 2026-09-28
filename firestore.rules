@@ -167,6 +167,13 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // 우편함 — 운영자가 보낸 개인 미션 판정. **본인만 읽는다.**
+      // 보내기 전에는 여기 아무것도 없다(판정은 secret 아래에만 있다).
+      match /inbox/{playerId} {
+        allow read: if request.auth != null && request.auth.uid == playerId;
+        allow write: if false;
+      }
+
       // 서버가 그 사람 몫으로 깎아 둔 것. 본인만 읽는다.
       match /views/{playerId} {
         allow read: if request.auth != null && request.auth.uid == playerId;

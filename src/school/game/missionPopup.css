@@ -1,0 +1,211 @@
+/* 판정 팝업 — 어두운 막 위에 종이 한 장.
+ *
+ * 종이는 「나」 탭 카드와 **같은 모서리 넷**이다(.sc-mi__sheet · me.css).
+ * 글자는 셋. 24(DAY · 결과 한 마디, 픽셀 2배) · 12 · 11(토큰).
+ */
+.sc-jd {
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(var(--sp-4) + env(safe-area-inset-top, 0px)) var(--sp-4)
+    calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--bg-0) 84%, transparent);
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
+  line-height: 18px;
+  color: var(--ink);
+}
+.sc-jd > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 막 전체가 닫기 자리다. 보이지 않는 단추 한 장 */
+.sc-pl-root .sc-jd__back,
+.sc-jd__back {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sc-jd__sheet {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* 세 걸음으로 떠오른다 — 도트 화면의 끊김이다 */
+  animation: sc-jd-rise 270ms steps(3, end) both;
+}
+@keyframes sc-jd-rise {
+  0% { transform: translateY(36px); opacity: 0; }
+  1% { opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* 달성의 테 — 결과가 다 찍히면 두어 번 번쩍인다 */
+.sc-jd__frame {
+  position: absolute;
+  inset: 10px;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px transparent;
+}
+.sc-jd__sheet.is-met.is-done .sc-jd__frame {
+  animation: sc-jd-flash 600ms steps(1, end) 2 both;
+}
+@keyframes sc-jd-flash {
+  0% { box-shadow: inset 0 0 0 2px var(--ink); }
+  50% { box-shadow: inset 0 0 0 2px transparent; }
+}
+
+.sc-jd__in {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-6) var(--sp-4) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+/* 끝났다 — 짧게 흔들린다. 두 칸씩, 도트로 */
+.sc-jd__sheet.is-failed.is-done .sc-jd__in {
+  animation: sc-jd-shake 240ms steps(1, end) 1 both;
+}
+@keyframes sc-jd-shake {
+  0% { transform: translateX(-4px); }
+  25% { transform: translateX(4px); }
+  50% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+
+.sc-jd__day {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: var(--ink-2);
+}
+.sc-jd__role {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 22px;
+  color: var(--ink);
+}
+/* 결과 한 마디. 픽셀 2배(24) */
+.sc-jd__word {
+  margin: var(--sp-2) 0 var(--sp-3);
+  text-align: center;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 400;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.sc-jd__sheet.is-failed .sc-jd__word { color: var(--danger); }
+.sc-jd__ghost { visibility: hidden; }
+
+.sc-jd__lines {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2) 0 0;
+  border-top: 1px dashed var(--ink-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.sc-jd__lines li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.sc-jd__lines p { margin: 0; font-size: var(--fs-pixel); line-height: 14px; color: var(--ink); word-break: keep-all; }
+.sc-jd__have { font-size: var(--fs-pixel); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sc-jd__st {
+  min-width: 3.5em;
+  text-align: right;
+  font-size: var(--fs-pixel);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.sc-jd__st.is-met { color: var(--ink); }
+.sc-jd__st.is-failed { color: var(--danger); }
+
+.sc-jd__sub {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-pixel);
+  letter-spacing: 0.2em;
+  color: var(--ink-2);
+}
+
+.sc-jd__choice {
+  display: flex;
+  justify-content: space-between;
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2) 0 0;
+  border-top: 1px dashed var(--ink-3);
+  font-size: var(--fs-pixel);
+  color: var(--ink-2);
+}
+.sc-jd__choice b { font-weight: 400; color: var(--ink); }
+.sc-jd__choice b.is-failed { color: var(--danger); }
+
+/* 미션 한 줄 — 맨 아래에 흐리게 */
+.sc-jd__line {
+  margin: var(--sp-3) 0 0;
+  text-align: center;
+  font-size: var(--fs-pixel);
+  line-height: 18px;
+  color: var(--ink-3);
+  word-break: keep-all;
+}
+
+.sc-pl-root .sc-jd__close,
+.sc-jd__close {
+  align-self: center;
+  margin: var(--sp-3) 0 0;
+  min-width: 120px;
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  appearance: none;
+  border: 1px solid var(--ink-2);
+  border-radius: 0;
+  background: var(--paper);
+  font: inherit;
+  font-size: var(--fs-pixel);
+  letter-spacing: 0.2em;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sc-jd__close:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* 연출 줄이기 — 곧장 끝 모습 */
+.sc-jd.is-still .sc-jd__sheet,
+.sc-jd.is-still .sc-jd__frame,
+.sc-jd.is-still .sc-jd__in { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .sc-jd__sheet,
+  .sc-jd__frame,
+  .sc-jd__in { animation: none !important; }
+}
