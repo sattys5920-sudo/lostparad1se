@@ -215,9 +215,10 @@ async function settlement(c: Ctx): Promise<void> {
    * 그 주머니를 걷어냈으므로 이제는 페이즈 상자가 열릴 때 함께
    * 들어간다 — 결석 보정과 같은 길이다(pendingRefund).
    */
-  if (result.comeback) {
-    const box = teamDocs.get(result.comeback)
-    c.tx.update(ref.collection('teams').doc(result.comeback), {
+  // 공동 꼴찌면 모두 받는다. 넷이 다 같으면 꼴찌가 없다
+  for (const team of result.comeback) {
+    const box = teamDocs.get(team)
+    c.tx.update(ref.collection('teams').doc(team), {
       pendingRefund: (box?.pendingRefund ?? 0) + TOKEN_COMEBACK_BONUS,
     })
   }
@@ -225,8 +226,8 @@ async function settlement(c: Ctx): Promise<void> {
   // 내일 지워지는 사람은 여기서 안 적는다 — announceBallots 가 적는다.
   // 여기서 빈 표로 적으면 그 결과를 null 로 덮는다
   c.tx.update(ref, {
-    spotlightTeams: [result.spotlighted],
-    comebackTeams: [result.comeback],
+    spotlightTeams: result.spotlighted,
+    comebackTeams: result.comeback,
   })
   c.tx.set(ref.collection('events').doc(), {
     atMs: c.atMs,

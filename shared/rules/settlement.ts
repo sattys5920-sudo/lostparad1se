@@ -54,8 +54,8 @@ export function settleDay(input: SettlementInput): DailySettlement {
 /** 화면에 내려보낼 전부. 사람마다 몇 장 받았는지는 들어 있지 않다. */
 export interface SettlementView {
   ranked: SettlementResult['ranked']
-  spotlighted: TeamId
-  comeback: TeamId
+  spotlighted: TeamId[]
+  comeback: TeamId[]
   /** 내일의 투명인간. 없으면 null — 이것도 그대로 알린다. */
   invisibleId: string | null
 }

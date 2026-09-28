@@ -381,8 +381,8 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     const open = TEAM_IDS.map((team) => publicScore({ tiles: list, team }))
     // 4. 주목과 만회
     const out = settle(open)
-    for (const t of TEAM_IDS) teams[t].spotlighted = t === out.spotlighted
-    teams[out.comeback].tokens = markComeback(teams[out.comeback].tokens)
+    for (const t of TEAM_IDS) teams[t].spotlighted = out.spotlighted.includes(t)
+    for (const t of out.comeback) teams[t].tokens = markComeback(teams[t].tokens)
   }
 }
 

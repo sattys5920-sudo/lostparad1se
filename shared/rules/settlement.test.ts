@@ -17,8 +17,8 @@ describe('하루 정산', () => {
 
   it('순위·주목·만회는 그대로 나온다', () => {
     const out = settleDay({ ...base, ballots: [] })
-    expect(out.spotlighted).toBe('A')
-    expect(out.comeback).toBe('D')
+    expect(out.spotlighted).toEqual(['A'])
+    expect(out.comeback).toEqual(['D'])
     expect(out.ranked).toHaveLength(4)
   })
 

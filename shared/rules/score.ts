@@ -38,35 +38,33 @@ export function publicScore(input: ScoreInput): ScoreBreakdown {
 // ── 순위 ────────────────────────────────────────────────────────
 
 export interface Ranked extends ScoreBreakdown {
-  rank: number
   /**
-   * 점수만 보고 매긴 순위. **동점은 같은 수를 갖는다**(1·2·2·4).
-   *
-   * rank 는 화면에 줄을 세우려고 끝까지 가르는 수고, 이쪽은 「정말
-   * 1위인가」를 묻는 수다. 둘이 같은 방 수인데 이름 순으로 갈라 놓고
-   * 「너는 2위다」라고 하면, 개인 미션의 「우리 팀이 1위가 아니다」가
+   * 순위. **동점은 공동이다**(1·2·2·4). 방 수가 같으면 같은 등수 —
+   * 무엇으로도 가르지 않는다. 지식이나 돈으로 가르면 개인 지갑이 팀
+   * 순위에 끼어들고, 이름 순으로 가르면 「우리 팀이 1위가 아니다」가
    * 팀이 실제로 얼마나 잘했는지와 무관하게 갈린다.
    */
+  rank: number
+  /** rank 와 같다. 옛 이름이라 남겨 둔다 — 판정 코드가 이 이름으로 읽는다 */
   tiedRank: number
 }
 
 /**
- * 방 수로 줄을 세운다. **동점은 가르지 않는다**(tiedRank) — 화면에 줄을
- * 세우는 rank 만 팀 이름 순으로 가른다. 지식이나 돈으로 가르면 개인
- * 지갑이 팀 순위에 끼어든다.
+ * 방 수로 줄을 세운다. **동점은 공동 순위다.** 줄 순서만 팀 이름 순으로
+ * 두는데, 이것은 화면에 늘어놓는 차례일 뿐 등수가 아니다.
  */
 export function rankTeams(scores: readonly ScoreBreakdown[]): Ranked[] {
   const sorted = [...scores].sort((a, b) => b.total - a.total || a.team.localeCompare(b.team))
   let tied = 0
   let seen = 0
   let last: number | null = null
-  return sorted.map((s, i) => {
+  return sorted.map((s) => {
     seen += 1
     if (s.total !== last) {
       tied = seen
       last = s.total
     }
-    return { ...s, rank: i + 1, tiedRank: tied }
+    return { ...s, rank: tied, tiedRank: tied }
   })
 }
 
@@ -80,24 +78,27 @@ export function rankTeams(scores: readonly ScoreBreakdown[]): Ranked[] {
  *   2. 그날 받은 표를 센다
  *   3. 그 결과로 점수와 순위가 정해진다
  *   4. 1위는 주목, 꼴찌는 만회
- *
  */
 export const SETTLEMENT_ORDER = ['production', 'votes', 'score', 'spotlight'] as const
 export type SettlementStep = (typeof SETTLEMENT_ORDER)[number]
 
 export interface SettlementResult {
   ranked: Ranked[]
-  /** 다음 정산까지 눈에 띄는 팀. */
-  spotlighted: TeamId
-  /** 다음 08:00에 토큰을 더 받는 팀. */
-  comeback: TeamId
+  /** 다음 정산까지 눈에 띄는 팀. **공동 1위면 모두다** */
+  spotlighted: TeamId[]
+  /**
+   * 다음 페이즈에 토큰을 더 받는 팀. **공동 꼴찌면 모두다.** 넷이 다
+   * 같으면 꼴찌가 없다 — 아무도 안 받는다
+   */
+  comeback: TeamId[]
 }
 
 export function settle(scores: readonly ScoreBreakdown[]): SettlementResult {
   const ranked = rankTeams(scores)
+  const worst = Math.max(...ranked.map((r) => r.rank))
   return {
     ranked,
-    spotlighted: ranked[0].team,
-    comeback: ranked[ranked.length - 1].team,
+    spotlighted: ranked.filter((r) => r.rank === 1).map((r) => r.team),
+    comeback: worst === 1 ? [] : ranked.filter((r) => r.rank === worst).map((r) => r.team),
   }
 }

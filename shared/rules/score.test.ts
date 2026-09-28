@@ -63,12 +63,11 @@ describe('순위', () => {
    * 「우리 팀이 1위가 아니다」를 묻는 조항은 안 가른 쪽을 봐야 한다.
    * 동점을 지식·돈으로 가르지 않는다 — 개인 지갑이 팀 순위에 끼면 안 된다
    */
-  it('공동 1위는 둘 다 1위다 — 줄만 이름 순으로 선다', () => {
+  it('동점은 공동 순위다 — 줄만 이름 순으로 선다', () => {
     const out = rankTeams([row('B', 3), row('A', 3)])
-    const tied = Object.fromEntries(out.map((r) => [r.team, r.tiedRank]))
-    expect(tied).toEqual({ A: 1, B: 1 })
     expect(out.map((r) => r.team)).toEqual(['A', 'B'])
-    expect(out.map((r) => r.rank)).toEqual([1, 2])
+    expect(out.map((r) => r.rank)).toEqual([1, 1])
+    expect(out.map((r) => r.tiedRank)).toEqual([1, 1])
   })
 
   it('1·2·2·4 로 건너뛴다', () => {
@@ -87,8 +86,25 @@ describe('정산', () => {
   it('1위는 주목, 꼴찌는 만회다', () => {
     const rows = (['A', 'B', 'C', 'D'] as TeamId[]).map((t, i) => ({ team: t, territory: 4 - i, total: 4 - i }))
     const out = settle(rows)
-    expect(out.spotlighted).toBe('A')
-    expect(out.comeback).toBe('D')
+    expect(out.spotlighted).toEqual(['A'])
+    expect(out.comeback).toEqual(['D'])
     expect(out.ranked.map((r) => r.rank)).toEqual([1, 2, 3, 4])
+  })
+
+  it('공동 1위는 둘 다 주목, 공동 꼴찌는 둘 다 만회다', () => {
+    const out = settle([
+      { team: 'A', territory: 3, total: 3 },
+      { team: 'B', territory: 3, total: 3 },
+      { team: 'C', territory: 1, total: 1 },
+      { team: 'D', territory: 1, total: 1 },
+    ])
+    expect(out.spotlighted).toEqual(['A', 'B'])
+    expect(out.comeback).toEqual(['C', 'D'])
+  })
+
+  it('넷이 다 같으면 넷 다 1위고 만회는 없다', () => {
+    const out = settle((['A', 'B', 'C', 'D'] as TeamId[]).map((t) => ({ team: t, territory: 2, total: 2 })))
+    expect(out.spotlighted).toHaveLength(4)
+    expect(out.comeback).toEqual([])
   })
 })
