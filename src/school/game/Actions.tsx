@@ -50,7 +50,6 @@ export function Actions({ tileId, where, owner = null, lockedBy = null, onClose,
         {/* 자물쇠. 값보다 먼저 눈에 들어야 한다 — 걸어갔다가 문 앞에서
             돌아서는 것이 제일 아깝다 */}
         {lockedBy && <span className="sc-ac__locked">{lockedBy}팀이 잠갔다</span>}
-        {where === 'here' && <span>{spec.value}점</span>}
         {onClose && (
           <button className="sc-ac__close" onClick={onClose} aria-label="닫기">
             ✕

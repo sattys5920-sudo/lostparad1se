@@ -169,7 +169,7 @@ export const ROBOTS_PER_TEAM = 6
  * 것이 요점이고, 그것이 원래 점령전이 시키려던 일이다.
  */
 export const SMASHES_PER_PHASE = 1
-/** 연구가 로봇이 되기까지 걸리는 페이즈. **발전소를 쥐어도 똑같이 기다린다.** */
+/** 연구가 로봇이 되기까지 걸리는 페이즈. */
 export const RESEARCH_PHASES = 1
 
 /**
@@ -195,14 +195,13 @@ export const KNOWLEDGE_PER_RESEARCH_OWNER = 1
 export const researchKnowledge = (ownsLab: boolean): number =>
   ownsLab ? KNOWLEDGE_PER_RESEARCH_OWNER : KNOWLEDGE_PER_RESEARCH
 
-export type RoomKind = 'normal' | 'narrow' | 'lab' | 'plant'
+export type RoomKind = 'normal' | 'narrow' | 'lab'
 
 /** 방에 들어갈 수 있는 머릿수. 로봇도 한 자리를 차지한다. */
 export const ROOM_CAPACITY: Record<RoomKind, number> = {
   normal: 6,
   narrow: 2,
   lab: 4,
-  plant: 4,
 }
 
 /**
@@ -214,7 +213,7 @@ export const ROOM_CAPACITY: Record<RoomKind, number> = {
  *
  *   관문 넷   좁은 방 — 길목이라 머릿수로 밀어붙일 수 없다
  *   교차로 넷 연구실 — 팀마다 하나씩, 기지에서 같은 거리
- *   중앙광장  발전소 — 한 곳뿐이고 네 기지에서 정확히 같은 거리다
+ *   중앙광장  2-3 교실 — 아무도 못 가지는 방이다. 발전소였던 자리다
  */
 export const KIND_BY_TIER: Record<Tier, RoomKind> = {
   zone1: 'normal',
@@ -224,7 +223,9 @@ export const KIND_BY_TIER: Record<Tier, RoomKind> = {
   cross: 'normal',
   lab: 'lab',
   core: 'normal',
-  plaza: 'plant',
+  // 한때 발전소(연구가 바로 나던 방)였다. 2-3 교실이 되면서 아무도
+  // 못 가지는 방이 됐고, 효과가 쓰일 길이 없어 종류째 걷어냈다
+  plaza: 'normal',
 }
 
 export const ROOM_KIND: Readonly<Record<TileId, RoomKind>> = Object.fromEntries(

@@ -96,7 +96,6 @@ const at = (s: PhaseState, id: string) => s.people.find((p) => p.playerId === id
 /** 문을 넘고 10분 뒤 — 서버의 시계가 하는 일을 시험에서 손으로 한다. */
 const land = (s: PhaseState, ...ids: string[]) => ids.reduce(arrive, s)
 const lab = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
-const plant = TILES.find((t) => ROOM_KIND[t.id] === 'plant') as (typeof TILES)[number]
 
 describe('토큰이 한 페이즈의 전부다', () => {
   it('다른 방에 들어가면 토큰이 하나 준다', () => {
@@ -553,16 +552,6 @@ describe('연구', () => {
     ])
   })
 
-  /* 발전소를 쥐어도 기다린다. 그 자리에서 나던 것을 없앴다 */
-  it('발전소를 쥔 팀도 스무 분을 기다린다 — 그 자리에서 안 나온다', () => {
-    let s = board({ people: [person('a', 'A', lab.id)], owners: { [plant.id]: 'A' } })
-    s = must(s, 'a', { kind: 'research' })
-    expect(s.robots).toHaveLength(0)
-    expect(s.pendingResearch).toEqual([
-      { playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, tileId: lab.id },
-    ])
-  })
-
   it('팀 한도에 걸리면 연구를 고를 수 없다 — 토큰도 안 든다', () => {
     const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
     const s = board({ people: [person('a', 'A', lab.id)], robots: full })
@@ -610,7 +599,6 @@ describe('연구', () => {
 
 describe('연구에 드는 지식', () => {
   const lab2 = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
-  const plant2 = TILES.find((t) => ROOM_KIND[t.id] === 'plant') as (typeof TILES)[number]
   const withVault = (knowledge: number, over: Partial<PhaseState> = {}) =>
     board({
       people: [person('a', 'A', lab2.id)],
@@ -664,12 +652,6 @@ describe('연구에 드는 지식', () => {
 
   it('아무도 안 쥔 연구실이면 세 점이 그냥 사라진다', () => {
     const s = must(withVault(5), 'a', { kind: 'research' })
-    expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
-  })
-
-  it('발전소를 쥐어도 값은 같다 — 로봇도 바로 안 난다', () => {
-    const s = must(withVault(5, { owners: { [plant2.id]: 'A' } }), 'a', { kind: 'research' })
-    expect(robotsIn(s, lab2.id)).toBe(0)
     expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
   })
 

@@ -1884,7 +1884,6 @@ p.sc-cv { display: block; }
 .sc-at__kind { position: absolute; right: 2px; bottom: 2px; width: 5px; height: 5px; background: var(--bg-3); }
 .sc-at__kind.is-narrow { clip-path: polygon(0 0, 40% 0, 40% 100%, 0 100%, 60% 100%, 60% 0, 100% 0, 100% 100%, 0 100%); }
 .sc-at__kind.is-lab { clip-path: polygon(40% 0, 60% 0, 60% 40%, 100% 100%, 0 100%, 40% 40%); background: var(--team-c); }
-.sc-at__kind.is-plant { clip-path: polygon(55% 0, 20% 55%, 45% 55%, 40% 100%, 80% 45%, 55% 45%); background: var(--accent); }
 /* 내 자리 — 안쪽에 내 도트 하나 */
 .sc-at__me { position: absolute; left: 2px; bottom: 2px; width: 4px; height: 4px; background: var(--bg-2); }
 

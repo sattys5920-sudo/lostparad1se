@@ -25,7 +25,6 @@ import type { TeamId, TileId } from '../types'
 const KIND_NAME: Record<string, string> = {
   narrow: '좁은 방',
   lab: '연구실',
-  plant: '발전소',
   normal: '일반 방',
 }
 
@@ -236,7 +235,6 @@ const ZOOM_STEPS = 3
 const KIND_DOT: Record<string, string> = {
   narrow: 'is-narrow',
   lab: 'is-lab',
-  plant: 'is-plant',
 }
 
 /** 그 방에서 무엇을 할 수 있는가. **규칙에서 읽어 온다 — 새 규칙이 아니다.** */
@@ -245,7 +243,6 @@ function canDoIn(room: RoomFacts): string[] {
   // **자판기는 여기 안 적는다.** 복도에 서 있어서 어느 방의 일도
   // 아니다 — 방마다 무엇을 하는지를 적는 목록에 낄 자리가 없다
   if (room.kind === 'lab') out.push('연구실')
-  if (room.kind === 'plant') out.push('발전소')
   if (room.kind === 'narrow') out.push('좁은 방 — 둘까지')
   return out
 }

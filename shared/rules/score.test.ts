@@ -48,14 +48,14 @@ const input = (over: Partial<ScoreInput> = {}): ScoreInput => ({
 
 describe('영역', () => {
   it('가진 칸의 가치를 더한다 — **빼는 칸은 없다**', () => {
-    // 교무실 4 · 급식실 4 · 가사실 1. 기지가 없으니 거저 받은 칸도 없다
-    expect(territoryScore(input())).toBe(9)
+    // 교무실 · 급식실 · 가사실 — 방은 모두 1점이다. 기지가 없으니 거저 받은 칸도 없다
+    expect(territoryScore(input())).toBe(3)
   })
 
   // A의 기록이 칸 하나를 지목해 +2 올려 주던 보너스가 있었다.
   // 기록이 판을 안 건드리게 되면서 같이 나갔다
   it('기록으로 오르는 칸은 없다 — 값은 판에 박힌 것뿐이다', () => {
-    expect(territoryScore(input())).toBe(9)
+    expect(territoryScore(input())).toBe(3)
   })
 })
 

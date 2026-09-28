@@ -121,8 +121,8 @@ export const PLAN_PAD = 20
 /** 한 방에 점을 이만큼까지 그리고, 넘으면 +N 으로 적는다. */
 export const DOTS_MAX = 3
 
-/** 방 종류 표시. 좁은 방·연구실·발전소만 따로 그린다. */
-export const KIND_MARK: Record<string, string> = { narrow: '▮', lab: '⚗', plant: '⚡', normal: '' }
+/** 방 종류 표시. 좁은 방·연구실만 따로 그린다. */
+export const KIND_MARK: Record<string, string> = { narrow: '▮', lab: '⚗', normal: '' }
 
 /**
  * 완장 색. **char/palette.ts 의 TEAMS 가 정본이다** — 도트로 그린

@@ -90,7 +90,13 @@ export interface TileSpec {
 // 줄** 있어야 한다 — 붙여 놓으면 문 없이 벽을 통과하는 방이 된다.
 // 그런 실수는 world.ts 가 켜질 때 바로 터뜨린다.
 
-type RoomDef = readonly [TileId, string, number, Tier, Rect]
+type RoomDef = readonly [TileId, string, Tier, Rect]
+
+/**
+ * 방 하나가 끝에 세는 점수. **모든 방이 같다** — 1점이다. 방마다 값이
+ * 달랐던 것(1~8)을 걷어냈다. 어느 방을 쥐든 한 방은 한 방이다
+ */
+export const ROOM_POINT = 1
 
 interface FloorDef {
   floor: Floor
@@ -121,9 +127,9 @@ const B1: FloorDef = {
     { end: 'e', rect: { x: 41, y: 2, w: 6, h: 11 } },
   ],
   rooms: [
-    ['storage', '창고', 1, 'zone1', { x: 9, y: 2, w: 11, h: 9 }],
-    ['baseC', '기술실', 3, 'zone1', { x: 22, y: 1, w: 13, h: 10 }],
-    ['oldBuilding', '경비실', 5, 'cross', { x: 10, y: 16, w: 18, h: 9 }],
+    ['storage', '창고', 'zone1', { x: 9, y: 2, w: 11, h: 9 }],
+    ['baseC', '기술실', 'zone1', { x: 22, y: 1, w: 13, h: 10 }],
+    ['oldBuilding', '경비실', 'cross', { x: 10, y: 16, w: 18, h: 9 }],
   ],
 }
 
@@ -174,17 +180,17 @@ const F1: FloorDef = {
     { end: 'e', rect: { x: 57, y: 11, w: 6, h: 19 } },
   ],
   rooms: [
-    ['baseA', '교무실', 4, 'zone1', { x: 9, y: 5, w: 12, h: 10 }],
-    ['cafeteria', '급식실', 4, 'gate', { x: 23, y: 3, w: 10, h: 12 }],
-    ['annex', '양호실', 5, 'cross', { x: 35, y: 7, w: 8, h: 8 }],
-    ['classroom', '매점', 3, 'zone1', { x: 45, y: 4, w: 9, h: 11 }],
-    ['hallway', '가사실', 1, 'zone1', { x: 9, y: 20, w: 10, h: 8 }],
-    ['gym', '체육관', 4, 'gate', { x: 20, y: 20, w: 9, h: 10 }],
-    ['auditorium', '강당', 6, 'core', { x: 34, y: 20, w: 9, h: 10 }],
-    ['playground', '운동장', 6, 'core', { x: 44, y: 20, w: 8, h: 10 }],
-    ['labRoom', '연구실', 5, 'lab', { x: 51, y: 31, w: 12, h: 10 }],
-    ['garden', '정원', 3, 'zone1', { x: 19, y: 35, w: 10, h: 8 }],
-    ['baseB', '화장실', 1, 'zone1', { x: 33, y: 35, w: 11, h: 9 }],
+    ['baseA', '교무실', 'zone1', { x: 9, y: 5, w: 12, h: 10 }],
+    ['cafeteria', '급식실', 'gate', { x: 23, y: 3, w: 10, h: 12 }],
+    ['annex', '양호실', 'cross', { x: 35, y: 7, w: 8, h: 8 }],
+    ['classroom', '매점', 'zone1', { x: 45, y: 4, w: 9, h: 11 }],
+    ['hallway', '가사실', 'zone1', { x: 9, y: 20, w: 10, h: 8 }],
+    ['gym', '체육관', 'gate', { x: 20, y: 20, w: 9, h: 10 }],
+    ['auditorium', '강당', 'core', { x: 34, y: 20, w: 9, h: 10 }],
+    ['playground', '운동장', 'core', { x: 44, y: 20, w: 8, h: 10 }],
+    ['labRoom', '연구실', 'lab', { x: 51, y: 31, w: 12, h: 10 }],
+    ['garden', '정원', 'zone1', { x: 19, y: 35, w: 10, h: 8 }],
+    ['baseB', '화장실', 'zone1', { x: 33, y: 35, w: 11, h: 9 }],
   ],
 }
 
@@ -209,16 +215,16 @@ const F2: FloorDef = {
     { end: 'e', rect: { x: 54, y: 4, w: 6, h: 17 } },
   ],
   rooms: [
-    ['centralPlaza', '2-3 교실', 8, 'plaza', { x: 9, y: 1, w: 16, h: 8 }],
-    ['scienceRoom', '과학실', 3, 'zone1', { x: 27, y: 2, w: 10, h: 7 }],
-    ['musicRoom', '음악실', 3, 'zone1', { x: 39, y: 1, w: 13, h: 8 }],
-    ['artRoom', '미술실', 1, 'zone1', { x: 14, y: 14, w: 11, h: 11 }],
-    ['library', '도서관', 4, 'gate', { x: 27, y: 14, w: 11, h: 11 }],
-    ['baseD', '시청각실', 3, 'zone1', { x: 40, y: 14, w: 10, h: 11 }],
-    ['newBuilding', '무용실', 5, 'cross', { x: 14, y: 30, w: 12, h: 9 }],
-    ['broadcastRoom', '방송실', 6, 'core', { x: 28, y: 30, w: 11, h: 9 }],
-    ['studentCouncil', '학생회실', 6, 'core', { x: 41, y: 30, w: 10, h: 9 }],
-    ['clubRoom', '동아리실', 1, 'zone1', { x: 0, y: 22, w: 9, h: 9 }],
+    ['centralPlaza', '2-3 교실', 'plaza', { x: 9, y: 1, w: 16, h: 8 }],
+    ['scienceRoom', '과학실', 'zone1', { x: 27, y: 2, w: 10, h: 7 }],
+    ['musicRoom', '음악실', 'zone1', { x: 39, y: 1, w: 13, h: 8 }],
+    ['artRoom', '미술실', 'zone1', { x: 14, y: 14, w: 11, h: 11 }],
+    ['library', '도서관', 'gate', { x: 27, y: 14, w: 11, h: 11 }],
+    ['baseD', '시청각실', 'zone1', { x: 40, y: 14, w: 10, h: 11 }],
+    ['newBuilding', '무용실', 'cross', { x: 14, y: 30, w: 12, h: 9 }],
+    ['broadcastRoom', '방송실', 'core', { x: 28, y: 30, w: 11, h: 9 }],
+    ['studentCouncil', '학생회실', 'core', { x: 41, y: 30, w: 10, h: 9 }],
+    ['clubRoom', '동아리실', 'zone1', { x: 0, y: 22, w: 9, h: 9 }],
   ],
 }
 
@@ -227,7 +233,7 @@ const ROOF: FloorDef = {
   floor: 'roof',
   halls: [],
   stairs: [],
-  rooms: [['rooftop', '옥상', 4, 'gate', { x: 8, y: 2, w: 40, h: 12 }]],
+  rooms: [['rooftop', '옥상', 'gate', { x: 8, y: 2, w: 40, h: 12 }]],
 }
 
 const PLAN_BY_FLOOR: Record<Floor, FloorDef> = { b1: B1, f1: F1, f2: F2, roof: ROOF }
@@ -240,7 +246,7 @@ export const PLAN_BAND_GAP = 3
 const allRects = (f: FloorDef): Rect[] => [
   ...f.halls,
   ...f.stairs.map((s) => s.rect),
-  ...f.rooms.map((r) => r[4]),
+  ...f.rooms.map((r) => r[3]),
 ]
 
 /** 그 층이 차지하는 높이. 가장 아래 네모 밑에 벽 한 줄을 남긴다. */
@@ -338,13 +344,13 @@ const MINI_NAME: Readonly<Record<string, string>> = {
 }
 
 const ROOM_TILES: TileSpec[] = FLOORS.flatMap((floor) =>
-  PLAN_BY_FLOOR[floor].rooms.map(([id, name, value, tier, rect]) => ({
+  PLAN_BY_FLOOR[floor].rooms.map(([id, name, tier, rect]) => ({
     id,
     name,
     shortName: name,
     miniName: MINI_NAME[name] ?? name,
     floor,
-    value,
+    value: ROOM_POINT,
     tier,
     rect,
     plan: toPlan(floor, rect),
