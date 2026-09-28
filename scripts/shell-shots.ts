@@ -1,0 +1,206 @@
+// 셸과 화면 틀 — 노치 있는 폰에서 사람이 실제로 보는 것.
+//
+//   ㆍ 로딩(스크립트가 늦게 올 때) · 로그인 · 맵 · 탭마다 · 말하기 · 전체 맵 · 연결 끊김
+//   ㆍ 노치와 홈 바는 CDP 로 흉내 낸다(위 47 · 아래 34). 그 밑에 글자가 깔리는가
+//   ㆍ 글꼴이 실제로 받아졌는가 · color-scheme · 입력칸 글자 크기 · 탭 하이라이트
+//
+//   1. cd functions && npm run build
+//   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
+//   3. W=375 H=667 npx vite-node scripts/shell-shots.ts   (390×844 · 430×932 도)
+import { mkdirSync } from 'node:fs'
+
+import pw from '/opt/node22/lib/node_modules/playwright/index.js'
+import type { Page } from 'playwright'
+import { dayHourMs } from '../shared/rules/clock'
+
+const { chromium } = pw as typeof import('playwright')
+const PROJECT = 'demo-goei'
+const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
+const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
+const ADMIN = { Authorization: 'Bearer owner' }
+const SITE = 'http://127.0.0.1:8899/lostparad1se'
+const OUT = '/tmp/claude-0/shots'
+const QA_PW = 'seed-password-1'
+const START = Date.UTC(2026, 2, 1, 23, 0, 0)
+const W = Number(process.env.W ?? 390)
+const H = Number(process.env.H ?? 844)
+// 홈 버튼이 있는 SE 크기는 노치가 없다
+const NOTCH = H <= 700 ? { top: 20, bottom: 0 } : { top: 47, bottom: 34 }
+
+
+async function must(name: string, tk: string | null, data: unknown) {
+  const r = await fetch(`${FN}/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) }, body: JSON.stringify({ data }) })
+  const j = (await r.json()) as { result?: Record<string, unknown>; error?: { message: string } }
+  if (j.error) throw new Error(`${name}: ${j.error.message}`)
+  return j.result ?? {}
+}
+
+async function hostToken(tag: string): Promise<string> {
+  const email = `shell-${tag}@x.test`
+  const body = JSON.stringify({ email, password: 'password', returnSecureToken: true })
+  await fetch(`${AUTH}/accounts:signUp?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+  const look = await fetch(`${AUTH}/accounts:lookup`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN }, body: JSON.stringify({ email: [email] }) })
+  const { users } = (await look.json()) as { users: { localId: string }[] }
+  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN }, body: JSON.stringify({ localId: users[0].localId, customAttributes: JSON.stringify({ admin: true }) }) })
+  const inn = await fetch(`${AUTH}/accounts:signInWithPassword?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+  return ((await inn.json()) as { idToken: string }).idToken
+}
+
+async function notch(page: Page) {
+  const s = await page.context().newCDPSession(page)
+  await s.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: NOTCH.top, bottom: NOTCH.bottom, left: 0, right: 0 } })
+}
+
+/** 노치·홈 바 밑에 깔린 글자·단추. 보이는 것만 센다 */
+async function underNotch(page: Page): Promise<string[]> {
+  return page.evaluate(
+    ({ top, bottom }) => {
+      const out: string[] = []
+      const vh = window.innerHeight
+      for (const el of Array.from(document.querySelectorAll('button, a, input, textarea, h1, h2, h3, p, span, label'))) {
+        const r = el.getBoundingClientRect()
+        if (r.width === 0 || r.height === 0) continue
+        const cs = getComputedStyle(el)
+        if (cs.visibility === 'hidden' || Number(cs.opacity) === 0) continue
+        // 자기 글자가 있는 것만 — 감싸는 상자는 빼고
+        const own = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim() !== '')
+        if (!own && !['BUTTON', 'INPUT', 'TEXTAREA'].includes(el.tagName)) continue
+        if (r.top < top - 1 && r.bottom > 0) out.push(`위 ${Math.round(r.top)}px: ${el.tagName} ${(el.textContent ?? '').trim().slice(0, 16)}`)
+        if (bottom > 0 && r.bottom > vh - bottom + 1 && r.top < vh) out.push(`아래 ${Math.round(vh - r.bottom)}px: ${el.tagName} ${(el.textContent ?? '').trim().slice(0, 16)}`)
+      }
+      return out.slice(0, 8)
+    },
+    NOTCH,
+  )
+}
+
+async function facts(page: Page) {
+  return page.evaluate(async () => {
+    await document.fonts.ready
+    const loaded = new Set<string>()
+    document.fonts.forEach((f) => {
+      if (f.status === 'loaded') loaded.add(f.family.replace(/"/g, ''))
+    })
+    const inputs = Array.from(document.querySelectorAll('input, textarea, select')).map((el) => parseFloat(getComputedStyle(el).fontSize))
+    const btn = document.querySelector('button')
+    return {
+      fonts: [...loaded],
+      colorScheme: getComputedStyle(document.documentElement).colorScheme,
+      metaScheme: document.querySelector('meta[name="color-scheme"]')?.getAttribute('content') ?? null,
+      tapHighlight: btn ? getComputedStyle(btn).getPropertyValue('-webkit-tap-highlight-color') : null,
+      userSelect: getComputedStyle(document.body).userSelect,
+      smallestInput: inputs.length ? Math.min(...inputs) : null,
+    }
+  })
+}
+
+async function main() {
+  mkdirSync(OUT, { recursive: true })
+  const tag = `shell-${W}x${H}`
+  const report: string[] = []
+  const game = `sh${Date.now()}`
+  const host = await hostToken(game)
+  await must('createGame', host, { gameId: game, seed: 'sh' })
+  await must('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
+  await must('assignAll', host, { gameId: game })
+  await must('startGame', host, { gameId: game, startAtMs: START })
+  await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 60 })
+  await must('tick', host, { gameId: game })
+  await must('openPhase', host, { gameId: game })
+
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'ko-KR', colorScheme: 'dark' })
+
+  // ── 로딩 — 스크립트가 늦게 오는 망 ──
+  {
+    const page = await ctx.newPage()
+    await notch(page)
+    await page.route('**/assets/*.js', async (r) => {
+      await new Promise((ok) => setTimeout(ok, 8000))
+      await r.continue()
+    })
+    const t0 = Date.now()
+    await page.goto(`${SITE}/?game=${game}`, { waitUntil: 'commit' })
+    await page.waitForTimeout(1200)
+    await page.screenshot({ path: `${OUT}/${tag}-0로딩.png` })
+    const boot = await page.evaluate(() => !!document.querySelector('#root .boot') && !document.querySelector('.sc-gt'))
+    report.push(`로딩: ${boot ? '스크립트 전 로딩 화면이 보인다' : '로딩 화면이 없다'} (${Date.now() - t0}ms 시점)`)
+    await page.close()
+  }
+
+  const page = await ctx.newPage()
+  await notch(page)
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto(`${SITE}/?game=${game}`, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#gt-id', { timeout: 15000 })
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: `${OUT}/${tag}-1로그인.png` })
+  report.push(`로그인 노치 밑: ${JSON.stringify(await underNotch(page))}`)
+  report.push(`사실: ${JSON.stringify(await facts(page))}`)
+
+  await page.fill('#gt-id', 'qa01')
+  await page.fill('#gt-pw', QA_PW)
+  await page.click('.sc-gt__submit')
+  for (let i = 0; i < 40; i++) {
+    if (await page.locator('.sc-ct__tab').count()) break
+    await page.locator('.sc-dl__go').click({ timeout: 800 }).catch(() => undefined)
+    await page.locator('.sc-rv__sheet').first().click({ timeout: 800 }).catch(() => undefined)
+    await page.waitForTimeout(300)
+  }
+  await page.locator('.sc-home__panel button').click({ timeout: 3000 }).catch(() => undefined)
+  await page.waitForTimeout(1800)
+  await page.screenshot({ path: `${OUT}/${tag}-2맵.png` })
+  report.push(`맵 노치 밑: ${JSON.stringify(await underNotch(page))}`)
+
+  // 탭마다
+  const tabs = await page.locator('.sc-ct__tab').allInnerTexts()
+  for (let i = 1; i < tabs.length; i++) {
+    await page.locator('.sc-ct__tab').nth(i).evaluate((el) => (el as HTMLElement).click())
+    await page.waitForTimeout(700)
+    const name = tabs[i].trim()
+    await page.screenshot({ path: `${OUT}/${tag}-3탭-${name}.png` })
+    const under = await underNotch(page)
+    if (under.length) report.push(`${name} 노치 밑: ${JSON.stringify(under)}`)
+  }
+  report.push(`받은 글꼴(탭을 다 돈 뒤): ${JSON.stringify((await facts(page)).fonts)}`)
+  await page.locator('.sc-ct__tab').nth(0).evaluate((el) => (el as HTMLElement).click())
+  await page.waitForTimeout(600)
+
+  // 말하기 — 키보드는 못 띄우지만 적는 줄에 초점을 둔다
+  const box = page.locator('.sc-sy__box').first()
+  if (await box.count()) {
+    await box.click()
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: `${OUT}/${tag}-4말하기.png` })
+    report.push(`말하기 칸 글자 ${await box.evaluate((el) => getComputedStyle(el).fontSize)}`)
+    await page.keyboard.press('Escape')
+  }
+
+  // 전체 맵
+  const atlas = page.locator('button', { hasText: /^전체 맵$/ }).first()
+  if (await atlas.count()) {
+    await atlas.evaluate((el) => (el as HTMLElement).click())
+    await page.waitForTimeout(900)
+    await page.screenshot({ path: `${OUT}/${tag}-5전체맵.png` })
+    report.push(`전체 맵 노치 밑: ${JSON.stringify(await underNotch(page))}`)
+    await page.locator('.sc-atlas__done, button:has-text("닫기")').first().click().catch(() => undefined)
+    await page.waitForTimeout(500)
+  }
+
+  // 연결 끊김
+  await ctx.setOffline(true)
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')))
+  await page.waitForTimeout(2500)
+  await page.screenshot({ path: `${OUT}/${tag}-6끊김.png` })
+  await ctx.setOffline(false)
+
+  await browser.close()
+  console.log(report.join('\n'))
+  if (errors.length) console.log(`터짐: ${JSON.stringify(errors)}`)
+}
+
+void main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

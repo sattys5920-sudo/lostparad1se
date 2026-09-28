@@ -6,18 +6,16 @@
  * Pretendard 는 속공간이 좁고 세로로 서 있어서 같은 크기에서 훨씬
  * 또렷하다. 굵기도 300 에서 400 으로 올린다.
  *
- * 두 군데서 받는다. **한쪽이 막혀도 글씨가 안 무너진다.**
- *   Pretendard          jsdelivr. 쓰는 글자만 받아 가는 조각 배포라 가볍다
- *   IBM Plex Sans KR    구글. 원래 쓰던 곳이고 이쪽도 세로로 선 글꼴이다
- * 둘 다 못 받아도 그다음이 Apple SD Gothic Neo 다 — 아이폰에 기본으로
- * 있고 이미 충분히 또렷하다. 이 게임이 보는 화면이 거기다.
+ * **직접 둔다**(public/fonts/pretendard, index.html 이 부른다). 전에는
+ * jsdelivr 를 CSS @import 로 받았다 — html → css → css → 글꼴 네 번을
+ * 거쳐서야 글씨가 섰고, 그 서버가 막히면 시스템 글꼴로 떨어졌다.
+ * 그다음이 Apple SD Gothic Neo 다 — 아이폰에 기본으로 있다.
  *
  * 명조는 큰 제목에만 남긴다(--sc-font-serif). 11~13px 짜리 UI 글씨에
  * 명조를 깔아 두었던 것이 「폰트가 별로」의 절반이었다 — 가는 세리프는
  * 작을수록 뭉갠다.
  */
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
 
 .school-root {
   --sc-bg: #eef0f2;
@@ -32,8 +30,7 @@
   --sc-danger: #7a2620;
   --sc-surface: #e2e5e7;
   --sc-font-body:
-    'Pretendard Variable', Pretendard, 'IBM Plex Sans KR', 'Apple SD Gothic Neo',
-    system-ui, sans-serif;
+    'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', system-ui, sans-serif;
   /* 제목도 같은 한 벌이다. 굵기와 자간으로 가른다 */
   --sc-font-title: var(--sc-font-body);
   /* 큰 제목 전용. 20px 아래로는 쓰지 않는다 */

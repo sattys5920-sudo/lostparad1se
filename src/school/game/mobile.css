@@ -196,6 +196,17 @@
   flex-direction: column;
 }
 .sc-pl__tab[hidden] { display: none !important; }
+/*
+ * **맵 말고 다른 탭은 노치 아래에서 시작한다.** 맵은 머리 줄이 스스로
+ * 비운다(.sc-pl__head). 나 · 무전 · 투표 · 메모는 제목이 노치 밑에
+ * 깔려 있었다 — 390×844 에 노치를 흉내 내어 찍어서 찾았다
+ * (scripts/shell-shots.ts)
+ */
+.sc-pl__tab:not(.sc-pl__map) {
+  padding-top: var(--sa-top);
+  /* 비운 자리가 틀의 밝은 바탕으로 비치지 않게. 패널 색이다 */
+  background: #161a26;
+}
 
 /* 구르는 것은 이 안에서만. 앱 전체는 구르지 않는다 */
 /* **구르는 칸 안의 것은 눌리지 않는다.** overflow 를 쓴 상자는 저절로

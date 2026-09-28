@@ -5,6 +5,8 @@
     <!-- 모바일 전용이다. 데스크톱은 고려하지 않는다.
          user-scalable=no 는 두 손가락 확대를 막는다 — 전체 맵만 자기
          손으로 확대를 처리하고, 나머지 화면이 늘어나면 레이아웃이 깨진다.
+         **iOS 는 이 줄을 무시한다.** 입력칸에 초점이 갈 때 확대되는 것은
+         입력칸 글자를 16px 이상으로 두는 것만이 막는다(mobile.css).
          interactive-widget=overlays-content — 키보드가 **레이아웃을 안
          줄인다.** resizes-content 이면 안드로이드가 화면을 통째로 줄여서
          맵·자원 줄·탭바가 한꺼번에 재배치된다. 키보드는 덮기만 하고,
@@ -13,6 +15,9 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content"
     />
+    <!-- 어두운 화면뿐이다. 이 줄이 없으면 입력칸·고르기·스크롤바가
+         밝은 테마로 그려진다 -->
+    <meta name="color-scheme" content="dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -21,13 +26,30 @@
     <link rel="apple-touch-icon" href="/lostparad1se/icon-192.png" />
     <meta name="theme-color" content="#0d0f16" />
     <title>남겨진 아이들</title>
+
+    <!-- 글꼴은 직접 둔다. 남의 서버를 두 번 거쳐 받던 것(html → css →
+         css → 글꼴)을 걷어냈다.
+           Galmuri11   픽셀 글꼴. 맵·HUD·단추. 첫 화면부터 쓰므로 먼저 받는다
+           Pretendard  긴 문장(규칙 설명·엔딩). 쓰는 글자가 든 조각만
+                       받아 가는 배포라, 조각 92개를 미리 받지 않는다
+         라이선스는 둘 다 SIL OFL 1.1 이다 — public/fonts/*-OFL.* -->
+    <link rel="preload" href="/lostparad1se/fonts/Galmuri11.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/lostparad1se/fonts/pretendard/pretendard.css" />
     <style>
+      @font-face {
+        font-family: 'Galmuri11';
+        src: url('/lostparad1se/fonts/Galmuri11.woff2') format('woff2');
+        font-display: swap;
+      }
+      html {
+        color-scheme: dark;
+      }
       html, body {
         margin: 0;
         background: #0d0f16;
+        color: #e4e8f2;
         font-family:
-          'Pretendard Variable', Pretendard, 'IBM Plex Sans KR', 'Apple SD Gothic Neo',
-          system-ui, sans-serif;
+          'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', system-ui, sans-serif;
         /* 앱 바깥은 안 움직인다. 고무줄 스크롤이 있으면 캔버스를
            끌 때마다 화면 전체가 따라 늘어난다 */
         height: 100%;
@@ -36,6 +58,18 @@
         /* 더블탭 확대를 막는다. 연타가 확대로 새면 조작이 안 된다 */
         touch-action: manipulation;
         -webkit-text-size-adjust: 100%;
+        /* 누를 때 파란 네모가 안 뜬다. 누른 반응은 각 단추가 :active 로 낸다 */
+        -webkit-tap-highlight-color: transparent;
+        /* 길게 눌러도 글자가 안 잡히고 메뉴도 안 뜬다. 십자키를 연타하면 늘 걸린다 */
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      /* 글을 쓰는 자리만 되돌린다 */
+      input, textarea, [contenteditable='true'] {
+        -webkit-user-select: auto;
+        user-select: auto;
+        -webkit-touch-callout: default;
       }
       /* **문서를 못 박는다.** 키보드가 떠도 문서가 구르거나 줄지
          않게. 아이폰은 초점 간 칸이 키보드에 가리면 페이지째 밀어
@@ -47,10 +81,93 @@
         width: 100%;
       }
       #root { height: 100%; }
+
+      /* ── 스크립트가 오기 전 ─────────────────────────────────────
+         느린 망에서 까만 화면은 죽은 앱처럼 보인다. 화면이 서면 React 가
+         이 자리를 통째로 갈아 끼운다.
+         안전 영역은 여기서만 직접 비운다. 게임 화면은 조각마다 이미
+         비우고 있어서(--sa-top · --sa-bottom), 뿌리에서 또 비우면 두
+         겹이 된다 */
+      .boot {
+        position: fixed;
+        inset: 0;
+        box-sizing: border-box;
+        padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        overflow: hidden;
+        font-family: 'Galmuri11', 'Apple SD Gothic Neo', sans-serif;
+        color: #8a93ab;
+      }
+      /* 픽셀 글꼴은 정수 배율로만. 11px 의 두 배다 */
+      .boot__name {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 400;
+        color: #e4e8f2;
+        letter-spacing: 0;
+      }
+      .boot__dots {
+        display: flex;
+        gap: 8px;
+      }
+      .boot__dots i {
+        width: 4px;
+        height: 4px;
+        background: #f0d68a;
+        opacity: 0.2;
+        animation: boot-dot 1.2s steps(1, end) infinite;
+      }
+      .boot__dots i:nth-child(2) { animation-delay: 0.4s; }
+      .boot__dots i:nth-child(3) { animation-delay: 0.8s; }
+      /* 부드럽게 번지지 않는다. 켜지거나 꺼지거나 둘 중 하나다 */
+      @keyframes boot-dot {
+        0% { opacity: 1; }
+        33% { opacity: 0.2; }
+      }
+      /* 눈송이 — 2px 네모가 끊어서 내린다. 픽셀 그림에 맞게 매끄럽게 흐르지 않는다 */
+      .boot__snow i {
+        position: absolute;
+        top: -8px;
+        width: 2px;
+        height: 2px;
+        background: #e4e8f2;
+        opacity: 0.6;
+        animation: boot-fall 6s steps(24, end) infinite;
+      }
+      .boot__snow i:nth-child(1) { left: 12%; animation-delay: -1s; }
+      .boot__snow i:nth-child(2) { left: 31%; animation-delay: -4s; animation-duration: 8s; }
+      .boot__snow i:nth-child(3) { left: 47%; animation-delay: -2.5s; }
+      .boot__snow i:nth-child(4) { left: 66%; animation-delay: -5s; animation-duration: 7s; }
+      .boot__snow i:nth-child(5) { left: 82%; animation-delay: -0.5s; animation-duration: 9s; }
+      .boot__snow i:nth-child(6) { left: 91%; animation-delay: -3.5s; }
+      @keyframes boot-fall {
+        to { transform: translateY(calc(100vh + 16px)); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot__snow i { animation: none; top: auto; }
+        .boot__snow i:nth-child(odd) { top: 24%; }
+        .boot__snow i:nth-child(even) { top: 68%; }
+        .boot__dots i { animation: none; opacity: 1; }
+      }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot" role="status" aria-label="불러오는 중">
+        <div class="boot__snow" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <p class="boot__name">남겨진 아이들</p>
+        <div class="boot__dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <noscript>
+      <p style="position: fixed; inset: auto 16px 40%; margin: 0; text-align: center; font-size: 16px; color: #e4e8f2">
+        자바스크립트를 켜 주세요. 이 게임은 자바스크립트로 돌아갑니다.
+      </p>
+    </noscript>
     <script type="module" src="/src/school/main.tsx"></script>
   </body>
 </html>
