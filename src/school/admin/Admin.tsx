@@ -60,7 +60,7 @@ const CALENDAR: Record<string, string> = {
   dayStart: '다음 날 아침',
   settlement: '21시 정산',
   lastHours: '점수판 끄기 (마지막 여섯 시간)',
-  gameEnd: '닷새 끝 · 엔딩',
+  gameEnd: '나흘 끝 · 엔딩',
 }
 
 type Tab = 'go' | 'put' | 'manage'
@@ -296,7 +296,7 @@ function Desk() {
                 disabled={busy || !assigned}
                 onClick={() => void run('시작', () => act.startGame())}
               >
-                닷새 시작
+                판 시작
               </button>
               <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
               <button disabled={busy || qaPw.length < 8} onClick={() => void run('채우기', () => act.seedPlayers(qaPw, 0))}>
@@ -589,7 +589,7 @@ function ResetGame({
   }
   return (
     <div className="sc-ad__ask">
-      <p>닷새치 기록이 다 지워진다. 앉은 자리만 남는다.</p>
+      <p>나흘치 기록이 다 지워진다. 앉은 자리만 남는다.</p>
       <div className="sc-ad__askRow">
         <button onClick={() => setAsked(false)}>그만두기</button>
         <button

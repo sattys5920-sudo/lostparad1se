@@ -2,11 +2,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  FLAGS_PER_DAY,
   canHoldFlags,
   flagTotal,
   flagsIn,
-  grantFlags,
+  spendFlags,
   pullTarget,
   withPlanted,
   withPulled,
@@ -43,16 +42,16 @@ describe('꽂기와 뽑기', () => {
   })
 })
 
-describe('하루치', () => {
-  it('날이 바뀌면 들어온다. 남은 것은 그대로 간다', () => {
-    expect(grantFlags(2, 1, 2)).toEqual({ held: 2 + FLAGS_PER_DAY, day: 2 })
+describe('팀 상자', () => {
+  it('페이즈 몫부터 쓴다', () => {
+    expect(spendFlags({ given: 2, bought: 1 }, 2)).toEqual({ given: 1, bought: 1 })
   })
 
-  it('**같은 날 두 번 안 들어온다**', () => {
-    expect(grantFlags(1, 3, 3)).toEqual({ held: 1, day: 3 })
+  it('페이즈 몫이 바닥나면 산 것을 쓴다', () => {
+    expect(spendFlags({ given: 1, bought: 2 }, 1)).toEqual({ given: 0, bought: 1 })
   })
 
-  it('처음 받는 날도 들어온다', () => {
-    expect(grantFlags(0, null, 1)).toEqual({ held: FLAGS_PER_DAY, day: 1 })
+  it('늘었으면 그대로다', () => {
+    expect(spendFlags({ given: 1, bought: 0 }, 3)).toEqual({ given: 1, bought: 0 })
   })
 })

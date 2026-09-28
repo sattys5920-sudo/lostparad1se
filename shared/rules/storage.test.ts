@@ -12,21 +12,21 @@ describe('잠기는 시각', () => {
   it('17:00에 잠기고 19:00에 열린다', () => {
     expect(STORAGE_LOCK_HOUR).toBe(17)
     expect(STORAGE_UNLOCK_HOUR).toBe(19)
-    expect(lockAtMs(on(5, '10:00'))).toBe(on(5, '17:00'))
-    expect(unlockAtMs(on(5, '10:00'))).toBe(on(5, '19:00'))
+    expect(lockAtMs(on(4, '10:00'))).toBe(on(4, '17:00'))
+    expect(unlockAtMs(on(4, '10:00'))).toBe(on(4, '19:00'))
   })
 
-  it('DAY 5에만 잠긴다', () => {
-    expect(isLocked(START, on(5, '17:00'))).toBe(true)
-    expect(isLocked(START, on(4, '17:00'))).toBe(false)
+  it('DAY 4에만 잠긴다', () => {
+    expect(isLocked(START, on(4, '17:00'))).toBe(true)
+    expect(isLocked(START, on(3, '17:00'))).toBe(false)
     expect(isLocked(START, on(1, '17:00'))).toBe(false)
   })
 
   it('두 시간 동안이다', () => {
-    expect(isLocked(START, on(5, '16:59'))).toBe(false)
-    expect(isLocked(START, on(5, '17:00'))).toBe(true)
-    expect(isLocked(START, on(5, '18:59'))).toBe(true)
-    expect(isLocked(START, on(5, '19:00'))).toBe(false)
+    expect(isLocked(START, on(4, '16:59'))).toBe(false)
+    expect(isLocked(START, on(4, '17:00'))).toBe(true)
+    expect(isLocked(START, on(4, '18:59'))).toBe(true)
+    expect(isLocked(START, on(4, '19:00'))).toBe(false)
   })
 })
 
@@ -47,16 +47,16 @@ describe('갇히는 사람', () => {
 
 describe('나갈 수 있는가', () => {
   it('갇혔으면 19:00까지 못 나간다', () => {
-    const out = canLeave(LOCKED_TILE, START, on(5, '18:00'), true)
+    const out = canLeave(LOCKED_TILE, START, on(4, '18:00'), true)
     expect(out.ok).toBe(false)
     expect(out.reason).toBe('lockedInStorage')
   })
 
   it('19:00이 되면 나간다', () => {
-    expect(canLeave(LOCKED_TILE, START, on(5, '19:00'), true).ok).toBe(true)
+    expect(canLeave(LOCKED_TILE, START, on(4, '19:00'), true).ok).toBe(true)
   })
 
   it('갇히지 않았으면 언제든 나간다', () => {
-    expect(canLeave(LOCKED_TILE, START, on(5, '18:00'), false).ok).toBe(true)
+    expect(canLeave(LOCKED_TILE, START, on(4, '18:00'), false).ok).toBe(true)
   })
 })

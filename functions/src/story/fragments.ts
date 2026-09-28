@@ -1,11 +1,11 @@
-// A의 기록 다섯 장. **서버 전용.**
+// A의 기록 나흘치. **서버 전용.**
 //
 // 날마다 자정에 한 장씩 열린다. 공개 시각 전에는 어떤 API로도 내려보내지
 // 않는다. 조각은 역할 이름을 말하지 않는다 — 숨긴 사실과 겹치는 장면을
 // 비출 뿐이다.
 //
 // 본문 출처: personal_missions_v3.md 4장.
-// DAY 3과 DAY 5는 scenario_reveal.md 6장이 덮는다(시간선 수정과 반전 단서).
+// DAY 3과 DAY 4 둘째 장은 scenario_reveal.md 6장이 덮는다(시간선 수정과 반전 단서).
 import type { PaperKind } from '../../../shared/reveal/paper'
 
 /** 한 장의 종이. 조각 하나에 두 장일 수 있다(DAY 2). */
@@ -70,6 +70,11 @@ export const FRAGMENTS: readonly FragmentData[] = [
     ],
   },
   {
+    // **임시로 두 장이다.** 판이 나흘로 줄어서 옛 DAY 4와 DAY 5를 마지막
+    // 날에 차례로 붙여 두었다. 어느 날에 무엇을 둘지는 나중에 다시 정한다.
+    //
+    // 둘째 장은 scenario_reveal.md 6장. 「철컥」 줄이 잠근 사람이 따로
+    // 있다는 것만 알려 준다. 지킴이는 여전히 가리켜지는 역할이 아니다.
     day: 4,
     papers: [
       {
@@ -79,13 +84,6 @@ export const FRAGMENTS: readonly FragmentData[] = [
           '먼저 나간 사람이 문을 닫았어. 내가 부르는 소리 위로 웃음소리가 멀어졌어.',
         ],
       },
-    ],
-  },
-  {
-    // scenario_reveal.md 6장. 「철컥」 줄이 잠근 사람이 따로 있다는 것만
-    // 알려 준다. 지킴이는 여전히 가리켜지는 역할이 아니다.
-    day: 5,
-    papers: [
       {
         kind: 'note',
         lines: [

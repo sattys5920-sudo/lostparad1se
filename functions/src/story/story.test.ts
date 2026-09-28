@@ -13,7 +13,7 @@ import { TILE_BY_ID } from '../../../shared/rules/board'
 import { TOTAL_DAYS } from '../../../shared/rules/v2'
 
 describe('A의 기록', () => {
-  it('닷새 모두 있다', () => {
+  it('날마다 있다', () => {
     expect(FRAGMENTS).toHaveLength(TOTAL_DAYS)
     for (let d = 1; d <= TOTAL_DAYS; d++) expect(FRAGMENT_BY_DAY[d]).toBeDefined()
   })
@@ -33,9 +33,9 @@ describe('A의 기록', () => {
     }
   })
 
-  it('날마다 한 장이다', () => {
+  it('날마다 한 장이다 — 마지막 날만 임시로 두 장', () => {
     for (const f of FRAGMENTS) {
-      expect(f.papers.length, `DAY ${f.day}`).toBe(1)
+      expect(f.papers.length, `DAY ${f.day}`).toBe(f.day === TOTAL_DAYS ? 2 : 1)
     }
   })
 
@@ -45,9 +45,9 @@ describe('A의 기록', () => {
     }
   })
 
-  it('종이 종류가 문서대로다 — 1 일기장 / 2 메모 / 3 일기장 / 4 메모 / 5 메모', () => {
+  it('종이 종류가 문서대로다 — 1 일기장 / 2 메모 / 3 일기장 / 4 메모+메모', () => {
     const kinds = FRAGMENTS.map((f) => f.papers.map((p) => p.kind).join('+'))
-    expect(kinds).toEqual(['diary', 'note', 'diary', 'note', 'note'])
+    expect(kinds).toEqual(['diary', 'note', 'diary', 'note+note'])
   })
 
   it('DAY 3은 창고 앞에서 보낸 것으로 고쳐져 있다', () => {
@@ -57,8 +57,8 @@ describe('A의 기록', () => {
     expect(text).not.toContain('피아노 뒤')
   })
 
-  it('DAY 5에 철컥 줄이 있다', () => {
-    const text = (FRAGMENT_BY_DAY[5]?.papers ?? []).flatMap((p) => p.lines).join(' ')
+  it('마지막 날에 철컥 줄이 있다', () => {
+    const text = (FRAGMENT_BY_DAY[TOTAL_DAYS]?.papers ?? []).flatMap((p) => p.lines).join(' ')
     expect(text).toContain('철컥')
   })
 })

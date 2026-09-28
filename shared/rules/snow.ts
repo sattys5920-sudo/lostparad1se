@@ -18,7 +18,7 @@ export interface Progress {
   released: number
 }
 
-/** 다섯 장이 다 열렸는가. */
+/** 모든 날의 기록이 다 열렸는가. */
 export function snowStopped(p: Progress): boolean {
   return p.released >= TOTAL_DAYS
 }
@@ -26,9 +26,11 @@ export function snowStopped(p: Progress): boolean {
 /** 지금 눈발의 세기. 5가 가장 굵고 0이 그친 것이다. */
 export function snowLevel(p: Progress): number {
   if (snowStopped(p)) return 0
-  const done = Math.min(1, Math.max(0, p.released) / TOTAL_DAYS)
-  // 진행이 0이면 5, 다 차면 1(그치기 직전). 0은 오직 다 열렸을 때다
-  return Math.max(1, Math.ceil(SNOW_LEVEL_MAX * (1 - done)))
+  // 진행이 0이면 5, 하나 남으면 1(그치기 직전). 0은 오직 다 열렸을 때다.
+  // 날 수가 몇이든 그 사이를 고르게 나눈다
+  const left = Math.min(TOTAL_DAYS - 1, Math.max(0, TOTAL_DAYS - 1 - p.released))
+  const span = Math.max(1, TOTAL_DAYS - 1)
+  return 1 + Math.round(((SNOW_LEVEL_MAX - 1) * left) / span)
 }
 
 /** 화면에 내려보낼 전부. 사람 수는 들어 있지 않다. */

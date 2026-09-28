@@ -22,15 +22,18 @@
 //
 // 깃발은 **팀 것**이다. 토큰처럼 팀 상자 하나를 같이 쓴다.
 //
-//   하루 지급   팀마다 같은 수. 인원이 셋이든 넷이든 같다
-//   자판기      돈으로 산다. 학교 전체에 하루 몇 개뿐이라 먼저 사는 쪽이 임자다
+//   페이즈 몫   페이즈가 열릴 때마다 팀마다 같은 수로 **다시 채운다**.
+//               남은 것이 쌓이지 않는다 — 한 페이즈에 쓸 수 있는 한도다.
+//               인원이 셋이든 넷이든 같다
+//   자판기      돈으로 산다. 학교 전체에 하루 몇 개뿐이라 먼저 사는 쪽이
+//               임자다. **산 것은 페이즈가 바뀌어도 남는다**
 //
 // 이 파일은 **순수한 수와 함수**다. 판정에 쓰는 숫자는 전부 여기 있다.
 import { TILE_BY_ID, type TileId } from './board'
 import type { TeamId } from './v2'
 
-/** 하루에 팀마다 들어오는 깃발. 그날 첫 페이즈가 열릴 때 들어온다. */
-export const FLAGS_PER_DAY = 3
+/** 페이즈마다 팀에 채워 주는 깃발. 남은 것에 더하지 않고 이 수로 맞춘다. */
+export const FLAGS_PER_PHASE = 4
 
 /** 자판기에서 깃발 하나 값(돈). */
 export const FLAG_PRICE = 5
@@ -97,10 +100,20 @@ export function pullTarget(flags: FlagMap, tile: TileId, mine: TeamId): TeamId |
 }
 
 /**
- * 오늘 몫을 넣은 상자. **그날 한 번만 들어온다** — 마지막으로 넣은 날을
- * 같이 받아서, 같은 날 두 번째 부르면 그대로 돌려준다.
+ * 팀 상자는 두 칸이다 — 페이즈 몫(given)과 산 것(bought).
+ * 꽂을 때는 **페이즈 몫부터** 쓴다. 다음 페이즈에 사라질 것을 먼저
+ * 써야 산 것이 남는다.
  */
-export function grantFlags(held: number, lastDay: number | null, today: number): { held: number; day: number } {
-  if (lastDay === today) return { held, day: today }
-  return { held: held + FLAGS_PER_DAY, day: today }
+export interface FlagBox {
+  given: number
+  bought: number
+}
+
+export const boxTotal = (b: FlagBox): number => b.given + b.bought
+
+/** 총 수가 줄었으면 페이즈 몫에서 먼저 뺀다. */
+export function spendFlags(b: FlagBox, totalAfter: number): FlagBox {
+  const spent = Math.max(0, boxTotal(b) - totalAfter)
+  const fromGiven = Math.min(b.given, spent)
+  return { given: b.given - fromGiven, bought: Math.max(0, b.bought - (spent - fromGiven)) }
 }

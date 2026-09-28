@@ -159,7 +159,12 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 보이는 방의 것만 떼어 보낸다
     flags: ((flagDoc.data() as { tiles?: FlagMap } | undefined)?.tiles ?? {}),
     // 깃발 상자. 토큰 상자처럼 투영이 자기 팀 것만 보낸다
-    flagBoxes: Object.fromEntries(teams.docs.map((d) => [d.id, (d.data() as { flags?: number }).flags ?? 0])),
+    flagBoxes: Object.fromEntries(
+      teams.docs.map((d) => {
+        const t = d.data() as { flags?: number; boughtFlags?: number }
+        return [d.id, (t.flags ?? 0) + (t.boughtFlags ?? 0)]
+      }),
+    ),
     smashedBy: ((hiddenPhase.data() as { smashedBy?: string[] } | undefined)?.smashedBy ?? []),
     pulledTeams: ((hiddenPhase.data() as { pulledTeams?: TeamId[] } | undefined)?.pulledTeams ?? []),
     // 오늘 적은 표. **투영이 본인 것만 떼어 보낸다** — 여기까지는

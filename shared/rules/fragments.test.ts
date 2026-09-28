@@ -38,19 +38,19 @@ describe('날마다 일어나는 일', () => {
   it('DAY 4에 모든 동맹이 풀린다', () => {
   })
 
-  it('DAY 5에 마지막 여섯 시간이 있다', () => {
-    expect(eventsOn(5).hasLastHours).toBe(true)
+  it('DAY 4에 마지막 여섯 시간이 있다', () => {
+    expect(eventsOn(4).hasLastHours).toBe(true)
   })
 })
 
 describe('마지막 여섯 시간', () => {
-  it('DAY 5 15:00부터다', () => {
-    expect(inLastHours(START, dayN(5, '14:59'))).toBe(false)
-    expect(inLastHours(START, dayN(5, '15:00'))).toBe(true)
+  it('DAY 4 15:00부터다', () => {
+    expect(inLastHours(START, dayN(4, '14:59'))).toBe(false)
+    expect(inLastHours(START, dayN(4, '15:00'))).toBe(true)
   })
 
   it('다른 날 15시는 아니다', () => {
-    expect(inLastHours(START, dayN(4, '15:00'))).toBe(false)
+    expect(inLastHours(START, dayN(3, '15:00'))).toBe(false)
   })
 
   it('시작 시각을 짚는다', () => {
@@ -59,11 +59,11 @@ describe('마지막 여섯 시간', () => {
 })
 
 describe('끝', () => {
-  it('DAY 5까지는 안 끝났다', () => {
-    expect(isOver(START, dayN(5, '20:00'))).toBe(false)
+  it('DAY 4까지는 안 끝났다', () => {
+    expect(isOver(START, dayN(4, '20:00'))).toBe(false)
   })
 
-  it('여섯째 날이면 끝났다', () => {
-    expect(isOver(START, seoul('2026-03-07T09:00:00'))).toBe(true)
+  it('다섯째 날이면 끝났다', () => {
+    expect(isOver(START, seoul('2026-03-06T09:00:00'))).toBe(true)
   })
 })

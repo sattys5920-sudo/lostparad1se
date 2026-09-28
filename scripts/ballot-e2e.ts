@@ -160,12 +160,16 @@ async function main(): Promise<void> {
   // B0 에게 두 표, C0 에게 한 표 — 갈리지 않게
   await must('castBallot', A[1].token, { gameId: GAME, targetId: B[0].uid })
   await must('castBallot', C[0].token, { gameId: GAME, targetId: B[1].uid })
-  // 하루 열 페이즈를 다 돌린다
-  for (let i = 0; i < 10; i++) {
-    await must('openPhase', host, { gameId: GAME })
-    await land(11)
-    await must('closePhase', host, { gameId: GAME })
-  }
+  // **교시를 닫아도 세지 않는다.** 하루에 몇 교시를 열지는 날마다 달라서
+  // 운영자가 그날 정산을 넘길 때 센다
+  await must('openPhase', host, { gameId: GAME })
+  await land(11)
+  await must('closePhase', host, { gameId: GAME })
+  check((await gameNow()).invisibleId == null, '교시를 닫는 것만으로는 안 정해진다', String((await gameNow()).invisibleId))
+  const pushed = await must('pushDay', host, { gameId: GAME })
+  check((pushed.pushed as { kind?: string } | null)?.kind === 'settlement', '달력을 넘기면 그날 정산이다', JSON.stringify(pushed.pushed))
+  const late = await call('castBallot', A[2].token, { gameId: GAME, targetId: B[0].uid })
+  check(late.code === 'FAILED_PRECONDITION', '센 뒤에는 더 못 적는다', String(late.message))
   const g = await gameNow()
   check(g.invisibleId === B[0].uid, '가장 많이 적힌 사람이 지워진다', String(g.invisibleId))
   check(g.invisibleTeam === 'B', '그 팀이 기록된다', String(g.invisibleTeam))

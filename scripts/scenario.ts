@@ -15,6 +15,7 @@
 // 서버 전용 문장을 읽지만 이 파일은 번들에 실리지 않는다(scripts/).
 import { gameNow, dayNumber, type DevClock } from '../shared/rules/clock'
 import { DAY_START_HOUR, TOTAL_DAYS, type TeamId } from '../shared/rules/v2'
+const DAYS_ALL = Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1).join(',')
 import { releasedDays } from '../shared/reveal/release'
 import {
   advance,
@@ -203,8 +204,8 @@ function run(opts: RunOptions): void {
 
   // ── 아침 시퀀스가 제대로 돌았는가 ─────────────────────────────
   const normal = bots[0]
-  check(normal.seen.sort((a, b) => a - b).join(',') === '1,2,3,4,5', '매일 들어온 계정은 닷새를 다 봤다')
-  check(away.seen.sort((a, b) => a - b).join(',') === '1,2,3,4,5', '돌아온 계정도 결국 닷새를 다 봤다')
+  check(normal.seen.sort((a, b) => a - b).join(',') === DAYS_ALL, '매일 들어온 계정은 모든 날을 다 봤다')
+  check(away.seen.sort((a, b) => a - b).join(',') === DAYS_ALL, '돌아온 계정도 결국 모든 날을 다 봤다')
   check(
     bots.every((b) => b.skipped.length === 0),
     '**건너뛴 날이 없다** — 넘기는 길이 아예 없다',
@@ -214,10 +215,13 @@ function run(opts: RunOptions): void {
     '다 본 사람에게는 다시 들이밀 아침이 없다',
   )
 
-  // 탭 횟수. **한 번이다** — 자리를 비추던 장면(지목 칸)이 없어지면서
-  // 날마다 종이 한 장 한 번으로 줄었다
+  // 탭 횟수. **종이 한 장에 한 번이다** — 자리를 비추던 장면(지목 칸)이
+  // 없어지면서 종이 한 장 한 번으로 줄었다. 마지막 날은 임시로 두 장이다
   const taps = (day: number) => watchMorning(startMorning([day])).taps
-  for (const d of [1, 2, 3, 4, 5]) check(taps(d) === 1, `DAY ${d}는 탭 한 번`, `${taps(d)}`)
+  for (let d = 1; d <= TOTAL_DAYS; d++) {
+    const want = d === TOTAL_DAYS ? 2 : 1
+    check(taps(d) === want, `DAY ${d}는 탭 ${want}번`, `${taps(d)}`)
+  }
 
   // ── 보관함에 제 것만 담기는가 ─────────────────────────────────
   const archiveOf = (bot: Bot) =>

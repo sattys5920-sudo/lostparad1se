@@ -206,12 +206,13 @@ export interface TeamDoc {
    */
   pendingRefund?: number
   /**
-   * **깃발 상자.** 토큰 상자처럼 팀에 하나다(rules/flag). 하루 한 번
-   * 들어오고, 자판기에서 사면 산 사람 팀 상자로 들어온다. 꽂으면 빠진다.
+   * **깃발 상자 — 페이즈 몫.** 토큰 상자처럼 팀에 하나다(rules/flag).
+   * 페이즈가 열릴 때마다 FLAGS_PER_PHASE 로 다시 맞춘다. 꽂으면 여기서
+   * 먼저 빠진다.
    */
   flags?: number
-  /** 깃발을 마지막으로 넣어 준 날. 같은 날 두 번 안 들어온다. */
-  flagDay?: number | null
+  /** 깃발 상자 — 자판기에서 산 것. 페이즈가 바뀌어도 남는다. */
+  boughtFlags?: number
 
   researchTier: number
   /**

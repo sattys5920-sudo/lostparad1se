@@ -223,7 +223,7 @@ export const myEnding = onCall<{ gameId: string }>(async (req) => {
   const snap = await gameRef(gameId).get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
   if ((snap.data() as GameDoc).phase !== 'finished') {
-    throw new HttpsError('failed-precondition', '아직 닷새가 안 끝났다.')
+    throw new HttpsError('failed-precondition', '아직 판이 안 끝났다.')
   }
   const seat = await secret(gameId, 'roster').doc(uid).get()
   if (!seat.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')

@@ -97,7 +97,7 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
      */
     const teamRef = ref.collection('teams').doc(meNow.team)
     const teamNow = item.flags ? ((await tx.get(teamRef)).data() as TeamDoc | undefined) : undefined
-    if (item.flags) tx.update(teamRef, { flags: (teamNow?.flags ?? 0) + item.flags })
+    if (item.flags) tx.update(teamRef, { boughtFlags: (teamNow?.boughtFlags ?? 0) + item.flags })
 
     if (stockRef) tx.set(stockRef, { day: game.day, itemId: item.id, n: soldToday + 1 })
     tx.update(meRef, {

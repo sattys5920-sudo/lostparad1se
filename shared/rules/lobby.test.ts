@@ -166,7 +166,7 @@ describe('팀 나누기', () => {
   })
 })
 
-describe('닷새치 시간표', () => {
+describe('나흘치 시간표', () => {
   // DAY 1 08:00에 시작한 판
   const start = Date.UTC(2026, 2, 1, 23, 0, 0)
   const list = timedEvents(start)
@@ -177,18 +177,18 @@ describe('닷새치 시간표', () => {
     expect(list).toEqual(sorted)
   })
 
-  it('정산은 닷새 모두 있다', () => {
+  it('정산은 나흘 모두 있다', () => {
     expect(kinds('settlement')).toHaveLength(TOTAL_DAYS)
   })
 
   it('DAY 1 아침은 시작 그 자체라 따로 없다', () => {
-    expect(kinds('dayStart').map((e) => e.day)).toEqual([2, 3, 4, 5])
+    expect(kinds('dayStart').map((e) => e.day)).toEqual([2, 3, 4])
   })
 
-  it('마지막 여섯 시간은 DAY 5에 한 번', () => {
+  it('마지막 여섯 시간은 DAY 4에 한 번', () => {
     const last = kinds('lastHours')
     expect(last).toHaveLength(1)
-    expect(last[0].day).toBe(5)
+    expect(last[0].day).toBe(4)
   })
 
   it('끝은 하나뿐이고 맨 마지막이다', () => {
@@ -209,10 +209,10 @@ describe('닷새치 시간표', () => {
     }
   })
 
-  // DAY 5 의 24시는 자정 직전까지 아직 DAY 5다
-  it('끝나는 시각은 아직 DAY 5다', () => {
+  // DAY 4 의 24시는 자정 직전까지 아직 DAY 4다
+  it('끝나는 시각은 아직 DAY 4다', () => {
     const end = kinds('gameEnd')[0]
-    expect(dayNumber(start, end.dueAtMs - 1)).toBe(5)
+    expect(dayNumber(start, end.dueAtMs - 1)).toBe(4)
   })
 
   it('정산이 그날 안에 있다', () => {

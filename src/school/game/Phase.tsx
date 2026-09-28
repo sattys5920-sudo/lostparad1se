@@ -156,7 +156,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     if (kind === 'summon' && teammates.length === 0) return '부를 팀원이 없다.'
     if (kind === 'plant') {
       if (!canHoldFlags(here)) return `${hereName}에는 깃발을 못 꽂는다.`
-      if (teamFlags <= 0) return '팀 깃발이 없다. 하루에 한 번 들어오고, 자판기에서도 산다.'
+      if (teamFlags <= 0) return '팀 깃발이 없다. 페이즈마다 새로 채워지고, 자판기에서도 산다.'
     }
     if (kind === 'pull') {
       if ((view?.myTeamPulls ?? 0) >= PULLS_PER_PHASE) return '이번 페이즈에는 우리 팀이 이미 뽑았다.'

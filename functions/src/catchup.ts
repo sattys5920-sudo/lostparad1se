@@ -30,6 +30,7 @@ import type {
   TileDoc,
   VoteDoc,
 } from '../../shared/model'
+import { announceBallots } from './ballot'
 import { gameRef } from './index'
 import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
@@ -201,8 +202,8 @@ async function settlement(c: Ctx): Promise<void> {
   const result = settleDay({
     scores,
     knowledgeOf: (team) => after.get(team)?.knowledge ?? 0,
-    // 투명인간은 이제 전용 투표로 정한다(ballot.ts). 하루 정산이
-    // 아니라 그날 마지막 페이즈가 닫힐 때 골라진다
+    // 투명인간은 전용 투표로 정한다(ballot.ts). 이 정산을 손으로 넘긴
+    // 직후 pushByHand 가 announceBallots 로 센다
     ballots: [],
     // 이틀 연속은 없다
     yesterdayInvisibleId: c.game.invisibleByDay[c.day] ?? null,
@@ -230,12 +231,11 @@ async function settlement(c: Ctx): Promise<void> {
     })
   }
 
-  // 내일 지워지는 사람. 표가 갈렸으면 null이고, 그것도 그대로 알린다
-  const tomorrow = c.day + 1
+  // 내일 지워지는 사람은 여기서 안 적는다 — announceBallots 가 적는다.
+  // 여기서 빈 표로 적으면 그 결과를 null 로 덮는다
   c.tx.update(ref, {
     spotlightTeams: [result.spotlighted],
     comebackTeams: [result.comeback],
-    [`invisibleByDay.${tomorrow}`]: result.invisible.playerId,
   })
   c.tx.set(ref.collection('events').doc(), {
     atMs: c.atMs,
@@ -245,8 +245,6 @@ async function settlement(c: Ctx): Promise<void> {
       ranked: result.ranked.map((r) => ({ team: r.team, total: r.total })),
       spotlighted: result.spotlighted,
       comeback: result.comeback,
-      // 표에 관해 공개되는 건 투명인간 하나뿐이다. 받은 수도 보낸 사람도 아니다
-      invisibleId: result.invisible.playerId,
     },
   })
 }
@@ -496,6 +494,10 @@ export async function pushByHand(gameId: string): Promise<HandResult> {
   const payload = docs.get(item.id) as ScheduleDoc
   const landed: Ctx['landed'] = []
   const did = await applyItem(gameId, item, payload, landed)
+  // 그날 정산을 넘기면 투명인간 표를 센다. 하루에 몇 교시를 열든 상관없다
+  if (did && item.kind === 'settlement') {
+    await announceBallots(gameId, (payload.payload?.day as number) ?? game.day)
+  }
 
   // 판이 바뀌었으니 각자 몫을 다시 짠다. 틀린 안개는 새는 안개다
   for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs)

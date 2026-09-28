@@ -13,7 +13,7 @@ import { VENDINGS } from '../shared/rules/shop'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { ACT_COST, MOVE_MINUTES, ROOM_KIND, TOKENS_PER_PHASE, capacityOf, nextWallet, stepToward } from '../shared/rules/occupy'
-import { FLAGS_PER_DAY, FLAG_STOCK_PER_DAY } from '../shared/rules/flag'
+import { FLAGS_PER_PHASE, FLAG_STOCK_PER_DAY } from '../shared/rules/flag'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -86,8 +86,13 @@ const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/paw
 const boxOf = async (team: string) =>
   Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === team)?.d.phaseTokens ?? -1)
 /** 팀 깃발 상자. 토큰 상자 옆에 있다. */
-const flagBoxOf = async (team: string) =>
-  Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === team)?.d.flags ?? -1)
+/** 팀 상자 전부 — 페이즈 몫과 산 것을 더한다 */
+const flagBoxOf = async (team: string) => {
+  const d = (await getAll(`games/${GAME}/teams`)).find((t) => t.id === team)?.d
+  return d ? Number(d.flags ?? 0) + Number(d.boughtFlags ?? 0) : -1
+}
+const boughtOf = async (team: string) =>
+  Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === team)?.d.boughtFlags ?? 0)
 const ownerOfTile = async (id: string) =>
   ((await getAll(`games/${GAME}/tiles`)).find((t) => t.id === id)?.d.ownerTeam ?? null) as string | null
 
@@ -249,9 +254,9 @@ async function main(): Promise<void> {
   const boxC = await boxOf('C')
   check(boxC === boxA, `세 명짜리 C팀도 네 명짜리 A팀과 같다`, `C ${boxC} · A ${boxA}`)
 
-  console.log('\n── 깃발은 하루치가 팀 상자로 들어온다 ──')
-  check((await flagBoxOf('A')) === FLAGS_PER_DAY, `첫 페이즈에 팀마다 ${FLAGS_PER_DAY}개`, String(await flagBoxOf('A')))
-  check((await flagBoxOf('C')) === FLAGS_PER_DAY, '세 명짜리 팀도 같다', String(await flagBoxOf('C')))
+  console.log('\n── 깃발은 페이즈마다 팀 상자에 채워진다 ──')
+  check((await flagBoxOf('A')) === FLAGS_PER_PHASE, `첫 페이즈에 팀마다 ${FLAGS_PER_PHASE}개`, String(await flagBoxOf('A')))
+  check((await flagBoxOf('C')) === FLAGS_PER_PHASE, '세 명짜리 팀도 같다', String(await flagBoxOf('C')))
 
   /**
    * 게임 시계를 민다. 걷는 10분이 지나야 도착한다.
@@ -293,7 +298,7 @@ async function main(): Promise<void> {
   check(inPlaza.code === 'FAILED_PRECONDITION', '2-3 교실에는 못 꽂는다', inPlaza.message)
   const tokensBefore = await boxOf('A')
   await must('phaseAct', a0.token, { gameId: GAME, kind: 'plant' })
-  check((await flagBoxOf('A')) === FLAGS_PER_DAY - 1, '팀 깃발 상자에서 하나 빠졌다')
+  check((await flagBoxOf('A')) === FLAGS_PER_PHASE - 1, '팀 깃발 상자에서 하나 빠졌다')
   check((await boxOf('A')) === tokensBefore, '**토큰은 안 든다**')
   const gameDoc = await getAll(`games`)
   check(!JSON.stringify(gameDoc).includes('"flags"'), '**판 문서에 깃발 수가 안 적힌다**')
@@ -394,6 +399,18 @@ async function main(): Promise<void> {
     await must('openPhase', host, { gameId: GAME })
     await tickOn(1)
   }
+
+  console.log('\n── 다음 페이즈에 페이즈 몫은 다시 채워지고, 산 것은 남는다 ──')
+  const boughtA = await boughtOf('A')
+  check(boughtA === FLAG_STOCK_PER_DAY, `산 것 ${FLAG_STOCK_PER_DAY}개는 따로 적혀 있다`, String(boughtA))
+  await openWide()
+  check(
+    (await flagBoxOf('A')) === FLAGS_PER_PHASE + boughtA,
+    `페이즈 몫 ${FLAGS_PER_PHASE} + 산 것 ${boughtA} — 남은 몫은 쌓이지 않는다`,
+    String(await flagBoxOf('A')),
+  )
+  check((await flagBoxOf('B')) === FLAGS_PER_PHASE, 'B팀은 다시 딱 넷', String(await flagBoxOf('B')))
+  await must('closePhase', host, { gameId: GAME })
   /**
    * 거기까지 걸어간다. 한 방 들어갈 때마다 토큰 하나와 10분이 든다.
    * 시계를 밀어 주지 않으면 문 사이에 선 채로 끝난다.

@@ -16,7 +16,7 @@ import { randomLook } from '../char/look'
 // 지도 쪽 TileId 는 스물다섯 방짜리 유니온이다. 규칙 쪽(string)과
 // 이름이 같아서 여기서만 다른 이름으로 받는다
 import type { TeamId, TileId as RoomId } from '../types'
-import { VOTE_LABEL, type VoteKind } from '../../../shared/rules/v2'
+import { TOTAL_DAYS, VOTE_LABEL, type VoteKind } from '../../../shared/rules/v2'
 
 /** 마주친 사람에게 줄 수 있는 표. 투명인간 투표는 다른 화면이다. */
 const MEET_VOTES: VoteKind[] = ['trust', 'liking']
@@ -128,7 +128,6 @@ import type { GamePhase, SeatEntry } from '../../../shared/model'
 import {
   ENTER_COST,
   MOVE_MINUTES,
-  PHASES_PER_DAY,
   ROOM_KIND,
   capacityOf,
 } from '../../../shared/rules/occupy'
@@ -674,7 +673,7 @@ function NoSeat({ phase }: { phase: GamePhase }) {
   return (
     <div className="sc-wait">
       <p className="sc-wait__what">{over ? '이 판은 끝났다.' : '이 판에 네 자리가 없다.'}</p>
-      {!over && <p className="sc-wait__why">닷새가 이미 시작했다.</p>}
+      {!over && <p className="sc-wait__why">판이 이미 시작했다.</p>}
       <SignOut />
     </div>
   )
@@ -1096,23 +1095,22 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   /**
    * 오늘 표가 이미 세어졌는가.
    *
-   * 집계는 **그날 마지막 교시가 닫힐 때** 한 번 돈다(settleBallots).
-   * 그 교시가 닫힌 뒤부터 자정까지는 종이를 내밀어도 소용이 없으므로
-   * 화면에서 잠근다.
+   * 집계는 **운영자가 그날 정산을 넘길 때** 한 번 돈다(announceBallots).
+   * 세고 나면 내일 칸(invisibleByDay)이 생기므로 그것을 보고 잠근다.
+   * 마지막 날에는 내일이 없어서 처음부터 잠겨 있다.
    */
+  const ballotDay = state.game?.day ?? 0
   const ballotClosed =
-    state.game?.phase !== 'running' || (phaseNo > 0 && phaseNo % PHASES_PER_DAY === 0 && !phaseOpen)
+    state.game?.phase !== 'running' ||
+    ballotDay >= TOTAL_DAYS ||
+    String(ballotDay + 1) in (state.game?.invisibleByDay ?? {})
   /**
    * 마감까지 몇 분인가. **모르면 안 적는다.**
    *
-   * 교시는 운영자가 하나씩 연다. 마지막 교시가 아직 열리지 않았으면
-   * 언제 닫힐지 아무도 모르고, 그럴 때 그럴듯한 숫자를 적어 두면
-   * 그 숫자를 믿고 기다리다 못 던지는 사람이 생긴다.
+   * 정산은 운영자가 손으로 넘긴다. 언제일지 화면은 모르고, 그럴듯한
+   * 숫자를 적어 두면 그 숫자를 믿고 기다리다 못 던지는 사람이 생긴다.
    */
-  const ballotClosesInMin =
-    phaseOpen && phaseNo % PHASES_PER_DAY === 0 && phaseEndsAtMs !== null
-      ? Math.max(0, Math.ceil((phaseEndsAtMs - nowMs) / 60000))
-      : null
+  const ballotClosesInMin: number | null = null
 
   /**
    * 우리 팀 팀장 투표가 지금 열려 있는가.

@@ -12,10 +12,10 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { canName, countBallots, eraseFrom, pickInvisible, type Ballot } from '../../shared/rules/invisible'
-import { PHASES_PER_DAY } from '../../shared/rules/occupy'
 import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { GameDoc, TeamDoc } from '../../shared/model'
+import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { dropAllErrands } from './errand'
 import { erasedOn } from './use'
 import { freshNow } from './turn'
@@ -95,7 +95,12 @@ export const castBallot = onCall<{ gameId: string; targetId: string }>(async (re
     throw new HttpsError('invalid-argument', '그런 사람이 없다.')
   }
 
-  const day = game.phaseNow?.day ?? game.day
+  const day = game.day
+  if (day >= TOTAL_DAYS) throw new HttpsError('failed-precondition', '마지막 날에는 적지 않는다.')
+  // 오늘 표를 이미 셌으면 더 받지 않는다 — 운영자가 정산을 넘긴 뒤다
+  if ((await ballotDaysOf(gameId).doc(`d${day}`).get()).exists) {
+    throw new HttpsError('failed-precondition', '오늘 표는 이미 셌다.')
+  }
   const out = canName({
     voterId: uid,
     targetId,
@@ -142,11 +147,9 @@ export async function myBallotOn(gameId: string, day: number, uid: string): Prom
   return snap.exists ? ((snap.data() as BallotDoc).targetId ?? null) : null
 }
 
-/** 그날 마지막 페이즈인가. 여기서 집계한다. */
-export const isLastPhaseOfDay = (phaseNo: number): boolean => phaseNo % PHASES_PER_DAY === 0
-
 /**
- * 하루가 끝났다. 내일의 투명인간을 고른다.
+ * 하루가 끝났다. 내일의 투명인간을 고른다. 운영자가 그날 정산을 넘길 때
+ * 한 번 돈다(catchup.pushByHand).
  *
  * **마지막 날에는 안 고른다.** 내일이 없는 날에 사람을 지워 봐야
  * 아무 일도 일어나지 않고, 발표만 잔인하다.
@@ -154,11 +157,11 @@ export const isLastPhaseOfDay = (phaseNo: number): boolean => phaseNo % PHASES_P
 export async function settleBallots(
   gameId: string,
   game: GameDoc,
-  phaseNo: number,
+  day: number,
 ): Promise<{ invisibleId: string | null; reason: string } | null> {
-  if (!isLastPhaseOfDay(phaseNo)) return null
-  const day = Math.floor((phaseNo - 1) / PHASES_PER_DAY) + 1
   if (day >= TOTAL_DAYS) return null
+  // 같은 날을 두 번 세지 않는다
+  if ((await ballotDaysOf(gameId).doc(`d${day}`).get()).exists) return null
 
   // **지우개로 지운 표를 빼고 센다.** 누가 몇 장 지웠는지는 여기까지
   // 오고 더 가지 않는다 — 결과 한 줄 말고는 아무것도 안 나간다
@@ -242,11 +245,11 @@ export const clearInvisible = onCall<{ gameId: string; reason: string }>(async (
   batch.update(ref, {
     invisibleId: null,
     invisibleTeam: null,
-    [`invisibleByDay.${game.phaseNow?.day ?? game.day}`]: null,
+    [`invisibleByDay.${game.day}`]: null,
   })
   batch.set(ref.collection('events').doc(), {
     atMs: nowMs,
-    day: game.phaseNow?.day ?? game.day,
+    day: game.day,
     kind: 'invisibleCleared',
     playerId: who,
     byId: uid,
@@ -258,3 +261,31 @@ export const clearInvisible = onCall<{ gameId: string; reason: string }>(async (
 })
 
 export { TEAMS }
+
+/**
+ * 정산을 넘길 때 표를 세고 알린다. **득표수는 남기지 않는다** — 발표되는
+ * 것은 결과 한 줄뿐이다.
+ */
+export async function announceBallots(gameId: string, day: number): Promise<void> {
+  const snap = await gameRef(gameId).get()
+  const game = snap.data() as GameDoc
+  const erased = await settleBallots(gameId, game, day)
+  if (!erased) return
+  const ref = gameRef(gameId)
+  const atMs = nowOf(game)
+  const batch = db.batch()
+  const name = game.seats.find((s) => s.playerId === erased.invisibleId)?.name ?? null
+  batch.set(ref.collection('notices').doc(), {
+    toPlayerId: null,
+    text: name ? announceInvisible(name) : ANNOUNCE_NOBODY,
+    atMs,
+  })
+  if (erased.invisibleId) {
+    batch.set(ref.collection('notices').doc(), {
+      toPlayerId: erased.invisibleId,
+      text: INVISIBLE_NOTICE,
+      atMs,
+    })
+  }
+  await batch.commit()
+}

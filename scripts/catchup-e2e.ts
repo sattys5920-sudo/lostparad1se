@@ -12,7 +12,7 @@
 //   npx -y -p firebase-tools firebase emulators:start \
 //     --only firestore,functions,auth --project demo-goei
 //   npx vite-node scripts/catchup-e2e.ts
-import { STARTING_TEAM_SIZES, TOKEN_CAP, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, TOKEN_CAP, TOTAL_DAYS, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 
@@ -220,7 +220,7 @@ async function main(): Promise<void> {
 
   check((await doneCount()) === 11, '예정 이벤트 열하나가 전부 밀렸다', `${await doneCount()}건`)
   check((await events('gameEnd')).length === 1, '끝 기록이 하나')
-  check((await events('settlement')).length === 5, '정산이 닷새 모두', `${(await events('settlement')).length}건`)
+  check((await events('settlement')).length === TOTAL_DAYS, '정산이 날마다', `${(await events('settlement')).length}건`)
 
   console.log('\n── 한꺼번에 들어와도 ──')
   // 열넷이 아침에 동시에 접속하는 건 흔한 일이다. 같은 정산이 두 번

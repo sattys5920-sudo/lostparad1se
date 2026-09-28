@@ -23,7 +23,6 @@ import {
   ACT_COST,
   ACT_MINUTES,
   MOVE_MINUTES,
-  PHASES_PER_DAY,
   PHASE_MINUTES,
   TOKENS_PER_PHASE,
   TOKEN_CAP,
@@ -47,7 +46,7 @@ import { machineAtSeat } from '../../shared/rules/arcade'
 import { LAB_TILE, SNARE_MINUTES, atLabMachine } from '../../shared/rules/trap'
 import { clearTrapJobs, springTrap } from './trap'
 import type { Cell } from '../../shared/rules/board'
-import { INVISIBLE_TEAM_TOKEN_BONUS, TOTAL_DAYS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
+import { INVISIBLE_TEAM_TOKEN_BONUS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   SCHEDULE_ORD,
@@ -60,12 +59,10 @@ import {
 import { freshNow, refuseIfInvisible, requireFree } from './turn'
 import { researchTierUp, type Brewing } from './made'
 import { roundAt } from '../../shared/rules/captain'
-import { grantFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
+import { FLAGS_PER_PHASE, spendFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
 import { clearArrivals } from './move'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
-import { settleBallots } from './ballot'
-import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { note } from './records'
 import { sysLine } from './radio'
 import { sys } from '../../shared/rules/radio'
@@ -120,7 +117,10 @@ const flagMapOf = (snap: FirebaseFirestore.DocumentSnapshot): FlagMap =>
 /** 팀 문서에서 깃발 상자만 떼어 온다. 토큰 상자 옆에 있다 — 같은 팀만 읽는다. */
 function flagBoxesOf(teams: FirebaseFirestore.QuerySnapshot): FlagBoxes {
   const out: Partial<Record<TeamId, number>> = {}
-  for (const d of teams.docs) out[d.id as TeamId] = (d.data() as TeamDoc).flags ?? 0
+  for (const d of teams.docs) {
+    const t = d.data() as TeamDoc
+    out[d.id as TeamId] = (t.flags ?? 0) + (t.boughtFlags ?? 0)
+  }
   return out
 }
 
@@ -310,9 +310,6 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   const { gameId } = req.data
   const { game, nowMs } = await freshNow(gameId)
   if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '이미 열려 있다.')
-  if ((game.phaseDone ?? 0) >= PHASES_PER_DAY * TOTAL_DAYS) {
-    throw new HttpsError('failed-precondition', '닷새가 끝났다.')
-  }
 
   const ref = gameRef(gameId)
   const [pawns, tiles, teams] = await Promise.all([
@@ -434,18 +431,15 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    * 사라져 아무 뜻이 없어진다
    */
   /*
-   * **깃발은 하루에 한 번 들어온다.** 그날 첫 페이즈가 열릴 때 팀마다
-   * 같은 수(rules/flag). 남은 것은 그대로 간다 — 아껴 두었다가 한
-   * 페이즈에 몰아 꽂아도 된다.
+   * **깃발은 페이즈마다 다시 채운다.** 팀마다 같은 수(rules/flag).
+   * 남은 것에 더하지 않는다 — 한 페이즈에 꽂을 수 있는 한도다. 자판기에서
+   * 산 것(boughtFlags)은 건드리지 않는다.
    */
-  const today = Math.floor((game.phaseDone ?? 0) / PHASES_PER_DAY) + 1
   for (const d of teams.docs) {
     const team = d.id as TeamId
     const t = d.data() as TeamDoc
-    const flagGrant = grantFlags(t.flags ?? 0, t.flagDay ?? null, today)
     batch.update(d.ref, {
-      flags: flagGrant.held,
-      flagDay: flagGrant.day,
+      flags: FLAGS_PER_PHASE,
       phaseTokens: nextWallet({
         held: t.phaseTokens ?? 0,
         // 결석 보정에 투명인간 보정을 더한다. 둘 다 이때만 한도를
@@ -459,7 +453,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
 
   const no = (game.phaseDone ?? 0) + 1
   const endsAtMs = nowMs + PHASE_MINUTES * 60_000
-  const day = Math.floor((no - 1) / PHASES_PER_DAY) + 1
+  // **날짜는 운영자가 넘긴 달력을 따른다.** 하루에 몇 교시를 여는지는
+  // 날마다 다르므로 교시 번호로 날을 셈하지 않는다
+  const day = game.day
 
   /*
    * 오간 두 팀의 팀장을 다시 본다.
@@ -766,7 +762,13 @@ export const phaseAct = onCall<{
       const after = out.next.wallets[team] ?? 0
       if (after !== (before.wallets[team] ?? 0)) patch.phaseTokens = after
       const flagsLeft = out.next.flagBoxes[team] ?? 0
-      if (flagsLeft !== (before.flagBoxes[team] ?? 0)) patch.flags = flagsLeft
+      if (flagsLeft !== (before.flagBoxes[team] ?? 0)) {
+        // 페이즈 몫부터 뺀다. 산 것은 다음 페이즈까지 남아야 한다
+        const t = d.data() as TeamDoc
+        const box = spendFlags({ given: t.flags ?? 0, bought: t.boughtFlags ?? 0 }, flagsLeft)
+        patch.flags = box.given
+        patch.boughtFlags = box.bought
+      }
       if (Object.keys(patch).length > 0) tx.update(d.ref, patch)
     }
     // 꽂히거나 뽑힌 깃발. 바뀐 때만 쓴다
@@ -982,27 +984,8 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 
   await batch.commit()
-  const batch2 = db.batch()
-
-  // 그날 마지막 페이즈면 내일의 투명인간을 고른다. **득표수는 남기지
-  // 않는다** — 발표되는 것은 결과 한 줄뿐이다
-  const erased = await settleBallots(gameId, game, no)
-  if (erased) {
-    const name = game.seats.find((s) => s.playerId === erased.invisibleId)?.name ?? null
-    batch2.set(ref.collection('notices').doc(), {
-      toPlayerId: null,
-      text: name ? announceInvisible(name) : ANNOUNCE_NOBODY,
-      atMs: nowMs,
-    })
-    if (erased.invisibleId) {
-      batch2.set(ref.collection('notices').doc(), {
-        toPlayerId: erased.invisibleId,
-        text: INVISIBLE_NOTICE,
-        atMs: nowMs,
-      })
-    }
-    await batch2.commit()
-  }
+  // 내일의 투명인간은 여기서 안 고른다. 하루에 몇 교시를 열지는 날마다
+  // 달라서, 운영자가 그날 정산을 넘길 때 센다(ballot.announceBallots)
 
   // 제조기에 남은 덫은 사라진다. 다음 페이즈로 안 넘어간다
   await clearTrapJobs(gameId)

@@ -22,7 +22,7 @@ export const TIMEZONE = 'Asia/Seoul'
 // ── 판 ──────────────────────────────────────────────────────────
 
 export const GRID = 5
-export const TOTAL_DAYS = 5
+export const TOTAL_DAYS = 4
 
 export type TeamId = 'A' | 'B' | 'C' | 'D'
 export const TEAM_IDS: readonly TeamId[] = ['A', 'B', 'C', 'D']
@@ -269,7 +269,7 @@ export const SCORE_RESEARCH_MULTIPLIER = 2
 // 시작하는 2-3 교실만은 **아무도 못 가진다**(occupy.settle 의 plaza).
 
 /** 마지막 여섯 시간이 시작되는 날. */
-export const LAST_HOURS_DAY = 5
+export const LAST_HOURS_DAY = TOTAL_DAYS
 
 // ── 개인 일정 ───────────────────────────────────────────────────
 //
@@ -356,6 +356,6 @@ export const SNOW_LEVEL_MAX = 5
 // ── 다섯 시의 창고 (⑤) ─────────────────────────────────────────
 
 export const STORAGE_TILE = 'storage'
-export const STORAGE_LOCK_DAY = 5
+export const STORAGE_LOCK_DAY = TOTAL_DAYS
 export const STORAGE_LOCK_HOUR = 17
 export const STORAGE_UNLOCK_HOUR = 19

@@ -1,6 +1,6 @@
 // 공개 시각 게이트 — 날짜를 건너뛴 요청이 막히는지.
 //
-// 여기가 뚫리면 첫날 아침에 닷새치를 다 읽는다. 그 판은 되돌릴 수 없다.
+// 여기가 뚫리면 첫날 아침에 나흘치를 다 읽는다. 그 판은 되돌릴 수 없다.
 import { describe, expect, it } from 'vitest'
 import { canRelease, releasedDays } from './release'
 
@@ -26,7 +26,7 @@ describe('열리는 시각', () => {
   })
 
   it('첫날에 마지막 날을 달라고 해도 막는다', () => {
-    expect(canRelease(5, START, on(1, '08:00')).reason).toBe('notYet')
+    expect(canRelease(4, START, on(1, '08:00')).reason).toBe('notYet')
   })
 
   it('그 전날에는 못 받는다', () => {
@@ -49,11 +49,11 @@ describe('지금까지 열린 날', () => {
   it('하루씩 늘어난다', () => {
     expect(releasedDays(START, on(1, '08:00'))).toEqual([1])
     expect(releasedDays(START, on(3, '12:00'))).toEqual([1, 2, 3])
-    expect(releasedDays(START, on(5, '21:00'))).toEqual([1, 2, 3, 4, 5])
+    expect(releasedDays(START, on(4, '21:00'))).toEqual([1, 2, 3, 4])
   })
 
-  it('닷새를 넘지 않는다', () => {
-    expect(releasedDays(START, seoul('2026-03-20T12:00:00'))).toHaveLength(5)
+  it('나흘을 넘지 않는다', () => {
+    expect(releasedDays(START, seoul('2026-03-20T12:00:00'))).toHaveLength(4)
   })
 
   // 자정을 넘으면 그날 것이 바로 열린다. 예전에는 아침 8시까지 기다렸다

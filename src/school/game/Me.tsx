@@ -146,7 +146,7 @@ export function Me(props: MeProps) {
               {paper.counting ? (
                 <Clauses m={paper.main} />
               ) : (
-                <p className="sc-mi__fine">닷새가 열리면 센다.</p>
+                <p className="sc-mi__fine">판이 열리면 센다.</p>
               )}
             </>
           )}
