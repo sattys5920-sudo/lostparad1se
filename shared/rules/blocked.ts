@@ -55,5 +55,86 @@ export const START_CELLS: readonly { x: number; y: number }[] = [
   { x: 25, y: 25 },
 ]
 
+/**
+ * 방마다 들어서는 자리 — 문 바로 안쪽 한 칸(문이 없으면 한가운데). 화면의
+ * 문 자리와 같은 값이다(check-map 이 본다). 방에 들어온 사람은 여기서 가장
+ * 가까운 빈 칸에 선다(rules/seat) — 같은 문으로 들어온 여럿이 한 칸에 겹치지 않게.
+ */
+export const ENTRY_CELLS: Readonly<Record<string, { x: number; y: number }>> = {
+  storage: { x: 16, y: 121 },
+  baseC: { x: 30, y: 121 },
+  oldBuilding: { x: 20, y: 127 },
+  baseA: { x: 16, y: 77 },
+  cafeteria: { x: 29, y: 77 },
+  annex: { x: 40, y: 77 },
+  classroom: { x: 51, y: 77 },
+  hallway: { x: 15, y: 83 },
+  gym: { x: 26, y: 83 },
+  auditorium: { x: 40, y: 83 },
+  playground: { x: 49, y: 83 },
+  labRoom: { x: 56, y: 94 },
+  garden: { x: 25, y: 98 },
+  baseB: { x: 40, y: 98 },
+  centralPlaza: { x: 18, y: 28 },
+  scienceRoom: { x: 33, y: 28 },
+  musicRoom: { x: 47, y: 28 },
+  artRoom: { x: 21, y: 34 },
+  library: { x: 34, y: 34 },
+  baseD: { x: 46, y: 34 },
+  newBuilding: { x: 21, y: 50 },
+  broadcastRoom: { x: 35, y: 50 },
+  studentCouncil: { x: 47, y: 50 },
+  clubRoom: { x: 10, y: 45 },
+  rooftop: { x: 30, y: 10 },
+}
+
+/**
+ * 문 — 칸과 그 문이 난 방. 화면의 문(map/world DOORS)과 같은 값이다(check-map 이 본다).
+ * 서버가 문 앞 길(rules/lane)을 알아야 들어온 사람을 길 밖에 세운다.
+ */
+export const DOOR_CELLS: readonly { x: number; y: number; room: string }[] = [
+  { x: 16, y: 122, room: 'storage' },
+  { x: 10, y: 120, room: 'storage' },
+  { x: 30, y: 122, room: 'baseC' },
+  { x: 20, y: 126, room: 'oldBuilding' },
+  { x: 16, y: 78, room: 'baseA' },
+  { x: 10, y: 75, room: 'baseA' },
+  { x: 29, y: 78, room: 'cafeteria' },
+  { x: 40, y: 78, room: 'annex' },
+  { x: 51, y: 78, room: 'classroom' },
+  { x: 15, y: 82, room: 'hallway' },
+  { x: 10, y: 84, room: 'hallway' },
+  { x: 26, y: 82, room: 'gym' },
+  { x: 31, y: 87, room: 'gym' },
+  { x: 26, y: 93, room: 'gym' },
+  { x: 40, y: 82, room: 'auditorium' },
+  { x: 35, y: 87, room: 'auditorium' },
+  { x: 40, y: 93, room: 'auditorium' },
+  { x: 49, y: 82, room: 'playground' },
+  { x: 47, y: 93, room: 'playground' },
+  { x: 54, y: 87, room: 'playground' },
+  { x: 56, y: 93, room: 'labRoom' },
+  { x: 61, y: 93, room: 'labRoom' },
+  { x: 25, y: 97, room: 'garden' },
+  { x: 40, y: 97, room: 'baseB' },
+  { x: 18, y: 29, room: 'centralPlaza' },
+  { x: 10, y: 26, room: 'centralPlaza' },
+  { x: 33, y: 29, room: 'scienceRoom' },
+  { x: 47, y: 29, room: 'musicRoom' },
+  { x: 21, y: 33, room: 'artRoom' },
+  { x: 15, y: 39, room: 'artRoom' },
+  { x: 21, y: 45, room: 'artRoom' },
+  { x: 34, y: 33, room: 'library' },
+  { x: 34, y: 45, room: 'library' },
+  { x: 46, y: 33, room: 'baseD' },
+  { x: 46, y: 45, room: 'baseD' },
+  { x: 52, y: 39, room: 'baseD' },
+  { x: 21, y: 49, room: 'newBuilding' },
+  { x: 35, y: 49, room: 'broadcastRoom' },
+  { x: 47, y: 49, room: 'studentCouncil' },
+  { x: 11, y: 45, room: 'clubRoom' },
+  { x: 6, y: 41, room: 'clubRoom' },
+]
+
 /** 가구 · 팻말이 선 칸인가 */
 export const isBlockedCell = (x: number, y: number): boolean => STATIC_BLOCKED.has(y * PLAN_W + x)

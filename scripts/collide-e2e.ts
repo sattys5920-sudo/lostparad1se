@@ -4,6 +4,10 @@
 //   - 두 사람이 같은 칸으로 동시에 가면 한 사람만 서고, 진 쪽은 제자리
 //   - 누가 선 칸 · 서버가 세운 시작 칸 · 책상 같은 소품 칸에는 못 선다
 //   - 떠난 칸은 다시 빈다 · 걸음에는 토큰이 안 든다
+//   - 같은 문으로 여럿이 들어와도(roamTo) 저마다 다른 빈 칸에 선다 — 칸 없는(null) 사람이 없다
+//   - 칸 없이 시작한 예전 판 사람도 거절당하면 빈 칸을 받는다
+//   - 종이 치면 제자리로 끌려 온 사람들이 서로 다른 칸에 선다
+//   - 페이즈 중에 걸어서 도착한 사람들도 서로 다른 칸에 선다
 //
 //   npx vite-node scripts/collide-e2e.ts   (에뮬레이터가 떠 있어야 한다)
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
@@ -60,6 +64,10 @@ async function must(n: string, tk: string, d: unknown): Promise<Record<string, u
 import { START_TILE } from '../shared/rules/board'
 import { dropCellsIn } from '../shared/rules/quiz'
 import { START_CELLS, isBlockedCell } from '../shared/rules/blocked'
+import { TILE_IDS, canRoamTo, isHallCell, roomOfCell } from '../shared/rules/board'
+import { entryCellOf, inLane } from '../shared/rules/seat'
+import { isFixture } from '../shared/rules/fixtures'
+import { dayHourMs } from '../shared/rules/clock'
 
 const GAME = `col${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
@@ -68,6 +76,25 @@ async function pawnAt(uid: string): Promise<{ x: number; y: number } | null> {
   const r = plain(await (await fetch(`${FS}/games/${GAME}/pawns/${uid}`, { headers: ADMIN })).json()) as { at?: { x: number; y: number } | null }
   return r.at ?? null
 }
+
+interface PawnRow { id: string; tileId: string | null; at: { x: number; y: number } | null; team: string }
+async function pawnsAll(): Promise<PawnRow[]> {
+  const r = await fetch(`${FS}/games/${GAME}/pawns?pageSize=300`, { headers: ADMIN })
+  const j = (await r.json()) as { documents?: { name: string }[] }
+  return (j.documents ?? []).map((doc) => {
+    const d = plain(doc) as { tileId?: string | null; at?: { x: number; y: number } | null; team: string }
+    return { id: doc.name.split('/').pop() as string, tileId: d.tileId ?? null, at: d.at ?? null, team: d.team }
+  })
+}
+/** 방(또는 복도)에 선 사람 중 한 칸에 둘 이상인 칸들 */
+function stacked(rows: PawnRow[]): string[] {
+  const seen = new Map<string, number>()
+  for (const p of rows) if (p.tileId !== null && p.at) seen.set(`${p.at.x},${p.at.y}`, (seen.get(`${p.at.x},${p.at.y}`) ?? 0) + 1)
+  return [...seen].filter(([, n]) => n > 1).map(([k, n]) => `${k}×${n}`)
+}
+/** 선 칸이 그 사람의 방 안(또는 복도)이고 물건 칸이 아닌가 */
+const fits = (p: PawnRow) =>
+  p.at !== null && (roomOfCell(p.at.x, p.at.y) === p.tileId || isHallCell(p.at.x, p.at.y)) && !isBlockedCell(p.at.x, p.at.y) && !isFixture(p.at.x, p.at.y)
 
 async function main(): Promise<void> {
   console.log(`판 ${GAME}\n── 판 세우기 ──`)
@@ -151,6 +178,72 @@ async function main(): Promise<void> {
 
   const tokensAfter = plain(await (await fetch(`${FS}/games/${GAME}/teams/${a.team}`, { headers: ADMIN })).json()) as { phaseTokens?: number }
   check((tokensBefore.phaseTokens ?? 0) === (tokensAfter.phaseTokens ?? 0), '방 안 걸음에는 토큰이 안 든다 — 실패해도 잃는 것이 없다')
+
+  console.log('\n── 같은 문으로 여럿이 한꺼번에 들어온다 ──')
+  const next2 = TILE_IDS.find((t) => t !== START_TILE && canRoamTo(START_TILE as never, t)) as string
+  const door = entryCellOf(next2 as never)
+  // 여섯이 **같은 칸(문 바로 안쪽)에 들어섰다고** 동시에 말한다 — 화면이 보내는 값이다
+  const six = people.slice(7, 13)
+  const outs = await Promise.all(six.map((p) => must('roamTo', p.token, { gameId: GAME, tileId: next2, at: door })))
+  const rows = await pawnsAll()
+  const inRoom = rows.filter((r) => six.some((p) => p.uid === r.id))
+  check(inRoom.every((r) => r.tileId === next2), `여섯 모두 ${next2} 에 들어갔다`)
+  check(inRoom.every((r) => r.at !== null), '들어온 사람 누구도 칸이 비어(null) 있지 않다', inRoom.map((r) => JSON.stringify(r.at)).join(' '))
+  check(new Set(inRoom.map((r) => `${r.at?.x},${r.at?.y}`)).size === 6, '여섯이 서로 다른 칸에 섰다', inRoom.map((r) => `${r.at?.x},${r.at?.y}`).join(' '))
+  check(inRoom.every(fits), '모두 그 방 안, 물건 없는 칸이다')
+  check(inRoom.some((r) => r.at?.x === door.x && r.at?.y === door.y), '한 사람은 들어선 그 칸에 섰다(비어 있었다)')
+  check(inRoom.filter((r) => !(r.at?.x === door.x && r.at?.y === door.y)).every((r) => r.at && !inLane(r.at.x, r.at.y)),
+    '나머지는 문 앞 길 밖에 선다 — 문이 막히지 않는다')
+  check(outs.every((o, i) => { const r = inRoom.find((q) => q.id === six[i].uid); return (o.at as { x: number } | null)?.x === r?.at?.x }), '서버가 세운 칸을 돌려준다 — 화면이 그 칸으로 선다')
+  // 칸을 안 알려 주고 들어와도(계단 · 옛 화면) 문 앞 빈 칸에 선다
+  const back2 = await Promise.all(six.slice(0, 3).map((p) => must('roamTo', p.token, { gameId: GAME, tileId: START_TILE })))
+  check(back2.every((o) => o.at != null), '다시 나간 셋도 교실의 빈 칸을 받는다')
+  check(stacked(await pawnsAll()).length === 0, '판 전체에 한 칸에 둘이 선 곳이 없다', stacked(await pawnsAll()).join(' '))
+
+  console.log('\n── 칸 없이 시작한 예전 판 사람 ──')
+  // 칸을 나눠 주기 전에 시작한 판처럼 칸을 지운다
+  const legacy = people[13]
+  await fetch(`${FS}/games/${GAME}/pawns/${legacy.uid}?updateMask.fieldPaths=at`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { at: { nullValue: null } } }),
+  })
+  const someoneAt = (await pawnsAll()).find((r) => r.id !== legacy.id && r.tileId === START_TILE && r.at && roomOfCell(r.at.x, r.at.y) === START_TILE)
+  const onSome = await must('standAt', legacy.token, { gameId: GAME, x: someoneAt?.at?.x, y: someoneAt?.at?.y })
+  const legacyAt = await pawnAt(legacy.uid)
+  check(onSome.ok === false && onSome.code === 'occupied', '남의 칸으로는 못 간다', String(onSome.why))
+  check(onSome.at != null && legacyAt !== null, '거절하면서 빈 칸에 세워 돌려준다 — 화면이 그 칸으로 선다', JSON.stringify(onSome.at))
+  check(stacked(await pawnsAll()).length === 0, '한 칸에 둘이 선 곳이 없다')
+
+  console.log('\n── 종이 치면 제자리 — 서로 다른 칸 ──')
+  // 몇 사람을 다른 방으로 보내 두고 연다. 끌려 오는 사람들이 한 문으로 몰린다
+  await Promise.all(people.slice(0, 6).map((p) => call('roamTo', p.token, { gameId: GAME, tileId: next2 })))
+  const openedAt = dayHourMs(START, 1, 10)
+  await must('setDevClock', host, { gameId: GAME, anchorGameMs: openedAt, speed: 1 })
+  const opened = await must('openPhase', host, { gameId: GAME })
+  const afterOpen = await pawnsAll()
+  check(Number(opened.returned) >= 6, '다른 방에 갔던 사람들이 끌려 왔다', `${opened.returned}명`)
+  check(afterOpen.every((r) => r.at !== null), '열넷 모두 칸이 있다', afterOpen.filter((r) => r.at === null).map((r) => r.id).join(' '))
+  check(stacked(afterOpen).length === 0, '열넷이 서로 다른 칸에 섰다', stacked(afterOpen).join(' '))
+  check(afterOpen.every(fits), '모두 제 방 안(또는 복도), 물건 없는 칸이다')
+  check(afterOpen.filter((r) => people.slice(0, 6).some((p) => p.uid === r.id)).every((r) => r.at && !inLane(r.at.x, r.at.y)),
+    '끌려 온 사람들은 문 앞 길 밖에 선다')
+
+  console.log('\n── 페이즈 중에 걸어서 도착 — 서로 다른 칸 ──')
+  // 팀마다 한 사람씩 같은 방으로 걸어간다(팀 상자에서 토큰 하나씩)
+  const walkers = (['A', 'B', 'C', 'D'] as const).map((t) => people.find((p) => p.team === t)).filter((p): p is (typeof people)[number] => !!p)
+  const target = 'artRoom'
+  const went = await Promise.all(walkers.map((p) => call('phaseAct', p.token, { gameId: GAME, kind: 'move', targetTile: target })))
+  const moving = walkers.filter((_, i) => went[i].ok)
+  check(moving.length >= 2, `둘 이상이 ${target} 로 걷기 시작했다`, went.map((w) => w.ok ? 'ok' : w.message).join(' · '))
+  await must('setDevClock', host, { gameId: GAME, anchorGameMs: openedAt + 30 * 60_000, speed: 1 })
+  await must('tick', host, { gameId: GAME })
+  const arrived = (await pawnsAll()).filter((r) => moving.some((p) => p.uid === r.id))
+  check(arrived.every((r) => r.tileId === target), '모두 도착했다', arrived.map((r) => r.tileId).join(' '))
+  check(arrived.every((r) => r.at !== null), '도착한 사람 누구도 칸이 비어 있지 않다')
+  check(new Set(arrived.map((r) => `${r.at?.x},${r.at?.y}`)).size === arrived.length, '도착한 사람들이 서로 다른 칸에 섰다', arrived.map((r) => `${r.at?.x},${r.at?.y}`).join(' '))
+  check(arrived.every(fits), '도착한 칸은 그 방 안, 물건 없는 칸이다')
+  check(stacked(await pawnsAll()).length === 0, '판 전체에 한 칸에 둘이 선 곳이 없다')
 
   console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`)
   if (failures > 0) process.exitCode = 1

@@ -1469,13 +1469,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             padRef={padRef}
             /* 종이 치면 서버가 전선으로 옮겨 세운다. 화면도 그때 따라간다 */
             placeAtMs={phaseOpen ? (state.game?.phaseNow?.openedAtMs ?? null) : null}
-            onCross={(to) => {
+            onCross={(to, at) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
               // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
               // 아무도 안 움직인다. 값은 페이즈가 열릴 때 한 번 치른다
               // 페이즈 중에는 들어가는 데 토큰이 들고 5분이 걸린다.
               // 자유 시간에는 공짜고 즉시다
-              const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to)
+              const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to, at)
               // **됐는지 안 됐는지를 돌려준다.** 안 돌려주면 화면이 대답을
               // 기다리는 채로 굳어서, 한 번 거절당한 뒤로는 어느 문도
               // 못 넘는다 — 실제로 그렇게 막혔다
@@ -1487,7 +1487,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                       ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
                       : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
                   )
-                  return true
+                  // 서버가 세운 칸 — 들어선 칸에 누가 있었으면 옆 빈 칸이다
+                  const seat = (r as { at?: { x: number; y: number } | null }).at
+                  return seat ? { x: seat.x, y: seat.y } : true
                 })
                 .catch((e) => {
                   refuse((e as Error).message)
@@ -1533,11 +1535,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               void act
                 .standAt(x, y, via)
                 .then((r) => {
-                  const out = r as { ok?: boolean; code?: string; why?: string }
-                  // 누가 먼저 섰거나 물건이 있다 — 짧게 알리고 제자리로
-                  if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked') && was) {
+                  const out = r as { ok?: boolean; code?: string; why?: string; at?: { x: number; y: number } | null }
+                  // 누가 먼저 섰거나 물건이 있다 — 짧게 알리고 제자리로.
+                  // **제자리는 서버가 돌려준 칸이다.** 방에 막 들어와 보내기 전 칸이
+                  // 없던 사람도 서버가 빈 칸에 세워 돌려준다 — 안 돌아가면 남의 칸
+                  // 위에 선 채로 남는다
+                  const back = out?.at ?? was
+                  if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked') && back) {
                     showToast(out.why ?? '거기에는 설 수 없다.')
-                    setBounce((b) => ({ x: was.x, y: was.y, n: (b?.n ?? 0) + 1 }))
+                    setBounce((b) => ({ x: back.x, y: back.y, n: (b?.n ?? 0) + 1 }))
+                    setMyCell({ x: back.x, y: back.y })
                   }
                 })
                 // 그 밖의 거절(문턱에 멈췄다 등)은 흘려보낸다 — 걷다 멈춘 자리를

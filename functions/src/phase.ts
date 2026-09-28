@@ -41,6 +41,7 @@ import {
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
+import { seatIn } from '../../shared/rules/seat'
 import { isFixture } from '../../shared/rules/fixtures'
 import { isBlockedCell } from '../../shared/rules/blocked'
 import { foldPurses, purseOf } from '../../shared/rules/resources'
@@ -72,11 +73,10 @@ import { sys } from '../../shared/rules/radio'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { notify } from './notify'
+import { cellsOf, claimSeat, pickSeat, seatPawn, takenFrom } from './seat'
 
 const db = getFirestore()
 
-/** 칸 표시 — 누가 그 칸에 섰나. 동시에 같은 칸으로 오는 둘을 가른다(standAt). 참가자는 못 읽는다 */
-const cellsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('cells').collection('items')
 
 /** 묶여 있는 동안 화면에 적는 이름. */
 const ACT_LABEL: Record<ActionKind, string> = {
@@ -418,6 +418,8 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
       // 적혀 있으면 그 자리에서 아무것도 못 한다
       busyUntilMs: null,
       busyKind: null,
+      // 앞 방의 칸은 버린다. 칸은 커밋 뒤에 한 사람씩 빈 칸으로 정한다(seatPawn)
+      at: null,
     })
   }
 
@@ -527,6 +529,24 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
 
   await batch.commit()
+  /*
+   * **돌아온 사람은 전선 방의 빈 칸에 선다.** 칸을 비워 두면 화면마다 문 앞
+   * 같은 칸을 골라 한 칸에 겹쳐 선다. 한 사람씩 트랜잭션으로 — 먼저 선
+   * 사람의 칸을 다음 사람이 본다
+   */
+  for (const m of returning) await seatPawn(gameId, m.ref.id, m.post, nowMs)
+  /*
+   * 제자리 방에 있었는데 **방 안 칸이 아닌** 사람도 방 안에 세운다 — 칸이 없거나
+   * (칸을 나눠 주기 전에 시작한 판) 방 앞 복도에 서 있던 사람. 전에는 화면이
+   * 저마다 방 안으로 옮겨 세웠는데, 서버가 막 세운 사람과 같은 칸을 골라
+   * 거절당하고 복도로 도로 튕겼다
+   */
+  for (const d of pawns.docs) {
+    const p = d.data() as PawnDoc
+    if (!p.tileId || returning.some((m) => m.ref.id === d.id)) continue
+    if (p.at && roomOfCell(p.at.x, p.at.y) === p.tileId) continue
+    await seatPawn(gameId, d.id, p.tileId as TileId, nowMs)
+  }
   // 열넷 모두에게 — 결과는 없다, 열렸다는 것뿐
   await notify(gameId, everyone, 'phaseStart', `phaseStart:${no}`)
   /*
@@ -638,7 +658,7 @@ export const phaseAct = onCall<{
   /** 연구를 건 기계. 연구일 때만 정해진다 */
   let labMachine: number | null = null
   await db.runTransaction(async (tx) => {
-    const [pawns, bots, tiles, hidden, teams, flagSnap, madeSnap] = await Promise.all([
+    const [pawns, bots, tiles, hidden, teams, flagSnap, madeSnap, papers] = await Promise.all([
       tx.get(ref.collection('pawns')),
       tx.get(robotsOf(gameId)),
       tx.get(ref.collection('tiles')),
@@ -646,6 +666,8 @@ export const phaseAct = onCall<{
       tx.get(ref.collection('teams')),
       tx.get(flagsOf(gameId)),
       kind === 'research' ? tx.get(madeOf(gameId)) : Promise.resolve(null),
+      // 계단으로 곧바로 설 때 빈 칸을 고른다 — 바닥 종이 칸은 못 선다
+      kind === 'move' ? tx.get(ref.collection('secret').doc('quiz').collection('floor').where('heldBy', '==', null)) : Promise.resolve(null),
     ])
     const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
     /*
@@ -720,6 +742,8 @@ export const phaseAct = onCall<{
     // 사람 — 바뀐 것만 쓴다
     const arriveAt = nowMs + MOVE_MINUTES * 60_000
     const wasAt = new Map(before.people.map((p) => [p.playerId, p]))
+    /** 이번에 세운 칸. 한 번에 둘이 계단을 타도 겹치지 않게 */
+    const seated: Cell[] = []
     for (const p of out.next.people) {
       const was = wasAt.get(p.playerId) as Person
       const sameSpot = was.tileId === p.tileId && (was.toTile ?? null) === (p.toTile ?? null)
@@ -733,6 +757,10 @@ export const phaseAct = onCall<{
       if (p.tileId !== null) {
         const been = new Set((doc.data() as PawnDoc).visitedTiles ?? [])
         been.add(p.tileId)
+        // **그 방의 빈 칸에 선다.** 앞 층의 칸을 들고 가면 엉뚱한 자리에 선 것이 된다
+        const cell = seatIn(p.tileId, takenFrom(pawns.docs, papers?.docs ?? [], p.playerId, seated))
+        if (cell) seated.push(cell)
+        claimSeat(tx, gameId, p.playerId, cell, nowMs)
         tx.update(doc.ref, {
           tileId: p.tileId,
           fromTile: was.tileId,
@@ -740,6 +768,7 @@ export const phaseAct = onCall<{
           arriveAtMs: null,
           asleep: false,
           visitedTiles: [...been],
+          at: cell,
         })
         if (p.playerId === uid) steppedTo = p.tileId
         continue
@@ -1072,14 +1101,23 @@ function liveLocks(
   return out
 }
 
-export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => {
+export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number; y: number } }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, tileId } = req.data
+  /*
+   * **걸어 들어온 자리.** 화면은 문을 넘어 방 안 한 칸에 선 채로 이것을
+   * 부른다. 그 칸이 비었으면 거기, 아니면 거기서 가장 가까운 빈 칸에 세운다 —
+   * 그 방 안 칸이 아니면 안 믿고 문 바로 안쪽에서 고른다
+   */
+  const hx = Math.floor(Number(req.data.at?.x))
+  const hy = Math.floor(Number(req.data.at?.y))
+  const near = Number.isFinite(hx) && Number.isFinite(hy) ? { x: hx, y: hy } : null
   if (!TILE_BY_ID[tileId]) throw new HttpsError('invalid-argument', '그런 방은 없다.')
   const { game, nowMs } = await freshNow(gameId)
   if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '페이즈 중에는 토큰을 써서 움직인다.')
 
   const ref = gameRef(gameId)
+  let seat: Cell | null = null
   await db.runTransaction(async (tx) => {
     const mine = await tx.get(ref.collection('pawns').doc(uid))
     // 페이즈가 닫히면 하던 일도 끊기지만, 그 사이에 이 문으로 들어올
@@ -1120,14 +1158,20 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
     // 다만 **발은 들였으니** 지도에는 남는다
     const been = new Set(p.visitedTiles ?? [])
     been.add(tileId)
-    // **칸은 버린다.** 앞 방의 좌표를 들고 가면 새 방에서 엉뚱한 자리에
-    // 선 것이 되고, 거래가 그 좌표로 「옆에 있다」를 판정한다
+    /*
+     * **앞 방의 칸은 버리고 이 방의 빈 칸에 선다.** 앞 방의 좌표를 들고 가면
+     * 새 방에서 엉뚱한 자리에 선 것이 된다. 전에는 비워 두고(null) 화면이
+     * 고르게 했는데, 같은 문으로 들어온 여럿이 문 앞 한 칸에 겹쳐 섰다
+     */
+    const cell = await pickSeat(tx, gameId, uid, tileId, near)
+    claimSeat(tx, gameId, uid, cell, nowMs)
+    seat = cell
     tx.update(mine.ref, {
       tileId,
       fromTile: here,
       arriveAtMs: null,
       path: [],
-      at: null,
+      at: cell,
       visitedTiles: [...been],
     })
   })
@@ -1136,10 +1180,27 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId }>(async (req) => 
   // 방의 지난 말까지 읽히거나, 떠난 방의 말이 계속 들린다
   await openInterval(gameId, uid, tileId, nowMs)
   await refreshViews(gameId)
-  return { tileId }
+  return { tileId, at: seat }
 })
 
 export { ACT_COST, TOKENS_PER_PHASE }
+
+/**
+ * 거절당한 사람이 **서 있을 칸.** 화면은 이 칸으로 도로 선다.
+ *
+ * 서버가 아는 칸이 지금 방(또는 복도) 안이면 그 칸이다. 칸이 없거나(칸을
+ * 나눠 주기 전에 시작한 판) 앞 방의 칸이면, 가려던 칸에서 가장 가까운
+ * 빈 칸에 세운다 — 칸 없는 사람을 그대로 두면 화면이 돌아갈 곳이 없어서
+ * 남의 칸 위에 선 채로 남는다.
+ */
+async function keepSeat(gameId: string, uid: string, p: PawnDoc, want: Cell): Promise<Cell | null> {
+  const room = p.tileId as TileId | null
+  if (!room) return p.at ?? null
+  const at = p.at ?? null
+  if (at && (roomOfCell(at.x, at.y) === room || (roomOfCell(at.x, at.y) === null && isHallCell(at.x, at.y)))) return at
+  const { nowMs } = await freshNow(gameId)
+  return seatPawn(gameId, uid, room, nowMs, want)
+}
 
 /**
  * 방 안 어디에 섰는지 적는다.
@@ -1194,14 +1255,14 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 한 번 더 본다 — 화면이 보내는 값을 믿으면 손으로 부른 요청 하나로
    * 기계 안에 서 있는 사람이 생긴다.
    */
-  if (isFixture(x, y)) return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.' }
+  if (isFixture(x, y)) return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.', at: await keepSeat(gameId, uid, p, { x, y }) }
   /*
    * **가구 · 팻말 위에도 못 선다.** 화면은 가구 배치(furniture.ts)로 막는데
    * 서버는 그 그림 파일을 못 불러서, 한동안 손으로 부른 요청 하나로 책상
    * 위에 설 수 있었다. 막힌 칸을 뽑아 둔 데이터(rules/blocked)를 본다 —
    * 빌드 때 check-map 이 화면과 같은지 맞춰 본다
    */
-  if (isBlockedCell(x, y)) return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.' }
+  if (isBlockedCell(x, y)) return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.', at: await keepSeat(gameId, uid, p, { x, y }) }
   /*
    * **오락기 앞자리는 한 사람이다.** 그 칸에 선 것이 곧 앉은 것이라
    * (rules/arcade), 둘이 한 칸에 서면 한 기계에 둘이 앉는다. 화면은
@@ -1229,7 +1290,13 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
     const q = d.data() as { x?: number; y?: number }
     if (q.x === x && q.y === y) throw new HttpsError('failed-precondition', '거기에는 종이가 있다.')
   }
-  if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
+  /*
+   * **같은 칸이면 옮길 것이 없다.** 다만 지나온 복도 칸이 실려 왔으면 덫은
+   * 본다 — 방에 들어서면 서버가 먼저 칸을 정해 두므로(rules/seat), 복도를
+   * 밟고 들어온 사람이 멈춰 적어 보내는 칸이 그 칸과 같을 수 있다
+   */
+  const same = p.at?.x === x && p.at?.y === y
+  if (same && via.length === 0) return { ok: true, same: true }
 
   /*
    * **한 칸에 한 사람.** 누가 서 있는 칸에는 못 선다.
@@ -1241,27 +1308,29 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 안 드므로 잃는 것도 없다. 표시는 그 사람이 아직 그 칸에 있을 때만 유효하다
    * — 떠난 사람의 표시는 덮어쓴다
    */
-  const there = await gameRef(gameId).collection('pawns').where('at.x', '==', x).where('at.y', '==', y).get()
-  if (there.docs.some((d) => d.id !== uid && (d.data() as PawnDoc).tileId !== null)) {
-    return { ok: false, code: 'occupied', why: '누가 서 있다.' }
-  }
-  const cellRef = cellsOf(gameId).doc(`${x}_${y}`)
-  const oldRef = p.at ? cellsOf(gameId).doc(`${p.at.x}_${p.at.y}`) : null
-  const took = await db.runTransaction(async (tx) => {
-    const [claim, old] = await Promise.all([tx.get(cellRef), oldRef ? tx.get(oldRef) : null])
-    const by = claim.exists ? (claim.data() as { by: string }).by : null
-    if (by && by !== uid) {
-      const o = (await tx.get(gameRef(gameId).collection('pawns').doc(by))).data() as PawnDoc | undefined
-      if (o && o.tileId !== null && o.at?.x === x && o.at?.y === y) return false
+  if (!same) {
+    const there = await gameRef(gameId).collection('pawns').where('at.x', '==', x).where('at.y', '==', y).get()
+    if (there.docs.some((d) => d.id !== uid && (d.data() as PawnDoc).tileId !== null)) {
+      return { ok: false, code: 'occupied', why: '누가 서 있다.', at: await keepSeat(gameId, uid, p, { x, y }) }
     }
-    tx.set(cellRef, { by: uid, atMs: nowMs })
-    if (old?.exists && (old.data() as { by: string }).by === uid) tx.delete(old.ref)
-    // **자리도 같은 트랜잭션에서 옮긴다.** 따로 적으면 그 사이에 온 사람이
-    // 「표시는 있는데 그 사람이 아직 그 칸에 없다」를 보고 덮어쓴다
-    tx.update(ref, { at: { x, y } })
-    return true
-  })
-  if (!took) return { ok: false, code: 'occupied', why: '누가 먼저 섰다.' }
+    const cellRef = cellsOf(gameId).doc(`${x}_${y}`)
+    const oldRef = p.at ? cellsOf(gameId).doc(`${p.at.x}_${p.at.y}`) : null
+    const took = await db.runTransaction(async (tx) => {
+      const [claim, old] = await Promise.all([tx.get(cellRef), oldRef ? tx.get(oldRef) : null])
+      const by = claim.exists ? (claim.data() as { by: string }).by : null
+      if (by && by !== uid) {
+        const o = (await tx.get(gameRef(gameId).collection('pawns').doc(by))).data() as PawnDoc | undefined
+        if (o && o.tileId !== null && o.at?.x === x && o.at?.y === y) return false
+      }
+      tx.set(cellRef, { by: uid, atMs: nowMs })
+      if (old?.exists && (old.data() as { by: string }).by === uid) tx.delete(old.ref)
+      // **자리도 같은 트랜잭션에서 옮긴다.** 따로 적으면 그 사이에 온 사람이
+      // 「표시는 있는데 그 사람이 아직 그 칸에 없다」를 보고 덮어쓴다
+      tx.update(ref, { at: { x, y } })
+      return true
+    })
+    if (!took) return { ok: false, code: 'occupied', why: '누가 먼저 섰다.', at: await keepSeat(gameId, uid, p, { x, y }) }
+  }
 
   /*
    * **덫.** 지나온 복도 칸과 지금 선 칸 중 다른 팀 덫이 있는 첫 칸에서

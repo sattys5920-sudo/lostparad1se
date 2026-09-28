@@ -31,6 +31,7 @@ import type {
 } from '../../shared/model'
 import { announceBallots } from './ballot'
 import { gameRef, nowOf } from './index'
+import { claimSeat, pickSeat } from './seat'
 import { catchUpMissionDays } from './missionDays'
 import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
@@ -287,14 +288,16 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
     const been = new Set(pawn.visitedTiles ?? [])
     been.add(tileId)
     /*
-     * **칸은 비운다.** 도착하면 방 안 어디에 설지는 화면이 다시
-     * 정해서 보낸다(standAt).
+     * **앞 칸은 버리고 이 방의 빈 칸에 선다**(문 바로 안쪽에서 가장 가까운).
      *
-     * 안 비우면 복도에서 걸어 들어온 사람의 자리가 복도 칸으로 남고,
-     * 복도가 트인 뒤로는 그 값이 「아직 복도에 있다」는 뜻이 된다 —
-     * 방에 들어갔는데도 복도 사람들에게 보이고 거래까지 걸린다.
+     * 앞 칸을 들고 가면 복도에서 걸어 들어온 사람의 자리가 복도 칸으로 남고,
+     * 그 값이 「아직 복도에 있다」는 뜻이 된다 — 방에 들어갔는데도 복도
+     * 사람들에게 보이고 거래까지 걸린다. 전에는 비워 두고(null) 화면이
+     * 고르게 했는데, 같은 문으로 들어온 여럿이 한 칸에 겹쳐 섰다
      */
-    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, at: null, visitedTiles: [...been] })
+    const cell = await pickSeat(c.tx, c.gameId, playerId, tileId)
+    claimSeat(c.tx, c.gameId, playerId, cell, c.atMs)
+    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, at: cell, visitedTiles: [...been] })
     // 이 칸에 섰다. 체류 기록은 트랜잭션 밖에서 연다
     c.landed.push({ playerId, tileId, atMs: c.atMs })
   } else {

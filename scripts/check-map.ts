@@ -7,18 +7,42 @@
 //      문 칸은 지나가는 자리라 서버가 「설 곳」으로 안 받는다 — 어긋나도 된다.
 //   2. 방 안의 고립된 칸 — 걸을 수 있는데 문에서 걸어서 닿지 못하는 칸
 //   3. 시작 자리 열넷이 서로 다르고 걸을 수 있는가
+//   4. 들어서는 자리(ENTRY_CELLS) — 방마다 문 바로 안쪽 한 칸. 서버가 방에 들어온
+//      사람을 여기서 가장 가까운 빈 칸에 세운다. 화면의 문 자리와 같아야 한다
+//   5. 기물 그림이 덮는 칸 = 막힌 칸 — 그림(map/fixtureArt)은 기물 칸에 발을 딛고
+//      솟는다. 덮는 칸이 걸을 수 있는 칸이면 사람이 그림 위에 겹쳐 선다. 둘레에
+//      설 칸이 하나는 있어야 쓸 수 있다
 //
 //   npx vite-node scripts/check-map.ts          검사
 //   npx vite-node scripts/check-map.ts --write  blocked.ts 를 다시 뽑는다(가구를 옮긴 뒤)
 import { writeFileSync } from 'node:fs'
 
-import { DOORS, ROOMS, isWalkable, lobbyCellFor, roomAt } from '../src/school/map/world'
+import { DOORS, ROOMS, centerOf, isWalkable, lobbyCellFor, roomAt } from '../src/school/map/world'
 import { PLAN_H, PLAN_W, canStandAt } from '../shared/rules/board'
 import { isFixture } from '../shared/rules/fixtures'
-import { START_CELLS, STATIC_BLOCKED, isBlockedCell } from '../shared/rules/blocked'
+import { DOOR_CELLS, ENTRY_CELLS, START_CELLS, STATIC_BLOCKED, isBlockedCell } from '../shared/rules/blocked'
+import type { TileId } from '../shared/rules/board'
+import { FIXTURES, fixtureFootprint } from '../src/school/map/fixtureArt'
 
 const errors: string[] = []
 const write = process.argv.includes('--write')
+
+/**
+ * 방마다 들어서는 자리. **문 바로 안쪽 한 칸** — 문으로 들어왔으면 문 앞에
+ * 선다. 문이 없는 방(계단참 · 옥상)은 한가운데
+ */
+function entryOf(id: TileId): { x: number; y: number } {
+  const door = DOORS.find((d) => d.a === id)
+  if (door) {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const cx = door.x + dx
+      const cy = door.y + dy
+      if (roomAt(cx, cy)?.id === id && isWalkable(cx, cy)) return { x: cx, y: cy }
+    }
+  }
+  return centerOf(id)
+}
+const entries = ROOMS.map((r) => [r.id, entryOf(r.id)] as const)
 
 /** 서버 기준으로 설 수 있는 칸(가구 제외 전) */
 const serverSpot = (x: number, y: number) => canStandAt(x, y) && !isFixture(x, y)
@@ -57,6 +81,23 @@ ${lines.join('\n')}
  */
 export const START_CELLS: readonly { x: number; y: number }[] = [
 ${Array.from({ length: 14 }, (_, i) => lobbyCellFor(i)).map((c) => `  { x: ${c.x}, y: ${c.y} },`).join('\n')}
+]
+
+/**
+ * 방마다 들어서는 자리 — 문 바로 안쪽 한 칸(문이 없으면 한가운데). 화면의
+ * 문 자리와 같은 값이다(check-map 이 본다). 방에 들어온 사람은 여기서 가장
+ * 가까운 빈 칸에 선다(rules/seat) — 같은 문으로 들어온 여럿이 한 칸에 겹치지 않게.
+ */
+export const ENTRY_CELLS: Readonly<Record<string, { x: number; y: number }>> = {
+${entries.map(([id, c]) => `  ${id}: { x: ${c.x}, y: ${c.y} },`).join('\n')}
+}
+
+/**
+ * 문 — 칸과 그 문이 난 방. 화면의 문(map/world DOORS)과 같은 값이다(check-map 이 본다).
+ * 서버가 문 앞 길(rules/lane)을 알아야 들어온 사람을 길 밖에 세운다.
+ */
+export const DOOR_CELLS: readonly { x: number; y: number; room: string }[] = [
+${DOORS.map((d) => `  { x: ${d.x}, y: ${d.y}, room: '${d.a}' },`).join('\n')}
 ]
 
 /** 가구 · 팻말이 선 칸인가 */
@@ -120,9 +161,33 @@ if (keys.size !== spots.length) errors.push(`시작 자리가 겹친다 — ${sp
 for (const c of spots) if (!isWalkable(c.x, c.y) || isBlockedCell(c.x, c.y)) errors.push(`시작 자리 ${c.x},${c.y} 에 설 수 없다`)
 if (JSON.stringify(spots) !== JSON.stringify(START_CELLS)) errors.push('blocked.ts 의 시작 자리가 화면(lobbyCellFor)과 다르다 — --write 로 다시 뽑는다')
 
+// ── 4. 들어서는 자리 ──
+for (const [id, c] of entries) {
+  const had = ENTRY_CELLS[id]
+  if (!had || had.x !== c.x || had.y !== c.y) errors.push(`${id} 의 들어서는 자리가 화면의 문과 다르다 — --write 로 다시 뽑는다`)
+  if (!isWalkable(c.x, c.y) || roomAt(c.x, c.y)?.id !== id) errors.push(`${id} 의 들어서는 자리 ${c.x},${c.y} 에 설 수 없다`)
+}
+if (Object.keys(ENTRY_CELLS).length !== entries.length) errors.push('blocked.ts 의 들어서는 자리 수가 방 수와 다르다')
+if (JSON.stringify(DOOR_CELLS) !== JSON.stringify(DOORS.map((d) => ({ x: d.x, y: d.y, room: d.a })))) {
+  errors.push('blocked.ts 의 문(DOOR_CELLS)이 화면의 문과 다르다 — --write 로 다시 뽑는다')
+}
+
+// ── 5. 기물 그림이 덮는 칸 ──
+for (const f of FIXTURES) {
+  const { x, y } = f.cell
+  if (!isFixture(x, y)) errors.push(`${f.kind} ${x},${y}: 기물 칸이 막혀 있지 않다`)
+  for (const c of fixtureFootprint(f.kind, f.cell)) {
+    if (c.x === x && c.y === y) continue
+    if (isWalkable(c.x, c.y)) errors.push(`${f.kind} ${x},${y}: 그림이 걸을 수 있는 칸 ${c.x},${c.y} 를 덮는다 — 사람이 그림 위에 선다`)
+  }
+  let front = 0
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && isWalkable(x + dx, y + dy)) front += 1
+  if (front === 0) errors.push(`${f.kind} ${x},${y}: 둘레에 설 칸이 없다 — 쓸 수가 없다`)
+}
+
 if (errors.length > 0) {
   for (const e of errors.slice(0, 60)) console.log(`  ✗ ${e}`)
   console.log(`\n맵 검사 ${errors.length}건 실패.`)
   process.exit(1)
 }
-console.log(`맵 — 막힌 칸 ${STATIC_BLOCKED.size}개가 화면과 서버에서 같다 · 방 ${ROOMS.length}개에 고립된 칸 ${isolated}개 · 시작 자리 ${keys.size}칸.`)
+console.log(`맵 — 막힌 칸 ${STATIC_BLOCKED.size}개가 화면과 서버에서 같다 · 방 ${ROOMS.length}개에 고립된 칸 ${isolated}개 · 시작 자리 ${keys.size}칸 · 들어서는 자리 ${entries.length}곳 · 기물 ${FIXTURES.length}개의 그림이 막힌 칸에 선다.`)

@@ -248,7 +248,7 @@ export function gameActions(gameId: string) {
     seenMissionDay: (day: number) => callServer('seenMissionDay', { ...g, day }),
     // ── 페이즈 ──────────────────────────────────────────────────
     /** 자유 시간에 옆방으로. 즉시 간다. 전선은 안 움직인다. */
-    roamTo: (tileId: TileId) => callServer('roamTo', { ...g, tileId }),
+    roamTo: (tileId: TileId, at?: { x: number; y: number }) => callServer('roamTo', { ...g, tileId, ...(at ? { at } : {}) }),
     /**
      * 방 안 어디에 섰는지 적는다. **걸음을 멈출 때 한 번만.**
      *

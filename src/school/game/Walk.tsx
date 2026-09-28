@@ -58,6 +58,8 @@ import { LAB_MACHINES, MAKERS } from '../../../shared/rules/trap'
 import { ARCADE_MACHINES, machineAtSeat } from '../../../shared/rules/arcade'
 import { TILE_BY_ID, isAlleyCell } from '../../../shared/rules/board'
 import { canDropQuizAt } from '../../../shared/rules/quiz'
+import { fixtureDrawnAt, fixtureTall, fixtureTopPx } from '../map/fixtureArt'
+import { HALL_SPREAD_REACH, entryCellOf, nearestOpenCell, seatNear } from '../../../shared/rules/seat'
 import type { AvatarLook } from '../../../shared/look'
 import type { LiveDoc, PlayerViewDoc, TileDoc } from '../../../shared/model'
 import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from './useLive'
@@ -116,7 +118,11 @@ export interface WalkProps {
    * 성공했는지 모르면 화면이 「아직 대답을 기다리는 중」에 갇히고,
    * 그 뒤로는 어느 문도 못 넘는다. 실제로 그렇게 막혔다.
    */
-  onCross: (to: TileId) => Promise<boolean> | void
+  /**
+   * 방에 들어섰다. at 은 들어선 칸 — 서버가 거기서 가장 가까운 빈 칸에 세운다.
+   * 서버가 세운 칸을 돌려주면 화면도 그 칸으로 선다(비었으면 같은 칸이다)
+   */
+  onCross: (to: TileId, at: { x: number; y: number }) => Promise<boolean | { x: number; y: number }> | void
   /** 지금 선 방이 바뀌면 알려 준다. 행동 패널이 이걸 본다. */
   onRoom: (id: TileId | null) => void
   /** 맵에서 방을 눌렀다. 먼 방이면 거기로 갈지 묻는다. */
@@ -618,6 +624,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       phase: 0,
     }
     let lastRoom: TileId | null = null
+    /**
+     * 옮겨 세웠다(도로 서기 · 제자리 · 서버가 정한 칸). **실시간 자리를 한 번 더
+     * 적는다.** 안 적으면 남의 화면에는 거절당한 칸에 선 채로 남는다 — 멈춘
+     * 뒤로는 실시간 자리를 안 보내니까
+     */
+    let liveDirty = false
 
     /**
      * 한 번 누른 것. 십자키도 방향키도 여기로 들어온다.
@@ -768,7 +780,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
        * 종이와 기물 칸에는 아무도 못 서니, 그 칸을 짚었으면 물건을 뜻한 것이다
        */
       const who = personAt(sx, sy, here)
-      const thingThere = fixtureAt(tx, ty) !== null || papersRef.current.some((p) => p.x === tx && p.y === ty)
+      // **그림을 짚었으면 그 기물이다.** 두 칸짜리(오락기)는 윗칸을 짚어도 된다
+      const drawn = fixtureDrawnAt(tx, ty)
+      const thingThere = drawn !== null || papersRef.current.some((p) => p.x === tx && p.y === ty)
       if (who && !thingThere) {
         // 몸이 화면 어디에 있는지 같이 넘긴다. 받는 쪽이 그 옆에 창을
         // 붙인다 — 캔버스 안쪽 좌표를 뷰포트 좌표로 옮겨서 준다
@@ -797,9 +811,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       })
       const me = { x: self.tx, y: self.ty }
       const gap = (c: { x: number; y: number }) => Math.max(0, Math.max(Math.abs(me.x - c.x), Math.abs(me.y - c.y)) - 1)
-      const fix = fixtureAt(tx, ty)
+      const fix = drawn ? fixtureAt(drawn.x, drawn.y) : null
       if (fix) {
-        const cab = ARCADE_CELLS.get(`${tx},${ty}`)
+        const cab = ARCADE_CELLS.get(`${fix.cell.x},${fix.cell.y}`)
         if (cab !== undefined) {
           // 오락기는 앞자리에 앉아서 한다. 옆에 섰으면 그 자리로 가서 앉는다
           const seat = ARCADE_MACHINES[cab].seat
@@ -1013,18 +1027,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       return []
     }
 
-    /** 그 문의 이 방 쪽 한 칸. 문을 넘어 들어서는 자리다. */
-    function doorSpot(id: TileId, door: Door): { x: number; y: number } | null {
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const cx = door.x + dx
-        const cy = door.y + dy
-        if (roomAt(cx, cy)?.id === id && isWalkable(cx, cy)) return { x: cx, y: cy }
-      }
-      return null
-    }
-
     /** 그 자리에 세운다. 걷던 것은 멈춘다. */
     function standAt(x: number, y: number): void {
+      if (self.tx !== x || self.ty !== y) liveDirty = true
       self.tx = x
       self.ty = y
       self.px = x * TILE + TILE / 2
@@ -1053,40 +1058,32 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      */
     function freeSpot(x: number, y: number, id: TileId): { x: number; y: number } {
       const taken = takenCells()
-      if (!taken.has(`${x},${y}`) && isWalkable(x, y)) return { x, y }
-      for (let r = 1; r <= 6; r++) {
-        for (let dx = -r; dx <= r; dx++) {
-          for (let dy = -r; dy <= r; dy++) {
-            if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue
-            const cx = x + dx
-            const cy = y + dy
-            if (roomAt(cx, cy)?.id !== id) continue
-            if (!isWalkable(cx, cy)) continue
-            if (taken.has(`${cx},${cy}`)) continue
-            return { x: cx, y: cy }
-          }
-        }
-      }
-      return { x, y }
+      // 서버(rules/seat)와 같은 순서로 찾는다 — 같은 칸을 고르게. 문 앞 길은 비워 둔다
+      return seatNear(id, { x, y }, (cx, cy) => isWalkable(cx, cy) && !taken.has(`${cx},${cy}`)) ?? { x, y }
     }
 
     function placeIn(id: TileId): void {
-      const r = ROOMS.find((x) => x.id === id)
-      if (!r) return
-      const rect = r.rects[0]
+      if (!ROOMS.some((x) => x.id === id)) return
       // **방금 넘은 문 바로 안쪽에 세운다.** 문으로 들어갔으면 문으로
       // 나와야 한다 — 방 한가운데로 순간이동하면 걸어 들어온 것이 아니라
       // 순간이동한 것이 된다
       //
       // **방마다 문이 하나다.** 복도로만 드나드니 어느 문으로 들어왔는지
       // 고민할 것이 없다. 계단참과 옥상은 문이 없어 한가운데에 선다
-      const door = DOORS.find((d) => d.a === id) ?? null
-      const spot = door ? doorSpot(id, door) : null
-      const want = freeSpot(
-        spot ? spot.x : rect.x + Math.floor(rect.w / 2),
-        spot ? spot.y : rect.y + Math.floor(rect.h / 2),
-        id,
-      )
+      //
+      // **서버가 칸을 정해 두었으면 그 칸이다.** 방에 들어온 사람은 서버가
+      // 빈 칸에 세운다(rules/seat). 화면이 따로 고르면 같은 문으로 들어온
+      // 여럿이 한 칸을 고른다. 아직 안 왔으면 같은 규칙으로 고르고, 겹치면
+      // 서버가 거절하며 제 칸을 돌려준다
+      const mine = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId)?.at ?? null
+      if (mine && roomAt(mine.x, mine.y)?.id === id) {
+        standAt(mine.x, mine.y)
+        told = `${mine.x},${mine.y}`
+        autoPath = []
+        return
+      }
+      const spot = entryCellOf(id)
+      const want = freeSpot(spot.x, spot.y, id)
       standAt(want.x, want.y)
       // **여기서 더 걷게 하지 않는다.**
       //
@@ -1314,7 +1311,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
          * 교실에 마주 선 사람이 몇 초 뒤에 사라진다.
          */
         const beat = rosterRef.current !== undefined && now - lastLiveMs >= LIVE_BEAT_MS
-        if ((movingNow && due) || (!movingNow && toldLive) || beat) {
+        if ((movingNow && due) || (!movingNow && toldLive) || beat || (liveDirty && !movingNow)) {
+          liveDirty = false
           lastLiveMs = now
           toldLive = movingNow
           liveOutRef.current({
@@ -1390,15 +1388,26 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         asked = true
         askedAtMs = performance.now()
         const back = { x: self.tx, y: self.ty }
-        const said = crossRef.current(room)
+        const said = crossRef.current(room, back)
         // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
         // 영영 못 움직인다
         if (said && typeof said.then === 'function') {
           void said.then((ok) => {
-            if (ok) return
-            asked = false
-            autoPath = []
-            standAt(back.x, back.y)
+            if (ok === false) {
+              asked = false
+              autoPath = []
+              standAt(back.x, back.y)
+              return
+            }
+            /*
+             * **서버가 다른 칸에 세웠다** — 들어선 칸에 누가 서 있었다. 아직 그
+             * 자리에 멈춰 있으면 서버 칸으로 선다. 그새 걸어갔으면 둔다 — 멈추면
+             * 그 칸을 적어 보내고, 서버가 다시 가른다
+             */
+            if (typeof ok === 'object' && (ok.x !== back.x || ok.y !== back.y) && self.tx === back.x && self.ty === back.y && !self.moving && autoPath.length === 0) {
+              standAt(ok.x, ok.y)
+              told = `${ok.x},${ok.y}`
+            }
           })
         }
       }
@@ -1580,13 +1589,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           const prop = propAt(x, y)
           if (prop) drawPiece(ctx, sprites.props[prop.kind], prop.ox, prop.oy, x * TILE - camX, y * TILE - camY)
           /*
-           * 게시판. **두 칸 높이라 윗칸에서 그린다** — 아랫칸 기준으로
-           * 그리면 위쪽 절반이 벽을 파고든다.
+           * 게시판. **발을 기물 칸 바닥에 딛고 그림 키만큼 솟는다**(map/fixtureArt).
+           * 한 칸짜리 그림을 한 칸 위에서 그리던 때에는 그림이 막히지 않은
+           * 칸에 떠서, 사람이 그림 위에 겹쳐 서고 그림을 짚어도 안 열렸다
            */
           const board = boardsRef.current.find((b) => b.x === x && b.y === y)
           if (board) {
             const img = sprites.props[board.count > 0 ? 'noticeBoardFull' : 'noticeBoard']
-            ctx.drawImage(img, x * TILE - camX, y * TILE - camY - TILE)
+            ctx.drawImage(img, x * TILE - camX, fixtureTopPx(y, img.height) - camY)
           }
           /*
            * 자판기. **판 내내 안 움직이고 안 바뀐다** — 그래서 게시판과
@@ -1597,20 +1607,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
            * 이 칸의 바닥에 닿는다.
            */
           if (MAKER_CELLS.has(`${x},${y}`)) {
-            ctx.drawImage(sprites.props.trapMaker, x * TILE - camX, y * TILE - camY)
+            ctx.drawImage(sprites.props.trapMaker, x * TILE - camX, fixtureTopPx(y, sprites.props.trapMaker.height) - camY)
           }
           if (LAB_CELLS.has(`${x},${y}`)) {
-            ctx.drawImage(sprites.props.labMachine, x * TILE - camX, y * TILE - camY)
+            ctx.drawImage(sprites.props.labMachine, x * TILE - camX, fixtureTopPx(y, sprites.props.labMachine.height) - camY)
           }
           if (VENDING_CELLS.has(`${x},${y}`)) {
-            ctx.drawImage(sprites.props.vending, x * TILE - camX, y * TILE - camY - TILE)
+            ctx.drawImage(sprites.props.vending, x * TILE - camX, fixtureTopPx(y, sprites.props.vending.height) - camY)
           }
           // 오락기는 두 칸 높이 — 기물 칸에 발을 딛고 벽 칸까지 솟는다.
           // 열 대가 붙어 서니 몸통 색을 셋으로 돌린다. 한 색이면 한 덩어리
           // 벽으로 보이고 몇 대인지 안 세어진다
           const cab = ARCADE_CELLS.get(`${x},${y}`)
           if (cab !== undefined) {
-            ctx.drawImage(sprites.props[CABINETS[cab % CABINETS.length]], x * TILE - camX, y * TILE - camY - TILE)
+            const img = sprites.props[CABINETS[cab % CABINETS.length]]
+            ctx.drawImage(img, x * TILE - camX, fixtureTopPx(y, img.height) - camY)
           }
           /*
            * 바닥의 심부름 물건. **칸 가운데에 작게 놓는다**(12칸 그림을
@@ -1784,11 +1795,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           const f = fixtureAt(me.x + dx, me.y + dy)
-          if (f && f.kind !== 'arcade') add((f.cell.x + 0.5) * TILE, f.cell.y * TILE)
+          // 그림 윗끝 위에 띄운다 — 그림 키만큼(map/fixtureArt)
+          if (f && f.kind !== 'arcade') add((f.cell.x + 0.5) * TILE, (f.cell.y + 1 - fixtureTall(f.kind)) * TILE)
         }
       }
       for (const m of ARCADE_MACHINES) {
-        if ((me.x === m.seat.x && me.y === m.seat.y) || facing(me, m.seat)) add((m.cell.x + 0.5) * TILE, m.cell.y * TILE)
+        if ((me.x === m.seat.x && me.y === m.seat.y) || facing(me, m.seat)) add((m.cell.x + 0.5) * TILE, (m.cell.y + 1 - fixtureTall('arcade')) * TILE)
       }
       for (const p of papersRef.current) {
         if (facing(me, p)) add((p.x + 0.5) * TILE, p.y * TILE)
@@ -2085,13 +2097,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       return teams.length === 1 ? (teams[0] as TeamId) : null
     }
 
-    /**
-     * 서버가 아직 칸을 모르는 사람들을 방 가운데 격자로 세울 때의 간격.
-     *
-     * 캐릭터 한 몸 너비다. 점이던 시절에는 10이면 넉넉했는데, 이제는
-     * 몸이 있어서 그만큼 붙여 놓으면 서로 겹쳐 한 덩어리가 된다.
-     */
-    const DOT_PX = CHAR_PX
     /** 짚었다고 볼 반경. 몸통 반 너비다. */
     const GRAB_PX = Math.round(CHAR_PX / 2)
 
@@ -2178,9 +2183,28 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       }
       return had
     }
+    /**
+     * 잡힌 칸 옆의 가장 가까운 빈 칸 — 그 칸과 같은 방(복도면 복도)에서.
+     * 그릴 자리만 비키는 것이다. 없으면 그 칸 그대로
+     */
+    function spreadCell(from: { x: number; y: number }, held: ReadonlySet<string>): { x: number; y: number } {
+      const room = roomAt(from.x, from.y)?.id ?? null
+      const open = (x: number, y: number) =>
+        isWalkable(x, y) && !held.has(`${x},${y}`) && (roomAt(x, y)?.id ?? null) === room && doorHere(x, y) === null
+      if (room) return nearestOpenCell(room, from, open) ?? from
+      for (let d = 1; d <= HALL_SPREAD_REACH; d++) {
+        for (let dx = -d; dx <= d; dx++) {
+          for (let dy = -d; dy <= d; dy++) {
+            if (Math.abs(dx) !== d && Math.abs(dy) !== d) continue
+            if (open(from.x + dx, from.y + dy)) return { x: from.x + dx, y: from.y + dy }
+          }
+        }
+      }
+      return from
+    }
+
     function standees(dt = 0): Standee[] {
       const out: Standee[] = []
-      const byRoom = new Map<string, Omit<Standee, 'here' | 'x' | 'y'>[]>()
       const gone = new Set(shown.keys())
 
       /*
@@ -2214,6 +2238,24 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         return out
       }
 
+      /*
+       * **한 칸에 한 사람으로 그린다.**
+       *
+       * 실시간 자리는 화면이 적어 보내는 값이라 서버가 거절한 칸을 가리킬 수
+       * 있다(누가 먼저 섰다 — 그 사람 화면이 도로 서기 전까지). 칸이 없는
+       * 사람도 있다. 그대로 그리면 둘이 한 칸에 겹친다. 그래서 멈춰 선 사람은
+       * 칸을 하나씩 잡으며 그린다 — 내 칸, 서버가 확인한 칸이 먼저고, 잡힌
+       * 칸을 가리키는 사람은 서버가 아는 칸으로, 그것도 찼으면 가장 가까운
+       * 빈 칸으로 비켜 그린다. 걷는 중인 사람은 지나가는 것이라 안 잡는다.
+       */
+      const held = new Set<string>([`${self.tx},${self.ty}`])
+      const want: {
+        who: Omit<Standee, 'here' | 'x' | 'y'>
+        here: TileId
+        cell: { x: number; y: number } | null
+        server: { x: number; y: number } | null
+        live: LiveDoc | null
+      }[] = []
       for (const p of viewRef.current?.visiblePawns ?? []) {
         if (p.walking || !p.tileId) continue
         gone.delete(p.playerId)
@@ -2234,37 +2276,38 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
          * 우겨 봐야 여기서 걸러지고, 판정은 애초에 pawns 만 본다.
          */
         const now = liveOf(p.playerId)
-        if (now && now.tileId === p.tileId) {
-          const at = ease(p.playerId, now.x * TILE, now.y * TILE, dt)
-          out.push({ ...who, dir: now.dir, moving: now.moving, here: p.tileId as TileId, x: at.x, y: at.y, placed: true })
+        const live = now && now.tileId === p.tileId ? now : null
+        if (live?.moving) {
+          const at = ease(p.playerId, live.x * TILE, live.y * TILE, dt)
+          out.push({ ...who, dir: live.dir, moving: true, here: p.tileId as TileId, x: at.x, y: at.y, placed: true })
           continue
         }
-        if (p.at) {
-          const at = ease(p.playerId, p.at.x * TILE + TILE / 2, p.at.y * TILE + TILE / 2, dt)
-          out.push({ ...who, here: p.tileId as TileId, x: at.x, y: at.y, placed: true })
-          continue
+        const cell = live ? { x: Math.floor(live.x), y: Math.floor(live.y) } : (p.at ?? null)
+        want.push({ who: live ? { ...who, dir: live.dir } : who, here: p.tileId as TileId, cell, server: p.at ?? null, live })
+      }
+      const keyOf = (c: { x: number; y: number }) => `${c.x},${c.y}`
+      const sure = (w: (typeof want)[number]) => w.cell !== null && w.server !== null && keyOf(w.cell) === keyOf(w.server)
+      want.sort((a, b) => Number(sure(b)) - Number(sure(a)) || (a.who.playerId < b.who.playerId ? -1 : 1))
+      for (const w of want) {
+        let cell = w.cell
+        let placed = true
+        if (cell && held.has(keyOf(cell)) && w.server && !held.has(keyOf(w.server))) cell = w.server
+        if (!cell) {
+          // 칸을 모른다 — 문 바로 안쪽에서 빈 칸을 잡는다. 「옆 칸」 판정에는 안 쓴다
+          cell = entryCellOf(w.here)
+          placed = false
         }
-        const row = byRoom.get(p.tileId) ?? []
-        row.push(who)
-        byRoom.set(p.tileId, row)
+        if (held.has(keyOf(cell))) cell = spreadCell(cell, held)
+        held.add(keyOf(cell))
+        // 실시간 자리가 그 칸 그대로면 받은 자리로 민다. 비켜 그릴 때는 칸 한가운데
+        const onLive = w.live && Math.floor(w.live.x) === cell.x && Math.floor(w.live.y) === cell.y
+        const at = onLive && w.live
+          ? ease(w.who.playerId, w.live.x * TILE, w.live.y * TILE, dt)
+          : ease(w.who.playerId, cell.x * TILE + TILE / 2, cell.y * TILE + TILE / 2, dt)
+        out.push({ ...w.who, here: w.here, x: at.x, y: at.y, placed })
       }
       // 안 보이게 된 사람의 자리는 버린다. 다시 나타나면 그 자리에 찍힌다
       for (const id of gone) shown.delete(id)
-      for (const [tileId, mates] of byRoom) {
-        const at = centerPx(asRoom(tileId))
-        if (!at) continue
-        const order = [...mates].sort((a, b) => (a.playerId < b.playerId ? -1 : 1))
-        const cols = Math.ceil(Math.sqrt(order.length))
-        const rows = Math.ceil(order.length / cols)
-        order.forEach((p, i) => {
-          out.push({
-            ...p,
-            here: tileId as TileId,
-            x: at.x + Math.round(((i % cols) - (cols - 1) / 2) * DOT_PX),
-            y: at.y + Math.round((Math.floor(i / cols) - (rows - 1) / 2) * DOT_PX),
-          })
-        })
-      }
       return out
     }
 
@@ -2290,13 +2333,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       return best
     }
 
-    function centerPx(id: TileId | null): { x: number; y: number } | null {
-      if (!id) return null
-      const r = ROOMS.find((x) => x.id === id)
-      if (!r) return null
-      const rect = r.rects[0]
-      return { x: (rect.x + rect.w / 2) * TILE, y: (rect.y + rect.h / 2) * TILE }
-    }
 
 
     function dot(x: number, y: number, team: TeamId, asleep: boolean): void {

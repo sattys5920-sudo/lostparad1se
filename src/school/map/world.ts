@@ -34,6 +34,7 @@ import {
   type StairEnd,
 } from '../../../shared/rules/board'
 import { isFixture } from '../../../shared/rules/fixtures'
+import { laneCells } from '../../../shared/rules/lane'
 import { FURNITURE } from './furniture'
 import { propTiles, WALL_PROPS, type PropKind } from './props'
 import { signTiles } from './signs'
@@ -349,29 +350,7 @@ const key = (x: number, y: number) => `${x},${y}`
  * 위에는 아무것도 놓지 않는다.
  */
 const LANES = new Set<string>()
-{
-  for (const d of DOORS) {
-    const r = ROOM_RECTS[d.a][0]
-    const cx = r.x + Math.floor(r.w / 2)
-    const cy = r.y + Math.floor(r.h / 2)
-    // 문에서 방 안으로 한 칸 들어온 자리
-    let x = Math.min(Math.max(d.x, r.x), r.x + r.w - 1)
-    let y = Math.min(Math.max(d.y, r.y), r.y + r.h - 1)
-    const mark = (px: number, py: number) => {
-      for (let ox = -1; ox <= 1; ox++) LANES.add(`${px + ox},${py}`)
-      for (let oy = -1; oy <= 1; oy++) LANES.add(`${px},${py + oy}`)
-    }
-    mark(d.x, d.y)
-    while (y !== cy) {
-      y += y < cy ? 1 : -1
-      mark(x, y)
-    }
-    while (x !== cx) {
-      x += x < cx ? 1 : -1
-      mark(x, y)
-    }
-  }
-}
+for (const d of DOORS) for (const k of laneCells(d, ROOM_RECTS[d.a][0])) LANES.add(k)
 
 /** 문에서 방 한가운데로 이어지는 길 위인가. 여기에는 아무것도 못 놓는다. */
 export const inDoorLane = (x: number, y: number): boolean => LANES.has(`${x},${y}`)
