@@ -374,6 +374,8 @@ export function gameActions(gameId: string) {
     hostEventLog: (o: { sinceMs?: number; untilMs?: number; kinds?: string[]; limit?: number } = {}) => callServer('hostEventLog', { ...g, ...o }),
     /** QA — 불변식을 지금 검사하고 쌓인 기록과 함께 돌려준다 */
     hostInvariants: () => callServer('hostInvariants', g),
+    /** 사람마다 받은 표 — 종류별 합계. 누가 줬는지는 안 온다 */
+    hostVotes: () => callServer('hostVotes', g),
     /** 날짜별 개인 미션 판정. 날을 안 주면 가장 최근 날 */
     hostMissionDay: (day?: number) => callServer('hostMissionDay', { ...g, ...(day ? { day } : {}) }),
     /** 한 사람의 그날 결과를 뒤집는다. null 이면 뒤집기를 거둔다. 까닭은 꼭 */

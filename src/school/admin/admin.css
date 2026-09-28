@@ -1104,3 +1104,18 @@
 .sc-rk__gate b { font-weight: 400; }
 .sc-rk__gate b.is-open { color: var(--accent); }
 .sc-rk__gate b.is-shut { color: var(--danger); }
+
+/* 표 집계 — 사람마다 받은 신뢰표·호감표 */
+.sc-vt__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: var(--bg-1);
+}
+.sc-vt__name { min-width: 0; font-size: var(--fs-body); color: var(--sc-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-vt__count { flex: none; font-size: var(--fs-cap); color: var(--sc-text-2); white-space: nowrap; }
+.sc-vt__count b { font-size: var(--fs-body); font-weight: 600; color: var(--sc-text); font-variant-numeric: tabular-nums; margin-right: 2px; }

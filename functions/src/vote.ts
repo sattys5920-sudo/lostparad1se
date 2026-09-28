@@ -1,7 +1,9 @@
 // 표.
 //
 // 표는 익명이다. **보낸 사람은 secret/votes에만 있고 어디로도 나가지
-// 않는다** — 화면에도, 운영자 대시보드에도. 정산에서 팀 합계만 나간다.
+// 않는다** — 화면에도, 운영자 대시보드에도. 정산에서는 팀 합계, 운영자
+// 화면에서는 사람별 종류별 합계까지만 나간다(hostVotes). 「누가 줬는지」
+// 만 끝까지 감춘다.
 //
 // 털어놓기가 여기 같이 있었다. 숨긴 사실을 걷어내면서 없앴다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
@@ -9,10 +11,11 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { canCast } from '../../shared/rules/votes'
 import type { VoteKind } from '../../shared/rules/v2'
-import type { PawnDoc, VoteDoc } from '../../shared/model'
+import type { GameDoc, PawnDoc, VoteDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn } from './turn'
 import { gameRef, requireUid } from './index'
+import { requireHost } from './host'
 import { docId } from './ids'
 
 const db = getFirestore()
@@ -83,6 +86,35 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
   await refreshViews(gameId)
   // 짚었는지도 알려 주지 않는다. 알려 주면 역할을 하나씩 찍어 볼 수 있다
   return { cast: kind }
+})
+
+/**
+ * 운영자 — 사람마다 받은 표. **종류별 합계까지만** 나간다. 누가 줬는지는
+ * 여기서도 안 나간다(secret/votes 는 이 함수 밖으로 통째로 안 나간다).
+ * 오늘 것도 센다 — 판정과 달리 운영자는 지금 상황을 보는 것이다.
+ */
+export const hostVotes = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const gameSnap = await gameRef(gameId).get()
+  if (!gameSnap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = gameSnap.data() as GameDoc
+
+  const voteS = await gameRef(gameId).collection('secret').doc('votes').collection('items').get()
+  const totals = new Map<string, { trust: number; liking: number }>()
+  for (const d of voteS.docs) {
+    const v = d.data() as VoteDoc
+    const row = totals.get(v.targetId) ?? { trust: 0, liking: 0 }
+    row[v.kind] += 1
+    totals.set(v.targetId, row)
+  }
+
+  return {
+    rows: game.seats.map((s) => {
+      const row = totals.get(s.playerId) ?? { trust: 0, liking: 0 }
+      return { playerId: s.playerId, name: s.name, team: s.team, trust: row.trust, liking: row.liking }
+    }),
+  }
 })
 
 // ── 털어놓기 ────────────────────────────────────────────────────

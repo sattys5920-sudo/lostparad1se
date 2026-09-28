@@ -186,8 +186,8 @@ export const STARTING_RESOURCES: Record<Resource, number> = {
 export type VoteKind = 'trust' | 'liking'
 
 export const VOTE_LABEL: Record<VoteKind, string> = {
-  trust: '신뢰',
-  liking: '호감',
+  trust: '신뢰표',
+  liking: '호감표',
 }
 
 /**

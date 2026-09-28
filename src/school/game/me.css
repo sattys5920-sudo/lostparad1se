@@ -592,6 +592,10 @@
 .sc-mi__votes { margin: 0 0 var(--sp-1); }
 /* 픽셀 글꼴의 정수 배(12 의 2배). 이 카드에서 읽을 것은 이 숫자 하나뿐이다 */
 .sc-mi__votes b { font-size: 24px; line-height: 24px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* 신뢰표 · 호감표 — 종류별로 나란히 */
+.sc-mi__votes--split { display: flex; gap: var(--sp-4); }
+.sc-mi__votes--split span { display: flex; align-items: baseline; gap: var(--sp-1); font-size: var(--fs-pixel); color: var(--ink-2); }
+.sc-mi__votes--split b { font-size: 20px; line-height: 20px; }
 .sc-mi__fine { margin: var(--sp-1) 0 0; font-size: var(--fs-pixel); line-height: 14px; color: var(--ink-2); word-break: keep-all; }
 
 /* ── ⑤ 되돌릴 수 없는 것을 묻는 두 칸 ───────────────────── */

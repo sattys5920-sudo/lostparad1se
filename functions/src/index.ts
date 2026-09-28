@@ -127,7 +127,7 @@ export {
 } from './deals'
 
 // 표. 보낸 사람은 어디로도 나가지 않는다.
-export { castVote } from './vote'
+export { castVote, hostVotes } from './vote'
 
 // 진상 공개 흐름. 아침 진행 · 체류 · 깨달음 · 눈발.
 export { markMorning, snowNow } from './reveal'

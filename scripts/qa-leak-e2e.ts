@@ -388,8 +388,16 @@ async function main(): Promise<void> {
     got[`${fn}:${JSON.stringify(args).slice(0, 30)}`] = r
     scan(`${fn}${'day' in (args as object) ? ` day=${(args as { day: number }).day}` : ''}${'channel' in (args as object) ? ` ${(args as { channel: string }).channel}` : ''} 응답에 남의 것이 없다 (${r.ok ? 'ok' : r.code})`, r.raw, opt)
   }
-  const paper = got[`myPaper:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].data as { roleId: string; votesReceived: number; votesThroughDay: number }
-  check(paper.roleId === ownRole && paper.votesReceived === 1 && paper.votesThroughDay === 1, 'myPaper — 내 역할 · 받은 표는 어제까지 합계 하나(누가 줬는지 없음)', JSON.stringify([paper.roleId, paper.votesReceived, paper.votesThroughDay]))
+  const paper = got[`myPaper:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].data as {
+    roleId: string
+    votesReceived: { trust: number; liking: number }
+    votesThroughDay: number
+  }
+  check(
+    paper.roleId === ownRole && paper.votesReceived.trust === 1 && paper.votesReceived.liking === 0 && paper.votesThroughDay === 1,
+    'myPaper — 내 역할 · 받은 표는 어제까지 종류별 합계(누가 줬는지 없음)',
+    JSON.stringify([paper.roleId, paper.votesReceived, paper.votesThroughDay]),
+  )
   const chat = got[`chatLines:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].data as { lines: { playerId: string; text: string }[] }
   check(!chat.lines.some((l) => l.playerId === X.uid), 'chatLines — 지워진 뒤 X 가 친 말이 Y 에게 안 온다(아이디도 안 온다)')
   const radioAll = got[`radioLines:${JSON.stringify({ gameId: GAME, channel: 'all' }).slice(0, 30)}`].data as { lines: { text: string }[] }

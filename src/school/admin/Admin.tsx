@@ -25,6 +25,7 @@ import { PaperDesk } from './PaperDesk'
 import { RadioDesk } from './RadioDesk'
 import { LiveMap } from './LiveMap'
 import { MissionDesk } from './MissionDesk'
+import { VoteDesk } from './VoteDesk'
 import { NotifyDesk } from './NotifyDesk'
 import { EventLog } from './EventLog'
 import { BallotDesk } from './BallotDesk'
@@ -73,7 +74,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'map' | 'put' | 'slips' | 'missions' | 'papers' | 'radio' | 'log' | 'manage'
+type Tab = 'go' | 'map' | 'put' | 'slips' | 'missions' | 'votes' | 'papers' | 'radio' | 'log' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -240,6 +241,7 @@ function Desk() {
                 ['put', '놓기'],
                 ['slips', '쪽지'],
                 ['missions', '미션'],
+                ['votes', '표'],
                 ['papers', '이력'],
                 ['radio', '무전'],
                 ['log', '로그'],
@@ -431,6 +433,12 @@ function Desk() {
           <section className="sc-ad__sec">
             <h2>무전</h2>
             <RadioDesk act={act} onSaid={setSaid} />
+          </section>
+        : tab === 'votes' ?
+          /* ── 표 집계. 사람마다 받은 신뢰표·호감표. 누가 줬는지는 없다 ── */
+          <section className="sc-ad__sec">
+            <h2>표 집계</h2>
+            <VoteDesk act={act} onSaid={setSaid} />
           </section>
         : tab === 'papers' ?
           /* ── 종이 이력. 누가 발견했고 누가 들고 있고 누가 끝냈나 ── */

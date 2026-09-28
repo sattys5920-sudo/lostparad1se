@@ -13,8 +13,9 @@
 //               화면에 주면 남의 표와 남의 체류가 통째로 간다.
 //               discloseFor 가 **빼고 만든 뒤** 보낸다 — 받아서 가리는
 //               것이 아니라 애초에 문서에 안 담는다.
-//   받은 표     보낸 사람은 secret/votes 에만 있다. 합계조차 오늘 것은
-//               안 센다(buildLog 의 voteCutoffDay).
+//   받은 표     보낸 사람은 secret/votes 에만 있다 — 그것만 끝까지
+//               감춘다. 종류별 합계는 보내지만 오늘 것은 안 센다
+//               (buildLog 의 voteCutoffDay).
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { discloseFor, judge, type Phase } from '../../shared/missions/judge'
@@ -105,7 +106,7 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
       counting: false,
       main: { text: role.main.text, clauses: [], status: 'endOnly' as const },
       choice: 'endOnly' as const,
-      votesReceived: 0,
+      votesReceived: { trust: 0, liking: 0 },
       votesThroughDay: 0,
     }
   }
@@ -122,9 +123,12 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
   const phase: Phase = over ? 'end' : 'dayTurned'
   const shown = discloseFor(result, phase)
 
-  // 받은 표. **합계 하나뿐이다** — 신뢰인지 호감인지도, 누가 줬는지도
-  // 보내지 않는다. 종류가 보이면 그 자체로 누구인지 좁혀진다
-  const votesReceived = log.votes.filter((v) => v.targetId === uid).length
+  // 받은 표. 종류별로 센다 — **누가 줬는지만** 끝까지 안 보낸다
+  const votesForMe = log.votes.filter((v) => v.targetId === uid)
+  const votesReceived = {
+    trust: votesForMe.filter((v) => v.kind === 'trust').length,
+    liking: votesForMe.filter((v) => v.kind === 'liking').length,
+  }
 
   return {
     ...head,

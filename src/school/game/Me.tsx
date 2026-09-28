@@ -13,6 +13,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
+import { VOTE_LABEL } from '../../../shared/rules/v2'
 import { STATUS_LABEL, type MissionStatus } from '../../../shared/missions/roleNames'
 import { NOT_DEALT } from '../../../shared/missions/paper'
 import { Bag } from './UseItem'
@@ -238,11 +239,18 @@ export function Me(props: MeProps) {
             undealt ? <p className="sc-mi__none">아직 배정되지 않았다</p> : <Dots />
           ) : (
             <>
-              {paper.votesReceived === 0 ? (
+              {paper.votesReceived.trust === 0 && paper.votesReceived.liking === 0 ? (
                 <p className="sc-mi__none">아직 없다</p>
               ) : (
-                <p className="sc-mi__votes">
-                  <b>{paper.votesReceived}</b>
+                <p className="sc-mi__votes sc-mi__votes--split">
+                  <span>
+                    <b>{paper.votesReceived.trust}</b>
+                    {VOTE_LABEL.trust}
+                  </span>
+                  <span>
+                    <b>{paper.votesReceived.liking}</b>
+                    {VOTE_LABEL.liking}
+                  </span>
                 </p>
               )}
               <p className="sc-mi__fine">

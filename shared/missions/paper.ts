@@ -47,8 +47,8 @@ export interface MyPaperDoc {
   main: MissionView
   /** 마지막 선택. 끝나야 판정한다. */
   choice: MissionStatus
-  /** 합계뿐이다. 신뢰인지 호감인지도, 누가 줬는지도 안 온다. */
-  votesReceived: number
+  /** 종류별 합계다. **누가 줬는지는** 끝까지 안 온다. */
+  votesReceived: { trust: number; liking: number }
   /** 표를 어디까지 셌는가. 화면이 「어제까지」라고 적는다. */
   votesThroughDay: number
 }
