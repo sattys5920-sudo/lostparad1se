@@ -7,12 +7,26 @@ import { BOARDS } from './errand'
 import { VENDINGS } from './shop'
 import { GARDEN_TILE, POT_CELLS } from './crop'
 import { isHallCell, roomOfCell } from './board'
-import { MAKERS } from './trap'
+import { LAB_MACHINES, MAKERS, atLabMachine } from './trap'
+import { isWalkable } from '../../src/school/map/world'
 
 describe('기물', () => {
-  it('게시판 여섯 · 자판기 셋 · 화분 여덟 · 제조기 셋 · 연구 기계 하나 · 오락기 열이 전부다', () => {
-    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length + POT_CELLS.length + MAKERS.length + 1 + ARCADE_MACHINES.length)
-    expect(FIXTURE_CELLS.size).toBe(31)
+  it('게시판 여섯 · 자판기 셋 · 화분 여덟 · 제조기 셋 · 연구 기계 셋 · 오락기 열이 전부다', () => {
+    expect(FIXTURE_CELLS.size).toBe(BOARDS.length + VENDINGS.length + POT_CELLS.length + MAKERS.length + LAB_MACHINES.length + ARCADE_MACHINES.length)
+    expect(FIXTURE_CELLS.size).toBe(33)
+  })
+
+  /* 연구 기계 셋 — 연구실 안에 서고, 셋 다 옆에 설 자리가 있다 */
+  it('연구 기계 셋은 연구실 안이고 어느 것이든 옆에 서면 연구한다', () => {
+    expect(LAB_MACHINES.length).toBe(3)
+    for (const [i, c] of LAB_MACHINES.entries()) {
+      expect(roomOfCell(c.x, c.y), `연구 기계 ${i + 1}`).toBe('labRoom')
+      expect(fixtureAt(c.x, c.y)?.kind).toBe('lab')
+      const beside = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy]) => ({ x: c.x + dx, y: c.y + dy }))
+      const stand = beside.filter((b) => isWalkable(b.x, b.y))
+      expect(stand.length, `연구 기계 ${i + 1} 옆에 설 자리`).toBeGreaterThan(0)
+      for (const b of stand) expect(atLabMachine(b)).toBe(true)
+    }
   })
 
   /*

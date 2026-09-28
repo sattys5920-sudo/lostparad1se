@@ -12,7 +12,7 @@ import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { coStayMs, metPeople, type GameRecord, type Stay } from '../shared/rules/records'
 import { stepToward } from '../shared/rules/occupy'
-import { LAB_MACHINE, LAB_TILE } from '../shared/rules/trap'
+import { LAB_MACHINES, LAB_TILE } from '../shared/rules/trap'
 import type { TileId } from '../shared/rules/board'
 import { standAndSpot } from './lib/spot'
 
@@ -264,8 +264,8 @@ async function main(): Promise<void> {
         at: {
           mapValue: {
             fields: {
-              x: { integerValue: String(LAB_MACHINE.x + 1) },
-              y: { integerValue: String(LAB_MACHINE.y) },
+              x: { integerValue: String(LAB_MACHINES[0].x + 1) },
+              y: { integerValue: String(LAB_MACHINES[0].y) },
             },
           },
         },

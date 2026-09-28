@@ -15,7 +15,7 @@ import { ARCADE_MACHINES, machineAtCell, machineName } from './arcade'
 import { POT_CELLS } from './crop'
 import { BOARDS } from './errand'
 import { VENDINGS } from './shop'
-import { LAB_MACHINE, MAKERS } from './trap'
+import { LAB_MACHINES, MAKERS } from './trap'
 
 const keyOf = (x: number, y: number): string => `${x},${y}`
 
@@ -29,9 +29,9 @@ export const FIXTURE_CELLS: ReadonlySet<string> = new Set([
   // 화분 여덟. 정원은 10×8 이라 여덟을 막으면 좁아지는데, 밟고 지나가는
   // 화분은 화분이 아니다 — 그림과 판정이 같은 칸이어야 한다
   ...POT_CELLS.map((c) => keyOf(c.x, c.y)),
-  // 기술실 제조기 셋과 연구실 연구 기계. 옆에 서서 연다(rules/trap)
+  // 기술실 제조기 셋과 연구실 연구 기계 셋. 옆에 서서 연다(rules/trap)
   ...MAKERS.map((m) => keyOf(m.cell.x, m.cell.y)),
-  keyOf(LAB_MACHINE.x, LAB_MACHINE.y),
+  ...LAB_MACHINES.map((c) => keyOf(c.x, c.y)),
   // 뒷골목의 오락기 열 대. 벽에 등을 대고 선다(rules/arcade)
   ...ARCADE_MACHINES.map((m) => keyOf(m.cell.x, m.cell.y)),
 ])
@@ -51,7 +51,8 @@ export function fixtureAt(x: number, y: number): { kind: FixtureKind; name: stri
   if (i >= 0) return { kind: 'pot', name: `화분 ${i + 1}`, cell: POT_CELLS[i] }
   const m = MAKERS.find((s) => s.cell.x === x && s.cell.y === y)
   if (m) return { kind: 'maker', name: `제조기 ${m.i + 1}`, cell: m.cell }
-  if (LAB_MACHINE.x === x && LAB_MACHINE.y === y) return { kind: 'lab', name: '연구 기계', cell: LAB_MACHINE }
+  const l = LAB_MACHINES.findIndex((c) => c.x === x && c.y === y)
+  if (l >= 0) return { kind: 'lab', name: `연구 기계 ${l + 1}`, cell: LAB_MACHINES[l] }
   const k = machineAtCell(x, y)
   if (k !== null) return { kind: 'arcade', name: machineName(k), cell: ARCADE_MACHINES[k].cell }
   return null

@@ -54,7 +54,7 @@ import type { TeamId, TileId } from '../types'
 import type { ThingIcon } from '../../../shared/rules/errand'
 import { VENDINGS } from '../../../shared/rules/shop'
 import { facing, fixtureAt, type FixtureKind } from '../../../shared/rules/fixtures'
-import { LAB_MACHINE, MAKERS } from '../../../shared/rules/trap'
+import { LAB_MACHINES, MAKERS } from '../../../shared/rules/trap'
 import { ARCADE_MACHINES, machineAtSeat } from '../../../shared/rules/arcade'
 import { TILE_BY_ID, isAlleyCell } from '../../../shared/rules/board'
 import { canDropQuizAt } from '../../../shared/rules/quiz'
@@ -69,7 +69,7 @@ import { LIVE_BEAT_MS, LIVE_EVERY_MS, LIVE_LOBBY_STALE_MS, LIVE_STALE_MS } from 
 const VENDING_CELLS = new Set(VENDINGS.map((v) => `${v.cell.x},${v.cell.y}`))
 /** 기술실 제조기 셋과 연구실 연구 기계. 기물이라 칸 그대로 그린다 */
 const MAKER_CELLS = new Set(MAKERS.map((m) => `${m.cell.x},${m.cell.y}`))
-const LAB_CELL = `${LAB_MACHINE.x},${LAB_MACHINE.y}`
+const LAB_CELLS = new Set(LAB_MACHINES.map((c) => `${c.x},${c.y}`))
 
 /**
  * 짚은 사람이 화면 어디에 서 있나. **뷰포트 좌표(px)** 다.
@@ -1525,7 +1525,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           if (MAKER_CELLS.has(`${x},${y}`)) {
             ctx.drawImage(sprites.props.trapMaker, x * TILE - camX, y * TILE - camY)
           }
-          if (LAB_CELL === `${x},${y}`) {
+          if (LAB_CELLS.has(`${x},${y}`)) {
             ctx.drawImage(sprites.props.labMachine, x * TILE - camX, y * TILE - camY)
           }
           if (VENDING_CELLS.has(`${x},${y}`)) {

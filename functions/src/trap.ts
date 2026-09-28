@@ -11,9 +11,19 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { putItem, type Satchel } from '../../shared/rules/items'
-import { MAKERS, TECH_TILE, TRAP_MAKE_MINUTES, TRAP_TOKEN_COST, beside, trapsPerToken } from '../../shared/rules/trap'
+import { pay, purseOf } from '../../shared/rules/resources'
+import {
+  MAKERS,
+  TECH_TILE,
+  TRAP_COIN_COST,
+  TRAP_MAKE_MINUTES,
+  TRAP_TAKE_NO,
+  beside,
+  trapsPerBatch,
+  whyNotTakeTrap,
+} from '../../shared/rules/trap'
 import type { Cell } from '../../shared/rules/board'
-import type { PawnDoc, TeamDoc, TileDoc } from '../../shared/model'
+import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
@@ -61,10 +71,11 @@ function mustBeAtMaker(pawn: PawnDoc, maker: number): void {
 }
 
 /**
- * 맡긴다. 팀 토큰 1 — 기술실을 쥔 팀이면 2개, 아니면 1개가 나온다.
+ * 맡긴다. **내 돈 3코인** — 기술실을 쥔 팀이면 2개, 아니면 1개가 나온다.
  *
- * **토큰을 빼는 것과 건을 거는 것이 한 트랜잭션이다.** 둘이 같은
- * 제조기에 동시에 맡기면 한쪽만 걸리고 한쪽만 낸다.
+ * **돈을 빼는 것과 건을 거는 것이 한 트랜잭션이다.** 둘이 같은
+ * 제조기에 동시에 맡기면 한쪽만 걸리고 한쪽만 낸다. 낸 돈은 사라진다 —
+ * 기술실 주인에게 가지 않는다(연구의 지식과 같다).
  */
 export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (req) => {
   const uid = requireUid(req.auth)
@@ -80,18 +91,18 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
 
   const ref = gameRef(gameId)
   const jobRef = jobsOf(gameId).doc(String(maker))
-  const teamRef = ref.collection('teams').doc(team)
+  const meRef = ref.collection('pawns').doc(uid)
   const techRef = ref.collection('tiles').doc(TECH_TILE)
 
   const count = await db.runTransaction(async (tx) => {
-    const [job, teamSnap, tech] = await Promise.all([tx.get(jobRef), tx.get(teamRef), tx.get(techRef)])
+    const [job, meSnap, tech] = await Promise.all([tx.get(jobRef), tx.get(meRef), tx.get(techRef)])
     // 한 제조기에 한 건. 다 됐는데 안 찾아간 것도 자리를 차지한다
     if (job.exists) throw new HttpsError('failed-precondition', '이 제조기는 돌고 있다.')
-    const held = (teamSnap.data() as TeamDoc).phaseTokens ?? 0
-    if (held < TRAP_TOKEN_COST) throw new HttpsError('failed-precondition', '팀 토큰이 모자라다.')
+    const left = pay(purseOf(meSnap.data() as PawnDoc), { money: TRAP_COIN_COST })
+    if (!left) throw new HttpsError('failed-precondition', `돈이 모자라다. ${TRAP_COIN_COST}코인이 든다.`)
     const ownsTech = ((tech.data() as TileDoc | undefined)?.ownerTeam ?? null) === team
-    const n = trapsPerToken(ownsTech)
-    tx.update(teamRef, { phaseTokens: held - TRAP_TOKEN_COST })
+    const n = trapsPerBatch(ownsTech)
+    tx.update(meRef, { resources: left })
     const doc: TrapJobDoc = {
       team,
       byPlayerId: uid,
@@ -107,13 +118,18 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
   return { maker, count, readyAtMs: nowMs + TRAP_MAKE_MINUTES * 60_000 }
 })
 
-/** 찾는다. **맡긴 사람만**, 다 된 뒤에, 그 페이즈 안에. */
+/**
+ * 찾는다. 다 된 뒤에.
+ *
+ * **맡긴 그 페이즈 동안에는 맡긴 사람만.** 페이즈가 끝나도록 안
+ * 찾아갔으면 누구든 — 자유 시간에도, 남의 팀도. 찾아간 사람의 덫이 된다.
+ */
 export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const maker = Math.floor(Number(req.data.maker))
   const { game, nowMs } = await freshNow(gameId)
-  if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '페이즈가 닫혔다.')
+  const openPhaseNo = game.phaseNow?.open ? game.phaseNow.no : null
 
   const pawn = await myPawn(gameId, uid)
   mustBeAtMaker(pawn, maker)
@@ -124,13 +140,14 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
     const [job, me] = await Promise.all([tx.get(jobRef), tx.get(meRef)])
     if (!job.exists) throw new HttpsError('failed-precondition', '이 제조기에는 맡긴 것이 없다.')
     const j = job.data() as TrapJobDoc
-    // 남의 것은 있는지조차 같은 말로 막는다 — 누가 맡겼는지 안 새게
-    if (j.byPlayerId !== uid) throw new HttpsError('failed-precondition', '네가 맡긴 것이 아니다.')
-    if (j.phaseNo !== game.phaseNow?.no) throw new HttpsError('failed-precondition', '지난 페이즈 것이다.')
-    if (nowMs < j.readyAtMs) {
+    const mine = j.byPlayerId === uid
+    const no = whyNotTakeTrap({ nowMs, readyAtMs: j.readyAtMs, openPhaseNo, jobPhaseNo: j.phaseNo, mine })
+    if (no === 'notReady') {
+      // 남의 것이면 몇 분 남았는지는 안 알려 준다 — 페이즈가 닫힌 뒤에는 누구 것도 아니지만
       const left = Math.ceil((j.readyAtMs - nowMs) / 60_000)
-      throw new HttpsError('failed-precondition', `아직 만드는 중이다. ${left}분 남았다.`)
+      throw new HttpsError('failed-precondition', mine || openPhaseNo === null ? `${TRAP_TAKE_NO.notReady}. ${left}분 남았다.` : `${TRAP_TAKE_NO.notReady}.`)
     }
+    if (no) throw new HttpsError('failed-precondition', `${TRAP_TAKE_NO[no]}.`)
     const bag = (me.data() as { items?: Satchel }).items
     tx.update(meRef, { items: putItem(bag, 'trap', j.count) })
     tx.delete(jobRef)
@@ -139,16 +156,6 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
   await refreshViews(gameId)
   return { maker, got }
 })
-
-/** 페이즈가 닫히면 안 찾아간 것은 사라진다. closePhase 가 부른다. */
-export async function clearTrapJobs(gameId: string): Promise<number> {
-  const snap = await jobsOf(gameId).get()
-  if (snap.empty) return 0
-  const batch = db.batch()
-  for (const d of snap.docs) batch.delete(d.ref)
-  await batch.commit()
-  return snap.size
-}
 
 /** 투영이 들고 갈 제조기 상태. 덫 자체(set)는 여기 없다 — 아무에게도 안 간다 */
 export async function trapWorld(gameId: string): Promise<{ jobs: (TrapJobDoc & { i: number })[] }> {

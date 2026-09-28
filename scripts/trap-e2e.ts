@@ -80,7 +80,7 @@ async function must(name: string, tk: string, data: unknown): Promise<Record<str
 const GAME = `tp${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
-import { MAKERS, TECH_TILE, TRAP_MAKE_MINUTES, SNARE_MINUTES } from '../shared/rules/trap'
+import { MAKERS, TECH_TILE, TRAP_COIN_COST, TRAP_MAKE_MINUTES, SNARE_MINUTES } from '../shared/rules/trap'
 import { isHallCell } from '../shared/rules/board'
 
 const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/pawns`)).map((p) => [p.id, p.d]))
@@ -88,14 +88,14 @@ const viewOf = async (uid: string) => (await getAll(`games/${GAME}/views`)).find
 const trapsNow = async () => await getAll(`games/${GAME}/secret/traps/set`)
 const jobsNow = async () => await getAll(`games/${GAME}/secret/traps/jobs`)
 const itemsOf = async (uid: string) => ((await pawnsNow())[uid].items as Record<string, number> | undefined)?.trap ?? 0
-const tokensOf = async (team: string) =>
-  Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === team)?.d.phaseTokens ?? 0)
+const moneyOf = async (uid: string) =>
+  Number(((await pawnsNow())[uid].resources as { money?: number } | undefined)?.money ?? 0)
 
-/** 팀 토큰을 채운다. 시험은 토큰을 벌지 않는다 */
-async function fund(team: string, n: number): Promise<void> {
-  await fetch(`${FS}/games/${GAME}/teams/${team}?updateMask.fieldPaths=phaseTokens`, {
+/** 지갑에 돈을 채운다. 시험은 돈을 벌지 않는다 */
+async function fund(uid: string, n: number): Promise<void> {
+  await fetch(`${FS}/games/${GAME}/pawns/${uid}?updateMask.fieldPaths=resources.money`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ fields: { phaseTokens: { integerValue: String(n) } } }),
+    body: JSON.stringify({ fields: { resources: { mapValue: { fields: { money: { integerValue: String(n) } } } } } }),
   })
 }
 /** 기술실 주인을 정한다 */
@@ -145,26 +145,32 @@ async function main(): Promise<void> {
   const onMaker = await call('standAt', A[0].token, { gameId: GAME, x: m0.x, y: m0.y })
   check(onMaker.code === 'FAILED_PRECONDITION', '제조기 위에는 못 선다 — 기물', String(onMaker.message ?? onMaker.code))
 
-  console.log('\n── 페이즈: 토큰 1 로 1개 ──')
+  console.log(`\n── 페이즈: ${TRAP_COIN_COST}코인으로 1개 ──`)
   await must('openPhase', host, { gameId: GAME })
   // 종이 치면 전선으로 옮겨진다. 다시 기술실 제조기 옆에 세운다
   await putIn(A[0].uid, TECH_TILE)
   await must('standAt', A[0].token, { gameId: GAME, x: m0.x + 1, y: m0.y })
-  await fund('A', 3)
+  await fund(A[0].uid, TRAP_COIN_COST - 1)
+  const poor = await call('commissionTrap', A[0].token, { gameId: GAME, maker: 0 })
+  check(poor.code === 'FAILED_PRECONDITION' && String(poor.message).includes('돈'), `**${TRAP_COIN_COST}코인이 없으면 못 맡긴다**`, String(poor.message ?? poor.code))
+  await fund(A[0].uid, TRAP_COIN_COST * 2 + 1)
   const far = await call('commissionTrap', A[0].token, { gameId: GAME, maker: 2 })
   check(far.code === 'FAILED_PRECONDITION', '**옆에 선 제조기만** — 멀리 있는 3번은 안 된다', String(far.message ?? far.code))
+  const tokensBefore = Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === 'A')?.d.phaseTokens ?? 0)
   const c1 = await must('commissionTrap', A[0].token, { gameId: GAME, maker: 0 })
-  check(Number(c1.count) === 1, '**토큰 1 로 덫 1개**', `${c1.count}개`)
-  check((await tokensOf('A')) === 2, '팀 토큰이 하나 빠졌다', `${await tokensOf('A')}`)
+  check(Number(c1.count) === 1, `**${TRAP_COIN_COST}코인으로 덫 1개**`, `${c1.count}개`)
+  check((await moneyOf(A[0].uid)) === TRAP_COIN_COST + 1, `내 지갑에서 ${TRAP_COIN_COST}코인이 빠졌다`, `${await moneyOf(A[0].uid)}`)
+  const tokensAfter = Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === 'A')?.d.phaseTokens ?? 0)
+  check(tokensAfter === tokensBefore, '팀 토큰은 안 든다', `${tokensBefore} → ${tokensAfter}`)
   const again = await call('commissionTrap', A[0].token, { gameId: GAME, maker: 0 })
   check(again.code === 'FAILED_PRECONDITION', '**한 제조기에 한 건** — 돌고 있으면 못 맡긴다', String(again.message ?? again.code))
 
-  console.log('\n── 기술실을 쥔 팀은 토큰 1 로 2개 ──')
+  console.log(`\n── 기술실을 쥔 팀은 ${TRAP_COIN_COST}코인으로 2개 ──`)
   await own(TECH_TILE, 'A')
   const m1 = MAKERS[1].cell
   await must('standAt', A[0].token, { gameId: GAME, x: m1.x + 1, y: m1.y })
   const c2 = await must('commissionTrap', A[0].token, { gameId: GAME, maker: 1 })
-  check(Number(c2.count) === 2, '**기술실 주인은 토큰 1 로 2개**', `${c2.count}개`)
+  check(Number(c2.count) === 2, `**기술실 주인은 ${TRAP_COIN_COST}코인으로 2개**`, `${c2.count}개`)
   await own(TECH_TILE, null)
 
   console.log('\n── 보이는 것 ──')
@@ -178,22 +184,31 @@ async function main(): Promise<void> {
   check(mate[0]?.state === 'busy' && mate[0].count === 0 && mate[0].readyAtMs === null, '**같은 팀이라도 남이 맡긴 것은 「돌고 있다」까지**', JSON.stringify(mate[0]))
   check(!JSON.stringify(await viewOf(B[0].uid)).includes('traps'), '복도의 덫은 어떤 투영에도 없다')
 
-  console.log('\n── 찾기: 맡긴 사람만, 20분 뒤에 ──')
+  console.log('\n── 찾기: 페이즈 동안은 맡긴 사람만, 20분 뒤에 ──')
   const early = await call('takeTrap', A[0].token, { gameId: GAME, maker: 1 })
   check(early.code === 'FAILED_PRECONDITION', '아직이면 못 찾는다', String(early.message ?? early.code))
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: T0 + (TRAP_MAKE_MINUTES + 1) * 60_000, speed: 1 })
   const other = await call('takeTrap', A[1].token, { gameId: GAME, maker: 0 })
-  check(other.code === 'FAILED_PRECONDITION', '**맡긴 사람만 찾는다** — 같은 팀도 안 된다', String(other.message ?? other.code))
+  check(other.code === 'FAILED_PRECONDITION', '**페이즈 동안은 맡긴 사람만 찾는다** — 같은 팀도 안 된다', String(other.message ?? other.code))
   await must('standAt', A[0].token, { gameId: GAME, x: m0.x + 1, y: m0.y })
   const t1 = await must('takeTrap', A[0].token, { gameId: GAME, maker: 0 })
   check(Number(t1.got) === 1 && (await itemsOf(A[0].uid)) === 1, '찾으면 손에 든다', `${await itemsOf(A[0].uid)}개`)
   check(((await viewOf(A[0].uid)).makersHere as { state: string }[])[0].state === 'free', '찾은 제조기는 비었다')
 
-  console.log('\n── 페이즈가 닫히면 안 찾은 것은 사라진다 ──')
+  console.log('\n── 페이즈가 끝나도록 안 찾은 것은 누구든 찾아간다 ──')
   check((await jobsNow()).length === 1, '아직 2번 제조기 것이 남아 있다')
+  await putIn(B[0].uid, TECH_TILE)
+  await must('standAt', B[0].token, { gameId: GAME, x: m1.x - 1, y: m1.y })
+  const bEarly = await call('takeTrap', B[0].token, { gameId: GAME, maker: 1 })
+  check(bEarly.code === 'FAILED_PRECONDITION', '페이즈 동안은 남의 팀이 못 가져간다', String(bEarly.message ?? bEarly.code))
   await must('closePhase', host, { gameId: GAME })
-  check((await jobsNow()).length === 0, '**닫히면 제조기가 빈다** — 다음 페이즈로 안 넘어간다')
+  check((await jobsNow()).length === 1, '**닫혀도 제조기에 남는다**')
   check((await itemsOf(A[0].uid)) === 1, '이미 찾은 것은 그대로다')
+  const bSees = ((await viewOf(B[0].uid)).makersHere ?? []) as { state: string; count: number }[]
+  check(bSees[1]?.state === 'open' && bSees[1].count === 2, '남의 팀에게도 「임자 없음 · 2개」로 보인다', JSON.stringify(bSees[1]))
+  const bTook = await must('takeTrap', B[0].token, { gameId: GAME, maker: 1 })
+  check(Number(bTook.got) === 2 && (await itemsOf(B[0].uid)) === 2, '**자유 시간에 남의 팀이 찾아갔다**', `${await itemsOf(B[0].uid)}개`)
+  check((await jobsNow()).length === 0, '찾아가면 제조기가 빈다')
 
   console.log('\n── 놓기: 복도에만 ──')
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: T0 + 70 * 60_000, speed: 1 })

@@ -15,7 +15,7 @@ import { mkdirSync, readFileSync } from 'node:fs'
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
 import { pickOnMap, tap, tapCell, walkTo as walkToCell } from './lib/walk'
 import { dayHourMs } from '../shared/rules/clock'
-import { MAKERS, LAB_MACHINE, TECH_TILE, LAB_TILE } from '../shared/rules/trap'
+import { MAKERS, LAB_MACHINES, TECH_TILE, LAB_TILE } from '../shared/rules/trap'
 import { isHallCell } from '../shared/rules/board'
 import { isWalkable, tileAt } from '../src/school/map/world'
 
@@ -206,6 +206,11 @@ async function main() {
   // 페이즈를 열고 기술실로 옮겨 세운다. 만드는 것은 페이즈의 일이다
   await must('openPhase', host, { gameId: game })
   await fund(game, myTeam, 5)
+  // 덫은 내 돈으로 맡긴다. 지갑을 채운다
+  await fetch(`${FS}/games/${game}/pawns/${meUid}?updateMask.fieldPaths=resources.money`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { resources: { mapValue: { fields: { money: { integerValue: '9' } } } } } }),
+  })
   await page.waitForTimeout(1500)
   await putIn(game, meUid, TECH_TILE)
   await wake(game, host)
@@ -302,15 +307,15 @@ async function main() {
   await page.waitForTimeout(3000)
   await page.screenshot({ path: `${OUT}/8-연구실.png` })
   console.log('  찍었다 8-연구실.png')
-  await walkTo(page, game, meUid, LAB_MACHINE, '연구 기계')
+  await walkTo(page, game, meUid, LAB_MACHINES[1], '연구 기계')
   await page.waitForTimeout(1200)
-  await tapCell(page, LAB_MACHINE)
+  await tapCell(page, LAB_MACHINES[1])
   await page.waitForTimeout(600)
   await page.screenshot({ path: `${OUT}/8b-연구기계-차림표.png` })
   console.log(`  찍었다 8b-연구기계-차림표.png — ${(await page.locator('.sc-mt__row').allInnerTexts()).join(' / ')}`)
   await page.locator('.sc-mt__back').click().catch(() => undefined)
   await page.waitForTimeout(300)
-  if (!(await pickOnMap(page, LAB_MACHINE, '연구하기'))) missed.push('연구 기계 옆에서 짚었는데 「연구하기」가 없다')
+  if (!(await pickOnMap(page, LAB_MACHINES[1], '연구하기'))) missed.push('연구 기계 옆에서 짚었는데 「연구하기」가 없다')
   await page.waitForTimeout(1200)
   await page.screenshot({ path: `${OUT}/9-연구.png` })
   console.log('  찍었다 9-연구.png')

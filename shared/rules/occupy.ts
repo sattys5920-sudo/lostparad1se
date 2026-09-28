@@ -169,9 +169,8 @@ export const ROBOTS_PER_TEAM = 6
  * 것이 요점이고, 그것이 원래 점령전이 시키려던 일이다.
  */
 export const SMASHES_PER_PHASE = 1
-/** 연구가 로봇이 되기까지 걸리는 페이즈. 발전소를 쥐면 그 자리에서 된다. */
+/** 연구가 로봇이 되기까지 걸리는 페이즈. **발전소를 쥐어도 똑같이 기다린다.** */
 export const RESEARCH_PHASES = 1
-export const RESEARCH_PHASES_WITH_PLANT = 0
 
 /**
  * 연구 한 번에 드는 **본인 지갑의 지식.** 팀 토큰과 별개로 든다.
@@ -183,13 +182,13 @@ export const RESEARCH_PHASES_WITH_PLANT = 0
  * 공부를 없애면서 그렇게 됐다 — 로봇 한 대가 종이 두 장이고, 종이는
  * 운영자가 놓는 만큼만 있다.
  */
-export const KNOWLEDGE_PER_RESEARCH = 2
+export const KNOWLEDGE_PER_RESEARCH = 3
 export const KNOWLEDGE_PER_RESEARCH_OWNER = 1
 
 /**
  * 이번 연구에 드는 지식.
  *
- * **연구실을 차지한 팀은 한 점, 남은 두 점이다.** 낸 지식은 사라진다 —
+ * **연구실을 차지한 팀은 한 점, 남은 세 점이다.** 낸 지식은 사라진다 —
  * 연구실을 쥐는 값은 받는 것이 아니라 덜 내는 것이다. 왜 그렇게
  * 했는지는 act 의 research 갈래에 적어 두었다.
  */
@@ -796,8 +795,6 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (robotsOfTeam(state, mine.team) + coming.length >= ROBOTS_PER_TEAM) {
         return no(`로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`)
       }
-      // 발전소를 쥔 팀은 그 자리에서 로봇이 나온다. 값과는 상관없다
-      const hasPlant = TILES.some((t) => ROOM_KIND[t.id] === 'plant' && state.owners[t.id] === mine.team)
       // 값은 **이 연구실을 누가 쥐고 있느냐**로 갈린다
       const landlord = state.owners[mine.tileId] ?? null
       const ownsLab = landlord === mine.team
@@ -816,7 +813,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
        * 몰면 그 한 명만 부자가 된다.
        *
        * 그래서 안 준다. **연구실을 쥐는 값은 받는 것이 아니라 덜
-       * 내는 것이다**(researchKnowledge 가 1과 2를 가른다). 자판기와
+       * 내는 것이다**(researchKnowledge 가 1과 3을 가른다). 자판기와
        * 같은 규칙이고, 판에서 자원이 빠져나가는 두 번째 구멍이다.
        */
       const paid: Partial<Record<string, Vault>> = {
@@ -825,43 +822,26 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       }
       const queued: PendingResearch = { playerId, knowledge: need, tileId: mine.tileId }
 
-      if (!hasPlant) {
-          return {
-          ok: true,
-          spent: cost,
-          log: { kind: 'researchStarted', playerId, tileId: mine.tileId },
-          next: {
-            ...state,
-            people,
-            robots,
-            vaults: paid,
-            pendingResearch: [...state.pendingResearch, queued],
-          },
-        }
-      }
-      if (botsAt(mine.tileId) + 1 > ROBOTS_PER_ROOM) return no(`이 방에 로봇이 ${ROBOTS_PER_ROOM}기까지다.`)
-      robots = [...robots, born(mine, robots, `now-${playerId}-${state.robots.length}`, mine.tileId)]
+      /*
+       * **늘 줄을 선다.** 발전소를 쥐면 그 자리에서 로봇이 나던 것을
+       * 없앴다 — 누구든 스무 분을 기다리고, 그동안 연구실에 와 있어야 한다
+       */
       return {
         ok: true,
         spent: cost,
-        log: { kind: 'researchDone', playerId, tileId: mine.tileId },
-        next: { ...state, people, robots, vaults: paid },
+        log: { kind: 'researchStarted', playerId, tileId: mine.tileId },
+        next: {
+          ...state,
+          people,
+          robots,
+          vaults: paid,
+          pendingResearch: [...state.pendingResearch, queued],
+        },
       }
     }
   }
 
   return { ok: true, spent: cost, log, next: { ...state, people, robots } }
-}
-
-/** 새로 나온 로봇 하나. 두 기까지만 데리고 다닌다 — 넘치면 그 자리에 선다. */
-function born(owner: Person, robots: readonly Robot[], id: string, at: TileId): Robot {
-  const carried = robots.filter((r) => r.carriedBy === owner.playerId).length
-  return {
-    id: `bot-${id}`,
-    team: owner.team,
-    tileId: at,
-    carriedBy: carried < MAX_CARRIED_ROBOTS ? owner.playerId : null,
-  }
 }
 
 /**

@@ -557,7 +557,7 @@ export interface PlayerViewDoc {
   makersHere?: {
     i: number
     cell: Cell
-    state: 'free' | 'busy' | 'mine'
+    state: 'free' | 'busy' | 'mine' | 'open'
     readyAtMs: number | null
     count: number
   }[]
@@ -606,7 +606,7 @@ export interface PlayerViewDoc {
   /** 보이는 방에 있는 로봇. 사람처럼 안개를 거친다. */
   visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
   /** 내가 선 방에 놓인 주인 없는 완성품. */
-  madeHere: { id: string; byPlayerId: string; mine: boolean }[]
+  madeHere: { id: string; byPlayerId: string; mine: boolean; locked: boolean }[]
   /** 방마다 내게 보이는 머릿수. 위장이 이미 반영돼 있다. */
   roomCounts: Record<TileId, number>
   /** 안개가 걷힌 칸. 나머지는 어둡게 덮는다. */

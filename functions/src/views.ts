@@ -138,7 +138,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 단계만 떼어 보낸다 — 무엇을 심었는지는 싹이 나야 나간다
     // 제조기 셋. 누가 맡겼는지째로 들고 가고, 투영이 「내 것 / 남의 것 /
     // 빈 것」으로 줄인다. 복도에 놓인 덫은 여기 없다
-    trapJobs: traps.jobs.map((j) => ({ i: j.i, team: j.team, byPlayerId: j.byPlayerId, count: j.count, readyAtMs: j.readyAtMs })),
+    trapJobs: traps.jobs.map((j) => ({ i: j.i, team: j.team, byPlayerId: j.byPlayerId, count: j.count, readyAtMs: j.readyAtMs, phaseNo: j.phaseNo })),
+    openPhaseNo: game.phaseNow?.open ? game.phaseNow.no : null,
     pots: garden.pots.map((p) => ({
       i: p.i,
       cropId: p.cropId,
@@ -180,8 +181,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
     }),
     made: made.docs.map((d) => {
-      const m = d.data() as { tileId: TileId; byPlayerId: string }
-      return { id: d.id, tileId: m.tileId, byPlayerId: m.byPlayerId }
+      const m = d.data() as { tileId: TileId; byPlayerId: string; phaseNo?: number }
+      return { id: d.id, tileId: m.tileId, byPlayerId: m.byPlayerId, phaseNo: m.phaseNo }
     }),
     // 오늘 나간 수. **날짜가 지난 줄은 안 센다** — 어제 다 나간 것이
     // 오늘도 비어 보이면 기계가 영영 안 찬다

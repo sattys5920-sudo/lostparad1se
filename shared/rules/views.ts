@@ -21,6 +21,7 @@ import type { TeamId, VoteKind } from './v2'
 import { floorOfCell, roomOfCell, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
 import { MAKERS, TECH_TILE } from './trap'
+import { onlyMakerNow } from './made'
 import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
 import {
   CROP_BY_ID,
@@ -143,6 +144,11 @@ export interface WorldQuiz {
 export interface World {
   nowMs: number
   /**
+   * 지금 열린 페이즈 번호. 닫혀 있으면 null. 완성품과 덫이 **그 페이즈
+   * 동안은 만든 사람 것**인지를 이것으로 가른다
+   */
+  openPhaseNo?: number | null
+  /**
    * 사람마다의 지갑. **투영이 본인 것만 떼어 보낸다.**
    *
    * 전에는 팀 금고였고 games/{id}/teams/{t} 를 누구나 읽을 수 있어서
@@ -169,7 +175,7 @@ export interface World {
   /** 판 위의 로봇. 사람처럼 안개를 거친다 — 보이는 방의 것만 내려간다. */
   robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
   /** 연구실에 놓인 주인 없는 완성품. */
-  made?: readonly { id: string; tileId: TileId; byPlayerId: string }[]
+  made?: readonly { id: string; tileId: TileId; byPlayerId: string; phaseNo?: number }[]
   /** 방마다 꽂힌 깃발. **보이는 방의 것만 내려간다.** */
   flags?: FlagMap
   /** 팀마다 깃발 상자. 자기 팀 것만 내려간다. */
@@ -221,7 +227,7 @@ export interface World {
   slips?: readonly WorldSlip[]
   quizzes?: readonly WorldQuiz[]
   /** 기술실 제조기에 걸린 건들. 복도의 덫은 세계에도 안 실린다 */
-  trapJobs?: readonly { i: number; team: TeamId; byPlayerId: string; count: number; readyAtMs: number }[]
+  trapJobs?: readonly { i: number; team: TeamId; byPlayerId: string; count: number; readyAtMs: number; phaseNo: number }[]
   memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
   /** 깨달음에 이른 시각. A의 시선이 그때 열린다. */
   awakenedAtMs: Readonly<Record<string, number>>
@@ -256,13 +262,13 @@ export interface View {
   /** 보이는 방에 있는 로봇. 머릿수로만 센다. */
   visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
   /**
-   * **내가 선 방에 놓인** 주인 없는 완성품.
+   * **내가 선 방에 놓인** 완성품. locked 면 남의 것이라 이 페이즈 동안은 못 가져간다.
    *
    * 안개 너머의 것은 안 보낸다. 방마다 몇 개 놓였는지가 보이면 어느
    * 연구실에서 연구가 돌고 있는지가 학교 반대편에서 읽힌다 — 그것은
    * 걸어가서 봐야 하는 값이다.
    */
-  madeHere: { id: string; byPlayerId: string; mine: boolean }[]
+  madeHere: { id: string; byPlayerId: string; mine: boolean; locked: boolean }[]
   /**
    * 방마다 **내게 보이는** 머릿수. 미니맵이 이 숫자를 그대로 쓴다.
    *
@@ -331,11 +337,14 @@ export interface View {
   /**
    * 기술실에 서 있을 때만 — 제조기 셋. 남이 맡긴 것은 「돌고 있다」까지다.
    * 몇 개가 나오는지, 언제 되는지는 맡긴 사람만 본다.
+   *
+   * open — 맡긴 페이즈가 끝나도록 안 찾아간 남의 것. 이제 누구든 찾아간다.
+   * 그래서 몇 개인지, 언제 되는지도 보인다.
    */
   makersHere: {
     i: number
     cell: Cell
-    state: 'free' | 'busy' | 'mine'
+    state: 'free' | 'busy' | 'mine' | 'open'
     readyAtMs: number | null
     count: number
   }[]
@@ -660,7 +669,10 @@ export function projectView(world: World, viewerId: string): View {
     // 내가 선 방에 놓인 것만. 걷는 중이면 아무것도 안 온다
     madeHere: (world.made ?? [])
       .filter((m) => here !== null && m.tileId === here)
-      .map((m) => ({ id: m.id, byPlayerId: m.byPlayerId, mine: m.byPlayerId === viewerId })),
+      .map((m) => {
+        const mine = m.byPlayerId === viewerId
+        return { id: m.id, byPlayerId: m.byPlayerId, mine, locked: !mine && onlyMakerNow(world.openPhaseNo ?? null, m.phaseNo) }
+      }),
 
     visiblePawns: withCarry(seen, world.errands ?? []),
     /**
@@ -769,12 +781,15 @@ export function projectView(world: World, viewerId: string): View {
         ? MAKERS.map((m) => {
             const job = (world.trapJobs ?? []).find((j) => j.i === m.i) ?? null
             const mine = job !== null && job.byPlayerId === viewerId
+            // 맡긴 페이즈가 닫혔으면 누구 것도 아니다 — 수와 시각을 보여 준다
+            const open = job !== null && !mine && !onlyMakerNow(world.openPhaseNo ?? null, job.phaseNo)
+            const shown = mine || open
             return {
               i: m.i,
               cell: m.cell,
-              state: job === null ? 'free' : mine ? 'mine' : 'busy',
-              readyAtMs: mine ? job.readyAtMs : null,
-              count: mine ? job.count : 0,
+              state: job === null ? 'free' : mine ? 'mine' : open ? 'open' : 'busy',
+              readyAtMs: shown && job ? job.readyAtMs : null,
+              count: shown && job ? job.count : 0,
             }
           })
         : [],

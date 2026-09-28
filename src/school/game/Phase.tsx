@@ -42,7 +42,7 @@ export interface PhaseProps {
   here: string | null
   seats: readonly SeatEntry[]
   view: PlayerViewDoc | null
-  /** 방 주인. 발전소를 쥐었는지 보려고 받는다 — 주인은 어차피 공개다. */
+  /** 방 주인. 연구실을 쥐었는지 보려고 받는다 — 주인은 어차피 공개다. */
   tiles: Partial<Record<string, { ownerTeam: TeamId | null }>>
   /** 페이즈가 끝나는 게임 시각. */
   endsAtMs: number | null
@@ -76,7 +76,7 @@ const LABEL: Record<ActionKind, string> = {
  */
 const WHAT: Record<ActionKind, string> = {
   move: '맵에서 걸어서 간다. 복도와 계단은 값이 없다.',
-  research: '다 되면 이 방에 완성품이 놓인다. 발전소를 쥐었으면 바로 난다.',
+  research: '20분 뒤 이 방에 완성품이 놓인다. 이 페이즈 동안은 나만 가져간다.',
   summon: '호루라기를 불어 같은 팀 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
   plant: '이 방에 우리 팀 깃발을 꽂는다. 뽑히기 전까지 남는다.',
   pull: '우리 로봇이 있는 방에서 다른 팀 깃발 하나를 뽑는다. 팀마다 페이즈에 한 번.',

@@ -10,7 +10,8 @@
 import { createHash } from 'node:crypto'
 import { dayHourMs } from '../shared/rules/clock'
 import { ACT_MINUTES, ROOM_KIND } from '../shared/rules/occupy'
-import { LAB_MACHINE } from '../shared/rules/trap'
+import { LAB_MACHINES } from '../shared/rules/trap'
+import { KNOWLEDGE_PER_RESEARCH } from '../shared/rules/occupy'
 import { TILES, TILE_BY_ID, type TileId } from '../shared/rules/board'
 
 const PROJECT = 'demo-goei'
@@ -140,7 +141,7 @@ async function main(): Promise<void> {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...ADMIN },
       body: JSON.stringify({ fields: {
-        at: { mapValue: { fields: { x: { integerValue: String(LAB_MACHINE.x - 1) }, y: { integerValue: String(LAB_MACHINE.y) } } } },
+        at: { mapValue: { fields: { x: { integerValue: String(LAB_MACHINES[0].x - 1) }, y: { integerValue: String(LAB_MACHINES[0].y) } } } },
         resources: { mapValue: { fields: { money: { integerValue: '20' }, knowledge: { integerValue: '20' } } } },
       } }),
     })
@@ -162,7 +163,7 @@ async function main(): Promise<void> {
   check((await robotsOf('A')) === before, '거는 순간에는 로봇이 안 난다')
   check((await madeCount()) === 0, '완성품도 아직 없다')
   const kAfter = (await vault(uMe)).knowledge
-  check(kAfter < 20, '지식은 걸 때 바로 빠진다', `${kAfter}점 남았다`)
+  check(kAfter === 20 - KNOWLEDGE_PER_RESEARCH, `지식 ${KNOWLEDGE_PER_RESEARCH}점이 걸 때 바로 빠진다`, `${kAfter}점 남았다`)
 
   console.log('\n── 스무 분 뒤, 본인이 그 자리에 있으면 받는다 ──')
   const nowMs = Number((await call('clockNow', host, { gameId: GAME })).nowMs ?? 0)
@@ -170,7 +171,7 @@ async function main(): Promise<void> {
   check((await robotsOf('A')) === before + 1, '본인이 서 있으면 바로 받는다')
   check((await madeCount()) === 0, '주인 없는 물건은 안 생긴다')
 
-  console.log('\n── 자리를 비우면 주인이 없어진다 ──')
+  console.log('\n── 자리를 비우면 완성품으로 놓인다 ──')
   await call('phaseAct', tkMe, { gameId: GAME, kind: 'research' })
   const t2 = Number((await call('clockNow', host, { gameId: GAME })).nowMs ?? 0)
   // 연구자를 딴 방으로 옮겨 놓는다
@@ -179,39 +180,34 @@ async function main(): Promise<void> {
   const aBefore = await robotsOf('A')
   await clockTo(host, t2 + (ACT_MINUTES.research + 1) * MIN)
   check((await robotsOf('A')) === aBefore, '본인이 없으면 못 받는다')
-  check((await madeCount()) === 1, `${TILE_BY_ID[lab.id].name}에 주인 없이 놓인다`)
+  check((await madeCount()) === 1, `${TILE_BY_ID[lab.id].name}에 완성품으로 놓인다`)
 
-  console.log('\n── 먼저 온 사람이 가진다 — 남의 팀도 ──')
+  console.log('\n── 페이즈 동안은 연구한 사람만 ──')
   const mine = (await list(`games/${GAME}/made`))[0]
   const madeId = mine.name.split('/').pop() as string
+  const locked = await no(call('takeMade', tkFoe, { gameId: GAME, madeId }))
+  check(locked.includes('연구한 사람만'), '**남의 팀은 이 페이즈 동안 못 가져간다**', locked)
+  const foeView = (await list(`games/${GAME}/views`)).find((v) => v.name.endsWith(`/${uFoe}`))
+  check(JSON.stringify(foeView).includes('"locked":{"booleanValue":true}'), '남에게는 잠긴 것으로 보인다')
+
+  console.log('\n── 딴 방에서는 못 가져간다 ──')
+  const far = await no(call('takeMade', tkMe, { gameId: GAME, madeId }))
+  check(far.includes('그 방에 있어야'), '연구한 사람도 그 방에 있어야 가져간다', far)
+
+  console.log('\n── 페이즈가 끝나도록 안 가져가면 누구든 — 남의 팀도 ──')
+  await call('closePhase', host, { gameId: GAME })
+  check((await madeCount()) === 1, '닫혀도 연구실에 그대로 놓여 있다')
   const bBefore = await robotsOf('B')
   const took = await call('takeMade', tkFoe, { gameId: GAME, madeId })
-  check(took.took === true && took.mine === false, '남의 팀이 주워 간다', String(took.said ?? ''))
+  check(took.took === true && took.mine === false, '**자유 시간에 남의 팀이 주워 간다**', String(took.said ?? ''))
   check((await robotsOf('B')) === bBefore + 1, '주운 팀의 로봇이 된다')
   check((await madeCount()) === 0, '가져가면 사라진다')
+  await put(`games/${GAME}/pawns/${uMe}`, { tileId: str(lab.id) })
   const again = await no(call('takeMade', tkMe, { gameId: GAME, madeId }))
   check(again.includes('그런 완성품이 없다'), '둘이 노려도 먼저 누른 쪽만 가진다', again)
 
-  console.log('\n── 딴 방에서는 못 가져간다 ──')
-  // 아까 딴 방으로 보내 놨다. 걸려면 연구실에 서 있어야 한다
-  await put(`games/${GAME}/pawns/${uMe}`, { tileId: str(lab.id) })
-  await call('phaseAct', tkMe, { gameId: GAME, kind: 'research' })
-  const t3 = Number((await call('clockNow', host, { gameId: GAME })).nowMs ?? 0)
-  // 다시 자리를 비워 주인 없는 물건이 되게 한다
-  await put(`games/${GAME}/pawns/${uMe}`, { tileId: str(away.id) })
-  await clockTo(host, t3 + (ACT_MINUTES.research + 1) * MIN)
-  const m2 = (await list(`games/${GAME}/made`))[0]
-  if (m2) {
-    const id2 = m2.name.split('/').pop() as string
-    const far = await no(call('takeMade', tkMe, { gameId: GAME, madeId: id2 }))
-    check(far.includes('그 방에 있어야'), '그 방에 있어야 가져간다', far)
-  } else {
-    check(false, '완성품이 또 놓였어야 한다')
-  }
-
   console.log('\n── 안 익은 채로 닫히면 그냥 끝 ──')
-  // 시계를 여러 번 밀어 한 시간이 다 갔다. 페이즈를 새로 연다
-  await call('closePhase', host, { gameId: GAME })
+  // 앞에서 닫았다. 페이즈를 새로 연다
   await call('openPhase', host, { gameId: GAME })
   await put(`games/${GAME}/pawns/${uMe}`, { tileId: str(lab.id) })
   const kBefore = (await vault(uMe)).knowledge

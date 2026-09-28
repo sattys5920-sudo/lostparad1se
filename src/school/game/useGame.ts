@@ -286,9 +286,9 @@ export function gameActions(gameId: string) {
     /** 문제 종이를 펼친다. **그 방 사람 전원에게 보이게 된다.** */
     /** 문제 종이를 줍는다. **손패에 들어온다** — 옆 칸에 서야 한다 */
     takeQuiz: (paperId: string) => callServer('takeQuiz', { ...g, paperId }),
-    /** 기술실 제조기에 덫을 맡긴다. 팀 토큰 1 */
+    /** 기술실 제조기에 덫을 맡긴다. 내 돈 3코인, 페이즈에만 */
     commissionTrap: (maker: number) => callServer('commissionTrap', { ...g, maker }),
-    /** 다 된 덫을 찾는다. 맡긴 사람만 */
+    /** 다 된 덫을 찾는다. 맡긴 페이즈 동안은 맡긴 사람만, 그 뒤로는 누구든 */
     takeTrap: (maker: number) => callServer('takeTrap', { ...g, maker }),
     /** 답을 낸다. 채점은 서버가 한다 — 화면은 정답을 모른다. */
     answerQuiz: (paperId: string, given: string) => callServer('answerQuiz', { ...g, paperId, given }),
@@ -394,7 +394,7 @@ export function gameActions(gameId: string) {
     voteCaptain: (targetId: string) => callServer('voteCaptain', { ...g, targetId }),
 
     // ── 완성품 ──────────────────────────────────────────────────
-    /** 연구실에 놓인 것을 가져간다. 먼저 온 사람이 가진다 — 누구든. */
+    /** 연구실에 놓인 것을 가져간다. 연구한 페이즈 동안은 연구한 사람만, 그 뒤로는 누구든 */
     takeMade: (madeId: string) => callServer('takeMade', { ...g, madeId }),
 
     /** 아침 시퀀스를 어디까지 봤는지 적는다. */

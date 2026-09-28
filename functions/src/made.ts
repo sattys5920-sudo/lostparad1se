@@ -1,8 +1,9 @@
 // 연구실에 놓이는 완성품 — 서버 쪽.
 //
 // 연구를 건 지 스무 분 뒤에 그 연구실에 하나가 놓인다. 그때 거기 서
-// 있던 본인이 받으면 바로 그 팀 로봇이 되고, 아니면 **주인 없는
-// 물건**으로 남아 먼저 온 사람이 가진다 — 누구든.
+// 있던 본인이 받으면 바로 그 팀 로봇이 되고, 아니면 완성품으로 놓인다.
+// **그 페이즈 동안에는 건 사람만** 가져가고, 페이즈가 끝나도록 안
+// 가져갔으면 그다음부터는 누구든 — 자유 시간에도, 남의 팀도.
 //
 // 시각을 보는 일이라 규칙(occupy.settle)이 아니라 여기서 한다.
 // 따라잡기가 지날 때마다 익은 것을 처리한다 — 시계가 따로 돌지 않고
@@ -117,12 +118,14 @@ export async function landResearch(gameId: string): Promise<void> {
       }
       // 한도가 찼으면 받지 못한다. 물건은 그대로 놓인다
     }
-    // 못 받았다. **주인이 없어진다** — 먼저 온 사람이 가진다
+    // 못 받았다. 완성품으로 놓인다 — 이 페이즈 동안은 건 사람만 가져간다
     const doc: MadeDoc = {
       tileId: r.tileId,
       byPlayerId: r.playerId,
       byTeam: team ?? ('A' as TeamId),
       atMs: nowMs,
+      // 이 페이즈 동안은 건 사람 것이다
+      phaseNo: game.phaseNow.no,
     }
     await madeOf(gameId).add(doc)
   }
@@ -133,10 +136,11 @@ export async function landResearch(gameId: string): Promise<void> {
 }
 
 /**
- * 놓인 완성품을 가져간다. **먼저 온 사람이 가진다 — 누구든.**
+ * 놓인 완성품을 가져간다.
  *
- * 팀을 안 본다. 남의 팀이 주워 가면 그 팀 로봇이 된다 — 연구실을
- * 비우면 남 좋은 일을 하는 셈이고, 그래서 연구실은 지킬 이유가 있다.
+ * **만든 페이즈 동안은 건 사람만.** 그 페이즈가 닫힌 뒤로는 팀을 안
+ * 본다 — 남의 팀이 주워 가면 그 팀 로봇이 된다. 걸어 놓고 안 챙기면
+ * 남 좋은 일을 하는 셈이다.
  */
 export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) => {
   const uid = requireUid(req.auth)
@@ -158,7 +162,9 @@ export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) =
     if (!d.exists) throw new HttpsError('not-found', '그런 완성품이 없다.')
     const m = d.data() as MadeDoc
     const no = whyNotTake({
-      phaseOpen: game.phaseNow?.open === true,
+      openPhaseNo: game.phaseNow?.open ? game.phaseNow.no : null,
+      madePhaseNo: m.phaseNo,
+      mine: m.byPlayerId === uid,
       here: pawn.tileId,
       tileId: m.tileId,
       teamRobots: bots.filter((r) => r.team === pawn.team).length,

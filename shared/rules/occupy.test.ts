@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest'
 import {
   ACT_COST,
   ENTER_COST,
-  MAX_CARRIED_ROBOTS,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
   KNOWLEDGE_PER_RESEARCH,
@@ -539,25 +538,14 @@ describe('연구', () => {
     ])
   })
 
-  it('발전소를 쥔 팀은 그 자리에서 나온다', () => {
+  /* 발전소를 쥐어도 기다린다. 그 자리에서 나던 것을 없앴다 */
+  it('발전소를 쥔 팀도 스무 분을 기다린다 — 그 자리에서 안 나온다', () => {
     let s = board({ people: [person('a', 'A', lab.id)], owners: { [plant.id]: 'A' } })
     s = must(s, 'a', { kind: 'research' })
-    expect(s.robots).toHaveLength(1)
-    expect(s.pendingResearch).toEqual([])
-  })
-
-  it('한 방에 두 기까지다 — 셋째는 설 자리가 없다', () => {
-    let s = board({
-      people: [person('a', 'A', lab.id)],
-      owners: { [plant.id]: 'A' },
-      wallets: { A: 99 },
-    })
-    for (let i = 0; i < ROBOTS_PER_ROOM; i++) s = must(s, 'a', { kind: 'research' })
-    expect(robotsIn(s, lab.id)).toBe(ROBOTS_PER_ROOM)
-    expect(s.robots.filter((r) => r.carriedBy === 'a')).toHaveLength(MAX_CARRIED_ROBOTS)
-    const out = doAct(s, 'a', { kind: 'research' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain(`${ROBOTS_PER_ROOM}기`)
+    expect(s.robots).toHaveLength(0)
+    expect(s.pendingResearch).toEqual([
+      { playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, tileId: lab.id },
+    ])
   })
 
   it('팀 한도에 걸리면 연구를 고를 수 없다 — 토큰도 안 든다', () => {
@@ -615,7 +603,7 @@ describe('연구에 드는 지식', () => {
       ...over,
     })
 
-  it('연구실을 차지했으면 1, 아니면 2다', () => {
+  it('연구실을 차지했으면 1, 아니면 3이다', () => {
     expect(researchKnowledge(false)).toBe(KNOWLEDGE_PER_RESEARCH)
     expect(researchKnowledge(true)).toBe(KNOWLEDGE_PER_RESEARCH_OWNER)
   })
@@ -659,14 +647,14 @@ describe('연구에 드는 지식', () => {
     expect(vaultOf(s, 'b1').knowledge).toBe(1)
   })
 
-  it('아무도 안 쥔 연구실이면 두 점이 그냥 사라진다', () => {
+  it('아무도 안 쥔 연구실이면 세 점이 그냥 사라진다', () => {
     const s = must(withVault(5), 'a', { kind: 'research' })
     expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
   })
 
-  it('발전소를 쥐면 그 자리에서 로봇이 난다 — 값과는 상관없다', () => {
+  it('발전소를 쥐어도 값은 같다 — 로봇도 바로 안 난다', () => {
     const s = must(withVault(5, { owners: { [plant2.id]: 'A' } }), 'a', { kind: 'research' })
-    expect(robotsIn(s, lab2.id)).toBe(1)
+    expect(robotsIn(s, lab2.id)).toBe(0)
     expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
   })
 

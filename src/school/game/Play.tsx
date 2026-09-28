@@ -49,6 +49,7 @@ const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }
   me !== null && Math.abs(me.x - c.x) <= 1 && Math.abs(me.y - c.y) <= 1
 import { Walk, type DirWay, type PersonAt, type TapThing } from './Walk'
 import { Meet, type MeetRow } from './Meet'
+import { MADE_NO } from '../../../shared/rules/made'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { ScoreBar } from './Score'
 import { Phase, PhaseLog, leftText } from './Phase'
@@ -1258,7 +1259,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     t.what === 'quiz' || t.what === 'slip' ? '바닥' : t.name !== undefined && t.name !== THING_NAME[t.what] ? t.name : ''
   const thingRows = (t: TapThing): MeetRow[] => {
     const far = t.near ? null : `가까이 가야 한다 · ${t.steps}칸`
-    // 덫 맡기기·찾기와 연구는 페이즈의 일이다. 자유 시간에는 까닭을 적는다
+    // 연구는 페이즈의 일이다. 자유 시간에는 까닭을 적는다
     const phaseOnly = far ?? (phaseOpen ? null : '페이즈 중에만 된다')
     const pick = (fn: () => void) => () => {
       setThing(null)
@@ -1277,13 +1278,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       case 'pot':
         return [open('garden', '들여다본다', 'garden')]
       case 'maker':
-        return [{ key: 'maker', label: '덫 만들기', why: phaseOnly, onPick: pick(() => setSheet('maker')) }]
+        // 맡기는 것은 페이즈에만이지만, 남이 안 찾아간 덫은 자유 시간에도 찾는다 — 시트가 가른다
+        return [open('maker', '덫 만들기', 'maker')]
       case 'lab': {
         /*
-         * **완성품은 여기서 가져간다.** 연구가 끝난 방에 주인 없이 놓인다 —
-         * 먼저 짚은 사람 것이고, 남의 팀 것도 된다. 자유 시간에는 안 나와 있다
+         * **완성품은 여기서 가져간다.** 연구한 페이즈 동안은 연구한 사람
+         * 것이고, 그 페이즈가 끝나도록 안 가져갔으면 누구든 — 자유 시간에도
          */
-        const made = phaseOpen ? (state.view?.madeHere ?? []) : []
+        const madeAll = state.view?.madeHere ?? []
+        const made = madeAll.filter((m) => !m.locked)
         const rows: MeetRow[] = [
           {
             key: 'lab',
@@ -1299,6 +1302,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           rows.push({
             key: 'made',
             label: made.length > 1 ? `완성품 가져가기 · ${made.length}` : '완성품 가져가기',
+            why: far,
             onPick: pick(() =>
               void act
                 .takeMade(made[0].id)
@@ -1306,6 +1310,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 .catch((e) => refuse((e as Error).message)),
             ),
           })
+        } else if (madeAll.length > 0) {
+          // 놓인 것은 있는데 전부 남이 이 페이즈에 연구한 것이다
+          rows.push({ key: 'made', label: '완성품 가져가기', why: MADE_NO.notYours, onPick: () => {} })
         }
         return rows
       }

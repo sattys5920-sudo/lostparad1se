@@ -44,7 +44,7 @@ import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../.
 import { isFixture } from '../../shared/rules/fixtures'
 import { machineAtSeat } from '../../shared/rules/arcade'
 import { LAB_TILE, SNARE_MINUTES, atLabMachine } from '../../shared/rules/trap'
-import { clearTrapJobs, springTrap } from './trap'
+import { springTrap } from './trap'
 import type { Cell } from '../../shared/rules/board'
 import { INVISIBLE_TEAM_TOKEN_BONUS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
@@ -987,8 +987,10 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
   // 내일의 투명인간은 여기서 안 고른다. 하루에 몇 교시를 열지는 날마다
   // 달라서, 운영자가 그날 정산을 넘길 때 센다(ballot.announceBallots)
 
-  // 제조기에 남은 덫은 사라진다. 다음 페이즈로 안 넘어간다
-  await clearTrapJobs(gameId)
+  /*
+   * **제조기에 남은 덫과 연구실의 완성품은 그대로 둔다.** 페이즈 동안은
+   * 만든 사람 것이었고, 이제부터는 누구든 가져간다(rules/made · trap)
+   */
   /*
    * **문제 종이도 쪽지도 여기서 안 뿌린다.** 운영자가 손으로 놓는다(drop.ts).
    * 펴 둔 것을 도로 접는 일도 없다 — 이제 펴는 물건이 아니라 줍는
