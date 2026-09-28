@@ -135,6 +135,27 @@ async function put(uid: string, fields: Record<string, unknown>): Promise<void> 
   })
 }
 
+/**
+ * 쪽지 한 장을 칸에 **직접** 깐다. 시험 준비용이다 — 비밀 쪽지는 이제
+ * 56장 배포 탭(hostScatterSlip)이 뿌리는데, 그쪽은 방만 고르고 칸은 서버가
+ * 고른다. 이 시험은 정한 칸에 한 장이 있어야 해서 문서를 바로 만든다.
+ */
+async function plantSlip(x: number, y: number, subjectId: string, text: string): Promise<string> {
+  const id = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+  const S = (v: string) => ({ stringValue: v })
+  const I = (v: number) => ({ integerValue: String(v) })
+  await fetch(`${FS}/games/${GAME}/secret/slips/items?documentId=${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: {
+      textId: S(''), text: S(text), subjectId: S(subjectId), tileId: { nullValue: null },
+      x: I(x), y: I(y), heldBy: { nullValue: null }, readBy: { arrayValue: {} }, tornBy: { nullValue: null },
+      tornAt: { nullValue: null }, atMs: I(0),
+    } }),
+  })
+  return id
+}
+
 async function main(): Promise<void> {
   console.log(`판 ${GAME}\n── 판 세우기 ──`)
   const he = await signUp(`h-${GAME}@x.test`)
@@ -216,8 +237,7 @@ async function main(): Promise<void> {
   const room = String((await pawnsNow())[A[0].uid].tileId) as TileId
   const { stand, spot } = standAndSpot(room)
   await must('standAt', A[0].token, { gameId: GAME, x: stand.x, y: stand.y })
-  const dropped = await must('hostDrop', host, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: B[0].uid, text: '{이름}은 그날 옥상에 있었다.' })
-  const slip = { id: String(dropped.slipId), d: { tileId: room, subjectId: B[0].uid } }
+  const slip = { id: await plantSlip(spot.x, spot.y, B[0].uid, '{이름}은 그날 옥상에 있었다.'), d: { tileId: room, subjectId: B[0].uid } }
   check((await allSlips()).some((s) => s.id === slip.id), '쪽지가 놓였다')
   await must('takeSlip', A[0].token, { gameId: GAME, slipId: slip.id })
   await must('readSlip', A[0].token, { gameId: GAME, slipId: slip.id })

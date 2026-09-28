@@ -299,7 +299,13 @@ export function gameActions(gameId: string) {
     /** 문제 은행을 본다. **운영자만** — 정답과 해설이 여기서만 나온다. */
     hostQuizList: () => callServer('hostQuizList', g),
     /** 비밀 쪽지 판. 사람마다 나간 장수와 바닥에 남은 자리. **운영자만.** */
-    hostSlipList: () => callServer('hostSlipList', g),
+    /** 쪽지 56장 배포판. 운영자만 — 문안 전문이 온다 */
+    hostSlipBoard: () => callServer('hostSlipBoard', g),
+    /** 한 장을 고른 방에 뿌린다. 2짝을 DAY 3 전에 뿌리려면 confirmEarly */
+    hostScatterSlip: (noteId: string, tileId: string, confirmEarly = false) =>
+      callServer('hostScatterSlip', { ...g, noteId, tileId, confirmEarly }),
+    /** 대기 중인 것에서 n장을 골라 빈 방에 흩는다 */
+    hostScatterRandom: (n: number) => callServer('hostScatterRandom', { ...g, n }),
     /** 아직 아무도 안 주운 쪽지를 거둔다. 그 사람 몫 한 자리가 다시 빈다. */
     hostPullSlip: (slipId: string) => callServer('hostPullSlip', { ...g, slipId }),
     hostQuizUpsert: (quiz: unknown, id?: string) => callServer('hostQuizUpsert', { ...g, id, quiz }),

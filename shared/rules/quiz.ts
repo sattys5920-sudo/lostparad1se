@@ -22,7 +22,7 @@
 // 정답은 functions/src 아래 secret 에만 있고, 채점도 서버가 한다.
 // 역할의 숨긴 사실과 쪽지 문장으로 이미 두 번 겪은 일이다.
 
-import { canStandAt, type Cell } from './board'
+import { PLAN_H, PLAN_W, canStandAt, roomOfCell, type Cell, type TileId } from './board'
 import { isFixture } from './fixtures'
 
 /**
@@ -101,3 +101,43 @@ export function isCorrect(given: string, answers: readonly string[]): boolean {
 
 /** 등록된 문제가 권장치에 닿았는가. 운영자 화면이 이걸로 경고를 낸다. */
 export const bankIsThin = (count: number): boolean => count < QUIZ_MIN_BANK
+
+/**
+ * 방 안에서 종이를 놓을 수 있는 칸 전부. **한 번 세어 두고 돌려쓴다.**
+ *
+ * 운영자가 방만 고르면 서버가 이 중 빈 칸 하나에 쪽지를 놓는다 —
+ * 칸을 짚으라고 하면 쉰여섯 장을 놓다 해가 진다.
+ */
+const cellsCache = new Map<TileId, Cell[]>()
+export function dropCellsIn(room: TileId): readonly Cell[] {
+  const hit = cellsCache.get(room)
+  if (hit) return hit
+  const out: Cell[] = []
+  for (let y = 0; y < PLAN_H; y++) {
+    for (let x = 0; x < PLAN_W; x++) {
+      if (roomOfCell(x, y) === room && canDropQuizAt(x, y)) out.push({ x, y })
+    }
+  }
+  cellsCache.set(room, out)
+  return out
+}
+
+/**
+ * 그 방에서 빈 칸 하나. **이미 종이가 있는 칸은 뺀다**(taken 은 "x,y").
+ * near 가 있으면 거기서 가까운 칸부터 — 사람이 발밑에 내려놓는 것이다.
+ * 없으면 무작위. 빈 칸이 없으면 null.
+ */
+export function freeDropCell(
+  room: TileId,
+  taken: ReadonlySet<string>,
+  near: Cell | null = null,
+  rng: () => number = Math.random,
+): Cell | null {
+  const free = dropCellsIn(room).filter((c) => !taken.has(`${c.x},${c.y}`) && !(near && c.x === near.x && c.y === near.y))
+  if (free.length === 0) return null
+  if (near) {
+    const d = (c: Cell) => Math.max(Math.abs(c.x - near.x), Math.abs(c.y - near.y))
+    return [...free].sort((a, b) => d(a) - d(b))[0]
+  }
+  return free[Math.floor(rng() * free.length)]
+}

@@ -196,7 +196,7 @@ describe('매점 단골 — 다른 팀과의 거래만', () => {
 })
 
 describe('쪽지 — 같은 장을 두 번 읽어도 한 장이다', () => {
-  it('사물함', () => {
+  it('파수꾼', () => {
     const same = did('slipRead', 6, { subjectId: 'one' })
     expect(mainOf('locker', { records: same }).clauses[0].have).toBe(1)
   })

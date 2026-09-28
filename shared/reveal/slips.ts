@@ -8,18 +8,16 @@
 // 「추리 노트」(reveal/notes.ts)와는 다른 것이다. 그쪽은 내가 혼자 적는
 // 메모고, 이쪽은 판 위에 굴러다니는 물건이다.
 //
-// **운영자가 한 장씩 손으로 놓는다.** 서버가 페이즈마다 무작위로
-// 뿌리던 것을 걷어냈다 — 어디에 누구의 비밀을 놓을지가 운영자의 수다.
+// **쪽지는 56장, 문안이 정해져 있다**(functions/src/story/slipNotes.ts ·
+// docs/notes_56_linked.md). 역할마다 넉 장이고 두 장씩 짝이다. 운영자가
+// 배포 탭에서 방을 골라 뿌린다(functions/src/notes.ts).
 //
-//   누구의 것   열넷 중 한 사람을 고른다. 한 사람 앞으로 넉 장까지
-//   무엇을      놓을 때 운영자가 적는다. 파일에 미리 적어 두는 문장이 없다
-//   어디에      칸 하나를 짚는다. 방이든 복도든. 바닥에 종이가 그려진다
+//   누구의 것   그 역할을 받은 사람. 쪽지 미션 「나에 대한 쪽지」가 이걸로 갈린다
+//   무엇을      문안 원문. 이름형은 {이름}을 읽는 순간 서버가 실제 이름으로 바꾼다
+//   어디에      방 하나. 그 방의 빈 칸에 놓이고 바닥에 종이가 그려진다
 //
-// **문장은 번들에 없다.** 운영자가 적은 글은 secret 아래에만 들어가고
-// 주워서 읽은 사람에게만 간다(functions/src/slips.ts).
-//
-// 문장 안의 {이름}은 서버가 그 쪽지 주인의 이름으로 바꾼다. 운영자가
-// 이름을 직접 적어도 되고, {이름}으로 적어 두어도 된다.
+// **문장은 번들에 없다.** 원문 틀과 역할은 서버 안에만 있고, 읽은 사람
+// 몫에만 이름이 끼워진 문장이 간다.
 
 import { josa, type Pair } from '../text'
 
@@ -52,8 +50,28 @@ const PARTICLES: Readonly<Record<string, Pair>> = {
   '와/과': '와/과',
   '과/와': '와/과',
 }
+/**
+ * 문안에 **조사를 한 글자로 붙여 쓴 것.** 쪽지 56장(notes_56_linked.md)은
+ * 「{이름}은」「{이름}이」「{이름}이다」처럼 받침 있는 쪽으로 적혀 있다.
+ * 문안은 원문 그대로 두고, 끼워 넣을 때 이름 끝을 보고 맞는 쪽을 고른다.
+ *
+ * 길이가 긴 것부터 본다 — 「이었다」가 「이」보다 먼저다.
+ */
+const PLAIN: readonly (readonly [string, (name: string) => string])[] = [
+  ['이었다', (n) => (josa(n, '이/가') === '이' ? '이었다' : '였다')],
+  ['이다', (n) => josa(n, '이다/다')],
+  ['은', (n) => josa(n, '은/는')],
+  ['는', (n) => josa(n, '은/는')],
+  ['이', (n) => josa(n, '이/가')],
+  ['가', (n) => josa(n, '이/가')],
+  ['을', (n) => josa(n, '을/를')],
+  ['를', (n) => josa(n, '을/를')],
+  ['과', (n) => josa(n, '와/과')],
+  ['와', (n) => josa(n, '와/과')],
+]
+
 const MARK_RE = new RegExp(
-  `${SLIP_SUBJECT_MARK.replace(/[{}]/g, (c) => `\\${c}`)}(${Object.keys(PARTICLES).join('|')})?`,
+  `${SLIP_SUBJECT_MARK.replace(/[{}]/g, (c) => `\\${c}`)}(${[...Object.keys(PARTICLES), ...PLAIN.map(([k]) => k)].join('|')})?`,
   'g',
 )
 
@@ -65,7 +83,12 @@ const MARK_RE = new RegExp(
  */
 export function fillSubject(raw: string, subjectName: string | null): string {
   const name = subjectName ?? '누군가'
-  return raw.replace(MARK_RE, (_m, p: string | undefined) => name + (p ? josa(name, PARTICLES[p]) : ''))
+  return raw.replace(MARK_RE, (_m, p: string | undefined) => {
+    if (!p) return name
+    if (p in PARTICLES) return name + josa(name, PARTICLES[p])
+    const plain = PLAIN.find(([k]) => k === p)
+    return name + (plain ? plain[1](name) : p)
+  })
 }
 
 /** 아직 안 쓴 자리인가. 화면이 이것으로 「준비 중」을 가른다. */

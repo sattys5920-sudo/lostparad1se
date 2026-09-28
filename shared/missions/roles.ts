@@ -158,7 +158,7 @@ export const ROLES: readonly RoleSpec[] = [
   // ── 쪽지 쪽 — 남의 비밀을 다룬다 ──
   {
     id: 'locker',
-    name: '사물함',
+    name: '파수꾼',
     branch: 'slip',
     flavor: '떨어진 건 일단 주워 둔다.',
     main: {

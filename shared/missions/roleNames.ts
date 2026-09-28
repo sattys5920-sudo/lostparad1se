@@ -48,7 +48,7 @@ export const ROLE_NAMES: Record<RoleId, string> = {
   classlead: '반장',
   model: '모범생',
   snacker: '매점 단골',
-  locker: '사물함',
+  locker: '파수꾼',
   bookclub: '도서부',
   cleanup: '미화부',
   duty: '주번',

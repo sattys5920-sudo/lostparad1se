@@ -22,6 +22,7 @@ import type {
 import { releasedDays } from '../../shared/reveal/release'
 import { fillSubject } from '../../shared/reveal/slips'
 import type { SlipDoc } from './slips'
+import { SLIP_NOTE_BY_ID } from './story/slipNotes'
 import type { QuizDoc, QuizPaperDoc } from './quiz'
 import { errandWorld } from './errand'
 import { gardenWorld } from './garden'
@@ -224,7 +225,9 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         id: d.id,
         subjectId: s2.subjectId,
         // 주인이 없는 종이(메모·빈 종이)는 이름 자리를 「누군가」로 둔다
-        line: s2.text ? fillSubject(s2.text, who) : '',
+        // 56장은 번호로 문안을 찾는다. 문안 틀은 여기서 끝난다 — 이름이
+        // 끼워진 문장만 투영으로 가고, 그것도 읽은 사람 몫에만 실린다
+        line: s2.noteId ? fillSubject(SLIP_NOTE_BY_ID[s2.noteId]?.text ?? '', who) : s2.text ? fillSubject(s2.text, who) : '',
         tileId: s2.tileId ?? null,
         // 칸에 놓인 것. 주우면 비워진다
         x: typeof s2.x === 'number' ? s2.x : null,

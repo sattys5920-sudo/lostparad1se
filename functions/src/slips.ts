@@ -13,8 +13,8 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import type { Cell, TileId } from '../../shared/rules/board'
-import { atPaper } from '../../shared/rules/quiz'
-import { SLIPS_PER_PERSON } from '../../shared/reveal/slips'
+import { atPaper, freeDropCell } from '../../shared/rules/quiz'
+import { takenCells } from './notes'
 import type { PawnDoc } from '../../shared/model'
 import { freshNow, refuseIfInvisible } from './turn'
 import { note } from './records'
@@ -34,6 +34,16 @@ const db = getFirestore()
 export interface SlipDoc {
   /** 옛 문장 표의 번호. 서버가 뿌리던 때의 것이라 이제 늘 비어 있다. */
   textId: string
+  /**
+   * 쪽지 56장 중 몇 번인가(story/slipNotes). **서버 안에서만 쓴다** —
+   * 어떤 투영에도 안 실린다. 번호 앞자리가 역할 번호라, 새면 역할이 드러난다.
+   * 문장은 여기 안 적고 읽는 순간 번호로 찾는다.
+   */
+  noteId?: string
+  /** 운영자가 뿌린 날. 배포판의 몰림 경고가 본다 */
+  placedDay?: number
+  /** 한 번이라도 누가 주웠나. 주웠던 것은 운영자가 회수 못 한다 */
+  everHeld?: boolean
   /**
    * 적힌 글. 비밀 쪽지와 메모는 운영자가 놓을 때 적었고(drop.ts), 빈
    * 종이는 사람이 적었다(use.ts). **그래도 secret 아래다** — 주워서
@@ -115,7 +125,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
       if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
       if (s.heldBy !== null || s.tileId !== here) throw new HttpsError('failed-precondition', '여기 없는 쪽지다.')
     }
-    tx.update(ref, { tileId: null, x: null, y: null, heldBy: uid })
+    tx.update(ref, { tileId: null, x: null, y: null, heldBy: uid, everHeld: true })
     subject = s.subjectId
   })
   await note(gameId, 'slipTake', nowMs, { id: uid, team: self.team }, {
@@ -162,12 +172,20 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   return { slipId }
 })
 
-/** 선 방에 두고 간다. 다음에 그 방에 온 사람이 줍는다. */
+/**
+ * 선 방에 두고 간다. 다음에 그 방에 온 사람이 줍는다.
+ *
+ * **발밑 가까운 빈 칸에 놓는다** — 운영자가 뿌린 것과 똑같이 바닥에
+ * 종이가 그려지고, 그 옆에 서서 줍는다. 방에 빈 칸이 없으면(드물다)
+ * 방 바닥에 둔다 — 들어온 사람에게 「한 장 있다」로만 뜬다.
+ */
 export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, slipId } = req.data
-  const here = await whereAmI(gameId, uid)
+  const self = await me(gameId, uid)
+  const here = self.tileId
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
+  const cell = freeDropCell(here, await takenCells(gameId), self.at)
 
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
@@ -176,7 +194,7 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     if ((snap.data() as SlipDoc).heldBy !== uid) {
       throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
     }
-    tx.update(ref, { tileId: here, heldBy: null })
+    tx.update(ref, cell ? { tileId: null, x: cell.x, y: cell.y, heldBy: null } : { tileId: here, heldBy: null })
   })
   await refreshViews(gameId)
   return { tileId: here }
@@ -202,7 +220,9 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다.
     // 조각은 찢은 방에 남는다 — tileId 는 비운다(바닥의 「한 장」에
     // 안 세야 한다). 조각은 tornAt 으로 따로 센다
-    tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, tornAt: here, atMs: nowMs })
+    // **56장은 조각도 안 남는다** — 찢으면 영영 사라진다. 테이프로도 못 붙인다
+    const isNote = Boolean((snap.data() as SlipDoc).noteId)
+    tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, tornAt: isNote ? null : here, atMs: nowMs })
     subject = (snap.data() as SlipDoc).subjectId
   })
   // **누구의 쪽지를 찢었는지가 판정의 전부다.** 미화부의 「내 비밀이
@@ -277,44 +297,10 @@ export const hostPullSlip = onCall<{ gameId: string; slipId: string }>(async (re
     const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
     const s = snap.data() as SlipDoc
-    if (!onCell(s) || s.readBy.length > 0) throw new HttpsError('failed-precondition', '누가 주워 갔다.')
+    // 한 번이라도 누가 주웠으면 못 거둔다 — 바닥에 도로 놓였어도 이미 이야기가 됐다
+    if (!onCell(s) || s.everHeld === true || s.readBy.length > 0) throw new HttpsError('failed-precondition', '누가 주워 갔다.')
     tx.delete(ref)
   })
   await refreshViews(gameId)
   return { ok: true }
-})
-
-/**
- * 운영자가 쪽지 판을 본다. **운영자만.**
- *
- * 사람마다 몇 장 나갔는지와, 아직 바닥에 있는 쪽지의 자리. 운영자가
- * 적은 글도 같이 간다 — 제가 쓴 것이고, 어느 칸에 무엇을 놓았는지
- * 안 보이면 같은 말을 두 번 놓는다. 누가 주워 갔고 읽었는지는 안
- * 싣는다 — 판을 돌리는 데 필요 없는 남의 행동이다.
- */
-export const hostSlipList = onCall<{ gameId: string }>(async (req) => {
-  requireHost(req.auth)
-  const { gameId } = req.data
-  const [snap, all] = await Promise.all([gameRef(gameId).get(), slipsOf(gameId).get()])
-  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  const seats = ((snap.data() as { seats?: { playerId: string; name: string }[] }).seats ?? [])
-  const docs = all.docs.map((d) => ({ id: d.id, s: d.data() as SlipDoc }))
-  return {
-    perPerson: SLIPS_PER_PERSON,
-    people: seats.map((st) => ({
-      id: st.playerId,
-      name: st.name,
-      placed: docs.filter((d) => d.s.subjectId === st.playerId).length,
-    })),
-    onFloor: docs
-      .filter((d) => onCell(d.s))
-      .map((d) => ({
-        id: d.id,
-        x: d.s.x as number,
-        y: d.s.y as number,
-        subjectId: d.s.subjectId,
-        text: d.s.text ?? '',
-        taken: false,
-      })),
-  }
 })

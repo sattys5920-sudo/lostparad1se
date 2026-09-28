@@ -163,6 +163,27 @@ async function fund(uid: string, money: number, knowledge = 9): Promise<void> {
   })
 }
 
+/**
+ * 쪽지 한 장을 칸에 **직접** 깐다. 시험 준비용이다 — 비밀 쪽지는 이제
+ * 56장 배포 탭(hostScatterSlip)이 뿌리는데, 그쪽은 방만 고르고 칸은 서버가
+ * 고른다. 이 시험은 정한 칸에 한 장이 있어야 해서 문서를 바로 만든다.
+ */
+async function plantSlip(x: number, y: number, subjectId: string, text: string): Promise<string> {
+  const id = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+  const S = (v: string) => ({ stringValue: v })
+  const I = (v: number) => ({ integerValue: String(v) })
+  await fetch(`${FS}/games/${GAME}/secret/slips/items?documentId=${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: {
+      textId: S(''), text: S(text), subjectId: S(subjectId), tileId: { nullValue: null },
+      x: I(x), y: I(y), heldBy: { nullValue: null }, readBy: { arrayValue: {} }, tornBy: { nullValue: null },
+      tornAt: { nullValue: null }, atMs: I(0),
+    } }),
+  })
+  return id
+}
+
 async function main(): Promise<void> {
   console.log(`판 ${GAME}\n── 판 세우기 ──`)
   const he = await signUp(`h-${GAME}@x.test`)
@@ -361,8 +382,8 @@ async function main(): Promise<void> {
   // 쪽지 한 장을 손에 쥐어 준다 — 접힌 채로 건너가는지 볼 것이다.
   // 쪽지는 운영자가 놓는다. 아무 칸에나 놓고 손으로 옮겨 쥐여 준다
   const { spot } = standAndSpot('library')
-  await must('hostDrop', host, { gameId: GAME, kind: 'slip', x: spot.x, y: spot.y, subjectId: me.uid, text: '거래에 실릴 쪽지' })
-  const slip = (await slipsNow())[0]
+  const planted = await plantSlip(spot.x, spot.y, me.uid, '거래에 실릴 쪽지')
+  const slip = (await slipsNow()).find((s) => s.id === planted) as (Awaited<ReturnType<typeof slipsNow>>)[number]
   await fetch(`${FS}/games/${GAME}/secret/slips/items/${slip.id}?updateMask.fieldPaths=heldBy&updateMask.fieldPaths=x&updateMask.fieldPaths=y`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },

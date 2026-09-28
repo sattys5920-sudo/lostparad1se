@@ -9,7 +9,7 @@
 // 운영자 표시를 다시 확인한다. 이 페이지는 주소만 알면 누구나 열 수
 // 있고, 열어도 아무것도 안 된다.
 //
-// **세 탭이다 — 진행 · 놓기 · 관리.** 아홉 카드를 한 줄로 늘어놓았을
+// **네 탭이다 — 진행 · 놓기 · 쪽지 · 관리.** 아홉 카드를 한 줄로 늘어놓았을
 // 때는 페이즈 하나 닫으려고 열 줄짜리 심부름 목록을 지나쳐야 했다.
 // 운영자가 하는 일은 자주 하는 순으로 셋이다: 판을 돌리는 것(페이즈·
 // 달력), 판 위에 무엇을 놓는 것(심부름·화분·종이), 가끔 손보는 것
@@ -20,6 +20,7 @@ import { deleteAccounts, listAccounts, logOut, type AccountSummary } from '../ac
 import { gameActions, useGame } from '../game/useGame'
 import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
+import { SlipDesk } from './SlipDesk'
 import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
@@ -64,7 +65,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'put' | 'manage'
+type Tab = 'go' | 'put' | 'slips' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -232,6 +233,7 @@ function Desk() {
               [
                 ['go', '진행'],
                 ['put', '놓기'],
+                ['slips', '쪽지'],
                 ['manage', '관리'],
               ] as const
             ).map(([id, name]) => (
@@ -391,6 +393,12 @@ function Desk() {
               <DropHost act={act} onSaid={setSaid} />
             </section>
           </>
+        : tab === 'slips' ?
+          /* ── 쪽지 56장. 역할마다 넉 장, 방을 골라 뿌린다 ── */
+          <section className="sc-ad__sec">
+            <h2>쪽지 배포</h2>
+            <SlipDesk act={act} onSaid={setSaid} />
+          </section>
         : /* ── 관리. 가끔 손보는 것 ── */
           <>
             <section className="sc-ad__sec">

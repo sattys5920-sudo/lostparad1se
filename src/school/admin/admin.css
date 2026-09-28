@@ -547,3 +547,122 @@
 .sc-sp__where { margin: 0; font-size: var(--fs-label); color: var(--sc-text-dim); }
 .sc-sp__where b { color: var(--sc-text); }
 .sc-sp__where span { font-variant-numeric: tabular-nums; }
+
+/* ── 쪽지 배포(SlipDesk) ─────────────────────────────────────────
+ * 한눈에 한 줄 · 무작위 · 거르기 · 역할 열넷(접힘). 펼친 표는 옆으로
+ * 넘치면 그 안에서만 구른다 — 화면 전체가 옆으로 밀리면 안 된다 */
+.sc-sd { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sc-sd__sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  align-items: baseline;
+  font-size: var(--fs-label);
+  color: var(--sc-text-dim);
+}
+.sc-sd__sum b { font-size: var(--fs-body); color: var(--sc-text); font-variant-numeric: tabular-nums; }
+.sc-sd__day { margin-left: auto; }
+.sc-sd__rand { display: grid; grid-template-columns: auto 72px 1fr; gap: var(--sp-2); align-items: center; font-size: var(--fs-label); }
+.sc-sd__filters { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.sc-sd__roles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.sc-sd__role { border: 1px solid var(--sc-line); border-radius: var(--r-game); background: var(--bg-1); }
+.sc-sd__role.is-open { border-color: var(--sc-line-strong); }
+.sc-ad button.sc-sd__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-body);
+}
+.sc-sd__no { font-variant-numeric: tabular-nums; color: var(--sc-text-dim); font-size: var(--fs-label); }
+.sc-sd__name { font-weight: 600; }
+.sc-sd__count { margin-left: auto; font-size: var(--fs-label); color: var(--sc-text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 완성 가능 — 노란 점. 2짝 두 장이 다 나갔다 */
+.sc-sd__dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-cap);
+  color: var(--accent);
+  white-space: nowrap;
+}
+.sc-sd__dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+/* 몰림 — 같은 날 한 역할이 두 장 이상 */
+.sc-sd__crowd {
+  font-size: var(--fs-cap);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-game);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.sc-sd__tablewrap { overflow-x: auto; border-top: 1px solid var(--sc-line); }
+.sc-sd__table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: var(--fs-label); }
+.sc-sd__table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--fs-cap);
+  color: var(--sc-text-dim);
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
+  white-space: nowrap;
+}
+.sc-sd__table td { padding: var(--sp-1) var(--sp-2); border-top: 1px solid var(--sc-line); vertical-align: middle; }
+.sc-sd__num { font-variant-numeric: tabular-nums; text-align: center; }
+.sc-ad button.sc-sd__text {
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: var(--sp-1) 0;
+  text-align: left;
+  line-height: 1.5;
+  color: var(--sc-text);
+  white-space: normal;
+}
+.sc-sd__table td:nth-child(3) { min-width: 200px; }
+.sc-sd__table td:nth-child(5) { min-width: 150px; }
+.sc-sd__state { white-space: nowrap; }
+.sc-sd__table tr.is-placed .sc-sd__state { color: var(--accent); }
+.sc-sd__table tr.is-held .sc-sd__state { color: var(--sc-text); }
+.sc-sd__table tr.is-torn .sc-sd__state { color: var(--danger); }
+.sc-sd__table tr.is-torn .sc-sd__text { text-decoration: line-through; color: var(--sc-text-dim); }
+.sc-sd__muted { color: var(--sc-text-dim); }
+.sc-sd__table td:nth-child(2), .sc-sd__table td:nth-child(1) { white-space: nowrap; }
+
+/* 폰 폭 — 표를 줄마다 카드로 편다. 여섯 칸을 옆으로 굴리면 위치와 단추가
+   늘 화면 밖에 있다. 위: 짝 · 종류 · 상태 / 가운데: 문안 / 아래: 위치 · 단추 */
+@media (max-width: 640px) {
+  .sc-sd__tablewrap { overflow-x: visible; }
+  .sc-sd__table { min-width: 0; }
+  .sc-sd__table thead { display: none; }
+  .sc-sd__table tbody { display: flex; flex-direction: column; }
+  .sc-sd__table tr {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      'pair kind state'
+      'text text text'
+      'room room act';
+    column-gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-top: 1px solid var(--sc-line);
+    align-items: center;
+  }
+  .sc-sd__table td { border-top: 0; padding: 0; min-width: 0 !important; }
+  .sc-sd__table td:nth-child(1) { grid-area: pair; color: var(--sc-text-dim); }
+  .sc-sd__table td:nth-child(1)::after { content: '짝'; }
+  .sc-sd__table td:nth-child(2) { grid-area: kind; color: var(--sc-text-dim); }
+  .sc-sd__table td:nth-child(3) { grid-area: text; }
+  .sc-sd__table td:nth-child(4) { grid-area: state; justify-self: end; }
+  .sc-sd__table td:nth-child(5) { grid-area: room; }
+  .sc-sd__table td:nth-child(6) { grid-area: act; justify-self: end; }
+  .sc-sd__table td:nth-child(5):has(.sc-sd__muted) { display: none; }
+  .sc-sd__table td:nth-child(6):has(.sc-sd__muted) { display: none; }
+  .sc-sd__table tr:has(td:nth-child(5) .sc-sd__muted) { grid-template-areas: 'pair kind state' 'text text text'; }
+  .sc-sd__table tr.is-placed { grid-template-areas: 'pair kind state' 'text text text' 'act act act'; }
+  .sc-sd__table tr.is-placed td:nth-child(6) { justify-self: stretch; }
+  .sc-sd__table tr.is-placed td:nth-child(6) button { width: 100%; }
+}

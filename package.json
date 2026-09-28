@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite-node scripts/check-notes.ts && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
@@ -13,6 +13,7 @@
     "sim": "vite-node scripts/sim.ts",
     "check:bundle": "vite-node scripts/check-bundle.ts",
     "check:doc": "vite-node scripts/check-doc.ts",
+    "check:notes": "vite-node scripts/check-notes.ts",
     "fonts:sync": "cp node_modules/galmuri/dist/Galmuri11.woff2 public/fonts/ && cp node_modules/galmuri/ofl.md public/fonts/Galmuri-OFL.md"
   },
   "dependencies": {
