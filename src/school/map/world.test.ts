@@ -25,6 +25,7 @@ import {
   roomAt,
   roomById,
   signAt,
+  lobbyCellFor,
   spawnFor,
 } from './world'
 import { FURNITURE } from './furniture'
@@ -119,6 +120,21 @@ describe('걸어서 갈 수 있다', () => {
     for (const team of ['A', 'B', 'C', 'D'] as TeamId[]) {
       const s = spawnFor(team)
       expect(roomAt(s.x, s.y)?.id).toBe(START_TILE)
+    }
+  })
+
+  // 시작 전에는 열넷이 한 교실에 선다. 한 칸에 겹치면 맨 위 한 사람만 보인다
+  it('시작 전 열넷은 2-3 교실 안의 서로 다른 칸에 선다', () => {
+    const cells = Array.from({ length: 14 }, (_, i) => lobbyCellFor(i))
+    expect(new Set(cells.map((c) => `${c.x},${c.y}`)).size).toBe(14)
+    for (const c of cells) {
+      expect(roomAt(c.x, c.y)?.id).toBe(START_TILE)
+      expect(isWalkable(c.x, c.y)).toBe(true)
+    }
+    // 바로 옆에 붙어 서지 않는다 — 이름표가 겹친다
+    for (const a of cells) for (const b of cells) {
+      if (a === b) continue
+      expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))).toBeGreaterThanOrEqual(2)
     }
   })
 

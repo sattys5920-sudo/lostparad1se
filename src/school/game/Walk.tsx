@@ -26,6 +26,7 @@ import {
   roomAt,
   ROOMS,
   signAt,
+  lobbyCellFor,
   spawnFor,
   stairHere,
   TILE,
@@ -254,6 +255,8 @@ export interface WalkProps {
    * 가린 사람이 정말로 안 온다.
    */
   roster?: readonly { playerId: string; team: TeamId }[]
+  /** 자리 순서. 처음 서는 칸을 사람마다 다르게 준다(lobbyCellFor) */
+  slot?: number
   /**
    * 사람마다 이름. **이름표를 발치에 단다** — 전에는 아무 이름도
    * 안 붙어서, 누군지 알려면 하나씩 눌러 봐야 했다. 열넷이 같은
@@ -447,7 +450,7 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onTapPaper, onStand, padRef, placeAtMs = null, pinAt = null, frozen = false, looks = {}, live, onLive, onDirs, roster, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapFixture, onTapPaper, onStand, padRef, placeAtMs = null, pinAt = null, frozen = false, looks = {}, live, onLive, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -561,7 +564,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     const sprites = buildSprites()
     setReady(true)
 
-    const start = spawnFor(me.team)
+    // 자리 순서가 있으면 교실 안에 한 칸씩 띄워 선다. 없으면 한가운데
+    const start = slot !== undefined && slot >= 0 ? lobbyCellFor(slot) : spawnFor(me.team)
     const self = {
       px: start.x * TILE + TILE / 2,
       py: start.y * TILE + TILE / 2,

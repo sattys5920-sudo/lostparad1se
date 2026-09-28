@@ -545,6 +545,31 @@ export function spawnFor(_team: TeamId | null): { x: number; y: number } {
 export const SPAWN = spawnFor(null)
 
 /**
+ * 시작 전 2-3 교실에서 **각자 서는 칸.** 자리 순서(slot)대로 나눠 준다.
+ *
+ * 전에는 모두가 교실 한가운데 한 칸에서 시작했다. 열넷이 한 칸에 겹쳐
+ * 서니 맨 위 한 사람만 보였고, 들어온 사람이 아무도 없는 것처럼 보였다.
+ * 가운데에서 가까운 칸부터, **한 칸씩 띄워** 준다 — 붙어 서면 이름표가
+ * 겹친다. 문 앞 통로와 기물 칸은 뺀다.
+ */
+export function lobbyCellFor(slot: number): { x: number; y: number } {
+  const id = START_TILE as TileId
+  const c = centerOf(id)
+  const r = roomById[id].rects[0]
+  const cells: { x: number; y: number }[] = []
+  for (let y = r.y; y < r.y + r.h; y++) {
+    for (let x = r.x; x < r.x + r.w; x++) {
+      if ((x - c.x) % 2 !== 0 || (y - c.y) % 2 !== 0) continue
+      if (!isWalkable(x, y) || inDoorLane(x, y) || doorHere(x, y)) continue
+      cells.push({ x, y })
+    }
+  }
+  cells.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y) || a.y - b.y || a.x - b.x)
+  if (cells.length === 0 || slot < 0) return c
+  return cells[slot % cells.length]
+}
+
+/**
  * 조각이 떨어질 수 있는 곳 — **2-3 교실만 뺀다.**
  *
  * 핵심도 같이 뺐던 것은 A의 기록이 열어 주기 전에는 못 들어갔기

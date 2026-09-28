@@ -461,6 +461,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               padRef={padRef}
               /* 시작 전에는 view 가 없다. 명단이 그 자리를 대신한다 */
               roster={mates}
+              /* 열넷이 한 칸에 겹치지 않게 자리 순서대로 선다 */
+              slot={seats.findIndex((sx) => sx.playerId === uid)}
               looks={looks}
               names={names}
               live={live}
