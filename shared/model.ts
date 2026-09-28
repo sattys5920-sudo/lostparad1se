@@ -131,6 +131,8 @@ export interface GameDoc {
    * 숨기는 것은 그 사람의 **위치**이고, 그건 views가 한다.
    */
   invisibleId: string | null
+  /** 전원 채널이 닫혀 있는가. 운영자가 여닫는다. 없으면 열려 있다 */
+  allChannelClosed?: boolean
   /**
    * 오늘 네 팀의 팀장. 아직 못 정한 팀은 null 이다.
    *

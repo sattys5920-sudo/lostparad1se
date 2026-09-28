@@ -46,6 +46,14 @@ export const RADIO_NOTE =
 /** 전원 채널 — 열넷이 다 듣는 주파수 */
 export const ALL_FREQ = '100.1'
 
+/** 운영자가 전원 채널을 여닫을 때 그 채널에 남는 줄 */
+export const ALL_OPENED = '운영자가 전원 채널을 열었다.'
+export const ALL_CLOSED = '운영자가 전원 채널을 닫았다. 지난 말은 읽을 수 있다.'
+/** 닫혀 있을 때 */
+export const ALL_SHUT = '전원 채널은 지금 닫혀 있다.'
+/** 지워진 사람에게 — 전원 채널은 듣기만 한다 */
+export const ALL_MUTE = '보이지 않는 동안에는 듣기만 한다.'
+
 export const ALL_NOTE =
   '열넷이 다 듣는다. 다른 팀도 읽는다. 지워진 사람은 듣기만 한다. 점수에는 들어가지 않는다.'
 

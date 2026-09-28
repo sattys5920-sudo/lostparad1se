@@ -323,6 +323,8 @@ export function gameActions(gameId: string) {
     hostSlipBoard: () => callServer('hostSlipBoard', g),
     hostPapers: () => callServer('hostPapers', g),
     hostRadioOverview: () => callServer('hostRadioOverview', g),
+    /** 전원 채널을 여닫는다 */
+    hostSetAllChannel: (open: boolean) => callServer('hostSetAllChannel', { ...g, open }),
     /** 알림 보낸 기록 — 최근 200줄 · 실패 수 */
     hostNotifyLog: () => callServer('hostNotifyLog', g),
     /** 날짜별 개인 미션 판정. 날을 안 주면 가장 최근 날 */

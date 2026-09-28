@@ -223,5 +223,5 @@ export function useSendBox(opts: {
     },
   }
 
-  return { draft, box, button, inputRef }
+  return { draft, setDraft, box, button, inputRef }
 }

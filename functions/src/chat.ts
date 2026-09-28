@@ -222,11 +222,14 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
       }),
       day: 0,
       here: early.tileId,
+      // 들어와 있는 자리. 이 값이 바뀌면 화면이 보던 줄을 버린다
+      stay: 'lobby',
     }
   }
 
   const pawn = await myPawn(gameId, uid)
-  if (pawn.tileId === null) return { lines: [], day: game.day, here: null }
+  // 걷는 중 — 어느 방에도 없다. 화면은 보던 줄을 버린다
+  if (pawn.tileId === null) return { lines: [], day: game.day, here: null, stay: null }
 
   /*
    * 도착 시각을 못 믿을 때는 **「지금부터」로 본다.**
@@ -260,7 +263,14 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
 
   let since: number
   let all: FirebaseFirestore.QuerySnapshot
+  /**
+   * **들어와 있는 자리 한 번.** 방이면 「그 방 @ 들어온 시각」, 복도면 「복도」.
+   * 나갔다 들어오면 들어온 시각이 달라져 이 값이 바뀐다 — 화면은 그걸 보고
+   * **보던 줄까지 버린다.** 다시 들어온 사람은 다시 들어온 뒤의 말만 본다
+   */
+  let stay: string
   if (inHall) {
+    stay = 'hall'
     since = Math.max(Number(req.data.sinceMs ?? 0), nowMs - HALL_EARSHOT_MS)
     // 방 이름으로 못 거른다 — 복도 줄에는 방 이름이 없다. 시각으로
     // 좁혀 오고 거리로 거른다
@@ -272,6 +282,7 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
       arrived = nowMs
     }
     since = Math.max(Number(req.data.sinceMs ?? 0), arrived)
+    stay = `${pawn.tileId}@${arrived}`
     all = await chatOf(gameId)
       .where('tileId', '==', pawn.tileId)
       .where('atMs', '>', since)
@@ -307,7 +318,7 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
     }))
 
   // 복도에 섰으면 어느 방도 아니다. 화면이 「여기」를 그렇게 적는다
-  return { lines, day: game.day, here: inHall ? null : pawn.tileId }
+  return { lines, day: game.day, here: inHall ? null : pawn.tileId, stay }
 })
 
 /**

@@ -25,12 +25,16 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { CHAT_MAX_LEN } from '../../shared/rules/v2'
-import { RADIO_BEAT_MS, RADIO_STALE_MS } from '../../shared/rules/radio'
+import { ALL_CLOSED, ALL_OPENED, ALL_SHUT, RADIO_BEAT_MS, RADIO_STALE_MS } from '../../shared/rules/radio'
+import type { GameDoc } from '../../shared/model'
+import { getFirestore } from 'firebase-admin/firestore'
 import { TEAM_IDS, type TeamId } from '../../shared/rules/v2'
 import { freshNow, myPawn } from './turn'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { notify } from './notify'
+
+const db = getFirestore()
 
 /** games/{gameId}/secret/radio/items/{id} — 팀 것만 골라 내려보낸다. */
 /** 전원 채널. 팀 무전과 같은 통에 이 값으로 적는다 */
@@ -101,6 +105,9 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
   const seat = game.seats.find((s) => s.playerId === uid)
 
   const toAll = req.data.channel === 'all'
+  if (toAll && game.allChannelClosed === true) {
+    throw new HttpsError('failed-precondition', ALL_SHUT)
+  }
   if (toAll && game.invisibleId === uid) {
     throw new HttpsError('failed-precondition', '지워진 사람은 전원 채널에 말할 수 없다.')
   }
@@ -114,13 +121,12 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
     invisible: game.invisibleId === uid,
   }
   await radioOf(gameId).add(row)
-  // 팀 무전에서 팀원 이름이 나오면 그 사람에게 알린다(태그). **무슨 말인지는 안 싣는다**
-  if (!toAll) {
-    const called = game.seats
-      .filter((s) => s.playerId !== uid && s.team === pawn.team && s.name.length > 0 && text.includes(s.name))
-      .map((s) => s.playerId)
-    if (called.length > 0) await notify(gameId, called, 'tag', `tag:${uid}:${nowMs}`)
-  }
+  // 이름이 나오면 그 사람에게 알린다(태그). 팀 채널은 팀원만, 전원 채널은
+  // 열넷 누구나. **무슨 말인지는 안 싣는다**
+  const called = game.seats
+    .filter((s) => s.playerId !== uid && (toAll || s.team === pawn.team) && s.name.length > 0 && text.includes(s.name))
+    .map((s) => s.playerId)
+  if (called.length > 0) await notify(gameId, called, 'tag', `tag:${uid}:${nowMs}`)
   // 지워져 있어도 팀에게는 닿는다
   return { said: true, heard: true }
 })
@@ -236,7 +242,7 @@ export const hostRadioOverview = onCall<{ gameId: string }>(async (req) => {
       }
     }),
   )
-  return { channels: rows, nowMs }
+  return { channels: rows, nowMs, allOpen: (game as { allChannelClosed?: boolean }).allChannelClosed !== true }
 })
 
 /** 운영자 — 한 채널의 줄. sinceMs 뒤의 것만(화면이 몇 초마다 부른다 — 실시간) */
@@ -250,4 +256,24 @@ export const hostRadioLines = onCall<{ gameId: string; channel: string; sinceMs?
   const since = Number(req.data.sinceMs ?? 0)
   const snap = await radioOf(gameId).where('team', '==', ch).where('atMs', '>', since).orderBy('atMs', 'desc').limit(300).get()
   return { channel: ch, lines: hostRows([...snap.docs].reverse()) }
+})
+
+/**
+ * 운영자 — 전원 채널을 여닫는다. 닫혀 있으면 아무도 전원 채널에 말하지
+ * 못한다(지난 말은 읽힌다). 여닫을 때 그 채널에 한 줄이 남는다.
+ */
+export const hostSetAllChannel = onCall<{ gameId: string; open: boolean }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const open = req.data.open === true
+  const ref = gameRef(gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  const batch = db.batch()
+  batch.update(ref, { allChannelClosed: !open })
+  const row: RadioDocRaw = { team: ALL_CHANNEL, playerId: '', name: '', text: open ? ALL_OPENED : ALL_CLOSED, atMs: nowOf(game), day: game.day, invisible: false, system: true }
+  batch.set(radioOf(gameId).doc(), row)
+  await batch.commit()
+  return { open }
 })

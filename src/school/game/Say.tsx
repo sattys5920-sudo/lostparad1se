@@ -8,9 +8,10 @@
 // **아무도 없어도 친다.** 빈 교실에 대고 한 말도 그 방에 남고, 뒤에
 // 들어온 사람은 못 본다.
 //
-// **로그는 구르지 않는다.** 다섯 줄이 지나가면 앞선 줄은 사라진다.
-// RPG 에서 지나간 대사가 남지 않는 것과 같다 — 다시 펴 볼 수 있으면
-// 「그 자리에 있던 사람만 안다」가 「나중에 읽어도 된다」가 된다.
+// **평소에는 세 줄, 칸을 누르면 들어온 뒤의 말 전부.** 채팅 모드에서는
+// 로그가 위로 펼쳐지고 굴려서 읽는다. 대신 **방을 나가면 버린다** —
+// 다시 들어오면 다시 들어온 뒤의 말만 보인다(useChat 의 stay). 그 자리에
+// 있던 사람만 안다는 것은 그대로다.
 //
 // ── 두 모습 ────────────────────────────────────────────────────
 //
@@ -32,7 +33,7 @@
 // 누르는 순간 로그에 줄이 먼저 서고 칸이 빈다(useOutbox). 서버 대답을
 // 기다리지 않는다. 칸은 잠그지 않는다 — 잠그면 초점이 떨어지고, 폰에서는
 // 그게 곧 키보드가 내려가는 일이다. 실패한 줄은 붉게 남고 누르면 다시 간다.
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
 
 import { ROOM_SAY_MAX } from '../../../shared/rules/v2'
@@ -70,9 +71,8 @@ export interface SayProps {
   self?: { playerId: string; name: string; team: string | null }
 }
 
-/** 평소에 남기는 줄 수와, 채팅 모드에서 펼치는 줄 수. */
+/** 평소에 남기는 줄 수. 채팅 모드에서는 들어온 뒤의 말 전부를 펼친다 */
 const PEEK_REST = 3
-const PEEK_OPEN = 5
 
 type Row = { kind: 'line'; l: ChatLine } | { kind: 'out'; o: Outgoing }
 
@@ -142,16 +142,30 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck, 
     ...lines.map((l): Row => ({ kind: 'line', l })),
     ...outbox.waiting.map((o): Row => ({ kind: 'out', o })),
   ]
-  const shown = rows.slice(-(open ? PEEK_OPEN : PEEK_REST))
+  const shown = open ? rows : rows.slice(-PEEK_REST)
   const left = ROOM_SAY_MAX - draft.length
 
   /** 로그를 아래로 쓸어내리면 닫는다. 맵 탭·완료와 함께 셋째 길이다. */
   const swipeRef = useRef<number | null>(null)
 
+  // 펼쳤으면 맨 아래(가장 최근 말)부터 보인다. 새 줄이 오면 따라 내려간다 —
+  // 위로 올려 읽는 중이면 안 건드린다
+  const logRef = useRef<HTMLDivElement>(null)
+  const stickRef = useRef(true)
+  useEffect(() => {
+    const el = logRef.current
+    if (el && open && stickRef.current) el.scrollTop = el.scrollHeight
+  }, [open, shown.length])
+
   return (
     <div className={'sc-sy' + (open ? ' is-open' : '')}>
       {shown.length > 0 && (
         <div
+          ref={logRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+          }}
           className="sc-sy__log"
           aria-live="polite"
           aria-label="이 방에서 오간 말"
@@ -163,7 +177,8 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck, 
           }}
         >
           {shown.map((r, i) => {
-            const fade = { '--fade': String(faded(i, shown.length)) }
+            // 펼쳐 읽을 때는 옅게 하지 않는다 — 위로 굴려 읽는 줄이 흐리면 못 읽는다
+            const fade = { '--fade': String(open ? 1 : faded(i, shown.length)) }
             if (r.kind === 'out') {
               const { o } = r
               const tone = toneOf(self?.team)

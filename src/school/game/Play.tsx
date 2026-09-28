@@ -1652,9 +1652,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               말줄은 지도 위에 얹히는 고정 줄이라 흐름을 비켜 간다.
             */}
             <ErrandStrip view={state.view} act={act} onSaid={setSaid} />
+            {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다.
+                **머리 판에 붙인다** — 지도 아래에 두었더니 말줄이 덮었다 */}
+            {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
           </header>
-          {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
-          {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
           {miniOn && (
             <MiniMap
               facts={{ here: standingOn, meId: me.playerId, myTeam: me.team as TeamId, view: state.view, tiles: state.tiles }}
@@ -1819,6 +1820,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           phaseOpenedAtMs={phaseOpen ? (state.game?.phaseNow?.openedAtMs ?? null) : null}
           active={tab === 'radio'}
           onUnread={setRadioNew}
+          people={game.seats}
+          allOpen={game.allChannelClosed !== true}
+          invisible={iAmInvisible}
         />
       </section>
 

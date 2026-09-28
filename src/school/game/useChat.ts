@@ -47,16 +47,13 @@ export interface Talk {
 const STUCK_AFTER = 3
 
 /**
- * 방 안의 말은 **쌓아 두지 않는다.**
+ * 방 로그를 몇 줄까지 쥐고 있나. **들어온 뒤의 말 전부다** — 채팅창을
+ * 누르면 위로 펼쳐서 읽는다. 서버도 한 번에 이만큼까지만 준다.
  *
- * RPG 에서 지나간 대사가 남지 않는 것과 같다. 기록이 남으면 방 안
- * 대화의 휘발성이 사라진다 — 「그 자리에 있던 사람만 안다」가 이
- * 게임의 규칙인데, 다시 펴 볼 수 있으면 그 자리에 있었던 것과
- * 나중에 읽는 것이 같아진다.
- *
- * 무전은 다르다. 그쪽은 적어 두고 읽는 것이라 그대로 쌓인다.
+ * 그래도 휘발은 지킨다. **방을 나가면 버리고**, 다시 들어오면 다시 들어온
+ * 뒤의 말만 온다(서버의 stay). 그 자리에 있던 사람만 읽는다.
  */
-const ROOM_KEEP = 24
+const ROOM_KEEP = 300
 
 export interface TalkOpts {
   /**
@@ -75,6 +72,8 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
   const sinceRef = useRef(0)
   const pullingRef = useRef(false)
   const failsRef = useRef(0)
+  /** 지난번 서버가 알려 준 자리. 처음에는 undefined — 아직 모른다 */
+  const stayRef = useRef<string | null | undefined>(undefined)
 
   const pull = useCallback(async () => {
     // 보내고 나서 바로 한 번, 그리고 주기적으로 한 번. 둘이 겹치면
@@ -84,11 +83,30 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
     try {
       const res = (await (team ? act.radioLines(sinceRef.current) : act.chatLines(sinceRef.current))) as {
         lines?: ChatLine[]
+        /** 들어와 있는 자리(방 @ 들어온 시각 · 복도 · 로비). 걷는 중이면 null */
+        stay?: string | null
       }
       // 대답이 왔다 — 끊긴 게 아니다
       failsRef.current = 0
       setStuck(null)
       const fresh = res.lines ?? []
+      /*
+       * **나갔다 들어왔으면 보던 줄을 버린다.** 서버가 들어와 있는 자리를
+       * 알려 준다(stay). 걷는 중(null)이면 어느 방에도 없으니 비운다.
+       * 무전은 방과 상관없으므로 안 본다
+       */
+      if (!team && res.stay !== undefined) {
+        const stay = res.stay ?? null
+        if (stay !== stayRef.current) {
+          const had = stayRef.current
+          stayRef.current = stay
+          if (had !== undefined) {
+            sinceRef.current = fresh.length > 0 ? Math.max(...fresh.map((l) => l.atMs)) : 0
+            setLines(stay === null ? [] : fresh.slice(-ROOM_KEEP))
+            return
+          }
+        }
+      }
       if (fresh.length === 0) return
       sinceRef.current = Math.max(sinceRef.current, ...fresh.map((l) => l.atMs))
       setLines((old) => {

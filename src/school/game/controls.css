@@ -562,7 +562,8 @@
  * 끝까지 이어지고 — 지도 상자는 로그 몫을 따로 떼어 주지 않는다 —
  * 채팅 모드에서는 키보드가 아래를 덮으니 면을 더 짙게 한다.
  *
- * **구르지 않는다.** 다섯 줄이 지나가면 앞선 줄은 사라진다.
+ * 평소에는 세 줄만 비친다. 채팅 모드에서는 들어온 뒤의 말 전부가 펼쳐지고
+ * 그 안에서 구른다. 방을 나가면 버린다(useChat).
  */
 .sc-sy__log {
   position: absolute;
@@ -583,6 +584,10 @@
   transition: background-color var(--t-sheet) var(--ease-sheet);
 }
 .sc-sy.is-open .sc-sy__log {
+  /* 펼치면 들어온 뒤의 말 전부 — 지도 절반까지 올라오고 그 안에서 구른다 */
+  max-height: min(45vh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-top: 1px solid var(--line-strong);
   background: color-mix(in srgb, var(--bg-0) 72%, transparent);
   pointer-events: auto;

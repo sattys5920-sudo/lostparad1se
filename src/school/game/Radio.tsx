@@ -24,6 +24,8 @@ import { CHAT_MAX_LEN } from '../../../shared/rules/v2'
 import {
   ALL_FREQ,
   ALL_NOTE,
+  ALL_MUTE,
+  ALL_SHUT,
   RADIO_NOTE,
   TEAM_FREQ,
   WAVE_BARS,
@@ -38,6 +40,7 @@ import { CHAT_POLL_MS } from './timing'
 import type { GameActions } from './useGame'
 import { useKeyboardInset } from './useKeyboardInset'
 import { useOutbox, useSendBox, type Outgoing } from './useOutbox'
+import { insertMention, mentionPicks, mentionQuery } from './mention'
 import './radio.css'
 
 export interface RadioLine {
@@ -143,6 +146,12 @@ export interface RadioProps {
   /** 지금 이 탭을 보고 있는가. 아니면 파형을 멈추고 안 읽은 수를 센다 */
   active: boolean
   onUnread: (n: number) => void
+  /** 판의 자리들 — 「@이름」 태그 후보. 이름과 팀은 누구나 아는 것이다 */
+  people?: readonly { name: string; team: string | null }[]
+  /** 전원 채널이 열려 있는가. 운영자가 여닫는다 */
+  allOpen?: boolean
+  /** 내가 오늘 지워졌는가. 전원 채널은 듣기만 한다 */
+  invisible?: boolean
 }
 
 /**
@@ -236,6 +245,9 @@ function RadioRoom({
   otherNew,
   onPick,
   onSeen,
+  people = [],
+  allOpen = true,
+  invisible = false,
 }: RadioProps & {
   channel: RadioChannel
   otherNew: number
@@ -346,7 +358,7 @@ function RadioRoom({
     [act, onSaid, pull, channel],
   )
   const outbox = useOutbox({ lines, mine, post })
-  const { draft, box, button } = useSendBox({
+  const { draft, setDraft, box, button } = useSendBox({
     max: CHAT_MAX_LEN,
     send: (text) => {
       // 비어 있어도 단추는 눌린다. 눌리면 까닭을 한 줄로 말한다
@@ -360,6 +372,18 @@ function RadioRoom({
       return outbox.submit(text)
     },
   })
+
+  // ── 태그 — 「@」를 치면 이름을 고른다. 팀 채널은 팀원, 전원 채널은 열넷 ──
+  const query = mentionQuery(draft)
+  const picks =
+    query === null
+      ? []
+      : mentionPicks(
+          people.filter((p) => channel === 'all' || p.team === me.team).map((p) => p.name),
+          query,
+          me.name,
+        )
+  const shut = channel === 'all' && (!allOpen || invisible)
 
   // 맨 아래에 붙어 있을 때만 따라 내려간다. 올려 읽는 중이면 안 건드린다.
   // 먼저 세운 줄이 붉게 바뀌며 한 줄 길어져도 따라간다 — 그래서 수가 아니라 목록을 본다
@@ -433,7 +457,7 @@ function RadioRoom({
             className={'sc-rd__chtab' + (ch === channel ? ' is-on' : '')}
             onClick={() => onPick(ch)}
           >
-            {ch === 'team' ? `${me.team}팀` : '전원'}
+            {ch === 'team' ? `${me.team}팀` : allOpen ? '전원' : '전원 · 닫힘'}
             {ch !== channel && otherNew > 0 && <i className="sc-rd__chdot" aria-label={`새 줄 ${otherNew}`} />}
           </button>
         ))}
@@ -546,6 +570,28 @@ function RadioRoom({
 
       {/* ── 송신 — 키보드 위에 떠 있다(radio.css) ──────────── */}
       <div className="sc-rd__bar">
+        {/* 태그 후보. 누르는 순간 끼운다 — 칸의 초점은 그대로 둔다 */}
+        {picks.length > 0 && !shut && (
+          <div className="sc-rd__tags" role="listbox" aria-label="부를 사람">
+            {picks.map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="option"
+                aria-selected={false}
+                onPointerDown={(e) => {
+                  e.preventDefault()
+                  setDraft(insertMention(draft, n))
+                }}
+              >
+                @{n}
+              </button>
+            ))}
+          </div>
+        )}
+        {shut ? (
+          <p className="sc-rd__shut">{allOpen ? ALL_MUTE : ALL_SHUT}</p>
+        ) : (
         <div className="sc-rd__field">
           <input
             {...box}
@@ -567,6 +613,7 @@ function RadioRoom({
             </svg>
           </button>
         </div>
+        )}
       </div>
     </div>
   )

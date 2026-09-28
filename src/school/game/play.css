@@ -2498,3 +2498,19 @@ p.sc-cv { display: block; }
   font: inherit;
   text-align: left;
 }
+
+/* 전체 맵의 뒷골목 — 복도라 완장도 정원도 없다. 복도 무늬에 이름 한 줄 */
+.sc-at__alley {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border: 1px dashed var(--line-strong);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: var(--fs-cap);
+  box-sizing: border-box;
+}
+.sc-at__alley.is-here { border-style: solid; border-color: var(--accent); color: var(--text-1); }
+.sc-at__alleyN { color: var(--accent); font-variant-numeric: tabular-nums; }

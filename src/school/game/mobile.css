@@ -459,11 +459,6 @@
 .sc-pl__today .sc-er__strip.is-soon { border-color: var(--danger); }
 
 .sc-pl__today .sc-pl__ghost {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 20;
   margin: 0;
   padding: var(--sp-1) var(--sp-2);
   text-align: center;

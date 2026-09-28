@@ -16,7 +16,8 @@ import {
   type MapFacts,
   type RoomFacts,
 } from './MapPlan'
-import { TILES } from '../../../shared/rules/board'
+import { ALLEY_NAME, TILES, isAlleyCell } from '../../../shared/rules/board'
+import { ARCADE_COUNT, ARCADE_NAME } from '../../../shared/rules/arcade'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
 import { Sheet } from './Sheet'
@@ -162,6 +163,11 @@ interface Laid {
   lanes: Cell[]
   /** 계단. 층과 층 사이 양끝에 놓인다. */
   stairs: Cell[]
+  /**
+   * 뒷골목. **방이 아니라 복도라** 점령 칸(TILES)에 안 들어서 위 줄에 안
+   * 나온다. 1층 띠 맨 아래에 따로 한 줄로 붙인다 — 실제로도 1층 동쪽 끝이다.
+   */
+  alley: Cell | null
 }
 
 /**
@@ -188,6 +194,7 @@ function layout(boxW: number, boxH: number, zoom: number): Laid {
   const bands: Laid['bands'] = []
   const lanes: Cell[] = []
   const stairs: Cell[] = []
+  let alley: Cell | null = null
   const gridW = cols * tileW + (cols - 1) * TILE_GAP
   const left = GUTTER + PAD
   let y = PAD
@@ -205,6 +212,13 @@ function layout(boxW: number, boxH: number, zoom: number): Laid {
       })
       y += tileH + (ri + 1 < f.rows.length ? ROW_GAP : 0)
     })
+    if (f.floor === 'f1') {
+      // 1층 동쪽 끝의 골목. 방 한 칸 높이의 반쯤 되는 띠로, 오른쪽에 붙인다
+      const h = Math.max(18, Math.floor(tileH * 0.7))
+      const w = Math.min(gridW, tileW * 2 + TILE_GAP)
+      alley = { x: left + gridW - w, y: y + ROW_GAP, w, h }
+      y += ROW_GAP + h
+    }
     bands.push({ name: f.name, y: top, h: y - top })
     if (fi + 1 < plan.length) {
       // 층 사이 — 서·동 양끝에 계단 하나씩
@@ -214,7 +228,7 @@ function layout(boxW: number, boxH: number, zoom: number): Laid {
       y += FLOOR_GAP
     }
   })
-  return { w: left + gridW + PAD, h: y + PAD, tiles, bands, lanes, stairs }
+  return { w: left + gridW + PAD, h: y + PAD, tiles, bands, lanes, stairs, alley }
 }
 
 /** 그 너비에 들어가는 만큼만 남긴다. 나머지는 넓혀야 보인다. */
@@ -419,6 +433,9 @@ export function FullMap({
   }
 
   const one = rooms.find((r) => r.id === picked) ?? null
+  const pawnsSeen = facts.view?.visiblePawns ?? []
+  const inAlley = pawnsSeen.some((p) => p.playerId === facts.meId && p.at != null && isAlleyCell(p.at.x, p.at.y))
+  const alleyCount = pawnsSeen.filter((p) => p.at != null && isAlleyCell(p.at.x, p.at.y)).length
   const ours = rooms.filter((r) => r.owner === facts.myTeam).length
   const left = clock.open && clock.endsAtMs != null ? Math.max(0, clock.endsAtMs - clock.nowMs) : null
 
@@ -486,6 +503,20 @@ export function FullMap({
               aria-hidden="true"
             />
           ))}
+
+          {/* 뒷골목 — 오락기 골목. 점령이 없는 복도라 완장도 정원도 없다.
+              보이는 사람만 센다(보이는 것은 서버가 이미 걸렀다) */}
+          {laid.alley && (
+            <div
+              className={'sc-at__alley' + (inAlley ? ' is-here' : '')}
+              style={{ left: laid.alley.x, top: laid.alley.y, width: laid.alley.w, height: laid.alley.h }}
+              aria-label={`${ALLEY_NAME} — ${ARCADE_NAME} ${ARCADE_COUNT}대`}
+            >
+              <span className="sc-at__nm">{clipName(`${ALLEY_NAME} · ${ARCADE_NAME}`, laid.alley.w - 8)}</span>
+              {alleyCount > 0 && <span className="sc-at__alleyN">{alleyCount}</span>}
+              {inAlley && <i className="sc-at__me" />}
+            </div>
+          )}
 
           {laid.tiles.map((box) => {
             const r = byId.get(box.id)

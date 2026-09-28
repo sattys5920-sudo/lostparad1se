@@ -22,7 +22,7 @@ export const NOTIFY_LABEL: Record<NotifyType, string> = {
 
 /** 설정 칸 아래 한 줄 설명 */
 export const NOTIFY_HINT: Record<NotifyType, string> = {
-  tag: '팀 무전에서 누가 내 이름을 부르면. 무슨 말인지는 안 싣는다.',
+  tag: '무전(팀 · 전원)에서 누가 내 이름을 부르면. 무슨 말인지는 안 싣는다.',
   phaseStart: '페이즈가 열리면. 모두에게 간다.',
   phaseEnd: '페이즈가 닫히면. 결과는 안 싣는다.',
   made: '내가 맡긴 연구 · 덫이 다 되면.',
@@ -45,7 +45,7 @@ export const NOTIFY_DEFAULT: Record<NotifyType, NotifyMode> = {
 
 /** 알림 한 줄 — 배너와 잠긴 화면에 뜨는 글 */
 export const NOTIFY_TEXT: Record<NotifyType, string> = {
-  tag: '팀 무전에서 누가 나를 불렀다',
+  tag: '무전에서 누가 나를 불렀다',
   phaseStart: '페이즈가 시작됐다',
   phaseEnd: '페이즈가 끝났다',
   made: '맡긴 것이 다 됐다',

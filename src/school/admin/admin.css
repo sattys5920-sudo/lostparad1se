@@ -1087,3 +1087,16 @@
 .sc-nd__log b { font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-nd__log li.is-bad > :last-child { color: var(--danger); }
 .sc-nd__log li.is-skip { opacity: 0.6; }
+
+/* 무전 — 전원 채널 여닫기 */
+.sc-rk__gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-label);
+}
+.sc-rk__gate b { font-weight: 400; }
+.sc-rk__gate b.is-open { color: var(--accent); }
+.sc-rk__gate b.is-shut { color: var(--danger); }

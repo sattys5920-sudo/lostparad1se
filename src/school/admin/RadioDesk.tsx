@@ -43,6 +43,9 @@ function hhmm(ms: number): string {
 
 export function RadioDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {
   const [list, setList] = useState<Overview[] | null>(null)
+  /** 전원 채널이 열려 있는가. 목록과 같이 온다 */
+  const [allOpen, setAllOpen] = useState(true)
+  const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<Channel | null>(null)
   const [lines, setLines] = useState<Line[]>([])
   const sinceRef = useRef(0)
@@ -50,7 +53,9 @@ export function RadioDesk({ act, onSaid }: { act: GameActions; onSaid: (t: strin
 
   const loadList = useCallback(async () => {
     try {
-      setList(((await act.hostRadioOverview()) as { channels: Overview[] }).channels)
+      const out = (await act.hostRadioOverview()) as { channels: Overview[]; allOpen?: boolean }
+      setList(out.channels)
+      setAllOpen(out.allOpen !== false)
     } catch (e) {
       onSaid((e as Error).message)
     }
@@ -129,7 +134,31 @@ export function RadioDesk({ act, onSaid }: { act: GameActions; onSaid: (t: strin
   }
 
   if (!list) return <p className="sc-ad__hint">무전을 읽는 중이다.</p>
+
+  const toggleAll = async () => {
+    setBusy(true)
+    try {
+      await act.hostSetAllChannel(!allOpen)
+      setAllOpen(!allOpen)
+      onSaid(allOpen ? '전원 채널을 닫았다.' : '전원 채널을 열었다.')
+      void loadList()
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
+    <>
+    <div className="sc-rk__gate">
+      <span>
+        전원 채널 <b className={allOpen ? 'is-open' : 'is-shut'}>{allOpen ? '열림' : '닫힘'}</b>
+      </span>
+      <button disabled={busy} onClick={() => void toggleAll()}>
+        {allOpen ? '닫기' : '열기'}
+      </button>
+    </div>
     <ul className="sc-rk__list">
       {list.map((c) => (
         <li key={c.channel}>
@@ -151,5 +180,6 @@ export function RadioDesk({ act, onSaid }: { act: GameActions; onSaid: (t: strin
         </li>
       ))}
     </ul>
+    </>
   )
 }
