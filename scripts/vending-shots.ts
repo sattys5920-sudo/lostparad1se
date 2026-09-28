@@ -93,14 +93,17 @@ const arrLen = (f: unknown): number =>
 
 
 /**
- * 지갑을 채운다. 값이 모자라 못 사는 화면은 여기서 볼 것이 아니다.
+ * 금고를 채운다. 값이 모자라 못 사는 화면은 여기서 볼 것이 아니다.
  *
- * **팀 금고가 아니라 사람 주머니다.** 돈이 개인 소유로 옮겨 간 뒤에도
- * 이 손은 한참 teams/ 를 고치고 있었다 — 고쳐도 화면의 「돈」은 꿈쩍
- * 않는다. views 는 pawns 의 resources 를 읽는다.
+ * **사람 주머니가 아니라 팀 금고다.** 돈·지식은 teams/{team}.resources
+ * 에 있고 views 의 teamVault 도 거기서 읽는다. 사람은 말 문서의 team 으로
+ * 금고를 찾는다.
  */
 async function fund(game: string, uid: string, money: number): Promise<void> {
-  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=resources`, {
+  const p = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
+  const team =
+    ((await p.json()) as { fields?: Record<string, { stringValue?: string }> }).fields?.team?.stringValue ?? 'A'
+  await fetch(`${FS}/games/${game}/teams/${team}?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({

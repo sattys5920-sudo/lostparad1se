@@ -96,8 +96,11 @@ async function putIn(game: string, uid: string, tileId: string): Promise<void> {
     }),
   })
 }
+/** 그 사람 **팀 금고**의 돈. 말 문서의 team 으로 teams/{team} 을 찾아 읽는다 */
 const purseOf = async (game: string, uid: string): Promise<number> => {
-  const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
+  const p = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
+  const team = str(((await p.json()) as { fields?: Record<string, unknown> }).fields?.team) ?? 'A'
+  const r = await fetch(`${FS}/games/${game}/teams/${team}`, { headers: ADMIN })
   const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
   return num(mapOf(f.resources).money)
 }
@@ -264,7 +267,7 @@ async function main() {
   const before = await purseOf(game, meUid)
   const won = await must('dropThing', meTok, { gameId: game })
   check(Number(won.coins) === 2, '보상이 들어온다', `${Number(won.coins)}코인`)
-  check((await purseOf(game, meUid)) === before + 2, '내 지갑에 그대로 붙었다')
+  check((await purseOf(game, meUid)) === before + 2, '우리 팀 금고에 그대로 붙었다')
   const lost = await call('dropThing', youTok, { gameId: game })
   check(
     !lost.ok && (lost.err ?? '').includes('먼저'),

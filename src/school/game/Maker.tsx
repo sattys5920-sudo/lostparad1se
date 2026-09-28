@@ -1,7 +1,7 @@
 // 덫 제조기 — 기술실의 기계 셋.
 //
 // 맵에서 제조기 옆에 서서 탭하면 열린다. 셋이 다 보이고, **옆에 선 것만
-// 손이 닿는다**. 맡기는 것은 페이즈에만, 내 돈 3코인이다.
+// 손이 닿는다**. 맡기는 것은 페이즈에만, 팀 돈 3코인이다.
 //
 // 남이 맡긴 것은 「돌고 있다」까지다 — 몇 개가, 언제 나오는지는 맡긴
 // 사람만 안다. **맡긴 페이즈가 끝나도록 안 찾아갔으면** 누구든 찾아간다.
@@ -33,7 +33,7 @@ export interface MakerProps {
 export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTech }: MakerProps) {
   const [busy, setBusy] = useState(false)
   const makers = view?.makersHere ?? []
-  const money = view?.myVault?.money ?? 0
+  const money = view?.teamVault?.money ?? 0
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)

@@ -70,10 +70,8 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   smashedBy: [],
   actedBy: [],
   // 시험에서는 금고도 주머니도 넉넉하다고 본다. 모자란 경우는 따로 쓴다
-  // **지갑은 사람마다다.** 시험에 나오는 이름을 넉넉히 채워 둔다
-  vaults: Object.fromEntries(
-    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { money: 99, knowledge: 99 }]),
-  ),
+  // **금고는 팀마다다.** 네 팀 다 넉넉히 채워 둔다
+  vaults: Object.fromEntries(TEAM_IDS.map((t) => [t, { money: 99, knowledge: 99 }])),
   // 주머니는 **사람마다**다. 시험에 나오는 이름을 넉넉히 채워 둔다
   satchels: Object.fromEntries(
     ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { lock: 9, whistle: 9 }]),
@@ -585,7 +583,7 @@ describe('연구', () => {
     const s = board({
       people: [person('a', 'A', lab.id)],
       pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, tileId: lab.id }],
-      vaults: { a: { money: 0, knowledge: 0 } },
+      vaults: { A: { money: 0, knowledge: 0 } },
       wallets: { A: 1 },
     })
     const done = settle(s)
@@ -593,7 +591,7 @@ describe('연구', () => {
     // 로봇도 안 난다 — 나는 자리는 연구실이고 나는 때는 스무 분 뒤다
     expect(done.next.robots).toHaveLength(0)
     expect(purse(done.next, 'A')).toBe(1)
-    expect(vaultOf(done.next, 'a').knowledge).toBe(0)
+    expect(vaultOf(done.next, 'A').knowledge).toBe(0)
   })
 })
 
@@ -602,7 +600,7 @@ describe('연구에 드는 지식', () => {
   const withVault = (knowledge: number, over: Partial<PhaseState> = {}) =>
     board({
       people: [person('a', 'A', lab2.id)],
-      vaults: { a: { money: 0, knowledge } },
+      vaults: { A: { money: 0, knowledge } },
       ...over,
     })
 
@@ -613,7 +611,7 @@ describe('연구에 드는 지식', () => {
 
   it('걸 때 바로 뺀다 — 완성될 때 빼면 없는 지식으로 넷이 연구한다', () => {
     const s = must(withVault(5), 'a', { kind: 'research' })
-    expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
+    expect(vaultOf(s, 'A').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
     expect(s.pendingResearch).toEqual([
       { playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, tileId: lab2.id },
     ])
@@ -621,7 +619,7 @@ describe('연구에 드는 지식', () => {
 
   it('우리 연구실이면 한 점만 들고, 그 한 점은 아무도 안 받는다', () => {
     const s = must(withVault(5, { owners: { [lab2.id]: 'A' } }), 'a', { kind: 'research' })
-    expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH_OWNER)
+    expect(vaultOf(s, 'A').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH_OWNER)
   })
 
   /**
@@ -636,23 +634,34 @@ describe('연구에 드는 지식', () => {
         people: [person('a', 'A', lab2.id), person('b', 'B', lab2.id), person('b1', 'B', lab2.id)],
         owners: { [lab2.id]: 'B' },
         vaults: {
-          a: { money: 0, knowledge: 5 },
-          b: { money: 0, knowledge: 3 },
-          b1: { money: 0, knowledge: 1 },
+          A: { money: 0, knowledge: 5 },
+          B: { money: 0, knowledge: 4 },
         },
       }),
       'a',
       { kind: 'research' },
     )
-    expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
+    expect(vaultOf(s, 'A').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
     // 주인 팀은 한 점도 안 는다
-    expect(vaultOf(s, 'b').knowledge).toBe(3)
-    expect(vaultOf(s, 'b1').knowledge).toBe(1)
+    expect(vaultOf(s, 'B').knowledge).toBe(4)
+  })
+
+  /** **금고는 팀에 하나다.** 누가 벌었든 넷 중 누구든 꺼내 쓴다 */
+  it('같은 팀 금고를 넷이 같이 쓴다 — 먼저 건 사람이 임자다', () => {
+    const lab3 = TILES.filter((t) => ROOM_KIND[t.id] === 'lab')[0]
+    const s0 = board({
+      people: [person('a', 'A', lab3.id), person('a2', 'A', lab3.id)],
+      vaults: { A: { money: 0, knowledge: KNOWLEDGE_PER_RESEARCH } },
+    })
+    const s1 = must(s0, 'a2', { kind: 'research' })
+    expect(vaultOf(s1, 'A').knowledge).toBe(0)
+    const out = doAct(s1, 'a', { kind: 'research' })
+    expect(out.ok).toBe(false)
   })
 
   it('아무도 안 쥔 연구실이면 세 점이 그냥 사라진다', () => {
     const s = must(withVault(5), 'a', { kind: 'research' })
-    expect(vaultOf(s, 'a').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
+    expect(vaultOf(s, 'A').knowledge).toBe(5 - KNOWLEDGE_PER_RESEARCH)
   })
 
   it('지식이 모자라면 고를 수 없다 — 토큰도 안 든다', () => {
@@ -661,7 +670,7 @@ describe('연구에 드는 지식', () => {
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('지식이 모자란다')
     expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
-    expect(vaultOf(s, 'a').knowledge).toBe(KNOWLEDGE_PER_RESEARCH - 1)
+    expect(vaultOf(s, 'A').knowledge).toBe(KNOWLEDGE_PER_RESEARCH - 1)
   })
 
   /** 낸 지식은 **돌아오지 않는다.** 판에서 빠져나간 값이다. */
@@ -669,12 +678,12 @@ describe('연구에 드는 지식', () => {
     const s = board({
       people: [person('a', 'A', lab2.id), person('b', 'B', lab2.id)],
       pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, tileId: lab2.id }],
-      vaults: { a: { money: 0, knowledge: 0 }, b: { money: 0, knowledge: 0 } },
+      vaults: { A: { money: 0, knowledge: 0 }, B: { money: 0, knowledge: 0 } },
     })
     const done = settle(s).next
-    expect(vaultOf(done, 'a').knowledge).toBe(0)
+    expect(vaultOf(done, 'A').knowledge).toBe(0)
     // 주인 팀에도 안 간다 — 아무 데도 안 간다
-    expect(vaultOf(done, 'b').knowledge).toBe(0)
+    expect(vaultOf(done, 'B').knowledge).toBe(0)
   })
 })
 

@@ -123,6 +123,8 @@ export const useItem = onCall<UseInput>(async (req) => {
         // **누구의 비밀도 아니다.** 손으로 쓴 종이라 주인이 없다 —
         // 주운 사람에게 「누구의 일이다」가 안 붙는다
         subjectId: '',
+        // 운영자 이력이 「손글씨 · 누구」로 보인다. 어떤 투영에도 안 실린다
+        writtenBy: uid,
         tileId: here,
         heldBy: null,
         readBy: [],

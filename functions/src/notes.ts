@@ -120,6 +120,8 @@ async function place(
       tornAt: null,
       placedDay: game.day,
       everHeld: false,
+      placedTile: room,
+      placedAtMs: nowOf(game),
       atMs: nowOf(game),
     }
     tx.set(ref, doc)

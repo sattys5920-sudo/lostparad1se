@@ -160,7 +160,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       if (ROOM_KIND[here] !== 'lab') return '연구실에서만 할 수 있다.'
       if (!atLabMachine(myCell)) return '연구 기계 옆에 서야 한다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
-      if ((view?.myVault?.knowledge ?? 0) < researchKnowledge(ownsLab)) return '지식이 모자란다.'
+      if ((view?.teamVault?.knowledge ?? 0) < researchKnowledge(ownsLab)) return '지식이 모자란다.'
       if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`
     }
     if (kind === 'summon' && teammates.length === 0) return '부를 팀원이 없다.'
@@ -309,7 +309,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         그림과 수만 두고, 없는 것은 자리만 남기고 물러난다.
       */}
       <p className="sc-ph__note sc-ph__bag">
-        <Cost of="knowledge" n={view?.myVault?.knowledge ?? 0} />
+        <Cost of="knowledge" n={view?.teamVault?.knowledge ?? 0} />
         <span className="sc-ph__bagCut" aria-hidden />
         {ITEMS.map((i) => {
           const n = view?.myItems?.[i.kind] ?? 0

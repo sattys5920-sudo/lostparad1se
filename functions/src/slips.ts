@@ -44,6 +44,11 @@ export interface SlipDoc {
   placedDay?: number
   /** 한 번이라도 누가 주웠나. 주웠던 것은 운영자가 회수 못 한다 */
   everHeld?: boolean
+  /** 처음 놓인 방과 시각. 운영자 이력이 본다 — 주워 가면 자리가 비므로 따로 둔다 */
+  placedTile?: TileId | null
+  placedAtMs?: number
+  /** 빈 종이에 손으로 적어 둔 사람. 운영자 이력만 본다 */
+  writtenBy?: string
   /**
    * 적힌 글. 비밀 쪽지와 메모는 운영자가 놓을 때 적었고(drop.ts), 빈
    * 종이는 사람이 적었다(use.ts). **그래도 secret 아래다** — 주워서
@@ -186,7 +191,9 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const here = self.tileId
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
   const cell = freeDropCell(here, await takenCells(gameId), self.at)
+  const { nowMs } = await freshNow(gameId)
 
+  let subject = ''
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
@@ -195,6 +202,12 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
       throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
     }
     tx.update(ref, cell ? { tileId: null, x: cell.x, y: cell.y, heldBy: null } : { tileId: here, heldBy: null })
+    subject = (snap.data() as SlipDoc).subjectId
+  })
+  await note(gameId, 'slipDrop', nowMs, { id: uid, team: self.team }, {
+    tileId: here,
+    subjectId: slipId,
+    ownerId: subject,
   })
   await refreshViews(gameId)
   return { tileId: here }

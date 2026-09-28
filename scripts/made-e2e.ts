@@ -76,9 +76,12 @@ async function clockTo(host: string, ms: number): Promise<void> {
   await call('setDevClock', host, { gameId: GAME, anchorGameMs: ms, speed: 1 })
   await call('tick', host, { gameId: GAME })
 }
-/** 그 사람 지갑의 지식. **팀 금고는 없어졌다** — 지식은 사람마다다. */
+/** 그 사람 **팀 금고**의 지식. 돈·지식은 팀 문서(teams/{team}.resources)에 있다 */
 async function vault(uid: string): Promise<{ knowledge: number }> {
-  const r = await fetch(`${FS}/games/${GAME}/pawns/${uid}`, { headers: ADMIN })
+  const p = await fetch(`${FS}/games/${GAME}/pawns/${uid}`, { headers: ADMIN })
+  const pf = ((await p.json()) as { fields?: Record<string, unknown> }).fields ?? {}
+  const team = (pf.team as { stringValue?: string })?.stringValue ?? 'A'
+  const r = await fetch(`${FS}/games/${GAME}/teams/${team}`, { headers: ADMIN })
   const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
   const res = (f.resources as { mapValue?: { fields?: Record<string, unknown> } })?.mapValue?.fields ?? {}
   return { knowledge: Number((res.knowledge as { integerValue?: string })?.integerValue ?? 0) }
@@ -133,26 +136,28 @@ async function main(): Promise<void> {
    * 둘 다 연구실에, **연구 기계 옆 칸에** 세운다. 방에 있는 것만으로는
    * 안 된다 — 연구는 기계 옆에서만 걸린다(atLabMachine). 이 대본이
    * 쓰인 뒤에 생긴 조건이라 「연구 기계 옆에 서야 한다」로 막혔다.
-   * 지식도 **사람 지갑에** 준다. 팀 금고는 없어졌다.
+   * 지식은 **팀 금고에** 준다(teams/{team}.resources). 사람 문서에
+   * 넣으면 openPhase 가 옛 지갑으로 보고 금고에 더해 버린다.
    */
   for (const u of [uMe, uFoe]) {
     await put(`games/${GAME}/pawns/${u}`, { tileId: str(lab.id), postTile: str(lab.id) })
-    await fetch(`${FS}/games/${GAME}/pawns/${u}?updateMask.fieldPaths=at&updateMask.fieldPaths=resources`, {
+    await fetch(`${FS}/games/${GAME}/pawns/${u}?updateMask.fieldPaths=at`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...ADMIN },
       body: JSON.stringify({ fields: {
         at: { mapValue: { fields: { x: { integerValue: String(LAB_MACHINES[0].x - 1) }, y: { integerValue: String(LAB_MACHINES[0].y) } } } },
-        resources: { mapValue: { fields: { money: { integerValue: '20' }, knowledge: { integerValue: '20' } } } },
       } }),
     })
   }
-  await fetch(`${FS}/games/${GAME}/teams/A?updateMask.fieldPaths=resources`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({
-      fields: { resources: { mapValue: { fields: { money: { integerValue: '20' }, knowledge: { integerValue: '20' } } } } },
-    }),
-  })
+  for (const t of ['A', 'B']) {
+    await fetch(`${FS}/games/${GAME}/teams/${t}?updateMask.fieldPaths=resources`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...ADMIN },
+      body: JSON.stringify({
+        fields: { resources: { mapValue: { fields: { money: { integerValue: '20' }, knowledge: { integerValue: '20' } } } } },
+      }),
+    })
+  }
   await call('setDevClock', host, { gameId: GAME, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })
   await call('tick', host, { gameId: GAME })
   await call('openPhase', host, { gameId: GAME })

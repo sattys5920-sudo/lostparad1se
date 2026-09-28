@@ -23,7 +23,7 @@ import {
   whyNotTakeTrap,
 } from '../../shared/rules/trap'
 import type { Cell } from '../../shared/rules/board'
-import type { PawnDoc, TileDoc } from '../../shared/model'
+import type { PawnDoc, TeamDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
@@ -91,18 +91,19 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
 
   const ref = gameRef(gameId)
   const jobRef = jobsOf(gameId).doc(String(maker))
-  const meRef = ref.collection('pawns').doc(uid)
+  const teamRef = ref.collection('teams').doc(team)
   const techRef = ref.collection('tiles').doc(TECH_TILE)
 
   const count = await db.runTransaction(async (tx) => {
-    const [job, meSnap, tech] = await Promise.all([tx.get(jobRef), tx.get(meRef), tx.get(techRef)])
+    const [job, teamSnap, tech] = await Promise.all([tx.get(jobRef), tx.get(teamRef), tx.get(techRef)])
     // 한 제조기에 한 건. 다 됐는데 안 찾아간 것도 자리를 차지한다
     if (job.exists) throw new HttpsError('failed-precondition', '이 제조기는 돌고 있다.')
-    const left = pay(purseOf(meSnap.data() as PawnDoc), { money: TRAP_COIN_COST })
+    // **팀 금고에서 낸다.** 맡긴 사람이 누구든 같은 금고다
+    const left = pay(purseOf(teamSnap.data() as TeamDoc | undefined), { money: TRAP_COIN_COST })
     if (!left) throw new HttpsError('failed-precondition', `돈이 모자라다. ${TRAP_COIN_COST}코인이 든다.`)
     const ownsTech = ((tech.data() as TileDoc | undefined)?.ownerTeam ?? null) === team
     const n = trapsPerBatch(ownsTech)
-    tx.update(meRef, { resources: left })
+    tx.update(teamRef, { resources: left })
     const doc: TrapJobDoc = {
       team,
       byPlayerId: uid,

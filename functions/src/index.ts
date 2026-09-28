@@ -162,6 +162,7 @@ export { harvestPot, clearPot } from './garden'
 export { hostPlant, hostGarden, hostPullPot } from './garden'
 export { takeSlip, readSlip, dropSlip, tearSlip, giveSlip, hostPullSlip } from './slips'
 export { hostSlipBoard, hostScatterSlip, hostScatterRandom } from './notes'
+export { hostPapers } from './paperTrail'
 // 손으로 쓰는 물건 넷. 문이 하나다 — 물건 빼는 자리가 한 군데라야 한다
 export { useItem } from './use'
 // 심부름. 붙이는 것은 운영자뿐이고, 붙고 난 뒤는 누가 붙였든 같다

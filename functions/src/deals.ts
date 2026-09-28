@@ -32,7 +32,7 @@ import {
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
 import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
-import type { PawnDoc } from '../../shared/model'
+import type { PawnDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { note, noteAll } from './records'
@@ -81,8 +81,8 @@ async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<H
     slipsOf(gameId).where('heldBy', '==', uid).get(),
     ref.collection('robots').where('carriedBy', '==', uid).get(),
   ])
-  // **올릴 수 있는 것은 내 지갑에 있는 것뿐이다.** 팀 금고가 없어졌다
-  const purse = purseOf(pawn)
+  // 돈과 지식은 **우리 팀 금고**에서 올린다. 물건·쪽지·짝은 내 것이다
+  const purse = purseOf((await ref.collection('teams').doc(pawn.team).get()).data() as TeamDoc | undefined)
   return {
     money: purse.money,
     knowledge: purse.knowledge,
@@ -304,25 +304,22 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     // **여기서 한 번만 먹는다.** 둘이 같이 불러도 나중 쪽은 그냥 끝난다
     if (d.status !== 'settling') throw new HttpsError('failed-precondition', '이미 지나갔다.')
 
-    const [aPawnSnap, bPawnSnap] = await Promise.all([
-      tx.get(ref.collection('pawns').doc(d.a.playerId)),
-      tx.get(ref.collection('pawns').doc(d.b.playerId)),
-    ])
-    const aPurse = purseOf(aPawnSnap.data() as PawnDoc)
-    const bPurse = purseOf(bPawnSnap.data() as PawnDoc)
-
     /*
-     * **지갑에서 지갑으로.** 전에는 팀 금고끼리 움직여서, 둘이 마주
-     * 서서 한 거래가 양쪽 팀 일곱 명의 돈을 움직였다. 이제 거래한
-     * 두 사람의 지갑만 바뀐다 — 마주 선 사람과 한 일이 마주 선
-     * 사람에게만 남는다.
+     * **팀 금고에서 팀 금고로.** 돈과 지식은 팀 것이라, 마주 선 둘이
+     * 한 거래가 두 팀 금고를 움직인다. 같은 팀끼리면 같은 금고라
+     * 오간 것이 없다 — 안 건드린다.
      */
+    const aTeamRef = ref.collection('teams').doc(a.team)
+    const bTeamRef = ref.collection('teams').doc(b.team)
+    const [aTeamSnap, bTeamSnap] = await Promise.all([tx.get(aTeamRef), tx.get(bTeamRef)])
     const move = (had: Record<string, number>, give: Stake, get: Stake) => ({
       money: Math.max(0, (had.money ?? 0) - give.money + get.money),
       knowledge: Math.max(0, (had.knowledge ?? 0) - give.knowledge + get.knowledge),
     })
-    tx.update(aPawnSnap.ref, { resources: move(aPurse, d.a.stake, d.b.stake) })
-    tx.update(bPawnSnap.ref, { resources: move(bPurse, d.b.stake, d.a.stake) })
+    if (a.team !== b.team) {
+      tx.update(aTeamRef, { resources: move(purseOf(aTeamSnap.data() as TeamDoc | undefined), d.a.stake, d.b.stake) })
+      tx.update(bTeamRef, { resources: move(purseOf(bTeamSnap.data() as TeamDoc | undefined), d.b.stake, d.a.stake) })
+    }
 
     // 개인 것 — 주머니. 거는 데도 성립하는 데도 값은 안 든다
     const bag = (base: Satchel, give: Satchel, get: Satchel): Satchel => {
@@ -405,6 +402,31 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       subjectId: r.id,
     })),
   ])
+  /*
+   * 쪽지가 손을 바꿨으면 한 장에 한 줄 — **직접 건넨 것과 같은 slipGive** 다.
+   * 도서부의 「남에게 건넨 쪽지」가 거래로 넘긴 것도 센다
+   */
+  const handed = [
+    ...(slipPlan?.a ?? []).slice(0, seen.a.stake.slips).map((id) => ({ id, from: 'a' as const })),
+    ...(slipPlan?.b ?? []).slice(0, seen.b.stake.slips).map((id) => ({ id, from: 'b' as const })),
+  ]
+  if (handed.length > 0) {
+    const owners = await Promise.all(handed.map((h) => slipsOf(gameId).doc(h.id).get()))
+    await noteAll(
+      gameId,
+      handed.map((h, i) => ({
+        kind: 'slipGive' as const,
+        atMs: nowMs,
+        actorId: h.from === 'a' ? seen.aId : seen.bId,
+        actorTeam: h.from === 'a' ? seen.a.team : seen.b.team,
+        otherId: h.from === 'a' ? seen.bId : seen.aId,
+        otherTeam: h.from === 'a' ? seen.b.team : seen.a.team,
+        tileId: seen.tileId,
+        subjectId: h.id,
+        ownerId: (owners[i].data() as { subjectId?: string } | undefined)?.subjectId ?? null,
+      })),
+    )
+  }
   await refreshViews(gameId)
   return { ok: true, already: false }
 })

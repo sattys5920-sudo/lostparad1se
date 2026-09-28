@@ -292,8 +292,9 @@ async function main(): Promise<void> {
       },
     }),
   })
-  // 지식을 채워 준다. 여기서 볼 것은 벌이가 아니라 「로봇이 나면 한 줄 남는가」다
-  await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=resources`, {
+  // A팀 금고에 지식을 채워 준다(teams/A.resources). 여기서 볼 것은 벌이가
+  // 아니라 「로봇이 나면 한 줄 남는가」다
+  await fetch(`${FS}/games/${GAME}/teams/A?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({
@@ -303,7 +304,6 @@ async function main(): Promise<void> {
             fields: {
               money: { integerValue: '9' },
               knowledge: { integerValue: '9' },
-              tokens: { integerValue: '9' },
             },
           },
         },

@@ -88,12 +88,18 @@ const viewOf = async (uid: string) => (await getAll(`games/${GAME}/views`)).find
 const trapsNow = async () => await getAll(`games/${GAME}/secret/traps/set`)
 const jobsNow = async () => await getAll(`games/${GAME}/secret/traps/jobs`)
 const itemsOf = async (uid: string) => ((await pawnsNow())[uid].items as Record<string, number> | undefined)?.trap ?? 0
-const moneyOf = async (uid: string) =>
-  Number(((await pawnsNow())[uid].resources as { money?: number } | undefined)?.money ?? 0)
+/** 그 사람 팀 금고. 돈은 사람 문서가 아니라 teams/{team}.resources 에 있다 */
+const teamOfUid = async (uid: string) => String((await pawnsNow())[uid].team)
+const moneyOf = async (uid: string) => {
+  const team = await teamOfUid(uid)
+  const t = (await getAll(`games/${GAME}/teams`)).find((x) => x.id === team)?.d ?? {}
+  return Number((t.resources as { money?: number } | undefined)?.money ?? 0)
+}
 
-/** 지갑에 돈을 채운다. 시험은 돈을 벌지 않는다 */
+/** 그 사람 팀 금고에 돈을 채운다. 시험은 돈을 벌지 않는다 */
 async function fund(uid: string, n: number): Promise<void> {
-  await fetch(`${FS}/games/${GAME}/pawns/${uid}?updateMask.fieldPaths=resources.money`, {
+  const team = await teamOfUid(uid)
+  await fetch(`${FS}/games/${GAME}/teams/${team}?updateMask.fieldPaths=resources.money`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { resources: { mapValue: { fields: { money: { integerValue: String(n) } } } } } }),
   })
@@ -159,7 +165,7 @@ async function main(): Promise<void> {
   const tokensBefore = Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === 'A')?.d.phaseTokens ?? 0)
   const c1 = await must('commissionTrap', A[0].token, { gameId: GAME, maker: 0 })
   check(Number(c1.count) === 1, `**${TRAP_COIN_COST}코인으로 덫 1개**`, `${c1.count}개`)
-  check((await moneyOf(A[0].uid)) === TRAP_COIN_COST + 1, `내 지갑에서 ${TRAP_COIN_COST}코인이 빠졌다`, `${await moneyOf(A[0].uid)}`)
+  check((await moneyOf(A[0].uid)) === TRAP_COIN_COST + 1, `팀 금고에서 ${TRAP_COIN_COST}코인이 빠졌다`, `${await moneyOf(A[0].uid)}`)
   const tokensAfter = Number((await getAll(`games/${GAME}/teams`)).find((t) => t.id === 'A')?.d.phaseTokens ?? 0)
   check(tokensAfter === tokensBefore, '팀 토큰은 안 든다', `${tokensBefore} → ${tokensAfter}`)
   const again = await call('commissionTrap', A[0].token, { gameId: GAME, maker: 0 })

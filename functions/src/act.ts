@@ -72,38 +72,37 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
     : null
 
   await db.runTransaction(async (tx) => {
-    // **값은 팀 금고에서, 물건은 산 사람 주머니로.** 물건이 팀 것이던
-    // 때에는 상점에 다녀온 사람과 쓰는 사람이 달라도 됐다
+    // **값은 팀 금고에서, 물건은 산 사람 주머니로.**
     const meRef = ref.collection('pawns').doc(uid)
     const [meSnap, stockSnap] = await Promise.all([tx.get(meRef), stockRef ? tx.get(stockRef) : null])
+    const meNow = meSnap.data() as PawnDoc
+    const teamRef = ref.collection('teams').doc(meNow.team)
+    const teamNow = (await tx.get(teamRef)).data() as TeamDoc | undefined
     const soldToday = ((stockSnap?.data() as { n?: number } | undefined)?.n ?? 0)
     if (stockRef && item.stockPerDay && soldToday >= item.stockPerDay) {
       throw new HttpsError('failed-precondition', `오늘 ${item.name}${josa(item.name, '은/는')} 다 나갔다.`)
     }
     /*
-     * **내 지갑에서 낸다.** 팀 금고가 없어졌다.
+     * **팀 금고에서 낸다.** 넷 중 누가 사든 같은 금고다.
      *
      * 그리고 **낸 돈은 사라진다.** 자판기는 복도에 서 있어서 아무도
      * 차지할 수 없는 기계다 — 값을 받아 갈 주인이 없다. 판에서 돈이
      * 빠져나가는 유일한 구멍이고, 그래서 하루 상한과 짝이 맞는다.
      */
-    const meNow = meSnap.data() as PawnDoc
-    const left = pay(purseOf(meNow), cost)
+    const left = pay(purseOf(teamNow), cost)
     if (!left) throw new HttpsError('failed-precondition', '돈이 모자라다.')
     /*
      * **깃발은 주머니가 아니라 팀 상자로 간다.** 산 사람이 누구든 그
      * 팀 넷이 같이 꽂는다(rules/flag). 읽기를 쓰기보다 먼저 한다 —
      * 트랜잭션은 읽기가 앞서야 한다
      */
-    const teamRef = ref.collection('teams').doc(meNow.team)
-    const teamNow = item.flags ? ((await tx.get(teamRef)).data() as TeamDoc | undefined) : undefined
-    if (item.flags) tx.update(teamRef, { boughtFlags: (teamNow?.boughtFlags ?? 0) + item.flags })
+    tx.update(teamRef, {
+      resources: left,
+      ...(item.flags ? { boughtFlags: (teamNow?.boughtFlags ?? 0) + item.flags } : {}),
+    })
 
     if (stockRef) tx.set(stockRef, { day: game.day, itemId: item.id, n: soldToday + 1 })
-    tx.update(meRef, {
-      resources: left,
-      ...(item.gives ? { items: putItem(meNow.items, item.gives) } : {}),
-    })
+    if (item.gives) tx.update(meRef, { items: putItem(meNow.items, item.gives) })
     tx.set(ref.collection('events').doc(), {
       atMs: nowMs,
       day: game.day,
@@ -148,13 +147,13 @@ export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) =
   await db.runTransaction(async (tx) => {
     const meRef = ref.collection('pawns').doc(uid)
     const meNow = (await tx.get(meRef)).data() as PawnDoc
+    const teamRef = ref.collection('teams').doc(meNow.team)
+    const teamNow = (await tx.get(teamRef)).data() as TeamDoc | undefined
     const have = (meNow.crops ?? {})[spec.id] ?? 0
     if (have < 1) throw new HttpsError('failed-precondition', `${spec.name}${josa(spec.name, '이/가')} 없다.`)
-    // **돈은 개인 지갑으로.** 딴 사람이 가진다 — 정원의 규칙 그대로다
-    tx.update(meRef, {
-      [`crops.${spec.id}`]: have - 1,
-      resources: earnPurse(meNow, { money: spec.price }),
-    })
+    // 작물은 딴 사람 손에서 나가고, **돈은 팀 금고로** 들어간다
+    tx.update(meRef, { [`crops.${spec.id}`]: have - 1 })
+    tx.update(teamRef, { resources: earnPurse(teamNow, { money: spec.price }) })
     tx.set(ref.collection('events').doc(), {
       atMs: nowMs,
       day: game.day,

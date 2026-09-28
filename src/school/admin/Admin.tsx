@@ -21,6 +21,7 @@ import { gameActions, useGame } from '../game/useGame'
 import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
 import { SlipDesk } from './SlipDesk'
+import { PaperDesk } from './PaperDesk'
 import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
@@ -65,7 +66,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'put' | 'slips' | 'manage'
+type Tab = 'go' | 'put' | 'slips' | 'papers' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -234,6 +235,7 @@ function Desk() {
                 ['go', '진행'],
                 ['put', '놓기'],
                 ['slips', '쪽지'],
+                ['papers', '이력'],
                 ['manage', '관리'],
               ] as const
             ).map(([id, name]) => (
@@ -398,6 +400,12 @@ function Desk() {
           <section className="sc-ad__sec">
             <h2>쪽지 배포</h2>
             <SlipDesk act={act} onSaid={setSaid} />
+          </section>
+        : tab === 'papers' ?
+          /* ── 종이 이력. 누가 발견했고 누가 들고 있고 누가 끝냈나 ── */
+          <section className="sc-ad__sec">
+            <h2>종이 이력</h2>
+            <PaperDesk act={act} onSaid={setSaid} />
           </section>
         : /* ── 관리. 가끔 손보는 것 ── */
           <>

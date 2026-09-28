@@ -216,6 +216,11 @@ export interface TeamDoc {
 
   researchTier: number
   /**
+   * **팀 금고.** 돈과 지식. 넷이 같이 벌고 같이 쓴다 — 누가 벌었든
+   * 여기로 들어오고, 넷 중 누구든 꺼내 쓴다. 우리 팀만 본다.
+   */
+  resources?: Record<Resource, number>
+  /**
    * 오늘의 팀장. **네 팀이 다 뽑는다.**
    *
    * 아직 못 정했으면 null 이다 — 동점이면 풀릴 때까지 다시 뽑으므로,
@@ -275,12 +280,8 @@ export interface PawnDoc {
   /** 내 주머니. **산 사람이 가진다** — 자판기에 다녀온 그 사람 것이다. */
   items?: Satchel
   /**
-   * 내 지갑. 돈과 지식. **팀 금고가 아니다.**
-   *
-   * 한때 팀마다 하나였다. 그때는 넷이 한 금고를 보고 있어서 「누가
-   * 얼마를 썼다」가 곧 팀 회의였는데, 그 회의를 할 자리가 없었다 —
-   * 자유 시간에 흩어져 있고 페이즈에는 시간이 없다. 번 사람이 갖고,
-   * 남에게 주려면 거래로 건넨다.
+   * **옛 판의 개인 지갑.** 돈과 지식은 이제 팀 금고(TeamDoc.resources)다.
+   * 남아 있으면 다음 페이즈가 열릴 때 팀 금고로 옮기고 지운다(phase.ts).
    */
   resources?: Record<Resource, number>
   /**
@@ -471,7 +472,7 @@ export interface PlayerViewDoc {
    * 없다 — 화면 배포와 서버 배포 사이에 몇 분이 있고, 그 사이에
    * 들어온 사람은 옛 문서를 본다. 한 번 검은 화면으로 겪었다
    */
-  myVault?: { money: number; knowledge: number }
+  teamVault?: { money: number; knowledge: number }
   /** 우리 팀 물건. 남의 팀 것은 안 온다. */
   myItems?: Satchel
   /** 우리 팀 로봇 수. 남의 팀 총수는 안 온다. */

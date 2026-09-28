@@ -375,8 +375,8 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     const members = seats.filter((s) => s.team === team)
     captains[team] = members.length < 4 ? (members[0]?.playerId ?? null) : null
     batch.set(ref.collection('teams').doc(team), {
-      // **자원은 팀 것이 아니다.** 돈도 지식도 사람 지갑에 있다 —
-      // 아래 pawns 에 STARTING_RESOURCES 가 사람마다 하나씩 들어간다
+      // **팀 금고.** 돈과 지식은 넷이 같이 벌고 같이 쓴다
+      resources: { ...STARTING_RESOURCES },
       /*
        * 페이즈 상자. **빈 채로 시작한다.**
        *
@@ -421,8 +421,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         playerId: s.playerId,
         team,
         title: ROLE_TITLES[i % ROLE_TITLES.length],
-        /** 내 지갑. **팀 금고가 아니다** — 번 사람이 가진다 */
-        resources: { ...STARTING_RESOURCES },
         tileId: START_TILE,
         // 전투 자리. 처음에는 서 있는 자리와 같다
         postTile: START_TILE,

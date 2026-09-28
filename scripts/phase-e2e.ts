@@ -187,10 +187,10 @@ async function main(): Promise<void> {
    * **위장은 물건이 든다.** 자유 시간에 자판기까지 걸어가서 사 둔다.
    * 물건은 산 사람 주머니에 들어가므로 페이즈에 제자리로 끌려와도 남는다.
    *
-   * 지갑을 먼저 채운다 — 돈이 개인 것이 되면서 시작 자금이 사람당
-   * 2코인이고, 호루라기는 3이다. 버는 것은 이 시험의 관심이 아니다
+   * A팀 금고를 먼저 채운다 — 돈·지식은 팀 문서(teams/A.resources)에
+   * 있다. 버는 것은 이 시험의 관심이 아니다
    */
-  await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=resources`, {
+  await fetch(`${FS}/games/${GAME}/teams/A?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({
@@ -376,7 +376,7 @@ async function main(): Promise<void> {
   check((await ownerOfTile('artRoom')) === 'A', '깃발 하나를 꽂은 미술실이 A팀 것이 됐다', String(await ownerOfTile('artRoom')))
 
   console.log('\n── 자판기 깃발은 팀 상자로, 학교 전체 하루 몫까지 ──')
-  await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=resources`, {
+  await fetch(`${FS}/games/${GAME}/teams/A?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { resources: { mapValue: { fields: { money: { integerValue: '99' }, knowledge: { integerValue: '4' } } } } } }),

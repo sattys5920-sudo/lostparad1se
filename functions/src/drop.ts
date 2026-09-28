@@ -91,6 +91,8 @@ export const hostDrop = onCall<DropInput>(async (req) => {
       heldBy: null,
       readBy: [],
       tornBy: null,
+      placedTile: tileId,
+      placedAtMs: nowMs,
       atMs: nowMs,
     })
     await refreshViews(gameId)

@@ -666,3 +666,116 @@
   .sc-sd__table tr.is-placed td:nth-child(6) { justify-self: stretch; }
   .sc-sd__table tr.is-placed td:nth-child(6) button { width: 100%; }
 }
+
+/* ── 종이 이력(PaperDesk) ─────────────────────────────────────
+   한 장에 한 줄. 누가 무엇을 했는지는 줄을 누르면 아래에서 올라오는 팝업에서 */
+.sc-pt { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sc-ad button.sc-pt__reload { margin-left: auto; font-size: var(--fs-cap); padding: 2px var(--sp-2); }
+.sc-pt__chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.sc-ad .sc-pt__chips button {
+  font-size: var(--fs-label);
+  padding: 4px var(--sp-2);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: transparent;
+  color: var(--sc-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.sc-ad .sc-pt__chips button.is-on { background: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-bg); }
+.sc-pt__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.sc-ad button.sc-pt__row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: var(--bg-1);
+  text-align: left;
+}
+.sc-pt__row.is-torn, .sc-pt__row.is-solved { opacity: 0.72; }
+.sc-pt__main { display: flex; flex-direction: column; min-width: 0; }
+.sc-pt__title { font-size: var(--fs-body); color: var(--sc-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-pt__meta { font-size: var(--fs-cap); color: var(--sc-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-pt__kind {
+  font-size: var(--fs-cap);
+  padding: 1px 6px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--r-game);
+  color: var(--sc-text-2);
+  white-space: nowrap;
+}
+.sc-pt__kind.is-note { border-color: var(--accent); color: var(--accent); }
+.sc-pt__kind.is-quiz { border-color: var(--sc-accent); color: var(--sc-accent); }
+.sc-pt__state { font-size: var(--fs-cap); color: var(--sc-text-dim); white-space: nowrap; }
+.sc-pt__state.is-held { color: var(--sc-text); font-weight: 600; }
+.sc-pt__state.is-torn { color: var(--danger); }
+.sc-pt__more { color: var(--sc-text-dim); }
+.sc-ad button.sc-pt__page { align-self: center; font-size: var(--fs-label); }
+.sc-ad button.sc-sd__trail { margin-left: var(--sp-1); font-size: var(--fs-cap); padding: 0 6px; }
+
+/* 팝업 — 아래에서 올라온다. 위 30%는 비워 둔다 */
+.sc-pt__veil {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(0 0 0 / 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sc-pt__sheet {
+  width: min(560px, 100%);
+  max-height: 70dvh;
+  overflow-y: auto;
+  background: var(--sc-bg);
+  color: var(--sc-text);
+  border: 2px solid var(--sc-line-strong);
+  border-bottom: 0;
+  border-radius: var(--r-game) var(--r-game) 0 0;
+  padding: var(--sp-2) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  animation: sc-pt-up 160ms ease-out;
+}
+@keyframes sc-pt-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sc-pt__sheet { animation: none; } }
+.sc-pt__grip { align-self: center; width: 40px; height: 4px; border-radius: 2px; background: var(--sc-line-strong); }
+.sc-pt__top { display: flex; align-items: center; gap: var(--sp-2); }
+.sc-pt__top h3 { margin: 0; font-size: var(--fs-body); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sc-ad button.sc-pt__x { border: 0; background: transparent; font-size: 22px; line-height: 1; padding: 4px 8px; color: var(--sc-text-dim); }
+.sc-ad button.sc-pt__text {
+  text-align: left;
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--r-game);
+  background: var(--bg-1);
+  padding: var(--sp-2);
+  font-size: var(--fs-label);
+  color: var(--sc-text-2);
+  line-height: 1.5;
+}
+.sc-pt__facts { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--sp-3); margin: 0; font-size: var(--fs-label); }
+.sc-pt__facts > div { display: contents; }
+.sc-pt__facts dt { color: var(--sc-text-dim); white-space: nowrap; }
+.sc-pt__facts dd { margin: 0; overflow-wrap: anywhere; }
+.sc-pt__sub { margin: 0; font-size: var(--fs-label); color: var(--sc-text-dim); font-weight: 600; }
+.sc-pt__none { margin: 0; font-size: var(--fs-label); color: var(--sc-text-dim); }
+.sc-pt__trail { list-style: none; margin: 0; padding: 0 0 0 var(--sp-3); border-left: 2px solid var(--sc-line); display: flex; flex-direction: column; gap: var(--sp-2); }
+.sc-pt__trail li { display: grid; grid-template-columns: 76px 1fr; gap: var(--sp-2); font-size: var(--fs-label); position: relative; }
+.sc-pt__trail li::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--sp-3) - 5px);
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sc-line-strong);
+}
+.sc-pt__trail li.is-slipTear::before, .sc-pt__trail li.is-quizWrong::before { background: var(--danger); }
+.sc-pt__trail li.is-quizSolved::before, .sc-pt__trail li.is-slipRead::before { background: var(--sc-accent); }
+.sc-pt__trail time { color: var(--sc-text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sc-pt__trail em { font-style: normal; color: var(--sc-text-dim); }

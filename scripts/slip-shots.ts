@@ -7,6 +7,8 @@
 //   5 무작위      n장을 빈 방에 흩는다
 //   6 경고        완성 가능(노란 점) · 몰림
 //   7 읽음        주운 사람 손패 — {이름}이 실제 이름으로
+//   8 이력 목록   「이력」 탭 — 한 장에 한 줄(종류 · 이름 · 발견 · 지금 · 상태)
+//   9 이력 팝업   줄을 누르면 아래에서 올라온다 — 누가 언제 무엇을 했나
 //
 //   1. cd functions && npm run build
 //   2. VITE_FIREBASE_EMULATOR=true npx vite build --outDir /tmp/claude-0/serve/lostparad1se --emptyOutDir
@@ -213,6 +215,32 @@ async function main() {
   const line = (await me.locator('.sc-sl__line').first().innerText()).trim()
   console.log(`  찍었다 7-읽음 — ${line}`)
   if (line.includes('{이름}') || !line.includes('쉬는 시간마다')) missed.push(`읽은 문장이 이상하다: ${line}`)
+
+  // 8·9 이력 — 메모 한 장 · 문제 한 장을 더 놓고, 운영자 「이력」 탭을 연다
+  await must('hostDrop', host, { gameId: game, kind: 'memo', tileId: 'library', text: '도서관 창가 셋째 칸을 봐라.' })
+  await must('hostDrop', host, {
+    gameId: game,
+    kind: 'quiz',
+    x: sx + 1,
+    y: sy + 1,
+    quiz: { kind: 'short', prompt: '학교 종이 몇 번 울리면 점심인가', answers: ['네 번'], explain: '' },
+  }).catch((e) => missed.push(`문제 놓기 실패: ${(e as Error).message}`))
+  await desk.locator('.sc-ad__tabs button', { hasText: '이력' }).click()
+  await desk.waitForSelector('.sc-pt__list', { timeout: 10_000 })
+  await desk.waitForTimeout(400)
+  const lines = await desk.locator('.sc-pt__row').allInnerTexts()
+  console.log(`  이력 ${lines.length}줄 — ${lines[0]?.replace(/\s+/g, ' ')}`)
+  if (lines.length < 5) missed.push(`이력 줄이 ${lines.length}개다`)
+  if (!/발견 \S+/.test(lines[0] ?? '') || !/손에/.test(lines[0] ?? '')) missed.push(`첫 줄이 든 쪽지가 아니다: ${lines[0]}`)
+  await desk.screenshot({ path: `${OUT}/notes-${W}-8-이력-목록.png`, fullPage: true })
+  await desk.locator('.sc-pt__row').first().click()
+  await desk.waitForSelector('.sc-pt__sheet', { timeout: 5000 })
+  await desk.waitForTimeout(300)
+  const sheet = await desk.locator('.sc-pt__sheet').innerText()
+  if (!sheet.includes('주웠다') || !sheet.includes('읽었다')) missed.push(`팝업에 줍기·읽기가 없다: ${sheet}`)
+  await desk.screenshot({ path: `${OUT}/notes-${W}-9-이력-팝업.png` })
+  await desk.locator('.sc-pt__veil').click({ position: { x: 10, y: 10 } })
+  if (await desk.locator('.sc-pt__sheet').count()) missed.push('바깥을 눌러도 팝업이 안 닫힌다')
 
   await browser.close()
   console.log(`\n놓침 ${JSON.stringify(missed)}`)

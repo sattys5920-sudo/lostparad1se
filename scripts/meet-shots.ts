@@ -116,13 +116,15 @@ async function put(uid: string, fields: Record<string, unknown>): Promise<void> 
 }
 
 /**
- * 지갑에 돈과 지식을 넣는다. **판을 차리는 것**이지 화면을 고치는 것이 아니다.
+ * 팀 금고에 돈과 지식을 넣는다. **판을 차리는 것**이지 화면을 고치는 것이 아니다.
+ * 금고는 teams/{team}.resources 다 — 사람은 말 문서의 team 으로 찾는다.
  *
  * 이제 모두 빈손으로 시작하므로, 탁자에 올릴 것이 있으려면 먼저
  * 벌어야 한다. 이 대본이 보려는 것은 벌이가 아니라 마주침이다.
  */
 async function fund(uid: string, money: number, knowledge: number): Promise<void> {
-  await fetch(`${FS}/games/${GAME}/pawns/${uid}?updateMask.fieldPaths=resources`, {
+  const team = String((await pawns())[uid]?.team ?? 'A')
+  await fetch(`${FS}/games/${GAME}/teams/${team}?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({
@@ -217,9 +219,9 @@ async function main(): Promise<void> {
   // 그 사람은 **옆방**에 둔다. 거기서 걸어 들어오는 것을 찍는다
   const next = (ADJACENCY[room] ?? [])[0] ?? away[0]
   await put(yours, { tileId: next })
-  // 값을 올릴 것이 탁자에 보이게 지갑을 채운다. **처음 재산은 0** 이라
+  // 값을 올릴 것이 탁자에 보이게 금고를 채운다. **처음 재산은 0** 이라
   // 그냥 두면 탁자가 텅 빈 채로 찍힌다 — 판을 차리는 것이지 화면을 고치는 게 아니다.
-  // 돈은 말 문서의 resources 에 있다. 맨 위 필드에 써 봐야 아무도 안 읽는다
+  // 돈은 팀 문서의 resources 에 있다. 말 문서에 써 봐야 아무도 안 읽는다
   await fund(mine, 6, 4)
   await fund(yours, 6, 4)
   await tick(60_000)

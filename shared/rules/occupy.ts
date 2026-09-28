@@ -132,7 +132,7 @@ export const MOVE_MINUTES = 5
 //
 // 값도 한도도 없앤다. 몇 번을 걸든 상대가 안 받으면 그만이고,
 // 받아도 탁자에 올릴 것이 없으면 그만이다 — 조이는 것은 이미
-// 지갑이다.
+// 금고다.
 
 /** 사람 한 명이 데리고 다닐 수 있는 로봇. */
 export const MAX_CARRIED_ROBOTS = 2
@@ -343,19 +343,13 @@ export interface PhaseState {
    */
   invisibleId?: string | null
   /**
-   * 팀마다의 금고. **연구가 지식을 여기서 뺀다.**
+   * 팀마다의 금고. **키는 팀이다.** 연구가 지식을 여기서 뺀다.
    *
-   * 순수 함수로 두려면 금고도 상태의 일부여야 한다. 서버가 팀 문서에서
-   * 읽어 넣고, 바뀐 것을 도로 적는다.
+   * 한 번 사람마다의 지갑으로 갈랐다가 도로 합쳤다. 넷이 같이 벌고
+   * 같이 쓴다 — 누가 번 돈이든 팀 금고로 들어가고, 넷 중 누구든
+   * 꺼내 쓴다. 먼저 쓰는 사람이 임자다.
    */
-  /**
-   * 사람마다의 지갑. **키는 사람이다.**
-   *
-   * 한때 팀마다 하나였다. 그때는 넷이 한 금고를 보고 있어서 「누가
-   * 얼마를 썼다」가 곧 팀 회의였는데, 그 회의를 할 자리가 없었다.
-   * 번 사람이 갖고, 남에게 주려면 거래로 건넨다.
-   */
-  vaults: Readonly<Partial<Record<string, Vault>>>
+  vaults: Readonly<Partial<Record<TeamId, Vault>>>
 }
 
 /** 팀 금고. 돈과 지식 둘뿐이다. */
@@ -367,7 +361,7 @@ export interface Vault {
 const EMPTY_VAULT: Vault = { money: 0, knowledge: 0 }
 
 /** 그 팀 금고. 없으면 빈 것으로 친다. */
-export const vaultOf = (state: PhaseState, playerId: string): Vault => state.vaults[playerId] ?? EMPTY_VAULT
+export const vaultOf = (state: PhaseState, team: TeamId): Vault => state.vaults[team] ?? EMPTY_VAULT
 
 export type ActionKind = 'move' | 'research' | 'summon' | 'plant' | 'pull' | 'dropRobot' | 'smashRobot'
 
@@ -816,9 +810,9 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       const ownsLab = landlord === mine.team
       // **지식이 모자라면 고를 수 없다.** 토큰도 안 든다
       const need = researchKnowledge(ownsLab)
-      const purse = vaultOf(state, playerId)
+      const purse = vaultOf(state, mine.team)
       if (purse.knowledge < need) return no(`지식이 모자란다. ${need}점이 든다.`)
-      // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 지갑으로 셋이
+      // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 금고로 셋이
       // 더 걸어서 없는 지식으로 넷이 연구한 판이 된다
       /*
        * **낸 지식은 사라진다.** 주인 팀에게 가지 않는다.
@@ -832,9 +826,9 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
        * 내는 것이다**(researchKnowledge 가 1과 3을 가른다). 자판기와
        * 같은 규칙이고, 판에서 자원이 빠져나가는 두 번째 구멍이다.
        */
-      const paid: Partial<Record<string, Vault>> = {
+      const paid: Partial<Record<TeamId, Vault>> = {
         ...state.vaults,
-        [playerId]: { ...purse, knowledge: purse.knowledge - need },
+        [mine.team]: { ...purse, knowledge: purse.knowledge - need },
       }
       const queued: PendingResearch = { playerId, knowledge: need, tileId: mine.tileId }
 
@@ -937,7 +931,7 @@ export function settle(state: PhaseState): SettleResult {
    * 값이라, 남은 시간을 보고 걸라는 압박이 그대로 규칙이 된다.
    */
   const robots = [...state.robots]
-  const vaults: Partial<Record<string, Vault>> = { ...state.vaults }
+  const vaults: Partial<Record<TeamId, Vault>> = { ...state.vaults }
 
   const wallets: Partial<Record<TeamId, number>> = { ...state.wallets }
 

@@ -19,7 +19,7 @@ import {
 } from '../../shared/rules/quiz'
 import type { Cell } from '../../shared/rules/board'
 import { gain, purseOf } from '../../shared/rules/resources'
-import type { PawnDoc } from '../../shared/model'
+import type { PawnDoc, TeamDoc } from '../../shared/model'
 import { freshNow, mustBeFreeTime } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
@@ -116,7 +116,7 @@ export const hostPullQuiz = onCall<{ gameId: string; paperId: string }>(async (r
 export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, paperId } = req.data
-  const [pawn, { game }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
+  const [pawn, { game, nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
   mustBeFreeTime(game, '문제를 주울')
 
   await db.runTransaction(async (tx) => {
@@ -131,6 +131,10 @@ export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) 
     tx.update(ref, { heldBy: uid })
   })
 
+  await note(gameId, 'quizTake', nowMs, { id: uid, team: pawn.team }, {
+    tileId: pawn.tileId ?? undefined,
+    subjectId: paperId,
+  })
   await refreshViews(gameId)
   return { ok: true }
 })
@@ -168,11 +172,11 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
       return { correct: false as const, explain: null }
     }
 
-    // **맞힌 사람 지식이 는다.** 팀 금고가 없어졌다 — 푼 사람 것이다
-    const meRef = ref.collection('pawns').doc(uid)
-    const me = (await tx.get(meRef)).data() as PawnDoc
+    // **맞힌 사람의 팀 금고에 지식이 는다**
+    const teamRef = ref.collection('teams').doc(pawn.team)
+    const teamNow = (await tx.get(teamRef)).data() as TeamDoc | undefined
     tx.update(paperRef, { solvedBy: uid, solvedTeam: pawn.team })
-    tx.update(meRef, { resources: gain(purseOf(me), { knowledge: KNOWLEDGE_PER_QUIZ }) })
+    tx.update(teamRef, { resources: gain(purseOf(teamNow), { knowledge: KNOWLEDGE_PER_QUIZ }) })
     // 해설은 맞힌 사람에게만, 그것도 응답으로만 간다. 문서에는 안 남는다
     return { correct: true as const, explain: quiz.explain || null }
   })
@@ -184,6 +188,8 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
       tileId: pawn.tileId ?? undefined,
       subjectId: paperId,
     })
+  } else {
+    await note(gameId, 'quizWrong', nowMs, { id: uid, team: pawn.team }, { subjectId: paperId })
   }
   await refreshViews(gameId)
   return out

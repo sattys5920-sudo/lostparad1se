@@ -17,7 +17,7 @@
 // 감출 것은 secret 아래에만 쓴다. 위장한 사람과 방해받은 사람이 판
 // 문서에 적혀 있으면 개발자도구로 다 보인다 — **실제로 그랬다.**
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import {
   ACT_COST,
@@ -42,6 +42,7 @@ import {
 import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { isFixture } from '../../shared/rules/fixtures'
+import { foldPurses, purseOf } from '../../shared/rules/resources'
 import { machineAtSeat } from '../../shared/rules/arcade'
 import { LAB_PICK_NO, LAB_TILE, SNARE_MINUTES, atLabMachine, pickLabMachine } from '../../shared/rules/trap'
 import type { MadeDoc } from '../../shared/rules/made'
@@ -193,22 +194,18 @@ function walletsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamI
 
 /** 팀 문서에서 금고만 떼어 온다. */
 /**
- * 지갑을 사람마다 하나씩 모은다. **말 문서에서 떼어 온다.**
+ * 팀 금고를 팀마다 하나씩 모은다. **팀 문서에서 읽는다.**
  *
- * 전에는 팀 문서에서 읽었다. 돈과 지식이 사람 것이 되면서 자리가
- * 옮겨졌는데, 읽는 쪽을 안 고치면 **모두 0 인 지갑**이 조용히
- * 만들어져서 연구가 영영 「지식이 모자란다」가 된다.
+ * 한때 사람 문서(지갑)에 있었다. 자리를 옮기고 읽는 쪽을 안 고치면
+ * **모두 0 인 금고**가 조용히 만들어져서 연구가 영영 「지식이
+ * 모자란다」가 된다.
  */
-function vaultsOf(pawns: FirebaseFirestore.QuerySnapshot): Partial<Record<string, Vault>> {
-  const out: Partial<Record<string, Vault>> = {}
-  for (const d of pawns.docs) {
-    const p = d.data() as { resources?: Partial<Vault> }
-    out[d.id] = { money: p.resources?.money ?? 0, knowledge: p.resources?.knowledge ?? 0 }
-  }
+function vaultsOf(teams: FirebaseFirestore.QuerySnapshot): Partial<Record<TeamId, Vault>> {
+  const out: Partial<Record<TeamId, Vault>> = {}
+  for (const d of teams.docs) out[d.id as TeamId] = purseOf(d.data() as TeamDoc)
   return out
 }
 
-/** 팀 주머니. 금고와 같은 자리에서 읽고 쓴다. */
 /** 주머니는 **사람마다** 하나다. 말 문서에서 떼어 온다. */
 function satchelsOf(pawns: FirebaseFirestore.QuerySnapshot): Satchels {
   const out: Satchels = {}
@@ -230,19 +227,18 @@ function writeSatchels(
 }
 
 /** 바뀐 금고만 적는다. 안 바뀐 팀 문서는 건드리지 않는다. */
-/** 바뀐 지갑만 적는다. 안 바뀐 사람 문서를 건드리면 쓰기만 는다. */
 function writeVaults(
   w: { update: (ref: FirebaseFirestore.DocumentReference, data: Record<string, unknown>) => unknown },
   ref: FirebaseFirestore.DocumentReference,
-  before: Readonly<Partial<Record<string, Vault>>>,
-  after: Readonly<Partial<Record<string, Vault>>>,
+  before: Readonly<Partial<Record<TeamId, Vault>>>,
+  after: Readonly<Partial<Record<TeamId, Vault>>>,
 ): void {
-  for (const id of Object.keys(after)) {
+  for (const id of Object.keys(after) as TeamId[]) {
     const a = after[id]
     const b = before[id]
     if (!a || !b) continue
     if (a.money === b.money && a.knowledge === b.knowledge) continue
-    w.update(ref.collection('pawns').doc(id), { resources: { money: a.money, knowledge: a.knowledge } })
+    w.update(ref.collection('teams').doc(id), { resources: { money: a.money, knowledge: a.knowledge } })
   }
 }
 
@@ -280,7 +276,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       pulledTeams: h.pulledTeams ?? [],
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
-      vaults: vaultsOf(pawns),
+      vaults: vaultsOf(teams),
       satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
       invisibleId: game.invisibleId ?? null,
@@ -436,10 +432,21 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    * 남은 것에 더하지 않는다 — 한 페이즈에 꽂을 수 있는 한도다. 자판기에서
    * 산 것(boughtFlags)은 건드리지 않는다.
    */
+  /*
+   * **옛 판의 개인 지갑을 팀 금고로 옮긴다.** 돈과 지식이 사람 것이던
+   * 때에 시작한 판이면 사람 문서에 resources 가 남아 있다. 그 사람이
+   * 지금까지 있던 팀 금고에 더하고 지갑은 지운다 — 두 번 더해지지 않는다.
+   */
+  const legacy = pawns.docs.filter((d) => (d.data() as PawnDoc).resources)
+  for (const d of legacy) batch.update(d.ref, { resources: FieldValue.delete() })
   for (const d of teams.docs) {
     const team = d.id as TeamId
     const t = d.data() as TeamDoc
+    const fold = legacy.filter((x) => (x.data() as PawnDoc).team === team)
     batch.update(d.ref, {
+      ...(fold.length
+        ? { resources: foldPurses(purseOf(t), fold.map((x) => (x.data() as PawnDoc).resources)) }
+        : {}),
       flags: FLAGS_PER_PHASE,
       phaseTokens: nextWallet({
         held: t.phaseTokens ?? 0,
@@ -664,7 +671,7 @@ export const phaseAct = onCall<{
       pulledTeams: h.pulledTeams ?? [],
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
-      vaults: vaultsOf(pawns),
+      vaults: vaultsOf(teams),
       satchels: satchelsOf(pawns),
       wallets: walletsOf(teams),
       invisibleId: game.invisibleId ?? null,

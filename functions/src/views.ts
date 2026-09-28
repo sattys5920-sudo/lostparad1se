@@ -17,9 +17,11 @@ import type {
   NoticeDoc,
   PawnDoc,
   RosterDoc,
+  TeamDoc,
   TileDoc,
 } from '../../shared/model'
 import { releasedDays } from '../../shared/reveal/release'
+import { purseOf } from '../../shared/rules/resources'
 import { fillSubject } from '../../shared/reveal/slips'
 import type { SlipDoc } from './slips'
 import { SLIP_NOTE_BY_ID } from './story/slipNotes'
@@ -123,13 +125,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       postedMs: e.postedMs,
       takers: e.takers ?? {},
     })),
-    // 지갑. **사람마다 하나다** — 투영이 본인 것만 떼어 보낸다
-    vaults: Object.fromEntries(
-      pawns.docs.map((d) => {
-        const p = d.data() as { resources?: { money?: number; knowledge?: number } }
-        return [d.id, { money: p.resources?.money ?? 0, knowledge: p.resources?.knowledge ?? 0 }]
-      }),
-    ),
+    // 팀 금고. **팀마다 하나다** — 투영이 우리 팀 것만 떼어 보낸다
+    vaults: Object.fromEntries(teams.docs.map((d) => [d.id, purseOf(d.data() as TeamDoc)])),
     // 주머니도 통째로 들고 간다. **사람마다 하나다** — 투영이 내
     // 것만 떼어 보낸다
     satchels: Object.fromEntries(

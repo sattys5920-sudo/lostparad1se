@@ -149,14 +149,12 @@ export interface World {
    */
   openPhaseNo?: number | null
   /**
-   * 사람마다의 지갑. **투영이 본인 것만 떼어 보낸다.**
+   * 팀마다의 금고. **투영이 우리 팀 것만 떼어 보낸다.**
    *
-   * 전에는 팀 금고였고 games/{id}/teams/{t} 를 누구나 읽을 수 있어서
-   * 남의 돈과 지식이 그대로 보였다. 「저 팀 지식이 4니까 곧 로봇이
-   * 나온다」가 추측이 아니라 계산이 되면 숨길 것이 하나도 없다.
-   * 개인 것이 된 지금은 더 그렇다 — 같은 팀 것도 안 보낸다.
+   * 남의 팀 금고가 보이면 「저 팀 지식이 4니까 곧 짝이 나온다」가
+   * 추측이 아니라 계산이 된다. 받아서 가리는 것이 아니라 안 보낸다.
    */
-  vaults?: Readonly<Partial<Record<string, { money: number; knowledge: number }>>>
+  vaults?: Readonly<Partial<Record<TeamId, { money: number; knowledge: number }>>>
   /** 사람마다의 주머니. 방해와 위장에 드는 물건이 여기 있다. */
   satchels?: Readonly<Satchels>
   /** 팀마다 하나인 페이즈 토큰 상자. **자기 팀 것만 내려간다.** */
@@ -325,7 +323,7 @@ export interface View {
    */
   myMovingTo: TeamId | null
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
-  myVault: { money: number; knowledge: number }
+  teamVault: { money: number; knowledge: number }
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
   /** **내 주머니.** 팀 것이 아니다 — 산 사람이 가진다. */
   myItems: Satchel
@@ -583,7 +581,7 @@ export function projectView(world: World, viewerId: string): View {
       myPost: null,
       myTeamTokens: 0,
       myMovingTo: null,
-      myVault: { money: 0, knowledge: 0 },
+      teamVault: { money: 0, knowledge: 0 },
       myItems: {},
       myTeamRobots: 0,
       myCarriedRobots: 0,
@@ -783,9 +781,8 @@ export function projectView(world: World, viewerId: string): View {
     // 읽힌다 — 그게 이 게임의 절반이다
     myTeamTokens: world.wallets?.[team] ?? 0,
     myMovingTo: world.pawns.find((p) => p.playerId === viewerId)?.movingTo ?? null,
-    // **내 지갑 하나뿐이다.** 같은 팀 것도 안 간다 — 서로 얼마
-    // 가졌는지는 말로 알아내야 한다
-    myVault: world.vaults?.[viewerId] ?? { money: 0, knowledge: 0 },
+    // **우리 팀 금고 하나뿐이다.** 남의 팀 것은 안 간다
+    teamVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[viewerId] ?? {},
     /*
      * 화분. **정원에 서 있을 때만 간다.**

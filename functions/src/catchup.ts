@@ -10,14 +10,13 @@
 import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 
 import { clockItems, nextByHand, type Due } from '../../shared/rules/catchup'
-import { teamPurse, type TileState } from '../../shared/rules/resources'
+import type { TileState } from '../../shared/rules/resources'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
-  type Resource,
   type TeamId,
   TOKEN_COMEBACK_BONUS,
 } from '../../shared/rules/v2'
@@ -134,11 +133,10 @@ async function lastHours(c: Ctx): Promise<void> {
  */
 async function settlement(c: Ctx): Promise<void> {
   const ref = gameRef(c.gameId)
-  const [tileSnap, teamSnap, voteSnap, pawnSnap] = await Promise.all([
+  const [tileSnap, teamSnap, voteSnap] = await Promise.all([
     c.tx.get(ref.collection('tiles')),
     c.tx.get(ref.collection('teams')),
     c.tx.get(ref.collection('secret').doc('votes').collection('items')),
-    c.tx.get(ref.collection('pawns')),
   ])
 
   const tiles: TileState[] = tileSnap.docs.map((d) => {
@@ -152,10 +150,7 @@ async function settlement(c: Ctx): Promise<void> {
   // **여기서 나오던 것은 건물 생산뿐이었다.** 건물을 걷어냈으니
   // 정산에서 금고에 붙는 것은 없다. 금고는 노동·탐색·카드·교역으로만
   // 는다. 자리는 남겨 둔다 — 다른 수입이 생기면 여기로 들어온다
-  // **자원은 지갑 넷의 합이다.** 금고가 없어졌다 — 점수판만 팀 단위로 남는다
-  const wallet = pawnSnap.docs.map((d) => d.data() as PawnDoc)
-  const after = new Map<TeamId, Record<Resource, number>>()
-  for (const team of TEAMS) after.set(team, teamPurse(wallet, team))
+  // 금고는 팀 문서에 그대로 있다. 정산이 건드릴 것이 없다
 
   // 2. 받은 표
   //
@@ -181,11 +176,6 @@ async function settlement(c: Ctx): Promise<void> {
 
   tallyVotes({ votes })
 
-  // 생산을 적는다
-  for (const team of TEAMS) {
-    const res = after.get(team)
-    if (res) c.tx.update(ref.collection('teams').doc(team), { resources: res })
-  }
   for (const d of todays) c.tx.update(d.ref, { settled: true })
 
   // 3~4. 점수와 순위, 주목과 만회. **점수는 가진 방 개수다**

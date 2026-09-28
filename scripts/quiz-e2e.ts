@@ -330,7 +330,7 @@ async function main(): Promise<void> {
   const again = await call('answerQuiz', A[0].token, { gameId: GAME, paperId: target.id, given: ANSWER })
   check(again.code === 'FAILED_PRECONDITION', '같은 사람은 다시 못 푼다', String(again.code))
 
-  console.log('\n── 맞히면 지갑에 지식이 붙고 종이는 끝난다 ──')
+  console.log('\n── 맞히면 팀 금고에 지식이 붙고 종이는 끝난다 ──')
   /*
    * **안 틀린 사람으로 잰다.** A[0] 은 방금 틀려서 이 종이를 다시
    * 못 푼다 — 그 사람으로 정답을 재면 「맞히면 지식이 는다」가 아니라
@@ -351,10 +351,14 @@ async function main(): Promise<void> {
   const winPaper = (await floorNow()).find((q) => q.d.quizId === win.id)
   if (!winPaper) throw new Error('놓은 둘째 종이를 못 찾았다')
 
-  const knowledgeOf = async (uid: string) =>
-    Number(((await pawnsNow())[uid].resources as Record<string, number> | undefined)?.knowledge ?? 0)
+  /** 그 사람 **팀 금고**의 지식. 사람 문서가 아니라 teams/{team}.resources 다 */
+  const knowledgeOf = async (uid: string) => {
+    const team = String((await pawnsNow())[uid].team)
+    const t = (await getAll(`games/${GAME}/teams`)).find((x) => x.id === team)?.d ?? {}
+    return Number((t.resources as Record<string, number> | undefined)?.knowledge ?? 0)
+  }
   const before = await knowledgeOf(A[1].uid)
-  const mateBefore = await knowledgeOf(A[2].uid)
+  const otherBefore = await knowledgeOf(B[0].uid)
 
   await standBeside(A[1].token, winCell)
   await must('takeQuiz', A[1].token, { gameId: GAME, paperId: winPaper.id })
@@ -367,9 +371,13 @@ async function main(): Promise<void> {
   check(right.correct === true, '자모로 쳐도 맞는다')
   check(right.explain === EXPLAIN, '맞힌 사람에게만 해설이 간다')
   const after = await knowledgeOf(A[1].uid)
-  check(after === before + KNOWLEDGE_PER_QUIZ, `**맞힌 사람 지갑에 지식 ${KNOWLEDGE_PER_QUIZ}점**`, `${before} → ${after}`)
-  const mate = await knowledgeOf(A[2].uid)
-  check(mate === mateBefore, '같은 팀 다른 사람 지갑은 그대로다', `${mateBefore} → ${mate}`)
+  check(after === before + KNOWLEDGE_PER_QUIZ, `**맞힌 사람 팀 금고에 지식 ${KNOWLEDGE_PER_QUIZ}점**`, `${before} → ${after}`)
+  // 같은 팀은 같은 금고를 본다 — 누가 맞히든 넷이 같이 는다
+  check((await knowledgeOf(A[2].uid)) === after, '같은 팀 다른 사람도 같은 금고를 본다')
+  const other = await knowledgeOf(B[0].uid)
+  check(other === otherBefore, '다른 팀 금고는 그대로다', `${otherBefore} → ${other}`)
+  const pz = await pawnsNow()
+  check(pz[A[1].uid].resources === undefined, '사람 문서에는 resources 가 안 붙는다')
 
   // **푼 종이는 손에서 사라진다.** 그게 「끝났다」의 표시다
   const handAfter = ((await viewOf(A[1].uid)).myQuizzes ?? []) as { id: string }[]

@@ -206,8 +206,8 @@ async function main() {
   // 페이즈를 열고 기술실로 옮겨 세운다. 만드는 것은 페이즈의 일이다
   await must('openPhase', host, { gameId: game })
   await fund(game, myTeam, 5)
-  // 덫은 내 돈으로 맡긴다. 지갑을 채운다
-  await fetch(`${FS}/games/${game}/pawns/${meUid}?updateMask.fieldPaths=resources`, {
+  // 덫은 팀 금고 돈으로 맡긴다. 금고(teams/{team}.resources)를 채운다
+  await fetch(`${FS}/games/${game}/teams/${myTeam}?updateMask.fieldPaths=resources`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { resources: { mapValue: { fields: { money: { integerValue: '9' }, knowledge: { integerValue: '5' } } } } } }),
   })

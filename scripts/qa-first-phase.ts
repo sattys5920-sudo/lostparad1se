@@ -149,7 +149,7 @@ async function main() {
 
     const room = (str(p.tileId) ?? '') as TileId
     const tokens = num(v.myTeamTokens)
-    const vault = mapOf(v.myVault)
+    const vault = mapOf(v.teamVault)
     const money = num(vault.money)
     const items = mapOf(v.myItems)
     const held = Object.entries(items)

@@ -1071,7 +1071,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * nowMs 는 1초마다 바뀌니 다시 셈하는 계기로만 쓴다.
    */
   /* 돈·지식이 드나든 만큼. 머리 위로 떠올랐다 사라진다 */
-  const pops = usePops(state.view?.myVault?.money ?? null, state.view?.myVault?.knowledge ?? null)
+  const pops = usePops(state.view?.teamVault?.money ?? null, state.view?.teamVault?.knowledge ?? null)
 
   const says = useMemo(() => {
     const realNow = Date.now()
@@ -1286,7 +1286,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         const i = LAB_MACHINES.findIndex((c) => c.x === t.cell.x && c.y === t.cell.y)
         const lab = (state.view?.labsHere ?? []).find((l) => l.i === i) ?? null
         const need = researchKnowledge(state.tiles[LAB_TILE]?.ownerTeam === myTeam)
-        const have = state.view?.myVault?.knowledge ?? 0
+        const have = state.view?.teamVault?.knowledge ?? 0
         const research: MeetRow = {
           key: 'lab',
           label: `연구하기 · 지식 ${need}`,
@@ -1618,8 +1618,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           <ResourceRow
             tokens={phaseOpen ? (state.view?.myTeamTokens ?? null) : null}
             tokenLabel="팀 토큰"
-            money={state.view?.myVault?.money ?? null}
-            knowledge={state.view?.myVault?.knowledge ?? null}
+            money={state.view?.teamVault?.money ?? null}
+            knowledge={state.view?.teamVault?.knowledge ?? null}
             mates={mates}
             teamColor={colorOfTeam(me.team)}
             onOpen={() => setSheet('team')}
@@ -2110,7 +2110,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {sheet === 'shop' && !phaseOpen && (
         <Vending
           where={vendingHere?.name ?? ''}
-          money={state.view?.myVault?.money ?? 0}
+          money={state.view?.teamVault?.money ?? 0}
           crops={state.view?.myCrops ?? {}}
           soldOut={state.view?.soldOutItems ?? []}
           act={act}
@@ -2137,8 +2137,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             {/* **페이즈 상자는 넷이 나눠 쓴다.** 내 것이 아니라는 게 여기서
                 보여야 한다 — 먼저 쓰는 사람이 임자다 */}
             <li><span>페이즈 토큰(팀 공용)</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
-            <li><span>내 돈</span><span>{state.view?.myVault?.money ?? '—'}</span></li>
-            <li><span>내 지식</span><span>{state.view?.myVault?.knowledge ?? '—'}</span></li>
+            <li><span>팀 돈</span><span>{state.view?.teamVault?.money ?? '—'}</span></li>
+            <li><span>팀 지식</span><span>{state.view?.teamVault?.knowledge ?? '—'}</span></li>
           </ul>
         </Sheet>
       )}

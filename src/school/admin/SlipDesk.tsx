@@ -22,6 +22,8 @@ import {
   type SlipState,
 } from '../../../shared/rules/slipBoard'
 import { Sure } from '../game/Sheet'
+import type { PaperRow } from '../../../shared/rules/paperTrail'
+import { TrailSheet } from './PaperDesk'
 import type { GameActions } from '../game/useGame'
 
 interface Board {
@@ -57,6 +59,19 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
   const [fState, setFState] = useState<SlipState | ''>('')
   const [sort, setSort] = useState<Sort>('role')
   const [howMany, setHowMany] = useState(4)
+  const [trail, setTrail] = useState<PaperRow | null>(null)
+
+  /** 한 장의 이력 — 누를 때만 서버에 묻는다. 뿌린 뒤라야 이력이 있다 */
+  const showTrail = async (slipId: string) => {
+    try {
+      const { papers } = (await act.hostPapers()) as { papers: PaperRow[] }
+      const p = papers.find((x) => x.id === slipId)
+      if (p) setTrail(p)
+      else onSaid('이력을 못 찾았다.')
+    } catch (e) {
+      onSaid((e as Error).message)
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -261,7 +276,14 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
                                 {wide || n.text.length <= PREVIEW ? n.text : `${n.text.slice(0, PREVIEW)}…`}
                               </button>
                             </td>
-                            <td className="sc-sd__state">{stateText(n)}</td>
+                            <td className="sc-sd__state">
+                              {stateText(n)}
+                              {n.slipId && (
+                                <button className="sc-sd__trail" onClick={() => void showTrail(n.slipId ?? '')}>
+                                  이력
+                                </button>
+                              )}
+                            </td>
                             <td>
                               {n.state === 'waiting' ? (
                                 <select
@@ -320,6 +342,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
           )
         })}
       </ul>
+      {trail && <TrailSheet paper={trail} onClose={() => setTrail(null)} />}
     </div>
   )
 }

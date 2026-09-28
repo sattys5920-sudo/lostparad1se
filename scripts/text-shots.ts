@@ -166,12 +166,18 @@ async function fund(game: string, team: string, n: number): Promise<void> {
     body: JSON.stringify({ fields: { phaseTokens: { integerValue: String(n) } } }),
   })
 }
-/** 가진 물건 줄이 비어 있으면 볼 것이 없다. 몇 개 쥐여 준다 */
+/** 가진 물건 줄이 비어 있으면 볼 것이 없다. 몇 개 쥐여 주고, 돈·지식은 팀 금고에 */
 async function giveItems(game: string, uid: string): Promise<void> {
-  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=items&updateMask.fieldPaths=resources`, {
+  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=items`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: {
       items: { mapValue: { fields: { lock: { integerValue: '2' }, trap: { integerValue: '1' } } } },
+    } }),
+  })
+  const team = (await pawnField(game, uid, 'team')) || 'A'
+  await fetch(`${FS}/games/${game}/teams/${team}?updateMask.fieldPaths=resources`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: {
       resources: { mapValue: { fields: { money: { integerValue: '4' }, knowledge: { integerValue: '3' } } } },
     } }),
   })

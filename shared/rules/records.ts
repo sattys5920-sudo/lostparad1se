@@ -25,6 +25,8 @@ export type RecordKind =
   | 'slipRead'
   | 'slipGive'
   | 'slipTear'
+  // 바닥에 도로 둔 것. 운영자 이력(누가 어디에 두고 갔나)이 이 줄을 본다
+  | 'slipDrop'
   | 'robotBorn'
   | 'robotSmashed'
   // 아무도 안 부쉈는데 사라진 짝. 이적으로 한도가 넘쳐서 지워진 것이다.
@@ -32,6 +34,9 @@ export type RecordKind =
   | 'robotGone'
   | 'robotOwner'
   | 'quizSolved'
+  // 문제 종이를 주운 것 · 틀린 것. 운영자 이력이 본다 — 판정은 안 센다
+  | 'quizTake'
+  | 'quizWrong'
   // 자판기. **사는 것과 파는 것을 가른다** — 매점 단골은 산 것만 센다
   | 'vendBuy'
   | 'vendSell'

@@ -108,8 +108,11 @@ async function putIn(game: string, uid: string, tileId: string): Promise<void> {
     }),
   })
 }
+/** 그 사람 **팀 금고**의 돈. 말 문서의 team 으로 teams/{team} 을 찾아 읽는다 */
 const purseOf = async (game: string, uid: string): Promise<number> => {
-  const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
+  const p = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
+  const team = str(((await p.json()) as { fields?: Record<string, unknown> }).fields?.team) ?? 'A'
+  const r = await fetch(`${FS}/games/${game}/teams/${team}`, { headers: ADMIN })
   const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
   return num(mapOf(f.resources).money)
 }
@@ -338,7 +341,7 @@ async function main() {
     '**표에 적힌 값 그대로 받는다**',
     `${paid.paid} / 표는 ${CROP_BY_ID[soldId].price}`,
   )
-  check((await purseOf(game, youUid)) === moneyBefore + CROP_BY_ID[soldId].price, '내 지갑에 그대로 붙었다')
+  check((await purseOf(game, youUid)) === moneyBefore + CROP_BY_ID[soldId].price, '판 사람 팀 금고에 그대로 붙었다')
   const vSold = await viewOf(game, youUid)
   check(num(mapOf(vSold.myCrops)[soldId]) === 0, '손에서 빠진다')
   const twiceSell = await call('sellCrop', youTok, { gameId: game, cropId: soldId })
