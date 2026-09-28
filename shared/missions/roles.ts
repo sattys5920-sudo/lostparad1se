@@ -31,7 +31,7 @@ export const ROSTER_SIZE = 14
 // 공개 시점 · 조항 종류 · 조항 모양은 roleTypes.ts 에 있다 — 데이터 파일과 같이 쓴다
 export type { Clause, ClauseKind, Disclosure, RoleData, RoleNote } from './roleTypes'
 export { clauseText } from './roleTypes'
-import type { Clause, Disclosure, RoleData } from './roleTypes'
+import type { Clause, RoleData } from './roleTypes'
 import { ROLE_DATA } from './roleData'
 
 /*
@@ -89,49 +89,6 @@ export const ROLES: readonly RoleSpec[] = ROLE_DATA.map(specOf)
 export const ROLE_BY_ID: Record<RoleId, RoleSpec> = Object.fromEntries(
   ROLES.map((r) => [r.id, r]),
 ) as Record<RoleId, RoleSpec>
-
-// ── 쪽지 미션 ───────────────────────────────────────────────────
-
-/**
- * 쪽지를 주우면서 따라붙는다. 주 미션과 따로 판정한다.
- *
- * 셋은 **서로 다른 쪽지를 기준으로** 본다. 한 장으로 셋을 다 채울 수는 없다.
- */
-export type SlipMissionId = 'keepOthers' | 'fewReadMine' | 'twiceSamePerson'
-
-export interface SlipMissionSpec {
-  id: SlipMissionId
-  /** **문서 원문 그대로다.** */
-  text: string
-  need?: number
-  limit?: number
-  disclosure: Disclosure
-}
-
-export const SLIP_MISSIONS: readonly SlipMissionSpec[] = [
-  {
-    id: 'keepOthers',
-    text: '남의 쪽지를 읽고 자정까지 가지고 있는다',
-    need: 1,
-    // 자정에 쥐고 있었는지는 자정에 안다
-    disclosure: 'daily',
-  },
-  {
-    id: 'fewReadMine',
-    text: '나에 대한 쪽지를 그날 읽은 사람이 2명 이하다',
-    limit: 2,
-    // 남이 읽은 수를 실시간으로 보여 주면 누가 읽었는지 좁혀진다 — 자정에만
-    disclosure: 'daily',
-  },
-  {
-    id: 'twiceSamePerson',
-    text: '같은 사람의 쪽지를 그날 두 번 손에 넣는다',
-    need: 2,
-    disclosure: 'realtime',
-  },
-]
-
-export const SLIP_MISSION_IDS: readonly SlipMissionId[] = SLIP_MISSIONS.map((m) => m.id)
 
 // ── 배정 규칙 ───────────────────────────────────────────────────
 

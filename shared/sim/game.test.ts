@@ -26,7 +26,6 @@ describe('한 판', () => {
     expect(out.personal).toHaveLength(14)
     for (const p of out.personal) {
       expect(typeof p.main).toBe('boolean')
-      expect(typeof p.slips).toBe('number')
     }
   })
 

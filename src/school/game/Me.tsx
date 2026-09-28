@@ -199,27 +199,6 @@ export function Me(props: MeProps) {
           )}
         </Card>
 
-        {/*
-          쪽지 미션. **서버가 셋을 늘 보낸다** — 한 장도 안 주웠어도
-          0/1 로 뜬다. 주운 뒤에 생기는 것이 아니라, 쪽지를 만지는
-          동안 따라붙는 조건 셋이다(roles.ts 의 SLIP_MISSIONS).
-
-          카드에는 상태 한 마디를 안 단다 — 셋이 따로 도는 것이라
-          하나로 묶으면 어느 것이 달성인지가 사라진다. 줄마다 붙인다
-        */}
-        {paper && paper.slips.length > 0 && (
-          <Card title="쪽 지">
-            <ul className="sc-mi__slips">
-              {paper.slips.map((s) => (
-                <li key={s.id}>
-                  <p className="sc-mi__mission is-small">{s.text}</p>
-                  <Gauge shown={s.shown} have={s.have} bar={s.bar} status={s.status} />
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-
         {/* 마지막 선택. **그날에만 카드가 생긴다** */}
         {props.day === DAY4_CHOICE_DAY && (
           <Card title="마 지 막 선 택" state={paper ? STATUS_LABEL[paper.choice] : null}>
@@ -583,7 +562,7 @@ function Clauses({ m }: { m: MissionShown }) {
 }
 
 /**
- * 진행도 한 칸. 조항에도 쪽지 미션에도 같은 것이 붙는다.
+ * 진행도 한 칸. 미션 조항마다 붙는다.
  *
  * **have 가 null 이면 숫자가 아예 안 온 것이다.** 가려 둔 게 아니라
  * 서버가 담지 않았다(discloseFor). 그때는 상태 한 마디만 적는다 —

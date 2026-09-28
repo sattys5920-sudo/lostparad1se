@@ -2,7 +2,6 @@
 import { REVEAL, barOf, parseRolesMd } from './rolesMd'
 import { ROLE_DATA } from '../../shared/missions/roleData'
 import type { RoleData } from '../../shared/missions/roleTypes'
-import { SLIP_MISSIONS } from '../../shared/missions/roles'
 import { ROLE_BRANCH, ROLE_IDS, ROLE_NAMES } from '../../shared/missions/roleNames'
 import { DAY4_CHOICES } from '../../shared/rules/choices'
 
@@ -62,16 +61,8 @@ export function checkRoles(data: readonly RoleData[] = ROLE_DATA): { errors: str
     }
   }
 
-  // 공통 — 쪽지 미션 · 마지막 선택
-  if (common.slipMissions.length !== SLIP_MISSIONS.length) errors.push(`쪽지 미션이 문서는 ${common.slipMissions.length}개다`)
-  common.slipMissions.forEach((m, i) => {
-    const s = SLIP_MISSIONS[i]
-    if (!s) return
-    same(`쪽지 미션 ${i + 1}`, m.counts, s.text)
-    if (REVEAL[m.reveal] !== s.disclosure) errors.push(`쪽지 미션 ${i + 1}: 공개가 문서(${m.reveal})와 다르다`)
-    const bar = barOf(m.bar)
-    if (bar.need !== s.need || bar.limit !== s.limit) notices.push(`쪽지 미션 ${i + 1}: 문서 ${m.bar} · 데이터 need ${s.need ?? '-'} limit ${s.limit ?? '-'}`)
-  })
+  // 공통 — 마지막 선택. 쪽지 미션은 없앴다 — 문서에 다시 생기면 막는다
+  if (common.slipMissions.length > 0) errors.push('문서에 「## 쪽지 미션」이 남아 있다 — 쪽지 미션은 없앴다')
   if (common.choices.length !== DAY4_CHOICES.length) errors.push(`마지막 선택이 문서는 ${common.choices.length}개다`)
   common.choices.forEach((c, i) => {
     same(`마지막 선택 ${i + 1} 이름`, c.label, DAY4_CHOICES[i]?.label ?? '')

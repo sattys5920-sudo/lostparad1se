@@ -232,7 +232,6 @@ export function mailOf(snap: MissionSnapDoc, sentAtMs = snap.sentAtMs ?? 0): Mis
     final: snap.final,
     status: snap.override?.status ?? snap.view.status,
     clauses: snap.view.clauses,
-    slips: snap.view.slips,
     choice: snap.view.choice,
     roleName: ROLE_NAMES[snap.roleId] ?? '',
     line: role?.line ?? '',

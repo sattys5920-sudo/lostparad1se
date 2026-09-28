@@ -13,14 +13,11 @@
 // 읽기만 하고(전학생 조항), 어디에도 쓰지 않는다.
 import {
   ROLE_BY_ID,
-  SLIP_MISSIONS,
   type Clause,
   type ClauseKind,
   type Disclosure,
   type MissionSpec,
   type MissionStatus,
-  type SlipMissionId,
-  type SlipMissionSpec,
   clauseText,
 } from './roles'
 import { day4Met, type Day4Choice } from '../rules/choices'
@@ -324,75 +321,12 @@ function judgeMission(spec: MissionSpec, c: Ctx): MissionProgress {
   }
 }
 
-// ── 쪽지 미션 ───────────────────────────────────────────────────
-
-export interface SlipMissionProgress {
-  id: SlipMissionId
-  text: string
-  disclosure: Disclosure
-  unit: Unit
-  mode: Mode
-  have: number
-  bar: number
-  met: boolean
-  broken: boolean
-}
-
-function measureSlip(spec: SlipMissionSpec, c: Ctx): number {
-  const me = meOf(c)
-  switch (spec.id) {
-    case 'keepOthers': {
-      // 남의 쪽지를 읽었고, 그 쪽지가 끝에도 내 손에 있다
-      const held = new Set(c.log.slipsHeldAtEnd[me] ?? [])
-      const read = mine(c, 'slipRead').filter((r) => r.ownerId && r.ownerId !== me && r.subjectId)
-      return new Set(read.map((r) => r.subjectId as string).filter((id) => held.has(id))).size
-    }
-    case 'fewReadMine': {
-      // 나에 대한 쪽지를 읽은 사람. 나 자신은 빼고 센다
-      const readers = c.log.records
-        .filter((r) => r.kind === 'slipRead' && r.ownerId === me && r.actorId !== me)
-        .map((r) => r.actorId)
-      return new Set(readers).size
-    }
-    case 'twiceSamePerson': {
-      // 한 사람의 쪽지를 몇 번 손에 넣었나. 그중 제일 많은 수
-      const byOwner = new Map<string, number>()
-      for (const r of mine(c, 'slipTake')) {
-        if (!r.ownerId) continue
-        byOwner.set(r.ownerId, (byOwner.get(r.ownerId) ?? 0) + 1)
-      }
-      return byOwner.size === 0 ? 0 : Math.max(...byOwner.values())
-    }
-  }
-}
-
-function judgeSlipMissions(c: Ctx): SlipMissionProgress[] {
-  return SLIP_MISSIONS.map((spec) => {
-    const have = measureSlip(spec, c)
-    const mode: Mode = spec.limit !== undefined ? 'atMost' : 'atLeast'
-    const bar = barOf(spec)
-    const met = mode === 'atMost' ? have <= bar : have >= bar
-    return {
-      id: spec.id,
-      text: spec.text,
-      disclosure: spec.disclosure,
-      unit: 'count' as Unit,
-      mode,
-      have,
-      bar,
-      met,
-      broken: mode === 'atMost' && !met,
-    }
-  })
-}
-
 // ── 한 사람의 판정 ──────────────────────────────────────────────
 
 export interface PersonalResult {
   playerId: string
   roleId: Assignment['roleId']
   main: MissionProgress
-  slips: SlipMissionProgress[]
   /** 마지막 선택이 맞아떨어졌는가. */
   choiceMet: boolean
 }
@@ -410,7 +344,6 @@ export function judge(me: Assignment, log: GameLog): PersonalResult {
     playerId: me.playerId,
     roleId: me.roleId,
     main,
-    slips: judgeSlipMissions(c),
     choiceMet: choiceMetOf(c, main.met),
   }
 }
@@ -509,21 +442,10 @@ function discloseMission(m: MissionProgress, phase: Phase): MissionView {
   return { text: m.text, clauses, status: statusOf(m.met, m.broken, allShown, phase === 'end') }
 }
 
-export interface SlipMissionView {
-  id: SlipMissionId
-  text: string
-  shown: boolean
-  have: number | null
-  bar: number
-  mode: Mode
-  status: MissionStatus
-}
-
 export interface PersonalView {
   playerId: string
   roleId: Assignment['roleId']
   main: MissionView
-  slips: SlipMissionView[]
   /** 마지막 선택은 끝나야 판정한다. */
   choice: MissionStatus
 }
@@ -534,18 +456,6 @@ export function discloseFor(result: PersonalResult, phase: Phase): PersonalView 
     playerId: result.playerId,
     roleId: result.roleId,
     main: discloseMission(result.main, phase),
-    slips: result.slips.map((s) => {
-      const shown = visibleAt(s.disclosure, phase)
-      return {
-        id: s.id,
-        text: s.text,
-        shown,
-        have: shown ? s.have : null,
-        bar: s.bar,
-        mode: s.mode,
-        status: statusOf(s.met, s.broken, shown, phase === 'end'),
-      }
-    }),
     choice: phase === 'end' ? (result.choiceMet ? 'met' : 'failed') : 'endOnly',
   }
 }

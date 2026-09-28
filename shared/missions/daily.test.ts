@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { combine, dayVerdict, dayView, deltaOf } from './daily'
-import type { ClauseProgress, PersonalResult, SlipMissionProgress } from './judge'
+import type { ClauseProgress, PersonalResult } from './judge'
 
 const clause = (over: Partial<ClauseProgress>): ClauseProgress => ({
   kind: 'errandsDone',
@@ -16,23 +16,10 @@ const clause = (over: Partial<ClauseProgress>): ClauseProgress => ({
   broken: false,
   ...over,
 })
-const slip = (over: Partial<SlipMissionProgress>): SlipMissionProgress => ({
-  id: 'twiceSamePerson',
-  text: '같은 사람의 쪽지를 두 번 손에 넣는다',
-  disclosure: 'realtime',
-  unit: 'count',
-  mode: 'atLeast',
-  have: 0,
-  bar: 2,
-  met: false,
-  broken: false,
-  ...over,
-})
-const result = (clauses: ClauseProgress[], slips: SlipMissionProgress[] = [], choiceMet = false): PersonalResult => ({
+const result = (clauses: ClauseProgress[], choiceMet = false): PersonalResult => ({
   playerId: 'me',
   roleId: 'duty',
   main: { text: '', clauses, met: clauses.every((c) => c.met), broken: clauses.some((c) => c.broken) },
-  slips,
   choiceMet,
 })
 const mid = { final: false, noBallot: false }
@@ -48,15 +35,9 @@ describe('하루짜리 — 자정이 기한이다', () => {
     expect(v.clauses[0].have).toBe(2)
   })
   it('마지막 선택만 마지막 날에 정해진다', () => {
-    expect(dayVerdict(result([clause({})], [], true), mid).choice).toBe('endOnly')
-    expect(dayVerdict(result([clause({})], [], true), end).choice).toBe('met')
-    expect(dayVerdict(result([clause({})], [], false), end).choice).toBe('failed')
-  })
-  it('쪽지 미션도 그날 것으로 판정한다', () => {
-    const few = slip({ id: 'fewReadMine', mode: 'atMost', have: 3, bar: 2, met: false, broken: true, disclosure: 'daily' })
-    expect(dayVerdict(result([clause({})], [few]), mid).slips[0].status).toBe('failed')
-    const two = slip({ have: 2, met: true })
-    expect(dayVerdict(result([clause({})], [two]), mid).slips[0].status).toBe('met')
+    expect(dayVerdict(result([clause({})], true), mid).choice).toBe('endOnly')
+    expect(dayVerdict(result([clause({})], true), end).choice).toBe('met')
+    expect(dayVerdict(result([clause({})], false), end).choice).toBe('failed')
   })
 })
 

@@ -20,8 +20,7 @@
 //          읽었다는 것이 샌다
 import type { ClauseKind, Disclosure } from './roleTypes'
 import type { MissionStatus } from './roleNames'
-import type { ClauseProgress, Mode, PersonalResult, SlipMissionProgress, Unit } from './judge'
-import type { SlipMissionId } from './roles'
+import type { ClauseProgress, Mode, PersonalResult, Unit } from './judge'
 
 export type DayStatus = MissionStatus
 
@@ -34,7 +33,7 @@ export interface DayContext {
 
 /** 조항 한 줄의 판정 */
 export interface DayClause {
-  kind: ClauseKind | SlipMissionId
+  kind: ClauseKind
   text: string
   unit: Unit
   mode: Mode
@@ -57,7 +56,6 @@ export interface DayClauseView {
 export interface DayVerdict {
   status: DayStatus
   clauses: DayClause[]
-  slips: DayClause[]
   /** 마지막 선택. 마지막 날에만 정해진다 */
   choice: DayStatus
 }
@@ -65,7 +63,6 @@ export interface DayVerdict {
 export interface DayVerdictView {
   status: DayStatus
   clauses: DayClauseView[]
-  slips: DayClauseView[]
   choice: DayStatus
 }
 
@@ -97,25 +94,12 @@ const mainRow = (p: ClauseProgress, ctx: DayContext): DayClause => ({
   disclosure: p.disclosure,
 })
 
-const slipRow = (s: SlipMissionProgress, ctx: DayContext): DayClause => ({
-  kind: s.id,
-  text: s.text,
-  unit: s.unit,
-  mode: s.mode,
-  have: s.have,
-  bar: s.bar,
-  status: clauseStatus(s.id, s, ctx),
-  disclosure: s.disclosure,
-})
-
 /** 운영자가 보는 판정 — 숨긴 조항까지 다 센다 */
 export function dayVerdict(result: PersonalResult, ctx: DayContext): DayVerdict {
   const clauses = result.main.clauses.map((p) => mainRow(p, ctx))
-  const slips = result.slips.map((s) => slipRow(s, ctx))
   return {
     status: combine(clauses.map((c) => c.status)),
     clauses,
-    slips,
     choice: ctx.final ? (result.choiceMet ? 'met' : 'failed') : 'endOnly',
   }
 }
@@ -146,7 +130,6 @@ export function dayView(v: DayVerdict, final: boolean): DayVerdictView {
   return {
     status: combine(clauses.map((c) => c.status)),
     clauses,
-    slips: v.slips.map((c) => viewRow(c, final)),
     choice: v.choice,
   }
 }

@@ -17,7 +17,6 @@ const rows: DashboardRow[] = NAMES.map((name, i) => ({
   role: ROLES[i],
   invisibleDays: i === 4 ? [3] : [],
   mainMet: i % 2 === 0,
-  slipsMet: i % 3,
 }))
 
 const audit: AuditRow[] = [

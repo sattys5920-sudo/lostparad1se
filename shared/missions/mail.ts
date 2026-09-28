@@ -16,7 +16,6 @@ export interface MissionMail {
   /** 그날의 결과. 운영자가 뒤집었으면 뒤집은 값 */
   status: DayStatus
   clauses: DayClauseView[]
-  slips: DayClauseView[]
   choice: DayStatus
   /** 내 역할 이름과 미션 한 줄(「이번에는 …」) */
   roleName: string

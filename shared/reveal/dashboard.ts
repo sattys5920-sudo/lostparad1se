@@ -21,8 +21,6 @@ export interface DashboardInput {
   invisibleDaysOf: (playerId: string) => number[]
   /** 주 미션을 달성했는가. 끝나기 전에는 null. */
   mainMetOf: (playerId: string) => boolean | null
-  /** 채운 쪽지 미션 수. 끝나기 전에는 null. */
-  slipsMetOf: (playerId: string) => number | null
 }
 
 export interface DashboardRow {
@@ -31,7 +29,6 @@ export interface DashboardRow {
   role: RoleId
   invisibleDays: number[]
   mainMet: boolean | null
-  slipsMet: number | null
 }
 
 export function buildRows(input: DashboardInput): DashboardRow[] {
@@ -41,6 +38,5 @@ export function buildRows(input: DashboardInput): DashboardRow[] {
     role: p.role,
     invisibleDays: input.invisibleDaysOf(p.playerId),
     mainMet: input.mainMetOf(p.playerId),
-    slipsMet: input.slipsMetOf(p.playerId),
   }))
 }

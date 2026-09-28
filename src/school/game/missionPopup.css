@@ -152,13 +152,6 @@
 .sc-jd__st.is-met { color: var(--ink); }
 .sc-jd__st.is-failed { color: var(--danger); }
 
-.sc-jd__sub {
-  margin: var(--sp-2) 0 0;
-  font-size: var(--fs-pixel);
-  letter-spacing: 0.2em;
-  color: var(--ink-2);
-}
-
 .sc-jd__choice {
   display: flex;
   justify-content: space-between;

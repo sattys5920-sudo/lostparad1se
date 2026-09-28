@@ -81,7 +81,6 @@ export function HostTools(props: HostToolsProps) {
                   <th>역할</th>
                   <th>투명인간</th>
                   <th>주 미션</th>
-                  <th>쪽지 미션</th>
                 </tr>
               </thead>
               <tbody>
@@ -92,7 +91,6 @@ export function HostTools(props: HostToolsProps) {
                     <td>{r.invisibleDays.length > 0 ? r.invisibleDays.map((d) => `D${d}`).join(' ') : '—'}</td>
                     {/* 끝나기 전에는 서버가 null을 준다 — 화면이 숨기는 게 아니다 */}
                     <td>{r.mainMet === null ? '—' : r.mainMet ? '달성' : '미달'}</td>
-                    <td className="sc-ho__num">{r.slipsMet === null ? '—' : r.slipsMet}</td>
                   </tr>
                 ))}
               </tbody>

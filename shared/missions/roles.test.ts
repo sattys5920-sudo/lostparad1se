@@ -16,7 +16,6 @@ import {
   ROLE_IDS,
   ROLE_NAMES,
   ROSTER_SIZE,
-  SLIP_MISSIONS,
   STATUS_LABEL,
 } from './roles'
 import { REVEAL, barOf, parseRolesMd } from '../../scripts/lib/rolesMd'
@@ -93,7 +92,7 @@ describe('조건 수치', () => {
 
   // 기준 문서(docs/roles_full.md)를 직접 읽어 맞대어 본다. 수치를 시험에
   // 박아 두면 문서와 데이터를 같이 고쳤을 때 시험만 옛 값에 남는다
-  const { roles: mdRoles, common } = parseRolesMd()
+  const { roles: mdRoles } = parseRolesMd()
 
   /** 문서 한 줄의 기준. 「같은 방에 1분 이상 …」처럼 말 안에 박힌 분도 minutes 로 읽는다 */
   const wantOf = (counts: string, bar: string) => {
@@ -141,33 +140,6 @@ describe('조건 수치', () => {
     }
   })
 
-  it('쪽지 미션 수치와 공개 시점도 문서 그대로다', () => {
-    expect(common.slipMissions).toHaveLength(SLIP_MISSIONS.length)
-    common.slipMissions.forEach((mc, i) => {
-      const s = SLIP_MISSIONS[i]
-      const want = barOf(mc.bar)
-      expect(s.text).toBe(mc.counts)
-      expect(s.need, s.id).toBe(want.need)
-      expect(s.limit, s.id).toBe(want.limit)
-      expect(s.disclosure, s.id).toBe(REVEAL[mc.reveal])
-    })
-  })
-})
-
-describe('쪽지 미션', () => {
-  it('셋이다', () => {
-    expect(SLIP_MISSIONS).toHaveLength(3)
-  })
-
-  it('아이디가 겹치지 않는다', () => {
-    expect(new Set(SLIP_MISSIONS.map((m) => m.id)).size).toBe(3)
-  })
-
-  it('「2명 이하」는 상한 조항이다', () => {
-    const few = SLIP_MISSIONS.find((m) => m.id === 'fewReadMine')
-    expect(few?.limit).toBe(2)
-    expect(few?.need).toBeUndefined()
-  })
 })
 
 describe('마지막 선택', () => {

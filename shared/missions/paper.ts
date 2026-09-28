@@ -8,7 +8,7 @@
 // **타입과 말 한 줄뿐인 파일이다.** judge·roles 는 import type 으로만
 // 부르므로 화면이 이 파일을 불러도 그 알맹이는 번들에 안 실린다
 // (verbatimModuleSyntax) — scripts/check-bundle.ts 가 그걸 본다.
-import type { MissionView, SlipMissionView } from './judge'
+import type { MissionView } from './judge'
 import type { MissionStatus } from './roleNames'
 
 /**
@@ -45,8 +45,6 @@ export interface MyPaperDoc {
    */
   counting: boolean
   main: MissionView
-  /** 쪽지를 주우면서 따라붙는다. 안 주웠으면 빈 목록이다. */
-  slips: SlipMissionView[]
   /** 마지막 선택. 끝나야 판정한다. */
   choice: MissionStatus
   /** 합계뿐이다. 신뢰인지 호감인지도, 누가 줬는지도 안 온다. */

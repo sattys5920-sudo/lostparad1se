@@ -9,7 +9,6 @@ const base: DashboardInput = {
   ],
   invisibleDaysOf: () => [],
   mainMetOf: () => null,
-  slipsMetOf: () => null,
 }
 
 describe('운영자 대시보드', () => {
@@ -29,7 +28,6 @@ describe('운영자 대시보드', () => {
     const rows = buildRows(base)
     for (const r of rows) {
       expect(r.mainMet).toBe(null)
-      expect(r.slipsMet).toBe(null)
     }
   })
 
@@ -37,10 +35,9 @@ describe('운영자 대시보드', () => {
     const rows = buildRows({
       ...base,
       mainMetOf: (id) => id === 'p1',
-      slipsMetOf: (id) => (id === 'p1' ? 2 : 0),
     })
-    expect(rows[0]).toMatchObject({ mainMet: true, slipsMet: 2 })
-    expect(rows[1]).toMatchObject({ mainMet: false, slipsMet: 0 })
+    expect(rows[0]).toMatchObject({ mainMet: true })
+    expect(rows[1]).toMatchObject({ mainMet: false })
   })
 
   it('표를 보낸 사람은 어디에도 없다', () => {

@@ -224,12 +224,6 @@ export function MissionPopup({ mail, onClose }: { mail: MissionMail; onClose: ()
           </h2>
 
           <Lines rows={mail.clauses} />
-          {mail.slips.length > 0 && (
-            <>
-              <p className="sc-jd__sub">쪽지</p>
-              <Lines rows={mail.slips} />
-            </>
-          )}
 
           {mail.final && (
             <p className="sc-jd__choice">

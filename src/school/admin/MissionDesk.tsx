@@ -402,7 +402,6 @@ function PlayerRow({
 }) {
   const eff = effOf(r)
   const dMain = deltaOf(r.truth.clauses, prev?.clauses ?? null)
-  const dSlip = deltaOf(r.truth.slips, prev?.slips ?? null)
   const sentText = r.sentAtMs === null ? '안 보냄' : stale ? '다시 보내야' : `보냄 ${hhmm(r.sentAtMs)}`
 
   return (
@@ -435,7 +434,6 @@ function PlayerRow({
       {open && (
         <div className="sc-md__body">
           <Clauses title="미션" list={r.truth.clauses} view={r.view.clauses} delta={dMain} hasPrev={prev !== null} />
-          {r.truth.slips.length > 0 && <Clauses title="쪽지 미션" list={r.truth.slips} view={r.view.slips} delta={dSlip} hasPrev={prev !== null} />}
           {r.final && (
             <p className="sc-md__line">
               <Dot s={r.truth.choice} /> 마지막 선택 <b>{STATUS_LABEL[r.truth.choice]}</b>
@@ -581,12 +579,6 @@ function MailCard({ mail }: { mail: MissionMail }) {
       </p>
       <p className={`sc-md__result is-${mail.status}`}>{RESULT_LINE[mail.status]}</p>
       <ul>{lines(mail.clauses)}</ul>
-      {mail.slips.length > 0 && (
-        <>
-          <p className="sc-md__mailSub">쪽지 미션</p>
-          <ul>{lines(mail.slips)}</ul>
-        </>
-      )}
       {mail.final && (
         <p className="sc-md__mailSub">
           마지막 선택 — {RESULT_LINE[mail.choice]}

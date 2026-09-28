@@ -41,7 +41,7 @@ import { judge, type GameLog, type JudgeVote } from '../missions/judge'
 // 판정이 보는 기록은 GameLog 하나뿐이다
 interface SimCapture { tileId: TileId; team: TeamId | null; ownerBefore: TeamId | null; standing: string[]; atMs: number }
 interface SimTrade { fromTeam: TeamId; toTeam: TeamId; atMs: number }
-import { ROLE_BY_ID, SLIP_MISSION_IDS } from '../missions/roles'
+import { ROLE_BY_ID } from '../missions/roles'
 
 const TICK_SEC = MOVE_GAME_MIN_PER_TILE * 60
 
@@ -76,7 +76,7 @@ export interface SimResult {
   teamScores: ScoreBreakdown[]
   winner: TeamId
   /** 사람별 미션 달성 여부. 점수는 매기지 않는다. */
-  personal: { playerId: string; roleId: string; main: boolean; slips: number }[]
+  personal: { playerId: string; roleId: string; main: boolean }[]
   /** 주인이 바뀐 횟수. */
   capturesMade: number
   votesCast: number
@@ -263,7 +263,7 @@ export function simulateGame(seed: string, startMs: number): SimResult {
 
   const personal = assignments.map((a) => {
     const out = judge(a, gameLog)
-    return { playerId: a.playerId, roleId: a.roleId as string, main: out.main.met, slips: out.slips.filter((x) => x.met).length }
+    return { playerId: a.playerId, roleId: a.roleId as string, main: out.main.met }
   })
 
   return {
@@ -395,7 +395,6 @@ export interface SimReport {
   teamScore: { min: number; max: number; mean: number }
   /** 역할마다 주 미션을 깬 비율. */
   mainRate: Record<string, number>
-  slipRate: Record<string, number>
   perGame: { captures: number; votes: number }
 }
 
@@ -406,7 +405,6 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
   const wins = Object.fromEntries(TEAM_IDS.map((t) => [t, 0])) as Record<TeamId, number>
   const teamTotals: number[] = []
   const mainHit = new Map<string, { met: number; n: number }>()
-  const slipHit = new Map<string, { met: number; n: number }>()
   const sums = { captures: 0, votes: 0 }
 
   for (const r of results) {
@@ -417,10 +415,6 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
       m.n++
       if (p.main) m.met++
       mainHit.set(p.roleId, m)
-      const b = slipHit.get(p.roleId) ?? { met: 0, n: 0 }
-      b.n += SLIP_MISSION_IDS.length
-      b.met += p.slips
-      slipHit.set(p.roleId, b)
     }
     sums.captures += r.capturesMade
     sums.votes += r.votesCast
@@ -435,7 +429,6 @@ export function runGames(count: number, startMs: number, seedPrefix = 'sim'): Si
     wins,
     teamScore: { min: Math.min(...teamTotals), max: Math.max(...teamTotals), mean: mean(teamTotals) },
     mainRate: rate(mainHit),
-    slipRate: rate(slipHit),
     perGame: {
       captures: sums.captures / count,
       votes: sums.votes / count,

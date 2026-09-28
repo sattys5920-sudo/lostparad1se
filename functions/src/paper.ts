@@ -104,7 +104,6 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
       ...head,
       counting: false,
       main: { text: role.main.text, clauses: [], status: 'endOnly' as const },
-      slips: [],
       choice: 'endOnly' as const,
       votesReceived: 0,
       votesThroughDay: 0,
@@ -131,7 +130,6 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     ...head,
     counting: true,
     main: shown.main,
-    slips: shown.slips,
     choice: shown.choice,
     votesReceived,
     /** 표를 어디까지 셌는가. 화면이 「어제까지」라고 적는다. */

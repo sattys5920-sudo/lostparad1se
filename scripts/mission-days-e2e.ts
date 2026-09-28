@@ -70,8 +70,8 @@ interface Snap {
   roleId: string
   final: boolean
   asOfMs: number
-  truth: { status: string; clauses: Clause[]; slips: Clause[]; choice: string }
-  view: { status: string; clauses: Clause[]; slips: Clause[]; choice: string }
+  truth: { status: string; clauses: Clause[]; choice: string }
+  view: { status: string; clauses: Clause[]; choice: string }
 }
 interface DayOut { days: { day: number; final: boolean }[]; day: number | null; rows: Snap[] }
 

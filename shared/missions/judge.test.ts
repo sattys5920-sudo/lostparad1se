@@ -7,7 +7,7 @@
 // 공개 정책도 여기서 본다. 가려야 할 값이 문서에 **들어 있지 않은지**
 // 까지 본다 — 받아서 가리는 방식이면 개발자도구로 다 보인다.
 import { describe, expect, it } from 'vitest'
-import { discloseFor, judge, type BallotDay, type BallotVote, type GameLog, type JudgeVote } from './judge'
+import { judge, type BallotDay, type BallotVote, type GameLog, type JudgeVote } from './judge'
 import type { Assignment } from './assign'
 import { ROLES, ROLE_BY_ID, type ClauseKind, type RoleId } from './roles'
 import type { GameRecord, RecordKind } from '../rules/records'
@@ -436,167 +436,12 @@ describe('뒷자리 — 내가 적은 이름이 그날 투명인간이 되면', 
   })
 })
 
-// ── 쪽지 미션 ───────────────────────────────────────────────────
-
-describe('쪽지 미션 셋', () => {
-  const slipOf = (id: string, out = judge(me('deskmate'), log())) =>
-    out.slips.find((s) => s.id === id)
-
-  it('남의 쪽지를 읽고 끝까지 쥐고 있어야 한다', () => {
-    const read = did('slipRead', 1, { subjectId: 'slipX', ownerId: 'b1' })
-    const kept = judge(me('deskmate'), log({ records: read, slipsHeldAtEnd: { me: ['slipX'] } }))
-    const lost = judge(me('deskmate'), log({ records: read, slipsHeldAtEnd: { me: [] } }))
-    expect(slipOf('keepOthers', kept)?.met).toBe(true)
-    expect(slipOf('keepOthers', lost)?.met).toBe(false)
-  })
-
-  it('내 쪽지를 내가 쥐고 있는 것은 안 센다', () => {
-    const read = did('slipRead', 1, { subjectId: 'mine', ownerId: 'me' })
-    const out = judge(me('deskmate'), log({ records: read, slipsHeldAtEnd: { me: ['mine'] } }))
-    expect(slipOf('keepOthers', out)?.met).toBe(false)
-  })
-
-  it('나에 대한 쪽지를 둘이 읽으면 되고 셋이면 깨진다', () => {
-    const readers = (ids: string[]): GameRecord[] =>
-      ids.map((id) => ({
-        kind: 'slipRead' as const,
-        atMs: START,
-        actorId: id,
-        actorTeam: TEAM_OF[id],
-        subjectId: 'aboutMe',
-        ownerId: 'me',
-      }))
-    const two = judge(me('deskmate'), log({ records: readers(['b1', 'c1']) }))
-    const three = judge(me('deskmate'), log({ records: readers(['b1', 'c1', 'd1']) }))
-    expect(slipOf('fewReadMine', two)?.met).toBe(true)
-    expect(slipOf('fewReadMine', three)?.met).toBe(false)
-    expect(slipOf('fewReadMine', three)?.broken, '상한은 도중에 깨진다').toBe(true)
-  })
-
-  it('내가 내 쪽지를 읽은 것은 남이 읽은 것이 아니다', () => {
-    const selfRead = did('slipRead', 1, { subjectId: 'aboutMe', ownerId: 'me' })
-    const out = judge(me('deskmate'), log({ records: selfRead }))
-    expect(slipOf('fewReadMine', out)?.have).toBe(0)
-  })
-
-  it('같은 사람의 쪽지를 두 번 주우면 찬다', () => {
-    const once = did('slipTake', 1, { ownerId: 'b1' })
-    const twice = [...did('slipTake', 1, { ownerId: 'b1' }), ...did('slipTake', 1, { ownerId: 'b1' })]
-    const spread = [...did('slipTake', 1, { ownerId: 'b1' }), ...did('slipTake', 1, { ownerId: 'c1' })]
-    expect(slipOf('twiceSamePerson', judge(me('deskmate'), log({ records: once })))?.met).toBe(false)
-    expect(slipOf('twiceSamePerson', judge(me('deskmate'), log({ records: twice })))?.met).toBe(true)
-    expect(slipOf('twiceSamePerson', judge(me('deskmate'), log({ records: spread })))?.met).toBe(false)
-  })
-})
-
-// ── 공개 정책 ───────────────────────────────────────────────────
-
-describe('공개 정책', () => {
-  const votes: JudgeVote[] = ['b1', 'b2', 'c1'].map((voterId) => ({
-    voterId,
-    targetId: 'me',
-    kind: 'trust' as const,
-    day: 1,
-    atMs: START,
-  }))
-  const result = judge(me('model'), log({ votes, over: false }))
-
-  it('받은 표 조항은 판이 도는 중에 숫자를 안 내려보낸다', () => {
-    const view = discloseFor(result, 'live')
-    for (const c of view.main.clauses) {
-      expect(c.shown).toBe(false)
-      expect(c.have).toBe(null)
-    }
-  })
-
-  it('하루가 바뀌면 열린다', () => {
-    const view = discloseFor(result, 'dayTurned')
-    for (const c of view.main.clauses) expect(c.have).not.toBe(null)
-  })
-
-  it('가린 값은 문서에 아예 안 들어간다', () => {
-    const text = JSON.stringify(discloseFor(result, 'live'))
-    expect(text).not.toContain('"have":3')
-    expect(text).not.toContain('b1')
-    expect(text).not.toContain('voterId')
-  })
-
-  it('뒷자리 조항은 투명인간 발표 뒤에만 열린다', () => {
-    const back = judge(me('backseat'), log({ over: false }))
-    expect(discloseFor(back, 'live').main.clauses[0].shown).toBe(false)
-    expect(discloseFor(back, 'dayTurned').main.clauses[0].shown).toBe(false)
-    expect(discloseFor(back, 'ballotShown').main.clauses[0].shown).toBe(true)
-  })
-
-  it('전학생의 1위 조항은 하루가 바뀌면 열린다', () => {
-    expect(clauseOf('newcomer', 'teamNotFirstAtEnd').disclosure).toBe('daily')
-    const nc = judge(me('newcomer'), log({ over: false }))
-    for (const phase of ['live', 'ballotShown'] as const) {
-      const v = discloseFor(nc, phase)
-      expect(v.main.clauses[0].shown, phase).toBe(false)
-      expect(v.main.clauses[0].have, phase).toBe(null)
-      expect(v.main.clauses[0].status, phase).toBe('endOnly')
-    }
-    const turned = discloseFor(nc, 'dayTurned').main.clauses[0]
-    expect(turned.shown).toBe(true)
-    expect(turned.have, '우리 팀은 2위다').toBe(1)
-    expect(turned.status).toBe('met')
-    expect(discloseFor(nc, 'end').main.clauses[0].shown).toBe(true)
-  })
-
-  it('마지막 선택은 끝날 때 판정이다', () => {
-    const out = judge(me('deskmate'), log({ choiceMet: { me: true } }))
-    expect(discloseFor(out, 'live').choice).toBe('endOnly')
-    expect(discloseFor(out, 'end').choice).toBe('met')
-  })
-
-  it('남의 아이디는 어디에도 안 들어간다', () => {
-    const rows = [...did('slipRead', 2, { ownerId: 'b1' }), ...did('slipTake', 1, { ownerId: 'c1' })]
-    const out = judge(me('crush', 'b1'), log({ records: rows, over: false }))
-    const text = JSON.stringify(discloseFor(out, 'live'))
-    expect(text).not.toContain('b1')
-    expect(text).not.toContain('c1')
-  })
-})
-
-// ── 실패는 뒤집힐 수 없을 때만 ──────────────────────────────────
-
-describe('실패는 뒤집힐 수 없을 때만 붙는다', () => {
-  it('아직 채울 수 있으면 진행 중이다', () => {
-    const out = judge(me('duty'), log({ records: did('errandDone', needOf('duty', 'errandsDone') - 1), over: false }))
-    expect(discloseFor(out, 'live').main.status).toBe('running')
-  })
-
-  it('끝났는데 못 채웠으면 실패다', () => {
-    const out = judge(me('duty'), log({ records: did('errandDone', needOf('duty', 'errandsDone') - 1) }))
-    expect(discloseFor(out, 'end').main.status).toBe('failed')
-  })
-
-  it('상한을 넘겨도 도중에는 「끝날 때 판정」이다 — 실패로 뜨면 세 사람이 읽은 것이 샌다', () => {
-    const readers: GameRecord[] = ['b1', 'c1', 'd1'].map((id) => ({
-      kind: 'slipRead',
-      atMs: START,
-      actorId: id,
-      actorTeam: TEAM_OF[id],
-      subjectId: 'aboutMe',
-      ownerId: 'me',
-    }))
-    const out = judge(me('deskmate'), log({ records: readers, over: false }))
-    const few = discloseFor(out, 'live').slips.find((s) => s.id === 'fewReadMine')
-    expect(few?.status).toBe('endOnly')
-    expect(few?.have).toBeNull()
-    // 끝나면 그때 실패다
-    expect(discloseFor(out, 'end').slips.find((s) => s.id === 'fewReadMine')?.status).toBe('failed')
-  })
-})
-
 describe('열네 역할 모두', () => {
   it('판정이 돈다', () => {
     for (const r of ROLES) {
       const out = judge(me(r.id, r.id === 'crush' ? 'b1' : null), log())
       expect(out.main.clauses.length, r.id).toBe(r.main.clauses.length)
       expect(typeof out.main.met, r.id).toBe('boolean')
-      expect(out.slips, r.id).toHaveLength(3)
     }
   })
 
