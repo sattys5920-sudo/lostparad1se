@@ -9,14 +9,14 @@
 import type { Page } from 'playwright'
 
 export interface AuditHit {
-  kind: 'pixel' | 'scale' | 'contrast'
+  kind: 'pixel' | 'scale' | 'contrast' | 'input' | 'tap'
   where: string
   what: string
 }
 
 export async function auditText(page: Page): Promise<AuditHit[]> {
   return page.evaluate(() => {
-    const out: { kind: 'pixel' | 'scale' | 'contrast'; where: string; what: string }[] = []
+    const out: { kind: 'pixel' | 'scale' | 'contrast' | 'input' | 'tap'; where: string; what: string }[] = []
     const seen = new Set<string>()
     const parse = (c: string): [number, number, number, number] | null => {
       const m = c.match(/rgba?\(([^)]+)\)/)
@@ -40,8 +40,9 @@ export async function auditText(page: Page): Promise<AuditHit[]> {
           stack.push(c)
           if (c[3] >= 1) break
         }
-        // 이미지·그라데이션 바탕은 모른다 — 거기서 멈춘다
+        // 이미지·그라데이션 바탕, 캔버스로 그린 종이는 모른다 — 거기서 멈춘다
         if (getComputedStyle(e).backgroundImage !== 'none') return []
+        if (e.querySelector(':scope > canvas, :scope > svg')) return []
       }
       let col = [13, 15, 22]
       for (const c of stack.reverse()) col = [0, 1, 2].map((i) => c[i] * c[3] + col[i] * (1 - c[3]))
@@ -50,6 +51,33 @@ export async function auditText(page: Page): Promise<AuditHit[]> {
     const name = (el: Element) => {
       const cls = (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)[0]
       return cls ? `.${cls}` : el.tagName.toLowerCase()
+    }
+    // 16 아래인 입력칸 — 아이폰이 확대한다
+    for (const el of Array.from(document.querySelectorAll('input, textarea, select'))) {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) continue
+      const t = (el as HTMLInputElement).type
+      if (t === 'checkbox' || t === 'radio' || t === 'range') continue
+      const size = parseFloat(getComputedStyle(el).fontSize)
+      if (size < 16) out.push({ kind: 'input', where: name(el), what: `${size}px` })
+    }
+    // 44 보다 작은 누를 것. ::after 로 넓힌 히트박스도 센다
+    for (const el of Array.from(document.querySelectorAll('button, a[href], [role="button"], select, input[type="checkbox"], input[type="radio"]'))) {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0 || r.bottom < 0 || r.top > innerHeight) continue
+      if (getComputedStyle(el).visibility === 'hidden') continue
+      const af = getComputedStyle(el, '::after')
+      const bf = getComputedStyle(el, '::before')
+      const reach = (p: CSSStyleDeclaration) =>
+        p.content !== 'none' && p.position === 'absolute' ? [parseFloat(p.width) || 0, parseFloat(p.height) || 0] : [0, 0]
+      const [aw, ah] = reach(af)
+      const [bw, bh] = reach(bf)
+      const w = Math.max(r.width, aw, bw)
+      const h = Math.max(r.height, ah, bh)
+      if ((w < 43.5 || h < 43.5) && !seen.has(`t|${name(el)}`)) {
+        seen.add(`t|${name(el)}`)
+        out.push({ kind: 'tap', where: name(el), what: `${Math.round(w)}×${Math.round(h)} 「${(el.textContent ?? el.getAttribute('aria-label') ?? '').trim().slice(0, 10)}」` })
+      }
     }
     for (const el of Array.from(document.querySelectorAll('body *'))) {
       const own = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim() !== '')

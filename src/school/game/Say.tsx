@@ -29,6 +29,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 
 import { ROOM_SAY_BURST, ROOM_SAY_BURST_MS, ROOM_SAY_COOL_MS, ROOM_SAY_MAX } from '../../../shared/rules/v2'
+import { buzz } from './Controls'
 import { TEAM_COLOR } from './MapPlan'
 import type { ChatLine } from './useChat'
 import type { GameActions } from './useGame'
@@ -84,7 +85,25 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck }
 
   async function send() {
     const text = draft.trim()
-    if (!text || busy || !can) return
+    if (busy) return
+    /*
+     * **막힌 단추는 까닭을 말한다.** 비어 있거나 못 말하는 자리여도 단추는
+     * 눌린다 — 회색으로 죽여 두면 왜 안 되는지 알 길이 없다.
+     */
+    if (!can) {
+      onSaid(held ? '너무 빠르다. 잠깐 쉬어라.' : '어딘가에 서야 말할 수 있다.')
+      buzz('no')
+      return
+    }
+    if (!text) {
+      // 닫혀 있을 때의 말풍선은 「말하기를 연다」다. 열려 있을 때만 꾸중한다
+      if (open) {
+        onSaid('내용을 적어 주세요.')
+        buzz('no')
+      }
+      boxRef.current?.focus()
+      return
+    }
 
     // 도배 막이. **화면이 먼저 손을 붙든다** — 방 안의 말은 판정에
     // 안 쓰이므로 서버가 막을 이유가 없고, 막아야 할 것은 옆 사람의
@@ -102,12 +121,14 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck }
     try {
       const res = (await act.say(text)) as { heard?: boolean }
       setDraft('')
+      buzz('ok')
       // 들리지 않았다는 것만은 알려 준다. 허공에 대고 친 줄 모르면
       // 대답이 없는 이유를 영영 알 수 없다
       if (res.heard === false) onSaid('아무도 듣지 못했다.')
       await pull()
     } catch (e) {
       onSaid((e as Error).message)
+      buzz('no')
     } finally {
       setBusy(false)
       // 한 줄 치고 나면 이어 친다. 칸에서 손을 떼지 않는다
@@ -187,8 +208,8 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck }
         */}
         <button
           type="button"
-          className="sc-sy__send"
-          disabled={!can || busy || draft.trim().length === 0}
+          className={'sc-sy__send' + (!can || draft.trim().length === 0 ? ' is-empty' : '')}
+          disabled={busy}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void send()}
           aria-label={open ? '보내기' : '말하기'}

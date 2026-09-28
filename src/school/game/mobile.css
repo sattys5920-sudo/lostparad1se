@@ -66,11 +66,7 @@
   font-size: var(--fs-body);
 }
 
-/* 누르는 순간 보이는 반응. 모바일에는 hover 가 없다 */
-.sc-pl-root button:active:not(:disabled) {
-  transform: translateY(1px);
-  opacity: 0.75;
-}
+/* 누르는 순간의 반응은 theme.css 에 있다(.school-root 전체) */
 
 /* 최소 터치 영역. 손가락은 커서가 아니다 — 세로만 재면 짧은 이름
    단추가 43px 로 남는다. 가로도 같이 잰다 */
@@ -739,46 +735,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-}
-
-/* ── 한 번 묻기 ───────────────────────────────────────────── */
-
-.sc-ask {
-  position: fixed;
-  inset: 0;
-  z-index: 95;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--sp-6);
-  background: color-mix(in srgb, var(--bg-0) 60%, transparent);
-}
-.sc-ask__panel {
-  width: 100%;
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  padding: var(--sp-4);
-  background: var(--sc-bg);
-  border: 1px solid var(--sc-line-strong);
-  border-radius: var(--r-paper);
-}
-.sc-ask__panel p { margin: 0; font-size: var(--fs-label); line-height: 20px; }
-.sc-ask__row { display: flex; gap: var(--sp-2); }
-.sc-ask__row button {
-  flex: 1;
-  appearance: none;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--r-game);
-  background: var(--sc-surface);
-  color: var(--sc-text);
-  font-size: var(--fs-label);
-}
-.sc-ask__row .is-go {
-  border-color: var(--sc-danger);
-  background: var(--sc-danger);
-  color: var(--text-1);
 }
 
 /* ── 홈 화면에 추가 ───────────────────────────────────────── */

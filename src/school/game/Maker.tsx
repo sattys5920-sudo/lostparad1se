@@ -14,6 +14,7 @@ import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { leftText } from './Phase'
 import { Cost } from './Cost'
+import { buzz } from './Controls'
 
 export interface MakerProps {
   view: PlayerViewDoc | null
@@ -35,10 +36,12 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
     setBusy(true)
     try {
       const out = (await fn()) as { count?: number; got?: number }
+      buzz('ok')
       if (out.got !== undefined) onSaid(`덫 ${out.got}개를 찾았다.`)
       else if (out.count !== undefined) onSaid(`맡겼다. ${TRAP_MAKE_MINUTES}분 뒤에 ${out.count}개.`)
       else onSaid(`${label} 했다.`)
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)

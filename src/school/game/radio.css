@@ -185,52 +185,55 @@
 
 .sc-rd__bar {
   flex: none;
-  display: flex;
-  gap: var(--sp-1);
   padding: var(--sp-2) var(--sp-2) 0;
   border-top: 1px solid var(--rd-line);
 }
+
+/* 칸 하나 안에 적는 자리와 보내기가 같이 앉는다. 보내기는 칸 **안** 오른쪽 */
+.sc-rd__field {
+  display: flex;
+  align-items: stretch;
+  height: 44px;
+  box-sizing: border-box;
+  border: 1px solid var(--rd-line);
+  background: var(--bg-2);
+}
+.sc-rd__field:focus-within { border-color: var(--accent); }
 
 .sc-rd .sc-rd__bar input {
   flex: 1;
   min-width: 0;
   appearance: none;
-  height: 44px;
-  box-sizing: border-box;
-  border: 1px solid var(--rd-line);
+  border: 0;
   border-radius: 0;
-  background: var(--bg-1);
+  background: transparent;
   font-family: inherit;
   /* 16px 아래면 아이폰이 화면을 확대한다. 갈무리는 11 의 정수 배에서만
      또렷하니 22 다 — 두 조건이 만나는 자리가 여기뿐이다 */
   font-size: var(--fs-pixel-2);
   line-height: 1;
   color: var(--rd-text);
-  padding: 0 var(--sp-2);
+  padding: 0 var(--sp-3);
 }
-.sc-rd .sc-rd__bar input::placeholder { color: var(--rd-faint); font-size: var(--fs-cap); }
-.sc-rd .sc-rd__bar input:focus { outline: none; border-color: var(--rd-on); }
+.sc-rd .sc-rd__bar input::placeholder { color: var(--text-2); font-size: var(--fs-pixel); }
+.sc-rd .sc-rd__bar input:focus { outline: none; }
 
 .sc-rd__send {
   flex: none;
   width: 44px;
-  min-height: 44px;
   appearance: none;
-  border: 1px solid var(--rd-on);
+  border: 0;
   border-radius: 0;
-  background: var(--rd-on);
-  color: var(--bg-0);
+  background: transparent;
+  color: var(--accent);
   font-family: inherit;
   font-size: var(--fs-pixel-2);
   line-height: 1;
   cursor: pointer;
 }
-.sc-rd__send:disabled {
-  border-color: var(--rd-line);
-  background: none;
-  color: var(--rd-faint);
-  cursor: default;
-}
+/* 비었을 때는 흐리지만 눌린다 */
+.sc-rd__send.is-empty,
+.sc-rd__send:disabled { color: var(--text-2); }
 
 .sc-rd__note {
   flex: none;

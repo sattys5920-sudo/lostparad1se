@@ -223,6 +223,7 @@ async function shoot(w: number, h: number, browser: Browser) {
   const burst: { at: number; look: Look }[] = []
   const t0 = Date.now()
   await page.locator('.sc-bt__go').click()
+  await page.locator('.sc-bt__go').click() // 두 번 누르기 — 한 번이면 「정말?」이다
   // 누르자마자 잠겼는지부터 본다
   const locked = (await page.evaluate(LOOK)) as Look
   for (let i = 0; i < 14; i++) {
@@ -240,6 +241,7 @@ async function shoot(w: number, h: number, browser: Browser) {
     const free = page.locator('.sc-bt__name:not([disabled])').first()
     await free.click()
     await page.locator('.sc-bt__go').click()
+  await page.locator('.sc-bt__go').click() // 두 번 누르기 — 한 번이면 「정말?」이다
     await page.waitForTimeout(1700)
   }
 
@@ -285,6 +287,7 @@ async function shoot(w: number, h: number, browser: Browser) {
     await p2.locator('.sc-bt__name:not([disabled])').first().click()
     const q0 = Date.now()
     await p2.locator('.sc-bt__go').click()
+    await p2.locator('.sc-bt__go').click() // 두 번 누르기
     await p2.waitForSelector('.sc-bt__done, .sc-bt__oops', { timeout: 5000 })
     if ((await p2.locator('.sc-bt__done').count()) > 0) {
       plainMs = Date.now() - q0
@@ -321,6 +324,7 @@ async function shoot(w: number, h: number, browser: Browser) {
       return (hold.className.includes('away') ? 'a' : hold.className.includes('half') ? 'h' : 'p') + (box ? getComputedStyle(box).transform : '-')
     }
     const t0 = performance.now()
+    document.querySelector('.sc-bt__go').click()
     document.querySelector('.sc-bt__go').click()
     let last = ''
     while (performance.now() - t0 < 2200) {

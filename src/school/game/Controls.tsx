@@ -32,10 +32,21 @@ export function setBuzz(on: boolean): void {
     // 사파리 비공개 창에서는 못 쓴다. 진동 설정 하나 때문에 터지면 안 된다
   }
 }
-/** 걸음은 짧게, 행동은 조금 길게. */
-export function buzz(kind: 'step' | 'act'): void {
+/**
+ * 걸음은 짧게, 행동은 조금 길게. **됐으면 한 번, 안 됐으면 두 번.**
+ *
+ * 아이폰 사파리에는 진동이 없다(navigator.vibrate 가 없다). 그러면 아무
+ * 일도 안 일어난다 — 진동이 없어도 글자로 다 알려 주므로 잃는 것은 없다.
+ */
+const BUZZ: Record<'step' | 'act' | 'ok' | 'no', number | number[]> = {
+  step: 8,
+  act: 18,
+  ok: 12,
+  no: [18, 60, 18],
+}
+export function buzz(kind: keyof typeof BUZZ): void {
   if (!buzzOn()) return
-  navigator.vibrate?.(kind === 'step' ? 8 : 18)
+  navigator.vibrate?.(BUZZ[kind])
 }
 
 /**

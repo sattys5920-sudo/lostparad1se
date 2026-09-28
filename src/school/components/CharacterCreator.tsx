@@ -294,6 +294,11 @@ export function CharacterCreator({
           <span>이 름</span>
           <input
             id="cc-name"
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
             value={name ?? ''}
             maxLength={12}
             placeholder="1~12자"

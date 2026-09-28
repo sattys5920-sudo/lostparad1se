@@ -9,6 +9,8 @@ import { Cost } from './Cost'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
+import { Sure } from './Sheet'
+import { buzz } from './Controls'
 
 /** 게시판 앞에 섰을 때 올라오는 목록. */
 export function BoardSheet({
@@ -79,12 +81,10 @@ export function ErrandStrip({
   view,
   act,
   onSaid,
-  ask,
 }: {
   view: PlayerViewDoc | null
   act: GameActions
   onSaid: (t: string) => void
-  ask: (t: string) => Promise<boolean>
 }) {
   const [busy, setBusy] = useState(false)
   const e = view?.myErrand ?? null
@@ -94,8 +94,10 @@ export function ErrandStrip({
     setBusy(true)
     try {
       await fn()
+      buzz('ok')
       onSaid(label)
     } catch (err) {
+      buzz('no')
       onSaid((err as Error).message)
     } finally {
       setBusy(false)
@@ -125,18 +127,15 @@ export function ErrandStrip({
         </button>
       )}
       {e.carrying && <em>{e.canDrop ? '아이템창에서 놓는다' : '들고 있다'}</em>}
-      <button
+      <Sure
         className="sc-er__quit is-inline"
         disabled={busy}
-        aria-label="포기"
-        onClick={() => {
-          void ask('그만두면 들고 있던 것이 사라진다. 그만둘까?').then(async (yes) => {
-            if (yes) await run('그만뒀다.', () => act.giveUpErrand())
-          })
-        }}
+        aria-label="심부름 그만두기"
+        warn="들고 있던 것이 사라진다."
+        onGo={() => void run('그만뒀다.', () => act.giveUpErrand())}
       >
         ✕
-      </button>
+      </Sure>
     </div>
   )
 }

@@ -7,6 +7,8 @@ import { useState } from 'react'
 import { isBlank } from '../../../shared/reveal/slips'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
+import { Sure } from './Sheet'
+import { buzz } from './Controls'
 
 export interface SlipsProps {
   view: PlayerViewDoc | null
@@ -17,10 +19,9 @@ export interface SlipsProps {
   act: GameActions
   onSaid: (text: string) => void
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
-  ask: (text: string) => Promise<boolean>
 }
 
-export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsProps) {
+export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
   const [busy, setBusy] = useState(false)
   const [giving, setGiving] = useState<string | null>(null)
 
@@ -35,8 +36,10 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsPro
     try {
       await fn()
       setGiving(null)
+      buzz('ok')
       onSaid(what)
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)
@@ -109,18 +112,15 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid, ask }: SlipsPro
                 >
                   {others.length === 0 ? '건넬 사람이 없다' : '건네기'}
                 </button>
-                {/* 찢은 쪽지는 영영 사라진다. 한 번 묻는다 */}
-                <button
+                {/* 찢은 쪽지는 영영 사라진다. 한 번 더 누르게 한다 */}
+                <Sure
                   className="sc-sl__tear"
                   disabled={busy}
-                  onClick={() => {
-                    void ask('이 쪽지를 찢는다. 영영 사라진다.').then((ok) => {
-                      if (ok) void run('찢었다.', () => act.tearSlip(s.id))
-                    })
-                  }}
+                  warn="영영 사라진다."
+                  onGo={() => void run('찢었다.', () => act.tearSlip(s.id))}
                 >
                   찢기
-                </button>
+                </Sure>
               </div>
 
               {giving === s.id && (

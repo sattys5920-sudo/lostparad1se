@@ -263,16 +263,20 @@
   background: var(--danger);
   color: var(--text-1);
   font-family: inherit;
-  font-size: var(--fs-pixel);
+  /* 붉은 도장 위 흰 글자는 22 라야 대비가 맞는다(큰 글자 3:1) */
+  font-size: var(--fs-pixel-2);
   line-height: 1;
   letter-spacing: 4px;
-  padding-left: var(--sp-1);
+  padding-left: 4px;
   cursor: pointer;
 }
 
+/* 빈칸이 남았을 때. 흐리지만 **눌린다** — 누르면 무엇이 비었는지 말한다 */
+.sc-gt__submit.is-empty {
+  background: color-mix(in srgb, var(--danger) 45%, var(--paper));
+  color: var(--ink);
+}
 .sc-gt__submit:disabled {
-  /* 같은 도장이 흐려진 것이다. 딴 색 덩어리로 바뀌면 안 된다 */
-  opacity: 0.4;
   cursor: default;
 }
 

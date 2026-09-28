@@ -137,6 +137,17 @@
   gap: var(--sp-4);
   padding: 0 var(--sp-3);
   cursor: pointer;
+  position: relative;
+}
+/* 보이는 것은 36, 닿는 것은 44. 위아래로 4씩 넓힌다 */
+.sc-ct__bar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--sp-1) * -1);
+  /* 아래 테 1px 까지 넘어야 44 다 */
+  bottom: calc(var(--sp-1) * -1 - 1px);
 }
 
 .sc-ct__res {
@@ -690,7 +701,9 @@
   line-height: 1;
   cursor: pointer;
 }
-.sc-sy__send:disabled { color: var(--text-3); cursor: default; }
+/* 비었을 때는 흐리지만 **눌린다** — 누르면 까닭을 한 줄로 말한다 */
+.sc-sy__send.is-empty { color: var(--text-2); }
+.sc-sy__send:disabled { color: var(--text-2); cursor: default; }
 .sc-sy__send::after {
   content: '';
   position: absolute;

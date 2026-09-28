@@ -102,15 +102,85 @@
 }
 
 .school-root input,
-.school-root textarea {
+.school-root textarea,
+.school-root select {
   font-family: inherit;
-  font-size: inherit;
+  /* **16 아래로는 안 내려간다.** 아이폰은 16px 미만인 칸에 초점이 가면
+     화면을 확대한다 — viewport 의 maximum-scale 은 무시한다. 더 크게는
+     각 화면이 정한다(픽셀 글꼴 칸은 22) */
+  font-size: var(--fs-body);
   color: inherit;
+}
+
+/*
+ * 입력칸의 기본 모양. **겹수가 0 이다**(:where) — 종이 위 밑줄 칸,
+ * 수첩 줄처럼 제 모양이 있는 칸은 그쪽 규칙이 그대로 이긴다.
+ */
+:where(.school-root) :where(input:not([type='checkbox'], [type='radio'], [type='range']), textarea, select) {
+  min-height: var(--hit);
+  box-sizing: border-box;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-game);
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+:where(.school-root) :where(textarea) {
+  padding: var(--sp-2) var(--sp-3);
+}
+:where(.school-root) :where(input, textarea, select):focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: none;
+}
+:where(.school-root) :where(input, textarea)::placeholder {
+  color: var(--text-2);
 }
 
 .school-root a {
   color: var(--sc-accent);
 }
-.school-root a:hover {
+.school-root a:hover,
+.school-root a:active {
   color: var(--sc-text-dim);
+}
+
+/* ── 두 번 누르기(Sheet.tsx 의 Sure) ─────────────────────────────
+   한 번 누르면 2초 동안 붉은 면에 「정말?」과 무슨 일이 일어나는지 한 줄 */
+.school-root .sc-sure.is-armed {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--text-1);
+}
+.sc-sure__ask {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+.sc-sure__ask b { font-weight: 700; }
+.sc-sure__ask small { font-size: var(--fs-cap); font-weight: 400; }
+
+/* ── 누르는 순간 ─────────────────────────────────────────────────
+   모바일에는 hover 가 없다. 누르는 **그 순간** 면이 한 단계 밝아지고
+   1px 내려앉는다. 트랜지션은 없다 — 부드럽게 번지면 도트 화면에서는
+   흐릿해 보일 뿐이고, 손가락이 떨어진 뒤에야 반응한 것처럼 느껴진다.
+   전에는 반투명(0.75)이었는데, 그러면 아래 것이 비쳐 단추가 얇은
+   종이처럼 읽혔다 */
+.school-root button:active:not(:disabled),
+.school-root [role='button']:active {
+  filter: brightness(1.25);
+  transform: translateY(1px);
+  transition: none;
+}
+
+/* ── 키보드 초점 ────────────────────────────────────────────────
+   **지우지 않는다.** 손가락으로 누를 때는 안 뜨고(:focus-visible),
+   키보드로 옮겨 다닐 때만 금색 테가 선다 */
+/* 적는 칸은 테두리 색이 초점을 말한다 — 테를 한 겹 더 두르지 않는다 */
+.school-root :focus-visible:not(input, textarea, select) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }

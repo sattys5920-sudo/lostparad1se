@@ -15,6 +15,8 @@ import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
 import { goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
+import { Sure } from './Sheet'
+import { buzz } from './Controls'
 
 export interface BagProps {
   items: Satchel
@@ -22,10 +24,9 @@ export interface BagProps {
   act: GameActions
   onSaid: (text: string) => void
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
-  ask: (text: string) => Promise<boolean>
 }
 
-export function Bag({ items, view, act, onSaid, ask }: BagProps) {
+export function Bag({ items, view, act, onSaid }: BagProps) {
   const [busy, setBusy] = useState(false)
   /** 빈 종이를 펼쳐 놓은 상태. 적는 중에는 목록이 안 접힌다 */
   const [writing, setWriting] = useState(false)
@@ -57,12 +58,14 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
     setBusy(true)
     try {
       const out = (await act.useItem(kind, more)) as { said?: string }
+      buzz('ok')
       onSaid(out.said ?? '썼다.')
       if (kind === 'paper') {
         setWriting(false)
         setText('')
       }
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)
@@ -131,21 +134,11 @@ export function Bag({ items, view, act, onSaid, ask }: BagProps) {
             )}
 
             {kind === 'eraser' && (
-              <button
-                className="sc-mi__use"
-                disabled={busy}
-                onClick={() => {
-                  // **몇 장 적혔는지는 끝내 안 나온다.** 그래서 한 번 묻는다 —
-                  // 쓰고 나서 「아무 일도 없었다」로 보이는 것이 정상이다
-                  void ask(ITEM_BY_KIND.eraser.text).then(
-                    async (yes) => {
-                      if (yes) await use('eraser')
-                    },
-                  )
-                }}
-              >
+              // **몇 장 적혔는지는 끝내 안 나온다.** 그래서 한 번 더 누르게
+              // 한다 — 쓰고 나서 「아무 일도 없었다」로 보이는 것이 정상이다
+              <Sure className="sc-mi__use" disabled={busy} warn={ITEM_BY_KIND.eraser.text} onGo={() => void use('eraser')}>
                 한 장 지우기
-              </button>
+              </Sure>
             )}
 
             {kind === 'paper' && !writing && (

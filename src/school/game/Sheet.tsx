@@ -1,10 +1,12 @@
-// 아래에서 올라오는 시트와, 한 번 묻는 확인 창.
+// 아래에서 올라오는 시트와, 두 번 눌러야 되는 단추(Sure).
 //
 // 모바일에는 창이 없다. 창처럼 가운데 띄우면 손가락이 닿지 않는
 // 위쪽에 닫기 단추가 생긴다 — 그래서 전부 아래에서 올린다.
 // 높이는 화면의 70%까지. 넘치면 시트 안에서만 구른다. 위쪽 30%는
 // 항상 비어 있어야 한다. 거기 페이즈 타이머가 떠 있다.
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+
+import { buzz } from './Controls'
 
 /** 이만큼 아래로 밀면 닫는다. 그보다 짧으면 제자리로 돌아간다. */
 const CLOSE_PX = 80
@@ -64,47 +66,58 @@ export function Sheet({ title, onClose, children }: SheetProps) {
   )
 }
 
-// ── 한 번 묻기 ──────────────────────────────────────────────────
+// ── 두 번 누르기 ────────────────────────────────────────────────
 //
-// 되돌릴 수 없는 것들 — 짝 무너뜨리기, 쪽지 찢기, 무리 옮기기,
-// 투명인간 고르기 — 은 손가락이 스친 것만으로 일어나면 안 된다.
+// 되돌릴 수 없는 것들 — 로봇 부수기, 쪽지 찢기, 지우개, 심부름 그만두기,
+// 로그아웃, 투표지 넣기 — 은 손가락이 스친 것만으로 일어나면 안 된다.
 //
-// 브라우저의 confirm 은 쓰지 않는다. 앱 안 브라우저에서는 막히기도 하고,
-// 막히면 **막힌 줄도 모르고 그냥 true 가 아닌 값이 돌아온다**.
+// **창을 띄우지 않는다.** 한 번 누르면 단추가 2초 동안 「정말?」로 바뀌고
+// 무슨 일이 일어나는지 한 줄을 보인다. 그 사이에 한 번 더 누르면 한다.
+// 단계가 적고, 손가락이 제자리에 있으니 실수로 다른 것을 누를 일도 없다.
+// 창은 손가락을 화면 가운데로 끌고 가고, 위쪽 「그만두기」는 엄지가
+// 안 닿는다.
 
-export function useAsk(): [ReactNode, (text: string) => Promise<boolean>] {
-  const [asking, setAsking] = useState<string | null>(null)
-  // 물어본 사람에게 돌려줄 대답. 창이 떠 있는 동안만 들어 있다
-  const replyRef = useRef<((ok: boolean) => void) | null>(null)
+/** 「정말?」이 떠 있는 시간. */
+export const SURE_MS = 2000
 
-  const ask = useCallback((text: string) => {
-    // 이미 묻고 있으면 앞의 것은 아니오로 끝낸다. 대답을 영영 기다리게
-    // 두면 누른 쪽이 굳는다
-    replyRef.current?.(false)
-    setAsking(text)
-    return new Promise<boolean>((resolve) => {
-      replyRef.current = resolve
-    })
-  }, [])
+export interface SureProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> {
+  /** 두 번째에 할 일. */
+  onGo: () => void
+  /** 무엇이 일어나는지 한 줄. 「정말?」 아래에 뜬다. */
+  warn: string
+  children: ReactNode
+}
 
-  const answer = (ok: boolean) => {
-    setAsking(null)
-    const reply = replyRef.current
-    replyRef.current = null
-    reply?.(ok)
-  }
-
-  const node = asking == null ? null : (
-    <div className="sc-ask" role="alertdialog" aria-label="확인">
-      <div className="sc-ask__panel">
-        <p>{asking}</p>
-        <div className="sc-ask__row">
-          <button onClick={() => answer(false)}>그만두기</button>
-          <button className="is-go" onClick={() => answer(true)}>한다</button>
-        </div>
-      </div>
-    </div>
+export function Sure({ onGo, warn, children, className, ...rest }: SureProps) {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), SURE_MS)
+    return () => clearTimeout(t)
+  }, [armed])
+  return (
+    <button
+      {...rest}
+      className={(className ? className + ' ' : '') + 'sc-sure' + (armed ? ' is-armed' : '')}
+      aria-live="polite"
+      onClick={() => {
+        if (!armed) {
+          setArmed(true)
+          buzz('act')
+          return
+        }
+        setArmed(false)
+        onGo()
+      }}
+    >
+      {armed ? (
+        <span className="sc-sure__ask">
+          <b>정말?</b>
+          <small>{warn}</small>
+        </span>
+      ) : (
+        children
+      )}
+    </button>
   )
-
-  return [node, ask]
 }

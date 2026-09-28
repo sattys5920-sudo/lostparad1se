@@ -142,6 +142,7 @@ async function main() {
   await page.waitForTimeout(400)
   const mark = shots.length
   await page.locator('.sc-bt__go').click()
+  await page.locator('.sc-bt__go').click() // 두 번 누르기 — 한 번이면 「정말?」이다
   await page.waitForTimeout(3600)
   await cdp.send('Page.stopScreencast')
 

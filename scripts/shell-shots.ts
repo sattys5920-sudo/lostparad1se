@@ -171,6 +171,19 @@ async function main() {
     await page.waitForTimeout(700)
     await page.screenshot({ path: `${OUT}/${tag}-${file}.png` })
     await audit(page, `시트 ${label}`)
+    if (label === '더보기') {
+      // 두 번 누르기 — 한 번이면 「정말?」로 바뀌고 2초 뒤 돌아온다
+      const out = page.locator('.sc-out__go').first()
+      if (await out.count()) {
+        await out.evaluate((el) => (el as HTMLElement).click())
+        await page.waitForTimeout(150)
+        const armed = await out.innerText()
+        await page.screenshot({ path: `${OUT}/${tag}-8정말.png` })
+        await page.waitForTimeout(2300)
+        const back = await out.innerText()
+        report.push(`두 번 누르기: 한 번 → 「${armed.replace(/\n/g, ' ')}」, 2초 뒤 → 「${back}」`)
+      }
+    }
     await page.locator('.sc-sheet__head button, button:has-text("닫기")').first().evaluate((el) => (el as HTMLElement).click()).catch(() => undefined)
     await page.waitForTimeout(400)
   }
@@ -201,6 +214,34 @@ async function main() {
     await page.keyboard.press('Escape')
   }
 
+  // 빈 채로 보내기 — 눌리고, 까닭을 말한다
+  {
+    const send = page.locator('.sc-sy__send').first()
+    if (await send.count()) {
+      await page.locator('.sc-sy__box').first().evaluate((el) => (el as HTMLElement).focus())
+      await page.waitForTimeout(300)
+      await send.evaluate((el) => (el as HTMLElement).click())
+      await page.waitForTimeout(400)
+      if (process.env.DEBUG_SAY) {
+        report.push(
+          await page.evaluate(() =>
+            ['.sc-sy', '.sc-sy__bar', '.sc-sy__box', '.sc-sy__send']
+              .map((q) => {
+                const el = document.querySelector(q) as HTMLElement
+                const cs = getComputedStyle(el)
+                const r = el.getBoundingClientRect()
+                return `${q} ${el.className} x${Math.round(r.x)} w${Math.round(r.width)} border:${cs.borderTopWidth} ${cs.borderTopColor} outline:${cs.outlineStyle} ${cs.outlineWidth} bg:${cs.backgroundColor}`
+              })
+              .join('\n'),
+          ),
+        )
+      }
+      const said = await page.evaluate(() => document.body.innerText.includes('내용을 적어 주세요'))
+      report.push(`빈 칸 보내기: ${said ? '「내용을 적어 주세요」가 떴다' : '아무 말도 없다'}`)
+      await page.screenshot({ path: `${OUT}/${tag}-4빈보내기.png` })
+    }
+  }
+
   // 전체 맵
   const atlas = page.locator('button', { hasText: /^전체 맵$/ }).first()
   if (await atlas.count()) {
@@ -223,7 +264,7 @@ async function main() {
   await browser.close()
   console.log(report.join('\n'))
   const byKind = (k: AuditHit['kind']) => [...hits.values()].filter((h) => h.kind === k)
-  for (const [k, title] of [['pixel', '픽셀 글꼴이 정수 배율이 아니다'], ['scale', '눈금 밖 글자 크기'], ['contrast', '대비 부족']] as const) {
+  for (const [k, title] of [['pixel', '픽셀 글꼴이 정수 배율이 아니다'], ['scale', '눈금 밖 글자 크기'], ['contrast', '대비 부족'], ['input', '16 아래 입력칸'], ['tap', '44 보다 작은 누를 것']] as const) {
     const list = byKind(k)
     console.log(`\n${title}: ${list.length}`)
     for (const h of list) console.log(`  [${h.screen}] ${h.where} ${h.what}`)

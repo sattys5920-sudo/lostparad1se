@@ -18,6 +18,7 @@ import { goodIcon } from './goodArt'
 import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
+import { buzz } from './Controls'
 
 export interface QuizProps {
   view: PlayerViewDoc | null
@@ -44,6 +45,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
     try {
       const out = (await fn()) as { correct?: boolean; explain?: string | null }
       if (out?.correct === true) {
+        buzz('ok')
         onSaid(`맞혔다. 지식 ${KNOWLEDGE_PER_QUIZ}점.${out.explain ? ` ${out.explain}` : ''}`)
       } else {
         onSaid('틀렸다. 이 문제는 다시 못 푼다.')
@@ -51,6 +53,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
         window.setTimeout(() => setShook((k) => (k === id ? null : k)), 260)
       }
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)
@@ -80,6 +83,10 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
               <div className="sc-qz__short">
                 <input
                   id={`quiz-${q.id}`}
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={typed[q.id] ?? ''}
                   placeholder="답을 적는다"
                   onChange={(e) => setTyped((t) => ({ ...t, [q.id]: e.target.value }))}

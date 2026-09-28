@@ -306,11 +306,6 @@ async function reset(page: import('playwright').Page): Promise<void> {
       await sheet.first().click({ force: true }).catch(() => undefined)
       continue
     }
-    const ask = page.locator('.sc-ask__row button').first()
-    if (await ask.count().then((n) => n > 0)) {
-      await ask.click({ force: true }).catch(() => undefined)
-      continue
-    }
     const atlas = page.locator('.sc-atlas__done')
     if (await atlas.count().then((n) => n > 0)) {
       await atlas.click({ force: true }).catch(() => undefined)

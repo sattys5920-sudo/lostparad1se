@@ -8,6 +8,7 @@ import { logOut } from '../accounts'
 import { josa } from '../text'
 import { gameNow } from '../../../shared/rules/clock'
 import type { GameDoc } from '../../../shared/model'
+import { Sure } from './Sheet'
 
 type DevClock = GameDoc['clock']
 
@@ -274,19 +275,18 @@ export function Waiting({
  * 나간 뒤에는 화면을 새로 연다. 로그인 상태만 바꾸고 그대로 두면
  * 앞사람의 판 문서를 구독하던 것들이 살아남아 거절을 뱉는다.
  */
-export function SignOut({ ask, note }: { ask?: (text: string) => Promise<boolean>; note?: string }) {
+export function SignOut({ note }: { note?: string }) {
   const [busy, setBusy] = useState(false)
   async function go(): Promise<void> {
-    if (ask && !(await ask('로그아웃한다.'))) return
     setBusy(true)
     await logOut().catch(() => undefined)
     location.reload()
   }
   return (
     <section className="sc-out">
-      <button className="sc-out__go" disabled={busy} onClick={() => void go()}>
+      <Sure className="sc-out__go" disabled={busy} warn="이 폰에서 나간다." onGo={() => void go()}>
         로그아웃
-      </button>
+      </Sure>
       {note && <p className="sc-out__note">{note}</p>}
     </section>
   )

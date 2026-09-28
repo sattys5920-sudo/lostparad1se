@@ -30,6 +30,8 @@ import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 import type { TeamId, TileId } from '../types'
 import { uiIcon } from './uiArt'
 import { Cost } from './Cost'
+import { Sure } from './Sheet'
+import { buzz } from './Controls'
 
 /** 규칙 쪽 TileId 는 string, 지도 쪽은 스물다섯 개 유니온이다. 경계를 여기 모은다. */
 const asRoom = (id: string): TileId => id as TileId
@@ -51,7 +53,6 @@ export interface PhaseProps {
   /** 내가 선 칸. 연구는 연구 기계 옆에서만 — 서버도 같은 자로 잰다 */
   myCell?: Cell | null
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
-  ask: (text: string) => Promise<boolean>
 }
 
 const LABEL: Record<ActionKind, string> = {
@@ -107,7 +108,7 @@ export function leftText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: now, act, onSaid, ask, myCell = null }: PhaseProps) {
+export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: now, act, onSaid, myCell = null }: PhaseProps) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<ActionKind | null>(null)
 
@@ -175,18 +176,18 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
   }
 
   async function send(kind: ActionKind, t: { targetPlayer?: string; targetRobot?: string; targetTeam?: TeamId } = {}) {
-    // 부순 로봇은 돌아오지 않는다. 손가락이 스친 것만으로 일어나면 안 된다
-    if (kind === 'smashRobot' && !(await ask('로봇을 부순다. 되돌릴 수 없다.'))) return
     setBusy(true)
     try {
       const out = (await act.phaseAct(kind, t)) as { tokens?: number }
       setOpen(null)
+      buzz('ok')
       onSaid(
         kind === 'plant' ? `${hereName}에 깃발을 꽂았다.`
         : kind === 'pull' ? `${hereName}에서 ${t.targetTeam ?? ''}팀 깃발을 뽑았다.`
         : `${LABEL[kind]}. 팀 토큰 ${out.tokens ?? '?'}개 남았다.`,
       )
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)
@@ -274,11 +275,18 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
 
               {open === k && (k === 'dropRobot' || k === 'smashRobot') && (
                 <div className="sc-ph__targets">
-                  {(k === 'dropRobot' ? myRobots : enemyRobotsHere).map((r) => (
-                    <button key={r.id} disabled={busy} onClick={() => void send(k, { targetRobot: r.id })}>
-                      로봇 <em>{r.team}</em>
-                    </button>
-                  ))}
+                  {(k === 'dropRobot' ? myRobots : enemyRobotsHere).map((r) =>
+                    // 부순 로봇은 돌아오지 않는다. 한 번 더 누르게 한다
+                    k === 'smashRobot' ? (
+                      <Sure key={r.id} disabled={busy} warn="되돌릴 수 없다." onGo={() => void send(k, { targetRobot: r.id })}>
+                        로봇 <em>{r.team}</em>
+                      </Sure>
+                    ) : (
+                      <button key={r.id} disabled={busy} onClick={() => void send(k, { targetRobot: r.id })}>
+                        로봇 <em>{r.team}</em>
+                      </button>
+                    ),
+                  )}
                 </div>
               )}
             </li>
@@ -351,8 +359,10 @@ export function PhaseHost({
     setBusy(true)
     try {
       await fn()
+      buzz('ok')
       onSaid(`${label} 했다.`)
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)

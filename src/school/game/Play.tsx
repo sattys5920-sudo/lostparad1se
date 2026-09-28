@@ -58,7 +58,7 @@ import { TECH_TILE, makerBeside } from '../../../shared/rules/trap'
 import { MakerSheet } from './Maker'
 import { Ballot } from './Ballot'
 import { AddToHome, OfflineBar, SignOut, TurnNotice, Waiting, useGameNow, useOnline, useStaticCache, useWakeUp } from './Shell'
-import { Sheet, useAsk } from './Sheet'
+import { Sheet } from './Sheet'
 
 /**
  * 페이즈 중에 벌이 창구를 열었을 때 대신 뜨는 한 줄.
@@ -764,7 +764,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [plain, setPlainState] = useState(plainOn)
   // 십자키는 컨트롤 바에 있고 그림은 위에 있다. 자리만 건네준다
   const padRef = useRef<HTMLDivElement | null>(null)
-  const [asking, ask] = useAsk()
   // 글을 쓰는 동안에는 탭바를 감춘다. 키보드 위에 얹혀 있으면
   // 입력창이 그만큼 가려진다
   const typing = useTyping()
@@ -1508,7 +1507,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               두었더니 지도 맨 아래로 내려갔고, 말줄이 그 위를 덮었다 —
               말줄은 지도 위에 얹히는 고정 줄이라 흐름을 비켜 간다.
             */}
-            <ErrandStrip view={state.view} act={act} onSaid={setSaid} ask={ask} />
+            <ErrandStrip view={state.view} act={act} onSaid={setSaid} />
           </header>
           {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다 */}
           {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
@@ -1596,14 +1595,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 meId={uid}
                 act={act}
                 onSaid={setSaid}
-                ask={ask}
               />
             ) : null
           }
           log={<PhaseLog rows={state.phaseLog} seats={game.seats} />}
           act={act}
           onSaid={setSaid}
-          ask={ask}
           onSignOut={() => {
             void logOut()
               .catch(() => undefined)
@@ -1779,7 +1776,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               nowMs={nowMs}
               act={act}
               onSaid={setSaid}
-              ask={ask}
               myCell={myCell}
             />
           ) : (
@@ -2122,7 +2118,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             나가려면 탭을 옮기고 끝까지 내려야 나온다 — 설정이 여기
             있으니 나가는 것도 여기 있는 것이 맞다.
           */}
-          <SignOut ask={ask} note={`들어와 있는 계정 · ${me.name}`} />
+          <SignOut note={`들어와 있는 계정 · ${me.name}`} />
           {/* **한 장으로 상태를 다 보이게 한다.** 「안 움직여요」만으로는
               어디가 막혔는지 알 수 없어서, 판이 지금 어떤 상태인지를
               그대로 적어 둔다. 숨긴 값은 없다 — 전부 내 화면이 이미
@@ -2163,7 +2159,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         </div>
       )}
 
-      {asking}
       {said && (
         <p
           className={bad ? 'sc-pl__said is-bad' : 'sc-pl__said'}

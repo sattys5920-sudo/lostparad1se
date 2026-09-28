@@ -17,7 +17,7 @@ import { STATUS_LABEL, type MissionStatus } from '../../../shared/missions/roleN
 import { Bag } from './UseItem'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
-import { Sheet } from './Sheet'
+import { Sheet, Sure } from './Sheet'
 import { TEAM_COLOR } from './MapPlan'
 import { pixelFrame } from '../char/pixel'
 import { uiIcon } from './uiArt'
@@ -26,6 +26,7 @@ import type { GameActions } from './useGame'
 import type { AvatarLook } from '../../../shared/look'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 import type { TeamId } from '../types'
+import { buzz } from './Controls'
 
 export interface MeProps {
   me: SeatEntry
@@ -51,7 +52,6 @@ export interface MeProps {
   slips: ReactNode
   act: GameActions
   onSaid: (text: string) => void
-  ask: (text: string) => Promise<boolean>
   /** 지난 페이즈 기록. 링크를 누르면 시트가 올라온다. */
   log: ReactNode
   onSignOut: () => void
@@ -76,8 +76,10 @@ export function Me(props: MeProps) {
     setBusy(true)
     try {
       await fn()
+      buzz('ok')
       onSaid(`${label} 했다.`)
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)
@@ -126,7 +128,7 @@ export function Me(props: MeProps) {
           {haveOpen && (
             <div className="sc-mi__open">
               <h4>아이템</h4>
-              <Bag items={items} view={view} act={act} onSaid={onSaid} ask={props.ask} />
+              <Bag items={items} view={view} act={act} onSaid={onSaid} />
               <h4>쪽지</h4>
               {slipCount === 0 && floorSlips === 0 ? (
                 <p className="sc-mi__none">들고 있는 쪽지가 없다.</p>
@@ -221,17 +223,9 @@ export function Me(props: MeProps) {
           <span>들어와 있는 계정 · {me.name}</span>
           {/* **눈에 띄면 안 되는 단추다.** 전에는 화면 한가운데 큰
               네모였다 — 실수로 눌리면 판이 도는 중에 판을 잃는다 */}
-          <button
-            type="button"
-            className="sc-mi__out"
-            onClick={() => {
-              void props.ask('나간다.').then((ok) => {
-                if (ok) props.onSignOut()
-              })
-            }}
-          >
+          <Sure type="button" className="sc-mi__out" warn="이 폰에서 나간다." onGo={() => props.onSignOut()}>
             나가기
-          </button>
+          </Sure>
         </p>
 
         {props.invisibleName && !props.invisible && (

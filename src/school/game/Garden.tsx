@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
+import { buzz } from './Controls'
 
 type Pot = NonNullable<PlayerViewDoc['potsHere']>[number]
 
@@ -53,8 +54,10 @@ export function GardenSheet({
     setBusy(true)
     try {
       await fn()
+      buzz('ok')
       onSaid(label)
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)

@@ -18,6 +18,7 @@ import { TEAM_COLOR } from './MapPlan'
 import type { GameActions } from './useGame'
 import type { SeatEntry } from '../../../shared/model'
 import type { TeamId } from '../types'
+import { buzz } from './Controls'
 
 export interface AroundProps {
   me: SeatEntry
@@ -54,8 +55,10 @@ export function Around(props: AroundProps) {
     setBusy(true)
     try {
       await fn()
+      buzz('ok')
       onSaid(`${label} 했다.`)
     } catch (e) {
+      buzz('no')
       onSaid((e as Error).message)
     } finally {
       setBusy(false)

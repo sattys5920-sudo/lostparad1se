@@ -23,6 +23,7 @@ import { BOX_H, FOLD_FRAMES, SLOT_Y, boxSprite, boxWidthFor, foldSheet } from '.
 import { PaperSheet } from './Paper'
 import { SFX, armSfx } from './sfx'
 import { buzzOn, motionOff } from './Controls'
+import { Sure } from './Sheet'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 
@@ -485,15 +486,17 @@ export function Ballot(props: BallotProps) {
             다시 넣기
           </button>
         ) : (
-          <button
+          // 고르기 전에는 단추 글자가 까닭이다. 고른 뒤에는 한 번 더 누르게 한다
+          <Sure
             type="button"
             className="sc-bt__go"
             disabled={!chosen || playing}
+            warn={chosenName ? `「${chosenName}」${josa(chosenName, '을/를')} 적어 넣는다.` : '적어 넣는다.'}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={cast}
+            onGo={() => void cast()}
           >
             {chosen ? '접 어 서 넣 기' : '이름을 고르세요'}
-          </button>
+          </Sure>
         )}
         {oops && !playing && <p className="sc-bt__oops">넣지 못했다</p>}
         {!closed && !shut && !just && chosenName && (

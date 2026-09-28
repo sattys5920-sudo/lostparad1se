@@ -18,6 +18,7 @@ import { hostEnter, logIn, signUp } from '../accounts'
 import { vendingStamp } from './gateArt'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
+import { buzz } from './Controls'
 import './gate.css'
 
 type Mode = 'in' | 'up' | 'host'
@@ -99,6 +100,13 @@ export function Gate({ onIn }: { onIn: () => void }) {
 
   async function go() {
     if (busy) return
+    // 빈칸이어도 단추는 눌린다 — 무엇이 비었는지 말해 준다
+    if (!ready) {
+      setError(host ? '코드를 적어 주세요.' : !id.trim() ? '이름을 적어 주세요.' : '암호를 적어 주세요.')
+      shake()
+      buzz('no')
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -113,6 +121,7 @@ export function Gate({ onIn }: { onIn: () => void }) {
     } catch (e) {
       setError((e as Error).message)
       shake()
+      buzz('no')
       setBusy(false)
     }
   }
@@ -151,7 +160,7 @@ export function Gate({ onIn }: { onIn: () => void }) {
 
   const ready = host ? code.trim().length > 0 : Boolean(id.trim() && pw)
   const enter = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing && ready) void go()
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) void go()
   }
 
   return (
@@ -221,7 +230,7 @@ export function Gate({ onIn }: { onIn: () => void }) {
               {/* 누르는 순간 입력칸에서 손을 떼면 키보드가 내려가고, 그
                   사이에 종이가 움직여 **누른 것이 눌리지 않는다.** 그래서
                   누를 때 자리를 안 옮긴다 */}
-              <button className="sc-gt__submit" disabled={busy || !ready} onMouseDown={hold} onClick={() => void go()}>
+              <button className={'sc-gt__submit' + (ready ? '' : ' is-empty')} disabled={busy} onMouseDown={hold} onClick={() => void go()}>
                 제 출
               </button>
 

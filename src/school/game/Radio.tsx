@@ -20,6 +20,7 @@ import {
   waveAt,
 } from '../../../shared/rules/radio'
 import type { TeamId } from '../types'
+import { buzz } from './Controls'
 import { CHAT_POLL_MS } from './timing'
 import type { GameActions } from './useGame'
 import './radio.css'
@@ -211,19 +212,32 @@ export function Radio({
     if (stuckRef.current) setBehind(0)
   }
 
+  const boxRef = useRef<HTMLInputElement | null>(null)
+
   async function send() {
     const text = draft.trim()
-    if (!text) return
+    if (busy) return
+    // 비어 있어도 단추는 눌린다. 눌리면 까닭을 한 줄로 말한다
+    if (!text) {
+      onSaid('내용을 적어 주세요.')
+      buzz('no')
+      boxRef.current?.focus()
+      return
+    }
     setBusy(true)
     try {
       await act.radio(text)
       setDraft('')
+      buzz('ok')
       stuckRef.current = true
       await pull()
     } catch (e) {
       onSaid((e as Error).message)
+      buzz('no')
     } finally {
       setBusy(false)
+      // 보내고 나서도 칸에 머문다 — 이어서 친다
+      boxRef.current?.focus()
     }
   }
 
@@ -300,7 +314,9 @@ export function Radio({
 
       {/* ── 송신 ────────────────────────────────────────── */}
       <div className="sc-rd__bar">
+        <div className="sc-rd__field">
         <input
+          ref={boxRef}
           id="rd-say"
           value={draft}
           maxLength={CHAT_MAX_LEN}
@@ -318,14 +334,15 @@ export function Radio({
           없다 — 누른 것이 눌리지 않는다
         */}
         <button
-          className="sc-rd__send"
+          className={'sc-rd__send' + (draft.trim().length === 0 ? ' is-empty' : '')}
           aria-label="송신"
-          disabled={busy || draft.trim().length === 0}
+          disabled={busy}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void send()}
         >
           ▲
         </button>
+        </div>
       </div>
       <p className="sc-rd__note">{RADIO_NOTE}</p>
     </div>

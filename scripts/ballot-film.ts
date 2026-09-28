@@ -206,6 +206,7 @@ async function main() {
 
   // ── 4 · 접어서 넣는다 ────────────────────────────────────
   await page.locator('.sc-bt__go').click()
+  await page.locator('.sc-bt__go').click() // 두 번 누르기 — 한 번이면 「정말?」이다
   // 연출 1.4초 + 「넣었다.」 1.6초 + 쉬는 화면
   await beat(4200)
 
@@ -217,6 +218,7 @@ async function main() {
   await pick(names[5] ?? names[1])
   await beat(1400)
   await page.locator('.sc-bt__go').click()
+  await page.locator('.sc-bt__go').click() // 두 번 누르기 — 한 번이면 「정말?」이다
   await beat(4200)
 
   // ── 7 · 마지막 교시가 열린다 — 「마감까지 n분」 ──────────
