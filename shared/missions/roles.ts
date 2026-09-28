@@ -111,21 +111,21 @@ export interface SlipMissionSpec {
 export const SLIP_MISSIONS: readonly SlipMissionSpec[] = [
   {
     id: 'keepOthers',
-    text: '남의 쪽지를 읽고 끝까지 가지고 있는다',
+    text: '남의 쪽지를 읽고 자정까지 가지고 있는다',
     need: 1,
-    // 끝까지 쥐고 있었는지는 끝나야 안다
-    disclosure: 'endOnly',
+    // 자정에 쥐고 있었는지는 자정에 안다
+    disclosure: 'daily',
   },
   {
     id: 'fewReadMine',
-    text: '나에 대한 쪽지를 읽은 사람이 2명 이하로 끝난다',
+    text: '나에 대한 쪽지를 그날 읽은 사람이 2명 이하다',
     limit: 2,
-    // 남이 읽은 수를 실시간으로 보여 주면 누가 읽었는지 좁혀진다
-    disclosure: 'endOnly',
+    // 남이 읽은 수를 실시간으로 보여 주면 누가 읽었는지 좁혀진다 — 자정에만
+    disclosure: 'daily',
   },
   {
     id: 'twiceSamePerson',
-    text: '같은 사람의 쪽지를 두 번 손에 넣는다',
+    text: '같은 사람의 쪽지를 그날 두 번 손에 넣는다',
     need: 2,
     disclosure: 'realtime',
   },

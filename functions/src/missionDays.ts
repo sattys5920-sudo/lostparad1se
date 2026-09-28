@@ -1,4 +1,7 @@
-// 자정 판정 — 날이 바뀌는 순간 열넷의 미션을 판정해 날짜별로 남긴다.
+// 자정 판정 — 날이 바뀌는 순간 열넷의 그날 미션을 판정해 날짜별로 남긴다.
+//
+// **미션은 하루짜리다.** 그날 0시부터 자정까지 한 것만 세고, 자정 판정이
+// 그날의 결과다(달성 · 실패). 운영자가 날마다 발표한다.
 //
 // **판정은 여기서만 한다.** 셈은 shared/missions/judge.ts, 네 가지 판정은
 // shared/missions/daily.ts 가 하고, 여기서는 재료를 모아 굳혀 둔다.
@@ -17,7 +20,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 import { judge } from '../../shared/missions/judge'
 import { dayVerdict, dayView, type DayVerdict, type DayVerdictView } from '../../shared/missions/daily'
-import type { RoleId } from '../../shared/missions/roleNames'
+import { canonRoleId, type RoleId } from '../../shared/missions/roleNames'
 import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import type { GameDoc, RosterDoc, ScheduleDoc } from '../../shared/model'
 
@@ -36,6 +39,8 @@ export const snapId = (day: number, playerId: string) => `d${day}_${playerId}`
 
 export interface MissionDayDoc {
   day: number
+  /** 이 시각부터 센 하루다 */
+  fromMs: number
   /** 이 시각까지의 기록으로 판정했다 */
   asOfMs: number
   /** 마지막 날 — 최종 판정 */
@@ -60,8 +65,8 @@ export interface MissionSnapDoc {
   sentAtMs: number | null
 }
 
-/** 마지막 날 뒤로 남은 투명인간 투표 날 수. 투표는 DAY 1 ~ 마지막 전날까지다 */
-export const ballotDaysAfter = (day: number): number => Math.max(0, TOTAL_DAYS - 1 - day)
+/** 투명인간 투표가 있는 날인가. 투표는 DAY 1 ~ 마지막 전날까지다 */
+export const hasBallot = (day: number): boolean => day < TOTAL_DAYS
 
 /**
  * 한 날을 판정한다. 이미 했으면 아무것도 안 한다(false).
@@ -72,17 +77,21 @@ export async function judgeMissionDay(
   gameId: string,
   game: GameDoc,
   day: number,
+  /** 그날 0시 — 전날을 넘긴 시각. **미션은 하루짜리라 여기부터 센다** */
+  fromMs: number,
   asOfMs: number,
   final: boolean,
 ): Promise<boolean> {
   const metaRef = missionDaysOf(gameId).doc(`d${day}`)
   if ((await metaRef.get()).exists) return false
-  const { log, roster } = await buildLog(gameId, game, { over: final, asOfMs, throughDay: day })
-  const ctx = { final, ballotDaysLeft: final ? 0 : ballotDaysAfter(day) }
+  const { log, roster } = await buildLog(gameId, game, { over: true, fromMs, asOfMs, throughDay: day })
+  const ctx = { final, noBallot: !hasBallot(day) }
   const batch = db.batch()
-  batch.create(metaRef, { day, asOfMs, final, count: roster.length } satisfies MissionDayDoc)
+  batch.create(metaRef, { day, fromMs, asOfMs, final, count: roster.length } satisfies MissionDayDoc)
   for (const r of roster as RosterDoc[]) {
-    const roleId = r.roleId as RoleId
+    // 이름을 바꾸기 전에 배정된 판은 옛 키(snacker · locker)를 쥐고 있다
+    const roleId = canonRoleId(r.roleId)
+    if (!roleId) continue
     const truth = dayVerdict(judge({ playerId: r.playerId, team: r.team, roleId, targetId: r.targetId ?? null }, log), ctx)
     const doc: MissionSnapDoc = {
       day,
@@ -144,7 +153,10 @@ export async function catchUpMissionDays(gameId: string, game?: GameDoc): Promis
     const asOfMs = final ? cut.get(`gameEnd:${day}`) : cut.get(`dayStart:${day + 1}`)
     // 그날을 넘긴 기록이 없으면 여기서 멈춘다 — 순서를 건너뛰어 판정하지 않는다
     if (asOfMs === undefined) break
-    if (await judgeMissionDay(gameId, g, day, asOfMs, final)) judged += 1
+    // 그날 0시 — DAY 1 은 판이 시작한 때, 그 뒤로는 그날을 넘긴 때
+    const fromMs = day === 1 ? (g.startedAtMs ?? 0) : cut.get(`dayStart:${day}`)
+    if (fromMs === undefined) break
+    if (await judgeMissionDay(gameId, g, day, fromMs, asOfMs, final)) judged += 1
   }
   return judged
 }

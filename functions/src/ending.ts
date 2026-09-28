@@ -8,7 +8,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import type { BallotDay, BallotVote, GameLog, JudgeVote } from '../../shared/missions/judge'
-import type { GameRecord, OwnerChange } from '../../shared/rules/records'
+import { ownerAt, type GameRecord, type OwnerChange } from '../../shared/rules/records'
 import { ALL_KEY, ENDING_MAX } from '../../shared/reveal/ending'
 import { publicScore, rankTeams } from '../../shared/rules/score'
 import { TEAMS } from '../../shared/rules/lobby'
@@ -46,6 +46,11 @@ export async function buildLog(
     asOfMs?: number
     /** 이날까지의 표 · 투명인간 투표만 센다(자정 판정). voteCutoffDay 보다 먼저 본다 */
     throughDay?: number
+    /**
+     * **이 시각부터만 센다.** 미션은 하루짜리다 — 그날 0시(전날을 넘긴 시각)부터
+     * 센다. 주면 표 · 투명인간 투표도 throughDay 하루 것만 센다
+     */
+    fromMs?: number
   } = {},
 ): Promise<{
   log: GameLog
@@ -57,8 +62,11 @@ export async function buildLog(
   const ref = gameRef(gameId)
   const nowMs = opts.asOfMs ?? nowOf(game)
   const inTime = (atMs: number) => opts.asOfMs === undefined || atMs <= opts.asOfMs
-  const inDays = (day: number) => opts.throughDay === undefined || day <= opts.throughDay
-  const startedAtMs = game.startedAtMs ?? nowMs
+  const inDays = (day: number) =>
+    opts.throughDay === undefined || (opts.fromMs !== undefined ? day === opts.throughDay : day <= opts.throughDay)
+  const inWindow = (atMs: number) => inTime(atMs) && (opts.fromMs === undefined || atMs >= opts.fromMs)
+  // 센 기간의 처음. 하루 판정이면 그날 0시다
+  const startedAtMs = opts.fromMs ?? game.startedAtMs ?? nowMs
 
   const [rosterS, ivS, voteS, capS, tileS, choiceS, closingS, recordS, ballotDayS, ballotS, slipS] = await Promise.all([
     secret(gameId, 'roster').get(),
@@ -105,15 +113,10 @@ export async function buildLog(
     .filter((v) => (opts.throughDay !== undefined ? inDays(v.day) : cutoff === undefined || v.day < cutoff))
     .map((v) => ({ voterId: v.voterId, voterTeam: v.voterTeam, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
 
-  // 최종 순위. **가진 방 개수다** — 개인 지갑은 팀 점수에 안 들어간다
-  const scores = TEAMS.map((team) => publicScore({ tiles, team }))
-  const ranked = rankTeams(scores)
-  // 안 가른 순위. 「우리 팀이 1위가 아니다」가 이쪽을 본다
-  const teamTiedRank = Object.fromEntries(ranked.map((r) => [r.team, r.tiedRank])) as Record<TeamId, number>
 
   const records = recordS.docs
     .map((d) => d.data() as GameRecord)
-    .filter((r) => inTime(r.atMs))
+    .filter((r) => inWindow(r.atMs))
     .sort((a, b) => a.atMs - b.atMs)
   /*
    * 방 주인이 바뀐 이력. **따로 쌓을 것이 없었다** — 소유는 페이즈가
@@ -126,6 +129,16 @@ export async function buildLog(
     ownerBefore: c.ownerBefore,
     atMs: c.atMs,
   }))
+  // 순위. **가진 방 개수다** — 개인 지갑은 팀 점수에 안 들어간다.
+  // 그날 밤을 판정할 때는 그 시각의 주인으로 센다(점령 기록을 되짚는다)
+  const tilesThen = opts.asOfMs === undefined
+    ? tiles
+    : tiles.map((t) => ({ tileId: t.tileId, ownerTeam: ownerAt(ownerChanges, t.tileId, opts.asOfMs as number) }))
+  const scores = TEAMS.map((team) => publicScore({ tiles: tilesThen, team }))
+  const ranked = rankTeams(scores)
+  // 안 가른 순위. 「우리 팀이 1위가 아니다」가 이쪽을 본다
+  const teamTiedRank = Object.fromEntries(ranked.map((r) => [r.team, r.tiedRank])) as Record<TeamId, number>
+
   const ballots: BallotVote[] = ballotS.docs
     .map((d) => d.data() as BallotVote & { atMs: number })
     .filter((b) => inDays(b.day))

@@ -14,6 +14,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { SLIP_NOTES, SLIP_NOTE_BY_ID } from './story/slipNotes'
+import { canonRoleId } from '../../shared/missions/roleNames'
 import { fillSubject } from '../../shared/reveal/slips'
 import { freeDropCell } from '../../shared/rules/quiz'
 import { TILE_BY_ID, roomOfCell, type TileId } from '../../shared/rules/board'
@@ -51,7 +52,8 @@ async function runningGame(gameId: string): Promise<GameDoc> {
 /** 역할 → 그 역할을 받은 사람. 배정 전이면 비어 있다 */
 async function ownersByRole(gameId: string): Promise<Map<string, string>> {
   const snap = await rosterOf(gameId).get()
-  return new Map(snap.docs.map((d) => [(d.data() as RosterDoc).roleId, (d.data() as RosterDoc).playerId]))
+  // 옛 판의 옛 키(snacker · locker)도 지금 키로 읽는다
+  return new Map(snap.docs.map((d) => [canonRoleId((d.data() as RosterDoc).roleId) ?? '', (d.data() as RosterDoc).playerId]))
 }
 
 /** 지금 종이가 놓인 칸("x,y"). 쪽지와 문제 종이 모두 — 한 칸에 한 장이다 */

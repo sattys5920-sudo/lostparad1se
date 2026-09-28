@@ -95,6 +95,13 @@ const num = (f: unknown): number => Number((f as { integerValue?: string })?.int
 const MART_TILE = 'classroom'
 /** 1층 복도의 기계. 사고파는 시험은 이 칸 앞에서 한다 */
 const MACHINE = VENDINGS.find((v) => v.floor === 'f1')!.cell
+/**
+ * 기계 앞 두 자리 — 동쪽과 서쪽 옆 칸. **한 칸에 한 사람이다.**
+ * 기계 칸 자체는 기물이라 아무도 못 서고, 둘이 같은 칸에 서지도 못한다.
+ * 나는 동쪽, 너는 서쪽이다
+ */
+const MY_SIDE = { x: MACHINE.x + 1, y: MACHINE.y }
+const YOUR_SIDE = { x: MACHINE.x - 1, y: MACHINE.y }
 
 /**
  * 기계 앞에 세운다. **방이 아니라 칸이다.**
@@ -186,11 +193,17 @@ async function main() {
    * 본다 — 화면만 막으면 손으로 부른 요청 하나로 기계 안에 서 있는
    * 사람이 생긴다.
    */
+  // 거절은 던지지 않고 `{ ok: false, code: 'blocked' }` 로 온다 — 화면이 조용히 제자리에 남는다
   const onIt = await call('standAt', meTok, { gameId: game, x: MACHINE.x, y: MACHINE.y })
-  check(!onIt.ok, '**기계 위에는 못 선다** — 기물이다', onIt.ok ? '섰다' : (onIt.err ?? ''))
+  const onItRes = onIt.ok ? onIt.result : {}
+  check(
+    onIt.ok && onItRes.ok === false && onItRes.code === 'blocked',
+    '**기계 위에는 못 선다** — 기물이다',
+    onIt.ok ? `${String(onItRes.code ?? '섰다')} ${String(onItRes.why ?? '')}` : `던졌다: ${onIt.err}`,
+  )
 
   // 한 칸 옆은 「앞」이다. 거기 서야 산다
-  await standBy(game, meUid, { x: MACHINE.x + 1, y: MACHINE.y })
+  await standBy(game, meUid, MY_SIDE)
   await fund(game, meUid, 40)
   const before = await moneyOf(game, meUid)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
@@ -206,7 +219,7 @@ async function main() {
   const you = 'qa08'
   const youTok = await tok(you)
   const youUid = uidOf(you)
-  await standBy(game, youUid, MACHINE)
+  await standBy(game, youUid, YOUR_SIDE)
   await fund(game, youUid, 40)
   const other = await call('buyShopItem', youTok, { gameId: game, itemId: 'eraser' })
   check(!other.ok, '남의 팀이 와도 하루 몫은 판 전체에서 하나다', other.ok ? '샀다' : (other.err ?? ''))
@@ -250,7 +263,7 @@ async function main() {
   const noPaper = await call('useItem', meTok, { gameId: game, kind: 'paper', text: MEMO })
   check(!noPaper.ok, '없는 물건은 못 쓴다', noPaper.ok ? '썼다' : (noPaper.err ?? ''))
 
-  await standBy(game, meUid, MACHINE)
+  await standBy(game, meUid, MY_SIDE)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'paper' })
   await standAt(game, meUid, 'artRoom')
   const blank = await call('useItem', meTok, { gameId: game, kind: 'paper', text: '   ' })
@@ -289,7 +302,7 @@ async function main() {
   const dump4 = JSON.stringify(v4)
   check(!dump4.includes(MEMO) && !dump4.includes('0412'), '**조각에도 글은 없다** — 붙여야 종이가 된다')
 
-  await standBy(game, meUid, MACHINE)
+  await standBy(game, meUid, MY_SIDE)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'tape' })
   /*
    * **방을 옮겨서 본다.** 기계 앞에 세우는 것(standBy)은 칸만 바꾸므로

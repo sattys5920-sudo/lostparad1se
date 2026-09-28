@@ -1,17 +1,17 @@
-// 자정 판정 — 날이 바뀔 때 열넷의 미션을 굳혀 둔다.
+// 자정 판정 — 날이 바뀔 때 열넷의 그날 미션을 판정해 굳혀 둔다.
 //
-// **순수 함수다.** judge.ts 가 「지금 얼마나 찼나」를 내면, 여기서 그것을
-// 네 가지 판정으로 바꾼다. 서버(functions/src/missionDays.ts)가 날이 바뀌는
-// 순간 부르고, 결과를 날짜별 스냅샷으로 남긴다.
+// **미션은 하루짜리다.** 매일 0부터 그날 한 것만 세고, 자정이 기한이다.
+// 그래서 자정 판정은 그날로서는 최종이다 — 달성 아니면 실패, 둘뿐이다.
+// 서버(functions/src/missionDays.ts)가 날이 바뀌는 순간 부르고, 결과를
+// 날짜별 스냅샷으로 남긴다. 운영자가 날마다 발표한다.
 //
-//   달성          이미 다 채웠다. 남은 날에 뒤집힐 수 없다
-//   실패 확정     뒤집힐 수 없게 못 채웠다
-//   진행 중       아직 가능하다. 지금 수치를 같이 적는다
-//   끝날 때 판정  마지막 날에만 정해진다(전학생의 순위 · 마지막 선택 · 끝까지 쥐고 있기)
+//   달성          그날 다 채웠다
+//   실패          그날 못 채웠다
+//   끝날 때 판정  마지막 선택뿐 — 마지막 날에만 정해진다
+//   (진행 중은 하루 중간에 「나」 탭이 보여 주는 상태다 — 자정 판정에는 없다)
 //
-// **실패 확정은 정말 뒤집힐 수 없을 때만** 붙인다. 애매하면 진행 중이다.
-// 지금은 한 가지뿐이다 — 투명인간 투표가 남은 날보다 모자란 뒷자리.
-// 쪽지는 빈 종이를 사서 적으면 새로 생기므로 미화부도 끝나기 전에는 안 떨어진다.
+// 투명인간 투표가 없는 날(마지막 날)은 뒷자리의 투표 조항을 달성으로 친다 —
+// 할 수 없는 일로 실패를 매기지 않는다.
 //
 // 스냅샷에는 두 벌이 있다.
 //   truth  운영자가 보는 것. 숨긴 조항까지 다 센 값
@@ -26,13 +26,10 @@ import type { SlipMissionId } from './roles'
 export type DayStatus = MissionStatus
 
 export interface DayContext {
-  /** 이 날이 마지막 날인가. 마지막 날 판정이 최종이다 */
+  /** 마지막 날인가. 마지막 선택이 이날 정해진다 */
   final: boolean
-  /**
-   * 이 날 뒤로 남은 투명인간 투표 날 수. 뒷자리의 「실패 확정」이 본다.
-   * 마지막 날에는 투표가 없다
-   */
-  ballotDaysLeft: number
+  /** 이날 투명인간 투표가 없었다(마지막 날). 뒷자리의 투표 조항을 달성으로 친다 */
+  noBallot: boolean
 }
 
 /** 조항 한 줄의 판정 */
@@ -72,27 +69,13 @@ export interface DayVerdictView {
   choice: DayStatus
 }
 
-/** 끝에 가서야 정해지는 조항 — 남의 순위나 끝까지 쥐고 있는지에 걸린 것 */
-const AT_END: ReadonlySet<string> = new Set<string>(['teamNotFirstAtEnd', 'keepOthers'])
-
-/** 투표가 남은 날보다 모자라면 뒤집힐 수 없다 */
+/** 투명인간 투표에 걸린 조항 */
 const BALLOT_KINDS: ReadonlySet<string> = new Set<string>(['invisibleHits', 'invisibleHitsSameTeam'])
 
-function clauseStatus(
-  kind: string,
-  p: { have: number; bar: number; mode: Mode; met: boolean; broken: boolean },
-  ctx: DayContext,
-): DayStatus {
-  if (ctx.final) return p.met ? 'met' : 'failed'
-  if (AT_END.has(kind)) return 'endOnly'
-  if (p.mode === 'atMost') {
-    // 넘었으면 다시는 안 줄어든다. 안 넘었어도 아직은 모른다
-    return p.broken ? 'failed' : 'running'
-  }
-  // 세는 수는 올라가기만 한다 — 채웠으면 달성이 굳는다
-  if (p.met) return 'met'
-  if (BALLOT_KINDS.has(kind) && p.have + ctx.ballotDaysLeft < p.bar) return 'failed'
-  return 'running'
+/** 하루가 닫혔다 — 채웠으면 달성, 아니면 실패 */
+function clauseStatus(kind: string, p: { met: boolean }, ctx: DayContext): DayStatus {
+  if (ctx.noBallot && BALLOT_KINDS.has(kind)) return 'met'
+  return p.met ? 'met' : 'failed'
 }
 
 /** 줄 여럿을 하나로. 하나라도 실패면 실패, 다 달성이면 달성, 끝날 때가 섞였으면 끝날 때 */
@@ -138,8 +121,9 @@ export function dayVerdict(result: PersonalResult, ctx: DayContext): DayVerdict 
 }
 
 /**
- * 자정에 공개되는가. 자정은 하루가 바뀐 뒤이자 그날 투명인간 발표(21:00) 뒤다 —
- * 「바로」 · 「하루가 바뀔 때」 · 「발표 뒤」는 열리고 「끝날 때」만 닫혀 있다.
+ * 자정에 공개되는가. **하루짜리 미션은 자정에 다 열린다** — 그날은 끝났고,
+ * 결과를 알려 주는 것이 발표다. 「끝날 때」는 이제 쓰는 조항이 없지만,
+ * 남아 있으면 마지막 날에만 연다
  */
 export const openAtMidnight = (d: Disclosure, final: boolean): boolean => final || d !== 'endOnly'
 

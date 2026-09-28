@@ -6,6 +6,7 @@ import {
   canStart,
   dealTeams,
   openTeams,
+  seatName,
   seatsLeft,
   timedEvents,
   type Seat,
@@ -228,5 +229,16 @@ describe('나흘치 시간표', () => {
       if (e.kind === 'gameEnd') continue
       expect(dayNumber(dawn, e.dueAtMs)).toBe(e.day)
     }
+  })
+})
+
+describe('seatName', () => {
+  it('이름이 있으면 그대로다', () => {
+    expect(seatName({ name: '가온' }, 0)).toBe('가온')
+  })
+  it('비었거나 공백뿐이면 자리 번호로 부른다', () => {
+    expect(seatName({ name: '' }, 2)).toBe('3번 자리')
+    expect(seatName({ name: '   ' }, 0)).toBe('1번 자리')
+    expect(seatName({}, 13)).toBe('14번 자리')
   })
 })

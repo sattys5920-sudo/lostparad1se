@@ -14,6 +14,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
 import { STATUS_LABEL, type MissionStatus } from '../../../shared/missions/roleNames'
+import { NOT_DEALT } from '../../../shared/missions/paper'
 import { Bag } from './UseItem'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
@@ -74,6 +75,8 @@ export function Me(props: MeProps) {
   const itemCount = Object.values(items).reduce<number>((a, b) => a + (b ?? 0), 0)
   const slipCount = view?.mySlips?.length ?? 0
   const floorSlips = view?.slipsHere?.length ?? 0
+  /** 아직 배정 전인가. 고장이 아니라 기다리는 중이다 */
+  const undealt = !paper && props.paperErr === NOT_DEALT
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -113,7 +116,23 @@ export function Me(props: MeProps) {
         />
 
         {/* ── ② 가진 것 ────────────────────────────────── */}
-        <Card title="가 진 것">
+        {/*
+          펼침 표시(▼)는 제목 줄 오른쪽 끝에 둔다. 칸 줄 안에 두면 그것이
+          여섯째 칸이 되어 다섯 칸이 폭을 똑같이 못 나눈다
+        */}
+        <Card
+          title="가 진 것"
+          aside={
+            <button
+              type="button"
+              className="sc-mi__caret is-inline"
+              aria-label={haveOpen ? '접기' : '펼치기'}
+              onClick={() => setHaveOpen((v) => !v)}
+            >
+              {haveOpen ? '▲' : '▼'}
+            </button>
+          }
+        >
           <button
             type="button"
             className={'sc-mi__have' + (haveOpen ? ' is-open' : '')}
@@ -125,7 +144,6 @@ export function Me(props: MeProps) {
             <Chip icon="hand" n={itemCount} label="아이템" />
             <Chip icon="slip" n={slipCount} label="쪽지" />
             <Chip icon="mate" n={view?.myCarriedRobots ?? null} label="짝" />
-            <i className="sc-mi__caret" aria-hidden>{haveOpen ? '▲' : '▼'}</i>
           </button>
 
           {haveOpen && (
@@ -144,7 +162,10 @@ export function Me(props: MeProps) {
 
         {/* ── ③ 주 미션 ─────────────────────────────────── */}
         <Card title="미 션" state={paper?.counting ? STATUS_LABEL[paper.main.status] : null}>
+          {/* 배정 전은 고장이 아니다 — 「못 받아왔다」도 다시 시도도 안 붙인다 */}
+          {undealt && <p className="sc-mi__none">아직 배정되지 않았다</p>}
           {!paper &&
+            !undealt &&
             (props.paperErr ? (
               <p className="sc-mi__none">
                 못 받아왔다 — {props.paperErr}{' '}
@@ -213,19 +234,31 @@ export function Me(props: MeProps) {
         )}
 
         {/* ── ④ 받은 표 ────────────────────────────────── */}
+        {/*
+          **빈 줄을 안 둔다.** 전에는 학생증이 오기 전에도 설명 줄 자리가
+          비어 있었고, 0 표일 때는 큰 「0」 하나만 덩그러니 섰다
+        */}
         <Card title="받 은 표">
-          <p className="sc-mi__votes">
-            <b>{paper ? paper.votesReceived : '—'}</b>
-          </p>
-          <p className="sc-mi__fine">
-            {!paper
-              ? ''
-              : paper.votesThroughDay < 1
-                ? '첫날이다. 오늘 받은 표는 내일 더해진다.'
-                : paper.votesThroughDay < props.day
-                  ? `DAY ${paper.votesThroughDay}까지 셌다. 오늘 것은 내일 더해진다.`
-                  : '끝났다. 다 셌다.'}
-          </p>
+          {!paper ? (
+            undealt ? <p className="sc-mi__none">아직 배정되지 않았다</p> : <Dots />
+          ) : (
+            <>
+              {paper.votesReceived === 0 ? (
+                <p className="sc-mi__none">아직 없다</p>
+              ) : (
+                <p className="sc-mi__votes">
+                  <b>{paper.votesReceived}</b>
+                </p>
+              )}
+              <p className="sc-mi__fine">
+                {paper.votesThroughDay < 1
+                  ? '첫날이다. 오늘 받은 표는 내일 더해진다.'
+                  : paper.votesThroughDay < props.day
+                    ? `DAY ${paper.votesThroughDay}까지 셌다. 오늘 것은 내일 더해진다.`
+                    : '끝났다. 다 셌다.'}
+              </p>
+            </>
+          )}
         </Card>
 
         {/* ── ⑥ 지난 페이즈 기록 ───────────────────────── */}
@@ -293,6 +326,7 @@ export function IdCard({
     () => (look ? pixelFrame(look, team, 'down', 0).toDataURL() : null),
     [look, team],
   )
+  const undealt = !paper && err === NOT_DEALT
   return (
     <Card title="학 생 증" className={invisible ? 'is-gone' : ''}>
       <div className="sc-mi__id">
@@ -307,7 +341,9 @@ export function IdCard({
           {/* 역할 이름만. 갈래(팀의 길·사람의 길·밖의 길)는 안 적는다 —
               이름이 이미 그보다 많은 것을 말하고, 갈래까지 붙으면
               남에게 화면을 한 번 보여 줄 때 넷 중 하나로 좁혀진다 */}
-          <span className="sc-mi__role">{paper ? paper.roleName : <Dots />}</span>
+          <span className="sc-mi__role">
+            {paper ? paper.roleName : undealt ? <span className="sc-mi__cls">배정 전</span> : <Dots />}
+          </span>
           {invisible && <span className="sc-mi__gone">오늘은 보이지 않는다</span>}
         </div>
         {/* 완장. 이름을 읽기 전에 몇 팀인지가 먼저 보인다 */}
@@ -329,7 +365,7 @@ export function IdCard({
       </button>
       {open && (
         <p className="sc-mi__secret">
-          {paper ? paper.flavor : err ? `못 받아왔다 — ${err}` : <Dots />}
+          {paper ? paper.flavor : undealt ? '아직 배정되지 않았다' : err ? `못 받아왔다 — ${err}` : <Dots />}
           {paper?.footnote && <em className="sc-mi__foot">{paper.footnote}</em>}
         </p>
       )}
@@ -347,12 +383,15 @@ export function IdCard({
 export function Card({
   title,
   state,
+  aside,
   className = '',
   children,
 }: {
   title: string
   /** 오른쪽 위에 작게. 미션 카드만 쓴다. */
   state?: string | null
+  /** 제목 줄 오른쪽 끝. 가진 것의 펼침 표시가 여기 선다. */
+  aside?: ReactNode
   className?: string
   children: ReactNode
 }) {
@@ -364,6 +403,7 @@ export function Card({
         <header className="sc-mi__head">
           <h3>{title}</h3>
           {state && <span className="sc-mi__state">{state}</span>}
+          {aside}
         </header>
         {children}
       </div>
@@ -373,6 +413,12 @@ export function Card({
   )
 }
 
+/**
+ * 가진 것 한 칸. 아이콘 16 → 숫자 → 이름, 세로로 선다.
+ *
+ * **높이를 못 박지 않는다.** 전에는 숫자(22px)를 18px 줄에 넣어서
+ * 글자가 위아래 칸을 밟았다 — 아이콘 밑에 짓눌린 「0」이 그것이다.
+ */
 function Chip({ icon, n, label }: { icon: string; n: number | null; label: string }) {
   return (
     <span className="sc-mi__chip">

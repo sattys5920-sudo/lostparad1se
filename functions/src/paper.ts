@@ -18,9 +18,9 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { discloseFor, judge, type Phase } from '../../shared/missions/judge'
-import type { MyPaperDoc } from '../../shared/missions/paper'
+import { NOT_DEALT, type MyPaperDoc } from '../../shared/missions/paper'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
-import { ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
+import { ROLE_NAMES, canonRoleId } from '../../shared/missions/roleNames'
 import type { GameDoc, RosterDoc } from '../../shared/model'
 
 import { buildLog } from './ending'
@@ -56,11 +56,26 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     .collection('items')
     .doc(uid)
     .get()
-  if (!mineSnap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
+  if (!mineSnap.exists) {
+    /*
+     * **자리는 있는데 명단 줄이 없으면 아직 안 나눈 것이다.** 역할은
+     * 운영자가 「배정」을 누를 때 적히고, 자리가 바뀌면 지워진다
+     * (lobby.ts 의 clearRoster). 그 사이를 「이 판에 없는 사람」이라고
+     * 하면 고장처럼 읽힌다.
+     */
+    const seated = game.seats.some((s) => s.playerId === uid)
+    if (seated) throw new HttpsError('failed-precondition', NOT_DEALT)
+    throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
+  }
   const mine = mineSnap.data() as RosterDoc
-  const roleId = mine.roleId as RoleId
-  const role = ROLE_BY_ID[roleId]
-  if (!role) throw new HttpsError('internal', '역할을 찾지 못했다.')
+  // 이름을 바꾸기 전에 배정한 판은 명단에 옛 id(snacker·locker)가 있다
+  const roleId = canonRoleId(mine.roleId)
+  const role = roleId ? ROLE_BY_ID[roleId] : undefined
+  if (!roleId || !role) {
+    // 어느 id 였는지는 기록에만 남긴다 — 화면에 적으면 남이 볼 수 있다
+    console.error(`myPaper: 모르는 역할 id ${String(mine.roleId)} (${gameId})`)
+    throw new HttpsError('internal', '역할을 찾지 못했다.')
+  }
 
   const head = {
     roleId,

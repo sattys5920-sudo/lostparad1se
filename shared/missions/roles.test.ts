@@ -1,8 +1,9 @@
 // 역할 데이터가 문서와 어긋나지 않는지 본다.
 //
-// 조건 수치는 데이터에만 있다. 여기서 숫자를 확인하는 것은 **문서와
+// 조건 수치는 데이터에만 있다. 여기서 수치를 확인하는 것은 **문서와
 // 맞는지**를 보려는 것이지 판정을 보려는 것이 아니다 — 판정은
-// judge.test.ts 가 본다.
+// judge.test.ts 가 본다. 그래서 수치를 시험에 적지 않고 문서를 직접 읽어
+// 맞대어 본다.
 import { describe, expect, it } from 'vitest'
 import {
   ASSIGN_RULES,
@@ -18,6 +19,7 @@ import {
   SLIP_MISSIONS,
   STATUS_LABEL,
 } from './roles'
+import { REVEAL, barOf, parseRolesMd } from '../../scripts/lib/rolesMd'
 
 describe('역할 열넷', () => {
   it('열네 종류다', () => {
@@ -89,43 +91,68 @@ describe('조건 수치', () => {
     }
   })
 
+  // 기준 문서(docs/roles_full.md)를 직접 읽어 맞대어 본다. 수치를 시험에
+  // 박아 두면 문서와 데이터를 같이 고쳤을 때 시험만 옛 값에 남는다
+  const { roles: mdRoles, common } = parseRolesMd()
+
+  /** 문서 한 줄의 기준. 「같은 방에 1분 이상 …」처럼 말 안에 박힌 분도 minutes 로 읽는다 */
+  const wantOf = (counts: string, bar: string) => {
+    const want = barOf(bar)
+    const inner = counts.match(/(\d+)분 이상/)
+    return inner && want.minutes === undefined ? { ...want, minutes: Number(inner[1]) } : want
+  }
+
+  it('문서의 열네 역할이 다 있다', () => {
+    expect(mdRoles).toHaveLength(ROSTER_SIZE)
+    for (const m of mdRoles) expect(ROLES.find((r) => r.name === m.name), m.name).toBeDefined()
+  })
+
   it('문서가 정한 수치 그대로다', () => {
-    const bar = (id: Parameters<typeof needOf>[0], kind: string) => needOf(id, kind)
-    expect(bar('classlead', 'sameRoomPeople')).toBe(9)
-    expect(bar('model', 'trustReceived')).toBe(3)
-    expect(bar('model', 'trustTeams')).toBe(2)
-    expect(bar('treasurer', 'vendBuys')).toBe(3)
-    expect(bar('treasurer', 'dealsWithOtherTeam')).toBe(2)
-    expect(bar('deskmate', 'slipsRead')).toBe(4)
-    expect(bar('bookclub', 'slipsRead')).toBe(4)
-    expect(bar('bookclub', 'slipsGiven')).toBe(2)
-    expect(bar('cleanup', 'slipsTorn')).toBe(3)
-    expect(bar('duty', 'errandsDone')).toBe(4)
-    expect(bar('gardener', 'harvests')).toBe(5)
-    expect(bar('science', 'robotsMade')).toBe(3)
-    expect(bar('tech', 'robotsSmashedOfOthers')).toBe(3)
-    expect(bar('topstudent', 'quizzesSolved')).toBe(6)
-    expect(bar('crush', 'targetSlipRead')).toBe(1)
-    expect(bar('newcomer', 'otherTeamRoomsStood')).toBe(3)
-    expect(bar('backseat', 'invisibleHits')).toBe(2)
-    expect(bar('backseat', 'invisibleHitsSameTeam')).toBe(1)
+    for (const m of mdRoles) {
+      const r = ROLES.find((x) => x.name === m.name)
+      if (!r) continue
+      expect(r.main.clauses.length, `${m.name} 조항 수`).toBe(m.clauses.length)
+      m.clauses.forEach((mc, i) => {
+        const c = r.main.clauses[i]
+        const want = wantOf(mc.counts, mc.bar)
+        expect(c.need, `${m.name} · ${mc.counts} 이상`).toBe(want.need)
+        expect(c.limit, `${m.name} · ${mc.counts} 이하`).toBe(want.limit)
+      })
+    }
   })
 
   it('시간 조건도 문서 그대로다 — 분 단위', () => {
-    expect(minutesOf('classlead', 'sameRoomPeople')).toBe(1)
-    expect(minutesOf('crush', 'coStayWithTarget')).toBe(30)
-    expect(minutesOf('newcomer', 'otherTeamRoomsStood')).toBe(10)
+    for (const m of mdRoles) {
+      const r = ROLES.find((x) => x.name === m.name)
+      if (!r) continue
+      m.clauses.forEach((mc, i) => {
+        expect(r.main.clauses[i].minutes, `${m.name} · ${mc.counts}`).toBe(wantOf(mc.counts, mc.bar).minutes)
+      })
+    }
+  })
+
+  it('공개 시점도 문서 그대로다', () => {
+    for (const m of mdRoles) {
+      const r = ROLES.find((x) => x.name === m.name)
+      if (!r) continue
+      m.clauses.forEach((mc, i) => {
+        expect(r.main.clauses[i].disclosure, `${m.name} · ${mc.counts}`).toBe(REVEAL[mc.reveal])
+      })
+    }
+  })
+
+  it('쪽지 미션 수치와 공개 시점도 문서 그대로다', () => {
+    expect(common.slipMissions).toHaveLength(SLIP_MISSIONS.length)
+    common.slipMissions.forEach((mc, i) => {
+      const s = SLIP_MISSIONS[i]
+      const want = barOf(mc.bar)
+      expect(s.text).toBe(mc.counts)
+      expect(s.need, s.id).toBe(want.need)
+      expect(s.limit, s.id).toBe(want.limit)
+      expect(s.disclosure, s.id).toBe(REVEAL[mc.reveal])
+    })
   })
 })
-
-function clauseOf(id: Parameters<typeof roleOf>[0], kind: string) {
-  const c = roleOf(id).main.clauses.find((x) => x.kind === kind)
-  if (!c) throw new Error(`${id}에 ${kind} 조항이 없다`)
-  return c
-}
-const roleOf = (id: keyof typeof ROLE_BY_ID) => ROLE_BY_ID[id]
-const needOf = (id: keyof typeof ROLE_BY_ID, kind: string) => clauseOf(id, kind).need
-const minutesOf = (id: keyof typeof ROLE_BY_ID, kind: string) => clauseOf(id, kind).minutes
 
 describe('쪽지 미션', () => {
   it('셋이다', () => {

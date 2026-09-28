@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite-node scripts/check-notes.ts && vite-node scripts/check-roles.ts && vite build",
+    "build": "tsc -b && vite-node scripts/check-notes.ts && vite-node scripts/check-roles.ts && vite-node scripts/check-map.ts && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
@@ -15,7 +15,8 @@
     "check:doc": "vite-node scripts/check-roles.ts",
     "check:notes": "vite-node scripts/check-notes.ts",
     "fonts:sync": "cp node_modules/galmuri/dist/Galmuri11.woff2 public/fonts/ && cp node_modules/galmuri/ofl.md public/fonts/Galmuri-OFL.md",
-    "check:roles": "vite-node scripts/check-roles.ts"
+    "check:roles": "vite-node scripts/check-roles.ts",
+    "check:map": "vite-node scripts/check-map.ts"
   },
   "dependencies": {
     "firebase": "^12.17.1",

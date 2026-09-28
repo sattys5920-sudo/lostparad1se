@@ -102,3 +102,24 @@ export const ROLES_BY_BRANCH: Record<MissionBranch, readonly RoleId[]> = {
 
 /** ★ — 팀 이익과 부딪히는 역할. 셋은 반드시 서로 다른 팀에 간다. */
 export const ASTRAY_BRANCH: MissionBranch = 'astray'
+
+/**
+ * 이름을 바꾸기 전의 역할 id.
+ *
+ * 총무는 snacker, 옆자리는 locker 였다. **그 전에 배정한 판의 명단
+ * (secret/roster)에는 옛 id 가 그대로 적혀 있다** — 배정은 한 번 적고
+ * 다시 안 쓰기 때문이다. 옛 id 로 ROLE_BY_ID 를 찾으면 비어서, 「나」
+ * 탭이 「역할을 찾지 못했다」를 띄웠다. 읽는 쪽에서 새 id 로 옮긴다.
+ */
+const LEGACY_ROLE_ID: Readonly<Record<string, RoleId>> = {
+  snacker: 'treasurer',
+  locker: 'deskmate',
+}
+
+/** 명단에서 읽은 역할 id 를 지금 이름으로. 모르는 id 면 null. */
+export function canonRoleId(id: string | null | undefined): RoleId | null {
+  if (!id) return null
+  // in 이 아니라 제 칸만 본다 — 'toString' 같은 것이 역할로 통과하면 안 된다
+  if (Object.prototype.hasOwnProperty.call(ROLE_NAMES, id)) return id as RoleId
+  return Object.prototype.hasOwnProperty.call(LEGACY_ROLE_ID, id) ? LEGACY_ROLE_ID[id] : null
+}

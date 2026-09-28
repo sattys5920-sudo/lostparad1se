@@ -191,6 +191,14 @@ export interface WalkProps {
   /** 덫에 걸렸다. 서버가 세운 칸이다 — 여기서 못 벗어난다 */
   pinAt?: { x: number; y: number } | null
   /**
+   * 서버가 그 칸을 거절했다(누가 먼저 섰다 · 물건이 있다). **n 이 바뀌면 한 번**
+   * 이 칸으로 도로 세운다 — 화면만 거기 서 있고 서버는 옛 칸을 쥐고 있으면
+   * 남들 눈에는 다른 데 서 있다
+   */
+  bounce?: { x: number; y: number; n: number } | null
+  /** 걸음이 막혔다. 짧은 사유를 띄운다(누가 서 있다) */
+  onBlocked?: (why: string) => void
+  /**
    * 걸음을 묶어 둔다. **거래창이 열려 있는 동안 쓴다** — 마주 선 채로만
    * 흥정하는데, 시트 위로 삐져나온 지도를 잘못 누르면 한 걸음 물러나
    * 탁자가 접힌다. 나가기를 누르면 풀린다.
@@ -470,7 +478,19 @@ function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
  */
 const HEAD_PX = Math.round(CHAR_PX * 0.62)
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, pinAt = null, frozen = false, looks = {}, live, onLive, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+/**
+ * 발끝(맵 좌표 y)에서 그림 맨 아랫줄까지(맵 화소).
+ *
+ * person() 은 32칸 그림을 발끝보다 여섯 칸(원본 화소) 내려 그린다 —
+ * 신발이 발끝 **아래로** 걸친다. 이름표를 발끝에 붙였더니 신발과
+ * 다리를 덮었다. 이름표는 이 줄 밑에서 시작한다.
+ */
+const FOOT_PX = CHAR_PX * (6 / 32)
+
+/** 막혔다는 말을 다시 띄우기까지. 벽에 대고 밀어도 도배하지 않는다 */
+const BLOCKED_SAY_MS = 1500
+
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -568,6 +588,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   placeRef.current = placeAtMs
   const pinRef = useRef(pinAt)
   pinRef.current = pinAt
+  const bounceRef = useRef(bounce)
+  bounceRef.current = bounce
+  const blockedRef = useRef(onBlocked)
+  blockedRef.current = onBlocked
 
   const [ready, setReady] = useState(false)
 
@@ -860,6 +884,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const nx = self.tx + dx
       const ny = self.ty + dy
 
+      /*
+       * **한 칸에 한 사람.** 누가 서 있는 칸으로는 못 간다. 서버(standAt)도
+       * 같은 것을 보지만, 화면에서 먼저 막아야 걸어 들어갔다가 튕겨 나오지
+       * 않는다. 사유는 짧게 한 번 — 벽에 대고 계속 밀어도 같은 말을 도배하지 않는다
+       */
+      if (takenCells().has(`${nx},${ny}`)) {
+        autoPath = []
+        const t = performance.now()
+        if (t - lastBlockedMs > BLOCKED_SAY_MS) {
+          lastBlockedMs = t
+          blockedRef.current?.('누가 서 있다')
+        }
+        return
+      }
+
       // 아직 못 나간다. 문도 계단도 이 방 밖이면 한 칸도 안 간다
       if (shutIn(nx, ny)) return
 
@@ -937,6 +976,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const startKey = `${self.tx},${self.ty}`
       const goal = `${gx},${gy}`
       if (startKey === goal) return []
+      const occupied = takenCells()
       const prev = new Map<string, string>()
       const seen = new Set([startKey])
       let edge = [{ x: self.tx, y: self.ty }]
@@ -950,6 +990,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             if (seen.has(k)) continue
             const onDoor = doorHere(nx, ny) !== null
             if (!onDoor && !isWalkable(nx, ny)) continue
+            // 남이 선 칸은 돌아간다 — 그 칸이 목적지면 옆 칸까지만 간다
+            if (occupied.has(k)) continue
             // 갇혀 있으면 길도 이 방 안에서만 찾는다. 문 한 칸도 안 밟는다
             if (shutIn(nx, ny)) continue
             seen.add(k)
@@ -1107,6 +1149,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      */
     let askedAtMs = 0
     let lastServerTile: TileId | null = null
+    /** 마지막으로 따른 서버의 거절. n 이 바뀔 때만 한 번 선다 */
+    let lastBounce = bounceRef.current?.n ?? 0
+    /** 서버가 세운 첫 칸을 따랐는가 */
+    let adopted = false
+    /** 「누가 서 있다」를 마지막으로 띄운 때 */
+    let lastBlockedMs = 0
     // 옮겨 세운 것을 이미 따라갔는지. 처음 값은 지금 것이라, 화면을
     // 켤 때 괜히 한 번 튀지 않는다
     let lastPlaceAt: number | null = placeRef.current
@@ -1152,6 +1200,25 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         standAt(pin.x, pin.y)
         autoPath = []
         walked.length = 0
+      }
+      // 서버가 거절한 칸이다. 서버가 아는 자리로 한 번 도로 선다
+      const back = bounceRef.current
+      if (back && back.n !== lastBounce) {
+        lastBounce = back.n
+        standAt(back.x, back.y)
+        autoPath = []
+        walked.length = 0
+        told = `${back.x},${back.y}`
+      }
+      /*
+       * **처음 한 번은 서버가 세운 칸에 선다.** 판이 시작될 때 서버가 열넷에게
+       * 교실 칸을 나눠 준다(겹치지 않게). 화면이 한가운데에서 시작해 제 칸을
+       * 따로 고르면 그 나눔이 헛일이 된다
+       */
+      if (!adopted && pawn?.at && serverTile && roomAt(pawn.at.x, pawn.at.y)?.id === serverTile && !self.moving) {
+        adopted = true
+        standAt(pawn.at.x, pawn.at.y)
+        told = `${pawn.at.x},${pawn.at.y}`
       }
 
       if (placeRef.current !== lastPlaceAt) {
@@ -1874,8 +1941,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const w = el.offsetWidth
         const h = el.offsetHeight
         let x = Math.round(ox + (at.x - camX) * k)
-        // at.y 가 발이다. 한 화소 띄워 붙인다
-        let y = Math.round(oy + (at.y - camY) * k) + 1
+        // at.y 는 발끝이고 그림은 그보다 FOOT_PX 아래까지 내려온다.
+        // 그림이 끝난 줄에서 2px 띄워 붙인다 — 신발을 덮지 않는다
+        let y = Math.round(oy + (at.y + FOOT_PX - camY) * k) + 2
         // 가장자리에서는 안쪽으로 민다. 반쯤 잘린 이름은 이름이 아니다
         x = Math.min(Math.max(x, ox + w / 2), right - w / 2)
         y = Math.min(y, bottom - h)

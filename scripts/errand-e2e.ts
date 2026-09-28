@@ -86,6 +86,15 @@ const num = (f: unknown): number => Number((f as { integerValue?: string })?.int
 const mapOf = (f: unknown): Record<string, unknown> =>
   (f as { mapValue?: { fields?: Record<string, unknown> } })?.mapValue?.fields ?? {}
 
+/**
+ * 칸에 세운다. **한 칸에 한 사람이다** — 누가 선 칸이나 물건 칸이면 서버가
+ * `{ ok: false }` 로 돌려준다(던지지 않는다). 그대로 두면 엉뚱한 칸에서
+ * 뒤의 시험을 잰다 — 안 서지면 여기서 멈춘다
+ */
+async function stand(tk: string, game: string, x: number, y: number): Promise<void> {
+  const r = await must('standAt', tk, { gameId: game, x, y })
+  if (r.ok !== true) throw new Error(`standAt ${x},${y} 안 섰다: ${String(r.code ?? '')} ${String(r.why ?? '')}`)
+}
 /** 방에 세운다. 칸도 같이 비운다 — 서버가 방을 옮길 때 하는 것과 같다 */
 async function putIn(game: string, uid: string, tileId: string): Promise<void> {
   const mask = ['tileId', 'arriveAtMs', 'at'].map((f) => `updateMask.fieldPaths=${f}`).join('&')
@@ -153,7 +162,7 @@ async function main() {
    * **게시판 칸 위가 아니라 옆이다.** 게시판은 기물이라 밟을 수
    * 없다 — 그 칸에 서던 시험은 여기서 서버에 막혔다.
    */
-  await must('standAt', meTok, { gameId: game, x: BOARD.cell.x + 1, y: BOARD.cell.y })
+  await stand(meTok, game, BOARD.cell.x + 1, BOARD.cell.y)
   const vNear = await viewOf(game, meUid)
   const here = arr(vNear.errandsHere)
   check(here.length === 2, '앞에 서면 두 장이 보인다', `${here.length}개`)
@@ -166,7 +175,8 @@ async function main() {
   console.log('\n── 둘이 같이 받는다 ──')
   const errandId = str(beaker.id) ?? ''
   await must('takeErrand', meTok, { gameId: game, errandId })
-  await must('standAt', youTok, { gameId: game, x: BOARD.cell.x + 1, y: BOARD.cell.y })
+  // **한 칸에 한 사람.** 나는 게시판 동쪽에 섰으니 너는 서쪽이다
+  await stand(youTok, game, BOARD.cell.x - 1, BOARD.cell.y)
   await must('takeErrand', youTok, { gameId: game, errandId })
 
   const twice = await call('takeErrand', meTok, { gameId: game, errandId })
@@ -181,9 +191,9 @@ async function main() {
    * 제삼자의 몫을 통째로 문자열로 만들어서 훑는다. 받은 사람 아이디가
    * 한 글자라도 섞이면 경주가 중계가 된다
    */
-  await must('standAt', thirdTok, { gameId: game, x: BOARD.cell.x, y: BOARD.cell.y + 1 }).catch(() => undefined)
+  await stand(thirdTok, game, BOARD.cell.x, BOARD.cell.y + 1)
   await putIn(game, thirdUid, 'cafeteria')
-  await must('standAt', meTok, { gameId: game, x: BOARD.cell.x + 1, y: BOARD.cell.y })
+  await stand(meTok, game, BOARD.cell.x + 1, BOARD.cell.y)
   /*
    * **심부름 칸만 훑는다.**
    *
@@ -214,7 +224,7 @@ async function main() {
   // 「거기에는 설 수 없다」로 막아서 시험이 아무것도 안 재게 된다
   const room = TILE_BY_ID.labRoom.plan
   const far = { x: cell.x >= room.x + 2 ? room.x : room.x + room.w - 1, y: cell.y }
-  await must('standAt', meTok, { gameId: game, ...far })
+  await stand(meTok, game, far.x, far.y)
   const vAway = await viewOf(game, meUid)
   const atFar = mapOf(vAway.myErrand)
   check(
@@ -225,7 +235,7 @@ async function main() {
   const tooFar = await call('pickUpThing', meTok, { gameId: game })
   check(!tooFar.ok, '멀리서는 못 집는다', tooFar.ok ? '집었다' : (tooFar.err ?? ''))
 
-  await must('standAt', meTok, { gameId: game, x: cell.x + 1, y: cell.y })
+  await stand(meTok, game, cell.x + 1, cell.y)
   const vAtFrom = await viewOf(game, meUid)
   check(
     String((mapOf(vAtFrom.myErrand).thingHere as { booleanValue?: boolean })?.booleanValue) === 'true',
@@ -243,7 +253,7 @@ async function main() {
    * 가는지도, 얼마를 받는지도, 누가 같이 받았는지도 안 간다.
    */
   await putIn(game, thirdUid, 'labRoom')
-  await must('standAt', meTok, { gameId: game, x: 55, y: 96 }).catch(() => undefined)
+  await stand(meTok, game, 55, 96)
   const vThird2 = await viewOf(game, thirdUid)
   const meSeen = arr(vThird2.visiblePawns).find((p) => str(p.playerId) === meUid) ?? {}
   check(str(meSeen.carrying) === '비커', '같은 방 사람에게는 든 물건이 보인다', str(meSeen.carrying) ?? '없다')
@@ -260,7 +270,8 @@ async function main() {
 
   console.log('\n── 먼저 놓는 사람 ──')
   await putIn(game, youUid, 'labRoom')
-  await must('standAt', youTok, { gameId: game, x: cell.x + 1, y: cell.y })
+  // 나는 물건 옆을 떠났다(55,96) — 그 칸이 비었다
+  await stand(youTok, game, cell.x + 1, cell.y)
   await must('pickUpThing', youTok, { gameId: game })
   await putIn(game, meUid, 'annex')
   await putIn(game, youUid, 'annex')
@@ -282,7 +293,7 @@ async function main() {
   // 게시판 칸(dx 0)은 기물이라 못 밟는다 — 양옆에 하나씩
   for (const [uid, tk, dx] of [[meUid, meTok, -1], [youUid, youTok, 1]] as const) {
     await putIn(game, uid, 'cafeteria')
-    await must('standAt', tk, { gameId: game, x: BOARD.cell.x + dx, y: BOARD.cell.y })
+    await stand(tk, game, BOARD.cell.x + dx, BOARD.cell.y)
   }
   const list = arr((await viewOf(game, meUid)).errandsHere)
   const broom = list.find((e) => str(e.thing) === '빗자루') ?? {}

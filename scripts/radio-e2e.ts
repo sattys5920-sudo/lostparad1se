@@ -1,159 +1,131 @@
-// 무전이 팀 밖으로 안 나가는가. 진짜 서버로 본다.
+// 무전 — 팀 채널 · 전원 채널 · 운영자 엿듣기.
 //
-//   ㆍ 같은 팀에게는 닿고, 남의 팀에게는 한 줄도 안 간다
-//   ㆍ 걷는 중에도 보낸다 — 방에 매이지 않는 유일한 말이다
-//   ㆍ 지워진 사람의 무전은 **같은 팀에게도** 안 간다
-//   ㆍ 이적한 사람은 옮긴 뒤로 새 팀 무전을 듣는다
+//   - 팀 채널 줄은 그 팀에게만 · 전원 채널 줄은 열넷 모두에게
+//   - 지워진 사람은 전원 채널에 말할 수 없다(듣기는 한다)
+//   - 운영자는 다섯 채널 목록과 한 채널의 줄을 본다 · 참가자는 못 본다
+//   - 줄이 300 넘게 쌓여도 처음 켠 사람은 최근 줄을 받는다
 //
-//   npx vite-node scripts/radio-e2e.ts
-import { createHash } from 'node:crypto'
-import { dayHourMs } from '../shared/rules/clock'
+//   npx vite-node scripts/radio-e2e.ts   (에뮬레이터가 떠 있어야 한다)
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
+import { TOTAL_SEATS } from '../shared/rules/lobby'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
-const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
+const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1'
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
-const TAG = String(Date.now()).slice(-6)
-const GAME = `rd${TAG}`
-const PW = 'rdpass1234'
-const QA = `qard${TAG}`
-const START = Date.UTC(2026, 2, 1, 23, 0, 0)
-
-let bad = 0
-const check = (ok: boolean, label: string, detail = '') => {
-  if (!ok) bad += 1
+let failures = 0
+function check(ok: boolean, label: string, detail = ''): void {
+  if (!ok) failures += 1
   console.log(`${ok ? '  ✓' : '  ✗'} ${label}${detail ? ` — ${detail}` : ''}`)
 }
-async function call(n: string, tk: string | null, d: unknown): Promise<Record<string, unknown>> {
-  const r = await fetch(`${FN}/${n}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
-    body: JSON.stringify({ data: d }),
-  })
-  const j = (await r.json()) as { result?: Record<string, unknown>; error?: { message: string } }
-  if (j.error) throw new Error(`${n}: ${j.error.message}`)
-  return j.result ?? {}
+function plain(v: unknown): unknown {
+  if (v === null || typeof v !== 'object') return v
+  const o = v as Record<string, unknown>
+  if ('stringValue' in o) return o.stringValue
+  if ('integerValue' in o) return Number(o.integerValue)
+  if ('doubleValue' in o) return o.doubleValue
+  if ('booleanValue' in o) return o.booleanValue
+  if ('nullValue' in o) return null
+  if ('arrayValue' in o) return ((o.arrayValue as { values?: unknown[] }).values ?? []).map(plain)
+  if ('mapValue' in o) { const f = (o.mapValue as { fields?: Record<string, unknown> }).fields ?? {}; return Object.fromEntries(Object.entries(f).map(([k, x]) => [k, plain(x)])) }
+  if ('fields' in o) return Object.fromEntries(Object.entries(o.fields as Record<string, unknown>).map(([k, x]) => [k, plain(x)]))
+  return o
 }
-async function tok(id: string, password = PW): Promise<string> {
-  const c = String((await call('logInAccount', null, { id, password })).token)
-  const r = await fetch(`${AUTH}/accounts:signInWithCustomToken?key=fake`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: c, returnSecureToken: true }),
-  })
-  return ((await r.json()) as { idToken: string }).idToken
+async function signUp(e: string): Promise<string> {
+  await fetch(`${AUTH}/accounts:signUp?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, password: 'password', returnSecureToken: true }) }); return e
 }
-const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
-type Line = { playerId: string; text: string; hidden?: boolean }
-const heard = async (tk: string): Promise<Line[]> =>
-  ((await call('radioLines', tk, { gameId: GAME })) as { lines?: Line[] }).lines ?? []
-async function patch(path: string, fields: Record<string, unknown>): Promise<void> {
-  const mask = Object.keys(fields).map((k) => `updateMask.fieldPaths=${k}`).join('&')
-  await fetch(`${FS}/${path}?${mask}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({
-      fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { stringValue: String(v) }])),
-    }),
-  })
+async function setAdmin(e: string): Promise<void> {
+  const r = await fetch(`${AUTH}/accounts:lookup`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN }, body: JSON.stringify({ email: [e] }) })
+  const { users } = (await r.json()) as { users: { localId: string }[] }
+  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN }, body: JSON.stringify({ localId: users[0].localId, customAttributes: JSON.stringify({ admin: true }) }) })
 }
+async function auth(e: string): Promise<{ uid: string; token: string }> {
+  const r = await fetch(`${AUTH}/accounts:signInWithPassword?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, password: 'password', returnSecureToken: true }) })
+  const j = (await r.json()) as { idToken: string; localId: string }; return { uid: j.localId, token: j.idToken }
+}
+interface Res { ok: boolean; data?: Record<string, unknown>; code?: string; message?: string }
+async function call(n: string, tk: string, d: unknown): Promise<Res> {
+  const r = await fetch(`${FN}/${n}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` }, body: JSON.stringify({ data: d }) })
+  const j = (await r.json()) as { result?: Record<string, unknown>; error?: { status: string; message: string } }
+  if (j.error) return { ok: false, code: j.error.status, message: j.error.message }
+  return { ok: true, data: j.result ?? {} }
+}
+async function must(n: string, tk: string, d: unknown): Promise<Record<string, unknown>> {
+  const r = await call(n, tk, d); if (!r.ok) throw new Error(`${n}: ${r.code} ${r.message}`); return r.data as Record<string, unknown>
+}
+
+
+const GAME = `rad${Date.now()}`
+const START = Date.UTC(2026, 2, 1, 23, 0, 0)
+type Line = { playerId: string; text: string; team: string }
 
 async function main(): Promise<void> {
-  const he = `rh${TAG}`
-  await call('signUpAccount', null, { id: he, password: PW })
-  await tok(he)
-  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ localId: uidOf(he), customAttributes: JSON.stringify({ admin: true }) }),
-  })
-  const host = await tok(he)
-  await call('createGame', host, { gameId: GAME, seed: 'rd' })
+  console.log(`판 ${GAME}\n── 판 세우기 ──`)
+  const he = await signUp(`h-${GAME}@x.test`); await setAdmin(he)
+  const host = (await auth(he)).token
+  const want: TeamId[] = []
+  for (const [t, n] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) for (let i = 0; i < n; i++) want.push(t)
+  await must('createGame', host, { gameId: GAME, seed: 'rad' })
+  const people: { uid: string; token: string; team: TeamId }[] = []
+  for (let i = 0; i < TOTAL_SEATS; i++) {
+    const a = await auth(await signUp(`p${i}-${GAME}@x.test`))
+    people.push({ ...a, team: want[i] })
+    await must('joinGame', a.token, { gameId: GAME, name: `봇${i}`, team: want[i] })
+  }
+  await must('assignAll', host, { gameId: GAME })
+  await must('startGame', host, { gameId: GAME, startAtMs: START })
 
-  // A팀 둘, B팀 하나
-  const a1 = `ra${TAG}`
-  const a2 = `rb${TAG}`
-  const b1 = `rc${TAG}`
-  for (const id of [a1, a2, b1]) await call('signUpAccount', null, { id, password: PW })
-  await call('joinGame', await tok(a1), { gameId: GAME, name: 'A하나', team: 'A' })
-  await call('joinGame', await tok(a2), { gameId: GAME, name: 'A둘', team: 'A' })
-  await call('joinGame', await tok(b1), { gameId: GAME, name: 'B하나', team: 'B' })
-  await call('seedPlayers', host, { gameId: GAME, password: QA, leaveSeats: 0 })
-  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
-  await call('assignAll', host, { gameId: GAME })
-  await call('startGame', host, { gameId: GAME, startAtMs: START })
-  await call('setDevClock', host, { gameId: GAME, anchorGameMs: dayHourMs(START, 2, 10), speed: 1 })
-  await call('tick', host, { gameId: GAME })
+  const a = people[0]
+  const mate = people.find((p) => p !== a && p.team === a.team)!
+  const other = people.find((p) => p.team !== a.team)!
+  const lines = async (p: { token: string }, channel: 'team' | 'all', sinceMs = 0) =>
+    ((await must('radioLines', p.token, { gameId: GAME, sinceMs, channel })).lines as Line[])
 
-  const tk1 = await tok(a1)
-  const tk2 = await tok(a2)
-  const tkB = await tok(b1)
+  console.log('\n── 팀 채널 ──')
+  await must('radio', a.token, { gameId: GAME, text: '팀에게만', channel: 'team' })
+  check((await lines(mate, 'team')).some((l) => l.text === '팀에게만'), '같은 팀은 듣는다')
+  check(!(await lines(other, 'team')).some((l) => l.text === '팀에게만'), '다른 팀은 못 듣는다')
+  check(!(await lines(other, 'all')).some((l) => l.text === '팀에게만'), '전원 채널에도 안 섞인다')
 
-  console.log('\n── 팀 안에서만 돈다 ──')
-  await call('radio', tk1, { gameId: GAME, text: '운동장으로 모여' })
-  const mate = await heard(tk2)
-  check(mate.some((l) => l.text === '운동장으로 모여'), '같은 팀에게 닿는다')
-  const other = await heard(tkB)
-  check(!other.some((l) => l.text === '운동장으로 모여'), '남의 팀에게는 한 줄도 안 간다', `${other.length}줄`)
+  console.log('\n── 전원 채널 ──')
+  await must('radio', a.token, { gameId: GAME, text: '모두에게', channel: 'all' })
+  check((await lines(other, 'all')).some((l) => l.text === '모두에게'), '다른 팀도 듣는다')
+  check(!(await lines(mate, 'team')).some((l) => l.text === '모두에게'), '팀 채널에는 안 섞인다')
+  const here = (await must('radioLines', other.token, { gameId: GAME, channel: 'all' })).here as number
+  check(here >= 1, '전원 채널의 수신 수는 팀을 가리지 않는다 — 다른 팀 사람이 센다', String(here))
 
-  console.log('\n── 걷는 중에도 된다 ──')
-  // 방에 매이지 않는 유일한 말이다. 말(say)은 걷는 중에 거절당한다
-  await patch(`games/${GAME}/pawns/${uidOf(a1)}`, { tileId: '' })
-  await fetch(`${FS}/games/${GAME}/pawns/${uidOf(a1)}?updateMask.fieldPaths=tileId`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ fields: { tileId: { nullValue: null } } }),
-  })
-  const walking = await call('radio', tk1, { gameId: GAME, text: '가는 중' })
-  check(walking.said === true, '걷는 중에도 보낸다')
-  const said = await call('say', tk1, { gameId: GAME, text: '가는 중' }).then(() => '', (e: Error) => e.message)
-  check(said.includes('걷는 중'), '말은 걷는 중에 거절된다 — 둘이 다른 줄이다', said)
-
-  /*
-   * 지워진 것은 판정에서지 팀에서가 아니다. 무전은 방이 아니라 팀에
-   * 매인 줄이라 어디 있는지가 안 새고, 셋이 넷인 줄 알고 방을 나누면
-   * 그날 작전이 통째로 어긋난다 — 오히려 말이 통해야 한다.
-   */
-  console.log('\n── 지워진 사람도 무전은 쓴다. 이름 옆에 표가 붙을 뿐이다 ──')
-  await patch(`games/${GAME}`, { invisibleId: uidOf(a1), invisibleTeam: 'A' })
-  const ghost = await call('radio', tk1, { gameId: GAME, text: '나 여기 있어' })
-  check(ghost.heard === true, '지워져 있어도 닿는다')
-  const mate2 = await heard(tk2)
-  const seen = mate2.find((l) => l.text === '나 여기 있어')
-  check(seen !== undefined, '같은 팀이 듣는다')
-  check(seen?.hidden === true, '그 줄에 「안 보임」 표가 붙는다')
-  const own = await heard(tk1)
-  check(own.find((l) => l.text === '나 여기 있어')?.hidden === true, '본인 화면에도 같은 표가 붙는다')
-
-  console.log('\n── 이적하면 새 팀 무전을 듣는다 ──')
-  await patch(`games/${GAME}`, { invisibleId: '' })
+  console.log('\n── 지워진 사람 ──')
   await fetch(`${FS}/games/${GAME}?updateMask.fieldPaths=invisibleId`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ fields: { invisibleId: { nullValue: null } } }),
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { invisibleId: { stringValue: other.uid } } }),
   })
-  // 이적이 실제로 발효될 때 openPhase 가 team 과 teamSinceMs 를 **같이**
-  // 쓴다(transfer-e2e 가 그것을 본다). 여기서는 무전만 보므로 그 결과를
-  // 그대로 만들어 놓고 시작한다
-  const movedAtMs = Number((await call('clockNow', host, { gameId: GAME })).nowMs ?? Date.now())
-  await fetch(`${FS}/games/${GAME}/pawns/${uidOf(b1)}?updateMask.fieldPaths=team&updateMask.fieldPaths=teamSinceMs`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({
-      fields: { team: { stringValue: 'A' }, teamSinceMs: { integerValue: String(movedAtMs) } },
-    }),
-  })
-  await call('radio', tk2, { gameId: GAME, text: '어서 와' })
-  const moved = await heard(tkB)
-  check(moved.some((l) => l.text === '어서 와'), 'A팀으로 옮기면 A팀 무전이 들린다')
-  check(
-    !moved.some((l) => l.text === '운동장으로 모여'),
-    '옮기기 전 줄은 안 따라온다 — 팀이 된 시각부터 듣는다',
-    '옛 줄이 딸려 왔다',
-  )
+  const refused = await call('radio', other.token, { gameId: GAME, text: '나야', channel: 'all' })
+  check(!refused.ok && /지워진 사람/.test(refused.message ?? ''), '전원 채널에 말할 수 없다', refused.message)
+  check((await lines(other, 'all')).some((l) => l.text === '모두에게'), '듣기는 한다')
+  const teamOk = await call('radio', other.token, { gameId: GAME, text: '팀엔 된다', channel: 'team' })
+  check(teamOk.ok, '팀 채널에는 말한다')
 
-  console.log(bad === 0 ? '\n전부 통과.' : `\n${bad}개 틀렸다.`)
-  process.exit(bad === 0 ? 0 : 1)
+  console.log('\n── 운영자 ──')
+  const ov = (await must('hostRadioOverview', host, { gameId: GAME })).channels as { channel: string; lines: number }[]
+  check(ov.length === 5, '채널 다섯', ov.map((c) => `${c.channel}:${c.lines}`).join(' '))
+  check(ov.find((c) => c.channel === 'ALL')?.lines === 1, '전원 채널 한 줄')
+  const hl = (await must('hostRadioLines', host, { gameId: GAME, channel: a.team })).lines as Line[]
+  check(hl.some((l) => l.text === '팀에게만'), '운영자는 팀 채널 줄을 본다')
+  const peek = await call('hostRadioOverview', a.token, { gameId: GAME })
+  check(!peek.ok, '참가자는 운영자 목록을 못 본다', peek.code)
+  const peek2 = await call('hostRadioLines', a.token, { gameId: GAME, channel: other.team })
+  check(!peek2.ok, '참가자는 남의 팀 줄을 못 본다', peek2.code)
+
+  console.log('\n── 줄이 많이 쌓였을 때 ──')
+  for (let i = 0; i < 305; i += 1) await must('radio', mate.token, { gameId: GAME, text: `줄${i}`, channel: 'all' })
+  const got = await lines(a, 'all')
+  check(got.length === 300, '처음 켜면 300줄', String(got.length))
+  check(got[got.length - 1]?.text === '줄304', '마지막 줄이 가장 최근 줄이다', got[got.length - 1]?.text)
+  check(got.every((l, i) => i === 0 || l.text !== got[i - 1].text), '순서가 뒤집히지 않았다')
+
+  console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`)
+  process.exit(failures === 0 ? 0 : 1)
 }
-void main()
+
+main().catch((e) => { console.error(e); process.exit(1) })

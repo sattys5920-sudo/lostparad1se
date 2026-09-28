@@ -1,8 +1,9 @@
 // 자정 판정 — 날이 바뀌면 열넷을 판정해 날짜별로 남기는가.
 //
 //   - 날이 바뀌기 전에는 판정이 없다
-//   - DAY 1 → 2 로 넘기면 DAY 1 판정 열넷(진행 중 · 달성 · 실패 확정)
-//   - 오늘 한 일 · 오늘 받은 표는 어제 판정에 안 들어간다
+//   - 미션은 하루짜리 — DAY 1 → 2 로 넘기면 DAY 1 판정 열넷(달성 · 실패)
+//   - 매일 0부터 센다. 오늘 한 일 · 오늘 받은 표는 어제 판정에 안 들어가고,
+//     어제 한 일은 오늘 판정에 안 들어간다
 //   - 빠진 날을 누가 두드릴 때 날짜순으로 따라잡는다 — 그날 밤까지만 센다
 //   - 참가자는 판정 문서를 못 읽고, 화면 문서에도 안 섞인다
 //   - 마지막 날 판정이 최종이다(진행 중 · 끝날 때 판정이 없다)
@@ -151,9 +152,10 @@ async function main(): Promise<void> {
   const one = await day(1)
   check(one.rows.length === 14, 'DAY 1 판정이 열넷 몫이다', `${one.rows.length}`)
   const dutyOne = rowOf(one, duty.playerId)
-  check(dutyOne.truth.status === 'running' && dutyOne.truth.clauses[0].have === 2, '주번: 진행 중 · 2 / 4', `${dutyOne.truth.status} ${dutyOne.truth.clauses[0].have}`)
-  check(rowOf(one, model.playerId).truth.clauses[0].have === 1, '모범생: DAY 1 표 1장')
-  check(rowOf(one, backseat.playerId).truth.status === 'running', '뒷자리: 남은 투표로 채울 수 있다 — 진행 중', rowOf(one, backseat.playerId).truth.status)
+  check(dutyOne.truth.status === 'met' && dutyOne.truth.clauses[0].have === 2, '주번: 그날 심부름 2 / 2 — 달성', `${dutyOne.truth.status} ${dutyOne.truth.clauses[0].have}`)
+  check(rowOf(one, model.playerId).truth.clauses[0].have === 1 && rowOf(one, model.playerId).truth.status === 'failed', '모범생: 그날 표 1장 — 실패')
+  check(rowOf(one, backseat.playerId).truth.status === 'failed', '뒷자리: 그날 적은 이름이 안 지워졌다 — 실패', rowOf(one, backseat.playerId).truth.status)
+  check(one.rows.every((r) => r.truth.status === 'met' || r.truth.status === 'failed'), '자정 판정에는 진행 중이 없다 — 그날로서는 최종이다')
   check(one.rows.every((r) => !r.final), 'DAY 1 은 최종이 아니다')
 
   console.log('\n── DAY 2 — 하루 경계 전에는 전날 판정이 안 바뀐다 ──')
@@ -168,9 +170,8 @@ async function main(): Promise<void> {
 
   await pushTo('dayStart', 3)
   const two = await day(2)
-  check(rowOf(two, duty.playerId).truth.status === 'met', '주번: 4 / 4 — 달성', rowOf(two, duty.playerId).truth.status)
-  check(rowOf(two, model.playerId).truth.clauses[0].have === 2, '모범생: 하루가 바뀌고 나서 2장')
-  check(rowOf(two, backseat.playerId).truth.status === 'failed', '뒷자리: 남은 투표 하루로는 두 번을 못 채운다 — 실패 확정', rowOf(two, backseat.playerId).truth.status)
+  check(rowOf(two, duty.playerId).truth.clauses[0].have === 2, '주번: 매일 0부터 — 어제 두 번은 오늘 안 센다', `${rowOf(two, duty.playerId).truth.clauses[0].have}`)
+  check(rowOf(two, model.playerId).truth.clauses[0].have === 1, '모범생: 오늘 받은 1장만 — 어제 표는 안 센다')
 
   console.log('\n── 밀린 자정을 따라잡는다 ──')
   const d3noon = dayHourMs(START, 3, 12)
@@ -188,7 +189,7 @@ async function main(): Promise<void> {
   check(twoAgain, '누가 두드리면 빠진 DAY 2 를 다시 판정한다')
   const re = await day(2)
   check(re.rows.length === 14, '열넷 몫이 다시 생겼다')
-  check(rowOf(re, duty.playerId).truth.clauses[0].have === 4, '따라잡아도 그날 밤까지만 센다 — DAY 3 심부름은 안 들어간다', `${rowOf(re, duty.playerId).truth.clauses[0].have}`)
+  check(rowOf(re, duty.playerId).truth.clauses[0].have === 2, '따라잡아도 그날 하루만 센다 — DAY 3 심부름은 안 들어간다', `${rowOf(re, duty.playerId).truth.clauses[0].have}`)
 
   console.log('\n── 새는 것 ──')
   const p = people[3]
@@ -213,6 +214,7 @@ async function main(): Promise<void> {
   check(last.days.map((x) => x.day).join(',') === '1,2,3,4', '날마다 판정이 남아 있다 — 나중에 다시 볼 수 있다', last.days.map((x) => x.day).join(','))
   check(last.day === 4 && last.rows.every((r) => r.final), 'DAY 4 판정이 최종이다')
   check(last.rows.every((r) => r.truth.status === 'met' || r.truth.status === 'failed'), '최종에는 진행 중 · 끝날 때 판정이 없다')
+  check(rowOf(last, backseat.playerId).truth.clauses[0].status === 'met', '뒷자리: 투표가 없는 마지막 날은 달성으로 친다')
   check(last.rows.every((r) => r.truth.choice === 'met' || r.truth.choice === 'failed'), '마지막 선택도 정해졌다')
 
   console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`)

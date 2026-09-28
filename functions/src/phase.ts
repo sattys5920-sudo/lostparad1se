@@ -42,6 +42,7 @@ import {
 import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { isFixture } from '../../shared/rules/fixtures'
+import { isBlockedCell } from '../../shared/rules/blocked'
 import { foldPurses, purseOf } from '../../shared/rules/resources'
 import { machineAtSeat } from '../../shared/rules/arcade'
 import { LAB_PICK_NO, LAB_TILE, SNARE_MINUTES, atLabMachine, pickLabMachine } from '../../shared/rules/trap'
@@ -72,6 +73,9 @@ import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 
 const db = getFirestore()
+
+/** 칸 표시 — 누가 그 칸에 섰나. 동시에 같은 칸으로 오는 둘을 가른다(standAt). 참가자는 못 읽는다 */
+const cellsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('cells').collection('items')
 
 /** 묶여 있는 동안 화면에 적는 이름. */
 const ACT_LABEL: Record<ActionKind, string> = {
@@ -1184,7 +1188,14 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 한 번 더 본다 — 화면이 보내는 값을 믿으면 손으로 부른 요청 하나로
    * 기계 안에 서 있는 사람이 생긴다.
    */
-  if (isFixture(x, y)) throw new HttpsError('failed-precondition', '거기에는 물건이 있다.')
+  if (isFixture(x, y)) return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.' }
+  /*
+   * **가구 · 팻말 위에도 못 선다.** 화면은 가구 배치(furniture.ts)로 막는데
+   * 서버는 그 그림 파일을 못 불러서, 한동안 손으로 부른 요청 하나로 책상
+   * 위에 설 수 있었다. 막힌 칸을 뽑아 둔 데이터(rules/blocked)를 본다 —
+   * 빌드 때 check-map 이 화면과 같은지 맞춰 본다
+   */
+  if (isBlockedCell(x, y)) return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.' }
   /*
    * **오락기 앞자리는 한 사람이다.** 그 칸에 선 것이 곧 앉은 것이라
    * (rules/arcade), 둘이 한 칸에 서면 한 기계에 둘이 앉는다. 화면은
@@ -1215,6 +1226,38 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
   if (p.at?.x === x && p.at?.y === y) return { ok: true, same: true }
 
   /*
+   * **한 칸에 한 사람.** 누가 서 있는 칸에는 못 선다.
+   *
+   * 먼저 지금 그 칸에 선 사람을 본다 — 서버가 세운 자리(시작 자리 등)는
+   * 칸 표시 없이도 여기서 걸린다. 그다음 **칸 표시(secret/cells)를 트랜잭션으로
+   * 잡는다.** 둘이 같은 칸으로 동시에 오면 같은 표시 문서를 두고 다투므로
+   * 먼저 닿은 한 사람만 선다. 진 쪽은 원래 자리에 남는다 — 걸음은 토큰이
+   * 안 드므로 잃는 것도 없다. 표시는 그 사람이 아직 그 칸에 있을 때만 유효하다
+   * — 떠난 사람의 표시는 덮어쓴다
+   */
+  const there = await gameRef(gameId).collection('pawns').where('at.x', '==', x).where('at.y', '==', y).get()
+  if (there.docs.some((d) => d.id !== uid && (d.data() as PawnDoc).tileId !== null)) {
+    return { ok: false, code: 'occupied', why: '누가 서 있다.' }
+  }
+  const cellRef = cellsOf(gameId).doc(`${x}_${y}`)
+  const oldRef = p.at ? cellsOf(gameId).doc(`${p.at.x}_${p.at.y}`) : null
+  const took = await db.runTransaction(async (tx) => {
+    const [claim, old] = await Promise.all([tx.get(cellRef), oldRef ? tx.get(oldRef) : null])
+    const by = claim.exists ? (claim.data() as { by: string }).by : null
+    if (by && by !== uid) {
+      const o = (await tx.get(gameRef(gameId).collection('pawns').doc(by))).data() as PawnDoc | undefined
+      if (o && o.tileId !== null && o.at?.x === x && o.at?.y === y) return false
+    }
+    tx.set(cellRef, { by: uid, atMs: nowMs })
+    if (old?.exists && (old.data() as { by: string }).by === uid) tx.delete(old.ref)
+    // **자리도 같은 트랜잭션에서 옮긴다.** 따로 적으면 그 사이에 온 사람이
+    // 「표시는 있는데 그 사람이 아직 그 칸에 없다」를 보고 덮어쓴다
+    tx.update(ref, { at: { x, y } })
+    return true
+  })
+  if (!took) return { ok: false, code: 'occupied', why: '누가 먼저 섰다.' }
+
+  /*
    * **덫.** 지나온 복도 칸과 지금 선 칸 중 다른 팀 덫이 있는 첫 칸에서
    * 걸린다. 걸리면 거기 선 것으로 적히고 열 분 동안 묶인다 — 걸음도
    * 행동도 requireFree 가 막는다. 밟은 덫은 사라진다.
@@ -1222,17 +1265,28 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
   const snared = await springTrap(gameId, p.team as TeamId, [...via, { x, y }])
   if (snared) {
     const until = nowMs + SNARE_MINUTES * 60_000
-    await ref.update({ at: snared, busyUntilMs: until, busyKind: '덫' })
+    /*
+     * **걸린 칸에 누가 서 있으면 그 칸으로 옮기지 않는다.** 덫을 놓은 팀
+     * 사람은 제 덫 위에 서도 안 걸리므로, 남의 팀이 지나가다 걸리면 한 칸에
+     * 둘이 선다. 그때는 방금 선 칸(x,y)에서 묶인다 — 한 칸에 한 사람은 지킨다
+     */
+    const onIt = await gameRef(gameId).collection('pawns').where('at.x', '==', snared.x).where('at.y', '==', snared.y).get()
+    const free = !onIt.docs.some((d) => d.id !== uid && (d.data() as PawnDoc).tileId !== null)
+    const stay = free ? snared : { x, y }
+    await ref.update({ at: stay, busyUntilMs: until, busyKind: '덫' })
+    if (free && (snared.x !== x || snared.y !== y)) {
+      await cellsOf(gameId).doc(`${snared.x}_${snared.y}`).set({ by: uid, atMs: nowMs })
+      await cellsOf(gameId).doc(`${x}_${y}`).delete()
+    }
     await gameRef(gameId).collection('notices').doc().set({
       toPlayerId: uid,
       text: `덫에 걸렸다. ${SNARE_MINUTES}분 동안 못 움직인다.`,
       atMs: nowMs,
     })
     await refreshViews(gameId)
-    return { ok: true, same: false, snared: { ...snared, untilMs: until } }
+    return { ok: true, same: false, snared: { ...stay, untilMs: until } }
   }
 
-  await ref.update({ at: { x, y } })
   await refreshViews(gameId)
   return { ok: true, same: false }
 })

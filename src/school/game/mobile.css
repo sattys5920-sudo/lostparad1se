@@ -273,8 +273,39 @@
   gap: var(--sp-2);
   padding: var(--sp-1) var(--sp-2);
 }
-/* 아래층은 내용만큼만. 방 이름이 짧으면 판도 짧다 */
-.sc-pl__hud2 { gap: var(--sp-1); padding: var(--sp-1) var(--sp-2); }
+/*
+ * 아래층도 폭을 다 쓴다. 방 이름은 왼쪽, 팀 점수는 오른쪽 끝이다 —
+ * 점수가 따로 한 층이던 때는 판 셋이 쌓여 방 윗머리를 덮었다.
+ * 좁으면 **방 이름이 줄어든다**(말줄임). 점수 넷은 안 줄인다.
+ * 방 이름도 점수도 없으면(시작 전 첫 그림) 빈 판을 접는다.
+ */
+.sc-pl__hud2 {
+  align-self: stretch;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-1) var(--sp-2);
+}
+.sc-pl__hud2:empty { display: none; }
+.sc-pl__hud2 .sc-pl__where {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-pl__hud2 .sc-pl__kind,
+.sc-pl__hud2 .sc-pl__crowd { flex: 0 0 auto; white-space: nowrap; }
+/* 판 안의 점수는 제 판을 벗는다. 테두리 안에 테두리가 또 서면 어둡게 뭉친다 */
+.sc-pl__hud2 .sc-sb {
+  flex: 0 0 auto;
+  margin-left: auto;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.sc-pl__hud2 .sc-sb__team { padding: 0 2px; }
 
 .sc-pl__day {
   flex: 0 0 auto;

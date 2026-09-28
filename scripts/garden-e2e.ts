@@ -155,18 +155,31 @@ async function ageToFruit(game: string, i: number): Promise<{ cropId: string; wi
  * 문서만 손으로 고치면 views 는 옛 값 그대로다 — tick 은 따라잡을
  * 것이 있을 때만 다시 쓴다. 옆 칸으로 한 걸음 옮겼다 돌아온다.
  */
-async function wake(game: string, tk: string, cell: { x: number; y: number }): Promise<void> {
-  await must('standAt', tk, { gameId: game, x: cell.x + 1, y: cell.y + 1 })
-  await must('standAt', tk, { gameId: game, x: cell.x, y: cell.y + 1 })
+async function wake(game: string, tk: string, cell: { x: number; y: number }, dy = 1): Promise<void> {
+  await stand(game, tk, cell.x + 1, cell.y + dy)
+  await stand(game, tk, cell.x, cell.y + dy)
+}
+
+/**
+ * 칸에 세운다. **한 칸에 한 사람이다** — 누가 선 칸이나 물건 칸이면 서버가
+ * `{ ok: false }` 로 돌려준다(던지지 않는다). 그대로 두면 엉뚱한 칸에서
+ * 뒤의 시험을 잰다 — 안 서지면 여기서 멈춘다
+ */
+async function stand(game: string, tk: string, x: number, y: number): Promise<void> {
+  const r = await must('standAt', tk, { gameId: game, x, y })
+  if (r.ok !== true) throw new Error(`standAt ${x},${y} 안 섰다: ${String(r.code ?? '')} ${String(r.why ?? '')}`)
 }
 
 /**
  * 그 화분 **옆**에 세운다. 화분 칸 자체는 기물이라 못 밟는다 — 전에는
  * 화분 위에 서던 시험이라, 막히자마자 여기서 드러났다. 바로 아랫칸이다:
  * 화분 두 줄(y100·y103) 아래에는 가구가 없다.
+ *
+ * **한 칸에 한 사람.** 남이 이미 아랫칸에 섰으면 dy = -1 로 윗칸에 선다 —
+ * 윗줄 화분(y100) 위 y99 는 비어 있다. 둘레 한 칸이면 다 「앞」이다
  */
-async function standAt(game: string, tk: string, cell: { x: number; y: number }): Promise<void> {
-  await must('standAt', tk, { gameId: game, x: cell.x, y: cell.y + 1 })
+async function standAt(game: string, tk: string, cell: { x: number; y: number }, dy = 1): Promise<void> {
+  await stand(game, tk, cell.x, cell.y + dy)
 }
 
 const potsOf = (v: Record<string, unknown>) => arr(v.potsHere)
@@ -254,8 +267,9 @@ async function main() {
   const farPick = await call('harvestPot', youTok, { gameId: game, pot: 0 })
   check(!farPick.ok, '화분 앞이 아니면 못 딴다', farPick.ok ? '땄다' : (farPick.err ?? ''))
 
-  // **심은 사람이 아니어도 딴다.** 앞에 선 사람이 가진다
-  await standAt(game, youTok, POT_CELLS[0])
+  // **심은 사람이 아니어도 딴다.** 앞에 선 사람이 가진다.
+  // 아랫칸에는 내가 서 있다 — 한 칸에 한 사람이라 너는 윗칸이다
+  await standAt(game, youTok, POT_CELLS[0], -1)
   const got = await must('harvestPot', youTok, { gameId: game, pot: 0 })
   check(String(got.got ?? '') === grownName, '**심은 사람이 아니어도 딴다**', String(got.got))
   const vYou2 = await viewOf(game, youUid)
@@ -332,8 +346,9 @@ async function main() {
   const farSell = await call('sellCrop', youTok, { gameId: game, cropId: soldId })
   check(!farSell.ok, '자판기 앞이 아니면 못 넣는다', farSell.ok ? '넣었다' : (farSell.err ?? ''))
 
-  // **기계 앞에 세운다.** 방이 아니라 칸이다 — 복도에는 방이 없다
-  await standBy(game, youUid, MACHINE)
+  // **기계 앞에 세운다.** 방이 아니라 칸이다 — 복도에는 방이 없다.
+  // 기계 칸 자체는 기물이라 아무도 못 선다 — 바로 옆(동쪽) 복도 칸이다
+  await standBy(game, youUid, { x: MACHINE.x + 1, y: MACHINE.y })
   const moneyBefore = await purseOf(game, youUid)
   const paid = await must('sellCrop', youTok, { gameId: game, cropId: soldId })
   check(

@@ -7,9 +7,9 @@
 // 공개 정책도 여기서 본다. 가려야 할 값이 문서에 **들어 있지 않은지**
 // 까지 본다 — 받아서 가리는 방식이면 개발자도구로 다 보인다.
 import { describe, expect, it } from 'vitest'
-import { discloseFor, judge, type BallotVote, type GameLog, type JudgeVote } from './judge'
+import { discloseFor, judge, type BallotDay, type BallotVote, type GameLog, type JudgeVote } from './judge'
 import type { Assignment } from './assign'
-import { ROLES, ROLE_BY_ID, type RoleId } from './roles'
+import { ROLES, ROLE_BY_ID, type ClauseKind, type RoleId } from './roles'
 import type { GameRecord, RecordKind } from '../rules/records'
 import type { Interval } from '../rules/presence'
 import type { TeamId } from '../rules/v2'
@@ -77,47 +77,74 @@ function together(a: string, b: string, minutes: number, tileId = 'library'): In
 const mainOf = (roleId: RoleId, over: Partial<GameLog>, targetId: string | null = null) =>
   judge(me(roleId, targetId), log(over)).main
 
+/**
+ * 데이터 파일의 조항. **기준치는 여기서 읽는다** — 시험이 숫자를 박아 두면
+ * 난이도를 고칠 때마다 시험이 깨지고, 경계를 보는 뜻도 흐려진다.
+ */
+function clauseOf(roleId: RoleId, kind: ClauseKind) {
+  const clauses = ROLE_BY_ID[roleId].main.clauses
+  const index = clauses.findIndex((c) => c.kind === kind)
+  if (index < 0) throw new Error(`${roleId}에 ${kind} 조항이 없다`)
+  return { ...clauses[index], index }
+}
+const needOf = (roleId: RoleId, kind: ClauseKind): number => {
+  const n = clauseOf(roleId, kind).need
+  if (n === undefined) throw new Error(`${roleId} · ${kind}에 need 가 없다`)
+  return n
+}
+const minutesOf = (roleId: RoleId, kind: ClauseKind): number => {
+  const m = clauseOf(roleId, kind).minutes
+  if (m === undefined) throw new Error(`${roleId} · ${kind}에 minutes 가 없다`)
+  return m
+}
+
 // ── 경계 ────────────────────────────────────────────────────────
 
 describe('셈이 경계에서 갈린다', () => {
-  const counts: [RoleId, RecordKind, number][] = [
-    ['deskmate', 'slipRead', 4],
-    ['cleanup', 'slipTear', 3],
-    ['duty', 'errandDone', 4],
-    ['gardener', 'potHarvest', 5],
-    ['science', 'robotBorn', 3],
-    ['topstudent', 'quizSolved', 6],
-    ['treasurer', 'vendBuy', 3],
+  // 역할 · 조항 · 그 조항이 세는 기록 · 기록에 덧붙일 것
+  const counts: [RoleId, ClauseKind, RecordKind, Partial<GameRecord>?][] = [
+    ['deskmate', 'slipsRead', 'slipRead'],
+    ['bookclub', 'slipsRead', 'slipRead'],
+    ['bookclub', 'slipsGiven', 'slipGive'],
+    ['cleanup', 'slipsTorn', 'slipTear'],
+    ['duty', 'errandsDone', 'errandDone'],
+    ['gardener', 'harvests', 'potHarvest'],
+    ['science', 'robotsMade', 'robotBorn'],
+    ['tech', 'robotsSmashedOfOthers', 'robotSmashed', { otherTeam: 'B' }],
+    ['topstudent', 'quizzesSolved', 'quizSolved'],
+    ['treasurer', 'vendBuys', 'vendBuy'],
   ]
 
-  for (const [roleId, kind, need] of counts) {
-    const name = ROLE_BY_ID[roleId].name
-    it(`${name} — ${need - 1}번은 안 되고 ${need}번은 된다`, () => {
-      const short = mainOf(roleId, { records: did(kind, need - 1) })
-      const exact = mainOf(roleId, { records: did(kind, need) })
-      const first = (m: typeof short) => m.clauses[0]
-      expect(first(short).met, '하나 모자랄 때').toBe(false)
-      expect(first(short).have).toBe(need - 1)
-      expect(first(exact).met, '딱 맞을 때').toBe(true)
-      expect(first(exact).bar).toBe(need)
+  for (const [roleId, clauseKind, kind, extra] of counts) {
+    const { index, text } = clauseOf(roleId, clauseKind)
+    const need = needOf(roleId, clauseKind)
+    it(`${ROLE_BY_ID[roleId].name} ${text} — ${need - 1}번은 안 되고 ${need}번은 된다`, () => {
+      const short = mainOf(roleId, { records: did(kind, need - 1, extra) })
+      const exact = mainOf(roleId, { records: did(kind, need, extra) })
+      expect(short.clauses[index].met, '하나 모자랄 때').toBe(false)
+      expect(short.clauses[index].have).toBe(need - 1)
+      expect(exact.clauses[index].met, '딱 맞을 때').toBe(true)
+      expect(exact.clauses[index].bar).toBe(need)
     })
   }
 })
 
 describe('반장 — 같은 방에 1분 이상', () => {
   const others = EVERYONE.filter((id) => id !== 'me')
+  const need = needOf('classlead', 'sameRoomPeople')
+  const minutes = minutesOf('classlead', 'sameRoomPeople')
 
   /** 나와 n명이 m분씩 같은 방에. */
   const withN = (n: number, minutes: number): Interval[] =>
     others.slice(0, n).flatMap((id, i) => together('me', id, minutes, `room${i}`))
 
-  it('여덟 명은 안 되고 아홉 명은 된다', () => {
-    expect(mainOf('classlead', { intervals: withN(8, 5) }).met).toBe(false)
-    expect(mainOf('classlead', { intervals: withN(9, 5) }).met).toBe(true)
+  it(`${need - 1}명은 안 되고 ${need}명은 된다`, () => {
+    expect(mainOf('classlead', { intervals: withN(need - 1, minutes * 5) }).met).toBe(false)
+    expect(mainOf('classlead', { intervals: withN(need, minutes * 5) }).met).toBe(true)
   })
 
-  it('1분을 못 채운 사람은 안 센다', () => {
-    const brief = others.slice(0, 12).flatMap((id, i) => together('me', id, 0.5, `room${i}`))
+  it(`${minutes}분을 못 채운 사람은 안 센다`, () => {
+    const brief = others.slice(0, 12).flatMap((id, i) => together('me', id, minutes / 2, `room${i}`))
     expect(mainOf('classlead', { intervals: brief }).clauses[0].have).toBe(0)
   })
 
@@ -130,15 +157,20 @@ describe('반장 — 같은 방에 1분 이상', () => {
   })
 
   it('잠든 사람도 같은 방에 있는 것으로 센다', () => {
-    const asleep: Interval[] = others.slice(0, 9).flatMap((id, i) => [
-      { playerId: 'me', tileId: `room${i}`, startMs: START, endMs: START + 5 * MIN, state: 'standing' as const },
-      { playerId: id, tileId: `room${i}`, startMs: START, endMs: START + 5 * MIN, state: 'asleep' as const },
+    const span = { startMs: START, endMs: START + minutes * 5 * MIN }
+    const asleep: Interval[] = others.slice(0, need).flatMap((id, i) => [
+      { playerId: 'me', tileId: `room${i}`, ...span, state: 'standing' as const },
+      { playerId: id, tileId: `room${i}`, ...span, state: 'asleep' as const },
     ])
     expect(mainOf('classlead', { intervals: asleep }).met).toBe(true)
   })
 })
 
-describe('모범생 — 신뢰표 셋, 서로 다른 두 팀에서', () => {
+describe('모범생 — 신뢰표 둘, 서로 다른 두 팀에서', () => {
+  const trustNeed = needOf('model', 'trustReceived')
+  const teamsNeed = needOf('model', 'trustTeams')
+  /** 팀을 번갈아 가며 — B · C · D · B · … */
+  const spread = ['b1', 'c1', 'd1', 'b2', 'c2', 'd2', 'b3', 'c3', 'd3']
   const vote = (voterId: string): JudgeVote => ({
     voterId,
     targetId: 'me',
@@ -147,19 +179,23 @@ describe('모범생 — 신뢰표 셋, 서로 다른 두 팀에서', () => {
     atMs: START,
   })
 
-  it('한 팀에서 셋이면 모자라다', () => {
-    const m = mainOf('model', { votes: [vote('b1'), vote('b2'), vote('b3')] })
+  it('한 팀에서만 받으면 장수가 차도 모자라다', () => {
+    const m = mainOf('model', { votes: ['b1', 'b2', 'b3', 'b4'].slice(0, trustNeed).map(vote) })
     expect(m.clauses[0].met, '장수').toBe(true)
+    expect(m.clauses[1].have, '팀 수').toBe(1)
     expect(m.clauses[1].met, '팀 수').toBe(false)
     expect(m.met).toBe(false)
   })
 
-  it('두 팀에서 셋이면 된다', () => {
-    expect(mainOf('model', { votes: [vote('b1'), vote('b2'), vote('c1')] }).met).toBe(true)
+  it(`${teamsNeed}팀에서 ${Math.max(trustNeed, teamsNeed)}장이면 된다`, () => {
+    const votes = spread.slice(0, Math.max(trustNeed, teamsNeed)).map(vote)
+    expect(mainOf('model', { votes }).met).toBe(true)
   })
 
-  it('두 팀이어도 두 장이면 모자라다', () => {
-    expect(mainOf('model', { votes: [vote('b1'), vote('c1')] }).met).toBe(false)
+  it(`여러 팀이어도 ${trustNeed - 1}장이면 모자라다`, () => {
+    const m = mainOf('model', { votes: spread.slice(0, trustNeed - 1).map(vote) })
+    expect(m.clauses[0].met, '장수').toBe(false)
+    expect(m.met).toBe(false)
   })
 
   it('호감표는 안 센다', () => {
@@ -169,6 +205,8 @@ describe('모범생 — 신뢰표 셋, 서로 다른 두 팀에서', () => {
 })
 
 describe('총무 — 그때 다른 팀이던 사람과의 거래만', () => {
+  const buys = needOf('treasurer', 'vendBuys')
+  const deals = needOf('treasurer', 'dealsWithOtherTeam')
   const trade = (otherId: string): GameRecord => ({
     kind: 'trade',
     atMs: START,
@@ -179,14 +217,23 @@ describe('총무 — 그때 다른 팀이던 사람과의 거래만', () => {
   })
 
   it('같은 팀과 거래한 것은 안 센다', () => {
-    const rows = [...did('vendBuy', 3), trade('a2'), trade('a3')]
+    const rows = [...did('vendBuy', buys), trade('a2'), trade('a3')]
     expect(mainOf('treasurer', { records: rows }).clauses[1].have).toBe(0)
+  })
+
+  it(`다른 팀과 ${deals - 1}번은 안 되고 ${deals}번은 된다`, () => {
+    const partners = ['b1', 'c1', 'd1', 'b2', 'c2', 'd2']
+    const rows = (n: number) => [...did('vendBuy', buys), ...partners.slice(0, n).map(trade)]
+    expect(mainOf('treasurer', { records: rows(deals - 1) }).met).toBe(false)
+    expect(mainOf('treasurer', { records: rows(deals) }).met).toBe(true)
   })
 
   it('내가 받은 거래도 센다 — 제안한 쪽만 세면 받기만 한 사람이 억울하다', () => {
     const got: GameRecord = { kind: 'trade', atMs: START, actorId: 'b1', actorTeam: 'B', otherId: 'me', otherTeam: 'A' }
-    const rows = [...did('vendBuy', 3), trade('c1'), got]
-    expect(mainOf('treasurer', { records: rows }).met).toBe(true)
+    const rows = [...did('vendBuy', buys), trade('c1'), got]
+    const m = mainOf('treasurer', { records: rows })
+    expect(m.clauses[1].have).toBe(2)
+    expect(m.met).toBe(true)
   })
 
   it('자판기 매입은 구매가 아니다', () => {
@@ -202,10 +249,18 @@ describe('쪽지 — 같은 장을 두 번 읽어도 한 장이다', () => {
   })
 
   it('도서부는 읽기와 건네기를 따로 센다', () => {
-    const rows = [...did('slipRead', 4), ...did('slipGive', 1, { subjectId: 'g0' })]
-    const m = mainOf('bookclub', { records: rows })
-    expect(m.clauses[0].met).toBe(true)
-    expect(m.clauses[1].met).toBe(false)
+    const read = needOf('bookclub', 'slipsRead')
+    const give = needOf('bookclub', 'slipsGiven')
+    // 읽기만 넉넉하고 건네기가 하나 모자라다
+    const readOnly = mainOf('bookclub', { records: [...did('slipRead', read + 2), ...did('slipGive', give - 1)] })
+    expect(readOnly.clauses[0].met).toBe(true)
+    expect(readOnly.clauses[1].met).toBe(false)
+    expect(readOnly.met).toBe(false)
+    // 건네기만 넉넉하고 읽기가 하나 모자라다
+    const giveOnly = mainOf('bookclub', { records: [...did('slipRead', read - 1), ...did('slipGive', give + 2)] })
+    expect(giveOnly.clauses[0].met).toBe(false)
+    expect(giveOnly.clauses[1].met).toBe(true)
+    expect(giveOnly.met).toBe(false)
   })
 })
 
@@ -220,8 +275,15 @@ describe('기술부 — 남의 팀 짝만', () => {
     expect(mainOf('tech', { records: gone }).clauses[0].have).toBe(0)
   })
 
-  it('남의 팀 짝 셋이면 된다', () => {
-    expect(mainOf('tech', { records: did('robotSmashed', 3, { otherTeam: 'B' as TeamId }) }).met).toBe(true)
+  it('우리 팀 짝으로 모자란 몫을 메울 수 없다', () => {
+    const need = needOf('tech', 'robotsSmashedOfOthers')
+    const rows = [
+      ...did('robotSmashed', need - 1, { otherTeam: 'B' as TeamId }),
+      ...did('robotSmashed', 3, { otherTeam: 'A' as TeamId }),
+    ]
+    const m = mainOf('tech', { records: rows })
+    expect(m.clauses[0].have).toBe(need - 1)
+    expect(m.met).toBe(false)
   })
 })
 
@@ -238,10 +300,11 @@ describe('짝사랑 — 지정된 한 사람', () => {
     expect(mainOf('crush', { records: hit }, target).clauses[0].met).toBe(true)
   })
 
-  it('29분은 안 되고 30분은 된다', () => {
-    const hit = did('slipRead', 1, { ownerId: target })
-    const short = mainOf('crush', { records: hit, intervals: together('me', target, 29) }, target)
-    const exact = mainOf('crush', { records: hit, intervals: together('me', target, 30) }, target)
+  const minutes = minutesOf('crush', 'coStayWithTarget')
+  it(`${minutes - 1}분은 안 되고 ${minutes}분은 된다`, () => {
+    const hit = did('slipRead', needOf('crush', 'targetSlipRead'), { ownerId: target })
+    const short = mainOf('crush', { records: hit, intervals: together('me', target, minutes - 1) }, target)
+    const exact = mainOf('crush', { records: hit, intervals: together('me', target, minutes) }, target)
     expect(short.clauses[1].met).toBe(false)
     expect(exact.clauses[1].met).toBe(true)
     expect(exact.met).toBe(true)
@@ -249,11 +312,14 @@ describe('짝사랑 — 지정된 한 사람', () => {
 
   it('대상이 없으면 아무것도 안 찬다 — 짝사랑이 아닌 사람이 잘못 들어와도', () => {
     const hit = did('slipRead', 3, { ownerId: target })
-    expect(mainOf('crush', { records: hit, intervals: together('me', target, 90) }, null).met).toBe(false)
+    expect(mainOf('crush', { records: hit, intervals: together('me', target, minutes * 6) }, null).met).toBe(false)
   })
 })
 
 describe('전학생 — 1위가 아니어야 한다', () => {
+  const need = needOf('newcomer', 'otherTeamRoomsStood')
+  const minutes = minutesOf('newcomer', 'otherTeamRoomsStood')
+
   it('공동 1위는 1위다', () => {
     const tied = mainOf('newcomer', { teamTiedRank: { A: 1, B: 1, C: 3, D: 4 } })
     expect(tied.clauses[0].met).toBe(false)
@@ -269,7 +335,7 @@ describe('전학생 — 1위가 아니어야 한다', () => {
       playerId: 'me',
       tileId,
       startMs: START + i * 60 * MIN,
-      endMs: START + i * 60 * MIN + 12 * MIN,
+      endMs: START + i * 60 * MIN + (minutes + 2) * MIN,
       state: 'standing',
     }))
     // 서 있는 동안은 B·C·D 것이었고, 나중에 전부 우리 팀으로 넘어왔다
@@ -280,71 +346,93 @@ describe('전학생 — 1위가 아니어야 한다', () => {
     ])
     const m = mainOf('newcomer', { intervals, ownerChanges })
     expect(m.clauses[1].have).toBe(3)
+    expect(m.clauses[1].met).toBe(3 >= need)
   })
 
-  it('10분을 못 채운 방은 안 센다', () => {
+  it(`${need - 1}팀은 안 되고 ${need}팀은 된다`, () => {
+    const teams: TeamId[] = ['B', 'C', 'D']
+    const stood = (n: number) => {
+      const rooms = teams.slice(0, n).map((t) => `room-${t}`)
+      const intervals: Interval[] = rooms.map((tileId, i) => ({
+        playerId: 'me',
+        tileId,
+        startMs: START + i * 60 * MIN,
+        endMs: START + i * 60 * MIN + minutes * MIN,
+        state: 'standing',
+      }))
+      const ownerChanges = rooms.map((tileId, i) => ({ tileId, team: teams[i], ownerBefore: null, atMs: START - MIN }))
+      return mainOf('newcomer', { intervals, ownerChanges }).clauses[1]
+    }
+    expect(stood(need - 1).met).toBe(false)
+    expect(stood(need).met).toBe(true)
+  })
+
+  it(`${minutes}분을 못 채운 방은 안 센다`, () => {
     const intervals: Interval[] = [
-      { playerId: 'me', tileId: 'r1', startMs: START, endMs: START + 9 * MIN, state: 'standing' },
+      { playerId: 'me', tileId: 'r1', startMs: START, endMs: START + (minutes - 1) * MIN, state: 'standing' },
     ]
     const ownerChanges = [{ tileId: 'r1', team: 'B' as TeamId, ownerBefore: null, atMs: START - MIN }]
     expect(mainOf('newcomer', { intervals, ownerChanges }).clauses[1].have).toBe(0)
   })
+
+  it('센 기간 앞에서 서 있던 시간은 오늘 몫이 아니다 — 어제부터 서 있던 방', () => {
+    // 한 시간 전부터 서 있었지만 오늘 몫으로는 기준에 1분 모자라다
+    const intervals: Interval[] = [
+      { playerId: 'me', tileId: 'r1', startMs: START - 60 * MIN, endMs: START + (minutes - 1) * MIN, state: 'standing' },
+    ]
+    const ownerChanges = [{ tileId: 'r1', team: 'B' as TeamId, ownerBefore: null, atMs: START - 2 * 60 * MIN }]
+    expect(mainOf('newcomer', { intervals, ownerChanges }).clauses[1].have).toBe(0)
+  })
 })
 
-describe('뒷자리 — 동률로 무효가 된 날은 안 센다', () => {
-  const ballot = (day: number, targetId: string): BallotVote => ({
-    day,
-    voterId: 'me',
+describe('뒷자리 — 내가 적은 이름이 그날 투명인간이 되면', () => {
+  const need = needOf('backseat', 'invisibleHits')
+  const ballot = (targetId: string, voterId = 'me'): BallotVote => ({
+    day: 1,
+    voterId,
     targetId,
-    voterTeam: 'A',
+    voterTeam: TEAM_OF[voterId],
     targetTeam: TEAM_OF[targetId],
   })
+  const day = (invisibleId: string | null, reason = invisibleId ? 'picked' : 'tie'): BallotDay[] => [
+    { day: 1, invisibleId, reason },
+  ]
 
-  it('적중한 날 둘, 그중 하나가 우리 팀이면 된다', () => {
-    const m = mainOf('backseat', {
-      ballots: [ballot(1, 'b1'), ballot(2, 'a2')],
-      ballotDays: [
-        { day: 1, invisibleId: 'b1', reason: 'picked' },
-        { day: 2, invisibleId: 'a2', reason: 'picked' },
-      ],
-    })
+  it('조항은 하나다 — 우리 팀 조항은 없다', () => {
+    expect(ROLE_BY_ID.backseat.main.clauses.map((c) => c.kind)).toEqual(['invisibleHits'])
+  })
+
+  it('내가 적은 사람이 투명인간이 되면 찬다', () => {
+    const m = mainOf('backseat', { ballots: [ballot('b1')], ballotDays: day('b1') })
+    expect(m.clauses[0].have).toBe(1)
+    expect(m.clauses[0].bar).toBe(need)
     expect(m.met).toBe(true)
   })
 
-  it('둘 다 남의 팀이면 모자라다', () => {
-    const m = mainOf('backseat', {
-      ballots: [ballot(1, 'b1'), ballot(2, 'c1')],
-      ballotDays: [
-        { day: 1, invisibleId: 'b1', reason: 'picked' },
-        { day: 2, invisibleId: 'c1', reason: 'picked' },
-      ],
-    })
-    expect(m.clauses[0].met, '적중 수').toBe(true)
-    expect(m.clauses[1].met, '우리 팀').toBe(false)
+  it('우리 팀 사람을 적었어도 똑같이 센다', () => {
+    expect(mainOf('backseat', { ballots: [ballot('a2')], ballotDays: day('a2') }).met).toBe(true)
+  })
+
+  it('다른 사람이 지워지면 안 찬다', () => {
+    const m = mainOf('backseat', { ballots: [ballot('b1')], ballotDays: day('c1') })
+    expect(m.clauses[0].have).toBe(0)
+    expect(m.met).toBe(false)
   })
 
   it('동률로 아무도 안 지워진 날은 적중이 아니다', () => {
-    const m = mainOf('backseat', {
-      ballots: [ballot(1, 'b1'), ballot(2, 'a2')],
-      ballotDays: [
-        { day: 1, invisibleId: null, reason: 'tie' },
-        { day: 2, invisibleId: 'a2', reason: 'picked' },
-      ],
-    })
-    expect(m.clauses[0].have).toBe(1)
+    const m = mainOf('backseat', { ballots: [ballot('b1')], ballotDays: day(null) })
+    expect(m.clauses[0].have).toBe(0)
+    expect(m.met).toBe(false)
   })
 
-  it('적은 그 순간 같은 팀이면 센다 — 나중에 이적해도', () => {
-    // 적을 때는 같은 A팀이었고, 지금 teamOf 로는 D팀이 된 사람
-    const moved: BallotVote = { day: 1, voterId: 'me', targetId: 'd1', voterTeam: 'A', targetTeam: 'A' }
-    const m = mainOf('backseat', {
-      ballots: [moved, ballot(2, 'b1')],
-      ballotDays: [
-        { day: 1, invisibleId: 'd1', reason: 'picked' },
-        { day: 2, invisibleId: 'b1', reason: 'picked' },
-      ],
-    })
-    expect(m.met).toBe(true)
+  it('아무도 안 지워진 날(사람이 모자라다)도 적중이 아니다', () => {
+    const m = mainOf('backseat', { ballots: [ballot('b1')], ballotDays: day(null, 'tooFew') })
+    expect(m.met).toBe(false)
+  })
+
+  it('내가 안 적었으면 남이 맞혀도 안 찬다', () => {
+    const m = mainOf('backseat', { ballots: [ballot('b1', 'c1')], ballotDays: day('b1') })
+    expect(m.met).toBe(false)
   })
 })
 
@@ -440,13 +528,19 @@ describe('공개 정책', () => {
     expect(discloseFor(back, 'ballotShown').main.clauses[0].shown).toBe(true)
   })
 
-  it('전학생의 1위 조항은 끝나야 열린다', () => {
+  it('전학생의 1위 조항은 하루가 바뀌면 열린다', () => {
+    expect(clauseOf('newcomer', 'teamNotFirstAtEnd').disclosure).toBe('daily')
     const nc = judge(me('newcomer'), log({ over: false }))
-    for (const phase of ['live', 'dayTurned', 'ballotShown'] as const) {
+    for (const phase of ['live', 'ballotShown'] as const) {
       const v = discloseFor(nc, phase)
       expect(v.main.clauses[0].shown, phase).toBe(false)
+      expect(v.main.clauses[0].have, phase).toBe(null)
       expect(v.main.clauses[0].status, phase).toBe('endOnly')
     }
+    const turned = discloseFor(nc, 'dayTurned').main.clauses[0]
+    expect(turned.shown).toBe(true)
+    expect(turned.have, '우리 팀은 2위다').toBe(1)
+    expect(turned.status).toBe('met')
     expect(discloseFor(nc, 'end').main.clauses[0].shown).toBe(true)
   })
 
@@ -469,12 +563,12 @@ describe('공개 정책', () => {
 
 describe('실패는 뒤집힐 수 없을 때만 붙는다', () => {
   it('아직 채울 수 있으면 진행 중이다', () => {
-    const out = judge(me('duty'), log({ records: did('errandDone', 1), over: false }))
+    const out = judge(me('duty'), log({ records: did('errandDone', needOf('duty', 'errandsDone') - 1), over: false }))
     expect(discloseFor(out, 'live').main.status).toBe('running')
   })
 
   it('끝났는데 못 채웠으면 실패다', () => {
-    const out = judge(me('duty'), log({ records: did('errandDone', 1) }))
+    const out = judge(me('duty'), log({ records: did('errandDone', needOf('duty', 'errandsDone') - 1) }))
     expect(discloseFor(out, 'end').main.status).toBe('failed')
   })
 
@@ -547,7 +641,7 @@ describe('마지막 선택 — 판정이 직접 셈한다', () => {
         day4Choice: { me: choice },
         chosenBy: { me: chosen },
         teamTiedRank: { A: 4, B: 4, C: 4, D: 4, ...rank },
-        records: did('errandDone', 4),
+        records: did('errandDone', needOf('duty', 'errandsDone')),
       }),
     ).choiceMet
   it('팀을 지킨다 — 공동 2위도 2위 이내다', () => {

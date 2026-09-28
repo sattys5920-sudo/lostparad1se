@@ -10,6 +10,13 @@
 //
 // 걷는 중에도 된다. 말과 다른 점이 이것이다.
 //
+// **전원 채널이 하나 있다.** 팀 무전과 같은 통에 team 'ALL' 로 적는다 —
+// 열넷 누구나 듣고 말한다. 방에서 하는 말은 그 방 사람에게만 닿고
+// 지도 위에 떠서 읽기 어렵다. 판 전체가 한 줄로 이야기할 자리가 여기다.
+// 지워진 사람은 여기서는 말하지 못한다 — 판 전체에서 지워진 것이다.
+//
+// **운영자는 네 팀 무전과 전원 채널을 다 본다**(hostRadio*). 운영자만.
+//
 // **지워진 사람도 무전은 쓴다.** 방에서 하는 말(chat.ts)은 막히지만
 // 무전은 안 막힌다 — 지워진 것은 판정에서지 팀에서가 아니다. 셋이
 // 넷인 줄 알고 방을 나누면 그날 작전이 통째로 어긋나므로, 오히려
@@ -19,13 +26,18 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { CHAT_MAX_LEN } from '../../shared/rules/v2'
 import { RADIO_BEAT_MS, RADIO_STALE_MS } from '../../shared/rules/radio'
-import type { TeamId } from '../../shared/rules/v2'
+import { TEAM_IDS, type TeamId } from '../../shared/rules/v2'
 import { freshNow, myPawn } from './turn'
-import { gameRef, requireUid } from './index'
+import { gameRef, nowOf, requireUid } from './index'
+import { requireHost } from './host'
 
 /** games/{gameId}/secret/radio/items/{id} — 팀 것만 골라 내려보낸다. */
+/** 전원 채널. 팀 무전과 같은 통에 이 값으로 적는다 */
+export const ALL_CHANNEL = 'ALL' as const
+export type RadioChannel = TeamId | typeof ALL_CHANNEL
+
 export interface RadioDocRaw {
-  team: TeamId
+  team: RadioChannel
   playerId: string
   name: string
   text: string
@@ -75,8 +87,8 @@ export function sysLine(
   into.set(radioOf(gameId).doc(), sysRow(team, text, atMs, day))
 }
 
-/** 한 줄 보낸다. 같은 팀 넷에게만 간다. */
-export const radio = onCall<{ gameId: string; text: string }>(async (req) => {
+/** 한 줄 보낸다. 팀 채널이면 같은 팀에게만, 전원 채널이면 열넷에게 간다. */
+export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | 'all' }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const text = String(req.data.text ?? '').trim()
@@ -87,8 +99,12 @@ export const radio = onCall<{ gameId: string; text: string }>(async (req) => {
   const pawn = await myPawn(gameId, uid)
   const seat = game.seats.find((s) => s.playerId === uid)
 
+  const toAll = req.data.channel === 'all'
+  if (toAll && game.invisibleId === uid) {
+    throw new HttpsError('failed-precondition', '지워진 사람은 전원 채널에 말할 수 없다.')
+  }
   const row: RadioDocRaw = {
-    team: pawn.team,
+    team: toAll ? ALL_CHANNEL : pawn.team,
     playerId: uid,
     name: seat?.name ?? '',
     text,
@@ -110,15 +126,16 @@ export const radio = onCall<{ gameId: string; text: string }>(async (req) => {
  * 다만 **팀이 된** 시각은 따진다. 옮겨 온 사람이 새 팀의 하루치를
  * 통째로 읽으면 배신 한 번에 그 팀이 아침부터 짠 것이 전부 넘어간다.
  */
-export const radioLines = onCall<{ gameId: string; sinceMs?: number }>(async (req) => {
+export const radioLines = onCall<{ gameId: string; sinceMs?: number; channel?: 'team' | 'all' }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
+  const toAll = req.data.channel === 'all'
   // **옮겨 온 사람은 옮긴 뒤부터 듣는다.** 방에서 하는 말이 「들어온
   // 뒤의 말만」인 것과 같다 — 배신 한 번에 그 팀 하루치가 넘어가면
-  // 안 된다
-  const since = Math.max(Number(req.data.sinceMs ?? 0), pawn.teamSinceMs ?? 0)
+  // 안 된다. 전원 채널은 팀과 상관없으니 처음부터 다 듣는다
+  const since = toAll ? Number(req.data.sinceMs ?? 0) : Math.max(Number(req.data.sinceMs ?? 0), pawn.teamSinceMs ?? 0)
 
   /*
    * **켜 둔 사람을 센다.** 「수신 n」이 이 수다.
@@ -133,19 +150,22 @@ export const radioLines = onCall<{ gameId: string; sinceMs?: number }>(async (re
   if (nowMs - (pawn.radioAtMs ?? 0) > RADIO_BEAT_MS / 2) {
     await ref.collection('pawns').doc(uid).update({ radioAtMs: nowMs })
   }
-  const crew = await ref.collection('pawns').where('team', '==', pawn.team).get()
+  const crew = toAll ? await ref.collection('pawns').get() : await ref.collection('pawns').where('team', '==', pawn.team).get()
   const here = crew.docs.filter(
     (d) => d.id !== uid && nowMs - ((d.data() as { radioAtMs?: number }).radioAtMs ?? 0) < RADIO_STALE_MS,
   ).length
 
+  // **최근 것부터** 300줄을 잘라 뒤집는다. 오래된 것부터 자르면 줄이 쌓인
+  // 판에서 처음 켠 사람이 아침 말만 받고 지금 말은 못 받는다
   const all = await radioOf(gameId)
-    .where('team', '==', pawn.team)
+    .where('team', '==', toAll ? ALL_CHANNEL : pawn.team)
     .where('atMs', '>', since)
-    .orderBy('atMs')
+    .orderBy('atMs', 'desc')
     .limit(300)
     .get()
 
-  const lines = all.docs
+  const lines = [...all.docs]
+    .reverse()
     .map((d) => d.data() as RadioDocRaw)
     .map((r) => ({
       playerId: r.playerId,
@@ -159,5 +179,67 @@ export const radioLines = onCall<{ gameId: string; sinceMs?: number }>(async (re
       system: r.system === true,
     }))
 
-  return { lines, day: game.day, team: pawn.team, here }
+  return { lines, day: game.day, team: pawn.team, channel: toAll ? 'all' : 'team', here }
+})
+
+/** 한 채널의 줄을 운영자 화면 모양으로 */
+function hostRows(docs: FirebaseFirestore.QueryDocumentSnapshot[]) {
+  return docs
+    .map((d) => d.data() as RadioDocRaw)
+    .map((r) => ({
+      playerId: r.playerId,
+      name: r.name,
+      team: r.team,
+      atMs: r.atMs,
+      text: r.text,
+      hidden: r.invisible,
+      system: r.system === true,
+    }))
+}
+
+/**
+ * 운영자 — 채널 다섯(네 팀 · 전원)을 한눈에. 줄 수 · 마지막 줄 · 켜 둔 사람 수.
+ *
+ * **운영자만.** 목록에서 채널을 누르면 hostRadioLines 로 그 채널을 실시간으로 본다.
+ */
+export const hostRadioOverview = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const ref = gameRef(gameId)
+  const game = (await ref.get()).data() as { clock?: unknown } | undefined
+  if (!game) throw new HttpsError('not-found', '그런 판이 없다.')
+  const nowMs = nowOf(game as never)
+  const pawns = await ref.collection('pawns').get()
+  const channels: RadioChannel[] = [...TEAM_IDS, ALL_CHANNEL]
+  const rows = await Promise.all(
+    channels.map(async (ch) => {
+      const [last, count] = await Promise.all([
+        radioOf(gameId).where('team', '==', ch).orderBy('atMs', 'desc').limit(1).get(),
+        radioOf(gameId).where('team', '==', ch).count().get(),
+      ])
+      const l = last.docs[0]?.data() as RadioDocRaw | undefined
+      const members = pawns.docs.filter((d) => ch === ALL_CHANNEL || (d.data() as { team?: string }).team === ch)
+      return {
+        channel: ch,
+        lines: count.data().count,
+        last: l ? { name: l.system ? '' : l.name, text: l.text, atMs: l.atMs, system: l.system === true } : null,
+        members: members.length,
+        here: members.filter((d) => nowMs - ((d.data() as { radioAtMs?: number }).radioAtMs ?? 0) < RADIO_STALE_MS).length,
+      }
+    }),
+  )
+  return { channels: rows, nowMs }
+})
+
+/** 운영자 — 한 채널의 줄. sinceMs 뒤의 것만(화면이 몇 초마다 부른다 — 실시간) */
+export const hostRadioLines = onCall<{ gameId: string; channel: string; sinceMs?: number }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const ch = String(req.data.channel ?? '')
+  if (ch !== ALL_CHANNEL && !(TEAM_IDS as readonly string[]).includes(ch)) {
+    throw new HttpsError('invalid-argument', '그런 채널이 없다.')
+  }
+  const since = Number(req.data.sinceMs ?? 0)
+  const snap = await radioOf(gameId).where('team', '==', ch).where('atMs', '>', since).orderBy('atMs', 'desc').limit(300).get()
+  return { channel: ch, lines: hostRows([...snap.docs].reverse()) }
 })

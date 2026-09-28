@@ -302,6 +302,8 @@ export function gameActions(gameId: string) {
     /** 쪽지 56장 배포판. 운영자만 — 문안 전문이 온다 */
     hostSlipBoard: () => callServer('hostSlipBoard', g),
     hostPapers: () => callServer('hostPapers', g),
+    hostRadioOverview: () => callServer('hostRadioOverview', g),
+    hostRadioLines: (channel: string, sinceMs = 0) => callServer('hostRadioLines', { ...g, channel, sinceMs }),
     /** 한 장을 고른 방에 뿌린다. 2짝을 DAY 3 전에 뿌리려면 confirmEarly */
     hostScatterSlip: (noteId: string, tileId: string, confirmEarly = false) =>
       callServer('hostScatterSlip', { ...g, noteId, tileId, confirmEarly }),
@@ -393,8 +395,8 @@ export function gameActions(gameId: string) {
     chatLines: (sinceMs: number) => callServer('chatLines', { ...g, sinceMs }),
     // ── 무전 ────────────────────────────────────────────────────
     // 방에 매이지 않는다. 같은 팀에게만 가고, 걷는 중에도 된다.
-    radio: (text: string) => callServer('radio', { ...g, text }),
-    radioLines: (sinceMs = 0) => callServer('radioLines', { ...g, sinceMs }),
+    radio: (text: string, channel: 'team' | 'all' = 'team') => callServer('radio', { ...g, text, channel }),
+    radioLines: (sinceMs = 0, channel: 'team' | 'all' = 'team') => callServer('radioLines', { ...g, sinceMs, channel }),
 
     // ── 팀장 ────────────────────────────────────────────────────
     /** 우리 팀 팀장으로 한 사람을 적는다. 창이 닫히기 전까지 바꿀 수 있다. */

@@ -1155,7 +1155,14 @@ p.sc-cv { display: block; }
   white-space: nowrap;
   overflow: hidden;
   color: var(--text-1);
-  /* 면을 깔면 발치가 가려진다. 테 하나로 띄운다 */
+  /*
+   * **반투명 띠를 깐다.** 이제 발 아래(그림이 끝난 줄 밑 2px)에 서서
+   * 사람을 덮지 않으니 면을 깔아도 된다. 다만 꽉 칠하면 바닥 무늬가
+   * 끊겨 검은 명찰이 둥둥 떠 보인다 — 절반만 칠해 바닥이 비친다.
+   * 글자 테는 그대로 둔다. 밝은 바닥에서도 띠 하나로는 모자라다
+   */
+  padding: 0 var(--sp-1);
+  background: color-mix(in srgb, var(--bg-0) 50%, transparent);
   text-shadow:
     1px 0 0 var(--bg-0), -1px 0 0 var(--bg-0), 0 1px 0 var(--bg-0), 0 -1px 0 var(--bg-0);
   pointer-events: none;
@@ -1653,8 +1660,11 @@ p.sc-cv { display: block; }
 /* ── 미니맵 ───────────────────────────────────────────────────── */
 
 /* 미니맵 한 변. 자리를 비워 두는 쪽에서도 같은 값을 쓴다.
-   25vw 는 방을 너무 가렸다 — 화면 폭의 22% 로 줄인다 */
-.sc-pl__today { --sc-mini: clamp(88px, 22vw, 140px); }
+   25vw 는 방을 너무 가렸다 — 화면 폭의 22% 로 줄인다. **아래 한계를
+   두지 않는다** — 88px 로 받쳐 두었더니 375 폭 폰에서는 23% 를 넘어
+   도로 방을 가렸다. 위 한계(140px)는 넓은 화면에서 네모가 방만 해지지
+   않게 남겨 둔다 */
+.sc-pl__today { --sc-mini: min(22vw, 140px); }
 
 /*
  * 미니맵이 켜져 있으면 오른쪽 위는 미니맵 자리다. 띄워 놓기만 하면
@@ -1672,20 +1682,24 @@ p.sc-cv { display: block; }
  * 뒤로 지나가는 검은 복도 띠 위에 검정을 얹은 탓이었다. 그래서 이번엔
  * 두 가지를 같이 바꿨다. 하나는 복도 바닥이 이제 회색이라는 것
  * (skin.ts), 다른 하나는 **테두리를 2px 로 굵게 밝혀** 배경이 무엇이든
- * 네모의 윤곽만은 늘 남게 한 것이다. 배경도 82% 까지만 비운다.
+ * 네모의 윤곽만은 늘 남게 한 것이다.
+ *
+ * 82% 로도 그 아래 방이 안 보였다 — 미니맵 밑에 선 사람을 못 찾는다.
+ * 바탕은 **절반까지** 비운다. 윤곽은 2px 테두리가 지키고, 방 칸은
+ * 제 색(반투명)이라 바탕이 옅어도 도면은 그대로 읽힌다.
  */
 .sc-mini {
   position: fixed;
   top: max(10px, var(--sa-top, env(safe-area-inset-top)));
   right: max(10px, env(safe-area-inset-right));
   z-index: 30;
-  width: var(--sc-mini, clamp(88px, 22vw, 140px));
+  width: var(--sc-mini, min(22vw, 140px));
   aspect-ratio: 1;
   padding: var(--sp-1);
   appearance: none;
   border: 2px solid var(--ct-line, var(--line-strong));
   border-radius: 0;
-  background: color-mix(in srgb, var(--bg-1) 82%, transparent);
+  background: color-mix(in srgb, var(--bg-1) 50%, transparent);
   box-shadow: none;
   cursor: pointer;
 }

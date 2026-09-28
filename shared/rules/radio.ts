@@ -43,6 +43,12 @@ export const RADIO_STALE_MS = 25_000
 export const RADIO_NOTE =
   '같은 팀끼리만 닿는다. 학교 어디에 있든 닿고, 걷는 중에도 닿는다. 점수에는 들어가지 않는다.'
 
+/** 전원 채널 — 열넷이 다 듣는 주파수 */
+export const ALL_FREQ = '100.1'
+
+export const ALL_NOTE =
+  '열넷이 다 듣는다. 다른 팀도 읽는다. 지워진 사람은 듣기만 한다. 점수에는 들어가지 않는다.'
+
 // ── 시각 ────────────────────────────────────────────────────────
 
 const two = (n: number): string => String(Math.max(0, Math.floor(n))).padStart(2, '0')

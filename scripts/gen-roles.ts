@@ -36,7 +36,7 @@ const KINDS: Record<RoleId, ClauseKind[]> = {
   topstudent: ['quizzesSolved'],
   crush: ['targetSlipRead', 'coStayWithTarget'],
   newcomer: ['teamNotFirstAtEnd', 'otherTeamRoomsStood'],
-  backseat: ['invisibleHits', 'invisibleHitsSameTeam'],
+  backseat: ['invisibleHits'],
 }
 
 const BRANCH: Record<string, MissionBranch> = { 사람: 'people', 쪽지: 'slip', 손: 'hand', 어긋남: 'astray' }

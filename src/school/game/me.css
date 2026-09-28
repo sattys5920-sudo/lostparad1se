@@ -5,6 +5,11 @@
  * 카드가 작아서 56 짜리 구김 넷을 물리면 위아래 구김이 서로 닿는다.
  *
  * 글자는 셋뿐이다. 16(이름·큰 숫자) · 12(본문) · 9(딱지·주석).
+ *
+ * **Galmuri11 은 12px 격자다.** 11 · 22 로 찍으면 0.92 · 1.83 배라 획이
+ * 번진다(캔버스로 재 보면 11px 은 테두리 화소의 88% 가 반투명이고 12 ·
+ * 24 는 0%). 이 파일에서 새로 정하는 픽셀 숫자는 12 · 24 로만 찍는다.
+ * 11 은 토큰(--fs-pixel)이 정한 것이라 여기서 따로 안 바꾼다.
  */
 .sc-mi-root {
   position: relative;
@@ -72,7 +77,11 @@
 /* 오늘 지워진 날. 카드째 비친다 — 학생증이 흐려진 것으로 보인다 */
 .sc-mi__card.is-gone { opacity: 0.62; }
 
-/* 아홉 조각 — 모서리 28 고정, 가장자리는 이어 붙이고 가운데는 평평 */
+/*
+ * 아홉 조각 중 **모서리 넷만** 쓴다. 가장자리 넷까지 붙였더니 카드 테가
+ * 온통 톱니라 카드 다섯 장이 겹쳐 보일 때 화면이 시끄러웠다. 뜯긴 자국은
+ * 모서리에만 두고, 모서리 사이는 곧은 종이다.
+ */
 .sc-mi__sheet {
   position: absolute;
   inset: 0;
@@ -80,9 +89,19 @@
 }
 .sc-mi__flat {
   position: absolute;
-  inset: 14px;
+  inset: 0;
   background: var(--paper);
+  /* 십자 모양. 모서리 28×28 네 칸은 비워 둔다 — 거기는 모서리 조각이
+     그리고, 그 조각의 뜯겨 나간 투명한 자리로 평면이 비치면 안 된다 */
+  clip-path: polygon(
+    28px 0, calc(100% - 28px) 0, calc(100% - 28px) 28px, 100% 28px,
+    100% calc(100% - 28px), calc(100% - 28px) calc(100% - 28px), calc(100% - 28px) 100%, 28px 100%,
+    28px calc(100% - 28px), 0 calc(100% - 28px), 0 28px, 28px 28px
+  );
 }
+/* 가장자리 조각은 안 그린다(Paper.tsx 는 로그인·투표용지와 같이 쓰므로
+   거기서 빼지 않고 여기서 끈다) */
+.sc-mi__e { display: none; }
 .sc-mi__c,
 .sc-mi__e {
   position: absolute;
@@ -121,10 +140,10 @@
 .sc-mi__e--l { left: 0; }
 .sc-mi__e--r { right: 0; }
 
-/* 종이 위의 글. 가장자리 14px 는 구김 자리라 밟으면 안 읽힌다 */
+/* 종이 위의 글. **모든 카드가 네 변 16px 로 같다** */
 .sc-mi__in {
   position: relative;
-  padding: var(--sp-4) var(--sp-4) var(--sp-4);
+  padding: var(--sp-4);
 }
 
 /* 서류철의 클립. 종이가 겹쳐 꽂혀 있다는 표시 한 점이다 */
@@ -142,7 +161,7 @@
 
 .sc-mi__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sp-2);
   margin: 0 0 var(--sp-2);
@@ -169,7 +188,8 @@
 .sc-mi__id {
   position: relative;
   display: flex;
-  align-items: flex-start;
+  /* 사진과 글을 세로 가운데로 맞춘다 */
+  align-items: center;
   gap: var(--sp-3);
 }
 
@@ -185,25 +205,34 @@
   box-shadow: inset 0 0 0 1px var(--ink-3);
 }
 
+/*
+ * 이름 20 · 반과 팀 13 · 역할 16. 토큰의 제목 · 라벨 · 본문 크기다.
+ * **픽셀 글꼴로는 이 크기를 못 찍는다**(12 격자라 정수 배가 아니다) —
+ * 본문 글꼴로 적는다.
+ */
 .sc-mi__who {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
   min-width: 0;
-  padding-top: var(--sp-1);
+  /* 오른쪽 위 완장(14px)과 안 겹치게 */
+  padding-right: var(--sp-4);
+  font-family: var(--font-body);
 }
 .sc-mi__who b {
-  font-size: var(--fs-pixel-2);
-  line-height: 20px;
+  font-size: var(--fs-title);
+  line-height: 28px;
+  font-weight: 700;
   color: var(--ink);
   word-break: keep-all;
 }
-.sc-mi__cls { font-size: var(--fs-pixel); color: var(--ink-2); }
+.sc-mi__cls { font-size: var(--fs-label); line-height: 18px; color: var(--ink-2); }
 .sc-mi__role {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
-  font-size: var(--fs-pixel);
+  font-size: var(--fs-body);
+  line-height: 22px;
   color: var(--ink);
 }
 .sc-mi__gone { font-size: var(--fs-pixel); color: var(--danger); }
@@ -251,10 +280,11 @@
 
 /* ── ② 가진 것 ──────────────────────────────────────────── */
 
+/* 다섯 칸이 폭을 똑같이 나눈다. 높이는 안 정한다 — 글이 정한다 */
 .sc-mi__have {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: start;
   gap: var(--sp-1);
   width: 100%;
   padding: 0;
@@ -266,20 +296,57 @@
   color: inherit;
   cursor: pointer;
 }
-/* 칩 하나. **이름은 숫자 밑으로 내린다** — 옆에 붙였더니 375px 에서
-   「토/큰」 「지/식」 「아이/템」으로 죄다 두 줄이 됐다 */
+/*
+ * 칸 하나 — 아이콘 16 → 숫자 16 → 이름 11, 사이 4.
+ *
+ * 전에는 숫자를 22px 로 찍고 줄 높이를 18px 로 눌러 두었다. 글자가
+ * 제 줄보다 커서 위로는 아이콘을, 아래로는 이름을 밟았고(짓눌린 「0」),
+ * 22 는 Galmuri11 의 1.83 배라 획도 번졌다. 글꼴은 제대로 내려오고
+ * 있었다 — 대체 글꼴 탓이 아니었다.
+ *
+ * 숫자는 **12px(1배)를 16px 줄**에 둔다. 16 으로 찍으면 1.33 배라 또
+ * 번진다. 굵게(b)도 끈다 — 도트 글꼴에 가짜 굵기가 얹히면 획이 뭉갠다.
+ */
 .sc-mi__chip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
+  gap: var(--sp-1);
   min-width: 0;
   white-space: nowrap;
 }
-.sc-mi__chip img { image-rendering: pixelated; flex: 0 0 auto; }
-.sc-mi__chip b { font-size: var(--fs-pixel-2); line-height: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
-.sc-mi__chip i { font-style: normal; font-size: var(--fs-pixel); line-height: 12px; color: var(--ink-2); }
-.sc-mi__caret { align-self: center; font-style: normal; font-size: var(--fs-pixel); color: var(--ink-2); }
+.sc-mi__chip img { display: block; width: 16px; height: 16px; image-rendering: pixelated; flex: 0 0 auto; }
+.sc-mi__chip b {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.sc-mi__chip i {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+  font-size: var(--fs-pixel);
+  line-height: 12px;
+  color: var(--ink-2);
+}
+/* 펼침 표시. 제목 줄 오른쪽 끝에 선다 */
+.sc-pl-root .sc-mi__caret,
+.sc-mi__caret {
+  margin: 0 0 0 auto;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-pixel);
+  line-height: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
 
 .sc-mi__open { margin: var(--sp-3) 0 0; border-top: 1px dashed var(--ink-3); padding-top: var(--sp-2); }
 .sc-mi__open h4 {
@@ -417,8 +484,8 @@
 /* ── ④ 받은 표 ──────────────────────────────────────────── */
 
 .sc-mi__votes { margin: 0 0 var(--sp-1); }
-/* 본문 16의 정수 배. 이 카드에서 읽을 것은 이 숫자 하나뿐이다 */
-.sc-mi__votes b { font-size: 33px; line-height: 34px; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* 픽셀 글꼴의 정수 배(12 의 2배). 이 카드에서 읽을 것은 이 숫자 하나뿐이다 */
+.sc-mi__votes b { font-size: 24px; line-height: 24px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
 .sc-mi__fine { margin: var(--sp-1) 0 0; font-size: var(--fs-pixel); line-height: 14px; color: var(--ink-2); word-break: keep-all; }
 
 /* ── ⑤ 되돌릴 수 없는 것을 묻는 두 칸 ───────────────────── */

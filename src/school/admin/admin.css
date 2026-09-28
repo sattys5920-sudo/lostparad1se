@@ -779,3 +779,64 @@
 .sc-pt__trail li.is-quizSolved::before, .sc-pt__trail li.is-slipRead::before { background: var(--sc-accent); }
 .sc-pt__trail time { color: var(--sc-text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sc-pt__trail em { font-style: normal; color: var(--sc-text-dim); }
+
+/* ── 무전 엿듣기(RadioDesk) ─────────────────────────────────── */
+.sc-rk__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.sc-ad button.sc-rk__row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: var(--bg-1);
+  text-align: left;
+}
+.sc-rk__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sc-text-dim); }
+.sc-rk__dot.is-A { background: var(--team-a); }
+.sc-rk__log b.is-A, .sc-rk__name.is-A { color: var(--team-a); }
+.sc-rk__dot.is-B { background: var(--team-b); }
+.sc-rk__dot.is-C { background: var(--team-c); }
+.sc-rk__dot.is-D { background: var(--team-d); }
+.sc-rk__dot.is-ALL { background: var(--sc-text); }
+.sc-rk__main { display: flex; flex-direction: column; min-width: 0; }
+.sc-rk__title { font-size: var(--fs-body); color: var(--sc-text); }
+.sc-rk__title em { font-style: normal; font-size: var(--fs-cap); color: var(--sc-text-dim); margin-left: 4px; }
+.sc-rk__last { font-size: var(--fs-cap); color: var(--sc-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-rk__here { font-size: var(--fs-cap); color: var(--sc-text-2); font-variant-numeric: tabular-nums; }
+.sc-rk { display: flex; flex-direction: column; gap: var(--sp-2); }
+.sc-rk__bar { display: flex; align-items: center; gap: var(--sp-2); }
+.sc-ad button.sc-rk__back { font-size: var(--fs-label); padding: 4px var(--sp-2); }
+.sc-rk__name { font-size: var(--fs-body); }
+.sc-rk__name.is-B { color: var(--team-b); }
+.sc-rk__name.is-C { color: var(--team-c); }
+.sc-rk__name.is-D { color: var(--team-d); }
+.sc-rk__live { margin-left: auto; font-size: var(--fs-cap); color: var(--danger); display: inline-flex; align-items: center; gap: 4px; }
+.sc-rk__live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); animation: sc-rk-blink 1.2s steps(2) infinite; }
+@keyframes sc-rk-blink { 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .sc-rk__live::before { animation: none; } }
+.sc-rk__log {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2);
+  max-height: 60dvh;
+  overflow-y: auto;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--r-game);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sc-rk__log li { display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-label); line-height: 1.5; }
+.sc-rk__log time { color: var(--sc-text-dim); font-variant-numeric: tabular-nums; flex: none; }
+.sc-rk__log b { flex: none; font-weight: 600; }
+.sc-rk__log b.is-B { color: var(--team-b); }
+.sc-rk__log b.is-C { color: var(--team-c); }
+.sc-rk__log b.is-D { color: var(--team-d); }
+.sc-rk__log b.is-all { color: var(--sc-text-2); }
+.sc-rk__log span { color: var(--sc-text); overflow-wrap: anywhere; }
+.sc-rk__log li.is-sys span { color: var(--sc-text-dim); font-style: italic; }
+.sc-rk__empty { margin: var(--sp-6) 0; text-align: center; color: var(--sc-text-dim); font-size: var(--fs-label); }

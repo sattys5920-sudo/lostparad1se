@@ -40,6 +40,20 @@ export function seatsLeft(seats: readonly Seat[]): Record<TeamId, number> {
   ) as Record<TeamId, number>
 }
 
+/**
+ * 화면에 적는 그 자리의 이름. 비어 있으면 **자리 번호**로 부른다.
+ *
+ * 서버는 빈 이름으로 앉지 못하게 막는다(joinGame · saveCharacter 모두
+ * 1~12자). 그래도 명단은 판 문서에 베껴 들고 다니는 것이라, 막기
+ * 전에 앉은 자리나 손으로 고친 문서에는 빈 이름이 남을 수 있다.
+ * 빈 이름표는 지도에 아예 안 뜨고, 「누군가」로 뜨면 누구인지 물을
+ * 길도 없다. 번호는 명단(seats)에 앉은 순서다.
+ */
+export function seatName(seat: { name?: string | null }, index: number): string {
+  const name = (seat.name ?? '').trim()
+  return name !== '' ? name : `${index + 1}번 자리`
+}
+
 /** 아직 자리가 남은 팀. 적게 찬 쪽부터 — 고르지 않은 사람은 여기 첫 팀으로 간다. */
 export function openTeams(seats: readonly Seat[]): TeamId[] {
   const left = seatsLeft(seats)

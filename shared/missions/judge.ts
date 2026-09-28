@@ -148,11 +148,17 @@ const mine = (c: Ctx, kind: GameRecord['kind']) =>
 const distinctSubjects = (rows: readonly GameRecord[]): number =>
   new Set(rows.map((r) => r.subjectId).filter((id): id is string => !!id)).size
 
-/** 걷는 중이 아니고 판정에 세는 구간만. 같은 방 판정이 이것을 쓴다. */
+/**
+ * 걷는 중이 아니고 판정에 세는 구간만. 같은 방 판정이 이것을 쓴다.
+ *
+ * **센 기간(startedAtMs ~) 앞은 잘라 낸다.** 미션은 하루짜리라, 어제부터 서
+ * 있던 방의 시간이 오늘 몫에 들어오면 안 된다
+ */
 function staysOf(log: GameLog): Stay[] {
   return log.intervals
     .filter((iv) => iv.tileId !== null && (iv.state === 'standing' || iv.state === 'asleep'))
-    .map((iv) => ({ playerId: iv.playerId, tileId: iv.tileId, startMs: iv.startMs, endMs: iv.endMs }))
+    .map((iv) => ({ playerId: iv.playerId, tileId: iv.tileId, startMs: Math.max(iv.startMs, log.startedAtMs), endMs: iv.endMs }))
+    .filter((s) => s.endMs === null || s.endMs > s.startMs)
 }
 
 /** 내 투명인간 표가 적중한 날. 동률로 무효가 된 날은 애초에 안 들어온다. */

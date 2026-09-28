@@ -22,6 +22,7 @@ import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
 import { SlipDesk } from './SlipDesk'
 import { PaperDesk } from './PaperDesk'
+import { RadioDesk } from './RadioDesk'
 import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
@@ -66,7 +67,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'put' | 'slips' | 'papers' | 'manage'
+type Tab = 'go' | 'put' | 'slips' | 'papers' | 'radio' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -236,6 +237,7 @@ function Desk() {
                 ['put', '놓기'],
                 ['slips', '쪽지'],
                 ['papers', '이력'],
+                ['radio', '무전'],
                 ['manage', '관리'],
               ] as const
             ).map(([id, name]) => (
@@ -401,6 +403,12 @@ function Desk() {
             <h2>쪽지 배포</h2>
             <SlipDesk act={act} onSaid={setSaid} />
           </section>
+        : tab === 'radio' ?
+          /* ── 무전. 네 팀과 전원 채널을 목록으로, 들어가면 실시간으로 ── */
+          <section className="sc-ad__sec">
+            <h2>무전</h2>
+            <RadioDesk act={act} onSaid={setSaid} />
+          </section>
         : tab === 'papers' ?
           /* ── 종이 이력. 누가 발견했고 누가 들고 있고 누가 끝냈나 ── */
           <section className="sc-ad__sec">
@@ -518,7 +526,10 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
                 onChange={() => toggle(r.id)}
               />
               <b>{r.id}</b>
-              <span>{r.nickname || '이름 없음'}</span>
+              {/* 닉네임은 가입이 아니라 **캐릭터를 만들 때** 적힌다. 가입만
+                  하고 나간 계정은 빈칸이다 — 「이름 없음」이라 적어 두면
+                  그런 이름을 가진 사람처럼 읽혔다. 무엇이 비었는지를 쓴다 */}
+              <span>{r.nickname || '(캐릭터 만들기 전)'}</span>
             </label>
             {r.id === me && <em className="sc-ad__tagMe">나</em>}
             {/* 얼굴을 안 만든 사람은 지도에 점으로 뜬다. 여기서 보인다 */}

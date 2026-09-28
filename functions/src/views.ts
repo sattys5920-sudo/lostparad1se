@@ -25,6 +25,7 @@ import { purseOf } from '../../shared/rules/resources'
 import { fillSubject } from '../../shared/reveal/slips'
 import type { SlipDoc } from './slips'
 import { SLIP_NOTE_BY_ID } from './story/slipNotes'
+import { canonRoleId } from '../../shared/missions/roleNames'
 import type { QuizDoc, QuizPaperDoc } from './quiz'
 import { errandWorld } from './errand'
 import { gardenWorld } from './garden'
@@ -201,7 +202,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       const locked = t.lockedBy && (t.lockUntilMs ?? 0) > nowMs ? t.lockedBy : null
       return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, lockedBy: locked }
     }),
-    roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: r.roleId, targetId: r.targetId ?? null })),
+    roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: canonRoleId(r.roleId) ?? r.roleId, targetId: r.targetId ?? null })),
     peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
     choices: choices.docs.map((d) => {
       const c = d.data() as { chosenId: string | null; day4: string | null }

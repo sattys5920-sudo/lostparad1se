@@ -74,6 +74,7 @@ function FreeTimeOnly({ what }: { what: string }) {
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Say } from './Say'
 import { bubbleText, bubbleUp, useChatLines } from './useChat'
+import { useKeyboardInset } from './useKeyboardInset'
 import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
@@ -122,7 +123,7 @@ import { Dealt, dealtSeen, markDealtSeen } from './Dealt'
 import { useMyPaper } from './useMyPaper'
 import { logOut } from '../accounts'
 import { Notes } from './Notes'
-import { TOTAL_SEATS } from '../../../shared/rules/lobby'
+import { TOTAL_SEATS, seatName } from '../../../shared/rules/lobby'
 import { ADJACENCY, ALLEY_NAME, START_TILE, TILE_BY_ID, cellsTouch, isAlleyCell, isHallCell, type TileId } from '../../../shared/rules/board'
 import { atVending } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
@@ -270,7 +271,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    */
   const talk = useChatLines(act, 'room', { room: START_TILE })
   const typing = useTyping()
-  useKeyboard()
+  useKeyboardInset()
   const blurNow = useCallback(() => {
     ;(document.activeElement as HTMLElement | null)?.blur()
   }, [])
@@ -306,7 +307,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   )
   /* 발치에 다는 이름표. 열넷이 같은 교복을 입고 서 있다 */
   const names = useMemo(
-    () => Object.fromEntries(seats.map((sx) => [sx.playerId, sx.name])),
+    () => Object.fromEntries(seats.map((sx, i) => [sx.playerId, seatName(sx, i)])),
     [seats],
   )
   const live = useLive(gameId, mates.map((m) => m.playerId))
@@ -519,6 +520,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
             open={typing}
             onClose={blurNow}
             stuck={talk.stuck}
+            self={{ playerId: mine.playerId, name: mine.name, team: mine.team ?? null }}
           />
 
           {/*
@@ -804,7 +806,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // 글을 쓰는 동안에는 탭바를 감춘다. 키보드 위에 얹혀 있으면
   // 입력창이 그만큼 가려진다
   const typing = useTyping()
-  const kb = useKeyboard()
+  const kb = useKeyboardInset()
   /** 초점을 뗀다. 맵을 짚거나 로그를 쓸어내리면 채팅 모드가 닫힌다 */
   const blurNow = useCallback(() => {
     ;(document.activeElement as HTMLElement | null)?.blur()
@@ -992,7 +994,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     [act, leaveDeal],
   )
   const nameOf = useCallback(
-    (id: string | null) => (id ? (game?.seats.find((s) => s.playerId === id)?.name ?? '누군가') : '누군가'),
+    (id: string | null) => {
+      // 명단에 없는 사람은 「누군가」다. 명단에 있는데 이름이 비었으면 자리 번호다
+      const i = id ? (game?.seats.findIndex((s) => s.playerId === id) ?? -1) : -1
+      return game && i >= 0 ? seatName(game.seats[i], i) : '누군가'
+    },
     [game],
   )
   /** 기계마다 앉은 사람. 골목은 한눈에 보이니 보이는 사람으로 다 안다 */
@@ -1018,7 +1024,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   /* 발치에 다는 이름표. **명단은 다 알고 있다** — 누가 보이는지는
      view 가 정하고, 여기서는 보이는 사람의 이름만 꺼내 쓴다 */
   const names = useMemo(
-    () => Object.fromEntries((game?.seats ?? []).map((sx) => [sx.playerId, sx.name])),
+    () => Object.fromEntries((game?.seats ?? []).map((sx, i) => [sx.playerId, seatName(sx, i)])),
     [game],
   )
   /**
@@ -1031,6 +1037,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const live = useLive(gameId, liveIds)
 
   const [toast, showToast] = useToast()
+  /** 서버가 거절한 칸 — 이 칸으로 한 번 도로 선다(Walk bounce). n 이 바뀔 때만 */
+  const [bounce, setBounce] = useState<{ x: number; y: number; n: number } | null>(null)
   /** 지금 선 칸에서 어느 쪽으로 갈 수 있는가. 지도가 한 칸 옮길 때마다 알려 준다 */
   const [ways, setWays] = useState<Record<Dir, DirWay>>({ up: 'open', down: 'open', left: 'open', right: 'open' })
 
@@ -1477,9 +1485,26 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             /* 멈춰 선 자리를 서버가 알아야 「바로 옆 칸」을 판정한다.
                거절은 흘려보낸다 — 걷다 멈춘 자리를 못 적었다고 화면에
                빨간 글씨가 뜰 일은 아니다 */
+            /* 서버가 거절한 칸이면 서버가 아는 칸으로 도로 선다 */
+            bounce={bounce}
+            onBlocked={(why) => showToast(why)}
             onStand={(x, y, via) => {
               setMyCell({ x, y })
-              void act.standAt(x, y, via).catch(() => {})
+              // 거절되면 돌아갈 자리. **보내기 전의** 서버 칸이다
+              const was = state.view?.visiblePawns.find((p) => p.playerId === uid)?.at ?? null
+              void act
+                .standAt(x, y, via)
+                .then((r) => {
+                  const out = r as { ok?: boolean; code?: string; why?: string }
+                  // 누가 먼저 섰거나 물건이 있다 — 짧게 알리고 제자리로
+                  if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked') && was) {
+                    showToast(out.why ?? '거기에는 설 수 없다.')
+                    setBounce((b) => ({ x: was.x, y: was.y, n: (b?.n ?? 0) + 1 }))
+                  }
+                })
+                // 그 밖의 거절(문턱에 멈췄다 등)은 흘려보낸다 — 걷다 멈춘 자리를
+                // 못 적었다고 빨간 글씨가 뜰 일은 아니다
+                .catch(() => {})
             }}
             /* 게시판. 붙은 장수는 서버가 보내 준다 — 없으면 빈 판이다 */
             boards={BOARDS.map((b) => ({
@@ -1521,7 +1546,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             「DAY 1 · 자유 시간 · 홍시 커플 2-3 교실 · 아름답음 · D팀」이
             11px 로 늘어서서 무엇 하나 읽히지 않았다.
               1층 — 날짜 · 시계 · 나
-              2층 — 지금 선 방 · 방 종류 · 보이는 인원/정원
+              2층 — 지금 선 방 · 방 종류 · 보이는 인원/정원 · 팀 점수
+
+            팀 점수는 전에 따로 한 층이었다. 셋이 쌓이니 방 위 윗머리를
+            검은 판이 통째로 덮었고, 가운데 점수 판만 어둡게 떠서 맵과
+            부딪혔다. 방 이름 줄 오른쪽 끝에 붙인다 — 둘 다 「이 판이
+            지금 어떤가」라서 한 줄로 읽어도 섞이지 않는다.
           */}
           <header className="sc-pl__head">
             <div className="sc-pl__hud1">
@@ -1540,22 +1570,21 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 <i className="sc-pl__band" style={{ background: colorOfTeam(me.team) }} aria-label={`${me.team}팀`}>
                   {me.team}
                 </i>
-                {me.name}
+                {seatName(me, game.seats.indexOf(me))}
               </span>
             </div>
-            {/* 팀마다 차지한 방. **늘 떠 있고**, 페이즈가 닫혀 주인이
-                바뀌면 몇 초 번쩍이며 +1·−1 을 붙인다 */}
-            <ScoreBar tiles={state.tiles} myTeam={me.team as TeamId} />
             {/* 복도에 서 있으면 복도라고 쓴다. 말줄과 같은 이름을 쓴다 —
                 한쪽은 「2-3 교실」, 한쪽은 「복도」면 어느 쪽이 참인지
                 알 수 없다. 정원은 안 쓴다. 복도는 아무의 자리도 아니라
-                차지할 수도, 넘칠 수도 없다 */}
-            {inHall ?
-              <div className="sc-pl__hud2">
+                차지할 수도, 넘칠 수도 없다.
+
+                **줄은 늘 선다.** 방 이름이 없을 때(걷는 중)에도 팀 점수는
+                떠 있어야 한다. 둘 다 없으면 CSS 가 빈 판을 접는다 */}
+            <div className="sc-pl__hud2">
+              {inHall ?
                 <span className="sc-pl__where">{placeName(standingOn, myCell)}</span>
-              </div>
-            : standingOn !== null && (
-                <div className="sc-pl__hud2">
+              : standingOn !== null && (
+                <>
                   <span className="sc-pl__where">{TILE_BY_ID[standingOn].name}</span>
                   {KIND_MARK[ROOM_KIND[standingOn]] !== '' && (
                     <span className="sc-pl__kind" aria-hidden>{KIND_MARK[ROOM_KIND[standingOn]]}</span>
@@ -1569,9 +1598,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                     {hereNow.length + 1}
                     {phaseOpen ? `/${capacityOf(standingOn)}` : '명'}
                   </span>
-                </div>
-              )
-            }
+                </>
+              )}
+              {/* 팀마다 차지한 방. **늘 떠 있고**, 페이즈가 닫혀 주인이
+                  바뀌면 몇 초 번쩍이며 +1·−1 을 붙인다. 줄 오른쪽 끝이다 */}
+              <ScoreBar tiles={state.tiles} myTeam={me.team as TeamId} />
+            </div>
             {/*
               받아 둔 심부름. **늘 보인다** — 시트로 만들면 열어 봐야
               알고, 심부름은 「지금 뭘 하는 중인가」다. 안 받았으면 줄
@@ -1610,6 +1642,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           open={typing}
           onClose={blurNow}
           stuck={talk.stuck}
+          self={{ playerId: me.playerId, name: me.name, team: me.team ?? null }}
         />
 
         <div className="sc-ct">
@@ -2207,7 +2240,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             나가려면 탭을 옮기고 끝까지 내려야 나온다 — 설정이 여기
             있으니 나가는 것도 여기 있는 것이 맞다.
           */}
-          <SignOut note={`들어와 있는 계정 · ${me.name}`} />
+          <SignOut note={`들어와 있는 계정 · ${seatName(me, game.seats.indexOf(me))}`} />
           {/* **한 장으로 상태를 다 보이게 한다.** 「안 움직여요」만으로는
               어디가 막혔는지 알 수 없어서, 판이 지금 어떤 상태인지를
               그대로 적어 둔다. 숨긴 값은 없다 — 전부 내 화면이 이미
@@ -2365,52 +2398,7 @@ function useTyping(): boolean {
   return typing
 }
 
-/**
- * 키보드가 먹은 높이(css px). 안 올라와 있으면 0.
- *
- * **dvh 로는 안 잡힌다.** dvh 는 주소창과 툴바까지만 세고 키보드는
- * 안 센다 — 아이폰에서 키보드가 올라와도 100dvh 는 그대로다.
- *
- *   kb = innerHeight - visualViewport.height - visualViewport.offsetTop
- *
- * `offsetTop` 까지 빼는 것이 중요하다. 아이폰은 키보드가 올라오는 동안
- * 보이는 창을 아래로 밀기도 하는데(offsetTop 이 0 이 아니게 된다),
- * 그걸 안 빼면 키보드가 실제보다 높다고 잰다 — 바가 먼저 튀어 오른다.
- *
- * **이벤트마다 갱신한다.** 아이폰은 키보드가 올라오는 0.25초 동안
- * visualViewport 이벤트를 여러 번 보낸다. 그때마다 --kb 를 고쳐 주면
- * 바가 키보드를 따라 올라간다. 이벤트 사이의 빈틈은 CSS 의
- * `transition: bottom .25s` 가 메운다(controls.css 의 .sc-sy).
- *
- * 값은 문서 뿌리에 적는다 — 말줄이 `position:fixed` 라 화면 전체를
- * 기준으로 서고, 그 규칙이 이 컴포넌트 바깥에 있다.
- */
-function useKeyboard(): number {
-  const [kb, setKb] = useState(0)
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const root = document.documentElement
-    const fit = () => {
-      const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop)
-      // 주소창이 줄었다 늘었다 하는 정도는 키보드가 아니다
-      const px = gap > 80 ? gap : 0
-      root.style.setProperty('--kb', `${px}px`)
-      setKb(px)
-      // 그래도 밀렸으면 제자리로. 지도는 여기 고정이다
-      if (window.scrollY !== 0) window.scrollTo(0, 0)
-    }
-    fit()
-    vv.addEventListener('resize', fit)
-    vv.addEventListener('scroll', fit)
-    return () => {
-      vv.removeEventListener('resize', fit)
-      vv.removeEventListener('scroll', fit)
-      root.style.removeProperty('--kb')
-    }
-  }, [])
-  return kb
-}
+// 키보드 높이는 useKeyboardInset.ts 로 갔다 — 무전 탭도 같은 값을 봐야 한다
 
 // ── 묶기 ────────────────────────────────────────────────────────
 

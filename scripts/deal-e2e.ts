@@ -13,7 +13,7 @@
 //   npx vite-node scripts/deal-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
-import { ADJACENCY, TILE_BY_ID } from '../shared/rules/board'
+import { ADJACENCY } from '../shared/rules/board'
 import { dayHourMs } from '../shared/rules/clock'
 import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
 import { stepToward } from '../shared/rules/occupy'
@@ -26,6 +26,8 @@ const ADMIN = { Authorization: 'Bearer owner' }
 import { of as recOf, records } from './lib/records'
 import { tradedTeams } from '../shared/rules/records'
 import { standAndSpot } from './lib/spot'
+import { dropCellsIn } from '../shared/rules/quiz'
+import { isBlockedCell } from '../shared/rules/blocked'
 
 let failures = 0
 function check(ok: boolean, label: string, detail = ''): void {
@@ -107,6 +109,17 @@ async function must(name: string, tk: string, data: unknown): Promise<Record<str
 }
 
 const GAME = `dl${Date.now()}`
+
+/**
+ * 칸에 세운다. **한 칸에 한 사람이다** — 누가 선 칸이나 물건 칸이면 서버가
+ * `{ ok: false }` 로 돌려준다(던지지 않는다). 그대로 두면 엉뚱한 칸에서
+ * 뒤의 시험을 잰다 — 안 서지면 여기서 멈춘다
+ */
+async function stand(tk: string, x: number, y: number): Promise<void> {
+  const r = await must('standAt', tk, { gameId: GAME, x, y })
+  if (r.ok !== true) throw new Error(`standAt ${x},${y} 안 섰다: ${String(r.code ?? '')} ${String(r.why ?? '')}`)
+}
+
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 const M = 60_000
 
@@ -246,13 +259,46 @@ async function main(): Promise<void> {
     await standSideBySide(where)
     return where
   }
-  /** 그 방 안에서 둘을 옆 칸에 세운다. */
-  const standSideBySide = async (where: string): Promise<void> => {
-    const rect = TILE_BY_ID[where].plan
-    const x = rect.x + 1
-    const y = rect.y + 1
-    await must('standAt', me.token, { gameId: GAME, x, y })
-    await must('standAt', you.token, { gameId: GAME, x: x + 1, y })
+  /**
+   * 그 방에서 둘이 설 자리를 고른다. **한 칸에 한 사람이다.**
+   *
+   * 방 모서리 칸을 박아 두면 가구 · 기물이나 이미 선 사람(시작 교실에는
+   * 열넷이 한 칸씩 서 있다)과 겹쳐 서버가 거절한다. 그래서 설 수 있는 칸
+   * (기물 · 가구를 뺀 칸) 가운데 남이 안 선 칸을 찾는다.
+   *
+   *   mine  — 나
+   *   yours — 너. 바로 오른쪽, 모서리가 닿는 칸(|dx|+|dy| = 1)
+   *   diag  — 나와 대각선 칸. 닿은 것이 아니어야 한다
+   *   far   — 나와 멀리 떨어진 칸
+   *
+   * 나·너가 이미 선 칸은 그 사람에게는 빈 칸으로 친다. 서로의 자리를
+   * 맞바꾸는 짝은 고르지 않는다 — 누가 먼저 서도 막히지 않게.
+   */
+  const seatsIn = async (where: string) => {
+    const pz = await pawnsNow()
+    const cells = dropCellsIn(where).filter((c) => !isBlockedCell(c.x, c.y))
+    const ok = new Set(cells.map((c) => `${c.x},${c.y}`))
+    const free = (x: number, y: number, who: string): boolean =>
+      ok.has(`${x},${y}`) &&
+      !Object.entries(pz).some(([id, p]) => {
+        const at = p.at as { x: number; y: number } | null | undefined
+        return id !== who && p.tileId !== null && at?.x === x && at?.y === y
+      })
+    for (const c of cells) {
+      if (!free(c.x, c.y, me.uid) || !free(c.x + 1, c.y, you.uid) || !free(c.x + 1, c.y + 1, you.uid)) continue
+      const far = cells.find((f) => Math.abs(f.x - c.x) + Math.abs(f.y - c.y) >= 4 && free(f.x, f.y, you.uid))
+      if (!far) continue
+      return { mine: c, yours: { x: c.x + 1, y: c.y }, diag: { x: c.x + 1, y: c.y + 1 }, far }
+    }
+    throw new Error(`${where} 안에 둘이 나란히 설 빈 칸이 없다`)
+  }
+  /** 그 방 안에서 둘을 옆 칸에 세운다. 고른 자리는 seats 에 남긴다 */
+  let seats: Awaited<ReturnType<typeof seatsIn>> | null = null
+  const standSideBySide = async (where: string) => {
+    seats = await seatsIn(where)
+    await stand(me.token, seats.mine.x, seats.mine.y)
+    await stand(you.token, seats.yours.x, seats.yours.y)
+    return seats
   }
   const room = await face()
   check((await pawnsNow())[you.uid].tileId === room, '둘이 같은 방에 섰다', room)
@@ -266,11 +312,11 @@ async function main(): Promise<void> {
 
   // ── 0. 같은 방으로는 모자라다 ───────────────────────────────
   console.log('── 0. 바로 옆 칸 ──')
-  const rect = TILE_BY_ID[room].plan
-  await must('standAt', you.token, { gameId: GAME, x: rect.x + 4, y: rect.y + 3 })
+  const here = seats!
+  await stand(you.token, here.far.x, here.far.y)
   const far = await call('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
   check(!far.ok && far.code === 'FAILED_PRECONDITION', '같은 방이어도 떨어져 있으면 못 건다', far.message)
-  await must('standAt', you.token, { gameId: GAME, x: rect.x + 2, y: rect.y + 2 })
+  await stand(you.token, here.diag.x, here.diag.y)
   const diag = await call('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
   check(!diag.ok, '대각선도 닿은 것이 아니다', diag.message)
   const notMine = await call('standAt', me.token, { gameId: GAME, x: 0, y: 0 })
@@ -318,7 +364,8 @@ async function main(): Promise<void> {
   console.log('── 3. 이탈 · 페이즈 ──')
   const moneyBefore = (await purseNow(me.uid)).money ?? 0
   // 방을 뜨기 전에, **한 걸음만 물러나도** 탁자가 접힌다
-  await must('standAt', you.token, { gameId: GAME, x: rect.x + 4, y: rect.y + 3 })
+  const back = seats!
+  await stand(you.token, back.far.x, back.far.y)
   await must('dealNow', me.token, { gameId: GAME })
   check(String((await dealNow(id)).status) === 'gone', '한 걸음 떨어지면 사라진다', String((await dealNow(id)).why ?? ''))
 
@@ -352,9 +399,8 @@ async function main(): Promise<void> {
 
   // roamTo 는 페이즈 중에 안 된다. 손으로 나란히 세운다
   const mineNow = (await pawnsNow())[me.uid].tileId as string
-  const r2 = TILE_BY_ID[mineNow as keyof typeof TILE_BY_ID].plan
-  await must('standAt', me.token, { gameId: GAME, x: r2.x + 2, y: r2.y + 2 })
-  await must('standAt', you.token, { gameId: GAME, x: r2.x + 3, y: r2.y + 2 })
+  // 전선으로 옮겨 세워진 사람들이 있다 — 빈 칸을 새로 고른다
+  const r2 = await standSideBySide(mineNow)
   await must('dealNow', me.token, { gameId: GAME })
   check(String((await dealNow(id)).status) === 'open', '페이즈가 열려도 탁자는 그대로다')
   check(
@@ -363,12 +409,12 @@ async function main(): Promise<void> {
   )
 
   // 페이즈 중에 한 걸음 떨어지면 그때는 접힌다 — 자리를 잃어서다
-  await must('standAt', you.token, { gameId: GAME, x: r2.x + 6, y: r2.y + 4 })
+  await stand(you.token, r2.far.x, r2.far.y)
   await must('dealNow', me.token, { gameId: GAME })
   check(String((await dealNow(id)).status) === 'gone', '자리가 갈리면 사라진다')
 
   // 다시 마주 서면 페이즈 중에도 새로 연다. **값은 안 든다**
-  await must('standAt', you.token, { gameId: GAME, x: r2.x + 3, y: r2.y + 2 })
+  await stand(you.token, r2.yours.x, r2.yours.y)
   await push(0)
   const pid = await open()
   check(String((await dealNow(pid)).status) === 'open', '페이즈 중에도 새 탁자가 열린다', pid)

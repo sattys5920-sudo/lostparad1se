@@ -5,11 +5,20 @@
 // any 로 넘어오는 탓에 컴파일도 시험도 조용히 지나갔다. 「나」 탭을
 // 여는 순간 undefined.text 로 터졌다.
 //
-// **타입만 있는 파일이다.** 화면이 import type 으로 부르면 한 줄도
-// 번들에 안 실린다(verbatimModuleSyntax). judge·roles 의 알맹이는
-// 여기로 새지 않는다 — scripts/check-bundle.ts 가 그걸 본다.
+// **타입과 말 한 줄뿐인 파일이다.** judge·roles 는 import type 으로만
+// 부르므로 화면이 이 파일을 불러도 그 알맹이는 번들에 안 실린다
+// (verbatimModuleSyntax) — scripts/check-bundle.ts 가 그걸 본다.
 import type { MissionView, SlipMissionView } from './judge'
 import type { MissionStatus } from './roleNames'
+
+/**
+ * 배정 전이라 명단에 내 줄이 아직 없을 때 서버가 돌려주는 말.
+ *
+ * **고장이 아니다.** 화면은 이 말이 오면 「못 받아왔다 —」를 붙이지
+ * 않고 다시 시도 단추도 안 단다 — 운영자가 배정을 누를 때까지 몇 번을
+ * 눌러도 같다. 서버와 화면이 같은 글자를 봐야 해서 여기 둔다.
+ */
+export const NOT_DEALT = '아직 배정되지 않았다.'
 
 /**
  * 「나」 탭 한 장.

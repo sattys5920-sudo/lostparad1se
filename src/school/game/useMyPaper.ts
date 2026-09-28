@@ -23,7 +23,7 @@ import type { GameActions } from './useGame'
  * 경로로 새지 않는다(scripts/check-bundle.ts 가 본다).
  */
 import type { ClauseView, MissionView, SlipMissionView } from '../../../shared/missions/judge'
-import type { MyPaperDoc } from '../../../shared/missions/paper'
+import { NOT_DEALT, type MyPaperDoc } from '../../../shared/missions/paper'
 
 export type ClauseShown = ClauseView
 export type MissionShown = MissionView
@@ -59,7 +59,10 @@ export function useMyPaper(act: GameActions, on: boolean, day: number): Paper {
       })
       .catch((e) => {
         if (!live) return
-        setErr((e as Error).message)
+        const msg = (e as Error).message
+        // 배정이 풀렸으면(자리가 바뀌면 지워진다) 전에 받은 학생증도 이제 틀린 것이다
+        if (msg === NOT_DEALT) setPaper(null)
+        setErr(msg)
       })
     return () => {
       live = false

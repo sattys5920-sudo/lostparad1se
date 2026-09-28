@@ -17,6 +17,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
 import { START_TILE, TILES } from '../../shared/rules/board'
+import { START_CELLS } from '../../shared/rules/blocked'
 import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
 import { seedGarden } from './garden'
@@ -422,6 +423,12 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         team,
         title: ROLE_TITLES[i % ROLE_TITLES.length],
         tileId: START_TILE,
+        /*
+         * **선 칸도 나눠 준다.** 열넷이 한 교실에서 시작하는데 칸을 안 정해
+         * 두면 각자 화면이 고른 칸이 겹친다. 자리 순서대로 한 칸씩 띄운 칸
+         * (rules/blocked START_CELLS — 화면의 lobbyCellFor 와 같은 값)
+         */
+        at: START_CELLS[Math.max(0, seats.findIndex((x) => x.playerId === s.playerId)) % START_CELLS.length] ?? null,
         // 전투 자리. 처음에는 서 있는 자리와 같다
         postTile: START_TILE,
         // 판정에서 둘로 세던 주장은 없앴다. 방은 깃발로 정한다
