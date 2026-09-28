@@ -72,7 +72,20 @@ export function setPlain(on: boolean): void {
   } catch {
     // 비공개 창. 설정 하나 때문에 화면이 멈추면 안 된다
   }
+  markPlain(on)
 }
+
+/**
+ * 문서 뿌리에 표시를 단다. **CSS 가 이것 하나를 본다**(theme.css 의
+ * [data-plain]) — 연출을 가진 화면마다 설정을 읽어 가지 않아도, 움직이는
+ * 것이 전부 한꺼번에 멈춘다.
+ */
+function markPlain(on: boolean): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.toggleAttribute('data-plain', on)
+}
+// 판을 열 때 한 번. 지난번에 꺼 둔 것을 그대로 따른다
+markPlain(plainOn())
 
 /**
  * 지금 연출을 접어야 하는가.

@@ -566,7 +566,7 @@
   overflow: hidden;
   /* 지도를 짚는 것을 막지 않는다 — 쓸어내려 닫을 때만 받는다 */
   pointer-events: none;
-  transition: background-color 0.25s ease;
+  transition: background-color var(--t-sheet) var(--ease-sheet);
 }
 .sc-sy.is-open .sc-sy__log {
   border-top: 1px solid var(--line-strong);

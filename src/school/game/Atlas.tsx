@@ -521,6 +521,12 @@ export function FullMap({
               >
                 {/* 완장. **테두리가 아니라 위에 두른 띠다** */}
                 <i className="sc-at__band" style={r.owner ? { background: TEAM_COLOR[r.owner] } : undefined} />
+                {/* 바탕 색만으로 주인을 가르지 않는다. 모서리에 팀 글자 */}
+                {r.owner && (
+                  <b className="sc-at__who" style={{ background: TEAM_COLOR[r.owner] }} aria-label={`${r.owner}팀 방`}>
+                    {r.owner}
+                  </b>
+                )}
                 {label.length > 0 && <span className="sc-at__nm">{label}</span>}
                 {/* **가리는 것은 머릿수뿐이다.** 이름도 정원도 차지한
                     팀도 판에 드러난 것이라 처음부터 보인다 */}

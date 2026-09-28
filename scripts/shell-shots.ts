@@ -301,7 +301,7 @@ async function main() {
   await browser.close()
   console.log(report.join('\n'))
   const byKind = (k: AuditHit['kind']) => [...hits.values()].filter((h) => h.kind === k)
-  for (const [k, title] of [['pixel', '픽셀 글꼴이 정수 배율이 아니다'], ['scale', '눈금 밖 글자 크기'], ['contrast', '대비 부족'], ['input', '16 아래 입력칸'], ['tap', '44 보다 작은 누를 것']] as const) {
+  for (const [k, title] of [['pixel', '픽셀 글꼴이 정수 배율이 아니다'], ['scale', '눈금 밖 글자 크기'], ['contrast', '대비 부족'], ['input', '16 아래 입력칸'], ['tap', '44 보다 작은 누를 것'], ['label', '이름 없는 단추']] as const) {
     const list = byKind(k)
     console.log(`\n${title}: ${list.length}`)
     for (const h of list) console.log(`  [${h.screen}] ${h.where} ${h.what}`)

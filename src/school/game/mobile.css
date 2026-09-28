@@ -292,10 +292,18 @@
 }
 /* 팀 완장. 한 점이면 된다 — 테두리를 어둡게 둘러야 밝은 바닥 위에서도 산다 */
 .sc-pl__band {
-  width: 9px;
-  height: 9px;
+  min-width: 13px;
+  height: 13px;
   flex: 0 0 auto;
-  border: 1px solid var(--mp-outline, var(--bg-0));
+  box-sizing: border-box;
+  border: 1px solid var(--bg-0);
+  /* 팀 글자. 색 네모 안에 어두운 픽셀 글자 */
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
+  font-style: normal;
+  line-height: 11px;
+  text-align: center;
+  color: var(--bg-0);
 }
 
 /*
@@ -322,10 +330,18 @@
   white-space: nowrap;
 }
 .sc-sb__team i {
-  width: 9px;
-  height: 9px;
+  min-width: 13px;
+  height: 13px;
   flex: 0 0 auto;
-  border: 1px solid var(--mp-outline, var(--bg-0));
+  box-sizing: border-box;
+  border: 1px solid var(--bg-0);
+  /* 팀 글자. 색 네모 안에 어두운 픽셀 글자 */
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
+  font-style: normal;
+  line-height: 11px;
+  text-align: center;
+  color: var(--bg-0);
 }
 .sc-sb__team b { font-weight: 400; }
 /* 내 팀은 금빛 테 — 넷 중 어디를 봐야 하는지 */

@@ -208,3 +208,25 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-dots i { animation: none; opacity: 1; }
 }
+
+/* ── 연출 줄이기 ─────────────────────────────────────────────────
+   기기 설정(prefers-reduced-motion)과 앱 설정(더보기 → 연출 줄이기,
+   뿌리의 data-plain)을 **같이** 따른다. 움직이는 것은 곧장 끝 모습으로
+   간다 — 없애 버리면 끝 모습에 기대는 장면(접힌 투표지 등)이 어중간하게
+   멈춘다 */
+:root[data-plain] *,
+:root[data-plain] *::before,
+:root[data-plain] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

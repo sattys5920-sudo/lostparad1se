@@ -100,7 +100,10 @@ export function ScoreBar({ tiles, myTeam }: { tiles: Partial<Record<TileId, Tile
             className={['sc-sb__team', t === myTeam ? 'is-mine' : '', d ? 'is-hit' : ''].filter(Boolean).join(' ')}
             aria-label={`${TEAM_NAME[t]} ${counts[t]}곳${d ? `, ${d > 0 ? d + '곳 얻음' : -d + '곳 잃음'}` : ''}`}
           >
-            <i style={{ background: colorOfTeam(t) }} aria-hidden />
+            {/* 색만으로는 안 가른다 — 색맹이면 붉은 팀과 초록 팀이 같다. 네모 안에 글자 */}
+            <i style={{ background: colorOfTeam(t) }} aria-hidden>
+              {t}
+            </i>
             <b aria-hidden>{counts[t]}</b>
             {d !== undefined && (
               <em className={d > 0 ? 'is-up' : 'is-down'} aria-hidden>

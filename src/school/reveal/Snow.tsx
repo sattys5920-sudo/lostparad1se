@@ -57,8 +57,10 @@ export function Snow({ level }: { level: number }) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    // 기기 설정이든 앱 설정(연출 줄이기)이든 하나만 켜져 있어도 멈춘 눈이다
     const reduced =
-      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+      document.documentElement.hasAttribute('data-plain') ||
+      (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
     const at = Math.max(0, Math.min(SNOW_PARTICLES.length - 1, Math.round(level)))
     // 껐으면 한 톨도 안 그리고 루프도 안 돈다. 「보이지 않게」가
     // 아니라 「돌지 않게」여야 배터리가 산다

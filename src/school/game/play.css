@@ -1680,7 +1680,7 @@ p.sc-cv { display: block; }
 }
 
 /* 점이 부드럽게 따라간다. 툭 튀면 누가 움직였는지 못 본다 */
-.sc-mini circle { transition: cx 0.35s ease-out, cy 0.35s ease-out; }
+.sc-mini circle { transition: cx var(--t-screen) steps(3, end), cy var(--t-screen) steps(3, end); }
 
 @media (prefers-reduced-motion: reduce) {
   .sc-mini circle { transition: none; }
@@ -1717,7 +1717,8 @@ p.sc-cv { display: block; }
   font-family: var(--font-pixel);
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  animation: sc-at-in 0.14s ease-out;
+  /* 화면 전환은 0.2초, 세 걸음으로 끊는다 — 도트 화면에서는 번지는 것보다 또렷하다 */
+  animation: sc-at-in var(--t-screen) steps(3, end);
 }
 @keyframes sc-at-in {
   from { opacity: 0; }
@@ -1797,6 +1798,22 @@ p.sc-cv { display: block; }
 }
 /* 이름이 다 들어가므로 두 줄까지 쓴다 */
 .sc-at__nm { position: relative; top: 1px; white-space: nowrap; }
+/* 주인 팀 글자. 색 네모 안에 어두운 픽셀 글자 — 색만으로 가르지 않는다 */
+.sc-at__who {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 1px solid var(--bg-0);
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
+  font-weight: 400;
+  line-height: 11px;
+  text-align: center;
+  color: var(--bg-0);
+}
 
 /* 방 — 어두운 바탕 위에 뜬 밝은 면. 모서리는 안 굴린다 */
 .sc-at__room {

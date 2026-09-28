@@ -492,7 +492,7 @@
   font-size: var(--fs-pixel-2);
   color: var(--text-2);
   pointer-events: none;
-  animation: sc-tw-pop 0.9s ease-out forwards;
+  animation: sc-tw-pop 0.9s steps(4, end) forwards;
 }
 .sc-tw__pop.is-perfect { color: var(--ct-gold, var(--accent)); }
 @keyframes sc-tw-pop {

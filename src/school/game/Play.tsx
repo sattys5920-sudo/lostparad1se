@@ -488,7 +488,9 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
                 <span className="sc-pl__day">DAY 0</span>
                 <span className="sc-pl__clock">{seats.length} / {TOTAL_SEATS} 모였다</span>
                 <span className="sc-pl__me">
-                  <i className="sc-pl__band" style={{ background: colorOfTeam(mine.team) }} />
+                  <i className="sc-pl__band" style={{ background: colorOfTeam(mine.team) }}>
+                    {mine.team ?? ''}
+                  </i>
                   {me.nickname}
                 </span>
               </div>
@@ -1487,9 +1489,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 standing={standingOn}
               />
               <span className="sc-pl__me">
-                {/* 팀은 글자가 아니라 완장으로 안다 — 「D팀」 두 글자가
-                    9px 로 붙어 있는 것보다 색 한 점이 빨리 읽힌다 */}
-                <i className="sc-pl__band" style={{ background: colorOfTeam(me.team) }} />
+                {/* 팀은 완장 색으로 먼저 읽힌다. **글자도 같이 둔다** —
+                    색만으로 가르면 색을 못 가리는 사람에게는 팀이 없다 */}
+                <i className="sc-pl__band" style={{ background: colorOfTeam(me.team) }} aria-label={`${me.team}팀`}>
+                  {me.team}
+                </i>
                 {me.name}
               </span>
             </div>

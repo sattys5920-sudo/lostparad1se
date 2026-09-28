@@ -9,14 +9,14 @@
 import type { Page } from 'playwright'
 
 export interface AuditHit {
-  kind: 'pixel' | 'scale' | 'contrast' | 'input' | 'tap'
+  kind: 'pixel' | 'scale' | 'contrast' | 'input' | 'tap' | 'label'
   where: string
   what: string
 }
 
 export async function auditText(page: Page): Promise<AuditHit[]> {
   return page.evaluate(() => {
-    const out: { kind: 'pixel' | 'scale' | 'contrast' | 'input' | 'tap'; where: string; what: string }[] = []
+    const out: { kind: 'pixel' | 'scale' | 'contrast' | 'input' | 'tap' | 'label'; where: string; what: string }[] = []
     const seen = new Set<string>()
     const parse = (c: string): [number, number, number, number] | null => {
       const m = c.match(/rgba?\(([^)]+)\)/)
@@ -51,6 +51,17 @@ export async function auditText(page: Page): Promise<AuditHit[]> {
     const name = (el: Element) => {
       const cls = (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)[0]
       return cls ? `.${cls}` : el.tagName.toLowerCase()
+    }
+    // 이름 없는 단추 — 글자도 aria-label 도 없으면 화면 읽기가 「단추」라고만 읽는다
+    for (const el of Array.from(document.querySelectorAll('button, [role="button"], a[href]'))) {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) continue
+      const text = (el.textContent ?? '').replace(/\s+/g, '').trim()
+      const alt = Array.from(el.querySelectorAll('img[alt]')).some((i) => (i.getAttribute('alt') ?? '').trim() !== '')
+      if (!text && !alt && !el.getAttribute('aria-label') && !el.getAttribute('title') && !seen.has(`l|${name(el)}`)) {
+        seen.add(`l|${name(el)}`)
+        out.push({ kind: 'label', where: name(el), what: el.outerHTML.slice(0, 60) })
+      }
     }
     // 16 아래인 입력칸 — 아이폰이 확대한다
     for (const el of Array.from(document.querySelectorAll('input, textarea, select'))) {
