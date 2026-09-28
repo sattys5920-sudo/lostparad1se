@@ -21,7 +21,7 @@ import { ROOM_KIND, ownerOf, researchKnowledge } from '../rules/occupy'
 import { accrueTokens, initialTokenState, markComeback, spendToken, type TokenState } from '../rules/tokens'
 import { tallyVotes, type Vote } from '../rules/votes'
 import { acceptTrade } from '../rules/diplomacy'
-import { publicScore, settle, type ScoreBreakdown, type TeamState } from '../rules/score'
+import { publicScore, settle, type ScoreBreakdown } from '../rules/score'
 import {
   DAY_START_HOUR,
   MOVE_GAME_MIN_PER_TILE,
@@ -236,16 +236,9 @@ export function simulateGame(seed: string, startMs: number): SimResult {
   // ── 종례 ──
   for (const p of players.values()) close(p.id, endMs)
 
-  const finalTeam = (team: TeamId): TeamState => ({
-    team,
-    resources: teams[team].resources,
-    researchTier: teams[team].researchTier,
-  })
   const tileList = [...tiles.values()]
-  const scores = TEAM_IDS.map((team) =>
-    publicScore({ tiles: tileList, team: finalTeam(team) }),
-  )
-  const ranked = settle(scores, (t) => teams[t].resources.knowledge)
+  const scores = TEAM_IDS.map((team) => publicScore({ tiles: tileList, team }))
+  const ranked = settle(scores)
 
   const gameLog: GameLog = {
     startedAtMs: startMs,
@@ -385,14 +378,9 @@ export function simulateGame(seed: string, startMs: number): SimResult {
     tallyVotes({ votes: todays })
     // 3. 점수와 순위
     const list = [...tiles.values()]
-    const open = TEAM_IDS.map((team) =>
-      publicScore({
-        tiles: list,
-        team: { team, resources: teams[team].resources, researchTier: teams[team].researchTier },
-      }),
-    )
+    const open = TEAM_IDS.map((team) => publicScore({ tiles: list, team }))
     // 4. 주목과 만회
-    const out = settle(open, (t) => teams[t].resources.knowledge)
+    const out = settle(open)
     for (const t of TEAM_IDS) teams[t].spotlighted = t === out.spotlighted
     teams[out.comeback].tokens = markComeback(teams[out.comeback].tokens)
   }

@@ -20,7 +20,7 @@
 //
 // **복도 자체는 칸이 아니다.** 걸어서 지나는 자리일 뿐이라 점령도
 // 깃발도 없다. 규칙이 보는 것은 방과 계단참뿐이다.
-import { type TeamId, type Tier } from './v2'
+import { type Tier } from './v2'
 
 export type TileId = string
 
@@ -604,39 +604,6 @@ export function tileDistance(a: TileId, b: TileId): number {
 
 export function stepsBetween(a: TileId, b: TileId): number {
   return tileDistance(a, b)
-}
-
-/**
- * 붙어 있는 우리 칸 덩어리 중 **제일 큰 것의 크기.**
- *
- * 전에는 기지에서 걸어 나가며 셌다 — 기지가 없어졌으니 출발점도
- * 없다. 대신 덩어리를 전부 세어 제일 큰 것을 고른다: 「흩어져
- * 주운 땅은 점수가 안 된다」는 뜻은 그대로고, 어디서부터 세느냐만
- * 사라졌다.
- *
- * 한 칸짜리 덩어리는 0이다. 붙어 있는 것이 없으면 연결이 아니다.
- */
-export function connectedSize(team: TeamId, ownerOf: (id: TileId) => TeamId | null): number {
-  const ours = TILES.filter((t) => ownerOf(t.id) === team).map((t) => t.id)
-  const left = new Set<TileId>(ours)
-  let best = 0
-  for (const start of ours) {
-    if (!left.has(start)) continue
-    left.delete(start)
-    const queue: TileId[] = [start]
-    let n = 1
-    while (queue.length > 0) {
-      const cur = queue.shift() as TileId
-      for (const next of ADJACENCY[cur]) {
-        if (!left.has(next)) continue
-        left.delete(next)
-        n += 1
-        queue.push(next)
-      }
-    }
-    if (n > best) best = n
-  }
-  return best > 1 ? best : 0
 }
 
 /**

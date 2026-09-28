@@ -10,13 +10,12 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import type { BallotDay, BallotVote, GameLog, JudgeVote } from '../../shared/missions/judge'
 import type { GameRecord, OwnerChange } from '../../shared/rules/records'
 import { ALL_KEY, ENDING_MAX } from '../../shared/reveal/ending'
-import { teamPurse } from '../../shared/rules/resources'
-import { publicScore, rankTeams, type TeamState } from '../../shared/rules/score'
+import { publicScore, rankTeams } from '../../shared/rules/score'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { TileId } from '../../shared/rules/board'
 import type { Interval } from '../../shared/rules/presence'
 import type { TeamId } from '../../shared/rules/v2'
-import type { CaptureDoc, GameDoc, PawnDoc, RosterDoc, TeamDoc, TileDoc, VoteDoc } from '../../shared/model'
+import type { CaptureDoc, GameDoc, RosterDoc, TileDoc, VoteDoc } from '../../shared/model'
 
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
@@ -48,16 +47,14 @@ export async function buildLog(
   const nowMs = nowOf(game)
   const startedAtMs = game.startedAtMs ?? nowMs
 
-  const [rosterS, ivS, voteS, capS, tileS, teamS, choiceS, closingS, pawnS, recordS, ballotDayS, ballotS, slipS] = await Promise.all([
+  const [rosterS, ivS, voteS, capS, tileS, choiceS, closingS, recordS, ballotDayS, ballotS, slipS] = await Promise.all([
     secret(gameId, 'roster').get(),
     secret(gameId, 'intervals').get(),
     secret(gameId, 'votes').get(),
     ref.collection('captures').get(),
     ref.collection('tiles').get(),
-    ref.collection('teams').get(),
     secret(gameId, 'choices').get(),
     ref.collection('secret').doc('closing').get(),
-    ref.collection('pawns').get(),
     // **오래 쓰기만 하던 자리를 이제 읽는다.** 자판기·심부름·화분·쪽지·
     // 짝·시험지·이적이 전부 여기 쌓여 있었는데 판정에는 안 들어갔다
     ref.collection('secret').doc('records').collection('items').get(),
@@ -74,7 +71,6 @@ export async function buildLog(
     const t = d.data() as TileDoc
     return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
   })
-  const teamDocs = new Map(teamS.docs.map((d) => [d.id as TeamId, d.data() as TeamDoc]))
 
   /** 페이즈가 닫힐 때마다 남긴 점령 기록. 소유 이력이 여기서 나온다. */
   const captures = capS.docs.map((d) => {
@@ -94,19 +90,9 @@ export async function buildLog(
     .filter((v) => cutoff === undefined || v.day < cutoff)
     .map((v) => ({ voterId: v.voterId, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
 
-  // 최종 순위. 비밀 목표는 아직 안 넣는다 — 공개 점수로 낸다
-  // **자원은 지갑 넷의 합이다.** 금고가 없어졌다 — 점수판만 팀 단위다
-  const wallet = pawnS.docs.map((d) => d.data() as PawnDoc)
-  const scores = TEAMS.map((team) => {
-    const doc = teamDocs.get(team) as TeamDoc
-    const state: TeamState = {
-      team,
-      resources: teamPurse(wallet, team),
-      researchTier: doc.researchTier,
-    }
-    return publicScore({ tiles, team: state })
-  })
-  const ranked = rankTeams(scores, (team) => teamPurse(wallet, team).knowledge)
+  // 최종 순위. **가진 방 개수다** — 개인 지갑은 팀 점수에 안 들어간다
+  const scores = TEAMS.map((team) => publicScore({ tiles, team }))
+  const ranked = rankTeams(scores)
   // 안 가른 순위. 「우리 팀이 1위가 아니다」가 이쪽을 본다
   const teamTiedRank = Object.fromEntries(ranked.map((r) => [r.team, r.tiedRank])) as Record<TeamId, number>
 

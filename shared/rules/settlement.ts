@@ -20,7 +20,6 @@ import type { TeamId } from './v2'
 export interface SettlementInput {
   /** 생산과 표를 이미 반영한 점수. */
   scores: readonly ScoreBreakdown[]
-  knowledgeOf: (team: TeamId) => number
   /**
    * 그날 던져진 **투명인간 투표** 전부.
    *
@@ -44,7 +43,7 @@ export interface DailySettlement extends SettlementResult {
  * 고른 결과만 돌려준다.
  */
 export function settleDay(input: SettlementInput): DailySettlement {
-  const base = settle(input.scores, input.knowledgeOf)
+  const base = settle(input.scores)
   const invisible = pickInvisible({
     counts: countBallots(input.ballots ?? []),
     yesterdayId: input.yesterdayInvisibleId ?? null,

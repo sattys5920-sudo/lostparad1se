@@ -12,7 +12,6 @@ import {
   FLOORS,
   TILES,
   TILE_BY_ID,
-  connectedSize,
   canRoamTo,
   isAdjacent,
   pathBetween,
@@ -25,7 +24,6 @@ import {
   START_TILE,
   type TileId,
 } from './board'
-import { type TeamId } from './v2'
 
 const byTier = (tier: string) => TILES.filter((t) => t.tier === tier)
 
@@ -255,24 +253,6 @@ describe('시작 상태', () => {
   it('모두 2-3 교실에서 시작한다', () => {
     expect(START_TILE).toBe('centralPlaza')
     expect(TILE_BY_ID[START_TILE].tier).toBe('plaza')
-  })
-})
-
-describe('연결 점수', () => {
-  const owners = (mine: string[]) => (id: string) => (mine.includes(id) ? ('A' as TeamId) : null)
-
-  it('한 칸뿐이면 0이다 — 붙어 있는 것이 없으면 연결이 아니다', () => {
-    expect(connectedSize('A', owners(['baseA']))).toBe(0)
-  })
-
-  it('떨어진 땅은 같이 안 센다', () => {
-    const far = TILES.find((t) => t.floor === 'f2' && t.tier === 'zone1') as (typeof TILES)[number]
-    expect(connectedSize('A', owners(['baseA', far.id]))).toBe(0)
-  })
-
-  it('붙은 것만 센다 — 제일 큰 덩어리 하나다', () => {
-    const next = ADJACENCY.baseA
-    expect(connectedSize('A', owners(['baseA', ...next]))).toBe(next.length + 1)
   })
 })
 

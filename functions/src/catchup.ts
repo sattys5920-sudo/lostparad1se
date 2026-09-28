@@ -12,7 +12,7 @@ import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 import { clockItems, nextByHand, type Due } from '../../shared/rules/catchup'
 import { teamPurse, type TileState } from '../../shared/rules/resources'
 import { closingMutual, closingTogether } from '../../shared/rules/choices'
-import { publicScore, type TeamState } from '../../shared/rules/score'
+import { publicScore } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
 import { TEAMS } from '../../shared/rules/lobby'
@@ -188,20 +188,11 @@ async function settlement(c: Ctx): Promise<void> {
   }
   for (const d of todays) c.tx.update(d.ref, { settled: true })
 
-  // 3~4. 점수와 순위, 주목과 만회
-  const scores = TEAMS.map((team) => {
-    const doc = teamDocs.get(team) as TeamDoc
-    const state: TeamState = {
-      team,
-      resources: after.get(team) ?? teamPurse(wallet, team),
-      researchTier: doc.researchTier,
-    }
-    return publicScore({ tiles, team: state })
-  })
+  // 3~4. 점수와 순위, 주목과 만회. **점수는 가진 방 개수다**
+  const scores = TEAMS.map((team) => publicScore({ tiles, team }))
 
   const result = settleDay({
     scores,
-    knowledgeOf: (team) => after.get(team)?.knowledge ?? 0,
     // 투명인간은 전용 투표로 정한다(ballot.ts). 이 정산을 손으로 넘긴
     // 직후 pushByHand 가 announceBallots 로 센다
     ballots: [],

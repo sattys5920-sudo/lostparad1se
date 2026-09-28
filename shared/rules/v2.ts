@@ -249,15 +249,6 @@ export const CARD_SECRET_LETTER_REAL_HOURS = 1
 export const CARD_ACCORD_MONEY = 2
 export const CARD_HIDE_GAME_HOURS = 6
 
-// ── 점수 ────────────────────────────────────────────────────────
-
-/** 핵심 한 칸당. */
-export const SCORE_PER_CORE = 3
-/** 남은 자원을 이 수로 나눈다(버림). */
-export const SCORE_RESOURCE_DIVISOR = 5
-/** 연구 단계에 곱하는 값. */
-export const SCORE_RESEARCH_MULTIPLIER = 2
-
 // ── A의 기록과 날짜별 사건 ──────────────────────────────────────
 
 // **방은 처음부터 다 열려 있다.**

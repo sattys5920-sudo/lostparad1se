@@ -5,9 +5,7 @@ import type { ScoreBreakdown } from './score'
 import type { Ballot } from './invisible'
 import type { TeamId } from './v2'
 
-const row = (team: TeamId, total: number): ScoreBreakdown => ({
-  team, territory: total, connection: 0, core: 0, resource: 0, development: 0, total,
-})
+const row = (team: TeamId, total: number): ScoreBreakdown => ({ team, territory: total, total })
 
 const SCORES = [row('A', 30), row('B', 20), row('C', 10), row('D', 5)]
 
@@ -15,7 +13,7 @@ const SCORES = [row('A', 30), row('B', 20), row('C', 10), row('D', 5)]
 const at = (voterId: string, targetId: string): Ballot => ({ voterId, targetId, atMs: 0 })
 
 describe('하루 정산', () => {
-  const base = { scores: SCORES, knowledgeOf: () => 0 }
+  const base = { scores: SCORES }
 
   it('순위·주목·만회는 그대로 나온다', () => {
     const out = settleDay({ ...base, ballots: [] })
@@ -57,7 +55,6 @@ describe('화면에 내려보내는 것', () => {
   it('투표에 관해 나가는 것은 투명인간 하나뿐이다', () => {
     const out = settleDay({
       scores: SCORES,
-      knowledgeOf: () => 0,
       ballots: [at('a1', 'b1'), at('a2', 'b1'), at('a3', 'c1')],
     })
     const view = settlementView(out)
@@ -72,7 +69,7 @@ describe('화면에 내려보내는 것', () => {
   })
 
   it('아무도 지워지지 않은 날도 그대로 알린다', () => {
-    const view = settlementView(settleDay({ scores: SCORES, knowledgeOf: () => 0, ballots: [] }))
+    const view = settlementView(settleDay({ scores: SCORES, ballots: [] }))
     expect(view.invisibleId).toBe(null)
   })
 })
