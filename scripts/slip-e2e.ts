@@ -144,7 +144,7 @@ async function main(): Promise<void> {
 
   console.log('\n── 한 장 뿌리기 ──')
   const N1 = 'r04-p1-name'
-  const owner = holderOf('locker')
+  const owner = holderOf('deskmate')
   const put = await must('hostScatterSlip', host, { gameId: GAME, noteId: N1, tileId: 'library' })
   check(put.where === TILE_BY_ID.library.name, '고른 방에 뿌렸다', String(put.where))
   const n1 = await noteOf(host, N1)

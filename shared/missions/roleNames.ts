@@ -36,9 +36,9 @@ export const STATUS_LABEL: Record<MissionStatus, string> = {
 
 export type RoleId =
   // 사람
-  | 'classlead' | 'model' | 'snacker'
+  | 'classlead' | 'model' | 'treasurer'
   // 쪽지
-  | 'locker' | 'bookclub' | 'cleanup'
+  | 'deskmate' | 'bookclub' | 'cleanup'
   // 손
   | 'duty' | 'gardener' | 'science' | 'tech' | 'topstudent'
   // 어긋남 ★
@@ -47,8 +47,8 @@ export type RoleId =
 export const ROLE_NAMES: Record<RoleId, string> = {
   classlead: '반장',
   model: '모범생',
-  snacker: '매점 단골',
-  locker: '파수꾼',
+  treasurer: '총무',
+  deskmate: '옆자리',
   bookclub: '도서부',
   cleanup: '미화부',
   duty: '주번',
@@ -70,8 +70,8 @@ export function roleName(id: RoleId): string {
 export const ROLE_BRANCH: Record<RoleId, MissionBranch> = {
   classlead: 'people',
   model: 'people',
-  snacker: 'people',
-  locker: 'slip',
+  treasurer: 'people',
+  deskmate: 'slip',
   bookclub: 'slip',
   cleanup: 'slip',
   duty: 'hand',

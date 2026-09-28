@@ -81,13 +81,13 @@ const mainOf = (roleId: RoleId, over: Partial<GameLog>, targetId: string | null 
 
 describe('셈이 경계에서 갈린다', () => {
   const counts: [RoleId, RecordKind, number][] = [
-    ['locker', 'slipRead', 4],
+    ['deskmate', 'slipRead', 4],
     ['cleanup', 'slipTear', 3],
     ['duty', 'errandDone', 4],
     ['gardener', 'potHarvest', 5],
     ['science', 'robotBorn', 3],
     ['topstudent', 'quizSolved', 6],
-    ['snacker', 'vendBuy', 3],
+    ['treasurer', 'vendBuy', 3],
   ]
 
   for (const [roleId, kind, need] of counts) {
@@ -168,7 +168,7 @@ describe('모범생 — 신뢰표 셋, 서로 다른 두 팀에서', () => {
   })
 })
 
-describe('매점 단골 — 다른 팀과의 거래만', () => {
+describe('총무 — 그때 다른 팀이던 사람과의 거래만', () => {
   const trade = (otherId: string): GameRecord => ({
     kind: 'trade',
     atMs: START,
@@ -180,25 +180,25 @@ describe('매점 단골 — 다른 팀과의 거래만', () => {
 
   it('같은 팀과 거래한 것은 안 센다', () => {
     const rows = [...did('vendBuy', 3), trade('a2'), trade('a3')]
-    expect(mainOf('snacker', { records: rows }).clauses[1].have).toBe(0)
+    expect(mainOf('treasurer', { records: rows }).clauses[1].have).toBe(0)
   })
 
   it('내가 받은 거래도 센다 — 제안한 쪽만 세면 받기만 한 사람이 억울하다', () => {
-    const got: GameRecord = { kind: 'trade', atMs: START, actorId: 'b1', actorTeam: 'B', otherId: 'me' }
+    const got: GameRecord = { kind: 'trade', atMs: START, actorId: 'b1', actorTeam: 'B', otherId: 'me', otherTeam: 'A' }
     const rows = [...did('vendBuy', 3), trade('c1'), got]
-    expect(mainOf('snacker', { records: rows }).met).toBe(true)
+    expect(mainOf('treasurer', { records: rows }).met).toBe(true)
   })
 
   it('자판기 매입은 구매가 아니다', () => {
     const rows = [...did('vendSell', 5), trade('c1'), trade('d1')]
-    expect(mainOf('snacker', { records: rows }).clauses[0].have).toBe(0)
+    expect(mainOf('treasurer', { records: rows }).clauses[0].have).toBe(0)
   })
 })
 
 describe('쪽지 — 같은 장을 두 번 읽어도 한 장이다', () => {
-  it('파수꾼', () => {
+  it('옆자리', () => {
     const same = did('slipRead', 6, { subjectId: 'one' })
-    expect(mainOf('locker', { records: same }).clauses[0].have).toBe(1)
+    expect(mainOf('deskmate', { records: same }).clauses[0].have).toBe(1)
   })
 
   it('도서부는 읽기와 건네기를 따로 센다', () => {
@@ -351,20 +351,20 @@ describe('뒷자리 — 동률로 무효가 된 날은 안 센다', () => {
 // ── 쪽지 미션 ───────────────────────────────────────────────────
 
 describe('쪽지 미션 셋', () => {
-  const slipOf = (id: string, out = judge(me('locker'), log())) =>
+  const slipOf = (id: string, out = judge(me('deskmate'), log())) =>
     out.slips.find((s) => s.id === id)
 
   it('남의 쪽지를 읽고 끝까지 쥐고 있어야 한다', () => {
     const read = did('slipRead', 1, { subjectId: 'slipX', ownerId: 'b1' })
-    const kept = judge(me('locker'), log({ records: read, slipsHeldAtEnd: { me: ['slipX'] } }))
-    const lost = judge(me('locker'), log({ records: read, slipsHeldAtEnd: { me: [] } }))
+    const kept = judge(me('deskmate'), log({ records: read, slipsHeldAtEnd: { me: ['slipX'] } }))
+    const lost = judge(me('deskmate'), log({ records: read, slipsHeldAtEnd: { me: [] } }))
     expect(slipOf('keepOthers', kept)?.met).toBe(true)
     expect(slipOf('keepOthers', lost)?.met).toBe(false)
   })
 
   it('내 쪽지를 내가 쥐고 있는 것은 안 센다', () => {
     const read = did('slipRead', 1, { subjectId: 'mine', ownerId: 'me' })
-    const out = judge(me('locker'), log({ records: read, slipsHeldAtEnd: { me: ['mine'] } }))
+    const out = judge(me('deskmate'), log({ records: read, slipsHeldAtEnd: { me: ['mine'] } }))
     expect(slipOf('keepOthers', out)?.met).toBe(false)
   })
 
@@ -378,8 +378,8 @@ describe('쪽지 미션 셋', () => {
         subjectId: 'aboutMe',
         ownerId: 'me',
       }))
-    const two = judge(me('locker'), log({ records: readers(['b1', 'c1']) }))
-    const three = judge(me('locker'), log({ records: readers(['b1', 'c1', 'd1']) }))
+    const two = judge(me('deskmate'), log({ records: readers(['b1', 'c1']) }))
+    const three = judge(me('deskmate'), log({ records: readers(['b1', 'c1', 'd1']) }))
     expect(slipOf('fewReadMine', two)?.met).toBe(true)
     expect(slipOf('fewReadMine', three)?.met).toBe(false)
     expect(slipOf('fewReadMine', three)?.broken, '상한은 도중에 깨진다').toBe(true)
@@ -387,7 +387,7 @@ describe('쪽지 미션 셋', () => {
 
   it('내가 내 쪽지를 읽은 것은 남이 읽은 것이 아니다', () => {
     const selfRead = did('slipRead', 1, { subjectId: 'aboutMe', ownerId: 'me' })
-    const out = judge(me('locker'), log({ records: selfRead }))
+    const out = judge(me('deskmate'), log({ records: selfRead }))
     expect(slipOf('fewReadMine', out)?.have).toBe(0)
   })
 
@@ -395,9 +395,9 @@ describe('쪽지 미션 셋', () => {
     const once = did('slipTake', 1, { ownerId: 'b1' })
     const twice = [...did('slipTake', 1, { ownerId: 'b1' }), ...did('slipTake', 1, { ownerId: 'b1' })]
     const spread = [...did('slipTake', 1, { ownerId: 'b1' }), ...did('slipTake', 1, { ownerId: 'c1' })]
-    expect(slipOf('twiceSamePerson', judge(me('locker'), log({ records: once })))?.met).toBe(false)
-    expect(slipOf('twiceSamePerson', judge(me('locker'), log({ records: twice })))?.met).toBe(true)
-    expect(slipOf('twiceSamePerson', judge(me('locker'), log({ records: spread })))?.met).toBe(false)
+    expect(slipOf('twiceSamePerson', judge(me('deskmate'), log({ records: once })))?.met).toBe(false)
+    expect(slipOf('twiceSamePerson', judge(me('deskmate'), log({ records: twice })))?.met).toBe(true)
+    expect(slipOf('twiceSamePerson', judge(me('deskmate'), log({ records: spread })))?.met).toBe(false)
   })
 })
 
@@ -451,7 +451,7 @@ describe('공개 정책', () => {
   })
 
   it('마지막 선택은 끝날 때 판정이다', () => {
-    const out = judge(me('locker'), log({ choiceMet: { me: true } }))
+    const out = judge(me('deskmate'), log({ choiceMet: { me: true } }))
     expect(discloseFor(out, 'live').choice).toBe('endOnly')
     expect(discloseFor(out, 'end').choice).toBe('met')
   })
@@ -478,7 +478,7 @@ describe('실패는 뒤집힐 수 없을 때만 붙는다', () => {
     expect(discloseFor(out, 'end').main.status).toBe('failed')
   })
 
-  it('상한을 넘기면 도중에도 실패다', () => {
+  it('상한을 넘겨도 도중에는 「끝날 때 판정」이다 — 실패로 뜨면 세 사람이 읽은 것이 샌다', () => {
     const readers: GameRecord[] = ['b1', 'c1', 'd1'].map((id) => ({
       kind: 'slipRead',
       atMs: START,
@@ -487,9 +487,12 @@ describe('실패는 뒤집힐 수 없을 때만 붙는다', () => {
       subjectId: 'aboutMe',
       ownerId: 'me',
     }))
-    const out = judge(me('locker'), log({ records: readers, over: false }))
+    const out = judge(me('deskmate'), log({ records: readers, over: false }))
     const few = discloseFor(out, 'live').slips.find((s) => s.id === 'fewReadMine')
-    expect(few?.status).toBe('failed')
+    expect(few?.status).toBe('endOnly')
+    expect(few?.have).toBeNull()
+    // 끝나면 그때 실패다
+    expect(discloseFor(out, 'end').slips.find((s) => s.id === 'fewReadMine')?.status).toBe('failed')
   })
 })
 
@@ -510,5 +513,56 @@ describe('열네 역할 모두', () => {
       if (r.id === 'newcomer') continue
       expect(out.main.met, r.id).toBe(false)
     }
+  })
+})
+
+describe('그때의 팀으로 센다 — 나중에 이적해도 그 일은 그대로다', () => {
+  it('총무: 거래한 그 순간 두 사람의 팀이 달랐으면 센다', () => {
+    // 지금은 같은 팀(a2)이지만 거래할 때는 다른 팀이었다
+    const then: GameRecord = { kind: 'trade', atMs: START, actorId: 'me', actorTeam: 'A', otherId: 'a2', otherTeam: 'C' }
+    // 지금은 다른 팀(c1)이지만 거래할 때는 같은 팀이었다
+    const same: GameRecord = { kind: 'trade', atMs: START, actorId: 'me', actorTeam: 'A', otherId: 'c1', otherTeam: 'A' }
+    expect(mainOf('treasurer', { records: [then, same] }).clauses[1].have).toBe(1)
+  })
+  it('기술부: 부순 그 순간 남의 팀 짝이었으면 센다', () => {
+    const rows: GameRecord[] = [
+      { kind: 'robotSmashed', atMs: START, actorId: 'me', actorTeam: 'A', otherTeam: 'B', subjectId: 'r1' },
+      { kind: 'robotSmashed', atMs: START, actorId: 'me', actorTeam: 'B', otherTeam: 'B', subjectId: 'r2' },
+    ]
+    expect(mainOf('tech', { records: rows }).clauses[0].have).toBe(1)
+  })
+  it('모범생: 보낸 사람의 팀은 표를 던진 그 순간의 팀이다', () => {
+    const v = (voterId: string, voterTeam: TeamId) => ({ voterId, voterTeam, targetId: 'me', kind: 'trust' as const, day: 1, atMs: START })
+    // a2 는 지금 A 팀이지만 던질 때는 D 팀이었다
+    const out = mainOf('model', { votes: [v('a2', 'D'), v('b1', 'B'), v('b2', 'B')] })
+    expect(out.clauses[1].have).toBe(2)
+  })
+})
+
+describe('마지막 선택 — 판정이 직접 셈한다', () => {
+  const run = (choice: 'team' | 'self' | 'chosen', rank: Partial<Record<TeamId, number>>, chosen: string | null = null) =>
+    judge(
+      me('duty'),
+      log({
+        day4Choice: { me: choice },
+        chosenBy: { me: chosen },
+        teamTiedRank: { A: 4, B: 4, C: 4, D: 4, ...rank },
+        records: did('errandDone', 4),
+      }),
+    ).choiceMet
+  it('팀을 지킨다 — 공동 2위도 2위 이내다', () => {
+    expect(run('team', { A: 2 })).toBe(true)
+    expect(run('team', { A: 3 })).toBe(false)
+  })
+  it('나를 지킨다 — 주 미션을 채웠으면 된다', () => {
+    expect(run('self', {})).toBe(true)
+  })
+  it('그 사람을 지킨다 — 중요한 사람의 팀이 (공동) 1위', () => {
+    expect(run('chosen', { B: 1 }, 'b1')).toBe(true)
+    expect(run('chosen', { B: 2 }, 'b1')).toBe(false)
+    expect(run('chosen', { B: 1 }, null)).toBe(false)
+  })
+  it('안 골랐으면 실패다', () => {
+    expect(judge(me('duty'), log({ day4Choice: {} })).choiceMet).toBe(false)
   })
 })

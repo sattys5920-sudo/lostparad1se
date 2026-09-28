@@ -1,6 +1,6 @@
 // 쪽지 56장 검사 — **빌드 때 돈다**(npm run build).
 //
-//   1. 데이터 파일이 docs/notes_56_linked.md 와 한 글자도 다르지 않은가
+//   1. 데이터 파일이 docs/roles_full.md 와 한 글자도 다르지 않은가
 //   2. 역할형에 {이름}이 없는가 · 이름형에 역할 이름이 없는가 · 역할마다 넉 장인가
 //
 //   npm run check:notes

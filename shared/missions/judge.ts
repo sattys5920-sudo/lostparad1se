@@ -21,7 +21,9 @@ import {
   type MissionStatus,
   type SlipMissionId,
   type SlipMissionSpec,
+  clauseText,
 } from './roles'
+import { day4Met, type Day4Choice } from '../rules/choices'
 import type { Assignment } from './assign'
 import { coStaySeconds, type Interval } from '../rules/presence'
 import { stayInTeamRoomsAtTimeMs, type GameRecord, type OwnerChange, type Stay } from '../rules/records'
@@ -35,6 +37,8 @@ const MINUTE_MS = 60_000
 /** 신뢰·호감 표 한 장. 투명인간 투표는 이게 아니다. */
 export interface JudgeVote {
   voterId: string
+  /** 던진 그 순간 보낸 사람의 팀. 없으면(옛 기록) 지금 팀으로 본다 */
+  voterTeam?: TeamId
   targetId: string
   kind: VoteKind
   day: number
@@ -97,8 +101,13 @@ export interface GameLog {
   slipsHeldAtEnd: Readonly<Record<string, readonly string[]>>
   /** DAY 3에 고른 중요한 사람. */
   chosenBy: Record<string, string | null>
-  /** 마지막 선택이 맞아떨어졌는가. */
+  /**
+   * 마지막 선택이 맞아떨어졌는가 — **판정이 직접 셈하지 않은 옛 값.**
+   * day4Choice 가 있으면 그쪽으로 판정하고 이것은 안 본다.
+   */
   choiceMet: Record<string, boolean>
+  /** DAY 4에 고른 것. 안 골랐으면 null */
+  day4Choice?: Record<string, Day4Choice | null>
 }
 
 // ── 조항 하나의 진행도 ──────────────────────────────────────────
@@ -178,8 +187,11 @@ function measure(clause: Clause, c: Ctx): Measured {
     case 'trustReceived':
       return { unit: 'count', have: log.votes.filter((v) => v.targetId === me && v.kind === 'trust').length }
     case 'trustTeams': {
+      // **던진 그 순간의 팀**으로 센다. 나중에 이적해도 그때 보낸 팀은 그대로다
       const teams = new Set(
-        log.votes.filter((v) => v.targetId === me && v.kind === 'trust').map((v) => log.teamOf(v.voterId)),
+        log.votes
+          .filter((v) => v.targetId === me && v.kind === 'trust')
+          .map((v) => v.voterTeam ?? log.teamOf(v.voterId)),
       )
       return { unit: 'count', have: teams.size }
     }
@@ -187,11 +199,13 @@ function measure(clause: Clause, c: Ctx): Measured {
       // 매입(파는 것)은 vendSell로 따로 남는다. 여기 안 들어온다
       return { unit: 'count', have: mine(c, 'vendBuy').length }
     case 'dealsWithOtherTeam': {
+      // 거래한 **그 순간** 두 사람의 팀이 달랐으면 센다(기록에 그때 팀이 남아 있다)
       const deals = log.records.filter(
         (r) =>
           r.kind === 'trade' &&
-          ((r.actorId === me && r.otherTeam && r.otherTeam !== myTeam(c)) ||
-            (r.otherId === me && r.actorTeam !== myTeam(c))),
+          (r.actorId === me || r.otherId === me) &&
+          !!r.otherTeam &&
+          r.otherTeam !== r.actorTeam,
       )
       return { unit: 'count', have: deals.length }
     }
@@ -216,7 +230,8 @@ function measure(clause: Clause, c: Ctx): Measured {
       return { unit: 'count', have: mine(c, 'robotBorn').length }
     case 'robotsSmashedOfOthers': {
       // 이적으로 저절로 사라진 짝은 robotGone으로 따로 남는다
-      const rows = mine(c, 'robotSmashed').filter((r) => r.otherTeam && r.otherTeam !== myTeam(c))
+      // 부순 **그 순간** 남의 팀 짝이었으면 센다
+      const rows = mine(c, 'robotSmashed').filter((r) => r.otherTeam && r.otherTeam !== r.actorTeam)
       return { unit: 'count', have: rows.length }
     }
     case 'quizzesSolved':
@@ -274,7 +289,7 @@ export function judgeClause(clause: Clause, c: Ctx): ClauseProgress {
   const met = mode === 'atMost' ? measured.have <= bar : measured.have >= bar
   return {
     kind: clause.kind,
-    text: clause.text,
+    text: clauseText(clause),
     disclosure: clause.disclosure,
     unit: measured.unit,
     mode,
@@ -384,13 +399,30 @@ export interface PersonalResult {
 export function judge(me: Assignment, log: GameLog): PersonalResult {
   const c: Ctx = { me, log }
   const role = ROLE_BY_ID[me.roleId]
+  const main = judgeMission(role.main, c)
   return {
     playerId: me.playerId,
     roleId: me.roleId,
-    main: judgeMission(role.main, c),
+    main,
     slips: judgeSlipMissions(c),
-    choiceMet: log.choiceMet[me.playerId] === true,
+    choiceMet: choiceMetOf(c, main.met),
   }
+}
+
+/**
+ * 마지막 선택을 지켰는가. **순위는 공동 순위다** — 공동 2위도 「2위 이내」,
+ * 공동 1위도 「1위」다. 안 골랐으면 실패다.
+ */
+function choiceMetOf(c: Ctx, mainMet: boolean): boolean {
+  const picks = c.log.day4Choice
+  if (!picks) return c.log.choiceMet[meOf(c)] === true
+  const chosen = c.log.chosenBy[meOf(c)] ?? null
+  return day4Met({
+    choice: picks[meOf(c)] ?? null,
+    teamRank: c.log.teamTiedRank[myTeam(c)] ?? 99,
+    mainMet,
+    chosenTeamFirst: chosen !== null && c.log.teamTiedRank[c.log.teamOf(chosen)] === 1,
+  })
 }
 
 // ── 어디까지 보여 줄까 ──────────────────────────────────────────
@@ -432,8 +464,10 @@ export interface ClauseView {
  * 끝나기 전까지 「진행 중」이다.
  */
 function statusOf(met: boolean, broken: boolean, shown: boolean, over: boolean): MissionStatus {
-  if (broken) return 'failed'
+  // **안 보이는 것은 깨졌어도 「끝날 때 판정」이다.** 「나에 대한 쪽지를 읽은
+  // 사람 2명 이하」가 도중에 실패로 뜨면 세 사람이 읽었다는 사실이 샌다
   if (!shown) return 'endOnly'
+  if (broken) return 'failed'
   if (met) return 'met'
   return over ? 'failed' : 'running'
 }

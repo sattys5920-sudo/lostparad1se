@@ -88,7 +88,7 @@ export async function buildLog(
   const votes: JudgeVote[] = voteS.docs
     .map((d) => d.data() as VoteDoc)
     .filter((v) => cutoff === undefined || v.day < cutoff)
-    .map((v) => ({ voterId: v.voterId, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
+    .map((v) => ({ voterId: v.voterId, voterTeam: v.voterTeam, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
 
   // 최종 순위. **가진 방 개수다** — 개인 지갑은 팀 점수에 안 들어간다
   const scores = TEAMS.map((team) => publicScore({ tiles, team }))
@@ -147,9 +147,11 @@ export async function buildLog(
     ownerChanges,
     teamTiedRank,
     slipsHeldAtEnd,
-    chosenBy: closing?.chosenBy ?? {},
-    // 두 번 돌린다. 아래에서 채운다
+    // 종례 때 굳힌 것이 있으면 그것, 아니면 지금 고른 것
+    chosenBy: closing?.chosenBy ?? Object.fromEntries([...choices].map(([id, c]) => [id, c.chosenId ?? null])),
     choiceMet: {},
+    // 마지막 선택은 판정이 직접 셈한다(judge.choiceMetOf)
+    day4Choice: Object.fromEntries([...choices].map(([id, c]) => [id, c.day4 ?? null])),
   }
 
   return { log, roster, seats: game.seats, ranked: ranked.map((r) => ({ team: r.team, rank: r.rank, total: r.total })), choices }

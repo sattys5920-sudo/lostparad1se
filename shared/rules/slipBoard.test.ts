@@ -4,7 +4,7 @@ import { PAIR2_FROM_DAY, SCATTER_ROOMS, needsEarlyConfirm, planScatter, roleWarn
 import { START_TILE } from './board'
 import type { RoleId } from '../missions/roleNames'
 
-const ROLES: RoleId[] = ['classlead', 'model', 'snacker']
+const ROLES: RoleId[] = ['classlead', 'model', 'treasurer']
 const note = (role: RoleId, pair: 1 | 2, kind: 'role' | 'name', over: Partial<BoardNote> = {}): BoardNote => ({
   id: `${role}-${pair}-${kind}`,
   no: ROLES.indexOf(role) + 1,

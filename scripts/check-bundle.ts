@@ -30,6 +30,8 @@ const DIST = join(ROOT, 'dist')
 const SECRET_SOURCES = [
   join(ROOT, 'functions/src/story'),
   join(ROOT, 'shared/missions/roles.ts'),
+  // 역할 데이터 — 상황 글 · 미션 · 쪽지 문안이 다 여기 있다
+  join(ROOT, 'shared/missions/roleData.ts'),
 ]
 
 /** 너무 짧은 문장은 우연히 맞을 수 있다. 이보다 짧으면 지문으로 안 쓴다. */

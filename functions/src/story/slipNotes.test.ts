@@ -12,7 +12,7 @@ describe('쪽지 56장', () => {
   it('세 규칙을 다 지킨다', () => {
     expect(checkSlipNotes(SLIP_NOTES, ROLE_NAMES)).toEqual([])
   })
-  it('문서(docs/notes_56_linked.md)와 한 글자도 다르지 않다', () => {
+  it('문서(docs/roles_full.md)와 한 글자도 다르지 않다', () => {
     const md = parseNotesMd()
     expect(md).toHaveLength(SLIP_NOTES.length)
     for (const m of md) {

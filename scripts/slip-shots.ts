@@ -206,7 +206,7 @@ async function main() {
   await me.locator('.sc-mi__have').click({ timeout: 5000 }).catch(() => undefined)
   await me.waitForSelector('.sc-sl', { timeout: 15_000 })
   const before = (await me.locator('.sc-sl').innerText()).trim()
-  if (before.includes('누가 없는지')) missed.push('읽기 전에 문장이 보인다')
+  if (before.includes('빠뜨린 적이')) missed.push('읽기 전에 문장이 보인다')
   await me.locator('.sc-sl__list button', { hasText: '읽기' }).first().click()
   await me.waitForSelector('.sc-sl__line', { timeout: 10_000 })
   await me.locator('.sc-sl').scrollIntoViewIfNeeded()
@@ -214,7 +214,7 @@ async function main() {
   await me.locator('.sc-sl').screenshot({ path: `${OUT}/notes-${W}-7-읽음.png` })
   const line = (await me.locator('.sc-sl__line').first().innerText()).trim()
   console.log(`  찍었다 7-읽음 — ${line}`)
-  if (line.includes('{이름}') || !line.includes('쉬는 시간마다')) missed.push(`읽은 문장이 이상하다: ${line}`)
+  if (line.includes('{이름}') || !line.includes('빠뜨린 적이')) missed.push(`읽은 문장이 이상하다: ${line}`)
 
   // 8·9 이력 — 메모 한 장 · 문제 한 장을 더 놓고, 운영자 「이력」 탭을 연다
   await must('hostDrop', host, { gameId: game, kind: 'memo', tileId: 'library', text: '도서관 창가 셋째 칸을 봐라.' })

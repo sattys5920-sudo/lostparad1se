@@ -1,4 +1,4 @@
-// docs/notes_56_linked.md 를 읽는다. **문안은 한 글자도 안 고친다.**
+// docs/roles_full.md 에서 쪽지 표만 읽는다. **문안은 한 글자도 안 고친다.**
 //
 // 문서 모양:
 //   ## 01 반장            ← 역할 번호와 이름. 뒤의 ★ 는 떼고 읽는다
@@ -16,7 +16,7 @@ export interface MdNote {
   text: string
 }
 
-export const NOTES_MD = new URL('../../docs/notes_56_linked.md', import.meta.url).pathname
+export const NOTES_MD = new URL('../../docs/roles_full.md', import.meta.url).pathname
 
 export function parseNotesMd(src: string = readFileSync(NOTES_MD, 'utf8')): MdNote[] {
   const out: MdNote[] = []
