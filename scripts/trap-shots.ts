@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
-import { tap, walkTo as walkToCell } from './lib/walk'
+import { pickOnMap, tap, tapCell, walkTo as walkToCell } from './lib/walk'
 import { dayHourMs } from '../shared/rules/clock'
 import { MAKERS, LAB_MACHINE, TECH_TILE, LAB_TILE } from '../shared/rules/trap'
 import { isHallCell } from '../shared/rules/board'
@@ -181,6 +181,8 @@ async function plantTrap(game: string, team: string, c: { x: number; y: number }
   })
 }
 
+const missed: string[] = []
+
 async function main() {
   mkdirSync(OUT, { recursive: true })
   const game = `ts${Date.now()}`
@@ -216,7 +218,13 @@ async function main() {
   await page.waitForTimeout(1200)
   await page.screenshot({ path: `${OUT}/2-제조기-옆.png` })
   console.log('  찍었다 2-제조기-옆.png')
-  await tap(page, '.sc-ct__act', '제조기')
+  await tapCell(page, MAKERS[0].cell)
+  await page.waitForTimeout(600)
+  await page.screenshot({ path: `${OUT}/2b-제조기-차림표.png` })
+  console.log(`  찍었다 2b-제조기-차림표.png — ${(await page.locator('.sc-mt__row').allInnerTexts()).join(' / ')}`)
+  await page.locator('.sc-mt__back').click().catch(() => undefined)
+  await page.waitForTimeout(300)
+  if (!(await pickOnMap(page, MAKERS[0].cell, '덫 만들기'))) missed.push('제조기 옆에서 짚었는데 「덫 만들기」가 없다')
   await page.waitForSelector('.sc-mk', { timeout: 10_000 })
   await page.waitForTimeout(600)
   await page.screenshot({ path: `${OUT}/3-제조기-시트.png` })
@@ -231,7 +239,7 @@ async function main() {
   await must('setDevClock', host, { gameId: game, anchorGameMs: T0 + 22 * 60_000, speed: 1 })
   await wake(game, host)
   await page.waitForTimeout(2500)
-  await tap(page, '.sc-ct__act', '제조기')
+  if (!(await pickOnMap(page, MAKERS[0].cell, '덫 만들기'))) missed.push('다 된 뒤 제조기를 짚었는데 「덫 만들기」가 없다')
   await page.waitForSelector('.sc-mk', { timeout: 10_000 })
   await page.waitForTimeout(600)
   await page.screenshot({ path: `${OUT}/5-다-됐다.png` })
@@ -296,7 +304,13 @@ async function main() {
   console.log('  찍었다 8-연구실.png')
   await walkTo(page, game, meUid, LAB_MACHINE, '연구 기계')
   await page.waitForTimeout(1200)
-  await tap(page, '.sc-ct__act', '이 방')
+  await tapCell(page, LAB_MACHINE)
+  await page.waitForTimeout(600)
+  await page.screenshot({ path: `${OUT}/8b-연구기계-차림표.png` })
+  console.log(`  찍었다 8b-연구기계-차림표.png — ${(await page.locator('.sc-mt__row').allInnerTexts()).join(' / ')}`)
+  await page.locator('.sc-mt__back').click().catch(() => undefined)
+  await page.waitForTimeout(300)
+  if (!(await pickOnMap(page, LAB_MACHINE, '연구하기'))) missed.push('연구 기계 옆에서 짚었는데 「연구하기」가 없다')
   await page.waitForTimeout(1200)
   await page.screenshot({ path: `${OUT}/9-연구.png` })
   console.log('  찍었다 9-연구.png')
@@ -308,6 +322,8 @@ async function main() {
 
   await browser.close()
   console.log(`\n${OUT} 에 담았다.`)
+  console.log(`놓침 ${JSON.stringify(missed)}`)
+  if (missed.length > 0) process.exitCode = 1
 }
 
 main().catch((e) => {

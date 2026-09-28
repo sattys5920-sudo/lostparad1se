@@ -790,6 +790,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [thing, setThing] = useState<{ t: TapThing; at: PersonAt } | null>(null)
   /** 「앉는다」를 눌렀다. 자리에 닿으면 오락기가 켜진다 */
   const [sitting, setSitting] = useState(false)
+  /** 연구 기계에서 들어왔다. 행동 시트가 연구 줄로 굴러간다 */
+  const [actFocus, setActFocus] = useState<'research' | null>(null)
+  // 행동 시트가 닫히면 연구 줄 표시도 잊는다. 깃발 칸으로 다시 열면 맨 위부터다
+  useEffect(() => {
+    if (sheet !== 'act') setActFocus(null)
+  }, [sheet])
   const [archive, setArchive] = useState(false)
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
@@ -1252,6 +1258,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     t.what === 'quiz' || t.what === 'slip' ? '바닥' : t.name !== undefined && t.name !== THING_NAME[t.what] ? t.name : ''
   const thingRows = (t: TapThing): MeetRow[] => {
     const far = t.near ? null : `가까이 가야 한다 · ${t.steps}칸`
+    // 덫 맡기기·찾기와 연구는 페이즈의 일이다. 자유 시간에는 까닭을 적는다
+    const phaseOnly = far ?? (phaseOpen ? null : '페이즈 중에만 된다')
     const pick = (fn: () => void) => () => {
       setThing(null)
       fn()
@@ -1269,14 +1277,24 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       case 'pot':
         return [open('garden', '들여다본다', 'garden')]
       case 'maker':
-        return [open('maker', '만든다', 'maker')]
+        return [{ key: 'maker', label: '덫 만들기', why: phaseOnly, onPick: pick(() => setSheet('maker')) }]
       case 'lab': {
         /*
          * **완성품은 여기서 가져간다.** 연구가 끝난 방에 주인 없이 놓인다 —
          * 먼저 짚은 사람 것이고, 남의 팀 것도 된다. 자유 시간에는 안 나와 있다
          */
         const made = phaseOpen ? (state.view?.madeHere ?? []) : []
-        const rows: MeetRow[] = [open('lab', '연구하기', 'act')]
+        const rows: MeetRow[] = [
+          {
+            key: 'lab',
+            label: '연구하기',
+            why: phaseOnly,
+            onPick: pick(() => {
+              setActFocus('research')
+              setSheet('act')
+            }),
+          },
+        ]
         if (made.length > 0) {
           rows.push({
             key: 'made',
@@ -1824,6 +1842,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               act={act}
               onSaid={setSaid}
               myCell={myCell}
+              focus={actFocus}
             />
           ) : (
             <>

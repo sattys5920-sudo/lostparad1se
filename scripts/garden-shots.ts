@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
-import { tap, walkTo as walkToCell } from './lib/walk'
+import { pickOnMap, tap, tapCell, walkTo as walkToCell } from './lib/walk'
 import { dayHourMs } from '../shared/rules/clock'
 import { POT_CELLS, GARDEN_TILE } from '../shared/rules/crop'
 import { isWalkable, tileAt } from '../src/school/map/world'
@@ -157,6 +157,8 @@ async function ageTo(game: string, i: number, stage: 'sprout' | 'leaf' | 'fruit'
 const walkTo = (page: Page, game: string, uid: string, want: { x: number; y: number }, what = '자리') =>
   walkToCell({ page, fs: FS, admin: ADMIN, game, uid, want, what })
 
+const missed: string[] = []
+
 async function main() {
   mkdirSync(OUT, { recursive: true })
   const game = `gs${Date.now()}`
@@ -250,13 +252,19 @@ async function main() {
   await page.waitForTimeout(2000)
   await page.screenshot({ path: `${OUT}/4-자라는-중.png` })
   console.log('  찍었다 4-자라는-중.png')
-  await tap(page, '.sc-ct__act', '화분')
-  await page.waitForSelector('.sc-gd', { timeout: 10_000 })
+  /*
+   * 가운데에서 화분을 짚는다. 화분 옆이 아니면 줄이 흐리고 몇 칸인지
+   * 적힌다 — 그걸 찍고 닫는다
+   */
+  await tapCell(page, POT_CELLS[0])
   await page.waitForTimeout(600)
-  await page.screenshot({ path: `${OUT}/5-화분-시트.png` })
-  console.log('  찍었다 5-화분-시트.png')
-  await tap(page, '.sc-sheet__panel button', '닫기')
-  await page.waitForTimeout(600)
+  const farRows = await page.locator('.sc-mt__row').allInnerTexts()
+  console.log(`  가운데에서 짚은 화분: ${farRows.map((r) => r.replace(/\s+/g, ' ')).join(' / ')}`)
+  if (farRows.length === 0) missed.push('화분을 짚었는데 차림표가 없다')
+  await page.screenshot({ path: `${OUT}/5-화분-차림표-가운데.png` })
+  console.log('  찍었다 5-화분-차림표-가운데.png')
+  await page.locator('.sc-mt__back').click().catch(() => undefined)
+  await page.waitForTimeout(400)
 
   // 열매 하나를 딴다. 세 번 화분 앞으로
   await walkTo(page, game, meUid, POT_CELLS[3])
@@ -264,7 +272,13 @@ async function main() {
   await page.screenshot({ path: `${OUT}/6-열매.png` })
   console.log('  찍었다 6-열매.png')
 
-  await tap(page, '.sc-ct__act', '화분')
+  await tapCell(page, POT_CELLS[3])
+  await page.waitForTimeout(600)
+  await page.screenshot({ path: `${OUT}/6b-화분-차림표.png` })
+  console.log(`  찍었다 6b-화분-차림표.png — ${(await page.locator('.sc-mt__row').allInnerTexts()).join(' / ')}`)
+  await page.locator('.sc-mt__back').click().catch(() => undefined)
+  await page.waitForTimeout(300)
+  if (!(await pickOnMap(page, POT_CELLS[3], '들여다본다'))) missed.push('화분 옆에서 짚었는데 「들여다본다」가 없다')
   await page.waitForSelector('.sc-gd', { timeout: 10_000 })
   await page.waitForTimeout(600)
   await page.screenshot({ path: `${OUT}/7-따기.png` })
@@ -277,6 +291,8 @@ async function main() {
 
   await browser.close()
   console.log(`\n${OUT} 에 담았다.`)
+  console.log(`놓침 ${JSON.stringify(missed)}`)
+  if (missed.length > 0) process.exitCode = 1
 }
 
 void main().catch((e) => {

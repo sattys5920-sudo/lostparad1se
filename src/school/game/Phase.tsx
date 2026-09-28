@@ -7,7 +7,7 @@
 //
 // 안 되는 행동은 감추지 않고 **이유를 적어 둔 채로** 보인다. 감추면
 // 왜 없는지 알 수 없고, 이유 없이 막으면 왜 안 되는지 알 수 없다.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   ACT_COST,
@@ -52,6 +52,11 @@ export interface PhaseProps {
   onSaid: (text: string) => void
   /** 내가 선 칸. 연구는 연구 기계 옆에서만 — 서버도 같은 자로 잰다 */
   myCell?: Cell | null
+  /**
+   * 이 줄로 굴러가서 테를 두른다. 연구 기계를 짚고 「연구하기」를 누르면
+   * 깃발 줄 넷을 지나 연구까지 손으로 내려가야 했다
+   */
+  focus?: ActionKind | null
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
 }
 
@@ -108,7 +113,11 @@ export function leftText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: now, act, onSaid, myCell = null }: PhaseProps) {
+export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: now, act, onSaid, myCell = null, focus = null }: PhaseProps) {
+  const focusRef = useRef<HTMLLIElement | null>(null)
+  useEffect(() => {
+    focusRef.current?.scrollIntoView({ block: 'center' })
+  }, [focus])
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<ActionKind | null>(null)
 
@@ -235,7 +244,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
           const picking = k === 'pull' && pullable.length > 1
           const fold = k === 'summon' || picking || k === 'dropRobot' || k === 'smashRobot'
           return (
-            <li key={k}>
+            <li key={k} ref={k === focus ? focusRef : undefined} className={k === focus ? 'is-focus' : undefined}>
               <button
                 disabled={busy || no !== null}
                 onClick={() =>
