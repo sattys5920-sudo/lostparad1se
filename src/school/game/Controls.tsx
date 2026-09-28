@@ -309,8 +309,8 @@ export interface Act {
 }
 
 /**
- * 두 줄. **칸은 늘 같다** — 자유 시간에는 넷(2×2), 페이즈에는 깃발이
- * 붙어 다섯(위 둘 · 아래 셋). 서는 자리에 따라 바뀌는 칸은 없다.
+ * 두 줄. **칸은 늘 같다** — 자유 시간에는 셋(손패 · 전체 맵 · 더보기),
+ * 페이즈에는 깃발이 붙어 넷(2×2). 서는 자리에 따라 바뀌는 칸은 없다.
  * 물건에 붙은 일은 맵에서 그 물건을 짚는다.
  */
 export function ActionGrid({ acts, onBlocked }: { acts: readonly Act[]; onBlocked: (why: string) => void }) {

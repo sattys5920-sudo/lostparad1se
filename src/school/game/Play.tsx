@@ -322,7 +322,6 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const beforeDirs = useMemo(() => padFace(ways, false, 0, ENTER_COST), [ways])
   const beforeGrid: Act[] = [
     { key: 'hand', icon: 'hand', label: '손패', why: NOT_YET, run: () => {} },
-    { key: 'room', icon: 'room', label: '이 방', why: NOT_YET, run: () => {} },
     { key: 'atlas', icon: 'atlas', label: '전체 맵', why: NOT_YET, run: () => {} },
     // 이 둘은 게임 안의 일이 아니다. 나가는 문도 더보기 뒤에 있다
     { key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) },
@@ -1221,10 +1220,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           // 서 있으면, 한마디 건네는 일이 마음먹고 고르는 행동이 된다
           { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
         ]
-    const tail: Act[] = [
-      { key: 'room', icon: 'room', label: '이 방', run: () => setSheet('act') },
-      { key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) },
-    ]
+    /*
+     * 「이 방」 칸은 없앴다. 방에서 하던 일은 물건을 짚어서 하고, 페이즈의
+     * 일은 깃발 칸이 같은 시트를 연다 — 남은 것이 방 이름뿐이었다
+     */
+    const tail: Act[] = [{ key: 'atlas', icon: 'atlas', label: '전체 맵', run: () => setAtlas(true) }]
     return [...fixed, ...tail]
   }, [phaseOpen])
 

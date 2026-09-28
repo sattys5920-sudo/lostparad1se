@@ -223,7 +223,7 @@ async function run(tag: string, site: string, browser: import('playwright').Brow
   await putIn(game, meUid, LAB_TILE)
   await wake(game, host)
   await page.waitForTimeout(3000)
-  await tap(page, '.sc-ct__act', '이 방')
+  await tap(page, '.sc-ct__act', '깃발')
   await page.waitForSelector('.sc-ph', { timeout: 10_000 })
   await page.waitForTimeout(800)
   await page.screenshot({ path: `${OUT}/2-점령전-위-${tag}.png` })

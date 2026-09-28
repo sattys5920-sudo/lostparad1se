@@ -351,7 +351,7 @@
   color: var(--ct-gold);
 }
 
-/* 행동 두 줄. 넷이면 2×2, 다섯이면 위 둘 · 아래 셋(여섯 칸 눈금에 3·3 / 2·2·2) */
+/* 행동 두 줄. 셋이면 위 하나 · 아래 둘, 넷이면 2×2, 다섯이면 위 둘 · 아래 셋 */
 .sc-ct__acts {
   flex: 1;
   min-width: 0;
@@ -361,6 +361,7 @@
   grid-template-rows: repeat(2, 1fr);
   gap: var(--sp-1);
 }
+.sc-ct__acts[data-n='3'] > :first-child { grid-column: span 2; }
 .sc-ct__acts[data-n='5'] {
   grid-template-columns: repeat(6, 1fr);
 }
