@@ -45,7 +45,11 @@ export function useOnline(): boolean {
 }
 
 export function OfflineBar() {
-  return <div className="sc-offline">연결이 끊겼습니다. 다시 이어지면 계속할 수 있습니다.</div>
+  return (
+    <div className="sc-offline" role="status">
+      연결이 끊겼다 · 연결을 기다리는 중
+    </div>
+  )
 }
 
 /**
@@ -207,6 +211,22 @@ export function useGameNow(clock: DevClock | undefined, everyMs = 1000): number 
 // ── 기다리는 화면 ───────────────────────────────────────────────
 
 /**
+ * 점 셋이 차례로 켜진다. **그 영역만** 기다린다는 표시다.
+ *
+ * 스켈레톤(회색 막대)은 쓰지 않는다 — 무엇이 올지 모르는 자리에 가짜
+ * 모양을 그려 두면, 다른 모양이 오는 순간 화면이 튄다.
+ */
+export function Dots({ label = '불러오는 중' }: { label?: string }) {
+  return (
+    <span className="sc-dots" role="status" aria-label={label}>
+      <i />
+      <i />
+      <i />
+    </span>
+  )
+}
+
+/**
  * 「불러오는 중」. **영영 그대로 두지 않는다.**
  *
  * 여태 이 자리는 글자 한 줄이었다. 서버가 대답을 안 하거나 규칙이
@@ -235,7 +255,7 @@ export function Waiting({
     return () => clearTimeout(t)
   }, [afterMs])
 
-  if (!late && !error) return <p className="sc-pl__wait">불러오는 중</p>
+  if (!late && !error) return <p className="sc-pl__wait"><Dots /></p>
 
   return (
     <div className="sc-wait">

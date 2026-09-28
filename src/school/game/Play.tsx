@@ -4,7 +4,7 @@
 //
 // 여기서 게임 규칙을 판단하지 않는다. 무엇을 할 수 있는지도 서버가
 // 정하고, 화면은 서버가 거절하면 그 말을 그대로 보인다.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
@@ -744,6 +744,30 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     [act, refuse, state.view?.quizzesHere, state.view?.slipPapers],
   )
   const [tab, setTab] = useState<Tab>('map')
+  /*
+   * **탭마다 구르던 자리를 기억한다.** 탭은 떼지 않고 숨기기만 하는데,
+   * 숨기는 동안(display:none) 브라우저가 구른 자리를 잊는다. 떠날 때
+   * 구른 상자와 자리를 적어 두고, 돌아오면 그대로 되돌린다.
+   */
+  const scrollKept = useRef(new Map<Tab, Array<[Element, number]>>())
+  const pickTab = useCallback(
+    (next: Tab) => {
+      const now = document.querySelector('.sc-pl__tab:not([hidden])')
+      if (now) {
+        const rows: Array<[Element, number]> = []
+        if (now.scrollTop > 0) rows.push([now, now.scrollTop])
+        now.querySelectorAll('*').forEach((el) => {
+          if (el.scrollTop > 0) rows.push([el, el.scrollTop])
+        })
+        scrollKept.current.set(tab, rows)
+      }
+      setTab(next)
+    },
+    [tab],
+  )
+  useLayoutEffect(() => {
+    for (const [el, top] of scrollKept.current.get(tab) ?? []) el.scrollTop = top
+  }, [tab])
   /** 무전에 안 읽은 줄이 몇인가. 탭 그림 모서리에 점을 찍는다 */
   const [radioNew, setRadioNew] = useState(0)
   const [sheet, setSheet] = useState<SheetId | null>(null)
@@ -1580,6 +1604,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           view={state.view}
           paper={mine.paper}
           paperErr={mine.err}
+          paperRetry={mine.reload}
           invisible={iAmInvisible}
           invisibleName={invisibleName}
           hereIds={hereIds}
@@ -1728,7 +1753,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {/* ── 탭바 ─────────────────────────────────────────────── */}
       <TabBar
         now={tab}
-        onPick={(k) => setTab(k as Tab)}
+        onPick={(k) => pickTab(k as Tab)}
         tabs={[
           { key: 'map', icon: 'tabMap', label: '맵' },
           { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0 },

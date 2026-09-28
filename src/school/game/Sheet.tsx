@@ -4,7 +4,7 @@
 // 위쪽에 닫기 단추가 생긴다 — 그래서 전부 아래에서 올린다.
 // 높이는 화면의 70%까지. 넘치면 시트 안에서만 구른다. 위쪽 30%는
 // 항상 비어 있어야 한다. 거기 페이즈 타이머가 떠 있다.
-import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type MutableRefObject, type ReactNode } from 'react'
 
 import { buzz } from './Controls'
 
@@ -15,9 +15,17 @@ export interface SheetProps {
   title: string
   onClose: () => void
   children: ReactNode
+  /**
+   * 뒤를 가리지 않는 낮은 시트. 높이는 40% 까지이고 뒤를 누를 수 있다 —
+   * 전체 맵에서 방을 누르면 뜨는 정보가 이것이다. 다른 방을 누르면 그
+   * 방으로 바뀌어야 하는데, 뒤를 막으면 한 번 닫고 다시 눌러야 한다.
+   */
+  peek?: boolean
+  /** 시트 판의 상자. 뒤에서 가려진 것을 비켜 세울 때 잰다. */
+  panelRef?: MutableRefObject<HTMLDivElement | null>
 }
 
-export function Sheet({ title, onClose, children }: SheetProps) {
+export function Sheet({ title, onClose, children, peek = false, panelRef: outer }: SheetProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const fromRef = useRef<number | null>(null)
 
@@ -43,10 +51,17 @@ export function Sheet({ title, onClose, children }: SheetProps) {
   }
 
   return (
-    <div className="sc-sheet" role="dialog" aria-label={title}>
+    <div className={'sc-sheet' + (peek ? ' is-peek' : '')} role="dialog" aria-label={title}>
       {/* 뒤를 눌러도 닫힌다. 시트 밖은 전부 닫기 자리다 */}
-      <button className="sc-sheet__back" aria-label="닫기" onClick={onClose} />
-      <div className="sc-sheet__panel" ref={panelRef}>
+      {!peek && <button className="sc-sheet__back" aria-label="닫기" onClick={onClose} />}
+      <div
+        className="sc-sheet__panel"
+        ref={(el) => {
+          panelRef.current = el
+          if (outer) outer.current = el
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div
           className="sc-sheet__grip"
           onPointerDown={down}

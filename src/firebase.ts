@@ -46,11 +46,23 @@ if (useEmulator && app) {
  */
 export async function callServer<T = unknown>(name: string, data: unknown = {}): Promise<T> {
   if (!functions) throw new Error('서버에 연결되어 있지 않다.')
+  /*
+   * **끊긴 동안에는 아예 안 보낸다.** 보내 두면 요청이 어딘가에 쌓였다가
+   * 이어지는 순간 한꺼번에 나간다 — 끊긴 줄 모르고 여러 번 누른 것이
+   * 전부 일어난다. 눌렀다는 것만 알리고 그 자리에서 끝낸다.
+   */
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error('연결을 기다리는 중이다.')
+  }
   try {
     const fn = httpsCallable(functions, name)
     return (await fn(data)).data as T
   } catch (e) {
-    const err = e as { message?: string; details?: unknown }
+    const err = e as { code?: string; message?: string; details?: unknown }
+    // 망이 끊겨서 실패한 것. 「internal」 같은 말 대신 무엇을 하면 되는지 말한다
+    if (err.code === 'functions/unavailable' || err.code === 'functions/deadline-exceeded' || (err.code === 'functions/internal' && err.message === 'internal')) {
+      throw new Error('연결이 끊겼다. 잠시 뒤 다시 해 주세요.')
+    }
     throw new Error(err.message ?? '서버와 이야기하지 못했다.')
   }
 }

@@ -23,7 +23,7 @@ export function Hand({ view, act, onSaid }: HandProps) {
   return (
     <div className="sc-hd">
       <h2>손패 <span>{papers.length}장</span></h2>
-      {papers.length === 0 && <p className="sc-hd__none">없다.</p>}
+      {papers.length === 0 && <p className="sc-hd__none">아직 문제 종이가 없다. 바닥을 살펴보세요.</p>}
       {/* 주워 든 문제. **주머니 속이라 여기 있다** — 자리도 안 보고
           푸는 것이라 맵과는 상관이 없다 */}
       <Quiz view={view} act={act} onSaid={onSaid} />

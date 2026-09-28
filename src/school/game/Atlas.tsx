@@ -3,7 +3,7 @@
 // 그림은 MapPlan 하나가 그린다. 여기서는 **어디에 띄우고 어떻게
 // 만지는지**만 다룬다 — 미니맵은 구석에 떠 있고, 전체 맵은 화면을
 // 덮고 손가락으로 넓혔다 줄였다 한다.
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from 'react'
 
 import {
   MapPlan,
@@ -19,6 +19,7 @@ import {
 import { TILES } from '../../../shared/rules/board'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
+import { Sheet } from './Sheet'
 import type { TeamId, TileId } from '../types'
 
 const KIND_NAME: Record<string, string> = {
@@ -442,6 +443,12 @@ export function FullMap({
           닫기
         </button>
       </header>
+      {/* **닫기는 두 곳이다.** 한 손으로 쥐면 위쪽은 엄지가 안 닿는다 */}
+      {!one && (
+        <button className="sc-atlas__done" onClick={onClose}>
+          닫기
+        </button>
+      )}
 
       {/* 빈 곳을 누르면 시트가 내려간다. 맵은 그대로 있다 */}
       <div className="sc-at__box" ref={boxRef} onClick={() => setPicked(null)}>
@@ -532,7 +539,7 @@ export function FullMap({
       </div>
 
       {one && (
-        <RoomSheet ref={sheetRef} room={one} myTeam={facts.myTeam} onClose={() => setPicked(null)} />
+        <RoomSheet panelRef={sheetRef} room={one} myTeam={facts.myTeam} onClose={() => setPicked(null)} />
       )}
     </div>
   )
@@ -545,19 +552,20 @@ export function FullMap({
  * 높이를 화면의 40%로 묶는다. 더 올라오면 방금 누른 그 방이 시트에
  * 가려서, 무엇을 보고 있는지 모르게 된다.
  */
-const RoomSheet = forwardRef<
-  HTMLDivElement,
-  { room: RoomFacts; myTeam: TeamId; onClose: () => void }
->(function RoomSheet({ room, myTeam, onClose }, ref) {
+function RoomSheet({
+  room,
+  myTeam,
+  onClose,
+  panelRef,
+}: {
+  room: RoomFacts
+  myTeam: TeamId
+  onClose: () => void
+  panelRef: MutableRefObject<HTMLDivElement | null>
+}) {
   return (
-    <div className="sc-at__sheet" ref={ref} onClick={(e) => e.stopPropagation()}>
-      <h3>
-        {room.name}
-        <span>{KIND_NAME[room.kind]}</span>
-        <button className="sc-at__x" onClick={onClose} aria-label="정보 닫기">
-          ✕
-        </button>
-      </h3>
+    <Sheet peek title={`${room.name} · ${KIND_NAME[room.kind]}`} onClose={onClose} panelRef={panelRef}>
+      <div className="sc-at__sheet">
       <dl>
         <div>
           <dt>차지한 팀</dt>
@@ -594,6 +602,7 @@ const RoomSheet = forwardRef<
           {room.known ? '몇 명 있는지는 들어가야 안다.' : '아직 안을 본 적이 없다.'}
         </p>
       )}
-    </div>
+      </div>
+    </Sheet>
   )
-})
+}

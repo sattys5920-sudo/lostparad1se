@@ -18,6 +18,7 @@ import { Bag } from './UseItem'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
 import { Sheet, Sure } from './Sheet'
+import { Dots } from './Shell'
 import { TEAM_COLOR } from './MapPlan'
 import { pixelFrame } from '../char/pixel'
 import { uiIcon } from './uiArt'
@@ -37,6 +38,8 @@ export interface MeProps {
   paper: MyPaper | null
   /** 못 받아왔으면 그 이유. 조용히 비어 있는 것이 제일 나쁘다. */
   paperErr: string | null
+  /** 못 받아왔을 때 다시 해 보기. */
+  paperRetry?: () => void
   /** 오늘 지워진 사람이 나인가. */
   invisible: boolean
   /** 오늘 지워진 사람 이름. 내가 아니면 알려 준다. */
@@ -131,7 +134,7 @@ export function Me(props: MeProps) {
               <Bag items={items} view={view} act={act} onSaid={onSaid} />
               <h4>쪽지</h4>
               {slipCount === 0 && floorSlips === 0 ? (
-                <p className="sc-mi__none">들고 있는 쪽지가 없다.</p>
+                <p className="sc-mi__none">아직 쪽지가 없다. 바닥을 살펴보세요.</p>
               ) : (
                 props.slips
               )}
@@ -141,7 +144,19 @@ export function Me(props: MeProps) {
 
         {/* ── ③ 주 미션 ─────────────────────────────────── */}
         <Card title="미 션" state={paper?.counting ? STATUS_LABEL[paper.main.status] : null}>
-          {!paper && <p className="sc-mi__none">{props.paperErr ?? '불러오는 중…'}</p>}
+          {!paper &&
+            (props.paperErr ? (
+              <p className="sc-mi__none">
+                못 받아왔다 — {props.paperErr}{' '}
+                {props.paperRetry && (
+                  <button type="button" className="sc-mi__retry" onClick={props.paperRetry}>
+                    다시 시도
+                  </button>
+                )}
+              </p>
+            ) : (
+              <Dots />
+            ))}
           {paper && (
             <>
               <p className="sc-mi__mission">{paper.main.text}</p>
@@ -292,7 +307,7 @@ export function IdCard({
           {/* 역할 이름만. 갈래(팀의 길·사람의 길·밖의 길)는 안 적는다 —
               이름이 이미 그보다 많은 것을 말하고, 갈래까지 붙으면
               남에게 화면을 한 번 보여 줄 때 넷 중 하나로 좁혀진다 */}
-          <span className="sc-mi__role">{paper ? paper.roleName : '…'}</span>
+          <span className="sc-mi__role">{paper ? paper.roleName : <Dots />}</span>
           {invisible && <span className="sc-mi__gone">오늘은 보이지 않는다</span>}
         </div>
         {/* 완장. 이름을 읽기 전에 몇 팀인지가 먼저 보인다 */}
@@ -314,7 +329,7 @@ export function IdCard({
       </button>
       {open && (
         <p className="sc-mi__secret">
-          {paper ? paper.flavor : err ? `못 받아왔다 — ${err}` : '…'}
+          {paper ? paper.flavor : err ? `못 받아왔다 — ${err}` : <Dots />}
           {paper?.footnote && <em className="sc-mi__foot">{paper.footnote}</em>}
         </p>
       )}

@@ -80,7 +80,7 @@
   line-height: 1;
   padding: var(--sp-1) var(--sp-2);
   border: 1px solid var(--sc-line);
-  border-radius: 999px;
+  border-radius: var(--r-game);
   color: var(--sc-text-2);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -311,7 +311,7 @@
   font-style: normal;
   font-size: var(--fs-cap);
   padding: var(--sp-1) var(--sp-1);
-  border-radius: 999px;
+  border-radius: var(--r-game);
   border: 1px solid currentColor;
 }
 .sc-ad__tagDot { color: var(--text-2); }

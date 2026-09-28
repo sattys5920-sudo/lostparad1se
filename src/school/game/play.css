@@ -349,7 +349,7 @@
   align-self: center;
   background: var(--sc-surface);
   border: 1px solid var(--sc-line);
-  border-radius: 999px;
+  border-radius: var(--r-game);
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-label);
   color: var(--sc-text-2);
@@ -1665,7 +1665,7 @@ p.sc-cv { display: block; }
  */
 .sc-mini {
   position: fixed;
-  top: max(10px, env(safe-area-inset-top));
+  top: max(10px, var(--sa-top, env(safe-area-inset-top)));
   right: max(10px, env(safe-area-inset-right));
   z-index: 30;
   width: var(--sc-mini, clamp(88px, 22vw, 140px));
@@ -1864,48 +1864,12 @@ p.sc-cv { display: block; }
 .sc-at__snow { position: absolute; inset: 0; pointer-events: none; opacity: 0.35; }
 .sc-at__snow canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-/* 누른 방 — 맵 위로 떠오르는 시트. 화면의 40%까지만 */
+/* 누른 방 — 공통 시트(Sheet peek) 안의 내용. 틀은 시트가 맡는다 */
 .sc-at__sheet {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-height: 40%;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
-  background: var(--bg-1);
-  border-top: 2px solid var(--line-strong);
-  animation: sc-at-up 0.14s ease-out;
-}
-@keyframes sc-at-up {
-  from { transform: translateY(100%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sc-at__sheet { animation: none; }
-}
-.sc-at__sheet h3 {
-  margin: 0;
-  font-size: var(--fs-cap);
-  font-weight: 400;
-  color: var(--text-1);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.sc-at__sheet h3 span { color: var(--text-2); }
-.sc-at__x {
-  margin-left: auto;
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-2);
-  font: inherit;
-  width: 22px;
-  height: 22px;
-  cursor: pointer;
+  font-family: var(--font-pixel);
 }
 .sc-at__sheet dl { margin: 0; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
 .sc-at__sheet dl > div { display: flex; gap: var(--sp-2); align-items: center; }
@@ -2394,7 +2358,7 @@ p.sc-cv { display: block; }
   height: 8px;
   flex: 0 0 auto;
   border: 1px solid var(--sc-line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-game);
 }
 
 /* ── 덫 제조기 ────────────────────────────────────────────── */

@@ -128,25 +128,31 @@
    행동 단추는 화면 쪽에서 잠근다 */
 .sc-offline {
   position: fixed;
-  top: var(--sa-top);
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
   z-index: 80;
-  padding: var(--sp-1) var(--sp-2);
-  font-size: var(--fs-label);
+  height: 24px;
+  line-height: 24px;
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
   text-align: center;
-  background: var(--sc-danger);
+  background: var(--danger);
   color: var(--text-1);
-  letter-spacing: 0.03em;
 }
 
-/* 끊긴 동안은 행동을 잠근다. 나중에 한꺼번에 나가면 안 된다 */
-.sc-pl__today.is-offline button:not(.sc-pl__tabbar button) {
-  pointer-events: none;
-  opacity: 0.45;
+/*
+ * 띠만큼 **화면 전체의 위를 내린다.** 노치 아래를 비우던 --sa-top 을
+ * 24 더 늘리면, 그것을 쓰는 머리 줄·탭·미니맵이 다 같이 내려온다.
+ * 전에는 띠가 맵의 머리 줄(DAY · 교시)을 덮었다.
+ *
+ * 행동 단추는 **잠그지 않는다.** 눌러도 서버로 안 나가고(firebase.ts 의
+ * callServer) 「연결을 기다리는 중이다」가 한 줄 뜬다 — 눌러도 아무
+ * 반응이 없으면 고장난 줄 안다.
+ */
+.sc-pl__today.is-offline {
+  --sa-top: calc(env(safe-area-inset-top, 0px) + 24px);
 }
-/* 띠가 가리지 않게 위를 비운다 */
-.sc-pl__today.is-offline { padding-top: calc(var(--sa-top) + var(--sp-6)); }
 
 /* ═══ 네 층 ═══════════════════════════════════════════════════
  *
@@ -640,7 +646,7 @@
   font-size: var(--fs-cap);
   padding: 0 var(--sp-1);
   border: 1px solid var(--sc-line);
-  border-radius: 999px;
+  border-radius: var(--r-game);
   color: var(--sc-text-dim);
 }
 .sc-pl__teamState { margin-left: auto; font-size: var(--fs-cap); color: var(--sc-text-dim); }
@@ -695,7 +701,14 @@
   border-top: 1px solid var(--sc-line-strong);
   border-radius: var(--r-paper) var(--r-paper) 0 0;
   box-shadow: 0 -8px 24px color-mix(in srgb, var(--bg-0) 28%, transparent);
-  transition: transform 0.16s ease-out;
+  transition: transform var(--t-sheet) var(--ease-sheet);
+  animation: sc-sheet-up var(--t-sheet) var(--ease-sheet);
+}
+@keyframes sc-sheet-up {
+  from { transform: translateY(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-sheet__panel { animation: none; transition: none; }
 }
 .sc-sheet__grip {
   flex: 0 0 auto;
@@ -705,7 +718,11 @@
   /* 끌어내리는 손잡이. 여기서는 화면이 구르면 안 된다 */
   touch-action: none;
 }
-.sc-sheet__grip span { width: 38px; height: 4px; border-radius: var(--r-game); background: var(--sc-line); }
+.sc-sheet__grip span { width: 32px; height: 4px; border-radius: var(--r-game); background: var(--line-strong); }
+
+/* 뒤를 가리지 않는 낮은 시트(peek). 뒤는 눌리고, 높이는 40% 까지 */
+.sc-sheet.is-peek { pointer-events: none; }
+.sc-sheet.is-peek .sc-sheet__panel { pointer-events: auto; max-height: 40dvh; }
 .sc-sheet__head {
   flex: 0 0 auto;
   display: flex;
@@ -801,10 +818,11 @@
   padding: 0 var(--sp-4);
   appearance: none;
   border: 1px solid var(--sc-line-strong);
-  border-radius: var(--r-paper);
+  border-radius: var(--r-game);
   background: var(--sc-accent);
-  color: var(--sc-bg);
-  font-size: var(--fs-label);
+  color: var(--bg-0);
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--bg-0) 35%, transparent);
 }
 

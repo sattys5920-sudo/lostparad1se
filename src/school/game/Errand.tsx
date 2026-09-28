@@ -40,7 +40,7 @@ export function BoardSheet({
     }
   }
 
-  if (rows.length === 0) return <p className="sc-pl__none">붙어 있는 것이 없다.</p>
+  if (rows.length === 0) return <p className="sc-pl__none">붙어 있는 심부름이 없다. 나중에 다시 와 보세요.</p>
 
   return (
     <ul className="sc-er__list">

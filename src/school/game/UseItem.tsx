@@ -51,7 +51,7 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
   const crops = Object.entries(view?.myCrops ?? {}).filter(([, n]) => n > 0)
   const held = crops.reduce((a, [, n]) => a + n, 0)
   if (rows.length === 0 && carrying === null && crops.length === 0) {
-    return <p className="sc-mi__none">가진 것이 없다.</p>
+    return <p className="sc-mi__none">가진 것이 없다. 복도 자판기에서 살 수 있어요.</p>
   }
 
   async function use(kind: ItemKind, more: { text?: string; scrapId?: string } = {}) {

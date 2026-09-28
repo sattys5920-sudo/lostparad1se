@@ -19,6 +19,7 @@ import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK } from '../../../shared/rules/quiz'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { buzz } from './Controls'
+import { Dots } from './Shell'
 
 export interface QuizProps {
   view: PlayerViewDoc | null
@@ -189,7 +190,7 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
           다시 불러오기
         </button>
       )}
-      {!bank && busy && <p className="sc-qzh__count">불러오는 중</p>}
+      {!bank && busy && <p className="sc-qzh__count"><Dots /></p>}
 
       {bank && (
         <>

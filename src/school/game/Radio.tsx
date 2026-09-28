@@ -259,7 +259,7 @@ export function Radio({
       {/* ── 오간 말 ─────────────────────────────────────── */}
       <div className="sc-rd__log" ref={logRef} onScroll={onScroll}>
         {stuck && <p className="sc-rd__none" role="alert">무전을 못 받아온다 — {stuck}</p>}
-        {!stuck && lines.length === 0 && <p className="sc-rd__none">오늘 오간 무전이 없다.</p>}
+        {!stuck && lines.length === 0 && <p className="sc-rd__none">오늘 오간 무전이 없다. 먼저 한 줄 보내 보세요.</p>}
         <ul>
           {lines.map((l, i) => {
             if (l.system) {

@@ -201,6 +201,30 @@ async function main() {
     if (under.length) report.push(`${name} 노치 밑: ${JSON.stringify(under)}`)
   }
   report.push(`받은 글꼴(탭을 다 돈 뒤): ${JSON.stringify((await facts(page)).fonts)}`)
+  // 탭마다 구르던 자리 — 메모를 내려 두고 맵에 갔다 오면 그 자리여야 한다
+  {
+    const names = tabs.map((t) => t.trim())
+    const memo = names.indexOf('메모')
+    if (memo > 0) {
+      await page.locator('.sc-ct__tab').nth(memo).evaluate((el) => (el as HTMLElement).click())
+      await page.waitForTimeout(400)
+      const before = await page.evaluate(() => {
+        const box = Array.from(document.querySelectorAll('.sc-pl__tab:not([hidden]), .sc-pl__tab:not([hidden]) *')).find((el) => el.scrollHeight > el.clientHeight + 40)
+        if (!box) return -1
+        box.scrollTop = 300
+        return box.scrollTop
+      })
+      await page.locator('.sc-ct__tab').nth(0).evaluate((el) => (el as HTMLElement).click())
+      await page.waitForTimeout(300)
+      await page.locator('.sc-ct__tab').nth(memo).evaluate((el) => (el as HTMLElement).click())
+      await page.waitForTimeout(300)
+      const after = await page.evaluate(() => {
+        const box = Array.from(document.querySelectorAll('.sc-pl__tab:not([hidden]), .sc-pl__tab:not([hidden]) *')).find((el) => el.scrollHeight > el.clientHeight + 40)
+        return box ? box.scrollTop : -1
+      })
+      report.push(`메모 탭 구른 자리: ${before} → 맵 갔다 와서 ${after}`)
+    }
+  }
   await page.locator('.sc-ct__tab').nth(0).evaluate((el) => (el as HTMLElement).click())
   await page.waitForTimeout(600)
 
@@ -249,6 +273,14 @@ async function main() {
     await page.waitForTimeout(900)
     await page.screenshot({ path: `${OUT}/${tag}-5전체맵.png` })
     await audit(page, '전체 맵')
+    report.push(`전체 맵 닫기: ${await page.locator('.sc-at__close, .sc-atlas__done').count()}곳`)
+    // 방을 누르면 뒤를 가리지 않는 낮은 시트가 뜬다
+    await page.locator('.sc-at__room').nth(3).evaluate((el) => (el as HTMLElement).click()).catch(() => undefined)
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: `${OUT}/${tag}-5전체맵-방.png` })
+    report.push(`방 시트: ${(await page.locator('.sc-sheet.is-peek').count()) ? '낮은 시트로 떴다' : '안 떴다'}`)
+    await page.locator('.sc-sheet__head button').first().evaluate((el) => (el as HTMLElement).click()).catch(() => undefined)
+    await page.waitForTimeout(300)
     report.push(`전체 맵 노치 밑: ${JSON.stringify(await underNotch(page))}`)
     await page.locator('.sc-atlas__done, button:has-text("닫기")').first().click().catch(() => undefined)
     await page.waitForTimeout(500)
@@ -258,6 +290,11 @@ async function main() {
   await ctx.setOffline(true)
   await page.evaluate(() => window.dispatchEvent(new Event('offline')))
   await page.waitForTimeout(2500)
+  // 끊긴 동안 누르면 — 서버로 안 나가고 까닭이 뜬다. 말하기는 서버로 가는 일이다
+  await page.locator('.sc-sy__box').first().fill('여기 누구 있어?').catch(() => undefined)
+  await page.locator('.sc-sy__send').first().evaluate((el) => (el as HTMLElement).click())
+  await page.waitForTimeout(600)
+  report.push(`끊긴 동안 누르기: ${(await page.evaluate(() => document.body.innerText.includes('연결을 기다리는 중이다'))) ? '「연결을 기다리는 중이다」가 떴다' : '아무 말도 없다'}`)
   await page.screenshot({ path: `${OUT}/${tag}-6끊김.png` })
   await ctx.setOffline(false)
 

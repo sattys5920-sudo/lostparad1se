@@ -340,7 +340,7 @@
   width: 8px;
   height: 8px;
   border: 1px solid var(--bg-0);
-  border-radius: 999px;
+  border-radius: var(--r-game);
 }
 .sc-vd__crop em { font-style: normal; color: var(--accent); font-variant-numeric: tabular-nums; }
 /* 두 개 이상이면 이름 뒤에 수를 붙인다.

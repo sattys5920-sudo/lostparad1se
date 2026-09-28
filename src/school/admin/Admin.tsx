@@ -26,6 +26,7 @@ import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import { ALL_KEY, ENDING_MAX } from '../../../shared/reveal/ending'
 import './admin.css'
+import { Dots } from '../game/Shell'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
 
@@ -244,7 +245,7 @@ function Desk() {
 
       <div className="sc-ad__body">
         {state.loading ?
-          <p className="sc-ad__hint">불러오는 중</p>
+          <p className="sc-ad__hint"><Dots /></p>
         : !game ?
           /* ── 아직 판이 없다 ── */
           <section className="sc-ad__sec">
@@ -481,7 +482,7 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
     setAsked(false)
   }
 
-  if (rows === null) return <p className="sc-ad__hint">불러오는 중</p>
+  if (rows === null) return <p className="sc-ad__hint"><Dots /></p>
 
   const chosen = [...picked]
   const risky = rows.filter((r) => picked.has(r.id) && r.playing).length
