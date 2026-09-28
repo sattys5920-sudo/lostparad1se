@@ -239,7 +239,7 @@ export function gameActions(gameId: string) {
     /** 이번 페이즈에 할 일. 닫히기 전까지는 바꿀 수 있다. */
     phaseAct: (
       kind: string,
-      t: { targetTile?: TileId; targetPlayer?: string; targetRobot?: string; targetTeam?: string } = {},
+      t: { targetTile?: TileId; targetPlayer?: string; targetRobot?: string; targetTeam?: string; machine?: number } = {},
     ) => callServer('phaseAct', { ...g, kind, ...t }),
     phaseNow: () => callServer('phaseNow', g),
     takeSlip: (slipId: string) => callServer('takeSlip', { ...g, slipId }),

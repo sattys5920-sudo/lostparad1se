@@ -182,6 +182,15 @@ async function main(): Promise<void> {
   check((await robotsOf('A')) === aBefore, '본인이 없으면 못 받는다')
   check((await madeCount()) === 1, `${TILE_BY_ID[lab.id].name}에 완성품으로 놓인다`)
 
+  console.log('\n── 연구 기계 한 대에 한 건 ──')
+  // 도둑도 같은 기계 옆에 서 있다. 완성품이 안 치워진 기계는 찼다
+  const full = await no(call('phaseAct', tkFoe, { gameId: GAME, kind: 'research', machine: 0 }))
+  check(full.includes('돌고 있다'), '**완성품이 놓인 기계에는 못 건다**', full)
+  const tooFar = await no(call('phaseAct', tkFoe, { gameId: GAME, kind: 'research', machine: 2 }))
+  check(tooFar.includes('옆에 서야'), '옆에 안 선 기계에는 못 건다', tooFar)
+  const labView = (await list(`games/${GAME}/views`)).find((v) => v.name.endsWith(`/${uFoe}`))
+  check(JSON.stringify(labView).includes('"labsHere"'), '연구실에 서면 기계 셋이 보인다')
+
   console.log('\n── 페이즈 동안은 연구한 사람만 ──')
   const mine = (await list(`games/${GAME}/made`))[0]
   const madeId = mine.name.split('/').pop() as string

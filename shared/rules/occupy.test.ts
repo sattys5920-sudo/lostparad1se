@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ACT_COST,
+  costOf,
   ENTER_COST,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
@@ -37,7 +38,7 @@ import {
   type Person,
   type Robot,
 } from './occupy'
-import { TILES, isAdjacent } from './board'
+import { TILES, isAdjacent, type TileId } from './board'
 import { TEAM_IDS, type TeamId } from './v2'
 import { PULLS_PER_PHASE, PULL_COST, type FlagMap } from './flag'
 
@@ -140,7 +141,8 @@ describe('토큰이 한 페이즈의 전부다', () => {
   })
 
   it('행동마다 값이 다르다', () => {
-    expect(ACT_COST.research).toBeGreaterThan(ACT_COST.move)
+    // 연구는 지식만 든다. 방에 들어가는 것은 토큰이 든다
+    expect(ACT_COST.move).toBeGreaterThan(ACT_COST.research)
     // 들고 있던 것을 내려놓는 것뿐이라 값이 없다
     expect(ACT_COST.dropRobot).toBe(0)
   })
@@ -515,6 +517,19 @@ describe('로봇', () => {
       smashedBy: ['a'],
     })
     expect(settle(s).next.smashedBy).toEqual([])
+  })
+})
+
+describe('차지한 방은 드나드는 값이 없다', () => {
+  it('우리 팀 방에 들어갈 때는 토큰이 안 든다', () => {
+    expect(costOf({ owners: { baseB: 'A' } }, 'A', { kind: 'move', targetTile: 'baseB' as TileId })).toBe(0)
+  })
+  it('남의 방·빈 방은 전처럼 든다', () => {
+    expect(costOf({ owners: { baseB: 'B' } }, 'A', { kind: 'move', targetTile: 'baseB' as TileId })).toBe(ENTER_COST)
+    expect(costOf({ owners: {} }, 'A', { kind: 'move', targetTile: 'baseB' as TileId })).toBe(ENTER_COST)
+  })
+  it('연구는 토큰이 안 든다 — 지식만', () => {
+    expect(ACT_COST.research).toBe(0)
   })
 })
 

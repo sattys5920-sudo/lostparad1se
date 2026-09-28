@@ -288,6 +288,8 @@ export interface PendingResearch {
   knowledge: number
   /** 어느 연구실에 걸었는가. **완성품이 그 방에 놓인다.** */
   tileId: TileId
+  /** 어느 연구 기계인가(rules/trap 의 LAB_MACHINES 번호). 한 대에 한 건이다 */
+  machine?: number
 }
 
 export interface PhaseState {
@@ -377,7 +379,8 @@ export type ActionKind = 'move' | 'research' | 'summon' | 'plant' | 'pull' | 'dr
  */
 export const ACT_COST: Record<ActionKind, number> = {
   move: ENTER_COST,
-  research: 2,
+  // **연구는 토큰이 안 든다.** 지식만 든다(researchKnowledge)
+  research: 0,
   // **호출은 토큰이 아니라 호루라기가 든다**(items). 불어서 부른다
   summon: 0,
   // **깃발은 토큰이 아니라 깃발이 든다.** 팀 상자에서 하나 빠진다
@@ -601,11 +604,23 @@ function charged(out: ActResult, state: PhaseState, playerId: string): ActResult
   return { ...out, next: { ...out.next, wallets: { ...out.next.wallets, [team]: left } } }
 }
 
+/**
+ * 이 행동에 드는 팀 토큰.
+ *
+ * **우리 팀이 차지한 방에 들어갈 때는 안 든다.** 차지한 방을 드나드는
+ * 것이 공짜라는 것이 차지한 값이다 — 그래서 점령한 방 사이를 오가며
+ * 지키고, 뺏긴 방은 들어가는 데부터 값이 든다.
+ */
+export function costOf(state: Pick<PhaseState, 'owners'>, team: TeamId, act: Act): number {
+  if (act.kind === 'move' && act.targetTile && state.owners[act.targetTile] === team) return 0
+  return ACT_COST[act.kind]
+}
+
 function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   const me = state.people.find((p) => p.playerId === playerId)
   if (!me) return no('이 판에 없는 사람이다.')
 
-  const cost = ACT_COST[act.kind]
+  const cost = costOf(state, me.team, act)
   if (walletOf(state, me.team) < cost) return no(`팀 토큰이 모자란다. ${cost}개가 든다.`)
 
   // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다

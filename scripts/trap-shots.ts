@@ -207,9 +207,9 @@ async function main() {
   await must('openPhase', host, { gameId: game })
   await fund(game, myTeam, 5)
   // 덫은 내 돈으로 맡긴다. 지갑을 채운다
-  await fetch(`${FS}/games/${game}/pawns/${meUid}?updateMask.fieldPaths=resources.money`, {
+  await fetch(`${FS}/games/${game}/pawns/${meUid}?updateMask.fieldPaths=resources`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ fields: { resources: { mapValue: { fields: { money: { integerValue: '9' } } } } } }),
+    body: JSON.stringify({ fields: { resources: { mapValue: { fields: { money: { integerValue: '9' }, knowledge: { integerValue: '5' } } } } } }),
   })
   await page.waitForTimeout(1500)
   await putIn(game, meUid, TECH_TILE)
@@ -316,14 +316,15 @@ async function main() {
   await page.locator('.sc-mt__back').click().catch(() => undefined)
   await page.waitForTimeout(300)
   if (!(await pickOnMap(page, LAB_MACHINES[1], '연구하기'))) missed.push('연구 기계 옆에서 짚었는데 「연구하기」가 없다')
-  await page.waitForTimeout(1200)
-  await page.screenshot({ path: `${OUT}/9-연구.png` })
-  console.log('  찍었다 9-연구.png')
-  // 시트 아래쪽 — 내 지식 · 가진 물건 일곱 · 로봇. 값은 전부 그림이다
-  await page.locator('.sc-sheet__body').evaluate((el) => el.scrollBy(0, 1400)).catch(() => undefined)
-  await page.waitForTimeout(500)
-  await page.screenshot({ path: `${OUT}/10-값-그림.png` })
-  console.log('  찍었다 10-값-그림.png')
+  await page.waitForTimeout(2500)
+  // 같은 기계를 다시 짚으면 「내 연구 중 · 20분」
+  await tapCell(page, LAB_MACHINES[1])
+  await page.waitForTimeout(600)
+  const busyRows = await page.locator('.sc-mt__row').allInnerTexts()
+  console.log(`  연구 건 뒤 차림표: ${busyRows.map((r) => r.replace(/\s+/g, ' ')).join(' / ')}`)
+  if (!busyRows.some((r) => r.includes('내 연구 중'))) missed.push('연구를 건 기계에 「내 연구 중」이 안 뜬다')
+  await page.screenshot({ path: `${OUT}/9-연구-중.png` })
+  console.log('  찍었다 9-연구-중.png')
 
   await browser.close()
   console.log(`\n${OUT} 에 담았다.`)

@@ -20,7 +20,7 @@ import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './
 import type { TeamId, VoteKind } from './v2'
 import { floorOfCell, roomOfCell, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
-import { MAKERS, TECH_TILE } from './trap'
+import { LAB_MACHINES, LAB_TILE, MAKERS, TECH_TILE } from './trap'
 import { onlyMakerNow } from './made'
 import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } from './errand'
 import {
@@ -175,7 +175,9 @@ export interface World {
   /** 판 위의 로봇. 사람처럼 안개를 거친다 — 보이는 방의 것만 내려간다. */
   robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
   /** 연구실에 놓인 주인 없는 완성품. */
-  made?: readonly { id: string; tileId: TileId; byPlayerId: string; phaseNo?: number }[]
+  made?: readonly { id: string; tileId: TileId; byPlayerId: string; phaseNo?: number; machine?: number }[]
+  /** 연구 기계에 걸린 연구. 누가 걸었는지째로 — 투영이 「내 것 / 남의 것」으로 줄인다 */
+  labJobs?: readonly { machine: number; byPlayerId: string; doneAtMs: number }[]
   /** 방마다 꽂힌 깃발. **보이는 방의 것만 내려간다.** */
   flags?: FlagMap
   /** 팀마다 깃발 상자. 자기 팀 것만 내려간다. */
@@ -347,6 +349,22 @@ export interface View {
     state: 'free' | 'busy' | 'mine' | 'open'
     readyAtMs: number | null
     count: number
+  }[]
+  /**
+   * 연구실에 서 있을 때만 — 연구 기계 셋. **한 대에 한 건이다.**
+   *
+   *   free    비었다
+   *   busy    남이 연구 중이다(언제 되는지는 안 보낸다)
+   *   mine    내가 연구 중이다
+   *   ready   다 된 완성품이 있고 내가 가져갈 수 있다
+   *   locked  다 된 완성품이 있지만 이 페이즈 동안은 연구한 사람 것이다
+   */
+  labsHere?: {
+    i: number
+    cell: Cell
+    state: 'free' | 'busy' | 'mine' | 'ready' | 'locked'
+    readyAtMs: number | null
+    madeId: string | null
   }[]
   /** 덫에 걸려 있으면 그 칸. 화면이 아바타를 여기에 도로 세운다 */
   mySnaredAt: Cell | null
@@ -791,6 +809,23 @@ export function projectView(world: World, viewerId: string): View {
               readyAtMs: shown && job ? job.readyAtMs : null,
               count: shown && job ? job.count : 0,
             }
+          })
+        : [],
+    labsHere:
+      here === LAB_TILE
+        ? LAB_MACHINES.map((cell, i) => {
+            const made = (world.made ?? []).find((m) => m.tileId === LAB_TILE && m.machine === i) ?? null
+            if (made) {
+              const mine = made.byPlayerId === viewerId
+              const locked = !mine && onlyMakerNow(world.openPhaseNo ?? null, made.phaseNo)
+              return { i, cell, state: locked ? ('locked' as const) : ('ready' as const), readyAtMs: null, madeId: made.id }
+            }
+            const job = (world.labJobs ?? []).find((j) => j.machine === i) ?? null
+            if (job) {
+              const mine = job.byPlayerId === viewerId
+              return { i, cell, state: mine ? ('mine' as const) : ('busy' as const), readyAtMs: mine ? job.doneAtMs : null, madeId: null }
+            }
+            return { i, cell, state: 'free' as const, readyAtMs: null, madeId: null }
           })
         : [],
     mySnaredAt: (() => {

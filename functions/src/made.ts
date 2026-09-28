@@ -126,6 +126,8 @@ export async function landResearch(gameId: string): Promise<void> {
       atMs: nowMs,
       // 이 페이즈 동안은 건 사람 것이다
       phaseNo: game.phaseNow.no,
+      // 치워질 때까지 이 기계는 찼다 — 한 대에 한 건
+      ...(typeof r.machine === 'number' ? { machine: r.machine } : {}),
     }
     await madeOf(gameId).add(doc)
   }

@@ -50,6 +50,7 @@ const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }
 import { Walk, type DirWay, type PersonAt, type TapThing } from './Walk'
 import { Meet, type MeetRow } from './Meet'
 import { MADE_NO } from '../../../shared/rules/made'
+import { LAB_MACHINES, LAB_TILE } from '../../../shared/rules/trap'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { ScoreBar } from './Score'
 import { Phase, PhaseLog, leftText } from './Phase'
@@ -126,8 +127,10 @@ import { ADJACENCY, ALLEY_NAME, START_TILE, TILE_BY_ID, cellsTouch, isAlleyCell,
 import { atVending } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
 import {
+  ACT_MINUTES,
   ENTER_COST,
   MOVE_MINUTES,
+  researchKnowledge,
   ROOM_KIND,
   capacityOf,
 } from '../../../shared/rules/occupy'
@@ -791,12 +794,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [thing, setThing] = useState<{ t: TapThing; at: PersonAt } | null>(null)
   /** 「앉는다」를 눌렀다. 자리에 닿으면 오락기가 켜진다 */
   const [sitting, setSitting] = useState(false)
-  /** 연구 기계에서 들어왔다. 행동 시트가 연구 줄로 굴러간다 */
-  const [actFocus, setActFocus] = useState<'research' | null>(null)
-  // 행동 시트가 닫히면 연구 줄 표시도 잊는다. 깃발 칸으로 다시 열면 맨 위부터다
-  useEffect(() => {
-    if (sheet !== 'act') setActFocus(null)
-  }, [sheet])
   const [archive, setArchive] = useState(false)
   const [atlas, setAtlas] = useState(false)
   const [miniOn, setMiniOn] = useMiniMapOn()
@@ -1282,39 +1279,45 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         return [open('maker', '덫 만들기', 'maker')]
       case 'lab': {
         /*
-         * **완성품은 여기서 가져간다.** 연구한 페이즈 동안은 연구한 사람
-         * 것이고, 그 페이즈가 끝나도록 안 가져갔으면 누구든 — 자유 시간에도
+         * **연구 기계 한 대에 한 건.** 짚은 기계가 지금 어떤지에 따라 한 줄이다 —
+         * 비었으면 연구하기, 돌고 있으면 남은 시간, 다 됐으면 로봇 가져가기.
+         * 다 된 것은 연구한 페이즈 동안 연구한 사람 것이고, 그 뒤로는 누구든
          */
-        const madeAll = state.view?.madeHere ?? []
-        const made = madeAll.filter((m) => !m.locked)
-        const rows: MeetRow[] = [
+        const i = LAB_MACHINES.findIndex((c) => c.x === t.cell.x && c.y === t.cell.y)
+        const lab = (state.view?.labsHere ?? []).find((l) => l.i === i) ?? null
+        const need = researchKnowledge(state.tiles[LAB_TILE]?.ownerTeam === myTeam)
+        const have = state.view?.myVault?.knowledge ?? 0
+        const research: MeetRow = {
+          key: 'lab',
+          label: `연구하기 · 지식 ${need}`,
+          why: phaseOnly ?? (have < need ? `지식이 모자란다 · ${have}/${need}` : null),
+          onPick: pick(() =>
+            void act
+              .phaseAct('research', { machine: i })
+              .then(() => say(`연구를 걸었다. ${ACT_MINUTES.research}분 뒤 이 기계에서 로봇을 가져간다.`))
+              .catch((e) => refuse((e as Error).message)),
+          ),
+        }
+        if (lab === null || lab.state === 'free') return [research]
+        if (lab.state === 'mine') {
+          const left = Math.max(0, (lab.readyAtMs ?? 0) - nowMs)
+          return [{ ...research, why: `내 연구 중 · ${leftText(left)} 남았다` }]
+        }
+        if (lab.state === 'busy') return [{ ...research, why: '다른 사람이 연구 중이다' }]
+        const madeId = lab.madeId
+        return [
           {
-            key: 'lab',
-            label: '연구하기',
-            why: phaseOnly,
-            onPick: pick(() => {
-              setActFocus('research')
-              setSheet('act')
-            }),
-          },
-        ]
-        if (made.length > 0) {
-          rows.push({
             key: 'made',
-            label: made.length > 1 ? `완성품 가져가기 · ${made.length}` : '완성품 가져가기',
-            why: far,
+            label: '로봇 가져가기',
+            why: lab.state === 'locked' ? MADE_NO.notYours : far,
             onPick: pick(() =>
               void act
-                .takeMade(made[0].id)
+                .takeMade(madeId ?? '')
                 .then((r) => say(String((r as { said?: string }).said ?? '가져갔다.')))
                 .catch((e) => refuse((e as Error).message)),
             ),
-          })
-        } else if (madeAll.length > 0) {
-          // 놓인 것은 있는데 전부 남이 이 페이즈에 연구한 것이다
-          rows.push({ key: 'made', label: '완성품 가져가기', why: MADE_NO.notYours, onPick: () => {} })
-        }
-        return rows
+          },
+        ]
       }
       case 'arcade':
         // 앞자리에 앉아 있으면 켜고, 옆에 섰으면 그 자리로 가서 앉는다
@@ -1849,7 +1852,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               act={act}
               onSaid={setSaid}
               myCell={myCell}
-              focus={actFocus}
             />
           ) : (
             <>

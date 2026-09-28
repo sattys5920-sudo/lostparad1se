@@ -23,6 +23,8 @@ export interface MadeDoc {
   atMs: number
   /** 연구를 건 페이즈. **이 페이즈가 열려 있는 동안은 건 사람만** 가져간다 */
   phaseNo?: number
+  /** 어느 연구 기계에서 나왔나. 치워질 때까지 그 기계를 차지한다 */
+  machine?: number
 }
 
 /**

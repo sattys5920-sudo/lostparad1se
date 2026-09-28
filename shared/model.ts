@@ -561,6 +561,14 @@ export interface PlayerViewDoc {
     readyAtMs: number | null
     count: number
   }[]
+  /** 연구실에 서 있을 때만 — 연구 기계 셋(rules/views 의 labsHere) */
+  labsHere?: {
+    i: number
+    cell: Cell
+    state: 'free' | 'busy' | 'mine' | 'ready' | 'locked'
+    readyAtMs: number | null
+    madeId: string | null
+  }[]
   /** 덫에 걸린 칸. 걸려 있는 동안만 */
   mySnaredAt?: Cell | null
   potsHere?: {

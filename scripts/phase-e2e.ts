@@ -322,6 +322,14 @@ async function main(): Promise<void> {
   check((await boxOf('A')) === beforeMate - ACT_COST.move, '**같은 팀 다른 사람이 써도 같은 상자가 준다**')
   await tickOn(MOVE_MINUTES)
 
+  // **우리 팀이 차지한 방은 드나드는 값이 없다**
+  await setOwner('storage', 'A')
+  const beforeOwn = await boxOf('A')
+  const intoOwn = await must('phaseAct', A[1].token, { gameId: GAME, kind: 'move', targetTile: 'storage' })
+  check((await boxOf('A')) === beforeOwn, '**차지한 방에 들어갈 때는 토큰이 안 든다**', `${beforeOwn} → ${await boxOf('A')}`)
+  check(intoOwn.walking === true, '걷는 시간은 똑같이 든다')
+  await tickOn(MOVE_MINUTES)
+
   // 상자가 마를 때까지 왔다 갔다 한다
   let purse = await boxOf('A')
   for (let i = 0; purse > 0 && i < 20; i++) {

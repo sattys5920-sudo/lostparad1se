@@ -97,5 +97,34 @@ export const beside = (me: Cell | null | undefined, at: Cell): boolean =>
 export const makerBeside = (me: Cell | null | undefined): MakerSpot | null =>
   MAKERS.find((m) => beside(me, m.cell)) ?? null
 
+export type LabPickNo = 'far' | 'busy'
+
+export const LAB_PICK_NO: Record<LabPickNo, string> = {
+  far: '연구 기계 옆에 서야 한다',
+  busy: '이 연구 기계는 돌고 있다 — 한 대에 연구 하나다',
+}
+
+/**
+ * 연구를 어느 기계에 거는가. **한 대에 한 건이다.**
+ *
+ * 연구가 돌고 있거나, 다 돼서 완성품이 아직 안 치워진 기계는 찼다
+ * (제조기와 같은 자). 짚은 기계(want)가 있으면 그것만 보고, 없으면
+ * 옆에 선 것 중 빈 첫 기계를 고른다 — 두 기계 사이에 서면 둘 다 옆이다.
+ */
+export function pickLabMachine(
+  me: Cell | null | undefined,
+  busy: ReadonlySet<number>,
+  want?: number | null,
+): number | LabPickNo {
+  const near = LAB_MACHINES.map((c, i) => (beside(me, c) ? i : -1)).filter((i) => i >= 0)
+  if (want !== undefined && want !== null) {
+    if (!near.includes(want)) return 'far'
+    return busy.has(want) ? 'busy' : want
+  }
+  if (near.length === 0) return 'far'
+  const free = near.find((i) => !busy.has(i))
+  return free === undefined ? 'busy' : free
+}
+
 /** 연구 기계 셋 중 하나 옆인가 */
 export const atLabMachine = (me: Cell | null | undefined): boolean => LAB_MACHINES.some((m) => beside(me, m))

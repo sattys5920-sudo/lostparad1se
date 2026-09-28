@@ -43,7 +43,8 @@ import type { Satchel, Satchels } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { isFixture } from '../../shared/rules/fixtures'
 import { machineAtSeat } from '../../shared/rules/arcade'
-import { LAB_TILE, SNARE_MINUTES, atLabMachine } from '../../shared/rules/trap'
+import { LAB_PICK_NO, LAB_TILE, SNARE_MINUTES, atLabMachine, pickLabMachine } from '../../shared/rules/trap'
+import type { MadeDoc } from '../../shared/rules/made'
 import { springTrap } from './trap'
 import type { Cell } from '../../shared/rules/board'
 import { INVISIBLE_TEAM_TOKEN_BONUS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
@@ -57,7 +58,7 @@ import {
   type TileDoc,
 } from '../../shared/model'
 import { freshNow, refuseIfInvisible, requireFree } from './turn'
-import { researchTierUp, type Brewing } from './made'
+import { madeOf, researchTierUp, type Brewing } from './made'
 import { roundAt } from '../../shared/rules/captain'
 import { FLAGS_PER_PHASE, spendFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
 import { clearArrivals } from './move'
@@ -554,6 +555,8 @@ export const phaseAct = onCall<{
   targetPlayer?: string
   targetRobot?: string
   targetTeam?: TeamId
+  /** 연구할 기계 번호. 없으면 옆에 선 빈 기계 */
+  machine?: number
 }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, kind } = req.data
@@ -617,16 +620,37 @@ export const phaseAct = onCall<{
     /** 아무도 안 부쉈는데 사라진 것들. 이적으로 한도가 넘친 자리다 */
     gone: { id: string; team: TeamId }[]
   } = { made: null, smashed: null, gone: [] }
+  /** 연구를 건 기계. 연구일 때만 정해진다 */
+  let labMachine: number | null = null
   await db.runTransaction(async (tx) => {
-    const [pawns, bots, tiles, hidden, teams, flagSnap] = await Promise.all([
+    const [pawns, bots, tiles, hidden, teams, flagSnap, madeSnap] = await Promise.all([
       tx.get(ref.collection('pawns')),
       tx.get(robotsOf(gameId)),
       tx.get(ref.collection('tiles')),
       tx.get(hiddenOf(gameId)),
       tx.get(ref.collection('teams')),
       tx.get(flagsOf(gameId)),
+      kind === 'research' ? tx.get(madeOf(gameId)) : Promise.resolve(null),
     ])
     const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
+    /*
+     * **연구 기계 한 대에 한 건.** 돌고 있는 연구와, 다 됐는데 안 치운
+     * 완성품이 기계를 차지한다. 트랜잭션 안에서 가려야 둘이 한 기계에
+     * 동시에 거는 것을 막는다
+     */
+    if (kind === 'research') {
+      const busy = new Set<number>()
+      for (const r of queued(h.pendingResearch)) if (typeof r.machine === 'number') busy.add(r.machine)
+      for (const d of madeSnap?.docs ?? []) {
+        const m = d.data() as MadeDoc
+        if (typeof m.machine === 'number') busy.add(m.machine)
+      }
+      const meAt = (pawns.docs.find((d) => d.id === uid)?.data() as PawnDoc | undefined)?.at ?? null
+      const want = typeof req.data.machine === 'number' ? Math.floor(req.data.machine) : null
+      const pick = pickLabMachine(meAt as Cell | null, busy, want)
+      if (typeof pick !== 'number') throw new HttpsError('failed-precondition', `${LAB_PICK_NO[pick]}.`)
+      labMachine = pick
+    }
     const before: PhaseState = {
       people: pawns.docs.map((d) => personOf(d.id, d.data() as PawnDoc)),
       robots: bots.docs.map((d) => {
@@ -803,7 +827,11 @@ export const phaseAct = onCall<{
       pendingResearch: out.next.pendingResearch.map((r) =>
         typeof (r as Brewing).doneAtMs === 'number'
           ? (r as Brewing)
-          : { ...r, doneAtMs: nowMs + ACT_MINUTES.research * 60_000 },
+          : {
+              ...r,
+              doneAtMs: nowMs + ACT_MINUTES.research * 60_000,
+              ...(labMachine !== null ? { machine: labMachine } : {}),
+            },
       ),
       smashedBy: out.next.smashedBy,
       actedBy: out.next.actedBy,

@@ -167,6 +167,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       }),
     ),
     smashedBy: ((hiddenPhase.data() as { smashedBy?: string[] } | undefined)?.smashedBy ?? []),
+    // 연구 기계에 걸린 연구. 기계 번호가 없는 옛 줄은 안 싣는다
+    labJobs: (((hiddenPhase.data() as { pendingResearch?: { machine?: number; playerId: string; doneAtMs?: number }[] } | undefined)?.pendingResearch ?? [])
+      .filter((r) => typeof r.machine === 'number' && typeof r.doneAtMs === 'number')
+      .map((r) => ({ machine: r.machine as number, byPlayerId: r.playerId, doneAtMs: r.doneAtMs as number }))),
     pulledTeams: ((hiddenPhase.data() as { pulledTeams?: TeamId[] } | undefined)?.pulledTeams ?? []),
     // 오늘 적은 표. **투영이 본인 것만 떼어 보낸다** — 여기까지는
     // 서버 안이라 전부 들고 있어도 된다
@@ -181,8 +185,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
     }),
     made: made.docs.map((d) => {
-      const m = d.data() as { tileId: TileId; byPlayerId: string; phaseNo?: number }
-      return { id: d.id, tileId: m.tileId, byPlayerId: m.byPlayerId, phaseNo: m.phaseNo }
+      const m = d.data() as { tileId: TileId; byPlayerId: string; phaseNo?: number; machine?: number }
+      return { id: d.id, tileId: m.tileId, byPlayerId: m.byPlayerId, phaseNo: m.phaseNo, machine: m.machine }
     }),
     // 오늘 나간 수. **날짜가 지난 줄은 안 센다** — 어제 다 나간 것이
     // 오늘도 비어 보이면 기계가 영영 안 찬다
