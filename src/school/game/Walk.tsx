@@ -199,9 +199,12 @@ export interface WalkProps {
   /**
    * 서버가 그 칸을 거절했다(누가 먼저 섰다 · 물건이 있다). **n 이 바뀌면 한 번**
    * 이 칸으로 도로 세운다 — 화면만 거기 서 있고 서버는 옛 칸을 쥐고 있으면
-   * 남들 눈에는 다른 데 서 있다
+   * 남들 눈에는 다른 데 서 있다.
+   *
+   * `from` 은 거절당한 그 칸 — **아직 거기 서 있을 때만** 따른다. 대답을
+   * 기다리는 사이 이미 걸어서 더 갔으면 지난 일이라 손대지 않는다
    */
-  bounce?: { x: number; y: number; n: number } | null
+  bounce?: { x: number; y: number; n: number; from: { x: number; y: number } } | null
   /** 걸음이 막혔다. 짧은 사유를 띄운다(누가 서 있다) */
   onBlocked?: (why: string) => void
   /**
@@ -1198,14 +1201,18 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         autoPath = []
         walked.length = 0
       }
-      // 서버가 거절한 칸이다. 서버가 아는 자리로 한 번 도로 선다
+      // 서버가 그 칸을 거절했다. **아직 거절당한 그 칸에 서 있을 때만** 도로
+      // 세운다 — 대답을 기다리는 사이 이미 걸어서 더 갔으면 지난 일이다.
+      // 그대로 두면 이미 걸어간 만큼을 지우고 뒤로 튕겨 보낸다
       const back = bounceRef.current
       if (back && back.n !== lastBounce) {
         lastBounce = back.n
-        standAt(back.x, back.y)
-        autoPath = []
-        walked.length = 0
-        told = `${back.x},${back.y}`
+        if (self.tx === back.from.x && self.ty === back.from.y) {
+          standAt(back.x, back.y)
+          autoPath = []
+          walked.length = 0
+          told = `${back.x},${back.y}`
+        }
       }
       /*
        * **처음 한 번은 서버가 세운 칸에 선다.** 판이 시작될 때 서버가 열넷에게

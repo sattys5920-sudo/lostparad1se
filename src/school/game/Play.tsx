@@ -1077,7 +1077,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
 
   const [toast, showToast] = useToast()
   /** 서버가 거절한 칸 — 이 칸으로 한 번 도로 선다(Walk bounce). n 이 바뀔 때만 */
-  const [bounce, setBounce] = useState<{ x: number; y: number; n: number } | null>(null)
+  const [bounce, setBounce] = useState<{ x: number; y: number; n: number; from: { x: number; y: number } } | null>(null)
   /** 지금 선 칸에서 어느 쪽으로 갈 수 있는가. 지도가 한 칸 옮길 때마다 알려 준다 */
   const [ways, setWays] = useState<Record<Dir, DirWay>>({ up: 'open', down: 'open', left: 'open', right: 'open' })
 
@@ -1545,7 +1545,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   const back = out?.at ?? was
                   if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked') && back) {
                     showToast(out.why ?? '거기에는 설 수 없다.')
-                    setBounce((b) => ({ x: back.x, y: back.y, n: (b?.n ?? 0) + 1 }))
+                    // Walk 는 아직 거절당한 그 칸(x,y)에 서 있을 때만 따른다 —
+                    // 대답을 기다리는 사이 이미 걸어서 더 갔으면 지난 일이다
+                    setBounce((b) => ({ x: back.x, y: back.y, n: (b?.n ?? 0) + 1, from: { x, y } }))
                     setMyCell({ x: back.x, y: back.y })
                   }
                 })
