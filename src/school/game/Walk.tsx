@@ -1227,6 +1227,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         }
       }
 
+      // 이 프레임에 위 두 맞추기를 건너뛰었으면 선다 — 바로 아래에서 또
+      // 잡지 않는다. 같은 프레임 안에서 되짚는 표시일 뿐이라 매 프레임
+      // false 로 되돌아간다
+      let skipCatchUp = false
       if (serverTile && serverTile !== lastServerTile) {
         // **이미 제 발로 가 있으면 건드리지 않는다.**
         //
@@ -1236,11 +1240,26 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         // **어느 방에도 없으면 건드리지 않는다.** 복도와 문턱이 그렇다 —
         // 거기 선 사람을 서버가 아는 방으로 끌어다 놓으면, 복도로
         // 나서자마자 도로 방 안으로 튕겨 들어간다. 실제로 그랬다
+        //
+        // **내가 물어본 대답이면 앞서 간 것뿐이다.** asked 가 서 있었다는
+        // 것은 이 방(serverTile)에 대한 대답을 기다리고 있었다는 뜻이다.
+        // 그 틈에 문을 하나 더 넘었어도 — 다음 요청은 asked 가 막아
+        // 서버까지 안 갔을 뿐, 걸음 자체는 한 번도 막힌 적이 없다.
+        // 여기서 도로 세우면 그렇게 걸어간 방을 지우고 문 앞으로 튕겨
+        // 보낸다("걷다가 자꾸 뒤로 돌아간다"는 신고가 이거였다). 아래
+        // asked=false 로 다음 문장이 곧바로 「지금 진짜 자리」를 서버에
+        // 다시 알리므로, 튕기지 않고 그대로 둬도 어긋난 채 남지 않는다.
+        //
+        // 내가 묻지 않았는데 자리가 바뀌었으면(덫·이적처럼 서버가 통째로
+        // 옮긴 것) 그때는 서버 말을 그대로 따른다.
+        const wasWaitingForThis = asked
         const standing = roomAt(self.tx, self.ty)?.id ?? null
-        if (standing !== null && standing !== serverTile) placeIn(serverTile)
+        const outran = wasWaitingForThis && standing !== null && standing !== serverTile
+        if (!outran && standing !== null && standing !== serverTile) placeIn(serverTile)
         lastServerTile = serverTile
         // 도착했다. 다음 문을 넘을 수 있다
         asked = false
+        skipCatchUp = outran
       }
 
       // 그래도 어긋났으면 서버 쪽으로 맞춘다. **어긋난 채로 두면
@@ -1250,6 +1269,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         !asked &&
         !self.moving &&
         !walkingRef.current &&
+        // **앞서 간 것을 바로 위에서 넘겼으면 여기서 또 잡지 않는다.**
+        // 안 그러면 위의 봐주기가 있으나 마나다 — 이 프레임에 한 번만
+        // 건너뛰고, 다음 프레임부터는 새 lastServerTile 로 다시 정상 작동한다
+        !skipCatchUp &&
         // **방 안에 있을 때만 본다.** 복도와 문턱은 어느 방도 아니라,
         // 거기 선 것을 어긋난 것으로 치면 복도를 걸을 수가 없다
         roomAt(self.tx, self.ty) !== null &&
