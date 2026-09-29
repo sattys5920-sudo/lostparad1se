@@ -77,7 +77,8 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
     const uid = await createAccount(idOf(i), password, NAMES[i])
     // 이미 있던 계정에도 덮어쓴다. QA 계정은 한 에뮬레이터 안에서
     // 판을 넘어 살아남는데, 그러면 처음 만든 판의 얼굴만 남는다
-    await setAccountLook(idOf(i), look)
+    // 프롤로그는 사람이 한 번 보는 것이다. 봇이 그 앞에 멈춰 서면 판이 안 돈다
+    await setAccountLook(idOf(i), look, { prologueSeen: true })
     made.push({ uid, name: NAMES[i], look })
   }
 

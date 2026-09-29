@@ -300,8 +300,8 @@ export async function looksByUid(uids: readonly string[]): Promise<Record<string
  * 쓰는 길(saveCharacter)은 본인 증표를 보지만, 이쪽은 운영자가 QA
  * 계정을 만들면서 함께 찍어 두는 것이라 증표를 볼 것이 없다.
  */
-export async function setAccountLook(rawId: string, avatar: AvatarLook): Promise<void> {
-  await accountRef(normalizeId(rawId)).set({ avatar }, { merge: true })
+export async function setAccountLook(rawId: string, avatar: AvatarLook, extra: { prologueSeen?: boolean } = {}): Promise<void> {
+  await accountRef(normalizeId(rawId)).set({ avatar, ...extra }, { merge: true })
 }
 
 /** 닉네임과 모습. 로그인한 본인 것만 고친다. */

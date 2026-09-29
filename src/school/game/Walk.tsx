@@ -1042,12 +1042,33 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     }
 
     /** 서버가 「너는 이 방에 있다」고 하면 그 방 안으로 옮겨 놓는다. */
-    /** 지금 남들이 서 있는 칸들. 내 자리를 고를 때 피한다. */
+    /**
+     * 지금 남들이 서 있는 칸들. **사람은 기물과 같다** — 이 칸으로는 못
+     * 걷고, 길도 돌아가며, 내 자리를 고를 때도 피한다.
+     *
+     * **보이는 자리로 막는다.** 남은 실시간 자리(live)로 그려지는데, 전에는
+     * 서버가 아는 칸(at)으로만 막았다. at 은 그 사람이 멈춰 설 때만 바뀌어서
+     * 조금 움직인 뒤에는 보이는 칸이 안 막혔다 — 그 칸으로 걸어 들어가면
+     * 그리는 쪽(standees)이 그 사람을 옆 칸으로 비켜 그려서, 내가 밀치고
+     * 지나가는 것처럼 보였다. 그리는 것과 같은 순서로 고른다: 같은 방의
+     * 실시간 자리가 있으면 그 칸, 없으면 서버가 아는 칸.
+     */
     function takenCells(): Set<string> {
       const out = new Set<string>()
+      // 시작 전 교실 — 서버가 아직 말을 안 세웠다. 보이는 것은 실시간 자리뿐이다
+      if (!viewRef.current) {
+        for (const m of rosterRef.current ?? []) {
+          if (m.playerId === me.playerId) continue
+          const now = liveOf(m.playerId)
+          if (now) out.add(`${Math.floor(now.x)},${Math.floor(now.y)}`)
+        }
+        return out
+      }
       for (const p of viewRef.current?.visiblePawns ?? []) {
-        if (p.playerId === me.playerId || p.walking || !p.at) continue
-        out.add(`${p.at.x},${p.at.y}`)
+        if (p.playerId === me.playerId || p.walking || !p.tileId) continue
+        const now = liveOf(p.playerId)
+        if (now && now.tileId === p.tileId) out.add(`${Math.floor(now.x)},${Math.floor(now.y)}`)
+        else if (p.at) out.add(`${p.at.x},${p.at.y}`)
       }
       return out
     }
