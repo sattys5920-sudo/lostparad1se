@@ -19,10 +19,10 @@ import {
   ROBOTS_PER_TEAM,
   ROOM_KIND,
   SMASHES_PER_PHASE,
+  ROBOTS_PER_ROOM,
   researchKnowledge,
-  leftBehindCount,
 } from '../../../shared/rules/occupy'
-import { ROAM_TO, TILE_BY_ID, type Cell } from '../../../shared/rules/board'
+import { TILE_BY_ID, type Cell } from '../../../shared/rules/board'
 import { canHoldFlags } from '../../../shared/rules/flag'
 import { TEAM_COLOR } from './MapPlan'
 import { atLabMachine } from '../../../shared/rules/trap'
@@ -69,7 +69,8 @@ const LABEL: Record<ActionKind, string> = {
   summon: '호출',
   plant: '깃발 꽂기',
   pull: '깃발 뽑기',
-  dropRobot: '로봇 두고 가기',
+  dropRobot: '로봇 놓기',
+  takeRobot: '로봇 수거',
   smashRobot: '로봇 부수기',
 }
 
@@ -82,13 +83,14 @@ const WHAT: Record<ActionKind, string> = {
   research: '20분 뒤 이 방에 완성품이 놓인다. 이 페이즈 동안은 나만 가져간다.',
   summon: '호루라기를 불어 같은 팀 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
   plant: '이 방에 우리 팀 깃발을 꽂는다. 뽑히기 전까지 남는다.',
-  pull: '우리 로봇이 있는 방에서 다른 팀 깃발 하나를 뽑는다. 팀마다 페이즈에 한 번.',
-  dropRobot: '로봇 1기를 이 방에 남긴다. 그 자리에서 깃발 하나로 센다.',
-  smashRobot: '상대 로봇 1기를 부순다.',
+  pull: '다른 팀 깃발에 손을 댄다. 서로 다른 두 사람이 손대야 하나가 뽑힌다.',
+  dropRobot: '들고 있는 로봇 1기를 이 방에 놓는다. 놓아야 깃발 하나로 센다.',
+  takeRobot: '내가 놓은 로봇 1기를 도로 든다. 든 로봇은 판정에 안 든다.',
+  smashRobot: '이 방에 놓인 상대 로봇 1기를 부순다.',
 }
 
 /** 그 자리에서 쓰는 것들. 이동은 여기 없다 — 맵에서 걸어서 한다. */
-const KINDS: ActionKind[] = ['plant', 'pull', 'summon', 'research', 'dropRobot', 'smashRobot']
+const KINDS: ActionKind[] = ['plant', 'pull', 'summon', 'research', 'dropRobot', 'takeRobot', 'smashRobot']
 
 /**
  * 한 행동에 드는 것 전부 — 토큰 · 지식 · 시간 · 물건.
@@ -140,7 +142,11 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
   const flagRows = (Object.entries(flagsHere) as [TeamId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   const pullable = flagRows.filter(([t]) => t !== me.team)
   const teamFlags = view?.myTeamFlags ?? 0
-  const myRobots = robots.filter((r) => asRoom(r.tileId) === here && r.team === me.team)
+  /** 이 방에 놓인 로봇 수 — 한도(ROBOTS_PER_ROOM)는 놓인 것만 먹는다 */
+  const placedHere = robots.filter((r) => asRoom(r.tileId) === here).length
+  /** 내가 놓아서 도로 거둘 수 있는 것 */
+  const mineHere = robots.filter((r) => asRoom(r.tileId) === here && r.mine)
+  const carried = view?.myCarriedRobots ?? 0
 
   /**
    * 왜 안 되는가. **null 이면 된다.**
@@ -176,10 +182,18 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       // 모른다(누가 손댔는지는 안 실린다). 두 번째로 손댔으면 서버가 거절한다
       if (pullable.length === 0) return '이 방에 뽑을 깃발이 없다.'
     }
-    // 이 방에 서 있는 우리 로봇이 아니라 **데리고 있는 것**을 본다
-    if (kind === 'dropRobot' && (view?.myCarriedRobots ?? 0) === 0) return '데리고 있는 로봇이 없다.'
+    // 이 방에 놓인 우리 로봇이 아니라 **들고 있는 것**을 본다
+    if (kind === 'dropRobot') {
+      if (carried === 0) return '들고 있는 로봇이 없다.'
+      if (placedHere >= ROBOTS_PER_ROOM) return `이 방에는 로봇을 ${ROBOTS_PER_ROOM}기까지 놓는다.`
+    }
+    // 거두는 것은 **놓은 사람만.** 같은 팀이 놓은 것도 못 거둔다
+    if (kind === 'takeRobot') {
+      if (mineHere.length === 0) return '이 방에 내가 놓은 로봇이 없다.'
+      if (carried >= MAX_CARRIED_ROBOTS) return `로봇은 ${MAX_CARRIED_ROBOTS}기까지 든다.`
+    }
     if (kind === 'smashRobot') {
-      if (enemyRobotsHere.length === 0) return '이 방에 상대 로봇이 없다.'
+      if (enemyRobotsHere.length === 0) return '이 방에 놓인 상대 로봇이 없다.'
       // 상대가 보고 있어도 부순다. 대신 한 사람 한 페이즈에 한 기다
       if ((view?.mySmashes ?? 0) >= SMASHES_PER_PHASE) return '이번 페이즈에는 이미 부쉈다.'
     }
@@ -194,7 +208,9 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       buzz('ok')
       onSaid(
         kind === 'plant' ? `${hereName}에 깃발을 꽂았다.`
-        : kind === 'pull' ? `${hereName}에서 ${t.targetTeam ?? ''}팀 깃발을 뽑았다.`
+        : kind === 'pull' ? `${hereName}에서 ${t.targetTeam ?? ''}팀 깃발에 손을 댔다.`
+        : kind === 'dropRobot' ? `${hereName}에 로봇을 놓았다.`
+        : kind === 'takeRobot' ? `${hereName}에서 로봇을 거뒀다.`
         : `${LABEL[kind]}. 팀 토큰 ${out.tokens ?? '?'}개 남았다.`,
       )
     } catch (e) {
@@ -244,7 +260,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
           const no = why(k)
           // 뽑기는 고를 팀이 둘 이상일 때만 펼친다. 하나면 바로 뽑는다
           const picking = k === 'pull' && pullable.length > 1
-          const fold = k === 'summon' || picking || k === 'dropRobot' || k === 'smashRobot'
+          // 놓기·거두기는 고를 것이 없다 — 든 것도 내가 놓은 것도 서로 똑같다
+          const fold = k === 'summon' || picking || k === 'smashRobot'
           return (
             <li key={k} ref={k === focus ? focusRef : undefined} className={k === focus ? 'is-focus' : undefined}>
               <button
@@ -284,20 +301,14 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
                 </div>
               )}
 
-              {open === k && (k === 'dropRobot' || k === 'smashRobot') && (
+              {open === k && k === 'smashRobot' && (
                 <div className="sc-ph__targets">
-                  {(k === 'dropRobot' ? myRobots : enemyRobotsHere).map((r) =>
-                    // 부순 로봇은 돌아오지 않는다. 한 번 더 누르게 한다
-                    k === 'smashRobot' ? (
-                      <Sure key={r.id} disabled={busy} warn="되돌릴 수 없다." onGo={() => void send(k, { targetRobot: r.id })}>
-                        로봇 <em>{r.team}</em>
-                      </Sure>
-                    ) : (
-                      <button key={r.id} disabled={busy} onClick={() => void send(k, { targetRobot: r.id })}>
-                        로봇 <em>{r.team}</em>
-                      </button>
-                    ),
-                  )}
+                  {/* 부순 로봇은 돌아오지 않는다. 한 번 더 누르게 한다 */}
+                  {enemyRobotsHere.map((r) => (
+                    <Sure key={r.id} disabled={busy} warn="되돌릴 수 없다." onGo={() => void send(k, { targetRobot: r.id })}>
+                      로봇 <em>{r.team}</em>
+                    </Sure>
+                  ))}
                 </div>
               )}
             </li>
@@ -319,26 +330,9 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         })}
       </p>
       <p className="sc-ph__note">
-        로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b> · 데리고 있는 것{' '}
-        <b>{view?.myCarriedRobots ?? 0}/{MAX_CARRIED_ROBOTS}</b>
+        로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b> · 들고 있는 것{' '}
+        <b>{carried}/{MAX_CARRIED_ROBOTS}</b> · 이 방에 놓인 것 <b>{placedHere}/{ROBOTS_PER_ROOM}</b>
       </p>
-      {/*
-        **갈 곳을 다 적지 않는다.** 복도가 층을 통째로 잇고 있어서 스물다섯
-        방이 늘 다 나왔다 — 「어디든 간다」를 스물다섯 번 적은 셈이었다.
-        남기는 것은 경고뿐이다: 저쪽에 로봇 자리가 모자라면 사람만 가고
-        넘치는 로봇은 이 방에 남는다.
-      */}
-      {here &&
-        (() => {
-          const full = (ROAM_TO[here] ?? []).flatMap((n) => {
-            const seen = view?.robotCounts?.[asRoom(n)]
-            const drop = seen === undefined ? 0 : leftBehindCount(view?.myCarriedRobots ?? 0, seen)
-            return drop > 0 ? [`${TILE_BY_ID[n].name} ${drop}기`] : []
-          })
-          return full.length === 0 ? null : (
-            <p className="sc-ph__note sc-ph__warn">로봇을 두고 간다 — {full.join(' · ')}</p>
-          )
-        })()}
     </div>
   )
 }

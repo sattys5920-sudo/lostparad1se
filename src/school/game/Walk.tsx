@@ -1760,6 +1760,27 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         })
       }
 
+      /*
+       * **놓인 로봇.** 깃발처럼 방에 놓이는 것이지 칸을 차지하지 않는다 —
+       * 깃발 다음 칸부터 세운다. 든 로봇은 가방 속이라 서버가 안 보낸다.
+       * 전에는 아무것도 안 그려서, 놓아 둔 로봇이 판정에는 세지는데
+       * 들어선 사람 눈에는 안 보였다.
+       */
+      const botsByRoom = new Map<TileId, TeamId[]>()
+      for (const r of viewRef.current?.visibleRobots ?? []) {
+        const list = botsByRoom.get(r.tileId as TileId) ?? []
+        list.push(r.team as TeamId)
+        botsByRoom.set(r.tileId as TileId, list)
+      }
+      for (const [roomId, teams] of botsByRoom) {
+        const slots = flagSlots(roomId)
+        const flags = Object.values(viewRef.current?.flagCounts?.[roomId] ?? {}).reduce((a, n) => a + (n ?? 0), 0)
+        teams.forEach((team, i) => {
+          const c = slots[flags + i]
+          if (c) drawRobot(ctx, c.x * TILE - camX, c.y * TILE - camY, team)
+        })
+      }
+
       // 남들. 방 한가운데에 선 것으로 그린다 — 서버가 아는 것도 거기까지다.
       //
       // **걷는 사람은 그리지 않는다.** 문과 문 사이에 있는 사람은 어느
@@ -2624,6 +2645,33 @@ function drawFlag(ctx: CanvasRenderingContext2D, x: number, y: number, team: Tea
   // 꼭대기 구슬
   ctx.fillStyle = '#f2d36b'
   ctx.fillRect(x + 3, y + 1, 1, 1)
+}
+
+/**
+ * 방에 놓인 로봇 하나 — 한 칸(16px) 안에. 더듬이, 네모 머리, 두 눈.
+ * 몸은 팀색이라 들어서면 누구 로봇인지 바로 보인다.
+ */
+function drawRobot(ctx: CanvasRenderingContext2D, x: number, y: number, team: TeamId): void {
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'
+  ctx.fillRect(x + 3, y + 14, 10, 1)
+  ctx.fillStyle = MAP.outline
+  // 더듬이
+  ctx.fillRect(x + 7, y + 1, 2, 3)
+  // 머리 테와 다리
+  ctx.fillRect(x + 2, y + 4, 12, 9)
+  ctx.fillRect(x + 4, y + 13, 2, 1)
+  ctx.fillRect(x + 10, y + 13, 2, 1)
+  ctx.fillStyle = TEAM_COLOR[team]
+  ctx.fillRect(x + 3, y + 5, 10, 7)
+  // 눈 둘과 입
+  ctx.fillStyle = '#f2f4f8'
+  ctx.fillRect(x + 5, y + 7, 2, 2)
+  ctx.fillRect(x + 9, y + 7, 2, 2)
+  ctx.fillStyle = MAP.outline
+  ctx.fillRect(x + 6, y + 10, 4, 1)
+  // 더듬이 끝 불빛
+  ctx.fillStyle = '#f2d36b'
+  ctx.fillRect(x + 7, y, 2, 1)
 }
 
 /**

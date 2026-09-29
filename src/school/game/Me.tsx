@@ -153,7 +153,7 @@ export function Me(props: MeProps) {
             <Chip icon="knowledge" n={view?.teamVault?.knowledge ?? null} label="지식" />
             <Chip icon="hand" n={itemCount} label="아이템" />
             <Chip icon="slip" n={slipCount} label="쪽지" />
-            <Chip icon="mate" n={view?.myCarriedRobots ?? null} label="짝" />
+            <Chip icon="mate" n={view?.myCarriedRobots ?? null} label="로봇" />
           </button>
 
           {haveOpen && (

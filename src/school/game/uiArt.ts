@@ -342,7 +342,7 @@ const MADE = M([
   '                ',
 ])
 
-/** 로봇 두고 가기 — 내려놓는 로봇. */
+/** 로봇 놓기 — 내려놓는 로봇. */
 const DROP_ROBOT = M([
   '       33       ',
   '       33       ',
@@ -360,6 +360,26 @@ const DROP_ROBOT = M([
   '     444444     ',
   '      4444      ',
   '       44       ',
+])
+
+/** 로봇 수거 — 들어 올리는 로봇(놓기의 화살을 거꾸로). */
+const TAKE_ROBOT = M([
+  '       44       ',
+  '      4444      ',
+  '     444444     ',
+  '       44       ',
+  '       44       ',
+  '  333333333333  ',
+  '  311111111113  ',
+  '  311111111113  ',
+  '  313311113313  ',
+  '  313311113313  ',
+  '  311111111113  ',
+  '  311333333113  ',
+  '  311111111113  ',
+  '  333333333333  ',
+  '                ',
+  '                ',
 ])
 
 /** 로봇 부수기 — 쪼개진 로봇. */
@@ -568,7 +588,7 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   talk: TALK,
   buy: BUY,
   arcade: ARCADE,
-  // 점령전 행동 여섯. **열쇠가 곧 ActionKind 다** — Phase 화면이
+  // 점령전 행동 일곱. **열쇠가 곧 ActionKind 다** — Phase 화면이
   // uiIcon(kind) 로 바로 집는다. 아래 자기 검사가 빠진 것을 잡는다
   research: RESEARCH,
   made: MADE,
@@ -578,6 +598,7 @@ export const UI_ART: Readonly<Record<string, readonly string[]>> = {
   plant: PLANT,
   pull: PULL,
   dropRobot: DROP_ROBOT,
+  takeRobot: TAKE_ROBOT,
   smashRobot: SMASH_ROBOT,
   pot: POT,
   tabMap: TAB_MAP,
@@ -600,6 +621,7 @@ const ACT_ART: Record<Exclude<ActionKind, 'move'>, true> = {
   plant: true,
   pull: true,
   dropRobot: true,
+  takeRobot: true,
   smashRobot: true,
 }
 

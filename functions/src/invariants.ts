@@ -141,7 +141,8 @@ export async function checkInvariants(gameId: string, nowMs: number): Promise<Vi
   for (const d of robots.docs) {
     const r = d.data() as Robot
     byTeam.set(r.team, (byTeam.get(r.team) ?? 0) + 1)
-    if (r.tileId) byRoom.set(r.tileId, (byRoom.get(r.tileId) ?? 0) + 1)
+    // 방 한도는 **놓인 것만** 먹는다. 든 로봇은 가방 속이다
+    if (r.tileId && !r.carriedBy) byRoom.set(r.tileId, (byRoom.get(r.tileId) ?? 0) + 1)
   }
   for (const [team, n] of byTeam) if (n > ROBOTS_PER_TEAM) bad('robotsOverTeam', `${team}팀 로봇 ${n} > ${ROBOTS_PER_TEAM}`)
   for (const [tile, n] of byRoom) if (n > ROBOTS_PER_ROOM) bad('robotsOverRoom', `${roomName(tile)} 로봇 ${n} > ${ROBOTS_PER_ROOM}`)

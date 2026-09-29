@@ -219,7 +219,7 @@ export const ROLE_DATA: readonly RoleData[] = [
     goal: "로봇을 2기 이상 만든다.",
     line: "이번에는 만들어서 내놓는다.",
     clauses: [
-      { kind: "robotsMade", text: "만든 짝", need: 2, disclosure: "realtime" },
+      { kind: "robotsMade", text: "만든 로봇", need: 2, disclosure: "realtime" },
     ],
     footnote: "한도 초과로 불발되거나 환불된 연구는 안 센다.",
     notes: [
@@ -242,7 +242,7 @@ export const ROLE_DATA: readonly RoleData[] = [
     goal: "남의 팀 로봇을 1기 이상 파괴한다.",
     line: "이번에는 미루지 않는다. 손을 대는 쪽으로.",
     clauses: [
-      { kind: "robotsSmashedOfOthers", text: "무너뜨린 남의 팀 짝", need: 1, disclosure: "realtime" },
+      { kind: "robotsSmashedOfOthers", text: "무너뜨린 남의 팀 로봇", need: 1, disclosure: "realtime" },
     ],
     footnote: "이적으로 한도가 넘쳐 저절로 사라진 것은 안 센다.",
     notes: [

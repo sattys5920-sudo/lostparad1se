@@ -470,8 +470,10 @@ export interface PlayerViewDoc {
   myItems?: Satchel
   /** 우리 팀 로봇 수. 남의 팀 총수는 안 온다. */
   myTeamRobots?: number
-  /** 내가 데리고 다니는 로봇 수. */
+  /** 내가 들고 다니는 로봇 수. */
   myCarriedRobots?: number
+  /** 내가 들고 다니는 로봇들. 놓을 것을 고르는 데 쓴다. */
+  myCarried?: { id: string }[]
   /** 이번 페이즈에 내가 부순 로봇 수. 남의 것은 안 온다. */
   mySmashes?: number
   /** 오늘 내가 적은 사람. **남이 누구를 적었는지는 안 온다.** */
@@ -605,8 +607,11 @@ export interface PlayerViewDoc {
   }[]
   /** 내가 가 본 방. 지도가 채워지는 것은 개인의 기록이다. */
   visitedTiles: TileId[]
-  /** 보이는 방에 있는 로봇. 사람처럼 안개를 거친다. */
-  visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
+  /**
+   * 보이는 방에 **놓인** 로봇. 사람처럼 안개를 거친다. 든 로봇은 안 온다.
+   * mine 은 내가 놓은 것 — 거둘 수 있는 것은 이것뿐이다(옛 문서에는 없다).
+   */
+  visibleRobots: { id: string; team: TeamId; tileId: TileId; mine?: boolean }[]
   /** 내가 선 방에 놓인 주인 없는 완성품. */
   madeHere: { id: string; byPlayerId: string; mine: boolean; locked: boolean }[]
   /** 방마다 내게 보이는 머릿수. 위장이 이미 반영돼 있다. */

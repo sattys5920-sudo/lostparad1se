@@ -37,7 +37,7 @@ export interface Stake {
   items: Satchel
   /** 접힌 쪽지 장수. */
   slips: number
-  /** 데리고 있는 짝만. 방에 세워 둔 것은 못 건넨다. */
+  /** 들고 있는 로봇만. 방에 놓은 것은 못 건넨다. */
   robots: number
 }
 
@@ -130,7 +130,40 @@ export const SHORT_MESSAGE: Record<StakeRefusal, string> = {
   shortKnowledge: '지식이 모자라다.',
   shortItems: '그 물건이 모자라다.',
   shortSlips: '쪽지가 모자라다.',
-  shortRobots: '데리고 있는 짝이 모자라다.',
+  shortRobots: '들고 있는 로봇이 모자라다.',
+}
+
+/**
+ * 로봇이 오가고 나서 **받는 쪽이 한도를 넘는가.** 넘으면 그 이유, 아니면 null.
+ *
+ * 받은 로봇은 손에 든다 — 한 사람이 드는 한도(carryCap)를 본다. 다른 팀에서
+ * 넘어오면 그 팀 머릿수가 늘어나니 팀 한도(teamCap)도 본다. 같은 팀끼리는
+ * 팀 수가 그대로다.
+ */
+export type RobotSwapNo = 'handsFull' | 'teamFull'
+
+export const ROBOT_SWAP_MESSAGE: Record<RobotSwapNo, string> = {
+  handsFull: '로봇은 두 기까지 든다 — 하나를 놓고 와야 받는다.',
+  teamFull: '받는 팀은 로봇을 더 가질 수 없다.',
+}
+
+export function robotSwapNo(a: {
+  /** 받는 사람이 지금 든 수 */
+  carried: number
+  /** 받는 사람이 내주는 수 */
+  gives: number
+  /** 받는 사람이 받는 수 */
+  gets: number
+  /** 받는 사람 팀의 로봇 수(든 것·놓인 것 모두) */
+  teamRobots: number
+  sameTeam: boolean
+  carryCap: number
+  teamCap: number
+}): RobotSwapNo | null {
+  if (a.gets <= 0) return null
+  if (a.carried - a.gives + a.gets > a.carryCap) return 'handsFull'
+  if (!a.sameTeam && a.teamRobots - a.gives + a.gets > a.teamCap) return 'teamFull'
+  return null
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   gainOf,
   newDeal,
   readyToSettle,
+  robotSwapNo,
   shortOf,
   stakeIsEmpty,
   stakeOf,
@@ -178,5 +179,23 @@ describe('누가 무엇을 주고받는가', () => {
     expect(stakeIsEmpty(EMPTY_STAKE)).toBe(true)
     expect(stakeIsEmpty(put({ items: { lock: 0 } }))).toBe(true)
     expect(stakeIsEmpty(put({ items: { lock: 1 } }))).toBe(false)
+  })
+})
+
+describe('로봇이 오갈 때 받는 쪽 한도', () => {
+  const base = { carried: 0, gives: 0, gets: 1, teamRobots: 0, sameTeam: false, carryCap: 2, teamCap: 6 }
+
+  it('받는 것이 없으면 볼 것도 없다', () => {
+    expect(robotSwapNo({ ...base, gets: 0, carried: 5 })).toBeNull()
+  })
+
+  it('두 기를 든 사람은 더 못 받는다 — 하나 내주면 받는다', () => {
+    expect(robotSwapNo({ ...base, carried: 2 })).toBe('handsFull')
+    expect(robotSwapNo({ ...base, carried: 2, gives: 1 })).toBeNull()
+  })
+
+  it('다른 팀에서 넘어오면 팀 한도를 본다 — 같은 팀끼리는 안 본다', () => {
+    expect(robotSwapNo({ ...base, teamRobots: 6 })).toBe('teamFull')
+    expect(robotSwapNo({ ...base, teamRobots: 6, sameTeam: true })).toBeNull()
   })
 })

@@ -265,7 +265,10 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
      * 고르게 했는데, 같은 문으로 들어온 여럿이 한 칸에 겹쳐 섰다
      */
     const cell = await pickSeat(c.tx, c.gameId, playerId, tileId)
+    // 든 로봇은 가방 속이라 같이 선다
+    const held = await c.tx.get(ref.collection('robots').where('carriedBy', '==', playerId))
     claimSeat(c.tx, c.gameId, playerId, cell, c.atMs)
+    for (const d of held.docs) c.tx.update(d.ref, { tileId })
     c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, at: cell, visitedTiles: [...been] })
     // 이 칸에 섰다. 체류 기록은 트랜잭션 밖에서 연다
     c.landed.push({ playerId, tileId, atMs: c.atMs })

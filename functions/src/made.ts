@@ -12,7 +12,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { MADE_NO, landsToOwner, whyNotTake, type MadeDoc } from '../../shared/rules/made'
-import { MAX_CARRIED_ROBOTS, ROBOTS_PER_ROOM, ROBOTS_PER_TEAM, type PendingResearch } from '../../shared/rules/occupy'
+import { MAX_CARRIED_ROBOTS, ROBOTS_PER_TEAM, type PendingResearch } from '../../shared/rules/occupy'
 import type { TileId } from '../../shared/rules/board'
 import type { TeamId } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc } from '../../shared/model'
@@ -37,31 +37,23 @@ interface RobotRow {
   team: TeamId
   tileId: TileId
   carriedBy: string | null
+  placedBy?: string | null
 }
 
-/** 그 팀·그 방이 로봇을 더 받을 수 있는가. 한도는 규칙 쪽 값이다. */
-async function roomFor(gameId: string, team: TeamId, tileId: TileId): Promise<boolean> {
-  const bots = await robotsOf(gameId).get()
-  const rows = bots.docs.map((d) => d.data() as RobotRow)
+/**
+ * 그 사람이 로봇을 하나 더 받을 수 있는가. **받은 로봇은 손에 든다** —
+ * 방에 놓이는 것이 아니니 방 한도는 안 본다. 팀 한도와 드는 한도를 본다.
+ */
+async function handsFor(gameId: string, team: TeamId, holder: string): Promise<boolean> {
+  const rows = (await robotsOf(gameId).get()).docs.map((d) => d.data() as RobotRow)
   if (rows.filter((r) => r.team === team).length >= ROBOTS_PER_TEAM) return false
-  return rows.filter((r) => r.tileId === tileId).length < ROBOTS_PER_ROOM
+  return rows.filter((r) => r.carriedBy === holder).length < MAX_CARRIED_ROBOTS
 }
 
-/** 로봇 하나를 낸다. 들 수 있으면 그 사람이 들고 간다. */
-async function bornFor(
-  gameId: string,
-  team: TeamId,
-  tileId: TileId,
-  holder: string | null,
-): Promise<string> {
+/** 로봇 하나를 낸다. **그 사람이 들고 간다** — 부르는 쪽이 handsFor 로 먼저 본다 */
+async function bornFor(gameId: string, team: TeamId, tileId: TileId, holder: string): Promise<string> {
   const id = `bot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-  let carriedBy: string | null = null
-  if (holder) {
-    const bots = await robotsOf(gameId).get()
-    const held = bots.docs.filter((d) => (d.data() as RobotRow).carriedBy === holder).length
-    carriedBy = held < MAX_CARRIED_ROBOTS ? holder : null
-  }
-  await robotsOf(gameId).doc(id).set({ id, team, tileId, carriedBy })
+  await robotsOf(gameId).doc(id).set({ id, team, tileId, carriedBy: holder, placedBy: null })
   return id
 }
 
@@ -109,7 +101,7 @@ export async function landResearch(gameId: string): Promise<void> {
     const team = pawn?.team
     // 본인이 그 연구실에 서 있으면 바로 받는다
     if (pawn && team && landsToOwner(pawn.tileId, r.tileId)) {
-      if (await roomFor(gameId, team, r.tileId)) {
+      if (await handsFor(gameId, team, r.playerId)) {
         const id = await bornFor(gameId, team, r.tileId, r.playerId)
         await note(gameId, 'robotBorn', nowMs, { id: r.playerId, team }, {
           tileId: r.tileId,
@@ -119,7 +111,7 @@ export async function landResearch(gameId: string): Promise<void> {
         await researchTierUp(gameId, team)
         continue
       }
-      // 한도가 찼으면 받지 못한다. 물건은 그대로 놓인다
+      // 손이 찼으면(두 기) 받지 못한다. 물건은 그대로 놓인다 — 하나 놓고 와서 가져간다
     }
     // 못 받았다. 완성품으로 놓인다 — 이 페이즈 동안은 건 사람만 가져간다
     const doc: MadeDoc = {
@@ -174,8 +166,8 @@ export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) =
       tileId: m.tileId,
       teamRobots: bots.filter((r) => r.team === pawn.team).length,
       teamCap: ROBOTS_PER_TEAM,
-      roomRobots: bots.filter((r) => r.tileId === m.tileId).length,
-      roomCap: ROBOTS_PER_ROOM,
+      carried: bots.filter((r) => r.carriedBy === uid).length,
+      carryCap: MAX_CARRIED_ROBOTS,
     })
     if (no) throw new HttpsError('failed-precondition', `${MADE_NO[no]}.`)
     // **먼저 가져간 사람만 가진다.** 둘이 같은 것을 노리면 여기서 갈린다

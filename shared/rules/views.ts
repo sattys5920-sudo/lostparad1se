@@ -168,7 +168,7 @@ export interface World {
   invisibleId: string | null
   pawns: readonly WorldPawn[]
   /** 판 위의 로봇. 사람처럼 안개를 거친다 — 보이는 방의 것만 내려간다. */
-  robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null }[]
+  robots?: readonly { id: string; team: TeamId; tileId: TileId; carriedBy: string | null; placedBy?: string | null }[]
   /** 연구실에 놓인 주인 없는 완성품. */
   made?: readonly { id: string; tileId: TileId; byPlayerId: string; phaseNo?: number; machine?: number }[]
   /** 연구 기계에 걸린 연구. 누가 걸었는지째로 — 투영이 「내 것 / 남의 것」으로 줄인다 */
@@ -258,8 +258,11 @@ export interface View {
    * 말지를 한 줄로 판단할 수 있게, 같은 계산에서 아이디만 떼어 둔다.
    */
   visibleIds: string[]
-  /** 보이는 방에 있는 로봇. 머릿수로만 센다. */
-  visibleRobots: { id: string; team: TeamId; tileId: TileId }[]
+  /**
+   * 보이는 방에 **놓인** 로봇. 든 것은 가방 속이라 안 온다.
+   * mine 은 내가 놓은 것인가 — 거둘 수 있는 것은 이것뿐이다. 누가 놓았는지는 안 온다.
+   */
+  visibleRobots: { id: string; team: TeamId; tileId: TileId; mine: boolean }[]
   /**
    * **내가 선 방에 놓인** 완성품. locked 면 남의 것이라 이 페이즈 동안은 못 가져간다.
    *
@@ -373,8 +376,10 @@ export interface View {
    * 안 보낸다.
    */
   myTeamRobots: number
-  /** 내가 데리고 다니는 로봇 수. 두고 갈 것을 미리 셈하는 데 쓴다. */
+  /** 내가 들고 다니는 로봇 수. MAX_CARRIED_ROBOTS 까지다. */
   myCarriedRobots: number
+  /** 내가 들고 다니는 로봇들. 놓을 것을 고르는 데 쓴다. */
+  myCarried: { id: string }[]
   /**
    * 이번 페이즈에 **내가** 부순 로봇 수. 남이 몇 기를 부쉈는지는 안 온다.
    *
@@ -390,10 +395,10 @@ export interface View {
    */
   myBallot: string | null
   /**
-   * 보이는 방마다 서 있는 로봇 수. 안 보이는 방은 아예 넣지 않는다.
+   * 보이는 방마다 **놓인** 로봇 수. 안 보이는 방은 아예 넣지 않는다.
    *
    * 정원과 별개라 roomCounts 와 따로 간다 — 화면이 「사람 3/6 · 로봇 1/2」
-   * 을 그대로 그리고, 옮기기 전에 몇 기를 두고 가는지도 여기서 센다.
+   * 을 그대로 그린다. 든 로봇은 방 한도를 안 먹으므로 안 센다.
    */
   robotCounts: Record<TileId, number>
   /**
@@ -536,17 +541,13 @@ export interface View {
  */
 function countRooms(
   pawns: readonly { playerId: string; team: TeamId; tileId: TileId | null }[],
-  robots: readonly { team: TeamId; tileId: TileId }[],
   visible: ReadonlySet<TileId>,
 ): Record<TileId, number> {
+  // **로봇은 정원에 안 든다.** 사람만 센다 — 로봇 수는 robotCounts 가 따로 간다
   const out: Record<TileId, number> = {}
   for (const p of pawns) {
     if (p.tileId === null || !visible.has(p.tileId)) continue
     out[p.tileId] = (out[p.tileId] ?? 0) + 1
-  }
-  for (const r of robots) {
-    if (!visible.has(r.tileId)) continue
-    out[r.tileId] = (out[r.tileId] ?? 0) + 1
   }
   return out
 }
@@ -587,6 +588,7 @@ export function projectView(world: World, viewerId: string): View {
       myItems: {},
       myTeamRobots: 0,
       myCarriedRobots: 0,
+      myCarried: [],
       mySmashes: 0,
       myBallot: null,
       robotCounts: {},
@@ -677,12 +679,13 @@ export function projectView(world: World, viewerId: string): View {
      * 본다 — 무엇을 들었는지까지가 보이는 것이고, 무슨 심부름인지는
      * 안 보인다. 보이는 사람에게만 붙으므로 새는 길도 아니다.
      */
-    roomCounts: countRooms(seenPawns, world.robots ?? [], visible),
+    roomCounts: countRooms(seenPawns, visible),
 
-    // 로봇도 안개를 거친다. 보이지 않는 방의 로봇은 아예 안 보낸다
+    // 로봇도 안개를 거친다. 보이지 않는 방의 로봇은 아예 안 보낸다.
+    // **놓인 것만.** 든 로봇은 가방 속이라 누가 몇 기 들었는지 새지 않는다
     visibleRobots: (world.robots ?? [])
-      .filter((r) => visible.has(r.tileId))
-      .map((r) => ({ id: r.id, team: r.team, tileId: r.tileId })),
+      .filter((r) => r.carriedBy === null && visible.has(r.tileId))
+      .map((r) => ({ id: r.id, team: r.team, tileId: r.tileId, mine: r.placedBy === viewerId })),
 
     // 내가 선 방에 놓인 것만. 걷는 중이면 아무것도 안 온다
     madeHere: (world.made ?? [])
@@ -857,10 +860,11 @@ export function projectView(world: World, viewerId: string): View {
     myCrops: world.crops?.[viewerId] ?? {},
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
+    myCarried: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).map((r) => ({ id: r.id })),
     mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,
     myBallot: world.myBallots?.[viewerId] ?? null,
     robotCounts: Object.fromEntries(
-      [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.tileId === t).length]),
+      [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.carriedBy === null && r.tileId === t).length]),
     ) as Record<TileId, number>,
     flagCounts: Object.fromEntries(
       [...visible].filter((t) => world.flags?.[t] !== undefined).map((t) => [t, { ...world.flags?.[t] }]),

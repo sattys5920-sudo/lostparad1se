@@ -86,7 +86,8 @@ const ACT_LABEL: Record<ActionKind, string> = {
   summon: '호출',
   plant: '깃발 꽂기',
   pull: '깃발 뽑기',
-  dropRobot: '로봇 두기',
+  dropRobot: '로봇 놓기',
+  takeRobot: '로봇 수거',
   smashRobot: '로봇 부수기',
 }
 
@@ -97,10 +98,20 @@ const ACTION_KINDS: readonly ActionKind[] = [
   'plant',
   'pull',
   'dropRobot',
+  'takeRobot',
   'smashRobot',
 ]
 
 const robotsOf = (gameId: string) => gameRef(gameId).collection('robots')
+
+/** 로봇 문서 → 규칙의 Robot. **놓은 사람(placedBy)도 옮겨야** 수거가 본인만 된다 */
+const robotFrom = (d: { id: string; data(): unknown }): Robot => {
+  const r = d.data() as Robot
+  return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null, placedBy: r.placedBy ?? null }
+}
+
+/** 적는 모양. undefined 를 남기지 않는다 */
+const robotRow = (r: Robot) => ({ id: r.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy, placedBy: r.placedBy ?? null })
 
 /**
  * 이번 페이즈의 감출 것들. **판 문서에 두면 안 된다.**
@@ -265,10 +276,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
   const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
 
   const people: Person[] = pawns.docs.map((d) => personOf(d.id, d.data() as PawnDoc))
-  const robots: Robot[] = bots.docs.map((d) => {
-    const r = d.data() as Robot
-    return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
-  })
+  const robots: Robot[] = bots.docs.map(robotFrom)
   const owners: Partial<Record<TileId, TeamId | null>> = {}
   for (const d of tiles.docs) owners[d.id as TileId] = (d.data() as TileDoc).ownerTeam ?? null
 
@@ -575,10 +583,7 @@ export const phaseAct = onCall<{
     }
     const before: PhaseState = {
       people: pawns.docs.map((d) => personOf(d.id, d.data() as PawnDoc)),
-      robots: bots.docs.map((d) => {
-        const r = d.data() as Robot
-        return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
-      }),
+      robots: bots.docs.map(robotFrom),
       owners: Object.fromEntries(tiles.docs.map((d) => [d.id, (d.data() as TileDoc).ownerTeam ?? null])),
       pendingResearch: queued(h.pendingResearch),
       flags: flagMapOf(flagSnap),
@@ -745,7 +750,7 @@ export const phaseAct = onCall<{
         bot.gone.push({ id: d.id, team: was?.team ?? ('A' as TeamId) })
       }
     }
-    for (const r of out.next.robots) tx.set(robotsOf(gameId).doc(r.id), { ...r })
+    for (const r of out.next.robots) tx.set(robotsOf(gameId).doc(r.id), robotRow(r))
 
     tx.set(hiddenOf(gameId), {
       /*
@@ -889,7 +894,7 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
 
   const had = await robotsOf(gameId).get()
   for (const d of had.docs) batch.delete(d.ref)
-  for (const r of out.next.robots) batch.set(robotsOf(gameId).doc(r.id), { ...r })
+  for (const r of out.next.robots) batch.set(robotsOf(gameId).doc(r.id), robotRow(r))
 
   for (const [tileId, team] of Object.entries(out.next.owners)) {
     const was = state.owners[tileId as TileId] ?? null
@@ -1064,7 +1069,10 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
      * 고르게 했는데, 같은 문으로 들어온 여럿이 문 앞 한 칸에 겹쳐 섰다
      */
     const cell = await pickSeat(tx, gameId, uid, tileId, near)
+    // **든 로봇은 가방 속이라 같이 간다.** 안 옮기면 앞 방에 남았다가 페이즈 걸음 때 순간이동한다
+    const held = await tx.get(robotsOf(gameId).where('carriedBy', '==', uid))
     claimSeat(tx, gameId, uid, cell, nowMs)
+    for (const d of held.docs) tx.update(d.ref, { tileId })
     seat = cell
     tx.update(mine.ref, {
       tileId,

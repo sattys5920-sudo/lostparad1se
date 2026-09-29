@@ -186,8 +186,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       endingSeen.docs.map((d) => [d.id, (d.data() as { seenAtMs: number }).seenAtMs]),
     ),
     robots: robots.docs.map((d) => {
-      const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }
-      return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null }
+      const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null; placedBy?: string | null }
+      return { id: d.id, team: r.team, tileId: r.tileId, carriedBy: r.carriedBy ?? null, placedBy: r.placedBy ?? null }
     }),
     made: made.docs.map((d) => {
       const m = d.data() as { tileId: TileId; byPlayerId: string; phaseNo?: number; machine?: number }

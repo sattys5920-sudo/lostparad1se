@@ -2,8 +2,9 @@
 //
 // 한때는 페이즈가 끝날 때 **그 방에 서 있는 머릿수**로 주인을 정했다.
 // 이제는 **꽂힌 깃발 수**로 정한다(rules/flag). 깃발은 페이즈 중에만
-// 꽂고, 뽑히기 전까지 남는다. 뽑으려면 우리 팀 로봇이 같은 방에 있어야
-// 한다(토큰, 팀마다 페이즈에 한 번). 로봇은 옮길 수 있는 깃발 하나로도 센다.
+// 꽂고, 뽑히기 전까지 남는다. 뽑으려면 서로 다른 두 사람이 손대야 한다
+// (사람마다 토큰). 로봇은 **방에 놓아야** 깃발 하나로 센다 — 들고 다니는
+// 것은 가방 속이라 안 센다. 놓고 거두는 것은 페이즈 중에만, 놓은 사람만.
 //
 // **페이즈는 한 시간짜리 라이브 판이다.** 관리자가 열면 한 시간이 흐르고,
 // 그동안 각자 토큰만큼 움직이고 깃발을 꽂는다. 한 시간이 끝난 순간 방마다
@@ -135,7 +136,7 @@ export const MOVE_MINUTES = 10
 // 받아도 탁자에 올릴 것이 없으면 그만이다 — 조이는 것은 이미
 // 금고다.
 
-/** 사람 한 명이 데리고 다닐 수 있는 로봇. */
+/** 사람 한 명이 들고 다닐 수 있는 로봇. 든 로봇은 판정에도 방 한도에도 안 든다. */
 export const MAX_CARRIED_ROBOTS = 2
 
 /**
@@ -198,7 +199,7 @@ export const researchKnowledge = (ownsLab: boolean): number =>
 
 export type RoomKind = 'normal' | 'narrow' | 'lab'
 
-/** 방에 들어갈 수 있는 머릿수. 로봇도 한 자리를 차지한다. */
+/** 방에 들어갈 수 있는 머릿수. **사람만 센다** — 로봇은 정원에 안 든다(ROBOTS_PER_ROOM 이 따로다). */
 export const ROOM_CAPACITY: Record<RoomKind, number> = {
   normal: 6,
   narrow: 2,
@@ -268,14 +269,31 @@ export type Wallets = Readonly<Partial<Record<TeamId, number>>>
 /** 그 팀 상자에 남은 토큰. */
 export const walletOf = (state: PhaseState, team: TeamId): number => state.wallets[team] ?? 0
 
+/**
+ * 로봇 — **놓아야 깃발 하나로 센다.**
+ *
+ * 들고 있는 로봇은 가방 속 물건이다. 어느 방 판정에도 안 들어가고, 방의
+ * 로봇 한도(ROBOTS_PER_ROOM)도 안 먹는다. 방에 놓는 순간부터 그 방에서
+ * 사라지지 않는 깃발처럼 센다 — 페이즈가 바뀌어도 남는다. 놓은 사람만
+ * 도로 거둔다(takeRobot). 남의 팀은 부수기로만 없앤다.
+ */
 export interface Robot {
   id: string
   team: TeamId
-  /** 데리고 다니는 중이면 주인이 선 방과 같다. */
+  /** 놓인 방. 들고 있는 동안은 든 사람이 선 방을 따라간다(판정엔 안 든다) */
   tileId: TileId
-  /** 누가 데리고 있는가. 두고 간 로봇은 null. */
+  /** 누가 들고 있는가. 방에 놓인 로봇은 null. */
   carriedBy: string | null
+  /** 누가 놓았는가. **이 사람만 도로 거둔다.** 없으면(옛 판) 같은 팀 누구나 */
+  placedBy?: string | null
 }
+
+/** 방에 놓인 로봇인가 — 판정 · 방 한도 · 남에게 보이는 것은 이것만이다 */
+export const isPlaced = (r: Pick<Robot, 'carriedBy'>): boolean => r.carriedBy === null
+
+/** 이 사람이 이 로봇을 도로 거둘 수 있는가. 놓은 사람만(옛 판은 같은 팀) */
+export const canCollectRobot = (r: Pick<Robot, 'carriedBy' | 'team' | 'placedBy'>, playerId: string, team: TeamId): boolean =>
+  isPlaced(r) && (r.placedBy ? r.placedBy === playerId : r.team === team)
 
 /**
  * 걸어 둔 연구 한 건.
@@ -344,7 +362,7 @@ export interface PhaseState {
    * 오늘 지워진 사람. 없으면 null.
    *
    * **사람과 얽히는 일의 대상이 되지 않는다** — 호출이 이 사람을
-   * 지나친다. 깃발도 못 꽂고 못 뽑는다. 대신 데리고 있는 짝은 부술 수 있다.
+   * 지나친다. 깃발은 뽑지 못한다. 들고 있는 로봇은 가방 속이라 아무도 못 부순다.
    */
   invisibleId?: string | null
   /**
@@ -368,7 +386,7 @@ const EMPTY_VAULT: Vault = { money: 0, knowledge: 0 }
 /** 그 팀 금고. 없으면 빈 것으로 친다. */
 export const vaultOf = (state: PhaseState, team: TeamId): Vault => state.vaults[team] ?? EMPTY_VAULT
 
-export type ActionKind = 'move' | 'research' | 'summon' | 'plant' | 'pull' | 'dropRobot' | 'smashRobot'
+export type ActionKind = 'move' | 'research' | 'summon' | 'plant' | 'pull' | 'dropRobot' | 'takeRobot' | 'smashRobot'
 
 /**
  * 행동에 드는 토큰. 이동은 **방 하나에 들어서는 값**이다.
@@ -385,10 +403,12 @@ export const ACT_COST: Record<ActionKind, number> = {
   summon: 0,
   // **깃발은 토큰이 아니라 깃발이 든다.** 팀 상자에서 하나 빠진다
   plant: 0,
-  // 뽑기는 토큰이 들고, 우리 로봇이 같은 방에 있어야 한다(rules/flag)
+  // 뽑기는 손댈 때마다 토큰이 든다. **서로 다른 두 사람**이 손대야 하나가 뽑힌다
   pull: PULL_COST,
   // 들고 있던 것을 내려놓는 것뿐이다. 값을 물리면 아무도 안 둔다
   dropRobot: 0,
+  // 놓았던 것을 도로 드는 것도 같다
+  takeRobot: 0,
   smashRobot: 1,
 }
 
@@ -411,6 +431,7 @@ export const ACT_MINUTES: Record<ActionKind, number> = {
   plant: 0,
   pull: 0,
   dropRobot: 0,
+  takeRobot: 0,
   smashRobot: 0,
 }
 
@@ -420,7 +441,7 @@ export interface Act {
   targetTile?: TileId
   /** 호출의 대상. */
   targetPlayer?: string
-  /** 부수기·두기의 대상 로봇. */
+  /** 놓기·거두기·부수기의 대상 로봇. */
   targetRobot?: string
   /** 뽑기의 대상 팀. 안 고르면 나 말고 제일 많이 꽂은 팀이다. */
   targetTeam?: TeamId
@@ -433,6 +454,7 @@ export type LogKind =
   | 'flagPullHit'
   | 'flagPulled'
   | 'robotLeft'
+  | 'robotTaken'
   | 'robotSmashed'
   | 'researchStarted'
   | 'researchDone'
@@ -456,29 +478,19 @@ export function seatsUsed(state: PhaseState, tileId: TileId): number {
   return state.people.filter((p) => p.tileId === tileId || p.toTile === tileId).length
 }
 
-/** 그 방에 서 있는 로봇 수. 정원과 별개로 ROBOTS_PER_ROOM 까지다. */
+/** 그 방에 **놓인** 로봇 수. 정원과 별개로 ROBOTS_PER_ROOM 까지다. 들고 있는 것은 안 센다 */
 export function robotsIn(state: PhaseState, tileId: TileId): number {
-  return state.robots.filter((r) => r.tileId === tileId).length
+  return state.robots.filter((r) => isPlaced(r) && r.tileId === tileId).length
 }
 
-/** 그 팀이 지금 가진 로봇 수. ROBOTS_PER_TEAM 이 한도다. */
+/** 그 팀이 지금 가진 로봇 수 — 놓인 것과 든 것 모두. ROBOTS_PER_TEAM 이 한도다. */
 export function robotsOfTeam(state: PhaseState, team: TeamId): number {
   return state.robots.filter((r) => r.team === team).length
 }
 
-/**
- * 지금 저 방으로 옮기면 두고 가게 되는 로봇.
- *
- * **화면이 누르기 전에 경고하려고 부른다.** 수를 화면에 다시 적으면
- * 규칙을 고칠 때 경고만 옛말이 된다 — 같은 함수가 답해야 한다.
- */
-export function robotsLeftBehind(state: PhaseState, playerId: string, to: TileId): number {
-  return leftBehindCount(state.robots.filter((r) => r.carriedBy === playerId).length, robotsIn(state, to))
-}
-
-/** 위와 같은 셈을 수만으로. 화면이 안개 너머를 못 볼 때 쓴다. */
-export function leftBehindCount(carried: number, botsAtDest: number): number {
-  return Math.max(0, carried - Math.max(0, ROBOTS_PER_ROOM - botsAtDest))
+/** 그 사람이 들고 있는 로봇 수. MAX_CARRIED_ROBOTS 가 한도다. */
+export function robotsCarriedBy(state: PhaseState, playerId: string): number {
+  return state.robots.filter((r) => r.carriedBy === playerId).length
 }
 
 // ── 팀 점수와 순위 ──────────────────────────────────────────────
@@ -637,15 +649,16 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
 
   // 걸어오는 중인 사람도 한 자리를 잡아 둔다. **로봇은 정원에 안 든다**
   const seats = (tileId: TileId) => people.filter((p) => p.tileId === tileId || p.toTile === tileId).length
-  const botsAt = (tileId: TileId) => robots.filter((r) => r.tileId === tileId).length
+  // 방의 로봇 한도는 **놓인 것만** 먹는다. 들고 있는 것은 가방 속이다
+  const botsAt = (tileId: TileId) => robots.filter((r) => isPlaced(r) && r.tileId === tileId).length
   const carriedOf = (id: string) => robots.filter((r) => r.carriedBy === id)
 
   /**
    * 사람 하나를 문 밖으로 내보낸다. **바로 도착하지 않는다.**
    *
    * 걷는 데 10분(MOVE_MINUTES) — 나가는 5분과 들어서는 5분을 합친
-   * 값이다. 그동안은 어느 방에도 없고, 데리고 있는 로봇도 함께
-   * 사라진다. 도착은 서버의 시계가 시킨다 — 이 함수는 「떠났다」까지만
+   * 값이다. 그동안은 어느 방에도 없고, 들고 있는 로봇도 가방 속에
+   * 같이 간다. 도착은 서버의 시계가 시킨다 — 이 함수는 「떠났다」까지만
    * 안다.
    *
    * 계단을 몇 번 오르내리든 이 10분 안이다. 계단은 문이지 칸이 아니다.
@@ -661,24 +674,11 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     if (lockedBy !== null && lockedBy !== p.team) return `${TILE_BY_ID[to].name} 문이 잠겨 있다.`
     const room = capacityOf(to)
     if (seats(to) + 1 > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
-    const from = p.tileId
-    const carried = carriedOf(p.playerId)
-    // 저쪽 방에 로봇 자리가 모자라면 **사람은 간다.** 넘치는 로봇만
-    // 떠난 방에 남는다 — 로봇 때문에 사람이 못 가면 로봇으로 문을
-    // 막는 짓이 다시 생긴다. 화면은 누르기 전에 robotsLeftBehind()로 경고한다
-    const spare = Math.max(0, ROBOTS_PER_ROOM - botsAt(to))
     p.tileId = null
     p.toTile = to
-    for (const [i, r] of carried.entries()) {
-      if (i < spare) {
-        // 데리고 가는 로봇은 미리 그 방에 놓는다. 판정에는 사람이
-        // 도착해야 끼지만, 자리는 지금부터 잡아야 남이 새치기하지 못한다
-        r.tileId = to
-      } else {
-        r.tileId = from
-        r.carriedBy = null
-      }
-    }
+    // **들고 있는 로봇은 가방 속이라 같이 간다.** 판정에도 방 한도에도 안
+    // 들어서, 저쪽 방에 로봇이 차 있어도 떨구고 갈 일이 없다
+    for (const r of carriedOf(p.playerId)) r.tileId = to
     return null
   }
 
@@ -770,16 +770,34 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     }
 
     case 'dropRobot': {
+      // **놓는 순간부터 이 방의 깃발 하나다.** 혼자 하는 일이라 지워진 사람도 놓는다
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const held = carriedOf(playerId)
-      if (held.length === 0) return no('데리고 있는 로봇이 없다.')
-      // 데리고 있는 것도 이 방에 서 있는 것으로 세어진다. 손을 놓는
-      // 것뿐이라 수가 늘지는 않지만, 남의 로봇으로 이미 찼으면 못 둔다
-      if (botsAt(mine.tileId) - held.length + 1 > ROBOTS_PER_ROOM) {
-        return no(`이 방에 로봇이 ${ROBOTS_PER_ROOM}기까지다.`)
-      }
-      held[0].carriedBy = null
-      log = { kind: 'robotLeft', playerId, tileId: mine.tileId, targetRobot: held[0].id }
+      if (held.length === 0) return no('들고 있는 로봇이 없다.')
+      // 고른 것이 있으면 그것, 없으면 아무거나 하나. 남의 것을 고를 수는 없다
+      const bot = act.targetRobot ? held.find((r) => r.id === act.targetRobot) : held[0]
+      if (!bot) return no('그 로봇은 들고 있지 않다.')
+      if (botsAt(mine.tileId) + 1 > ROBOTS_PER_ROOM) return no(`이 방에는 로봇을 ${ROBOTS_PER_ROOM}기까지 놓는다.`)
+      bot.carriedBy = null
+      bot.placedBy = playerId
+      bot.tileId = mine.tileId
+      log = { kind: 'robotLeft', playerId, tileId: mine.tileId, targetRobot: bot.id }
+      break
+    }
+
+    case 'takeRobot': {
+      // **놓은 사람만 도로 거둔다.** 같은 팀도 못 거둔다 — 남의 팀은 부숴야 없어진다
+      if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
+      if (carriedOf(playerId).length >= MAX_CARRIED_ROBOTS) return no(`로봇은 ${MAX_CARRIED_ROBOTS}기까지 든다.`)
+      const here = robots.filter((r) => isPlaced(r) && r.tileId === mine.tileId)
+      const bot = act.targetRobot
+        ? here.find((r) => r.id === act.targetRobot)
+        : here.find((r) => canCollectRobot(r, playerId, mine.team))
+      if (!bot) return no(act.targetRobot ? '그 로봇이 여기 없다.' : '이 방에 거둘 로봇이 없다.')
+      if (!canCollectRobot(bot, playerId, mine.team)) return no('놓은 사람만 거둔다.')
+      bot.carriedBy = playerId
+      bot.placedBy = null
+      log = { kind: 'robotTaken', playerId, tileId: mine.tileId, targetRobot: bot.id }
       break
     }
 
@@ -789,7 +807,10 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       // 없앤 대신, 한 사람은 한 페이즈에 한 기까지다
       const done = state.smashedBy.filter((id) => id === playerId).length
       if (done >= SMASHES_PER_PHASE) return no('이번 페이즈에는 이미 부쉈다.')
-      const bot = robots.find((r) => r.id === act.targetRobot && r.tileId === mine.tileId && r.team !== mine.team)
+      // **놓인 것만 부순다.** 남이 들고 있는 로봇은 가방 속이다
+      const bot = robots.find(
+        (r) => r.id === act.targetRobot && isPlaced(r) && r.tileId === mine.tileId && r.team !== mine.team,
+      )
       if (!bot) return no('그 로봇이 여기 없다.')
       robots = robots.filter((r) => r.id !== bot.id)
       return {
@@ -913,12 +934,12 @@ export function settle(state: PhaseState): SettleResult {
      * **깃발과 로봇만 센다.** 서 있는 사람은 이제 세지 않는다 — 누가
      * 지키고 서 있어도 남이 깃발을 더 꽂으면 넘어간다.
      *
-     * 로봇은 옮길 수 있는 깃발이다. 데리고 있든 두고 왔든, 그 방에
-     * 있으면 하나로 센다.
+     * 로봇은 옮길 수 있는 깃발이다. **놓아야 센다** — 들고 다니는 것은
+     * 가방 속 물건이라 어느 방에도 안 든다.
      */
     const w: Partial<Record<TeamId, number>> = { ...(state.flags[t.id] ?? {}) }
     for (const r of state.robots) {
-      if (r.tileId !== t.id) continue
+      if (!isPlaced(r) || r.tileId !== t.id) continue
       w[r.team] = (w[r.team] ?? 0) + 1
     }
     const before = state.owners[t.id] ?? null

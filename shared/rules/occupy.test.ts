@@ -8,6 +8,7 @@ import {
   ACT_COST,
   costOf,
   ENTER_COST,
+  MAX_CARRIED_ROBOTS,
   ROBOTS_PER_ROOM,
   ROBOTS_PER_TEAM,
   KNOWLEDGE_PER_RESEARCH,
@@ -19,7 +20,6 @@ import {
   arrive,
   capacityOf,
   doAct,
-  leftBehindCount,
   absenceRefunds,
   nextWallet,
   walletOf,
@@ -27,7 +27,8 @@ import {
   robotsIn,
   roomsOf,
   teamRanks,
-  robotsLeftBehind,
+  robotsCarriedBy,
+  canCollectRobot,
   researchKnowledge,
   vaultOf,
   robotsOfTeam,
@@ -235,40 +236,24 @@ describe('움직임', () => {
     expect(out.ok).toBe(false)
   })
 
-  it('저쪽 로봇 자리가 모자라면 넘치는 로봇만 두고 간다', () => {
+  it('들고 있는 로봇은 가방 속이라 같이 간다 — 저쪽 방이 로봇으로 차 있어도', () => {
     const s0 = board({
       people: [person('a', 'B', 'gym')],
       robots: [
         robot('r1', 'B', 'gym', 'a'),
         robot('r2', 'B', 'gym', 'a'),
-        robot('mine', 'A', 'cafeteria'),
-      ],
-    })
-    // 급식실에 이미 한 기 — 자리는 하나뿐이라 둘 중 하나만 따라간다
-    expect(robotsLeftBehind(s0, 'a', 'cafeteria')).toBe(1)
-    const s1 = must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' })
-    const went = s1.robots.filter((r) => r.carriedBy === 'a')
-    const stayed = s1.robots.filter((r) => r.team === 'B' && r.carriedBy === null)
-    expect(went).toHaveLength(1)
-    expect(went[0].tileId).toBe('cafeteria')
-    expect(stayed).toHaveLength(1)
-    // 두고 온 것은 떠난 방에 선다. 걷는 사람을 따라 허공에 뜨지 않는다
-    expect(stayed[0].tileId).toBe('gym')
-  })
-
-  it('로봇이 꽉 찬 방으로도 사람은 간다 — 로봇만 남는다', () => {
-    const s0 = board({
-      people: [person('a', 'B', 'gym')],
-      robots: [
-        robot('r1', 'B', 'gym', 'a'),
         robot('x1', 'A', 'cafeteria'),
         robot('x2', 'A', 'cafeteria'),
       ],
     })
     const s1 = land(must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
     expect(at(s1, 'a').tileId).toBe('cafeteria')
+    const held = s1.robots.filter((r) => r.carriedBy === 'a')
+    expect(held).toHaveLength(2)
+    // 든 로봇은 사람을 따라 선다. 떠난 방에 남지도, 방 한도를 먹지도 않는다
+    for (const r of held) expect(r.tileId).toBe('cafeteria')
     expect(robotsIn(s1, 'cafeteria')).toBe(ROBOTS_PER_ROOM)
-    expect(s1.robots.find((r) => r.id === 'r1')?.tileId).toBe('gym')
+    expect(robotsIn(s1, 'gym')).toBe(0)
   })
 })
 
@@ -680,8 +665,8 @@ describe('연구에 드는 지식', () => {
   })
 })
 
-describe('로봇 두고 가기', () => {
-  it('방에 이미 두 기면 못 둔다 — 토큰도 안 든다', () => {
+describe('로봇 놓기', () => {
+  it('방에 이미 두 기 놓였으면 못 놓는다 — 토큰도 안 든다', () => {
     const s = board({
       people: [person('a', 'A', 'storage')],
       robots: [
@@ -695,22 +680,82 @@ describe('로봇 두고 가기', () => {
     if (!out.ok) expect(out.why).toContain(`${ROBOTS_PER_ROOM}기`)
   })
 
-  it('내가 데리고 온 것이면 수가 늘지 않으므로 둘 수 있다', () => {
-    const s = board({
+  it('들고 있는 것은 방 한도를 안 먹는다 — 둘 들고 와도 둘 다 놓는다', () => {
+    let s = board({
       people: [person('a', 'A', 'storage')],
       robots: [robot('m1', 'A', 'storage', 'a'), robot('m2', 'A', 'storage', 'a')],
     })
-    const out = doAct(s, 'a', { kind: 'dropRobot' })
-    expect(out.ok).toBe(true)
+    expect(robotsIn(s, 'storage')).toBe(0)
+    s = must(s, 'a', { kind: 'dropRobot' })
+    s = must(s, 'a', { kind: 'dropRobot' })
+    expect(robotsIn(s, 'storage')).toBe(2)
+    expect(ACT_COST.dropRobot).toBe(0)
+  })
+
+  it('고른 로봇을 놓는다 — 남이 든 것은 못 고른다', () => {
+    let s = board({
+      people: [person('a', 'A', 'storage'), person('a2', 'A', 'storage')],
+      robots: [robot('m1', 'A', 'storage', 'a'), robot('m2', 'A', 'storage', 'a'), robot('o1', 'A', 'storage', 'a2')],
+    })
+    const bad = doAct(s, 'a', { kind: 'dropRobot', targetRobot: 'o1' })
+    expect(bad.ok).toBe(false)
+    s = must(s, 'a', { kind: 'dropRobot', targetRobot: 'm2' })
+    expect(s.robots.find((r) => r.id === 'm2')).toMatchObject({ carriedBy: null, placedBy: 'a', tileId: 'storage' })
+    expect(s.robots.find((r) => r.id === 'm1')?.carriedBy).toBe('a')
   })
 })
 
-describe('두고 가게 될 로봇 셈', () => {
-  it('자리가 남으면 0, 모자란 만큼만 남는다', () => {
-    expect(leftBehindCount(0, 0)).toBe(0)
-    expect(leftBehindCount(2, 0)).toBe(0)
-    expect(leftBehindCount(2, 1)).toBe(1)
-    expect(leftBehindCount(2, ROBOTS_PER_ROOM)).toBe(2)
+describe('로봇 수거 — 놓은 사람만', () => {
+  const placed = (id: string, team: TeamId, tileId: string, by: string): Robot => ({
+    ...robot(id, team, tileId),
+    placedBy: by,
+  })
+
+  it('놓은 사람은 도로 든다 — 토큰 없이', () => {
+    let s = board({ people: [person('a', 'A', 'storage')], robots: [placed('m1', 'A', 'storage', 'a')] })
+    expect(ACT_COST.takeRobot).toBe(0)
+    s = must(s, 'a', { kind: 'takeRobot' })
+    expect(s.robots[0]).toMatchObject({ carriedBy: 'a', placedBy: null })
+    expect(robotsIn(s, 'storage')).toBe(0)
+    expect(robotsCarriedBy(s, 'a')).toBe(1)
+  })
+
+  it('같은 팀이어도 남이 놓은 것은 못 거둔다', () => {
+    const s = board({
+      people: [person('a', 'A', 'storage'), person('a2', 'A', 'storage')],
+      robots: [placed('m1', 'A', 'storage', 'a')],
+    })
+    const pick = doAct(s, 'a2', { kind: 'takeRobot', targetRobot: 'm1' })
+    expect(pick.ok).toBe(false)
+    if (!pick.ok) expect(pick.why).toContain('놓은 사람만')
+    expect(doAct(s, 'a2', { kind: 'takeRobot' }).ok).toBe(false)
+  })
+
+  it('남의 팀 로봇은 거두지 못한다 — 부숴야 없어진다', () => {
+    const s = board({ people: [person('b', 'B', 'storage')], robots: [placed('m1', 'A', 'storage', 'a')] })
+    expect(doAct(s, 'b', { kind: 'takeRobot', targetRobot: 'm1' }).ok).toBe(false)
+    expect(doAct(s, 'b', { kind: 'smashRobot', targetRobot: 'm1' }).ok).toBe(true)
+  })
+
+  it('이미 두 기 들었으면 더 못 든다', () => {
+    const s = board({
+      people: [person('a', 'A', 'storage')],
+      robots: [robot('h1', 'A', 'storage', 'a'), robot('h2', 'A', 'storage', 'a'), placed('m1', 'A', 'storage', 'a')],
+    })
+    const out = doAct(s, 'a', { kind: 'takeRobot' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain(`${MAX_CARRIED_ROBOTS}기`)
+  })
+
+  it('놓은 사람이 적히지 않은 옛 로봇은 같은 팀이 거둔다', () => {
+    const s = board({ people: [person('a2', 'A', 'storage')], robots: [robot('old', 'A', 'storage')] })
+    expect(doAct(s, 'a2', { kind: 'takeRobot' }).ok).toBe(true)
+  })
+
+  it('canCollectRobot — 든 로봇은 거둘 대상이 아니다', () => {
+    expect(canCollectRobot(robot('r', 'A', 'storage', 'a'), 'a', 'A')).toBe(false)
+    expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a', 'A')).toBe(true)
+    expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a2', 'A')).toBe(false)
   })
 })
 
@@ -784,6 +829,18 @@ describe('닫으면 깃발과 로봇으로 주인이 정해진다', () => {
       owners: { library: 'B' },
     })
     expect(settle(s).next.owners.library).toBe('A')
+  })
+
+  it('**들고 있는 로봇은 안 센다** — 놓아야 깃발이다', () => {
+    const s = board({
+      people: [person('a', 'A', 'library')],
+      flags: { library: { B: 1 } },
+      robots: [robot('r1', 'A', 'library', 'a'), robot('r2', 'A', 'library', 'a')],
+      owners: { library: null },
+    })
+    expect(settle(s).next.owners.library).toBe('B')
+    const put = must(must(s, 'a', { kind: 'dropRobot' }), 'a', { kind: 'dropRobot' })
+    expect(settle(put).next.owners.library).toBe('A')
   })
 
   it('걸어 둔 연구는 판정에 안 낀다 — 로봇이 아직 없다', () => {
@@ -860,17 +917,17 @@ describe('투명인간은 없는 사람이다', () => {
     if (!out.ok) expect(out.why).toContain('보이지 않는')
   })
 
-  it('그래도 데리고 있는 짝은 부술 수 있다', () => {
-    // 사람은 없는 것으로 치지만 짝은 그 자리에 서 있다
+  it('투명인간이 든 로봇은 가방 속이라 못 부순다 — 놓인 것만 부순다', () => {
     const s = board({
       people: [person('a', 'A', 'library'), person('b', 'B', 'library')],
-      robots: [robot('r1', 'B', 'library', 'b')],
+      robots: [robot('r1', 'B', 'library', 'b'), robot('r2', 'B', 'library')],
       invisibleId: 'b',
     })
-    expect(doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' }).ok).toBe(true)
+    expect(doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' }).ok).toBe(false)
+    expect(doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r2' }).ok).toBe(true)
   })
 
-  it('혼자 하는 일은 그대로 된다 — 걷기·짝 만들기', () => {
+  it('혼자 하는 일은 그대로 된다 — 걷기·로봇 만들기', () => {
     const lab3 = TILES.find((t) => ROOM_KIND[t.id] === 'lab') as (typeof TILES)[number]
     const s = board({ people: [person('a', 'A', lab3.id)], invisibleId: 'a' })
     expect(doAct(s, 'a', { kind: 'research' }).ok).toBe(true)

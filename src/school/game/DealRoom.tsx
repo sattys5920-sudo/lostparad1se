@@ -33,7 +33,7 @@ const SLOTS = [
   { key: 'knowledge', name: '지식', from: '팀 금고' },
   ...ITEMS.map((i) => ({ key: i.kind, name: i.name, from: '내 것' })),
   { key: 'slips', name: '쪽지', from: '접힌 채' },
-  { key: 'robots', name: '짝', from: '데리고 있는' },
+  { key: 'robots', name: '로봇', from: '들고 있는' },
 ] as const
 
 type SlotKey = (typeof SLOTS)[number]['key']

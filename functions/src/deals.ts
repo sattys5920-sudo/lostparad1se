@@ -23,6 +23,8 @@ import {
   isSideA,
   newDeal,
   readyToSettle,
+  robotSwapNo,
+  ROBOT_SWAP_MESSAGE,
   shortOf,
   sideOf,
   SHORT_MESSAGE,
@@ -30,6 +32,7 @@ import {
   type Stake,
 } from '../../shared/rules/deal'
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
+import { MAX_CARRIED_ROBOTS, ROBOTS_PER_TEAM } from '../../shared/rules/occupy'
 import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
 import type { GameDoc, PawnDoc, TeamDoc } from '../../shared/model'
@@ -87,7 +90,7 @@ async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<H
     slipsOf(gameId).where('heldBy', '==', uid).get(),
     ref.collection('robots').where('carriedBy', '==', uid).get(),
   ])
-  // 돈과 지식은 **우리 팀 금고**에서 올린다. 물건·쪽지·짝은 내 것이다
+  // 돈과 지식은 **우리 팀 금고**에서 올린다. 물건·쪽지·로봇은 내 것이다
   const purse = purseOf((await ref.collection('teams').doc(pawn.team).get()).data() as TeamDoc | undefined)
   return {
     money: purse.money,
@@ -342,6 +345,29 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     botsOf(seen.bId, seen.b.stake.robots),
   ])
 
+  /*
+   * **받는 쪽 한도.** 받은 로봇은 손에 드니 두 기까지이고, 다른 팀에서
+   * 넘어오면 팀 한도도 본다. 넘치면 성립하지 않고 탁자로 돌아간다
+   */
+  if (aBots.length > 0 || bBots.length > 0) {
+    const [aHeld, bHeld, aTeamBots, bTeamBots] = await Promise.all([
+      ref.collection('robots').where('carriedBy', '==', seen.aId).get(),
+      ref.collection('robots').where('carriedBy', '==', seen.bId).get(),
+      ref.collection('robots').where('team', '==', a.team).get(),
+      ref.collection('robots').where('team', '==', b.team).get(),
+    ])
+    const caps = { sameTeam: a.team === b.team, carryCap: MAX_CARRIED_ROBOTS, teamCap: ROBOTS_PER_TEAM }
+    const aNo = robotSwapNo({ ...caps, carried: aHeld.size, gives: aBots.length, gets: bBots.length, teamRobots: aTeamBots.size })
+    const bNo = robotSwapNo({ ...caps, carried: bHeld.size, gives: bBots.length, gets: aBots.length, teamRobots: bTeamBots.size })
+    const no = aNo ?? bNo
+    if (no) {
+      // 탁자는 둘이 같이 본다 — 누구 쪽인지 대지 않고 까닭만 적는다
+      const why = ROBOT_SWAP_MESSAGE[no]
+      await dealsOf(gameId).doc(dealId).update({ status: 'open', why, 'a.ready': false, 'b.ready': false })
+      throw new HttpsError('failed-precondition', why)
+    }
+  }
+
   await db.runTransaction(async (tx) => {
     const dealRef = dealsOf(gameId).doc(dealId)
     const fresh = await tx.get(dealRef)
@@ -392,12 +418,12 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       tx.update(slipsOf(gameId).doc(id), { heldBy: d.aId })
     }
 
-    // 짝 — 데리고 있는 것만 넘어간다. 넘겨받으면 우리 머릿수다
+    // 로봇 — 들고 있는 것만 넘어간다. 받은 사람 손에 들리고, 그 팀 머릿수가 된다
     for (const r of aBots.slice(0, d.a.stake.robots)) {
-      tx.update(r.ref, { carriedBy: d.bId, team: d.b.team })
+      tx.update(r.ref, { carriedBy: d.bId, team: d.b.team, tileId: b.tileId ?? r.get('tileId'), placedBy: null })
     }
     for (const r of bBots.slice(0, d.b.stake.robots)) {
-      tx.update(r.ref, { carriedBy: d.aId, team: d.a.team })
+      tx.update(r.ref, { carriedBy: d.aId, team: d.a.team, tileId: a.tileId ?? r.get('tileId'), placedBy: null })
     }
 
     tx.update(dealRef, { status: 'done', why: '' })
