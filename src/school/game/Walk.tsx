@@ -633,6 +633,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      * 뒤로는 실시간 자리를 안 보내니까
      */
     let liveDirty = false
+    /** 마지막으로 알린 자리(픽셀). 멈췄는데 여기가 아니면 한 번 더 알린다 */
+    let toldSpot = ''
 
     /**
      * 한 번 누른 것. 십자키도 방향키도 여기로 들어온다.
@@ -1054,7 +1056,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      * 실시간 자리가 있으면 그 칸, 없으면 서버가 아는 칸.
      */
     function takenCells(): Set<string> {
-      const out = new Set<string>()
+      // 그려진 자리부터. 칸을 모르는 사람도 그려진 그 칸에서 막힌다
+      const out = new Set<string>(drawnCells)
       // 시작 전 교실 — 서버가 아직 말을 안 세웠다. 보이는 것은 실시간 자리뿐이다
       if (!viewRef.current) {
         for (const m of rosterRef.current ?? []) {
@@ -1362,10 +1365,22 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
          * 교실에 마주 선 사람이 몇 초 뒤에 사라진다.
          */
         const beat = rosterRef.current !== undefined && now - lastLiveMs >= LIVE_BEAT_MS
-        if ((movingNow && due) || (!movingNow && toldLive) || beat || (liveDirty && !movingNow)) {
+        /*
+         * **멈췄는데 마지막으로 알린 자리가 아니면 알린다.**
+         *
+         * 서 있다가 딱 한 칸만 걸으면 한 걸음(160ms)이 적는 간격(320ms)보다
+         * 짧아서 걷는 중에 한 번도 안 적히고, 「멈추면 한 번 더」도 걷는 중에
+         * 적은 적이 있어야 돌아서 건너뛰었다. 남의 화면에는 한 칸 전 자리가
+         * 남았고 — 판 중에는 그게 6초 동안 서버 칸보다 먼저라 — 막히는 칸도
+         * 한 칸 어긋났다. 사람이 한 칸 비켜서 있고 그 칸으로 걸어 들어가졌다
+         */
+        const spot = `${Math.round(self.px)},${Math.round(self.py)}`
+        const moved = !movingNow && spot !== toldSpot
+        if ((movingNow && due) || (!movingNow && toldLive) || beat || (liveDirty && !movingNow) || moved) {
           liveDirty = false
           lastLiveMs = now
           toldLive = movingNow
+          toldSpot = spot
           liveOutRef.current({
             tileId: roomAt(self.tx, self.ty)?.id ?? null,
             x: self.px / TILE,
@@ -2284,9 +2299,20 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       return from
     }
 
+    /**
+     * **지금 남을 그린 칸들.** 걸음을 막는 쪽(takenCells)이 이것을 같이 본다.
+     *
+     * 칸을 모르는 사람(서버 칸도 실시간 자리도 없는 사람 — 폰으로 안 들어온
+     * 봇이 그렇다)은 문 안쪽 빈 칸에 **임시로** 그린다. 막는 쪽이 그 칸을
+     * 모르면 그리로 걸어 들어가게 되고, 그러면 여기서 칸을 다시 골라 그
+     * 사람이 옆으로 밀려났다. 그린 자리가 곧 막힌 자리여야 한다.
+     */
+    let drawnCells = new Set<string>()
+
     function standees(dt = 0): Standee[] {
       const out: Standee[] = []
       const gone = new Set(shown.keys())
+      const drawn = new Set<string>()
 
       /*
        * **시작 전에는 실시간 자리가 전부다.**
@@ -2301,6 +2327,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           const now = liveOf(m.playerId)
           if (!now) continue
           gone.delete(m.playerId)
+          drawn.add(`${Math.floor(now.x)},${Math.floor(now.y)}`)
           const at = ease(m.playerId, now.x * TILE, now.y * TILE, dt)
           out.push({
             playerId: m.playerId,
@@ -2316,6 +2343,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           })
         }
         for (const id of gone) shown.delete(id)
+        drawnCells = drawn
         return out
       }
 
@@ -2359,6 +2387,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const now = liveOf(p.playerId)
         const live = now && now.tileId === p.tileId ? now : null
         if (live?.moving) {
+          if (p.playerId !== me.playerId) drawn.add(`${Math.floor(live.x)},${Math.floor(live.y)}`)
           const at = ease(p.playerId, live.x * TILE, live.y * TILE, dt)
           out.push({ ...who, dir: live.dir, moving: true, here: p.tileId as TileId, x: at.x, y: at.y, placed: true })
           continue
@@ -2380,6 +2409,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         }
         if (held.has(keyOf(cell))) cell = spreadCell(cell, held)
         held.add(keyOf(cell))
+        // **나는 빼고.** 이 목록에는 나도 들어 있어서(그리는 쪽이 따로 거른다)
+        // 내 몫으로 비켜 잡힌 옆 칸이 나를 막았다 — 한 걸음도 못 뗐다
+        if (w.who.playerId !== me.playerId) drawn.add(keyOf(cell))
         // 실시간 자리가 그 칸 그대로면 받은 자리로 민다. 비켜 그릴 때는 칸 한가운데
         const onLive = w.live && Math.floor(w.live.x) === cell.x && Math.floor(w.live.y) === cell.y
         const at = onLive && w.live
@@ -2389,6 +2421,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       }
       // 안 보이게 된 사람의 자리는 버린다. 다시 나타나면 그 자리에 찍힌다
       for (const id of gone) shown.delete(id)
+      drawnCells = drawn
       return out
     }
 

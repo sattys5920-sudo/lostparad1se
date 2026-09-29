@@ -200,6 +200,13 @@ async function scene(label: string, A: Page, B: Page, bName: string, others: Set
   const bNow = await cellOf(B)
   check(bNow.x === side.t.x && bNow.y === side.t.y, `B 가 A 옆(${side.t.x},${side.t.y})에 섰다`, JSON.stringify(bNow))
   await A.waitForTimeout(1500)
+  if (process.env.DIAG) {
+    const gid = new URL(A.url()).searchParams.get('game')
+    const bUid = uidOf(label === '시작전' ? 'qa02' : 'qa02')
+    const d = (await (await fetch(`${FS}/games/${gid}/live/${bUid}`, { headers: ADMIN })).json()) as { fields?: Record<string, { doubleValue?: number; integerValue?: string; booleanValue?: boolean }> }
+    const f = d.fields ?? {}
+    console.log('   B live', f.x?.doubleValue ?? f.x?.integerValue, f.y?.doubleValue ?? f.y?.integerValue, 'moving', f.moving?.booleanValue, 'age', Date.now() - Number(f.ms?.integerValue ?? 0))
+  }
   const key = KEY[`${side.dx},${side.dy}`]
   for (let i = 0; i < 3; i++) { await A.keyboard.press(key); await A.waitForTimeout(350) }
   await A.waitForTimeout(800)
@@ -234,8 +241,9 @@ async function main() {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
   const size = { viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'ko-KR' }
 
+  const ONLY = process.env.ONLY ?? ''
   // ── 판 중 ──
-  {
+  if (!ONLY) {
     const game = `tw${Date.now()}`
     const host = await hostToken(game)
     await must('createGame', host, { gameId: game, seed: 'tw' })
@@ -253,9 +261,64 @@ async function main() {
     await scene('판중', A, B, await seatName(game, uidOf('qa02')), others)
   }
 
+  // ── 칸 모르는 봇 — 서버 칸도 실시간 자리도 없다(폰으로 안 들어온 봇) ──
+  if (!ONLY) {
+    console.log('\n── 칸 모르는 봇 ──')
+    const game = `tu${Date.now()}`
+    const host = await hostToken(game)
+    await must('createGame', host, { gameId: game, seed: 'tu' })
+    await must('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
+    await must('assignAll', host, { gameId: game })
+    await must('startGame', host, { gameId: game, startAtMs: START })
+    await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 9), speed: 1 })
+    await must('tick', host, { gameId: game })
+    // qa03 의 칸을 지운다 — 옛 판처럼. 누가 한 번 움직여 views 를 다시 짠다
+    const bot = uidOf('qa03')
+    await fetch(`${FS}/games/${game}/pawns/${bot}?updateMask.fieldPaths=at`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN }, body: JSON.stringify({ fields: { at: { nullValue: null } } }),
+    })
+    const q4 = await asPlayer(host, 'qa04')
+    const q4at = (await pawns(game)).find((r) => r.id === uidOf('qa04'))?.at
+    if (q4at) await must('standAt', q4, { gameId: game, x: q4at.x, y: q4at.y }).catch(() => undefined)
+    const A = await (await browser.newContext(size)).newPage()
+    await enter(A, game, 'qa01')
+    await A.waitForTimeout(1500)
+    // 봇이 그려진 칸 — 화면이 고른다. 이름표 x 로 칸을 되짚는다
+    const bName = await seatName(game, bot)
+    const camX = (await A.evaluate(`(() => { const c = document.querySelector('canvas'); const r = c.getBoundingClientRect(); const [cx, cy] = c.dataset.cam.split(',').map(Number); return { left: r.left, top: r.top, k: r.width / c.width, cx, cy } })()`)) as { left: number; top: number; k: number; cx: number; cy: number }
+    const tag = (await tagSpots(A)).find((t) => t.t === bName)
+    if (!tag) throw new Error('칸 모르는 봇이 안 그려졌다')
+    const bx = Math.floor(((tag.x - camX.left) / camX.k + camX.cx) / TILE)
+    const rowsNow = await pawns(game)
+    const others = new Set(rowsNow.filter((r) => r.at && r.id !== uidOf('qa01')).map((r) => `${r.at!.x},${r.at!.y}`))
+    // 이름표는 머리 위라 y 는 모른다 — 문 안쪽 칸(entryCellOf)의 y 부터 가까운 줄을 본다
+    const entry = entryCellOf(START_TILE)
+    let bCell: { x: number; y: number } | null = null
+    for (const dy of [0, 1, -1, 2, -2]) {
+      const c = { x: bx, y: entry.y + dy }
+      if (roomOfCell(c.x, c.y) === START_TILE && !others.has(`${c.x},${c.y}`)) { bCell = c; break }
+    }
+    if (!bCell) throw new Error('봇 칸을 못 짚었다')
+    const a = await cellOf(A)
+    const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ dx: -dx, dy: -dy, t: { x: bCell!.x + dx, y: bCell!.y + dy } }))
+      .find((sd) => (sd.t.x === a.x && sd.t.y === a.y) || route(a, sd.t, new Set([...others, `${bCell!.x},${bCell!.y}`])).length > 0)
+    if (!side) throw new Error('봇 옆으로 갈 길이 없다')
+    await walkKeys(A, a, route(a, side.t, new Set([...others, `${bCell.x},${bCell.y}`])))
+    await A.waitForTimeout(800)
+    const before = await cellOf(A)
+    const tagBefore = (await tagSpots(A)).find((t) => t.t === bName)?.x ?? null
+    for (let i = 0; i < 3; i++) { await A.keyboard.press(KEY[`${side.dx},${side.dy}`]); await A.waitForTimeout(350) }
+    await A.waitForTimeout(800)
+    const after = await cellOf(A)
+    check(after.x === before.x && after.y === before.y, '칸 모르는 봇이 그려진 칸으로 못 간다', `${JSON.stringify(before)} → ${JSON.stringify(after)} · 봇 ${JSON.stringify(bCell)}`)
+    const tagAfter = (await tagSpots(A)).find((t) => t.t === bName)?.x ?? null
+    check(tagBefore !== null && tagAfter !== null && Math.abs(tagAfter - tagBefore) <= 3, '봇이 옆으로 밀려나지 않는다', `${tagBefore} → ${tagAfter}`)
+    await A.screenshot({ path: `${OUT}/two-unplaced.png` })
+  }
+
   // ── 시작 전 교실 ──
-  {
-    const game = `tl${Date.now()}`
+  for (let rep = 0; rep < Number(process.env.REPEAT ?? 1); rep++) {
+    const game = `tl${Date.now()}${rep}`
     const host = await hostToken(game)
     await must('createGame', host, { gameId: game, seed: 'tl' })
     await must('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
