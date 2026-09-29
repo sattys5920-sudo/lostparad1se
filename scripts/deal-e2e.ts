@@ -157,6 +157,21 @@ async function put(uid: string, fields: Record<string, unknown>): Promise<void> 
   })
 }
 
+/** 딴 것 더미를 통째로 놓는다. **시험 준비용** — 서버를 거치지 않는다. */
+async function putCrops(uid: string, bag: Record<string, number>): Promise<void> {
+  await fetch(`${FS}/games/${GAME}/pawns/${uid}?updateMask.fieldPaths=crops`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        crops: {
+          mapValue: { fields: Object.fromEntries(Object.entries(bag).map(([k, v]) => [k, { integerValue: String(v) }])) },
+        },
+      },
+    }),
+  })
+}
+
 /**
  * 걸 것을 쥐여 준다. **시험 준비용.** 돈은 그 팀 사람마다, 지식은 팀 금고에.
  *
@@ -534,6 +549,54 @@ async function main(): Promise<void> {
     const mateAfter = await purseNow(mate.uid)
     check(meAfter.money === meBefore.money - 2 && mateAfter.money === mateBefore.money + 2, '같은 팀 짝꿍에게 돈 2가 그대로 넘어갔다', `나 ${meBefore.money}→${meAfter.money} · 짝꿍 ${mateBefore.money}→${mateAfter.money}`)
     check(meAfter.knowledge === meBefore.knowledge, '팀 금고(지식)는 그대로다')
+
+    console.log('── 덤. 딴 것도 오간다 — 받는 쪽 손은 다섯까지 ──')
+    await putCrops(me.uid, { tomato: 2 })
+    await putCrops(mate.uid, { potato: 4 })
+    const cid = String((await must('askDeal', me.token, { gameId: GAME, toPlayerId: mate.uid })).id)
+    await must('answerDeal', mate.token, { gameId: GAME, dealId: cid, accept: true })
+
+    const ghost = await call('stakeDeal', me.token, { gameId: GAME, dealId: cid, stake: { crops: { tomato: 3 } } })
+    check(!ghost.ok, '가진 것보다 많은 작물은 못 올린다', ghost.message)
+    await must('stakeDeal', me.token, { gameId: GAME, dealId: cid, stake: { crops: { tomato: 2, bogus: 5 } } })
+    const onTable = staked(await dealNow(cid), 'a') as unknown as { crops?: Record<string, number> }
+    check(
+      JSON.stringify(onTable.crops ?? {}) === JSON.stringify({ tomato: 2 }),
+      '작물 표에 없는 이름은 탁자에 안 오른다',
+      JSON.stringify(onTable.crops ?? {}),
+    )
+
+    // 짝꿍 손은 넷 — 둘을 받으면 여섯이라 넘친다
+    await must('readyDeal', me.token, { gameId: GAME, dealId: cid, ready: true })
+    await must('readyDeal', mate.token, { gameId: GAME, dealId: cid, ready: true })
+    await push(DEAL_COUNTDOWN_MS + 1000)
+    const full = await call('settleDeal', mate.token, { gameId: GAME, dealId: cid })
+    const back = await dealNow(cid)
+    check(!full.ok && String(back.status) === 'open', '받는 쪽 손이 넘치면 성립하지 않고 탁자로 돌아간다', full.message)
+    const still = await pawnsNow()
+    check(
+      JSON.stringify(still[me.uid].crops) === JSON.stringify({ tomato: 2 }) &&
+        JSON.stringify(still[mate.uid].crops) === JSON.stringify({ potato: 4 }),
+      '막혔을 때 둘의 작물은 그대로다',
+    )
+
+    // 짝꿍이 하나를 내주면 자리가 난다 — 4 − 1 + 2 = 5
+    await must('stakeDeal', mate.token, { gameId: GAME, dealId: cid, stake: { crops: { potato: 1 } } })
+    await must('readyDeal', me.token, { gameId: GAME, dealId: cid, ready: true })
+    await must('readyDeal', mate.token, { gameId: GAME, dealId: cid, ready: true })
+    await push(DEAL_COUNTDOWN_MS + 1000)
+    await must('settleDeal', me.token, { gameId: GAME, dealId: cid })
+    const got = await pawnsNow()
+    check(String((await dealNow(cid)).status) === 'done', '서로 하나씩 내주니 성립했다')
+    check(JSON.stringify(got[me.uid].crops) === JSON.stringify({ potato: 1 }), '나는 토마토 둘을 주고 감자 하나를 받았다', JSON.stringify(got[me.uid].crops))
+    check(
+      Number((got[mate.uid].crops as Record<string, number>)?.potato) === 3 &&
+        Number((got[mate.uid].crops as Record<string, number>)?.tomato) === 2,
+      '짝꿍은 감자 셋 · 토마토 둘',
+      JSON.stringify(got[mate.uid].crops),
+    )
+    const mateView = (await getAll(`games/${GAME}/views`)).find((v) => v.id === mate.uid)?.d ?? {}
+    check(Number((mateView.myCrops as Record<string, number> | undefined)?.tomato) === 2, '받은 쪽 화면(views)에도 들어왔다')
   }
 
   console.log(failures === 0 ? '\n전부 통과' : `\n${failures}개 실패`)

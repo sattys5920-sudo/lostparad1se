@@ -25,6 +25,10 @@ import {
   readyToSettle,
   robotSwapNo,
   ROBOT_SWAP_MESSAGE,
+  cropSwapFull,
+  cropTotal,
+  CROP_SWAP_MESSAGE,
+  type CropBag,
   shortOf,
   sideOf,
   SHORT_MESSAGE,
@@ -32,6 +36,7 @@ import {
   type Stake,
 } from '../../shared/rules/deal'
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
+import { CROPS, HARVEST_LIMIT } from '../../shared/rules/crop'
 import { MAX_CARRIED_ROBOTS, ROBOTS_PER_TEAM } from '../../shared/rules/occupy'
 import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
@@ -74,13 +79,30 @@ function cleanStake(raw: unknown): Stake {
     const c = n((r.items as Record<string, unknown> | undefined)?.[k])
     if (c > 0) items[k] = c
   }
+  // 딴 것 — 작물 표에 있는 이름만 받는다
+  const crops: CropBag = {}
+  for (const c of CROPS) {
+    const v = n((r.crops as Record<string, unknown> | undefined)?.[c.id])
+    if (v > 0) crops[c.id] = v
+  }
   return {
     money: n(r.money),
     knowledge: n(r.knowledge),
     slips: n(r.slips),
     robots: n(r.robots),
     items,
+    crops,
   }
+}
+
+/** 딴 것 더미를 바꾼다. 0 이하가 된 칸은 지운다 */
+function cropBag(base: CropBag | undefined, give: CropBag | undefined, get: CropBag | undefined): CropBag {
+  const out: CropBag = {}
+  for (const c of CROPS) {
+    const v = (base?.[c.id] ?? 0) - (give?.[c.id] ?? 0) + (get?.[c.id] ?? 0)
+    if (v > 0) out[c.id] = v
+  }
+  return out
 }
 
 /** 그 사람이 지금 내놓을 수 있는 것 전부. 올릴 때도 성립 직전에도 이걸로 잰다. */
@@ -90,7 +112,7 @@ async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<H
     slipsOf(gameId).where('heldBy', '==', uid).get(),
     ref.collection('robots').where('carriedBy', '==', uid).get(),
   ])
-  // **지식만 우리 팀 금고**에서 올린다. 돈 · 물건 · 쪽지 · 로봇은 내 것이다
+  // **지식만 우리 팀 금고**에서 올린다. 돈 · 물건 · 쪽지 · 로봇 · 딴 것은 내 것이다
   const purse = purseOf((await ref.collection('teams').doc(pawn.team).get()).data() as TeamDoc | undefined)
   return {
     money: Math.max(0, Number(pawn.money ?? 0)),
@@ -98,6 +120,7 @@ async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<H
     items: pawn.items ?? {},
     slips: slips.size,
     robots: bots.size,
+    crops: pawn.crops ?? {},
   }
 }
 
@@ -335,6 +358,17 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     throw new HttpsError('failed-precondition', why)
   }
 
+  /*
+   * **받는 쪽 손.** 딴 것은 정원에서 딸 때와 같은 한도까지만 든다.
+   * 넘치면 성립하지 않고 탁자로 돌아간다 — 로봇과 같다
+   */
+  const aFull = cropSwapFull({ held: cropTotal(aHave.crops), gives: cropTotal(seen.a.stake.crops), gets: cropTotal(seen.b.stake.crops), cap: HARVEST_LIMIT })
+  const bFull = cropSwapFull({ held: cropTotal(bHave.crops), gives: cropTotal(seen.b.stake.crops), gets: cropTotal(seen.a.stake.crops), cap: HARVEST_LIMIT })
+  if (aFull || bFull) {
+    await dealsOf(gameId).doc(dealId).update({ status: 'open', why: CROP_SWAP_MESSAGE, 'a.ready': false, 'b.ready': false })
+    throw new HttpsError('failed-precondition', CROP_SWAP_MESSAGE)
+  }
+
   // limit(0)은 Firestore가 거절한다 — 안 올렸으면 묻지도 않는다
   const botsOf = async (who: string, howMany: number) =>
     howMany > 0
@@ -411,13 +445,19 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       return out
     }
 
+    // 딴 것 — 트랜잭션 안에서 읽은 지금 더미에서 옮긴다
+    const aCrops = cropBag((aNow.data() as PawnDoc | undefined)?.crops, d.a.stake.crops, d.b.stake.crops)
+    const bCrops = cropBag((bNow.data() as PawnDoc | undefined)?.crops, d.b.stake.crops, d.a.stake.crops)
+
     tx.update(aPawn.ref, {
       items: bag(a.items ?? {}, d.a.stake.items, d.b.stake.items),
       money: aMoney,
+      crops: aCrops,
     })
     tx.update(bPawn.ref, {
       items: bag(b.items ?? {}, d.b.stake.items, d.a.stake.items),
       money: bMoney,
+      crops: bCrops,
     })
 
     // 쪽지 — 접힌 채로 손이 바뀐다. 받는 쪽은 이제부터 읽을 수 있다

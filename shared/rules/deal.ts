@@ -8,6 +8,7 @@
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 서버가 재료를 모아 주고 결과를 적는다.
 import { EMPTY_SATCHEL, countOf, type ItemKind, type Satchel } from './items'
+import { HARVEST_LIMIT } from './crop'
 import type { TeamId } from './v2'
 
 /** 요청이 살아 있는 시간. 답이 없으면 그냥 사라진다 — 값도 안 든다. */
@@ -39,9 +40,23 @@ export interface Stake {
   slips: number
   /** 들고 있는 로봇만. 방에 놓은 것은 못 건넨다. */
   robots: number
+  /**
+   * 정원에서 딴 것. 작물 아이디 → 개수.
+   *
+   * **없을 수 있다** — 작물을 올리기 전의 거래판에는 이 칸이 없었다.
+   * 읽는 쪽은 없으면 빈 것으로 본다.
+   */
+  crops?: CropBag
 }
 
-export const EMPTY_STAKE: Stake = { money: 0, knowledge: 0, items: {}, slips: 0, robots: 0 }
+/** 작물 아이디 → 개수 */
+export type CropBag = Record<string, number>
+
+export const EMPTY_STAKE: Stake = { money: 0, knowledge: 0, items: {}, slips: 0, robots: 0, crops: {} }
+
+/** 딴 것 더미의 개수. 음수나 빈 칸은 0으로 센다 */
+export const cropTotal = (bag: CropBag | undefined): number =>
+  Object.values(bag ?? {}).reduce((n, v) => n + (v > 0 ? v : 0), 0)
 
 /** 내가 실제로 내놓을 수 있는 양. 올릴 때도 성립 직전에도 이걸로 잰다. */
 export interface Holdings {
@@ -50,6 +65,7 @@ export interface Holdings {
   items: Satchel
   slips: number
   robots: number
+  crops: CropBag
 }
 
 export interface DealSide {
@@ -81,6 +97,7 @@ export function stakeIsEmpty(s: Stake): boolean {
     s.knowledge === 0 &&
     s.slips === 0 &&
     s.robots === 0 &&
+    cropTotal(s.crops) === 0 &&
     itemKinds(s.items).every((k) => countOf(s.items, k) === 0)
   )
 }
@@ -110,6 +127,7 @@ export type StakeRefusal =
   | 'shortItems'
   | 'shortSlips'
   | 'shortRobots'
+  | 'shortCrops'
 
 /** 그만큼 가지고 있는가. 모자란 것이 있으면 무엇이 모자란지 말한다. */
 export function shortOf(stake: Stake, have: Holdings): StakeRefusal | null {
@@ -119,6 +137,9 @@ export function shortOf(stake: Stake, have: Holdings): StakeRefusal | null {
   if (stake.robots > have.robots) return 'shortRobots'
   for (const k of itemKinds(stake.items)) {
     if (countOf(stake.items, k) > countOf(have.items, k)) return 'shortItems'
+  }
+  for (const [id, n] of Object.entries(stake.crops ?? {})) {
+    if (n > (have.crops[id] ?? 0)) return 'shortCrops'
   }
   return null
 }
@@ -131,6 +152,29 @@ export const SHORT_MESSAGE: Record<StakeRefusal, string> = {
   shortItems: '그 물건이 모자라다.',
   shortSlips: '쪽지가 모자라다.',
   shortRobots: '들고 있는 로봇이 모자라다.',
+  shortCrops: '딴 것이 모자라다.',
+}
+
+/**
+ * 딴 것이 오가고 나서 **받는 쪽 손이 넘치는가.**
+ *
+ * 딴 것은 한 사람이 정해진 개수(HARVEST_LIMIT)까지만 든다 — 정원에서
+ * 딸 때와 같은 한도다. 거래로 그 한도를 넘겨 쌓게 두면 따는 쪽의
+ * 한도가 뜻을 잃는다. 받는 것이 없으면 이미 넘쳐 있어도 막지 않는다.
+ */
+export const CROP_SWAP_MESSAGE = `딴 것은 ${HARVEST_LIMIT}개까지 든다 — 받는 쪽 손이 찼다.`
+
+export function cropSwapFull(a: {
+  /** 받는 사람이 지금 든 수 */
+  held: number
+  /** 받는 사람이 내주는 수 */
+  gives: number
+  /** 받는 사람이 받는 수 */
+  gets: number
+  cap: number
+}): boolean {
+  if (a.gets <= 0) return false
+  return a.held - a.gives + a.gets > a.cap
 }
 
 /**
@@ -244,7 +288,7 @@ export function newDeal(input: {
   const side = (p: { playerId: string; team: TeamId }): DealSide => ({
     ...p,
     ready: false,
-    stake: { ...EMPTY_STAKE, items: { ...EMPTY_SATCHEL } },
+    stake: { ...EMPTY_STAKE, items: { ...EMPTY_SATCHEL }, crops: {} },
   })
   return {
     status: 'asking',

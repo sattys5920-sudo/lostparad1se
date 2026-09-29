@@ -14,10 +14,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DEAL_COUNTDOWN_MS, stakeIsEmpty, type Stake } from '../../../shared/rules/deal'
 import { ITEMS, type ItemKind } from '../../../shared/rules/items'
+import { CROPS } from '../../../shared/rules/crop'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { TEAM_COLOR } from './MapPlan'
-import { goodIcon } from './goodArt'
+import { cropIcon, goodIcon } from './goodArt'
 import { SFX } from './sfx'
 import type { LiveDeal } from './useDeal'
 import type { GameActions } from './useGame'
@@ -25,32 +26,43 @@ import type { GameActions } from './useGame'
 /**
  * 탁자에 올릴 수 있는 것들. **서버가 아는 것과 하나씩 맞는다.**
  *
- * 아이템은 목록에서 뽑는다 — 물건이 하나 늘 때 여기를 같이 고치는 것을
- * 잊으면, 가진 물건인데 올릴 칸이 없는 채로 조용히 지나간다.
+ * 아이템과 작물은 목록에서 뽑는다 — 하나 늘 때 여기를 같이 고치는 것을
+ * 잊으면, 가진 것인데 올릴 칸이 없는 채로 조용히 지나간다.
+ *
+ * 작물 칸의 열쇠는 `crop:감자아이디` 꼴이다. 물건 이름과 겹치지 않게.
  */
-const SLOTS = [
-  { key: 'money', name: '돈', from: '내 것' },
-  { key: 'knowledge', name: '지식', from: '팀 금고' },
-  ...ITEMS.map((i) => ({ key: i.kind, name: i.name, from: '내 것' })),
-  { key: 'slips', name: '쪽지', from: '접힌 채' },
-  { key: 'robots', name: '로봇', from: '들고 있는' },
-] as const
+interface Slot {
+  key: string
+  name: string
+  from: string
+  icon: () => string
+}
 
-type SlotKey = (typeof SLOTS)[number]['key']
-type Pile = Record<SlotKey, number>
+const CROP_KEY = (id: string) => `crop:${id}`
 
-const ITEM_KEYS = new Set<string>(ITEMS.map((i) => i.kind))
-const ZERO = Object.fromEntries(SLOTS.map((s) => [s.key, 0])) as Pile
+const SLOTS: readonly Slot[] = [
+  { key: 'money', name: '돈', from: '내 것', icon: () => goodIcon('money') },
+  { key: 'knowledge', name: '지식', from: '팀 금고', icon: () => goodIcon('knowledge') },
+  ...ITEMS.map((i) => ({ key: i.kind, name: i.name, from: '내 것', icon: () => goodIcon(i.kind) })),
+  { key: 'slips', name: '쪽지', from: '접힌 채', icon: () => goodIcon('slips') },
+  { key: 'robots', name: '로봇', from: '들고 있는', icon: () => goodIcon('robots') },
+  ...CROPS.map((c) => ({ key: CROP_KEY(c.id), name: c.name, from: '딴 것', icon: () => cropIcon(c.id) })),
+]
+
+type Pile = Record<string, number>
+
+const ZERO: Pile = Object.fromEntries(SLOTS.map((s) => [s.key, 0]))
 
 /** 탁자 위의 한 더미를 화면이 세는 모양으로. */
 function pileOf(stake: Stake | undefined): Pile {
   const out = { ...ZERO }
   if (!stake) return out
-  for (const s of SLOTS) {
-    out[s.key] = ITEM_KEYS.has(s.key)
-      ? (stake.items?.[s.key as ItemKind] ?? 0)
-      : ((stake as unknown as Record<string, number>)[s.key] ?? 0)
-  }
+  out.money = stake.money ?? 0
+  out.knowledge = stake.knowledge ?? 0
+  out.slips = stake.slips ?? 0
+  out.robots = stake.robots ?? 0
+  for (const i of ITEMS) out[i.kind] = stake.items?.[i.kind] ?? 0
+  for (const c of CROPS) out[CROP_KEY(c.id)] = stake.crops?.[c.id] ?? 0
   return out
 }
 
@@ -58,7 +70,9 @@ function pileOf(stake: Stake | undefined): Pile {
 function stakeOf(p: Pile): Stake {
   const items: Partial<Record<ItemKind, number>> = {}
   for (const i of ITEMS) if (p[i.kind] > 0) items[i.kind] = p[i.kind]
-  return { money: p.money, knowledge: p.knowledge, slips: p.slips, robots: p.robots, items }
+  const crops: Record<string, number> = {}
+  for (const c of CROPS) if (p[CROP_KEY(c.id)] > 0) crops[c.id] = p[CROP_KEY(c.id)]
+  return { money: p.money, knowledge: p.knowledge, slips: p.slips, robots: p.robots, items, crops }
 }
 
 /** 내가 지금 내놓을 수 있는 양. **이만큼만 집힌다.** */
@@ -69,6 +83,7 @@ function haveOf(view: PlayerViewDoc | null): Pile {
   out.slips = view?.mySlips?.length ?? 0
   out.robots = view?.myCarriedRobots ?? 0
   for (const i of ITEMS) out[i.kind] = view?.myItems?.[i.kind] ?? 0
+  for (const c of CROPS) out[CROP_KEY(c.id)] = view?.myCrops?.[c.id] ?? 0
   return out
 }
 
@@ -175,11 +190,11 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
     else SFX.gone()
   }, [deal.status])
 
-  const step = (key: SlotKey, by: number) => {
+  const step = (key: string, by: number) => {
     dirty.current = true
     setDraft((cur) => ({ ...cur, [key]: Math.min(have[key], Math.max(0, cur[key] + by)) }))
   }
-  const setTo = (key: SlotKey, n: number) => {
+  const setTo = (key: string, n: number) => {
     dirty.current = true
     setDraft((cur) => ({ ...cur, [key]: Math.min(have[key], Math.max(0, n)) }))
   }
@@ -245,7 +260,7 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
           {SLOTS.filter((s) => have[s.key] > 0).map((s) => (
             <li key={s.key}>
               <span className="sc-dr__what">
-                <img src={goodIcon(s.key)} alt="" width={24} height={24} />
+                <img src={s.icon()} alt="" width={24} height={24} />
                 {s.name}
                 <em>{s.from} · {have[s.key]}</em>
               </span>
@@ -330,7 +345,7 @@ function Slots({ pile, team, lit, none }: { pile: Pile; team: TeamId; lit: boole
     >
       {put.map((s) => (
         <li key={s.key} className="sc-dr__slot">
-          <img src={goodIcon(s.key)} alt="" width={24} height={24} />
+          <img src={s.icon()} alt="" width={24} height={24} />
           <span>{s.name}</span>
           <b>{pile[s.key]}</b>
         </li>

@@ -17,6 +17,8 @@ import {
   newDeal,
   readyToSettle,
   robotSwapNo,
+  cropSwapFull,
+  cropTotal,
   shortOf,
   stakeIsEmpty,
   stakeOf,
@@ -45,6 +47,7 @@ const have = (over: Partial<Holdings>): Holdings => ({
   items: {},
   slips: 0,
   robots: 0,
+  crops: {},
   ...over,
 })
 
@@ -197,5 +200,35 @@ describe('로봇이 오갈 때 받는 쪽 한도', () => {
   it('다른 팀에서 넘어오면 팀 한도를 본다 — 같은 팀끼리는 안 본다', () => {
     expect(robotSwapNo({ ...base, teamRobots: 6 })).toBe('teamFull')
     expect(robotSwapNo({ ...base, teamRobots: 6, sameTeam: true })).toBeNull()
+  })
+})
+
+describe('딴 것도 탁자에 오른다', () => {
+  it('딴 것만 올려도 빈 탁자가 아니다', () => {
+    expect(stakeIsEmpty(put({ crops: { potato: 1 } }))).toBe(false)
+    expect(stakeIsEmpty(put({ crops: { potato: 0 } }))).toBe(true)
+    // 작물 칸이 없던 옛 거래판도 빈 것으로 읽힌다
+    expect(stakeIsEmpty({ money: 0, knowledge: 0, items: {}, slips: 0, robots: 0 })).toBe(true)
+  })
+
+  it('가진 것보다 많이 올리면 모자라다고 한다 — 종류마다 따로 센다', () => {
+    const mine = have({ crops: { potato: 2, tomato: 1 } })
+    expect(shortOf(put({ crops: { potato: 2 } }), mine)).toBeNull()
+    expect(shortOf(put({ crops: { potato: 3 } }), mine)).toBe('shortCrops')
+    expect(shortOf(put({ crops: { corn: 1 } }), mine)).toBe('shortCrops')
+  })
+
+  it('받는 쪽 손이 한도를 넘으면 막는다. 내주는 만큼은 자리가 난다', () => {
+    const base = { held: 4, gives: 0, gets: 1, cap: 5 }
+    expect(cropSwapFull(base)).toBe(false)
+    expect(cropSwapFull({ ...base, gets: 2 })).toBe(true)
+    expect(cropSwapFull({ ...base, gets: 2, gives: 1 })).toBe(false)
+    // 받는 것이 없으면 이미 넘쳐 있어도 막지 않는다
+    expect(cropSwapFull({ ...base, held: 7, gets: 0 })).toBe(false)
+  })
+
+  it('더미 개수는 음수를 세지 않는다', () => {
+    expect(cropTotal({ potato: 2, corn: -1, tomato: 3 })).toBe(5)
+    expect(cropTotal(undefined)).toBe(0)
   })
 })
