@@ -382,15 +382,19 @@ async function main(): Promise<void> {
     refused('떨어진 askDeal', apart)
     check(!apart.ok && korean(apart.message), `두 칸(${manhattan(far, seats.a)}) 떨어지면 askDeal 이 거절된다`, `${apart.code} ${apart.message}`)
 
-    // castVote — vote.ts 의 규칙은 「같은 방(tileId)」이다. 옆 칸이 아니어도 된다
+    // castVote — **옆 칸에만** 준다(vote.ts · cellsTouch). 같은 방이어도 두 칸 떨어지면 안 된다
     const voteApart = await call('castVote', A.token, { gameId: GAME, targetId: B.uid, kind: 'trust' })
-    check(voteApart.ok, `castVote 는 같은 방이면 된다 — 떨어져 있어도(${manhattan(far, seats.a)}칸)`, voteApart.ok ? JSON.stringify(voteApart.data) : `${voteApart.code} ${voteApart.message}`)
+    refused('떨어진 castVote', voteApart)
+    check(!voteApart.ok && korean(voteApart.message), `castVote 는 같은 방이어도 떨어져 있으면(${manhattan(far, seats.a)}칸) 거절된다`, `${voteApart.code} ${voteApart.message}`)
+    await sideBySide(A, B, roomB)
+    const voteNext = await call('castVote', A.token, { gameId: GAME, targetId: B.uid, kind: 'trust' })
+    check(voteNext.ok, 'castVote 는 옆 칸이면 된다', voteNext.ok ? JSON.stringify(voteNext.data) : `${voteNext.code} ${voteNext.message}`)
     const C = P(2)
     await must('roamTo', C.token, { gameId: GAME, tileId: roomB })
     await must('roamTo', B.token, { gameId: GAME, tileId: roomA })
     const voteOther = await call('castVote', C.token, { gameId: GAME, targetId: B.uid, kind: 'trust' })
     refused('다른 방 castVote', voteOther)
-    check(!voteOther.ok && korean(voteOther.message), 'castVote 는 다른 방이면 거절된다(규칙: 같은 tileId, 옆 칸 조건 없음)', `${voteOther.code} ${voteOther.message}`)
+    check(!voteOther.ok && korean(voteOther.message), 'castVote 는 다른 방이면 거절된다', `${voteOther.code} ${voteOther.message}`)
     await must('roamTo', B.token, { gameId: GAME, tileId: roomB })
 
     // 동시에 서로 청한다
@@ -571,8 +575,8 @@ async function main(): Promise<void> {
 
   // ════════════════════════════════════════════════════════════════
   head('투표 — 정해진 사람 (DAY 2 → 3)')
-  const X = people.find((p) => !isCap(p) && p.team === 'B') as Person
-  const Y = people.find((p) => p.uid !== X.uid && p.team === 'B' && !isCap(p)) as Person
+  const X = people.find((p) => p.team === 'B') as Person
+  const Y = people.find((p) => p.uid !== X.uid && p.team === 'B') as Person
   {
     const s1 = await must('pushDay', host, { gameId: GAME })
     const s2 = await must('pushDay', host, { gameId: GAME })
@@ -590,8 +594,8 @@ async function main(): Promise<void> {
     const byDay = (gAfter.invisibleByDay as Record<string, string | null>) ?? {}
     check(closed.open === false && d2.d?.invisibleId === X.uid && String(d2.d?.reason) === 'picked', '닫으면 X 가 뽑힌다(picked)', JSON.stringify(d2.d))
     check(byDay['3'] === X.uid, 'invisibleByDay[3] === X', JSON.stringify(byDay))
-    // **닫아도 오늘은 안 지워진다.** 세는 것은 내일 몫(invisibleByDay[day+1])이고, 적용은 아침(dayStart)이 한다
-    check(gAfter.invisibleId == null && gAfter.invisibleTeam == null, '닫은 직후(DAY 2)에는 game.invisibleId · invisibleTeam 이 아직 비어 있다 — 내일 아침에 적용된다', `invisibleId=${String(gAfter.invisibleId)} invisibleTeam=${String(gAfter.invisibleTeam)}`)
+    // **닫는 그 자리에서 지워진다.** 발표부터 다음 투표가 열릴 때까지가 투명인간이다
+    check(gAfter.invisibleId === X.uid && gAfter.invisibleTeam === X.team, '닫은 직후(DAY 2)부터 X 가 지워진다 — 발표 즉시', `invisibleId=${gAfter.invisibleId === X.uid ? 'X' : String(gAfter.invisibleId)} invisibleTeam=${String(gAfter.invisibleTeam)}`)
 
     const s3 = await must('pushDay', host, { gameId: GAME })
     const s4 = await must('pushDay', host, { gameId: GAME })
@@ -638,8 +642,10 @@ async function main(): Promise<void> {
     const radioAll = await call('radio', X.token, { gameId: GAME, text: '들리나', channel: 'all' })
     refused('X radio all', radioAll)
     check(!radioAll.ok && korean(radioAll.message), 'X 의 전원 무전은 거절된다', `${radioAll.code} ${radioAll.message}`)
+    // 무전도 마주 보고 하는 대화다 — 지워진 동안은 팀 채널도 안 된다(radio.ts)
     const radioTeam = await call('radio', X.token, { gameId: GAME, text: '팀에는', channel: 'team' })
-    check(radioTeam.ok, 'X 의 팀 무전은 된다', radioTeam.ok ? '' : `${radioTeam.code} ${radioTeam.message}`)
+    refused('X radio team', radioTeam)
+    check(!radioTeam.ok && korean(radioTeam.message), 'X 의 팀 무전도 거절된다', `${radioTeam.code} ${radioTeam.message}`)
     const walk = await call('roamTo', X.token, { gameId: GAME, tileId: rooms4[2] })
     check(walk.ok, 'X 는 걸어 다닐 수 있다', walk.ok ? String(walk.data?.tileId) : `${walk.code} ${walk.message}`)
   }
@@ -649,6 +655,7 @@ async function main(): Promise<void> {
   {
     const Z = T1
     await must('hostOpenBallot', host, { gameId: GAME })
+    check((await gameNow()).invisibleId == null, '투표가 열리면 X 가 풀린다')
     const voters = people.filter((p) => p.uid !== Z.uid && p.uid !== X.uid).slice(0, 5)
     const outs = await Promise.all(voters.map((p) => call('castBallot', p.token, { gameId: GAME, targetId: Z.uid })))
     check(outs.every((o) => o.ok), `다섯이 봇${Z.i}(Z) 를 적는다`, outs.filter((o) => !o.ok).map((o) => o.message).join(' · ') || '5/5')
@@ -665,7 +672,7 @@ async function main(): Promise<void> {
     check((s5.pushed as { kind: string })?.kind === 'settlement' && d3.status === 200 && d3.d?.invisibleId === Z.uid, '정산을 넘기면 그때 센다 — ballotDays/d3 = Z', `${JSON.stringify(s5.pushed)} ${JSON.stringify(d3.d)}`)
     check((g.ballot as { open: boolean }).open === false, '세고 나면 ballot.open 이 거짓이다', JSON.stringify(g.ballot))
     check(byDay['4'] === Z.uid, 'invisibleByDay[4] === Z', JSON.stringify(byDay))
-    check(g.invisibleId === X.uid, '정산이 세어도 오늘(DAY 3)의 투명인간은 그대로 X 다 — 바뀌는 것은 아침이다', `invisibleId=${g.invisibleId === X.uid ? 'X' : String(g.invisibleId)}`)
+    check(g.invisibleId === Z.uid, '정산이 세면 그 자리에서 Z 가 지워진다', `invisibleId=${g.invisibleId === Z.uid ? 'Z' : g.invisibleId === X.uid ? 'X' : String(g.invisibleId)}`)
 
     const s6 = await must('pushDay', host, { gameId: GAME })
     const g4 = await gameNow()

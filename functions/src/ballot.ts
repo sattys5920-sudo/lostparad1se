@@ -110,7 +110,10 @@ export const castBallot = onCall<{ gameId: string; targetId: string }>(async (re
   const out = canName({
     voterId: uid,
     targetId,
-    yesterdayId: game.invisibleId ?? null,
+    // **오늘 내내 지워져 있던 사람** — 세는 쪽(settleBallots)과 같은 값을 본다.
+    // game.invisibleId 는 hostOpenBallot 이 투표를 열면서 이미 비웠다. 그걸
+    // 보면 어제 지워진 사람도 적혀 놓고, 셀 때 조용히 버려졌다
+    yesterdayId: game.invisibleByDay?.[day] ?? null,
   })
   if (!out.ok) {
     const why: Record<string, string> = {
