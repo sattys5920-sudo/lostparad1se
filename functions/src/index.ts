@@ -185,8 +185,9 @@ export { commissionTrap, takeTrap } from './trap'
 // 오락기. 답은 서버가 쥐고, 대결에서 먼저 낸 수는 봉인한다
 export { arcadeOpen, arcadeInvite, arcadeAnswer, arcadeBegin, arcadeLeave, arcadeMove, arcadePick, arcadeSubmit, arcadePlay, arcadeTick, arcadeClock } from './arcade'
 
-// 투명인간 투표. 누가 누구를 적었는지는 어떤 API로도 안 나간다
-export { castBallot, clearInvisible } from './ballot'
+// 투명인간 투표. 플레이어에게는 누가 누구를 적었는지 어떤 API로도
+// 안 나간다 — hostBallots 는 운영자 전용이다
+export { castBallot, clearInvisible, hostBallots } from './ballot'
 
 // 운영자 지도 — 열넷의 자리와 하는 일, 방마다 오간 말
 export { hostLiveMap, hostRoomChat } from './hostLive'

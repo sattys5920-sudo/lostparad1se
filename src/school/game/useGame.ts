@@ -376,6 +376,8 @@ export function gameActions(gameId: string) {
     hostInvariants: () => callServer('hostInvariants', g),
     /** 사람마다 받은 표 — 종류별 합계. 누가 줬는지는 안 온다 */
     hostVotes: () => callServer('hostVotes', g),
+    /** 투명인간 투표 — 그날(기본은 오늘) 누가 누구를 적었는지 그대로. 운영자만 */
+    hostBallots: (day?: number) => callServer('hostBallots', { ...g, ...(day !== undefined ? { day } : {}) }),
     /** 날짜별 개인 미션 판정. 날을 안 주면 가장 최근 날 */
     hostMissionDay: (day?: number) => callServer('hostMissionDay', { ...g, ...(day ? { day } : {}) }),
     /** 한 사람의 그날 결과를 뒤집는다. null 이면 뒤집기를 거둔다. 까닭은 꼭 */

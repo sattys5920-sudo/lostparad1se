@@ -4,10 +4,14 @@
 // 호의고, 이쪽은 만나지 않고 하는 배제다. 어디서든 던지고, 마감 전까지
 // 바꿀 수 있고, 하루에 한 사람만 적는다.
 //
-// 누가 누구를 적었는지는 **게임이 끝날 때까지 아무에게도 안 나간다.**
-// 운영자에게도. 득표수도 안 나간다 — 발표되는 것은 결과 한 줄뿐이다.
-// 「몇 표였다」가 새는 순간 누가 적었는지를 좁혀 나갈 수 있고, 그러면
-// 이 투표가 무기명이라는 말이 거짓이 된다.
+// 누가 누구를 적었는지는 **열넷 누구에게도 안 나간다.** 득표수도 안
+// 나간다 — 플레이어에게 발표되는 것은 결과 한 줄뿐이다. 「몇 표였다」가
+// 새는 순간 누가 적었는지를 좁혀 나갈 수 있고, 그러면 이 투표가
+// 무기명이라는 말이 거짓이 된다.
+//
+// **운영자만은 본다(hostBallots).** 운영자는 판을 지켜야 하는 사람이라
+// 다른 무기명 투표(신뢰·호감표)도 서버 안에서는 항상 다 보인다 —
+// 다만 그 둘은 API로도 안 나가고, 이 투표만 운영자용 API를 하나 연다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
@@ -20,6 +24,7 @@ import { erasedOn } from './use'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { logSecret } from './qaLog'
+import { requireHost } from './host'
 import { gameRef, nowOf, requireUid } from './index'
 
 const db = getFirestore()
@@ -155,6 +160,39 @@ export async function myBallotOn(gameId: string, day: number, uid: string): Prom
   const snap = await ballotsOf(gameId).doc(keyOf(day, uid)).get()
   return snap.exists ? ((snap.data() as BallotDoc).targetId ?? null) : null
 }
+
+/**
+ * 운영자 — 그날(기본은 오늘) 누가 누구를 적었는지 그대로.
+ *
+ * **여기만 예외다.** 신뢰·호감표는 운영자에게도 팀 합계·사람별 합계
+ * 까지만 나가지만, 이 투표는 판을 지키는 운영자가 흐름을 볼 수 있어야
+ * 한다는 판단으로 개별 표를 그대로 연다. 플레이어에게는 여전히 결과
+ * 한 줄뿐이다 — 이 콜러블은 운영자만 부를 수 있다.
+ */
+export const hostBallots = onCall<{ gameId: string; day?: number }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const snap = await gameRef(gameId).get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  const day = typeof req.data.day === 'number' ? req.data.day : game.day
+  const nameOf = (id: string) => game.seats.find((s) => s.playerId === id)?.name ?? id
+
+  const rows = await ballotsOf(gameId).where('day', '==', day).get()
+  return {
+    day,
+    rows: rows.docs
+      .map((d) => d.data() as BallotDoc)
+      .map((b) => ({
+        voterId: b.voterId,
+        voterName: nameOf(b.voterId),
+        targetId: b.targetId,
+        targetName: nameOf(b.targetId),
+        atMs: b.atMs,
+      }))
+      .sort((a, b) => a.atMs - b.atMs),
+  }
+})
 
 /**
  * 하루가 끝났다. 내일의 투명인간을 고른다. 운영자가 그날 정산을 넘길 때
