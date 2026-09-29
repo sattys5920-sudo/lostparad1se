@@ -169,7 +169,8 @@ async function main() {
   // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
   await must('assignAll', host, { gameId: game })
   await must('startGame', host, { gameId: game, startAtMs: START })
-  await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 60 })
+  // 배속 1 — 빠르게 돌리면 자물쇠(한 시간)가 호출 사이에 풀려 「덮어 걸 수 없다」가 흔들린다
+  await must('setDevClock', host, { gameId: game, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })
   await must('tick', host, { gameId: game })
 
   const me = 'qa01'
@@ -208,21 +209,25 @@ async function main() {
   const before = await moneyOf(game, meUid)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
   const after = await moneyOf(game, meUid)
-  check(before - after === 4, '자물쇠 값 4가 **팀 금고**에서 빠졌다', `${before} → ${after}`)
+  const LOCK_PRICE = SHOP_ITEMS.find((i) => i.id === 'lock')?.cost.money ?? -1
+  check(before - after === LOCK_PRICE, `자물쇠 값 ${LOCK_PRICE}이 **팀 금고**에서 빠졌다`, `${before} → ${after}`)
   check((await bagOf(game, meUid)).lock === 1, '주머니에 들어왔다')
 
-  console.log('\n── 지우개는 하루에 한 개 ──')
+  // 지우개는 **학교 전체에** 하루 몇 개뿐이다(shop.ts stockPerDay). 누가 사든 같은 몫에서 빠진다
+  const ERASERS = SHOP_ITEMS.find((i) => i.id === 'eraser')?.stockPerDay ?? 1
+  console.log(`\n── 지우개는 학교 전체에 하루 ${ERASERS}개 ──`)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'eraser' })
-  const twice = await call('buyShopItem', meTok, { gameId: game, itemId: 'eraser' })
-  check(!twice.ok, '**두 개째는 안 나온다**', twice.ok ? '두 개 나왔다' : (twice.err ?? ''))
-  // 다른 사람이어도, 다른 팀이어도 하루 몫은 판 전체에서 하나다
+  // 다른 사람이어도, 다른 팀이어도 하루 몫은 판 전체에서 같이 줄어든다 — 남은 것은 남이 산다
   const you = 'qa08'
   const youTok = await tok(you)
   const youUid = uidOf(you)
   await standBy(game, youUid, YOUR_SIDE)
   await fund(game, youUid, 40)
+  for (let i = 1; i < ERASERS; i++) await must('buyShopItem', youTok, { gameId: game, itemId: 'eraser' })
+  const twice = await call('buyShopItem', meTok, { gameId: game, itemId: 'eraser' })
+  check(!twice.ok, `**${ERASERS}개가 다 나가면 더는 안 나온다**`, twice.ok ? '또 나왔다' : (twice.err ?? ''))
   const other = await call('buyShopItem', youTok, { gameId: game, itemId: 'eraser' })
-  check(!other.ok, '남의 팀이 와도 하루 몫은 판 전체에서 하나다', other.ok ? '샀다' : (other.err ?? ''))
+  check(!other.ok, '남의 팀이 와도 하루 몫은 판 전체에서 같이 줄어든다', other.ok ? '샀다' : (other.err ?? ''))
 
   console.log('\n── 자물쇠 ──')
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })

@@ -31,6 +31,7 @@ import type {
 } from '../../shared/model'
 import { announceBallots } from './ballot'
 import { gameRef, nowOf } from './index'
+import { qaLogOf } from './qaLog'
 import { claimSeat, pickSeat } from './seat'
 import { catchUpMissionDays } from './missionDays'
 import { refreshViews } from './views'
@@ -275,7 +276,9 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
   } else {
     c.tx.update(pawnRef, { tileId: null, fromTile: tileId, path: rest, arriveAtMs: nextAtMs })
   }
-  c.tx.set(ref.collection('events').doc(), {
+  // **누가 어디에 섰나는 공개 기록(events)에 못 둔다** — 참가자 누구나 읽어서
+  // 안개 밖 사람과 지워진 사람의 자리가 샌다. 운영자 로그(secret/qa/log)에만
+  c.tx.set(qaLogOf(c.gameId).doc(), {
     atMs: c.atMs,
     day: c.day,
     kind: 'arrive',

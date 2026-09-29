@@ -270,7 +270,7 @@ export interface View {
    * 연구실에서 연구가 돌고 있는지가 학교 반대편에서 읽힌다 — 그것은
    * 걸어가서 봐야 하는 값이다.
    */
-  madeHere: { id: string; byPlayerId: string; mine: boolean; locked: boolean }[]
+  madeHere: { id: string; mine: boolean; locked: boolean }[]
   /**
    * 방마다 **내게 보이는** 머릿수. 미니맵이 이 숫자를 그대로 쓴다.
    *
@@ -692,7 +692,8 @@ export function projectView(world: World, viewerId: string): View {
       .filter((m) => here !== null && m.tileId === here)
       .map((m) => {
         const mine = m.byPlayerId === viewerId
-        return { id: m.id, byPlayerId: m.byPlayerId, mine, locked: !mine && onlyMakerNow(world.openPhaseNo ?? null, m.phaseNo) }
+        // **누가 연구했는지는 안 싣는다** — 내 것인가만. 자리를 떠난 사람의 이름이 남으면 안 된다
+        return { id: m.id, mine, locked: !mine && onlyMakerNow(world.openPhaseNo ?? null, m.phaseNo) }
       }),
 
     visiblePawns: withCarry(seen, world.errands ?? []),

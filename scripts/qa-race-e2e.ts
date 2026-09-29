@@ -275,6 +275,8 @@ const tokensOf = async (g: Game, t: string): Promise<number> => Number((await te
 const records = (g: Game, kind: string, extra: [string, unknown][] = []) =>
   query(`games/${g.id}/secret/records`, 'items', [['kind', kind], ...extra])
 const events = (g: Game, kind: string) => query(`games/${g.id}`, 'events', [['kind', kind]])
+/** 운영자 로그(secret/qa/log). 누가 · 어디서가 실린 줄은 공개 events 가 아니라 여기 있다 */
+const qaRows = (g: Game, kind: string) => query(`games/${g.id}/secret/qa`, 'log', [['kind', kind]])
 const nowMs = async (g: Game): Promise<number> => Number((await must('clockNow', g.host, { gameId: g.id })).nowMs)
 
 // ── 경주 틀 ──────────────────────────────────────────────────────
@@ -422,7 +424,7 @@ async function freeTimeCases(): Promise<void> {
     const [a, b] = [B[0], C[0]]
     await putIn(g, a.uid, 'annex')
     await putIn(g, b.uid, 'annex')
-    let doneBefore = (await events(g, 'errandDone')).length
+    let doneBefore = (await qaRows(g, 'errandDone')).length
     await runCase('3', '같은 심부름을 둘이 dropThing(먼저 놓는 사람)', 1, N, async () => {
       const posted = await must('hostPostErrand', g.host, { gameId: g.id, specId: 'beaker', boardId: board.id, to: 'annex' })
       const errandId = String(posted.posted)
@@ -439,7 +441,7 @@ async function freeTimeCases(): Promise<void> {
       const coins = Number((oa[0] === 'won' ? ra : rb).data.coins ?? 0)
       const [qa, qb] = [await purse(g, a.team), await purse(g, b.team)]
       const done = await records(g, 'errandDone', [['subjectId', errandId]])
-      const ev = (await events(g, 'errandDone')).length
+      const ev = (await qaRows(g, 'errandDone')).length
       const notes = [...noteOf(oa), ...noteOf(ob)]
       let consistent = true
       if (doc.doneBy !== (winner?.uid ?? null)) { consistent = false; notes.push(`doneBy=${String(doc.doneBy)}`) }

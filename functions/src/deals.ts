@@ -39,7 +39,7 @@ import type { GameDoc, PawnDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { note, noteAll } from './records'
-import { logEvent } from './qaLog'
+import { logSecret } from './qaLog'
 import { gameRef, nowOf, requireUid } from './index'
 import { docId } from './ids'
 import {
@@ -181,7 +181,7 @@ export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req
     for (const id of who) tx.set(dealLocksOf(gameId).doc(id), lock)
     return doc.id
   })
-  await logEvent(gameId, 'dealAsked', nowMs, uid, { dealId }, { day: game.day, tileId: tile, targetId: toPlayerId })
+  await logSecret(gameId, 'dealAsked', nowMs, uid, { dealId }, { day: game.day, tileId: tile, targetId: toPlayerId })
   return { id: dealId, expiresAtMs: nowMs + DEAL_ASK_MS }
 })
 
@@ -210,7 +210,7 @@ export const answerDeal = onCall<{ gameId: string; dealId: string; accept: boole
     tx.update(ref, { status: 'open' })
     return { ok: true, open: true }
   })
-  await logEvent(gameId, 'dealAnswered', nowMs, uid, { dealId, accept: out.open }, { day: game.day })
+  await logSecret(gameId, 'dealAnswered', nowMs, uid, { dealId, accept: out.open }, { day: game.day })
   return out
 })
 
@@ -284,7 +284,7 @@ export const cancelDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   if (!sideOf(deal, uid)) throw new HttpsError('permission-denied', '이 거래의 사람이 아니다.')
   if (!LIVE.includes(deal.status)) return { ok: true }
   await endDeal(gameId, dealId, '한 사람이 나갔다.')
-  await logEvent(gameId, 'dealCancelled', nowOf((await gameRef(gameId).get()).data() as GameDoc), uid, { dealId })
+  await logSecret(gameId, 'dealCancelled', nowOf((await gameRef(gameId).get()).data() as GameDoc), uid, { dealId })
   return { ok: true }
 })
 
@@ -498,7 +498,7 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       })),
     )
   }
-  await logEvent(gameId, 'dealSettled', nowMs, seen.askedBy, { dealId }, {
+  await logSecret(gameId, 'dealSettled', nowMs, seen.askedBy, { dealId }, {
     day: game.day,
     tileId: seen.tileId,
     targetId: askedIsA ? seen.bId : seen.aId,

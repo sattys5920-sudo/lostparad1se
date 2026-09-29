@@ -18,6 +18,7 @@ import { note } from './records'
 import { refreshViews } from './views'
 import { freshNow, mustBeFreeTime, myPawn, requireAwake } from './turn'
 import { gameRef, requireUid } from './index'
+import { qaLogOf } from './qaLog'
 
 const db = getFirestore()
 
@@ -103,7 +104,8 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
 
     if (stockRef) tx.set(stockRef, { day: game.day, itemId: item.id, n: soldToday + 1 })
     if (item.gives) tx.update(meRef, { items: putItem(meNow.items, item.gives) })
-    tx.set(ref.collection('events').doc(), {
+    // 누가 어느 자판기에서 샀나 — 자리가 실린다. 공개 events 가 아니라 운영자 로그로
+    tx.set(qaLogOf(gameId).doc(), {
       atMs: nowMs,
       day: game.day,
       kind: 'shopBought',
@@ -156,7 +158,7 @@ export const sellCrop = onCall<{ gameId: string; cropId: string }>(async (req) =
     // 작물은 딴 사람 손에서 나가고, **돈은 팀 금고로** 들어간다
     tx.update(meRef, { [`crops.${spec.id}`]: have - 1 })
     tx.update(teamRef, { resources: earnPurse(teamNow, { money: spec.price }) })
-    tx.set(ref.collection('events').doc(), {
+    tx.set(qaLogOf(gameId).doc(), {
       atMs: nowMs,
       day: game.day,
       kind: 'cropSold',

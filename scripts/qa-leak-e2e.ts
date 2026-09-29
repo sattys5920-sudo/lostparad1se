@@ -138,6 +138,24 @@ async function standBeside(p: P, x: number, y: number): Promise<boolean> {
   return false
 }
 
+/**
+ * 표는 **옆 칸에만** 준다(vote.ts · cellsTouch). from 을 to 의 바로 옆(상하좌우)
+ * 빈 칸에 세운 뒤 준다
+ */
+async function voteBeside(from: P, to: P, kind: 'trust' | 'liking'): Promise<void> {
+  const at = ((await getDoc(`games/${GAME}/pawns/${to.uid}`)) as { at?: { x: number; y: number } } | null)?.at
+  if (!at) throw new Error(`${to.name} 의 칸을 모른다`)
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const c = { x: at.x + dx, y: at.y + dy }
+    if (!canStandAt(c.x, c.y) || roomOfCell(c.x, c.y) !== roomOfCell(at.x, at.y) || isBlockedCell(c.x, c.y) || isFixture(c.x, c.y)) continue
+    const r = await call('standAt', from.token, { gameId: GAME, x: c.x, y: c.y })
+    if (!r.ok || r.data?.ok === false) continue
+    await must('castVote', from.token, { gameId: GAME, targetId: to.uid, kind })
+    return
+  }
+  throw new Error(`${from.name} 이(가) ${to.name} 옆에 못 섰다`)
+}
+
 /** 문서에서 한글 문장을 뽑는다. 표의 칸 · 인용 · 문단을 문장으로 자른다 */
 function sentencesOfMd(md: string): string[] {
   const body = md.slice(md.indexOf('\n## '))
@@ -193,8 +211,8 @@ async function main(): Promise<void> {
   console.log('\n── 하루치 일을 벌인다 ──')
   // 표 — 다른 팀 사이에서 몇 장. Y 도 한 장 받는다
   const votes = [[B[1], A[1]], [C[0], Y], [D[0], B[1]], [A[1], C[1]]] as const
-  for (const [from, to] of votes) await must('castVote', from.token, { gameId: GAME, targetId: to.uid, kind: 'trust' })
-  await must('castVote', D[1].token, { gameId: GAME, targetId: A[2].uid, kind: 'liking' })
+  for (const [from, to] of votes) await voteBeside(from, to, 'trust')
+  await voteBeside(D[1], A[2], 'liking')
   // 투명인간 투표 — 운영자가 문을 연 뒤(ballotGate) 몇 장. B[1] 이 셋
   await must('hostOpenBallot', host, { gameId: GAME })
   for (const [from, to] of [[A[1], B[1]], [C[0], B[1]], [D[0], B[1]], [B[1], A[1]], [Y, C[1]]] as const) await must('castBallot', from.token, { gameId: GAME, targetId: to.uid })
@@ -252,7 +270,9 @@ async function main(): Promise<void> {
   // X 를 지운다 — 그 뒤로 X 가 한 말은 Y 에게 안 간다
   await patch(`games/${GAME}`, { invisibleId: X.uid, invisibleTeam: 'B' })
   await must('say', X.token, { gameId: GAME, text: '지워진채로한말' })
-  await must('radio', X.token, { gameId: GAME, text: '지워진채로무전' })
+  // 무전은 지워진 동안 아예 안 나간다(radio.ts) — 거절되면 새는 길도 없다
+  const xRadio = await call('radio', X.token, { gameId: GAME, text: '지워진채로무전' })
+  check(!xRadio.ok, '지워진 X 의 무전은 거절된다', xRadio.ok ? '나갔다' : String(xRadio.message))
   // live — X · Z · 같은 팀 W 가 제 자리를 직접 적는다(규칙이 본인 쓰기를 허용한다)
   const W = A[1]
   for (const p of [X, Z[0], W]) {
@@ -465,7 +485,12 @@ async function main(): Promise<void> {
   const ballotEv = events.filter((e) => e.kind === 'ballotCast')
   check(ballotEv.every((e) => !e.playerId), '공개 events 의 투명인간 투표 기록에 **누가 적었는지**가 없다', `ballotCast ${ballotEv.length}줄 · playerId 있음 ${ballotEv.filter((e) => e.playerId).length}`)
   const withWho = [...new Set(events.filter((e) => e.playerId && e.kind !== 'devClock').map((e) => `${e.kind}${e.tileId ? '+tileId' : ''}${e.targetId ? '+targetId' : ''}`))]
-  console.log(`  · 공개 events 에 playerId 가 붙은 종류: ${withWho.join(', ') || '없음'} (누구나 읽는 컬렉션 — 지워진 사람의 지난 자리도 여기 남는다)`)
+  // **누가 한 일은 공개 기록에 안 남는다.** 누구나 읽는 컬렉션이라 안개 밖 사람의 자리 ·
+  // 지워진 사람의 행동 · 누가 누구와 거래했는지가 샌다. 운영자 로그(secret/qa/log)로 간다.
+  // 남아도 되는 것: devClock(운영자) · invisibleCleared(운영자가 풀었다는 공지와 같다)
+  const PUBLIC_OK = new Set(['devClock', 'invisibleCleared'])
+  const whoRows = events.filter((e) => e.playerId && !PUBLIC_OK.has(e.kind))
+  check(whoRows.length === 0, '**공개 events 에 누가 한 일(playerId)이 안 실린다**', withWho.join(', ') || '없음')
   // 보낸 뒤에는 내 것만 온다
   await must('hostMissionSend', host, { gameId: GAME, day: 1, playerIds: [Y.uid] })
   const mail = await readAs(Y.token, `games/${GAME}/inbox/${Y.uid}`)

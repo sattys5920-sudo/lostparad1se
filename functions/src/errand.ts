@@ -37,6 +37,7 @@ import { freshNow, mustBeFreeTime, myPawn } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
+import { qaLogOf } from './qaLog'
 import { docId } from './ids'
 
 const db = getFirestore()
@@ -327,7 +328,8 @@ export const dropThing = onCall<{ gameId: string }>(async (req) => {
     return e.coins
   })
 
-  await gameRef(gameId).collection('events').add({
+  // 누가 어디서 끝냈나 — 공개 events 가 아니라 운영자 로그로(자리가 샌다)
+  await qaLogOf(gameId).add({
     atMs: nowMs,
     day: game.day,
     kind: 'errandDone',
