@@ -109,7 +109,7 @@ describe('셈이 경계에서 갈린다', () => {
     ['cleanup', 'slipsTorn', 'slipTear'],
     ['duty', 'errandsDone', 'errandDone'],
     ['gardener', 'harvests', 'potHarvest'],
-    ['science', 'robotsMade', 'robotBorn'],
+    ['science', 'robotsMade', 'researchStart'],
     ['tech', 'robotsSmashedOfOthers', 'robotSmashed', { otherTeam: 'B' }],
     ['topstudent', 'quizzesSolved', 'quizSolved'],
     ['treasurer', 'vendBuys', 'vendBuy'],
@@ -264,19 +264,17 @@ describe('쪽지 — 같은 장을 두 번 읽어도 한 장이다', () => {
   })
 })
 
-describe('과학부 — 만든 로봇만', () => {
+describe('과학부 — 맡긴 연구만', () => {
   const idx = clauseOf('science', 'robotsMade').index
   const need = needOf('science', 'robotsMade')
 
-  it('남이 연구한 완성품을 주운 것은 안 센다', () => {
-    const got = mainOf('science', { records: did('robotBorn', need, { ownerId: 'other' }) })
+  it('완성품을 주운 것(robotBorn)은 안 센다', () => {
+    const got = mainOf('science', { records: did('robotBorn', need) })
     expect(got.clauses[idx].have).toBe(0)
   })
 
-  it('내가 연구한 것은 남이 주워 가도 내가 만든 것이다', () => {
-    const got = mainOf('science', {
-      records: did('robotBorn', need, { actorId: 'other', ownerId: 'me' }),
-    })
+  it('맡기기만 하면 센다 — 아직 안 나왔어도, 남이 가져가도', () => {
+    const got = mainOf('science', { records: did('researchStart', need) })
     expect(got.clauses[idx].have).toBe(need)
     expect(got.clauses[idx].met).toBe(true)
   })

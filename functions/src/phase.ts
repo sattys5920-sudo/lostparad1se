@@ -550,6 +550,8 @@ export const phaseAct = onCall<{
   } = { made: null, smashed: null, gone: [] }
   /** 연구를 건 기계. 연구일 때만 정해진다 */
   let labMachine: number | null = null
+  /** 연구를 맡긴 사람 — 팀과 방. 맡긴 순간 「만든 로봇」 한 줄을 남긴다 */
+  let commissioned: { team: TeamId; tileId: TileId } | null = null
   await inTx(async (tx) => {
     const [pawns, bots, tiles, hidden, teams, flagSnap, madeSnap, papers] = await Promise.all([
       tx.get(ref.collection('pawns')),
@@ -612,6 +614,11 @@ export const phaseAct = onCall<{
 
     const out = doAct(before, uid, act)
     if (!out.ok) throw new HttpsError('failed-precondition', out.why)
+    commissioned = null
+    if (kind === 'research') {
+      const who = before.people.find((p) => p.playerId === uid) as Person
+      if (who.tileId) commissioned = { team: who.team, tileId: who.tileId as TileId }
+    }
     bot.made = null
     bot.smashed = null
     if (out.log.kind === 'researchDone' && out.log.tileId) {
@@ -795,6 +802,18 @@ export const phaseAct = onCall<{
     // 부순 사람이 없으므로 actor 는 이 페이즈를 민 사람이다. 판정은
     // 이 종류를 안 세므로 누구로 적히든 셈에 안 든다
     await note(gameId, 'robotGone', nowMs, { id: uid, team: g.team }, { subjectId: g.id })
+  }
+
+  /*
+   * **연구를 맡긴 순간이 「만든 것」이다.** 과학부 미션이 이 줄을 센다 —
+   * 완성품을 누가 가져가든, 아무도 안 가져가든 맡긴 사람이 만든 것이다
+   */
+  const job = commissioned as { team: TeamId; tileId: TileId } | null
+  if (job) {
+    await note(gameId, 'researchStart', nowMs, { id: uid, team: job.team }, {
+      tileId: job.tileId,
+      ...(labMachine !== null ? { subjectId: `machine${labMachine}` } : {}),
+    })
   }
 
   // 떠나는 순간 그 방의 체류가 끝난다. 걷는 10분 동안은 어느 방에도

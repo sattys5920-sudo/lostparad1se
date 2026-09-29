@@ -27,6 +27,9 @@ export type RecordKind =
   | 'slipTear'
   // 바닥에 도로 둔 것. 운영자 이력(누가 어디에 두고 갔나)이 이 줄을 본다
   | 'slipDrop'
+  // 연구를 맡겼다. **과학부 「만든 로봇」은 이 줄을 센다** — 완성품을 누가
+  // 가져가든 맡긴 사람이 만든 것이다
+  | 'researchStart'
   | 'robotBorn'
   | 'robotSmashed'
   // 아무도 안 부쉈는데 사라진 짝. 이적으로 한도가 넘쳐서 지워진 것이다.

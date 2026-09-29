@@ -222,7 +222,8 @@ function recordText(r: GameRecord, name: (id?: string | null) => string): string
     case 'slipGive': return `${a} → ${b} 쪽지 건넴${at}`
     case 'slipTear': return `${a} 쪽지 찢음`
     case 'slipDrop': return `${a} 쪽지 내려놓음${at}`
-    case 'robotBorn': return `${a} 로봇 만듦${at}`
+    case 'researchStart': return `${a} 연구 맡김(만든 로봇 +1)${at}`
+    case 'robotBorn': return `${a} 로봇 받음${at}`
     case 'robotSmashed': return `${a} 로봇 부숨${r.otherTeam ? ` · ${r.otherTeam}팀 것` : ''}${at}`
     case 'robotGone': return `로봇 사라짐 · ${r.actorTeam}팀`
     case 'robotOwner': return `로봇 주인 바뀜 · ${b} → ${a}`
