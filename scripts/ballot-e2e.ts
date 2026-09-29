@@ -12,6 +12,8 @@ import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { INVISIBLE_TEAM_TOKEN_BONUS } from '../shared/rules/v2'
 import { stepToward } from '../shared/rules/occupy'
+import { roomOfCell } from '../shared/rules/board'
+import { canSeatAt } from '../shared/rules/seat'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -203,17 +205,41 @@ async function main(): Promise<void> {
   const tradeIn = await call('askDeal', A[0].token, { gameId: GAME, toPlayerId: B[0].uid })
   check(tradeIn.code === 'FAILED_PRECONDITION', '**남이 거는 것도 막힌다**', String(tradeIn.code))
 
+  // 신뢰·호감표는 **옆 칸**에만 준다(cellsTouch). 같은 방만으로는 안 된다 —
+  // B0 를 A0 바로 옆 빈 칸에 세워야 투명인간 규칙 자체를 본다
+  const now = await pawnsNow()
+  const aAt = now[A[0].uid].at as { x: number; y: number }
+  const taken = new Set(
+    Object.values(now)
+      .filter((p) => p.tileId !== null && p.at)
+      .map((p) => `${(p.at as { x: number }).x},${(p.at as { y: number }).y}`),
+  )
+  const beside = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+    .map(([dx, dy]) => ({ x: aAt.x + dx, y: aAt.y + dy }))
+    .find((c) => roomOfCell(c.x, c.y) === where && canSeatAt(c.x, c.y) && !taken.has(`${c.x},${c.y}`))
+  check(beside !== undefined, 'A0 바로 옆에 빈 칸이 있다', JSON.stringify(aAt))
+  if (beside) {
+    const moved = await must('standAt', B[0].token, { gameId: GAME, x: beside.x, y: beside.y })
+    check(moved.ok !== false, 'B0 가 A0 옆 칸에 섰다', JSON.stringify(moved))
+  }
+
   const voteOut = await call('castVote', B[0].token, { gameId: GAME, targetId: A[0].uid, kind: 'trust' })
   // 설정 문서: 「표를 받을 수 없다 | 줄 수는 있다」
   check(voteOut.ok === true, '표를 **줄 수는 있다** — 믿는다고 말하는 일은 안 빼앗는다', voteOut.ok ? '' : String(voteOut.message))
   const voteIn = await call('castVote', A[0].token, { gameId: GAME, targetId: B[0].uid, kind: 'trust' })
-  check(voteIn.ok === false, '표를 받을 수도 없다', String(voteIn.code))
+  // 옆 칸이라 막히는 까닭은 **투명인간이라서**여야 한다
+  check(
+    voteIn.ok === false && String(voteIn.message).includes('지금은 그 사람에게'),
+    '표를 받을 수도 없다 — 옆에 있어도',
+    `${voteIn.code} ${voteIn.message}`,
+  )
 
+  /*
+   * **투명인간 투표는 따로 안 본다.** 투명은 발표부터 다음 투표가 열릴
+   * 때까지라(hostOpenBallot 이 푼다), 지워진 채로 투표함이 열려 있는
+   * 때가 없다. 여기서 투표를 열면 투명이 풀려 아래 검사가 전부 헛돈다
+   */
   console.log('\n── 지워진 사람이 할 수 있는 일 ──')
-  const freeTarget = people.find((p) => p.uid !== B[0].uid) as (typeof people)[number]
-  await must('hostOpenBallot', host, { gameId: GAME })
-  const ballotStill = await call('castBallot', B[0].token, { gameId: GAME, targetId: freeTarget.uid })
-  check(ballotStill.ok, '투명인간 투표는 던질 수 있다', ballotStill.ok ? '' : `${ballotStill.code} ${ballotStill.message}`)
   const neighbours = (await pawnsNow())[B[0].uid].tileId as string
   const step = stepToward(neighbours, 'centralPlaza')
   if (step) {
@@ -255,6 +281,12 @@ async function main(): Promise<void> {
     events.some((e) => e.kind === 'invisibleCleared' && String(JSON.stringify(e)).includes('힘들어해서')),
     '사유가 기록에 남는다',
   )
+
+  console.log('\n── 풀린 사람은 다음 투표에 다시 적는다 ──')
+  await must('hostOpenBallot', host, { gameId: GAME })
+  const target = people.find((p) => p.uid !== B[0].uid) as (typeof people)[number]
+  const again = await call('castBallot', B[0].token, { gameId: GAME, targetId: target.uid })
+  check(again.ok, '풀린 뒤에 열린 투표에는 적는다', again.ok ? '' : `${again.code} ${again.message}`)
 
   console.log(failures === 0 ? '\n전부 통과' : `\n${failures}개 실패`)
   if (failures > 0) process.exit(1)
