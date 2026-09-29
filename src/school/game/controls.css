@@ -577,6 +577,8 @@
   font-size: var(--fs-pixel);
   line-height: 16px;
   text-align: left;
+  /* 평소 세 줄만 보여야 한다 — 혹시라도 더 쌓여도 여기서 막힌다 */
+  max-height: 30vh;
   overflow: hidden;
   background: color-mix(in srgb, var(--bg-0) 45%, transparent);
   /* 지도를 짚는 것을 막지 않는다 — 쓸어내려 닫을 때만 받는다 */
@@ -584,7 +586,12 @@
   transition: background-color var(--t-sheet) var(--ease-sheet);
 }
 .sc-sy.is-open .sc-sy__log {
-  /* 펼치면 들어온 뒤의 말 전부 — 지도 절반까지 올라오고 그 안에서 구른다 */
+  /*
+   * 펼치면 들어온 뒤의 말 전부 — 지도 절반까지 올라오고 그 안에서 구른다.
+   * min() 을 모르는 웹뷰(카카오톡 인앱 브라우저 등 구형)를 위해 고정값을
+   * 먼저 적는다 — min() 줄이 무효면 이 줄이 그대로 남아 상한이 산다.
+   */
+  max-height: 320px;
   max-height: min(45vh, 320px);
   overflow-y: auto;
   overscroll-behavior: contain;

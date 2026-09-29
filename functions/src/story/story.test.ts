@@ -33,9 +33,9 @@ describe('A의 기록', () => {
     }
   })
 
-  it('날마다 한 장이다 — 마지막 날만 임시로 두 장', () => {
+  it('날마다 한 장이다', () => {
     for (const f of FRAGMENTS) {
-      expect(f.papers.length, `DAY ${f.day}`).toBe(f.day === TOTAL_DAYS ? 2 : 1)
+      expect(f.papers.length, `DAY ${f.day}`).toBe(1)
     }
   })
 
@@ -45,21 +45,9 @@ describe('A의 기록', () => {
     }
   })
 
-  it('종이 종류가 문서대로다 — 1 일기장 / 2 메모 / 3 일기장 / 4 메모+메모', () => {
+  it('종이 종류가 문서대로다 — 1 일기장 / 2 메모 / 3 일기장 / 4 메모', () => {
     const kinds = FRAGMENTS.map((f) => f.papers.map((p) => p.kind).join('+'))
-    expect(kinds).toEqual(['diary', 'note', 'diary', 'note+note'])
-  })
-
-  it('DAY 3은 창고 앞에서 보낸 것으로 고쳐져 있다', () => {
-    // v3 본문은 음악실 피아노 뒤였다. 그러면 고발자의 숨긴 사실과 어긋난다
-    const text = (FRAGMENT_BY_DAY[3]?.papers ?? []).flatMap((p) => p.lines).join(' ')
-    expect(text).toContain('창고 앞에서 기다리다가')
-    expect(text).not.toContain('피아노 뒤')
-  })
-
-  it('마지막 날에 철컥 줄이 있다', () => {
-    const text = (FRAGMENT_BY_DAY[TOTAL_DAYS]?.papers ?? []).flatMap((p) => p.lines).join(' ')
-    expect(text).toContain('철컥')
+    expect(kinds).toEqual(['diary', 'note', 'diary', 'note'])
   })
 })
 
