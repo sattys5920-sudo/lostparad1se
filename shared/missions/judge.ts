@@ -231,6 +231,8 @@ function measure(clause: Clause, c: Ctx): Measured {
       return { unit: 'count', have: mine(c, 'potHarvest').length }
     case 'robotsMade':
       return { unit: 'count', have: mine(c, 'robotBorn').length }
+    case 'roomsLocked':
+      return { unit: 'count', have: mine(c, 'roomLock').length }
     case 'robotsSmashedOfOthers': {
       // 이적으로 저절로 사라진 짝은 robotGone으로 따로 남는다
       // 부순 **그 순간** 남의 팀 짝이었으면 센다

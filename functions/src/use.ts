@@ -20,6 +20,7 @@ import type { SlipDoc } from './slips'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { bumpSlips } from './qaLog'
+import { note } from './records'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -89,6 +90,7 @@ export const useItem = onCall<UseInput>(async (req) => {
 
   const day = game.phaseNow?.day ?? game.day
   let said = ''
+  let locked: { team: TeamId; tileId: TileId } | null = null
 
   await db.runTransaction(async (tx) => {
     const meSnap = await tx.get(meRef)
@@ -115,6 +117,7 @@ export const useItem = onCall<UseInput>(async (req) => {
       if (until > nowMs) throw new HttpsError('failed-precondition', '이미 잠겨 있다.')
       tx.update(tileRef, { lockedBy: team, lockUntilMs: nowMs + LOCK_MS })
       said = `${TILE_BY_ID[here as TileId].name} 문을 잠갔다.`
+      locked = { team, tileId: here as TileId }
     }
 
     if (kind === 'paper') {
@@ -186,6 +189,8 @@ export const useItem = onCall<UseInput>(async (req) => {
     tx.update(meRef, { items: left })
   })
 
+  const lockedResult = locked as { team: TeamId; tileId: TileId } | null
+  if (lockedResult) await note(gameId, 'roomLock', nowMs, { id: uid, team: lockedResult.team }, { tileId: lockedResult.tileId })
   await refreshViews(gameId)
   return { used: kind, said }
 })

@@ -100,43 +100,11 @@ describe('배정', () => {
 describe('짝사랑 대상', () => {
   const people = roster()
 
-  it('짝사랑만 대상을 갖는다', () => {
+  it('배정 시점에는 아무도 대상을 갖지 않는다 — 매일 밤 운영자가 정한다', () => {
     for (let i = 0; i < 100; i++) {
       const out = assignRoles(people, `crush-${i}`)
-      for (const a of out) {
-        if (a.roleId === 'crush') expect(a.targetId, `${i}판`).not.toBeNull()
-        else expect(a.targetId, `${i}판 ${a.roleId}`).toBeNull()
-      }
+      for (const a of out) expect(a.targetId, `${i}판 ${a.roleId}`).toBeNull()
     }
-  })
-
-  it('대상은 늘 다른 팀 사람이다', () => {
-    for (let i = 0; i < RUNS; i++) {
-      const out = assignRoles(people, `target-${i}`)
-      const me = out.find((a) => a.roleId === 'crush')
-      if (!me || !me.targetId) throw new Error('짝사랑이 없다')
-      const target = out.find((a) => a.playerId === me.targetId)
-      expect(target, `${i}판`).toBeDefined()
-      expect(target?.team, `${i}판`).not.toBe(me.team)
-    }
-  })
-
-  it('대상은 자기 자신이 아니다', () => {
-    for (let i = 0; i < 200; i++) {
-      const out = assignRoles(people, `self-${i}`)
-      const me = out.find((a) => a.roleId === 'crush')
-      expect(me?.targetId).not.toBe(me?.playerId)
-    }
-  })
-
-  it('씨앗을 바꾸면 대상도 여러 사람으로 흩어진다', () => {
-    const seen = new Set<string>()
-    for (let i = 0; i < 100; i++) {
-      const out = assignRoles(people, `spread-${i}`)
-      const me = out.find((a) => a.roleId === 'crush')
-      if (me?.targetId) seen.add(me.targetId)
-    }
-    expect(seen.size).toBeGreaterThan(3)
   })
 })
 

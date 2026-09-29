@@ -31,10 +31,9 @@ export interface Assignment {
   team: TeamId
   roleId: RoleId
   /**
-   * 짝사랑의 대상. 다른 역할은 null이다.
-   *
-   * 다른 팀 사람 중 무작위로 고른다. **대상에게는 알리지 않는다** —
-   * 본인에게도 이름만 주고 어디 있는지는 주지 않는다.
+   * **더는 여기서 안 정한다.** 짝사랑의 대상은 이제 매일 밤 운영자가
+   * 고른다(functions/src/missionDays.ts 의 secret/crush 문서) — 배정
+   * 시점에는 늘 null이다. 필드는 옛 판의 문서 모양과 맞추려고 남겨 둔다.
    */
   targetId: string | null
 }
@@ -150,17 +149,10 @@ export function assignRoles(players: readonly Player[], seed: string): Assignmen
       playerId: d.playerId,
       team: d.team,
       roleId: d.roleId,
-      targetId: d.roleId === 'crush' ? pickTarget(d, roster, rnd) : null,
+      targetId: null,
     }))
   }
   throw new Error('배정 규칙을 만족하는 짝을 찾지 못했다')
-}
-
-/** 짝사랑의 대상. 다른 팀 사람 중 하나. */
-function pickTarget(me: DealtRole, roster: readonly Player[], rnd: () => number): string {
-  const others = roster.filter((p) => p.team !== me.team).map((p) => p.id)
-  if (others.length === 0) throw new Error('다른 팀 사람이 없다')
-  return shuffled(others, rnd)[0]
 }
 
 /** 그 사람에게 내려보낼 한 줄. 남의 역할은 절대 들어가지 않는다. */

@@ -851,6 +851,9 @@
    (.sc-mk 는 기술실 제조기가 먼저 쓴다. 여기는 .sc-md) */
 .sc-md { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 
+.sc-md__crush { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-label); color: var(--sc-text-dim); }
+.sc-md__crush select { min-height: 32px; }
+
 .sc-md__days { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .sc-ad .sc-md__days button {
   flex: 1 1 0;

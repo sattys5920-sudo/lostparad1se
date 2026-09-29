@@ -29,7 +29,7 @@ const KINDS: Record<RoleId, ClauseKind[]> = {
   deskmate: ['slipsRead'],
   bookclub: ['slipsRead', 'slipsGiven'],
   cleanup: ['slipsTorn'],
-  duty: ['errandsDone'],
+  duty: ['roomsLocked', 'errandsDone'],
   gardener: ['harvests'],
   science: ['robotsMade'],
   tech: ['robotsSmashedOfOthers'],

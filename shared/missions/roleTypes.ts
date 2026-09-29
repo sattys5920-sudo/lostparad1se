@@ -28,7 +28,7 @@ export type ClauseKind =
   // 쪽지
   | 'slipsRead' | 'slipsGiven' | 'slipsTorn'
   // 손
-  | 'errandsDone' | 'harvests' | 'robotsMade' | 'robotsSmashedOfOthers' | 'quizzesSolved'
+  | 'errandsDone' | 'harvests' | 'robotsMade' | 'robotsSmashedOfOthers' | 'quizzesSolved' | 'roomsLocked'
   // 어긋남 ★
   | 'targetSlipRead' | 'coStayWithTarget'
   | 'teamNotFirstAtEnd' | 'otherTeamRoomsStood'

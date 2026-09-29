@@ -42,6 +42,22 @@ export const missionLogOf = (gameId: string) =>
   gameRef(gameId).collection('secret').doc('missionLog').collection('items')
 /** 본인만 읽는 우편함(firestore.rules) */
 export const inboxOf = (gameId: string) => gameRef(gameId).collection('inbox')
+const rosterOf = (gameId: string) => gameRef(gameId).collection('secret').doc('roster').collection('items')
+/**
+ * 짝사랑의 대상 — 날짜별. **배정 때 정하지 않는다.** 운영자가 밤마다
+ * 정한다(hostSetCrushTarget) — 그날 못 정하면 그 날짜는 키가 없고,
+ * 그날 조항은 대상 없음으로 실패한다.
+ */
+const crushOf = (gameId: string) => gameRef(gameId).collection('secret').doc('crush')
+
+interface CrushDoc {
+  byDay: Record<string, string>
+}
+
+export async function crushTargetFor(gameId: string, day: number): Promise<string | null> {
+  const doc = (await crushOf(gameId).get()).data() as CrushDoc | undefined
+  return doc?.byDay?.[String(day)] ?? null
+}
 
 export const snapId = (day: number, playerId: string) => `d${day}_${playerId}`
 
@@ -94,13 +110,16 @@ export async function judgeMissionDay(
   if ((await metaRef.get()).exists) return false
   const { log, roster } = await buildLog(gameId, game, { over: true, fromMs, asOfMs, throughDay: day })
   const ctx = { final, noBallot: !hasBallot(day) }
+  const crushTarget = await crushTargetFor(gameId, day)
   const batch = db.batch()
   batch.create(metaRef, { day, fromMs, asOfMs, final, count: roster.length } satisfies MissionDayDoc)
   for (const r of roster as RosterDoc[]) {
     // 이름을 바꾸기 전에 배정된 판은 옛 키(snacker · locker)를 쥐고 있다
     const roleId = canonRoleId(r.roleId)
     if (!roleId) continue
-    const truth = dayVerdict(judge({ playerId: r.playerId, team: r.team, roleId, targetId: r.targetId ?? null }, log), ctx)
+    // 짝사랑의 대상은 그날 운영자가 정한 것이다 — 배정 때 정한 값이 아니다
+    const targetId = roleId === 'crush' ? crushTarget : (r.targetId ?? null)
+    const truth = dayVerdict(judge({ playerId: r.playerId, team: r.team, roleId, targetId }, log), ctx)
     const doc: MissionSnapDoc = {
       day,
       playerId: r.playerId,
@@ -323,4 +342,62 @@ export const seenMissionDay = onCall<{ gameId: string; day: number }>(async (req
   if (!Number.isInteger(day) || day < 1) throw new HttpsError('invalid-argument', '날이 이상하다.')
   await inboxOf(req.data.gameId).doc(uid).set({ seen: { [`d${day}`]: true } }, { merge: true })
   return { ok: true }
+})
+
+/** 이 판의 짝사랑 한 줄. 없으면 null */
+async function crushOf14(gameId: string): Promise<(RosterDoc & { roleId: 'crush' }) | null> {
+  const snap = await rosterOf(gameId).get()
+  for (const d of snap.docs) {
+    const r = d.data() as RosterDoc
+    if (canonRoleId(r.roleId) === 'crush') return r as RosterDoc & { roleId: 'crush' }
+  }
+  return null
+}
+
+/**
+ * 운영자가 오늘의 짝사랑 대상을 본다 — 후보(다른 팀 사람)와 이미 골랐으면 그 사람.
+ *
+ * **오늘 치만 다룬다.** 지난 날은 이미 판정이 끝났고, 앞날은 아직
+ * 누가 있을지 운영자도 모른다(팀이 바뀔 수 있다) — 그날 아침에 그날
+ * 것만 고르게 한다.
+ */
+export const hostCrushTarget = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const snap = await gameRef(gameId).get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  const crush = await crushOf14(gameId)
+  if (!crush) return { day: game.day, crushPlayerId: null, crushName: null, candidates: [], targetId: null }
+  const candidates = game.seats
+    .filter((s) => s.team !== null && s.team !== crush.team && s.playerId !== crush.playerId)
+    .map((s) => ({ id: s.playerId, name: s.name, team: s.team as TeamId }))
+  const targetId = await crushTargetFor(gameId, game.day)
+  return { day: game.day, crushPlayerId: crush.playerId, crushName: nameIn(game)(crush.playerId), candidates, targetId }
+})
+
+/**
+ * 오늘의 대상을 정한다(또는 targetId 를 안 주면 거둔다). **오늘 치만.**
+ *
+ * 다른 팀 사람이어야 한다 — 배정 때 무작위로 고르던 것과 같은 규칙을
+ * 여기서도 지킨다.
+ */
+export const hostSetCrushTarget = onCall<{ gameId: string; targetId?: string | null }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const targetId = req.data.targetId ? String(req.data.targetId) : null
+  const snap = await gameRef(gameId).get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  const crush = await crushOf14(gameId)
+  if (!crush) throw new HttpsError('failed-precondition', '이 판에 짝사랑이 없다.')
+  if (targetId !== null) {
+    if (targetId === crush.playerId) throw new HttpsError('invalid-argument', '자기 자신은 대상이 될 수 없다.')
+    const seat = game.seats.find((s) => s.playerId === targetId)
+    if (!seat) throw new HttpsError('invalid-argument', '그런 사람이 없다.')
+    if (seat.team === crush.team) throw new HttpsError('invalid-argument', '같은 팀은 대상이 될 수 없다.')
+  }
+  const key = `byDay.${game.day}`
+  await crushOf(gameId).set({ [key]: targetId === null ? FieldValue.delete() : targetId }, { merge: true })
+  return { day: game.day, targetId }
 })

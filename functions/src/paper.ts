@@ -26,6 +26,7 @@ import type { GameDoc, RosterDoc } from '../../shared/model'
 
 import { buildLog } from './ending'
 import { catchUp } from './catchup'
+import { crushTargetFor } from './missionDays'
 import { gameRef, nowOf, requireUid } from './index'
 
 /**
@@ -78,6 +79,9 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     throw new HttpsError('internal', '역할을 찾지 못했다.')
   }
 
+  // 짝사랑의 대상은 매일 밤 운영자가 정한다 — 오늘 치를 읽는다
+  const crushTargetId = roleId === 'crush' ? await crushTargetFor(gameId, game.day) : null
+
   const head = {
     roleId,
     roleName: ROLE_NAMES[roleId],
@@ -88,7 +92,7 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     situation: role.situation,
     line: role.line,
     // 짝사랑만 채워진다. 이름만이고 어디 있는지 · 어느 팀인지는 안 보낸다
-    targetName: roleId === 'crush' && mine.targetId ? (game.seats.find((x) => x.playerId === mine.targetId)?.name ?? null) : null,
+    targetName: crushTargetId ? (game.seats.find((x) => x.playerId === crushTargetId)?.name ?? null) : null,
   }
 
   /*
@@ -118,7 +122,7 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     ...(over ? {} : { voteCutoffDay: game.day }),
   })
 
-  const result = judge({ playerId: uid, team: mine.team, roleId, targetId: mine.targetId ?? null }, log)
+  const result = judge({ playerId: uid, team: mine.team, roleId, targetId: crushTargetId }, log)
   // 하루가 바뀔 때 부르는 자리다 — 받은 표 조항은 여기서만 갱신된다
   const phase: Phase = over ? 'end' : 'dayTurned'
   const shown = discloseFor(result, phase)

@@ -486,7 +486,10 @@ describe('마지막 선택 — 판정이 직접 셈한다', () => {
         day4Choice: { me: choice },
         chosenBy: { me: chosen },
         teamTiedRank: { A: 4, B: 4, C: 4, D: 4, ...rank },
-        records: did('errandDone', needOf('duty', 'errandsDone')),
+        records: [
+          ...did('errandDone', needOf('duty', 'errandsDone')),
+          ...did('roomLock', needOf('duty', 'roomsLocked')),
+        ],
       }),
     ).choiceMet
   it('팀을 지킨다 — 공동 2위도 2위 이내다', () => {

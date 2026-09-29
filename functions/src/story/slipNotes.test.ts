@@ -38,9 +38,15 @@ describe('검사가 잡는다', () => {
     expect(errs.some((e) => e.includes('3장이다'))).toBe(true)
     expect(errs.some((e) => e.includes('번호(1~4번)가 겹치거나 빠졌다'))).toBe(true)
   })
-  it('이름형이 아직 한 장으로 안 줄어든 역할은 — 알림만 뜨고 실패하진 않는다', () => {
-    // 04~14번은 아직 옮기는 중이라 이름형이 두 장이다 — notices 로만 잡힌다
+  it('지금 데이터는 역할마다 이름형이 정확히 한 장이다 — 알림이 하나도 없다', () => {
     const { errors, notices } = checkSlipNotes(base, ROLE_NAMES)
+    expect(errors).toEqual([])
+    expect(notices).toEqual([])
+  })
+  it('이름형이 목표(한 장)에서 벗어나면 — 알림만 뜨고 실패하진 않는다', () => {
+    // r01-s1-role 을 이름형으로 바꾸면 반장은 이름형이 두 장이 된다
+    const bad = base.map((n) => (n.id === 'r01-s1-role' ? { ...n, id: 'r01-s1-name', kind: 'name' as const, text: `${NAME_MARK}은 저녁마다 남은 사람 명단을 적어 교무실에 낸다.` } : n))
+    const { errors, notices } = checkSlipNotes(bad, ROLE_NAMES)
     expect(errors).toEqual([])
     expect(notices.some((n) => n.includes('이름형이 2장이다'))).toBe(true)
   })

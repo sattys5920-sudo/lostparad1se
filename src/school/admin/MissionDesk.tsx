@@ -103,6 +103,63 @@ function deltaText(d: number | null, unit: DayClause['unit']): string {
 
 const statusName = (s: DayStatus | null | undefined): string => (s ? STATUS_LABEL[s] : '판정대로')
 
+/** 짝사랑의 오늘 대상 — 위치·팀은 후보 칸에만 보인다(운영자 몫이다). 안 고르면 그날은 대상이 없다. */
+interface CrushOut {
+  day: number
+  crushPlayerId: string | null
+  crushName: string | null
+  candidates: { id: string; name: string; team: TeamId }[]
+  targetId: string | null
+}
+
+function CrushTarget({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {
+  const [data, setData] = useState<CrushOut | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      setData((await act.hostCrushTarget()) as CrushOut)
+    } catch {
+      // 이 판에 짝사랑이 없거나 아직 안 배정됐다 — 조용히 넘어간다
+    }
+  }, [act])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  if (!data || !data.crushPlayerId) return null
+
+  async function pick(id: string) {
+    setBusy(true)
+    try {
+      await act.hostSetCrushTarget(id === '' ? null : id)
+      onSaid(id ? '오늘의 대상을 정했다.' : '오늘의 대상을 거뒀다.')
+      await load()
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="sc-md__crush">
+      <span>
+        DAY {data.day} · 짝사랑({data.crushName}) 오늘의 대상
+      </span>
+      <select value={data.targetId ?? ''} disabled={busy} onChange={(e) => void pick(e.target.value)}>
+        <option value="">— 안 정함 —</option>
+        {data.candidates.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {
   const [data, setData] = useState<Out | null>(null)
   /** 보고 있는 날. 처음 읽을 때 가장 최근 날로 정한다 */
@@ -214,6 +271,7 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
   if (data.day === null) {
     return (
       <div className="sc-md">
+        <CrushTarget act={act} onSaid={onSaid} />
         <p className="sc-ad__hint">아직 판정한 날이 없다. 날을 넘기면 그날 밤 판정이 여기 쌓인다.</p>
         <button className="sc-md__reload" onClick={() => void load()}>
           새로 읽기
@@ -227,6 +285,8 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
 
   return (
     <div className="sc-md">
+      <CrushTarget act={act} onSaid={onSaid} />
+
       {/* ── 날 탭 ── */}
       <nav className="sc-md__days" aria-label="판정한 날">
         {data.days.map((d) => (

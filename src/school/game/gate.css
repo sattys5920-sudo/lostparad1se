@@ -59,16 +59,6 @@
   width: clamp(260px, 80vw, 340px);
   height: var(--gt-h);
   min-height: 400px;
-  /* 펼쳐 놓는다 — 네 걸음으로 끊어서. 매끄럽게 늘이면 종이가 아니라 고무다 */
-  animation: sc-gt-unfold 0.6s steps(1, end) both;
-}
-
-@keyframes sc-gt-unfold {
-  0% { clip-path: inset(42% 0 42% 0); }
-  25% { clip-path: inset(27% 0 27% 0); }
-  50% { clip-path: inset(13% 0 13% 0); }
-  75% { clip-path: inset(4% 0 4% 0); }
-  100% { clip-path: inset(0 0 0 0); }
 }
 
 /* ── 종이 그림 — 아홉 조각 ─────────────────────────────────────
@@ -381,7 +371,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-gt__paper,
   .sc-gt__hold.is-bad,
   .sc-gt__hold.is-crumple,
   .sc-gt__hold.is-gone {

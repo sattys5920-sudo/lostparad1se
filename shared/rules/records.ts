@@ -46,6 +46,8 @@ export type RecordKind =
   | 'errandQuit'
   // 화분
   | 'potHarvest'
+  // 자물쇠로 문을 잠갔다
+  | 'roomLock'
   // 팀이 바뀐 순간. 「그 사건 시점의 팀」이 이 줄들로 되짚어진다
   | 'teamMoved'
   // 오락기 한 판이 끝났다. subjectId 는 「게임:결과」(updown:win),
