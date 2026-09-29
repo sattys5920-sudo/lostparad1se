@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { CHALK_LINE, PROLOGUE_NOTICE, PROLOGUE_SCREENS, prologueText } from './prologue'
+import { CHALK_LINE, PROLOGUE_SCREENS, prologueText } from './prologue'
 
 // **본문은 한 글자도 바꾸지 않는다.** 운영자가 준 원문 그대로인지 여기서 붙든다
 const ORIGINAL = `우리 반에는 투명인간이 있었다.
@@ -34,9 +34,5 @@ describe('프롤로그', () => {
   it('세 화면이다', () => {
     expect(PROLOGUE_SCREENS).toHaveLength(3)
     expect(CHALK_LINE).toBe('이번엔 너희가 해 봐.')
-  })
-
-  it('안내 문구', () => {
-    expect(PROLOGUE_NOTICE).toBe('이 게임은 학교 따돌림과 한 학생의 죽음을 다룹니다. 힘들어지면 운영자에게 알려 주세요.')
   })
 })

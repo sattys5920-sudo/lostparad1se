@@ -1,6 +1,5 @@
 // 프롤로그 · 칠판 — 진짜 흐름으로 두 크기를 찍고, 박자를 잰다.
 //
-//   pg-{w}-0-안내          가입 → 나를 만든 직후 바로 뜬 콘텐츠 안내
 //   pg-{w}-1a-화면1-타자중 · 1b-화면1-완료(▼)
 //   pg-{w}-2a · 2b         화면 2
 //   pg-{w}-3a · 3b         화면 3 (완료 — ▼ 없음)
@@ -69,20 +68,19 @@ async function main() {
     await page.fill('#cc-name', '눈사람')
     await page.click('.sc-cc__done')
 
-    // ── 나를 만든 바로 다음 ──
-    await page.waitForSelector('.sc-pg__notice', { timeout: 20000 })
-    check(true, '나를 만든 바로 다음에 안내가 뜬다')
-    await sleep(400)
-    await shot('0-안내')
-    check((await overflow()) <= 0, '안내 — 가로로 넘치지 않는다', String(await overflow()))
+    // ── 나를 만든 바로 다음 — 안내 없이 곧장 화면 1 ──
+    await page.waitForSelector('.sc-pg__screen', { timeout: 20000 })
+    check((await page.locator('.sc-pg__notice').count()) === 0, '나를 만든 바로 다음에 화면 1 이 뜬다 — 안내 문구 없이')
 
     // ── 중간에 닫으면 처음부터 ──
-    await page.click('.sc-pg__ok')
     await sleep(900)
+    await page.locator('.sc-pg__screen').click()
+    await page.locator('.sc-pg__screen').click()
+    await sleep(700)
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await page.waitForSelector('.sc-pg__notice', { timeout: 20000 })
-    check(true, '중간에 닫았다 열면 안내부터 다시 돈다')
-    await page.click('.sc-pg__ok')
+    await page.waitForSelector('.sc-pg__screen', { timeout: 20000 })
+    const again = await page.evaluate(() => document.querySelector('.sc-pg__screen')?.textContent ?? '')
+    check(again.includes('우리 반에는 투명인간이 있었다.'), '중간에 닫았다 열면 화면 1 부터 다시 돈다')
 
     // ── 화면 1 · 2 · 3 ──
     for (let i = 1; i <= 3; i++) {
@@ -158,9 +156,7 @@ async function main() {
     await page.waitForSelector('#cc-name', { timeout: 20000 })
     await page.fill('#cc-name', '건너뛰기')
     await page.click('.sc-cc__done')
-    await page.waitForSelector('.sc-pg__notice', { timeout: 20000 })
-    check((await page.locator('.sc-pg__skip').count()) === 0, '안내에는 건너뛰기가 없다 — 확인을 눌러야 넘어간다')
-    await page.click('.sc-pg__ok')
+    await page.waitForSelector('.sc-pg__screen', { timeout: 20000 })
     await sleep(500)
     await page.click('.sc-pg__skip')
     await page.waitForSelector('.sc-pg__board', { timeout: 3000 })
@@ -183,8 +179,7 @@ async function main() {
     await page.waitForSelector('#cc-name', { timeout: 20000 })
     await page.fill('#cc-name', '줄이기')
     await page.click('.sc-cc__done')
-    await page.waitForSelector('.sc-pg__notice', { timeout: 20000 })
-    await page.click('.sc-pg__ok')
+    await page.waitForSelector('.sc-pg__screen', { timeout: 20000 })
     await sleep(150)
     const ghost = await page.evaluate(() =>
       [...document.querySelectorAll('.sc-pg__screen .sc-pg__ghost')].map((g) => g.textContent ?? '').join(''),

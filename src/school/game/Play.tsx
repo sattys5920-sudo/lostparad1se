@@ -2584,7 +2584,6 @@ export function Play() {
   if (!me.prologueSeen) {
     return (
       <Prologue
-        withNotice
         onDone={() => {
           // 못 적어도 들여보낸다. 다음 접속 때 한 번 더 보게 될 뿐이다
           void markPrologueSeen().catch(() => undefined)

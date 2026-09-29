@@ -1,6 +1,6 @@
 // 프롤로그 — 가입하고 나를 만든 직후 한 번 도는 장면.
 //
-//   콘텐츠 안내 → 화면 1 · 2 · 3 → (2초 정적 · 3초 암전 · 1초 정적) → 칠판
+//   화면 1 · 2 · 3 → (2초 정적 · 3초 암전 · 1초 정적) → 칠판
 //
 // **본문은 shared/reveal/prologue.ts 에 있다.** 한 글자도 여기서 만지지
 // 않는다. 이 파일은 그 글을 어떤 박자로 내놓는지만 안다.
@@ -28,7 +28,6 @@ import {
   HUSH_MS,
   PARAGRAPH_GAP_MS,
   PROLOGUE_MS_PER_CHAR,
-  PROLOGUE_NOTICE,
   PROLOGUE_SCREENS,
   SCREEN_FADE_MS,
   SILENCE_MS,
@@ -39,7 +38,6 @@ import { Snow } from './Snow'
 import './prologue.css'
 
 type Stage =
-  | 'notice'
   | 'screen'
   /** 화면 3 을 다 찍은 뒤 가만히 있는 2초 */
   | 'hush'
@@ -69,15 +67,13 @@ function sentencesOf(line: string): string[] {
 const lenOf = (para: readonly string[]): number => para.reduce((a, l) => a + l.length, 0)
 
 export interface PrologueProps {
-  /** 처음 도는 것이면 안내부터. 다시 보기에는 안내가 없다 */
-  withNotice: boolean
   /** 칠판의 「들어간다」를 눌렀다 */
   onDone: () => void
 }
 
-export function Prologue({ withNotice, onDone }: PrologueProps) {
+export function Prologue({ onDone }: PrologueProps) {
   const [still] = useState(motionOff)
-  const [stage, setStage] = useState<Stage>(withNotice ? 'notice' : 'screen')
+  const [stage, setStage] = useState<Stage>('screen')
   const [screen, setScreen] = useState(0)
   /** 지금 찍는 문단과 그 문단에서 찍힌 글자 수 */
   const [para, setPara] = useState(0)
@@ -101,7 +97,7 @@ export function Prologue({ withNotice, onDone }: PrologueProps) {
   }, [stage])
   const touched = useCallback(() => {
     armSfx()
-    if (stage === 'notice' || stage === 'screen' || stage === 'hush' || stage === 'dark') startSnowAmbient()
+    if (stage === 'screen' || stage === 'hush' || stage === 'dark') startSnowAmbient()
   }, [stage])
 
   // ── 연출 줄이기면 첫 화면도 다 찍힌 채로 연다(다음 화면은 openScreen 이 한다) ──
@@ -262,23 +258,6 @@ export function Prologue({ withNotice, onDone }: PrologueProps) {
       {/* 줄이기면 성기게, 그래도 내린다 */}
       <Snow level={still ? 1 : 3} always />
 
-      {stage === 'notice' && (
-        <div className="sc-pg__notice">
-          <p>{PROLOGUE_NOTICE}</p>
-          <button
-            type="button"
-            className="sc-pg__ok"
-            autoFocus
-            onClick={() => {
-              touched()
-              setStage('screen')
-            }}
-          >
-            확인
-          </button>
-        </div>
-      )}
-
       {onScreens && (
         <div
           key={screen}
@@ -365,7 +344,7 @@ export function Prologue({ withNotice, onDone }: PrologueProps) {
 }
 
 /**
- * 「프롤로그 다시 보기」 단추. 누르면 안내 없이 화면 1 부터 다시 돈다.
+ * 「프롤로그 다시 보기」 단추. 누르면 화면 1 부터 다시 돈다.
  *
  * 다시 봐도 「봤다」는 안 건드린다 — 이미 봤다.
  */
@@ -382,7 +361,7 @@ export function ReplayPrologue({ onOpen }: { onOpen?: () => void }) {
       >
         프롤로그 다시 보기
       </button>
-      {on && <Prologue withNotice={false} onDone={() => setOn(false)} />}
+      {on && <Prologue onDone={() => setOn(false)} />}
     </>
   )
 }

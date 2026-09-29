@@ -5,9 +5,6 @@
 //
 // 화면과 보관함이 같은 이 파일을 본다 — 보관함에는 연출 없이 글만 남는다.
 
-/** 프롤로그 앞에 한 번만 뜨는 안내. 다시 보기에는 안 나온다 */
-export const PROLOGUE_NOTICE = '이 게임은 학교 따돌림과 한 학생의 죽음을 다룹니다. 힘들어지면 운영자에게 알려 주세요.'
-
 /** 세 화면. 화면 하나는 문단 몇 개, 문단 하나는 줄 몇 개다 */
 export const PROLOGUE_SCREENS: readonly (readonly (readonly string[])[])[] = [
   [
