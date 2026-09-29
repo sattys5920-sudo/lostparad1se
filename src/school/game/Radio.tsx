@@ -406,6 +406,9 @@ function RadioRoom({
     const el = rootRef.current
     if (!el || !active) return
     const fit = () => {
+      // 적는 중에는 판이 보이는 창에 붙어 있다(radio.css) — 그때 재면 탭바 대신
+      // 키보드 높이를 바닥으로 적어서, 키보드가 내려간 뒤 입력줄이 공중에 뜬다
+      if (document.documentElement.hasAttribute('data-typing')) return
       const floor = Math.max(0, Math.round(window.innerHeight - el.getBoundingClientRect().bottom))
       el.style.setProperty('--rd-floor', `${floor}px`)
     }

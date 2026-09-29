@@ -148,6 +148,8 @@ async function main() {
   await must('signUpAccount', host, { id: me, password: MY_PW })
   const meTok = await tokenFor(host, MY_PW)(me)
   await must('saveCharacter', meTok, { nickname: '수아', avatar: FACE })
+  // 새 계정은 프롤로그부터 돈다. 이 시험은 그 뒤의 맵을 본다
+  await must('markPrologueSeen', meTok, {})
   await must('joinGame', meTok, { gameId: game, name: '수아' })
   await must('seedPlayers', host, { gameId: game, password: QA_PW, leaveSeats: 0 })
   // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다

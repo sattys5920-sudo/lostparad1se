@@ -261,6 +261,35 @@
 }
 
 /*
+ * **적는 중에는 무전 판 통째로 보이는 창에 붙는다.**
+ *
+ * 키보드 높이(--kb)로 입력줄만 띄우던 방식은 아이폰 사파리의 판에 따라
+ * 높이를 0 으로 재서 입력줄이 키보드 뒤로 숨었다. 여기서는 키보드 높이를
+ * 안 쓴다 — 지금 눈에 보이는 칸(--vv-top · --vv-h, useKeyboardInset 이
+ * 적는다)에 판을 맞추고, 입력줄은 그 판의 바닥에 둔다. 목록은 그 사이에서
+ * 저절로 줄어 마지막 줄이 입력줄 바로 위에 온다. 탭바는 그 뒤로 덮인다.
+ */
+html[data-typing='rd'] .sc-rd {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-h, 100dvh);
+  max-width: 500px;
+  margin: 0 auto;
+  z-index: 60;
+  box-sizing: border-box;
+  padding-top: var(--sa-top, 0px);
+  padding-bottom: var(--rd-bar);
+  transition: none;
+}
+html[data-typing='rd'] .sc-rd__bar {
+  position: absolute;
+  bottom: 0;
+  transition: none;
+}
+
+/*
  * 칸 하나 안에 적는 자리와 보내기가 같이 앉는다. 보내기는 칸 **안** 오른쪽.
  * 테는 안쪽 그림자로 긋는다 — border 로 그으면 그 1px 만큼 안이 줄어
  * 단추가 44×44 가 못 된다.

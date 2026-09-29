@@ -42,6 +42,19 @@ const ears = new Set<() => void>()
 function measure() {
   const vv = window.visualViewport
   if (!vv) return
+  const root = document.documentElement.style
+  /*
+   * **보이는 창의 자리와 높이를 그대로 적는다.** 적는 중에는 입력줄이
+   * 키보드 높이(--kb)가 아니라 이 둘을 본다(radio.css · controls.css).
+   *
+   * --kb 는 innerHeight 를 빼서 얻는데, 아이폰 사파리가 판마다 innerHeight
+   * 를 다르게 준다 — 키보드가 떠도 그대로인 판이 있고 같이 주는 판이 있다.
+   * 그러면 --kb 가 0 이 되고 입력줄이 키보드 뒤로 숨는다(실제로 그랬다).
+   * 보이는 창의 위치(offsetTop)와 높이(height)는 어느 판에서나 **지금 눈에
+   * 보이는 칸** 그 자체다. 거기 붙이면 키보드가 어떻게 뜨든 바로 위다.
+   */
+  root.setProperty('--vv-top', `${Math.round(vv.offsetTop)}px`)
+  root.setProperty('--vv-h', `${Math.round(vv.height)}px`)
   const px = insetOf(window.innerHeight, vv.height, vv.offsetTop)
   // 그래도 밀렸으면 제자리로. 지도는 여기 고정이다
   if (window.scrollY !== 0) window.scrollTo(0, 0)
@@ -49,6 +62,48 @@ function measure() {
   kbNow = px
   document.documentElement.style.setProperty('--kb', `${px}px`)
   for (const f of ears) f()
+}
+
+/**
+ * 지금 적는 자리. 무전 입력줄이면 'rd', 맵 말줄이면 'sy'. 문서 뿌리에
+ * data-typing 으로 단다 — CSS 가 그것을 보고 그 줄만 보이는 창에 붙인다.
+ * 다른 칸(가방의 빈 종이 등)에 적을 때는 안 단다. 그 줄들이 괜히 뜨면 안 된다.
+ */
+function typingOf(el: Element | null): 'rd' | 'sy' | null {
+  if (!el || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return null
+  if (el.closest('.sc-rd')) return 'rd'
+  if (el.closest('.sc-sy')) return 'sy'
+  return null
+}
+
+/**
+ * 키보드가 올라오고 내려가는 동안 몇 번 더 잰다. **이벤트를 안 믿는다** —
+ * 어떤 아이폰은 키보드가 뜰 때 visualViewport 의 resize 를 안 보내거나
+ * 늦게 보낸다. 초점이 오간 뒤 1.2초 동안 화면마다 한 번씩 잰다.
+ */
+let follow = 0
+function followFor(ms: number) {
+  cancelAnimationFrame(follow)
+  const until = performance.now() + ms
+  const step = () => {
+    measure()
+    if (performance.now() < until) follow = requestAnimationFrame(step)
+  }
+  follow = requestAnimationFrame(step)
+}
+
+function onFocusIn(e: FocusEvent) {
+  const where = typingOf(e.target as Element | null)
+  if (where) document.documentElement.setAttribute('data-typing', where)
+  else document.documentElement.removeAttribute('data-typing')
+  followFor(1200)
+}
+function onFocusOut() {
+  // 칸에서 칸으로 옮겨 가는 사이에 한 번 비었다 차는 것을 기다린다
+  setTimeout(() => {
+    if (!typingOf(document.activeElement)) document.documentElement.removeAttribute('data-typing')
+    followFor(1200)
+  }, 0)
 }
 
 function subscribe(onChange: () => void): () => void {
@@ -59,6 +114,8 @@ function subscribe(onChange: () => void): () => void {
     document.documentElement.style.setProperty('--kb', `${kbNow}px`)
     vv.addEventListener('resize', measure)
     vv.addEventListener('scroll', measure)
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
     measure()
   }
   return () => {
@@ -67,6 +124,10 @@ function subscribe(onChange: () => void): () => void {
     if (ears.size > 0 || !vv) return
     vv.removeEventListener('resize', measure)
     vv.removeEventListener('scroll', measure)
+    document.removeEventListener('focusin', onFocusIn)
+    document.removeEventListener('focusout', onFocusOut)
+    cancelAnimationFrame(follow)
+    document.documentElement.removeAttribute('data-typing')
     document.documentElement.style.removeProperty('--kb')
     kbNow = 0
   }

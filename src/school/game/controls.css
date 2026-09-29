@@ -539,6 +539,17 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-sy { transition: none; }
 }
+/*
+ * 적는 중에는 **보이는 창의 바닥**에 붙는다(--vv-top + --vv-h). 키보드
+ * 높이(--kb)를 안 쓴다 — 아이폰 사파리의 판에 따라 그 값이 0 으로 나와
+ * 말줄이 키보드 뒤에 숨었다. 자기 높이만큼 위로 올려 세운다.
+ */
+html[data-typing='sy'] .sc-sy {
+  bottom: auto;
+  top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh));
+  transform: translateY(-100%);
+  transition: none;
+}
 
 /*
  * ── 로그 ─────────────────────────────────────────────────────
