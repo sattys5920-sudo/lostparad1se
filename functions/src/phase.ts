@@ -736,9 +736,15 @@ export const phaseAct = onCall<{
       }
       if (Object.keys(patch).length > 0) tx.update(d.ref, patch)
     }
-    // 꽂히거나 뽑힌 깃발. 바뀐 때만 쓴다
-    if (JSON.stringify(out.next.flags) !== JSON.stringify(before.flags)) {
-      tx.set(flagsOf(gameId), { tiles: out.next.flags })
+    /*
+     * 꽂히거나 뽑힌 깃발, 그리고 **뽑기에 손댄 사람(pulls).** 바뀐 때만 쓴다.
+     * 전에는 tiles 만 통째로 써서 pulls 가 한 번도 안 남았다 — 손댈 때마다
+     * 늘 첫 손(1/2)이라 두 사람이 손대도 깃발이 영영 안 뽑혔다
+     */
+    const flagsMoved = JSON.stringify(out.next.flags) !== JSON.stringify(before.flags)
+    const pullsMoved = JSON.stringify(out.next.flagPullHits) !== JSON.stringify(before.flagPullHits)
+    if (flagsMoved || pullsMoved) {
+      tx.set(flagsOf(gameId), { tiles: out.next.flags, pulls: out.next.flagPullHits })
     }
     left = out.next.wallets[(before.people.find((p) => p.playerId === uid) as Person).team] ?? 0
 
