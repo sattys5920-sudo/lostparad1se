@@ -1,4 +1,8 @@
-// 쪽지 — 바닥에 떨어진 것을 줍고, 읽고, 처리한다.
+// 쪽지 — 주운 것을 읽고, 처리한다.
+//
+// **줍는 것은 맵에서 한다.** 바닥의 쪽지는 칸에 그려지고, 옆에 서서
+// 짚으면 줍는다. 여기서 「바닥에 몇 장」을 세어 주면 방에 들어서자마자
+// 있는지 없는지가 드러난다 — 둘러봐야 찾는 것이 바닥의 종이다.
 //
 // 화면은 서버가 준 것만 보여 준다. 안 읽은 쪽지는 문장 자리에 아무것도
 // 없다 — 가려 둔 것이 아니라 **오지 않았다.** 개발자도구를 열어도 없다.
@@ -21,11 +25,10 @@ export interface SlipsProps {
 export function Slips({ view, seats, act, onSaid }: SlipsProps) {
   const [busy, setBusy] = useState(false)
 
-  const floor = view?.slipsHere ?? []
   const mine = view?.mySlips ?? []
   /** 이 방에 남은 찢긴 조각. 붙이는 것은 테이프가 한다(주머니 쪽). */
   const scraps = view?.scrapsHere ?? []
-  if (floor.length === 0 && mine.length === 0 && scraps.length === 0) return null
+  if (mine.length === 0 && scraps.length === 0) return null
 
   async function run(what: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -46,21 +49,6 @@ export function Slips({ view, seats, act, onSaid }: SlipsProps) {
   return (
     <section className="sc-sl">
       <h2>쪽지</h2>
-
-      {floor.length > 0 && (
-        <>
-          <p className="sc-sl__hint">
-            바닥에 {floor.length}장 떨어져 있다.
-          </p>
-          <div className="sc-sl__row">
-            {floor.map((s) => (
-              <button key={s.id} disabled={busy} onClick={() => void run('주웠다.', () => act.takeSlip(s.id))}>
-                줍기
-              </button>
-            ))}
-          </div>
-        </>
-      )}
 
       {/*
         찢긴 조각. **여기에는 단추가 없다** — 붙이는 것은 테이프가

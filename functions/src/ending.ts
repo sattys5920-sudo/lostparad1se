@@ -145,11 +145,14 @@ export async function buildLog(
     .filter((b) => inDays(b.day))
     .map((b) => ({ day: b.day, voterId: b.voterId, targetId: b.targetId, voterTeam: b.voterTeam, targetTeam: b.targetTeam }))
 
-  /** 끝에 누가 어떤 쪽지를 쥐고 있나. 찢긴 것은 heldBy 가 비어 있다. */
+  /**
+   * 끝에 누가 어떤 쪽지를 쥐고 있나. 찢긴 것은 heldBy 가 비어 있다.
+   * **운영자가 놓은 쪽지(56장)만** — 손으로 쓴 빈 종이는 어떤 미션에도 안 센다
+   */
   const slipsHeldAtEnd: Record<string, string[]> = {}
   for (const d of slipS.docs) {
-    const row = d.data() as { heldBy: string | null }
-    if (!row.heldBy) continue
+    const row = d.data() as { heldBy: string | null; noteId?: string }
+    if (!row.heldBy || !row.noteId) continue
     ;(slipsHeldAtEnd[row.heldBy] ??= []).push(d.id)
   }
 

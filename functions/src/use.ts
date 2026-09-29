@@ -20,6 +20,9 @@ import type { SlipDoc } from './slips'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { bumpSlips } from './qaLog'
+import { takenCells } from './notes'
+import { dropCellNear } from '../../shared/rules/quiz'
+import type { Cell } from '../../shared/rules/board'
 import { note } from './records'
 import { logSecret } from './qaLog'
 import { gameRef, requireUid } from './index'
@@ -92,6 +95,13 @@ export const useItem = onCall<UseInput>(async (req) => {
   if (kind === 'paper' && text === '') throw new HttpsError('invalid-argument', '적을 말이 없다.')
 
   const day = game.phaseNow?.day ?? game.day
+  /*
+   * 빈 종이를 놓을 칸. **트랜잭션 밖에서 미리 센다** — 종이가 놓인 칸을
+   * 훑는 질의는 트랜잭션 안에서 못 한다. 둘이 같은 순간 같은 칸을 고르면
+   * 한 칸에 두 장이 겹칠 수 있는데, 둘 다 보이고 둘 다 주워진다 — 잃는
+   * 것이 없어 그대로 둔다
+   */
+  const paperTaken = kind === 'paper' ? await takenCells(gameId) : new Set<string>()
   let said = ''
   let locked: { team: TeamId; tileId: TileId } | null = null
   let picked: { team: TeamId; tileId: TileId } | null = null
@@ -149,6 +159,14 @@ export const useItem = onCall<UseInput>(async (req) => {
     }
 
     if (kind === 'paper') {
+      /*
+       * **발밑 옆 칸에 놓는다.** 운영자가 놓은 쪽지와 똑같이 맵 바닥에
+       * 종이가 그려지고, 그 옆에 서서 짚어야 줍는다. 전에는 방 바닥에만
+       * 두어서 맵에 안 보였고, 가진 것 목록을 열어 봐야 있는 줄 알았다
+       */
+      const at = (me.at ?? null) as Cell | null
+      const cell = at ? dropCellNear(at, paperTaken) : null
+      if (!cell) throw new HttpsError('failed-precondition', '여기에는 놓을 자리가 없다.')
       const doc: SlipDoc = {
         textId: '',
         text,
@@ -157,7 +175,11 @@ export const useItem = onCall<UseInput>(async (req) => {
         subjectId: '',
         // 운영자 이력이 「손글씨 · 누구」로 보인다. 어떤 투영에도 안 실린다
         writtenBy: uid,
-        tileId: here,
+        tileId: null,
+        x: cell.x,
+        y: cell.y,
+        placedTile: here,
+        placedAtMs: nowMs,
         heldBy: null,
         readBy: [],
         tornBy: null,
@@ -167,7 +189,7 @@ export const useItem = onCall<UseInput>(async (req) => {
       tx.set(slipsOf(gameId).doc(), doc)
       // 쪽지 문서 하나가 생긴다 — 불변식의 기대 장수도 하나 올린다
       bumpSlips(tx, gameId, 1)
-      said = `${TILE_BY_ID[here as TileId].name} 바닥에 놓았다.`
+      said = '바닥에 놓았다.'
     }
 
     if (kind === 'eraser') {

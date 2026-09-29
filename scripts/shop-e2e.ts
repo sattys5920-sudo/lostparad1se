@@ -21,6 +21,7 @@ const AUTH = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1`
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
 import { of as recOf, records } from './lib/records'
+import { dropCellsIn } from '../shared/rules/quiz'
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
@@ -311,15 +312,27 @@ async function main() {
 
   await standBy(game, meUid, MY_SIDE)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'paper' })
+  // 미술실 안 한 칸에 선다 — 종이는 **발밑 옆 칸**에 놓인다
+  const artCells = dropCellsIn('artRoom')
+  const mine = artCells.find((c) => artCells.some((o) => Math.abs(o.x - c.x) + Math.abs(o.y - c.y) === 1)) ?? artCells[0]
   await standAt(game, meUid, 'artRoom')
+  await standBy(game, meUid, mine)
   const blank = await call('useItem', meTok, { gameId: game, kind: 'paper', text: '   ' })
   check(!blank.ok, '빈 말은 못 놓는다', blank.ok ? '놓였다' : (blank.err ?? ''))
+  // 보는 사람은 **놓기 전에** 세운다(내 몫은 놓을 때 다시 그려진다). 같은 방 안, 종이에서 떨어진 칸에 세운다 — 안개는 선 칸의 방을 본다
+  const farCell = artCells.find((c) => Math.max(Math.abs(c.x - mine.x), Math.abs(c.y - mine.y)) >= 4) ?? artCells[artCells.length - 1]
+  await standAt(game, youUid, 'artRoom')
+  await standBy(game, youUid, farCell)
   await must('useItem', meTok, { gameId: game, kind: 'paper', text: MEMO })
   check((await bagOf(game, meUid)).paper === 0, '쓴 만큼 줄었다')
 
   const v1 = await viewOf(game, uidOf(you))
-  const floor = arr(v1.slipsHere)
-  check(floor.length === 1, '같은 방 사람에게 한 장이 보인다', `${floor.length}장`)
+  const onMap = arr(v1.slipPapers)
+  check(onMap.length === 1, '**맵 바닥에 종이가 그려진다** — 칸이 붙어 온다', `${onMap.length}장`)
+  const at = { x: num(onMap[0]?.x), y: num(onMap[0]?.y) }
+  check(Math.max(Math.abs(at.x - mine.x), Math.abs(at.y - mine.y)) === 1, '놓은 사람 발밑 옆 칸이다', `나 ${mine.x},${mine.y} · 종이 ${at.x},${at.y}`)
+  check(arr(v1.slipsHere).length === 0, '방에 들어왔다고 「몇 장 있다」가 따로 오지 않는다')
+  const floor = onMap
   /*
    * **줍기 전에는 글이 한 자도 없어야 한다.** 내 몫 전체를 문자열로
    * 만들어서 훑는다. 어느 칸에 들었는지가 아니라 「어디에도 없다」를 본다
@@ -328,6 +341,10 @@ async function main() {
   check(!dump1.includes(MEMO) && !dump1.includes('0412'), '줍기 전에는 글이 내 몫 어디에도 없다')
 
   const slipId = str(floor[0]?.id) ?? String((floor[0]?.id as { stringValue?: string })?.stringValue ?? '')
+  // 멀리 선 채로는 못 줍는다 — 맵에서 옆에 가서 짚는 것이다
+  const tooFar = await call('takeSlip', youTok, { gameId: game, slipId })
+  check(!tooFar.ok, '종이에서 떨어져 있으면 못 줍는다', tooFar.ok ? '주웠다' : (tooFar.err ?? ''))
+  await standBy(game, youUid, mine)
   await must('takeSlip', youTok, { gameId: game, slipId })
   const v2 = await viewOf(game, uidOf(you))
   const held = arr(v2.mySlips)[0] ?? {}
@@ -369,6 +386,16 @@ async function main() {
   await must('readSlip', meTok, { gameId: game, slipId: scrapId })
   const v6 = await viewOf(game, meUid)
   check(str(arr(v6.mySlips)[0]?.line) === MEMO, '읽으면 찢기 전 그대로다')
+
+  /*
+   * **손으로 쓴 종이는 어떤 쪽지 미션에도 안 센다** — 읽기 · 찢기 ·
+   * 건네기 모두. 개인 미션은 운영자가 놓은 쪽지(56장) 몫이다
+   */
+  const paperLog = await records(game)
+  check(
+    recOf(paperLog, 'slipRead').length === 0 && recOf(paperLog, 'slipTear').length === 0 && recOf(paperLog, 'slipGive').length === 0,
+    '빈 종이를 읽고 찢어도 미션 줄(읽기·찢기·건네기)이 안 생긴다',
+  )
 
   console.log('\n── 지우개 ──')
   // 두 사람이 나를 적는다. 한 장을 지우면 동점이 되어 아무도 안 지워진다

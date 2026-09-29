@@ -141,3 +141,31 @@ export function freeDropCell(
   }
   return free[Math.floor(rng() * free.length)]
 }
+
+/**
+ * **발밑 가까운 빈 칸.** 사람이 손에 든 종이를 내려놓는 자리다.
+ *
+ * 방을 묻지 않는다 — 복도에 선 사람의 「방」은 마지막으로 들어갔던
+ * 방이라, 방 안에서 칸을 고르면 멀리 떨어진 교실 바닥에 종이가 놓였다.
+ * 선 칸 둘레 한 칸부터 두 칸까지만 본다. 제 발밑은 빼고(사람에 가려
+ * 안 보인다), 종이를 놓을 수 없는 칸(기물·벽)과 이미 종이가 있는 칸도
+ * 뺀다. 그 안에 자리가 없으면 null — 놓지 않는다.
+ */
+export function dropCellNear(at: Cell, taken: ReadonlySet<string>): Cell | null {
+  for (let r = 1; r <= 2; r++) {
+    const ring: Cell[] = []
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
+        const c = { x: at.x + dx, y: at.y + dy }
+        if (!canDropQuizAt(c.x, c.y) || taken.has(`${c.x},${c.y}`)) continue
+        ring.push(c)
+      }
+    }
+    if (ring.length === 0) continue
+    // 같은 거리면 옆(상하좌우)이 대각선보다 먼저 — 「옆에 두었다」로 보인다
+    ring.sort((a, b) => Math.abs(a.x - at.x) + Math.abs(a.y - at.y) - (Math.abs(b.x - at.x) + Math.abs(b.y - at.y)))
+    return ring[0]
+  }
+  return null
+}

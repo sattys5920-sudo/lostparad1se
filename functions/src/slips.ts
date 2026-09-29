@@ -13,7 +13,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import type { Cell, TileId } from '../../shared/rules/board'
-import { atPaper, freeDropCell } from '../../shared/rules/quiz'
+import { atPaper, dropCellNear } from '../../shared/rules/quiz'
 import { takenCells } from './notes'
 import type { PawnDoc } from '../../shared/model'
 import { freshNow } from './turn'
@@ -188,11 +188,11 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
 })
 
 /**
- * 선 방에 두고 간다. 다음에 그 방에 온 사람이 줍는다.
+ * 선 자리에 두고 간다. 다음에 지나가는 사람이 줍는다.
  *
- * **발밑 가까운 빈 칸에 놓는다** — 운영자가 뿌린 것과 똑같이 바닥에
- * 종이가 그려지고, 그 옆에 서서 줍는다. 방에 빈 칸이 없으면(드물다)
- * 방 바닥에 둔다 — 들어온 사람에게 「한 장 있다」로만 뜬다.
+ * **발밑 옆 빈 칸에 놓는다** — 운영자가 뿌린 것과 똑같이 바닥에
+ * 종이가 그려지고, 그 옆에 서서 줍는다. 둘레에 빈 칸이 없으면 안
+ * 놓는다. 칸 없이 방 바닥에만 두면 맵에 안 보이고 주울 길도 없다.
  */
 export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
@@ -201,7 +201,8 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const self = await me(gameId, uid)
   const here = self.tileId
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
-  const cell = freeDropCell(here, await takenCells(gameId), self.at)
+  const cell = self.at ? dropCellNear(self.at, await takenCells(gameId)) : null
+  if (!cell) throw new HttpsError('failed-precondition', '여기에는 놓을 자리가 없다.')
   const { nowMs } = await freshNow(gameId)
 
   let subject = ''
@@ -212,7 +213,7 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     if ((snap.data() as SlipDoc).heldBy !== uid) {
       throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
     }
-    tx.update(ref, cell ? { tileId: null, x: cell.x, y: cell.y, heldBy: null } : { tileId: here, heldBy: null })
+    tx.update(ref, { tileId: null, x: cell.x, y: cell.y, heldBy: null })
     subject = (snap.data() as SlipDoc).subjectId
   })
   await note(gameId, 'slipDrop', nowMs, { id: uid, team: self.team }, {
