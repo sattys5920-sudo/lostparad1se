@@ -453,10 +453,9 @@ describe('방 안의 머릿수', () => {
     expect(json(v)).not.toContain('"C0"')
   })
 
-  it('우리 편은 어디 있든 보인다 — 그건 방의 머릿수가 아니다', () => {
+  it('우리 편도 들어가지 않은 방 안에 있으면 안 보인다', () => {
     const v = setUp({})
-    expect(v.visiblePawns.map((p) => p.playerId)).toContain('A1')
-    // 우리 편이 있어도 그 방의 머릿수는 안 온다
+    expect(v.visiblePawns.map((p) => p.playerId)).not.toContain('A1')
     expect(v.roomCounts.cafeteria).toBeUndefined()
   })
 

@@ -5,7 +5,7 @@
 // 아예 들어가지 않는다. 받은 뒤 숨기면 개발자도구로 다 보인다.
 //
 // 걷는 말의 목적지는 어느 view에도 들어가지 않는다 — 본인 팀 것도.
-import { HALLS, TILE_BY_ID, isAlleyCell, type Cell, type TileId } from './board'
+import { HALLS, TILE_BY_ID, isAlleyCell, roomOfCell, type Cell, type TileId } from './board'
 import { HALL_SIGHT, type TeamId } from './v2'
 
 /**
@@ -61,9 +61,9 @@ export interface PawnView {
  * 그러면 문 앞에 서기만 해도 옆 교실이 몇 명인지 알아서, 들어갈지
  * 말지를 재 볼 일이 없었다. 이제 문을 열어야 안다.
  *
- * 같은 팀 사람은 여전히 어디 있든 보인다(visiblePawns) — 그건 방의
- * 머릿수가 아니라 우리 편이 어디 있나다. 복도에서 눈앞에 보이는
- * 사람도 그대로다(nearInHall).
+ * **같은 팀도 마찬가지다.** 한때 우리 팀은 어디 있든 보였는데, 그러면
+ * 팀원이 선 방마다 그 안이 비쳤다 — 「들어가야 안다」가 우리 팀에게만
+ * 안 먹혔다. 복도에서 눈앞에 보이는 사람은 팀과 상관없이 보인다(nearInHall).
  */
 export function visibleTiles(input: { myRoom: TileId | null }): Set<TileId> {
   const out = new Set<TileId>()
@@ -132,9 +132,9 @@ const inHallRect = (r: { x: number; y: number; w: number; h: number }, c: Cell):
 /**
  * 이 사람의 view에 담을 말들.
  *
- * 자기 말은 무슨 일이 있어도 보인다. 같은 팀 말은 안개와 상관없이 보인다
- * (잠복 중이 아니라면). 다른 팀 말은 안개가 걷힌 칸에 있을 때만 보이고,
- * 걷는 중이면 떠난 칸이나 다음 칸 중 하나가 보이면 보인다.
+ * 자기 말은 무슨 일이 있어도 보인다. **남은 팀과 상관없이** 안개가 걷힌
+ * 방(내가 들어가 있는 방) 안에 있거나, 둘 다 복도에서 눈에 들어올 때만
+ * 보인다. 걷는 중이면 떠난 칸이나 다음 칸 중 하나가 보이면 보인다.
  */
 export function visiblePawns(input: PawnVisionInput): PawnView[] {
   const out: PawnView[] = []
@@ -145,10 +145,6 @@ export function visiblePawns(input: PawnVisionInput): PawnView[] {
     }
     if (isAmbushed(pawn, input.nowMs)) {
       if (AMBUSH_HIDDEN_FROM_OWN_TEAM || pawn.team !== input.viewerTeam) continue
-      out.push(viewOf(pawn))
-      continue
-    }
-    if (pawn.team === input.viewerTeam) {
       out.push(viewOf(pawn))
       continue
     }
@@ -166,7 +162,14 @@ export function visiblePawns(input: PawnVisionInput): PawnView[] {
       out.push(viewOf(pawn))
       continue
     }
-    const where = pawn.tileId !== null ? [pawn.tileId] : [pawn.fromTile, pawn.toTile]
+    /*
+     * **선 칸이 어느 방인가로 본다.** 복도로 나선 사람도 tileId 는 마지막
+     * 방으로 남는다(standAt 은 at 만 고친다) — 그걸로 보면 그 방 안에서
+     * 문밖 복도에 선 사람이 비쳤다. 칸이 있으면 칸의 방, 칸이 복도면 어느
+     * 방에도 없는 것이다(복도는 위의 nearInHall 이 맡는다).
+     */
+    const room = pawn.tileId === null ? null : pawn.at ? roomOfCell(pawn.at.x, pawn.at.y) : pawn.tileId
+    const where = pawn.tileId !== null ? [room] : [pawn.fromTile, pawn.toTile]
     if (where.some((id) => id !== null && input.visible.has(id))) out.push(viewOf(pawn))
   }
   return out

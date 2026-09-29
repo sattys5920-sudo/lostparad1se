@@ -14,6 +14,9 @@ import {
 import { ALLEY, HALLS } from './board'
 import { HALL_SIGHT } from './v2'
 
+/** 복도 한가운데 칸 하나 — 어느 방도 아니다 */
+const hallCellOutside = () => ({ x: HALLS[0].rect.x + 1, y: HALLS[0].rect.y })
+
 const pawn = (over: Partial<PawnPosition> & Pick<PawnPosition, 'playerId' | 'team'>): PawnPosition => ({
   tileId: null,
   fromTile: null,
@@ -62,12 +65,24 @@ describe('보이는 말', () => {
     expect(out).toHaveLength(1)
   })
 
-  it('같은 팀 말은 안개와 상관없이 보인다', () => {
+  it('같은 팀도 내가 안 들어간 방 안에 있으면 안 보인다', () => {
     const out = visiblePawns({
       ...base,
-      pawns: [pawn({ playerId: 'a2', team: 'A', tileId: 'baseB' })],
+      pawns: [
+        pawn({ playerId: 'a2', team: 'A', tileId: 'baseB' }),
+        pawn({ playerId: 'a3', team: 'A', tileId: 'centralPlaza' }),
+      ],
     })
-    expect(out.map((p) => p.playerId)).toEqual(['a2'])
+    expect(out.map((p) => p.playerId)).toEqual(['a3'])
+  })
+
+  it('복도로 나선 사람은 마지막 방 안에서 안 보인다 — 선 칸으로 본다', () => {
+    // centralPlaza 가 보이는 방이다. 그 방 안 칸에 선 사람과, 방은 그대로인데 복도 칸에 선 사람
+    const out = visiblePawns({
+      ...base,
+      pawns: [pawn({ playerId: 'b1', team: 'B', tileId: 'centralPlaza', at: hallCellOutside() }), pawn({ playerId: 'b2', team: 'B', tileId: 'centralPlaza' })],
+    })
+    expect(out.map((p) => p.playerId)).toEqual(['b2'])
   })
 
   it('다른 팀 말은 안개가 걷힌 칸에서만 보인다', () => {
