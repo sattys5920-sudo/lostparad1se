@@ -4,11 +4,9 @@
 // 작가가 모순을 찾는 용도다.
 import { FRAGMENTS } from './fragments'
 import { MEMORIES } from './memories'
-import { OPENING, OPENING_CHALK } from './opening'
 import {
   FRAGMENT_TIME,
   MEMORY_TIME,
-  OPENING_TIME,
   sortForAudit,
   type AuditLine,
 } from './timeline'
@@ -18,11 +16,6 @@ import { TILE_BY_ID } from '../../../shared/rules/board'
 /** 검수 페이지에 실을 줄 전부. */
 export function auditLines(): AuditLine[] {
   const out: AuditLine[] = []
-
-  for (const line of OPENING) {
-    out.push({ source: 'opening', where: '오프닝', text: line, tag: OPENING_TIME })
-  }
-  out.push({ source: 'opening', where: '칠판', text: OPENING_CHALK, tag: OPENING_TIME })
 
   for (const f of FRAGMENTS) {
     for (const p of f.papers) {

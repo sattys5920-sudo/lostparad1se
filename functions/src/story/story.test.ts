@@ -5,7 +5,6 @@
 // 드러나고, 그때는 판이 이미 끝나 있다.
 import { describe, expect, it } from 'vitest'
 import { FRAGMENTS, FRAGMENT_BY_DAY } from './fragments'
-import { OPENING } from './opening'
 import { MEMORIES, MEMORY_TILE_IDS } from './memories'
 import { HOST_RULES } from './hostRules'
 import { MEMORY_TILES } from '../../../shared/rules/memory'
@@ -61,16 +60,6 @@ describe('A의 기억', () => {
     for (const [tile, text] of Object.entries(MEMORIES)) {
       expect(text.length, tile).toBeGreaterThan(10)
     }
-  })
-})
-
-describe('오프닝', () => {
-  it('네 줄이다', () => {
-    expect(OPENING).toHaveLength(4)
-  })
-
-  it('칠판 글씨로 이어진다', () => {
-    expect(OPENING.join(' ')).toContain('칠판')
   })
 })
 

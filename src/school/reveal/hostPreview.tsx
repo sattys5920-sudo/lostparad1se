@@ -21,7 +21,6 @@ const rows: DashboardRow[] = NAMES.map((name, i) => ({
 
 const audit: AuditRow[] = [
   { source: 'secret', where: '검수용', text: '태그가 없는 문장은 맨 위에 경고로 뜬다.', tag: null, places: [] },
-  { source: 'opening', where: '오프닝', text: '시간 무관 문장 자리입니다.', tag: 'anytime', places: [] },
   { source: 'fragment', where: 'DAY 1', text: '학기 중 문장 자리. 도서관 창가 자리 이야기입니다.', tag: 'term', places: ['도서관'] },
   { source: 'secret', where: '편지', text: '16:50 문장 자리. 창고 앞에서 기다리겠다고 적었습니다.', tag: 't1650', places: ['창고'] },
   { source: 'secret', where: '고발자', text: '17:10 문장 자리. 단톡방에 올렸습니다.', tag: 't1710', places: ['단톡방'] },

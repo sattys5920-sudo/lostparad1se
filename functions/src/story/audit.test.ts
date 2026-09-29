@@ -7,10 +7,11 @@ const lines = auditLines()
 
 describe('모으기', () => {
   // 숨긴 사실과 A의 시선은 역할에 매여 있었다. 추리 층을 걷어내면서
-  // 같이 나갔다 — 남은 것은 오프닝·A의 기록·A의 기억 셋이다
-  it('세 갈래를 다 모은다', () => {
+  // 같이 나갔다. 오프닝은 프롤로그로 옮겨 가며 이 검수 목록에서
+  // 빠졌다 — 남은 것은 A의 기록·A의 기억 둘이다
+  it('두 갈래를 다 모은다', () => {
     const sources = new Set(lines.map((l) => l.source))
-    expect([...sources].sort()).toEqual(['fragment', 'memory', 'opening'].sort())
+    expect([...sources].sort()).toEqual(['fragment', 'memory'].sort())
   })
 
   it('A의 기억 열둘이 다 있다', () => {

@@ -103,16 +103,14 @@ export const FRAGMENT_TIME: Record<number, TimeTag> = {
 /** A의 기억 열세 장면은 전부 학기 중이다. 그날 저녁 일이 아니다. */
 export const MEMORY_TIME: TimeTag = 'term'
 
-/** 오프닝은 게임 속 시간이라 사건 시간축 밖이다. */
-export const OPENING_TIME: TimeTag = 'anytime'
-
 // ── 검수 항목 ───────────────────────────────────────────────────
 
-// 엔딩 열 장면을 없애면서 전말 · 찢긴 한 장 · 공동 엔딩이 빠졌다
-export type AuditSource = 'opening' | 'fragment' | 'secret' | 'memory' | 'sight'
+// 엔딩 열 장면을 없애면서 전말 · 찢긴 한 장 · 공동 엔딩이 빠졌다.
+// 오프닝은 프롤로그로 대체되면서 빠졌다 — 프롤로그 본문은 화면 쪽
+// 컴포넌트에 그대로 있어 여기 검수 목록에는 안 올린다
+export type AuditSource = 'fragment' | 'secret' | 'memory' | 'sight'
 
 export const SOURCE_LABEL: Record<AuditSource, string> = {
-  opening: '오프닝',
   fragment: 'A의 기록',
   secret: '숨긴 사실',
   memory: 'A의 기억',
