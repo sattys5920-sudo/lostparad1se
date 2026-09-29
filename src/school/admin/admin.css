@@ -476,8 +476,8 @@
 
 /* ── 엔딩 책상 ────────────────────────────────────────────────────
  *
- * 받는 사람 하나, 글 한 통. 그 아래에 적어 둔 것들이 한 줄씩 쌓인다 —
- * 열넷을 다 적었는지는 눈으로 세는 것보다 목록이 빠르다.
+ * 버튼 하나뿐이다. 처음 누르면 바로 나가고, 그다음부터는 다시
+ * 송출(전원 / 못 본 사람만)로 갈린다 — 누르기 전에 한 번 더 묻는다.
  */
 .sc-ad__end {
   display: grid;
@@ -486,6 +486,9 @@
 .sc-ad__end .sc-ad__row {
   grid-template-columns: 1fr auto;
   align-items: center;
+}
+.sc-ad__end .sc-ad__row.is-confirm {
+  grid-template-columns: 1fr auto auto;
 }
 .sc-ad__endbox {
   width: 100%;

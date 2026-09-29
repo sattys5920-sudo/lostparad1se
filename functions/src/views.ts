@@ -55,7 +55,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps, flagDoc] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps, flagDoc, endingSeen] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -79,6 +79,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       sub(gameId, 'notices').get(),
       trapWorld(gameId),
       gameRef(gameId).collection('secret').doc('flags').get(),
+      secret(gameId, 'endingSeen').get(),
     ])
 
   const rosterRows = roster.docs.map((d) => d.data() as RosterDoc)
@@ -179,6 +180,10 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         .map((d) => d.data() as { day: number; voterId: string; targetId: string })
         .filter((b) => b.day === (game.phaseNow?.day ?? game.day))
         .map((b) => [b.voterId, b.targetId]),
+    ),
+    // 엔딩 송출을 사람마다 언제 봤나. **투영이 본인 것만 떼어 보낸다**
+    endingSeen: Object.fromEntries(
+      endingSeen.docs.map((d) => [d.id, (d.data() as { seenAtMs: number }).seenAtMs]),
     ),
     robots: robots.docs.map((d) => {
       const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null }

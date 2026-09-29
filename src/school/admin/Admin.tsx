@@ -34,7 +34,6 @@ import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
-import { ALL_KEY, ENDING_MAX } from '../../../shared/reveal/ending'
 import './admin.css'
 import { Dots } from '../game/Shell'
 
@@ -484,7 +483,7 @@ function Desk() {
             </section>
             <section className="sc-ad__sec">
               <h2>엔딩</h2>
-              <EndingDesk act={act} seats={seats} onSaid={setSaid} />
+              <EndingDesk act={act} onSaid={setSaid} />
             </section>
             <section className="sc-ad__sec">
               <h2>문제 은행</h2>
@@ -752,52 +751,42 @@ function QaSetUp({
 /**
  * 엔딩 책상.
  *
- * **열 장면을 없앤 자리다.** 전에는 전말·거울 규칙·A가 남긴 말·찢긴
- * 한 장·공동 엔딩을 화면이 차례로 틀어 줬다. 무엇을 깨달을지를 화면이
- * 정해 주는 대신, 닷새를 지켜본 사람이 여기서 한 편씩 적는다.
+ * **적는 자리가 아니다.** 문장은 고정이고(A의 마지막 쪽지), 운영자는
+ * 언제 틀지만 정한다 — 버튼 하나가 전부다.
  *
- * **저장은 사람 단위다.** 「모두에게」를 고르면 열넷 화면 맨 위에 같이
- * 붙고, 이름을 고르면 그 사람 화면에만 그 아래로 붙는다. 남의 몫은
- * 서버가 문서 두 개만 읽어서 보내므로 어떤 경로로도 안 섞인다.
- *
- * 글은 닷새가 끝나야 나간다. 그 전에 적어 둬도 화면에는 안 뜬다.
+ * **처음 누르면 바로 전원에게 간다.** 그다음부터는 「다시 송출」이
+ * 둘로 갈린다 — 전원(이미 본 사람도 다시)과 못 본 사람만(이미 본
+ * 사람은 그대로 둔다). 누르기 전에 한 번 더 묻는다.
  */
-function EndingDesk({
-  act,
-  seats,
-  onSaid,
-}: {
-  act: ReturnType<typeof gameActions>
-  seats: { playerId: string; name: string; team: string | null }[]
-  onSaid: (t: string) => void
-}) {
-  const [rows, setRows] = useState<Record<string, string>>({})
-  const [who, setWho] = useState(ALL_KEY)
-  const [text, setText] = useState('')
+function EndingDesk({ act, onSaid }: { act: ReturnType<typeof gameActions>; onSaid: (t: string) => void }) {
+  const [status, setStatus] = useState<{ broadcast: { atMs: number } | null; seenCount: number; total: number; finished: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState<'all' | 'unseen' | null>(null)
 
   const load = useCallback(async () => {
-    const r = (await act.hostEndings()) as { rows?: { to: string; text: string }[] }
-    setRows(Object.fromEntries((r.rows ?? []).map((x) => [x.to, x.text])))
-  }, [act])
+    try {
+      const r = (await act.hostEndingStatus()) as typeof status
+      setStatus(r)
+    } catch (e) {
+      onSaid(String(e))
+    }
+  }, [act, onSaid])
+
   useEffect(() => {
     void load()
+    // 본 인원을 실시간으로 보이려고 몇 초마다 되풀이해 부른다 —
+    // 이 콜러블은 구독이 아니라서 다른 길이 없다
+    const t = setInterval(() => void load(), 4000)
+    return () => clearInterval(t)
   }, [load])
 
-  /** 고른 사람이 바뀌면 적어 둔 것을 꺼내 온다 */
-  useEffect(() => {
-    setText(rows[who] ?? '')
-  }, [who, rows])
-
-  const nameOf = (id: string) => (id === ALL_KEY ? '모두에게' : (seats.find((s) => s.playerId === id)?.name ?? id))
-  const written = Object.entries(rows).filter(([, t]) => t.trim() !== '')
-
-  async function save() {
+  async function broadcast(mode: 'all' | 'unseen') {
+    setConfirming(null)
     setBusy(true)
     try {
-      await act.hostSetEnding(who, text)
+      await act.hostBroadcastEnding(mode)
       await load()
-      onSaid(text.trim() === '' ? `${nameOf(who)} 몫을 지웠다.` : `${nameOf(who)} 몫을 저장했다.`)
+      onSaid(mode === 'all' ? '엔딩을 전원에게 다시 보냈다.' : '엔딩을 못 본 사람에게 보냈다.')
     } catch (e) {
       onSaid(String(e))
     } finally {
@@ -805,49 +794,53 @@ function EndingDesk({
     }
   }
 
+  if (!status) return <p className="sc-ad__hint">읽는 중이다.</p>
+  if (!status.finished) return <p className="sc-ad__hint">종례가 끝나야 보낼 수 있다.</p>
+
   return (
     <div className="sc-ad__end">
-      <div className="sc-ad__row">
-        <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="받는 사람">
-          <option value={ALL_KEY}>모두에게{rows[ALL_KEY] ? ' ✓' : ''}</option>
-          {seats.map((s) => (
-            <option key={s.playerId} value={s.playerId}>
-              {s.team} · {s.name}
-              {rows[s.playerId] ? ' ✓' : ''}
-            </option>
-          ))}
-        </select>
-        <span className="sc-ad__pill">
-          {written.length}/{seats.length + 1}
-        </span>
-      </div>
-      <textarea
-        className="sc-ad__endbox"
-        value={text}
-        maxLength={ENDING_MAX}
-        rows={8}
-        onChange={(e) => setText(e.target.value)}
-        aria-label={`${nameOf(who)} 엔딩`}
-      />
-      <div className="sc-ad__row">
-        <button className="is-primary" disabled={busy} onClick={() => void save()}>
-          저장
-        </button>
-        <span className="sc-ad__pill">
-          {text.length}/{ENDING_MAX}
-        </span>
-      </div>
-      {written.length > 0 && (
-        <ul className="sc-ad__endlist">
-          {written.map(([to, t]) => (
-            <li key={to}>
-              <button className={to === who ? 'is-on' : ''} onClick={() => setWho(to)}>
-                {nameOf(to)}
+      {status.broadcast ? (
+        <>
+          <p className="sc-ad__hint">
+            봤다 <b>{status.seenCount}/{status.total}</b>
+          </p>
+          {confirming === null ? (
+            <div className="sc-ad__row">
+              <button disabled={busy} onClick={() => setConfirming('unseen')}>
+                다시 송출 (못 본 사람만)
               </button>
-              <span>{t.slice(0, 40)}</span>
-            </li>
-          ))}
-        </ul>
+              <button className="sc-ad__danger" disabled={busy} onClick={() => setConfirming('all')}>
+                다시 송출 (전원)
+              </button>
+            </div>
+          ) : (
+            <div className="sc-ad__row is-confirm">
+              <span>
+                정말 {confirming === 'all' ? '전원에게 다시' : '못 본 사람에게'} 보낼까요?
+              </span>
+              <button disabled={busy} onClick={() => setConfirming(null)}>
+                취소
+              </button>
+              <button className="is-primary" disabled={busy} onClick={() => void broadcast(confirming)}>
+                보낸다
+              </button>
+            </div>
+          )}
+        </>
+      ) : confirming === null ? (
+        <button className="is-primary" disabled={busy} onClick={() => setConfirming('all')}>
+          엔딩 송출하기
+        </button>
+      ) : (
+        <div className="sc-ad__row is-confirm">
+          <span>정말 지금 모두에게 보낼까요?</span>
+          <button disabled={busy} onClick={() => setConfirming(null)}>
+            취소
+          </button>
+          <button className="is-primary" disabled={busy} onClick={() => void broadcast('all')}>
+            보낸다
+          </button>
+        </div>
       )}
     </div>
   )

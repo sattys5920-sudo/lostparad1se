@@ -88,6 +88,71 @@ function rustle(ms: number, hz: number, gain = 0.05, atMs = 0): void {
   src.stop(t + ms / 1000 + 0.01)
 }
 
+/** 손끝이 닿았는가. 엔딩 송출 오버레이가 소리를 낼지 미리 묻는 데 쓴다. */
+export function isArmed(): boolean {
+  return armed
+}
+
+let ambientSrc: AudioBufferSourceNode | null = null
+let ambientGain: GainNode | null = null
+let ambientBuf: AudioBuffer | null = null
+
+/**
+ * 눈 앰비언트 — 낮은 바람 소리를 계속 튼다.
+ *
+ * **armSfx() 전에는 안 난다.** 오버레이가 뜨는 순간 이미 한 번이라도
+ * 손댄 적이 있으면 그대로 틀고, 없으면 음소거 해제 단추가 대신
+ * 뜬다(FinalNoteOverlay.tsx) — 눌러야 이 함수가 불린다.
+ */
+export function startSnowAmbient(): void {
+  if (!armed || ambientSrc) return
+  const c = open()
+  if (!c) return
+  if (c.state === 'suspended') void c.resume()
+  if (!ambientBuf) {
+    const len = Math.floor(c.sampleRate * 4)
+    ambientBuf = c.createBuffer(1, len, c.sampleRate)
+    const d = ambientBuf.getChannelData(0)
+    for (let i = 0; i < len; i += 1) d[i] = Math.random() * 2 - 1
+  }
+  const src = c.createBufferSource()
+  src.buffer = ambientBuf
+  src.loop = true
+  const band = c.createBiquadFilter()
+  band.type = 'lowpass'
+  band.frequency.setValueAtTime(900, c.currentTime)
+  const vol = c.createGain()
+  vol.gain.setValueAtTime(0.0001, c.currentTime)
+  // 확 켜지지 않는다. 1.2초를 들여 낮게 올라온다
+  vol.gain.exponentialRampToValueAtTime(0.025, c.currentTime + 1.2)
+  src.connect(band).connect(vol).connect(c.destination)
+  src.start()
+  ambientSrc = src
+  ambientGain = vol
+}
+
+/** 눈 앰비언트를 끈다. 뚝 끊지 않고 반 박자 사그라든다. */
+export function stopSnowAmbient(): void {
+  if (!ambientSrc || !ambientGain) return
+  const src = ambientSrc
+  const vol = ambientGain
+  ambientSrc = null
+  ambientGain = null
+  const c = ctx
+  if (!c) return
+  const t = c.currentTime
+  vol.gain.cancelScheduledValues(t)
+  vol.gain.setValueAtTime(vol.gain.value, t)
+  vol.gain.exponentialRampToValueAtTime(0.0001, t + 0.5)
+  setTimeout(() => {
+    try {
+      src.stop()
+    } catch {
+      // 이미 멎었으면 그냥 둔다
+    }
+  }, 600)
+}
+
 export const SFX = {
   /** 탁자에 하나 올렸다. */
   put: () => blip(720, 50),

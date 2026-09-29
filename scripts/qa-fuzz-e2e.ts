@@ -600,7 +600,7 @@ async function main(): Promise<void> {
     }
   }
   snap = await snapshot()
-  const GAME_FNS = ['say', 'castVote', 'phaseNow', 'myPaper', 'clockNow', 'tick', 'chatLines', 'fragmentOfDay', 'releasedFragments', 'myEnding']
+  const GAME_FNS = ['say', 'castVote', 'phaseNow', 'myPaper', 'clockNow', 'tick', 'chatLines', 'fragmentOfDay', 'releasedFragments', 'finalNoteText']
   for (const gid of ['no-such-game', 'games', undefined, 42, {}, null, 'x'.repeat(2000)]) {
     for (const fn of GAME_FNS) rejects(await call(fn, me.token, { gameId: gid, text: '안녕', targetId: you.uid, kind: 'trust', day: 1 }), `${fn} gameId=${JSON.stringify(gid) ?? 'undefined'}`)
   }

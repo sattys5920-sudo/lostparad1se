@@ -188,6 +188,8 @@ export interface World {
    * 것은 자기가 적은 한 줄뿐이다.
    */
   myBallots?: Readonly<Record<string, string>>
+  /** 엔딩 송출을 사람마다 언제 봤나. **투영이 본인 것만 떼어 보낸다.** */
+  endingSeen?: Readonly<Record<string, number>>
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
@@ -306,6 +308,13 @@ export interface View {
    * 읽힌다. 그게 이 게임의 절반이다.
    */
   myTeamTokens: number
+  /**
+   * 엔딩 송출을 내가 언제 봤나. 안 봤으면 null.
+   *
+   * `game.endingBroadcast.atMs` 보다 오래됐거나 없으면 아직 못 본
+   * 것이다 — 화면이 이 둘을 견줘 전체 화면 오버레이를 띄운다.
+   */
+  myEndingSeenAtMs: number | null
   /**
    * 거래를 걸 수 있는 내 개인 토큰. **내 것만 간다.**
    *
@@ -573,6 +582,7 @@ export function projectView(world: World, viewerId: string): View {
       myBusyKind: null,
       myPost: null,
       myTeamTokens: 0,
+      myEndingSeenAtMs: null,
       teamVault: { money: 0, knowledge: 0 },
       myItems: {},
       myTeamRobots: 0,
@@ -772,6 +782,7 @@ export function projectView(world: World, viewerId: string): View {
     // **우리 팀 것만이다.** 남의 상자가 보이면 언제 밀고 들어올지가
     // 읽힌다 — 그게 이 게임의 절반이다
     myTeamTokens: world.wallets?.[team] ?? 0,
+    myEndingSeenAtMs: world.endingSeen?.[viewerId] ?? null,
     // **우리 팀 금고 하나뿐이다.** 남의 팀 것은 안 간다
     teamVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[viewerId] ?? {},

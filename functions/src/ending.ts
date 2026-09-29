@@ -3,22 +3,23 @@
 // 「나」 탭의 학생증(paper.ts)이 이걸 쓴다.
 //
 // **엔딩 열 장면은 없앴다.** 전말·거울 규칙·A가 남긴 말·찢긴 한 장·
-// 공동 엔딩을 화면이 차례로 틀어 주던 자리다. 무엇을 깨달을지를 화면이
-// 정해 주는 대신, 운영자가 사람마다 한 편씩 적는다 — 아래 세 문이다.
+// 공동 엔딩을 화면이 차례로 틀어 주던 자리다. 지금은 A의 마지막
+// 쪽지 한 장을, 운영자가 누르는 순간 전원에게 같이 튼다(아래).
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import type { BallotDay, BallotVote, GameLog, JudgeVote } from '../../shared/missions/judge'
 import { ownerAt, type GameRecord, type OwnerChange } from '../../shared/rules/records'
-import { ALL_KEY, ENDING_MAX } from '../../shared/reveal/ending'
 import { publicScore, rankTeams } from '../../shared/rules/score'
 import { TEAMS } from '../../shared/rules/lobby'
 import type { TileId } from '../../shared/rules/board'
 import type { Interval } from '../../shared/rules/presence'
 import type { TeamId } from '../../shared/rules/v2'
 import type { CaptureDoc, GameDoc, RosterDoc, TileDoc, VoteDoc } from '../../shared/model'
+import { FINAL_NOTE_LINES } from './story/finalNote'
 
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
+import { refreshViews } from './views'
 import type { ChoiceDoc } from './choice'
 
 const secret = (gameId: string, name: string) =>
@@ -189,69 +190,94 @@ export async function buildLog(
 }
 
 /**
- * 엔딩 — **운영자가 적는다.**
+ * 엔딩 — **운영자가 적지 않는다.** 버튼 하나(엔딩 송출하기)가 전부다.
  *
- * 열 장면을 화면이 틀어 주던 자리다. 그 자리에는 그날의 전말도, 거울
- * 규칙도, A가 남긴 말 열넷도 미리 적혀 있었다. 닷새를 지켜본 사람이
- * 그 자리에서 쓰는 한 편이 미리 적은 마흔두 문장보다 낫다.
+ * 한때 열 장면이었고, 그다음엔 운영자가 사람마다 쓰는 한 편이었다.
+ * 이제는 A의 마지막 쪽지 한 장을 전원에게 같은 순간 튼다 — 문장은
+ * 고정이고(story/finalNote.ts, **서버 전용**), 화면은 재생 직전에
+ * finalNoteText 로 받아 온다. 여기서는 「언제 눌렀는가」와 「누가
+ * 봤는가」만 쥔다.
  *
- * 문서 하나가 한 사람 몫이다. `__all` 은 전원에게 같이 붙는 글이라,
- * 각자 화면에는 「모두에게」가 먼저 오고 그다음 제 몫이 온다.
+ * **송출은 판 문서에 한 줄 적는 것뿐이다.** endingBroadcast 는 열넷
+ * 전원이 이미 구독하는 자리라, 여기 적는 순간 다들 지금 보던 화면
+ * 위로 그대로 뜬다 — 새 구독을 만들 필요가 없다.
  */
-const endingsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('ending').collection('lines')
+const endingSeenOf = (gameId: string) => gameRef(gameId).collection('secret').doc('endingSeen').collection('items')
 
-export interface EndingLineDoc {
-  /** 받는 사람. ALL_KEY 면 전원이다. */
-  toPlayerId: string
-  text: string
-  atMs: number
+/** 게임이 끝났는가. 그 전에는 송출도, 봤다는 기록도 안 받는다. */
+async function requireFinished(gameId: string): Promise<GameDoc> {
+  const snap = await gameRef(gameId).get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  if (game.phase !== 'finished') throw new HttpsError('failed-precondition', '아직 판이 안 끝났다.')
+  return game
 }
 
-/** 적거나 고친다. **운영자만.** 빈 글을 넣으면 지운다. */
-export const hostSetEnding = onCall<{ gameId: string; toPlayerId: string; text: string }>(async (req) => {
-  requireHost(req.auth)
-  const { gameId } = req.data
-  const to = String(req.data.toPlayerId ?? '').trim()
-  if (to === '') throw new HttpsError('invalid-argument', '누구에게 줄지 골라야 한다.')
-  const text = String(req.data.text ?? '').trim().slice(0, ENDING_MAX)
-  const ref = endingsOf(gameId).doc(to)
-  if (text === '') {
-    await ref.delete()
-    return { to, removed: true }
-  }
-  const doc: EndingLineDoc = { toPlayerId: to, text, atMs: Date.now() }
-  await ref.set(doc)
-  return { to, saved: true }
-})
-
-/** 지금까지 적어 둔 것 전부. **운영자만.** */
-export const hostEndings = onCall<{ gameId: string }>(async (req) => {
-  requireHost(req.auth)
-  const snap = await endingsOf(req.data.gameId).get()
-  return { rows: snap.docs.map((d) => ({ to: d.id, text: (d.data() as EndingLineDoc).text })) }
+/**
+ * A의 마지막 쪽지 문장. **종례가 끝난 뒤에만** — 그 전에는 스포일러다.
+ *
+ * 화면(FinalNoteScene.tsx)이 재생 직전에 부른다. 판이 안 끝났으면
+ * 거절한다 — 엔딩 탭도, 오버레이도 끝나기 전에는 열리지 않는다.
+ */
+export const finalNoteText = onCall<{ gameId: string }>(async (req) => {
+  requireUid(req.auth)
+  await requireFinished(req.data.gameId)
+  return { lines: FINAL_NOTE_LINES }
 })
 
 /**
- * 내 엔딩. **종례가 끝난 뒤에만.**
+ * 엔딩을 송출한다. **운영자만.**
  *
- * 남의 몫은 어떤 경로로도 안 나간다 — 문서 두 개만 읽는다.
+ * mode 'all' — 이미 본 사람도 포함해 전원에게 다시 튼다. atMs 를
+ * 지금 시각으로 올린다.
+ * mode 'unseen' — 아직 못 본 사람에게만 간다. 처음 송출이면 'all'과
+ * 같다. 이미 한 번 보낸 뒤라면 atMs 는 그대로 두고 pingMs 만 울려서,
+ * 이미 본 사람은 그대로 두고 접속 중인데 못 본 사람만 다시 뜨게 한다.
  */
-export const myEnding = onCall<{ gameId: string }>(async (req) => {
+export const hostBroadcastEnding = onCall<{ gameId: string; mode: 'all' | 'unseen' }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const mode = req.data.mode === 'unseen' ? 'unseen' : 'all'
+  const game = await requireFinished(gameId)
+  const nowMs = Date.now()
+  const bumpAtMs = mode === 'all' || !game.endingBroadcast
+  const atMs = bumpAtMs ? nowMs : game.endingBroadcast!.atMs
+  const broadcast = { atMs, pingMs: nowMs }
+  await gameRef(gameId).update({ endingBroadcast: broadcast })
+  await gameRef(gameId).collection('events').add({
+    atMs: nowMs,
+    day: game.day,
+    kind: 'endingBroadcast',
+    detail: { mode, atMs },
+  })
+  return broadcast
+})
+
+/**
+ * 지금 송출 상태. **운영자만.** 본 인원을 판마다 실시간으로 보려고
+ * 관리자 화면이 이걸 되풀이해 부른다(따로 구독을 열지 않는다).
+ */
+export const hostEndingStatus = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const game = await (async () => {
+    const snap = await gameRef(gameId).get()
+    if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+    return snap.data() as GameDoc
+  })()
+  const broadcast = game.endingBroadcast ?? null
+  const seenS = await endingSeenOf(gameId).get()
+  const seenCount = broadcast
+    ? seenS.docs.filter((d) => ((d.data() as { seenAtMs: number }).seenAtMs) >= broadcast.atMs).length
+    : 0
+  return { broadcast, seenCount, total: game.seats.length, finished: game.phase === 'finished' }
+})
+
+/** 봤다고 적는다. 플레이어 본인만 — 화면이 재생을 끝내는 순간 부른다. */
+export const markEndingSeen = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
-  const snap = await gameRef(gameId).get()
-  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  if ((snap.data() as GameDoc).phase !== 'finished') {
-    throw new HttpsError('failed-precondition', '아직 판이 안 끝났다.')
-  }
-  const seat = await secret(gameId, 'roster').doc(uid).get()
-  if (!seat.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
-  const [all, mine] = await Promise.all([
-    endingsOf(gameId).doc(ALL_KEY).get(),
-    endingsOf(gameId).doc(uid).get(),
-  ])
-  const parts: string[] = []
-  if (all.exists) parts.push((all.data() as EndingLineDoc).text)
-  if (mine.exists) parts.push((mine.data() as EndingLineDoc).text)
-  return { text: parts.join('\n\n') }
+  await endingSeenOf(gameId).doc(uid).set({ seenAtMs: Date.now() })
+  await refreshViews(gameId)
+  return { ok: true }
 })

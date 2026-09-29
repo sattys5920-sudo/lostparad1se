@@ -531,7 +531,7 @@ async function main(): Promise<void> {
   const ballotDays = await col(`games/${GAME}/secret/ballotDays/items`)
   const schedule = await col(`games/${GAME}/schedule`)
   const frags = await call('host', 'releasedFragments', bots[0].token, { gameId: GAME })
-  const ending = await call('host', 'hostEndings', admin.token, { gameId: GAME })
+  const ending = await call('host', 'hostBroadcastEnding', admin.token, { gameId: GAME, mode: 'all' })
   const mission4 = await call('host', 'hostMissionDay', admin.token, { gameId: GAME, day: TOTAL_DAYS })
   const unexpected = errors.filter((e) => !/느림/.test(e.msg))
   const summary = {
@@ -544,7 +544,7 @@ async function main(): Promise<void> {
     scheduleOrder: schedule.filter((s) => s.doneAtMs !== null).sort((a, b) => Number(a.doneAtMs) - Number(b.doneAtMs)).map((s) => `${s.kind}:${(s.payload as { day?: number })?.day}`),
     pushes: admin.pushes.map((p) => ({ ...p, lateMin: Math.round((p.at - p.due) / 60_000) })),
     fragmentsReleased: frags.ok ? (frags.data as { days?: number[] }).days : frags.message,
-    endings: ending.ok ? Object.keys(ending.data ?? {}).length : ending.message,
+    endings: ending.ok ? ending.data : ending.message,
     missionDay4Rows: mission4.ok ? ((mission4.data as { rows?: unknown[] }).rows ?? []).length : mission4.message,
     errors: unexpected.length, slow: errors.length - unexpected.length,
     errorSample: unexpected.slice(0, 40),

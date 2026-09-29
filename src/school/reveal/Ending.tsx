@@ -1,53 +1,21 @@
-// 엔딩 — **운영자가 적은 한 편.**
+// 엔딩 탭 — 전원 송출과 같은 쪽지를 다시 본다.
 //
-// 한때 여기에 열 장면이 있었다. 종례 · 팀 결과 · 개인 엔딩 · 그날의
-// 전말 · 거울 규칙 · 들리지 않았던 말 · A가 남긴 말 · 찢긴 한 장 ·
-// 공동 엔딩 · 기록 보관소. 미리 적어 둔 문장을 차례로 틀어 주는 자리라,
-// 무엇을 깨달을지까지 화면이 정해 주고 있었다.
-//
-// 지금은 종이 한 장이다. 닷새를 지켜본 사람이 쓴 글이 그대로 찍힌다.
-import { useEffect, useState } from 'react'
-
-import { PaperSheet } from './PaperSheet'
-import { Snow } from './Snow'
-import { useTypewriter } from './useTypewriter'
+// 송출 자체는 화면 어디에 있든 덮는 오버레이(FinalNoteOverlay)가 한다.
+// 이 탭은 그 순간을 놓쳤거나 한 번 더 보고 싶은 사람을 위한 자리다 —
+// 재생 끝에 닫기를 누를 필요 없이, 다시 누르면 다시 돈다.
+import { useState } from 'react'
+import { FinalNoteScene } from './FinalNoteScene'
 import type { GameActions } from '../game/useGame'
 
-export interface EndingProps {
-  act: GameActions
-  snowLevel?: number
-}
-
-export function Ending({ act, snowLevel = 5 }: EndingProps) {
-  const [lines, setLines] = useState<string[] | null>(null)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let live = true
-    act
-      .myEnding()
-      .then((d) => {
-        if (!live) return
-        const text = String((d as { text?: string }).text ?? '').trim()
-        setLines(text === '' ? [] : text.split('\n').filter((l) => l.trim() !== ''))
-      })
-      .catch((e) => live && setError((e as Error).message))
-    return () => {
-      live = false
-    }
-  }, [act])
-
-  const typed = useTypewriter(lines ?? [])
-
-  if (error) return <p className="sc-ed__none">{error}</p>
-  if (lines === null) return null
-
+export function Ending({ act }: { act: GameActions }) {
+  // 매번 새 key로 다시 그려 처음부터 돈다. React 는 key 가 바뀐
+  // 자식을 새로 만들지, 같은 컴포넌트를 다시 마운트하지 않는다
+  const [round, setRound] = useState(0)
   return (
-    <div className="sc-en" role="dialog" aria-label="엔딩">
-      <Snow level={snowLevel} />
-      {/* 아직 아무것도 안 적었으면 종이만 비어 있다. 거짓말을 지어내지 않는다 */}
-      <button className="sc-en__paper" onClick={() => typed.tap()} aria-label="넘기기">
-        <PaperSheet kind="diary" lines={typed.shown} />
+    <div className="sc-en" role="region" aria-label="엔딩">
+      <FinalNoteScene key={round} act={act} />
+      <button className="sc-en__replay" onClick={() => setRound((n) => n + 1)}>
+        다시 보기
       </button>
     </div>
   )

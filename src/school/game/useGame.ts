@@ -500,13 +500,14 @@ export function gameActions(gameId: string) {
     fragment: (day: number) => callServer('fragmentOfDay', { ...g, day }),
     releasedFragments: () => callServer('releasedFragments', g),
     snow: () => callServer('snowNow', g),
-    /** 종례가 끝난 뒤에만. */
-    /** 내 엔딩. 운영자가 적어 둔 글이다 — 닷새가 끝나야 온다 */
-    myEnding: () => callServer('myEnding', g),
-    /** 운영자: 사람마다 엔딩을 적는다. 받는 사람이 '__all' 이면 전원 */
-    hostSetEnding: (toPlayerId: string, text: string) =>
-      callServer('hostSetEnding', { ...g, toPlayerId, text }),
-    hostEndings: () => callServer('hostEndings', g),
+    /** 운영자: 엔딩을 송출한다. mode 'all'은 전원, 'unseen'은 못 본 사람만 */
+    hostBroadcastEnding: (mode: 'all' | 'unseen') => callServer('hostBroadcastEnding', { ...g, mode }),
+    /** 운영자: 지금 송출 상태와 본 인원. 종례가 끝난 뒤에만 뜻이 있다 */
+    hostEndingStatus: () => callServer('hostEndingStatus', g),
+    /** 엔딩을 봤다고 적는다. 재생이 끝나는 순간 화면이 부른다 */
+    markEndingSeen: () => callServer('markEndingSeen', g),
+    /** A의 마지막 쪽지 문장. 종례가 끝난 뒤에만 온다 */
+    finalNoteText: () => callServer('finalNoteText', g),
   }
 }
 

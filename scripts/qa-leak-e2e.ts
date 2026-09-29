@@ -368,7 +368,7 @@ async function main(): Promise<void> {
     ['fragmentOfDay', { gameId: GAME, day: 2 }, {}],
     ['fragmentOfDay', { gameId: GAME, day: 3 }, {}],
     ['fragmentOfDay', { gameId: GAME, day: 4 }, {}],
-    ['myEnding', { gameId: GAME }, {}],
+    ['finalNoteText', { gameId: GAME }, {}],
     ['peekDay', { gameId: GAME }, {}],
     ['arcadeClock', {}, {}],
     ['arcadeTick', { gameId: GAME, roomId: 'nope' }, {}],
@@ -409,7 +409,7 @@ async function main(): Promise<void> {
   const rel = got[`releasedFragments:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].data as { days: number[] }
   check(JSON.stringify(rel.days) === '[1,2]', 'releasedFragments 는 DAY 1·2 만', JSON.stringify(rel.days))
   check(got[`peekDay:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].code === 'PERMISSION_DENIED', 'peekDay 는 운영자만')
-  check(got[`myEnding:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].code === 'FAILED_PRECONDITION', 'myEnding 은 끝나기 전에 안 준다')
+  check(got[`finalNoteText:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].code === 'FAILED_PRECONDITION', 'finalNoteText 는 끝나기 전에 안 준다')
   check(got[`dealNow:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].data?.id === null, 'dealNow — 남의 거래는 내 것으로 안 온다')
 
   console.log('\n── 직접 읽기 — 규칙이 가른다 ──')

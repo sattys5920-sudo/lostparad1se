@@ -23,6 +23,7 @@ const MEET_VOTES: VoteKind[] = ['trust', 'liking']
 import type { AvatarLook } from '../../../shared/look'
 import { gameActions, useGame } from './useGame'
 import { LiveArchive, LiveEnding, LiveMorning, LiveRetro } from '../reveal/live'
+import { FinalNoteOverlay } from '../reveal/FinalNoteOverlay'
 import { Actions } from './Actions'
 import { Vending } from './Vending'
 import { BoardSheet, ErrandStrip } from './Errand'
@@ -2478,6 +2479,29 @@ export function Play() {
   // 계정을 아직 못 읽었으면 undefined. 없으면 null
   const [me, setMe] = useState<{ nickname: string; avatar: AvatarLook | null } | null | undefined>(undefined)
   const state = useGame(signedIn ? GAME_ID : null)
+  const act = useMemo(() => gameActions(GAME_ID), [])
+
+  /**
+   * 엔딩 송출 — 지금 어느 화면에 있든 그 위로 뜬다.
+   *
+   * **한 번 뜨면 「닫기」를 누르기 전에는 안 사라진다.** 재생이 끝나는
+   * 순간 서버에 「봤다」고 적히는데(FinalNoteOverlay), 그 값이 실시간
+   * 으로 돌아와도 여기서 다시 검사하면 오버레이가 스스로 사라져
+   * 버린다 — 닫기는 사람이 누르는 것이지 서버 값이 대신 눌러 주는
+   * 것이 아니다. 그래서 「이 atMs 는 이미 띄웠다」를 따로 기억한다.
+   */
+  const broadcastAtMs = state.game?.endingBroadcast?.atMs ?? null
+  const seenAtMs = state.view?.myEndingSeenAtMs ?? null
+  const shownForAtMsRef = useRef<number | null>(null)
+  const [endingOverlayOn, setEndingOverlayOn] = useState(false)
+  useEffect(() => {
+    if (broadcastAtMs === null) return
+    const alreadySeen = seenAtMs !== null && seenAtMs >= broadcastAtMs
+    if (!alreadySeen && shownForAtMsRef.current !== broadcastAtMs) {
+      shownForAtMsRef.current = broadcastAtMs
+      setEndingOverlayOn(true)
+    }
+  }, [broadcastAtMs, seenAtMs])
 
   useEffect(() => {
     if (!auth) {
@@ -2536,6 +2560,17 @@ export function Play() {
   }
 
   const phase = state.game?.phase
-  if (phase === 'running' || phase === 'finished') return <Running gameId={GAME_ID} look={me.avatar} />
-  return <Lobby gameId={GAME_ID} me={me} />
+  const content =
+    phase === 'running' || phase === 'finished' ? (
+      <Running gameId={GAME_ID} look={me.avatar} />
+    ) : (
+      <Lobby gameId={GAME_ID} me={me} />
+    )
+
+  return (
+    <>
+      {content}
+      {endingOverlayOn && <FinalNoteOverlay act={act} onClose={() => setEndingOverlayOn(false)} />}
+    </>
+  )
 }

@@ -1,34 +1,22 @@
-// 엔딩은 운영자가 적는다. 화면은 받아 적은 것만 보여 준다.
+// 엔딩은 운영자가 누르는 버튼 하나다. 화면은 A의 마지막 쪽지 한 장을
+// 전원에게 같은 순간 튼다.
 //
-// 제일 중요한 확인은 둘이다. **종례 전에는 한 줄도 안 나간다.**
-// 그리고 **남의 몫은 어떤 경로로도 안 나간다** — 운영자가 열넷에게
-// 따로 적어도, 각자에게 가는 것은 「모두에게」와 제 몫 둘뿐이다.
+// 제일 중요한 확인은 셋이다. **종례 전에는 한 줄도 안 나간다.**
+// **운영자만 송출한다.** 그리고 **「못 본 사람만」과 「전원」이 다르게
+// 움직인다** — 하나는 이미 본 사람을 건드리지 않고, 하나는 전원을 다시 튼다.
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
+import { FINAL_NOTE_LINES } from '../functions/src/story/finalNote'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1'
-const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
 let failures = 0
 function check(ok: boolean, label: string, detail = ''): void {
   if (!ok) failures += 1
   console.log(`${ok ? '  ✓' : '  ✗'} ${label}${detail ? ` — ${detail}` : ''}`)
-}
-function plain(v: unknown): unknown {
-  if (v === null || typeof v !== 'object') return v
-  const o = v as Record<string, unknown>
-  if ('stringValue' in o) return o.stringValue
-  if ('integerValue' in o) return Number(o.integerValue)
-  if ('doubleValue' in o) return o.doubleValue
-  if ('booleanValue' in o) return o.booleanValue
-  if ('nullValue' in o) return null
-  if ('arrayValue' in o) return ((o.arrayValue as { values?: unknown[] }).values ?? []).map(plain)
-  if ('mapValue' in o) { const f = (o.mapValue as { fields?: Record<string, unknown> }).fields ?? {}; return Object.fromEntries(Object.entries(f).map(([k, x]) => [k, plain(x)])) }
-  if ('fields' in o) return Object.fromEntries(Object.entries(o.fields as Record<string, unknown>).map(([k, x]) => [k, plain(x)]))
-  return o
 }
 async function signUp(e: string): Promise<string> {
   await fetch(`${AUTH}/accounts:signUp?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, password: 'password', returnSecureToken: true }) }); return e
@@ -52,11 +40,10 @@ async function call(n: string, tk: string, d: unknown): Promise<Res> {
 async function must(n: string, tk: string, d: unknown): Promise<Record<string, unknown>> {
   const r = await call(n, tk, d); if (!r.ok) throw new Error(`${n}: ${r.code} ${r.message}`); return r.data as Record<string, unknown>
 }
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 const GAME = `end${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
-
-const ALL = '전원에게 가는 글. 닷새가 끝났다.'
 
 async function main(): Promise<void> {
   console.log(`판 ${GAME}\n── 판 세우기 ──`)
@@ -71,39 +58,32 @@ async function main(): Promise<void> {
     people.push({ ...a, team: want[i] })
     await must('joinGame', a.token, { gameId: GAME, name: `봇${i}`, team: want[i] })
   }
-  // 팀과 개인 미션은 배정에서 한꺼번에 정해진다. 시작은 그걸 읽을 뿐이다
   await must('assignAll', host, { gameId: GAME })
   await must('startGame', host, { gameId: GAME, startAtMs: START })
   const clock = (ms: number) => must('setDevClock', host, { gameId: GAME, anchorGameMs: ms, speed: 1 })
   const me = people[0]
-  const other = people[7]
+  const other = people[1]
   check(true, '판이 시작했다')
-
-  console.log('\n── 운영자가 적는다 ──')
-  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: '__all', text: ALL })
-  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: me.uid, text: '너는 끝까지 문 앞에 있었다.' })
-  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: other.uid, text: '너는 웃으면서 복도를 지났다.' })
-  const rows = (await must('hostEndings', host, { gameId: GAME })) as { rows: { to: string; text: string }[] }
-  check(rows.rows.length === 3, '적어 둔 것이 셋이다', `${rows.rows.length}개`)
-
-  const notHost = await call('hostEndings', me.token, { gameId: GAME })
-  check(notHost.code === 'PERMISSION_DENIED', '참가자는 남의 몫을 못 본다', notHost.code)
-  const notHostWrite = await call('hostSetEnding', me.token, { gameId: GAME, toPlayerId: me.uid, text: '내가 쓴다' })
-  check(notHostWrite.code === 'PERMISSION_DENIED', '참가자는 엔딩을 못 적는다', notHostWrite.code)
 
   console.log('\n── 종례 전에는 ──')
   await clock(dayHourMs(START, 1, 12))
-  const early = await call('myEnding', me.token, { gameId: GAME })
-  check(early.code === 'FAILED_PRECONDITION', 'DAY 1에는 아무것도 안 나온다', early.message)
-  check(!JSON.stringify(early).includes('문 앞'), '거절 응답에도 문장이 없다')
+  const early = await call('finalNoteText', me.token, { gameId: GAME })
+  check(early.code === 'FAILED_PRECONDITION', 'DAY 1에는 문장을 안 준다', early.message)
+  check(!JSON.stringify(early).includes(FINAL_NOTE_LINES[0]), '거절 응답에도 문장이 없다')
 
-  await clock(dayHourMs(START, 5, 20))
-  await must('tick', me.token, { gameId: GAME })
-  const late = await call('myEnding', me.token, { gameId: GAME })
-  check(late.code === 'FAILED_PRECONDITION', 'DAY 5 저녁에도 아직이다', late.message)
+  const earlyBroadcast = await call('hostBroadcastEnding', host, { gameId: GAME, mode: 'all' })
+  check(earlyBroadcast.code === 'FAILED_PRECONDITION', '운영자도 끝나기 전에는 송출을 못 누른다', earlyBroadcast.message)
+
+  const earlyStatus = (await must('hostEndingStatus', host, { gameId: GAME })) as { finished: boolean; broadcast: unknown }
+  check(earlyStatus.finished === false && earlyStatus.broadcast === null, '끝나기 전 상태는 finished:false, 송출 없음')
+
+  console.log('\n── 권한 ──')
+  const notHostBroadcast = await call('hostBroadcastEnding', me.token, { gameId: GAME, mode: 'all' })
+  check(notHostBroadcast.code === 'PERMISSION_DENIED', '참가자는 송출을 못 누른다', notHostBroadcast.code)
+  const notHostStatus = await call('hostEndingStatus', me.token, { gameId: GAME })
+  check(notHostStatus.code === 'PERMISSION_DENIED', '참가자는 송출 상태를 못 본다', notHostStatus.code)
 
   console.log('\n── 종례 뒤 ──')
-  //
   // **시계가 판을 끝내지 않는다.** 달력 칸은 운영자가 하나씩 민다 —
   // 닷새치를 다 밀어야 phase 가 finished 가 된다
   await clock(dayHourMs(START, 5, 25))
@@ -112,33 +92,45 @@ async function main(): Promise<void> {
     const r = (await must('pushDay', host, { gameId: GAME })) as { phase?: string; pushed?: string | null }
     if (r.phase === 'finished' || r.pushed === null) break
   }
-  check(
-    ((await must('peekDay', host, { gameId: GAME })) as { next?: unknown }) !== null,
-    '달력을 끝까지 밀었다',
-  )
-  const mineOut = (await must('myEnding', me.token, { gameId: GAME })) as { text: string }
-  check(mineOut.text.includes(ALL), '모두에게 적은 글이 온다')
-  check(mineOut.text.includes('문 앞'), '내 몫이 온다')
-  check(!mineOut.text.includes('복도를 지났다'), '남의 몫은 안 온다', mineOut.text)
-  check(mineOut.text.indexOf(ALL) < mineOut.text.indexOf('문 앞'), '모두에게가 먼저 온다')
+  const finishedStatus = (await must('hostEndingStatus', host, { gameId: GAME })) as { finished: boolean }
+  check(finishedStatus.finished === true, '판이 끝났다')
 
-  const otherOut = (await must('myEnding', other.token, { gameId: GAME })) as { text: string }
-  check(otherOut.text.includes('복도를 지났다') && !otherOut.text.includes('문 앞'), '사람마다 제 몫만 온다')
+  const lines = (await must('finalNoteText', me.token, { gameId: GAME })) as { lines: string[] }
+  check(JSON.stringify(lines.lines) === JSON.stringify(FINAL_NOTE_LINES), '문장은 고정이고 누구에게나 같다')
+  const linesOther = (await must('finalNoteText', other.token, { gameId: GAME })) as { lines: string[] }
+  check(JSON.stringify(linesOther.lines) === JSON.stringify(lines.lines), '다른 사람에게도 같은 문장')
 
-  const blank = people[3]
-  const blankOut = (await must('myEnding', blank.token, { gameId: GAME })) as { text: string }
-  check(blankOut.text === ALL, '안 적어 준 사람에게는 모두에게 것만 온다', blankOut.text)
+  console.log('\n── 송출 ──')
+  const first = (await must('hostBroadcastEnding', host, { gameId: GAME, mode: 'all' })) as { atMs: number; pingMs: number }
+  check(first.atMs === first.pingMs, '첫 송출은 atMs 와 pingMs 가 같다')
 
-  console.log('\n── 지우기 ──')
-  await must('hostSetEnding', host, { gameId: GAME, toPlayerId: other.uid, text: '  ' })
-  const gone = (await must('myEnding', other.token, { gameId: GAME })) as { text: string }
-  check(gone.text === ALL, '빈 글을 넣으면 지워진다', gone.text)
+  const s0 = (await must('hostEndingStatus', host, { gameId: GAME })) as { seenCount: number; total: number; broadcast: { atMs: number } }
+  check(s0.broadcast.atMs === first.atMs, '송출 시각이 상태에 반영된다')
+  check(s0.seenCount === 0, '아직 아무도 안 봤다', `${s0.seenCount}`)
+  check(s0.total === TOTAL_SEATS, '전체 인원이 좌석 수와 같다')
 
-  console.log('\n── 판에 없는 사람 ──')
-  const outsider = await auth(await signUp(`out-${GAME}@x.test`))
-  const no = await call('myEnding', outsider.token, { gameId: GAME })
-  check(no.code === 'PERMISSION_DENIED', '구경꾼에게는 안 준다', no.code)
-  check(!JSON.stringify(no).includes('닷새가 끝났다'), '거절 응답에 문장이 없다')
+  await must('markEndingSeen', me.token, { gameId: GAME })
+  const s1 = (await must('hostEndingStatus', host, { gameId: GAME })) as { seenCount: number }
+  check(s1.seenCount === 1, '본 사람이 하나 늘었다', `${s1.seenCount}`)
+
+  console.log('\n── 못 본 사람만 다시 송출 ──')
+  await sleep(5)
+  const unseen = (await must('hostBroadcastEnding', host, { gameId: GAME, mode: 'unseen' })) as { atMs: number; pingMs: number }
+  check(unseen.atMs === first.atMs, '「못 본 사람만」은 atMs 를 그대로 둔다')
+  check(unseen.pingMs > first.pingMs, '「못 본 사람만」도 ping 은 새로 울린다')
+  const s2 = (await must('hostEndingStatus', host, { gameId: GAME })) as { seenCount: number }
+  check(s2.seenCount === 1, '「못 본 사람만」은 이미 본 사람 수를 안 건드린다', `${s2.seenCount}`)
+
+  console.log('\n── 전원 다시 송출 ──')
+  await sleep(5)
+  const again = (await must('hostBroadcastEnding', host, { gameId: GAME, mode: 'all' })) as { atMs: number; pingMs: number }
+  check(again.atMs > first.atMs, '「전원」은 atMs 를 새로 올린다')
+  const s3 = (await must('hostEndingStatus', host, { gameId: GAME })) as { seenCount: number }
+  check(s3.seenCount === 0, '「전원」 뒤에는 이미 본 사람도 다시 못 본 사람으로 친다', `${s3.seenCount}`)
+
+  await must('markEndingSeen', me.token, { gameId: GAME })
+  const s4 = (await must('hostEndingStatus', host, { gameId: GAME })) as { seenCount: number }
+  check(s4.seenCount === 1, '다시 본 뒤에는 다시 센다', `${s4.seenCount}`)
 
   console.log(failures === 0 ? '\n전부 통과.' : `\n${failures}개 실패.`)
   process.exit(failures === 0 ? 0 : 1)

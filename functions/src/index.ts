@@ -136,8 +136,8 @@ export { markMorning, snowNow } from './reveal'
 export { chooseImportant, chooseDay4 } from './choice'
 
 
-// 엔딩. 종례가 끝난 뒤에만 내려간다.
-export { hostSetEnding, hostEndings, myEnding } from './ending'
+// 엔딩. 운영자가 버튼 하나로 전원에게 튼다. 종례가 끝난 뒤에만 된다.
+export { hostBroadcastEnding, hostEndingStatus, markEndingSeen, finalNoteText } from './ending'
 export { myPaper } from './paper'
 export { hostDrop } from './drop'
 

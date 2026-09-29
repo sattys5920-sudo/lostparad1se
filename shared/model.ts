@@ -168,6 +168,16 @@ export interface GameDoc {
    * 따라잡기가 이것만 보고 할 일이 없으면 곧장 나간다
    */
   missionJudgedThrough?: number
+  /**
+   * 엔딩 송출 — 운영자가 「엔딩 송출하기」를 누른 시각.
+   *
+   * 열넷 전원이 구독하는 판 문서에 있어서, 누르는 순간 다들 지금 보던
+   * 화면 위로 바로 뜬다. atMs 가 바뀌면 **다시 본 사람도 포함해** 전원에게
+   * 다시 뜬다("다시 송출 (전원)"). pingMs 만 바뀌면 atMs 는 그대로라 이미
+   * 본 사람에게는 안 가고, 아직 못 본 사람만 그 자리에서 다시 뜬다
+   * ("다시 송출 (못 본 사람만)" — 순전히 신호를 한 번 더 울리는 것뿐이다).
+   */
+  endingBroadcast?: { atMs: number; pingMs: number } | null
 }
 
 /** games/{gameId}/tiles/{tileId} — 주인은 숨길 것이 없다. */
@@ -461,6 +471,8 @@ export interface PlayerViewDoc {
    * 먼저 쓰는 사람이 임자다. 화면에서 「내 토큰」이라 부르면 안 된다.
    */
   myTeamTokens: number
+  /** 엔딩 송출을 내가 언제 봤나. 안 봤으면 null. */
+  myEndingSeenAtMs: number | null
   /** 내 하루 몫에서 남은 수. */
   /** 거래를 걸 수 있는 내 개인 토큰. 하루치다. */
   /**
