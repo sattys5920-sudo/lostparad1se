@@ -33,7 +33,6 @@ import { announceBallots } from './ballot'
 import { gameRef, nowOf } from './index'
 import { claimSeat, pickSeat } from './seat'
 import { catchUpMissionDays } from './missionDays'
-import { dropAllErrands } from './errand'
 import { refreshViews } from './views'
 import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
@@ -43,8 +42,6 @@ import { inTx } from './contended'
 import { flushQueue } from './notify'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
-import { sysLine } from './radio'
-import { sys } from '../../shared/rules/radio'
 
 
 // ── 일 하나씩 ───────────────────────────────────────────────────
@@ -94,34 +91,14 @@ async function dayStart(c: Ctx): Promise<void> {
    */
   openCaptainVotes(c.tx, c.gameId, c.day, c.atMs, pawns)
 
-  // 어제 투표로 정해진 사람이 **오늘부터** 지워진다. 팀도 여기서 적는다 —
-  // 투명인간이 나온 팀은 오늘 토큰을 더 받는다(openPhase). 아무도 없으면 둘 다 비운다
-  const todayHidden = c.game.invisibleByDay[c.day] ?? null
-  const hiddenTeam = todayHidden ? ((pawns.docs.find((d) => d.id === todayHidden)?.data() as PawnDoc | undefined)?.team ?? null) : null
-  c.tx.update(ref, {
-    day: c.day,
-    invisibleId: todayHidden,
-    invisibleTeam: hiddenTeam,
-  })
+  // **투명인간은 날짜 경계와 안 묶인다.** 발표(settleBallots)부터 다음
+  // 투표가 열릴 때(hostOpenBallot)까지가 전부라, 여기서는 날짜만 넘긴다
+  c.tx.update(ref, { day: c.day })
   c.tx.set(ref.collection('events').doc(), {
     atMs: c.atMs,
     day: c.day,
     kind: 'dayStart',
   })
-
-  /*
-   * 오늘 지워진 사람을 **그 팀 무전에만** 적는다.
-   *
-   * 누가 투명인간인지는 원래 다 공개된다(아침 안내). 팀에게 따로
-   * 적는 것은 그 하루 판정에서 그 사람이 빠지기 때문이다 — 셋이서
-   * 짜야 하는데 넷인 줄 알고 방을 나누면 그날 작전이 통째로 어긋난다.
-   */
-  const hiddenId = c.game.invisibleByDay[c.day] ?? null
-  if (hiddenId) {
-    const seat = c.game.seats.find((x) => x.playerId === hiddenId)
-    const team = (pawns.docs.find((d) => d.id === hiddenId)?.data() as PawnDoc | undefined)?.team
-    if (seat && team) sysLine(c.tx, c.gameId, team, sys.invisible(seat.name), c.atMs, c.day)
-  }
 }
 
 /** DAY 5 15:00 — 점수판이 꺼진다. 마지막 여섯 시간은 아무도 순위를 모른다. */
@@ -367,19 +344,9 @@ async function applyItem(
     // 실제로 넘긴 시각(게임 시계). 자정 판정을 나중에 따라잡을 때 「그날 밤」을 여기서 자른다
     tx.update(itemRef, { doneAtMs: item.dueAtMs, pushedAtMs: nowOf(game) })
     return true
-  }).then(async (applied) => {
-    /*
-     * **지워지면 받아 둔 심부름을 놓는다.** 없는 사람에게 일을 맡길 수는
-     * 없다. 받기 자체가 막히는데 이미 받아 둔 것만 남아 있으면, 물건을 든
-     * 채로 아무에게도 안 보이는 사람이 하루를 돈다. 트랜잭션이 끝난 뒤에
-     * 한다 — 안에서 다른 문서를 읽고 쓰면 잠금이 서로 기다린다
-     */
-    if (applied && item.kind === 'dayStart') {
-      const g = (await ref.get()).data() as GameDoc | undefined
-      if (g?.invisibleId) await dropAllErrands(gameId, g.invisibleId)
-    }
-    return applied
   })
+  // 지워지면 받아 둔 심부름을 놓는다 — 이제는 투명인간이 정해지는
+  // 자리(ballot.settleBallots)에서 바로 한다. 여기는 날짜만 넘긴다
 }
 
 // ── 토큰 ────────────────────────────────────────────────────────

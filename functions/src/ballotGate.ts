@@ -1,8 +1,10 @@
 // 투명인간 투표의 문 — 운영자가 열고 닫는다.
 //
-//   열기   그날 투표를 받기 시작한다. 화면의 투표 탭이 이때 열린다
-//   닫기   그 자리에서 센다(settleBallots) — 최다 한 명이 내일 지워진다.
-//          동률이면 아무도 안 지워진다. 결과는 공지로 나간다
+//   열기   그날 투표를 받기 시작한다. 화면의 투표 탭이 이때 열린다.
+//          **지난 투명인간은 여기서 풀린다** — 발표부터 다음 투표가
+//          열릴 때까지가 투명인간의 전부다(settleBallots 가 지운다)
+//   닫기   그 자리에서 센다(settleBallots) — 최다 한 명이 그 자리에서
+//          지워진다. 동률이면 아무도 안 지워진다. 결과는 공지로 나간다
 //
 // 운영자가 안 닫고 날을 넘기면 정산 때 세던 길(announceBallots)이 그대로
 // 남아 있다 — 문이 열린 채로 하루가 끝나는 일은 없다.
@@ -16,6 +18,7 @@ import type { GameDoc } from '../../shared/model'
 
 import { announceBallots } from './ballot'
 import { requireHost } from './host'
+import { refreshViews } from './views'
 import { gameRef, nowOf } from './index'
 
 const db = getFirestore()
@@ -35,9 +38,15 @@ export const hostOpenBallot = onCall<{ gameId: string }>(async (req) => {
   if (game.ballot?.open && game.ballot.day === day) throw new HttpsError('failed-precondition', '이미 열려 있다.')
   const nowMs = nowOf(game)
   const batch = db.batch()
-  batch.update(gameRef(gameId), { ballot: { day, open: true, openedAtMs: nowMs } })
+  batch.update(gameRef(gameId), {
+    ballot: { day, open: true, openedAtMs: nowMs },
+    // 지난 투명인간을 여기서 푼다. 다음 투표가 열렸으니 그 시간은 끝났다
+    invisibleId: null,
+    invisibleTeam: null,
+  })
   batch.set(gameRef(gameId).collection('events').doc(), { atMs: nowMs, day, kind: 'ballotOpen', detail: {} })
   await batch.commit()
+  await refreshViews(gameId)
   return { day, open: true }
 })
 

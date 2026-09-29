@@ -18,6 +18,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { canName, countBallots, eraseFrom, pickInvisible, type Ballot } from '../../shared/rules/invisible'
 import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
+import { sys } from '../../shared/rules/radio'
 import type { GameDoc, TeamDoc } from '../../shared/model'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { erasedOn } from './use'
@@ -25,6 +26,8 @@ import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { logSecret } from './qaLog'
 import { requireHost } from './host'
+import { sysLine } from './radio'
+import { dropAllErrands } from './errand'
 import { gameRef, nowOf, requireUid } from './index'
 
 const db = getFirestore()
@@ -195,8 +198,9 @@ export const hostBallots = onCall<{ gameId: string; day?: number }>(async (req) 
 })
 
 /**
- * 하루가 끝났다. 내일의 투명인간을 고른다. 운영자가 그날 정산을 넘길 때
- * 한 번 돈다(catchup.pushByHand).
+ * 투표가 닫혔다(또는 운영자가 넘긴 정산이 대신 닫았다). 다음
+ * 투명인간을 고르고 **그 자리에서** 지운다. 운영자가 그날 정산을
+ * 넘길 때 한 번 돈다(catchup.pushByHand)거나, hostCloseBallot이 부른다.
  *
  * **마지막 날에는 안 고른다.** 내일이 없는 날에 사람을 지워 봐야
  * 아무 일도 일어나지 않고, 발표만 잔인하다.
@@ -214,23 +218,36 @@ export async function settleBallots(
   // 오고 더 가지 않는다 — 결과 한 줄 말고는 아무것도 안 나간다
   const picked = pickInvisible({
     counts: eraseFrom(countBallots(await ballotsOn(gameId, day)), await erasedOn(gameId, day)),
-    yesterdayId: game.invisibleId ?? null,
+    // **오늘 이미 지워진 사람.** 지금은 game.invisibleId 가 아니다 —
+    // hostOpenBallot 이 오늘 투표를 열 때 그 자리에서 이미 비워 뒀다.
+    // invisibleByDay[day] 는 그 값이 비워지기 전에 적힌, 오늘 내내
+    // 지워져 있던 사람이라 여기서는 이걸 본다
+    yesterdayId: game.invisibleByDay[day] ?? null,
   })
+  const team = picked.playerId ? (game.seats.find((s) => s.playerId === picked.playerId)?.team ?? null) : null
 
   const ref = gameRef(gameId)
+  const nowMs = nowOf(game)
   const batch = db.batch()
   /*
-   * **내일 것만 적는다.** 지워지는 것은 다음 날 08:00부터다(설정 문서
-   * 「투명인간의 하루 (다음 날 08:00 ~ 24:00)」). 전에는 여기서 invisibleId
-   * 까지 바로 적어서, 운영자가 오후 두 시에 투표를 닫으면 그 사람이 그날
-   * 남은 시간까지 지워졌다 — 하루가 아니라 하루 반이었다. 오늘 지워지는
-   * 사람·팀·심부름 정리는 자정의 dayStart(catchup.ts)가 한다
+   * **그 자리에서 지운다.** 발표되는 순간부터 다음 투표가 열릴 때까지가
+   * 투명인간의 전부다 — hostOpenBallot 이 다음번에 비운다. 전에는
+   * 「다음 날 08:00부터」였다. 이제 08:00 은 자정과 같은 시각이 됐고
+   * (DAY_START_HOUR=0), 그 경계에 매일 까닭도 없어서 발표 즉시로
+   * 바꿨다. invisibleByDay 는 그대로 둔다 — 뒷자리가 날짜로 되짚는다
    */
   batch.update(ref, {
     [`invisibleByDay.${day + 1}`]: picked.playerId,
+    invisibleId: picked.playerId,
+    invisibleTeam: team,
     // 세고 나면 문은 닫힌 것이다 — 운영자가 안 닫고 날을 넘겼어도
     ...(game.ballot?.day === day ? { 'ballot.open': false } : {}),
   })
+  // 그 팀 무전에만 적힌다. 다들 아는 것은 발표(announceBallots)뿐이다
+  if (picked.playerId && team) {
+    const name = game.seats.find((s) => s.playerId === picked.playerId)?.name ?? ''
+    if (name) sysLine(batch, gameId, team, sys.invisible(name), nowMs, day)
+  }
   /*
    * **그날의 결과를 한 장 남긴다.**
    *
@@ -245,10 +262,13 @@ export async function settleBallots(
     day,
     invisibleId: picked.playerId,
     reason: picked.reason,
-    atMs: nowOf(game),
+    atMs: nowMs,
   }
   batch.set(ballotDaysOf(gameId).doc(`d${day}`), dayDoc)
   await batch.commit()
+  // 없는 사람에게 일을 맡길 수는 없다 — 이미 받아 둔 심부름을 놓는다.
+  // 트랜잭션 밖에서 한다(errand.ts 가 다른 문서를 읽고 쓴다)
+  if (picked.playerId) await dropAllErrands(gameId, picked.playerId)
   // **득표수는 어디에도 안 적는다.** 누가 지워졌는지와 왜인지만 남는다
   return { invisibleId: picked.playerId, reason: picked.reason }
 }

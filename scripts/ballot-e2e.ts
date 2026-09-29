@@ -160,7 +160,7 @@ async function main(): Promise<void> {
   const rows = await getAll(`games/${GAME}/secret/ballots/items`)
   check(rows.filter((r) => r.d.voterId === A[0].uid).length === 1, '두 장이 되지 않는다', `${rows.length}장`)
 
-  console.log('\n── 하루가 끝나면 한 명이 정해진다 ──')
+  console.log('\n── 하루가 끝나면 그 자리에서 한 명이 정해진다 ──')
   // B0 에게 두 표, C0 에게 한 표 — 갈리지 않게
   await must('castBallot', A[1].token, { gameId: GAME, targetId: B[0].uid })
   await must('castBallot', C[0].token, { gameId: GAME, targetId: B[1].uid })
@@ -175,15 +175,16 @@ async function main(): Promise<void> {
   const late = await call('castBallot', A[2].token, { gameId: GAME, targetId: B[0].uid })
   check(late.code === 'FAILED_PRECONDITION', '센 뒤에는 더 못 적는다', String(late.message))
   const g0 = await gameNow()
-  check((g0.invisibleByDay as Record<string, string | null> | undefined)?.['2'] === B[0].uid, '가장 많이 적힌 사람이 **내일** 지워진다', JSON.stringify(g0.invisibleByDay))
-  // 설정 문서 「투명인간의 하루 (다음 날 08:00 ~ 24:00)」 — 오늘 밤은 아직 보인다
-  check((g0.invisibleId ?? null) === null, '오늘 밤에는 아직 지워지지 않는다', String(g0.invisibleId))
-  // 자정을 넘긴다 — 여기서부터 하루
+  check((g0.invisibleByDay as Record<string, string | null> | undefined)?.['2'] === B[0].uid, '내일 몫에도 적힌다', JSON.stringify(g0.invisibleByDay))
+  // 다음 투표가 열릴 때까지가 전부다 — 발표되는 순간 바로 지워진다
+  check(g0.invisibleId === B[0].uid, '발표된 그 자리에서 지워진다', String(g0.invisibleId))
+  check(g0.invisibleTeam === 'B', '그 팀이 기록된다', String(g0.invisibleTeam))
+  // 자정을 넘겨도 그대로다 — 날짜 경계와 안 묶인다
   const dawn = await must('pushDay', host, { gameId: GAME })
   check((dawn.pushed as { kind?: string } | null)?.kind === 'dayStart', '달력을 한 번 더 넘기면 자정이다', JSON.stringify(dawn.pushed))
   const g = await gameNow()
-  check(g.invisibleId === B[0].uid, '아침부터 지워진다', String(g.invisibleId))
-  check(g.invisibleTeam === 'B', '그 팀이 기록된다', String(g.invisibleTeam))
+  check(g.invisibleId === B[0].uid, '자정이 지나도 그대로다', String(g.invisibleId))
+  check(g.invisibleTeam === 'B', '그 팀도 그대로다', String(g.invisibleTeam))
 
   const said = await noticesNow()
   const all = said.filter((n) => n.toPlayerId === null).map((n) => String(n.text))
