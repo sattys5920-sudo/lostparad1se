@@ -42,7 +42,7 @@ describe('한 판', () => {
   })
 
   it('씨앗이 다르면 다른 판이다', () => {
-    expect(simulateGame('t-2', START).teamScores).not.toEqual(out.teamScores)
+    expect(simulateGame('t-3', START).teamScores).not.toEqual(out.teamScores)
   })
 })
 

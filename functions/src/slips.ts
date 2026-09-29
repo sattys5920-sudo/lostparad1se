@@ -162,6 +162,7 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const { nowMs } = await freshNow(gameId)
   let first = false
   let subject = ''
+  let isNote = false
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
@@ -172,10 +173,12 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     tx.update(ref, { readBy: [...s.readBy, uid] })
     first = true
     subject = s.subjectId
+    isNote = Boolean(s.noteId)
   })
   // 두 번째부터는 안 적는다. 「세 장을 읽는다」가 한 장을 세 번 읽어서
-  // 채워지면 안 된다
-  if (first) {
+  // 채워지면 안 된다. **손으로 쓴 빈 종이는 안 센다** — 개인 미션은
+  // 운영자가 놓은 쪽지(56장) 몫이다
+  if (first && isNote) {
     await note(gameId, 'slipRead', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
       subjectId: slipId,
       ownerId: subject,
@@ -233,6 +236,7 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const here = await whereAmI(gameId, uid)
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
   let subject = ''
+  let isNote = false
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)
     const snap = await tx.get(ref)
@@ -244,16 +248,19 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     // 조각은 찢은 방에 남는다 — tileId 는 비운다(바닥의 「한 장」에
     // 안 세야 한다). 조각은 tornAt 으로 따로 센다
     // **56장은 조각도 안 남는다** — 찢으면 영영 사라진다. 테이프로도 못 붙인다
-    const isNote = Boolean((snap.data() as SlipDoc).noteId)
+    isNote = Boolean((snap.data() as SlipDoc).noteId)
     tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, tornAt: isNote ? null : here, atMs: nowMs })
     subject = (snap.data() as SlipDoc).subjectId
   })
   // **누구의 쪽지를 찢었는지가 판정의 전부다.** 미화부의 「내 비밀이
-  // 적힌 쪽지를 찾아 찢는다」가 ownerId 로 갈린다
-  await note(gameId, 'slipTear', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
-    subjectId: slipId,
-    ownerId: subject,
-  })
+  // 적힌 쪽지를 찾아 찢는다」가 ownerId 로 갈린다. **손으로 쓴 빈
+  // 종이는 안 센다** — 개인 미션은 운영자가 놓은 쪽지(56장) 몫이다
+  if (isNote) {
+    await note(gameId, 'slipTear', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
+      subjectId: slipId,
+      ownerId: subject,
+    })
+  }
   await refreshViews(gameId)
   return { torn: true }
 })
@@ -279,6 +286,7 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
 
   let subject = ''
   let toTeam: PawnDoc['team'] = 'A'
+  let isNote = false
   await db.runTransaction(async (tx) => {
     const slipRef = slipsOf(gameId).doc(slipId)
     const [snap, other] = await Promise.all([
@@ -295,8 +303,11 @@ export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: str
     tx.update(slipRef, { heldBy: toPlayerId })
     subject = (snap.data() as SlipDoc).subjectId
     toTeam = (other.data() as PawnDoc).team
+    isNote = Boolean((snap.data() as SlipDoc).noteId)
   })
-  await note(gameId, 'slipGive', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
+  // **손으로 쓴 빈 종이는 안 센다** — 개인 미션은 운영자가 놓은
+  // 쪽지(56장) 몫이다
+  if (isNote) await note(gameId, 'slipGive', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
     otherId: toPlayerId,
     otherTeam: toTeam,
     tileId: here,

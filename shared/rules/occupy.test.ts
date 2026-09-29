@@ -40,7 +40,7 @@ import {
 } from './occupy'
 import { TILES, isAdjacent, type TileId } from './board'
 import { TEAM_IDS, type TeamId } from './v2'
-import { PULLS_PER_PHASE, PULL_COST, type FlagMap } from './flag'
+import { PULL_COST, PULL_HITS, type FlagMap } from './flag'
 
 const person = (playerId: string, team: TeamId, tileId: string): Person => ({
   playerId,
@@ -66,7 +66,7 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   flags: {},
   // 깃발 상자도 넉넉히. 모자란 경우는 따로 쓴다
   flagBoxes: Object.fromEntries(TEAM_IDS.map((t) => [t, 9])),
-  pulledTeams: [],
+  flagPullHits: {},
   smashedBy: [],
   actedBy: [],
   // 시험에서는 금고도 주머니도 넉넉하다고 본다. 모자란 경우는 따로 쓴다
@@ -361,9 +361,9 @@ describe('깃발 꽂기', () => {
     expect(out.ok).toBe(false)
   })
 
-  it('지워진 사람은 못 꽂는다', () => {
+  it('지워진 사람도 꽂는다 — 혼자 하는 일이다', () => {
     const s = board({ people: [person('a', 'A', 'library')], invisibleId: 'a' })
-    expect(doAct(s, 'a', { kind: 'plant' }).ok).toBe(false)
+    expect(doAct(s, 'a', { kind: 'plant' }).ok).toBe(true)
   })
 
   it('**꽂은 깃발은 페이즈가 닫혀도 남는다**', () => {
@@ -375,75 +375,68 @@ describe('깃발 꽂기', () => {
   })
 })
 
-describe('깃발 뽑기 — 우리 로봇이 같은 방에 있어야 한다', () => {
+describe('깃발 뽑기 — 서로 다른 두 사람이 손대야 한다', () => {
   const planted: FlagMap = { library: { B: 2, C: 1 } }
-  /** 도서관에 A팀 로봇 한 기가 두고 가져 있다 */
-  const withBot = (over: Partial<PhaseState> = {}) =>
-    board({ people: [person('a', 'A', 'library')], flags: planted, robots: [robot('r1', 'A', 'library')], ...over })
+  const withTwo = (over: Partial<PhaseState> = {}) =>
+    board({ people: [person('a', 'A', 'library'), person('a2', 'A', 'library')], flags: planted, ...over })
 
-  it('사람 하나 + 우리 로봇 하나면 남의 깃발 하나를 뽑는다. 안 고르면 제일 많은 팀 것', () => {
-    const s = must(withBot(), 'a', { kind: 'pull' })
-    expect(s.flags.library?.B).toBe(1)
-    expect(s.flags.library?.C).toBe(1)
+  it('한 사람이 손대면 1/2 — 아직 안 뽑힌다', () => {
+    const s = must(withTwo(), 'a', { kind: 'pull' })
+    expect(s.flags.library?.B).toBe(2)
+    expect(s.flagPullHits.library?.B).toEqual(['a'])
   })
 
-  it(`토큰이 ${PULL_COST}개 든다`, () => {
-    const s = must(withBot(), 'a', { kind: 'pull' })
+  it(`손댈 때마다 토큰이 ${PULL_COST}개 든다`, () => {
+    const s = must(withTwo(), 'a', { kind: 'pull' })
     expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE - PULL_COST)
   })
 
-  it('데리고 온 로봇도 된다', () => {
-    const s = withBot({ robots: [robot('r1', 'A', 'library', 'a')] })
+  it(`서로 다른 두 사람이 손대면(${PULL_HITS}번째) 뽑힌다. 안 고르면 제일 많은 팀 것`, () => {
+    let s = must(withTwo(), 'a', { kind: 'pull' })
+    s = must(s, 'a2', { kind: 'pull' })
+    expect(s.flags.library?.B).toBe(1)
+    expect(s.flagPullHits.library?.B).toBeUndefined()
+  })
+
+  it('같은 사람이 두 번 손대는 것으로는 안 뽑힌다', () => {
+    const s = must(withTwo(), 'a', { kind: 'pull' })
+    const again = doAct(s, 'a', { kind: 'pull' })
+    expect(again.ok).toBe(false)
+    if (!again.ok) expect(again.why).toContain('이미')
+  })
+
+  it('같은 팀일 필요는 없다 — 다른 팀 둘이 힘을 합쳐도 된다', () => {
+    let s = board({ people: [person('a', 'A', 'library'), person('c', 'C', 'library')], flags: planted })
+    s = must(s, 'a', { kind: 'pull' })
+    s = must(s, 'c', { kind: 'pull' })
+    expect(s.flags.library?.B).toBe(1)
+  })
+
+  it('깃발 주인 팀도 자기 걸 뽑는 데 손댈 수 있다(배신)', () => {
+    const s = board({ people: [person('b', 'B', 'library'), person('a', 'A', 'library')], flags: { library: { B: 1 } } })
+    expect(doAct(s, 'b', { kind: 'pull', targetTeam: 'B' }).ok).toBe(true)
+  })
+
+  it('로봇은 필요 없다', () => {
+    const s = withTwo({ robots: [] })
     expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(true)
   })
 
-  it('**로봇이 없으면 못 뽑는다** — 사람이 여럿이어도', () => {
-    const s = board({ people: [person('a', 'A', 'library'), person('a2', 'A', 'library')], flags: planted })
-    const out = doAct(s, 'a', { kind: 'pull' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('로봇')
-    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
-  })
-
-  it('남의 팀 로봇으로는 안 된다', () => {
-    const s = withBot({ robots: [robot('r1', 'B', 'library')] })
-    expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(false)
-  })
-
-  it('걷는 사람이 데려오는 중인 로봇은 아직 안 온 것이다', () => {
-    const s = withBot({
-      people: [person('a', 'A', 'library'), { playerId: 'c', team: 'A', tileId: null, toTile: 'library' }],
-      robots: [robot('r1', 'A', 'library', 'c')],
-    })
-    expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(false)
-  })
-
-  it(`**팀마다 한 페이즈에 ${PULLS_PER_PHASE}번** — 팀원이 달라도`, () => {
-    let s = withBot({ people: [person('a', 'A', 'library'), person('a2', 'A', 'library')] })
-    s = must(s, 'a', { kind: 'pull' })
-    const again = doAct(s, 'a2', { kind: 'pull' })
-    expect(again.ok).toBe(false)
-    if (!again.ok) expect(again.why).toContain('이미 뽑았다')
-    // 다른 팀은 따로 센다
-    const b = { ...s, people: [...s.people, person('b', 'B', 'library')], robots: [...s.robots, robot('r2', 'B', 'library')] }
-    expect(doAct(b, 'b', { kind: 'pull' }).ok).toBe(true)
-    // 페이즈가 닫히면 다시 뽑는다
-    expect(doAct(settle(s).next, 'a2', { kind: 'pull' }).ok).toBe(true)
+  it('**페이즈당 횟수 한도는 없다** — 페이즈가 넘어가도 진행이 이어진다', () => {
+    let s = must(withTwo(), 'a', { kind: 'pull' })
+    s = settle(s).next
+    s = must(s, 'a2', { kind: 'pull' })
+    expect(s.flags.library?.B).toBe(1)
   })
 
   it('팀을 골라 뽑는다', () => {
-    const s = must(withBot(), 'a', { kind: 'pull', targetTeam: 'C' })
+    let s = must(withTwo(), 'a', { kind: 'pull', targetTeam: 'C' })
+    s = must(s, 'a2', { kind: 'pull', targetTeam: 'C' })
     expect(s.flags.library?.C).toBeUndefined()
   })
 
-  it('우리 팀 것은 안 뽑는다', () => {
-    const s = board({ people: [person('b', 'B', 'library')], flags: { library: { B: 1 } }, robots: [robot('r', 'B', 'library')] })
-    expect(doAct(s, 'b', { kind: 'pull' }).ok).toBe(false)
-    expect(doAct(s, 'b', { kind: 'pull', targetTeam: 'B' }).ok).toBe(false)
-  })
-
   it('뽑을 것이 없으면 거절되고 토큰도 안 먹는다', () => {
-    const s = withBot({ flags: {} })
+    const s = withTwo({ flags: {} })
     expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(false)
     expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
   })
@@ -780,8 +773,8 @@ describe('닫으면 깃발과 로봇으로 주인이 정해진다', () => {
     expect(settle(board({ flags: { library: { A: 1, B: 1 } }, owners: { library: null } })).next.owners.library).toBeNull()
   })
 
-  it('아무것도 없으면 주인이 없어진다', () => {
-    expect(settle(board({ owners: { library: 'C' } })).next.owners.library).toBeNull()
+  it('아무것도 없으면 전 주인이 그대로 쥔다', () => {
+    expect(settle(board({ owners: { library: 'C' } })).next.owners.library).toBe('C')
   })
 
   it('로봇은 깃발 하나로 센다 — 깃발 하나와 로봇 하나면 둘', () => {
@@ -833,9 +826,17 @@ describe('판이 네 팀에게 공평하다', () => {
 })
 
 describe('투명인간은 없는 사람이다', () => {
-  it('깃발을 못 꽂고 못 뽑는다', () => {
-    const s = board({ people: [person('b', 'B', 'library')], flags: { library: { A: 1 } }, invisibleId: 'b' })
-    expect(doAct(s, 'b', { kind: 'plant' }).ok).toBe(false)
+  it('꽂는 것은 혼자 하는 일이라 된다', () => {
+    const s = board({ people: [person('b', 'B', 'library')], flagBoxes: { B: 1 }, invisibleId: 'b' })
+    expect(doAct(s, 'b', { kind: 'plant' }).ok).toBe(true)
+  })
+
+  it('뽑는 것은 여전히 안 된다', () => {
+    const s = board({
+      people: [person('b', 'B', 'library'), person('b2', 'B', 'library')],
+      flags: { library: { A: 1 } },
+      invisibleId: 'b',
+    })
     expect(doAct(s, 'b', { kind: 'pull' }).ok).toBe(false)
   })
 
@@ -1067,9 +1068,10 @@ describe('ownerOf', () => {
     expect(ownerOf({ A: 2, B: 2 }, 'C')).toBe('C')
   })
 
-  it('아무도 없으면 주인이 없어진다 — 전 주인도 남지 않는다', () => {
-    expect(ownerOf({}, 'D')).toBeNull()
-    expect(ownerOf({ A: 0 }, 'D')).toBeNull()
+  it('아무도 없으면 전 주인이 그대로다 — 빈 방이 되지 않는다', () => {
+    expect(ownerOf({}, 'D')).toBe('D')
+    expect(ownerOf({ A: 0 }, 'D')).toBe('D')
+    expect(ownerOf({}, null)).toBeNull()
   })
 })
 
@@ -1085,9 +1087,9 @@ describe('못 박힌 방은 없다', () => {
    * **기지를 없앴다.** 스물다섯 방이 전부 같은 규칙을 받는다 — 깃발을
    * 더 꽂은 팀의 것이다.
    */
-  it('깃발이 없으면 놓친다 — 전에는 기지라고 남았다', () => {
+  it('깃발이 없어도 전 주인이 그대로 쥔다 — 기지든 아니든 같은 규칙', () => {
     const out = settle(board({ owners: { baseA: 'A' } })).next.owners
-    expect(out.baseA).toBeNull()
+    expect(out.baseA).toBe('A')
   })
 
   it('남이 더 꽂으면 뺏긴다 — 전에는 기지라고 안 뺏겼다', () => {

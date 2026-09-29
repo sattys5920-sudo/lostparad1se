@@ -123,6 +123,11 @@ const flagsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('fl
 const flagMapOf = (snap: FirebaseFirestore.DocumentSnapshot): FlagMap =>
   ((snap.data() as { tiles?: FlagMap } | undefined)?.tiles ?? {})
 
+/** 같은 문서의 pulls 칸 — 방마다 팀마다, 그 깃발에 손댄 사람들. */
+const flagPullHitsOf = (
+  snap: FirebaseFirestore.DocumentSnapshot,
+): PhaseState['flagPullHits'] => ((snap.data() as { pulls?: PhaseState['flagPullHits'] } | undefined)?.pulls ?? {})
+
 /** 팀 문서에서 깃발 상자만 떼어 온다. 토큰 상자 옆에 있다 — 같은 팀만 읽는다. */
 function flagBoxesOf(teams: FirebaseFirestore.QuerySnapshot): FlagBoxes {
   const out: Partial<Record<TeamId, number>> = {}
@@ -135,8 +140,6 @@ function flagBoxesOf(teams: FirebaseFirestore.QuerySnapshot): FlagBoxes {
 
 interface HiddenPhase {
   pendingResearch: Brewing[]
-  /** 이번 페이즈에 깃발을 뽑은 팀. 팀마다 한도가 있다(rules/flag). */
-  pulledTeams: TeamId[]
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: string[]
   /** 이번 페이즈에 무엇이든 한 사람. 결석 보정이 이 목록을 본다. */
@@ -165,7 +168,6 @@ function queued(raw: unknown): Brewing[] {
 
 const EMPTY_HIDDEN: HiddenPhase = {
   pendingResearch: [],
-  pulledTeams: [],
   smashedBy: [],
   actedBy: [],
 }
@@ -280,7 +282,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       pendingResearch: queued(h.pendingResearch),
       flags: flagMapOf(flags),
       flagBoxes: flagBoxesOf(teams),
-      pulledTeams: h.pulledTeams ?? [],
+      flagPullHits: flagPullHitsOf(flags),
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
@@ -662,7 +664,7 @@ export const phaseAct = onCall<{
       pendingResearch: queued(h.pendingResearch),
       flags: flagMapOf(flagSnap),
       flagBoxes: flagBoxesOf(teams),
-      pulledTeams: h.pulledTeams ?? [],
+      flagPullHits: flagPullHitsOf(flagSnap),
       smashedBy: h.smashedBy,
       actedBy: h.actedBy,
       vaults: vaultsOf(teams),
@@ -843,7 +845,6 @@ export const phaseAct = onCall<{
       ),
       smashedBy: out.next.smashedBy,
       actedBy: out.next.actedBy,
-      pulledTeams: out.next.pulledTeams,
     })
   })
 
@@ -950,7 +951,7 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
     }
   }
 
-  // 팀 상자 — 불발된 연구가 값을 돌려주고, 결석한 팀은 보정을 예약한다.
+  // 팀 상자 — 결석한 팀에 보정을 예약한다.
   //
   // 우리 팀에서 아무도 안 움직였으면 안 쓴 토큰의 절반을 다음 페이즈에
   // 얹어 준다. 못 한 일을 돌려주지는 못해도, 접속한 날 조금 더 움직일
@@ -963,7 +964,7 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
     if (back > 0) patch.pendingRefund = back
     if (Object.keys(patch).length > 0) batch.update(ref.collection('teams').doc(team), patch)
   }
-  // 불발된 연구는 지식을 도로 넣는다
+  // 불발된 연구는 지식을 못 돌려받는다 — vaults 는 그대로 옮겨 적을 뿐이다
   writeVaults(batch, ref, state.vaults, out.next.vaults)
   writeSatchels(batch, ref, state.satchels, out.next.satchels)
 

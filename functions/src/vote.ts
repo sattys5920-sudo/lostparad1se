@@ -10,6 +10,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { canCast } from '../../shared/rules/votes'
+import { cellsTouch } from '../../shared/rules/board'
 import type { VoteKind } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc, VoteDoc } from '../../shared/model'
 import { refreshViews } from './views'
@@ -38,9 +39,11 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
   if (!target.exists) throw new HttpsError('not-found', '그런 사람이 없다.')
   const you = target.data() as PawnDoc
 
-  // 그 사람 앞에 서야 준다. 믿는다고 말하려면 걸어가야 한다
+  // 그 사람 옆에 서야 준다. **정확히 같은 칸일 수는 없다** — 한 칸에
+  // 둘이 서지 못하도록 캐릭터끼리 겹치지 않게 자리를 잡기 때문이다.
+  // 거래(deal.ts)와 같은 기준으로 옆 칸이면 된다
   if (me.tileId === null) throw new HttpsError('failed-precondition', '걷는 중에는 표를 줄 수 없다.')
-  if (you.tileId !== me.tileId) throw new HttpsError('failed-precondition', '같은 자리에 있는 사람에게만 줄 수 있다.')
+  if (!cellsTouch(me.at, you.at)) throw new HttpsError('failed-precondition', '옆 칸에 있는 사람에게만 줄 수 있다.')
 
   // 지워진 사람은 표를 받지 않는다. 없는 사람이다
   if (game.invisibleId === targetId) throw new HttpsError('failed-precondition', '지금은 그 사람에게 줄 수 없다.')

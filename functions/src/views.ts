@@ -170,7 +170,9 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     labJobs: (((hiddenPhase.data() as { pendingResearch?: { machine?: number; playerId: string; doneAtMs?: number }[] } | undefined)?.pendingResearch ?? [])
       .filter((r) => typeof r.machine === 'number' && typeof r.doneAtMs === 'number')
       .map((r) => ({ machine: r.machine as number, byPlayerId: r.playerId, doneAtMs: r.doneAtMs as number }))),
-    pulledTeams: ((hiddenPhase.data() as { pulledTeams?: TeamId[] } | undefined)?.pulledTeams ?? []),
+    flagPullHits:
+      (flagDoc.data() as { pulls?: Record<TileId, Partial<Record<TeamId, readonly string[]>>> } | undefined)
+        ?.pulls ?? {},
     // 오늘 적은 표. **투영이 본인 것만 떼어 보낸다** — 여기까지는
     // 서버 안이라 전부 들고 있어도 된다
     myBallots: Object.fromEntries(

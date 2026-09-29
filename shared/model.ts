@@ -501,8 +501,8 @@ export interface PlayerViewDoc {
   flagCounts?: Record<TileId, Partial<Record<TeamId, number>>>
   /** 우리 팀 깃발 상자에 남은 수. */
   myTeamFlags?: number
-  /** 이번 페이즈에 우리 팀이 뽑은 수. */
-  myTeamPulls?: number
+  /** 보이는 방마다 팀마다, 그 깃발에 손댄 사람 수(뽑기 X/2 표시). */
+  flagPullCounts?: Record<TileId, Partial<Record<TeamId, number>>>
   /**
    * 내가 선 방 바닥에 있는 쪽지. **한 장 있다는 것까지만이다.**
    *

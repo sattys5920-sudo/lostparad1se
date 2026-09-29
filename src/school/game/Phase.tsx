@@ -23,7 +23,7 @@ import {
   leftBehindCount,
 } from '../../../shared/rules/occupy'
 import { ROAM_TO, TILE_BY_ID, type Cell } from '../../../shared/rules/board'
-import { PULLS_PER_PHASE, canHoldFlags } from '../../../shared/rules/flag'
+import { canHoldFlags } from '../../../shared/rules/flag'
 import { TEAM_COLOR } from './MapPlan'
 import { atLabMachine } from '../../../shared/rules/trap'
 import { ITEMS, ITEM_FOR } from '../../../shared/rules/items'
@@ -172,9 +172,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       if (teamFlags <= 0) return '팀 깃발이 없다. 페이즈마다 새로 채워지고, 자판기에서도 산다.'
     }
     if (kind === 'pull') {
-      if ((view?.myTeamPulls ?? 0) >= PULLS_PER_PHASE) return '이번 페이즈에는 우리 팀이 이미 뽑았다.'
-      // 이 방의 우리 로봇 — 데리고 있든 두고 갔든. 뽑기의 둘째 손이다
-      if (myRobots.length === 0) return '우리 팀 로봇이 이 방에 있어야 뽑는다.'
+      // 서로 다른 두 사람이 손대야 뽑힌다 — 이미 내가 손댔는지는 화면이
+      // 모른다(누가 손댔는지는 안 실린다). 두 번째로 손댔으면 서버가 거절한다
       if (pullable.length === 0) return '이 방에 뽑을 깃발이 없다.'
     }
     // 이 방에 서 있는 우리 로봇이 아니라 **데리고 있는 것**을 본다

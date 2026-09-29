@@ -18,7 +18,7 @@
 import { ROAM_TO, TILE_BY_ID, TILES, canRoamTo, type TileId } from './board'
 import { ITEM_BY_KIND, ITEM_FOR, countOf, takeItem, type Satchels } from './items'
 import { TOTAL_SEATS } from './lobby'
-import { PULLS_PER_PHASE, PULL_COST, canHoldFlags, flagsIn, pullTarget, withPlanted, withPulled, type FlagBoxes, type FlagMap } from './flag'
+import { PULL_COST, PULL_HITS, canHoldFlags, flagsIn, pullTarget, withPlanted, withPulled, type FlagBoxes, type FlagMap } from './flag'
 import type { TeamId, Tier } from './v2'
 import { josa } from '../text'
 
@@ -110,18 +110,19 @@ export function nextWallet(input: {
  * 두 배가 되고, 그러면 아무도 층을 안 넘는다.
  *
  * 그래서 어디서 어디로 가든 값은 토큰 하나다. 조이는 것은 시계다 —
- * 문 하나를 넘는 데 5분이라, 계단 둘을 거치는 길도 값은 하나다.
+ * 문 하나를 넘는 데 10분(나가는 5분 + 들어서는 5분)이라, 계단 둘을
+ * 거치는 길도 값은 하나다.
  */
 export const ENTER_COST = 1
 
 /**
- * 방 하나 옮기는 데 5분. **토큰과 별개로 시간이 든다.**
+ * 방 하나 옮기는 데 10분. **토큰과 별개로 시간이 든다.**
  *
- * 그동안은 어느 방에도 없다. 전에는 10분이었는데, 한 시간짜리 페이즈에서
- * 갔다 오기만 해도 3분의 1이 걸음으로 사라졌다. 5분이면 「우리 방에
- * 누가 꽂았다 → 로봇 데리고 뽑으러 간다」가 같은 페이즈 안에서 난다.
+ * 나가는 데 5분, 들어서는 데 5분 — 둘을 합친 값이다. 그동안은 어느
+ * 방에도 없다. 값 하나로 두지만 뜻은 편도 한 걸음이 아니라 「방을
+ * 나서는 5분 + 다음 방에 닿는 5분」이다.
  */
-export const MOVE_MINUTES = 5
+export const MOVE_MINUTES = 10
 
 // **거래는 값이 안 든다.**
 //
@@ -253,7 +254,7 @@ export interface Person {
   /**
    * 지금 선 방. **걷는 중이면 null 이다.**
    *
-   * 문을 넘는 5분 동안은 어느 방에도 없다. 그때 페이즈가 닫히면
+   * 문을 넘는 10분 동안은 어느 방에도 없다. 그때 페이즈가 닫히면
    * 어느 방에도 안 세어진다 — 마지막 순간의 이동은 도박이다.
    */
   tileId: TileId | null
@@ -279,9 +280,9 @@ export interface Robot {
 /**
  * 걸어 둔 연구 한 건.
  *
- * **낸 값을 그대로 적어 둔다.** 불발되면 돌려줘야 하는데, 그사이
- * 연구실 주인이 바뀌면 지금 값으로는 얼마를 누구에게 돌려줄지 알
- * 수가 없다 — 남의 일로 손해를 보거나 이득을 본다.
+ * **낸 값을 그대로 적어 둔다.** 페이즈가 닫힐 때까지 안 익으면 그대로
+ * 사라진다 — 낸 지식은 돌려받지 못한다. 남은 시간을 보고 걸라는
+ * 압박이 그대로 규칙이다.
  */
 export interface PendingResearch {
   playerId: string
@@ -306,8 +307,12 @@ export interface PhaseState {
   flags: FlagMap
   /** 팀마다 깃발 상자. 꽂으면 하나씩 빠진다. */
   flagBoxes: FlagBoxes
-  /** 이번 페이즈에 깃발을 뽑은 팀 — 뽑을 때마다 한 줄. 팀마다 한도가 있다. */
-  pulledTeams: readonly TeamId[]
+  /**
+   * 방마다 팀마다, 그 깃발에 손댄 사람들. **서로 다른 두 사람이 모이면
+   * 하나가 뽑힌다** — 그때 이 목록은 비워진다. 깃발처럼 페이즈가
+   * 바뀌어도 남는다.
+   */
+  flagPullHits: Readonly<Partial<Record<TileId, Readonly<Partial<Record<TeamId, readonly string[]>>>>>>
   /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
   smashedBy: readonly string[]
   /** 사람마다 가진 물건. 행동에 딸린 물건은 **쓰는 사람 것에서** 빠진다. */
@@ -401,7 +406,7 @@ export const ACT_COST: Record<ActionKind, number> = {
 export const ACT_MINUTES: Record<ActionKind, number> = {
   move: MOVE_MINUTES,
   research: 20,
-  // 불려 오는 사람이 한 방 걷는 동안 둘 다 묶인다. 걸음과 같은 5분
+  // 불려 오는 사람이 한 방 걷는 동안 둘 다 묶인다. 걸음과 같은 10분
   summon: MOVE_MINUTES,
   plant: 0,
   pull: 0,
@@ -425,6 +430,7 @@ export type LogKind =
   | 'moved'
   | 'summoned'
   | 'flagPlanted'
+  | 'flagPullHit'
   | 'flagPulled'
   | 'robotLeft'
   | 'robotSmashed'
@@ -522,20 +528,20 @@ export function teamRanks(
  *
  *   제일 많은 팀이 하나   그 팀이 차지한다
  *   동점                  주인이 그대로다. 밀어내려면 확실히 더 많아야 한다
- *   아무것도 없다         **주인이 없어진다**
+ *   아무것도 없다         **주인이 그대로다.** 빈 방이 된 게 아니라
+ *                         전 주인이 계속 쥐고 있는 것이다
  *
  * 깃발은 뽑히기 전까지 남으므로, 한 번 꽂은 땅은 누가 더 꽂거나
- * 뽑기 전에는 그대로다.
+ * 뽑기 전에는 그대로다. 한 번도 주인이 없었던 방만 계속 빈 방(null)이다.
  */
 export function ownerOf(
   weights: Readonly<Partial<Record<TeamId, number>>>,
   before: TeamId | null,
 ): TeamId | null {
   const rows = Object.entries(weights).filter(([, n]) => (n ?? 0) > 0) as [TeamId, number][]
-  // **아무도 안 섰으면 주인이 없어진다.** 전에는 전 주인이 그대로
-  // 남았다 — 한 번 꽂아 두면 다시 갈 일이 없어서, 땅이 쌓이기만 하고
-  // 페이즈가 땅을 두고 다투는 시간이 아니게 됐다
-  if (rows.length === 0) return null
+  // 아무것도 안 남았어도 전 주인이 그대로 쥔다 — 뺏으려면 다른 팀이
+  // 깃발이든 로봇이든 더 많이 세워야 한다
+  if (rows.length === 0) return before
   const top = Math.max(...rows.map(([, n]) => n))
   const leaders = rows.filter(([, n]) => n === top)
   // 동점이면 아무도 못 뺏는다. 서 있던 쪽이 지킨 것이다
@@ -637,11 +643,12 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   /**
    * 사람 하나를 문 밖으로 내보낸다. **바로 도착하지 않는다.**
    *
-   * 걷는 데 5분(MOVE_MINUTES). 그동안은 어느 방에도 없고, 데리고
-   * 있는 로봇도 함께 사라진다. 도착은 서버의 시계가 시킨다 — 이 함수는
-   * 「떠났다」까지만 안다.
+   * 걷는 데 10분(MOVE_MINUTES) — 나가는 5분과 들어서는 5분을 합친
+   * 값이다. 그동안은 어느 방에도 없고, 데리고 있는 로봇도 함께
+   * 사라진다. 도착은 서버의 시계가 시킨다 — 이 함수는 「떠났다」까지만
+   * 안다.
    *
-   * 계단을 몇 번 오르내리든 이 5분 안이다. 계단은 문이지 칸이 아니다.
+   * 계단을 몇 번 오르내리든 이 10분 안이다. 계단은 문이지 칸이 아니다.
    */
   function step(p: Person, to: TileId): string | null {
     if (p.tileId === null) return '이미 걷는 중이다.'
@@ -689,7 +696,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
 
     case 'summon': {
       // 같은 팀 한 명을 내 쪽으로 한 걸음 끌어온다. 부르는 것도 걸음이라
-      // 끌려오는 사람은 걷는 동안(MOVE_MINUTES) 어느 방에도 없다
+      // 끌려오는 사람은 걷는 동안(MOVE_MINUTES, 10분) 어느 방에도 없다
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const target = act.targetPlayer ? byId.get(act.targetPlayer) : undefined
       if (!target) return no('그런 사람이 없다.')
@@ -710,8 +717,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     case 'plant': {
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       if (!canHoldFlags(mine.tileId)) return no(`${TILE_BY_ID[mine.tileId].name}에는 깃발을 못 꽂는다.`)
-      // 지워진 사람은 땅에 손을 못 댄다. 서 있어도 없는 사람이다
-      if (state.invisibleId === playerId) return no('보이지 않는 동안에는 깃발을 못 꽂는다.')
+      // 꽂는 건 혼자 하는 일이다 — 지워진 사람도 꽂을 수 있다
       const box = state.flagBoxes[mine.team] ?? 0
       if (box <= 0) return no('팀 깃발이 없다. 하루에 한 번 들어오고, 자판기에서도 산다.')
       return {
@@ -731,32 +737,35 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     case 'pull': {
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       if (state.invisibleId === playerId) return no('보이지 않는 동안에는 깃발을 못 뽑는다.')
-      // 우리 팀 것은 못 뽑는다. 잘못 꽂았어도 그대로 둔다
-      if (act.targetTeam === mine.team) return no('우리 팀 깃발은 뽑지 않는다.')
       /*
-       * **우리 로봇이 같은 방에 있어야 한다.** 사람 하나에 로봇 하나 —
-       * 두 사람이 가야 하게 두면 세 명짜리 팀만 셋 중 둘이 묶인다.
-       * 데리고 온 것이든 두고 간 것이든 된다. 걷는 사람이 데려가는
-       * 로봇은 아직 안 온 것이다
+       * **서로 다른 두 사람이 손대야 하나가 뽑힌다.** 같은 팀일 필요는
+       * 없다 — 깃발 주인 팀 사람이 손대도 되고(배신), 다른 팀 둘이
+       * 힘을 합쳐도 된다. 같은 사람이 두 번 손대는 것으로는 안 된다.
+       * 사람마다 손댈 때마다 토큰이 든다. 횟수 한도는 없다.
        */
       const here = mine.tileId
-      const helper = robots.some(
-        (r) =>
-          r.team === mine.team &&
-          r.tileId === here &&
-          (r.carriedBy === null || byId.get(r.carriedBy)?.tileId === here),
-      )
-      if (!helper) return no('우리 팀 로봇이 이 방에 있어야 뽑는다.')
-      const used = state.pulledTeams.filter((t) => t === mine.team).length
-      if (used >= PULLS_PER_PHASE) return no('이번 페이즈에는 우리 팀이 이미 뽑았다.')
-      const whose = act.targetTeam ?? pullTarget(state.flags, mine.tileId, mine.team)
-      if (!whose || flagsIn(state.flags, mine.tileId, whose) <= 0) return no('이 방에 뽑을 깃발이 없다.')
-      const after = withPulled(state.flags, mine.tileId, whose) as FlagMap
+      const whose = act.targetTeam ?? pullTarget(state.flags, here, mine.team)
+      if (!whose || flagsIn(state.flags, here, whose) <= 0) return no('이 방에 뽑을 깃발이 없다.')
+      const hitBy = state.flagPullHits[here]?.[whose] ?? []
+      if (hitBy.includes(playerId)) return no('이미 이 깃발에 손을 댔다. 다른 사람이 마저 손대야 뽑힌다.')
+      const nowHits = [...hitBy, playerId]
+      if (nowHits.length < PULL_HITS) {
+        const room = { ...(state.flagPullHits[here] ?? {}), [whose]: nowHits }
+        return {
+          ok: true,
+          spent: cost,
+          log: { kind: 'flagPullHit', playerId, tileId: here, team: whose },
+          next: { ...state, people, robots, flagPullHits: { ...state.flagPullHits, [here]: room } },
+        }
+      }
+      const after = withPulled(state.flags, here, whose) as FlagMap
+      const room = { ...(state.flagPullHits[here] ?? {}) }
+      delete room[whose]
       return {
         ok: true,
         spent: cost,
-        log: { kind: 'flagPulled', playerId, tileId: mine.tileId, team: whose },
-        next: { ...state, people, robots, flags: after, pulledTeams: [...state.pulledTeams, mine.team] },
+        log: { kind: 'flagPulled', playerId, tileId: here, team: whose },
+        next: { ...state, people, robots, flags: after, flagPullHits: { ...state.flagPullHits, [here]: room } },
       }
     }
 
@@ -946,7 +955,8 @@ export function settle(state: PhaseState): SettleResult {
       // 깃발은 남는다. 페이즈가 끝나도 뽑히기 전까지 그 방에 있다
       flags: state.flags,
       flagBoxes: state.flagBoxes,
-      pulledTeams: [],
+      // 손댄 흔적도 깃발처럼 남는다 — 페이즈를 넘나들며 조금씩 갉아먹는다
+      flagPullHits: state.flagPullHits,
       smashedBy: [],
       actedBy: [],
       // 물건은 페이즈를 넘어 남는다. 산 것을 못 쓰고 잃으면 아무도 안 산다

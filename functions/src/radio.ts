@@ -13,15 +13,12 @@
 // **전원 채널이 하나 있다.** 팀 무전과 같은 통에 team 'ALL' 로 적는다 —
 // 열넷 누구나 듣고 말한다. 방에서 하는 말은 그 방 사람에게만 닿고
 // 지도 위에 떠서 읽기 어렵다. 판 전체가 한 줄로 이야기할 자리가 여기다.
-// 지워진 사람은 여기서는 말하지 못한다 — 판 전체에서 지워진 것이다.
 //
 // **운영자는 네 팀 무전과 전원 채널을 다 본다**(hostRadio*). 운영자만.
 //
-// **지워진 사람도 무전은 쓴다.** 방에서 하는 말(chat.ts)은 막히지만
-// 무전은 안 막힌다 — 지워진 것은 판정에서지 팀에서가 아니다. 셋이
-// 넷인 줄 알고 방을 나누면 그날 작전이 통째로 어긋나므로, 오히려
-// 말이 통해야 한다. 대신 그 줄에는 **이름 옆에 「안 보임」이 붙는다** —
-// 오늘 그 사람이 머릿수에 안 들어간다는 것을 팀이 알아야 한다.
+// **지워진 사람은 무전으로 말하지 못한다.** 팀 채널이든 전원 채널이든
+// 마찬가지다 — 거래도 대화도 마주 보고 하는 일이라 안 되는 것과 같은
+// 이유다. **듣는 것은 막지 않는다** — 팀 상황을 놓치면 안 되니까.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { CHAT_MAX_LEN } from '../../shared/rules/v2'
@@ -50,8 +47,9 @@ export interface RadioDocRaw {
   atMs: number
   day: number
   /**
-   * 칠 때 지워져 있었는가. **막지는 않는다** — 이름 옆 표시로만 쓴다.
-   * 그때의 상태를 적어 두는 것이라, 나중에 다시 봐도 그날 그 줄이다.
+   * 칠 때 지워져 있었는가. 이제는 지워진 동안 아예 못 치므로 새 줄은
+   * 늘 false다 — 이 값을 남겨 두는 것은 이 규칙이 생기기 전에 이미
+   * 쌓인 줄을 그대로 읽기 위해서다(이름 옆 「안 보임」 표시).
    */
   invisible: boolean
   /** 사람이 친 것이 아니라 판이 적은 줄. 화면에서 서식이 다르다. */
@@ -109,8 +107,10 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
   if (toAll && game.allChannelClosed === true) {
     throw new HttpsError('failed-precondition', ALL_SHUT)
   }
-  if (toAll && game.invisibleId === uid) {
-    throw new HttpsError('failed-precondition', '지워진 사람은 전원 채널에 말할 수 없다.')
+  // 무전도 마주 보고 하는 대화다 — 지워진 동안은 팀 채널이든 전원
+  // 채널이든 말할 수 없다
+  if (game.invisibleId === uid) {
+    throw new HttpsError('failed-precondition', '지워진 동안에는 무전으로 말할 수 없다.')
   }
   const row: RadioDocRaw = {
     team: toAll ? ALL_CHANNEL : pawn.team,

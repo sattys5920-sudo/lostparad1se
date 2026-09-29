@@ -180,10 +180,10 @@ export interface World {
   flags?: FlagMap
   /** 팀마다 깃발 상자. 자기 팀 것만 내려간다. */
   flagBoxes?: FlagBoxes
+  /** 방마다 팀마다, 그 깃발에 손댄 사람 수. 투영이 숫자만 센다(누구인지는 안 실음). */
+  flagPullHits?: Readonly<Partial<Record<TileId, Readonly<Partial<Record<TeamId, readonly string[]>>>>>>
   /** 이번 페이즈에 로봇을 부순 사람. 투영이 내 것만 세어 보낸다. */
   smashedBy?: readonly string[]
-  /** 이번 페이즈에 깃발을 뽑은 팀. 투영이 우리 팀 것만 센다. */
-  pulledTeams?: readonly TeamId[]
   /**
    * 사람마다 오늘 적은 이름. **투영이 본인 것만 떼어 보낸다.**
    *
@@ -406,8 +406,11 @@ export interface View {
   flagCounts: Record<TileId, Partial<Record<TeamId, number>>>
   /** 우리 팀 깃발 상자에 남은 수. 넷이 나눠 쓴다. */
   myTeamFlags: number
-  /** 이번 페이즈에 우리 팀이 뽑은 수. 한도가 있다(rules/flag). */
-  myTeamPulls: number
+  /**
+   * 보이는 방마다, 팀마다 그 깃발에 손댄 사람 수(0~1, 2가 되면 뽑혀서
+   * 사라진다). 「뽑기 1/2」 표시가 이것을 본다.
+   */
+  flagPullCounts: Record<TileId, Partial<Record<TeamId, number>>>
   /**
    * 내가 가 본 방. **한 번도 안 간 방은 지도에 검게 남는다.**
    *
@@ -590,7 +593,7 @@ export function projectView(world: World, viewerId: string): View {
       robotCounts: {},
       flagCounts: {},
       myTeamFlags: 0,
-      myTeamPulls: 0,
+      flagPullCounts: {},
       visitedTiles: [],
       handledDays: [],
       readDays: [],
@@ -856,13 +859,23 @@ export function projectView(world: World, viewerId: string): View {
     myTeamRobots: (world.robots ?? []).filter((r) => r.team === team).length,
     myCarriedRobots: (world.robots ?? []).filter((r) => r.carriedBy === viewerId).length,
     mySmashes: (world.smashedBy ?? []).filter((id) => id === viewerId).length,
-    myTeamPulls: (world.pulledTeams ?? []).filter((t) => t === team).length,
     myBallot: world.myBallots?.[viewerId] ?? null,
     robotCounts: Object.fromEntries(
       [...visible].map((t) => [t, (world.robots ?? []).filter((r) => r.tileId === t).length]),
     ) as Record<TileId, number>,
     flagCounts: Object.fromEntries(
       [...visible].filter((t) => world.flags?.[t] !== undefined).map((t) => [t, { ...world.flags?.[t] }]),
+    ) as Record<TileId, Partial<Record<TeamId, number>>>,
+    // 「뽑기 1/2」 — 손댄 사람 수만 보낸다. 누가 손댔는지는 안 싣는다
+    flagPullCounts: Object.fromEntries(
+      [...visible]
+        .filter((t) => world.flagPullHits?.[t] !== undefined)
+        .map((t) => [
+          t,
+          Object.fromEntries(
+            Object.entries(world.flagPullHits?.[t] ?? {}).map(([team, hits]) => [team, (hits ?? []).length]),
+          ),
+        ]),
     ) as Record<TileId, Partial<Record<TeamId, number>>>,
     myTeamFlags: world.flagBoxes?.[team] ?? 0,
     visitedTiles: [...(world.pawns.find((p) => p.playerId === viewerId)?.visitedTiles ?? [])].sort(),

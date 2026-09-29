@@ -84,9 +84,9 @@ const of = (kind: ItemKind) => ({ name: ITEM_BY_KIND[kind].name, text: ITEM_BY_K
  * 상자로 간다. 갈래를 여기서 적지 않는다 — items.ts 의 use 가 그것을 안다.
  */
 export const SHOP_ITEMS: readonly ShopItem[] = [
-  { id: 'whistle', ...of('whistle'), cost: { money: 3 } },
+  { id: 'whistle', ...of('whistle'), cost: { money: 5 } },
   /*
-   * **깃발.** 팀 상자로 들어간다. 학교 전체에 하루 몇 개뿐이라 먼저
+   * **깃발.** 팀 상자로 들어간다. 학교 전체에 하루 열 개뿐이라 먼저
    * 오는 쪽이 가져간다 — 돈이 많아도 기계 앞에 늦게 오면 없다.
    */
   {
@@ -97,18 +97,15 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
     stockPerDay: FLAG_STOCK_PER_DAY,
     flags: 1,
   },
-  { id: 'lock', ...of('lock'), cost: { money: 4 } },
-  // 제일 싸다. 종이가 흔해야 바닥에 뭔가 떨어져 있는 학교가 된다
-  { id: 'paper', ...of('paper'), cost: { money: 2 } },
+  { id: 'lock', ...of('lock'), cost: { money: 5 } },
+  { id: 'paper', ...of('paper'), cost: { money: 3 } },
   /*
-   * **제일 비싸고, 하나뿐이다.**
-   *
-   * 오늘 내게 적힌 표를 지우는 물건이다. 돈만 있으면 몇 장이든
-   * 지울 수 있게 두면 부자 팀은 투명인간 투표 밖에 서게 되고,
-   * 그러면 이 게임에서 제일 무서운 규칙이 돈으로 꺼진다.
+   * 오늘 내게 적힌 표를 지우는 물건이다. 학교 전체에 하루 세 개뿐이라
+   * 돈만 있으면 마음대로 지울 수는 없다 — 그러면 부자 팀이 투명인간
+   * 투표 밖에 서게 되고, 이 게임에서 제일 무서운 규칙이 돈으로 꺼진다.
    */
-  { id: 'eraser', ...of('eraser'), cost: { money: 6 }, stockPerDay: 1 },
-  { id: 'tape', ...of('tape'), cost: { money: 4 } },
+  { id: 'eraser', ...of('eraser'), cost: { money: 5 }, stockPerDay: 3 },
+  { id: 'tape', ...of('tape'), cost: { money: 5 } },
 ]
 
 export const shopItemById = (id: string): ShopItem | null =>
