@@ -426,6 +426,8 @@
   color: var(--text-1);
   text-wrap: pretty;
 }
+/* 문단 사이 빈 줄(프롤로그) */
+.sc-ar__gap { display: block; height: 10px; }
 
 .sc-ar__memo {
   display: block;

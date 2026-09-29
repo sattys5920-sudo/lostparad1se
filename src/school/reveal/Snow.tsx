@@ -41,7 +41,11 @@ export const setSnowOff = (off: boolean): void => {
   dispatchEvent(new Event(SNOW_EVENT))
 }
 
-export function Snow({ level }: { level: number }) {
+/**
+ * always — 연출 줄이기여도 **멈추지 않고 내린다**(프롤로그). 대신 부르는
+ * 쪽이 level 을 낮춰 밀도를 줄인다. 그 밖에는 줄이기면 멈춘 눈이다.
+ */
+export function Snow({ level, always = false }: { level: number; always?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const [off, setOff] = useState(snowIsOff)
 
@@ -59,8 +63,9 @@ export function Snow({ level }: { level: number }) {
 
     // 기기 설정이든 앱 설정(연출 줄이기)이든 하나만 켜져 있어도 멈춘 눈이다
     const reduced =
-      document.documentElement.hasAttribute('data-plain') ||
-      (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
+      !always &&
+      (document.documentElement.hasAttribute('data-plain') ||
+        (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches))
     const at = Math.max(0, Math.min(SNOW_PARTICLES.length - 1, Math.round(level)))
     // 껐으면 한 톨도 안 그리고 루프도 안 돈다. 「보이지 않게」가
     // 아니라 「돌지 않게」여야 배터리가 산다
@@ -134,7 +139,7 @@ export function Snow({ level }: { level: number }) {
       document.removeEventListener('visibilitychange', onVisible)
       removeEventListener('resize', onResize)
     }
-  }, [level, off])
+  }, [level, off, always])
 
   return <canvas ref={ref} className="sc-rv__snow" aria-hidden="true" />
 }

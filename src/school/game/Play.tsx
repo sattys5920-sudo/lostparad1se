@@ -9,7 +9,7 @@ import type { CSSProperties } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 
 import { auth, callServer, firebaseConfigured } from '../../firebase'
-import { myAccount, saveAccountCharacter } from '../accounts'
+import { markPrologueSeen, myAccount, saveAccountCharacter } from '../accounts'
 import { AvatarFace, CharacterCreator } from '../components/CharacterCreator'
 import { Gate } from './Gate'
 import { randomLook } from '../char/look'
@@ -140,7 +140,8 @@ import {
   ROOM_KIND,
   capacityOf,
 } from '../../../shared/rules/occupy'
-import { armSfx } from './sfx'
+import { armSfx, setSoundOn, soundIsOn } from './sfx'
+import { Prologue, ReplayPrologue } from '../reveal/Prologue'
 import './play.css'
 import { ringTile, tearTile } from './noteArt'
 import './ballot.css'
@@ -149,6 +150,24 @@ import './me.css'
 import './vending.css'
 
 const GAME_ID = new URLSearchParams(location.search).get('game') ?? 'live'
+
+// ── 소리 ────────────────────────────────────────────────────────
+
+/** 소리 끄기 · 켜기. 기기에만 남는다 — 진동 · 연출 줄이기와 같다 */
+function SoundToggle() {
+  const [on, setOn] = useState(soundIsOn)
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setSoundOn(!on)
+        setOn(!on)
+      }}
+    >
+      {on ? '소리 끄기' : '소리 켜기'}
+    </button>
+  )
+}
 
 // ── 나를 만든다 ─────────────────────────────────────────────────
 
@@ -560,6 +579,10 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
 
         {before && (
           <Sheet title="더보기" onClose={() => setBefore(false)}>
+            <div className="sc-pl__more">
+              <ReplayPrologue />
+              <SoundToggle />
+            </div>
             {/* 시작 전에는 그냥 나간다. 아직 잃을 것이 없어서 묻지 않는다 */}
             <SignOut note={`들어와 있는 계정 · ${me.nickname}`} />
           </Sheet>
@@ -2284,7 +2307,10 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             >
               {snowOff ? '눈 켜기' : '눈 끄기'}
             </button>
+            <SoundToggle />
             <button onClick={() => { closeSheet(); setArchive(true) }}>보관함</button>
+            {/* 시트는 그대로 두고 위에 덮는다. 다 보고 나면 이 자리로 돌아온다 */}
+            <ReplayPrologue />
           </div>
           {/*
             **나가는 문은 한 군데 더 있어야 한다.**
@@ -2468,7 +2494,7 @@ export function Play() {
   const [ready, setReady] = useState(false)
   const [signedIn, setSignedIn] = useState(false)
   // 계정을 아직 못 읽었으면 undefined. 없으면 null
-  const [me, setMe] = useState<{ nickname: string; avatar: AvatarLook | null } | null | undefined>(undefined)
+  const [me, setMe] = useState<{ nickname: string; avatar: AvatarLook | null; prologueSeen?: boolean } | null | undefined>(undefined)
   const state = useGame(signedIn ? GAME_ID : null)
   const act = useMemo(() => gameActions(GAME_ID), [])
 
@@ -2548,6 +2574,24 @@ export function Play() {
   // 가입 다음은 나를 만드는 자리다. 이름이 없으면 아직 안 만든 것이다
   if (!me || !me.nickname) {
     return <Setup first={me ?? { nickname: '', avatar: null }} onDone={loadMe} />
+  }
+
+  /*
+   * **나를 만든 바로 다음이 프롤로그다.** 한 번만 돈다 — 칠판의 「들어간다」를
+   * 눌러야 계정에 「봤다」가 붙는다. 중간에 앱을 닫으면 붙지 않았으니 다음
+   * 접속 때 처음부터 다시 돈다.
+   */
+  if (!me.prologueSeen) {
+    return (
+      <Prologue
+        withNotice
+        onDone={() => {
+          // 못 적어도 들여보낸다. 다음 접속 때 한 번 더 보게 될 뿐이다
+          void markPrologueSeen().catch(() => undefined)
+          setMe({ ...me, prologueSeen: true })
+        }}
+      />
+    )
   }
 
   const phase = state.game?.phase

@@ -1,0 +1,208 @@
+/* ── 프롤로그 · 칠판(Prologue.tsx) ──────────────────────────────────
+   한 가지 세계로만 그린다 — 눈 오는 밤의 교실 밖. 밝은 테마가 없다.
+   배경 #0D0F16, 글자는 게임 픽셀 폰트 16px. 칠판만 색이 있다 */
+.sc-pg {
+  --pg-bg: #0d0f16;
+  --pg-ink: #d9dce4;
+  --pg-dim: #7d8394;
+  --pg-board: #22352b;
+  --pg-board-2: #1c2c24;
+  --pg-frame: #5b4130;
+  --pg-frame-2: #3f2d21;
+  --pg-chalk: #ebe8dc;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  overflow: hidden;
+  background: var(--pg-bg);
+  color: var(--pg-ink);
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  line-height: 28px;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── 안내 ── */
+.sc-pg__notice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+}
+.sc-pg__notice p {
+  margin: 0;
+  max-width: 30ch;
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+/* ── 본문 화면 ── */
+.sc-pg__screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  padding: calc(56px + env(safe-area-inset-top, 0px)) 24px calc(64px + env(safe-area-inset-bottom, 0px));
+  cursor: pointer;
+  animation: sc-pg-in 300ms steps(3, end) both;
+}
+.sc-pg__screen.is-leaving { animation: sc-pg-out 300ms steps(3, end) both; }
+@keyframes sc-pg-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sc-pg-out { from { opacity: 1; } to { opacity: 0; } }
+.sc-pg__para {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 34ch;
+  display: flex;
+  flex-direction: column;
+}
+.sc-pg__line { word-break: keep-all; overflow-wrap: anywhere; }
+/* 문장 한 덩어리. 한 줄에 다 들어가면 통째로 넘어가고, 문장 하나가 한 줄보다
+   길 때만 안에서 끊긴다 */
+.sc-pg__seg { display: inline-block; max-width: 100%; }
+/* 아직 안 찍힌 글자. 자리만 차지한다 */
+.sc-pg__ghost { visibility: hidden; }
+
+.sc-pg__more {
+  position: absolute;
+  left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--pg-dim);
+  animation: sc-pg-blink 1s steps(1, end) infinite;
+}
+@keyframes sc-pg-blink { 50% { opacity: 0; } }
+
+/* ── 암전 ── */
+.sc-pg__veil {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 3000ms linear;
+}
+.sc-pg__veil.is-on { opacity: 1; }
+/* 암전 아래로도 눈만 계속 내린다 — 막 위에 한 번 더 그리지 않고 막을 반쯤 투명하게 두지도 않는다.
+   눈 캔버스를 막 위로 올린다 */
+.sc-pg .sc-rv__snow { z-index: 1; }
+.sc-pg__screen, .sc-pg__notice { z-index: 0; }
+.sc-pg__veil { z-index: 0; }
+
+/* ── 칠판 ── */
+.sc-pg__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 0 16px;
+}
+.sc-pg__board {
+  width: min(100%, 360px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* 아래에서 위로 세 프레임 — 뚝뚝 끊겨 오른다 */
+  transform: translateY(100vh);
+}
+.sc-pg__board.is-f1 { transform: translateY(40vh); }
+.sc-pg__board.is-f2 { transform: translateY(12vh); }
+.sc-pg__board.is-f3 { transform: none; }
+.sc-pg__slate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  padding: 24px 20px;
+  background:
+    linear-gradient(0deg, var(--pg-board-2) 0 4px, transparent 4px) bottom / 100% 100% no-repeat,
+    var(--pg-board);
+  /* 나무 테두리 — 두 겹, 각지게 */
+  box-shadow:
+    0 0 0 6px var(--pg-frame),
+    0 0 0 10px var(--pg-frame-2);
+  image-rendering: pixelated;
+}
+.sc-pg__chalk {
+  font-size: 22px;
+  line-height: 32px;
+  color: var(--pg-chalk);
+  text-align: center;
+  word-break: keep-all;
+  /* 분필 가루. 한 겹만 */
+  text-shadow: 1px 1px 0 rgba(235, 232, 220, 0.18);
+}
+.sc-pg__tray {
+  display: block;
+  height: 8px;
+  margin: 10px -10px 0;
+  background: var(--pg-frame-2);
+  position: relative;
+}
+/* 받침 위 분필 한 토막 */
+.sc-pg__tray i {
+  position: absolute;
+  top: -4px;
+  right: 28px;
+  width: 16px;
+  height: 4px;
+  background: var(--pg-chalk);
+}
+
+/* ── 단추들 ── */
+.sc-pg__ok,
+.sc-pg__go {
+  appearance: none;
+  min-width: 132px;
+  min-height: 44px;
+  padding: 8px 20px;
+  border: 2px solid var(--pg-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--pg-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.sc-pg__go { animation: sc-pg-in 300ms steps(3, end) both; }
+.sc-pg__ok:focus-visible,
+.sc-pg__go:focus-visible,
+.sc-pg__skip:focus-visible { outline: 2px solid var(--pg-chalk); outline-offset: 3px; }
+.sc-pg__skip {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: 16px;
+  z-index: 3;
+  appearance: none;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--pg-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 연출 줄이기 — 페이드 · 깜빡임 · 암전 전환이 없다 */
+.sc-pg.is-still .sc-pg__screen,
+.sc-pg.is-still .sc-pg__go { animation: none; }
+.sc-pg.is-still .sc-pg__veil { transition: none; }
+.sc-pg.is-still .sc-pg__more { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sc-pg__screen, .sc-pg__go, .sc-pg__more { animation: none; }
+  .sc-pg__veil { transition: none; }
+}

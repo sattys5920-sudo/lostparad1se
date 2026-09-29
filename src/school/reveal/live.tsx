@@ -16,6 +16,7 @@ import { gameActions, useGame } from '../game/useGame'
 import { auth, db } from '../../firebase'
 import { buildArchive, type ArchiveItem } from '../../../shared/reveal/archive'
 import { pendingDays } from '../../../shared/reveal/morning'
+import { prologueText } from '../../../shared/reveal/prologue'
 import type { DeductionNote } from '../../../shared/reveal/notes'
 import { newPost, type RetroPost } from '../../../shared/reveal/retro'
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
@@ -159,7 +160,9 @@ export function LiveArchive({ gameId, onClose }: { gameId: string; onClose?: () 
     const v = state.view
     if (!v || !uid) return []
     const read = new Set(v.readDays ?? [])
-    return buildArchive({
+    // 프롤로그는 누구에게나 같은 글이다. 기록 탭 맨 위에 둔다(연출 없이)
+    const prologue: ArchiveItem = { id: 'prologue', tab: 'record', atMs: -1, title: '프롤로그' }
+    return [prologue, ...buildArchive({
       viewerId: uid,
       viewerTeam: (seats.find((s) => s.playerId === uid)?.team ?? 'A') as TeamId,
       records: (v.handledDays ?? []).map((day) => ({ day, atMs: day })),
@@ -169,7 +172,7 @@ export function LiveArchive({ gameId, onClose }: { gameId: string; onClose?: () 
       sights: v.sightAtMs ? [{ ownerId: uid, atMs: v.sightAtMs }] : [],
       over: state.game?.phase === 'finished',
       tileName: (id) => TILE_BY_ID[id]?.name ?? id,
-    })
+    })]
   }, [state.view, state.game?.phase, uid, seats, nameOf])
 
   const change = useCallback(
@@ -203,6 +206,7 @@ function bodyOf(
   papers: Record<number, string[]>,
   item: ArchiveItem,
 ): string[] {
+  if (item.id === 'prologue') return prologueText()
   if (item.tab === 'record' && item.day !== undefined) return papers[item.day] ?? []
   if (!view) return []
   // A의 기억 본문은 끝난 뒤 엔딩이 함께 내려보낸다

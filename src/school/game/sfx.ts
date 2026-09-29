@@ -23,6 +23,32 @@ export function armSfx(): void {
   armed = true
 }
 
+// ── 소리 끄기 ───────────────────────────────────────────────────
+// 기기에만 남는다(진동 · 연출 줄이기와 같다). 끄면 **어떤 소리도 안 난다**
+// — 프롤로그의 눈 소리도, 분필 소리도, 거래창의 삑 소리도.
+
+const SOUND_OFF_KEY = 'sc-sound-off'
+
+export function soundIsOn(): boolean {
+  try {
+    return localStorage.getItem(SOUND_OFF_KEY) !== '1'
+  } catch {
+    return true
+  }
+}
+
+export function setSoundOn(on: boolean): void {
+  try {
+    localStorage.setItem(SOUND_OFF_KEY, on ? '0' : '1')
+  } catch {
+    // 비공개 창. 이번 화면에서만 따른다
+  }
+  if (!on) stopSnowAmbient()
+}
+
+/** 지금 소리를 내도 되는가 — 손끝이 닿았고, 끄지 않았다 */
+const mayPlay = (): boolean => armed && soundIsOn()
+
 function open(): AudioContext | null {
   if (ctx) return ctx
   try {
@@ -37,7 +63,7 @@ function open(): AudioContext | null {
 
 /** 사각파 한 음. hz 는 높이, ms 는 길이. */
 function blip(hz: number, ms: number, atMs = 0, gain = 0.06): void {
-  if (!armed) return
+  if (!mayPlay()) return
   const c = open()
   if (!c) return
   if (c.state === 'suspended') void c.resume()
@@ -63,7 +89,7 @@ function blip(hz: number, ms: number, atMs = 0, gain = 0.06): void {
 let noiseBuf: AudioBuffer | null = null
 
 function rustle(ms: number, hz: number, gain = 0.05, atMs = 0): void {
-  if (!armed) return
+  if (!mayPlay()) return
   const c = open()
   if (!c) return
   if (c.state === 'suspended') void c.resume()
@@ -105,7 +131,7 @@ let ambientBuf: AudioBuffer | null = null
  * 뜬다(FinalNoteOverlay.tsx) — 눌러야 이 함수가 불린다.
  */
 export function startSnowAmbient(): void {
-  if (!armed || ambientSrc) return
+  if (!mayPlay() || ambientSrc) return
   const c = open()
   if (!c) return
   if (c.state === 'suspended') void c.resume()
@@ -172,6 +198,8 @@ export const SFX = {
     rustle(90, 1400, 0.04)
     blip(150, 90, 40, 0.07)
   },
+  /** 분필이 칠판을 한 번 긁는다. 아주 작게 — 한 글자에 한 번 */
+  chalk: () => rustle(45, 3800 + Math.random() * 900, 0.012),
   /** 사라졌다. 내려가는 두 음. */
   gone: () => {
     blip(440, 70)

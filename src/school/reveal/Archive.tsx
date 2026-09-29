@@ -103,9 +103,10 @@ export function Archive(props: ArchiveProps) {
                 </button>
                 {open && (
                   <div className="sc-ar__body">
-                    {props.bodyOf(item).map((line, i) => (
-                      <p key={i}>{line}</p>
-                    ))}
+                    {/* 빈 줄은 문단 사이다. 빈 <p> 는 접혀 버리니 틈으로 그린다 */}
+                    {props.bodyOf(item).map((line, i) =>
+                      line === '' ? <span key={i} className="sc-ar__gap" aria-hidden /> : <p key={i}>{line}</p>,
+                    )}
                     <label className="sc-ar__memo">
                       <span>메모</span>
                       <textarea
