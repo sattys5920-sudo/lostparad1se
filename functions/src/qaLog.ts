@@ -190,6 +190,7 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'transferAsked': return `${who} → ${name(e.targetId)} 이적 청함 (${String(d.toTeam ?? '')}팀으로)`
     case 'transferAnswered': return `${who} 이적 ${d.accept ? `수락 · 다음 페이즈부터 ${String(d.team ?? '')}팀` : '거절'}`
     case 'trapCommissioned': return `${who} 덫 맡김 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.count ?? '')}개`
+    case 'lockPicked': return `${who} 자물쇠 땀${room ? ` (${room})` : ''} · ${String(d.team ?? '')}팀 자물쇠`
     case 'trapTaken': return `${who} 덫 찾음 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.got ?? '')}개`
     case 'slipScattered': return `운영자 쪽지 뿌림 → ${room}${d.n ? ` · ${String(d.n)}장` : ''}`
     case 'slipPulled': return '운영자 쪽지 회수'

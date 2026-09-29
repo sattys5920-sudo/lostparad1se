@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
 import { SHOP_ITEMS, VENDINGS } from '../shared/rules/shop'
+import { LOCKED_DOOR } from '../shared/rules/items'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -170,8 +171,8 @@ async function main() {
   const meUid = uidOf(me)
   const myTeam = await teamOf(game, meUid)
 
-  console.log('\n── 파는 것 여섯 ──')
-  check(SHOP_ITEMS.length === 6, '여섯 가지를 판다 — 호루라기·깃발·자물쇠·빈 종이·지우개·테이프', String(SHOP_ITEMS.length))
+  console.log('\n── 파는 것 일곱 ──')
+  check(SHOP_ITEMS.length === 7, '일곱 가지를 판다 — 호루라기·깃발·자물쇠·락픽·빈 종이·지우개·테이프', String(SHOP_ITEMS.length))
 
   console.log('\n── 자판기 앞에 서야 산다 ──')
   await standAt(game, meUid, 'artRoom')
@@ -252,6 +253,54 @@ async function main() {
   await standAt(game, uidOf(mateId), 'artRoom')
   const inn = await call('roamTo', mateTok, { gameId: game, tileId: MART_TILE })
   check(inn.ok, '같은 팀은 드나든다', inn.ok ? '' : (inn.err ?? ''))
+
+  console.log('\n── 락픽 ──')
+  // 막히는 말은 한 글자도 틀리면 안 된다 — 화면이 이 말을 보고 락픽을 쓸지 묻는다
+  check(walk.err === LOCKED_DOOR, `막히는 말은 「${LOCKED_DOOR}」`, walk.err ?? '')
+  const noPick = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
+  check(!noPick.ok && (noPick.err ?? '').includes('없다'), '락픽이 없으면 못 딴다', noPick.ok ? '땄다' : (noPick.err ?? ''))
+
+  await standBy(game, youUid, YOUR_SIDE)
+  await fund(game, youUid, 40)
+  const PICK_PRICE = SHOP_ITEMS.find((i) => i.id === 'lockpick')?.cost.money ?? -1
+  check(PICK_PRICE === 8, '락픽은 8원이다', String(PICK_PRICE))
+  const pb = await moneyOf(game, youUid)
+  // **하루 몫이 없다.** 셋을 내리 사도 나온다
+  for (let i = 0; i < 3; i++) await must('buyShopItem', youTok, { gameId: game, itemId: 'lockpick' })
+  check(pb - (await moneyOf(game, youUid)) === PICK_PRICE * 3, '세 개 값이 산 사람 돈에서 빠졌다', `${pb} → ${await moneyOf(game, youUid)}`)
+  check((await bagOf(game, youUid)).lockpick === 3, '제한 없이 세 개 다 나왔다', JSON.stringify(await bagOf(game, youUid)))
+
+  await standAt(game, youUid, 'artRoom')
+  const picked = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
+  check(picked.ok && String(picked.result?.said ?? '').includes('땄다'), '문 앞에서 딴다', picked.ok ? String(picked.result?.said) : (picked.err ?? ''))
+  check((await bagOf(game, youUid)).lockpick === 2, '딴 락픽은 없어진다', JSON.stringify(await bagOf(game, youUid)))
+  const tileAfter = (await (await fetch(`${FS}/games/${game}/tiles/${MART_TILE}`, { headers: ADMIN })).json()) as { fields?: Record<string, unknown> }
+  check(str(tileAfter.fields?.lockedBy) === null, '자물쇠가 풀렸다', JSON.stringify(tileAfter.fields?.lockedBy))
+  const walkIn = await call('roamTo', youTok, { gameId: game, tileId: MART_TILE })
+  check(walkIn.ok, '딴 뒤에는 남의 팀도 들어간다', walkIn.ok ? '' : (walkIn.err ?? ''))
+
+  await standAt(game, youUid, 'artRoom')
+  const idle = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
+  check(!idle.ok && (idle.err ?? '').includes('잠겨 있지 않다'), '안 잠긴 문은 안 딴다', idle.ok ? '땄다' : (idle.err ?? ''))
+  check((await bagOf(game, youUid)).lockpick === 2, '헛손질에는 락픽이 안 준다', JSON.stringify(await bagOf(game, youUid)))
+
+  // 우리 팀 자물쇠는 딸 일이 없다 — 그냥 들어가면 된다
+  await standBy(game, meUid, MY_SIDE)
+  await fund(game, meUid, 40)
+  await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
+  await must('buyShopItem', meTok, { gameId: game, itemId: 'lockpick' })
+  await standAt(game, meUid, MART_TILE)
+  await must('useItem', meTok, { gameId: game, kind: 'lock' })
+  await standAt(game, meUid, 'artRoom')
+  const ownPick = await call('useItem', meTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
+  check(!ownPick.ok && (ownPick.err ?? '').includes('우리 팀'), '우리 팀 자물쇠는 안 딴다', ownPick.ok ? '땄다' : (ownPick.err ?? ''))
+  const noRoom = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: 'nowhere' })
+  check(!noRoom.ok, '없는 방은 못 딴다', noRoom.ok ? '땄다' : (noRoom.err ?? ''))
+  // 다시 잠긴 매점은 또 딴다 — 남은 락픽 하나를 쓴다
+  const second = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
+  check(second.ok && (await bagOf(game, youUid)).lockpick === 1, '다시 잠겨도 또 딴다', second.ok ? '' : (second.err ?? ''))
+  await standAt(game, meUid, 'artRoom')
+  await standAt(game, youUid, 'artRoom')
 
   console.log('\n── 빈 종이 ──')
   await standAt(game, meUid, 'artRoom')

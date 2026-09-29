@@ -17,7 +17,7 @@
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 같은 입력에 늘 같은 결과라, 서버가 돌리든 시험이 돌리든 같다.
 import { ROAM_TO, TILE_BY_ID, TILES, canRoamTo, type TileId } from './board'
-import { ITEM_BY_KIND, ITEM_FOR, countOf, takeItem, type Satchels } from './items'
+import { ITEM_BY_KIND, ITEM_FOR, LOCKED_DOOR, countOf, takeItem, type Satchels } from './items'
 import { TOTAL_SEATS } from './lobby'
 import { PULL_COST, PULL_HITS, canHoldFlags, flagsIn, pullTarget, withPlanted, withPulled, type FlagBoxes, type FlagMap } from './flag'
 import type { TeamId, Tier } from './v2'
@@ -671,7 +671,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     // **자물쇠는 걸음을 막는다.** 부르는 것도 걸음이라, 잠긴 방으로는
     // 불려 들어가지도 않는다 — 막는 자리를 여기 하나로 둔 값이다
     const lockedBy = state.locks?.[to] ?? null
-    if (lockedBy !== null && lockedBy !== p.team) return `${TILE_BY_ID[to].name} 문이 잠겨 있다.`
+    if (lockedBy !== null && lockedBy !== p.team) return LOCKED_DOOR
     const room = capacityOf(to)
     if (seats(to) + 1 > room) return `${TILE_BY_ID[to].name}이(가) 꽉 찼다. 정원 ${room}.`
     p.tileId = null

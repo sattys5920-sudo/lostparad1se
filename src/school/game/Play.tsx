@@ -80,6 +80,7 @@ import { useKeyboardInset } from './useKeyboardInset'
 import { Radio } from './Radio'
 import { Hand } from './Hand'
 import { DealAsk } from './DealAsk'
+import { LOCKED_DOOR, countOf } from '../../../shared/rules/items'
 import { Arcade, ArcadeAsk } from './Arcade'
 import { useArcade } from './useArcade'
 import { ARCADE_COUNT, ARCADE_BY_ID, LIVE_ROOM, machineAtSeat } from '../../../shared/rules/arcade'
@@ -714,6 +715,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const [standingRoom, setStandingRoom] = useState<TileId | null>(null)
   /** 맵에서 누른 먼 방. 거기로 걸어가거나 내일 아침을 예약한다. */
   const [far, setFar] = useState<TileId | null>(null)
+  /**
+   * 잠긴 문 앞에서 락픽을 쓸지 묻는 중. **걸음은 대답을 기다린다** —
+   * 예를 누르면 따고 그대로 들어가고, 아니오면 문 앞에 선 채로 끝난다.
+   */
+  const [pickAsk, setPickAsk] = useState<{ to: TileId; answer: (yes: boolean) => void } | null>(null)
   /**
    * 내가 멈춰 선 칸. **복도에 섰는지를 이걸로 안다.**
    *
@@ -1463,11 +1469,24 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               // 아무도 안 움직인다. 값은 페이즈가 열릴 때 한 번 치른다
               // 페이즈 중에는 들어가는 데 토큰이 들고 5분이 걸린다.
               // 자유 시간에는 공짜고 즉시다
-              const go = phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to, at)
+              const go = () => (phaseOpen ? act.phaseAct('move', { targetTile: to }) : act.roamTo(to, at))
               // **됐는지 안 됐는지를 돌려준다.** 안 돌려주면 화면이 대답을
               // 기다리는 채로 굳어서, 한 번 거절당한 뒤로는 어느 문도
               // 못 넘는다 — 실제로 그렇게 막혔다
-              return go
+              return go()
+                /*
+                 * **남의 자물쇠에 막혔고 락픽이 있으면 묻는다.** 미리 재지
+                 * 않는다 — 안 보이는 방의 자물쇠는 화면에 안 내려오고,
+                 * 막혔는지는 서버가 안다. 예면 따고 한 번 더 걷는다
+                 */
+                .catch((e: Error) => {
+                  if (e.message !== LOCKED_DOOR || countOf(state.view?.myItems, 'lockpick') <= 0) throw e
+                  return new Promise<boolean>((answer) => setPickAsk({ to, answer })).then((yes) => {
+                    setPickAsk(null)
+                    if (!yes) throw e
+                    return act.useItem('lockpick', { tileId: to }).then(go)
+                  })
+                })
                 .then((r) => {
                   const left = (r as { tokens?: number }).tokens
                   say(
@@ -2046,6 +2065,25 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               .catch((e) => refuse((e as Error).message))
           }}
         />
+      )}
+
+      {/* ── 락픽 ────────────────────────────────────────────
+          잠긴 문 앞에서 막혔을 때만 뜬다. 거래 신청과 같은 자리다 */}
+      {pickAsk && (
+        <div className="sc-da sc-da--pick" role="alertdialog" aria-label="자물쇠">
+          <p className="sc-da__who">
+            <b>{TILE_BY_ID[pickAsk.to].name}</b>
+            <span>락픽 {countOf(state.view?.myItems, 'lockpick')}개</span>
+          </p>
+          <p className="sc-da__say">{LOCKED_DOOR}</p>
+          <p className="sc-da__say">락픽 1개를 사용해 여시겠습니까?</p>
+          <div className="sc-da__row">
+            <button onClick={() => pickAsk.answer(false)}>아니오</button>
+            <button className="is-on" onClick={() => pickAsk.answer(true)}>
+              예
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── 거래 ────────────────────────────────────────────

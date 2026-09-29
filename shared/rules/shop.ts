@@ -80,7 +80,7 @@ const of = (kind: ItemKind) => ({ name: ITEM_BY_KIND[kind].name, text: ITEM_BY_K
 /**
  * 파는 물건.
  *
- * 호루라기는 행동에 딸린 것이고, 넷은 손으로 쓰는 것이며, 깃발은 팀
+ * 호루라기는 행동에 딸린 것이고, 나머지는 손으로 쓰는 것이며, 깃발은 팀
  * 상자로 간다. 갈래를 여기서 적지 않는다 — items.ts 의 use 가 그것을 안다.
  */
 export const SHOP_ITEMS: readonly ShopItem[] = [
@@ -98,6 +98,8 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
     flags: 1,
   },
   { id: 'lock', ...of('lock'), cost: { money: 5 } },
+  // 자물쇠를 따는 것. 자물쇠보다 비싸다 — 5원으로 건 한 시간을 3원 더 내면 푼다
+  { id: 'lockpick', ...of('lockpick'), cost: { money: 8 } },
   { id: 'paper', ...of('paper'), cost: { money: 3 } },
   /*
    * 오늘 내게 적힌 표를 지우는 물건이다. 학교 전체에 하루 세 개뿐이라

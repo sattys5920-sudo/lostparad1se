@@ -333,7 +333,7 @@ export function gameActions(gameId: string) {
      * 문이 하나다. 무엇이 일어나는지는 서버가 정하고, 화면은 무엇을
      * 적어 냈는지만 보낸다.
      */
-    useItem: (kind: string, more: { text?: string; scrapId?: string } = {}) =>
+    useItem: (kind: string, more: { text?: string; scrapId?: string; tileId?: string } = {}) =>
       callServer('useItem', { ...g, kind, ...more }),
     /** 문제 종이를 펼친다. **그 방 사람 전원에게 보이게 된다.** */
     /** 문제 종이를 줍는다. **손패에 들어온다** — 옆 칸에 서야 한다 */

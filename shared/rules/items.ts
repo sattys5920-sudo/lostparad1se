@@ -5,11 +5,11 @@
 //   행동에 딸린 것   use 가 찬 물건. 그 행동을 걸 때 저절로 하나 빠진다
 //                    (호루라기 — 팀원을 부른다)
 //   손으로 쓰는 것   use 가 빈 물건. 「쓰기」를 눌러야 쓰인다
-//                    (자물쇠 · 빈 종이 · 지우개 · 테이프)
+//                    (자물쇠 · 락픽 · 빈 종이 · 지우개 · 테이프)
 import type { ActionKind } from './occupy'
 
 /** 학교에서 주울 만한 것들. 그럴듯한 물건이어야 쓸 때 말이 된다. */
-export type ItemKind = 'whistle' | 'lock' | 'paper' | 'eraser' | 'tape' | 'trap'
+export type ItemKind = 'whistle' | 'lock' | 'lockpick' | 'paper' | 'eraser' | 'tape' | 'trap'
 
 export interface ItemSpec {
   kind: ItemKind
@@ -22,7 +22,7 @@ export interface ItemSpec {
    */
   use?: ActionKind
   /** 손으로 쓸 때 같이 적어 내야 하는 것. 화면이 무엇을 물을지 안다. */
-  needs?: 'text' | 'scrap'
+  needs?: 'text' | 'scrap' | 'door'
 }
 
 export const ITEMS: readonly ItemSpec[] = [
@@ -40,6 +40,17 @@ export const ITEMS: readonly ItemSpec[] = [
     kind: 'lock',
     name: '자물쇠',
     text: '이 방 문을 한 시간 잠근다. 우리 팀만 드나든다.',
+  },
+  /*
+   * **자물쇠를 따는 것.** 가방에서 꺼내 쓰는 단추가 없다 — 잠긴 문에
+   * 들어가려다 막히면 그 자리에서 「쓰겠느냐」고 묻는다. 따면 자물쇠가
+   * 통째로 풀린다. 연 사람 팀만 들어가는 것이 아니라 누구나 드나든다
+   */
+  {
+    kind: 'lockpick',
+    name: '락픽',
+    text: '잠긴 문을 딴다. 들어가려다 막히면 쓸지 묻는다. 따면 자물쇠가 풀리고 락픽은 없어진다.',
+    needs: 'door',
   },
   {
     kind: 'paper',
@@ -86,6 +97,13 @@ export const isHandItem = (kind: ItemKind): boolean => ITEM_BY_KIND[kind]?.use =
 
 /** 빈 종이 한 장에 적을 수 있는 길이. 운영자 메모와 같은 값이다. */
 export const PAPER_MAX = 300
+
+/**
+ * 남의 팀 자물쇠에 막혔을 때의 말. **글자 그대로 한 곳에 둔다** —
+ * 화면은 이 말을 보고 락픽을 쓰겠느냐고 묻는다. 페이즈 걸음(occupy)과
+ * 자유 시간 걸음(roamTo)이 다른 말을 내면 한쪽에서는 안 묻는다.
+ */
+export const LOCKED_DOOR = '자물쇠로 잠겨 들어갈 수 없다.'
 
 /** 자물쇠가 버티는 시간. **게임 시계로** 한 시간 — 페이즈 하나와 같다. */
 export const LOCK_MS = 60 * 60 * 1000

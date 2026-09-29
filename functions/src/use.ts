@@ -1,4 +1,4 @@
-// 손으로 쓰는 물건 — 자물쇠 · 빈 종이 · 지우개 · 테이프.
+// 손으로 쓰는 물건 — 자물쇠 · 락픽 · 빈 종이 · 지우개 · 테이프 · 덫.
 //
 // 넷 다 페이즈 행동이 아니다. 「쓰기」한 번으로 그 자리에서 쓰이고,
 // **문은 여기 하나뿐이다.** (행동에 딸린 물건이 있으면 phaseAct 가
@@ -12,7 +12,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { LOCK_MS, PAPER_MAX, countOf, isHandItem, takeItem, type ItemKind, type Satchel } from '../../shared/rules/items'
-import { TILE_BY_ID, isAlleyCell, isHallCell, type TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, canRoamTo, isAlleyCell, isHallCell, type TileId } from '../../shared/rules/board'
 import { trapsOf, type TrapSetDoc } from './trap'
 import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
@@ -21,6 +21,7 @@ import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { bumpSlips } from './qaLog'
 import { note } from './records'
+import { logSecret } from './qaLog'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -62,6 +63,8 @@ interface UseInput {
   text?: string
   /** 테이프로 붙일 조각. */
   scrapId?: string
+  /** 락픽으로 딸 문 — 들어가려던 방. */
+  tileId?: string
 }
 
 /** 덫을 놓을 자리는 지금 선 복도 칸이다. 방 안에는 못 놓는다 */
@@ -91,6 +94,7 @@ export const useItem = onCall<UseInput>(async (req) => {
   const day = game.phaseNow?.day ?? game.day
   let said = ''
   let locked: { team: TeamId; tileId: TileId } | null = null
+  let picked: { team: TeamId; tileId: TileId } | null = null
 
   await db.runTransaction(async (tx) => {
     const meSnap = await tx.get(meRef)
@@ -118,6 +122,30 @@ export const useItem = onCall<UseInput>(async (req) => {
       tx.update(tileRef, { lockedBy: team, lockUntilMs: nowMs + LOCK_MS })
       said = `${TILE_BY_ID[here as TileId].name} 문을 잠갔다.`
       locked = { team, tileId: here as TileId }
+    }
+
+    /*
+     * **락픽 — 남의 자물쇠를 딴다.**
+     *
+     * 선 자리가 아니라 **들어가려던 방**의 문이다. 걷는 중이면 문 앞에
+     * 선 것이 아니라 못 딴다. 따면 자물쇠가 통째로 없어진다 — 딴 팀만
+     * 드나드는 것이 아니라 누구나 드나든다. 들어가는 것은 따로다(한 번
+     * 더 걸음) — 따고 나서 정원이 차 있을 수도 있다.
+     */
+    if (kind === 'lockpick') {
+      const to = String(req.data.tileId ?? '') as TileId
+      if (!TILE_BY_ID[to]) throw new HttpsError('invalid-argument', '그런 방은 없다.')
+      if (to === here) throw new HttpsError('failed-precondition', '이미 그 방 안이다.')
+      if (!canRoamTo(here as TileId, to)) throw new HttpsError('failed-precondition', '거기까지는 복도가 안 이어진다.')
+      const tileRef = ref.collection('tiles').doc(to)
+      const t = (await tx.get(tileRef)).data() as TileDoc | undefined
+      const by = t?.lockedBy ?? null
+      // 시각이 지난 자물쇠는 없는 것이다 — 그냥 들어가면 된다. 락픽을 안 문다
+      if (!by || (t?.lockUntilMs ?? 0) <= nowMs) throw new HttpsError('failed-precondition', '잠겨 있지 않다.')
+      if (by === team) throw new HttpsError('failed-precondition', '우리 팀 자물쇠다. 그냥 들어가면 된다.')
+      tx.update(tileRef, { lockedBy: null, lockUntilMs: 0 })
+      said = `${TILE_BY_ID[to].name} 자물쇠를 땄다.`
+      picked = { team: by as TeamId, tileId: to }
     }
 
     if (kind === 'paper') {
@@ -190,6 +218,9 @@ export const useItem = onCall<UseInput>(async (req) => {
   })
 
   const lockedResult = locked as { team: TeamId; tileId: TileId } | null
+  const pickedResult = picked as { team: TeamId; tileId: TileId } | null
+  // **공개 로그에 안 싣는다.** 누가 땄는지는 운영자만 본다
+  if (pickedResult) await logSecret(gameId, 'lockPicked', nowMs, uid, { team: pickedResult.team }, { day, tileId: pickedResult.tileId })
   if (lockedResult) await note(gameId, 'roomLock', nowMs, { id: uid, team: lockedResult.team }, { tileId: lockedResult.tileId })
   await refreshViews(gameId)
   return { used: kind, said }

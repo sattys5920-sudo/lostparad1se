@@ -162,6 +162,22 @@ const LOCK = P([
   '            ',
 ])
 
+/** 락픽 — 끝이 꺾인 가는 쇠꼬챙이와 그것을 비트는 손잡이. */
+const LOCKPICK = P([
+  '            ',
+  '         33 ',
+  '        3 3 ',
+  '       3  3 ',
+  '      3     ',
+  '     3      ',
+  '    3       ',
+  '  333       ',
+  ' 31113      ',
+  ' 31113      ',
+  '  333       ',
+  '            ',
+])
+
 /** 빈 종이 — **아무것도 안 적혀 있다.** 접힌 쪽지와 다른 점이 그것이다. */
 const BLANK = P([
   '            ',
@@ -225,6 +241,7 @@ export const GOOD_ART: Readonly<Record<string, readonly string[]>> = {
   whistle: WHISTLE,
   flag: FLAG,
   lock: LOCK,
+  lockpick: LOCKPICK,
   paper: BLANK,
   eraser: ERASER,
   tape: TAPE,

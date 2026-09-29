@@ -40,6 +40,7 @@ import {
   type Vault,
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
+import { LOCKED_DOOR } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { seatIn } from '../../shared/rules/seat'
 import { isFixture } from '../../shared/rules/fixtures'
@@ -1073,7 +1074,7 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
      */
     const tile = (await tx.get(ref.collection('tiles').doc(tileId))).data() as TileDoc | undefined
     if (tile?.lockedBy && (tile.lockUntilMs ?? 0) > nowMs && tile.lockedBy !== p.team) {
-      throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name} 문이 잠겨 있다.`)
+      throw new HttpsError('failed-precondition', LOCKED_DOOR)
     }
 
     /*
