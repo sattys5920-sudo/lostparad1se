@@ -128,6 +128,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     })),
     // 팀 금고. **팀마다 하나다** — 투영이 우리 팀 것만 떼어 보낸다
     vaults: Object.fromEntries(teams.docs.map((d) => [d.id, purseOf(d.data() as TeamDoc)])),
+    // 돈은 사람 것이다. 통째로 들고 가고 투영이 내 것만 떼어 보낸다
+    moneyOf: Object.fromEntries(pawns.docs.map((d) => [d.id, Math.max(0, Number((d.data() as { money?: number }).money ?? 0))])),
     // 주머니도 통째로 들고 간다. **사람마다 하나다** — 투영이 내
     // 것만 떼어 보낸다
     satchels: Object.fromEntries(

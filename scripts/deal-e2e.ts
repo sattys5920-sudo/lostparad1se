@@ -127,12 +127,13 @@ const pawnsNow = async () => Object.fromEntries((await getAll(`games/${GAME}/paw
 const dealNow = async (id: string) => (await getAll(`games/${GAME}/deals`)).find((d) => d.id === id)?.d ?? {}
 const teamNow = async (t: TeamId) => (await getAll(`games/${GAME}/teams`)).find((x) => x.id === t)?.d ?? {}
 /**
- * 그 사람 **팀 금고**. 돈과 지식은 사람 지갑이 아니라 팀 문서
- * (teams/{team}.resources)에 있다 — 말 문서의 team 으로 찾아간다
+ * 그 사람이 걸 수 있는 것. **돈은 그 사람 것**(말 문서의 money), **지식은 팀 금고**
+ * (teams/{team}.resources.knowledge)다
  */
 const purseNow = async (uid: string): Promise<Record<string, number>> => {
-  const team = (await pawnsNow())[uid]?.team as TeamId
-  return ((await teamNow(team)).resources ?? {}) as Record<string, number>
+  const me = (await pawnsNow())[uid] ?? {}
+  const vault = ((await teamNow(me.team as TeamId)).resources ?? {}) as Record<string, number>
+  return { money: Number(me.money ?? 0), knowledge: Number(vault.knowledge ?? 0) }
 }
 const slipsNow = async () => await getAll(`games/${GAME}/secret/slips/items`)
 const side = (x: Record<string, unknown>, k: 'a' | 'b') => (x[k] ?? {}) as Record<string, unknown>
@@ -157,7 +158,7 @@ async function put(uid: string, fields: Record<string, unknown>): Promise<void> 
 }
 
 /**
- * 팀 금고에 돈을 넣는다. **시험 준비용.**
+ * 걸 것을 쥐여 준다. **시험 준비용.** 돈은 그 팀 사람마다, 지식은 팀 금고에.
  *
  * 이제 모두 빈손으로 시작한다 — 거래에 걸 것이 있으려면 먼저 벌어야
  * 하는데, 이 대본이 보려는 것은 벌이가 아니라 탁자다. 걸 것만 쥐여 준다.
@@ -166,19 +167,16 @@ async function fund(team: TeamId, money: number, knowledge = 9): Promise<void> {
   await fetch(`${FS}/games/${GAME}/teams/${team}?updateMask.fieldPaths=resources`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({
-      fields: {
-        resources: {
-          mapValue: {
-            fields: {
-              money: { integerValue: String(money) },
-              knowledge: { integerValue: String(knowledge) },
-            },
-          },
-        },
-      },
-    }),
+    body: JSON.stringify({ fields: { resources: { mapValue: { fields: { knowledge: { integerValue: String(knowledge) } } } } } }),
   })
+  const mine = Object.entries(await pawnsNow()).filter(([, p]) => p.team === team)
+  for (const [uid] of mine) {
+    await fetch(`${FS}/games/${GAME}/pawns/${uid}?updateMask.fieldPaths=money`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...ADMIN },
+      body: JSON.stringify({ fields: { money: { integerValue: String(money) } } }),
+    })
+  }
 }
 
 /**
@@ -471,14 +469,14 @@ async function main(): Promise<void> {
   const aAfter = await purseNow(me.uid)
   const bAfter = await purseNow(you.uid)
   /*
-   * **금고에서 금고로.** 돈·지식은 팀 것이다 — 마주 선 두 사람이
-   * 각자 제 팀 금고를 대신 여는 것이다. 한 금고에서 나간 만큼 상대
-   * 금고에 **정확히** 들어가야 한다. 나가기만 하고 안 들어오면 돈이 사라진다
+   * **돈은 사람에게서 사람에게, 지식은 금고에서 금고로.** 돈은 번 사람
+   * 것이고 지식은 팀 것이다. 나간 만큼 상대에게 **정확히** 들어가야 한다 —
+   * 나가기만 하고 안 들어오면 돈이 사라진다
    */
   const n = (x: Record<string, number>, k: 'money' | 'knowledge') => Number(x[k] ?? 0)
-  check(n(aAfter, 'money') === n(aBefore, 'money') - 1, '우리 팀 금고에서 돈 하나가 나갔다', `${n(aBefore, 'money')} → ${n(aAfter, 'money')}`)
+  check(n(aAfter, 'money') === n(aBefore, 'money') - 1, '내 돈에서 하나가 나갔다', `${n(aBefore, 'money')} → ${n(aAfter, 'money')}`)
   check(n(bAfter, 'knowledge') === n(bBefore, 'knowledge') - 1, '상대 팀 금고에서 지식 하나가 나갔다', `${n(bBefore, 'knowledge')} → ${n(bAfter, 'knowledge')}`)
-  check(n(bAfter, 'money') === n(bBefore, 'money') + 1, '**상대 팀 금고**에 그 돈이 들어왔다', `${n(bBefore, 'money')} → ${n(bAfter, 'money')}`)
+  check(n(bAfter, 'money') === n(bBefore, 'money') + 1, '**상대 사람**에게 그 돈이 들어왔다', `${n(bBefore, 'money')} → ${n(bAfter, 'money')}`)
   check(n(aAfter, 'knowledge') === n(aBefore, 'knowledge') + 1, '우리 팀 금고에 그 지식이 들어왔다', `${n(aBefore, 'knowledge')} → ${n(aAfter, 'knowledge')}`)
   // 사람 문서에는 돈·지식이 안 붙는다. 지갑이 되살아나면 금고와 둘로 갈린다
   const pz = await pawnsNow()
@@ -508,6 +506,35 @@ async function main(): Promise<void> {
   await must('dealNow', me.token, { gameId: GAME })
   check(String((await dealNow(String(asked.id))).status) === 'gone', '열다섯 초가 지나면 사라진다')
 
+
+  console.log('── 덤. 같은 팀끼리도 돈이 오간다 — 돈은 사람 것이다 ──')
+  {
+    const mate = A.find((p) => p.uid !== me.uid) as typeof me
+    // 짝꿍을 그 방까지 데려와 내 옆 칸(아까 너가 섰던 자리)에 세운다. 너는 멀리
+    for (let i = 0; i < 8; i++) {
+      const at = (await pawnsNow())[mate.uid].tileId as string | null
+      if (at === room) break
+      if (at === null) { await push(20 * M); continue }
+      const next = stepToward(at, room)
+      if (!next) break
+      await must('roamTo', mate.token, { gameId: GAME, tileId: next })
+    }
+    await stand(you.token, here.far.x, here.far.y)
+    await stand(mate.token, here.yours.x, here.yours.y)
+    const meBefore = await purseNow(me.uid)
+    const mateBefore = await purseNow(mate.uid)
+    const tid = String((await must('askDeal', me.token, { gameId: GAME, toPlayerId: mate.uid })).id)
+    await must('answerDeal', mate.token, { gameId: GAME, dealId: tid, accept: true })
+    await must('stakeDeal', me.token, { gameId: GAME, dealId: tid, stake: { money: 2 } })
+    await must('readyDeal', me.token, { gameId: GAME, dealId: tid, ready: true })
+    await must('readyDeal', mate.token, { gameId: GAME, dealId: tid, ready: true })
+    await push(DEAL_COUNTDOWN_MS + 1000)
+    await must('settleDeal', mate.token, { gameId: GAME, dealId: tid })
+    const meAfter = await purseNow(me.uid)
+    const mateAfter = await purseNow(mate.uid)
+    check(meAfter.money === meBefore.money - 2 && mateAfter.money === mateBefore.money + 2, '같은 팀 짝꿍에게 돈 2가 그대로 넘어갔다', `나 ${meBefore.money}→${meAfter.money} · 짝꿍 ${mateBefore.money}→${mateAfter.money}`)
+    check(meAfter.knowledge === meBefore.knowledge, '팀 금고(지식)는 그대로다')
+  }
 
   console.log(failures === 0 ? '\n전부 통과' : `\n${failures}개 실패`)
   if (failures > 0) process.exitCode = 1

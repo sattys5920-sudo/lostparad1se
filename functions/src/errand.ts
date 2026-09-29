@@ -30,8 +30,7 @@ import {
   type ThingIcon,
 } from '../../shared/rules/errand'
 import { TILE_BY_ID, type Cell, type TileId } from '../../shared/rules/board'
-import { earn } from '../../shared/rules/resources'
-import type { TeamDoc } from '../../shared/model'
+import type { PawnDoc } from '../../shared/model'
 import { requireHost } from './host'
 import { freshNow, mustBeFreeTime, myPawn } from './turn'
 import { note } from './records'
@@ -308,10 +307,10 @@ export const dropThing = onCall<{ gameId: string }>(async (req) => {
   }
 
   const ref = postedOf(gameId).doc(mine.id)
-  // **돈은 끝낸 사람의 팀 금고로**
-  const teamRef = gameRef(gameId).collection('teams').doc(pawn.team)
+  // **돈은 끝낸 사람에게** — 돈은 사람 것이다(팀 금고가 아니다)
+  const meRef = gameRef(gameId).collection('pawns').doc(uid)
   const coins = await db.runTransaction(async (tx) => {
-    const [snap, teamSnap] = await Promise.all([tx.get(ref), tx.get(teamRef)])
+    const [snap, meSnap] = await Promise.all([tx.get(ref), tx.get(meRef)])
     const e = snap.data() as ErrandDoc
     if (!liveOf(e)) throw new HttpsError('failed-precondition', '누가 먼저 놓았다.')
     if (!e.takers[uid]?.carrying) throw new HttpsError('failed-precondition', '아직 물건을 안 집었다.')
@@ -324,7 +323,7 @@ export const dropThing = onCall<{ gameId: string }>(async (req) => {
      * 찬 순간 사라진다 — 투영이 끝난 심부름을 안 싣는다.
      */
     tx.update(ref, { doneBy: uid, doneMs: nowMs })
-    tx.update(teamRef, { resources: earn(teamSnap.data() as TeamDoc | undefined, { money: e.coins }) })
+    tx.update(meRef, { money: Math.max(0, Number((meSnap.data() as PawnDoc | undefined)?.money ?? 0)) + e.coins })
     return e.coins
   })
 

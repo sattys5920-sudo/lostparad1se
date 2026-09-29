@@ -152,6 +152,8 @@ export interface World {
    * 추측이 아니라 계산이 된다. 받아서 가리는 것이 아니라 안 보낸다.
    */
   vaults?: Readonly<Partial<Record<TeamId, { money: number; knowledge: number }>>>
+  /** 사람마다의 돈. **내 것만 내려간다** — 남이 얼마 가졌는지는 안 보낸다 */
+  moneyOf?: Readonly<Record<string, number>>
   /** 사람마다의 주머니. 방해와 위장에 드는 물건이 여기 있다. */
   satchels?: Readonly<Satchels>
   /** 팀마다 하나인 페이즈 토큰 상자. **자기 팀 것만 내려간다.** */
@@ -324,8 +326,10 @@ export interface View {
    * 남이 몇 번 더 걸 수 있는지 보이면 「저 사람은 오늘 끝났다」가
    * 계산이 된다 — 흥정은 그걸 모르는 채로 해야 한다.
    */
-  /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
-  teamVault: { money: number; knowledge: number }
+  /** **우리 팀** 금고 — 지식만. 남의 팀 금고는 어떤 경로로도 안 온다. */
+  teamVault: { knowledge: number }
+  /** **내 돈.** 돈은 사람 것이다 — 남의 돈은 안 온다. */
+  myMoney: number
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
   /** **내 주머니.** 팀 것이 아니다 — 산 사람이 가진다. */
   myItems: Satchel
@@ -584,7 +588,8 @@ export function projectView(world: World, viewerId: string): View {
       myPost: null,
       myTeamTokens: 0,
       myEndingSeenAtMs: null,
-      teamVault: { money: 0, knowledge: 0 },
+      teamVault: { knowledge: 0 },
+      myMoney: 0,
       myItems: {},
       myTeamRobots: 0,
       myCarriedRobots: 0,
@@ -788,7 +793,9 @@ export function projectView(world: World, viewerId: string): View {
     myTeamTokens: world.wallets?.[team] ?? 0,
     myEndingSeenAtMs: world.endingSeen?.[viewerId] ?? null,
     // **우리 팀 금고 하나뿐이다.** 남의 팀 것은 안 간다
-    teamVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
+    teamVault: { knowledge: world.vaults?.[team]?.knowledge ?? 0 },
+    // 돈은 사람 것이다. 내 것만
+    myMoney: world.moneyOf?.[viewerId] ?? 0,
     myItems: world.satchels?.[viewerId] ?? {},
     /*
      * 화분. **정원에 서 있을 때만 간다.**

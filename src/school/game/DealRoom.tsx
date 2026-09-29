@@ -29,7 +29,7 @@ import type { GameActions } from './useGame'
  * 잊으면, 가진 물건인데 올릴 칸이 없는 채로 조용히 지나간다.
  */
 const SLOTS = [
-  { key: 'money', name: '돈', from: '팀 금고' },
+  { key: 'money', name: '돈', from: '내 것' },
   { key: 'knowledge', name: '지식', from: '팀 금고' },
   ...ITEMS.map((i) => ({ key: i.kind, name: i.name, from: '내 것' })),
   { key: 'slips', name: '쪽지', from: '접힌 채' },
@@ -64,7 +64,7 @@ function stakeOf(p: Pile): Stake {
 /** 내가 지금 내놓을 수 있는 양. **이만큼만 집힌다.** */
 function haveOf(view: PlayerViewDoc | null): Pile {
   const out = { ...ZERO }
-  out.money = view?.teamVault?.money ?? 0
+  out.money = view?.myMoney ?? 0
   out.knowledge = view?.teamVault?.knowledge ?? 0
   out.slips = view?.mySlips?.length ?? 0
   out.robots = view?.myCarriedRobots ?? 0

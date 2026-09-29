@@ -375,7 +375,7 @@ export interface PhaseState {
   vaults: Readonly<Partial<Record<TeamId, Vault>>>
 }
 
-/** 팀 금고. 돈과 지식 둘뿐이다. */
+/** 팀 금고. 규칙이 보는 것은 지식뿐이다(연구) — 돈은 사람 것이다(PawnDoc.money). */
 export interface Vault {
   money: number
   knowledge: number

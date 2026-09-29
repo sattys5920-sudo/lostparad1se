@@ -11,7 +11,6 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { putItem, type Satchel } from '../../shared/rules/items'
-import { pay, purseOf } from '../../shared/rules/resources'
 import {
   MAKERS,
   TECH_TILE,
@@ -23,7 +22,7 @@ import {
   whyNotTakeTrap,
 } from '../../shared/rules/trap'
 import type { Cell } from '../../shared/rules/board'
-import type { PawnDoc, TeamDoc, TileDoc } from '../../shared/model'
+import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import { freshNow } from './turn'
 import { refreshViews } from './views'
@@ -93,19 +92,19 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
 
   const ref = gameRef(gameId)
   const jobRef = jobsOf(gameId).doc(String(maker))
-  const teamRef = ref.collection('teams').doc(team)
+  const meRef = ref.collection('pawns').doc(uid)
   const techRef = ref.collection('tiles').doc(TECH_TILE)
 
   const count = await db.runTransaction(async (tx) => {
-    const [job, teamSnap, tech] = await Promise.all([tx.get(jobRef), tx.get(teamRef), tx.get(techRef)])
+    const [job, meSnap, tech] = await Promise.all([tx.get(jobRef), tx.get(meRef), tx.get(techRef)])
     // 한 제조기에 한 건. 다 됐는데 안 찾아간 것도 자리를 차지한다
     if (job.exists) throw new HttpsError('failed-precondition', '이 제조기는 돌고 있다.')
-    // **팀 금고에서 낸다.** 맡긴 사람이 누구든 같은 금고다
-    const left = pay(purseOf(teamSnap.data() as TeamDoc | undefined), { money: TRAP_COIN_COST })
-    if (!left) throw new HttpsError('failed-precondition', `돈이 모자라다. ${TRAP_COIN_COST}코인이 든다.`)
+    // **맡긴 사람 돈에서 낸다.** 돈은 사람 것이다
+    const have = Math.max(0, Number((meSnap.data() as { money?: number } | undefined)?.money ?? 0))
+    if (have < TRAP_COIN_COST) throw new HttpsError('failed-precondition', `돈이 모자라다. ${TRAP_COIN_COST}코인이 든다.`)
     const ownsTech = ((tech.data() as TileDoc | undefined)?.ownerTeam ?? null) === team
     const n = trapsPerBatch(ownsTech)
-    tx.update(teamRef, { resources: left })
+    tx.update(meRef, { money: have - TRAP_COIN_COST })
     const doc: TrapJobDoc = {
       team,
       byPlayerId: uid,

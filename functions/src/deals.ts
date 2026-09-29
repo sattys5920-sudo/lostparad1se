@@ -90,10 +90,10 @@ async function holdingsOf(gameId: string, uid: string, pawn: PawnDoc): Promise<H
     slipsOf(gameId).where('heldBy', '==', uid).get(),
     ref.collection('robots').where('carriedBy', '==', uid).get(),
   ])
-  // 돈과 지식은 **우리 팀 금고**에서 올린다. 물건·쪽지·로봇은 내 것이다
+  // **지식만 우리 팀 금고**에서 올린다. 돈 · 물건 · 쪽지 · 로봇은 내 것이다
   const purse = purseOf((await ref.collection('teams').doc(pawn.team).get()).data() as TeamDoc | undefined)
   return {
-    money: purse.money,
+    money: Math.max(0, Number(pawn.money ?? 0)),
     knowledge: purse.knowledge,
     items: pawn.items ?? {},
     slips: slips.size,
@@ -376,21 +376,29 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     if (d.status !== 'settling') throw new HttpsError('failed-precondition', '이미 지나갔다.')
 
     /*
-     * **팀 금고에서 팀 금고로.** 돈과 지식은 팀 것이라, 마주 선 둘이
-     * 한 거래가 두 팀 금고를 움직인다. 같은 팀끼리면 같은 금고라
-     * 오간 것이 없다 — 안 건드린다.
+     * **지식은 팀 금고에서 팀 금고로.** 지식은 팀 것이라, 마주 선 둘이
+     * 한 거래가 두 팀 금고를 움직인다. 같은 팀끼리면 같은 금고라 오간
+     * 것이 없다 — 안 건드린다.
+     *
+     * **돈은 사람에게서 사람에게로.** 돈은 번 사람 것이라 같은 팀끼리도
+     * 오간다. 읽기를 먼저 다 하고 쓴다 — 트랜잭션은 읽기가 앞서야 한다
      */
     const aTeamRef = ref.collection('teams').doc(a.team)
     const bTeamRef = ref.collection('teams').doc(b.team)
-    const [aTeamSnap, bTeamSnap] = await Promise.all([tx.get(aTeamRef), tx.get(bTeamRef)])
-    const move = (had: Record<string, number>, give: Stake, get: Stake) => ({
-      money: Math.max(0, (had.money ?? 0) - give.money + get.money),
+    const [aTeamSnap, bTeamSnap, aNow, bNow] = await Promise.all([
+      tx.get(aTeamRef), tx.get(bTeamRef), tx.get(aPawn.ref), tx.get(bPawn.ref),
+    ])
+    const know = (had: Record<string, number>, give: Stake, get: Stake) => ({
+      ...had,
       knowledge: Math.max(0, (had.knowledge ?? 0) - give.knowledge + get.knowledge),
     })
     if (a.team !== b.team) {
-      tx.update(aTeamRef, { resources: move(purseOf(aTeamSnap.data() as TeamDoc | undefined), d.a.stake, d.b.stake) })
-      tx.update(bTeamRef, { resources: move(purseOf(bTeamSnap.data() as TeamDoc | undefined), d.b.stake, d.a.stake) })
+      tx.update(aTeamRef, { resources: know(purseOf(aTeamSnap.data() as TeamDoc | undefined), d.a.stake, d.b.stake) })
+      tx.update(bTeamRef, { resources: know(purseOf(bTeamSnap.data() as TeamDoc | undefined), d.b.stake, d.a.stake) })
     }
+    const cash = (p: PawnDoc | undefined) => Math.max(0, Number(p?.money ?? 0))
+    const aMoney = Math.max(0, cash(aNow.data() as PawnDoc | undefined) - d.a.stake.money + d.b.stake.money)
+    const bMoney = Math.max(0, cash(bNow.data() as PawnDoc | undefined) - d.b.stake.money + d.a.stake.money)
 
     // 개인 것 — 주머니. 거는 데도 성립하는 데도 값은 안 든다
     const bag = (base: Satchel, give: Satchel, get: Satchel): Satchel => {
@@ -405,9 +413,11 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
 
     tx.update(aPawn.ref, {
       items: bag(a.items ?? {}, d.a.stake.items, d.b.stake.items),
+      money: aMoney,
     })
     tx.update(bPawn.ref, {
       items: bag(b.items ?? {}, d.b.stake.items, d.a.stake.items),
+      money: bMoney,
     })
 
     // 쪽지 — 접힌 채로 손이 바뀐다. 받는 쪽은 이제부터 읽을 수 있다

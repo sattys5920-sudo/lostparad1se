@@ -125,6 +125,12 @@ export async function checkInvariants(gameId: string, nowMs: number): Promise<Vi
     if (ids.length > 1) bad('cellShared', `(${key}) · ${ids.map(nameOf).join(', ')}`)
   }
 
+  // ── 사람 — 내 돈은 0 아래로 안 간다 ──
+  for (const d of pawns.docs) {
+    const m = Number((d.data() as { money?: number }).money ?? 0)
+    if (m < 0) bad('vaultNegative', `${nameOf(d.id)} 돈 = ${m}`)
+  }
+
   // ── 팀 — 금고와 토큰 상자는 0 아래로 안 간다 ──
   for (const d of teams.docs) {
     const t = d.data() as TeamDoc

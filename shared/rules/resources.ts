@@ -47,8 +47,8 @@ export const EMPTY_PURSE: Record<Resource, number> = { money: 0, knowledge: 0 }
  * 그 팀 금고(TeamDoc.resources). **없으면 빈 금고다** — 0 과 「안 적힘」을
  * 같게 본다.
  *
- * 돈과 지식은 팀 것이다. 넷이 같이 벌고 같이 쓴다 — 누가 벌었든
- * 팀 금고로 들어가고, 넷 중 누구든 꺼내 쓴다.
+ * **지식은 팀 것이다.** 넷이 같이 벌고 같이 쓴다. 돈은 사람 것이라
+ * 여기(팀 금고)가 아니라 사람 문서(PawnDoc.money)에 있다.
  */
 export const purseOf = (who: { resources?: Record<Resource, number> } | undefined): Record<Resource, number> =>
   ({ ...EMPTY_PURSE, ...(who?.resources ?? {}) })

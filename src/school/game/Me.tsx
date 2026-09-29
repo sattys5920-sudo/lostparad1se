@@ -150,6 +150,8 @@ export function Me(props: MeProps) {
             onClick={() => setHaveOpen((v) => !v)}
           >
             <Chip icon="token" n={view?.myTeamTokens ?? null} label="토큰" />
+            {/* 돈은 내 것, 지식은 팀 것이다 */}
+            <Chip icon="money" n={view?.myMoney ?? null} label="돈" />
             <Chip icon="knowledge" n={view?.teamVault?.knowledge ?? null} label="지식" />
             <Chip icon="hand" n={itemCount} label="아이템" />
             <Chip icon="slip" n={slipCount} label="쪽지" />

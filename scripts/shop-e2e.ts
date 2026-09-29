@@ -1,7 +1,7 @@
 // 상점 여섯 품목 — 사고, 쓰고, 안 새는지.
 //
 // 붙드는 것은 여섯이다.
-//   1. 상점에 서야 산다. 값은 팀 금고에서 빠지고 주인 팀으로 간다
+//   1. 상점에 서야 산다. 값은 산 사람 돈에서 빠진다
 //   2. **지우개는 하루에 한 개다** — 열넷이 달려들어도 하나다
 //   3. 자물쇠는 걸음을 막는다. 잠근 팀은 드나든다
 //   4. 빈 종이는 쓴 그대로 바닥에 놓이고, 줍기 전에는 한 자도 안 온다
@@ -127,31 +127,23 @@ async function standAt(game: string, uid: string, tileId: string): Promise<void>
     body: JSON.stringify({ fields: { tileId: { stringValue: tileId }, arriveAtMs: { nullValue: null } } }),
   })
 }
-/**
- * 금고에 돈을 넣는다. **팀 문서다** — 돈·지식은 사람 지갑이 아니라
- * 팀 금고(teams/{team}.resources)에 있다. 사람은 말 문서의 team 으로 찾는다
- */
+/** 그 사람에게 돈을 쥐여 준다. **돈은 사람 것이다** — 말 문서의 money */
 async function fund(game: string, uid: string, money: number): Promise<void> {
-  const team = await teamOf(game, uid)
-  await fetch(`${FS}/games/${game}/teams/${team}?updateMask.fieldPaths=resources`, {
+  await fetch(`${FS}/games/${game}/pawns/${uid}?updateMask.fieldPaths=money`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({
-      fields: { resources: { mapValue: { fields: { money: { integerValue: String(money) }, knowledge: { integerValue: '9' } } } } },
-    }),
+    body: JSON.stringify({ fields: { money: { integerValue: String(money) } } }),
   })
 }
 async function teamOf(game: string, uid: string): Promise<string> {
   const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
   return str(((await r.json()) as { fields?: Record<string, unknown> }).fields?.team) ?? 'A'
 }
-/** 그 사람 팀 금고의 돈 */
+/** 그 사람 돈 — 말 문서의 money */
 async function moneyOf(game: string, uid: string): Promise<number> {
-  const team = await teamOf(game, uid)
-  const r = await fetch(`${FS}/games/${game}/teams/${team}`, { headers: ADMIN })
+  const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
   const f = ((await r.json()) as { fields?: Record<string, unknown> }).fields ?? {}
-  const res = (f.resources as { mapValue?: { fields?: Record<string, unknown> } })?.mapValue?.fields ?? {}
-  return num(res.money)
+  return num(f.money)
 }
 const bagOf = async (game: string, uid: string): Promise<Record<string, number>> => {
   const r = await fetch(`${FS}/games/${game}/pawns/${uid}`, { headers: ADMIN })
@@ -210,7 +202,7 @@ async function main() {
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
   const after = await moneyOf(game, meUid)
   const LOCK_PRICE = SHOP_ITEMS.find((i) => i.id === 'lock')?.cost.money ?? -1
-  check(before - after === LOCK_PRICE, `자물쇠 값 ${LOCK_PRICE}이 **팀 금고**에서 빠졌다`, `${before} → ${after}`)
+  check(before - after === LOCK_PRICE, `자물쇠 값 ${LOCK_PRICE}이 **산 사람 돈**에서 빠졌다`, `${before} → ${after}`)
   check((await bagOf(game, meUid)).lock === 1, '주머니에 들어왔다')
 
   // 지우개는 **학교 전체에** 하루 몇 개뿐이다(shop.ts stockPerDay). 누가 사든 같은 몫에서 빠진다

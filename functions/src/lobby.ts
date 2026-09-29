@@ -376,7 +376,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   // 팀 — 자원과 순위는 공개다.
   for (const team of TEAMS) {
     batch.set(ref.collection('teams').doc(team), {
-      // **팀 금고.** 돈과 지식은 넷이 같이 벌고 같이 쓴다
+      // **팀 금고 — 지식.** 넷이 같이 벌고 같이 쓴다. 돈은 사람 것이다(PawnDoc.money)
       resources: { ...STARTING_RESOURCES },
       /*
        * 페이즈 상자. **빈 채로 시작한다.**

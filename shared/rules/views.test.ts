@@ -479,3 +479,28 @@ describe('방 안의 머릿수', () => {
     expect(v.visiblePawns.map((p) => p.playerId)).toContain('B0')
   })
 })
+
+describe('돈은 사람 것, 지식은 팀 것', () => {
+  const w = (): World => ({
+    ...world(),
+    moneyOf: { A0: 7, A1: 31337, B0: 42424 },
+    vaults: { A: { money: 98989, knowledge: 4 }, B: { money: 0, knowledge: 9 } },
+  })
+
+  it('내 돈만 온다 — 같은 팀 돈도 남의 돈도 안 온다', () => {
+    const v = projectView(w(), 'A0')
+    expect(v.myMoney).toBe(7)
+    expect(json(v)).not.toContain('31337')
+    expect(json(v)).not.toContain('42424')
+  })
+
+  it('팀 금고에는 지식만 — 옛 판의 팀 돈이 남아 있어도 안 보낸다', () => {
+    const v = projectView(w(), 'A0')
+    expect(v.teamVault).toEqual({ knowledge: 4 })
+    expect(json(v)).not.toContain('98989')
+  })
+
+  it('돈이 적히지 않았으면 0', () => {
+    expect(projectView(world(), 'A0').myMoney).toBe(0)
+  })
+})
