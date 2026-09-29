@@ -1735,8 +1735,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               <Slips
                 view={state.view}
                 seats={game.seats}
-                hereIds={hereIds}
-                meId={uid}
                 act={act}
                 onSaid={setSaid}
               />

@@ -15,6 +15,8 @@ import { stepToward } from '../shared/rules/occupy'
 import { LAB_MACHINES, LAB_TILE } from '../shared/rules/trap'
 import type { TileId } from '../shared/rules/board'
 import { standAndSpot } from './lib/spot'
+import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
+import { SLIP_NOTES } from '../functions/src/story/slipNotes'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -148,6 +150,8 @@ async function plantSlip(x: number, y: number, subjectId: string, text: string):
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: {
+      // **운영자가 놓는 쪽지(noteId 있는 것)만 기록에 남는다** — 손으로 쓴 종이는 안 센다
+      noteId: S(SLIP_NOTES[0].id),
       textId: S(''), text: S(text), subjectId: S(subjectId), tileId: { nullValue: null },
       x: I(x), y: I(y), heldBy: { nullValue: null }, readBy: { arrayValue: {} }, tornBy: { nullValue: null },
       tornAt: { nullValue: null }, atMs: I(0),
@@ -249,18 +253,28 @@ async function main(): Promise<void> {
   check(reads.length === 1, '**두 번 읽어도 한 줄이다**', `${reads.length}줄`)
   check(reads[0]?.ownerId === slip.d.subjectId, '누구의 비밀인지가 적힌다')
 
-  // 건네기 — 같은 방에 있는 B0 에게
+  // 건네기 — **거래로만.** 쪽지가 있던 칸(A0 바로 옆)에 B0 를 세우고 거래창에 올린다
   await walk(B[0].token, B[0].uid, String(slip.d.tileId), land)
+  await must('standAt', B[0].token, { gameId: GAME, x: spot.x, y: spot.y })
   const pos = await pawnsNow()
   check(
     pos[A[0].uid].tileId === pos[B[0].uid].tileId,
-    '둘이 같은 방에 섰다',
+    '둘이 같은 방 옆 칸에 섰다',
     `A0 ${pos[A[0].uid].tileId} · B0 ${pos[B[0].uid].tileId} · 쪽지 ${slip.d.tileId}`,
   )
-  await must('giveSlip', A[0].token, { gameId: GAME, slipId: slip.id, toPlayerId: B[0].uid })
+  const asked = await must('askDeal', A[0].token, { gameId: GAME, toPlayerId: B[0].uid })
+  const dealId = String(asked.id)
+  await must('answerDeal', B[0].token, { gameId: GAME, dealId, accept: true })
+  await must('stakeDeal', A[0].token, { gameId: GAME, dealId, stake: { slips: 1 } })
+  await must('readyDeal', A[0].token, { gameId: GAME, dealId, ready: true })
+  await must('readyDeal', B[0].token, { gameId: GAME, dealId, ready: true })
+  clockAt += DEAL_COUNTDOWN_MS + 2_000
+  await must('setDevClock', host, { gameId: GAME, anchorGameMs: clockAt, speed: 1 })
+  await must('settleDeal', A[0].token, { gameId: GAME, dealId })
   rows = await recordsNow()
   const gave = rows.find((r) => r.kind === 'slipGive')
-  check(gave?.otherId === B[0].uid && gave?.otherTeam === 'B', '건넨 상대와 그 팀이 적힌다')
+  check(gave?.actorId === A[0].uid && gave?.otherId === B[0].uid && gave?.otherTeam === 'B', '거래로 넘기면 「건넴」 한 줄 — 건넨 상대와 그 팀이 적힌다')
+  check(gave?.ownerId === slip.d.subjectId, '누구의 쪽지를 넘겼는지도 적힌다')
 
   // 찢기 — B0 가 들고 있으니 B0 가 찢는다
   await must('tearSlip', B[0].token, { gameId: GAME, slipId: slip.id })
@@ -362,6 +376,11 @@ async function main(): Promise<void> {
     const text = JSON.stringify(v.d)
     check(!text.includes('slipTear') && !text.includes('robotBorn'), `${v.id} 의 view 에 기록이 안 섞인다`)
   }
+
+  // 맨 끝에 본다 — 없는 함수를 부르면 에뮬레이터(한 워커 모드)가 뒤따르는 호출을 흘린다
+  // 콜러블 자체가 없다 — 에뮬레이터는 JSON 이 아니라 「함수가 없다」 글로 답하니 상태만 본다
+  const gone = await fetch(`${FN}/giveSlip`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${A[0].token}` }, body: JSON.stringify({ data: { gameId: GAME, slipId: slip.id, toPlayerId: B[0].uid } }) })
+  check(!gone.ok, '그냥 건네는 길(giveSlip)은 없다', String(gone.status))
 
   console.log(failures === 0 ? '\n전부 통과' : `\n${failures}개 실패`)
   if (failures > 0) process.exit(1)

@@ -1926,7 +1926,6 @@
 
 .sc-sl__row button:disabled { opacity: 0.45; cursor: default; }
 .sc-sl__tear { color: var(--sc-danger); }
-.sc-sl__to { padding-left: var(--sp-2); }
 
 /* ── 문제 종이 ──────────────────────────────────────────────────
    쪽지와 눈으로 갈려야 한다. 쪽지는 접힌 종이 한 장이고 이쪽은

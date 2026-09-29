@@ -156,7 +156,6 @@ async function main(): Promise<void> {
     ['거래', () => call('askDeal', tkG, { gameId: GAME, toPlayerId: n })],
     ['이적', () => call('askTransfer', tkG, { gameId: GAME, toPlayerId: n })],
     ['동맹', () => call('proposeAlliance', tkG, { gameId: GAME, withTeam: 'B' })],
-    ['쪽지 건네기', () => call('giveSlip', tkG, { gameId: GAME, toPlayerId: n, slipId: 'x' })],
   ] as const) {
     const why = await no(go())
     check(why.includes('보이지 않는 동안에는'), `${name}을 못 꺼낸다`, why)

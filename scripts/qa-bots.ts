@@ -266,11 +266,8 @@ async function botTick(b: Bot, g: Game): Promise<void> {
   if (v.mySlips?.length && r < 0.15) {
     const s = pick(v.mySlips)
     if (!s.read) await call(who, 'readSlip', b.token, { gameId: GAME, slipId: s.id })
-    else if (Math.random() < 0.5) await call(who, 'dropSlip', b.token, { gameId: GAME, slipId: s.id })
-    else {
-      const near = (v.visiblePawns ?? []).filter((p) => p.playerId !== b.uid && p.tileId === here)
-      if (near.length) await call(who, 'giveSlip', b.token, { gameId: GAME, slipId: s.id, toPlayerId: pick(near).playerId })
-    }
+    // 넘기는 것은 거래로만이다 — 봇은 읽거나 내려놓는다
+    else await call(who, 'dropSlip', b.token, { gameId: GAME, slipId: s.id })
     return
   }
   if (v.quizzesHere?.length && r < 0.5) {

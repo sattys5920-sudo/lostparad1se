@@ -16,7 +16,7 @@ import type { Cell, TileId } from '../../shared/rules/board'
 import { atPaper, freeDropCell } from '../../shared/rules/quiz'
 import { takenCells } from './notes'
 import type { PawnDoc } from '../../shared/model'
-import { freshNow, refuseIfInvisible } from './turn'
+import { freshNow } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, nowOf, requireUid } from './index'
@@ -24,7 +24,6 @@ import { requireHost } from './host'
 import { docId } from './ids'
 
 const NO_SLIP = '그런 쪽지가 없다.'
-const NO_ONE = '그런 사람이 없다.'
 import { bumpSlips, logEvent } from './qaLog'
 import type { GameDoc } from '../../shared/model'
 
@@ -265,58 +264,8 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   return { torn: true }
 })
 
-/**
- * 마주 선 사람에게 그냥 건넨다.
- *
- * 값을 부르려면 이것이 아니라 교역에 실어 보낸다(offerTrade). 여기서는
- * 대가 없이 넘기는 것만 한다 — 「그냥 가져가」가 있어야 협박이 협박이 된다.
- */
-export const giveSlip = onCall<{ gameId: string; slipId: string; toPlayerId: string }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId } = req.data
-  const slipId = docId(req.data.slipId, NO_SLIP)
-  const toPlayerId = docId(req.data.toPlayerId, NO_ONE)
-  if (toPlayerId === uid) throw new HttpsError('invalid-argument', '나에게는 못 건넨다.')
-  const here = await whereAmI(gameId, uid)
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
-  // **두는 것은 되고 건네는 것은 안 된다.** 손에서 손으로 가는 일이라
-  // 사람과 얽히는 행동이다 — 바닥에 두는 쪽이 유일한 통로로 남는다
-  const { nowMs, game } = await freshNow(gameId)
-  refuseIfInvisible(game.invisibleId, uid, toPlayerId, '건넬')
-
-  let subject = ''
-  let toTeam: PawnDoc['team'] = 'A'
-  let isNote = false
-  await db.runTransaction(async (tx) => {
-    const slipRef = slipsOf(gameId).doc(slipId)
-    const [snap, other] = await Promise.all([
-      tx.get(slipRef),
-      tx.get(gameRef(gameId).collection('pawns').doc(toPlayerId)),
-    ])
-    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
-    if ((snap.data() as SlipDoc).heldBy !== uid) {
-      throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
-    }
-    if (!other.exists || (other.data() as PawnDoc).tileId !== here) {
-      throw new HttpsError('failed-precondition', '같은 방에 있어야 건넨다.')
-    }
-    tx.update(slipRef, { heldBy: toPlayerId })
-    subject = (snap.data() as SlipDoc).subjectId
-    toTeam = (other.data() as PawnDoc).team
-    isNote = Boolean((snap.data() as SlipDoc).noteId)
-  })
-  // **손으로 쓴 빈 종이는 안 센다** — 개인 미션은 운영자가 놓은
-  // 쪽지(56장) 몫이다
-  if (isNote) await note(gameId, 'slipGive', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
-    otherId: toPlayerId,
-    otherTeam: toTeam,
-    tileId: here,
-    subjectId: slipId,
-    ownerId: subject,
-  })
-  await refreshViews(gameId)
-  return { toPlayerId }
-})
+// **쪽지를 그냥 건네는 길은 없다.** 손을 바꾸는 것은 거래(deals.ts)뿐이다 —
+// 거래가 성립할 때 한 장에 한 줄씩 slipGive 가 남아서 개인 미션도 그대로 센다
 
 /**
  * 운영자가 아직 아무도 안 주운 쪽지를 도로 거둔다. **칸에 놓인 것만.**

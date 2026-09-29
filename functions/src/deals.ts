@@ -483,9 +483,14 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   ]
   if (handed.length > 0) {
     const owners = await Promise.all(handed.map((h) => slipsOf(gameId).doc(h.id).get()))
-    await noteAll(
+    // **손으로 쓴 빈 종이는 안 센다** — 개인 미션은 운영자가 놓은 쪽지(56장) 몫이다.
+    // 이제 쪽지가 손을 바꾸는 길은 거래뿐이라, 빈 종이를 사서 돌리며 세지 못하게 여기서 거른다
+    const counted = handed
+      .map((h, i) => ({ h, doc: owners[i].data() as { subjectId?: string; noteId?: string } | undefined }))
+      .filter((x) => Boolean(x.doc?.noteId))
+    if (counted.length > 0) await noteAll(
       gameId,
-      handed.map((h, i) => ({
+      counted.map(({ h, doc }) => ({
         kind: 'slipGive' as const,
         atMs: nowMs,
         actorId: h.from === 'a' ? seen.aId : seen.bId,
@@ -494,7 +499,7 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
         otherTeam: h.from === 'a' ? seen.b.team : seen.a.team,
         tileId: seen.tileId,
         subjectId: h.id,
-        ownerId: (owners[i].data() as { subjectId?: string } | undefined)?.subjectId ?? null,
+        ownerId: doc?.subjectId ?? null,
       })),
     )
   }

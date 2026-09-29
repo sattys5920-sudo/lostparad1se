@@ -299,7 +299,6 @@ export function gameActions(gameId: string) {
     readSlip: (slipId: string) => callServer('readSlip', { ...g, slipId }),
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
     tearSlip: (slipId: string) => callServer('tearSlip', { ...g, slipId }),
-    giveSlip: (slipId: string, toPlayerId: string) => callServer('giveSlip', { ...g, slipId, toPlayerId }),
     // ── 심부름 ────────────────────────────────────────────
     /** 게시판 앞에서 한 장 받는다. 한 번에 하나뿐이다. */
     takeErrand: (errandId: string) => callServer('takeErrand', { ...g, errandId }),

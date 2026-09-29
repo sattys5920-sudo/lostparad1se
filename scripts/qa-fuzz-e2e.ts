@@ -427,24 +427,18 @@ async function main(): Promise<void> {
   check(typeof slipId === 'string', '메모 한 장이 바닥에 놓였다')
   snap = await snapshot()
   rejects(await call('readSlip', you.token, { gameId: GAME, slipId }), '안 든 쪽지 readSlip', 'PERMISSION_DENIED')
-  rejects(await call('giveSlip', you.token, { gameId: GAME, slipId, toPlayerId: me.uid }), '안 든 쪽지 giveSlip', 'PERMISSION_DENIED')
   rejects(await call('tearSlip', you.token, { gameId: GAME, slipId }), '안 든 쪽지 tearSlip', 'PERMISSION_DENIED')
   rejects(await call('dropSlip', you.token, { gameId: GAME, slipId }), '안 든 쪽지 dropSlip', 'PERMISSION_DENIED')
   for (const id of ['nope', '', undefined, 42, null, {}, 'a/b', '__proto__']) {
     for (const fn of ['takeSlip', 'readSlip', 'dropSlip', 'tearSlip']) rejects(await call(fn, me.token, { gameId: GAME, slipId: id }), `${fn} slipId=${JSON.stringify(id) ?? 'undefined'}`)
-    rejects(await call('giveSlip', me.token, { gameId: GAME, slipId: id, toPlayerId: you.uid }), `giveSlip slipId=${JSON.stringify(id) ?? 'undefined'}`)
   }
   snap = await unchanged(snap, '쪽지 오용 뒤 판이 그대로다')
-  // 줍고 찢는다 — 찢긴 것은 누구도 못 줍고 못 읽고 못 건넨다
+  // 줍고 찢는다 — 찢긴 것은 누구도 못 줍고 못 읽는다
   await must('takeSlip', me.token, { gameId: GAME, slipId })
-  rejects(await call('giveSlip', me.token, { gameId: GAME, slipId, toPlayerId: me.uid }), 'giveSlip 나에게', 'INVALID_ARGUMENT')
-  rejects(await call('giveSlip', me.token, { gameId: GAME, slipId, toPlayerId: 'nobody' }), 'giveSlip 없는 사람에게', 'FAILED_PRECONDITION')
-  for (const t of [undefined, 42, null, {}, '']) rejects(await call('giveSlip', me.token, { gameId: GAME, slipId, toPlayerId: t }), `giveSlip toPlayerId=${JSON.stringify(t) ?? 'undefined'}`)
   await must('tearSlip', me.token, { gameId: GAME, slipId })
   snap = await snapshot()
   rejects(await call('takeSlip', you.token, { gameId: GAME, slipId }), '찢긴 쪽지 takeSlip')
   rejects(await call('readSlip', me.token, { gameId: GAME, slipId }), '찢긴 쪽지 readSlip(찢은 사람)')
-  rejects(await call('giveSlip', me.token, { gameId: GAME, slipId, toPlayerId: mate.uid }), '찢긴 쪽지 giveSlip')
   rejects(await call('tearSlip', me.token, { gameId: GAME, slipId }), '찢긴 쪽지 tearSlip 두 번')
   rejects(await call('dropSlip', me.token, { gameId: GAME, slipId }), '찢긴 쪽지 dropSlip')
   snap = await unchanged(snap, '찢긴 쪽지 오용 뒤 판이 그대로다')
@@ -780,6 +774,11 @@ async function main(): Promise<void> {
   check(myBallot.targetId === you.uid, '센 뒤에는 표가 안 바뀐다')
 
   if (observed > 0) console.log(`\n보고만(△) ${observed}건 — 고칠 수 없는 파일 · 프레임워크 몫`)
+  // 맨 끝에 본다 — 없는 함수를 부르면 에뮬레이터(한 워커 모드)가 뒤따르는 호출을 흘린다
+  // 쪽지를 그냥 건네는 길은 없다 — 넘기는 것은 거래뿐이다
+  const noGive = await fetch(`${FN}/giveSlip`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${me.token}` }, body: JSON.stringify({ data: { gameId: GAME, slipId: 'x', toPlayerId: 'y' } }) })
+  check(!noGive.ok, 'giveSlip 은 없다 — 쪽지는 거래로만 넘긴다', String(noGive.status))
+
   console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`)
   if (failures > 0) process.exitCode = 1
 }

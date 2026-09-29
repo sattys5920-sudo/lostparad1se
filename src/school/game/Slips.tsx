@@ -13,17 +13,13 @@ import { buzz } from './Controls'
 export interface SlipsProps {
   view: PlayerViewDoc | null
   seats: readonly SeatEntry[]
-  /** 같은 방에 선 사람들. 건넬 수 있는 상대다. */
-  hereIds: readonly string[]
-  meId: string
   act: GameActions
   onSaid: (text: string) => void
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
 }
 
-export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
+export function Slips({ view, seats, act, onSaid }: SlipsProps) {
   const [busy, setBusy] = useState(false)
-  const [giving, setGiving] = useState<string | null>(null)
 
   const floor = view?.slipsHere ?? []
   const mine = view?.mySlips ?? []
@@ -35,7 +31,6 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
     setBusy(true)
     try {
       await fn()
-      setGiving(null)
       buzz('ok')
       onSaid(what)
     } catch (e) {
@@ -47,7 +42,6 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
   }
 
   const nameOf = (id: string) => seats.find((s) => s.playerId === id)?.name ?? '누군가'
-  const others = hereIds.filter((id) => id !== meId)
 
   return (
     <section className="sc-sl">
@@ -106,12 +100,6 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
                 <button disabled={busy} onClick={() => void run('여기 두었다.', () => act.dropSlip(s.id))}>
                   여기 두기
                 </button>
-                <button
-                  disabled={busy || others.length === 0}
-                  onClick={() => setGiving(giving === s.id ? null : s.id)}
-                >
-                  {others.length === 0 ? '건넬 사람이 없다' : '건네기'}
-                </button>
                 {/* 찢은 쪽지는 영영 사라진다. 한 번 더 누르게 한다 */}
                 <Sure
                   className="sc-sl__tear"
@@ -123,19 +111,12 @@ export function Slips({ view, seats, hereIds, meId, act, onSaid }: SlipsProps) {
                 </Sure>
               </div>
 
-              {giving === s.id && (
-                <div className="sc-sl__row sc-sl__to">
-                  {others.map((id) => (
-                    <button
-                      key={id}
-                      disabled={busy}
-                      onClick={() => void run(`${nameOf(id)}에게 건넸다.`, () => act.giveSlip(s.id, id))}
-                    >
-                      {nameOf(id)}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/*
+                **건네는 것은 거래로만.** 옆 칸에 마주 서서 거래창에 올린다 —
+                그냥 주는 길을 두면 쪽지가 값 없이 돈다. 값을 0으로 부르면 그냥
+                주는 것과 같으니 선물도 거래창으로 한다
+              */}
+              <p className="sc-sl__note">남에게 주려면 옆 칸에 서서 거래창에 올린다.</p>
             </li>
           ))}
         </ul>
