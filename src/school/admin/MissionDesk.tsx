@@ -17,6 +17,7 @@ import type { MissionMail } from '../../../shared/missions/mail'
 import { STATUS_LABEL } from '../../../shared/missions/roleNames'
 import type { TeamId } from '../../../shared/rules/v2'
 import type { GameActions } from '../game/useGame'
+import { Sure } from '../game/Sheet'
 
 /** 판정이 있는 날 하나 */
 interface DayMeta {
@@ -43,7 +44,7 @@ interface Row {
 }
 
 interface LogLine {
-  kind: 'override' | 'send'
+  kind: 'override' | 'send' | 'board'
   playerIds: string[]
   names: string[]
   from?: DayStatus | null
@@ -252,6 +253,20 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
     }
   }
 
+  async function announce() {
+    if (data?.day == null) return
+    setBusy(true)
+    try {
+      const out = (await act.hostMissionBoard(data.day)) as { met?: number; failed?: number }
+      onSaid(`DAY ${data.day} 결과를 모두에게 알렸다. 성공 ${out.met ?? 0} · 실패 ${out.failed ?? 0}.`)
+      await load()
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function flip(r: Row, status: 'met' | 'failed' | null, reason: string) {
     setBusy(true)
     try {
@@ -360,6 +375,19 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
             전부 보내기
           </button>
         </div>
+        {/*
+          **모두에게 알린다** — 열넷의 이름과 성공/실패만. 역할 · 조건 · 숫자는
+          안 나간다. 개인에게 보내기와 따로라, 보내기 전에 눌러도 된다
+        */}
+        <div className="sc-ad__row">
+          <Sure
+            disabled={busy}
+            warn={`DAY ${data.day} 열넷의 이름과 성공/실패가 모두에게 뜬다. 역할은 안 나간다.`}
+            onGo={() => void announce()}
+          >
+            {log.some((l) => l.kind === 'board') ? '모두에게 다시 공개' : '모두에게 공개'}
+          </Sure>
+        </div>
       </div>
 
       {/* ── 열넷 ── */}
@@ -396,9 +424,13 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
           {log.map((l, i) => (
             <li key={`${l.atMs}-${i}`}>
               <time>{hhmm(l.atMs)}</time>
-              <span className={`sc-md__kind is-${l.kind}`}>{l.kind === 'send' ? '보냄' : '뒤집음'}</span>
+              <span className={`sc-md__kind is-${l.kind}`}>{l.kind === 'send' ? '보냄' : l.kind === 'board' ? '전체 공개' : '뒤집음'}</span>
               <span className="sc-md__who">
-                {l.kind === 'send' && l.names.length === rows.length && rows.length > 1 ? `전부 ${l.names.length}명` : l.names.join(', ')}
+                {l.kind === 'board'
+                  ? `${l.names.length}명의 성공/실패`
+                  : l.kind === 'send' && l.names.length === rows.length && rows.length > 1
+                    ? `전부 ${l.names.length}명`
+                    : l.names.join(', ')}
                 {l.kind === 'override' && (
                   <>
                     <em>

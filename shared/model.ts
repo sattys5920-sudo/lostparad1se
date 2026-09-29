@@ -8,6 +8,7 @@ import type { Cell, TileId } from './rules/board'
 import type { AvatarLook } from './look'
 import type { ThingIcon } from './rules/errand'
 import type { Satchel } from './rules/items'
+import type { MissionBoard } from './missions/mail'
 
 /** 밀리초 타임스탬프. 게임 속 시각이다(개발용 시계가 걸려 있으면 그 시각). */
 export type GameMs = number
@@ -134,6 +135,8 @@ export interface GameDoc {
   allChannelClosed?: boolean
   /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
   invisibleByDay: Record<number, string | null>
+  /** 모두에게 알린 그날 미션 결과. 키는 d1 · d2 …(hostMissionBoard). 이름과 성공/실패만 */
+  missionBoards?: Record<string, MissionBoard>
   /**
    * 투명인간 투표의 문. 운영자가 연다 · 닫는다. 없으면 아직 한 번도 안 연 것.
    * 닫으면 그 자리에서 센다(ballotGate). 안 닫고 날을 넘기면 정산이 센다

@@ -162,7 +162,7 @@ export { hostPlant, hostGarden, hostPullPot } from './garden'
 export { takeSlip, readSlip, dropSlip, tearSlip, hostPullSlip } from './slips'
 export { hostSlipBoard, hostScatterSlip, hostScatterRandom } from './notes'
 export { hostPapers } from './paperTrail'
-export { hostMissionDay, hostMissionOverride, hostMissionSend, seenMissionDay, hostCrushTarget, hostSetCrushTarget } from './missionDays'
+export { hostMissionBoard, hostMissionDay, hostMissionOverride, hostMissionSend, seenMissionDay, hostCrushTarget, hostSetCrushTarget } from './missionDays'
 export { notifyConfig, setNotifySettings, pushSubscribe, pushUnsubscribe, readNotes, hostNotifyLog } from './notify'
 // 손으로 쓰는 물건 넷. 문이 하나다 — 물건 빼는 자리가 한 군데라야 한다
 export { useItem } from './use'

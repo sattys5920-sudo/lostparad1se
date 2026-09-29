@@ -36,3 +36,19 @@ export interface InboxDoc {
   /** 알림 설정. 없으면 기본값(settingsOf) */
   settings?: Partial<NotifySettings>
 }
+
+/**
+ * 그날 미션 결과를 **모두에게** 알린 한 장. games/{판} 문서의 missionBoards 에 든다.
+ *
+ * **이름과 해냈는지만.** 역할도 조건도 숫자도 없다 — 「민수 성공 · 예지
+ * 실패」까지다. 운영자가 「전체 공개」를 눌러야 생긴다(hostMissionBoard).
+ * 사람 이름은 싣지 않는다 — 화면이 seats 에서 찾는다.
+ */
+export interface MissionBoard {
+  day: number
+  final: boolean
+  /** 공개한 시각. 다시 공개하면 바뀐다 — 화면이 새 종이로 띄운다 */
+  atMs: number
+  /** 자리 순서 그대로. 해냈으면 true */
+  rows: { playerId: string; met: boolean }[]
+}

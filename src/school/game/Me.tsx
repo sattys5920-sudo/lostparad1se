@@ -31,6 +31,8 @@ import type { InboxDoc, MissionMail } from '../../../shared/missions/mail'
 import type { NotifyLink } from '../../../shared/notify/notifyData'
 import { NotifyPanel } from './notify/NotifyPanel'
 import { MissionPopup, finalMail, receivedMails, resultWord, sentText } from './MissionPopup'
+import { BoardPopup, boardsOf } from './MissionBoard'
+import type { MissionBoard } from '../../../shared/missions/mail'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 import type { TeamId } from '../types'
 import { buzz } from './Controls'
@@ -66,6 +68,8 @@ export interface MeProps {
   onSignOut: () => void
   /** 우편함 — 운영자가 보낸 내 판정. 지난 판정이 여기서 나온다 */
   inbox?: InboxDoc | null
+  /** 모두에게 알린 결과(판 문서) · 이름을 찾을 자리 */
+  boards?: Record<string, MissionBoard>
   /** 알림 보관함에서 한 줄을 누르면 그 화면으로 */
   onGo?: (link: NotifyLink) => void
 }
@@ -225,7 +229,7 @@ export function Me(props: MeProps) {
           운영자가 보낸 날마다 한 줄. 누르면 그날 종이가 다시 뜬다.
           마지막 날 판정이 오면 나흘을 한 표로 편다
         */}
-        <PastVerdicts inbox={props.inbox} />
+        <PastVerdicts inbox={props.inbox} boards={props.boards} seats={props.seats} meId={me.playerId} />
 
         {/* ── ④ 받은 표 ────────────────────────────────── */}
         {/*
@@ -432,8 +436,21 @@ export function IdCard({
  * 「나」 탭과 엔딩 화면의 「판정」 탭이 같이 쓴다 — 마지막 날 판정은
  * 판이 끝난 뒤에 오고, 그때는 「나」 탭이 없다.
  */
-export function PastVerdicts({ inbox }: { inbox: InboxDoc | null | undefined }) {
+export function PastVerdicts({
+  inbox,
+  boards,
+  seats = [],
+  meId = '',
+}: {
+  inbox: InboxDoc | null | undefined
+  boards?: Record<string, MissionBoard>
+  seats?: readonly SeatEntry[]
+  meId?: string
+}) {
   const [replay, setReplay] = useState<number | null>(null)
+  const [replayBoard, setReplayBoard] = useState<number | null>(null)
+  const shared = boardsOf(boards)
+  const boardShown = replayBoard === null ? null : (shared.find((b) => b.day === replayBoard) ?? null)
   const mails = receivedMails(inbox)
   const lastMail = finalMail(inbox)
   const replayMail = replay === null ? null : (mails.find((m) => m.day === replay) ?? null)
@@ -457,7 +474,28 @@ export function PastVerdicts({ inbox }: { inbox: InboxDoc | null | undefined }) 
         )}
         {lastMail && <DaysTable mails={mails} last={lastMail.day} />}
       </Card>
+      {/* 모두에게 알린 결과. 운영자가 공개한 날만 줄이 선다 */}
+      {shared.length > 0 && (
+        <Card title="모 두 의 결 과">
+          <ul className="sc-mi__past">
+            {shared.map((b) => (
+              <li key={b.day}>
+                <button type="button" onClick={() => setReplayBoard(b.day)}>
+                  <b>DAY {b.day}</b>
+                  <span className="sc-mi__word">
+                    {b.rows.filter((r) => r.met).length}/{b.rows.length} 성공
+                  </span>
+                  <i>{sentText(b.atMs)}</i>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       {replayMail && <MissionPopup key={`again-${replayMail.day}`} mail={replayMail} onClose={() => setReplay(null)} />}
+      {boardShown && (
+        <BoardPopup key={`board-${boardShown.day}`} board={boardShown} seats={seats} meId={meId} onClose={() => setReplayBoard(null)} />
+      )}
     </>
   )
 }

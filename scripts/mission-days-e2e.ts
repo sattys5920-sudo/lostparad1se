@@ -130,6 +130,9 @@ async function main(): Promise<void> {
   }
   const errand = (atMs: number) =>
     plant(`games/${GAME}/secret/records/items`, { kind: 'errandDone', atMs, actorId: duty.playerId, actorTeam: duty.team })
+  // 주번 미션은 「자물쇠 2 · 심부름 1」이다. 조항 0 이 자물쇠, 1 이 심부름
+  const lockRec = (atMs: number) =>
+    plant(`games/${GAME}/secret/records/items`, { kind: 'roomLock', atMs, actorId: duty.playerId, actorTeam: duty.team })
   const trust = async (d: number, atMs: number) => {
     const v = voterOf(model.team)
     await plant(`games/${GAME}/secret/votes/items`, {
@@ -143,6 +146,8 @@ async function main(): Promise<void> {
   // 시계 **앞**으로 찍는다 — 넘기는 순간(pushedAtMs)보다 뒤면 그날 밤 판정에서 잘린다
   await errand(d1noon - 2000)
   await errand(d1noon - 1000)
+  await lockRec(d1noon - 1500)
+  await lockRec(d1noon - 500)
   await trust(1, d1noon)
   const before = await day()
   check(before.day === null && before.rows.length === 0, '날이 바뀌기 전에는 판정이 없다')
@@ -152,7 +157,7 @@ async function main(): Promise<void> {
   const one = await day(1)
   check(one.rows.length === 14, 'DAY 1 판정이 열넷 몫이다', `${one.rows.length}`)
   const dutyOne = rowOf(one, duty.playerId)
-  check(dutyOne.truth.status === 'met' && dutyOne.truth.clauses[0].have === 2, '주번: 그날 심부름 2 / 2 — 달성', `${dutyOne.truth.status} ${dutyOne.truth.clauses[0].have}`)
+  check(dutyOne.truth.status === 'met' && dutyOne.truth.clauses[1].have === 2, '주번: 그날 자물쇠 2 · 심부름 2 — 달성', `${dutyOne.truth.status} ${dutyOne.truth.clauses[1].have}`)
   check(rowOf(one, model.playerId).truth.clauses[0].have === 1 && rowOf(one, model.playerId).truth.status === 'failed', '모범생: 그날 표 1장 — 실패')
   check(rowOf(one, backseat.playerId).truth.status === 'failed', '뒷자리: 그날 적은 이름이 안 지워졌다 — 실패', rowOf(one, backseat.playerId).truth.status)
   check(one.rows.every((r) => r.truth.status === 'met' || r.truth.status === 'failed'), '자정 판정에는 진행 중이 없다 — 그날로서는 최종이다')
@@ -165,12 +170,12 @@ async function main(): Promise<void> {
   await errand(d2noon - 1000)
   await trust(2, d2noon)
   const oneAgain = await day(1)
-  check(rowOf(oneAgain, duty.playerId).truth.clauses[0].have === 2, '오늘 한 일은 어제 판정에 안 들어간다')
+  check(rowOf(oneAgain, duty.playerId).truth.clauses[1].have === 2, '오늘 한 일은 어제 판정에 안 들어간다')
   check(rowOf(oneAgain, model.playerId).truth.clauses[0].have === 1, '모범생: 오늘 받은 표는 하루가 바뀌기 전에 안 오른다')
 
   await pushTo('dayStart', 3)
   const two = await day(2)
-  check(rowOf(two, duty.playerId).truth.clauses[0].have === 2, '주번: 매일 0부터 — 어제 두 번은 오늘 안 센다', `${rowOf(two, duty.playerId).truth.clauses[0].have}`)
+  check(rowOf(two, duty.playerId).truth.clauses[1].have === 2, '주번: 매일 0부터 — 어제 두 번은 오늘 안 센다', `${rowOf(two, duty.playerId).truth.clauses[1].have}`)
   check(rowOf(two, model.playerId).truth.clauses[0].have === 1, '모범생: 오늘 받은 1장만 — 어제 표는 안 센다')
 
   console.log('\n── 밀린 자정을 따라잡는다 ──')
@@ -189,7 +194,7 @@ async function main(): Promise<void> {
   check(twoAgain, '누가 두드리면 빠진 DAY 2 를 다시 판정한다')
   const re = await day(2)
   check(re.rows.length === 14, '열넷 몫이 다시 생겼다')
-  check(rowOf(re, duty.playerId).truth.clauses[0].have === 2, '따라잡아도 그날 하루만 센다 — DAY 3 심부름은 안 들어간다', `${rowOf(re, duty.playerId).truth.clauses[0].have}`)
+  check(rowOf(re, duty.playerId).truth.clauses[1].have === 2, '따라잡아도 그날 하루만 센다 — DAY 3 심부름은 안 들어간다', `${rowOf(re, duty.playerId).truth.clauses[1].have}`)
 
   console.log('\n── 새는 것 ──')
   const p = people[3]
@@ -237,6 +242,26 @@ async function main(): Promise<void> {
   check(again.seen?.d1 !== true, '다시 보내면 팝업이 다시 뜬다')
   const logd = (await day(1)) as unknown as { log: { kind: string }[] }
   check(logd.log.filter((l) => l.kind === 'send').length === 2 && logd.log.some((l) => l.kind === 'override'), '뒤집기 · 보내기가 기록에 남는다')
+
+  console.log('\n── 모두에게 공개 — 이름과 성공/실패만 ──')
+  const boardByPlayer = await call('hostMissionBoard', p1.token, { gameId: GAME, day: 1 })
+  check(!boardByPlayer.ok, '플레이어는 공개하지 못한다', boardByPlayer.message ?? '했다')
+  const noDay = await call('hostMissionBoard', host, { gameId: GAME, day: 3 })
+  check(!noDay.ok, '판정이 없는 날은 공개하지 못한다', noDay.message ?? '했다')
+  const board = (await must('hostMissionBoard', host, { gameId: GAME, day: 1 })) as { met: number; failed: number }
+  check(board.met + board.failed === people.length, '열넷 전부 한 줄씩', `성공 ${board.met} · 실패 ${board.failed}`)
+  // **플레이어의 증표로** 판 문서를 읽는다 — 누구나 읽는 문서라 여기 든 것이 곧 공개된 것이다
+  const gameRaw = await (await fetch(`${FS}/games/${GAME}`, { headers: { Authorization: `Bearer ${people[5].token}` } })).text()
+  const gameDoc = plain(JSON.parse(gameRaw)) as { missionBoards?: Record<string, { rows: { playerId: string; met: boolean }[]; day: number }> }
+  const b1 = gameDoc.missionBoards?.d1
+  check(b1?.day === 1 && b1.rows.length === people.length, '아무나 판 문서에서 읽는다', String(b1?.rows.length))
+  check(b1?.rows.find((r) => r.playerId === p1.uid)?.met === true, '뒤집은 판정은 뒤집은 값으로 나간다')
+  const boardJson = JSON.stringify(gameDoc.missionBoards)
+  const leaky = ['roleId', 'clauses', 'truth', 'line', 'have', 'status'].filter((k) => boardJson.includes(`"${k}"`))
+  check(leaky.length === 0, '역할 · 조항 · 숫자는 안 실린다', leaky.join(', '))
+  check(!['반장', '모범생', '짝사랑', '뒷자리', '전학생'].some((w) => boardJson.includes(w)), '역할 이름도 없다')
+  const boardLog = (await day(1)) as unknown as { log: { kind: string }[] }
+  check(boardLog.log.some((l) => l.kind === 'board'), '공개도 기록에 남는다')
 
   console.log('\n── 마지막 날 — 최종 판정 ──')
   for (let i = 0; i < 40; i++) {

@@ -20,7 +20,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { judge } from '../../shared/missions/judge'
 import { dayVerdict, dayView, type DayVerdict, type DayVerdictView } from '../../shared/missions/daily'
-import type { MissionMail } from '../../shared/missions/mail'
+import type { MissionBoard, MissionMail } from '../../shared/missions/mail'
 import { ROLE_BY_ID } from '../../shared/missions/roles'
 import { ROLE_NAMES, canonRoleId, type RoleId } from '../../shared/missions/roleNames'
 import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
@@ -191,7 +191,7 @@ export async function catchUpMissionDays(gameId: string, game?: GameDoc): Promis
 
 /** 운영자가 남기는 기록 한 줄 */
 export interface MissionLogDoc {
-  kind: 'override' | 'send'
+  kind: 'override' | 'send' | 'board'
   day: number
   playerIds: string[]
   /** 뒤집기 — 전 값과 새 값(null 이면 뒤집기를 거뒀다) · 까닭 */
@@ -333,6 +333,43 @@ export const hostMissionSend = onCall<{ gameId: string; day: number; playerIds?:
   batch.create(missionLogOf(gameId).doc(), { kind: 'send', day, playerIds: ids, byId: hostId, atMs } satisfies MissionLogDoc)
   await batch.commit()
   return { ok: true, sent: ids.length }
+})
+
+/**
+ * 그날 결과를 **모두에게** 알린다 — 「민수 성공 · 예지 실패」.
+ *
+ * 개인에게 보내기(hostMissionSend)와 따로다. 저쪽은 제 조항과 숫자까지
+ * 본인 우편함에 넣고, 이쪽은 열넷 전원의 이름과 해냈는지만 판 문서에
+ * 적는다. **역할 · 조건 · 숫자는 안 싣는다** — 그것까지 나가면 누가 무슨
+ * 역할인지가 결과 한 장으로 풀린다.
+ *
+ * 뒤집은 판정이 있으면 뒤집은 값으로 적는다. 본인이 받은 종이와 모두가
+ * 본 한 줄이 다르면 안 된다. 다시 누르면 새로 적는다(뒤집은 뒤 고쳐 알릴 때).
+ */
+export const hostMissionBoard = onCall<{ gameId: string; day: number }>(async (req) => {
+  const hostId = requireHost(req.auth)
+  const { gameId } = req.data
+  const day = Number(req.data.day)
+  if (!Number.isInteger(day) || day < 1) throw new HttpsError('invalid-argument', '날이 이상하다.')
+  const [gameSnap, snaps] = await Promise.all([gameRef(gameId).get(), missionSnapsOf(gameId).where('day', '==', day).get()])
+  if (!gameSnap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  if (snaps.empty) throw new HttpsError('failed-precondition', '그날 판정이 아직 없다.')
+  const game = gameSnap.data() as GameDoc
+  const byId = new Map(snaps.docs.map((d) => [(d.data() as MissionSnapDoc).playerId, d.data() as MissionSnapDoc]))
+  // 자리 순서대로. 판정이 없는 사람(중간에 빠진 자리)은 안 싣는다
+  const rows = game.seats
+    .filter((s) => byId.has(s.playerId))
+    .map((s) => {
+      const snap = byId.get(s.playerId) as MissionSnapDoc
+      return { playerId: s.playerId, met: (snap.override?.status ?? snap.view.status) === 'met' }
+    })
+  const atMs = Date.now()
+  const board: MissionBoard = { day, final: snaps.docs.some((d) => (d.data() as MissionSnapDoc).final), atMs, rows }
+  const batch = db.batch()
+  batch.update(gameRef(gameId), { [`missionBoards.d${day}`]: board })
+  batch.create(missionLogOf(gameId).doc(), { kind: 'board', day, playerIds: rows.map((r) => r.playerId), byId: hostId, atMs } satisfies MissionLogDoc)
+  await batch.commit()
+  return { ok: true, day, met: rows.filter((r) => r.met).length, failed: rows.filter((r) => !r.met).length }
 })
 
 /** 본인이 팝업을 닫았다. 다음에 앱을 열어도 다시 안 뜬다 */

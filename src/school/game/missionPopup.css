@@ -202,3 +202,37 @@
   .sc-jd__frame,
   .sc-jd__in { animation: none !important; }
 }
+
+/* ── 모두에게 알린 결과(MissionBoard.tsx) ─────────────────────────
+   같은 종이에 열넷을 한 줄씩 — 완장 색 · 이름 · 성공/실패. 역할은 없다 */
+.sc-bd__title {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-body);
+  font-weight: 400;
+  color: var(--ink);
+}
+.sc-bd__sum { margin: 0 0 var(--sp-2); font-size: var(--fs-pixel); color: var(--ink-2); }
+.sc-bd__rows {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2) 0 0;
+  border-top: 1px dashed var(--ink-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sc-bd__rows li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-pixel);
+  line-height: 14px;
+}
+.sc-bd__rows li.is-me .sc-bd__name { text-decoration: underline; text-underline-offset: 3px; }
+.sc-bd__band { width: 8px; height: 8px; }
+.sc-bd__name { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-bd__rows b { font-weight: 400; white-space: nowrap; }
+.sc-bd__rows b.is-met { color: var(--ink); }
+.sc-bd__rows b.is-failed { color: var(--danger); }
+.sc-bd__note { margin: var(--sp-2) 0 0; font-size: var(--fs-pixel); color: var(--ink-3); }

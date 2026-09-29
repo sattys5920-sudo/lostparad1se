@@ -385,6 +385,8 @@ export function gameActions(gameId: string) {
     /** 그날 판정을 보낸다. playerIds 를 안 주면 전부 */
     hostMissionSend: (day: number, playerIds?: string[]) =>
       callServer('hostMissionSend', { ...g, day, ...(playerIds ? { playerIds } : {}) }),
+    /** 그날 결과를 모두에게 — 이름과 성공/실패만 */
+    hostMissionBoard: (day: number) => callServer('hostMissionBoard', { ...g, day }),
     /** 짝사랑의 오늘 대상 — 후보와 지금 값 */
     hostCrushTarget: () => callServer('hostCrushTarget', g),
     /** 짝사랑의 오늘 대상을 정한다. targetId 를 안 주면 거둔다 */

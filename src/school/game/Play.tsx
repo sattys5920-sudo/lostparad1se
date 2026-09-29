@@ -120,7 +120,8 @@ import type { Dir } from '../map/sprites'
 import './controls.css'
 import { Around } from './People'
 import { Me, PastVerdicts } from './Me'
-import { MissionMailbox } from './MissionPopup'
+import { MissionMailbox, unseenMails } from './MissionPopup'
+import { BoardMailbox } from './MissionBoard'
 import { NotifyBanner } from './notify/NotifyBanner'
 import type { NotifyLink } from '../../../shared/notify/notifyData'
 import { Dealt, dealtSeen, markDealtSeen } from './Dealt'
@@ -608,13 +609,14 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
           <LiveRetro gameId={gameId} />
         ) : endTab === 'verdicts' ? (
           <div className="sc-pl__verdicts">
-            <PastVerdicts inbox={state.inbox} />
+            <PastVerdicts inbox={state.inbox} boards={game.missionBoards} seats={game.seats} meId={myUid ?? ''} />
           </div>
         ) : (
           <LiveEnding gameId={gameId} />
         )}
         {/* 마지막 날 판정은 판이 끝난 뒤에 온다. 엔딩 위에도 뜬다 */}
         <MissionMailbox inbox={state.inbox} act={gameActions(gameId)} />
+        <BoardMailbox gameId={gameId} boards={game.missionBoards} seats={game.seats} meId={myUid ?? ''} waiting={unseenMails(state.inbox).length > 0} />
         <nav className="sc-pl__tabbar">
           <button className={endTab === 'ending' ? 'is-on' : ''} onClick={() => setEndTab('ending')}>엔딩</button>
           <button className={endTab === 'retro' ? 'is-on' : ''} onClick={() => setEndTab('retro')}>회고</button>
@@ -1737,6 +1739,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         {tab === 'me' && (
         <Me
           me={me}
+          boards={game.missionBoards}
           day={game.day}
           look={look}
           view={state.view}
@@ -2342,6 +2345,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {/* 판정 팝업. 운영자가 보낸 날 중 아직 안 닫은 것이 있으면 어느
           탭에서든 뜬다 — 오래된 날부터 한 장씩 */}
       <MissionMailbox inbox={state.inbox} act={act} />
+      {/* 모두에게 알린 결과. 내 종이를 다 닫은 뒤에 뜬다 */}
+      <BoardMailbox gameId={gameId} boards={game.missionBoards} seats={game.seats} meId={me.playerId} waiting={unseenMails(state.inbox).length > 0} />
       {/* 앱 안 알림 배너. 무엇을 띄울지는 서버가 이미 골랐다 */}
       <NotifyBanner notes={state.inbox?.notes} onGo={goLink} />
     </div>
