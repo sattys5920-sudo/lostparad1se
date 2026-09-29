@@ -331,6 +331,7 @@ async function main() {
   check(onMap.length === 1, '**맵 바닥에 종이가 그려진다** — 칸이 붙어 온다', `${onMap.length}장`)
   const at = { x: num(onMap[0]?.x), y: num(onMap[0]?.y) }
   check(Math.max(Math.abs(at.x - mine.x), Math.abs(at.y - mine.y)) === 1, '놓은 사람 발밑 옆 칸이다', `나 ${mine.x},${mine.y} · 종이 ${at.x},${at.y}`)
+  check(str(onMap[0]?.kind) === 'memo', '**운영자 메모와 같은 그림**(봉인 없는 메모)으로 그려진다', String(str(onMap[0]?.kind)))
   check(arr(v1.slipsHere).length === 0, '방에 들어왔다고 「몇 장 있다」가 따로 오지 않는다')
   const floor = onMap
   /*

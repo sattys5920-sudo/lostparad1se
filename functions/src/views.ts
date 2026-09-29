@@ -24,6 +24,7 @@ import { releasedDays } from '../../shared/reveal/release'
 import { purseOf } from '../../shared/rules/resources'
 import { fillSubject } from '../../shared/reveal/slips'
 import type { SlipDoc } from './slips'
+import { dropCellsIn } from '../../shared/rules/quiz'
 import { SLIP_NOTE_BY_ID } from './story/slipNotes'
 import { canonRoleId } from '../../shared/missions/roleNames'
 import type { QuizDoc, QuizPaperDoc } from './quiz'
@@ -235,9 +236,12 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         // 끼워진 문장만 투영으로 가고, 그것도 읽은 사람 몫에만 실린다
         line: s2.noteId ? fillSubject(SLIP_NOTE_BY_ID[s2.noteId]?.text ?? '', who) : s2.text ? fillSubject(s2.text, who) : '',
         tileId: s2.tileId ?? null,
-        // 칸에 놓인 것. 주우면 비워진다
-        x: typeof s2.x === 'number' ? s2.x : null,
-        y: typeof s2.y === 'number' ? s2.y : null,
+        // 칸에 놓인 것. 주우면 비워진다. 칸 없이 방 바닥에만 놓였던 옛 종이는
+        // 그 방 안 한 칸에 그린다(legacyCell) — 줍기는 그 방에 서 있으면 된다
+        ...(typeof s2.x === 'number' && typeof s2.y === 'number'
+          ? { x: s2.x, y: s2.y }
+          : legacyCell(d.id, s2)),
+        memo: !s2.noteId,
         heldBy: s2.heldBy ?? null,
         readBy: s2.readBy ?? [],
         // 찢긴 조각. 붙일 수 있는 사람이 그 방에 와야 다시 종이가 된다
@@ -295,4 +299,23 @@ export async function refreshViews(gameId: string): Promise<number> {
   }
   await batch.commit()
   return Object.keys(views).length
+}
+
+/**
+ * **칸 없이 방 바닥에만 놓였던 옛 종이의 자리.**
+ *
+ * 전에는 운영자 메모와 빈 종이가 방에만 놓이고 칸이 없었다 — 맵에 안
+ * 그려지고, 가진 것 목록의 「바닥에 몇 장」으로만 주웠다. 그 목록을
+ * 없앴으니 옛 종이도 맵에 보여야 주울 수 있다. 문서를 고쳐 쓰지 않고
+ * 아이디로 그 방의 한 칸을 정해 그린다 — 늘 같은 칸이다. 줍는 쪽(takeSlip)은
+ * 칸 없는 종이를 「그 방에 서 있으면」으로 받으므로 그대로 주워진다.
+ */
+function legacyCell(id: string, s: SlipDoc): { x: number | null; y: number | null } {
+  if (s.heldBy || s.tornBy || !s.tileId) return { x: null, y: null }
+  const cells = dropCellsIn(s.tileId)
+  if (cells.length === 0) return { x: null, y: null }
+  let h = 0
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  const c = cells[h % cells.length]
+  return { x: c.x, y: c.y }
 }

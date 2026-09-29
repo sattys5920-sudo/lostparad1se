@@ -18,7 +18,8 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { TILE_BY_ID, roomOfCell, type TileId } from '../../shared/rules/board'
-import { canDropQuizAt } from '../../shared/rules/quiz'
+import { canDropQuizAt, freeDropCell } from '../../shared/rules/quiz'
+import { takenCells } from './notes'
 import { SLIP_TEXT_MAX } from '../../shared/reveal/slips'
 import { CHAT_MAX } from './chat'
 import { gameRef, nowOf, requireUid } from './index'
@@ -77,6 +78,11 @@ export const hostDrop = onCall<DropInput>(async (req) => {
     if (text.length === 0) throw new HttpsError('invalid-argument', '적을 말이 없다.')
     if (text.length > MEMO_MAX) throw new HttpsError('invalid-argument', `${MEMO_MAX}자까지 쓸 수 있다.`)
 
+    // **방 안 빈 칸 하나에 놓는다.** 맵 바닥에 봉인 없는 쪽지로 그려지고,
+    // 그 옆에 서서 짚어야 줍는다. 칸 없이 방에만 두면 맵에 안 보인다
+    const cell = freeDropCell(tileId, await takenCells(gameId))
+    if (!cell) throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name}에는 빈 칸이 없다.`)
+
     /*
      * 운영자가 쓴 메모는 **누구의 비밀도 아니다.**
      *
@@ -88,7 +94,9 @@ export const hostDrop = onCall<DropInput>(async (req) => {
       textId: '',
       text,
       subjectId: '',
-      tileId,
+      tileId: null,
+      x: cell.x,
+      y: cell.y,
       heldBy: null,
       readBy: [],
       tornBy: null,

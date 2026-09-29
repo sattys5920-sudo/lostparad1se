@@ -118,8 +118,11 @@ async function main() {
   check(put.where === '2-3 교실', '고른 방에 놓았다고 알려 준다', String(put.where))
 
   const v1 = await viewOf(game, meUid)
-  const floor = arr(v1.slipsHere)
-  check(floor.length === 1, '그 방에 선 사람에게 한 장이 보인다', `${floor.length}장`)
+  const floor = arr(v1.slipPapers)
+  check(floor.length === 1, '**맵 바닥에 한 장이 그려진다** — 방 안 한 칸에 놓였다', `${floor.length}장`)
+  check(str(floor[0]?.kind) === 'memo', '봉인 없는 메모로 그려진다(비밀 쪽지와 다른 그림)', String(str(floor[0]?.kind)))
+  check(arr(v1.slipsHere).length === 0, '방에 들어왔다고 「몇 장 있다」가 따로 오지 않는다')
+  const memoAt = { x: Number((floor[0]?.x as { integerValue?: string })?.integerValue), y: Number((floor[0]?.y as { integerValue?: string })?.integerValue) }
   /*
    * **글이 한 자도 안 와야 한다.**
    *
@@ -138,12 +141,22 @@ async function main() {
   else {
     await must('tick', host, { gameId: game })
     const v2 = await viewOf(game, uidOf(other))
-    check(arr(v2.slipsHere).length === 0, '안 놓은 방에서는 한 장도 안 보인다')
+    check(arr(v2.slipPapers).length === 0 && arr(v2.slipsHere).length === 0, '안 놓은 방에서는 한 장도 안 보인다')
   }
 
   console.log('\n── 주워서 읽는다 ──')
   const slipId = str(floor[0]?.id)
   check(slipId !== null, '종이에 아이디가 있다')
+  // 옆 칸에 서야 줍는다 — 맵에서 짚는 것과 같다
+  // 가구 칸이나 남이 선 칸이면 서버가 안 세운다(ok: false) — 설 수 있는 칸을 찾을 때까지
+  let stood = false
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    const c = { x: memoAt.x + dx, y: memoAt.y + dy }
+    if (!canDropQuizAt(c.x, c.y)) continue
+    const r = await call('standAt', meTok, { gameId: game, x: c.x, y: c.y })
+    if (r.ok && (r.result as { ok?: boolean } | undefined)?.ok !== false) { stood = true; break }
+  }
+  check(stood, '메모 옆 칸에 섰다')
   await must('takeSlip', meTok, { gameId: game, slipId: slipId as string })
   const v3 = await viewOf(game, meUid)
   const held = arr(v3.mySlips)

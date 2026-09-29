@@ -182,8 +182,9 @@ async function main(): Promise<void> {
   check(near, '쪽지 옆에 섰다')
   await must('tick', host, { gameId: GAME })
   const v0 = await viewOf(reader.uid)
-  const papers = (v0.slipPapers as { id: string }[]) ?? []
+  const papers = (v0.slipPapers as { id: string; kind?: string }[]) ?? []
   check(papers.some((p) => p.id === n1.slipId), '그 방에 선 사람에게 한 장이 보인다')
+  check(papers.find((p) => p.id === n1.slipId)?.kind === 'slip', '비밀 쪽지는 봉인한 그림 그대로다(메모와 다르다)')
   const tmpl = (SLIP_NOTES.find((x) => x.id === N1) as { text: string }).text
   const filled = fillSubject(tmpl, owner.name)
   check(!JSON.stringify(v0).includes(filled) && !JSON.stringify(v0).includes(tmpl), '**문안은 안 온다**')

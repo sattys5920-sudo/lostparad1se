@@ -771,7 +771,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const floorPapers = useMemo(
     () => [
       ...(state.view?.quizzesHere ?? []).map((q) => ({ x: q.x, y: q.y, kind: 'quiz' as const })),
-      ...(state.view?.slipPapers ?? []).map((q) => ({ x: q.x, y: q.y, kind: 'slip' as const })),
+      // 비밀 쪽지는 봉인한 그림, 메모(운영자 메모 · 빈 종이)는 봉인 없는 그림이다
+      ...(state.view?.slipPapers ?? []).map((q) => ({ x: q.x, y: q.y, kind: q.kind === 'memo' ? ('memo' as const) : ('slip' as const) })),
     ],
     [state.view?.quizzesHere, state.view?.slipPapers],
   )

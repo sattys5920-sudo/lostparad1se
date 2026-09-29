@@ -602,7 +602,7 @@ export interface PlayerViewDoc {
    *
    * 누구의 비밀인지도, 무엇이 적혔는지도 안 온다. 주워서 읽어야 안다.
    */
-  slipPapers?: { id: string; x: number; y: number }[]
+  slipPapers?: { id: string; x: number; y: number; kind?: 'slip' | 'memo' }[]
   /**
    * 내가 주워 든 문제. **나에게만 온다.**
    *

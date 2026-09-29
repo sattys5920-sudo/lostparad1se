@@ -106,9 +106,14 @@ export interface WorldSlip {
   subjectId: string
   line: string
   tileId: TileId | null
-  /** 칸에 놓인 것(운영자가 짚어 놓은 비밀 쪽지). 방 바닥의 것은 비어 있다. */
+  /** 칸에 놓인 것. 주워 든 것은 비어 있다. */
   x?: number | null
   y?: number | null
+  /**
+   * 주인 없는 종이인가 — 운영자 메모와 손으로 쓴 빈 종이. 맵에서 봉인
+   * 없는 쪽지로 그려진다. 운영자가 놓은 비밀 쪽지(56장)는 false 다.
+   */
+  memo?: boolean
   heldBy: string | null
   readBy: readonly string[]
   /** 찢겼으면 찢긴 방. 조각은 그 자리에 남는다(테이프로 붙인다). */
@@ -517,7 +522,7 @@ export interface View {
    * 누구의 비밀인지도, 무엇이 적혔는지도 안 온다. 맵이 이걸로 바닥에
    * 접힌 쪽지를 그리고, 옆에 서서 탭하면 줍는다(takeSlip).
    */
-  slipPapers: { id: string; x: number; y: number }[]
+  slipPapers: { id: string; x: number; y: number; kind: 'slip' | 'memo' }[]
   /**
    * 내가 주워 든 문제. **나에게만 온다.**
    *
@@ -921,7 +926,7 @@ export function projectView(world: World, viewerId: string): View {
         (s): s is typeof s & { x: number; y: number } =>
           s.heldBy === null && s.torn !== true && typeof s.x === 'number' && typeof s.y === 'number' && seesCell(s.x, s.y),
       )
-      .map((s) => ({ id: s.id, x: s.x, y: s.y })),
+      .map((s) => ({ id: s.id, x: s.x, y: s.y, kind: s.memo === true ? ('memo' as const) : ('slip' as const) })),
     /*
      * **내가 든 것만 문장이 온다.**
      *
