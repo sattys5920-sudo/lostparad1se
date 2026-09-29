@@ -30,6 +30,11 @@ export interface AroundProps {
   chosenId: string | null
   /** 지금 나와 같은 자리에 서 있는 사람들. */
   hereIds: readonly string[]
+  /**
+   * 그중 **바로 옆 칸**인 사람들. 표는 거래와 같은 기준이라 같은
+   * 방이라는 것만으로는 모자라다 — 이 목록에 없으면 표를 못 준다.
+   */
+  nearIds: ReadonlySet<string>
   /** 내가 선 방 이름. 걷는 중이면 null. */
   hereName: string | null
   act: GameActions
@@ -85,8 +90,13 @@ export function Around(props: AroundProps) {
             </button>
             {picked === s.playerId && (
               <div className="sc-pe__acts">
+                {!props.nearIds.has(s.playerId) && <p className="sc-pe__far">바로 옆 칸이어야 표를 줄 수 있다.</p>}
                 {VOTES.map((k) => (
-                  <button key={k} disabled={busy} onClick={() => run(VOTE_LABEL[k], () => act.castVote(s.playerId, k))}>
+                  <button
+                    key={k}
+                    disabled={busy || !props.nearIds.has(s.playerId)}
+                    onClick={() => run(VOTE_LABEL[k], () => act.castVote(s.playerId, k))}
+                  >
                     {VOTE_LABEL[k]}
                   </button>
                 ))}

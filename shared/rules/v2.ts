@@ -198,9 +198,6 @@ export const VOTE_LABEL: Record<VoteKind, string> = {
  * 「모두의 신뢰」 같은 목표를 판정한다. 표는 점수로 가지 금고로 가지 않는다.
  */
 
-/** 표를 줄 수 있는 시간. */
-export const VOTE_OPEN_HOUR = DAY_START_HOUR
-export const VOTE_CLOSE_HOUR = SETTLEMENT_HOUR
 /** 하루에 한 사람이 줄 수 있는 표. */
 export const VOTE_PER_PLAYER_DAILY = 1
 
@@ -273,14 +270,6 @@ export const CHOSEN_ONE_DAY = 3
 export const DAY4_CHOICE_DAY = 4
 
 // ── 투명인간 (눈이 그치지 않는 학교 ①) ─────────────────────────
-
-/**
- * 이만큼 받아야 투명인간이 된다.
- *
- * 한 장이면 된다 — 대신 **동률이면 아무도 안 된다.** 누군가를 지우려면
- * 여러 사람이 같은 이름을 적어야 한다는 것은 그쪽 규칙이 맡는다.
- */
-export const INVISIBLE_MIN_VOTES = 1
 
 /**
  * 투명인간이 나온 팀이 그날 팀 전체로 더 받는 토큰.

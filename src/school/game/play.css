@@ -1281,6 +1281,7 @@ p.sc-cv { display: block; }
 .sc-pe h2 { display: flex; gap: var(--sp-2); align-items: baseline; }
 .sc-pe h2 span { font-size: var(--fs-cap); color: var(--sc-text-dim); font-weight: 400; }
 .sc-pe__none { margin: 0; font-size: var(--fs-label); color: var(--sc-text-dim); text-wrap: pretty; }
+.sc-pe__far { margin: 0 0 var(--sp-2); font-size: var(--fs-cap); color: var(--sc-text-dim); }
 
 /* 한 화면. 탭이 없다 */
 .sc-pl__where {

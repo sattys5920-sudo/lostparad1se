@@ -407,7 +407,7 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
   }
   for (const d of ballotDays.docs) {
     const b = d.data() as BallotDayDoc
-    const REASON: Record<string, string> = { picked: '지워짐', tooFew: '표 모자람', tie: '동률', repeat: '이틀 연속 금지' }
+    const REASON: Record<string, string> = { picked: '지워짐', none: '표 없음', tie: '동률', repeat: '이틀 연속 금지' }
     push({
       id: `bd:${d.id}`,
       atMs: b.atMs,

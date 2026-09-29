@@ -21,16 +21,12 @@ describe('던질 수 있는가', () => {
     voterTeam: 'A' as TeamId,
     targetId: 'b1',
     targetTeam: 'B' as TeamId,
-    atMs: seoul('2026-03-02T10:00:00'),
     votedToday: false,
   }
 
-  // 하루가 자정에 열리니 표도 자정부터 받는다
-  it('자정부터 21:00까지다', () => {
-    expect(canCast({ ...base, atMs: seoul('2026-03-02T00:00:00') }).ok).toBe(true)
-    expect(canCast({ ...base, atMs: seoul('2026-03-02T07:59:59') }).ok).toBe(true)
-    expect(canCast({ ...base, atMs: seoul('2026-03-02T20:59:59') }).ok).toBe(true)
-    expect(canCast({ ...base, atMs: seoul('2026-03-02T21:00:00') }).reason).toBe('closed')
+  // 시간 제한은 없다 — 갱신만 자정 기준이다(catchup.ts)
+  it('하루 종일 던질 수 있다', () => {
+    expect(canCast(base).ok).toBe(true)
   })
 
   // 남의 팀에만 줄 수 있던 때가 있었다. 표를 팀 사이의 외교로 본

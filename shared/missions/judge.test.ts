@@ -425,8 +425,8 @@ describe('뒷자리 — 내가 적은 이름이 그날 투명인간이 되면', 
     expect(m.met).toBe(false)
   })
 
-  it('아무도 안 지워진 날(사람이 모자라다)도 적중이 아니다', () => {
-    const m = mainOf('backseat', { ballots: [ballot('b1')], ballotDays: day(null, 'tooFew') })
+  it('아무도 안 지워진 날(표가 하나도 없었다)도 적중이 아니다', () => {
+    const m = mainOf('backseat', { ballots: [ballot('b1')], ballotDays: day(null, 'none') })
     expect(m.met).toBe(false)
   })
 

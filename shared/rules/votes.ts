@@ -6,14 +6,7 @@
 //
 // 표는 익명이다. 보낸 사람은 secret/에만 있고, 정산 때 팀 합계만 나간다.
 // **여기에는 「누가 줬는지」를 돌려주는 함수가 없다.**
-import {
-  TEAM_IDS,
-  VOTE_CLOSE_HOUR,
-  VOTE_OPEN_HOUR,
-  type TeamId,
-  type VoteKind,
-} from './v2'
-import { secondsIntoSeoulDay } from './clock'
+import { TEAM_IDS, type TeamId, type VoteKind } from './v2'
 
 /** 표 한 장. 이 모양 그대로는 클라이언트에 가지 않는다. */
 export interface Vote {
@@ -30,20 +23,22 @@ export interface Vote {
   atMs: number
 }
 
-export type VoteRefusal = 'self' | 'alreadyToday' | 'closed'
+export type VoteRefusal = 'self' | 'alreadyToday'
 
 export interface CastInput {
   voterId: string
   voterTeam: TeamId
   targetId: string
   targetTeam: TeamId
-  atMs: number
   /** 오늘 이미 던졌는가. */
   votedToday: boolean
 }
 
 /**
- * 던질 수 있는가. 하루 한 장, 08:00~21:00.
+ * 던질 수 있는가. 하루 한 장, 시간 제한은 없다.
+ *
+ * **하루 종일 던질 수 있다.** 갱신은 자정 기준으로만 돈다(catchup.ts의
+ * dayStart) — 언제 던졌든 하루에 한 장이라는 값만 지킨다.
  *
  * **우리 팀에도 준다.** 남의 팀에만 줄 수 있던 때가 있었다. 표를
  * 팀 사이의 외교로 본 것인데, 표는 그런 것이 아니다 — 닷새를 같이
@@ -53,8 +48,6 @@ export interface CastInput {
  * 나에게는 여전히 못 준다. 그건 건네는 것이 아니다.
  */
 export function canCast(input: CastInput): { ok: boolean; reason: VoteRefusal | null } {
-  const s = secondsIntoSeoulDay(input.atMs)
-  if (s < VOTE_OPEN_HOUR * 3600 || s >= VOTE_CLOSE_HOUR * 3600) return { ok: false, reason: 'closed' }
   if (input.voterId === input.targetId) return { ok: false, reason: 'self' }
   if (input.votedToday) return { ok: false, reason: 'alreadyToday' }
   return { ok: true, reason: null }

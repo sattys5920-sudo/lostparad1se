@@ -52,14 +52,14 @@ export interface BallotDoc {
  *
  * 세는 일은 늘 있었는데 결과가 어디에도 안 남았다. 게임 문서의
  * invisibleByDay 는 「누가 지워졌나」만 알려 주고 null 하나에
- * 동률·표 부족·이틀 연속 금지가 다 뭉쳐 있다. 뒷자리는 **동률로
+ * 동률·표 없음·이틀 연속 금지가 다 뭉쳐 있다. 뒷자리는 **동률로
  * 무효가 된 날을 안 세야** 하므로 셋을 갈라 둔다.
  */
 export interface BallotDayDoc {
   day: number
   /** 지워진 사람. 아무도 안 지워졌으면 null. */
   invisibleId: string | null
-  /** picked · tooFew · tie · repeat */
+  /** picked · none · tie · repeat */
   reason: string
   atMs: number
 }
@@ -196,7 +196,7 @@ export async function settleBallots(
   /*
    * **그날의 결과를 한 장 남긴다.**
    *
-   * 전에는 이 사유(picked · tooFew · tie · repeat)가 돌려주는 값으로만
+   * 전에는 이 사유(picked · none · tie · repeat)가 돌려주는 값으로만
    * 있다가 부르는 쪽에서 버려졌다. 게임 문서에는 「누가 지워졌나」만
    * 남고, 아무도 안 지워진 날은 이유가 뭉개졌다.
    *

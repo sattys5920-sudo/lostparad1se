@@ -24,7 +24,7 @@ const db = getFirestore()
 // 표는 호의뿐이다. 배제는 투명인간 투표가 따로 맡는다(ballot.ts)
 const VOTE_KINDS: VoteKind[] = ['trust', 'liking']
 
-/** 하루 한 장. 같은 팀에는 못 준다. 자정~21:00. */
+/** 하루 한 장. 시간 제한은 없다 — 갱신만 자정 기준이다. */
 export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKind }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, kind } = req.data
@@ -53,12 +53,10 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
     voterTeam: me.team,
     targetId,
     targetTeam: you.team,
-    atMs: nowMs,
     votedToday: me.votedToday,
   })
   if (!out.ok) {
     const why: Record<string, string> = {
-      closed: '지금은 표를 던질 수 없다.',
       self: '자기에게는 못 준다.',
       alreadyToday: '오늘은 이미 던졌다.',
     }

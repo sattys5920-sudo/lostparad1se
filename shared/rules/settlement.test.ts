@@ -37,7 +37,7 @@ describe('하루 정산', () => {
   it('아무도 안 적으면 아무도 아니다', () => {
     const out = settleDay({ ...base, ballots: [] })
     expect(out.invisible.playerId).toBe(null)
-    expect(out.invisible.reason).toBe('tooFew')
+    expect(out.invisible.reason).toBe('none')
   })
 
   it('어제 그 사람이면 넘어간다', () => {

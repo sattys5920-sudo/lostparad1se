@@ -1001,6 +1001,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const nextTo = person
     ? cellsTouch(myAt, state.view?.visiblePawns.find((p) => p.playerId === person.id)?.at ?? null)
     : false
+  // 표도 거래와 같은 기준이다 — 수첩 탭의 「여기 있는 사람」은 방
+  // 전체를 보여 주지만, 표를 줄 수 있는 것은 그중 옆 칸뿐이다
+  const nearIds = new Set(hereNow.filter((p) => cellsTouch(myAt, p.at)).map((p) => p.playerId))
 
   /** 짚은 사람의 팀. 안 보이면 null 이다. */
   const personTeam = (hereNow.find((p) => p.playerId === person?.id)?.team ?? null) as TeamId | null
@@ -1880,6 +1883,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           seats={game.seats}
           day={game.day}
           hereIds={hereIds}
+          nearIds={nearIds}
           hereName={placeName(standingOn, myCell)}
           invisibleId={game.invisibleId}
           chosenId={state.view?.myChoice?.chosenId ?? null}
@@ -2018,14 +2022,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               },
             },
             /*
-              표. **같은 방이면 된다** — 거래처럼 옆 칸까지 갈 것은
-              없다. 하루 한 장이고, 우리 팀에도 준다. 서버가 같은
-              것을 본다(canCast). 막힐 일이 없으니 까닭 줄도 없다
+              표. **거래와 같은 기준 — 바로 옆 칸이라야 한다.** 같은
+              방만으로는 모자라다(캐릭터끼리 안 겹치게 자리를 잡으니
+              정확히 같은 칸일 수도 없다). 하루 한 장이고, 우리 팀에도
+              준다. 서버도 같은 것을 본다(vote.ts 의 cellsTouch)
             */
             ...MEET_VOTES.map((k) => ({
               key: k,
               label: `${VOTE_LABEL[k]} 주기`,
               tone: 'vote' as const,
+              why: !nextTo ? '바로 옆 칸에 서야 한다' : null,
               onPick: () => {
                 const who = person.id
                 setPerson(null)

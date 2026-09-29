@@ -5,7 +5,6 @@
 // 그러면 이 게임이 하려는 말이 사라진다.
 import { describe, expect, it } from 'vitest'
 import { INVISIBLE_CAN, INVISIBLE_CANNOT, canName, chatReaches, countBallots, eraseFrom, isInvisible, pickInvisible } from './invisible'
-import { INVISIBLE_MIN_VOTES } from './v2'
 
 const counts = (o: Record<string, number>) =>
   Object.entries(o).map(([playerId, count]) => ({ playerId, count }))
@@ -17,9 +16,8 @@ describe('내일의 투명인간', () => {
   })
 
   it('한 장만 받아도 최다면 지워진다', () => {
-    // 최소선은 한 장이다. 「여러 사람이 같은 이름을 적어야 한다」는
+    // 최소 득표는 없다. 「여러 사람이 같은 이름을 적어야 한다」는
     // 최소선이 아니라 **동률 무효**가 맡는다
-    expect(INVISIBLE_MIN_VOTES).toBe(1)
     expect(pickInvisible({ counts: counts({ a: 1 }) }).playerId).toBe('a')
   })
 

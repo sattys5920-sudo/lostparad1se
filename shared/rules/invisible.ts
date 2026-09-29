@@ -14,7 +14,7 @@
 // 이 파일은 「누가 지워지는가」와 「지워진 사람이 무엇을 못 하는가」만
 // 답한다. 위치를 감추는 일은 fog.ts가 한다 — 투명인간은 안개보다 **먼저**
 // 걸러서, 다른 사람에게는 위치 데이터 자체를 보내지 않는다.
-import { INVISIBLE_MIN_VOTES, INVISIBLE_NO_REPEAT } from './v2'
+import { INVISIBLE_NO_REPEAT } from './v2'
 
 /** 던진 표 한 장. 누가 누구를 적었는지는 **서버 밖으로 안 나간다.** */
 export interface Ballot {
@@ -81,19 +81,25 @@ export interface PickInput {
 export interface PickResult {
   /** 다음 날 지워지는 사람. 아무도 아니면 null. */
   playerId: string | null
-  reason: 'picked' | 'tooFew' | 'tie' | 'repeat'
+  reason: 'picked' | 'none' | 'tie' | 'repeat'
 }
 
 /**
  * 그날 마지막 페이즈가 닫힐 때. 내일의 투명인간을 고른다.
+ *
+ * **최소 득표는 없다.** 한 장이라도 적히면 된다 — 대신 최다가 둘
+ * 이상이면 아무도 안 된다. 누군가를 지우려면 여러 사람이 같은
+ * 이름을 적어야 한다는 것은 동률 규칙이 맡는다.
  *
  *   한 장도 없으면 아무도 아니다
  *   최다가 둘 이상이면 아무도 아니다 — 갈린 표는 사람을 지우지 못한다
  *   어제 그 사람이면 아무도 아니다
  */
 export function pickInvisible(input: PickInput): PickResult {
-  const live = input.counts.filter((c) => c.count >= INVISIBLE_MIN_VOTES)
-  if (live.length === 0) return { playerId: null, reason: 'tooFew' }
+  // 0표인 사람은 표를 받은 사람이 아니다 — 「최소 득표」가 아니라
+  // 「받았다」의 정의일 뿐이다. 최소선을 두는 것과는 다르다
+  const live = input.counts.filter((c) => c.count > 0)
+  if (live.length === 0) return { playerId: null, reason: 'none' }
 
   const top = Math.max(...live.map((c) => c.count))
   const leaders = live.filter((c) => c.count === top)
