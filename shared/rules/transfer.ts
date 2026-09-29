@@ -5,9 +5,10 @@
 // 바뀌는데, 이미 서 있는 자리로 겨루는 중에 편이 바뀌면 판정이 아니라
 // 사고다.
 //
-// **수락해도 그 자리에서 넘어가지는 않는다.** 다음 페이즈가 열릴 때
-// 발효된다. 그래서 합의한 다음 자유 시간 내내 「이미 넘어가기로 한
-// 사람」이 옛 팀 곁에 남아 있다 — 이 시간이 이 규칙의 전부다.
+// **수락하면 그 자리에서 넘어간다.** 완장과 팀 소속이 즉시 바뀐다 —
+// 팀 토큰 상자는 인원을 안 보고 팀마다 똑같이 지급되니 이적으로
+// 다시 셈할 것이 없고, 팀장도 이제 없으니 자리를 물려줄 것도 없다.
+// 그래서 다음 페이즈를 기다릴 기술적인 까닭이 없다.
 //
 // 순위 조건은 없다. 어느 팀이든 누구에게든 꺼낼 수 있다.
 import type { TeamId } from './v2'
@@ -42,7 +43,6 @@ export type TransferNo =
   | 'walking'
   | 'far'
   | 'asking'
-  | 'pending'
   | 'lastOne'
 
 export const TRANSFER_NO: Record<TransferNo, string> = {
@@ -53,7 +53,6 @@ export const TRANSFER_NO: Record<TransferNo, string> = {
   walking: '둘 다 멈춰 서야 한다',
   far: '바로 옆 칸에 서야 한다 — 한 걸음 더 다가간다',
   asking: '이미 묻고 있는 중이다',
-  pending: '이미 옮기기로 한 사람이다',
   lastOne: '그 팀에 마지막 한 사람이다',
 }
 
@@ -71,14 +70,6 @@ export interface TransferAsk {
   nextTo: boolean
   /** 둘 중 누구든 이미 묻고 있는 제안이 있는가. */
   asking: boolean
-  /**
-   * 옮길 사람에게 이미 걸린 이적이 있는가.
-   *
-   * **화면은 모른다.** 남의 pawn 은 안 보내므로, 화면은 undefined 를
-   * 넣고 서버가 보게 둔다 — 여기서 거짓으로 채우면 될 리 없는 단추가
-   * 켜져 있는 것보다 나쁜, 될 것이 꺼져 있는 화면이 된다.
-   */
-  movingTo?: TeamId | null
   /** 옮길 사람이 떠날 팀의 지금 인원. 화면은 안개 때문에 모른다. */
   fromTeamSize?: number
 }
@@ -99,7 +90,6 @@ export function whyNotTransfer(a: TransferAsk): TransferNo | null {
   if (!a.bothStanding) return 'walking'
   if (!a.nextTo) return 'far'
   if (a.asking) return 'asking'
-  if (a.movingTo != null) return 'pending'
   // **팀이 비면 안 된다.** 사람 없는 팀이 쥔 방은 아무도 뺏으러 오지
   // 않아도 그대로 남아, 아무도 안 하는 팀이 점수를 갖는다
   if (a.fromTeamSize !== undefined && a.fromTeamSize <= 1) return 'lastOne'

@@ -39,9 +39,6 @@ import { noticesFor, type Notice } from '../reveal/notice'
 // ── 서버가 쥐고 있는 것 ─────────────────────────────────────────
 
 export interface WorldPawn extends PawnPosition {
-  /** 거래를 걸 수 있는 개인 토큰. 투영이 본인 몫에만 싣는다. */
-  /** 옮기기로 한 팀. **본인 몫에만 실린다** — 남의 배신은 안 보인다. */
-  movingTo?: TeamId | null
   /** 걷는 중이면 도착 시각. 본인 몫에만 실린다. */
   arriveAtMs?: number | null
   /** 무언가 하느라 묶인 시각. 본인 몫에만 실린다. */
@@ -315,13 +312,6 @@ export interface View {
    * 남이 몇 번 더 걸 수 있는지 보이면 「저 사람은 오늘 끝났다」가
    * 계산이 된다 — 흥정은 그걸 모르는 채로 해야 한다.
    */
-  /**
-   * 다음 점령전부터 갈 팀. 합의해 둔 것이 없으면 null 이다.
-   *
-   * **본인만 본다.** 옛 팀에게도 새 팀에게도 알리지 않는다 — 발효된
-   * 뒤에 마주쳐서 완장이 바뀐 것을 보고 아는 것이 이 규칙의 전부다.
-   */
-  myMovingTo: TeamId | null
   /** **우리 팀** 금고. 남의 팀 금고는 어떤 경로로도 안 온다. */
   teamVault: { money: number; knowledge: number }
   /** 우리 팀 물건. **우리 팀 것만 간다** — 남이 몇 개 쥐었는지는 안 보낸다. */
@@ -583,7 +573,6 @@ export function projectView(world: World, viewerId: string): View {
       myBusyKind: null,
       myPost: null,
       myTeamTokens: 0,
-      myMovingTo: null,
       teamVault: { money: 0, knowledge: 0 },
       myItems: {},
       myTeamRobots: 0,
@@ -783,7 +772,6 @@ export function projectView(world: World, viewerId: string): View {
     // **우리 팀 것만이다.** 남의 상자가 보이면 언제 밀고 들어올지가
     // 읽힌다 — 그게 이 게임의 절반이다
     myTeamTokens: world.wallets?.[team] ?? 0,
-    myMovingTo: world.pawns.find((p) => p.playerId === viewerId)?.movingTo ?? null,
     // **우리 팀 금고 하나뿐이다.** 남의 팀 것은 안 간다
     teamVault: world.vaults?.[team] ?? { money: 0, knowledge: 0 },
     myItems: world.satchels?.[viewerId] ?? {},

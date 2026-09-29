@@ -103,7 +103,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       busyKind: p.busyKind ?? null,
       postTile: p.postTile ?? null,
       visitedTiles: p.visitedTiles ?? [],
-      movingTo: p.movingTo ?? null,
     }
   })
 

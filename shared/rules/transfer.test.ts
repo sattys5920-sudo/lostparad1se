@@ -13,7 +13,6 @@ const ok = (over: Partial<TransferAsk> = {}): TransferAsk => ({
   bothStanding: true,
   nextTo: true,
   asking: false,
-  movingTo: null,
   fromTeamSize: 4,
   ...over,
 })
@@ -41,9 +40,8 @@ describe('whyNotTransfer', () => {
     expect(whyNotTransfer(ok({ nextTo: false }))).toBe('far')
   })
 
-  it('이미 걸린 제안이나 이적이 있으면 못 꺼낸다', () => {
+  it('이미 걸린 제안이 있으면 못 꺼낸다', () => {
     expect(whyNotTransfer(ok({ asking: true }))).toBe('asking')
-    expect(whyNotTransfer(ok({ movingTo: 'C' }))).toBe('pending')
   })
 
   it('마지막 한 사람은 못 데려온다 — 팀이 비면 안 된다', () => {

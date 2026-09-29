@@ -154,6 +154,8 @@ interface AccountDoc {
   /** 예전 모양. 계정 문서 안에 해시가 있던 시절. */
   salt?: string
   hash?: string
+  /** 프롤로그(가입 직후 한 번 도는 연출)를 봤는가. 계정에 눌어붙는다. */
+  prologueSeen?: boolean
 }
 
 /**
@@ -312,6 +314,18 @@ export const saveCharacter = onCall<{ nickname: string; avatar: unknown }>(async
   }
   await accountRef(accountId).update({ nickname, avatar: req.data.avatar ?? null })
   return { nickname }
+})
+
+/**
+ * 프롤로그를 봤다고 표시한다. 계정에 눌어붙어서, 다음에 들어와도
+ * 다시 자동 재생되지 않는다. 설정의 「다시 보기」는 이 표시를
+ * 안 건드린다 — 다시 봤다고 처음 본 것이 취소되지 않는다.
+ */
+export const markPrologueSeen = onCall(async (req) => {
+  const accountId = req.auth?.token?.accountId as string | undefined
+  if (!accountId) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
+  await accountRef(accountId).update({ prologueSeen: true })
+  return { ok: true }
 })
 
 // ── 운영자: 가입 데이터 ─────────────────────────────────────────

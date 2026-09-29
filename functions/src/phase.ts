@@ -62,7 +62,6 @@ import {
 } from '../../shared/model'
 import { freshNow, refuseIfInvisible, requireFree } from './turn'
 import { madeOf, researchTierUp, type Brewing } from './made'
-import { roundAt } from '../../shared/rules/captain'
 import { FLAGS_PER_PHASE, spendFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
@@ -336,49 +335,11 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    * 걷는 중인 사람(tileId === null)은 걷던 대로 도착한다.
    */
 
-  /*
-   * **이적은 여기서 발효된다.**
-   *
-   * 자유 시간에 마주 서서 합의해 둔 것이 종이 치는 순간 넘어간다.
-   * 합의한 자리에서 바로 넘기지 않는 까닭은, 팀 값이 **세 군데**에
-   * 나뉘어 적혀 있어서다 — 자리표(seats)는 팀장 교대와 화면 구독이
-   * 보고, 말(pawns)은 규칙의 금고 열쇠와 머릿수가 보고, 명단(roster)은
-   * 안개와 개인 미션 채점이 본다. 셋 중 하나만 옮기면 새 팀 금고는
-   * 열리는데 시야와 채점은 옛 팀인 사람이 생긴다. 그래서 한 묶음으로
-   * 쓸 수 있는 여기서 셋을 같이 옮긴다.
-   *
-   * 공지는 없다. 마주쳐야 안다 — 완장이 바뀐 것을 보고 아는 것이지
-   * 아침에 이름이 불리는 것이 아니다.
-   */
-  const moved = pawns.docs
-    .map((d) => ({ id: d.id, ref: d.ref, p: d.data() as PawnDoc }))
-    .filter((x) => x.p.movingTo != null && x.p.movingTo !== x.p.team)
-  const teamNow = new Map<string, TeamId>(pawns.docs.map((d) => [d.id, (d.data() as PawnDoc).team]))
-  /*
-   * 두 팀 무전에만 적을 것. **밖으로는 한 줄도 안 나간다** — 공지는
-   * 없고 마주쳐야 아는 것이 규칙이다. 다만 자기 팀 머릿수가 줄고 느는
-   * 것은 그 팀이 어차피 그 자리에서 본다. 날짜가 아래에서 정해져서
-   * 여기서는 모아만 둔다.
-   */
-  const movedNotes: { from: TeamId; to: TeamId; name: string }[] = []
-  /** 기록에 남길 이적. 배치가 끝난 뒤에 적는다 */
-  const movedRows: { id: string; from: TeamId; to: TeamId }[] = []
-  for (const m of moved) {
-    const to = m.p.movingTo as TeamId
-    teamNow.set(m.id, to)
-    // 무전은 여기서부터 듣는다. 옛 팀이 아침에 짠 것은 안 따라온다
-    batch.update(m.ref, { team: to, movingTo: null, teamSinceMs: nowMs })
-    batch.update(ref.collection('secret').doc('roster').collection('items').doc(m.id), { team: to })
-    movedRows.push({ id: m.id, from: m.p.team, to })
-    const who = game.seats.find((x) => x.playerId === m.id)?.name ?? ''
-    if (who) movedNotes.push({ from: m.p.team, to, name: who })
-  }
-  const seats = moved.length
-    ? game.seats.map((x) => ({ ...x, team: teamNow.get(x.playerId) ?? x.team }))
-    : game.seats
+  // **이적은 answerTransfer 에서 바로 발효된다.** 수락한 자리에서 팀·
+  // 완장이 즉시 바뀌므로, 여기서는 pawns 가 이미 지금 팀을 담고 있다.
 
   // 지금 인원. 상수를 읽지 않는다 — 이적하면 4·4·3·3이 아니다
-  const sizes = teamSizesOf(pawns.docs.map((d) => ({ ...(d.data() as PawnDoc), team: teamNow.get(d.id) as TeamId })))
+  const sizes = teamSizesOf(pawns.docs.map((d) => d.data() as PawnDoc))
 
   /**
    * 투명인간이 나온 팀이 더 받는 몫. **상자에 통째로 들어간다.**
@@ -449,32 +410,6 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // 날마다 다르므로 교시 번호로 날을 셈하지 않는다
   const day = game.day
 
-  /*
-   * 오간 두 팀의 팀장을 다시 본다.
-   *
-   * **떠났으면 다시 뽑는다.** 자리 순서로 대신 앉히지 않는다 — 투표로
-   * 뽑기로 한 자리를 규칙이 말없이 채우면 그게 곧 걷어낸 옛 교대다.
-   * 남은 사람들이 상의하고 다시 뽑을 때까지 그 팀에는 팀장이 없다.
-   *
-   * 남아 있으면 그대로 둔다. 팀장은 이제 판정에서 따로 세지 않는다.
-   */
-  const touched = new Set<TeamId>(moved.flatMap((m) => [m.p.team, m.p.movingTo as TeamId]))
-  for (const team of touched) {
-    const head = (teams.docs.find((d) => d.id === team)?.data() as TeamDoc | undefined)?.captainId ?? null
-    if (!head) continue
-    const members = seats.filter((x) => x.team === team).map((x) => x.playerId)
-    if (!members.includes(head)) {
-      // 판 문서의 팀장 넷도 같이 지운다. 모두가 읽는 자리다
-      batch.update(ref, { [`captains.${team}`]: null })
-      batch.update(ref.collection('teams').doc(team), {
-        captainId: null,
-        captainVote: roundAt(day, 1, nowMs),
-      })
-      batch.update(ref.collection('pawns').doc(head), { captain: false })
-    }
-  }
-
-
   // 그날 첫 페이즈에 순위를 찍어 하루 동안 고정한다. 이적이 이 수를
   // 보는데, 페이즈마다 움직이면 어제 합의한 이적이 오늘 아침 말없이
   // 불발된다 — 협상해 놓고 조건이 사라지는 것은 규칙이 아니라 버그다
@@ -491,16 +426,11 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
 
   batch.update(ref, {
     phaseNow: { no, day, open: true, openedAtMs: nowMs, endsAtMs },
-    ...(moved.length ? { seats } : {}),
     ...freeze,
   })
   // 네 팀 무전에 종이 울린다. 무전만 보고 있어도 교시가 열린 줄 안다
   for (const t of TEAMS) sysLine(batch, gameId, t, sys.phaseOpen(no), nowMs, day)
   const everyone = game.seats.map((s) => s.playerId)
-  for (const m of movedNotes) {
-    sysLine(batch, gameId, m.from, sys.movedOut(m.name, m.to), nowMs, day)
-    sysLine(batch, gameId, m.to, sys.movedIn(m.name), nowMs, day)
-  }
   // 지난 페이즈의 기록은 여기서 지운다. 연구 대기는 남긴다 —
   // 이번 페이즈가 닫힐 때 로봇이 될 것들이다
   batch.set(hiddenOf(gameId), { ...EMPTY_HIDDEN, pendingResearch: queued(game.pendingResearch) })
@@ -516,18 +446,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   }
   // 열넷 모두에게 — 결과는 없다, 열렸다는 것뿐
   await notify(gameId, everyone, 'phaseStart', `phaseStart:${no}`)
-  /*
-   * **팀이 바뀐 순간을 한 줄씩 남긴다.**
-   *
-   * 말에는 teamSinceMs 하나뿐이라 두 번 옮기면 첫 번째가 사라진다.
-   * 개인 미션의 「그 사건이 일어난 시점의 팀」이 이 줄들을 되짚는다 —
-   * 이적 전에 한 일은 옛 팀이 한 일이다.
-   *
-   * actorTeam 은 옮겨 간 팀, otherTeam 은 떠나온 팀이다.
-   */
-  for (const m of movedRows) {
-    await note(gameId, 'teamMoved', nowMs, { id: m.id, team: m.to }, { otherTeam: m.from })
-  }
+  // 이적은 answerTransfer 가 그 자리에서 teamMoved 를 남긴다 — 여기서는 안 짚는다
   // 아무도 안 옮겼으니 체류도 그대로다 — 서 있던 방의 체류가 이어진다
   await refreshViews(gameId)
   await logEvent(gameId, 'phaseOpen', nowMs, null, { no, day, endsAtMs, returned }, { day })

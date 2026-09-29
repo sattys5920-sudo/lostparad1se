@@ -4,10 +4,9 @@
 // 쪽이 아니라 **불린 쪽**이 답한다. 규칙 판정은
 // shared/rules/transfer.ts 의 순수 함수가 한다.
 //
-// **수락해도 그 자리에서 팀이 바뀌지는 않는다.** pawn 에 「옮기기로
-// 했다」만 적어 두고, 다음 페이즈가 열릴 때 phase.ts 가 발효시킨다.
-// 팀 값은 세 군데(자리표·말·명단)에 나뉘어 적혀 있어서, 셋을 한꺼번에
-// 쓸 수 있는 자리에서 한 번에 옮기는 편이 안전하다.
+// **수락하면 그 자리에서 팀이 바뀐다.** 팀 값은 세 군데(자리표·말·명단)에
+// 나뉘어 적혀 있어서, 한 트랜잭션에서 셋을 같이 옮긴다 — 하나만 옮기면
+// 새 팀 금고는 열리는데 시야와 채점은 옛 팀인 사람이 생긴다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
@@ -19,11 +18,14 @@ import {
 } from '../../shared/rules/transfer'
 import { cellsTouch } from '../../shared/rules/board'
 import { dayNumber } from '../../shared/rules/clock'
+import { sys } from '../../shared/rules/radio'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { refreshViews } from './views'
 import { logSecret } from './qaLog'
+import { note } from './records'
+import { sysLine } from './radio'
 import { gameRef, requireUid } from './index'
 import { docId } from './ids'
 
@@ -80,7 +82,6 @@ export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async 
     bothStanding: mine.tileId !== null && their.tileId !== null && mine.tileId === their.tileId,
     nextTo: cellsTouch(mine.at, their.at),
     asking: (await liveAskOf(gameId, uid, nowMs)) || (await liveAskOf(gameId, toPlayerId, nowMs)),
-    movingTo: their.movingTo ?? null,
     fromTeamSize,
   })
   if (no) throw new HttpsError('failed-precondition', `${TRANSFER_NO[no]}.`)
@@ -102,8 +103,9 @@ export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async 
 /**
  * 불린 쪽이 답한다. **부른 쪽은 못 답한다.**
  *
- * 수락하면 pawn 에 표시만 남는다. 팀이 실제로 바뀌는 것은 다음
- * 페이즈가 열릴 때다.
+ * 수락하면 그 자리에서 팀이 바뀐다. 자리표(seats)·말(pawns)·명단(roster)
+ * 셋을 한 트랜잭션에서 같이 옮긴다 — 하나만 옮기면 새 팀 금고는
+ * 열리는데 시야와 채점은 옛 팀인 사람이 생긴다.
  */
 export const answerTransfer = onCall<{ gameId: string; askId: string; accept: boolean }>(async (req) => {
   const uid = requireUid(req.auth)
@@ -111,9 +113,10 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   const askId = docId(req.data.askId, '그런 제안이 없다.')
   const { game, nowMs } = await freshNow(gameId)
   const ref = asksOf(gameId).doc(askId)
+  const gRef = gameRef(gameId)
 
-  const team = await db.runTransaction<TeamId | null>(async (tx) => {
-    const snap = await tx.get(ref)
+  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | null>(async (tx) => {
+    const [snap, gSnap] = await Promise.all([tx.get(ref), tx.get(gRef)])
     if (!snap.exists) throw new HttpsError('not-found', '그런 제안이 없다.')
     const ask = snap.data() as TransferState
     if (ask.toId !== uid) throw new HttpsError('permission-denied', '불린 사람만 답한다.')
@@ -132,14 +135,26 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
       tx.update(ref, { status: 'gone' })
       throw new HttpsError('failed-precondition', `${TRANSFER_NO.phase}.`)
     }
-    tx.update(gameRef(gameId).collection('pawns').doc(uid), { movingTo: ask.byTeam })
+    const gd = gSnap.data() as GameDoc
+    const seat = gd.seats.find((s) => s.playerId === uid)
+    tx.update(gRef, { seats: gd.seats.map((s) => (s.playerId === uid ? { ...s, team: ask.byTeam } : s)) })
+    tx.update(gRef.collection('pawns').doc(uid), { team: ask.byTeam, teamSinceMs: nowMs })
+    tx.update(gRef.collection('secret').doc('roster').collection('items').doc(uid), { team: ask.byTeam })
+    // 두 팀 무전에만 적힌다. 공지는 없다 — 마주쳐야 안다
+    sysLine(tx, gameId, ask.fromTeam, sys.movedOut(seat?.name ?? '', ask.byTeam), nowMs, game.day)
+    sysLine(tx, gameId, ask.byTeam, sys.movedIn(seat?.name ?? ''), nowMs, game.day)
     tx.update(ref, { status: 'taken' })
-    return ask.byTeam
+    return { from: ask.fromTeam, to: ask.byTeam, name: seat?.name ?? '' }
   })
 
-  await logSecret(gameId, 'transferAnswered', nowMs, uid, { askId, accept: team !== null, ...(team ? { team } : {}) }, { day: game.day })
+  await logSecret(gameId, 'transferAnswered', nowMs, uid, { askId, accept: moved !== null, ...(moved ? { team: moved.to } : {}) }, { day: game.day })
+  if (moved) {
+    // 개인 미션의 「그 사건이 일어난 시점의 팀」이 이 줄을 되짚는다 —
+    // 이적 전에 한 일은 옛 팀이 한 일이다
+    await note(gameId, 'teamMoved', nowMs, { id: uid, team: moved.to }, { otherTeam: moved.from })
+  }
   await refreshViews(gameId)
-  return team === null
+  return moved === null
     ? { moved: false }
-    : { moved: true, team, said: `다음 점령전부터 ${team}팀이다.` }
+    : { moved: true, team: moved.to, said: `이제 ${moved.to}팀이다.` }
 })

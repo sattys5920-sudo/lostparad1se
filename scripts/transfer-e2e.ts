@@ -1,10 +1,10 @@
 // 이적을 진짜 서버로 본다.
 //
-// 자유 시간에 마주 서서 꺼내고, 불린 쪽이 답하고, **다음 페이즈가
-// 열릴 때** 발효된다. 보는 것은 세 가지다 —
+// 자유 시간에 마주 서서 꺼내고, 불린 쪽이 답하면 **그 자리에서**
+// 발효된다. 보는 것은 세 가지다 —
 //   ㆍ 날·페이즈·거리·같은 팀의 막음이 제대로 서는가
-//   ㆍ 수락해도 종이 칠 때까지는 아직 옛 팀인가
-//   ㆍ 발효될 때 팀 값 **세 군데**(자리표·말·명단)가 같이 옮겨지는가
+//   ㆍ 수락하는 즉시 팀 값 **세 군데**(자리표·말·명단)가 같이 옮겨지는가
+//   ㆍ 종이 쳐 있는 동안에는 못 꺼내는가
 //
 //   npx vite-node scripts/transfer-e2e.ts
 import { createHash } from 'node:crypto'
@@ -164,28 +164,8 @@ async function main(): Promise<void> {
   const said = await call('answerTransfer', tkB, { gameId: GAME, askId: ask.id, accept: true })
   check(said.moved === true && said.team === 'A', '불린 쪽이 수락한다', String(said.said ?? ''))
 
-  console.log('\n── 수락한 뒤, 아직 종이 치기 전 ──')
-  check(str((await doc(`games/${GAME}/pawns/${b}`)).team) === 'B', '말은 아직 B팀이다')
-  check(str((await doc(`games/${GAME}/pawns/${b}`)).movingTo) === 'A', '옮기기로 한 것만 적혀 있다')
-  check((await seatTeam(b)) === 'B', '자리표도 아직 B팀이다')
-  check(
-    str((await doc(`games/${GAME}/secret/roster/items/${b}`)).team) === 'B',
-    '명단도 아직 B팀이다',
-  )
-  check(
-    (await no(call('askTransfer', tkA, { gameId: GAME, toPlayerId: b }))).includes(TRANSFER_NO.pending),
-    '이미 옮기기로 한 사람에게는 또 못 꺼낸다',
-  )
-
-  console.log('\n── 종이 친다 — 여기서 발효된다 ──')
-  await call('openPhase', host, { gameId: GAME })
+  console.log('\n── 수락한 그 자리에서 발효된다 ──')
   check(str((await doc(`games/${GAME}/pawns/${b}`)).team) === 'A', '말이 A팀으로 옮겨졌다')
-  const after = (await doc(`games/${GAME}/pawns/${b}`)).movingTo
-  check(
-    after === undefined || (after as { nullValue?: unknown }).nullValue !== undefined,
-    '옮기기로 한 표시가 지워졌다 — 남으면 다음 페이즈에 또 옮긴다',
-    JSON.stringify(after),
-  )
   check((await seatTeam(b)) === 'A', '자리표가 A팀으로 옮겨졌다')
   const since = (await doc(`games/${GAME}/pawns/${b}`)).teamSinceMs as { integerValue?: string } | undefined
   check(
@@ -198,7 +178,8 @@ async function main(): Promise<void> {
     '명단이 A팀으로 옮겨졌다 — 안개와 미션 채점이 이것을 본다',
   )
 
-  console.log('\n── 페이즈 중에는 못 꺼낸다 ──')
+  console.log('\n── 페이즈를 열고, 그 중에는 못 꺼낸다 ──')
+  await call('openPhase', host, { gameId: GAME })
   check(
     (await no(call('askTransfer', tkB, { gameId: GAME, toPlayerId: a }))).includes(TRANSFER_NO.phase),
     '점령전 중에는 거절한다',

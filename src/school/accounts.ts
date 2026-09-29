@@ -26,6 +26,8 @@ export interface Account {
   id: string
   nickname: string
   avatar: AvatarLook | null
+  /** 가입 직후 한 번 도는 프롤로그를 봤는가. */
+  prologueSeen: boolean
 }
 
 /** 진행자 화면에 펴 보이는 한 줄. 비밀번호에 관한 것은 들어 있지 않다. */
@@ -46,6 +48,7 @@ interface AccountDoc {
   /** 예전 저장 모양 — 해시가 계정 문서 안에 있던 시절의 값 */
   salt?: string
   hash?: string
+  prologueSeen?: boolean
 }
 
 function requireDb(): Firestore {
@@ -111,10 +114,13 @@ interface AuthReply {
 async function enter(reply: AuthReply): Promise<Account> {
   if (!auth) throw new Error('서버에 연결되어 있지 않다.')
   await signInWithCustomToken(auth, reply.token)
+  // 진짜 값은 뒤이은 loadMe()의 myAccount()가 Firestore에서 다시 읽어
+  // 채운다. 여기서는 방금 로그인했다는 것만 확인하면 된다
   return {
     id: reply.id,
     nickname: reply.nickname ?? '',
     avatar: reply.avatar ? normalizeLook(reply.avatar as Parameters<typeof normalizeLook>[0]) : null,
+    prologueSeen: false,
   }
 }
 
@@ -180,6 +186,7 @@ export async function myAccount(): Promise<Account | null> {
     id: accountId,
     nickname: typeof r.nickname === 'string' ? r.nickname : '',
     avatar: r.avatar ? normalizeLook(r.avatar) : null,
+    prologueSeen: r.prologueSeen === true,
   }
 }
 
@@ -197,6 +204,11 @@ export async function saveAccountCharacter(_id: string, nickname: string, avatar
   // 서버가 로그인한 본인 계정에만 적는다. 아이디를 받지 않는 이유는
   // 남의 계정 이름을 넣어 보내는 길을 아예 두지 않기 위해서다
   await callServer('saveCharacter', { nickname, avatar })
+}
+
+/** 프롤로그를 봤다고 계정에 눌어붙인다. 한 번 보면 다시 안 뜬다. */
+export async function markPrologueSeen(): Promise<void> {
+  await callServer('markPrologueSeen', {})
 }
 
 // ── 진행자용 ────────────────────────────────────────────────────

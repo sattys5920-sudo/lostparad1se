@@ -29,7 +29,7 @@ export function TransferAsk({ fromName, toTeam, askedAtMs, nowMs, onAnswer }: Tr
       <p className="sc-da__say">
         <b>{toTeam}팀으로 오라고 한다.</b> 이적하시겠습니까?
       </p>
-      <p className="sc-da__fine">다음 점령전이 열릴 때 넘어간다.</p>
+      <p className="sc-da__fine">누르면 그 자리에서 넘어간다.</p>
       {/* 남은 시간을 줄로 보인다. 숫자만으로는 급한 줄 모른다 */}
       <div className="sc-da__bar" aria-hidden="true">
         <i style={{ width: `${(left / TRANSFER_ASK_MS) * 100}%` }} />

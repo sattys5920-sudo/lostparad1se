@@ -142,7 +142,7 @@ export { myPaper } from './paper'
 export { hostDrop } from './drop'
 
 // 계정. 비밀번호 검사가 서버에 있고, 통과하면 로그인 증표를 만들어 준다.
-export { signUpAccount, logInAccount, saveCharacter, hostAccounts, hostDeleteAccounts } from './account'
+export { signUpAccount, logInAccount, saveCharacter, markPrologueSeen, hostAccounts, hostDeleteAccounts } from './account'
 
 // 채팅. 어떤 판정에도 쓰이지 않는다.
 export { say, chatLines } from './chat'
