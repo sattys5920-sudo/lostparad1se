@@ -3,10 +3,12 @@
 // 기준은 docs/roles_full.md 다. 문안은 문서 원문 그대로 역할 데이터 파일에
 // 있고, 문서와 같은지는 `npm run check:notes`(빌드 때도 돈다)가 본다.
 //
-// 역할마다 네 장, 두 장씩 짝이다. 짝의 두 장은 같은 행동을 말한다.
+// 역할마다 네 장, 1~2번(습관) · 3~4번(그날)이다. 종류는 둘이다.
 //
 //   role   역할 이름 + 행동. 누구인지는 안 나온다
 //   name   {이름} + 행동. 무슨 역할인지는 안 나온다
+//
+// 이름형은 역할마다 딱 한 장이 목표다 — 결정적이지 않은 장 하나에만 둔다.
 //
 // {이름}은 **읽는 순간** 서버가 그 역할을 받은 사람의 이름으로 바꿔
 // 보낸다(views). 화면에는 바뀐 문장만 간다 — 원문 틀과 roleKey 는 어떤
@@ -17,13 +19,13 @@ import { ROLE_DATA } from '../../../shared/missions/roleData'
 export type SlipNoteKind = 'role' | 'name'
 
 export interface SlipNote {
-  /** r01-p1-role — 역할 번호 · 짝 · 종류 */
+  /** r01-s1-role — 역할 번호 · 번호(1~4) · 종류 */
   id: string
   /** 이 쪽지가 가리키는 역할. **쪽지의 주인은 이 역할을 받은 사람이다** */
   roleKey: RoleId
   kind: SlipNoteKind
-  /** 1짝(습관) · 2짝(그날). 2짝은 세다 — DAY 3 이후에 뿌린다 */
-  pair: 1 | 2
+  /** 1~2번(습관) · 3~4번(그날). 그날 것은 세다 — DAY 3 이후에 뿌린다 */
+  slot: 1 | 2 | 3 | 4
   /** 문안 원문. 이름형은 {이름}을 그대로 둔다 */
   text: string
 }
@@ -34,10 +36,10 @@ export interface SlipNote {
  */
 export const SLIP_NOTES: readonly SlipNote[] = ROLE_DATA.flatMap((r) =>
   r.notes.map((n) => ({
-    id: `r${String(r.no).padStart(2, '0')}-p${n.pair}-${n.kind}`,
+    id: `r${String(r.no).padStart(2, '0')}-s${n.slot}-${n.kind}`,
     roleKey: r.key,
     kind: n.kind,
-    pair: n.pair,
+    slot: n.slot,
     text: n.text,
   })),
 )

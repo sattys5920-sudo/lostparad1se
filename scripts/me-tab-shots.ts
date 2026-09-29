@@ -97,7 +97,7 @@ async function main() {
     await must('tick', host, { gameId: game })
     console.log(`판 ${game} (${size.w}×${size.h})`)
 
-    // 옛 역할을 흉내 낼 사람. 총무·옆자리 중 하나를 쥔 사람을 고른다
+    // 옛 역할을 흉내 낼 사람. 총무·짝꿍 중 하나를 쥔 사람을 고른다
     let reader = 'qa07'
     for (let i = 1; i <= 14; i++) {
       const id = `qa${String(i).padStart(2, '0')}`
@@ -245,7 +245,7 @@ async function main() {
       if (old.includes('못 받아왔다')) missed.push(`${size.w}: 옛 역할(${legacy})에서 미션을 못 받아왔다`)
       await fullShot(`${OUT}/${TAG}-${size.w}-3-옛역할.png`)
     } else {
-      missed.push(`${size.w}: 총무·옆자리를 쥔 qa 계정을 못 찾았다`)
+      missed.push(`${size.w}: 총무·짝꿍을 쥔 qa 계정을 못 찾았다`)
     }
 
     // ── 4 배정 전 ── 자리는 있는데 명단에 역할이 없다

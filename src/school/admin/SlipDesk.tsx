@@ -4,9 +4,10 @@
 // 몫이라 {이름}은 실제 이름으로 바뀌어 있다. 번들에는 문안이 없다.
 //
 //   한눈에   뿌림 n / 56 · 주움 · 찢김
-//   경고     2짝 두 장이 다 나갔으면 「완성 가능」 노란 점 · 같은 날 한
-//            역할이 두 장 이상이면 「몰림」 · 2짝을 DAY 3 전에 뿌리면 한 번 더
-//   목록     역할 열넷을 접어 둔다. 펼치면 넉 장 — 짝 · 종류 · 문안 · 상태 · 위치 · 단추
+//   경고     이름형과 역할형이 하나라도 같이 나갔으면 「완성 가능」 노란 점 ·
+//            같은 날 한 역할이 두 장 이상이면 「몰림」 · 3~4번을 DAY 3 전에
+//            뿌리면 한 번 더
+//   목록     역할 열넷을 접어 둔다. 펼치면 넉 장 — 번호 · 종류 · 문안 · 상태 · 위치 · 단추
 //
 // 화면이 막는 것은 편의뿐이다. 뿌리기 · 회수 · 무작위는 서버가 다시 본다.
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -30,7 +31,7 @@ interface Board {
   day: number
   running: boolean
   assigned: boolean
-  pair2FromDay: number
+  lateFromDay: number
   notes: BoardNote[]
 }
 
@@ -55,7 +56,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
   const [full, setFull] = useState<Set<string>>(new Set())
   const [where, setWhere] = useState<Record<string, string>>({})
   const [fRole, setFRole] = useState<RoleId | ''>('')
-  const [fPair, setFPair] = useState<'' | '1' | '2'>('')
+  const [fSlot, setFSlot] = useState<'' | '1' | '2' | '3' | '4'>('')
   const [fState, setFState] = useState<SlipState | ''>('')
   const [sort, setSort] = useState<Sort>('role')
   const [howMany, setHowMany] = useState(4)
@@ -108,7 +109,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
   )
 
   const shown = (n: BoardNote) =>
-    (fPair === '' || String(n.pair) === fPair) && (fState === '' || n.state === fState)
+    (fSlot === '' || String(n.slot) === fSlot) && (fState === '' || n.state === fState)
   const roles = ROLE_IDS.filter((r) => fRole === '' || r === fRole)
     .map((r) => ({ id: r, all: notes.filter((n) => n.roleKey === r) }))
     .filter((g) => g.all.some(shown))
@@ -132,7 +133,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
   const scatter = (n: BoardNote) => {
     const room = where[n.id] ?? ''
     void run(
-      () => act.hostScatterSlip(n.id, room, needsEarlyConfirm(n.pair, board.day)),
+      () => act.hostScatterSlip(n.id, room, needsEarlyConfirm(n.slot, board.day)),
       (r) => `${(r as { where?: string }).where ?? ''}에 뿌렸다.`,
     )
   }
@@ -182,7 +183,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
         </button>
       </div>
       <p className="sc-ad__hint">
-        대기 중에서 고른다. 2짝은 DAY {board.pair2FromDay}부터 후보에 들고, 한 역할이 같은 날 두 장이 되지 않게 빈 방부터 흩는다.
+        대기 중에서 고른다. 3~4번(그날)은 DAY {board.lateFromDay}부터 후보에 들고, 한 역할이 같은 날 두 장이 되지 않게 빈 방부터 흩는다.
       </p>
 
       {/* ── 거르기 · 줄 세우기 ── */}
@@ -195,10 +196,12 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
             </option>
           ))}
         </select>
-        <select aria-label="짝" value={fPair} onChange={(e) => setFPair(e.target.value as '' | '1' | '2')}>
-          <option value="">짝 전부</option>
-          <option value="1">1짝</option>
-          <option value="2">2짝</option>
+        <select aria-label="번호" value={fSlot} onChange={(e) => setFSlot(e.target.value as '' | '1' | '2' | '3' | '4')}>
+          <option value="">번호 전부</option>
+          <option value="1">1번</option>
+          <option value="2">2번</option>
+          <option value="3">3번</option>
+          <option value="4">4번</option>
         </select>
         <select aria-label="상태" value={fState} onChange={(e) => setFState(e.target.value as SlipState | '')}>
           <option value="">상태 전부</option>
@@ -232,7 +235,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
                 <span className="sc-sd__no">{no}</span>
                 <span className="sc-sd__name">{ROLE_NAMES[id]}</span>
                 {warn.solvable && (
-                  <span className="sc-sd__dot" title="2짝 두 장이 다 나갔다 — 누구인지 맞출 수 있다">
+                  <span className="sc-sd__dot" title="이름형과 역할형이 하나라도 같이 나갔다 — 누구인지 맞출 수 있다">
                     완성 가능
                   </span>
                 )}
@@ -250,7 +253,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
                   <table className="sc-sd__table">
                     <thead>
                       <tr>
-                        <th>짝</th>
+                        <th>번호</th>
                         <th>종류</th>
                         <th>문안</th>
                         <th>상태</th>
@@ -261,11 +264,11 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
                     <tbody>
                       {rows.map((n) => {
                         const wide = full.has(n.id)
-                        const early = n.state === 'waiting' && needsEarlyConfirm(n.pair, board.day)
+                        const early = n.state === 'waiting' && needsEarlyConfirm(n.slot, board.day)
                         const room = where[n.id] ?? ''
                         return (
                           <tr key={n.id} className={`is-${n.state}`}>
-                            <td className="sc-sd__num">{n.pair}</td>
+                            <td className="sc-sd__num">{n.slot}</td>
                             <td>{KIND_LABEL[n.kind]}</td>
                             <td>
                               <button
@@ -307,7 +310,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
                                 early ? (
                                   <Sure
                                     disabled={busy || room === '' || !board.running}
-                                    warn={`2짝은 DAY ${board.pair2FromDay}부터다. 그래도 뿌린다`}
+                                    warn={`3~4번(그날)은 DAY ${board.lateFromDay}부터다. 그래도 뿌린다`}
                                     onGo={() => scatter(n)}
                                   >
                                     뿌리기

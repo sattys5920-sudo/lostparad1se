@@ -243,7 +243,7 @@ describe('총무 — 그때 다른 팀이던 사람과의 거래만', () => {
 })
 
 describe('쪽지 — 같은 장을 두 번 읽어도 한 장이다', () => {
-  it('옆자리', () => {
+  it('짝꿍', () => {
     const same = did('slipRead', 6, { subjectId: 'one' })
     expect(mainOf('deskmate', { records: same }).clauses[0].have).toBe(1)
   })

@@ -14,7 +14,7 @@ const md = parseNotesMd()
 const idOfName = new Map(ROLE_IDS.map((id) => [ROLE_NAMES[id], id]))
 if (md.length !== SLIP_NOTES.length) errors.push(`문서는 ${md.length}장, 데이터는 ${SLIP_NOTES.length}장이다`)
 for (const m of md) {
-  const id = `r${String(m.no).padStart(2, '0')}-p${m.pair}-${m.kind}`
+  const id = `r${String(m.no).padStart(2, '0')}-s${m.slot}-${m.kind}`
   const d = SLIP_NOTES.find((n) => n.id === id)
   if (!d) {
     errors.push(`${id}: 문서에는 있는데 데이터에 없다`)
@@ -23,11 +23,15 @@ for (const m of md) {
   if (d.text !== m.text) errors.push(`${id}: 문안이 문서와 다르다\n    문서: ${m.text}\n    코드: ${d.text}`)
   if (idOfName.get(m.roleName) !== d.roleKey) errors.push(`${id}: 역할이 문서(${m.roleName})와 다르다`)
 }
-errors.push(...checkSlipNotes(SLIP_NOTES, ROLE_NAMES))
+const slipCheck = checkSlipNotes(SLIP_NOTES, ROLE_NAMES)
+errors.push(...slipCheck.errors)
 
 if (errors.length > 0) {
   for (const e of errors) console.log(`  ✗ ${e}`)
   console.log(`\n쪽지 검사 ${errors.length}건 실패.`)
   process.exit(1)
 }
-console.log(`쪽지 ${SLIP_NOTES.length}장 — 문서와 같고, 세 규칙을 다 지킨다.`)
+if (slipCheck.notices.length > 0) {
+  for (const n of slipCheck.notices) console.log(`  · ${n}`)
+}
+console.log(`쪽지 ${SLIP_NOTES.length}장 — 문서와 같고, 규칙을 다 지킨다.`)

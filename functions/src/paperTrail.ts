@@ -56,7 +56,7 @@ export const hostPapers = onCall<{ gameId: string }>(async (req) => {
       id: d.id,
       kind: note ? 'note' : 'memo',
       title: note
-        ? `${note.id.slice(1, 3)} ${ROLE_NAMES[note.roleKey]} · ${note.pair}짝 ${KIND_WORD[note.kind]}`
+        ? `${note.id.slice(1, 3)} ${ROLE_NAMES[note.roleKey]} · ${note.slot}번 ${KIND_WORD[note.kind]}`
         : s.writtenBy
           ? `손글씨 · ${nameOf(s.writtenBy) ?? '누군가'}`
           : (s.text ?? '').slice(0, 16),

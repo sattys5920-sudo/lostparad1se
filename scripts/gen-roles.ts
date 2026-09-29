@@ -74,7 +74,7 @@ function main() {
         return `      { kind: ${q(c.kind)}, text: ${q(c.text)}${nums ? `, ${nums}` : ''}, disclosure: ${q(c.disclosure)} },`
       })
       .join('\n')
-    const notes = r.notes.map((n) => `      { pair: ${n.pair}, kind: ${q(n.kind)}, text: ${q(n.text)} },`).join('\n')
+    const notes = r.notes.map((n) => `      { slot: ${n.slot}, kind: ${q(n.kind)}, text: ${q(n.text)} },`).join('\n')
     out.push(`  {
     key: ${q(key)},
     no: ${r.no},

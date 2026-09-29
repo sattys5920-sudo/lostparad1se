@@ -10,7 +10,7 @@
 //   이번에는 한 바퀴 다 돈다.            ← 미션 한 줄
 //   | 세는 것 | 기준 | 공개 |            ← 조건 표
 //   (표 뒤 한 줄)                         ← 단서. 없을 수 있다
-//   | 짝 | 종류 | 쪽지 |                  ← 쪽지 넉 장
+//   | 번 | 종류 | 쪽지 |                  ← 쪽지 넉 장(1~4번)
 //
 // 공통: 「## 마지막 선택」 표(선택 · 달성 조건). 「## 쪽지 미션」은 없앴다 — 남아 있으면
 // 읽어 두기만 하고 검사(checkRoles)가 막는다.
@@ -29,7 +29,7 @@ export interface MdClause {
 }
 
 export interface MdNote {
-  pair: number
+  slot: number
   kind: 'role' | 'name'
   text: string
 }
@@ -151,12 +151,12 @@ export function parseRolesMd(src: string = readFileSync(ROLES_MD, 'utf8')): { ro
         block = 'clauses'
         continue
       }
-      if (c[0] === '짝') {
+      if (c[0] === '번') {
         block = 'notes'
         continue
       }
       if (block === 'clauses') cur.clauses.push({ counts: c[0], bar: c[1], reveal: c[2] })
-      if (block === 'notes') cur.notes.push({ pair: Number(c[0]), kind: c[1] === '역할' ? 'role' : 'name', text: c[2] })
+      if (block === 'notes') cur.notes.push({ slot: Number(c[0]), kind: c[1] === '역할' ? 'role' : 'name', text: c[2] })
       continue
     }
     if (block === 'afterClauses') {

@@ -19,7 +19,7 @@ import { fillSubject } from '../../shared/reveal/slips'
 import { freeDropCell } from '../../shared/rules/quiz'
 import { TILE_BY_ID, roomOfCell, type TileId } from '../../shared/rules/board'
 import {
-  PAIR2_FROM_DAY,
+  LATE_FROM_DAY,
   SCATTER_ROOMS,
   needsEarlyConfirm,
   planScatter,
@@ -161,7 +161,7 @@ export const hostSlipBoard = onCall<{ gameId: string }>(async (req) => {
       id: n.id,
       no: noOf(n.id),
       roleKey: n.roleKey,
-      pair: n.pair,
+      slot: n.slot,
       kind: n.kind,
       state,
       slipId: s?.docId ?? null,
@@ -172,14 +172,14 @@ export const hostSlipBoard = onCall<{ gameId: string }>(async (req) => {
       text: fillSubject(n.text, nameOf(owners.get(n.roleKey))),
     }
   })
-  return { day: game.day, running: game.phase === 'running', assigned: owners.size > 0, pair2FromDay: PAIR2_FROM_DAY, notes }
+  return { day: game.day, running: game.phase === 'running', assigned: owners.size > 0, lateFromDay: LATE_FROM_DAY, notes }
 })
 
 /**
  * 한 장을 고른 방에 뿌린다. 방 안의 빈 칸 하나에 놓인다.
  *
- * **2짝을 DAY 3 전에 뿌리려면 confirmEarly 를 같이 보내야 한다.** 화면이
- * 한 번 더 묻고, 물은 뒤에만 보낸다.
+ * **3~4번(그날)을 DAY 3 전에 뿌리려면 confirmEarly 를 같이 보내야 한다.**
+ * 화면이 한 번 더 묻고, 물은 뒤에만 보낸다.
  */
 export const hostScatterSlip = onCall<{ gameId: string; noteId: string; tileId: string; confirmEarly?: boolean }>(
   async (req) => {
@@ -189,8 +189,8 @@ export const hostScatterSlip = onCall<{ gameId: string; noteId: string; tileId: 
     const game = await runningGame(gameId)
     const note = SLIP_NOTE_BY_ID[noteId]
     if (!note) throw new HttpsError('invalid-argument', '그런 쪽지가 없다.')
-    if (needsEarlyConfirm(note.pair, game.day) && req.data.confirmEarly !== true) {
-      throw new HttpsError('failed-precondition', `2짝은 DAY ${PAIR2_FROM_DAY}부터다. 그래도 뿌리려면 한 번 더 확인한다.`)
+    if (needsEarlyConfirm(note.slot, game.day) && req.data.confirmEarly !== true) {
+      throw new HttpsError('failed-precondition', `3~4번(그날)은 DAY ${LATE_FROM_DAY}부터다. 그래도 뿌리려면 한 번 더 확인한다.`)
     }
     const [owners, taken] = await Promise.all([ownersByRole(gameId), takenCells(gameId)])
     const cell = await place(gameId, game, noteId, room, owners, taken)
@@ -201,8 +201,8 @@ export const hostScatterSlip = onCall<{ gameId: string; noteId: string; tileId: 
 
 /**
  * 무작위로 n장. **고르는 것도 서버가 한다**(rules/slipBoard.planScatter) —
- * 대기 중인 것에서, 2짝은 DAY 3 이후에만, 한 역할이 같은 날 두 장이 안 되게,
- * 쪽지가 없는 방부터.
+ * 대기 중인 것에서, 3~4번(그날)은 DAY 3 이후에만, 한 역할이 같은 날 두 장이
+ * 안 되게, 쪽지가 없는 방부터.
  */
 export const hostScatterRandom = onCall<{ gameId: string; n: number }>(async (req) => {
   requireHost(req.auth)
@@ -221,7 +221,7 @@ export const hostScatterRandom = onCall<{ gameId: string; n: number }>(async (re
     notes: SLIP_NOTES.map((x) => {
       const s = byNote.get(x.id) ?? null
       const state = stateOf(s)
-      return { id: x.id, roleKey: x.roleKey, pair: x.pair, state, placedDay: s?.placedDay ?? null, room: s && state === 'placed' ? roomOfSlip(s) : null }
+      return { id: x.id, roleKey: x.roleKey, slot: x.slot, state, placedDay: s?.placedDay ?? null, room: s && state === 'placed' ? roomOfSlip(s) : null }
     }),
   })
   const done: { noteId: string; where: string }[] = []

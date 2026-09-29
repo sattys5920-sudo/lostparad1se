@@ -19,8 +19,8 @@ export const SLIP_STATE_LABEL: Record<SlipState, string> = {
   torn: '찢김',
 }
 
-/** 2짝은 세다. 이날부터 뿌린다 — 그 전에는 한 번 더 묻는다 */
-export const PAIR2_FROM_DAY = 3
+/** 3~4번(그날)은 세다. 이날부터 뿌린다 — 그 전에는 한 번 더 묻는다 */
+export const LATE_FROM_DAY = 3
 
 /**
  * 뿌릴 수 있는 방. **2-3 교실은 뺀다** — 열넷이 아침마다 모여 서는
@@ -35,7 +35,7 @@ export interface BoardNote {
   /** 역할 번호(1~14). 목록 순서다 */
   no: number
   roleKey: RoleId
-  pair: 1 | 2
+  slot: 1 | 2 | 3 | 4
   kind: 'role' | 'name'
   state: SlipState
   /** 판에 나간 쪽지 문서의 번호. 회수할 때 쓴다. 대기면 null */
@@ -54,36 +54,37 @@ export interface BoardNote {
 
 /** 역할 하나의 경고 */
 export interface RoleWarn {
-  /** 2짝 두 장이 모두 판에 나갔다 — 이 역할이 누구인지 맞출 수 있다 */
+  /** 이름형과 역할형이 하나라도 같이 판에 나갔다 — 이 역할이 누구인지 맞출 수 있다 */
   solvable: boolean
   /** 같은 날 이 역할의 쪽지가 두 장 이상 뿌려졌다 */
   crowdedDays: number[]
 }
 
 export function roleWarn(notes: readonly BoardNote[]): RoleWarn {
-  const p2 = notes.filter((n) => n.pair === 2)
-  const solvable = p2.length === 2 && p2.every((n) => n.state !== 'waiting')
+  const nameOut = notes.some((n) => n.kind === 'name' && n.state !== 'waiting')
+  const roleOut = notes.some((n) => n.kind === 'role' && n.state !== 'waiting')
+  const solvable = nameOut && roleOut
   const perDay = new Map<number, number>()
   for (const n of notes) if (n.placedDay !== null) perDay.set(n.placedDay, (perDay.get(n.placedDay) ?? 0) + 1)
   const crowdedDays = [...perDay.entries()].filter(([, c]) => c >= 2).map(([d]) => d).sort((a, b) => a - b)
   return { solvable, crowdedDays }
 }
 
-/** 2짝을 이날 뿌리면 한 번 더 물어야 하는가 */
-export const needsEarlyConfirm = (pair: 1 | 2, day: number): boolean => pair === 2 && day < PAIR2_FROM_DAY
+/** 3~4번(그날)을 이날 뿌리면 한 번 더 물어야 하는가 */
+export const needsEarlyConfirm = (slot: 1 | 2 | 3 | 4, day: number): boolean => slot >= 3 && day < LATE_FROM_DAY
 
 /**
  * 무작위로 n장 고른다. **서버가 부른다** — 화면이 고른 것을 믿지 않는다.
  *
  *   - 대기 중인 것에서만
- *   - 2짝은 DAY 3 이후에만 후보
+ *   - 3~4번(그날)은 DAY 3 이후에만 후보
  *   - 한 역할이 같은 날 두 장 이상 되지 않게(이미 오늘 뿌린 것까지 센다)
  *   - 방은 쪽지가 안 놓인 빈 방부터, 서로 다르게
  *
  * 조건을 못 채우면 n보다 적게 돌려준다.
  */
 export function planScatter(input: {
-  notes: readonly Pick<BoardNote, 'id' | 'roleKey' | 'pair' | 'state' | 'placedDay' | 'room'>[]
+  notes: readonly Pick<BoardNote, 'id' | 'roleKey' | 'slot' | 'state' | 'placedDay' | 'room'>[]
   day: number
   n: number
   rooms?: readonly TileId[]
@@ -101,7 +102,7 @@ export function planScatter(input: {
   const today = new Map<RoleId, number>()
   for (const n of input.notes) if (n.placedDay === input.day) today.set(n.roleKey, (today.get(n.roleKey) ?? 0) + 1)
   const pool = shuffle(
-    input.notes.filter((n) => n.state === 'waiting' && (n.pair === 1 || input.day >= PAIR2_FROM_DAY)),
+    input.notes.filter((n) => n.state === 'waiting' && (n.slot <= 2 || input.day >= LATE_FROM_DAY)),
   )
   const busy = new Set(input.notes.filter((n) => n.state === 'placed' && n.room).map((n) => n.room as TileId))
   const rooms = input.rooms ?? SCATTER_ROOMS

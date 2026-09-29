@@ -9,14 +9,14 @@ describe('쪽지 56장', () => {
   it('열넷 × 넉 장 = 쉰여섯 장이다', () => {
     expect(SLIP_NOTES).toHaveLength(ROLE_IDS.length * 4)
   })
-  it('세 규칙을 다 지킨다', () => {
-    expect(checkSlipNotes(SLIP_NOTES, ROLE_NAMES)).toEqual([])
+  it('규칙을 다 지킨다', () => {
+    expect(checkSlipNotes(SLIP_NOTES, ROLE_NAMES).errors).toEqual([])
   })
   it('문서(docs/roles_full.md)와 한 글자도 다르지 않다', () => {
     const md = parseNotesMd()
     expect(md).toHaveLength(SLIP_NOTES.length)
     for (const m of md) {
-      const id = `r${String(m.no).padStart(2, '0')}-p${m.pair}-${m.kind}`
+      const id = `r${String(m.no).padStart(2, '0')}-s${m.slot}-${m.kind}`
       expect(SLIP_NOTES.find((n) => n.id === id)?.text, id).toBe(m.text)
     }
   })
@@ -25,17 +25,23 @@ describe('쪽지 56장', () => {
 describe('검사가 잡는다', () => {
   const base = SLIP_NOTES.map((n) => ({ ...n }))
   it('역할형에 {이름}이 있으면', () => {
-    const bad = base.map((n) => (n.id === 'r01-p1-role' ? { ...n, text: `${NAME_MARK}은 반장이다.` } : n))
-    expect(checkSlipNotes(bad, ROLE_NAMES).some((e) => e.startsWith('r01-p1-role'))).toBe(true)
+    const bad = base.map((n) => (n.id === 'r01-s1-role' ? { ...n, text: `${NAME_MARK}은 반장이다.` } : n))
+    expect(checkSlipNotes(bad, ROLE_NAMES).errors.some((e) => e.startsWith('r01-s1-role'))).toBe(true)
   })
   it('이름형에 역할 이름이 있으면 — 한 장으로 풀린다', () => {
-    const bad = base.map((n) => (n.id === 'r02-p1-name' ? { ...n, text: `${NAME_MARK}은 반장이다.` } : n))
-    expect(checkSlipNotes(bad, ROLE_NAMES).some((e) => e.includes('반장'))).toBe(true)
+    const bad = base.map((n) => (n.id === 'r02-s4-name' ? { ...n, text: `${NAME_MARK}은 반장이다.` } : n))
+    expect(checkSlipNotes(bad, ROLE_NAMES).errors.some((e) => e.includes('반장'))).toBe(true)
   })
   it('역할마다 넉 장이 아니면', () => {
-    const bad = base.filter((n) => n.id !== 'r03-p2-name')
-    const errs = checkSlipNotes(bad, ROLE_NAMES)
+    const bad = base.filter((n) => n.id !== 'r03-s4-name')
+    const errs = checkSlipNotes(bad, ROLE_NAMES).errors
     expect(errs.some((e) => e.includes('3장이다'))).toBe(true)
-    expect(errs.some((e) => e.includes('2짝 이름형이 0장'))).toBe(true)
+    expect(errs.some((e) => e.includes('번호(1~4번)가 겹치거나 빠졌다'))).toBe(true)
+  })
+  it('이름형이 아직 한 장으로 안 줄어든 역할은 — 알림만 뜨고 실패하진 않는다', () => {
+    // 04~14번은 아직 옮기는 중이라 이름형이 두 장이다 — notices 로만 잡힌다
+    const { errors, notices } = checkSlipNotes(base, ROLE_NAMES)
+    expect(errors).toEqual([])
+    expect(notices.some((n) => n.includes('이름형이 2장이다'))).toBe(true)
   })
 })

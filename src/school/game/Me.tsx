@@ -14,7 +14,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
 import { VOTE_LABEL } from '../../../shared/rules/v2'
-import { STATUS_LABEL, type MissionStatus } from '../../../shared/missions/roleNames'
+import { STATUS_LABEL } from '../../../shared/missions/roleNames'
 import { NOT_DEALT } from '../../../shared/missions/paper'
 import { Bag } from './UseItem'
 import { Snow } from '../reveal/Snow'
@@ -191,11 +191,7 @@ export function Me(props: MeProps) {
           {paper && (
             <>
               <p className="sc-mi__mission">{paper.main.text}</p>
-              {paper.counting ? (
-                <Clauses m={paper.main} />
-              ) : (
-                <p className="sc-mi__fine">판이 열리면 센다.</p>
-              )}
+              {!paper.counting && <p className="sc-mi__fine">판이 열리면 센다.</p>}
             </>
           )}
         </Card>
@@ -401,8 +397,7 @@ export function IdCard({
                     <b>{paper.targetName}</b>
                   </p>
                 )}
-                {paper.counting ? <Clauses m={paper.main} /> : <p className="sc-mi__fine">판이 열리면 센다.</p>}
-                {paper.footnote && <p className="sc-mi__foot2">{paper.footnote}</p>}
+                {!paper.counting && <p className="sc-mi__fine">판이 열리면 센다.</p>}
               </>
             )}
           </div>
@@ -545,69 +540,6 @@ function Chip({ icon, n, label }: { icon: string; n: number | null; label: strin
       <img src={uiIcon(icon)} alt="" width={16} height={16} />
       <b>{n ?? '—'}</b>
       <i>{label}</i>
-    </span>
-  )
-}
-
-/**
- * 조항 줄들.
- *
- * **숫자가 안 온 조항은 막대도 안 그린다.** 서버가 빼고 만들어 보내서
- * (discloseFor) 여기에는 애초에 값이 없다 — 받아 놓고 가리는 것이
- * 아니다. 그런 줄에는 「끝날 때 판정」 같은 말만 붙는다.
- */
-function Clauses({ m }: { m: MissionShown }) {
-  return (
-    <ul className="sc-mi__clauses">
-      {m.clauses.map((c, i) => (
-        <li key={`${i}-${c.text}`}>
-          <p>{c.text}</p>
-          <Gauge shown={c.shown} have={c.have} bar={c.bar} status={c.status} unit={c.unit} />
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-/**
- * 진행도 한 칸. 미션 조항마다 붙는다.
- *
- * **have 가 null 이면 숫자가 아예 안 온 것이다.** 가려 둔 게 아니라
- * 서버가 담지 않았다(discloseFor). 그때는 상태 한 마디만 적는다 —
- * 「끝날 때 판정」이라고 쓰면 가린 것이 아니라 아직 셀 때가 아니라는
- * 뜻이 된다.
- */
-function Gauge({
-  shown,
-  have,
-  bar,
-  status,
-  unit = 'count',
-}: {
-  shown: boolean
-  have: number | null
-  bar: number
-  status: MissionStatus
-  unit?: 'count' | 'minutes' | 'flag'
-}) {
-  if (!shown || have === null) {
-    return <span className="sc-mi__later">{STATUS_LABEL[status]}</span>
-  }
-  if (unit === 'flag') {
-    const met = status === 'met'
-    return <span className={'sc-mi__flag' + (met ? ' is-met' : '')}>{met ? '했다' : '아직'}</span>
-  }
-  return (
-    <span className="sc-mi__bar">
-      <i aria-hidden>
-        {Array.from({ length: BAR_CELLS }, (_, k) => (
-          <em key={k} className={k < cells(have, bar) ? 'is-on' : ''} />
-        ))}
-      </i>
-      <b>
-        {have}/{bar}
-        {unit === 'minutes' && '분'}
-      </b>
     </span>
   )
 }

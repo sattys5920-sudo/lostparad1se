@@ -2,7 +2,7 @@
 //
 // 문서 모양:
 //   ## 01 반장            ← 역할 번호와 이름. 뒤의 ★ 는 떼고 읽는다
-//   | 1 | 역할 | 문안 |    ← 짝 · 종류(역할/이름) · 문안
+//   | 1 | 역할 | 문안 |    ← 번호(1~4) · 종류(역할/이름) · 문안
 //
 // check-notes 와 시험이 이것으로 문서와 데이터 파일(functions/src/story/
 // slipNotes.ts)이 같은지 본다.
@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 export interface MdNote {
   no: number
   roleName: string
-  pair: number
+  slot: number
   kind: 'role' | 'name'
   text: string
 }
@@ -33,7 +33,7 @@ export function parseNotesMd(src: string = readFileSync(NOTES_MD, 'utf8')): MdNo
     if (no === 0) continue
     const row = line.match(/^\| (\d) \| (역할|이름) \| (.+) \|$/)
     if (!row) continue
-    out.push({ no, roleName, pair: Number(row[1]), kind: row[2] === '역할' ? 'role' : 'name', text: row[3] })
+    out.push({ no, roleName, slot: Number(row[1]), kind: row[2] === '역할' ? 'role' : 'name', text: row[3] })
   }
   return out
 }

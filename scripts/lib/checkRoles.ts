@@ -56,8 +56,9 @@ export function checkRoles(data: readonly RoleData[] = ROLE_DATA): { errors: str
 
     if (m.notes.length !== d.notes.length) errors.push(`${tag}: 쪽지가 문서는 ${m.notes.length}장, 데이터는 ${d.notes.length}장이다`)
     for (const mn of m.notes) {
-      const dn = d.notes.find((n) => n.pair === mn.pair && n.kind === mn.kind)
-      same(`${tag} 쪽지 ${mn.pair}짝 ${mn.kind === 'role' ? '역할' : '이름'}`, mn.text, dn?.text ?? '(없음)')
+      const dn = d.notes.find((n) => n.slot === mn.slot)
+      if (dn && dn.kind !== mn.kind) errors.push(`${tag} 쪽지 ${mn.slot}번: 종류가 문서(${mn.kind === 'role' ? '역할' : '이름'})와 데이터(${dn.kind === 'role' ? '역할' : '이름'})가 다르다`)
+      same(`${tag} 쪽지 ${mn.slot}번`, mn.text, dn?.text ?? '(없음)')
     }
   }
 
