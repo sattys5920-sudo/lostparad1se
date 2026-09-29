@@ -264,6 +264,24 @@ describe('쪽지 — 같은 장을 두 번 읽어도 한 장이다', () => {
   })
 })
 
+describe('과학부 — 만든 로봇만', () => {
+  const idx = clauseOf('science', 'robotsMade').index
+  const need = needOf('science', 'robotsMade')
+
+  it('남이 연구한 완성품을 주운 것은 안 센다', () => {
+    const got = mainOf('science', { records: did('robotBorn', need, { ownerId: 'other' }) })
+    expect(got.clauses[idx].have).toBe(0)
+  })
+
+  it('내가 연구한 것은 남이 주워 가도 내가 만든 것이다', () => {
+    const got = mainOf('science', {
+      records: did('robotBorn', need, { actorId: 'other', ownerId: 'me' }),
+    })
+    expect(got.clauses[idx].have).toBe(need)
+    expect(got.clauses[idx].met).toBe(true)
+  })
+})
+
 describe('기술부 — 남의 팀 짝만', () => {
   it('우리 팀 짝을 부순 것은 안 센다', () => {
     const ours = did('robotSmashed', 3, { otherTeam: 'A' as TeamId })

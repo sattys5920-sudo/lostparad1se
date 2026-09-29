@@ -229,8 +229,13 @@ function measure(clause: Clause, c: Ctx): Measured {
     case 'harvests':
       // 시든 것은 수확 기록을 남기지 않는다
       return { unit: 'count', have: mine(c, 'potHarvest').length }
-    case 'robotsMade':
-      return { unit: 'count', have: mine(c, 'robotBorn').length }
+    case 'robotsMade': {
+      // **만든 사람만 센다.** 남이 연구한 완성품을 주운 사람은 만든 것이
+      // 아니다 — 기록의 ownerId 가 연구한 사람이다(주운 사람은 actorId).
+      // ownerId 가 없는 옛 기록은 받은 사람이 곧 만든 사람이다
+      const rows = c.log.records.filter((r) => r.kind === 'robotBorn' && (r.ownerId ?? r.actorId) === meOf(c))
+      return { unit: 'count', have: rows.length }
+    }
     case 'roomsLocked':
       return { unit: 'count', have: mine(c, 'roomLock').length }
     case 'robotsSmashedOfOthers': {
