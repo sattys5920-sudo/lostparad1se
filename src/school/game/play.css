@@ -2345,14 +2345,8 @@
 .sc-gd__list button { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-cap); }
 .sc-gd__list button.is-go { font-weight: 600; }
 .sc-gd__hint { margin: 0; font-size: var(--fs-cap); line-height: 16px; color: var(--sc-text-dim); word-break: keep-all; }
-/* 작물 색 한 점. 지도의 열매와 같은 색이다 */
-.sc-gd__dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border: 1px solid var(--sc-line-strong);
-  border-radius: var(--r-game);
-}
+/* 작물 열매 그림. 지도의 화분 위에 얹힌 그것과 같은 그림이다 */
+.sc-gd__icon { display: block; flex: 0 0 auto; image-rendering: pixelated; }
 
 /* ── 덫 제조기 ────────────────────────────────────────────── */
 .sc-mk { display: flex; flex-direction: column; gap: var(--sp-2); }

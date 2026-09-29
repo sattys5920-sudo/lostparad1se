@@ -12,7 +12,7 @@ import { ITEM_BY_KIND, PAPER_MAX, type ItemKind, type Satchel } from '../../../s
 import { Cost } from './Cost'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
-import { goodIcon } from './goodArt'
+import { cropIcon, goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { Sure } from './Sheet'
@@ -110,7 +110,14 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
           <span>
             {held}/{HARVEST_LIMIT}
           </span>
-          <p>{crops.map(([id, n]) => `${CROP_BY_ID[id]?.name ?? id} ${n}`).join(' · ')}</p>
+          <p className="sc-mi__crops">
+            {crops.map(([id, n]) => (
+              <span key={id}>
+                <img className="sc-mi__icon" src={cropIcon(id)} alt="" width={16} height={16} />
+                {CROP_BY_ID[id]?.name ?? id} {n}
+              </span>
+            ))}
+          </p>
         </li>
       )}
       {rows.map(([kind, n]) => {

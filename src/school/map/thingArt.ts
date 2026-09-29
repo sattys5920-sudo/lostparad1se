@@ -343,9 +343,9 @@ const POT_LEAF = P([
 /**
  * 열매. 딸 수 있다 — 누구든 먼저 온 사람이 딴다.
  *
- * **0 자리가 열매 알이다.** 작물마다 제 색으로 구워 낸다(sprites.ts):
- * 딸기는 붉고 수박은 푸르다. 학교에서 색이 있는 것은 여기뿐이라,
- * 여덟 자리 중 어디에 무엇이 열렸는지가 멀리서도 한눈에 들어온다.
+ * **작물을 모를 때만 쓴다.** 작물마다의 열매는 제 모양 그림을 화분
+ * 위에 얹어 따로 굽는다(map/cropArt · sprites.ts). 이것은 작물 이름이
+ * 안 온 화분이 구멍처럼 비지 않게 두는 한 장이다.
  */
 const POT_FRUIT = P([
   '    3333    ',
@@ -401,9 +401,6 @@ export const POT_ART: Readonly<Record<string, readonly string[]>> = {
     '            ',
   ]),
 }
-
-/** 열매 한 장. 작물 색으로 굽는 쪽이 따로 집어 간다(sprites.ts). */
-export const POT_FRUIT_ART: readonly string[] = POT_FRUIT
 
 // 화분도 같은 자로 잰다. 한 장만 줄 수가 틀려도 화면이 뜨기 전에 터진다
 for (const [key, rows] of Object.entries(POT_ART)) {

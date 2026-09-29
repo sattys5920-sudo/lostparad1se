@@ -4,7 +4,8 @@
 // 있는지는 props.ts 가 안다. 여기서는 바닥·벽·문·계단과 흔적만 굽는다.
 import { MAP } from '../skin'
 import { PROP_ART, PROP_KINDS, type PropKind } from './props'
-import { PAPER_SHUT, POT_ART, POT_FRUIT_ART, SLIP_SEAL, SLIP_SHUT, THING_ART } from './thingArt'
+import { PAPER_SHUT, POT_ART, SLIP_SEAL, SLIP_SHUT, THING_ART } from './thingArt'
+import { POT_TONES, cropPalette, fruitPotRows } from './cropArt'
 import { CROPS } from '../../../shared/rules/crop'
 import { THING_ICONS, type ThingIcon } from '../../../shared/rules/errand'
 
@@ -517,7 +518,8 @@ export function buildSprites(): SpriteSet {
     slip: bake(SLIP_SHUT as unknown as string[], { '9': SLIP_SEAL }),
     /*
      * 화분 그림. 단계 다섯에 **작물마다의 열매**를 더한다 —
-     * 열매 알(0)만 그 작물 색으로 굽고 화분과 잎은 그대로 둔다.
+     * 열매 단계는 작물마다 제 모양 그림(map/cropArt)을 화분 위에 얹은
+     * 16×16 한 칸이다. 화분은 다른 단계와 같은 자리라 들썩이지 않는다.
      * 열쇠는 `fruit:감자아이디` 꼴이다(Play.tsx 가 그렇게 집는다).
      */
     pots: {
@@ -530,7 +532,7 @@ export function buildSprites(): SpriteSet {
         ]),
       ),
       ...Object.fromEntries(
-        CROPS.map((c) => [`fruit:${c.id}`, bake(POT_FRUIT_ART as unknown as string[], { '0': c.color })]),
+        CROPS.map((c) => [`fruit:${c.id}`, bake(fruitPotRows(c.id) ?? [], { ...cropPalette(c.color), ...POT_TONES })]),
       ),
     },
     marks: {

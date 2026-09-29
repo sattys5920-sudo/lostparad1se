@@ -1670,7 +1670,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
            */
           const board = boardsRef.current.find((b) => b.x === x && b.y === y)
           if (board) {
-            const img = sprites.props[board.count > 0 ? 'noticeBoardFull' : 'noticeBoard']
+            /* 붙은 게 있으면 **이따금 펄럭인다** — 1.6초에 0.2초. 게시판마다
+               박자를 조금씩 어긋나게 해서 복도의 판이 한꺼번에 흔들리지 않게 */
+            const flap = board.count > 0 && (now + (x * 7 + y * 13) * 97) % 1600 < 200
+            const img = sprites.props[board.count > 0 ? (flap ? 'noticeBoardFlap' : 'noticeBoardFull') : 'noticeBoard']
             ctx.drawImage(img, x * TILE - camX, fixtureTopPx(y, img.height) - camY)
           }
           /*

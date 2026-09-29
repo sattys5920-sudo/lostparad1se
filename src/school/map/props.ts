@@ -181,6 +181,8 @@ export const PROP_ART = {
   // 복도 — 게시판. **붙은 것이 있으면 다른 그림을 쓴다**
   noticeBoard: ART.NOTICE_BOARD,
   noticeBoardFull: ART.NOTICE_BOARD_FULL,
+  /** 붙은 종이가 펄럭이는 한 장. 잠깐씩만 끼워 넣는다(Walk.tsx) */
+  noticeBoardFlap: ART.NOTICE_BOARD_FLAP,
   // 복도 — 자판기. 층마다 한 대다(shop.ts 의 VENDINGS)
   vending: ART.VENDING,
   // 뒷골목 — 오락기 열 대. 몸통 셋을 번갈아 세운다(rules/arcade)

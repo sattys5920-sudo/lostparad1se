@@ -12,6 +12,8 @@
 // 읽어야 알았다. 흥정은 흘깃 보는 것이라 읽을 틈이 없다.
 import { PAL } from '../map/sprites'
 import { PAPER_OPEN, THING_ART } from '../map/thingArt'
+import { CROP_PX, cropArt, cropPalette } from '../map/cropArt'
+import { CROP_BY_ID } from '../../../shared/rules/crop'
 import { ITEMS } from '../../../shared/rules/items'
 
 /** 12×12 한 칸. 짧게 적은 줄은 오른쪽을 공백으로 채운다. */
@@ -300,6 +302,38 @@ export function goodIcon(key: string): string {
   for (const [y, row] of rows.entries()) {
     for (const [x, c] of [...row].entries()) {
       const color = CH[c]
+      if (!color) continue
+      ctx.fillStyle = color
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+  const url = canvas.toDataURL()
+  baked.set(key, url)
+  return url
+}
+
+/**
+ * 작물 열매 한 장(8×8). 정원 화분 위의 그것과 같은 그림이다(map/cropArt).
+ *
+ * 색은 그 작물의 색에서 셈한다 — 운영자가 색을 고치면 따라 바뀐다.
+ * 모르는 작물이면 빈 문자열이다. 그림 없이 이름만 나간다.
+ */
+export function cropIcon(id: string): string {
+  const spec = CROP_BY_ID[id]
+  const rows = cropArt(id)
+  if (!spec || !rows) return ''
+  const key = `crop:${id}:${spec.color}`
+  const has = baked.get(key)
+  if (has) return has
+  const canvas = document.createElement('canvas')
+  canvas.width = CROP_PX
+  canvas.height = CROP_PX
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return ''
+  const pal = cropPalette(spec.color)
+  for (const [y, row] of rows.entries()) {
+    for (const [x, c] of [...row].entries()) {
+      const color = pal[c]
       if (!color) continue
       ctx.fillStyle = color
       ctx.fillRect(x, y, 1, 1)

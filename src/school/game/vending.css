@@ -322,7 +322,7 @@
 }
 .sc-vd__buyNone { font-size: var(--fs-cap); color: var(--text-2); }
 .sc-vd__buyRow { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
-/* 작물 한 칸 — 색 점 · 이름 · 값. 값은 표에 적힌 그대로다 */
+/* 작물 한 칸 — 열매 그림 · 이름 · 값. 값은 표에 적힌 그대로다 */
 .sc-vd__crop {
   position: relative;
   display: flex;
@@ -336,12 +336,7 @@
   font-size: var(--fs-cap);
   cursor: pointer;
 }
-.sc-vd__crop i {
-  width: 8px;
-  height: 8px;
-  border: 1px solid var(--bg-0);
-  border-radius: var(--r-game);
-}
+.sc-vd__crop img { display: block; flex: 0 0 auto; image-rendering: pixelated; }
 .sc-vd__crop em { font-style: normal; color: var(--accent); font-variant-numeric: tabular-nums; }
 /* 두 개 이상이면 이름 뒤에 수를 붙인다.
    **얹지 않는다** — 모서리에 띄운 배지가 매입구 테두리 위로 잘려

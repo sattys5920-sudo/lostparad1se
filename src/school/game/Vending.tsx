@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SHOP_ITEMS, priceOf } from '../../../shared/rules/shop'
 import { CROP_BY_ID } from '../../../shared/rules/crop'
 import { josa } from '../text'
-import { goodIcon } from './goodArt'
+import { cropIcon, goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
 
 /** 칸 번호. 왼쪽부터 오른쪽, 위에서 아래로 — 기계에 적힌 순서다. */
@@ -449,7 +449,7 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
                   onClick={() => void sell(id)}
                   aria-label={`${CROP_BY_ID[id]?.name ?? id} 넣기`}
                 >
-                  <i style={{ background: CROP_BY_ID[id]?.color ?? '#888' }} aria-hidden />
+                  <img src={cropIcon(id)} alt="" width={16} height={16} />
                   {CROP_BY_ID[id]?.name ?? id}
                   {n > 1 && <b>×{n}</b>}
                   <em>· {CROP_BY_ID[id]?.price ?? 0}</em>
