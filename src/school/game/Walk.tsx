@@ -1413,13 +1413,22 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const back = { x: self.tx, y: self.ty }
         const said = crossRef.current(room, back)
         // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
-        // 영영 못 움직인다
+        // 영영 못 움직인다.
+        //
+        // **아직 그 자리에 멈춰 있을 때만 되돌린다.** 대답을 기다리는
+        // 사이 이미 다른 데로 걸어갔으면, 물어본 자리(back)는 지난
+        // 일이다 — 그리로 되돌리면 이미 앞서 간 걸음을 지우고 문 앞으로
+        // 튕겨 보낸다. 잠긴 방·"이미 그 방이다" 같은 거절이 뒤늦게
+        // 도착할 때 이 경우가 생긴다. 발이 묶인 게 아니니 손대지 않고
+        // 다음 요청만 열어 준다(아래 ok 가 객체일 때와 같은 조건)
         if (said && typeof said.then === 'function') {
           void said.then((ok) => {
             if (ok === false) {
               asked = false
-              autoPath = []
-              standAt(back.x, back.y)
+              if (self.tx === back.x && self.ty === back.y && !self.moving && autoPath.length === 0) {
+                autoPath = []
+                standAt(back.x, back.y)
+              }
               return
             }
             /*
