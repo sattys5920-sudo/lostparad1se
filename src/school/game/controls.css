@@ -212,17 +212,6 @@
   background: transparent;
 }
 .sc-ct__mate.is-here { border-color: transparent; }
-/* 팀장은 위에 점 하나. 우리 팀에게만 온다 */
-.sc-ct__mate.is-cap::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: 3px;
-  width: 1px;
-  height: 1px;
-  background: var(--ct-gold);
-  box-shadow: 0 0 0 0.5px var(--ct-gold);
-}
 
 /* ── 조작 영역 96 ───────────────────────────────────────────── */
 

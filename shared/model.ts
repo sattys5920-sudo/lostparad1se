@@ -8,7 +8,6 @@ import type { Cell, TileId } from './rules/board'
 import type { AvatarLook } from './look'
 import type { ThingIcon } from './rules/errand'
 import type { Satchel } from './rules/items'
-import type { CaptainVote } from './rules/captain'
 
 /** 밀리초 타임스탬프. 게임 속 시각이다(개발용 시계가 걸려 있으면 그 시각). */
 export type GameMs = number
@@ -133,15 +132,6 @@ export interface GameDoc {
   invisibleId: string | null
   /** 전원 채널이 닫혀 있는가. 운영자가 여닫는다. 없으면 열려 있다 */
   allChannelClosed?: boolean
-  /**
-   * 오늘 네 팀의 팀장. 아직 못 정한 팀은 null 이다.
-   *
-   * **팀 문서가 아니라 판 문서에 둔다.** 팀 문서에는 금고가 들어 있어서
-   * 제 팀 것만 읽을 수 있는데, 팀장은 모두가 알아야 하는 값이다 —
-   * 투명인간 투표에서 못 적는 사람이라 화면이 미리 알아야 하고,
-   * 뽑히면 공지도 나간다.
-   */
-  captains?: Partial<Record<TeamId, string | null>>
   /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
   invisibleByDay: Record<number, string | null>
   /**
@@ -242,15 +232,6 @@ export interface TeamDoc {
    * 여기로 들어오고, 넷 중 누구든 꺼내 쓴다. 우리 팀만 본다.
    */
   resources?: Record<Resource, number>
-  /**
-   * 오늘의 팀장. **네 팀이 다 뽑는다.**
-   *
-   * 아직 못 정했으면 null 이다 — 동점이면 풀릴 때까지 다시 뽑으므로,
-   * 하루의 얼마간은 팀장이 없는 채로 흐른다.
-   */
-  captainId: string | null
-  /** 지금 돌고 있는 팀장 투표. 정해지면 지운다. */
-  captainVote?: CaptainVote | null
   /** 21:00에 공개된 점수(비밀 목표 제외). 마지막 여섯 시간에는 null. */
   publicScore: number | null
 }
@@ -272,8 +253,6 @@ export interface PawnDoc {
    * 여기로 걸어 돌아오고, 옮기려면 페이즈 안에서 토큰을 써야 한다.
    */
   postTile?: TileId | null
-  /** 머릿수가 모자란 팀의 주장. 점령 판정에서 둘로 센다. */
-  captain?: boolean
   /**
    * 이 팀이 된 시각. **무전이 이것을 본다.**
    *

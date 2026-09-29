@@ -486,10 +486,6 @@ export function gameActions(gameId: string) {
     radio: (text: string, channel: 'team' | 'all' = 'team') => callServer('radio', { ...g, text, channel }),
     radioLines: (sinceMs = 0, channel: 'team' | 'all' = 'team') => callServer('radioLines', { ...g, sinceMs, channel }),
 
-    // ── 팀장 ────────────────────────────────────────────────────
-    /** 우리 팀 팀장으로 한 사람을 적는다. 창이 닫히기 전까지 바꿀 수 있다. */
-    voteCaptain: (targetId: string) => callServer('voteCaptain', { ...g, targetId }),
-
     // ── 완성품 ──────────────────────────────────────────────────
     /** 연구실에 놓인 것을 가져간다. 연구한 페이즈 동안은 연구한 사람만, 그 뒤로는 누구든 */
     takeMade: (madeId: string) => callServer('takeMade', { ...g, madeId }),

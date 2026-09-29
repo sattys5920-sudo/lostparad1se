@@ -374,12 +374,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   }
 
   // 팀 — 자원과 순위는 공개다.
-  // **주장은 판 문서에도 적는다** — 팀 문서는 제 팀 것만 읽을 수 있는데,
-  // 팀장은 투명인간 투표에서 못 적는 사람이라 모두가 미리 알아야 한다
-  const captains: Partial<Record<TeamId, string | null>> = {}
   for (const team of TEAMS) {
-    const members = seats.filter((s) => s.team === team)
-    captains[team] = members.length < 4 ? (members[0]?.playerId ?? null) : null
     batch.set(ref.collection('teams').doc(team), {
       // **팀 금고.** 돈과 지식은 넷이 같이 벌고 같이 쓴다
       resources: { ...STARTING_RESOURCES },
@@ -398,8 +393,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
       phaseTokens: 0,
       pendingRefund: 0,
       researchTier: 0,
-      // 3인 팀만 주장을 둔다. 4인 팀은 직책 넷이 다 찬다
-      captainId: members.length < 4 ? members[0].playerId : null,
       publicScore: null,
     })
   }
@@ -436,8 +429,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         at: START_CELLS[Math.max(0, seats.findIndex((x) => x.playerId === s.playerId)) % START_CELLS.length] ?? null,
         // 전투 자리. 처음에는 서 있는 자리와 같다
         postTile: START_TILE,
-        // 판정에서 둘로 세던 주장은 없앴다. 방은 깃발로 정한다
-        captain: false,
         // 처음부터 이 팀이었다. 오늘 오간 무전은 다 내 것이다
         teamSinceMs: startedAtMs,
         // 2-3 교실은 이미 가 본 곳이다. 지도는 여기서부터 채워진다
@@ -483,7 +474,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     caughtUpToMs: startedAtMs,
     day: 1,
     startedRealMs: FieldValue.serverTimestamp(),
-    captains,
   })
 
   await batch.commit()

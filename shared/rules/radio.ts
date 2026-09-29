@@ -125,7 +125,6 @@ export const sys = {
     to === null
       ? `${room}${josa(room, '을/를')} 놓쳤다.`
       : `${room}${josa(room, '을/를')} ${to}팀에게 빼앗겼다.`,
-  captain: (team: TeamId, name: string) => `${team}팀 팀장은 ${name}${josa(name, '이/가')} 됐다.`,
   invisible: (name: string): string => `${name}${josa(name, '은/는')} 오늘 보이지 않는다.`,
   movedOut: (name: string, to: TeamId): string => `${name}${josa(name, '이/가')} ${to}팀으로 갔다.`,
   movedIn: (name: string): string => `${name}${josa(name, '이/가')} 우리 팀으로 왔다.`,

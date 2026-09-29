@@ -218,7 +218,7 @@ async function main(): Promise<void> {
   console.log('\n── 로그에 새면 안 되는 것 ──')
   const secretLine = `비밀말${Date.now()}`
   await must('say', a.token, { gameId: GAME, text: secretLine })
-  // 운영자가 문을 열어야 적는다(ballotGate). 팀장은 못 적고 A·B 팀은 팀장이 없다 — a 가 b 를 적는다
+  // 운영자가 문을 열어야 적는다(ballotGate). a 가 b 를 적는다
   await must('hostOpenBallot', host, { gameId: GAME })
   const cast = await call('castBallot', a.token, { gameId: GAME, targetId: b.uid })
   check(cast.ok, '표를 적었다', cast.message ?? '')

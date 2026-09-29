@@ -126,15 +126,6 @@ async function main(): Promise<void> {
   const self = await call('castBallot', A[0].token, { gameId: GAME, targetId: A[0].uid })
   check(self.code === 'FAILED_PRECONDITION', '나 자신은 못 적는다', String(self.code))
 
-  // C팀은 셋이라 주장이 있다. 그 사람은 못 적는다
-  const capC = (await getAll(`games/${GAME}/teams`)).find((t) => t.id === 'C')?.d.captainId as string | null
-  if (capC) {
-    const cap = await call('castBallot', A[0].token, { gameId: GAME, targetId: capC })
-    check(cap.code === 'FAILED_PRECONDITION', '팀장은 못 적는다', String(cap.code))
-  } else {
-    check(false, 'C팀 주장을 못 찾았다')
-  }
-
   await must('castBallot', A[0].token, { gameId: GAME, targetId: A[1].uid })
   check(true, '**같은 팀 사람도 적을 수 있다**')
 
@@ -219,8 +210,7 @@ async function main(): Promise<void> {
   check(voteIn.ok === false, '표를 받을 수도 없다', String(voteIn.code))
 
   console.log('\n── 지워진 사람이 할 수 있는 일 ──')
-  // 팀장이 아닌 사람을 고른다. 팀장은 누구도 못 적는다
-  const freeTarget = people.find((p) => p.uid !== B[0].uid && p.uid !== capC) as (typeof people)[number]
+  const freeTarget = people.find((p) => p.uid !== B[0].uid) as (typeof people)[number]
   await must('hostOpenBallot', host, { gameId: GAME })
   const ballotStill = await call('castBallot', B[0].token, { gameId: GAME, targetId: freeTarget.uid })
   check(ballotStill.ok, '투명인간 투표는 던질 수 있다', ballotStill.ok ? '' : `${ballotStill.code} ${ballotStill.message}`)

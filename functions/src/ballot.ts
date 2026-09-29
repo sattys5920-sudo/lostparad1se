@@ -19,7 +19,7 @@ import { canName, countBallots, eraseFrom, pickInvisible, type Ballot } from '..
 import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import { sys } from '../../shared/rules/radio'
-import type { GameDoc, TeamDoc } from '../../shared/model'
+import type { GameDoc } from '../../shared/model'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { erasedOn } from './use'
 import { freshNow } from './turn'
@@ -77,14 +77,6 @@ const ballotDaysOf = (gameId: string) =>
   gameRef(gameId).collection('secret').doc('ballotDays').collection('items')
 const keyOf = (day: number, voterId: string) => `d${day}:${voterId}`
 
-/** 지금 팀장인 사람들. 팀장은 적을 수 없다. */
-async function captainsOf(gameId: string): Promise<string[]> {
-  const teams = await gameRef(gameId).collection('teams').get()
-  return teams.docs
-    .map((d) => (d.data() as TeamDoc).captainId)
-    .filter((id): id is string => typeof id === 'string' && id !== '')
-}
-
 /**
  * 한 명을 적는다. **기권은 없다.**
  *
@@ -117,13 +109,11 @@ export const castBallot = onCall<{ gameId: string; targetId: string }>(async (re
   const out = canName({
     voterId: uid,
     targetId,
-    captainIds: await captainsOf(gameId),
     yesterdayId: game.invisibleId ?? null,
   })
   if (!out.ok) {
     const why: Record<string, string> = {
       self: '나는 못 적는다.',
-      captain: '팀장은 못 적는다.',
       repeat: '어제 지워진 사람이다.',
     }
     throw new HttpsError('failed-precondition', why[out.reason as string] ?? '적을 수 없다.')

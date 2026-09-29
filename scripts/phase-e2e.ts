@@ -130,8 +130,6 @@ async function main(): Promise<void> {
 
   console.log('\n── 시작 자리 ──')
   const started = await pawnsNow()
-  // 둘로 세던 주장은 없앴다. 방은 깃발로 정한다
-  check(Object.values(started).every((p) => p.captain !== true), '판정에서 둘로 세는 주장은 없다')
   check(Object.values(started).every((p) => p.postTile === p.tileId), '전투 자리가 선 자리와 같게 시작한다')
 
   console.log('\n── 자유 시간은 전선을 못 옮긴다 ──')

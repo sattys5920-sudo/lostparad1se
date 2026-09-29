@@ -152,7 +152,6 @@ export interface Mate {
   playerId: string
   /** 지금 화면을 켜 두고 있는가. */
   here: boolean
-  captain: boolean
 }
 
 /**
@@ -189,7 +188,7 @@ export function ResourceRow({
         {mates.map((m) => (
           <i
             key={m.playerId}
-            className={`sc-ct__mate${m.here ? ' is-here' : ''}${m.captain ? ' is-cap' : ''}`}
+            className={`sc-ct__mate${m.here ? ' is-here' : ''}`}
             style={m.here ? { background: teamColor } : undefined}
           />
         ))}

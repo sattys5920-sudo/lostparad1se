@@ -67,7 +67,7 @@ async function patch(path: string, fields: Record<string, unknown>): Promise<voi
     }),
   })
 }
-/** 자리표에 적힌 팀. 팀장 교대와 화면 구독이 이것을 본다. */
+/** 자리표에 적힌 팀. 화면 구독이 이것을 본다. */
 async function seatTeam(who: string): Promise<string | null> {
   const f = await doc(`games/${GAME}`)
   const rows = (f.seats as { arrayValue?: { values?: { mapValue?: { fields?: Record<string, unknown> } }[] } })

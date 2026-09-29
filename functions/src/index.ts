@@ -109,9 +109,6 @@ export { buyShopItem, sellCrop } from './act'
 // 이적. 자유 시간에 마주 서서 꺼내고, 다음 페이즈가 열릴 때 발효된다.
 export { askTransfer, answerTransfer } from './transfer'
 
-// 팀장 — 날마다 팀이 투표로 뽑는다.
-export { voteCaptain } from './captain'
-
 // 연구실에 놓인 완성품을 가져간다. 먼저 온 사람이 가진다.
 export { takeMade } from './made'
 

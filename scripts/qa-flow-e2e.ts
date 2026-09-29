@@ -526,12 +526,8 @@ async function main(): Promise<void> {
 
   // ════════════════════════════════════════════════════════════════
   head('투표 — 문 · 동률 (DAY 1)')
-  const captains = new Set(
-    (await Promise.all((['A', 'B', 'C', 'D'] as TeamId[]).map(async (t) => (await teamNow(t)).captainId as string | null))).filter((x): x is string => !!x),
-  )
-  const isCap = (p: Person) => captains.has(p.uid)
-  const T1 = people.find((p) => !isCap(p) && p.i !== 0) as Person
-  const T2 = people.find((p) => !isCap(p) && p.i !== 0 && p.uid !== T1.uid) as Person
+  const T1 = people.find((p) => p.i !== 0) as Person
+  const T2 = people.find((p) => p.i !== 0 && p.uid !== T1.uid) as Person
   {
     const early = await call('castBallot', P(0).token, { gameId: GAME, targetId: T1.uid })
     refused('열기 전 castBallot', early)
@@ -541,11 +537,6 @@ async function main(): Promise<void> {
     const op = await must('hostOpenBallot', host, { gameId: GAME })
     const g1 = await gameNow()
     check(op.open === true && (g1.ballot as { open: boolean; day: number })?.open === true && Number(op.day) === 1, '운영자가 열면 ballot.open 이 참이다', JSON.stringify(g1.ballot))
-
-    const cap = [...captains][0]
-    const capVote = await call('castBallot', P(0).token, { gameId: GAME, targetId: cap })
-    refused('팀장 castBallot', capVote)
-    check(!capVote.ok && korean(capVote.message), '팀장은 적을 수 없다', `${capVote.code} ${capVote.message}`)
 
     // 봇0 은 먼저 T2 를 적고 나중에 T1 로 바꾼다. 짝수 → T1, 홀수 → T2 (자기면 반대쪽) — 7:7 동률
     await must('castBallot', P(0).token, { gameId: GAME, targetId: T2.uid })

@@ -34,7 +34,6 @@ import { gameRef, nowOf } from './index'
 import { claimSeat, pickSeat } from './seat'
 import { catchUpMissionDays } from './missionDays'
 import { refreshViews } from './views'
-import { openCaptainVotes, settleCaptainVotes } from './captain'
 import { landResearch } from './made'
 import { tellReadyTraps } from './trap'
 import { closePhaseNow } from './phase'
@@ -77,19 +76,6 @@ async function dayStart(c: Ctx): Promise<void> {
   for (const p of pawns.docs) {
     c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0 })
   }
-
-  /*
-   * **팀장은 날마다 팀이 투표로 뽑는다.**
-   *
-   * 전에는 세 명짜리 팀의 주장이 자리 순서대로 하루씩 돌았다. 돌리는
-   * 것은 공평하지만 아무 뜻도 없다 — 누가 맡을지를 팀이 정하지 않으면
-   * 팀장은 직책이 아니라 순번이다. 이제 네 팀이 다 뽑는다.
-   *
-   * 어제 팀장은 여기서 내려온다. 새로 뽑을 때까지 그 팀에는 팀장이
-   * 없다 — 어제 사람이 앉은 채로 투표하면, 못 정했을 때 그대로 남아
-   * 「투표로 뽑는다」가 「투표로 바꿀 수도 있다」가 된다.
-   */
-  openCaptainVotes(c.tx, c.gameId, c.day, c.atMs, pawns)
 
   // **투명인간은 날짜 경계와 안 묶인다.** 발표(settleBallots)부터 다음
   // 투표가 열릴 때(hostOpenBallot)까지가 전부라, 여기서는 날짜만 넘긴다
@@ -428,8 +414,6 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   await tellReadyTraps(gameId, toMs)
   // 조용한 시간에 미뤄 둔 제작 완료 — 08:00 이 지났으면 지금 보낸다
   await flushQueue()
-  // 창이 닫힌 팀장 투표를 여기서 센다. 동점이면 다음 차례가 걸린다
-  await settleCaptainVotes(gameId)
   if (applied > 0) await refreshViews(gameId)
 
   const last = (await ref.get()).data() as GameDoc

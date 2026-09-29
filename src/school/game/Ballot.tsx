@@ -127,8 +127,6 @@ function flyAt(step: number, g: Geo): { x: number; y: number } {
 export interface BallotProps {
   me: SeatEntry
   seats: readonly SeatEntry[]
-  /** 오늘 팀장들. 팀장은 적을 수 없다. */
-  captainIds: readonly string[]
   /** 어제 지워진 사람. 이틀 연속은 없다. */
   invisibleId: string | null
   day: number
@@ -141,12 +139,12 @@ export interface BallotProps {
   closedText?: string
   /** 마감까지 몇 분. 언제 닫힐지 모르면 null 이다. */
   closesInMin: number | null
-  /** 종이 위에 얹는 줄. 팀장 판이 여기로 들어온다. */
+  /** 종이 위에 얹는 줄. */
   head?: ReactNode
 }
 
 export function Ballot(props: BallotProps) {
-  const { me, seats, captainIds, invisibleId, day, view, act, onSaid, closed, closesInMin } = props
+  const { me, seats, invisibleId, day, view, act, onSaid, closed, closesInMin } = props
   const closedText = props.closedText ?? '마감되었다'
   const mine = view?.myBallot ?? null
 
@@ -162,9 +160,9 @@ export function Ballot(props: BallotProps) {
   /**
    * 서버가 물린 이름들.
    *
-   * 화면이 아는 팀장은 **우리 팀 팀장뿐이다.** 다른 팀 팀장은 누구인지
-   * 안 내려오므로 종이에는 그대로 올라오고, 적고 나서야 물린다. 그럼
-   * 같은 이름을 또 누르게 되므로 물린 것은 기억해 둔다.
+   * 화면이 거른 뒤에도 물릴 수 있다 — 날이 넘어가 어제 지워진 사람이
+   * 바뀌는 사이처럼, 종이를 펴 둔 동안 서버 쪽 사정이 앞서 바뀔 때다.
+   * 같은 이름을 또 누르지 않도록 물린 것은 기억해 둔다.
    */
   const [refused, setRefused] = useState<readonly string[]>([])
 
@@ -174,13 +172,10 @@ export function Ballot(props: BallotProps) {
   const geoRef = useRef<Geo | null>(null)
   const timer = useRef<number | null>(null)
 
-  // 적을 수 있는 사람만 종이에 오른다. 나, 팀장, 어제 지워진 사람은 빠진다
+  // 적을 수 있는 사람만 종이에 오른다. 나, 어제 지워진 사람은 빠진다
   const named = useMemo(
-    () =>
-      seats.filter(
-        (s) => s.playerId !== me.playerId && !captainIds.includes(s.playerId) && s.playerId !== invisibleId,
-      ),
-    [seats, me.playerId, captainIds, invisibleId],
+    () => seats.filter((s) => s.playerId !== me.playerId && s.playerId !== invisibleId),
+    [seats, me.playerId, invisibleId],
   )
 
   const chosen = pick ?? mine

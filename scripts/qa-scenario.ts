@@ -20,16 +20,13 @@ const ADMIN = { Authorization: 'Bearer owner' }
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
-/**
- * 누가 어디로 갔는가. **사람 이름은 팀 안에서의 자리로 푼다** —
- * 「같은 팀 셋, 그중 팀장이 a」이면 세 명짜리 팀의 팀장이 a다.
- */
+/** 누가 어디로 갔는가. **사람 이름은 팀 안에서의 자리로 푼다.** */
 const PLAN: { team: 'three' | 'four'; who: string[]; to: TileId[] }[] = [
-  // 같은 팀 · 팀장 a — 과학실 / 음악실 / 과학실
+  // 세 명짜리 팀 — 과학실 / 음악실 / 과학실
   { team: 'three', who: ['a', 'b', 'c'], to: ['scienceRoom', 'musicRoom', 'scienceRoom'] },
   // 같은 팀 넷 — 과학실 / 도서관 / 과학실 / 정원
   { team: 'four', who: ['d', 'e', 'f', 'g'], to: ['scienceRoom', 'library', 'scienceRoom', 'garden'] },
-  // 같은 팀 · 팀장 h — 화장실 / 화장실 / 무용실
+  // 세 명짜리 팀 — 화장실 / 화장실 / 무용실
   { team: 'three', who: ['h', 'i', 'j'], to: ['baseB', 'baseB', 'newBuilding'] },
   // 같은 팀 넷 — 무용실 / 동아리실 / 가사실 / 음악실
   { team: 'four', who: ['k', 'l', 'm', 'n'], to: ['newBuilding', 'clubRoom', 'hallway', 'musicRoom'] },
@@ -38,7 +35,6 @@ const PLAN: { team: 'three' | 'four'; who: string[]; to: TileId[] }[] = [
 const uidOf = (id: string) => `acct_${createHash('sha256').update(id).digest('hex').slice(0, 24)}`
 const str = (f: unknown): string | null => (f as { stringValue?: string })?.stringValue ?? null
 const num = (f: unknown): number => Number((f as { integerValue?: string })?.integerValue ?? 0)
-const bool = (f: unknown): boolean => (f as { booleanValue?: boolean })?.booleanValue === true
 
 async function call(name: string, tk: string | null, data: unknown) {
   const r = await fetch(`${FN}/${name}`, {
@@ -87,7 +83,6 @@ async function pawns(game: string) {
     uid: d.name.split('/').pop() as string,
     team: str(d.fields?.team) ?? '?',
     tileId: str(d.fields?.tileId),
-    captain: bool(d.fields?.captain),
   }))
 }
 async function tiles(game: string) {
@@ -115,23 +110,21 @@ async function main() {
   const threes = [...byTeam.entries()].filter(([, m]) => m.length === 3).map(([t]) => t)
   const fours = [...byTeam.entries()].filter(([, m]) => m.length === 4).map(([t]) => t)
 
-  /** 이름 → 그 사람의 uid·팀. 팀장은 서버가 이미 3인 팀에 세워 두었다 */
-  const cast = new Map<string, { uid: string; team: string; to: TileId; captain: boolean }>()
+  /** 이름 → 그 사람의 uid·팀. */
+  const cast = new Map<string, { uid: string; team: string; to: TileId }>()
   let ti = 0
   let fi = 0
   for (const row of PLAN) {
     const team = row.team === 'three' ? threes[ti++] : fours[fi++]
     const members = [...(byTeam.get(team) ?? [])]
-    // **팀장을 맨 앞으로.** 「팀장 a」라고 했으니 a 가 팀장이어야 한다
-    members.sort((x, y) => Number(y.captain) - Number(x.captain))
     row.who.forEach((name, i) => {
-      cast.set(name, { uid: members[i].uid, team, to: row.to[i], captain: members[i].captain })
+      cast.set(name, { uid: members[i].uid, team, to: row.to[i] })
     })
   }
 
   console.log('── 누가 어느 팀인가 ──')
   for (const [name, c] of cast) {
-    console.log(`  ${name}  ${c.team}팀${c.captain ? ' · 팀장(머릿수 둘)' : '        '}  → ${TILE_BY_ID[c.to].name}`)
+    console.log(`  ${name}  ${c.team}팀  → ${TILE_BY_ID[c.to].name}`)
   }
 
   console.log('\n── 페이즈를 연다 ──')
@@ -151,18 +144,18 @@ async function main() {
   console.log('\n── 닫기 직전, 방마다 누가 서 있나 ──')
   const now = await pawns(game)
   const uidName = new Map([...cast].map(([n, c]) => [c.uid, n]))
-  const here = new Map<TileId, { name: string; team: string; head: number }[]>()
+  const here = new Map<TileId, { name: string; team: string }[]>()
   for (const p of now) {
     const name = uidName.get(p.uid)
     if (!name || p.tileId === null) continue
     const t = p.tileId as TileId
-    here.set(t, [...(here.get(t) ?? []), { name, team: p.team, head: p.captain ? 2 : 1 }])
+    here.set(t, [...(here.get(t) ?? []), { name, team: p.team }])
   }
   const before = await tiles(game)
   for (const [t, people] of here) {
     const w = new Map<string, number>()
-    for (const p of people) w.set(p.team, (w.get(p.team) ?? 0) + p.head)
-    const desc = people.map((p) => `${p.name}(${p.team}${p.head === 2 ? '·팀장' : ''})`).join(' ')
+    for (const p of people) w.set(p.team, (w.get(p.team) ?? 0) + 1)
+    const desc = people.map((p) => `${p.name}(${p.team})`).join(' ')
     const tally = [...w].map(([t2, n]) => `${t2} ${n}`).join(' vs ')
     console.log(
       `  ${TILE_BY_ID[t].name.padEnd(5, '　')} 정원 ${capacityOf(t)} · ${desc}  →  머릿수 ${tally}` +

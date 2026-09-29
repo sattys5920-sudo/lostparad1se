@@ -86,8 +86,6 @@ import { ARCADE_COUNT, ARCADE_BY_ID, LIVE_ROOM, machineAtSeat } from '../../../s
 import { unlockChip } from './chip'
 import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
 import { TransferAsk } from './TransferAsk'
-import { CaptainVote } from './CaptainVote'
-import { phaseOf } from '../../../shared/rules/captain'
 import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
 import { useTransfer } from './useTransfer'
@@ -1210,16 +1208,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const ballotClosesInMin: number | null = null
 
   /**
-   * 우리 팀 팀장 투표가 지금 열려 있는가.
-   *
-   * 상의하는 자리(무전)와 뽑는 자리(투표)가 갈렸다. 열린 것을 모르고
-   * 지나치면 그날 팀장이 안 정해지므로, 탭에 점을 찍고 무전 위에도
-   * 한 줄 가리킨다.
-   */
-  const captainVote = state.teams[me?.team ?? 'A']?.captainVote ?? null
-  const captainOpen = captainVote ? phaseOf(captainVote, nowMs) !== 'closed' : false
-
-  /**
    * 십자키 네 칸이 어떤 얼굴을 하는가.
    *
    * 벽은 어둡게 두고 누를 수도 없게 한다. **갈 수는 있는데 지금 못
@@ -1398,19 +1386,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 「같이 있다」를 가르는 데는 오히려 맞다.
    */
   const mates = useMemo(() => {
-    const capIds = new Set(
-      Object.values(state.teams)
-        .map((t) => t?.captainId ?? null)
-        .filter((x): x is string => typeof x === 'string'),
-    )
     return (game?.seats ?? [])
       .filter((sx) => sx.team === me?.team)
       .map((sx) => ({
         playerId: sx.playerId,
         here: sx.playerId === me?.playerId || live.current.has(sx.playerId),
-        captain: capIds.has(sx.playerId),
       }))
-  }, [game, state.teams, me?.team, me?.playerId, live])
+  }, [game, me?.team, me?.playerId, live])
 
   if (!game) return <Waiting what="판" error={state.error} />
   // **기다려도 오지 않는다.** 명단에 없는 사람은 자리가 생길 일이
@@ -1785,11 +1767,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <Ballot
           me={me}
           seats={game.seats}
-          /* **판 문서에서 읽는다.** 팀 문서는 제 팀 것만 읽을 수 있어서
-             다른 팀 팀장을 몰랐고, 그래서 적어 본 뒤에야 물렸다 */
-          captainIds={Object.values(game.captains ?? {}).filter(
-            (id): id is string => typeof id === 'string',
-          )}
           invisibleId={game.invisibleId ?? null}
           day={game.day}
           view={state.view}
@@ -1798,19 +1775,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           closed={ballotClosed}
           closedText={ballotCounted || ballotDay >= TOTAL_DAYS ? '마감되었다' : '아직 열리지 않았다'}
           closesInMin={ballotClosesInMin}
-          /* 하루를 여는 표. 우리 팀끼리만 하고, 없으면 줄도 안 뜬다 */
-          head={
-            <CaptainVote
-              me={{ ...me, team: me.team as TeamId }}
-              seats={game.seats}
-              captainId={game.captains?.[myTeam] ?? state.teams[myTeam]?.captainId ?? null}
-              vote={state.teams[myTeam]?.captainVote ?? null}
-              all={game.captains ?? null}
-              nowMs={nowMs}
-              act={act}
-              onSaid={setSaid}
-            />
-          }
         />
       </section>
 
@@ -1818,16 +1782,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           방에 매이지 않는 유일한 말이다. 흩어져서도 팀이 팀으로
           움직이려면 떨어져서 말이 통해야 한다 */}
       <section className="sc-pl__tab sc-pl__radio" hidden={tab !== 'radio'}>
-        {/*
-          팀장 투표는 투표 탭으로 갔다. **상의하는 자리와 뽑는 자리가
-          갈렸으니** 여기서 한 줄로 가리킨다 — 무전으로 다 맞춰 놓고
-          아무도 안 적는 일이 생기면 안 된다.
-        */}
-        {captainOpen && (
-          <button className="sc-pl__toVote" onClick={() => setTab('vote')}>
-            팀장 투표가 열렸다 — 투표 탭에서 적는다
-          </button>
-        )}
         <Radio
           me={{ ...me, team: myTeam }}
           act={act}
@@ -1902,9 +1856,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           { key: 'map', icon: 'tabMap', label: '맵' },
           { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0 },
           { key: 'radio', icon: 'tabRadio', label: '무전', dot: radioNew > 0 },
-          // 팀장 투표가 열려 있으면 점을 찍는다. 무전에서 떼어 온 대신,
-          // 열린 것을 모르고 지나치지는 않게 한다
-          { key: 'vote', icon: 'tabVote', label: '투표', dot: captainOpen },
+          { key: 'vote', icon: 'tabVote', label: '투표' },
           { key: 'note', icon: 'tabNote', label: '메모' },
         ]}
       />
@@ -2224,7 +2176,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               <li key={m.playerId}>
                 <i className="sc-pl__teamDot" style={{ background: m.here ? colorOfTeam(me.team) : 'transparent' }} />
                 <span>{nameOf(m.playerId)}</span>
-                {m.captain && <em>팀장</em>}
                 <span className="sc-pl__teamState">{m.here ? '접속 중' : '자리 비움'}</span>
               </li>
             ))}

@@ -118,14 +118,10 @@ describe('표를 세면 누가 줬는지가 사라진다', () => {
 })
 
 describe('누구를 적을 수 있는가', () => {
-  const base = { voterId: 'me', captainIds: ['cap'] as string[] }
+  const base = { voterId: 'me' }
 
   it('나 자신은 못 적는다', () => {
     expect(canName({ ...base, targetId: 'me' }).reason).toBe('self')
-  })
-
-  it('팀장은 못 적는다', () => {
-    expect(canName({ ...base, targetId: 'cap' }).reason).toBe('captain')
   })
 
   it('어제 지워진 사람은 못 적는다 — 방어 코드다', () => {

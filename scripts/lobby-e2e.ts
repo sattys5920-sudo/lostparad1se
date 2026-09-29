@@ -214,14 +214,6 @@ async function main(): Promise<void> {
 
   const teams = await listDocs(`games/${GAME}/teams`)
   check(teams.length === 4, '팀 문서 넷')
-  for (const t of ['C', 'D']) {
-    const d = await readDoc(`games/${GAME}/teams/${t}`)
-    check(Boolean((d?.captainId as { stringValue?: string })?.stringValue), `3인 팀 ${t}에는 주장이 있다`)
-  }
-  for (const t of ['A', 'B']) {
-    const d = await readDoc(`games/${GAME}/teams/${t}`)
-    check((d?.captainId as { nullValue?: null })?.nullValue === null, `4인 팀 ${t}에는 주장이 없다`)
-  }
 
   // 아침 넷(DAY 2~5) + 정산 다섯 + 마지막 여섯 시간 하나 + 끝 하나
   const schedule = await listDocs(`games/${GAME}/schedule`)

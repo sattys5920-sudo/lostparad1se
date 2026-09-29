@@ -624,27 +624,6 @@
   letter-spacing: 0.03em;
 }
 
-/*
- * 무전에서 투표 탭으로 보내는 한 줄.
- *
- * 팀장 투표가 무전 안에 있었다. 투표 탭으로 옮기면서 상의하는 자리와
- * 뽑는 자리가 갈렸으니, **열린 줄 모르고 지나치지 않게** 여기서
- * 가리킨다. 점은 탭바에도 찍힌다.
- */
-.sc-pl__toVote {
-  flex: none;
-  width: 100%;
-  appearance: none;
-  min-height: 44px;
-  border: 1px solid var(--sc-accent);
-  border-radius: var(--r-game);
-  background: var(--sc-surface);
-  color: var(--sc-text);
-  font: inherit;
-  font-size: var(--fs-label);
-  cursor: pointer;
-}
-
 /* 여섯 칸에서 밀려난 행동. 조작부와 같은 그림, 같은 이름이다 */
 .sc-pl__spill { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-1); margin-bottom: var(--sp-2); }
 .sc-pl__spill button {

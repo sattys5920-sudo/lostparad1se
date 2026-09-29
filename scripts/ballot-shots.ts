@@ -207,8 +207,7 @@ async function shoot(w: number, h: number, browser: Browser) {
   })()`)) as Record<string, number>
 
   // 2 · 이름 선택됨.
-  // **팀장은 적을 수 없는데 다른 팀 팀장은 화면이 모른다** — 서버가
-  // 물리면 그 이름은 줄이 그어지므로, 통과하는 이름이 나올 때까지
+  // 서버가 물리면 그 이름은 줄이 그어지므로, 통과하는 이름이 나올 때까지
   // 눌러 본다. 사람이 하는 것과 같은 길이다
   let slot = 0
   for (; slot < 13; slot++) {
@@ -281,7 +280,6 @@ async function shoot(w: number, h: number, browser: Browser) {
   await p2.evaluate(`localStorage.setItem('sc-plain','on')`)
   const g2 = await setUp(`p${w}`)
   await enter(p2, g2.game, g2.me)
-  // 여기서도 팀장은 물린다. 통과하는 이름이 나올 때까지
   let plainMs = -1
   for (let i = 0; i < 6; i++) {
     await p2.locator('.sc-bt__name:not([disabled])').first().click()

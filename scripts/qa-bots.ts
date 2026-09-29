@@ -172,7 +172,6 @@ interface Game {
   invisibleId?: string | null
   invisibleByDay?: Record<string, string | null>
   ballot?: { day: number; open: boolean }
-  captains?: Record<string, string>
   seats: { playerId: string; name: string; team: TeamId | null }[]
 }
 
@@ -213,8 +212,7 @@ async function botTick(b: Bot, g: Game): Promise<void> {
 
   // 투표 — 열려 있으면 오늘 한 번 (마감 전에 가끔 바꾼다)
   if (g.ballot?.open && g.ballot.day === g.day && (b.ballotDay !== g.day || Math.random() < 0.05)) {
-    const captains = new Set(Object.values(g.captains ?? {}))
-    const others = g.seats.filter((s) => s.playerId !== b.uid && !captains.has(s.playerId) && s.playerId !== g.invisibleId)
+    const others = g.seats.filter((s) => s.playerId !== b.uid && s.playerId !== g.invisibleId)
     if (others.length) {
       const r = await call(who, 'castBallot', b.token, { gameId: GAME, targetId: pick(others).playerId })
       if (r.ok) b.ballotDay = g.day

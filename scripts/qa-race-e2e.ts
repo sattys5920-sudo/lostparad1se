@@ -684,11 +684,10 @@ async function freeTimeCases(): Promise<void> {
   // 9 · 둘이 castBallot 동시에 — 둘 다 된다
   if (wants('9')) {
     await refresh(g)
-    const captains = new Set((await listAll(`games/${g.id}/teams`)).map((t) => t.d.captainId).filter((x): x is string => typeof x === 'string' && x !== ''))
     await runCase('9', '두 사람이 castBallot 을 동시에 — 둘 다 적힌다', 'all', N, async (i) => {
       for (const d of await listAll(`games/${g.id}/secret/ballots/items`)) await deleteDoc(`games/${g.id}/secret/ballots/items/${d.id}`)
       const a = g.people[(2 * i) % TOTAL_SEATS], b = g.people[(2 * i + 1) % TOTAL_SEATS]
-      const target = g.people.find((x) => x.uid !== a.uid && x.uid !== b.uid && !captains.has(x.uid)) as Person
+      const target = g.people.find((x) => x.uid !== a.uid && x.uid !== b.uid) as Person
       const [r1, r2] = await race(
         () => call('castBallot', a.token, { gameId: g.id, targetId: target.uid }),
         () => call('castBallot', b.token, { gameId: g.id, targetId: target.uid }),

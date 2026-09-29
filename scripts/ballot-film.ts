@@ -87,22 +87,10 @@ async function asPlayer(host: string, id: string): Promise<string> {
   return ((await swap.json()) as { idToken: string }).idToken
 }
 
-/**
- * 적을 수 있는 이름 둘을 고른다.
- *
- * **화면은 다른 팀 팀장을 모른다.** 그래서 종이에는 올라오지만 서버는
- * 물린다 — 영상에서 그걸 밟으면 이야기가 딴 데로 샌다. 여기서는
- * 에뮬레이터 안을 직접 들여다보고 안전한 이름만 고른다.
- */
+/** 적을 수 있는 이름 둘을 고른다. */
 async function safeNames(gameId: string, meAccountId: string): Promise<string[]> {
   const meId = uidOf(meAccountId)
   type Val = { stringValue?: string; mapValue?: { fields: Record<string, Val> }; arrayValue?: { values?: Val[] } }
-  const teams = (await (await fetch(`${FS}/games/${gameId}/teams`, { headers: ADMIN })).json()) as {
-    documents?: { fields?: Record<string, Val> }[]
-  }
-  const captains = new Set(
-    (teams.documents ?? []).map((d) => d.fields?.captainId?.stringValue ?? '').filter((x) => x !== ''),
-  )
   const game = (await (await fetch(`${FS}/games/${gameId}`, { headers: ADMIN })).json()) as {
     fields?: Record<string, Val>
   }
@@ -111,7 +99,7 @@ async function safeNames(gameId: string, meAccountId: string): Promise<string[]>
   for (const s of seats) {
     const id = s.mapValue?.fields.playerId?.stringValue ?? ''
     const name = s.mapValue?.fields.name?.stringValue ?? ''
-    if (id === meId || captains.has(id) || name === '') continue
+    if (id === meId || name === '') continue
     out.push(name)
   }
   return out

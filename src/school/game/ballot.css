@@ -36,26 +36,6 @@
   text-align: center;
 }
 
-/* 팀장 판이 여기로 들어온다. 어두운 바탕에 맞춰 다시 칠한다 */
-.sc-bt .sc-cv {
-  flex: none;
-  margin: 0 var(--sp-4) var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--line);
-  border-radius: var(--r-game);
-  background: var(--bg-2);
-  color: var(--text-2);
-  font-size: var(--fs-label);
-  line-height: 1.6;
-}
-.sc-bt .sc-cv b { color: var(--text-1); }
-.sc-bt .sc-cv em { color: var(--text-2); font-style: normal; }
-.sc-bt .sc-cv__who button {
-  border: 1px solid var(--line);
-  background: var(--bg-3);
-  color: var(--text-1);
-}
-
 /* ── 가운데 ──────────────────────────────────────────────── */
 
 .sc-bt__mid {

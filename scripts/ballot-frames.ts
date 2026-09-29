@@ -75,18 +75,12 @@ async function asPlayer(host: string, id: string): Promise<string> {
 async function safeNames(gameId: string, meAccountId: string): Promise<string[]> {
   const meId = uidOf(meAccountId)
   type Val = { stringValue?: string; mapValue?: { fields: Record<string, Val> }; arrayValue?: { values?: Val[] } }
-  const teams = (await (await fetch(`${FS}/games/${gameId}/teams`, { headers: ADMIN })).json()) as {
-    documents?: { fields?: Record<string, Val> }[]
-  }
-  const captains = new Set(
-    (teams.documents ?? []).map((d) => d.fields?.captainId?.stringValue ?? '').filter((x) => x !== ''),
-  )
   const game = (await (await fetch(`${FS}/games/${gameId}`, { headers: ADMIN })).json()) as { fields?: Record<string, Val> }
   const out: string[] = []
   for (const s of game.fields?.seats?.arrayValue?.values ?? []) {
     const id = s.mapValue?.fields.playerId?.stringValue ?? ''
     const name = s.mapValue?.fields.name?.stringValue ?? ''
-    if (id === meId || captains.has(id) || name === '') continue
+    if (id === meId || name === '') continue
     out.push(name)
   }
   return out

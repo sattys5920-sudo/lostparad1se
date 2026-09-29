@@ -518,7 +518,6 @@ async function main(): Promise<void> {
     observe(isReject(r), `[choice.ts] chooseImportant targetId=${JSON.stringify(t) ?? 'undefined'} (DAY 1)`, `${r.status} ${r.code} ${r.message}`)
   }
   for (const c of [undefined, 42, null, 'everything', '__proto__']) rejects(await call('chooseDay4', me.token, { gameId: GAME, choice: c }), `chooseDay4 choice=${JSON.stringify(c) ?? 'undefined'}`)
-  for (const t of [undefined, 42, null, {}, '', 'nobody', you.uid]) rejects(await call('voteCaptain', me.token, { gameId: GAME, targetId: t }), `voteCaptain targetId=${JSON.stringify(t) ?? 'undefined'}`)
   for (const d of [99, -1, 0, NaN, '2', 1.5, {}, null, undefined]) rejects(await call('fragmentOfDay', me.token, { gameId: GAME, day: d }), `fragmentOfDay day=${JSON.stringify(d) ?? 'undefined'}`)
   for (const d of [NaN, -1, 0, 'x', 1.5, {}]) rejects(await call('seenMissionDay', me.token, { gameId: GAME, day: d }), `seenMissionDay day=${JSON.stringify(d)}`, 'INVALID_ARGUMENT')
   const mm = await call('markMorning', me.token, { gameId: GAME, read: ['x', 99, -1, 1.5, null], skipped: 'abc' })
@@ -580,7 +579,7 @@ async function main(): Promise<void> {
   for (const [fn, args] of [
     ['roamTo', { tileId: 'gym' }], ['standAt', { x: 19, y: 23 }], ['castVote', { targetId: 'x', kind: 'trust' }], ['askDeal', { toPlayerId: 'x' }],
     ['phaseAct', { kind: 'move', targetTile: 'gym' }], ['castBallot', { targetId: 'x' }], ['radio', { text: '안녕' }], ['takeSlip', { slipId: 'x' }],
-    ['harvestPot', { pot: 0 }], ['buyShopItem', { itemId: SHOP_ITEMS[0].id }], ['useItem', { kind: 'paper', text: '안녕' }], ['voteCaptain', { targetId: 'x' }],
+    ['harvestPot', { pot: 0 }], ['buyShopItem', { itemId: SHOP_ITEMS[0].id }], ['useItem', { kind: 'paper', text: '안녕' }],
     ['commissionTrap', { maker: 0 }], ['takeErrand', { errandId: 'x' }], ['arcadeOpen', { game: 'updown' }], ['phaseNow', {}], ['dealNow', {}],
   ] as [string, Record<string, unknown>][]) {
     rejects(await call(fn, lobbyGuy.token, { gameId: LOBBY, ...args }), `시작 전 ${fn}`)
@@ -595,7 +594,7 @@ async function main(): Promise<void> {
   for (const tk of [host, lobbyGuy.token]) {
     for (const [fn, args] of [['say', { text: '안녕' }], ['radio', { text: '안녕' }], ['castVote', { targetId: me.uid, kind: 'trust' }], ['castBallot', { targetId: me.uid }],
       ['roamTo', { tileId: 'gym' }], ['standAt', { x: 19, y: 23 }], ['askDeal', { toPlayerId: me.uid }], ['takeSlip', { slipId: 'x' }], ['phaseAct', { kind: 'move', targetTile: 'gym' }],
-      ['myPaper', {}], ['radioLines', {}], ['chatLines', {}], ['harvestPot', { pot: 0 }], ['useItem', { kind: 'eraser' }], ['voteCaptain', { targetId: me.uid }]] as [string, Record<string, unknown>][]) {
+      ['myPaper', {}], ['radioLines', {}], ['chatLines', {}], ['harvestPot', { pot: 0 }], ['useItem', { kind: 'eraser' }]] as [string, Record<string, unknown>][]) {
       rejects(await call(fn, tk, { gameId: GAME, ...args }), `앉지 않은 사람의 ${fn}`)
     }
   }

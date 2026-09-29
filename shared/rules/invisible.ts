@@ -28,17 +28,14 @@ export interface BallotCount {
   count: number
 }
 
-/** 이 사람에게 표를 줄 수 있는가. 팀장과 나 자신은 못 적는다. */
+/** 이 사람에게 표를 줄 수 있는가. 나 자신은 못 적는다. */
 export function canName(input: {
   voterId: string
   targetId: string
-  /** 지금 팀장인 사람들. 팀장은 적을 수 없다. */
-  captainIds: readonly string[]
   /** 어제 투명인간. 이틀 연속은 없으므로 적어도 소용없다. */
   yesterdayId?: string | null
-}): { ok: boolean; reason: 'self' | 'captain' | 'repeat' | null } {
+}): { ok: boolean; reason: 'self' | 'repeat' | null } {
   if (input.voterId === input.targetId) return { ok: false, reason: 'self' }
-  if (input.captainIds.includes(input.targetId)) return { ok: false, reason: 'captain' }
   // 방어 코드다. 어제 지워진 사람은 오늘 보이지 않았으므로 원래
   // 표를 받을 수 없지만, 규칙을 한 군데 더 적어 둔다
   if (INVISIBLE_NO_REPEAT && input.yesterdayId === input.targetId) return { ok: false, reason: 'repeat' }
