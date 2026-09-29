@@ -643,7 +643,7 @@ export const phaseAct = onCall<{
         const been = new Set((doc.data() as PawnDoc).visitedTiles ?? [])
         been.add(p.tileId)
         // **그 방의 빈 칸에 선다.** 앞 층의 칸을 들고 가면 엉뚱한 자리에 선 것이 된다
-        const cell = seatIn(p.tileId, takenFrom(pawns.docs, papers?.docs ?? [], p.playerId, seated))
+        const cell = seatIn(p.tileId, takenFrom(pawns.docs, papers?.docs ?? [], p.playerId, seated, game.invisibleId ?? null))
         if (cell) seated.push(cell)
         claimSeat(tx, gameId, p.playerId, cell, nowMs)
         tx.update(doc.ref, {
@@ -1177,7 +1177,14 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * **덫에 걸려 있으면 그 자리다.** 걸린 칸 말고 다른 칸을 적어 오면
    * 거절한다 — 화면은 pin 으로 도로 세운다
    */
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  /*
+   * **투명인간은 칸을 막지 않는다.** 남에게는 안 보이는 사람이라, 그 칸에
+   * 서려다 「누가 서 있다」로 튕기면 거기 누가 있는지가 드러난다. 그 사람은
+   * 없는 것으로 치고 선다 — 투명이 풀릴 때 겹쳐 있으면 서버가 비켜 세운다
+   */
+  const ghost = game.invisibleId ?? null
+  const blocks = (id: string, d: PawnDoc) => id !== uid && id !== ghost && d.tileId !== null
   if (p.busyKind === '덫' && (p.busyUntilMs ?? 0) > nowMs && !(p.at?.x === x && p.at?.y === y)) {
     throw new HttpsError('failed-precondition', `덫에 걸려 있다. ${Math.ceil(((p.busyUntilMs ?? 0) - nowMs) / 60_000)}분 남았다.`)
   }
@@ -1211,7 +1218,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    */
   if (!same) {
     const there = await gameRef(gameId).collection('pawns').where('at.x', '==', x).where('at.y', '==', y).get()
-    if (there.docs.some((d) => d.id !== uid && (d.data() as PawnDoc).tileId !== null)) {
+    if (there.docs.some((d) => blocks(d.id, d.data() as PawnDoc))) {
       return { ok: false, code: 'occupied', why: '누가 서 있다.', at: await keepSeat(gameId, uid, p, { x, y }) }
     }
     const cellRef = cellsOf(gameId).doc(`${x}_${y}`)
@@ -1219,7 +1226,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
     const took = await inTx(async (tx) => {
       const [claim, old] = await Promise.all([tx.get(cellRef), oldRef ? tx.get(oldRef) : null])
       const by = claim.exists ? (claim.data() as { by: string }).by : null
-      if (by && by !== uid) {
+      if (by && by !== uid && by !== ghost) {
         const o = (await tx.get(gameRef(gameId).collection('pawns').doc(by))).data() as PawnDoc | undefined
         if (o && o.tileId !== null && o.at?.x === x && o.at?.y === y) return false
       }
@@ -1247,7 +1254,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
      * 둘이 선다. 그때는 방금 선 칸(x,y)에서 묶인다 — 한 칸에 한 사람은 지킨다
      */
     const onIt = await gameRef(gameId).collection('pawns').where('at.x', '==', snared.x).where('at.y', '==', snared.y).get()
-    const free = !onIt.docs.some((d) => d.id !== uid && (d.data() as PawnDoc).tileId !== null)
+    const free = !onIt.docs.some((d) => blocks(d.id, d.data() as PawnDoc))
     const stay = free ? snared : { x, y }
     await ref.update({ at: stay, busyUntilMs: until, busyKind: '덫' })
     if (free && (snared.x !== x || snared.y !== y)) {

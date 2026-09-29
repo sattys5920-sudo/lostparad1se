@@ -18,6 +18,7 @@ import type { GameDoc } from '../../shared/model'
 
 import { announceBallots } from './ballot'
 import { requireHost } from './host'
+import { reseatIfShared } from './seat'
 import { refreshViews } from './views'
 import { gameRef, nowOf } from './index'
 
@@ -46,6 +47,8 @@ export const hostOpenBallot = onCall<{ gameId: string }>(async (req) => {
   })
   batch.set(gameRef(gameId).collection('events').doc(), { atMs: nowMs, day, kind: 'ballotOpen', detail: {} })
   await batch.commit()
+  // 투명인간은 칸을 차지하지 않았다 — 누가 그 칸에 섰으면 비켜 세운다
+  if (game.invisibleId) await reseatIfShared(gameId, game.invisibleId, nowMs)
   await refreshViews(gameId)
   return { day, open: true }
 })

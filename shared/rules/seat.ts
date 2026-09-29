@@ -8,7 +8,7 @@
 // 고르는 법은 화면과 서버가 같다. 가고 싶은 칸(없으면 문 바로 안쪽 —
 // ENTRY_CELLS)에서 **가까운 테두리부터 한 겹씩** 넓혀 가며 첫 빈 칸.
 import { DOOR_CELLS, ENTRY_CELLS, isBlockedCell } from './blocked'
-import { TILE_BY_ID, roomOfCell, type Cell, type TileId } from './board'
+import { TILE_BY_ID, isHallCell, roomOfCell, type Cell, type TileId } from './board'
 import { isFixture } from './fixtures'
 import { laneCells } from './lane'
 
@@ -78,4 +78,25 @@ export function seatIn(room: TileId, taken: ReadonlySet<string>, near: Cell | nu
   const walkedIn = near && roomOfCell(near.x, near.y) === room ? near : null
   if (walkedIn && open(walkedIn.x, walkedIn.y)) return { x: walkedIn.x, y: walkedIn.y }
   return seatNear(room, walkedIn ?? entryCellOf(room), open)
+}
+
+/** 복도에서 비켜 설 칸을 찾아보는 거리(칸). 이 안에 없으면 방으로 들인다 */
+export const HALL_STEP_ASIDE_REACH = 6
+
+/**
+ * 복도 칸 from 에서 가장 가까운 빈 복도 칸 — 가까운 테두리부터 한 겹씩.
+ * 투명이 풀려 남과 한 칸에 겹친 사람을 비켜 세울 때 쓴다. 없으면 null.
+ */
+export function nearestOpenHall(from: Cell, taken: ReadonlySet<string>, reach = HALL_STEP_ASIDE_REACH): Cell | null {
+  const ok = (x: number, y: number) => isHallCell(x, y) && canSeatAt(x, y) && !taken.has(`${x},${y}`)
+  if (ok(from.x, from.y)) return { x: from.x, y: from.y }
+  for (let d = 1; d <= reach; d++) {
+    for (let dx = -d; dx <= d; dx++) {
+      for (let dy = -d; dy <= d; dy++) {
+        if (Math.abs(dx) !== d && Math.abs(dy) !== d) continue
+        if (ok(from.x + dx, from.y + dy)) return { x: from.x + dx, y: from.y + dy }
+      }
+    }
+  }
+  return null
 }

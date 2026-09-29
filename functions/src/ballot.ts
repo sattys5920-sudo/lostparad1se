@@ -28,6 +28,7 @@ import { logSecret } from './qaLog'
 import { requireHost } from './host'
 import { sysLine } from './radio'
 import { dropAllErrands } from './errand'
+import { reseatIfShared } from './seat'
 import { gameRef, nowOf, requireUid } from './index'
 
 const db = getFirestore()
@@ -303,6 +304,8 @@ export const clearInvisible = onCall<{ gameId: string; reason: string }>(async (
     detail: { reason: reason.trim().slice(0, 300) },
   })
   await batch.commit()
+  // 투명인간은 칸을 차지하지 않았다 — 누가 그 칸에 섰으면 비켜 세운다
+  await reseatIfShared(gameId, who, nowMs)
   await refreshViews(gameId)
   return { cleared: who }
 })

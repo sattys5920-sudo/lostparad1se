@@ -110,12 +110,13 @@ export async function checkInvariants(gameId: string, nowMs: number): Promise<Vi
   }
 
   // ── 칸 — 한 칸에 하나, 설 수 있는 칸 ──
+  // 투명인간은 칸을 차지하지 않는다(seat.ts) — 남이 그 칸에 서도 어긋난 것이 아니다
   const onCell = new Map<string, string[]>()
   for (const [id, p] of pawnBy) {
     if (p.tileId === null || !p.at) continue
     const at = p.at as Cell
     const key = `${at.x},${at.y}`
-    onCell.set(key, [...(onCell.get(key) ?? []), id])
+    if (id !== game.invisibleId) onCell.set(key, [...(onCell.get(key) ?? []), id])
     if (!canStandAt(at.x, at.y) || isFixture(at.x, at.y) || isBlockedCell(at.x, at.y)) {
       bad('cellBlocked', `${nameOf(id)} · (${at.x},${at.y})`)
     }

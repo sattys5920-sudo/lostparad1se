@@ -10,9 +10,9 @@
 // 칸으로 동시에 오는 standAt 이 그 표시를 두고 다툰다.
 import { getFirestore, type DocumentSnapshot, type QueryDocumentSnapshot, type Transaction } from 'firebase-admin/firestore'
 
-import type { PawnDoc } from '../../shared/model'
-import type { Cell, TileId } from '../../shared/rules/board'
-import { seatIn } from '../../shared/rules/seat'
+import type { GameDoc, PawnDoc } from '../../shared/model'
+import { roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
+import { nearestOpenHall, seatIn } from '../../shared/rules/seat'
 import { gameRef } from './index'
 
 const db = getFirestore()
@@ -27,16 +27,21 @@ const papersOf = (gameId: string) =>
 /**
  * 이미 찬 칸들("x,y"). **방에 있는 사람(tileId 가 있는)의 칸**과 안 주운 종이.
  * 걷는 중인 사람은 어느 칸도 아니다. except 는 뺀다(본인).
+ *
+ * **투명인간(ghost)은 칸을 차지하지 않는다.** 남에게 안 보이는 사람이 칸을
+ * 막으면, 빈 칸에 서려다 튕긴 사람이 그 자리에 누가 있는지 알게 된다.
+ * 투명이 풀릴 때 겹친 채면 reseatIfShared 가 비켜 세운다.
  */
 export function takenFrom(
   pawns: readonly (QueryDocumentSnapshot | DocumentSnapshot)[],
   papers: readonly (QueryDocumentSnapshot | DocumentSnapshot)[],
   except: string | null,
   also: Iterable<Cell> = [],
+  ghost: string | null = null,
 ): Set<string> {
   const out = new Set<string>()
   for (const d of pawns) {
-    if (d.id === except) continue
+    if (d.id === except || d.id === ghost) continue
     const p = d.data() as PawnDoc | undefined
     if (!p || p.tileId === null || !p.at) continue
     out.add(`${p.at.x},${p.at.y}`)
@@ -60,8 +65,13 @@ export async function pickSeat(
   room: TileId,
   near: Cell | null = null,
 ): Promise<Cell | null> {
-  const [pawns, papers] = await Promise.all([tx.get(gameRef(gameId).collection('pawns')), tx.get(papersOf(gameId))])
-  return seatIn(room, takenFrom(pawns.docs, papers.docs, uid), near)
+  const [pawns, papers, game] = await Promise.all([
+    tx.get(gameRef(gameId).collection('pawns')),
+    tx.get(papersOf(gameId)),
+    tx.get(gameRef(gameId)),
+  ])
+  const ghost = (game.data() as GameDoc | undefined)?.invisibleId ?? null
+  return seatIn(room, takenFrom(pawns.docs, papers.docs, uid, [], ghost), near)
 }
 
 /** 고른 칸에 표시를 남긴다. 자리(at)는 부르는 쪽이 같은 트랜잭션에서 적는다 */
@@ -82,6 +92,35 @@ export async function seatPawn(gameId: string, uid: string, room: TileId, atMs: 
     const p = mine.data() as PawnDoc | undefined
     if (!p || p.tileId !== room) return null
     const cell = await pickSeat(tx, gameId, uid, room, near)
+    claimSeat(tx, gameId, uid, cell, atMs)
+    tx.update(ref, { at: cell })
+    return cell
+  })
+}
+
+/**
+ * 투명이 풀린 사람이 **남과 한 칸에 서 있으면** 가까운 빈 칸으로 비켜 세운다.
+ * 투명인간은 칸을 차지하지 않으므로(takenFrom) 그동안 누가 그 칸에 섰을 수
+ * 있다. 방 안이면 그 방의 빈 칸, 복도면 가까운 빈 복도 칸(없으면 제 방으로).
+ * 겹치지 않았으면 건드리지 않는다. 옮긴 칸을 돌려준다.
+ */
+export async function reseatIfShared(gameId: string, uid: string, atMs: number): Promise<Cell | null> {
+  const ref = gameRef(gameId).collection('pawns').doc(uid)
+  return db.runTransaction(async (tx) => {
+    const [mine, pawns, papers] = await Promise.all([
+      tx.get(ref),
+      tx.get(gameRef(gameId).collection('pawns')),
+      tx.get(papersOf(gameId)),
+    ])
+    const p = mine.data() as PawnDoc | undefined
+    if (!p || p.tileId === null || !p.at) return null
+    const taken = takenFrom(pawns.docs, papers.docs, uid)
+    if (!taken.has(`${p.at.x},${p.at.y}`)) return null
+    const room = p.tileId as TileId
+    const cell = roomOfCell(p.at.x, p.at.y) === room
+      ? seatIn(room, taken, p.at)
+      : (nearestOpenHall(p.at, taken) ?? seatIn(room, taken))
+    if (!cell) return null
     claimSeat(tx, gameId, uid, cell, atMs)
     tx.update(ref, { at: cell })
     return cell
