@@ -8,7 +8,6 @@
 // 이 파일은 **순수 함수**다. 문서도 시계도 데이터베이스도 모른다.
 // 서버가 재료를 모아 주고 결과를 적는다.
 import { EMPTY_SATCHEL, countOf, type ItemKind, type Satchel } from './items'
-import { HARVEST_LIMIT } from './crop'
 import type { TeamId } from './v2'
 
 /** 요청이 살아 있는 시간. 답이 없으면 그냥 사라진다 — 값도 안 든다. */
@@ -153,28 +152,6 @@ export const SHORT_MESSAGE: Record<StakeRefusal, string> = {
   shortSlips: '쪽지가 모자란다.',
   shortRobots: '들고 있는 로봇이 모자란다.',
   shortCrops: '딴 것이 모자란다.',
-}
-
-/**
- * 딴 것이 오가고 나서 **받는 쪽 손이 넘치는가.**
- *
- * 딴 것은 한 사람이 정해진 개수(HARVEST_LIMIT)까지만 든다 — 정원에서
- * 딸 때와 같은 한도다. 거래로 그 한도를 넘겨 쌓게 두면 따는 쪽의
- * 한도가 뜻을 잃는다. 받는 것이 없으면 이미 넘쳐 있어도 막지 않는다.
- */
-export const CROP_SWAP_MESSAGE = `딴 것은 ${HARVEST_LIMIT} 개까지 든다 — 받는 쪽 손이 찼다.`
-
-export function cropSwapFull(a: {
-  /** 받는 사람이 지금 든 수 */
-  held: number
-  /** 받는 사람이 내주는 수 */
-  gives: number
-  /** 받는 사람이 받는 수 */
-  gets: number
-  cap: number
-}): boolean {
-  if (a.gets <= 0) return false
-  return a.held - a.gives + a.gets > a.cap
 }
 
 /**

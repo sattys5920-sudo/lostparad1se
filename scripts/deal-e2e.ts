@@ -550,9 +550,9 @@ async function main(): Promise<void> {
     check(meAfter.money === meBefore.money - 2 && mateAfter.money === mateBefore.money + 2, '같은 팀 짝꿍에게 돈 2가 그대로 넘어갔다', `나 ${meBefore.money}→${meAfter.money} · 짝꿍 ${mateBefore.money}→${mateAfter.money}`)
     check(meAfter.knowledge === meBefore.knowledge, '팀 금고(지식)는 그대로다')
 
-    console.log('── 덤. 딴 것도 오간다 — 받는 쪽 손은 다섯까지 ──')
+    console.log('── 덤. 딴 것도 오간다 — 받는 쪽 손에 한도가 없다 ──')
     await putCrops(me.uid, { tomato: 2 })
-    await putCrops(mate.uid, { potato: 4 })
+    await putCrops(mate.uid, { potato: 9 })
     const cid = String((await must('askDeal', me.token, { gameId: GAME, toPlayerId: mate.uid })).id)
     await must('answerDeal', mate.token, { gameId: GAME, dealId: cid, accept: true })
 
@@ -566,33 +566,19 @@ async function main(): Promise<void> {
       JSON.stringify(onTable.crops ?? {}),
     )
 
-    // 짝꿍 손은 넷 — 둘을 받으면 여섯이라 넘친다
-    await must('readyDeal', me.token, { gameId: GAME, dealId: cid, ready: true })
-    await must('readyDeal', mate.token, { gameId: GAME, dealId: cid, ready: true })
-    await push(DEAL_COUNTDOWN_MS + 1000)
-    const full = await call('settleDeal', mate.token, { gameId: GAME, dealId: cid })
-    const back = await dealNow(cid)
-    check(!full.ok && String(back.status) === 'open', '받는 쪽 손이 넘치면 성립하지 않고 탁자로 돌아간다', full.message)
-    const still = await pawnsNow()
-    check(
-      JSON.stringify(still[me.uid].crops) === JSON.stringify({ tomato: 2 }) &&
-        JSON.stringify(still[mate.uid].crops) === JSON.stringify({ potato: 4 }),
-      '막혔을 때 둘의 작물은 그대로다',
-    )
-
-    // 짝꿍이 하나를 내주면 자리가 난다 — 4 − 1 + 2 = 5
+    // **드는 데 제한이 없다.** 짝꿍은 아홉을 들고 있어도 받는다 — 9 − 1 + 2 = 10
     await must('stakeDeal', mate.token, { gameId: GAME, dealId: cid, stake: { crops: { potato: 1 } } })
     await must('readyDeal', me.token, { gameId: GAME, dealId: cid, ready: true })
     await must('readyDeal', mate.token, { gameId: GAME, dealId: cid, ready: true })
     await push(DEAL_COUNTDOWN_MS + 1000)
     await must('settleDeal', me.token, { gameId: GAME, dealId: cid })
     const got = await pawnsNow()
-    check(String((await dealNow(cid)).status) === 'done', '서로 하나씩 내주니 성립했다')
+    check(String((await dealNow(cid)).status) === 'done', '**열 개가 되어도 성립한다**')
     check(JSON.stringify(got[me.uid].crops) === JSON.stringify({ potato: 1 }), '나는 토마토 둘을 주고 감자 하나를 받았다', JSON.stringify(got[me.uid].crops))
     check(
-      Number((got[mate.uid].crops as Record<string, number>)?.potato) === 3 &&
+      Number((got[mate.uid].crops as Record<string, number>)?.potato) === 8 &&
         Number((got[mate.uid].crops as Record<string, number>)?.tomato) === 2,
-      '짝꿍은 감자 셋 · 토마토 둘',
+      '짝꿍은 감자 여덟 · 토마토 둘',
       JSON.stringify(got[mate.uid].crops),
     )
     const mateView = (await getAll(`games/${GAME}/views`)).find((v) => v.id === mate.uid)?.d ?? {}

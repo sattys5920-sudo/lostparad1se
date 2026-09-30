@@ -26,7 +26,6 @@ import { BOARDS, BOARD_BY_ID, atBoard, atThing, minutesLeft, type ThingIcon } fr
 import {
   CROP_BY_ID,
   GARDEN_TILE,
-  HARVEST_LIMIT,
   POT_CELLS,
   nameShows,
   stageOf,
@@ -865,8 +864,6 @@ export function projectView(world: World, viewerId: string): View {
               spec === null || pot.plantedMs === null
                 ? 'empty'
                 : stageOf(grown, growMs)
-            const mine = world.crops?.[viewerId] ?? {}
-            const held = Object.values(mine).reduce((a, n) => a + n, 0)
             return {
               i: pot.i,
               cell: POT_CELLS[pot.i],
@@ -874,7 +871,7 @@ export function projectView(world: World, viewerId: string): View {
               // **흙만 있을 때는 이름이 없다.** 심은 사람에게도 안 간다
               name: spec !== null && nameShows(stage) ? spec.name : null,
               cropId: spec !== null && nameShows(stage) ? spec.id : null,
-              canPick: stage === 'fruit' && held < HARVEST_LIMIT,
+              canPick: stage === 'fruit',
             }
           })
         : [],

@@ -17,7 +17,6 @@ import {
   newDeal,
   readyToSettle,
   robotSwapNo,
-  cropSwapFull,
   cropTotal,
   shortOf,
   stakeIsEmpty,
@@ -216,15 +215,6 @@ describe('딴 것도 탁자에 오른다', () => {
     expect(shortOf(put({ crops: { potato: 2 } }), mine)).toBeNull()
     expect(shortOf(put({ crops: { potato: 3 } }), mine)).toBe('shortCrops')
     expect(shortOf(put({ crops: { corn: 1 } }), mine)).toBe('shortCrops')
-  })
-
-  it('받는 쪽 손이 한도를 넘으면 막는다. 내주는 만큼은 자리가 난다', () => {
-    const base = { held: 4, gives: 0, gets: 1, cap: 5 }
-    expect(cropSwapFull(base)).toBe(false)
-    expect(cropSwapFull({ ...base, gets: 2 })).toBe(true)
-    expect(cropSwapFull({ ...base, gets: 2, gives: 1 })).toBe(false)
-    // 받는 것이 없으면 이미 넘쳐 있어도 막지 않는다
-    expect(cropSwapFull({ ...base, held: 7, gets: 0 })).toBe(false)
   })
 
   it('더미 개수는 음수를 세지 않는다', () => {

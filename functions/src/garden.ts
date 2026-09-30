@@ -28,7 +28,6 @@ import {
   CROPS,
   CROP_BY_ID,
   GARDEN_TILE,
-  HARVEST_LIMIT,
   POT_CELLS,
   growHoursOf,
   nameShows,
@@ -245,18 +244,14 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
   await db.runTransaction(async (tx) => {
     const ref = potsOf(gameId).doc(String(i))
     const mine = gameRef(gameId).collection('pawns').doc(uid)
-    const [potSnap, pawnSnap] = await Promise.all([tx.get(ref), tx.get(mine)])
+    const potSnap = await tx.get(ref)
     const pot = (potSnap.data() as PotDoc | undefined) ?? EMPTY_POT
     const stage = stageNow(pot, nowMs)
     // 둘이 같은 열매를 동시에 따면 늦은 쪽은 여기서 빈 화분을 본다 — 「아직
     // 열매가 아니다」로 답하면 방금 열매를 본 사람이 어리둥절하다
     if (stage === 'empty') throw new HttpsError('failed-precondition', '빈 화분이다.')
     if (stage !== 'fruit') throw new HttpsError('failed-precondition', '아직 열매가 아니다.')
-    const bag = ((pawnSnap.data() as PawnDoc | undefined)?.crops ?? {}) as Record<string, number>
-    const held = Object.values(bag).reduce((a, n) => a + n, 0)
-    if (held >= HARVEST_LIMIT) {
-      throw new HttpsError('failed-precondition', `${HARVEST_LIMIT} 개까지만 들고 다닌다.`)
-    }
+    // **드는 데 제한이 없다.** 딴 만큼 든다
     const cropId = pot.cropId as string
     got = CROP_BY_ID[cropId]?.name ?? cropId
     grew = cropId

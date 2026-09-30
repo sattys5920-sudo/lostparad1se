@@ -8,7 +8,7 @@
 // 오므로 그릴 수도 없다.** 흙 앞에서 기다리는 것이 이 일이다.
 import { useState } from 'react'
 
-import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
+import { CROP_BY_ID } from '../../../shared/rules/crop'
 import { cropIcon } from './goodArt'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
@@ -68,7 +68,7 @@ export function GardenSheet({
   return (
     <div className="sc-gd">
       <p className="sc-gd__hand">
-        딴 것 {crops}/{HARVEST_LIMIT}
+        딴 것 {crops} 개
       </p>
 
       <ul className="sc-gd__list">
@@ -95,7 +95,7 @@ export function GardenSheet({
                     })
                   }
                 >
-                  {pot.canPick ? '따기' : '손이 찼다'}
+                  따기
                 </button>
               )}
             </li>

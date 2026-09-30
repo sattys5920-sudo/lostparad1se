@@ -25,9 +25,6 @@ import {
   readyToSettle,
   robotSwapNo,
   ROBOT_SWAP_MESSAGE,
-  cropSwapFull,
-  cropTotal,
-  CROP_SWAP_MESSAGE,
   type CropBag,
   shortOf,
   sideOf,
@@ -36,7 +33,7 @@ import {
   type Stake,
 } from '../../shared/rules/deal'
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
-import { CROPS, HARVEST_LIMIT } from '../../shared/rules/crop'
+import { CROPS } from '../../shared/rules/crop'
 import { MAX_CARRIED_ROBOTS, ROBOTS_PER_TEAM } from '../../shared/rules/occupy'
 import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
@@ -356,17 +353,6 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     const why = `${aShort ? '상대' : '우리'} 쪽 ${SHORT_MESSAGE[(aShort ?? bShort) as never]}`
     await dealsOf(gameId).doc(dealId).update({ status: 'open', why, 'a.ready': false, 'b.ready': false })
     throw new HttpsError('failed-precondition', why)
-  }
-
-  /*
-   * **받는 쪽 손.** 딴 것은 정원에서 딸 때와 같은 한도까지만 든다.
-   * 넘치면 성립하지 않고 탁자로 돌아간다 — 로봇과 같다
-   */
-  const aFull = cropSwapFull({ held: cropTotal(aHave.crops), gives: cropTotal(seen.a.stake.crops), gets: cropTotal(seen.b.stake.crops), cap: HARVEST_LIMIT })
-  const bFull = cropSwapFull({ held: cropTotal(bHave.crops), gives: cropTotal(seen.b.stake.crops), gets: cropTotal(seen.a.stake.crops), cap: HARVEST_LIMIT })
-  if (aFull || bFull) {
-    await dealsOf(gameId).doc(dealId).update({ status: 'open', why: CROP_SWAP_MESSAGE, 'a.ready': false, 'b.ready': false })
-    throw new HttpsError('failed-precondition', CROP_SWAP_MESSAGE)
   }
 
   // limit(0)은 Firestore가 거절한다 — 안 올렸으면 묻지도 않는다

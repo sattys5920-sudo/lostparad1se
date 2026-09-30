@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { ITEM_BY_KIND, PAPER_MAX, type ItemKind, type Satchel } from '../../../shared/rules/items'
 import { Cost } from './Cost'
 import { TILE_BY_ID } from '../../../shared/rules/board'
-import { CROP_BY_ID, HARVEST_LIMIT } from '../../../shared/rules/crop'
+import { CROP_BY_ID } from '../../../shared/rules/crop'
 import { cropIcon, goodIcon } from './goodArt'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
@@ -107,7 +107,7 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
         <li className="is-crop">
           <b>딴 것</b>
           <span>
-            {held}/{HARVEST_LIMIT}
+            {held} 개
           </span>
           <p className="sc-mi__crops">
             {crops.map(([id, n]) => (

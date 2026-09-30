@@ -12,7 +12,7 @@
 import { createHash } from 'node:crypto'
 
 import { dayHourMs } from '../shared/rules/clock'
-import { CROP_BY_ID, GARDEN_TILE, HARVEST_LIMIT, POT_CELLS } from '../shared/rules/crop'
+import { CROP_BY_ID, GARDEN_TILE, POT_CELLS } from '../shared/rules/crop'
 import { VENDINGS } from '../shared/rules/shop'
 
 const PROJECT = 'demo-goei'
@@ -352,9 +352,9 @@ async function main() {
   check(!twiceSell.ok, '없는 것은 못 넣는다', twiceSell.ok ? '넣었다' : (twiceSell.err ?? ''))
 
   console.log('\n── 손에 드는 수 ──')
-  // 한도까지 채워 두고 한 번 더 따 본다
+  // 옛 한도(5)보다 많이 들려 두고 한 번 더 따 본다 — **제한이 없다**
   const full = Object.fromEntries(
-    Object.entries({ potato: HARVEST_LIMIT }).map(([k, n]) => [k, { integerValue: String(n) }]),
+    Object.entries({ potato: 9 }).map(([k, n]) => [k, { integerValue: String(n) }]),
   )
   await fetch(`${FS}/games/${game}/pawns/${meUid}?updateMask.fieldPaths=crops`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
@@ -367,9 +367,9 @@ async function main() {
   const vFull = await viewOf(game, meUid)
   const ripe2 = potsOf(vFull).find((p) => num(p.i) === 2) ?? {}
   check(str(ripe2.stage) === 'fruit', '열매가 달렸다', String(str(ripe2.stage)))
-  check((ripe2.canPick as { booleanValue?: boolean })?.booleanValue === false, '손이 차면 못 딴다고 온다')
-  const nope = await call('harvestPot', meTok, { gameId: game, pot: 2 })
-  check(!nope.ok, `${HARVEST_LIMIT}개까지만 들고 다닌다`, nope.ok ? '땄다' : (nope.err ?? ''))
+  check((ripe2.canPick as { booleanValue?: boolean })?.booleanValue === true, '많이 들고 있어도 딸 수 있다고 온다')
+  const more = await call('harvestPot', meTok, { gameId: game, pot: 2 })
+  check(more.ok, '**드는 데 제한이 없다** — 아홉 개를 들고도 딴다', more.ok ? '' : (more.err ?? ''))
 
   console.log('\n── 딴 것이 기록에 남는가 ──')
   /*

@@ -5,7 +5,6 @@ import {
   CROPS,
   CROP_BY_ID,
   GARDEN_TILE,
-  HARVEST_LIMIT,
   POT_CELLS,
   growHoursOf,
   nameShows,
@@ -102,8 +101,4 @@ describe('단계', () => {
   })
 })
 
-describe('한도', () => {
-  it('들고 다니는 수확물에 한도가 있다', () => {
-    expect(HARVEST_LIMIT).toBeGreaterThan(0)
-  })
-})
+
