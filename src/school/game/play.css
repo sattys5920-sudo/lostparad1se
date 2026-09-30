@@ -1660,24 +1660,6 @@
 /* 점이 부드럽게 따라간다. 툭 튀면 누가 움직였는지 못 본다 */
 .sc-mini.is-live { padding: 0; overflow: hidden; background: color-mix(in srgb, #0c0e15 80%, transparent); }
 .sc-mini__canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-/* 지금 자리 — 미니맵 아랫단에 띠로 얹는다. 길면 말줄임 */
-.sc-mini__place {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  padding: 2px 4px;
-  overflow: hidden;
-  background: rgba(10, 12, 20, 0.78);
-  color: #f3eed8;
-  font-size: 11px;
-  line-height: 14px;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.sc-mini__place:empty { display: none; }
 
 .sc-mini circle { transition: cx var(--t-screen) steps(3, end), cy var(--t-screen) steps(3, end); }
 

@@ -14,8 +14,8 @@ import {
   type MapFacts,
   type RoomFacts,
 } from './MapPlan'
-import { ALLEY_NAME, FLOOR_NAME, TILES, floorAtY, isAlleyCell } from '../../../shared/rules/board'
-import { MAP_H, MAP_W, doorHere, roomAt, roomById, tileAt } from '../map/world'
+import { ALLEY_NAME, TILES, isAlleyCell } from '../../../shared/rules/board'
+import { MAP_H, MAP_W, ROOMS, doorHere, roomAt, tileAt } from '../map/world'
 import { ARCADE_COUNT, ARCADE_NAME } from '../../../shared/rules/arcade'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
@@ -60,21 +60,7 @@ export function useMiniMapOn(): [boolean, (v: boolean) => void] {
  * 색), 매 프레임은 내 둘레만 떼어 확대해 옮긴다. 내 자리는 걸음이 칸을
  * 넘을 때마다 selfRef 로 온다 — 멈출 때까지 기다리지 않는다.
  */
-const WIN = 31
-/**
- * 미니맵 아래에 적는 지금 자리. 방이면 방 이름, 문턱이면 그 방,
- * 복도면 「2 층 복도」. 점만 있으면 도면을 읽을 줄 알아야 어디인지 안다.
- */
-export function placeName(x: number, y: number): string {
-  const room = roomAt(x, y)
-  if (room) return room.name
-  const door = doorHere(x, y)
-  if (door) return roomById[door.a]?.name ?? ''
-  if (isAlleyCell(x, y)) return ALLEY_NAME
-  const floor = floorAtY(y)
-  return floor ? `${FLOOR_NAME[floor]} 복도` : ''
-}
-
+const WIN = 21
 export function LiveMiniMap({
   selfRef,
   fallback,
@@ -93,7 +79,6 @@ export function LiveMiniMap({
   onOpen: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const placeRef = useRef<HTMLSpanElement | null>(null)
   // 도면 한 장 — 주인이 바뀔 때만 다시 그린다
   const ownerKey = TILES.map((t) => tiles[t.id as TileId]?.ownerTeam ?? '-').join('')
   const plan = useMemo(() => {
@@ -148,9 +133,6 @@ export function LiveMiniMap({
       const me = selfRef.current ?? fallbackRef.current
       const size = cv.clientWidth
       if (!me || size <= 0) return
-      // 자리 이름은 글자로 — 캔버스에 쓰면 픽셀 글꼴이 뭉개진다. 바뀔 때만 고친다
-      const where = placeName(me.x, me.y)
-      if (placeRef.current && placeRef.current.textContent !== where) placeRef.current.textContent = where
       const blink = Math.floor(t / 450) % 2
       const others = pawnsRef.current.filter((p) => p.playerId !== meId && p.at && !p.walking)
       const key = `${me.x},${me.y},${size},${blink},${others.map((p) => `${p.at?.x},${p.at?.y}`).join(';')},${plan.width}`
@@ -170,6 +152,57 @@ export function LiveMiniMap({
       const sx = me.x - half
       const sy = me.y - half
       ctx.drawImage(plan, sx, sy, WIN, WIN, 0, 0, px, px)
+      // 방 이름 — 창 안에 걸린 방마다 보이는 부분 한가운데에 적는다.
+      // 점만 있으면 바로 위 칸이 미술실인지 음악실인지 도면을 외워야 안다
+      ctx.save()
+      ctx.font = `${Math.round(10 * dpr)}px Galmuri11, 'Apple SD Gothic Neo', sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.lineJoin = 'round'
+      ctx.lineWidth = 3 * dpr
+      ctx.strokeStyle = 'rgba(8, 10, 16, 0.9)'
+      // 내가 선 방(문턱 포함)은 노란 글자 — 윗줄 방 이름은 서버가 확인한 뒤에야 바뀌어 걷는 동안 늦는다
+      const hereId = roomAt(me.x, me.y)?.id ?? doorHere(me.x, me.y)?.a ?? null
+      // 적을 이름을 모은다. 내 방이 먼저, 다음은 창에 많이 걸린 방부터
+      const cands: { name: string; here: boolean; tx: number; ty: number; tw: number; area: number; lo: number; hi: number }[] = []
+      for (const room of ROOMS) {
+        for (const r of room.rects) {
+          const x0 = Math.max(r.x, sx)
+          const y0 = Math.max(r.y, sy)
+          const x1 = Math.min(r.x + r.w, sx + WIN)
+          const y1 = Math.min(r.y + r.h, sy + WIN)
+          if (x1 - x0 < 3 || y1 - y0 < 2) continue
+          const tw = ctx.measureText(room.name).width
+          cands.push({
+            name: room.name,
+            here: room.id === hereId,
+            tx: ((x0 + x1) / 2 - sx) * cell,
+            ty: ((y0 + y1) / 2 - sy) * cell,
+            tw,
+            area: (x1 - x0) * (y1 - y0),
+            lo: (x0 - sx) * cell,
+            hi: (x1 - sx) * cell,
+          })
+        }
+      }
+      cands.sort((a, b) => Number(b.here) - Number(a.here) || b.area - a.area)
+      const th = 12 * dpr
+      const pad = 2 * dpr
+      const placed: { l: number; r: number; t: number; b: number }[] = []
+      for (const c of cands) {
+        // 창 가장자리에 걸린 방은 글자를 안쪽으로 민다. 단 **글자 한가운데는
+        // 그 방 위에 남아야 한다** — 넘어가면 옆방 이름처럼 읽힌다
+        const tx = Math.min(Math.max(c.tx, c.tw / 2 + pad), px - c.tw / 2 - pad)
+        if (tx < c.lo || tx > c.hi) continue
+        const box = { l: tx - c.tw / 2 - pad, r: tx + c.tw / 2 + pad, t: c.ty - th / 2, b: c.ty + th / 2 }
+        // 이미 적은 이름과 겹치면 적지 않는다 — 두 이름이 붙으면 둘 다 못 읽는다
+        if (placed.some((p) => box.l < p.r && box.r > p.l && box.t < p.b && box.b > p.t)) continue
+        placed.push(box)
+        ctx.fillStyle = c.here ? '#ffe27a' : '#f3eed8'
+        ctx.strokeText(c.name, tx, c.ty)
+        ctx.fillText(c.name, tx, c.ty)
+      }
+      ctx.restore()
       // 보이는 사람 — 분단 색 작은 점
       for (const p of others) {
         const a = p.at as { x: number; y: number }
@@ -194,7 +227,6 @@ export function LiveMiniMap({
   return (
     <button className="sc-mini is-live" onClick={onOpen} aria-label="전체 맵 열기">
       <canvas ref={canvasRef} className="sc-mini__canvas" />
-      <span ref={placeRef} className="sc-mini__place" aria-live="polite" />
     </button>
   )
 }
