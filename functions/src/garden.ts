@@ -258,7 +258,7 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
     const bag = ((pawnSnap.data() as PawnDoc | undefined)?.crops ?? {}) as Record<string, number>
     const held = Object.values(bag).reduce((a, n) => a + n, 0)
     if (held >= HARVEST_LIMIT) {
-      throw new HttpsError('failed-precondition', `${HARVEST_LIMIT}개까지만 들고 다닌다.`)
+      throw new HttpsError('failed-precondition', `${HARVEST_LIMIT} 개까지만 들고 다닌다.`)
     }
     const cropId = pot.cropId as string
     got = CROP_BY_ID[cropId]?.name ?? cropId

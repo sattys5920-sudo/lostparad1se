@@ -1235,7 +1235,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
   const ghost = game.invisibleId ?? null
   const blocks = (id: string, d: PawnDoc) => id !== uid && id !== ghost && d.tileId !== null
   if (p.busyKind === '덫' && (p.busyUntilMs ?? 0) > nowMs && !(p.at?.x === x && p.at?.y === y)) {
-    throw new HttpsError('failed-precondition', `덫에 걸려 있다. ${Math.ceil(((p.busyUntilMs ?? 0) - nowMs) / 60_000)}분 남았다.`)
+    throw new HttpsError('failed-precondition', `덫에 걸려 있다. ${Math.ceil(((p.busyUntilMs ?? 0) - nowMs) / 60_000)} 분 남았다.`)
   }
   /*
    * **문제 종이 위에도 못 선다.** 종이는 운영자가 아무 칸에나 놓으므로
@@ -1315,7 +1315,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
     }
     await gameRef(gameId).collection('notices').doc().set({
       toPlayerId: uid,
-      text: `덫에 걸렸다. ${SNARE_MINUTES}분 동안 못 움직인다.`,
+      text: `덫에 걸렸다. ${SNARE_MINUTES} 분 동안 못 움직인다.`,
       atMs: nowMs,
     })
     await logSecret(gameId, 'standAt', nowMs, uid, { x, y }, { tileId: p.tileId })

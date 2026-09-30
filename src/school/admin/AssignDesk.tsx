@@ -81,7 +81,7 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
   return (
     <div className="sc-as">
       <p className="sc-ad__hint">
-        들어온 사람 {seats.length}명 · 배정 {done}명. 누르는 순간 그 사람 화면에 학생증이 뜬다.
+        들어온 사람 {seats.length} 명 · 배정 {done} 명. 누르는 순간 그 사람 화면에 학생증이 뜬다.
       </p>
       <p className="sc-as__teams">
         {TEAM_ORDER.map((t) => (

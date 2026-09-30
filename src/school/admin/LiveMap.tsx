@@ -126,13 +126,13 @@ function hhmm(ms: number): string {
 }
 function agoText(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000))
-  if (s < 60) return `${s}초 전`
-  if (s < 3600) return `${Math.floor(s / 60)}분 전`
-  return `${Math.floor(s / 3600)}시간 전`
+  if (s < 60) return `${s} 초 전`
+  if (s < 3600) return `${Math.floor(s / 60)} 분 전`
+  return `${Math.floor(s / 3600)} 시간 전`
 }
 function spanText(ms: number): string {
   const m = Math.max(0, Math.round(ms / 60_000))
-  return m < 60 ? `${m}분` : `${Math.floor(m / 60)}시간 ${m % 60}분`
+  return m < 60 ? `${m} 분` : `${Math.floor(m / 60)} 시간 ${m % 60} 분`
 }
 
 // ── 판 ──────────────────────────────────────────────────────────
@@ -559,7 +559,7 @@ export function LiveMap({ act, onSaid }: { act: GameActions; onSaid: (t: string)
           <section key={g}>
             <h3>
               {g}
-              <em>{rows.length}명</em>
+              <em>{rows.length} 명</em>
             </h3>
             <ul>
               {rows.map((p) => (
@@ -899,9 +899,9 @@ function PersonCard({ p, nowMs, onRoom, onClose }: { p: LivePerson; nowMs: numbe
     : `${p.roomName ?? '?'}${p.at ? ` (${p.at.x},${p.at.y})` : ' · 칸 모름'}`
   const since =
     p.untilMs !== null
-      ? `${hhmm(p.untilMs)}까지 (${spanText(p.untilMs - nowMs)} 남음)`
+      ? `${hhmm(p.untilMs)} 까지 (${spanText(p.untilMs - nowMs)} 남음)`
       : p.sinceMs !== null
-        ? `${hhmm(p.sinceMs)}부터 (${spanText(nowMs - p.sinceMs)})`
+        ? `${hhmm(p.sinceMs)} 부터 (${spanText(nowMs - p.sinceMs)})`
         : '—'
   return (
     <div className="sc-lvm__card">
@@ -930,7 +930,7 @@ function PersonCard({ p, nowMs, onRoom, onClose }: { p: LivePerson; nowMs: numbe
         {p.roomSinceMs !== null && p.sinceMs !== p.roomSinceMs && (
           <div>
             <dt>이 방에</dt>
-            <dd>{`${hhmm(p.roomSinceMs)}부터`}</dd>
+            <dd>{`${hhmm(p.roomSinceMs)} 부터`}</dd>
           </div>
         )}
         {p.errand && (
@@ -1035,7 +1035,7 @@ function RoomCard({
             {teamName(state.owner)} 방
           </span>
         )}
-        {room !== 'all' && <span className="sc-lvm__team">{inside.length}명</span>}
+        {room !== 'all' && <span className="sc-lvm__team">{inside.length} 명</span>}
         <button className="sc-lvm__x" onClick={onClose} aria-label="닫기">
           ✕
         </button>
@@ -1073,7 +1073,7 @@ function RoomCard({
               return (
                 <option key={r} value={r}>
                   {chatRoomName(r)}
-                  {n > 0 ? ` · ${n}줄` : ''}
+                  {n > 0 ? ` · ${n} 줄` : ''}
                 </option>
               )
             })}

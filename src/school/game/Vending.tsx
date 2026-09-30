@@ -245,7 +245,7 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
       setNote(null)
       setSold({ name, paid })
       noise.coin()
-      onSaid(`${name}${josa(name, '을/를')} 넣었다. ${paid}코인.`)
+      onSaid(`${name}${josa(name, '을/를')} 넣었다. ${paid} 코인.`)
     } catch (e) {
       setSold(null)
       setNote((e as Error).message)

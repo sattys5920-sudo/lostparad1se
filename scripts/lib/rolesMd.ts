@@ -180,9 +180,9 @@ export function barOf(bar: string): { need?: number; limit?: number; minutes?: n
   if (m) return { need: Number(m[1]) }
   m = bar.match(/^(\d+) 이하$/)
   if (m) return { limit: Number(m[1]) }
-  m = bar.match(/^(\d+)분$/)
+  m = bar.match(/^(\d+) ?분$/)
   if (m) return { minutes: Number(m[1]) }
-  m = bar.match(/^(\d+)팀 · 각 (\d+)분$/)
+  m = bar.match(/^(\d+) ?(?:팀|분단) · 각 (\d+) ?분$/)
   if (m) return { need: Number(m[1]), minutes: Number(m[2]) }
   if (bar === '예 / 아니오') return {}
   throw new Error(`기준을 못 읽는다: ${bar}`)

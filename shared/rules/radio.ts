@@ -118,8 +118,8 @@ export function waveAt(i: number, frame: number, connected: number, spiking: boo
  * 넘어간 것도 팀원이 지워진 것도 그 팀은 원래 본다.
  */
 export const sys = {
-  phaseOpen: (no: number): string => `${no}교시가 열렸다.`,
-  phaseClose: (no: number): string => `${no}교시가 닫혔다.`,
+  phaseOpen: (no: number): string => `${no} 교시가 열렸다.`,
+  phaseClose: (no: number): string => `${no} 교시가 닫혔다.`,
   roomTaken: (room: string): string => `${room}${josa(room, '을/를')} 차지했다.`,
   roomLost: (room: string, to: TeamId | null): string =>
     to === null

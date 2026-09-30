@@ -73,7 +73,7 @@ export function Quickdraw({ room, meId, act, onAgain, onMenu, onQuit }: {
 
   return (
     <div className="sc-qd">
-      <p className="sc-ar__title">먼저 쏴 <span>{DRAW_WINS}판 먼저 · 나 {d.wins[meId] ?? 0} : {d.wins[foe?.id ?? ''] ?? 0} {foe?.name}</span></p>
+      <p className="sc-ar__title">먼저 쏴 <span>{DRAW_WINS} 판 먼저 · 나 {d.wins[meId] ?? 0} : {d.wins[foe?.id ?? ''] ?? 0} {foe?.name}</span></p>
       <div className="sc-rh__stage">
         <button
           className={`sc-qd__field${go && !fired ? ' is-go' : ''}${fired ? ' is-fired' : ''}`}
@@ -90,7 +90,7 @@ export function Quickdraw({ room, meId, act, onAgain, onMenu, onQuit }: {
       <ol className="sc-du__rounds">
         {d.rounds.map((r, i) => (
           <li key={i} className={`is-${r.winner === meId ? 'win' : r.winner ? 'lose' : 'draw'}`}>
-            <span>{i + 1}판</span>
+            <span>{i + 1} 판</span>
             <b>{shotText(r.shots[meId])}</b>
             <em>:</em>
             <b>{shotText(r.shots[foe?.id ?? ''])}</b>

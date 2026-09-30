@@ -234,7 +234,7 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
 
   const pawn = await myPawn(gameId, uid)
   if (await mineNow(gameId, uid)) {
-    throw new HttpsError('failed-precondition', `한 번에 ${ERRANDS_PER_PERSON}개까지다.`)
+    throw new HttpsError('failed-precondition', `한 번에 ${ERRANDS_PER_PERSON} 개까지다.`)
   }
 
   const ref = postedOf(gameId).doc(errandId)

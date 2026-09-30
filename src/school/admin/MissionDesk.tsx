@@ -92,13 +92,13 @@ const staleOf = (r: Row, log: readonly LogLine[]): boolean =>
 function amount(c: Pick<DayClauseView, 'have' | 'bar' | 'unit' | 'mode'>): string {
   if (c.have === null) return '—'
   if (c.unit === 'flag') return c.have > 0 ? '했다' : '안 했다'
-  const u = c.unit === 'minutes' ? '분' : ''
+  const u = c.unit === 'minutes' ? ' 분' : ''
   return c.mode === 'atMost' ? `${c.have}${u} · 최대 ${c.bar}${u}` : `${c.have}/${c.bar}${u}`
 }
 
 function deltaText(d: number | null, unit: DayClause['unit']): string {
   if (d === null || unit === 'flag') return ''
-  const u = unit === 'minutes' ? '분' : ''
+  const u = unit === 'minutes' ? ' 분' : ''
   return d === 0 ? '±0' : d > 0 ? `+${d}${u}` : `−${-d}${u}`
 }
 
@@ -242,7 +242,7 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
     setBusy(true)
     try {
       const out = (await act.hostMissionSend(data.day, ids ?? undefined)) as { sent?: number }
-      onSaid(`DAY ${data.day} 판정을 ${out.sent ?? 0}명에게 보냈다.`)
+      onSaid(`DAY ${data.day} 판정을 ${out.sent ?? 0} 명에게 보냈다.`)
       setAsk(null)
       setPicked(new Set())
       await load()
@@ -328,8 +328,8 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
         </button>
       </div>
       <p className="sc-md__asof">
-        {meta ? `${hhmm(meta.asOfMs)}까지 센 판정` : ''}
-        {readAt ? ` · ${hhmm(readAt)}에 읽음 · 10초마다` : ''}
+        {meta ? `${hhmm(meta.asOfMs)} 까지 센 판정` : ''}
+        {readAt ? ` · ${hhmm(readAt)} 에 읽음 · 10 초마다` : ''}
         {err ? <b> · 못 읽었다: {err}</b> : null}
       </p>
 
@@ -365,11 +365,11 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
               setPicked(next)
             }}
           />
-          보이는 {shown.length}명 고르기
+          보이는 {shown.length} 명 고르기
         </label>
         <div className="sc-ad__row">
           <button disabled={busy || picked.size === 0} onClick={() => setAsk({ ids: [...picked] })}>
-            고른 {picked.size}명 보내기
+            고른 {picked.size} 명 보내기
           </button>
           <button className="is-primary sc-md__go" disabled={busy} onClick={() => setAsk({ ids: null })}>
             전부 보내기
@@ -427,9 +427,9 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
               <span className={`sc-md__kind is-${l.kind}`}>{l.kind === 'send' ? '보냄' : l.kind === 'board' ? '전체 공개' : '뒤집음'}</span>
               <span className="sc-md__who">
                 {l.kind === 'board'
-                  ? `${l.names.length}명의 성공/실패`
+                  ? `${l.names.length} 명의 성공/실패`
                   : l.kind === 'send' && l.names.length === rows.length && rows.length > 1
-                    ? `전부 ${l.names.length}명`
+                    ? `전부 ${l.names.length} 명`
                     : l.names.join(', ')}
                 {l.kind === 'override' && (
                   <>
@@ -709,7 +709,7 @@ function SendSheet({
 
   const again = rows.filter((r) => r.sentAtMs !== null && !stale(r)).length
   const one = rows.length === 1 ? rows[0] : null
-  const title = one ? `${one.name}에게 보낸다` : all ? `전부 ${rows.length}명에게 보낸다` : `고른 ${rows.length}명에게 보낸다`
+  const title = one ? `${one.name}에게 보낸다` : all ? `전부 ${rows.length} 명에게 보낸다` : `고른 ${rows.length} 명에게 보낸다`
 
   return (
     <div className="sc-md__veil" role="presentation" onClick={onClose}>
@@ -745,13 +745,13 @@ function SendSheet({
 
         {again > 0 && (
           <p className="sc-md__warn">
-            {one ? '이미 보냈다.' : `${again}명은 이미 보냈다.`} 다시 보내면 덮어쓰고, 팝업이 다시 뜬다.
+            {one ? '이미 보냈다.' : `${again} 명은 이미 보냈다.`} 다시 보내면 덮어쓰고, 팝업이 다시 뜬다.
           </p>
         )}
         <div className="sc-ad__row">
           <button onClick={onClose}>그만</button>
           <button className="sc-md__do" disabled={busy || rows.length === 0} onClick={onSend}>
-            {one ? '보낸다' : `${rows.length}명에게 보낸다`}
+            {one ? '보낸다' : `${rows.length} 명에게 보낸다`}
           </button>
         </div>
       </div>

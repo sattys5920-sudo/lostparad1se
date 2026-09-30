@@ -95,9 +95,9 @@ async function main() {
   async function labels(): Promise<string[]> {
     const shown = await page.locator('.sc-ct__act').allInnerTexts()
     const out = shown.map((t) => t.split('\n').pop()?.trim() ?? '')
-    if (out.includes('더보기')) {
-      await page.locator('.sc-ct__act', { hasText: '더보기' }).click()
-      const sheet = page.locator('.sc-sheet[aria-label="더보기"]')
+    if (out.includes('더 보기')) {
+      await page.locator('.sc-ct__act', { hasText: '더 보기' }).click()
+      const sheet = page.locator('.sc-sheet[aria-label="더 보기"]')
       await sheet.waitFor({ timeout: 5000 })
       const more = await sheet.locator('button').allInnerTexts()
       out.push(...more.map((t) => t.split('\n').pop()?.trim() ?? ''))
@@ -109,7 +109,7 @@ async function main() {
       await sheet.locator('.sc-sheet__back').click()
       await sheet.waitFor({ state: 'detached', timeout: 5000 })
     }
-    return out.filter((t) => t !== '' && t !== '더보기' && t !== '닫기')
+    return out.filter((t) => t !== '' && t !== '더 보기' && t !== '닫기')
   }
 
   console.log('\n── 자유 시간 ──')

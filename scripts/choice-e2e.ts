@@ -127,7 +127,7 @@ async function main(): Promise<void> {
   await tick(a.token)
   // 날짜 검사가 잠금까지 한다
   const locked = await call('chooseImportant', a.token, { gameId: GAME, targetId: c.uid })
-  check(locked.message === `중요한 사람은 DAY ${CHOSEN_ONE_DAY}에 고른다.`, '날이 지나면 그대로 잠긴다', locked.message)
+  check(locked.message === `중요한 사람은 DAY ${CHOSEN_ONE_DAY} 에 고른다.`, '날이 지나면 그대로 잠긴다', locked.message)
   check((await view(a.uid)).myChoice?.chosenId === b.uid, '고른 것은 그대로다')
 
   check((await call('chooseDay4', a.token, { gameId: GAME, choice: '몰라' })).code === 'INVALID_ARGUMENT', '없는 선택은 거절')

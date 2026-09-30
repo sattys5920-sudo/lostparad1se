@@ -96,7 +96,7 @@ describe('조건 수치', () => {
   /** 문서 한 줄의 기준. 「같은 방에 1분 이상 …」처럼 말 안에 박힌 분도 minutes 로 읽는다 */
   const wantOf = (counts: string, bar: string) => {
     const want = barOf(bar)
-    const inner = counts.match(/(\d+)분 이상/)
+    const inner = counts.match(/(\d+) ?분 이상/)
     return inner && want.minutes === undefined ? { ...want, minutes: Number(inner[1]) } : want
   }
 
@@ -148,7 +148,7 @@ describe('마지막 선택', () => {
 
   it('세 번째 줄은 중요한 사람의 팀이 1위다', () => {
     expect(DAY4_CHOICES[2].id).toBe('chosen')
-    expect(DAY4_CHOICES[2].text).toBe('중요한 사람의 분단이 1위')
+    expect(DAY4_CHOICES[2].text).toBe('중요한 사람의 분단이 1 위')
   })
 })
 

@@ -55,7 +55,7 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
   if (req.auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
 
   const password = String(req.data.password ?? '')
-  if (password.length < 8) throw new HttpsError('invalid-argument', '비밀번호는 8자 이상으로 정해라.')
+  if (password.length < 8) throw new HttpsError('invalid-argument', '비밀번호는 8 자 이상으로 정해라.')
 
   const ref = gameRef(req.data.gameId)
   const snap = await ref.get()

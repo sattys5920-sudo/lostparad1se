@@ -72,7 +72,7 @@ export const hostEnter = onCall<{ code: string }>(async (req) => {
 
   if (misses >= HOST_GATE_MAX_MISSES) {
     const leftMs = HOST_GATE_LOCK_MS - (now - gate.windowFromMs)
-    throw new HttpsError('resource-exhausted', `너무 많이 틀렸다. ${Math.ceil(leftMs / 60000)}분 뒤에 다시.`)
+    throw new HttpsError('resource-exhausted', `너무 많이 틀렸다. ${Math.ceil(leftMs / 60000)} 분 뒤에 다시.`)
   }
 
   if (!sameCode(String(req.data.code ?? ''), want)) {

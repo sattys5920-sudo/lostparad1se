@@ -174,7 +174,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
               () => act.hostScatterRandom(howMany),
               (r) => {
                 const o = r as { scattered?: number; asked?: number }
-                return `${o.scattered ?? 0}장을 뿌렸다${(o.scattered ?? 0) < (o.asked ?? 0) ? ` — 조건에 맞는 것이 ${o.scattered ?? 0}장뿐이다` : ''}.`
+                return `${o.scattered ?? 0} 장을 뿌렸다${(o.scattered ?? 0) < (o.asked ?? 0) ? ` — 조건에 맞는 것이 ${o.scattered ?? 0} 장뿐이다` : ''}.`
               },
             )
           }
@@ -183,7 +183,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
         </button>
       </div>
       <p className="sc-ad__hint">
-        대기 중에서 고른다. 3~4번(그날)은 DAY {board.lateFromDay}부터 후보에 들고, 한 역할이 같은 날 두 장이 되지 않게 빈 방부터 흩는다.
+        대기 중에서 고른다. 3~4 번(그날)은 DAY {board.lateFromDay} 부터 후보에 들고, 한 역할이 같은 날 두 장이 되지 않게 빈 방부터 흩는다.
       </p>
 
       {/* ── 거르기 · 줄 세우기 ── */}
@@ -198,10 +198,10 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
         </select>
         <select aria-label="번호" value={fSlot} onChange={(e) => setFSlot(e.target.value as '' | '1' | '2' | '3' | '4')}>
           <option value="">번호 전부</option>
-          <option value="1">1번</option>
-          <option value="2">2번</option>
-          <option value="3">3번</option>
-          <option value="4">4번</option>
+          <option value="1">1 번</option>
+          <option value="2">2 번</option>
+          <option value="3">3 번</option>
+          <option value="4">4 번</option>
         </select>
         <select aria-label="상태" value={fState} onChange={(e) => setFState(e.target.value as SlipState | '')}>
           <option value="">상태 전부</option>
@@ -235,7 +235,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
                 <span className="sc-sd__no">{no}</span>
                 <span className="sc-sd__name">{ROLE_NAMES[id]}</span>
                 {warn.solvable && (
-                  <span className="sc-sd__dot" title="이름형과 역할형이 하나라도 같이 나갔다 — 누구인지 맞출 수 있다">
+                  <span className="sc-sd__dot" title="이름형과 역할형이 하나라도 같이 나갔다 — 누구인지 맞힐 수 있다">
                     완성 가능
                   </span>
                 )}
@@ -310,7 +310,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
                                 early ? (
                                   <Sure
                                     disabled={busy || room === '' || !board.running}
-                                    warn={`3~4번(그날)은 DAY ${board.lateFromDay}부터다. 그래도 뿌린다`}
+                                    warn={`3~4 번(그날)은 DAY ${board.lateFromDay} 부터다. 그래도 뿌린다`}
                                     onGo={() => scatter(n)}
                                   >
                                     뿌리기

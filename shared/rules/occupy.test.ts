@@ -687,7 +687,7 @@ describe('로봇 놓기', () => {
     })
     const out = doAct(s, 'a', { kind: 'dropRobot' })
     expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain(`${ROBOTS_PER_ROOM}기`)
+    if (!out.ok) expect(out.why).toContain(`${ROBOTS_PER_ROOM} 기`)
   })
 
   it('들고 있는 것은 방 한도를 안 먹는다 — 둘 들고 와도 둘 다 놓는다', () => {
@@ -754,7 +754,7 @@ describe('로봇 수거 — 놓은 사람만', () => {
     })
     const out = doAct(s, 'a', { kind: 'takeRobot' })
     expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain(`${MAX_CARRIED_ROBOTS}기`)
+    if (!out.ok) expect(out.why).toContain(`${MAX_CARRIED_ROBOTS} 기`)
   })
 
   it('놓은 사람이 적히지 않은 옛 로봇은 같은 팀이 거둔다', () => {

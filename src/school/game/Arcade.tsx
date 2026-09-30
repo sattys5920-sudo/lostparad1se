@@ -149,7 +149,7 @@ export function Arcade({ act, meId, machine, seated, room, invites, onDismiss }:
       {/* 간판. 전구가 번갈아 켜진다 — 오락실 앞을 지나갈 때 보던 그것 */}
       <div className="sc-ar__marquee" aria-hidden>
         <i /><i /><i />
-        <span>{machine + 1}번 기계</span>
+        <span>{machine + 1} 번 기계</span>
         <i /><i /><i />
       </div>
       {/* 다른 기계가 부르면 화면 위에 띠가 선다. 하던 판은 그대로 둔다 */}
@@ -232,7 +232,7 @@ function Lobby({ room, meId, machine, seated, busy, run, act }: {
 
   return (
     <div className="sc-lb">
-      <p className="sc-ar__title">{spec.name} <span>{playersLabel(spec)} · 지금 {inN}명</span></p>
+      <p className="sc-ar__title">{spec.name} <span>{playersLabel(spec)} · 지금 {inN} 명</span></p>
 
       <ul className="sc-lb__members">
         {room.members.map((m) => (
@@ -261,7 +261,7 @@ function Lobby({ room, meId, machine, seated, busy, run, act }: {
                     onClick={() => who && void run(() => act.arcadeInvite(room.id, who.id))}
                   >
                     <span>{i + 1}</span>
-                    <b>{mine ? '나' : who ? who.name : '빈 자리'}</b>
+                    <b>{mine ? '나' : who ? who.name : '빈자리'}</b>
                     {!mine && who && <em>{st === 'in' ? '들어옴' : st === 'invited' ? '부름' : st === 'declined' ? '다시' : '부르기'}</em>}
                   </button>
                 </li>
@@ -278,7 +278,7 @@ function Lobby({ room, meId, machine, seated, busy, run, act }: {
                 void run(() => act.arcadeBegin(room.id))
               }}
             >
-              {inN < spec.min ? `${spec.min - inN}명 더 있어야` : '시작'}
+              {inN < spec.min ? `${spec.min - inN} 명 더 있어야` : '시작'}
             </button>
           </div>
         </>
@@ -325,7 +325,7 @@ function UpDown({ room, meId, busy, run, act, onAgain, onMenu }: {
     <div className="sc-ud">
       <p className="sc-ar__title">업다운 <span>1 ~ {UPDOWN_MAX}</span></p>
       {/* 남은 기회. 숫자보다 칸이 빨리 읽힌다 */}
-      <p className="sc-ud__lives" aria-label={`남은 기회 ${view.left}번`}>
+      <p className="sc-ud__lives" aria-label={`남은 기회 ${view.left} 번`}>
         {Array.from({ length: UPDOWN_TRIES }, (_, i) => <i key={i} className={i < view.left ? 'is-on' : ''} />)}
       </p>
 
@@ -389,7 +389,7 @@ function Rps({ room, meId, busy, run, act, onAgain, onMenu }: {
         <ol className="sc-du__rounds">
           {state.rounds.map((r, i) => (
             <li key={i} className={`is-${won(r.winner)}`}>
-              <span>{i + 1}판</span>
+              <span>{i + 1} 판</span>
               <b>{RPS_LABEL[mine(r)]}</b>
               <em>:</em>
               <b>{RPS_LABEL[theirs(r)]}</b>

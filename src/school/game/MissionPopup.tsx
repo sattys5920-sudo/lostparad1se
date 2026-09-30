@@ -66,7 +66,7 @@ export function finalMail(inbox: InboxDoc | null | undefined): MissionMail | nul
 export function amountText(c: Pick<DayClauseView, 'have' | 'bar' | 'unit'>): string {
   if (c.have === null) return '—'
   if (c.unit === 'flag') return c.have >= Math.max(1, c.bar) ? '했다' : '아직'
-  return `${c.have}/${c.bar}${c.unit === 'minutes' ? '분' : ''}`
+  return `${c.have}/${c.bar}${c.unit === 'minutes' ? ' 분' : ''}`
 }
 
 /** 보낸 시각. 월/일 시:분 */

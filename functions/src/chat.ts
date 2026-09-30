@@ -134,7 +134,7 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
   const { gameId } = req.data
   const text = String(req.data.text ?? '').trim()
   if (text.length === 0) throw new HttpsError('invalid-argument', '할 말을 적어라.')
-  if (text.length > CHAT_MAX) throw new HttpsError('invalid-argument', `${CHAT_MAX}자까지 칠 수 있다.`)
+  if (text.length > CHAT_MAX) throw new HttpsError('invalid-argument', `${CHAT_MAX} 자까지 칠 수 있다.`)
 
   const { game, nowMs } = await loadNow(gameId)
   const early = beforeStart(game, uid)

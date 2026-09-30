@@ -160,7 +160,7 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
   const who = name(e.playerId)
   const room = roomName(e.tileId)
   switch (e.kind as string) {
-    case 'gameStart': return `판 시작 · ${String(d.seats ?? '')}명`
+    case 'gameStart': return `판 시작 · ${String(d.seats ?? '')} 명`
     case 'dayStart': return `DAY ${e.day} 아침`
     case 'settlement': {
       const ranked = (d.ranked as { team: string; total: number }[] | undefined) ?? []
@@ -171,15 +171,15 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'gameEnd': return '판 끝'
     case 'spotlight': return d.lastHours ? '점수판 꺼짐 — 마지막 여섯 시간' : '주목'
     case 'arrive': return `${who} → ${room}${d.done === false ? ' (지나감)' : ''}`
-    case 'shopBought': return `${who} 자판기 구매 · ${String(d.item ?? '')} ${String(d.cost ?? '')}코인`
-    case 'cropSold': return `${who} 매입구 · ${String(d.crop ?? '')} +${String(d.paid ?? '')}코인`
+    case 'shopBought': return `${who} 자판기 구매 · ${String(d.item ?? '')} ${String(d.cost ?? '')} 코인`
+    case 'cropSold': return `${who} 매입구 · ${String(d.crop ?? '')} +${String(d.paid ?? '')} 코인`
     case 'tradeAccepted': return `거래 성립 · ${String(d.fromTeam ?? '')}↔${String(e.team ?? '')}`
     case 'vote': return '표 한 장'
-    case 'errandDone': return `${who} 심부름 끝 · +${String(d.coins ?? '')}코인 (${room})`
-    case 'devClock': return `시계 맞춤 · ${String(d.speed ?? '')}배속`
+    case 'errandDone': return `${who} 심부름 끝 · +${String(d.coins ?? '')} 코인 (${room})`
+    case 'devClock': return `시계 맞춤 · ${String(d.speed ?? '')} 배속`
     case 'invisibleCleared': return `${who} 투명인간 해제 · ${short(d.reason, 60)}`
     // ── qaLog 가 새로 적는 것 ──
-    case 'phaseOpen': return `페이즈 ${String(d.no ?? '')} 열림 · DAY ${String(d.day ?? e.day)}${d.returned !== undefined ? ` · 돌아옴 ${String(d.returned)}명` : ''}`
+    case 'phaseOpen': return `페이즈 ${String(d.no ?? '')} 열림 · DAY ${String(d.day ?? e.day)}${d.returned !== undefined ? ` · 돌아옴 ${String(d.returned)} 명` : ''}`
     case 'phaseClose': return `페이즈 ${String(d.no ?? '')} 닫힘 · 점령 ${String(d.captured ?? 0)} · 줄 ${String(d.lines ?? 0)}`
     case 'phaseAct': return `${who} ${String(d.kind ?? '')}${d.targetTile ? ` → ${roomName(String(d.targetTile))}` : ''}`
     case 'roamTo': return `${who} 방 옮김 → ${room}`
@@ -190,17 +190,17 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'dealSettled': return `${who} ↔ ${name(e.targetId)} 거래 성립${room ? ` (${room})` : ''}`
     case 'transferAsked': return `${who} → ${name(e.targetId)} 이적 청함 (${teamName(String(d.toTeam ?? ''))}으로)`
     case 'transferAnswered': return `${who} 이적 ${d.accept ? `수락 · 다음 페이즈부터 ${teamName(String(d.team ?? ''))}` : '거절'}`
-    case 'trapCommissioned': return `${who} 덫 맡김 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.count ?? '')}개`
+    case 'trapCommissioned': return `${who} 덫 맡김 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.count ?? '')} 개`
     case 'lockPicked': return `${who} 자물쇠 땀${room ? ` (${room})` : ''} · ${teamName(String(d.team ?? ''))} 자물쇠`
-    case 'trapTaken': return `${who} 덫 찾음 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.got ?? '')}개`
-    case 'slipScattered': return `운영자 쪽지 뿌림 → ${room}${d.n ? ` · ${String(d.n)}장` : ''}`
+    case 'trapTaken': return `${who} 덫 찾음 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.got ?? '')} 개`
+    case 'slipScattered': return `운영자 쪽지 뿌림 → ${room}${d.n ? ` · ${String(d.n)} 장` : ''}`
     case 'slipPulled': return '운영자 쪽지 회수'
     case 'memoDropped': return `운영자 메모 놓음 → ${room}`
     case 'dayPushed': return `달력 넘김 · DAY ${String(d.day ?? '')} ${String(d.kind ?? '')}`
     case 'ballotCast': return `${who} 투명인간 표 적음`
     case 'ballotOpen': return `DAY ${e.day} 투명인간 투표 열림`
     case 'ballotClose': return `DAY ${e.day} 투명인간 투표 닫힘`
-    case 'assigned': return `분단 · 미션 배정 · ${String(d.assigned ?? '')}명`
+    case 'assigned': return `분단 · 미션 배정 · ${String(d.assigned ?? '')} 명`
     case 'reset': return '판 되돌림 → 로비'
     case 'seatJoined': return `${who} 앉음${d.team ? ` · ${teamName(String(d.team))}` : ''}`
     case 'seatLeft': return `${who} 일어남`
@@ -398,7 +398,7 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
       day: pn.day,
       kind: 'phaseOpen',
       src: 'game',
-      text: `페이즈 ${pn.no} 열림 · DAY ${pn.day}${pn.endsAtMs ? ` · ${hhmm(pn.endsAtMs)}까지` : ''}`,
+      text: `페이즈 ${pn.no} 열림 · DAY ${pn.day}${pn.endsAtMs ? ` · ${hhmm(pn.endsAtMs)} 까지` : ''}`,
     })
   }
 
@@ -418,7 +418,7 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
       kind: 'ballotResult',
       src: 'ballotDays',
       ...(b.invisibleId ? { target: name(b.invisibleId) } : {}),
-      text: `DAY ${b.day} 투명인간 투표 · ${ballotCount.get(b.day) ?? 0}장 · ${b.invisibleId ? `${name(b.invisibleId)} ` : ''}${REASON[b.reason] ?? b.reason}`,
+      text: `DAY ${b.day} 투명인간 투표 · ${ballotCount.get(b.day) ?? 0} 장 · ${b.invisibleId ? `${name(b.invisibleId)} ` : ''}${REASON[b.reason] ?? b.reason}`,
     })
   }
 
@@ -448,7 +448,7 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
       src: 'missionLog',
       actor: name(m.byId),
       ...(who.length === 1 ? { target: who[0] } : {}),
-      text: m.kind === 'override' ? `DAY ${m.day} 판정 뒤집음 · ${who.join(', ')}` : `DAY ${m.day} 판정 보냄 · ${who.length}명`,
+      text: m.kind === 'override' ? `DAY ${m.day} 판정 뒤집음 · ${who.join(', ')}` : `DAY ${m.day} 판정 보냄 · ${who.length} 명`,
     })
   }
   for (const d of missionDays.docs) {
@@ -459,7 +459,7 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
       day: m.day,
       kind: 'missionJudge',
       src: 'missionDays',
-      text: `DAY ${m.day} 자정 판정 · ${m.count}명${m.final ? ' · 최종' : ''}`,
+      text: `DAY ${m.day} 자정 판정 · ${m.count} 명${m.final ? ' · 최종' : ''}`,
     })
   }
 

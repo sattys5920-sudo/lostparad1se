@@ -159,7 +159,7 @@ export async function checkInvariants(gameId: string, nowMs: number): Promise<Vi
   if (typeof expected !== 'number') {
     await qaDocOf(gameId).set({ expectedSlips: slips.size }, { merge: true })
   } else if (expected !== slips.size) {
-    bad('slipCountMismatch', `문서 ${slips.size}장 · 기대 ${expected}장`)
+    bad('slipCountMismatch', `문서 ${slips.size} 장 · 기대 ${expected} 장`)
   }
 
   // ── 방 — 주인은 네 팀 중 하나거나 없다 ──

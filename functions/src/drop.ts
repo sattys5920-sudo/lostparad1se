@@ -76,12 +76,12 @@ export const hostDrop = onCall<DropInput>(async (req) => {
     if (!TILE_BY_ID[tileId]) throw new HttpsError('invalid-argument', '그런 방이 없다.')
     const text = String(req.data.text ?? '').trim()
     if (text.length === 0) throw new HttpsError('invalid-argument', '적을 말이 없다.')
-    if (text.length > MEMO_MAX) throw new HttpsError('invalid-argument', `${MEMO_MAX}자까지 쓸 수 있다.`)
+    if (text.length > MEMO_MAX) throw new HttpsError('invalid-argument', `${MEMO_MAX} 자까지 쓸 수 있다.`)
 
     // **방 안 빈 칸 하나에 놓는다.** 맵 바닥에 봉인 없는 쪽지로 그려지고,
     // 그 옆에 서서 짚어야 줍는다. 칸 없이 방에만 두면 맵에 안 보인다
     const cell = freeDropCell(tileId, await takenCells(gameId))
-    if (!cell) throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name}에는 빈 칸이 없다.`)
+    if (!cell) throw new HttpsError('failed-precondition', `${TILE_BY_ID[tileId].name}에는 빈칸이 없다.`)
 
     /*
      * 운영자가 쓴 메모는 **누구의 비밀도 아니다.**
@@ -124,7 +124,7 @@ export const hostDrop = onCall<DropInput>(async (req) => {
     throw new HttpsError('invalid-argument', '어느 칸에 놓을지 없다.')
   }
   if (!canDropQuizAt(x, y)) {
-    throw new HttpsError('failed-precondition', '거기에는 못 놓는다. 방이나 복도의 빈 칸이어야 한다.')
+    throw new HttpsError('failed-precondition', '거기에는 못 놓는다. 방이나 복도의 빈칸이어야 한다.')
   }
   /*
    * **한 칸에 종이 한 장.** 문제든 쪽지든 겹치면 위의 것만 그려지고

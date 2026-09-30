@@ -52,7 +52,7 @@ export function Nunchi({ room, meId, act, onAgain, onMenu, onQuit }: {
 
   return (
     <div className="sc-nc">
-      <p className="sc-ar__title">눈치 게임 <span>{players.length}명 · {target}까지 외친다</span></p>
+      <p className="sc-ar__title">눈치 게임 <span>{players.length} 명 · {target} 까지 외친다</span></p>
       <div className="sc-ml__bar"><i style={{ width: `${(left / NUNCHI_LIMIT_MS) * 100}%` }} /></div>
       <div className="sc-rh__stage">
         <button

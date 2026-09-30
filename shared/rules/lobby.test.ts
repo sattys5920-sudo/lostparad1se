@@ -108,7 +108,7 @@ describe('배정할 수 있는가', () => {
     const seats = seated()
     for (let i = 0; i < STARTING_TEAM_SIZES.A + 1; i++) seats[i] = { ...seats[i], team: 'A' as TeamId }
     expect(canAssign(seats).ok).toBe(false)
-    expect(canAssign(seats).reason).toMatch('2분단')
+    expect(canAssign(seats).reason).toMatch('2 분단')
   })
 
   it('정원만큼 못 박은 것은 된다', () => {
@@ -237,8 +237,8 @@ describe('seatName', () => {
     expect(seatName({ name: '가온' }, 0)).toBe('가온')
   })
   it('비었거나 공백뿐이면 자리 번호로 부른다', () => {
-    expect(seatName({ name: '' }, 2)).toBe('3번 자리')
-    expect(seatName({ name: '   ' }, 0)).toBe('1번 자리')
-    expect(seatName({}, 13)).toBe('14번 자리')
+    expect(seatName({ name: '' }, 2)).toBe('3 번 자리')
+    expect(seatName({ name: '   ' }, 0)).toBe('1 번 자리')
+    expect(seatName({}, 13)).toBe('14 번 자리')
   })
 })

@@ -98,7 +98,7 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
   const { gameId } = req.data
   const text = String(req.data.text ?? '').trim()
   if (text.length === 0) throw new HttpsError('invalid-argument', '할 말을 적어라.')
-  if (text.length > CHAT_MAX_LEN) throw new HttpsError('invalid-argument', `${CHAT_MAX_LEN}자까지 칠 수 있다.`)
+  if (text.length > CHAT_MAX_LEN) throw new HttpsError('invalid-argument', `${CHAT_MAX_LEN} 자까지 칠 수 있다.`)
 
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)

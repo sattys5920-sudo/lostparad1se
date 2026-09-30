@@ -141,10 +141,10 @@ export async function mintToken(uid: string, claims: Record<string, unknown>): P
 
 function check(id: string, password: string): void {
   // 「__x__」는 Firestore 가 예약한 문서 이름이라 doc() 이 던진다 — 규칙에 맞아도 거절한다
-  if (!ID_RE.test(id) || /^__.*__$/.test(id)) throw new HttpsError('invalid-argument', '아이디는 영문 소문자·숫자·_·- 로 3~16자여야 한다.')
+  if (!ID_RE.test(id) || /^__.*__$/.test(id)) throw new HttpsError('invalid-argument', '아이디는 영문 소문자·숫자·_·- 로 3~16 자여야 한다.')
   // 문자열이 아니면 해시 함수가 던진다. 화면은 늘 문자열을 보낸다
   if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
-    throw new HttpsError('invalid-argument', `비밀번호는 ${MIN_PASSWORD}자 이상이어야 한다.`)
+    throw new HttpsError('invalid-argument', `비밀번호는 ${MIN_PASSWORD} 자 이상이어야 한다.`)
   }
 }
 
@@ -310,7 +310,7 @@ export const saveCharacter = onCall<{ nickname: string; avatar: unknown }>(async
   if (!accountId) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
   const nickname = cleanName(req.data.nickname)
   if (nickname.length === 0 || nickname.length > 12) {
-    throw new HttpsError('invalid-argument', '이름은 1~12자다.')
+    throw new HttpsError('invalid-argument', '이름은 1~12 자다.')
   }
   await accountRef(accountId).update({ nickname, avatar: req.data.avatar ?? null })
   return { nickname }

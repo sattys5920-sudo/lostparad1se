@@ -208,7 +208,7 @@ function AuditList({
   return (
     <div className="sc-ho__audit">
       {missing.length > 0 && (
-        <p className="sc-ho__warn">시간 태그가 없는 문장 {missing.length}줄. 맨 위에 있다.</p>
+        <p className="sc-ho__warn">시간 태그가 없는 문장 {missing.length} 줄. 맨 위에 있다.</p>
       )}
       <ul>
         {rows.map((r, i) => (

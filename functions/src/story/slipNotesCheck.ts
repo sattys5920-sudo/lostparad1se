@@ -37,11 +37,11 @@ export function checkSlipNotes(
   }
   for (const [id, name] of names) {
     const mine = notes.filter((n) => n.roleKey === id)
-    if (mine.length !== PER_ROLE) errors.push(`${name}: ${mine.length}장이다 — ${PER_ROLE}장이어야 한다`)
+    if (mine.length !== PER_ROLE) errors.push(`${name}: ${mine.length} 장이다 — ${PER_ROLE} 장이어야 한다`)
     const slots = new Set(mine.map((n) => n.slot))
-    if (slots.size !== PER_ROLE) errors.push(`${name}: 번호(1~4번)가 겹치거나 빠졌다`)
+    if (slots.size !== PER_ROLE) errors.push(`${name}: 번호(1~4 번)가 겹치거나 빠졌다`)
     const nameCount = mine.filter((n) => n.kind === 'name').length
-    if (nameCount !== NAME_PER_ROLE) notices.push(`${name}: 이름형이 ${nameCount}장이다 — 목표는 ${NAME_PER_ROLE}장`)
+    if (nameCount !== NAME_PER_ROLE) notices.push(`${name}: 이름형이 ${nameCount} 장이다 — 목표는 ${NAME_PER_ROLE} 장`)
   }
   const stray = notes.filter((n) => !(n.roleKey in roleNames))
   for (const n of stray) errors.push(`${n.id}: 모르는 역할 ${n.roleKey}`)

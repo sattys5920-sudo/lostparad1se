@@ -93,7 +93,7 @@ export function NoticePop({
             </li>
           ))}
         </ul>
-        {more > 0 && <p className="sc-ntc__more">지난 공지 {more}개는 「나」 탭 공지 칸에 있다.</p>}
+        {more > 0 && <p className="sc-ntc__more">지난 공지 {more} 개는 「나」 탭 공지 칸에 있다.</p>}
         <button className="sc-ntc__ok" onClick={close}>
           확인
         </button>

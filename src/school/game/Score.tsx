@@ -104,7 +104,7 @@ export function ScoreBar({ tiles, myTeam, off = false }: { tiles: Partial<Record
           <span
             key={t}
             className={['sc-sb__team', t === myTeam ? 'is-mine' : '', d ? 'is-hit' : ''].filter(Boolean).join(' ')}
-            aria-label={`${TEAM_NAME[t]} ${counts[t]}곳${d ? `, ${d > 0 ? d + '곳 얻음' : -d + '곳 잃음'}` : ''}`}
+            aria-label={`${TEAM_NAME[t]} ${counts[t]} 곳${d ? `, ${d > 0 ? d + ' 곳 얻음' : -d + ' 곳 잃음'}` : ''}`}
           >
             {/* 색만으로는 안 가른다 — 색맹이면 붉은 팀과 초록 팀이 같다. 네모 안에 글자 */}
             <i style={{ background: colorOfTeam(t) }} aria-hidden>

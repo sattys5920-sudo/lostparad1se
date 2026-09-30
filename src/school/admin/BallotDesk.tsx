@@ -131,7 +131,7 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
               void loadRows(d)
             }}
           >
-            다음날
+            다음 날
           </button>
           <button className="sc-pt__reload" disabled={rowsBusy} onClick={() => void loadRows(seeDay)}>
             새로 읽기

@@ -91,7 +91,7 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
      * 빠져나가는 유일한 구멍이고, 그래서 하루 상한과 짝이 맞는다.
      */
     const have = Math.max(0, Number(meNow.money ?? 0))
-    if (have < cost.money) throw new HttpsError('failed-precondition', '돈이 모자라다.')
+    if (have < cost.money) throw new HttpsError('failed-precondition', '돈이 모자란다.')
     tx.update(meRef, {
       money: have - cost.money,
       ...(item.gives ? { items: putItem(meNow.items, item.gives) } : {}),

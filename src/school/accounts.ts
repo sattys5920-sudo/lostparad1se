@@ -86,8 +86,8 @@ export function normalizeId(raw: string): string {
 }
 
 function checkCredentials(id: string, password: string): void {
-  if (!ID_RE.test(id)) throw new Error('아이디는 영문 소문자·숫자·_·- 로 3~16자여야 한다.')
-  if (password.length < MIN_PASSWORD) throw new Error(`비밀번호는 ${MIN_PASSWORD}자 이상이어야 한다.`)
+  if (!ID_RE.test(id)) throw new Error('아이디는 영문 소문자·숫자·_·-로 3~16 자여야 한다.')
+  if (password.length < MIN_PASSWORD) throw new Error(`비밀번호는 ${MIN_PASSWORD} 자 이상이어야 한다.`)
 }
 
 /**

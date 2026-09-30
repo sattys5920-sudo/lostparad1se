@@ -144,7 +144,7 @@ export function Beat({ room, meId, act, onAgain, onMenu, onQuit }: {
   return (
     <div className="sc-bt">
       <p className="sc-ar__title">
-        리듬 쌓기 <span>{run.cleared}판 깸 · {cur ? `${cur.notes.length}박 · ${cur.bpm} BPM` : ''}</span>
+        리듬 쌓기 <span>{run.cleared} 판 깸 · {cur ? `${cur.notes.length} 박 · ${cur.bpm} BPM` : ''}</span>
       </p>
       <div className="sc-bt__head">
         <Lives left={run.lives} of={SOLO_LIVES} />

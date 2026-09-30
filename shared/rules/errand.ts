@@ -78,10 +78,10 @@ export interface BoardSpot {
 export const BOARDS: readonly BoardSpot[] = [
   { id: 'b1w', name: '지하 서쪽 복도', floor: 'b1', cell: { x: 14, y: 124 } },
   { id: 'b1e', name: '지하 동쪽 복도', floor: 'b1', cell: { x: 35, y: 124 } },
-  { id: 'f1w', name: '1층 서쪽 복도', floor: 'f1', cell: { x: 14, y: 80 } },
-  { id: 'f1s', name: '1층 남쪽 복도', floor: 'f1', cell: { x: 45, y: 95 } },
-  { id: 'f2w', name: '2층 서쪽 복도', floor: 'f2', cell: { x: 14, y: 31 } },
-  { id: 'f2s', name: '2층 남쪽 복도', floor: 'f2', cell: { x: 48, y: 47 } },
+  { id: 'f1w', name: '1 층 서쪽 복도', floor: 'f1', cell: { x: 14, y: 80 } },
+  { id: 'f1s', name: '1 층 남쪽 복도', floor: 'f1', cell: { x: 45, y: 95 } },
+  { id: 'f2w', name: '2 층 서쪽 복도', floor: 'f2', cell: { x: 14, y: 31 } },
+  { id: 'f2s', name: '2 층 남쪽 복도', floor: 'f2', cell: { x: 48, y: 47 } },
 ]
 
 export const BOARD_BY_ID: Record<string, BoardSpot> = Object.fromEntries(BOARDS.map((b) => [b.id, b]))

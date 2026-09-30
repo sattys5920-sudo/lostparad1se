@@ -72,7 +72,7 @@ export function Around(props: AroundProps) {
 
   return (
     <div className="sc-pe">
-      <h2>여기 있는 사람 <span>{others.length}명</span></h2>
+      <h2>여기 있는 사람 <span>{others.length} 명</span></h2>
       {others.length === 0 && (
         <p className="sc-pe__none">
           {props.hereName ? `${props.hereName}에 아무도 없다.` : '걷는 중이다.'}

@@ -45,7 +45,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
       const out = (await fn()) as { correct?: boolean; explain?: string | null }
       if (out?.correct === true) {
         buzz('ok')
-        onSaid(`맞혔다. 지식 ${KNOWLEDGE_PER_QUIZ}점.${out.explain ? ` ${out.explain}` : ''}`)
+        onSaid(`맞혔다. 지식 ${KNOWLEDGE_PER_QUIZ} 점.${out.explain ? ` ${out.explain}` : ''}`)
       } else {
         onSaid('틀렸다. 이 문제는 다시 못 푼다.')
         setShook(id)
@@ -62,7 +62,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
   return (
     <div className="sc-qz">
       <h2>
-        들고 있는 문제 <span>{papers.length}장</span>
+        들고 있는 문제 <span>{papers.length} 장</span>
       </h2>
       <ul className="sc-qz__list">
         {papers.map((q) => (
@@ -193,10 +193,10 @@ export function QuizHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
       {bank && (
         <>
           <p className={bank.thin ? 'sc-qzh__thin' : 'sc-qzh__count'}>
-            등록된 문제 <b>{bank.count}개</b> · 권장 최소 {QUIZ_MIN_BANK}개
+            등록된 문제 <b>{bank.count} 개</b> · 권장 최소 {QUIZ_MIN_BANK} 개
             {bank.thin && ' — 모자란다'}
           </p>
-          {bank.left > 0 && <p className="sc-qzh__count">아직 안 놓은 문제 {bank.left}개</p>}
+          {bank.left > 0 && <p className="sc-qzh__count">아직 안 놓은 문제 {bank.left} 개</p>}
           {bank.left === 0 && bank.count > 0 && <p className="sc-qzh__thin">등록한 문제를 다 놓았다.</p>}
         </>
       )}

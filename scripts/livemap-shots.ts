@@ -289,7 +289,7 @@ async function main(): Promise<void> {
 
     // 덫 · 걷는 중 · 오락기 한 줄
     const listText = await page.locator('.sc-lvm__list').innerText()
-    check(/덫에 걸림 \d+분/.test(listText), `${tag}: 목록에 덫`)
+    check(/덫에 걸림 \d+ 분/.test(listText), `${tag}: 목록에 덫`)
     check(/걷는 중 → /.test(listText), `${tag}: 목록에 걷는 중`)
     check(/오락기 앞/.test(listText), `${tag}: 목록에 오락기`)
 

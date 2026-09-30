@@ -54,8 +54,8 @@ export function ClockDesk({ game, nowMs, act, onSaid }: { game: GameDoc; nowMs: 
         </button>
       </div>
       <div className="sc-ad__row">
-        <button disabled={busy} onClick={() => void set(nowMs + 3_600_000, speed)}>+1시간</button>
-        <button disabled={busy} onClick={() => void set(nowMs + 86_400_000, speed)}>+1일</button>
+        <button disabled={busy} onClick={() => void set(nowMs + 3_600_000, speed)}>+1 시간</button>
+        <button disabled={busy} onClick={() => void set(nowMs + 86_400_000, speed)}>+1 일</button>
         {started !== null && (
           <>
             {[1, 2, 3, 4].map((d) => (

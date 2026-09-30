@@ -2608,7 +2608,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         <div className="sc-wk__transit">
           {me.look && <img alt="" src={pixelFrame(me.look, me.team, 'right', 1).toDataURL()} />}
           <p>이동 중…</p>
-          {leftMin != null && <span>{leftMin}분 남았다</span>}
+          {leftMin != null && <span>{leftMin} 분 남았다</span>}
         </div>
       )}
 

@@ -85,7 +85,7 @@ export function Mole({ room, meId, act, onAgain, onMenu, onQuit }: {
   const left = Math.max(0, Math.min(MOLE_MS, MOLE_MS - Math.max(0, t)))
   return (
     <div className="sc-ml">
-      <p className="sc-ar__title">두더지 잡기 <span>{state.score}점 · 폭탄은 치지 마라</span></p>
+      <p className="sc-ar__title">두더지 잡기 <span>{state.score} 점 · 폭탄은 치지 마라</span></p>
       <div className="sc-ml__bar"><i style={{ width: `${(left / MOLE_MS) * 100}%` }} /></div>
       <div className="sc-rh__stage">
         <div className="sc-ml__grid">

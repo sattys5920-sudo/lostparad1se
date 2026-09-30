@@ -32,8 +32,8 @@ export const FLOORS: readonly Floor[] = ['b1', 'f1', 'f2', 'roof']
 
 export const FLOOR_NAME: Record<Floor, string> = {
   b1: '지하',
-  f1: '1층',
-  f2: '2층',
+  f1: '1 층',
+  f2: '2 층',
   roof: '옥상',
 }
 

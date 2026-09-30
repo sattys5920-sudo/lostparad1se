@@ -416,7 +416,7 @@ export function Ballot(props: BallotProps) {
         {resting && (
           <p className="sc-bt__done" aria-live="polite">
             {closed ? closedText : '이미 넣었다.'}
-            {!closed && closesInMin !== null && <em>마감까지 {closesInMin}분</em>}
+            {!closed && closesInMin !== null && <em>마감까지 {closesInMin} 분</em>}
           </p>
         )}
 

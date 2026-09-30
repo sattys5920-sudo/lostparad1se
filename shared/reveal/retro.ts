@@ -68,7 +68,7 @@ export function canPost(input: PostInput): { ok: boolean; reason: PostRefusal | 
 export const POST_REFUSAL_MESSAGE: Record<PostRefusal, string> = {
   notRetired: RETRO_TEXT.locked,
   empty: '한 줄을 적어 주세요.',
-  tooLong: `${RETRO_MAX}자까지 쓸 수 있습니다.`,
+  tooLong: `${RETRO_MAX} 자까지 쓸 수 있습니다.`,
 }
 
 /** 화면에 뜨는 이름. 익명이면 이름을 **담지 않는다**. */

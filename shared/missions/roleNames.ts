@@ -55,7 +55,7 @@ export const ROLE_NAMES: Record<RoleId, string> = {
   gardener: '원예부',
   science: '과학부',
   tech: '기술부',
-  topstudent: '전교 1등',
+  topstudent: '전교 1 등',
   crush: '짝사랑',
   newcomer: '전학생',
   backseat: '뒷자리',

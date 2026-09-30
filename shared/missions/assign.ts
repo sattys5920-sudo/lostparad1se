@@ -49,14 +49,14 @@ function shuffled<T>(items: readonly T[], rnd: () => number): T[] {
 
 function checkRoster(players: readonly Player[]): void {
   if (players.length !== ROSTER_SIZE) {
-    throw new Error(`열네 명이어야 한다 (${players.length}명)`)
+    throw new Error(`열네 명이어야 한다 (${players.length} 명)`)
   }
   if (new Set(players.map((p) => p.id)).size !== players.length) {
     throw new Error('같은 아이디가 두 번 들어 있다')
   }
   for (const [team, size] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) {
     const got = players.filter((p) => p.team === team).length
-    if (got !== size) throw new Error(`${teamName(team)}은 ${size}명이어야 한다 (${got}명)`)
+    if (got !== size) throw new Error(`${teamName(team)}은 ${size} 명이어야 한다 (${got} 명)`)
   }
 }
 
@@ -80,7 +80,7 @@ export function validateDeal(dealt: readonly DealtRole[]): { ok: true } | { ok: 
    * 팀 · 같은 갈래 셋 금지를 지켰는데, 이제 운영자가 한 사람씩 고른다
    * (lobby.ts 의 hostAssignSeat). 남은 것은 「열넷 · 한 역할은 한 사람」뿐이다
    */
-  if (dealt.length !== ROSTER_SIZE) return { ok: false, reason: `열네 명이어야 한다 (${dealt.length}명)` }
+  if (dealt.length !== ROSTER_SIZE) return { ok: false, reason: `열네 명이어야 한다 (${dealt.length} 명)` }
   if (new Set(dealt.map((d) => d.roleId)).size !== ROSTER_SIZE) {
     return { ok: false, reason: '같은 역할이 두 번 나갔다' }
   }

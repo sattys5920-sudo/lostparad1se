@@ -94,9 +94,12 @@ export function normalizeAnswer(raw: string): string {
  * 적어 두는 편이, 채점 규칙을 똑똑하게 만드는 것보다 정확하다.
  */
 export function isCorrect(given: string, answers: readonly string[]): boolean {
-  const mine = normalizeAnswer(given)
+  // **띄어쓰기는 안 가른다.** 「3 개」와 「3개」, 「교무 실」과 「교무실」은
+  // 같은 답이다 — 띄어쓰기로 틀리면 아는 것을 몰랐다고 하는 셈이다
+  const key = (s: string) => normalizeAnswer(s).replace(/\s/g, '')
+  const mine = key(given)
   if (mine === '') return false
-  return answers.some((a) => normalizeAnswer(a) === mine)
+  return answers.some((a) => key(a) === mine)
 }
 
 /** 등록된 문제가 권장치에 닿았는가. 운영자 화면이 이걸로 경고를 낸다. */

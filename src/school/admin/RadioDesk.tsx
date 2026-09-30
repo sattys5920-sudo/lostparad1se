@@ -167,7 +167,7 @@ export function RadioDesk({ act, onSaid }: { act: GameActions; onSaid: (t: strin
             <span className={`sc-rk__dot is-${c.channel}`} aria-hidden="true" />
             <span className="sc-rk__main">
               <span className="sc-rk__title">
-                {CHANNEL_NAME[c.channel]} <em>{c.lines}줄</em>
+                {CHANNEL_NAME[c.channel]} <em>{c.lines} 줄</em>
               </span>
               <span className="sc-rk__last">
                 {c.last ? `${hhmm(c.last.atMs)} ${c.last.name ? `${c.last.name}: ` : ''}${c.last.text}` : '아직 아무도 말하지 않았다'}

@@ -71,10 +71,10 @@ export const QUIET_TO_HOUR = 8
 
 /** 한 사람에게 1분에 이보다 많이 오면 한 줄로 묶는다 */
 export const BURST_PER_MINUTE = 5
-export const burstText = (n: number): string => `알림 ${n}건`
+export const burstText = (n: number): string => `알림 ${n} 건`
 
 /** 모아 보낸 제작 완료 */
-export const madeBatchText = (n: number): string => (n > 1 ? `맡긴 것 ${n}건이 다 됐다` : NOTIFY_TEXT.made)
+export const madeBatchText = (n: number): string => (n > 1 ? `맡긴 것 ${n} 건이 다 됐다` : NOTIFY_TEXT.made)
 
 /** 「나」 탭 보관함에 남기는 수 */
 export const ARCHIVE_MAX = 20

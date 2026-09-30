@@ -144,7 +144,7 @@ export function Relay({ room, meId, act, onAgain, onMenu, onQuit }: {
   return (
     <div className="sc-bt">
       <p className="sc-ar__title">
-        둘이서 한 곡 <span>{s.notes.length}박 · 목표 {RELAY_GOAL}박 · {tm.bpm} BPM</span>
+        둘이서 한 곡 <span>{s.notes.length} 박 · 목표 {RELAY_GOAL} 박 · {tm.bpm} BPM</span>
       </p>
       <div className="sc-bt__head">
         <Lives left={s.lives} of={RELAY_LIVES} />

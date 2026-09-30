@@ -142,7 +142,7 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
       </button>
 
       {/* ── 지금 ────────────────────────────────────────── */}
-      <h3>지금 판 위 {live.length > 0 && <em>{live.length}장</em>}</h3>
+      <h3>지금 판 위 {live.length > 0 && <em>{live.length} 장</em>}</h3>
       {live.length === 0 ?
         <p className="sc-ad__hint">붙어 있는 것이 없다.</p>
       : <ul className="sc-ed__live">
@@ -155,7 +155,7 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
               {/* **누가 받았는지는 안 온다.** 경주하는 중이라 운영자
                   화면에도 이름을 안 싣는다 — 세는 것까지다 */}
               <em>받은 사람 {p.takers}</em>
-              <i>{minutesLeft(p.postedMs, p.limitMin, nowMs)}분</i>
+              <i>{minutesLeft(p.postedMs, p.limitMin, nowMs)} 분</i>
             </li>
           ))}
         </ul>
@@ -168,7 +168,7 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
         무엇인지 읽고 싶을 때만 편다.
       */}
       <details className="sc-ed__pool">
-        <summary>심부름 {pool.length}가지 — 물건 · 길 · 값 · 시간</summary>
+        <summary>심부름 {pool.length} 가지 — 물건 · 길 · 값 · 시간</summary>
         <ul>
           {pool.map((e) => (
             <li key={e.id}>
@@ -177,7 +177,7 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
                 {e.thing}
               </b>
               <span>
-                {TILE_BY_ID[e.from]?.name}에 있다 · {e.coins}코인 · {e.limitMin}분
+                {TILE_BY_ID[e.from]?.name}에 있다 · {e.coins} 코인 · {e.limitMin} 분
               </span>
               <p>{e.text}</p>
             </li>

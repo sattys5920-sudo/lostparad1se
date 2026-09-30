@@ -99,7 +99,7 @@ export function Tower({ room, meId, act, onAgain, onMenu, onQuit }: {
         ctx.fillStyle = '#f0d68a'
         ctx.font = `${11 * dpr}px Galmuri11, sans-serif`
         ctx.textAlign = 'left'
-        ctx.fillText(`목표 ${TOWER_GOAL}층`, 4 * dpr, y - 4 * dpr)
+        ctx.fillText(`목표 ${TOWER_GOAL} 층`, 4 * dpr, y - 4 * dpr)
       }
       st.blocks.forEach((b, i) => {
         if (i < top) return
@@ -144,7 +144,7 @@ export function Tower({ room, meId, act, onAgain, onMenu, onQuit }: {
 
   return (
     <div className="sc-tw">
-      <p className="sc-ar__title">탑 쌓기 <span>{towerHeight(s)}층 · 다 같이 {TOWER_GOAL}층</span></p>
+      <p className="sc-ar__title">탑 쌓기 <span>{towerHeight(s)} 층 · 다 같이 {TOWER_GOAL} 층</span></p>
       <ol className="sc-tw__order">
         {s.order.map((id) => (
           <li key={id} className={id === who ? 'is-turn' : ''}>{nameOf(id)}</li>

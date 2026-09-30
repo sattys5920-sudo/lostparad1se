@@ -12,6 +12,14 @@ import type { PlayerViewDoc } from '../../../shared/model'
 import { Sure } from './Sheet'
 import { buzz } from './Controls'
 
+/** 「강당로」가 아니라 「강당으로」. 받침이 없거나 ㄹ 받침이면 「로」. */
+function ro(word: string): string {
+  const code = word.trim().slice(-1).charCodeAt(0)
+  if (Number.isNaN(code) || code < 0xac00 || code > 0xd7a3) return '로'
+  const jong = (code - 0xac00) % 28
+  return jong === 0 || jong === 8 ? '로' : '으로'
+}
+
 /** 게시판 앞에 섰을 때 올라오는 목록. */
 export function BoardSheet({
   view,
@@ -31,7 +39,7 @@ export function BoardSheet({
     setBusy(true)
     try {
       const out = (await act.takeErrand(id)) as { from?: string }
-      onSaid(`받았다. ${out.from ?? ''}로.`)
+      onSaid(`받았다. ${out.from ?? ''}${ro(out.from ?? '')}.`)
       onClose()
     } catch (e) {
       onSaid((e as Error).message)
@@ -110,7 +118,7 @@ export function ErrandStrip({
    * 이 줄은 「지금 뭘 하는 중인가」만 말한다.
    */
   const where =
-    e.carrying ? `${TILE_BY_ID[e.to]?.name}로` : `${TILE_BY_ID[e.from]?.name}에서 집는다`
+    e.carrying ? `${TILE_BY_ID[e.to]?.name}${ro(TILE_BY_ID[e.to]?.name ?? '')}` : `${TILE_BY_ID[e.from]?.name}에서 집는다`
 
   // 줄 안에 끼는 단추라 `is-inline` 이다 — 44px 로 밀면 머리 판이
   // 그만큼 두꺼워져 방을 가린다. 손가락 자리는 보이지 않는 여백이 낸다

@@ -446,7 +446,7 @@ export function FullMap({
         <span className="sc-at__when">
           {left == null
             ? '자유 시간'
-            : `${clock.no}교시 ${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}`}
+            : `${clock.no} 교시 ${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}`}
         </span>
         <span className="sc-at__stat">
           우리 방 <b>{ours}</b>
@@ -511,7 +511,7 @@ export function FullMap({
             <div
               className={'sc-at__alley' + (inAlley ? ' is-here' : '')}
               style={{ left: laid.alley.x, top: laid.alley.y, width: laid.alley.w, height: laid.alley.h }}
-              aria-label={`${ALLEY_NAME} — ${ARCADE_NAME} ${ARCADE_COUNT}대`}
+              aria-label={`${ALLEY_NAME} — ${ARCADE_NAME} ${ARCADE_COUNT} 대`}
             >
               <span className="sc-at__nm">{clipName(`${ALLEY_NAME} · ${ARCADE_NAME}`, laid.alley.w - 8)}</span>
               {alleyCount > 0 && <span className="sc-at__alleyN">{alleyCount}</span>}
@@ -616,7 +616,7 @@ function RoomSheet({
                 <Seats room={room} big />
                 <em>
                   {room.count}
-                  {room.open ? '명' : ` / ${room.capacity}`}
+                  {room.open ? ' 명' : ` / ${room.capacity}`}
                 </em>
               </>
             ) : (

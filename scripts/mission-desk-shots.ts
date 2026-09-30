@@ -266,7 +266,7 @@ async function main(): Promise<void> {
     // 고른 사람 · 전부 — 확인 시트
     await page.locator('.sc-md__row').nth(1).locator('.sc-md__pick input').check()
     await page.locator('.sc-md__row').nth(2).locator('.sc-md__pick input').check()
-    await page.locator('.sc-md__send button', { hasText: '고른 2명' }).click()
+    await page.locator('.sc-md__send button', { hasText: '고른 2 명' }).click()
     await page.waitForSelector('.sc-md__peek')
     check((await page.locator('.sc-md__peek > li').count()) === 2, `${tag}: 고른 둘만 확인에 뜬다`)
     await page.locator('.sc-md__veil').click({ position: { x: 10, y: 10 } })

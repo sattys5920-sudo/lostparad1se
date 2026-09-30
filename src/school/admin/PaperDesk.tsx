@@ -236,7 +236,7 @@ export function PaperDesk({ act, onSaid }: { act: GameActions; onSaid: (t: strin
       )}
       {shown.length > limit && (
         <button className="sc-pt__page" onClick={() => setLimit(limit + PAGE)}>
-          더 보기 ({shown.length - limit}장 남음)
+          더 보기 ({shown.length - limit} 장 남음)
         </button>
       )}
 

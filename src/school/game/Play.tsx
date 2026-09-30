@@ -55,6 +55,7 @@ import { LAB_MACHINES, LAB_TILE } from '../../../shared/rules/trap'
 import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
 import { ScoreBar } from './Score'
 import { Phase, PhaseLog, leftText } from './Phase'
+import { josa } from '../../../shared/text'
 import { Slips } from './Slips'
 import { TECH_TILE } from '../../../shared/rules/trap'
 import { MakerSheet } from './Maker'
@@ -71,7 +72,7 @@ import { Sheet } from './Sheet'
  * 버튼은 누를 수 있는 것처럼 생겼다는 것만으로 거짓말이다.
  */
 function FreeTimeOnly({ what }: { what: string }) {
-  return <p className="sc-pl__none">{what}는 자유 시간에 한다. 지금은 페이즈 중이다.</p>
+  return <p className="sc-pl__none">{what}{josa(what, '은/는')} 자유 시간에 한다. 지금은 페이즈 중이다.</p>
 }
 import { setSnowOff, snowIsOff } from '../reveal/Snow'
 import { Say } from './Say'
@@ -193,7 +194,7 @@ function Setup({ first, onDone }: { first: { nickname: string; avatar: AvatarLoo
   async function go() {
     const name = nickname.trim()
     if (name.length === 0 || name.length > 12) {
-      setError('이름은 1~12자다.')
+      setError('이름은 1~12 자다.')
       return
     }
     setBusy(true)
@@ -373,7 +374,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
     { key: 'atlas', icon: 'atlas', label: '전체 맵', why: NOT_YET, run: () => {} },
     // 이 둘은 게임 안의 일이 아니다. 나가는 문도 더보기 뒤에 있다
     { key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) },
-    { key: 'more', icon: 'more', label: '더보기', run: () => setBefore(true) },
+    { key: 'more', icon: 'more', label: '더 보기', run: () => setBefore(true) },
   ]
 
   // 팀을 안 보낸다. 어느 반인지는 서버가 정해서 알려 준다 —
@@ -442,7 +443,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
             <span>{TOTAL_SEATS}</span>
           </p>
           <p className="sc-lb__note">
-            {left > 0 ? `${left}자리 남았다` : '자리가 다 찼다'}
+            {left > 0 ? `${left} 자리 남았다` : '자리가 다 찼다'}
           </p>
           <Roll seats={seats} uid={uid} />
         </div>
@@ -594,7 +595,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
         {roster && (
           <Sheet title="모인 사람" onClose={() => setRoster(false)}>
             <p className="sc-dl__none">
-              {seats.length}명이 모였다.
+              {seats.length} 명이 모였다.
             </p>
             <Roll seats={seats} uid={uid} />
             {error && <p className="sc-pl__error">{error}</p>}
@@ -602,7 +603,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
         )}
 
         {before && (
-          <Sheet title="더보기" onClose={() => setBefore(false)}>
+          <Sheet title="더 보기" onClose={() => setBefore(false)}>
             <div className="sc-pl__more">
               <ReplayPrologue />
               <SoundToggle />
@@ -1361,7 +1362,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   }, [phaseOpen])
 
   /** 마지막 칸은 늘 더보기다. 설정과 보관함이 그 뒤에 있다 */
-  const more: Act = { key: 'more', icon: 'more', label: '더보기', run: () => setSheet('more') }
+  const more: Act = { key: 'more', icon: 'more', label: '더 보기', run: () => setSheet('more') }
   const grid = [...acts, more]
 
   /*
@@ -1389,7 +1390,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const thingSub = (t: TapThing) =>
     t.what === 'quiz' || t.what === 'slip' || t.what === 'memo' || t.what === 'scrap' ? '바닥' : t.name !== undefined && t.name !== THING_NAME[t.what] ? t.name : ''
   const thingRows = (t: TapThing): MeetRow[] => {
-    const far = t.near ? null : `가까이 가야 한다 · ${t.steps}칸`
+    const far = t.near ? null : `가까이 가야 한다 · ${t.steps} 칸`
     // 연구는 페이즈의 일이다. 자유 시간에는 까닭을 적는다
     const phaseOnly = far ?? (phaseOpen ? null : '페이즈 중에만 된다')
     const pick = (fn: () => void) => () => {
@@ -1451,7 +1452,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           onPick: pick(() =>
             void act
               .phaseAct('research', { machine: i })
-              .then(() => say(`연구를 걸었다. ${ACT_MINUTES.research}분 뒤 이 기계에서 로봇을 가져간다.`))
+              .then(() => say(`연구를 걸었다. ${ACT_MINUTES.research} 분 뒤 이 기계에서 로봇을 가져간다.`))
               .catch((e) => refuse((e as Error).message)),
           ),
         }
@@ -1602,7 +1603,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   const left = (r as { tokens?: number }).tokens
                   say(
                     phaseOpen
-                      ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES}분 · 토큰 ${left ?? '?'}개 남았다.`
+                      ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES} 분 · 토큰 ${left ?? '?'} 개 남았다.`
                       : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
                   )
                   // 서버가 세운 칸 — 들어선 칸에 누가 있었으면 옆 빈 칸이다
@@ -1761,7 +1762,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                       들어오므로 「3/6」을 띄우면 없는 한도를 알려 주는 셈이다 */}
                   <span className="sc-pl__crowd">
                     {hereNow.length + 1}
-                    {phaseOpen ? `/${capacityOf(standingOn)}` : '명'}
+                    {phaseOpen ? `/${capacityOf(standingOn)}` : ' 명'}
                   </span>
                 </>
               )}
@@ -2195,12 +2196,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <div className="sc-da sc-da--pick" role="alertdialog" aria-label="자물쇠">
           <p className="sc-da__who">
             <b>{TILE_BY_ID[pickAsk.to].name}</b>
-            <span>락픽 {countOf(state.view?.myItems, 'lockpick')}개</span>
+            <span>락픽 {countOf(state.view?.myItems, 'lockpick')} 개</span>
           </p>
           <p className="sc-da__say">{LOCKED_DOOR}</p>
-          <p className="sc-da__say">락픽 1개를 사용해 여시겠습니까?</p>
+          <p className="sc-da__say">락픽 1 개를 사용해 여시겠습니까?</p>
           <div className="sc-da__row">
-            <button onClick={() => pickAsk.answer(false)}>아니오</button>
+            <button onClick={() => pickAsk.answer(false)}>아니요</button>
             <button className="is-on" onClick={() => pickAsk.answer(true)}>
               예
             </button>
@@ -2348,7 +2349,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
 
       {sheet === 'more' && (
-        <Sheet title="더보기" onClose={closeSheet}>
+        <Sheet title="더 보기" onClose={closeSheet}>
           {/* 여섯 칸에서 밀려난 것들. 같은 그림, 같은 이름으로 나온다 */}
           {spill.length > 0 && (
             <div className="sc-pl__spill">
@@ -2424,7 +2425,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             <summary>지금 상태</summary>
             <ul>
               <li><span>날짜</span><span>DAY {game.day}</span></li>
-              <li><span>시간</span><span>{phaseOpen ? `${phaseNo}교시` : '자유 시간'}</span></li>
+              <li><span>시간</span><span>{phaseOpen ? `${phaseNo} 교시` : '자유 시간'}</span></li>
               <li><span>선 방</span><span>{standingOn ? TILE_BY_ID[standingOn].name : '걷는 중'}</span></li>
               <li><span>내 칸</span><span>{standingRoom ? TILE_BY_ID[standingRoom].name : (placeName(null, myCell) ?? '복도')}</span></li>
               <li>
@@ -2433,7 +2434,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   {standingOn ? (ADJACENCY[standingOn] ?? []).map((n) => TILE_BY_ID[n].name).join(' · ') : '—'}
                 </span>
               </li>
-              <li><span>도착 대기</span><span>{arriveAtMs == null ? '없다' : `${Math.max(0, Math.ceil((arriveAtMs - nowMs) / 60000))}분`}</span></li>
+              <li><span>도착 대기</span><span>{arriveAtMs == null ? '없다' : `${Math.max(0, Math.ceil((arriveAtMs - nowMs) / 60000))} 분`}</span></li>
               <li><span>분단 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
               <li><span>마지막 응답</span><span>{said || '없다'}</span></li>
             </ul>
@@ -2552,7 +2553,7 @@ function PhaseClock({
   const low = left <= LOW_MS
   return (
     <span className={'sc-pl__clock is-on' + (low ? ' is-low' : '')}>
-      {no}교시 {mm}:{String(ss).padStart(2, '0')}
+      {no} 교시 {mm}:{String(ss).padStart(2, '0')}
     </span>
   )
 }

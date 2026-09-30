@@ -39,9 +39,9 @@ export function NoticeDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
             )
           }
         >
-          1위 발표
+          1 위 발표
         </button>
-        <span className="sc-ad__hint">지금 가진 방 수로 센 1위를 모두의 화면에 띄운다.</span>
+        <span className="sc-ad__hint">지금 가진 방 수로 센 1 위를 모두의 화면에 띄운다.</span>
       </div>
 
       <div className="sc-nd__tpl">

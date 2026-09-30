@@ -103,7 +103,7 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
     if (job.exists) throw new HttpsError('failed-precondition', '이 제조기는 돌고 있다.')
     // **맡긴 사람 돈에서 낸다.** 돈은 사람 것이다
     const have = Math.max(0, Number((meSnap.data() as { money?: number } | undefined)?.money ?? 0))
-    if (have < TRAP_COIN_COST) throw new HttpsError('failed-precondition', `돈이 모자라다. ${TRAP_COIN_COST}코인이 든다.`)
+    if (have < TRAP_COIN_COST) throw new HttpsError('failed-precondition', `돈이 모자라다. ${TRAP_COIN_COST} 코인이 든다.`)
     const ownsTech = ((tech.data() as TileDoc | undefined)?.ownerTeam ?? null) === team
     const n = trapsPerBatch(ownsTech)
     tx.update(meRef, { money: have - TRAP_COIN_COST })
@@ -151,7 +151,7 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
     if (no === 'notReady') {
       // 남의 것이면 몇 분 남았는지는 안 알려 준다 — 페이즈가 닫힌 뒤에는 누구 것도 아니지만
       const left = Math.ceil((j.readyAtMs - nowMs) / 60_000)
-      throw new HttpsError('failed-precondition', mine || openPhaseNo === null ? `${TRAP_TAKE_NO.notReady}. ${left}분 남았다.` : `${TRAP_TAKE_NO.notReady}.`)
+      throw new HttpsError('failed-precondition', mine || openPhaseNo === null ? `${TRAP_TAKE_NO.notReady}. ${left} 분 남았다.` : `${TRAP_TAKE_NO.notReady}.`)
     }
     if (no) throw new HttpsError('failed-precondition', `${TRAP_TAKE_NO[no]}.`)
     const bag = (me.data() as { items?: Satchel }).items

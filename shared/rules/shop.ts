@@ -42,8 +42,8 @@ export interface VendingSpot {
  */
 export const VENDINGS: readonly VendingSpot[] = [
   { id: 'b1', name: '지하 복도', floor: 'b1', cell: { x: 25, y: 124 } },
-  { id: 'f1', name: '1층 복도', floor: 'f1', cell: { x: 25, y: 80 } },
-  { id: 'f2', name: '2층 복도', floor: 'f2', cell: { x: 32, y: 31 } },
+  { id: 'f1', name: '1 층 복도', floor: 'f1', cell: { x: 25, y: 80 } },
+  { id: 'f2', name: '2 층 복도', floor: 'f2', cell: { x: 32, y: 31 } },
 ]
 
 export const VENDING_BY_ID: Record<string, VendingSpot> = Object.fromEntries(VENDINGS.map((v) => [v.id, v]))

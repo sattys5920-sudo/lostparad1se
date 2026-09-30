@@ -756,7 +756,7 @@ export const OUTFITS: OutfitSpec[] = [
   { name: '하복', note: '반팔. 여름에는 이것뿐이다', body: 'shirt', shortSleeve: true, pale: true },
   { name: '춘추복', note: '흰 셔츠 위에 조끼를 껴입는다', body: 'vest', arm: 'shirt' },
   { name: '동복', note: '남색 블레이저. 정장에 가깝다', body: 'blazer', over: true, padded: true },
-  { name: '가디건', note: '단추를 채워 입는 니트', body: 'cardigan', over: true, buttons: true },
+  { name: '카디건', note: '단추를 채워 입는 니트', body: 'cardigan', over: true, buttons: true },
   { name: '후드집업', note: '교칙에는 없지만 다들 입는다', body: 'hood', over: true, hood: true },
   { name: '체육복', note: '체육 시간 뒤로 갈아입지 않았다', body: 'gym', stripe: true, bare: true, fixedBottom: 'gym' },
 ]

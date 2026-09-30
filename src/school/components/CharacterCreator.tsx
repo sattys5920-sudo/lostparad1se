@@ -63,7 +63,7 @@ const NECK_BOX = { x: 10, y: 19, w: 12, h: 6 }
 const WEAR_STYLE_NOTES = [
   '단추를 끝까지 잠근다',
   '적당히. 대부분 이렇게 입는다',
-  '셔츠를 빼입고 넥타이를 풀었다',
+  '셔츠를 빼 입고 넥타이를 풀었다',
 ]
 
 interface Crop {
@@ -301,7 +301,7 @@ export function CharacterCreator({
             enterKeyHint="done"
             value={name ?? ''}
             maxLength={12}
-            placeholder="1~12자"
+            placeholder="1~12 자"
             onChange={(e) => onName(e.target.value)}
           />
         </label>

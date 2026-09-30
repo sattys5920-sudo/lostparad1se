@@ -77,12 +77,12 @@ export function GardenDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
           <option value="">아무거나 (서버가 뽑는다)</option>
           {crops.map((c) => (
             <option key={c.id} value={c.id} disabled={c.left === 0}>
-              {c.name} · {c.price}코인{c.left === null ? '' : ` · ${c.left}번 남음`}
+              {c.name} · {c.price} 코인{c.left === null ? '' : ` · ${c.left} 번 남음`}
             </option>
           ))}
         </select>
       </label>
-      <p className="sc-ad__hint">빈 화분 {empty}자리</p>
+      <p className="sc-ad__hint">빈 화분 {empty} 자리</p>
 
       <ul className="sc-ga__pots">
         {pots.map((p) => (

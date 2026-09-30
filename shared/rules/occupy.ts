@@ -634,7 +634,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   if (!me) return no('이 판에 없는 사람이다.')
 
   const cost = costOf(state, me.team, act)
-  if (walletOf(state, me.team) < cost) return no(`분단 토큰이 모자란다. ${cost}개가 든다.`)
+  if (walletOf(state, me.team) < cost) return no(`분단 토큰이 모자란다. ${cost} 개가 든다.`)
 
   // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다
   const needItem = ITEM_FOR[act.kind] ?? null
@@ -779,7 +779,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       // 고른 것이 있으면 그것, 없으면 아무거나 하나. 남의 것을 고를 수는 없다
       const bot = act.targetRobot ? held.find((r) => r.id === act.targetRobot) : held[0]
       if (!bot) return no('그 로봇은 들고 있지 않다.')
-      if (botsAt(mine.tileId) + 1 > ROBOTS_PER_ROOM) return no(`이 방에는 로봇을 ${ROBOTS_PER_ROOM}기까지 놓는다.`)
+      if (botsAt(mine.tileId) + 1 > ROBOTS_PER_ROOM) return no(`이 방에는 로봇을 ${ROBOTS_PER_ROOM} 기까지 놓는다.`)
       bot.carriedBy = null
       bot.placedBy = playerId
       bot.tileId = mine.tileId
@@ -790,7 +790,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     case 'takeRobot': {
       // **놓은 사람만 도로 거둔다.** 같은 팀도 못 거둔다 — 남의 팀은 부숴야 없어진다
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
-      if (carriedOf(playerId).length >= MAX_CARRIED_ROBOTS) return no(`로봇은 ${MAX_CARRIED_ROBOTS}기까지 든다.`)
+      if (carriedOf(playerId).length >= MAX_CARRIED_ROBOTS) return no(`로봇은 ${MAX_CARRIED_ROBOTS} 기까지 든다.`)
       const here = robots.filter((r) => isPlaced(r) && r.tileId === mine.tileId)
       const bot = act.targetRobot
         ? here.find((r) => r.id === act.targetRobot)
@@ -835,7 +835,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
         (r) => state.people.find((q) => q.playerId === r.playerId)?.team === mine.team,
       )
       if (robotsOfTeam(state, mine.team) + coming.length >= ROBOTS_PER_TEAM) {
-        return no(`로봇은 한 분단에 ${ROBOTS_PER_TEAM}기까지다.`)
+        return no(`로봇은 한 분단에 ${ROBOTS_PER_TEAM} 기까지다.`)
       }
       // 값은 **이 연구실을 누가 쥐고 있느냐**로 갈린다
       const landlord = state.owners[mine.tileId] ?? null
@@ -843,7 +843,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       // **지식이 모자라면 고를 수 없다.** 토큰도 안 든다
       const need = researchKnowledge(ownsLab)
       const purse = vaultOf(state, mine.team)
-      if (purse.knowledge < need) return no(`지식이 모자란다. ${need}점이 든다.`)
+      if (purse.knowledge < need) return no(`지식이 모자란다. ${need} 점이 든다.`)
       // 걸 때 바로 뺀다. 완성될 때 빼면 그사이에 같은 금고로 셋이
       // 더 걸어서 없는 지식으로 넷이 연구한 판이 된다
       /*

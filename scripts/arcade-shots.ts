@@ -221,7 +221,7 @@ async function main() {
   if ((await page.locator('.sc-ar__menu').count()) === 0 && !(await pickOnMap(page, ARCADE_MACHINES[2].cell, '켠다'))) missed.push('앞자리에서 기계를 짚었는데 「켠다」가 없다')
   await page.waitForSelector('.sc-ar__menu', { timeout: 5000 })
   const marquee = (await page.locator('.sc-ar__marquee').innerText()).trim()
-  if (!marquee.includes('3번 기계')) missed.push(`간판에 3번 기계가 아니다: ${marquee}`)
+  if (!marquee.includes('3 번 기계')) missed.push(`간판에 3번 기계가 아니다: ${marquee}`)
   const menu = await page.locator('.sc-ar__menu button').evaluateAll((bs) =>
     bs.map((b) => ({ text: (b as HTMLElement).innerText.replace(/\s+/g, ' '), off: (b as HTMLButtonElement).disabled })),
   )

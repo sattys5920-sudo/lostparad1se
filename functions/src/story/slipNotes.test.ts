@@ -35,8 +35,8 @@ describe('검사가 잡는다', () => {
   it('역할마다 넉 장이 아니면', () => {
     const bad = base.filter((n) => n.id !== 'r03-s4-name')
     const errs = checkSlipNotes(bad, ROLE_NAMES).errors
-    expect(errs.some((e) => e.includes('3장이다'))).toBe(true)
-    expect(errs.some((e) => e.includes('번호(1~4번)가 겹치거나 빠졌다'))).toBe(true)
+    expect(errs.some((e) => e.includes('3 장이다'))).toBe(true)
+    expect(errs.some((e) => e.includes('번호(1~4 번)가 겹치거나 빠졌다'))).toBe(true)
   })
   it('지금 데이터는 역할마다 이름형이 정확히 한 장이다 — 알림이 하나도 없다', () => {
     const { errors, notices } = checkSlipNotes(base, ROLE_NAMES)
@@ -48,6 +48,6 @@ describe('검사가 잡는다', () => {
     const bad = base.map((n) => (n.id === 'r01-s1-role' ? { ...n, id: 'r01-s1-name', kind: 'name' as const, text: `${NAME_MARK}은 저녁마다 남은 사람 명단을 적어 교무실에 낸다.` } : n))
     const { errors, notices } = checkSlipNotes(bad, ROLE_NAMES)
     expect(errors).toEqual([])
-    expect(notices.some((n) => n.includes('이름형이 2장이다'))).toBe(true)
+    expect(notices.some((n) => n.includes('이름형이 2 장이다'))).toBe(true)
   })
 })

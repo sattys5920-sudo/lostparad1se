@@ -142,7 +142,7 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
       untilMs = p?.arriveAtMs ?? null
     } else if (busy && busy.kind === '덫') {
       kind = 'trap'
-      doing = `덫에 걸림 ${minsLeft(busy.untilMs, nowMs)}분`
+      doing = `덫에 걸림 ${minsLeft(busy.untilMs, nowMs)} 분`
       untilMs = busy.untilMs
     } else if (deal) {
       kind = 'deal'
@@ -156,7 +156,7 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
       sinceMs = deal.deal.askedAtMs ?? null
     } else if (busy) {
       kind = 'busy'
-      doing = `${busy.kind} 중 ${minsLeft(busy.untilMs, nowMs)}분`
+      doing = `${busy.kind} 중 ${minsLeft(busy.untilMs, nowMs)} 분`
       untilMs = busy.untilMs
     } else if (arc) {
       kind = 'arcade'
@@ -165,7 +165,7 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
       sinceMs = arc.room.atMs ?? null
     } else if (seatAt !== null) {
       kind = 'arcade'
-      doing = `오락기 앞 · ${seatAt + 1}번`
+      doing = `오락기 앞 · ${seatAt + 1} 번`
     } else if (errand) {
       kind = 'errand'
       doing = errand.carrying
@@ -174,7 +174,7 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
       sinceMs = errand.tookMs
     } else if (boundUntil) {
       kind = 'bound'
-      doing = `발 묶임 ${minsLeft(boundUntil, nowMs)}분`
+      doing = `발 묶임 ${minsLeft(boundUntil, nowMs)} 분`
       untilMs = boundUntil
     } else if (hiddenUntil) {
       kind = 'hidden'

@@ -214,7 +214,7 @@ async function main() {
     const sub = await call('arcadeSubmit', T.qa01, { gameId: game, roomId: rid, log: turns, eaten: 999 })
     s.ok(sub.ok, '시간이 차면 받는다', sub.ok ? '' : sub.err)
     const e = await room(rid)
-    const got = Number(/사과 (\d+)개/.exec(e.results?.[U('qa01')]?.line ?? '')?.[1] ?? -1)
+    const got = Number(/사과 (\d+) 개/.exec(e.results?.[U('qa01')]?.line ?? '')?.[1] ?? -1)
     s.ok(e.status === 'done' && got >= g.eaten, '서버가 기록을 다시 굴려 사과를 센다 — 화면이 적은 수(999)는 안 본다', e.results?.[U('qa01')]?.line)
     s.ok(e.results?.[U('qa01')]?.outcome === (got >= SNAKE_PASS ? 'win' : 'lose'), `사과 ${SNAKE_PASS}개부터 깬 것이다`)
     return s.lines
@@ -314,7 +314,7 @@ async function main() {
     const e = await room(rid)
     s.ok(e.status === 'done', '목숨을 다 쓰면 끝난다(안 친 차례는 마감 뒤 틀린 것)')
     const res = [e.results?.[U('qa06')], e.results?.[U('qa07')]]
-    s.ok(res.every((x) => x?.outcome === 'lose' && x.line.startsWith(`${RELAY_START_NOTES + 3}박`)), `${RELAY_GOAL}박을 못 채우면 다 같이 진다`, res[0]?.line)
+    s.ok(res.every((x) => x?.outcome === 'lose' && x.line.startsWith(`${RELAY_START_NOTES + 3} 박`)), `${RELAY_GOAL}박을 못 채우면 다 같이 진다`, res[0]?.line)
     return s.lines
   }
 

@@ -164,14 +164,14 @@ async function main() {
   await audit(page, '맵')
 
   // 시트 셋 — 깃발(페이즈 행동) · 손패 · 더보기
-  for (const [label, file] of [['깃발', '7시트-깃발'], ['손패', '7시트-손패'], ['더보기', '7시트-더보기']] as const) {
+  for (const [label, file] of [['깃발', '7시트-깃발'], ['손패', '7시트-손패'], ['더 보기', '7시트-더보기']] as const) {
     const b = page.locator('.sc-ct__act', { hasText: label }).first()
     if (!(await b.count())) continue
     await b.evaluate((el) => (el as HTMLElement).click())
     await page.waitForTimeout(700)
     await page.screenshot({ path: `${OUT}/${tag}-${file}.png` })
     await audit(page, `시트 ${label}`)
-    if (label === '더보기') {
+    if (label === '더 보기') {
       // 두 번 누르기 — 한 번이면 「정말?」로 바뀌고 2초 뒤 돌아온다
       const out = page.locator('.sc-out__go').first()
       if (await out.count()) {

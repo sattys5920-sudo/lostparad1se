@@ -152,7 +152,7 @@ async function main() {
   await desk.waitForTimeout(2500)
   const said = (await desk.locator('.sc-ad__said').innerText().catch(() => '')).trim()
   console.log(`  무작위: ${said}`)
-  if (!said.includes('5장을 뿌렸다')) missed.push(`무작위 5장이 아니다: ${said}`)
+  if (!said.includes('5 장을 뿌렸다')) missed.push(`무작위 5장이 아니다: ${said}`)
   await desk.locator('.sc-ad__said').click().catch(() => undefined)
   await desk.screenshot({ path: `${OUT}/notes-${W}-5-무작위.png` })
 

@@ -188,7 +188,7 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
   const uid = requireUid(req.auth)
   const name = cleanName(req.data.name)
   if (name.length === 0 || name.length > 12) {
-    throw new HttpsError('invalid-argument', '이름은 1~12자다.')
+    throw new HttpsError('invalid-argument', '이름은 1~12 자다.')
   }
 
   // 트랜잭션 밖에서 읽는다. 계정은 판과 무관해서 같이 묶을 것이 없다
@@ -366,7 +366,7 @@ export const hostAssignSeat = onCall<{ gameId: string; playerId: string; team: T
     }
     const inTeam = seats.filter((s, j) => j !== i && s.team === team).length
     if (inTeam >= STARTING_TEAM_SIZES[team]) {
-      throw new HttpsError('failed-precondition', `${teamName(team)}은 ${STARTING_TEAM_SIZES[team]}명이 다 찼다.`)
+      throw new HttpsError('failed-precondition', `${teamName(team)}은 ${STARTING_TEAM_SIZES[team]} 명이 다 찼다.`)
     }
     const nowMs = nowOf(game)
     seats[i] = { ...seats[i], team, dealtAtMs: nowMs }

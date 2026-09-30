@@ -106,7 +106,7 @@ export function Lives({ left, of }: { left: number; of: number }) {
 /** 리듬의 박 수만큼 점. 칠 때는 맞춘 박이 찬다 */
 export function BeatDots({ n, filled }: { n: number; filled: readonly boolean[] }) {
   return (
-    <ol className="sc-bt__dots" aria-label={`${n}박`}>
+    <ol className="sc-bt__dots" aria-label={`${n} 박`}>
       {Array.from({ length: n }, (_, i) => <li key={i} className={filled[i] ? 'is-on' : ''} />)}
     </ol>
   )

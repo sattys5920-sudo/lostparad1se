@@ -71,7 +71,7 @@ export const setDevClock = onCall<{ gameId: string; anchorGameMs: number; speed:
     }
     const { gameId, anchorGameMs, speed } = req.data
     if (!Number.isFinite(speed) || speed < DEV_CLOCK_SPEED_MIN || speed > DEV_CLOCK_SPEED_MAX) {
-      throw new HttpsError('invalid-argument', `배속은 ${DEV_CLOCK_SPEED_MIN}~${DEV_CLOCK_SPEED_MAX}이다.`)
+      throw new HttpsError('invalid-argument', `배속은 ${DEV_CLOCK_SPEED_MIN}~${DEV_CLOCK_SPEED_MAX} 이다.`)
     }
     const clock: DevClock = { anchorRealMs: Date.now(), anchorGameMs, speed }
     await gameRef(gameId).update({ clock })

@@ -166,10 +166,10 @@ async function main(): Promise<void> {
   const now1 = (await map()).nowMs
   await patch(`games/${GAME}/pawns/${TR.uid}`, { busyKind: '덫', busyUntilMs: now1 + 4 * M + 1000 })
   const t = await rowOf(TR.uid)
-  check(t.kind === 'trap' && /^덫에 걸림 5분$/.test(t.doing), '덫에 걸림 n분', t.doing)
+  check(t.kind === 'trap' && /^덫에 걸림 5 분$/.test(t.doing), '덫에 걸림 n분', t.doing)
   await patch(`games/${GAME}/pawns/${TR.uid}`, { busyKind: '연구', busyUntilMs: now1 + 2 * M })
   const lab = await rowOf(TR.uid)
-  check(lab.kind === 'busy' && lab.doing === '연구 중 2분', '다른 일로 묶이면 「무엇 중 n분」', lab.doing)
+  check(lab.kind === 'busy' && lab.doing === '연구 중 2 분', '다른 일로 묶이면 「무엇 중 n분」', lab.doing)
 
   console.log('\n── 거래 ──')
   const A = people[2]
@@ -212,9 +212,12 @@ async function main(): Promise<void> {
   // 지워진 사람의 말
   const I = people[6]
   await must('roamTo', I.token, { gameId: GAME, tileId: far })
-  await patch(`games/${GAME}`, { invisibleId: I.uid })
+  // 지워지기 전에 한 말. 지워진 뒤에는 말을 못 한다 — 서버가 거절한다
   const HID = `숨은말-${GAME}`
   await must('say', I.token, { gameId: GAME, text: HID })
+  await patch(`games/${GAME}`, { invisibleId: I.uid })
+  const hidSaid = await call('say', I.token, { gameId: GAME, text: `${HID}-2` })
+  check(!hidSaid.ok, '투명인간은 말을 못 한다', hidSaid.ok ? '말해졌다' : String(hidSaid.message ?? ''))
   const inv = await rowOf(I.uid)
   check(inv.invisible === true, '지도에 투명인간 표시')
   // 복도
@@ -237,7 +240,7 @@ async function main(): Promise<void> {
   check((hRow as unknown as { roomName: string }).roomName === '복도', '복도에 선 사람은 「복도」', String((hRow as unknown as { roomName: string }).roomName))
 
   const hid = ((await must('hostRoomChat', host, { gameId: GAME, room: far })) as { lines: ChatLine[] }).lines.find((l) => l.text === HID)
-  check(!!hid && hid.hidden === true, '지워진 사람의 말도 보이고 「안 보임」 표시(hidden)', String(hid?.hidden))
+  check(!!hid, '지워지기 전에 한 말은 운영자에게 그대로 보인다', String(hid?.text))
   const hall = ((await must('hostRoomChat', host, { gameId: GAME, room: 'hall' })) as { lines: ChatLine[] }).lines
   check(hall.some((l) => l.text === HALL && l.hall && l.roomName === '복도'), '복도 말은 「hall」로 따로', String(hall.length))
   const all = (await must('hostRoomChat', host, { gameId: GAME, room: 'all' })) as { lines: ChatLine[] }

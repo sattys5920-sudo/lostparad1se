@@ -303,7 +303,7 @@ export const arcadeInvite = onCall<{ gameId: string; roomId: string; playerId: s
     const was = r.members.find((m) => m.id === playerId)
     if (was && (was.state === 'in' || was.state === 'invited')) throw new HttpsError('failed-precondition', '이미 부른 사람이다.')
     const taken = r.members.filter((m) => m.state === 'in' || m.state === 'invited').length
-    if (taken >= spec.max) throw new HttpsError('failed-precondition', `${spec.name}${josa(spec.name, '은/는')} ${spec.max}명까지다.`)
+    if (taken >= spec.max) throw new HttpsError('failed-precondition', `${spec.name}${josa(spec.name, '은/는')} ${spec.max} 명까지다.`)
     const entry: RoomMember = { id: playerId, name: nameOf(game, playerId), machine, state: 'invited' }
     const members = was ? r.members.map((m) => (m.id === playerId ? entry : m)) : [...r.members, entry]
     tx.update(ref, { members, memberIds: members.map((m) => m.id), atMs: nowMs })
@@ -371,7 +371,7 @@ export const arcadeBegin = onCall<{ gameId: string; roomId: string }>(async (req
     const members = r.members.map((m) => (m.state === 'in' && !seated.has(m.id) ? { ...m, state: 'left' as const } : m))
     const spec = ARCADE_BY_ID[r.game]
     const n = members.filter((m) => m.state === 'in').length
-    if (n < spec.min) throw new HttpsError('failed-precondition', `${spec.name}${josa(spec.name, '은/는')} ${spec.min}명이 있어야 한다(지금 ${n}명).`)
+    if (n < spec.min) throw new HttpsError('failed-precondition', `${spec.name}${josa(spec.name, '은/는')} ${spec.min} 명이 있어야 한다(지금 ${n} 명).`)
     tx.update(ref, beginPatch(gameId, tx, roomId, { ...r, members }, nowMs))
   })
   return { ok: true }
@@ -429,7 +429,7 @@ export const arcadeMove = onCall<{ gameId: string; roomId: string; n: number }>(
       [uid]: {
         outcome: g.view.outcome,
         score: g.view.left,
-        line: g.view.outcome === 'win' ? `${g.view.guesses.length}번 만에` : `정답은 ${g.view.answer}`,
+        line: g.view.outcome === 'win' ? `${g.view.guesses.length} 번 만에` : `정답은 ${g.view.answer}`,
       },
     }
     tx.update(ref, { updown: g.view, status: 'done', results, atMs: nowMs })
@@ -481,7 +481,7 @@ export const arcadePick = onCall<{ gameId: string; roomId: string; pick: RpsPick
       return null
     }
     const of = (s: 'a' | 'b'): ArcadeOutcome => (res.outcome === 'draw' ? 'draw' : res.outcome === s ? 'win' : 'lose')
-    const line = `${res.rounds.length}판`
+    const line = `${res.rounds.length} 판`
     const results: Record<string, RoomResult> = {
       [a]: { outcome: of('a'), score: 0, line },
       [b]: { outcome: of('b'), score: 0, line },
@@ -518,20 +518,20 @@ function scoreLive(room: RoomDoc, raw: unknown): Omit<Scored, 'id'> & { endMs: n
   switch (room.game) {
     case 'rhythm': {
       const r = soloReplay(seed, cleanBeatTaps(raw))
-      return { score: r.score, solo: r.outcome, line: `${r.cleared}판 · 최대 ${r.longest}박`, endMs: r.endMs }
+      return { score: r.score, solo: r.outcome, line: `${r.cleared} 판 · 최대 ${r.longest} 박`, endMs: r.endMs }
     }
     case 'snake': {
       const r = snakeReplay(seed, cleanTurns(raw))
-      return { score: r.score, solo: r.outcome, line: `사과 ${r.eaten}개`, endMs: r.timeMs }
+      return { score: r.score, solo: r.outcome, line: `사과 ${r.eaten} 개`, endMs: r.timeMs }
     }
     case 'oneToFifty': {
       const r = fiftyReplay(seed, cleanFiftyTaps(raw))
-      const line = r.doneMs !== null ? `${(r.doneMs / 1000).toFixed(2)}초` : `${r.reached}까지`
+      const line = r.doneMs !== null ? `${(r.doneMs / 1000).toFixed(2)} 초` : `${r.reached} 까지`
       return { score: r.score, solo: r.outcome, line, endMs: r.endMs }
     }
     case 'mole': {
       const r = moleReplay(seed, cleanMoleTaps(raw))
-      return { score: r.score, solo: r.outcome, line: `${r.score}점 · 두더지 ${r.moles} · 폭탄 ${r.bombs}`, endMs: MOLE_MS }
+      return { score: r.score, solo: r.outcome, line: `${r.score} 점 · 두더지 ${r.moles} · 폭탄 ${r.bombs}`, endMs: MOLE_MS }
     }
     default:
       throw new HttpsError('invalid-argument', '기록을 받는 게임이 아니다.')
@@ -618,7 +618,7 @@ function tableResults(r: RoomDoc, wall: number): Record<string, RoomResult> | nu
     if (!relayOver(r.relay, r.startAtMs) && ids.length > 0) return null
     const n = r.relay.notes.length
     const o = relayOutcome(r.relay)
-    for (const id of ids) out[id] = { outcome: o, score: n, line: `${n}박짜리 곡` }
+    for (const id of ids) out[id] = { outcome: o, score: n, line: `${n} 박짜리 곡` }
     return out
   }
   if (r.game === 'tower' && r.tower) {
@@ -627,7 +627,7 @@ function tableResults(r: RoomDoc, wall: number): Record<string, RoomResult> | nu
     if (!towerOver(r.tower) && !capped && ids.length > 0) return null
     const h = towerHeight(r.tower)
     const o = towerOutcome(r.tower)
-    for (const id of ids) out[id] = { outcome: o, score: h, line: `${h}층` }
+    for (const id of ids) out[id] = { outcome: o, score: h, line: `${h} 층` }
     return out
   }
   return null
@@ -647,7 +647,7 @@ function closeDraw(tx: Transaction, gameId: string, roomId: string, r: RoomDoc, 
   const w = c.over.winner
   const score = (id: string) => c.s.wins[id] ?? 0
   // 줄은 제 쪽에서 본 것 — 「2승 1패」
-  const line = (me: string, them: string) => `${score(me)}승 ${score(them)}패`
+  const line = (me: string, them: string) => `${score(me)} 승 ${score(them)} 패`
   const results: Record<string, RoomResult> = {
     [a]: { outcome: w === null ? 'draw' : w === a ? 'win' : 'lose', score: score(a), line: line(a, b) },
     [b]: { outcome: w === null ? 'draw' : w === b ? 'win' : 'lose', score: score(b), line: line(b, a) },

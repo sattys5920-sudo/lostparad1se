@@ -124,7 +124,7 @@ export function BoardPopup({
             오늘의 미션
           </h2>
           <p className="sc-bd__sum">
-            {board.rows.length}명 중 {met}명이 해냈다.
+            {board.rows.length} 명 중 {met} 명이 해냈다.
           </p>
           <ul className="sc-bd__rows">
             {board.rows.map((r) => {

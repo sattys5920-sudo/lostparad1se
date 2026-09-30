@@ -76,7 +76,7 @@ export const ITEMS: readonly ItemSpec[] = [
   {
     kind: 'trap',
     name: '덫',
-    text: '복도에 놓는다. 안 보인다. 페이즈 중에 다른 분단이 밟으면 10분 묶인다.',
+    text: '복도에 놓는다. 안 보인다. 페이즈 중에 다른 분단이 밟으면 10 분 묶인다.',
   },
 ]
 

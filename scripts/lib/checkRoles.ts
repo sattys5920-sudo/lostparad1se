@@ -45,7 +45,7 @@ export function checkRoles(data: readonly RoleData[] = ROLE_DATA): { errors: str
       if (!dc) return
       const bar = barOf(mc.bar)
       // 세는 것 — {분} 은 문서 값으로 채워 맞대어 본다(수치를 고쳐도 말은 같아야 한다)
-      const innerMin = mc.counts.match(/(\d+)분 이상/)
+      const innerMin = mc.counts.match(/(\d+) ?분 이상/)
       same(`${tag} 조건 ${i + 1} 세는 것`, mc.counts, dc.text.replace(/\{분\}/g, innerMin ? innerMin[1] : String(dc.minutes ?? '')))
       if (REVEAL[mc.reveal] !== dc.disclosure) errors.push(`${tag} 조건 ${i + 1}: 공개가 문서(${mc.reveal})와 다르다`)
       const want = { ...bar, ...(innerMin && bar.minutes === undefined ? { minutes: Number(innerMin[1]) } : {}) }

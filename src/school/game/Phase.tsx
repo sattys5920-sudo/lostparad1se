@@ -81,13 +81,13 @@ const LABEL: Record<ActionKind, string> = {
  */
 const WHAT: Record<ActionKind, string> = {
   move: '맵에서 걸어서 간다. 복도와 계단은 값이 없다.',
-  research: '20분 뒤 이 방에 완성품이 놓인다. 이 페이즈 동안은 나만 가져간다.',
+  research: '20 분 뒤 이 방에 완성품이 놓인다. 이 페이즈 동안은 나만 가져간다.',
   summon: '호루라기를 불어 같은 분단 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
   plant: '이 방에 우리 분단 깃발을 꽂는다. 뽑히기 전까지 남는다.',
   pull: '다른 분단 깃발에 손을 댄다. 서로 다른 두 사람이 손대야 하나가 뽑힌다.',
-  dropRobot: '들고 있는 로봇 1기를 이 방에 놓는다. 놓아야 깃발 하나로 센다.',
-  takeRobot: '내가 놓은 로봇 1기를 도로 든다. 든 로봇은 판정에 안 든다.',
-  smashRobot: '이 방에 놓인 상대 로봇 1기를 부순다.',
+  dropRobot: '들고 있는 로봇 1 기를 이 방에 놓는다. 놓아야 깃발 하나로 센다.',
+  takeRobot: '내가 놓은 로봇 1 기를 도로 든다. 든 로봇은 판정에 안 든다.',
+  smashRobot: '이 방에 놓인 상대 로봇 1 기를 부순다.',
 }
 
 /** 그 자리에서 쓰는 것들. 이동은 여기 없다 — 맵에서 걸어서 한다. */
@@ -173,7 +173,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       if (!atLabMachine(myCell)) return '연구 기계 옆에 서야 한다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
       if ((view?.teamVault?.knowledge ?? 0) < researchKnowledge(ownsLab)) return '지식이 모자란다.'
-      if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 한 분단에 ${ROBOTS_PER_TEAM}기까지다.`
+      if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 한 분단에 ${ROBOTS_PER_TEAM} 기까지다.`
     }
     if (kind === 'summon' && teammates.length === 0) return '부를 같은 분단 사람이 없다.'
     if (kind === 'plant') {
@@ -189,12 +189,12 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     if (kind === 'dropRobot') {
       if (carried === 0) return '들고 있는 로봇이 없다.'
       if (!canHoldFlags(here)) return `${hereName}에는 로봇을 못 놓는다.`
-      if (placedHere >= ROBOTS_PER_ROOM) return `이 방에는 로봇을 ${ROBOTS_PER_ROOM}기까지 놓는다.`
+      if (placedHere >= ROBOTS_PER_ROOM) return `이 방에는 로봇을 ${ROBOTS_PER_ROOM} 기까지 놓는다.`
     }
     // 거두는 것은 **놓은 사람만.** 같은 팀이 놓은 것도 못 거둔다
     if (kind === 'takeRobot') {
       if (mineHere.length === 0) return '이 방에 내가 놓은 로봇이 없다.'
-      if (carried >= MAX_CARRIED_ROBOTS) return `로봇은 ${MAX_CARRIED_ROBOTS}기까지 든다.`
+      if (carried >= MAX_CARRIED_ROBOTS) return `로봇은 ${MAX_CARRIED_ROBOTS} 기까지 든다.`
     }
     if (kind === 'smashRobot') {
       if (enemyRobotsHere.length === 0) return '이 방에 놓인 상대 로봇이 없다.'
@@ -215,7 +215,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         : kind === 'pull' ? `${hereName}에서 ${teamName(t.targetTeam ?? '')} 깃발에 손을 댔다.`
         : kind === 'dropRobot' ? `${hereName}에 로봇을 놓았다.`
         : kind === 'takeRobot' ? `${hereName}에서 로봇을 거뒀다.`
-        : `${LABEL[kind]}. 분단 토큰 ${out.tokens ?? '?'}개 남았다.`,
+        : `${LABEL[kind]}. 분단 토큰 ${out.tokens ?? '?'} 개 남았다.`,
       )
     } catch (e) {
       buzz('no')
@@ -412,7 +412,7 @@ const SAYS: Record<string, (l: Line, seats: readonly SeatEntry[]) => string> = {
   robotSmashed: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 로봇을 부쉈다.`,
   smashFailed: (l, s) => `${who(l, s)}이(가) 로봇을 못 부쉈다 — ${l.why ?? ''}`,
   researchStarted: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 연구를 걸었다.`,
-  researchDone: (l, s) => `${who(l, s)}에게 로봇 1기가 붙었다.`,
+  researchDone: (l, s) => `${who(l, s)}에게 로봇 1 기가 붙었다.`,
   researchFailed: (l, s) => `${who(l, s)}의 연구가 안 됐다 — ${l.why ?? ''}`,
   captured: (l) => `${room(l)}이(가) ${teamName(l.team)} 것이 됐다.`,
   held: (l) => `${room(l)}은(는) 그대로다.`,
@@ -443,7 +443,7 @@ export function PhaseLog({
   return (
     <div className="sc-ph__log">
       <h2>
-        지난 페이즈 <span>{last.no}번</span>
+        지난 페이즈 <span>{last.no} 번</span>
       </h2>
       <ul>
         {last.lines.map((l, i) => (

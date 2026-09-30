@@ -107,7 +107,7 @@ async function place(
   const subjectId = owners.get(note.roleKey)
   if (!subjectId) throw new HttpsError('failed-precondition', '역할을 아직 안 나눴다.')
   const cell = freeDropCell(room, taken)
-  if (!cell) throw new HttpsError('failed-precondition', `${TILE_BY_ID[room].name}에는 빈 칸이 없다.`)
+  if (!cell) throw new HttpsError('failed-precondition', `${TILE_BY_ID[room].name}에는 빈칸이 없다.`)
   const ref = slipsOf(gameId).doc()
   await db.runTransaction(async (tx) => {
     const now = await tx.get(slipsOf(gameId).where('noteId', '==', noteId).limit(1))
@@ -192,7 +192,7 @@ export const hostScatterSlip = onCall<{ gameId: string; noteId: string; tileId: 
     const note = SLIP_NOTE_BY_ID[noteId]
     if (!note) throw new HttpsError('invalid-argument', '그런 쪽지가 없다.')
     if (needsEarlyConfirm(note.slot, game.day) && req.data.confirmEarly !== true) {
-      throw new HttpsError('failed-precondition', `3~4번(그날)은 DAY ${LATE_FROM_DAY}부터다. 그래도 뿌리려면 한 번 더 확인한다.`)
+      throw new HttpsError('failed-precondition', `3~4 번(그날)은 DAY ${LATE_FROM_DAY} 부터다. 그래도 뿌리려면 한 번 더 확인한다.`)
     }
     const [owners, taken] = await Promise.all([ownersByRole(gameId), takenCells(gameId)])
     const cell = await place(gameId, game, noteId, room, owners, taken)

@@ -52,7 +52,7 @@ export function seatsLeft(seats: readonly Seat[]): Record<TeamId, number> {
  */
 export function seatName(seat: { name?: string | null }, index: number): string {
   const name = (seat.name ?? '').trim()
-  return name !== '' ? name : `${index + 1}번 자리`
+  return name !== '' ? name : `${index + 1} 번 자리`
 }
 
 /** 아직 자리가 남은 팀. 적게 찬 쪽부터 — 고르지 않은 사람은 여기 첫 팀으로 간다. */
@@ -68,14 +68,14 @@ export function openTeams(seats: readonly Seat[]): TeamId[] {
  * 않으면 된다. 나머지 빈자리는 dealTeams 가 채운다.
  */
 export function canAssign(seats: readonly Seat[]): { ok: boolean; reason: string | null } {
-  if (seats.length !== TOTAL_SEATS) return { ok: false, reason: `${TOTAL_SEATS}명이어야 한다 (${seats.length}명).` }
+  if (seats.length !== TOTAL_SEATS) return { ok: false, reason: `${TOTAL_SEATS} 명이어야 한다 (${seats.length} 명).` }
   if (new Set(seats.map((s) => s.playerId)).size !== seats.length) {
     return { ok: false, reason: '같은 사람이 두 번 앉아 있다.' }
   }
   for (const t of TEAMS) {
     const got = pinned(seats).filter((s) => s.team === t).length
     if (got > STARTING_TEAM_SIZES[t]) {
-      return { ok: false, reason: `${teamName(t)}에 ${STARTING_TEAM_SIZES[t]}명보다 많이 못 박혀 있다 (${got}명).` }
+      return { ok: false, reason: `${teamName(t)}에 ${STARTING_TEAM_SIZES[t]} 명보다 많이 못 박혀 있다 (${got} 명).` }
     }
   }
   return { ok: true, reason: null }
@@ -123,14 +123,14 @@ export function dealTeams(seats: readonly Seat[], seed: string): Seat[] {
 
 /** 시작할 수 있는가. 열넷이 앉았고 **배정이 끝나** 정원이 맞아야 한다. */
 export function canStart(seats: readonly Seat[]): { ok: boolean; reason: string | null } {
-  if (seats.length !== TOTAL_SEATS) return { ok: false, reason: `${TOTAL_SEATS}명이어야 한다 (${seats.length}명).` }
+  if (seats.length !== TOTAL_SEATS) return { ok: false, reason: `${TOTAL_SEATS} 명이어야 한다 (${seats.length} 명).` }
   if (new Set(seats.map((s) => s.playerId)).size !== seats.length) {
     return { ok: false, reason: '같은 사람이 두 번 앉아 있다.' }
   }
   if (seats.some((s) => s.team === null)) return { ok: false, reason: '아직 배정하지 않았다.' }
   for (const t of TEAMS) {
     const got = seats.filter((s) => s.team === t).length
-    if (got !== STARTING_TEAM_SIZES[t]) return { ok: false, reason: `${teamName(t)}은 ${STARTING_TEAM_SIZES[t]}명이어야 한다 (${got}명).` }
+    if (got !== STARTING_TEAM_SIZES[t]) return { ok: false, reason: `${teamName(t)}은 ${STARTING_TEAM_SIZES[t]} 명이어야 한다 (${got} 명).` }
   }
   return { ok: true, reason: null }
 }

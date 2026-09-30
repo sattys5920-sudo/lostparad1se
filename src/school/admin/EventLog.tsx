@@ -249,7 +249,7 @@ export function EventLog({
     a.download = `qa-log-${lastAt || 0}.json`
     a.click()
     URL.revokeObjectURL(url)
-    onSaid(`${shown.length}줄을 내려받았다.`)
+    onSaid(`${shown.length} 줄을 내려받았다.`)
   }
 
   const bad = inv?.violations ?? []
@@ -261,7 +261,7 @@ export function EventLog({
       {bad.length > 0 ? (
         <div className="sc-lg__alarm" role="alert">
           <div className="sc-lg__alarmHead">
-            <b>어긋남 {bad.length}건</b>
+            <b>어긋남 {bad.length} 건</b>
             <span>{hhmmss(inv?.nowMs ?? 0)} 검사</span>
             <button onClick={() => void checkNow()}>다시 검사</button>
           </div>
@@ -284,7 +284,7 @@ export function EventLog({
       {inv && inv.history.length > 0 && (
         <div className="sc-lg__hist">
           <button onClick={() => setShowHistory((v) => !v)}>
-            어긋난 기록 {inv.history.length}건 {showHistory ? '접기' : '보기'}
+            어긋난 기록 {inv.history.length} 건 {showHistory ? '접기' : '보기'}
           </button>
           {showHistory && (
             <ul className="sc-lg__bad is-hist">
@@ -342,7 +342,7 @@ export function EventLog({
         </button>
         <span className="sc-lg__count">
           {shown.length}
-          {shown.length !== rows.length ? `/${rows.length}` : ''}줄{truncated ? ' · 앞은 잘림' : ''}
+          {shown.length !== rows.length ? `/${rows.length}` : ''} 줄{truncated ? ' · 앞은 잘림' : ''}
         </span>
       </div>
 
@@ -353,7 +353,7 @@ export function EventLog({
         <>
           {!showAll && shown.length > PAGE && (
             <button className="sc-lg__more" onClick={() => setShowAll(true)}>
-              앞 {shown.length - PAGE}줄 더
+              앞 {shown.length - PAGE} 줄 더
             </button>
           )}
           <ol className="sc-lg__list" ref={listRef}>

@@ -147,12 +147,12 @@ export function shortOf(stake: Stake, have: Holdings): StakeRefusal | null {
 export const SHORT_MESSAGE: Record<StakeRefusal, string> = {
   notYours: '이 거래의 사람이 아니다.',
   notOpen: '이미 끝난 거래다.',
-  shortMoney: '돈이 모자라다.',
-  shortKnowledge: '지식이 모자라다.',
-  shortItems: '그 물건이 모자라다.',
-  shortSlips: '쪽지가 모자라다.',
-  shortRobots: '들고 있는 로봇이 모자라다.',
-  shortCrops: '딴 것이 모자라다.',
+  shortMoney: '돈이 모자란다.',
+  shortKnowledge: '지식이 모자란다.',
+  shortItems: '그 물건이 모자란다.',
+  shortSlips: '쪽지가 모자란다.',
+  shortRobots: '들고 있는 로봇이 모자란다.',
+  shortCrops: '딴 것이 모자란다.',
 }
 
 /**
@@ -162,7 +162,7 @@ export const SHORT_MESSAGE: Record<StakeRefusal, string> = {
  * 딸 때와 같은 한도다. 거래로 그 한도를 넘겨 쌓게 두면 따는 쪽의
  * 한도가 뜻을 잃는다. 받는 것이 없으면 이미 넘쳐 있어도 막지 않는다.
  */
-export const CROP_SWAP_MESSAGE = `딴 것은 ${HARVEST_LIMIT}개까지 든다 — 받는 쪽 손이 찼다.`
+export const CROP_SWAP_MESSAGE = `딴 것은 ${HARVEST_LIMIT} 개까지 든다 — 받는 쪽 손이 찼다.`
 
 export function cropSwapFull(a: {
   /** 받는 사람이 지금 든 수 */

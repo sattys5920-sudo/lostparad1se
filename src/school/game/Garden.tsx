@@ -13,6 +13,7 @@ import { cropIcon } from './goodArt'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc } from '../../../shared/model'
 import { buzz } from './Controls'
+import { josa } from '../../../shared/text'
 
 type Pot = NonNullable<PlayerViewDoc['potsHere']>[number]
 
@@ -90,7 +91,8 @@ export function GardenSheet({
                   onClick={() =>
                     void run('땄다.', async () => {
                       const out = (await act.harvestPot(pot.i)) as { got?: string }
-                      onSaid(`${out.got ?? '무언가'}를 땄다.`)
+                      const got = out.got ?? '무언가'
+                      onSaid(`${got}${josa(got, '을/를')} 땄다.`)
                     })
                   }
                 >

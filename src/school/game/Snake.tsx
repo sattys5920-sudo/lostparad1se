@@ -156,7 +156,7 @@ export function Snake({ room, meId, act, onAgain, onMenu, onQuit }: {
 
   return (
     <div className="sc-sn">
-      <p className="sc-ar__title">뱀 <span>사과 {eaten}개 · 밀거나 단추로 꺾는다</span></p>
+      <p className="sc-ar__title">뱀 <span>사과 {eaten} 개 · 밀거나 단추로 꺾는다</span></p>
       <div className="sc-rh__stage">
         <canvas
           ref={canvasRef}

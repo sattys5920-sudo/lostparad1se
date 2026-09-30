@@ -140,7 +140,7 @@ async function main() {
   console.log(`  놓은 뒤: ${note.replace(/\n/g, ' ')}`)
   if (!note.includes('1/2') || !note.includes('2/2')) missed.push(`놓은 뒤 수가 이상하다: ${note}`)
   const dropWhy = await row('로봇 놓기').innerText()
-  if (!dropWhy.includes('2기까지 놓는다')) missed.push(`방이 찼는데 놓기가 열려 있다: ${dropWhy}`)
+  if (!dropWhy.includes('2 기까지 놓는다')) missed.push(`방이 찼는데 놓기가 열려 있다: ${dropWhy}`)
 
   await row('로봇 수거').locator('button').first().click()
   await until(/들고 있는 것\s*2\/2/)

@@ -60,7 +60,7 @@ describe('숫자 칸', () => {
   })
   it('센 줄은 셈/기준', () => {
     expect(amountText({ have: 2, bar: 3, unit: 'count' })).toBe('2/3')
-    expect(amountText({ have: 12, bar: 15, unit: 'minutes' })).toBe('12/15분')
+    expect(amountText({ have: 12, bar: 15, unit: 'minutes' })).toBe('12/15 분')
   })
   it('했다·안 했다 줄은 말로', () => {
     expect(amountText({ have: 1, bar: 1, unit: 'flag' })).toBe('했다')

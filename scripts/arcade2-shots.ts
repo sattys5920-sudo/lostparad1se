@@ -412,7 +412,7 @@ async function main() {
     }
     await expectEnd('둘이서 한 곡', /FAILED|CLEAR/)
     const endText = await endLine()
-    if (!/\d+박짜리 곡/.test(endText)) missed.push(`둘이서 한 곡 결과에 곡 길이가 없다: ${endText}`)
+    if (!/\d+ 박짜리 곡/.test(endText)) missed.push(`둘이서 한 곡 결과에 곡 길이가 없다: ${endText}`)
     await shot('둘이서끝')
   }
 

@@ -471,10 +471,10 @@ export function MapPlan({ rooms, only, here, compact, picked, onPick }: PlanProp
                 >
                   {r.count === null
                     ? r.open
-                      ? '?명'
+                      ? '? 명'
                       : `? / ${r.capacity}`
                     : r.open
-                      ? `${r.count}명`
+                      ? `${r.count} 명`
                       : `${r.count} / ${r.capacity}`}
                 </text>
               </>

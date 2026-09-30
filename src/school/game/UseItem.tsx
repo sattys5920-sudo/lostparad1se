@@ -75,7 +75,7 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
     setBusy(true)
     try {
       const out = (await act.dropThing()) as { coins?: number }
-      onSaid(`놓았다. ${out.coins ?? 0}코인.`)
+      onSaid(`놓았다. ${out.coins ?? 0} 코인.`)
     } catch (e) {
       onSaid((e as Error).message)
     } finally {
@@ -124,7 +124,7 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
         return (
           <li key={kind}>
             <b>{spec?.name ?? kind}</b>
-            <span>{n}개</span>
+            <span>{n} 개</span>
             <p>{spec?.text ?? ''}</p>
 
             {kind === 'trap' && (

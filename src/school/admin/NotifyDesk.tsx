@@ -57,7 +57,7 @@ export function NotifyDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
   return (
     <div className="sc-nd">
       <p className="sc-ad__hint">
-        앱 밖 알림 {out.canPush ? '준비됨' : '열쇠 없음 — 앱 안에서만 간다'} · 건 기기 {out.devices}대 · 길이 없어 안 보낸 것 {out.skipped}건
+        앱 밖 알림 {out.canPush ? '준비됨' : '열쇠 없음 — 앱 안에서만 간다'} · 건 기기 {out.devices} 대 · 길이 없어 안 보낸 것 {out.skipped} 건
       </p>
       <table className="sc-nd__fails">
         <thead>

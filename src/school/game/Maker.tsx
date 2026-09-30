@@ -40,8 +40,8 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
     try {
       const out = (await fn()) as { count?: number; got?: number }
       buzz('ok')
-      if (out.got !== undefined) onSaid(`덫 ${out.got}개를 찾았다.`)
-      else if (out.count !== undefined) onSaid(`맡겼다. ${TRAP_MAKE_MINUTES}분 뒤에 ${out.count}개.`)
+      if (out.got !== undefined) onSaid(`덫 ${out.got} 개를 찾았다.`)
+      else if (out.count !== undefined) onSaid(`맡겼다. ${TRAP_MAKE_MINUTES} 분 뒤에 ${out.count} 개.`)
       else onSaid(`${label} 했다.`)
     } catch (e) {
       buzz('no')
@@ -84,7 +84,7 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
                 <>
                   <span>
                     {m.state === 'open' ? '임자 없음 · ' : '내 것 · '}
-                    {left > 0 ? `${leftText(left)} 남았다` : `다 됐다 · ${m.count}개`}
+                    {left > 0 ? `${leftText(left)} 남았다` : `다 됐다 · ${m.count} 개`}
                   </span>
                   <button
                     disabled={busy || !near || left > 0}
@@ -100,7 +100,7 @@ export function MakerSheet({ view, act, onSaid, myCell, phaseOpen, nowMs, ownsTe
         })}
       </ul>
       {!phaseOpen && <p className="sc-mk__hint">맡기는 것은 페이즈에만 된다. 찾는 것은 지금도 된다.</p>}
-      {phaseOpen && money < TRAP_COIN_COST && <p className="sc-mk__hint">돈이 모자란다. {TRAP_COIN_COST}코인이 든다.</p>}
+      {phaseOpen && money < TRAP_COIN_COST && <p className="sc-mk__hint">돈이 모자란다. {TRAP_COIN_COST} 코인이 든다.</p>}
       <p className="sc-mk__hint">맡긴 페이즈 동안에는 맡긴 사람만 찾아간다. 페이즈가 끝나도록 안 찾아가면 누구든 가져간다.</p>
     </div>
   )

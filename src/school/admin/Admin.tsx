@@ -70,7 +70,7 @@ export function Admin() {
 /** 달력 한 칸의 이름. 운영자가 무엇을 누르는지 알아야 한다. */
 const CALENDAR: Record<string, string> = {
   dayStart: '다음 날 아침',
-  settlement: '21시 정산',
+  settlement: '21 시 정산',
   lastHours: '점수판 끄기 (마지막 여섯 시간)',
   gameEnd: '나흘 끝 · 엔딩',
 }
@@ -108,8 +108,8 @@ function Desk() {
       const out = await fn()
       const n = (out as { added?: number; seated?: number } | undefined) ?? {}
       setSaid(
-        n.added !== undefined ? `${label} 했다. ${n.added}칸.`
-        : n.seated !== undefined ? `${label} 했다. ${n.seated}명.`
+        n.added !== undefined ? `${label} 했다. ${n.added} 칸.`
+        : n.seated !== undefined ? `${label} 했다. ${n.seated} 명.`
         : `${label} 했다.`,
       )
     } catch (e) {
@@ -140,7 +140,7 @@ function Desk() {
         return
       }
       const seeded = (await act.seedPlayers(qaPw, 0)) as { seated?: number }
-      setSaid(`${seeded.seated ?? 0}명이 앉았다. 시작하는 중…`)
+      setSaid(`${seeded.seated ?? 0} 명이 앉았다. 시작하는 중…`)
       // **QA 판 차리기에만** 무작위로 나눈다 — 실제 판은 「배정」 목록에서 한 사람씩 정한다
       await act.assignAll()
       await act.startGame()
@@ -230,7 +230,7 @@ function Desk() {
               </span>
             )}
             <span className="sc-ad__pill">
-              {seats.length}/{TOTAL_SEATS}명
+              {seats.length}/{TOTAL_SEATS} 명
             </span>
           </div>
         )}
@@ -283,7 +283,7 @@ function Desk() {
               <h2>시작</h2>
               {!assigned && (
                 <p className="sc-ad__hint">
-                  {seats.length < TOTAL_SEATS ? `열넷이 다 들어와야 시작한다. 지금 ${seats.length}명.` : '열넷 모두 분단과 역할을 정해야 시작한다.'}
+                  {seats.length < TOTAL_SEATS ? `열넷이 다 들어와야 시작한다. 지금 ${seats.length} 명.` : '열넷 모두 분단과 역할을 정해야 시작한다.'}
                 </p>
               )}
               <button
@@ -309,7 +309,7 @@ function Desk() {
                     setSaid(
                       n === 0 ?
                         `주인 없는 자리는 없다. ${r.left ?? 0} / ${r.need ?? 0} 앉아 있다.`
-                      : `${n}자리를 비웠다(${(r.freed ?? []).join(', ')}). 이제 ${r.left ?? 0} / ${r.need ?? 0} 이다.`,
+                      : `${n} 자리를 비웠다(${(r.freed ?? []).join(', ')}). 이제 ${r.left ?? 0} / ${r.need ?? 0} 이다.`,
                     )
                     return {}
                   })
@@ -458,7 +458,7 @@ function Desk() {
                   onClick={() =>
                     void run('얼굴 다시 읽기', async () => {
                       const r = (await act.refreshFaces()) as { seats?: number; faces?: number }
-                      setSaid(`${r.seats ?? 0}자리 중 ${r.faces ?? 0}명의 얼굴을 읽었다.`)
+                      setSaid(`${r.seats ?? 0} 자리 중 ${r.faces ?? 0} 명의 얼굴을 읽었다.`)
                       return {}
                     })
                   }
@@ -540,7 +540,7 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
 
   return (
     <>
-      <p className="sc-ad__hint">{rows.length}명이 가입했다.</p>
+      <p className="sc-ad__hint">{rows.length} 명이 가입했다.</p>
       <ul className="sc-ad__accounts">
         {rows.map((r) => (
           <li key={r.id}>
@@ -572,13 +572,13 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
           disabled={busy || chosen.length === 0}
           onClick={() => setAsked(true)}
         >
-          고른 {chosen.length}개 지우기
+          고른 {chosen.length} 개 지우기
         </button>
       ) : (
         <div className="sc-ad__ask">
           <p>
-            {chosen.join(', ')} — {chosen.length}개를 지운다. 되돌릴 수 없다.
-            {risky > 0 && ` 이 중 ${risky}명은 지금 판에 앉아 있다 — 그 사람은 다시 못 들어온다.`}
+            {chosen.join(', ')} — {chosen.length} 개를 지운다. 되돌릴 수 없다.
+            {risky > 0 && ` 이 중 ${risky} 명은 지금 판에 앉아 있다 — 그 사람은 다시 못 들어온다.`}
           </p>
           <div className="sc-ad__askRow">
             <button onClick={() => setAsked(false)}>그만두기</button>
@@ -593,8 +593,8 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
                     const no = (r.kept ?? []).map((k) => `${k.id}(${k.why})`).join(', ')
                     const free = (r.freed ?? []).length
                     onSaid(
-                      `${(r.gone ?? []).length}개를 지웠다.` +
-                        (free > 0 ? ` 시작 안 한 판의 ${free}자리를 같이 비웠다.` : '') +
+                      `${(r.gone ?? []).length} 개를 지웠다.` +
+                        (free > 0 ? ` 시작 안 한 판의 ${free} 자리를 같이 비웠다.` : '') +
                         (no ? ` 못 지운 것 — ${no}` : ''),
                     )
                     load()
@@ -644,7 +644,7 @@ function ResetGame({
   }
   return (
     <div className="sc-ad__ask">
-      <p>나흘치 기록이 다 지워진다. 앉은 자리만 남는다.</p>
+      <p>나흘 치 기록이 다 지워진다. 앉은 자리만 남는다.</p>
       <div className="sc-ad__askRow">
         <button onClick={() => setAsked(false)}>그만두기</button>
         <button
@@ -656,7 +656,7 @@ function ResetGame({
               .resetGame()
               .then((r) => {
                 const n = (r as { seats?: number }).seats ?? 0
-                onSaid(`되돌렸다. ${n}명이 그대로 앉아 있다.`)
+                onSaid(`되돌렸다. ${n} 명이 그대로 앉아 있다.`)
               })
               .catch((e) => onSaid((e as Error).message))
           }}
@@ -715,12 +715,12 @@ function QaSetUp({
           확인하고 싶을 때는 나머지를 QA 로 채워 넣는다 — 앉은 사람은
           그대로 두고 빈 자리만 메운다. 채팅도 거래도 그때부터 된다.
         */}
-        빈 자리만 QA 로 채운다.
+        빈자리만 QA로 채운다.
       </p>
       {/* 비밀번호를 가리지 않는다 — 읽어서 다른 기기에 쳐야 하는 값이다 */}
       <input
         type="text"
-        placeholder="QA 비밀번호 (8자 이상)"
+        placeholder="QA 비밀번호 (8 자 이상)"
         value={qaPw}
         autoComplete="off"
         autoCapitalize="off"
@@ -728,7 +728,7 @@ function QaSetUp({
         onChange={(e) => setQaPw(e.target.value)}
       />
       <button className="is-lead" disabled={busy || qaPw.length < 8} onClick={() => void onGo()}>
-        빈 자리를 QA로 채우고 시작
+        빈자리를 QA로 채우고 시작
         <span>qa01 … qa14</span>
       </button>
     </>

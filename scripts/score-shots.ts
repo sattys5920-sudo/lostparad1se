@@ -157,8 +157,8 @@ async function main() {
     await page.screenshot({ path: `${OUT}/score-${tag}-바뀜.png` })
     const head = await page.locator('.sc-pl__head').boundingBox()
     if (head) await page.screenshot({ path: `${OUT}/score-${tag}-머리.png`, clip: { x: 0, y: 0, width: size.w, height: head.y + head.height + 6 } })
-    const mine = after.find((s) => s.includes('2곳 얻음')) ?? ''
-    const theirs = after.filter((s) => s.includes('1곳 얻음'))
+    const mine = after.find((s) => s.includes('2 곳 얻음')) ?? ''
+    const theirs = after.filter((s) => s.includes('1 곳 얻음'))
     if (!mine) missed.push(`${tag}: 내 팀(${myTeam})에 「2곳 얻음」이 없다 — ${after.join(' / ')}`)
     if (theirs.length !== 1) missed.push(`${tag}: 「1곳 얻음」이 ${theirs.length}팀이다`)
     const flashing = await page.locator('.sc-sb__team.is-hit').count()

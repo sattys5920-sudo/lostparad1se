@@ -135,7 +135,7 @@ export function DropHost({ act, onSaid }: { act: GameActions; onSaid: (t: string
               onChange={(e) => setMemo(e.target.value.slice(0, MEMO_MAX))}
             />
           </label>
-          <p className="sc-dr__hint">{MEMO_MAX - memo.length}자 남았다.</p>
+          <p className="sc-dr__hint">{MEMO_MAX - memo.length} 자 남았다.</p>
         </>
       )}
 

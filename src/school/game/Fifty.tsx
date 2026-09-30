@@ -85,7 +85,7 @@ export function Fifty({ room, meId, act, onAgain, onMenu, onQuit }: {
   return (
     <div className="sc-ff">
       <p className="sc-ar__title">1 to 50 <span>다음 {Math.min(state.next, FIFTY_LAST)}</span></p>
-      <p className="sc-ff__clock" aria-live="off">{secs.toFixed(2)}초</p>
+      <p className="sc-ff__clock" aria-live="off">{secs.toFixed(2)} 초</p>
       <div className="sc-rh__stage">
         <div className={`sc-ff__grid${shake ? ' is-shake' : ''}${locked ? ' is-locked' : ''}`}>
           {state.cells.map((n, i) => (

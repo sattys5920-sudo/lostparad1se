@@ -336,7 +336,7 @@ async function main(): Promise<void> {
     await must('roamTo', myToken, { gameId: GAME, tileId: MART_TILE }).catch(() => undefined)
     await tick(0)
     await page.waitForTimeout(2600)
-    await page.locator('.sc-ct__act', { hasText: '더보기' }).click()
+    await page.locator('.sc-ct__act', { hasText: '더 보기' }).click()
     await page.waitForTimeout(500)
     await page.screenshot({ path: `${OUT}/after-${v.name}-4더보기.png` })
     notes[`${v.name}/더보기`] = {
