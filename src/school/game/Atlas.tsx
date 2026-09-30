@@ -6,10 +6,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from 'react'
 
 import {
-  MapPlan,
   TEAM_COLOR,
   floorCells,
-  nearbyOf,
   readMap,
   roomName,
   type Cell,
@@ -17,6 +15,7 @@ import {
   type RoomFacts,
 } from './MapPlan'
 import { ALLEY_NAME, TILES, isAlleyCell } from '../../../shared/rules/board'
+import { MAP_H, MAP_W, roomAt, tileAt } from '../map/world'
 import { ARCADE_COUNT, ARCADE_NAME } from '../../../shared/rules/arcade'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
@@ -54,16 +53,129 @@ export function useMiniMapOn(): [boolean, (v: boolean) => void] {
 // ── 미니맵 ──────────────────────────────────────────────────────
 
 /**
- * 화면 오른쪽 위에 떠 있는 작은 지도.
+ * **실제 도면을 줄여 그린 미니맵.** 내가 늘 한가운데 점으로 서고, 걸으면
+ * 지도가 나를 따라 밀린다 — 내 둘레 반경만큼(가로세로 WIN 칸)이 보인다.
  *
- * 내 방과 거기서 한 칸까지만. 내가 늘 한가운데 오고, 내가 움직이면
- * 지도가 따라 움직인다 — 정확히는 그릴 방이 바뀌면서 저절로 그렇게 된다.
+ * 벽·방·복도·문을 칸 하나에 한 화소로 한 번 그려 두고(방은 차지한 분단
+ * 색), 매 프레임은 내 둘레만 떼어 확대해 옮긴다. 내 자리는 걸음이 칸을
+ * 넘을 때마다 selfRef 로 온다 — 멈출 때까지 기다리지 않는다.
  */
-export function MiniMap({ facts, onOpen }: { facts: MapFacts; onOpen: () => void }) {
-  const rooms = readMap(facts)
+const WIN = 31
+export function LiveMiniMap({
+  selfRef,
+  fallback,
+  tiles,
+  pawns,
+  meId,
+  onOpen,
+}: {
+  selfRef: MutableRefObject<{ x: number; y: number } | null>
+  /** 아직 한 걸음도 안 걸었을 때 — 서버가 아는 내 칸 */
+  fallback: { x: number; y: number } | null
+  tiles: MapFacts['tiles']
+  /** 내 눈에 보이는 사람들. 여기 없는 사람은 미니맵에도 없다 */
+  pawns: readonly { playerId: string; team: TeamId; at?: { x: number; y: number } | null; walking?: boolean }[]
+  meId: string
+  onOpen: () => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  // 도면 한 장 — 주인이 바뀔 때만 다시 그린다
+  const ownerKey = TILES.map((t) => tiles[t.id as TileId]?.ownerTeam ?? '-').join('')
+  const plan = useMemo(() => {
+    const c = document.createElement('canvas')
+    c.width = MAP_W
+    c.height = MAP_H
+    const ctx = c.getContext('2d') as CanvasRenderingContext2D
+    const img = ctx.createImageData(MAP_W, MAP_H)
+    const rgb = (hex: string): [number, number, number] => {
+      const h = hex.replace('#', '')
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+    }
+    const FLOOR: [number, number, number] = [74, 78, 96]
+    const HALL: [number, number, number] = [124, 128, 146]
+    const DOOR: [number, number, number] = [206, 196, 160]
+    const teamRgb = Object.fromEntries(Object.entries(TEAM_COLOR).map(([k, v]) => [k, rgb(v)])) as Record<string, [number, number, number]>
+    for (let y = 0; y < MAP_H; y++) {
+      for (let x = 0; x < MAP_W; x++) {
+        const k = tileAt(x, y)
+        if (k === 'wall') continue
+        let c3 = k === 'hall' ? HALL : k === 'door' ? DOOR : FLOOR
+        if (k === 'floor') {
+          const owner = tiles[roomAt(x, y)?.id as TileId]?.ownerTeam
+          if (owner && teamRgb[owner]) {
+            const t = teamRgb[owner]
+            c3 = [Math.round(t[0] * 0.55 + FLOOR[0] * 0.45), Math.round(t[1] * 0.55 + FLOOR[1] * 0.45), Math.round(t[2] * 0.55 + FLOOR[2] * 0.45)]
+          }
+        }
+        const i = (y * MAP_W + x) * 4
+        img.data[i] = c3[0]
+        img.data[i + 1] = c3[1]
+        img.data[i + 2] = c3[2]
+        img.data[i + 3] = 255
+      }
+    }
+    ctx.putImageData(img, 0, 0)
+    return c
+  }, [ownerKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pawnsRef = useRef(pawns)
+  pawnsRef.current = pawns
+  const fallbackRef = useRef(fallback)
+  fallbackRef.current = fallback
+
+  useEffect(() => {
+    let raf = 0
+    let drawn = ''
+    const frame = (t: number) => {
+      raf = requestAnimationFrame(frame)
+      const cv = canvasRef.current
+      if (!cv) return
+      const me = selfRef.current ?? fallbackRef.current
+      const size = cv.clientWidth
+      if (!me || size <= 0) return
+      const blink = Math.floor(t / 450) % 2
+      const others = pawnsRef.current.filter((p) => p.playerId !== meId && p.at && !p.walking)
+      const key = `${me.x},${me.y},${size},${blink},${others.map((p) => `${p.at?.x},${p.at?.y}`).join(';')},${plan.width}`
+      if (key === drawn) return
+      drawn = key
+      const dpr = Math.min(3, window.devicePixelRatio || 1)
+      const px = Math.round(size * dpr)
+      if (cv.width !== px) {
+        cv.width = px
+        cv.height = px
+      }
+      const ctx = cv.getContext('2d') as CanvasRenderingContext2D
+      ctx.imageSmoothingEnabled = false
+      ctx.clearRect(0, 0, px, px)
+      const cell = px / WIN
+      const half = Math.floor(WIN / 2)
+      const sx = me.x - half
+      const sy = me.y - half
+      ctx.drawImage(plan, sx, sy, WIN, WIN, 0, 0, px, px)
+      // 보이는 사람 — 분단 색 작은 점
+      for (const p of others) {
+        const a = p.at as { x: number; y: number }
+        const dx = a.x - sx
+        const dy = a.y - sy
+        if (dx < 0 || dy < 0 || dx >= WIN || dy >= WIN) continue
+        ctx.fillStyle = TEAM_COLOR[p.team] ?? '#ccc'
+        ctx.fillRect(dx * cell + cell * 0.15, dy * cell + cell * 0.15, cell * 0.7, cell * 0.7)
+      }
+      // 나 — 한가운데. 테두리 두른 흰 점이 깜박인다
+      const cx = half * cell
+      const r = cell * 1.5
+      ctx.fillStyle = '#10121a'
+      ctx.fillRect(cx - r * 0.5, half * cell - r * 0.5, cell + r, cell + r)
+      ctx.fillStyle = blink ? '#ffffff' : '#ffe27a'
+      ctx.fillRect(cx - r * 0.5 + dpr, half * cell - r * 0.5 + dpr, cell + r - 2 * dpr, cell + r - 2 * dpr)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
+  }, [plan, meId, selfRef])
+
   return (
-    <button className="sc-mini" onClick={onOpen} aria-label="전체 맵 열기">
-      <MapPlan rooms={rooms} only={nearbyOf(facts.here)} here={facts.here} compact />
+    <button className="sc-mini is-live" onClick={onOpen} aria-label="전체 맵 열기">
+      <canvas ref={canvasRef} className="sc-mini__canvas" />
     </button>
   )
 }

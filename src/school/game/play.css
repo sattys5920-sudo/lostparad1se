@@ -1658,6 +1658,9 @@
 }
 
 /* 점이 부드럽게 따라간다. 툭 튀면 누가 움직였는지 못 본다 */
+.sc-mini.is-live { padding: 0; overflow: hidden; background: color-mix(in srgb, #0c0e15 80%, transparent); }
+.sc-mini__canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
 .sc-mini circle { transition: cx var(--t-screen) steps(3, end), cy var(--t-screen) steps(3, end); }
 
 @media (prefers-reduced-motion: reduce) {

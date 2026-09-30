@@ -266,6 +266,8 @@ export interface WalkProps {
    * 모습이 보이게 하는 것뿐이다.
    */
   onLive?: (at: LiveDoc) => void
+  /** 내가 선 칸이 바뀔 때마다 — 미니맵이 이걸로 나를 따라간다 */
+  onSelf?: (x: number, y: number) => void
   /**
    * 지금 선 칸에서 어느 쪽으로 갈 수 있는가.
    *
@@ -499,7 +501,7 @@ const FOOT_PX = CHAR_PX * (6 / 32)
 /** 막혔다는 말을 다시 띄우기까지. 벽에 대고 밀어도 도배하지 않는다 */
 const BLOCKED_SAY_MS = 1500
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -566,6 +568,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const looksRef = useRef(looks)
   const rosterRef = useRef(roster)
   const liveOutRef = useRef(onLive)
+  const selfOutRef = useRef(onSelf)
   const dirsRef = useRef(onDirs)
   viewRef.current = view
   tilesRef.current = tiles
@@ -586,6 +589,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   looksRef.current = looks
   rosterRef.current = roster
   liveOutRef.current = onLive
+  selfOutRef.current = onSelf
   dirsRef.current = onDirs
 
   // 서버가 말하는 내 자리. 걷는 중이면 null이다
@@ -627,6 +631,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       phase: 0,
     }
     let lastRoom: TileId | null = null
+    /** 미니맵에 마지막으로 알린 칸 */
+    let selfSeen = ''
     /** 방에서 나와 아직 복도 칸을 서버에 안 알렸다 */
     let leavingRoom = false
     /**
@@ -1441,6 +1447,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         dirsRef.current?.(ways)
       }
 
+      const selfKey = `${self.tx},${self.ty}`
+      if (selfKey !== selfSeen) {
+        selfSeen = selfKey
+        selfOutRef.current?.(self.tx, self.ty)
+      }
       const room = roomAt(self.tx, self.ty)?.id ?? null
       if (room !== lastRoom) {
         const wasRoom = lastRoom

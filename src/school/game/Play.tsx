@@ -51,7 +51,7 @@ import { Walk, type DirWay, type PersonAt, type TapThing } from './Walk'
 import { Meet, type MeetRow } from './Meet'
 import { MADE_NO } from '../../../shared/rules/made'
 import { LAB_MACHINES, LAB_TILE } from '../../../shared/rules/trap'
-import { FullMap, MiniMap, useMiniMapOn } from './Atlas'
+import { FullMap, LiveMiniMap, useMiniMapOn } from './Atlas'
 import { ScoreBar } from './Score'
 import { Phase, PhaseLog, leftText } from './Phase'
 import { josa } from '../../../shared/text'
@@ -798,6 +798,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 뒤는 못 건다.
    */
   const [myCell, setMyCell] = useState<{ x: number; y: number } | null>(null)
+  /** 걷는 동안 칸마다 바뀌는 내 자리. 미니맵이 매 프레임 읽는다 — state 로 두면 화면 전체가 다시 그려진다 */
+  const selfCellRef = useRef<{ x: number; y: number } | null>(null)
   /**
    * 그 방을 잠근 팀. **서버가 보내 준 것만 본다** — 안 보이는 방의
    * 자물쇠는 애초에 안 내려온다.
@@ -1595,6 +1597,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             looks={looks}
             live={live}
             onLive={(at) => pushLive(gameId, me.playerId, at)}
+            onSelf={(x, y) => {
+              selfCellRef.current = { x, y }
+            }}
             view={state.view}
             tiles={state.tiles}
             nowMs={nowMs}
@@ -1813,8 +1818,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}
           </header>
           {miniOn && (
-            <MiniMap
-              facts={{ here: standingOn, meId: me.playerId, myTeam: me.team as TeamId, view: state.view, tiles: state.tiles }}
+            <LiveMiniMap
+              selfRef={selfCellRef}
+              fallback={myCell ?? state.view?.visiblePawns.find((p) => p.playerId === me.playerId)?.at ?? null}
+              tiles={state.tiles}
+              pawns={state.view?.visiblePawns ?? []}
+              meId={me.playerId}
               onOpen={() => setAtlas(true)}
             />
           )}
