@@ -238,10 +238,10 @@ function Desk() {
           </div>
         )}
 
-        {running && (
+        {game && (
           <nav className="sc-ad__tabs" aria-label="감독관 탭">
-            {(
-              [
+            {(running ?
+              ([
                 ['go', '진행'],
                 ['map', '지도'],
                 ['put', '놓기'],
@@ -252,7 +252,12 @@ function Desk() {
                 ['radio', '무전'],
                 ['log', '로그'],
                 ['manage', '관리'],
-              ] as const
+              ] as const)
+              // 판이 서기 전에도 지도는 본다 — 누가 들어와 어디에 서 있는지
+            : ([
+                ['manage', '관리'],
+                ['map', '지도'],
+              ] as const)
             ).map(([id, name]) => (
               <button key={id} className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
                 {name}
@@ -274,6 +279,12 @@ function Desk() {
               판 만들기
             </button>
             <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
+          </section>
+        : !running && tab === 'map' ?
+          /* ── 로비의 지도. 들어온 사람이 어디에 서 있는가 ── */
+          <section className="sc-ad__sec">
+            <h2>지도</h2>
+            <LiveMap act={act} onSaid={setSaid} />
           </section>
         : !running ?
           /* ── 로비. 배정하고 시작한다 ── */
