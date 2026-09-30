@@ -2,7 +2,7 @@
 //
 // 보는 것은 다섯이다 —
 //   ㆍ 친 말이 **남에게는 줄째로 안 간다**(본인에게만 남는다)
-//   ㆍ 거래·이적·동맹·쪽지 건네기가 **양쪽 다** 막힌다
+//   ㆍ 거래·이적·쪽지 건네기가 **양쪽 다** 막힌다(동맹은 게임에서 빠졌다)
 //   ㆍ 사람을 겨눈 카드도 호출도 막힌다
 //   ㆍ 점령전 자체에는 참여한다
 //   ㆍ 신뢰·호감표는 **줄 수 있다**. 받는 것만 막힌다
@@ -61,15 +61,27 @@ async function patch(path: string, fields: Record<string, unknown>): Promise<voi
 }
 
 async function main(): Promise<void> {
-  const he = `ih${TAG}`
-  await call('signUpAccount', null, { id: he, password: PW })
-  await tok(he)
-  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ localId: uidOf(he), customAttributes: JSON.stringify({ admin: true }) }),
+  /*
+   * **운영자는 이메일 계정에 admin 표시를 단 쪽이다.** 전에는 게임 계정
+   * (아이디 · 비밀번호)에 표시를 달았는데, 로그인할 때마다 서버가 계정에서
+   * 운영자 표시를 떼어 낸다(계정에 눌어붙지 않게) — 그래서 판을 못 만들었다
+   */
+  const email = `host-${TAG}@x.test`
+  const body = JSON.stringify({ email, password: 'password', returnSecureToken: true })
+  await fetch(`${AUTH}/accounts:signUp?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+  const look = await fetch(`${AUTH}/accounts:lookup`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ email: [email] }),
   })
-  const host = await tok(he)
+  const { users } = (await look.json()) as { users: { localId: string }[] }
+  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ localId: users[0].localId, customAttributes: JSON.stringify({ admin: true }) }),
+  })
+  const inn = await fetch(`${AUTH}/accounts:signInWithPassword?key=fake`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+  })
+  const host = ((await inn.json()) as { idToken: string }).idToken
   await call('createGame', host, { gameId: GAME, seed: 'iv' })
 
   const gone = `ig${TAG}`   // 지워질 사람
@@ -155,10 +167,9 @@ async function main(): Promise<void> {
   for (const [name, go] of [
     ['거래', () => call('askDeal', tkG, { gameId: GAME, toPlayerId: n })],
     ['이적', () => call('askTransfer', tkG, { gameId: GAME, toPlayerId: n })],
-    ['동맹', () => call('proposeAlliance', tkG, { gameId: GAME, withTeam: 'B' })],
   ] as const) {
     const why = await no(go())
-    check(why.includes('보이지 않는 동안에는'), `${name}을 못 꺼낸다`, why)
+    check(why.includes('보이지 않는 동안에는'), `${name}${name === '거래' ? '를' : '을'} 못 꺼낸다`, why)
   }
 
   console.log('\n── 남이 지워진 사람에게 거는 것도 막힌다 ──')

@@ -143,7 +143,7 @@ async function main(): Promise<void> {
   check(!byPlayer.ok, '**보통 사람은 배포판을 못 본다**', byPlayer.code)
 
   console.log('\n── 한 장 뿌리기 ──')
-  const N1 = 'r04-p1-name'
+  const N1 = 'r04-s1-role'
   const owner = holderOf('deskmate')
   const put = await must('hostScatterSlip', host, { gameId: GAME, noteId: N1, tileId: 'library' })
   check(put.where === TILE_BY_ID.library.name, '고른 방에 뿌렸다', String(put.where))
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
   check(n1.state === 'placed' && n1.room === 'library' && n1.placedDay === 1, '상태: 뿌림(도서관)', `${n1.state} ${n1.room}`)
   const again = await call('hostScatterSlip', host, { gameId: GAME, noteId: N1, tileId: 'library' })
   check(again.code === 'FAILED_PRECONDITION', '같은 쪽지를 두 번 못 뿌린다', again.message)
-  const base = await call('hostScatterSlip', host, { gameId: GAME, noteId: 'r05-p1-role', tileId: 'centralPlaza' })
+  const base = await call('hostScatterSlip', host, { gameId: GAME, noteId: 'r05-s1-role', tileId: 'centralPlaza' })
   check(base.code === 'INVALID_ARGUMENT', '2-3 교실에는 못 뿌린다', base.message)
   const doc1 = await slipDoc(n1.slipId as string)
   check(!String(n1.slipId).startsWith('r0'), '**쪽지 문서 번호에 역할 번호가 없다**', String(n1.slipId))
@@ -159,9 +159,9 @@ async function main(): Promise<void> {
   check(doc1.subjectId === owner.uid, '**주인은 그 역할을 받은 사람이다**')
 
   console.log('\n── 2짝은 DAY 3부터 ──')
-  const p2 = await call('hostScatterSlip', host, { gameId: GAME, noteId: 'r07-p2-role', tileId: 'gym' })
+  const p2 = await call('hostScatterSlip', host, { gameId: GAME, noteId: 'r07-s3-role', tileId: 'gym' })
   check(p2.code === 'FAILED_PRECONDITION' && String(p2.message).includes('DAY 3'), 'DAY 1 에 2짝은 막힌다', p2.message)
-  const p2ok = await call('hostScatterSlip', host, { gameId: GAME, noteId: 'r07-p2-role', tileId: 'gym', confirmEarly: true })
+  const p2ok = await call('hostScatterSlip', host, { gameId: GAME, noteId: 'r07-s3-role', tileId: 'gym', confirmEarly: true })
   check(p2ok.ok, '한 번 더 확인하면 뿌린다')
   const rand = await must('hostScatterRandom', host, { gameId: GAME, n: 6 })
   const b1 = await board(host)
@@ -170,7 +170,8 @@ async function main(): Promise<void> {
   for (const n of today) perRole.set(n.roleKey, (perRole.get(n.roleKey) ?? 0) + 1)
   const doneIds = ((rand.done as { noteId: string }[]) ?? []).map((d) => d.noteId)
   check(Number(rand.scattered) === 6, '무작위 6장', String(rand.scattered))
-  check(doneIds.every((id) => id.includes('-p1-')), '무작위는 DAY 3 전에 2짝을 안 고른다', doneIds.join(','))
+  // 1·2번은 첫날부터, 3·4번(그날)은 DAY 3부터다
+  check(doneIds.every((id) => /-s[12]-/.test(id)), '무작위는 DAY 3 전에 3·4번을 안 고른다', doneIds.join(','))
   check(doneIds.every((id) => (perRole.get(SLIP_NOTES.find((x) => x.id === id)?.roleKey ?? '') ?? 0) === 1), '**무작위는 한 역할을 같은 날 두 장 안 만든다**')
   await setDay(3)
   const rand3 = await must('hostScatterRandom', host, { gameId: GAME, n: 14 })
@@ -220,14 +221,16 @@ async function main(): Promise<void> {
   await must('tearSlip', reader.token, { gameId: GAME, slipId: n1.slipId })
   check((await noteOf(host, N1)).state === 'torn', '운영자 화면: 찢김')
   const d3 = await slipDoc(n1.slipId as string)
-  check(d3.tornAt === null, '**조각이 안 남는다**')
+  // 찢긴 종이는 발밑 옆 바닥에 남는다 — 맵에 그려지고 테이프로 붙인다
+  check(d3.tornAt !== null && typeof d3.x === 'number' && typeof d3.y === 'number', '**찢긴 종이가 바닥 칸에 남는다**', `${String(d3.x)},${String(d3.y)}`)
   await fetch(`${FS}/games/${GAME}/pawns/${reader.uid}?updateMask.fieldPaths=items`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { items: { mapValue: { fields: { tape: { integerValue: '1' } } } } } }),
   })
   const tape = await call('useItem', reader.token, { gameId: GAME, kind: 'tape', scrapId: n1.slipId })
-  check(tape.ok === true || tape.code !== 'FAILED_PRECONDITION' || !String(tape.message).includes('되돌릴'), '비밀 쪽지도 테이프로 붙일 수 있다', tape.message)
-  check(!(((await viewOf(reader.uid)).mySlips as { id: string }[]) ?? []).some((s) => s.id === n1.slipId), '읽었던 사람 손에도 안 남는다')
+  check(tape.ok === true, '비밀 쪽지도 테이프로 붙인다', tape.message)
+  check((((await viewOf(reader.uid)).mySlips as { id: string }[]) ?? []).some((s) => s.id === n1.slipId), '붙이면 붙인 사람 손에 다시 온다')
+  check((await noteOf(host, N1)).state === 'held', '운영자 화면: 다시 주움')
 
   console.log('\n── 누출 — 열넷 모두의 응답 ──')
   const noteTexts = SLIP_NOTES.map((n) => n.text)
@@ -235,10 +238,14 @@ async function main(): Promise<void> {
   let bad = 0
   for (const p of people) {
     const v = await viewOf(p.uid)
-    const j = JSON.stringify(v)
+    // **내가 읽은 쪽지의 문장은 빼고 본다** — 그건 받아야 할 것이다. 이름이
+    // 안 들어가는 쪽지는 문장이 원문 틀과 같아서, 빼지 않으면 누출로 잡힌다
+    const mine = ((v.mySlips as { read?: boolean; line?: string | null }[]) ?? []).filter((m) => m.read && m.line)
+    let j = JSON.stringify(v)
+    for (const m of mine) j = j.split(JSON.stringify(m.line).slice(1, -1)).join('')
     if (noteTexts.some((t) => j.includes(t))) bad += 1
     if (j.includes('{이름}')) bad += 1
-    if (/r\d{2}-p[12]-(role|name)/.test(j)) bad += 1
+    if (/r\d{2}-[ps]\d-(role|name)/.test(j)) bad += 1
     if (ROLE_IDS.some((r) => j.includes(`"${r}"`) && !j.includes(`"roleId":"${r}"`))) bad += 1
     for (const s of (v.mySlips as { id: string; read: boolean }[]) ?? []) if (s.read) readIds.add(s.id)
   }

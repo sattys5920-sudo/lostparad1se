@@ -9,7 +9,7 @@
 //   npx vite-node scripts/views-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
-import { BASE_OF } from '../shared/rules/board'
+import { START_TILE } from '../shared/rules/board'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -228,22 +228,33 @@ async function main(): Promise<void> {
     '보이는 칸 밖의 말은 안 실린다',
   )
 
-  // 내 기지와 이웃은 보이고 남의 기지는 안 보인다
-  check(mineParsed.visibleTiles.includes(BASE_OF[me.team]), '내 기지가 보인다', mineParsed.visibleTiles.join(','))
-  check(!mineParsed.visibleTiles.includes('baseB'), '남의 기지는 안 보인다')
+  // **팀 기지는 없어졌다.** 다들 2-3 교실에서 시작한다 — 선 방은 보이고,
+  // 다른 층 방(정원 · 1층)은 안 보인다
+  check(mineParsed.visibleTiles.includes(START_TILE), '내가 선 2-3 교실이 보인다', mineParsed.visibleTiles.join(','))
+  check(!mineParsed.visibleTiles.includes('garden'), '다른 층 방(정원)은 안 보인다')
   check(mineParsed.visiblePawns.every((p) => p.toTile === null), '서 있는 말에는 다음 칸이 없다')
 
   console.log('\n── 구경꾼 ──')
   const outView = await readAdmin(`games/${GAME}/views/${outsider.uid}`)
   check(outView === '', '명단 밖 사람에게는 몫 자체가 없다')
 
-  console.log('\n── 따라잡으면 다시 깎는가 ──')
+  /*
+   * **날은 시계가 아니라 운영자가 넘긴다**(tick.ts 의 pushDay). 전에는
+   * 시계를 이틀 뒤로 돌리고 두드리면 밀렸는데, 세워 둔 판이 저절로 끝나는
+   * 일이 생겨서 달력 한 칸씩 손으로 넘기게 바뀌었다
+   */
+  console.log('\n── 하루를 넘기면 다시 깎는가 ──')
   const before = await readAdmin(`games/${GAME}/views/${me.uid}`)
-  await call('setDevClock', host, { gameId: GAME, anchorGameMs: START + 2 * 24 * 3_600_000, speed: 1 })
-  const r = await call('tick', me.token, { gameId: GAME })
-  check(Number(r.applied) > 0, '이틀치를 밀었다', `${r.applied}건`)
+  let pushed = 0
+  for (let i = 0; i < 4; i++) {
+    const r = await call('pushDay', host, { gameId: GAME })
+    if (r.pushed) pushed += 1
+    if (Number((await getDoc(`games/${GAME}`))?.day) >= 2) break
+  }
+  const dayNow = Number((await getDoc(`games/${GAME}`))?.day)
+  check(pushed > 0 && dayNow >= 2, '운영자가 하루를 넘겼다', `${pushed}번 · DAY ${dayNow}`)
   const after = await readAdmin(`games/${GAME}/views/${me.uid}`)
-  check(before !== after, '민 뒤에 몫이 새로 깎였다')
+  check(before !== after, '넘긴 뒤에 몫이 새로 깎였다')
   console.log(failures === 0 ? '\n누출 없음.' : `\n${failures}개 실패.`)
   process.exit(failures === 0 ? 0 : 1)
 }
