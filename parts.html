@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>아바타 부품</title>
+    <style>
+      body { margin: 0; padding: 20px; background: #16171d; color: #e8e6ef; font: 13px/1.5 system-ui, sans-serif; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      section { margin: 0 0 22px; }
+      h2 { font-size: 15px; margin: 0 0 10px; border-bottom: 1px solid #3a3b48; padding-bottom: 4px; }
+      h2 span { color: #9a98ab; font-weight: 400; font-size: 12px; margin-left: 6px; }
+      canvas { image-rendering: pixelated; display: block; margin: 0 auto; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; }
+      .card { min-width: 108px; background: #22232c; border: 1px solid #34354a; border-radius: 6px; padding: 6px 4px; }
+      .pair { display: flex; justify-content: center; gap: 2px; }
+      .cap { font-size: 12px; text-align: center; margin-top: 4px; white-space: nowrap; }
+      .id { font-size: 10px; color: #8b8a9c; text-align: center; }
+      .swatch { width: 22px; height: 22px; border-radius: 4px; margin: 4px auto 0; border: 1px solid #0006; }
+    </style>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script type="module" src="/src/debug/parts.ts"></script>
+  </body>
+</html>

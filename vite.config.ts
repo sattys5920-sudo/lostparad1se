@@ -25,6 +25,8 @@ export default defineConfig({
         proto: resolve(root, 'proto.html'),
         // 스프라이트 검수용. 게임 화면과 섞이지 않는 개발용 페이지다
         sprites: resolve(root, 'sprites.html'),
+        // 아바타 부품 목록. 고를 수 있는 것을 한 장에 편다
+        parts: resolve(root, 'parts.html'),
         // 캐릭터 크기 시안. 고를 것을 나란히 놓고 본다
         size: resolve(root, 'size.html'),
         // 방 검수용. 학교 전체를 카메라 없이 한 장에 편다
