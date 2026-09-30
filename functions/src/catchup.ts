@@ -16,16 +16,11 @@ import { publicScore } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
 import { TEAMS } from '../../shared/rules/lobby'
-import {
-  type TeamId,
-  TOKEN_COMEBACK_BONUS,
-} from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
 import type {
   GameDoc,
   PawnDoc,
   ScheduleDoc,
-  TeamDoc,
   TileDoc,
   VoteDoc,
 } from '../../shared/model'
@@ -107,9 +102,8 @@ async function lastHours(c: Ctx): Promise<void> {
  */
 async function settlement(c: Ctx): Promise<void> {
   const ref = gameRef(c.gameId)
-  const [tileSnap, teamSnap, voteSnap] = await Promise.all([
+  const [tileSnap, voteSnap] = await Promise.all([
     c.tx.get(ref.collection('tiles')),
-    c.tx.get(ref.collection('teams')),
     c.tx.get(ref.collection('secret').doc('votes').collection('items')),
   ])
 
@@ -117,7 +111,6 @@ async function settlement(c: Ctx): Promise<void> {
     const t = d.data() as TileDoc
     return { tileId: d.id as TileId, ownerTeam: t.ownerTeam }
   })
-  const teamDocs = new Map(teamSnap.docs.map((d) => [d.id as TeamId, d.data() as TeamDoc]))
 
   // 1. 생산
   //
@@ -168,22 +161,6 @@ async function settlement(c: Ctx): Promise<void> {
   for (const r of result.ranked) {
     c.tx.update(ref.collection('teams').doc(r.team), {
       publicScore: c.game.lastHours ? null : r.total,
-    })
-  }
-
-  // 5. 꼴찌는 다음 날이 열릴 때 토큰을 더 받는다
-  /*
-   * **만회는 다음 페이즈 몫에 얹는다.**
-   *
-   * 전에는 시간마다 차는 주머니에 넣어 두고 이튿날 아침에 붙였다.
-   * 그 주머니를 걷어냈으므로 이제는 페이즈 상자가 열릴 때 함께
-   * 들어간다 — 결석 보정과 같은 길이다(pendingRefund).
-   */
-  // 공동 꼴찌면 모두 받는다. 넷이 다 같으면 꼴찌가 없다
-  for (const team of result.comeback) {
-    const box = teamDocs.get(team)
-    c.tx.update(ref.collection('teams').doc(team), {
-      pendingRefund: (box?.pendingRefund ?? 0) + TOKEN_COMEBACK_BONUS,
     })
   }
 

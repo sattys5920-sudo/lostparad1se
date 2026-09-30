@@ -488,7 +488,6 @@ async function main(): Promise<void> {
   snap = await snapshot()
   for (const pot of [-1, 999, NaN, 1.5, '2', {}, null, undefined, 1e18]) {
     rejects(await call('harvestPot', me.token, { gameId: GAME, pot }), `harvestPot pot=${JSON.stringify(pot) ?? 'undefined'}`)
-    rejects(await call('clearPot', me.token, { gameId: GAME, pot }), `clearPot pot=${JSON.stringify(pot) ?? 'undefined'}`)
   }
   for (const crop of [-1, 999, NaN, 'constructor', '__proto__', 'toString', {}, null, undefined]) rejects(await call('sellCrop', me.token, { gameId: GAME, cropId: crop }), `sellCrop cropId=${JSON.stringify(crop) ?? 'undefined'}`)
   for (const item of [-1, 999, NaN, 'constructor', '__proto__', {}, null, undefined, SHOP_ITEMS[0].id]) rejects(await call('buyShopItem', me.token, { gameId: GAME, itemId: item }), `buyShopItem itemId=${JSON.stringify(item) ?? 'undefined'} (기계 앞 아님 · 돈 없음)`)

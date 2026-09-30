@@ -20,7 +20,6 @@ import {
   arrive,
   capacityOf,
   doAct,
-  absenceRefunds,
   nextWallet,
   walletOf,
   ownerOf,
@@ -1005,55 +1004,16 @@ describe('토큰 지급', () => {
     expect(nextWallet({ held: 0 })).not.toBe(TOKENS_PER_PHASE * 4)
   })
 
-  it('한도까지 깎은 **뒤에** 얹는다', () => {
-    // 순서가 뒤바뀌면 결석 보정이 그 자리에서 사라져 아무 뜻이 없다
-    expect(nextWallet({ held: TOKEN_CAP + 5 })).toBe(TOKEN_CAP + TOKENS_PER_PHASE)
-    expect(nextWallet({ held: 2 })).toBe(2 + TOKENS_PER_PHASE)
+  it('**보유 최대는 12** — 남은 것에 여섯을 얹고 12 로 자른다', () => {
+    expect(TOKEN_CAP).toBe(12)
+    expect(nextWallet({ held: 2 })).toBe(8)
+    expect(nextWallet({ held: 6 })).toBe(12)
+    expect(nextWallet({ held: 9 })).toBe(12)
+    expect(nextWallet({ held: TOKEN_CAP + 5 })).toBe(TOKEN_CAP)
   })
 
   it('상자 한도는 두 페이즈치다', () => {
     expect(TOKEN_CAP).toBe(TOKENS_PER_PHASE * 2)
-  })
-
-  it('보정은 한도를 넘어서 얹힌다', () => {
-    const got = nextWallet({ held: TOKEN_CAP, refund: 3 })
-    expect(got).toBe(TOKEN_CAP + TOKENS_PER_PHASE + 3)
-    // 넘긴 것은 그다음 지급에서 한도까지 깎인다 — 안 그러면 계속
-    // 결석해서 쌓아 두는 쪽이 이득이 된다
-    expect(nextWallet({ held: got })).toBe(TOKEN_CAP + TOKENS_PER_PHASE)
-  })
-})
-
-describe('결석 보정', () => {
-  const idle = (over: Partial<PhaseState> = {}) =>
-    board({
-      people: [
-        person('a1', 'A', 'baseA'),
-        person('a2', 'A', 'baseA'),
-        person('b1', 'B', 'baseB'),
-      ],
-      wallets: { A: 7, B: 6 },
-      ...over,
-    })
-
-  it('상자에 안 쓰고 남은 것의 절반을 내림해서 돌려준다', () => {
-    const back = absenceRefunds(idle({ actedBy: ['b1'] }), TEAM_IDS)
-    expect(back.A).toBe(3)
-  })
-
-  it('한 명이라도 움직였으면 그 팀은 결석이 아니다', () => {
-    // 남은 사람이 대신 움직일 수 있었다는 뜻이다. 개인 사정까지
-    // 메워 주면 안 들어오는 편이 이득이 된다
-    expect(absenceRefunds(idle({ actedBy: ['a2'] }), TEAM_IDS).A).toBeUndefined()
-  })
-
-  it('움직인 팀에게는 아무것도 없다', () => {
-    expect(absenceRefunds(idle({ actedBy: ['b1'] }), TEAM_IDS).B).toBeUndefined()
-  })
-
-  it('상자에 하나 남았으면 절반이 0이라 아무것도 안 준다', () => {
-    const s = board({ people: [person('c1', 'C', 'baseC')], wallets: { C: 1 } })
-    expect(absenceRefunds(s, TEAM_IDS)).toEqual({})
   })
 })
 

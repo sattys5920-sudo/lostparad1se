@@ -69,9 +69,7 @@ export function stageNow(pot: PotDoc, nowMs: number): PotStage {
   if (pot.cropId === null || pot.plantedMs === null || pot.growMs === null) return 'empty'
   const spec = CROP_BY_ID[pot.cropId]
   if (!spec) return 'empty'
-  const grown = Math.max(0, nowMs - pot.plantedMs)
-  const sinceFruit = Math.max(0, grown - pot.growMs)
-  return stageOf(grown, pot.growMs, sinceFruit, spec.witherHours * HOUR_MS)
+  return stageOf(Math.max(0, nowMs - pot.plantedMs), pot.growMs)
 }
 
 /**
@@ -250,7 +248,6 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
     const [potSnap, pawnSnap] = await Promise.all([tx.get(ref), tx.get(mine)])
     const pot = (potSnap.data() as PotDoc | undefined) ?? EMPTY_POT
     const stage = stageNow(pot, nowMs)
-    if (stage === 'withered') throw new HttpsError('failed-precondition', '시들었다. 치우고 다시 심는다.')
     // 둘이 같은 열매를 동시에 따면 늦은 쪽은 여기서 빈 화분을 본다 — 「아직
     // 열매가 아니다」로 답하면 방금 열매를 본 사람이 어리둥절하다
     if (stage === 'empty') throw new HttpsError('failed-precondition', '빈 화분이다.')
@@ -279,29 +276,6 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
   })
   await refreshViews(gameId)
   return { got }
-})
-
-/** 시든 것을 치운다. 비워야 다음 씨앗이 들어간다. */
-export const clearPot = onCall<{ gameId: string; pot: number }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId } = req.data
-  const i = Math.floor(Number(req.data.pot))
-  if (!Number.isFinite(i) || i < 0 || i >= POT_CELLS.length) {
-    throw new HttpsError('invalid-argument', '그런 화분이 없다.')
-  }
-  const { game, nowMs } = await freshNow(gameId)
-  mustBeFreeTime(game, '화분을 치울')
-  const p = await myPawn(gameId, uid)
-  requireGarden(p)
-  if (!near((p.at ?? null) as Cell | null, POT_CELLS[i])) {
-    throw new HttpsError('failed-precondition', '그 화분 앞에 서야 치운다.')
-  }
-  const ref = potsOf(gameId).doc(String(i))
-  const pot = ((await ref.get()).data() as PotDoc | undefined) ?? EMPTY_POT
-  if (stageNow(pot, nowMs) !== 'withered') throw new HttpsError('failed-precondition', '치울 것이 없다.')
-  await ref.set(EMPTY_POT)
-  await refreshViews(gameId)
-  return { cleared: i }
 })
 
 /** 투영이 읽어 가는 화분 여덟. **단계까지만 나간다.** */

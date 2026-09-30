@@ -55,51 +55,25 @@ export const PHASE_MINUTES = 60
 export const TOKENS_PER_PHASE = 6
 
 /**
- * 들고 다닐 수 있는 토큰의 한도.
+ * 분단이 쥘 수 있는 토큰의 한도. **두 페이즈치까지.**
  *
  * 남는 것을 그대로 두면 쉰 페이즈 동안 쌓여서 나중에는 아무 값도
  * 아니게 된다. 한편 한 푼도 못 남기면 거래할 물건이 못 된다.
- * **두 페이즈치까지** — 플레이테스트에서 제일 먼저 볼 값이다.
  *
- * 지급과 마찬가지로 **사람 수를 안 곱한다.** 곱하던 때에는 네 명짜리
- * 팀의 한도가 32였는데, 한 페이즈에 16씩 받으니 한도에 닿을 일이
- * 거의 없어 있으나 마나였다.
+ * 지급과 마찬가지로 **사람 수를 안 곱한다.**
  */
 export const TOKEN_CAP = TOKENS_PER_PHASE * 2
 
 /**
- * 결석 보정 — 직전 페이즈에 **한 명도 움직이지 않은 팀**에게.
- *
- * 아무도 안 들어온 팀은 토큰만 쌓인 채 한 시간을 통째로 잃는다. 다음
- * 페이즈에 그 팀원들이 안 쓴 토큰의 절반(내림)을 얹어 준다 — 못 한
- * 일을 돌려주지는 못해도, 접속한 날 조금 더 움직일 수는 있게 한다.
- *
- * **이때만 한도를 넘는다.** 넘긴 것은 그다음 지급에서 한도까지 깎인다 —
- * 안 그러면 계속 결석해서 쌓아 두는 쪽이 이득이 된다.
- */
-export const ABSENCE_REFUND_NUMERATOR = 1
-export const ABSENCE_REFUND_DENOMINATOR = 2
-
-/** 결석한 팀이 다음 페이즈에 더 받는 몫. 상자에 안 쓰고 남은 것의 절반을 내림. */
-export function absenceRefund(unusedTokens: number): number {
-  return Math.floor((unusedTokens * ABSENCE_REFUND_NUMERATOR) / ABSENCE_REFUND_DENOMINATOR)
-}
-
-/**
  * 이번 페이즈에 이 팀 상자가 갖게 될 토큰.
  *
- * **인원을 안 본다.** 어느 팀이든 여섯씩 들어온다.
+ * **인원을 안 본다.** 어느 팀이든 여섯씩 들어온다. 남은 것에 더하되
+ * **합이 한도(12)를 넘지 않는다** — 보유할 수 있는 최대가 12 다.
  *
- * 순서가 중요하다 — **먼저 한도까지 깎고, 그 뒤에 지급과 보정을 얹는다.**
- * 결석 보정으로 한도를 넘긴 팀은 여기서 정리된다. 얹은 다음에 깎으면
- * 보정이 그 자리에서 사라져 아무 뜻이 없어진다.
+ * 결석 보정 · 투명인간 보정 · 꼴찌 보정은 없다. 받는 길은 이것 하나다.
  */
-export function nextWallet(input: {
-  held: number
-  /** 이 팀 몫의 결석 보정. 없으면 0. */
-  refund?: number
-}): number {
-  return Math.min(input.held, TOKEN_CAP) + TOKENS_PER_PHASE + (input.refund ?? 0)
+export function nextWallet(input: { held: number }): number {
+  return Math.min(Math.max(0, input.held) + TOKENS_PER_PHASE, TOKEN_CAP)
 }
 
 /**
@@ -543,8 +517,7 @@ export function teamRanks(
  *   아무것도 없다         **주인이 그대로다.** 빈 방이 된 게 아니라
  *                         전 주인이 계속 쥐고 있는 것이다
  *
- * 깃발은 뽑히기 전까지 남으므로, 한 번 꽂은 땅은 누가 더 꽂거나
- * 뽑기 전에는 그대로다. 한 번도 주인이 없었던 방만 계속 빈 방(null)이다.
+ * 깃발은 페이즈가 끝나면 걷히므로, 다음 판정까지 남는 것은 놓인 로봇뿐이다.
  */
 export function ownerOf(
   weights: Readonly<Partial<Record<TeamId, number>>>,
@@ -989,29 +962,6 @@ export function settle(state: PhaseState): SettleResult {
     },
     log,
   }
-}
-
-/**
- * 결석 보정 — 한 명도 움직이지 않은 팀의 사람마다 돌려줄 토큰.
- *
- * **팀 단위로 본다.** 한 사람만 접속해서 움직였으면 그 팀은 결석이
- * 아니다 — 남은 사람이 대신 움직일 수 있었다는 뜻이라서, 개인의
- * 사정까지 메워 주면 안 들어오는 편이 이득이 된다.
- */
-export function absenceRefunds(
-  state: PhaseState,
-  teams: readonly TeamId[],
-): Partial<Record<TeamId, number>> {
-  const acted = new Set(state.actedBy)
-  const out: Partial<Record<TeamId, number>> = {}
-  for (const team of teams) {
-    const members = state.people.filter((p) => p.team === team)
-    if (members.length === 0) continue
-    if (members.some((p) => acted.has(p.playerId))) continue
-    const back = absenceRefund(walletOf(state, team))
-    if (back > 0) out[team] = back
-  }
-  return out
 }
 
 /**

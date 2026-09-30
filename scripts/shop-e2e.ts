@@ -3,7 +3,7 @@
 // 붙드는 것은 여섯이다.
 //   1. 상점에 서야 산다. 값은 산 사람 돈에서 빠진다
 //   2. **지우개는 하루에 한 개다** — 열넷이 달려들어도 하나다
-//   3. 자물쇠는 걸음을 막는다. 잠근 팀은 드나든다
+//   3. 자물쇠는 점령전에만 건다. 그 점령전 동안 남의 분단을 막고, 끝나면 사라진다
 //   4. 빈 종이는 쓴 그대로 바닥에 놓이고, 줍기 전에는 한 자도 안 온다
 //   5. 지우개는 표 한 장을 지우는데 **몇 장이었는지는 안 알려 준다**
 //   6. 테이프는 찢긴 조각을 되살린다. 조각도 「있다」까지만 보인다
@@ -224,42 +224,13 @@ async function main() {
   check(!other.ok, '남의 팀이 와도 하루 몫은 판 전체에서 같이 줄어든다', other.ok ? '샀다' : (other.err ?? ''))
 
   console.log('\n── 자물쇠 ──')
+  // 사는 것은 자유 시간이다. 거는 것은 점령전이다 — 미리 사 둔다
+  await standBy(game, meUid, MY_SIDE)
+  await fund(game, meUid, 40)
   await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
-  // **잠그는 것은 선 방이다.** 복도는 못 잠근다 — 매점 안으로 들여놓는다
-  await standAt(game, meUid, MART_TILE)
-  const locked = await must('useItem', meTok, { gameId: game, kind: 'lock' })
-  check(String(locked.said ?? '').includes('매점'), '선 방 문을 잠갔다', String(locked.said))
-  const again = await call('useItem', meTok, { gameId: game, kind: 'lock' })
-  check(!again.ok, '덮어 걸 수 없다', again.ok ? '또 걸렸다' : (again.err ?? ''))
-
-  // 잠긴 방으로는 못 들어간다. **같은 팀이면 들어간다**
-  await standAt(game, youUid, 'artRoom')
-  const walk = await call('roamTo', youTok, { gameId: game, tileId: MART_TILE })
-  /*
-   * **거절 이유까지 본다.** 문 앞에 세워 놓는 것을 잊으면 roamTo 가
-   * 「이미 그 방이다」로 거절하고, !ok 만 보는 시험은 자물쇠가 하나도
-   * 안 걸려 있어도 초록이 된다 — 실제로 한 번 그랬다
-   */
-  check(
-    !walk.ok && (walk.err ?? '').includes('잠겨'),
-    '**남의 팀은 문 앞에서 막힌다**',
-    walk.ok ? '들어갔다' : (walk.err ?? ''),
-  )
-
-  let mateId = ''
-  for (const id of ['qa02', 'qa03', 'qa04', 'qa05', 'qa06', 'qa07', 'qa09', 'qa10']) {
-    if (id !== me && id !== you && (await teamOf(game, uidOf(id))) === myTeam) { mateId = id; break }
-  }
-  const mateTok = await tok(mateId)
-  await standAt(game, uidOf(mateId), 'artRoom')
-  const inn = await call('roamTo', mateTok, { gameId: game, tileId: MART_TILE })
-  check(inn.ok, '같은 팀은 드나든다', inn.ok ? '' : (inn.err ?? ''))
-
-  console.log('\n── 락픽 ──')
-  // 막히는 말은 한 글자도 틀리면 안 된다 — 화면이 이 말을 보고 락픽을 쓸지 묻는다
-  check(walk.err === LOCKED_DOOR, `막히는 말은 「${LOCKED_DOOR}」`, walk.err ?? '')
-  const noPick = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
-  check(!noPick.ok && (noPick.err ?? '').includes('없다'), '락픽이 없으면 못 딴다', noPick.ok ? '땄다' : (noPick.err ?? ''))
+  await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
+  await must('buyShopItem', meTok, { gameId: game, itemId: 'lockpick' })
+  const locks0 = (await bagOf(game, meUid)).lock ?? 0
 
   await standBy(game, youUid, YOUR_SIDE)
   await fund(game, youUid, 40)
@@ -271,35 +242,50 @@ async function main() {
   check(pb - (await moneyOf(game, youUid)) === PICK_PRICE * 3, '세 개 값이 산 사람 돈에서 빠졌다', `${pb} → ${await moneyOf(game, youUid)}`)
   check((await bagOf(game, youUid)).lockpick === 3, '제한 없이 세 개 다 나왔다', JSON.stringify(await bagOf(game, youUid)))
 
+  // **잠그는 것은 선 방이다.** 복도는 못 잠근다 — 매점 안으로 들여놓는다
+  await standAt(game, meUid, MART_TILE)
+  const early = await call('useItem', meTok, { gameId: game, kind: 'lock' })
+  check(!early.ok && (early.err ?? '').includes('점령전'), '**자유 시간에는 못 건다**', early.ok ? '걸렸다' : (early.err ?? ''))
+  check((await bagOf(game, meUid)).lock === locks0, '못 건 자물쇠는 그대로 있다', JSON.stringify(await bagOf(game, meUid)))
+
+  await must('openPhase', host, { gameId: game })
+  const locked = await must('useItem', meTok, { gameId: game, kind: 'lock' })
+  check(String(locked.said ?? '').includes('매점'), '점령전에는 선 방 문을 잠근다', String(locked.said))
+  check((await bagOf(game, meUid)).lock === locks0 - 1, '**건 자물쇠는 없어진다** — 소모품이다', JSON.stringify(await bagOf(game, meUid)))
+  const again = await call('useItem', meTok, { gameId: game, kind: 'lock' })
+  check(!again.ok, '덮어 걸 수 없다', again.ok ? '또 걸렸다' : (again.err ?? ''))
+
+  // 점령전에는 남의 분단이 문 앞에서 막힌다
   await standAt(game, youUid, 'artRoom')
+  const walk = await call('phaseAct', youTok, { gameId: game, kind: 'move', targetTile: MART_TILE })
+  // 막히는 말은 한 글자도 틀리면 안 된다 — 화면이 이 말을 보고 락픽을 쓸지 묻는다
+  check(!walk.ok && walk.err === LOCKED_DOOR, `**남의 분단은 막힌다** — 「${LOCKED_DOOR}」`, walk.ok ? '들어갔다' : (walk.err ?? ''))
+
+  console.log('\n── 락픽 ──')
   const picked = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
   check(picked.ok && String(picked.result?.said ?? '').includes('땄다'), '문 앞에서 딴다', picked.ok ? String(picked.result?.said) : (picked.err ?? ''))
   check((await bagOf(game, youUid)).lockpick === 2, '딴 락픽은 없어진다', JSON.stringify(await bagOf(game, youUid)))
   const tileAfter = (await (await fetch(`${FS}/games/${game}/tiles/${MART_TILE}`, { headers: ADMIN })).json()) as { fields?: Record<string, unknown> }
-  check(str(tileAfter.fields?.lockedBy) === null, '자물쇠가 풀렸다', JSON.stringify(tileAfter.fields?.lockedBy))
-  const walkIn = await call('roamTo', youTok, { gameId: game, tileId: MART_TILE })
-  check(walkIn.ok, '딴 뒤에는 남의 팀도 들어간다', walkIn.ok ? '' : (walkIn.err ?? ''))
-
-  await standAt(game, youUid, 'artRoom')
+  check(str(tileAfter.fields?.lockedBy) === null, '**따면 자물쇠가 사라진다**', JSON.stringify(tileAfter.fields?.lockedBy))
   const idle = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
   check(!idle.ok && (idle.err ?? '').includes('잠겨 있지 않다'), '안 잠긴 문은 안 딴다', idle.ok ? '땄다' : (idle.err ?? ''))
   check((await bagOf(game, youUid)).lockpick === 2, '헛손질에는 락픽이 안 준다', JSON.stringify(await bagOf(game, youUid)))
 
   // 우리 팀 자물쇠는 딸 일이 없다 — 그냥 들어가면 된다
-  await standBy(game, meUid, MY_SIDE)
-  await fund(game, meUid, 40)
-  await must('buyShopItem', meTok, { gameId: game, itemId: 'lock' })
-  await must('buyShopItem', meTok, { gameId: game, itemId: 'lockpick' })
-  await standAt(game, meUid, MART_TILE)
   await must('useItem', meTok, { gameId: game, kind: 'lock' })
   await standAt(game, meUid, 'artRoom')
   const ownPick = await call('useItem', meTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
-  check(!ownPick.ok && (ownPick.err ?? '').includes('우리 팀'), '우리 팀 자물쇠는 안 딴다', ownPick.ok ? '땄다' : (ownPick.err ?? ''))
+  check(!ownPick.ok && (ownPick.err ?? '').includes('우리 분단'), '우리 분단 자물쇠는 안 딴다', ownPick.ok ? '땄다' : (ownPick.err ?? ''))
   const noRoom = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: 'nowhere' })
   check(!noRoom.ok, '없는 방은 못 딴다', noRoom.ok ? '땄다' : (noRoom.err ?? ''))
-  // 다시 잠긴 매점은 또 딴다 — 남은 락픽 하나를 쓴다
-  const second = await call('useItem', youTok, { gameId: game, kind: 'lockpick', tileId: MART_TILE })
-  check(second.ok && (await bagOf(game, youUid)).lockpick === 1, '다시 잠겨도 또 딴다', second.ok ? '' : (second.err ?? ''))
+
+  console.log('\n── 점령전이 끝나면 자물쇠도 사라진다 ──')
+  await must('closePhase', host, { gameId: game })
+  const tileShut = (await (await fetch(`${FS}/games/${game}/tiles/${MART_TILE}`, { headers: ADMIN })).json()) as { fields?: Record<string, unknown> }
+  check(str(tileShut.fields?.lockedBy) === null, '**페이즈가 끝나면 자물쇠가 없어진다**', JSON.stringify(tileShut.fields?.lockedBy))
+  await standAt(game, youUid, 'artRoom')
+  const walkIn = await call('roamTo', youTok, { gameId: game, tileId: MART_TILE })
+  check(walkIn.ok, '자유 시간에는 남의 분단도 들어간다', walkIn.ok ? '' : (walkIn.err ?? ''))
   await standAt(game, meUid, 'artRoom')
   await standAt(game, youUid, 'artRoom')
 

@@ -864,7 +864,7 @@ export function projectView(world: World, viewerId: string): View {
             const stage: PotStage =
               spec === null || pot.plantedMs === null
                 ? 'empty'
-                : stageOf(grown, growMs, Math.max(0, grown - growMs), spec.witherHours * 3_600_000)
+                : stageOf(grown, growMs)
             const mine = world.crops?.[viewerId] ?? {}
             const held = Object.values(mine).reduce((a, n) => a + n, 0)
             return {

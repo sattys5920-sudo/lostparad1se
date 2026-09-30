@@ -1,7 +1,7 @@
 // 화분 — 정원에서 보는 여덟 자리.
 //
 // **심는 것은 운영자가 한다.** 여기서 할 수 있는 것은 자란 것을 보고,
-// 열매를 따고, 시든 것을 치우는 것뿐이다.
+// 열매를 따는 것뿐이다. **시들지 않는다** — 딸 때까지 달려 있다.
 //
 // 화면이 판단하지 않는다. 딸 수 있는지도 서버가 정하고, 여기서는
 // 서버가 보내 준 단계만 그린다 — **무엇이 심겼는지는 싹이 나야
@@ -21,7 +21,6 @@ type Pot = NonNullable<PlayerViewDoc['potsHere']>[number]
 function lineOf(pot: Pot): string {
   if (pot.stage === 'empty') return '빈 화분'
   if (pot.stage === 'soil') return '흙뿐이다. 무엇이 날지 모른다'
-  if (pot.stage === 'withered') return `${pot.name ?? '무언가'} — 시들었다`
   const what = pot.name ?? '무언가'
   if (pot.stage === 'sprout') return `${what} · 싹`
   if (pot.stage === 'leaf') return `${what} · 잎`
@@ -97,11 +96,6 @@ export function GardenSheet({
                   }
                 >
                   {pot.canPick ? '따기' : '손이 찼다'}
-                </button>
-              )}
-              {close && pot.stage === 'withered' && (
-                <button disabled={busy} onClick={() => void run('치웠다.', () => act.clearPot(pot.i))}>
-                  치우기
                 </button>
               )}
             </li>

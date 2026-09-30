@@ -198,7 +198,7 @@ export const ROLE_DATA: readonly RoleData[] = [
     clauses: [
       { kind: "harvests", text: "수확", need: 3, disclosure: "realtime" },
     ],
-    footnote: "시든 것은 수확이 아니다. 남이 심은 화분에서 따도 된다.",
+    footnote: "남이 심은 화분에서 따도 된다.",
     notes: [
       { slot: 1, kind: "role", text: "원예부는 매일같이 정원을 돌본다." },
       { slot: 2, kind: "name", text: "{이름}의 서랍에는 주인 없는 물건이 몇 개 들어 있다." },

@@ -14,7 +14,7 @@ import type { GameActions } from '../game/useGame'
 
 interface PotRow {
   i: number
-  stage: 'empty' | 'soil' | 'sprout' | 'leaf' | 'fruit' | 'withered'
+  stage: 'empty' | 'soil' | 'sprout' | 'leaf' | 'fruit'
   name: string | null
 }
 interface CropRow {
@@ -31,7 +31,6 @@ const STAGE_NAME: Record<PotRow['stage'], string> = {
   sprout: '싹',
   leaf: '잎',
   fruit: '열매',
-  withered: '시듦',
 }
 
 export function GardenDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {

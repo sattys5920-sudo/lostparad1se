@@ -26,7 +26,6 @@ import {
   PHASE_MINUTES,
   TOKENS_PER_PHASE,
   TOKEN_CAP,
-  absenceRefunds,
   nextWallet,
   roomsOf,
   teamRanks,
@@ -40,7 +39,6 @@ import {
   type Vault,
 } from '../../shared/rules/occupy'
 import type { Satchel, Satchels } from '../../shared/rules/items'
-import { LOCKED_DOOR } from '../../shared/rules/items'
 import { TILE_BY_ID, canRoamTo, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { seatIn } from '../../shared/rules/seat'
 import { isFixture } from '../../shared/rules/fixtures'
@@ -51,7 +49,7 @@ import { LAB_PICK_NO, LAB_TILE, SNARE_MINUTES, atLabMachine, pickLabMachine } fr
 import type { MadeDoc } from '../../shared/rules/made'
 import { springTrap } from './trap'
 import type { Cell } from '../../shared/rules/board'
-import { INVISIBLE_TEAM_TOKEN_BONUS, teamSizesOf, type TeamId } from '../../shared/rules/v2'
+import { teamSizesOf, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
 import {
   SCHEDULE_ORD,
@@ -350,16 +348,6 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // 지금 인원. 상수를 읽지 않는다 — 이적하면 4·4·3·3이 아니다
   const sizes = teamSizesOf(pawns.docs.map((d) => d.data() as PawnDoc))
 
-  /**
-   * 투명인간이 나온 팀이 더 받는 몫. **상자에 통째로 들어간다.**
-   *
-   * 세 명짜리 팀에서 한 명이 빠지면 판정 머릿수가 반토막 나는데,
-   * 지워진 것은 한 사람인데 팀이 무너지면 이 투표가 사람이 아니라
-   * 팀을 겨누는 것이 된다. 지갑이 사람마다이던 때에는 사람 수로
-   * 나눠 얹느라 나머지가 버려졌다 — 상자 하나가 되면서 그 문제도 없다
-   */
-  const invisibleShare = game.invisibleTeam ? INVISIBLE_TEAM_TOKEN_BONUS : 0
-
   // 아무도 옮기지 않는다. 전선(postTile)만 지금 선 방으로 맞추고, 하던 일을 끊는다 —
   // 종이 치면 「생산 중」 같은 표시가 남아 있으면 그 자리에서 아무것도 못 한다.
   // 걷는 중인 사람은 길(path · arriveAtMs)을 그대로 둔다
@@ -377,9 +365,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    *
    * **인원은 안 본다.** 어느 팀이든 여섯씩이다 — 사람 수를 곱하던
    * 때에는 네 명짜리 팀이 한 페이즈에 열여섯을 받아 토큰이 아무것도
-   * 조이지 못했다. 한도는 얹기 **전에** 깎는다: 결석 보정으로 넘긴
-   * 팀이 여기서 정리되고, 얹은 다음에 깎으면 보정이 그 자리에서
-   * 사라져 아무 뜻이 없어진다
+   * 조이지 못했다. **합이 12 를 넘지 않는다**(TOKEN_CAP). 보정은 없다
    */
   /*
    * **깃발은 페이즈마다 다시 채운다.** 팀마다 같은 수(rules/flag).
@@ -402,14 +388,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
         ? { resources: foldPurses(purseOf(t), fold.map((x) => (x.data() as PawnDoc).resources)) }
         : {}),
       flags: FLAGS_PER_PHASE,
-      phaseTokens: nextWallet({
-        held: t.phaseTokens ?? 0,
-        // 결석 보정에 투명인간 보정을 더한다. 둘 다 이때만 한도를
-        // 넘고, 넘긴 것은 그다음 지급에서 정리된다
-        refund: (t.pendingRefund ?? 0) + (team === game.invisibleTeam ? invisibleShare : 0),
-      }),
-      // 보정은 한 번만 쓰인다
-      pendingRefund: 0,
+      phaseTokens: nextWallet({ held: t.phaseTokens ?? 0 }),
+      // 옛 판에 남은 보정 예약은 지운다 — 보정은 없어졌다
+      ...(t.pendingRefund !== undefined ? { pendingRefund: FieldValue.delete() } : {}),
     })
   }
 
@@ -894,8 +875,6 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '열린 페이즈가 없다.')
 
   const { state } = await loadBoard(gameId)
-  // 보정은 settle 전에 센다 — settle 이 actedBy 를 비운다
-  const refunds = absenceRefunds(state, TEAMS)
   const out = settle(state)
   const ref = gameRef(gameId)
   const batch = db.batch()
@@ -916,24 +895,20 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
     }
   }
 
-  // 팀 상자 — 결석한 팀에 보정을 예약한다.
-  //
-  // 우리 팀에서 아무도 안 움직였으면 안 쓴 토큰의 절반을 다음 페이즈에
-  // 얹어 준다. 못 한 일을 돌려주지는 못해도, 접속한 날 조금 더 움직일
-  // 수는 있게 한다
+  // 팀 상자. 결석 보정은 없다 — 달라진 것만 옮겨 적는다
   for (const team of TEAMS) {
-    const patch: Record<string, unknown> = {}
     const after = out.next.wallets[team] ?? 0
-    if (after !== (state.wallets[team] ?? 0)) patch.phaseTokens = after
-    const back = refunds[team] ?? 0
-    if (back > 0) patch.pendingRefund = back
-    if (Object.keys(patch).length > 0) batch.update(ref.collection('teams').doc(team), patch)
+    if (after !== (state.wallets[team] ?? 0)) batch.update(ref.collection('teams').doc(team), { phaseTokens: after })
   }
   // 불발된 연구는 지식을 못 돌려받는다 — vaults 는 그대로 옮겨 적을 뿐이다
   writeVaults(batch, ref, state.vaults, out.next.vaults)
   writeSatchels(batch, ref, state.satchels, out.next.satchels)
 
   // **꽂힌 깃발은 판정이 끝나면 걷는다.** 로봇은 남는다(아래에서 그대로 옮겨 적는다)
+  // **자물쇠도 이 페이즈와 함께 사라진다.** 한 번 건 것은 다시 못 걷는다 — 소모품이다
+  for (const tileId of Object.keys(state.locks ?? {})) {
+    batch.update(ref.collection('tiles').doc(tileId), { lockedBy: FieldValue.delete(), lockUntilMs: FieldValue.delete() })
+  }
   batch.set(flagsOf(gameId), { tiles: out.next.flags, pulls: out.next.flagPullHits })
 
   const had = await robotsOf(gameId).get()
@@ -1083,17 +1058,7 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
     // 것과 결과가 같다
     if (!canRoamTo(here, tileId)) throw new HttpsError('failed-precondition', '거기까지는 복도가 안 이어진다.')
 
-    /*
-     * **자물쇠는 자유 시간에도 잠겨 있다.**
-     *
-     * 페이즈 걸음은 occupy 의 step() 이 한 자리에서 막는데, 자유 시간
-     * 걸음은 이 문으로 들어온다. 한쪽만 막으면 잠긴 방 앞에서 페이즈가
-     * 끝나기를 기다렸다가 걸어 들어가면 그만이다
-     */
-    const tile = (await tx.get(ref.collection('tiles').doc(tileId))).data() as TileDoc | undefined
-    if (tile?.lockedBy && (tile.lockUntilMs ?? 0) > nowMs && tile.lockedBy !== p.team) {
-      throw new HttpsError('failed-precondition', LOCKED_DOOR)
-    }
+    // **자물쇠는 자유 시간을 막지 않는다.** 걸린 자물쇠는 그 페이즈가 끝날 때 사라진다
 
     /*
      * **자유 시간에는 정원이 없다.**

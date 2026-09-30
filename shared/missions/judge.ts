@@ -227,7 +227,6 @@ function measure(clause: Clause, c: Ctx): Measured {
       // 애초에 완료 기록이 안 생긴다
       return { unit: 'count', have: mine(c, 'errandDone').length }
     case 'harvests':
-      // 시든 것은 수확 기록을 남기지 않는다
       return { unit: 'count', have: mine(c, 'potHarvest').length }
     case 'robotsMade':
       // **연구를 맡긴 순간 센다.** 완성품을 누가 가져가든, 아무도 안

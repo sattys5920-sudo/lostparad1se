@@ -122,6 +122,8 @@ export const useItem = onCall<UseInput>(async (req) => {
     }
 
     if (kind === 'lock') {
+      // **자물쇠는 점령전 중에만 건다.** 그 페이즈가 끝나거나 락픽으로 따면 사라진다
+      if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '자물쇠는 점령전 중에만 걸 수 있다.')
       const tileRef = ref.collection('tiles').doc(here as TileId)
       const t = (await tx.get(tileRef)).data() as TileDoc | undefined
       const until = t?.lockUntilMs ?? 0
@@ -129,7 +131,8 @@ export const useItem = onCall<UseInput>(async (req) => {
       // 잠갔다는 사실이 아무 뜻이 없고, 우리 것 위에 또 걸면 한
       // 시간이 두 시간이 된다
       if (until > nowMs) throw new HttpsError('failed-precondition', '이미 잠겨 있다.')
-      tx.update(tileRef, { lockedBy: team, lockUntilMs: nowMs + LOCK_MS })
+      // 페이즈 끝까지. 끝나는 시각을 모르면 한 시간(LOCK_MS) — closePhase 가 어차피 걷는다
+      tx.update(tileRef, { lockedBy: team, lockUntilMs: game.phaseNow?.endsAtMs ?? nowMs + LOCK_MS })
       said = `${TILE_BY_ID[here as TileId].name} 문을 잠갔다.`
       locked = { team, tileId: here as TileId }
     }

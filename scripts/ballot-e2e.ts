@@ -10,7 +10,6 @@
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { INVISIBLE_TEAM_TOKEN_BONUS } from '../shared/rules/v2'
 import { stepToward } from '../shared/rules/occupy'
 import { roomOfCell } from '../shared/rules/board'
 import { canSeatAt } from '../shared/rules/seat'
@@ -259,17 +258,17 @@ async function main(): Promise<void> {
     '**같은 팀에게도 안 보인다**',
   )
 
-  console.log('\n── 팀 토큰 보정 ──')
-  // 상자는 팀에 하나다. 보정도 통째로 상자에 들어간다
+  console.log('\n── 투명인간 보정은 없다 ──')
+  // 투명인간이 나온 팀도 다른 팀과 똑같이 받는다
   const boxOf = async (t: string) =>
     Number((await getAll(`games/${GAME}/teams`)).find((x) => x.id === t)?.d.phaseTokens ?? 0)
   const before = await boxOf('B')
   await must('openPhase', host, { gameId: GAME })
   const after = await boxOf('B')
-  check(after > before, `투명인간이 나온 팀이 더 받는다 (팀 전체 ${INVISIBLE_TEAM_TOKEN_BONUS})`, `${before} → ${after}`)
+  check(after === Math.min(before + 6, 12), '투명인간이 나온 팀도 6 개 · 최대 12', `${before} → ${after}`)
   await must('closePhase', host, { gameId: GAME })
 
-  console.log('\n── 운영자가 풀 수 있다 ──')
+  console.log('\n── 감독관이 풀 수 있다 ──')
   const noReason = await call('clearInvisible', host, { gameId: GAME, reason: '  ' })
   check(noReason.code === 'INVALID_ARGUMENT', '사유 없이는 못 푼다', String(noReason.code))
   const asPlayer = await call('clearInvisible', A[0].token, { gameId: GAME, reason: '아무거나' })

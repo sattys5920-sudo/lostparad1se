@@ -38,7 +38,6 @@ const POT_ART_OF: Record<PotStage, string> = {
   sprout: 'potSprout',
   leaf: 'potLeaf',
   fruit: 'potFruit',
-  withered: 'potWithered',
 }
 
 /**

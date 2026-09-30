@@ -221,13 +221,7 @@ export interface TeamDoc {
    * 주머니를 넷이 나눠 쓴다 — 먼저 쓰는 사람이 임자다.
    */
   phaseTokens?: number
-  /**
-   * 다음 페이즈에 얹어 줄 보정.
-   *
-   * 직전 페이즈에 이 팀에서 아무도 움직이지 않았을 때(결석)와 21:00
-   * 정산에서 꼴찌였을 때(만회)가 여기로 들어온다. 쓰고 나면 0으로
-   * 지운다 — 남겨 두면 매 페이즈 되풀이해서 얹힌다.
-   */
+  /** 옛 판에 남은 보정 예약. **보정은 없어졌다** — 페이즈가 열릴 때 지운다 */
   pendingRefund?: number
   /**
    * **깃발 상자 — 페이즈 몫.** 토큰 상자처럼 팀에 하나다(rules/flag).
@@ -590,7 +584,7 @@ export interface PlayerViewDoc {
   potsHere?: {
     i: number
     cell: Cell
-    stage: 'empty' | 'soil' | 'sprout' | 'leaf' | 'fruit' | 'withered'
+    stage: 'empty' | 'soil' | 'sprout' | 'leaf' | 'fruit'
     name: string | null
     /** 색을 고르는 데 쓴다. 이름과 같은 때에만 온다 */
     cropId?: string | null

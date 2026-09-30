@@ -459,7 +459,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
        * 그 전에 건넬 것이 없다는 것은 규칙이 시키는 바 그대로다.
        */
       phaseTokens: 0,
-      pendingRefund: 0,
       researchTier: 0,
       publicScore: null,
     })

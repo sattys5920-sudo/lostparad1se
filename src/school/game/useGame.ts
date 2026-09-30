@@ -314,8 +314,6 @@ export function gameActions(gameId: string) {
     // ── 화분 ──────────────────────────────────────────────
     /** 열매를 딴다. **심은 것이 운영자든 누구든 앞에 선 사람이 딴다** */
     harvestPot: (pot: number) => callServer('harvestPot', { ...g, pot }),
-    /** 시든 것을 치운다. */
-    clearPot: (pot: number) => callServer('clearPot', { ...g, pot }),
     /** 매입구에 작물 하나를 넣는다. **값은 표대로다** */
     sellCrop: (cropId: string) => callServer('sellCrop', { ...g, cropId }),
     /** 운영자 — 화분 여덟의 지금 모습. 흙 속까지 보인다 */

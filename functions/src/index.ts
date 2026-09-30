@@ -157,7 +157,7 @@ export { seedPlayers } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
 export { openPhase, closePhase, phaseAct, phaseNow, roamTo, standAt } from './phase'
-export { harvestPot, clearPot } from './garden'
+export { harvestPot } from './garden'
 export { hostPlant, hostGarden, hostPullPot } from './garden'
 export { takeSlip, readSlip, dropSlip, tearSlip, readSlipHere, tearSlipHere, hostPullSlip } from './slips'
 export { hostSlipBoard, hostScatterSlip, hostScatterRandom } from './notes'

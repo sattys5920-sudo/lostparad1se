@@ -6,7 +6,7 @@
 //   3. **무엇이 심겼는지는 싹이 나야 안다** — 그 방에 선 누구도
 //   4. 자랄 시간은 **어느 몫에도 없다** — 흙 앞에서 기다리는 것이 일이다
 //   5. 열매는 **누구든 먼저 온 사람이** 딴다. 화분 앞에 서야 한다
-//   6. 시들면 못 딴다. 치워야 다음 것이 들어간다
+//   6. 열매는 시들지 않는다. 딸 때까지 달려 있다
 //
 //   npx vite-node scripts/garden-e2e.ts
 import { createHash } from 'node:crypto'
@@ -138,12 +138,12 @@ async function ageBy(game: string, i: number, ms: number): Promise<void> {
  * 무엇이 심겼는지는 시험만 아는 값(문서)이므로, 뽑아 둔 시간을 읽어
  * 그만큼만 당긴다.
  */
-async function ageToFruit(game: string, i: number): Promise<{ cropId: string; witherMs: number }> {
+async function ageToFruit(game: string, i: number): Promise<{ cropId: string }> {
   const f = await potDoc(game, i)
   const cropId = String((f.cropId as { stringValue?: string })?.stringValue ?? '')
   const growMs = Number((f.growMs as { integerValue?: string })?.integerValue ?? 0)
   await ageBy(game, i, growMs + 60_000)
-  return { cropId, witherMs: (CROP_BY_ID[cropId]?.witherHours ?? 1) * H }
+  return { cropId }
 }
 
 /**
@@ -277,25 +277,17 @@ async function main() {
   const empty = potsOf(vYou2).find((p) => num(p.i) === 0) ?? {}
   check(str(empty.stage) === 'empty', '딴 자리는 빈 화분이 된다', String(str(empty.stage)))
 
-  console.log('\n── 시듦 ──')
+  console.log('\n── 열매는 시들지 않는다 ──')
   await must('hostPlant', host, { gameId: game, pot: 0 })
-  const dead0 = await ageToFruit(game, 0)
-  // 열매가 된 뒤로 시드는 시간만큼 더 당긴다
-  await ageBy(game, 0, dead0.witherMs + 60_000)
+  await ageToFruit(game, 0)
+  // 하루를 더 당겨도 열매 그대로다
+  await ageBy(game, 0, 24 * H)
   await wake(game, meTok, POT_CELLS[0])
-  const vDead = await viewOf(game, meUid)
-  const dead = potsOf(vDead).find((p) => num(p.i) === 0) ?? {}
-  check(str(dead.stage) === 'withered', '시든다', String(str(dead.stage)))
-  const pickDead = await call('harvestPot', meTok, { gameId: game, pot: 0 })
-  check(!pickDead.ok, '시든 것은 못 딴다', pickDead.ok ? '땄다' : (pickDead.err ?? ''))
-  const plantOnDead = await call('hostPlant', host, { gameId: game, pot: 0 })
-  check(!plantOnDead.ok, '치우기 전에는 못 심는다', plantOnDead.ok ? '심었다' : (plantOnDead.err ?? ''))
-  await must('clearPot', meTok, { gameId: game, pot: 0 })
-  const vClean = await viewOf(game, meUid)
-  check(
-    str((potsOf(vClean).find((p) => num(p.i) === 0) ?? {}).stage) === 'empty',
-    '치우면 빈 화분이 된다',
-  )
+  const vOld = await viewOf(game, meUid)
+  const old = potsOf(vOld).find((p) => num(p.i) === 0) ?? {}
+  check(str(old.stage) === 'fruit', '**하루가 지나도 열매다**', String(str(old.stage)))
+  const pickOld = await call('harvestPot', meTok, { gameId: game, pot: 0 })
+  check(pickOld.ok, '오래된 열매도 딴다', pickOld.ok ? '' : (pickOld.err ?? ''))
 
   console.log('\n── 그 애가 심은 것 ──')
   /*

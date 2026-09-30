@@ -23,7 +23,6 @@ describe('작물 표', () => {
     for (const c of CROPS) {
       expect(c.growMin, c.name).toBeGreaterThan(0)
       expect(c.growMax, c.name).toBeGreaterThanOrEqual(c.growMin)
-      expect(c.witherHours, c.name).toBeGreaterThan(0)
       expect(c.price, c.name).toBeGreaterThan(0)
     }
   })
@@ -83,16 +82,16 @@ describe('단계', () => {
 
   it('흙 → 싹 → 잎 → 열매로 간다', () => {
     const grow = 6 * H
-    expect(stageOf(0, grow, 0, H)).toBe('soil')
-    expect(stageOf(1 * H, grow, 0, H)).toBe('soil')
-    expect(stageOf(2 * H, grow, 0, H)).toBe('sprout')
-    expect(stageOf(4 * H, grow, 0, H)).toBe('leaf')
-    expect(stageOf(6 * H, grow, 0, H)).toBe('fruit')
+    expect(stageOf(0, grow)).toBe('soil')
+    expect(stageOf(1 * H, grow)).toBe('soil')
+    expect(stageOf(2 * H, grow)).toBe('sprout')
+    expect(stageOf(4 * H, grow)).toBe('leaf')
+    expect(stageOf(6 * H, grow)).toBe('fruit')
   })
 
-  it('열매가 되고 시간이 지나면 시든다', () => {
-    expect(stageOf(6 * H, 6 * H, 2 * H, 3 * H)).toBe('fruit')
-    expect(stageOf(6 * H, 6 * H, 3 * H, 3 * H)).toBe('withered')
+  it('**열매는 시들지 않는다** — 오래 지나도 열매다', () => {
+    expect(stageOf(6 * H, 6 * H)).toBe('fruit')
+    expect(stageOf(600 * H, 6 * H)).toBe('fruit')
   })
 
   it('**흙만 있을 때는 이름이 안 보인다**', () => {

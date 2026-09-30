@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0d0f16" />
-    <meta name="description" content="투명인간 — 점령전 진행, 자유 시간, 돈과 지식 버는 법, 자판기, 로봇·덫, 거래." />
+    <meta name="description" content="투명인간 — 점령전 진행, 자유 시간, 돈과 지식 버는 법, 로봇·덫, 거래." />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>투명인간 규칙</title>
     <link rel="preload" href="/fonts/Galmuri11.woff2" as="font" type="font/woff2" crossorigin />
@@ -329,7 +329,6 @@
         <li><a href="#free">자유 시간</a></li>
         <li><a href="#money">돈 벌기</a></li>
         <li><a href="#know">지식 벌기</a></li>
-        <li><a href="#vend">자판기</a></li>
         <li><a href="#make">로봇·덫</a></li>
         <li><a href="#deal">거래·이적</a></li>
         <li><a href="#paper">쪽지</a></li>
@@ -371,15 +370,16 @@
         </div>
         <ul>
           <li>깃발·로봇·호출은 <strong>방 안에 서서</strong> 한다. 문 밖 복도에서는 그 방에 할 수 없다.</li>
-          <li>방마다 한 번에 들어갈 수 있는 인원이 있다. 게임 지도에는 방마다 「인원 / 정원」으로 나온다(아래 지도의 숫자). <strong>방으로 출발한 순간부터</strong> 이동하는 10 분 내내 그 방의 자리를 차지한다.</li>
+          <li>방마다 한 번에 들어갈 수 있는 인원이 있다. 게임 지도에는 방마다 「인원 / 정원」으로 나온다. <strong>방으로 출발한 순간부터</strong> 이동하는 10 분 내내 그 방의 자리를 차지한다.</li>
+          <li><strong>자물쇠</strong>는 점령전 중에만 서 있는 방에 건다. 그 점령전 동안 우리 분단만 드나들고, 점령전이 끝나거나 락픽으로 따면 사라진다. 건 자물쇠는 다시 걷을 수 없다. 자유 시간에는 막지 않는다.</li>
           <li>복도에 놓인 <strong>덫은 점령전 중에만</strong> 걸린다. 다른 분단이 밟으면 10 분 동안 그 자리에 묶인다.</li>
         </ul>
 
-        <h3>3. 끝나는 순간 방 주인이 정해진다</h3>
+        <h3>3. 페이즈가 끝나는 순간 방 주인이 정해진다</h3>
         <ul>
-          <li>방마다 <strong>꽂힌 깃발 수 + 놓인 로봇 수</strong>를 분단별로 센다. <strong>서 있는 사람은 세지 않는다.</strong></li>
-          <li>가장 많은 분단이 하나면 그 분단이 주인이 된다. <strong>동점이거나 아무것도 없으면 원래 주인이 그대로</strong> 가진다.</li>
-          <li><strong>꽂은 깃발은 페이즈가 끝나면 사라진다.</strong> 놓인 로봇은 거두거나 부서지기 전까지 다음 점령전에도 남는다.</li>
+          <li>방마다 <strong>꽂힌 깃발 수 + 놓인 로봇 수</strong>를 분단별로 센다.</li>
+          <li>가장 많은 분단이 하나면 그 분단이 주인이 된다. 동점이거나 아무것도 없으면 아무도 가지지 않게 된다. 만약 <strong>이미 점령되어 있던 곳이라면, 원래 분단이 그대로</strong> 가진다.</li>
+          <li><strong>꽂은 깃발은 페이즈가 끝나면 사라진다.</strong></li>
           <li>주인이 바뀐 방은 양쪽 분단 무전에 뜨고, 맵 위쪽 점수 막대에 분단별 방 수가 보인다.</li>
           <li>감독관이 <strong>1 위 발표</strong>를 하면 그 순간의 1 위 분단이 모두의 화면에 뜬다.</li>
         </ul>
@@ -387,93 +387,41 @@
         <h3>토큰</h3>
         <ul>
           <li>분단이 함께 쓴다. 점령전이 열릴 때마다 인원과 상관없이 <strong>6 개</strong>를 받는다.</li>
-          <li>남은 토큰은 다음 점령전으로 넘어가지만 <strong>12 개까지</strong>만 넘어간다(12 개로 자른 뒤 6 개를 더한다).</li>
-          <li>직전 점령전에 같은 분단 사람 아무도 행동하지 않았으면 안 쓴 토큰의 절반을 더 받는다.</li>
-          <li>우리 분단에서 투명인간이 나왔으면 그동안 점령전마다 <strong>+4</strong>, 21 시 정산 꼴찌 분단은 다음 점령전에 <strong>+2</strong>를 받는다.</li>
+          <li>남은 토큰은 다음 점령전으로 넘어가지만 보유할 수 있는 최대 토큰은 <strong>12 개</strong>이다.</li>
         </ul>
 
         <h3>깃발</h3>
         <ul>
-          <li>점령전마다 4 개가 들어오고(남은 것에 더하지 않고 4 개로 맞춘다), 자판기에서 <strong>10 원</strong>에 더 산다(학교 전체 하루 10 개). 산 깃발은 계속 남고, 꽂을 때는 받은 몫을 먼저 쓴다.</li>
+          <li>점령전마다 <strong>4 개</strong>가 들어오고, 남은 깃발은 다음 점령전으로 넘어가지 않는다.</li>
+          <li>자판기에서 <strong>10 원</strong>에 구매할 수 있다(학교 전체 하루 10 개). 산 깃발은 꽂을 때까지 가지고 있고, 꽂을 때는 받은 몫을 먼저 쓴다. <strong>구매한 깃발도 꽂으면 페이즈가 끝날 때 사라진다.</strong></li>
         </ul>
 
         <h3>방을 가지면</h3>
         <ul>
-          <li>점령전 중 우리 분단 방에 들어갈 때 <strong>토큰이 들지 않는다</strong>.</li>
-          <li><strong>연구실</strong>을 가지면 로봇 연구에 지식이 <strong>1</strong>만 든다. <strong>기술실</strong>을 가지면 덫이 한 번에 <strong>2 개</strong> 나온다.</li>
+          <li>점령전 중 우리 분단이 점령한 방에 들어갈 때 <strong>토큰이 들지 않는다</strong>.</li>
+          <li><strong>연구실</strong>을 점령한 분단은 로봇 연구에 지식이 <strong>1</strong>만 든다. <strong>기술실</strong>을 점령한 분단은 덫을 제작할 때 한 번에 <strong>2 개</strong>의 덫이 나온다.</li>
         </ul>
 
-        <h3>방과 인원</h3>
-        <p class="dim">숫자는 점령전 중 한 방에 들어갈 수 있는 인원이다. 복도·계단·뒷골목은 방이 아니라 차지할 수 없다.</p>
-        <div class="floors">
-          <div class="floor">
-            <h4>2 층</h4>
-            <ul class="rooms">
-              <li class="neutral">2-3 교실 <b>14</b></li>
-              <li>과학실 <b>6</b></li>
-              <li>음악실 <b>6</b></li>
-              <li>미술실 <b>6</b></li>
-              <li>시청각실 <b>6</b></li>
-              <li>동아리실 <b>6</b></li>
-              <li>무용실 <b>6</b></li>
-              <li>방송실 <b>6</b></li>
-              <li>학생회실 <b>6</b></li>
-              <li class="narrow">도서관 <b>2</b></li>
-            </ul>
-          </div>
-          <div class="floor">
-            <h4>옥상 · 지하</h4>
-            <ul class="rooms">
-              <li class="narrow">옥상 <b>2</b></li>
-              <li>창고 <b>6</b></li>
-              <li class="special">기술실 <span>덫 제조기 3</span> <b>6</b></li>
-              <li>경비실 <b>6</b></li>
-            </ul>
-          </div>
-          <div class="floor wide">
-            <h4>1 층</h4>
-            <ul class="rooms">
-              <li class="special">연구실 <span>연구 기계 3</span> <b>4</b></li>
-              <li class="special">정원 <span>화분 8</span> <b>6</b></li>
-              <li>교무실 <b>6</b></li>
-              <li>양호실 <b>6</b></li>
-              <li>매점 <b>6</b></li>
-              <li>가사실 <b>6</b></li>
-              <li>강당 <b>6</b></li>
-              <li>운동장 <b>6</b></li>
-              <li>화장실 <b>6</b></li>
-              <li class="narrow">급식실 <b>2</b></li>
-              <li class="narrow">체육관 <b>2</b></li>
-              <li class="hall">뒷골목 · 오락기 10</li>
-            </ul>
-          </div>
-        </div>
-        <p class="note">보이는 방은 <strong>내가 들어가 있는 방 하나뿐</strong>이다. 같은 분단이라도 다른 방에 있으면 안 보인다. 복도에서는 6 칸 안만 보인다. 방의 깃발·로봇·자물쇠는 들어가 봐야 안다.</p>
       </section>
 
       <!-- ─────────────────────────────── 자유 시간 -->
       <section id="free">
         <h2><span class="no">02</span>자유 시간에 할 수 있는 것</h2>
-        <p>점령전이 열려 있지 않은 동안은 모두 자유 시간이다. 방 이동은 <strong>공짜이고 바로 된다</strong>. 인원 제한도 없다(자물쇠는 막는다).</p>
+        <p>점령전이 열려 있지 않은 동안은 모두 자유 시간이다. 방 이동에는 토큰 및 시간이 소요되지 않는다. 인원 제한도 풀린다.</p>
         <div class="scroll">
           <table>
             <thead><tr><th>할 수 있는 것</th><th>어디서</th></tr></thead>
             <tbody>
-              <tr><td class="k">자판기에서 사기 · 작물 팔기</td><td>층마다 복도에 한 대 <a href="#vend">→</a></td></tr>
+              <tr><td class="k">자판기 구매 및 판매</td><td>층마다 복도에 한 대</td></tr>
               <tr><td class="k">심부름</td><td>복도 게시판 <a href="#money">→</a></td></tr>
-              <tr><td class="k">화분 따기 · 시든 화분 치우기</td><td>1 층 정원 <a href="#money">→</a></td></tr>
-              <tr><td class="k">문제 종이 펼치고 풀기</td><td>바닥의 접힌 종이 <a href="#know">→</a></td></tr>
+              <tr><td class="k">화분 따기</td><td>1 층 정원 <a href="#money">→</a></td></tr>
+              <tr><td class="k">문제 풀기</td><td>바닥의 접힌 종이 <a href="#know">→</a></td></tr>
               <tr><td class="k">이적(둘째 날부터)</td><td>다른 분단 사람 바로 옆 <a href="#deal">→</a></td></tr>
               <tr><td class="k">덫 찾아가기 · 완성된 로봇 가져가기</td><td>기술실 · 연구실. 지난 점령전 것은 누구나</td></tr>
-              <tr><td class="k">오락실</td><td>1 층 뒷골목. 상품은 없다</td></tr>
+              <tr><td class="k">오락실</td><td>1 층 뒷골목</td></tr>
             </tbody>
           </table>
         </div>
-        <p>이것들은 <span class="when w-any">언제든</span> 된다 — 점령전 중에도, 자유 시간에도.</p>
-        <ul>
-          <li>거래, 쪽지 줍기·읽기·찢기·두기, 자물쇠·빈 종이·테이프 쓰기, 덫 놓기(복도 칸), 신뢰·호감표, 방 안 말하기, 무전.</li>
-        </ul>
-        <p class="note">자유 시간에는 <strong>깃발·로봇·연구·호출·덫 제작을 못 한다</strong>. 복도에 놓인 덫은 자유 시간에 밟아도 걸리지 않고 그대로 남는다.</p>
       </section>
 
       <!-- ─────────────────────────────── 돈 -->
@@ -501,8 +449,8 @@
 
         <h3>② 화분 → 자판기 매입구 <span class="when w-free">자유 시간</span></h3>
         <ul>
-          <li>1 층 정원에 화분 여덟 개. <strong>심는 사람은 감독관뿐</strong>이다. 흙 → 싹 → 잎 → 열매 → 시듦 순서로 자라고, 싹이 트면 무슨 작물인지 보인다. 자라는 데 얼마나 걸리는지는 아무도 모른다.</li>
-          <li>열매가 달리면 화분 옆에 서서 딴다. <strong>먼저 딴 사람이 가진다.</strong> 한 사람이 <strong>5 개까지</strong> 든다. 오래 두면 시든다.</li>
+          <li>1 층 정원에 화분 여덟 개. <strong>심는 사람은 감독관뿐</strong>이다. 흙 → 싹 → 잎 → 열매 순서로 자라고, 싹이 트면 무슨 작물인지 보인다. 자라는 데 얼마나 걸리는지는 아무도 모른다.</li>
+          <li>열매가 달리면 화분 옆에 서서 딴다. <strong>먼저 딴 사람이 가진다.</strong> 한 사람이 <strong>5 개까지</strong> 든다. 열매는 시들지 않는다.</li>
           <li>딴 작물은 자판기 <strong>매입구</strong>에 한 개씩 판다. 값은 정해져 있다.</li>
         </ul>
         <div class="scroll">
@@ -545,29 +493,9 @@
         <p>다른 분단과 거래해서 지식을 받을 수 있다. 거래 탁자에 지식을 올리면 분단 금고에서 분단 금고로 옮겨진다.</p>
       </section>
 
-      <!-- ─────────────────────────────── 자판기 -->
-      <section id="vend">
-        <h2><span class="no">05</span>자판기 <span class="when w-free">자유 시간</span></h2>
-        <p>지하·1 층·2 층 복도에 한 대씩. 기계 바로 옆 칸에 서서 <strong>내 돈</strong>으로 산다. 「오늘」 재고는 날마다 다시 찬다.</p>
-        <div class="scroll">
-          <table>
-            <thead><tr><th>물건</th><th class="n">값</th><th>하는 일</th></tr></thead>
-            <tbody>
-              <tr><td class="k">깃발</td><td class="n">10</td><td>분단 깃발 상자에 들어간다. 학교 전체에서 하루 10 개</td></tr>
-              <tr><td class="k">호루라기</td><td class="n">5</td><td><span class="when w-phase">점령전</span> 같은 분단 한 명을 내 방으로 부른다. 둘 다 10 분 묶인다</td></tr>
-              <tr><td class="k">자물쇠</td><td class="n">5</td><td>서 있는 방의 문을 <strong>1 시간</strong> 잠근다. 잠근 분단만 드나든다</td></tr>
-              <tr><td class="k">락픽</td><td class="n">8</td><td>잠긴 문에 막히면 쓸지 묻는다. 따면 누구나 드나든다</td></tr>
-              <tr><td class="k">빈 종이</td><td class="n">3</td><td>300 자까지 적어 바닥에 놓는다. 누가 썼는지는 모른다</td></tr>
-              <tr><td class="k">테이프</td><td class="n">5</td><td>찢긴 종이를 붙여 내 손에 가져온다</td></tr>
-              <tr><td class="k">지우개</td><td class="n">5</td><td>오늘 투명인간 투표에서 내 이름이 적힌 표 한 장을 지운다. 학교 전체에서 하루 3 개</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <!-- ─────────────────────────────── 만들기 -->
       <section id="make">
-        <h2><span class="no">06</span>로봇과 덫</h2>
+        <h2><span class="no">05</span>로봇과 덫</h2>
         <h3>로봇 — 연구실 <span class="when w-phase">점령전</span></h3>
         <ul>
           <li>연구 기계 옆에서 연구를 건다. <strong>분단 지식 3</strong>(연구실 주인은 1), <strong>20 분</strong>. 기계 한 대에 한 건.</li>
@@ -585,7 +513,7 @@
 
       <!-- ─────────────────────────────── 거래 -->
       <section id="deal">
-        <h2><span class="no">07</span>거래와 이적</h2>
+        <h2><span class="no">06</span>거래와 이적</h2>
         <h3>거래 <span class="when w-any">언제든</span></h3>
         <ol class="steps">
           <li><strong>상하좌우로 바로 옆 칸</strong>에 선 사람을 누르고 청한다. 복도에서도, 점령전 중에도 된다.</li>
@@ -607,7 +535,7 @@
 
       <!-- ─────────────────────────────── 쪽지 -->
       <section id="paper">
-        <h2><span class="no">08</span>바닥의 쪽지 <span class="when w-any">언제든</span></h2>
+        <h2><span class="no">07</span>바닥의 쪽지 <span class="when w-any">언제든</span></h2>
         <p>종이 바로 옆 칸에 서서 누른다. 비밀 쪽지는 봉인되어 있어서 보면 구별된다.</p>
         <div class="scroll">
           <table>
@@ -624,12 +552,12 @@
 
       <!-- ─────────────────────────────── 투표 -->
       <section id="votes">
-        <h2><span class="no">09</span>투명인간 투표 · 신뢰·호감표</h2>
+        <h2><span class="no">08</span>투명인간 투표 · 신뢰·호감표</h2>
         <h3>투명인간 투표</h3>
         <ul>
           <li>감독관이 열고 닫는다. 하루 한 번, 마지막 날에는 없다. 「투표」 탭에서 한 사람을 적고, 마감 전까지 고칠 수 있다. 나 자신과 어제의 투명인간은 못 적는다.</li>
           <li>가장 많이 받은 <strong>한 사람</strong>이 투명인간이 된다. 1 등이 둘 이상이거나 표가 없으면 아무도 안 된다. 같은 사람이 이틀 연속은 안 된다. 몇 표였는지는 끝까지 비밀이다.</li>
-          <li>투명인간은 남에게 안 보이고, <strong>맵에서도 무전(분단·전원)으로도 아무 말도 할 수 없다</strong>(듣기만 한다). 거래·이적·호출·깃발 뽑기도 못 한다. 걷기·깃발 꽂기·자판기는 된다. 그 분단은 그동안 점령전마다 토큰 +4. 감독관이 도중에 풀 수도 있다.</li>
+          <li>투명인간은 남에게 안 보이고, <strong>맵에서도 무전(분단·전원)으로도 아무 말도 할 수 없다</strong>(듣기만 한다). 거래·이적·호출·깃발 뽑기도 못 한다. 걷기·깃발 꽂기·자판기는 된다. 감독관이 도중에 풀 수도 있다.</li>
         </ul>
         <h3>신뢰표 · 호감표 <span class="when w-any">언제든</span></h3>
         <ul>
@@ -639,7 +567,7 @@
 
       <!-- ─────────────────────────────── 한눈에 -->
       <section id="when">
-        <h2><span class="no">10</span>한눈에 — 언제 무엇을</h2>
+        <h2><span class="no">09</span>한눈에 — 언제 무엇을</h2>
         <div class="scroll">
           <table>
             <thead><tr><th>행동</th><th>언제</th><th>드는 것</th></tr></thead>
@@ -660,7 +588,8 @@
               <tr><td class="k">문제 종이</td><td><span class="when w-free">자유 시간</span></td><td>없음 · 맞히면 지식 +1</td></tr>
               <tr><td class="k">이적</td><td><span class="when w-free">자유 시간</span></td><td>둘째 날부터</td></tr>
               <tr><td class="k">거래</td><td><span class="when w-any">언제든</span></td><td>없음</td></tr>
-              <tr><td class="k">쪽지 · 자물쇠 · 덫 놓기</td><td><span class="when w-any">언제든</span></td><td>걷는 중에는 안 됨</td></tr>
+              <tr><td class="k">자물쇠 걸기</td><td><span class="when w-phase">점령전</span></td><td>자물쇠 1 · 그 점령전이 끝나면 사라진다</td></tr>
+              <tr><td class="k">쪽지 · 덫 놓기</td><td><span class="when w-any">언제든</span></td><td>걷는 중에는 안 됨</td></tr>
               <tr><td class="k">신뢰·호감표</td><td><span class="when w-any">언제든</span></td><td>하루 한 장</td></tr>
               <tr><td class="k">투명인간 투표</td><td>열려 있을 때</td><td>하루 한 표</td></tr>
             </tbody>
