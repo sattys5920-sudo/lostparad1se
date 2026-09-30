@@ -686,7 +686,6 @@
 
 .sc-pl__more { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-1); }
 /* 시작 전 더보기는 둘이 한 줄이라 규칙은 한 줄을 다 쓴다 */
-.sc-pl__more .sc-pl__rules { grid-column: 1 / -1; }
 .sc-pl__more button {
   appearance: none;
   border: 1px solid var(--sc-line);

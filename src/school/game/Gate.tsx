@@ -237,11 +237,6 @@ export function Gate({ onIn }: { onIn: () => void }) {
               <button className="sc-gt__link" onMouseDown={hold} onClick={() => toMode(host || mode === 'up' ? 'in' : 'up')}>
                 {host ? '돌아가기' : mode === 'up' ? '이미 이름이 있다면' : '아직 이름이 없다면'}
               </button>
-              {!host && (
-                <a className="sc-gt__link" href="/rules.html" target="_blank" rel="noopener">
-                  규칙 읽기
-                </a>
-              )}
             </div>
 
             {/*
