@@ -989,30 +989,31 @@ describe('토큰은 팀이 한 주머니를 나눠 쓴다', () => {
 })
 
 describe('토큰 지급', () => {
-  it('팀 상자에 페이즈마다 여섯', () => {
-    expect(TOKENS_PER_PHASE).toBe(6)
-    expect(nextWallet({ held: 0 })).toBe(6)
+  it('팀 상자에 페이즈마다 여덟', () => {
+    expect(TOKENS_PER_PHASE).toBe(8)
+    expect(nextWallet({ held: 0 })).toBe(8)
   })
 
   /*
    * **인원을 안 본다.** 전에는 1인당 넷씩 주고 인원을 곱해서 4인 팀
    * 16, 3인 팀 15였다. 곱셈이 돌아오면 이 시험이 먼저 깨진다.
    */
-  it('세 명짜리 팀도 네 명짜리 팀도 똑같이 여섯', () => {
+  it('세 명짜리 팀도 네 명짜리 팀도 똑같이 여덟', () => {
     expect(nextWallet({ held: 0 })).toBe(TOKENS_PER_PHASE)
     expect(nextWallet({ held: 0 })).not.toBe(TOKENS_PER_PHASE * 4)
   })
 
-  it('**보유 최대는 12** — 남은 것에 여섯을 얹고 12 로 자른다', () => {
+  it('**보유 최대는 12** — 남은 것에 여덟을 얹고 12 로 자른다', () => {
     expect(TOKEN_CAP).toBe(12)
-    expect(nextWallet({ held: 2 })).toBe(8)
+    expect(nextWallet({ held: 2 })).toBe(10)
+    expect(nextWallet({ held: 4 })).toBe(12)
     expect(nextWallet({ held: 6 })).toBe(12)
-    expect(nextWallet({ held: 9 })).toBe(12)
     expect(nextWallet({ held: TOKEN_CAP + 5 })).toBe(TOKEN_CAP)
   })
 
-  it('상자 한도는 두 페이즈치다', () => {
-    expect(TOKEN_CAP).toBe(TOKENS_PER_PHASE * 2)
+  it('상자 한도는 지급의 두 배가 아니라 12 에 묶는다', () => {
+    expect(TOKEN_CAP).toBe(12)
+    expect(TOKEN_CAP).toBeLessThan(TOKENS_PER_PHASE * 2)
   })
 })
 

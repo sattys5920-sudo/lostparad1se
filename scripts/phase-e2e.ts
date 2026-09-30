@@ -244,12 +244,12 @@ async function main(): Promise<void> {
   console.log('\n── 토큰은 팀이 한 주머니를 나눠 쓴다 ──')
   /*
    * **첫 페이즈에는 딱 한 벌이다.** 판이 시작할 때 미리 한 벌을 넣어
-   * 두던 자리가 있었다 — 그러면 첫 페이즈가 6이 아니라 12로 열려서
-   * 「페이즈마다 여섯」이 첫 판만 두 배가 됐다. 빈 상자에서 연다.
+   * 두던 자리가 있었다 — 그러면 첫 페이즈가 8이 아니라 12로 열려서
+   * 「페이즈마다 여덟」이 첫 판만 불어났다. 빈 상자에서 연다.
    */
   const wantTokens = nextWallet({ held: 0 })
   const boxA = await boxOf('A')
-  check(boxA === TOKENS_PER_PHASE, '첫 페이즈는 딱 여섯으로 연다', `${boxA}개 (바란 값 ${wantTokens})`)
+  check(boxA === TOKENS_PER_PHASE, '첫 페이즈는 딱 여덟으로 연다', `${boxA}개 (바란 값 ${wantTokens})`)
 
   // **인원이 달라도 같다.** 곱셈이 돌아오면 여기가 갈라진다
   const boxC = await boxOf('C')
@@ -346,7 +346,7 @@ async function main(): Promise<void> {
     purse = await boxOf('A')
   }
   // **시계가 토큰보다 먼저 마른다.** 한 방에 10분이고 한 시간뿐이라,
-  // 토큰 여섯 개를 다 쓰려면 딱 한 시간이 든다 — 돌아오는 걸음까지 치면
+  // 토큰 여덟 개를 다 쓰려면 한 시간이 넘게 든다 — 돌아오는 걸음까지 치면
   // 언제나 시간이 먼저 끝난다. 토큰 바닥은 규칙 시험이 따로 본다.
   // 시간이 다 차면 페이즈가 저절로 닫히므로 「페이즈가 아니다」로 거절된다
   const broke = await call('phaseAct', a0.token, { gameId: GAME, kind: 'move', targetTile: 'centralPlaza' })
