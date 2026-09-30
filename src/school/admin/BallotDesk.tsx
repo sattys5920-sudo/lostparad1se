@@ -87,7 +87,7 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
           <input
             id="bd-why"
             aria-label="푸는 까닭"
-            placeholder="푸는 까닭(운영자 기록에만 남는다)"
+            placeholder="푸는 까닭(감독관 기록에만 남는다)"
             value={why}
             onChange={(e) => setWhy(e.target.value)}
           />

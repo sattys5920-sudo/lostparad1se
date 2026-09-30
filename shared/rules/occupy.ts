@@ -319,7 +319,7 @@ export interface PhaseState {
   /** 지금 돌고 있는 연구들. 스무 분 뒤에 그 연구실에 완성품이 놓인다. */
   pendingResearch: readonly PendingResearch[]
   /**
-   * 방마다 꽂힌 깃발. **뽑히기 전까지 남는다** — 페이즈가 바뀌어도.
+   * 방마다 꽂힌 깃발. **페이즈가 끝나면 사라진다** — 주인을 정하고 걷는다.
    * 페이즈가 끝날 때 이것과 로봇으로 주인이 정해진다.
    */
   flags: FlagMap
@@ -975,11 +975,12 @@ export function settle(state: PhaseState): SettleResult {
       vaults,
       owners,
       pendingResearch: [],
-      // 깃발은 남는다. 페이즈가 끝나도 뽑히기 전까지 그 방에 있다
-      flags: state.flags,
+      // **깃발은 페이즈가 끝나면 사라진다.** 주인은 방금 정했으니 그걸로
+      // 끝이다. 다음 페이즈는 깃발 없이 — 놓인 로봇만 남은 채로 — 시작한다
+      flags: {},
       flagBoxes: state.flagBoxes,
-      // 손댄 흔적도 깃발처럼 남는다 — 페이즈를 넘나들며 조금씩 갉아먹는다
-      flagPullHits: state.flagPullHits,
+      // 뽑다 만 흔적도 같이 사라진다. 뽑을 깃발이 없다
+      flagPullHits: {},
       smashedBy: [],
       actedBy: [],
       // 물건은 페이즈를 넘어 남는다. 산 것을 못 쓰고 잃으면 아무도 안 산다

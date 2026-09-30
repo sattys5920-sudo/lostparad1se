@@ -312,7 +312,7 @@ export function EventLog({
         />
         <select value={actor} onChange={(e) => setActor(e.target.value)} aria-label="사람">
           <option value="">모두</option>
-          <option value="운영자">운영자</option>
+          <option value="감독관">감독관</option>
           {seats.map((s) => (
             <option key={s.playerId} value={s.name}>
               {s.name}

@@ -149,7 +149,7 @@ function namer(game: GameDoc): (id: string | null | undefined) => string {
   const by = new Map(game.seats.map((s) => [s.playerId, s.name]))
   return (id) => {
     if (!id) return ''
-    if (id === HOST_UID) return '운영자'
+    if (id === HOST_UID) return '감독관'
     return by.get(id) ?? `${id.slice(0, 6)}…`
   }
 }
@@ -193,9 +193,9 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'trapCommissioned': return `${who} 덫 맡김 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.count ?? '')} 개`
     case 'lockPicked': return `${who} 자물쇠 땀${room ? ` (${room})` : ''} · ${teamName(String(d.team ?? ''))} 자물쇠`
     case 'trapTaken': return `${who} 덫 찾음 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.got ?? '')} 개`
-    case 'slipScattered': return `운영자 쪽지 뿌림 → ${room}${d.n ? ` · ${String(d.n)} 장` : ''}`
-    case 'slipPulled': return '운영자 쪽지 회수'
-    case 'memoDropped': return `운영자 메모 놓음 → ${room}`
+    case 'slipScattered': return `감독관 쪽지 뿌림 → ${room}${d.n ? ` · ${String(d.n)} 장` : ''}`
+    case 'slipPulled': return '감독관 쪽지 회수'
+    case 'memoDropped': return `감독관 메모 놓음 → ${room}`
     case 'dayPushed': return `달력 넘김 · DAY ${String(d.day ?? '')} ${String(d.kind ?? '')}`
     case 'ballotCast': return `${who} 투명인간 표 적음`
     case 'ballotOpen': return `DAY ${e.day} 투명인간 투표 열림`
@@ -358,7 +358,7 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
       day: dayOf(at),
       kind: `push:${s.kind}`,
       src: 'schedule',
-      actor: '운영자',
+      actor: '감독관',
       text: `달력 넘김 · DAY ${day} ${SCHEDULE_NAME[s.kind] ?? s.kind}${late ? ` (예정 ${hhmm(s.dueAtMs)})` : ''}`,
     })
   }

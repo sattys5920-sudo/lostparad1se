@@ -73,9 +73,9 @@ async function main(): Promise<void> {
 
   console.log('\n── 운영자만 본다 ──')
   const noList = await call('hostAccounts', plain, {}).then(() => '', (e: Error) => e.message)
-  check(noList.includes('운영자만'), '가입자가 목록을 못 편다', noList)
+  check(noList.includes('감독관만'), '가입자가 목록을 못 편다', noList)
   const noKill = await call('hostDeleteAccounts', plain, { ids: [b] }).then(() => '', (e: Error) => e.message)
-  check(noKill.includes('운영자만'), '가입자가 남을 못 지운다', noKill)
+  check(noKill.includes('감독관만'), '가입자가 남을 못 지운다', noKill)
   check(await exists(`schoolSessions/live/accounts/${b}`), '거절당한 계정은 그대로 있다')
 
   console.log('\n── 목록 ──')

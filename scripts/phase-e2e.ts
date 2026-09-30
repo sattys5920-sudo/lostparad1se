@@ -486,40 +486,46 @@ async function main(): Promise<void> {
   await must('closePhase', host, { gameId: GAME })
 
   console.log('\n── 서 있는 사람은 안 센다 ──')
-  // A 는 페이즈 1 에 미술실에 깃발 하나를 꽂았다. B 둘이 몰려가 서 있기만 한다
+  // 미술실은 페이즈 1 에서 A 방이 됐다(깃발은 그때 걷혔다). B 둘이 몰려가 서 있기만 한다
   await openWide()
   await walkTo(B[0], 'artRoom')
   await walkTo(B[1], 'artRoom')
   await must('closePhase', host, { gameId: GAME })
-  check((await ownerOfTile('artRoom')) === 'A', 'B 둘이 서 있어도 깃발 하나에 진다', String(await ownerOfTile('artRoom')))
+  check((await ownerOfTile('artRoom')) === 'A', 'B 둘이 서 있기만 해서는 A 방이 그대로다', String(await ownerOfTile('artRoom')))
 
   console.log('\n── 깃발을 더 꽂으면 가져간다 ──')
   await openWide()
   const b1 = await call('phaseAct', B[0].token, { gameId: GAME, kind: 'plant' })
   const b2 = await call('phaseAct', B[1].token, { gameId: GAME, kind: 'plant' })
-  check(b1.ok && b2.ok, '**주인 팀 깃발이 꽂힌 방에도 꽂는다**', `${b1.message ?? ''} ${b2.message ?? ''}`)
+  check(b1.ok && b2.ok, '**남의 분단 방에도 꽂는다**', `${b1.message ?? ''} ${b2.message ?? ''}`)
   await must('closePhase', host, { gameId: GAME })
-  check((await ownerOfTile('artRoom')) === 'B', 'B 둘 대 A 하나 — B 가 가져갔다', String(await ownerOfTile('artRoom')))
+  check((await ownerOfTile('artRoom')) === 'B', 'B 깃발 둘 — B 가 가져갔다', String(await ownerOfTile('artRoom')))
   const log2 = await getAll(`games/${GAME}/phaseLog`)
   check(JSON.stringify(log2).includes('captured'), '점령이 로그에 남았다')
   // 누가 어디에 꽂았는지는 로그에 안 나온다. 주인이 바뀐 것만 나온다
   check(!JSON.stringify(log2).includes('flagPlanted'), '**누가 꽂았는지는 로그에도 안 나온다**')
 
+  console.log('\n── 깃발은 페이즈가 닫히면 사라진다 ──')
+  check(Object.keys((await secretFlags()).artRoom ?? {}).length === 0, '**판정이 끝나면 꽂힌 깃발을 걷는다**', JSON.stringify((await secretFlags()).artRoom ?? {}))
+
   console.log('\n── 뽑으려면 서로 다른 두 사람이 손대야 한다 ──')
-  // 미술실: B 깃발 둘, A 깃발 하나. A 둘이 가서 B 깃발 하나를 뽑는다
+  // 미술실: B 가 깃발 둘을 새로 꽂는다. A 둘이 가서 B 깃발 하나를 뽑는다
   await openWide()
+  await must('phaseAct', B[0].token, { gameId: GAME, kind: 'plant' })
+  await must('phaseAct', B[1].token, { gameId: GAME, kind: 'plant' })
   await walkTo(A[1], 'artRoom')
   await walkTo(a0, 'artRoom')
   const bFlagsBefore = (await secretFlags()).artRoom?.B ?? 0
   const tokensBeforePull = await boxOf('A')
   await must('phaseAct', A[1].token, { gameId: GAME, kind: 'pull', targetTeam: 'B' })
-  check((await boxOf('A')) === tokensBeforePull - ACT_COST.pull, `손댈 때마다 토큰 ${ACT_COST.pull}개가 든다`)
+  check((await boxOf('A')) === tokensBeforePull - ACT_COST.pull, `인원마다 토큰 ${ACT_COST.pull} 개가 든다`)
   const again = await call('phaseAct', A[1].token, { gameId: GAME, kind: 'pull', targetTeam: 'B' })
   check(again.code === 'FAILED_PRECONDITION' && String(again.message).includes('이미 이 깃발에 손을 댔다'), '같은 사람이 두 번 손대는 것으로는 안 뽑힌다', again.message)
   const done = await must('phaseAct', a0.token, { gameId: GAME, kind: 'pull', targetTeam: 'B' })
   const bFlagsAfter = (await secretFlags()).artRoom?.B ?? 0
   check(String(done.kind) === 'pull' && bFlagsAfter === bFlagsBefore - 1, '다른 사람이 마저 손대면 하나가 뽑힌다', `B ${bFlagsBefore} → ${bFlagsAfter}`)
-  // 깃발만으로는 B 1 대 A 1 — 동점이면 주인(B)이 그대로다. **놓인** A 로봇 한 기를 더한다
+  // B 깃발 1 대 A 0 — 이대로면 B 가 지킨다. A 가 깃발 하나를 꽂고 **놓인** A 로봇 한 기를 더한다
+  await must('phaseAct', a0.token, { gameId: GAME, kind: 'plant' })
   await fetch(`${FS}/games/${GAME}/robots/bot-e2e-a?`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
@@ -529,15 +535,18 @@ async function main(): Promise<void> {
   // A 깃발 1 + 놓인 로봇 1 = 2 대 B 깃발 1
   check((await ownerOfTile('artRoom')) === 'A', '하나 뽑고 놓인 로봇까지 세어 A 가 되찾았다', String(await ownerOfTile('artRoom')))
 
-  console.log('\n── 깃발은 남는다 ──')
-  // 다들 떠나도 꽂힌 깃발과 두고 간 로봇은 그 방에 있다
+  console.log('\n── 깃발은 사라지고 로봇은 남는다 ──')
+  check(Object.keys((await secretFlags()).artRoom ?? {}).length === 0, '깃발은 걷혔다', JSON.stringify((await secretFlags()).artRoom ?? {}))
+  const bot = await fetch(`${FS}/games/${GAME}/robots/bot-e2e-a`, { headers: ADMIN }).then((r) => r.json())
+  check(bot?.fields?.tileId?.stringValue === 'artRoom', '**놓인 로봇은 그 방에 그대로 있다**', JSON.stringify(bot?.fields?.tileId ?? bot?.error ?? null))
+  // 다들 떠나도 두고 간 로봇은 그 방에 있다
   await openWide()
   await walkTo(a0, 'musicRoom')
   await walkTo(A[1], 'musicRoom')
   await walkTo(B[0], 'scienceRoom')
   await walkTo(B[1], 'scienceRoom')
   await must('closePhase', host, { gameId: GAME })
-  check((await ownerOfTile('artRoom')) === 'A', '**아무도 없어도 주인이 그대로다** — 깃발이 남아 있다', String(await ownerOfTile('artRoom')))
+  check((await ownerOfTile('artRoom')) === 'A', '**아무도 없어도 주인이 그대로다** — 로봇이 남아 있다', String(await ownerOfTile('artRoom')))
 
   console.log('\n── 좁은 방은 둘까지 ──')
   const narrow = Object.entries(ROOM_KIND).find(([, k]) => k === 'narrow')?.[0] as string
@@ -547,7 +556,7 @@ async function main(): Promise<void> {
   const shut = await call('phaseAct', a0.token, { gameId: GAME, kind: 'plant' })
   check(shut.code === 'FAILED_PRECONDITION', '닫힌 뒤에는 못 한다', shut.message)
   const notHost = await call('openPhase', a0.token, { gameId: GAME })
-  check(notHost.code === 'PERMISSION_DENIED', '운영자만 페이즈를 연다')
+  check(notHost.code === 'PERMISSION_DENIED', '감독관만 페이즈를 연다')
 
   console.log(failures === 0 ? '\n전부 통과.' : `\n${failures}개 실패.`)
   process.exit(failures === 0 ? 0 : 1)

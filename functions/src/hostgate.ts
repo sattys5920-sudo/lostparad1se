@@ -61,7 +61,7 @@ export const hostEnter = onCall<{ code: string }>(async (req) => {
 
   // 코드가 안 심겼는데 아무나 통과시키면 최악이다. 차라리 아무도 못 들어간다
   if (want.length < HOST_GATE_MIN_CODE) {
-    throw new HttpsError('failed-precondition', '운영자 코드가 서버에 없다. 배포 설정을 확인해야 한다.')
+    throw new HttpsError('failed-precondition', '감독관 코드가 서버에 없다. 배포 설정을 확인해야 한다.')
   }
 
   const now = Date.now()

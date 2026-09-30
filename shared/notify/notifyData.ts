@@ -26,7 +26,7 @@ export const NOTIFY_HINT: Record<NotifyType, string> = {
   phaseStart: '페이즈가 열리면. 모두에게 간다.',
   phaseEnd: '페이즈가 닫히면. 결과는 안 싣는다.',
   made: '내가 맡긴 연구 · 덫이 다 되면.',
-  notice: '운영자가 공지를 올리면. 「새 공지」만 간다.',
+  notice: '감독관이 공지를 올리면. 「새 공지」만 간다.',
 }
 
 export const MODE_LABEL: Record<NotifyMode, string> = {

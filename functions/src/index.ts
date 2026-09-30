@@ -67,7 +67,7 @@ export const setDevClock = onCall<{ gameId: string; anchorGameMs: number; speed:
   async (req) => {
     const uid = requireUid(req.auth)
     if (req.auth?.token?.admin !== true) {
-      throw new HttpsError('permission-denied', '운영자만 시계를 만질 수 있다.')
+      throw new HttpsError('permission-denied', '감독관만 시계를 만질 수 있다.')
     }
     const { gameId, anchorGameMs, speed } = req.data
     if (!Number.isFinite(speed) || speed < DEV_CLOCK_SPEED_MIN || speed > DEV_CLOCK_SPEED_MAX) {

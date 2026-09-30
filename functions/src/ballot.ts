@@ -282,7 +282,7 @@ export async function ballotDays(gameId: string): Promise<BallotDayDoc[]> {
  */
 export const clearInvisible = onCall<{ gameId: string; reason: string }>(async (req) => {
   const uid = requireUid(req.auth)
-  if (req.auth?.token?.admin !== true) throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
+  if (req.auth?.token?.admin !== true) throw new HttpsError('permission-denied', '감독관만 할 수 있다.')
   const { gameId, reason } = req.data
   if (typeof reason !== 'string' || reason.trim() === '') {
     throw new HttpsError('invalid-argument', '사유를 적어야 한다.')
@@ -309,7 +309,7 @@ export const clearInvisible = onCall<{ gameId: string; reason: string }>(async (
   // 본인에게만 알린다. 사유는 싣지 않는다 — 운영자 기록에만 남는다
   batch.set(ref.collection('notices').doc(), {
     toPlayerId: who,
-    text: '이제 다시 보인다. 운영자가 투명을 풀었다.',
+    text: '이제 다시 보인다. 감독관이 투명을 풀었다.',
     atMs: nowMs,
     byId: uid,
   })

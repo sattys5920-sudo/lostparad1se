@@ -27,7 +27,7 @@ export const HOST_UID = 'host'
 export function requireHost(auth: { uid?: string; token?: Record<string, unknown> } | undefined): string {
   if (!auth?.uid) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
   if (auth.token?.admin !== true) {
-    throw new HttpsError('permission-denied', '운영자만 할 수 있다.')
+    throw new HttpsError('permission-denied', '감독관만 할 수 있다.')
   }
   return auth.uid
 }

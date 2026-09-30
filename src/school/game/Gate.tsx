@@ -254,7 +254,7 @@ export function Gate({ onIn }: { onIn: () => void }) {
               코드다. 두드리기도 그대로 남겨 둔다.
             */}
             <div className="sc-gt__sign">
-              <button className="sc-gt__vend" onMouseDown={hold} onClick={openHost} aria-label="운영자로 들어가기">
+              <button className="sc-gt__vend" onMouseDown={hold} onClick={openHost} aria-label="감독관으로 들어가기">
                 <img src={vendingStamp()} alt="" />
               </button>
               <p className="sc-gt__foot">왜인지는 적지 않아도 됩니다</p>

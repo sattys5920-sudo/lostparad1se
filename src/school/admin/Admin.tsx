@@ -236,7 +236,7 @@ function Desk() {
         )}
 
         {running && (
-          <nav className="sc-ad__tabs" aria-label="운영자 탭">
+          <nav className="sc-ad__tabs" aria-label="감독관 탭">
             {(
               [
                 ['go', '진행'],

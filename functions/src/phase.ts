@@ -871,7 +871,7 @@ export const phaseNow = onCall<{ gameId: string }>(async (req) => {
  * 페이즈를 닫는다. **꽂힌 깃발과 로봇으로 주인을 정한다.**
  *
  * 행동은 이미 그때그때 처리됐다. 여기서 하는 일은 깃발을 세는 것뿐이다.
- * 깃발은 그대로 남는다 — 뽑히기 전까지 다음 페이즈에도 그 방에 있다.
+ * 깃발은 판정이 끝나면 걷는다. 로봇은 그대로 남는다.
  *
  * 판정은 shared/rules/occupy.ts 의 순수 함수가 한다. 여기서는 재료를
  * 모아 주고 결과를 적기만 한다 — 규칙이 서버 안에 흩어지면 시험할 수 없다.
@@ -932,6 +932,9 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   // 불발된 연구는 지식을 못 돌려받는다 — vaults 는 그대로 옮겨 적을 뿐이다
   writeVaults(batch, ref, state.vaults, out.next.vaults)
   writeSatchels(batch, ref, state.satchels, out.next.satchels)
+
+  // **꽂힌 깃발은 판정이 끝나면 걷는다.** 로봇은 남는다(아래에서 그대로 옮겨 적는다)
+  batch.set(flagsOf(gameId), { tiles: out.next.flags, pulls: out.next.flagPullHits })
 
   const had = await robotsOf(gameId).get()
   for (const d of had.docs) batch.delete(d.ref)

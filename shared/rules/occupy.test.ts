@@ -351,12 +351,19 @@ describe('깃발 꽂기', () => {
     expect(doAct(s, 'a', { kind: 'plant' }).ok).toBe(true)
   })
 
-  it('**꽂은 깃발은 페이즈가 닫혀도 남는다**', () => {
+  it('**꽂은 깃발은 페이즈가 닫히면 사라진다** — 주인은 판정대로 남는다', () => {
     const s = must(board({ people: [person('a', 'A', 'library')] }), 'a', { kind: 'plant' })
     const done = settle(s).next
-    expect(done.flags.library?.A).toBe(1)
-    // 다음 페이즈에 아무도 안 서 있어도 그대로다
+    expect(done.owners.library).toBe('A')
+    expect(done.flags).toEqual({})
+    // 다음 페이즈에 아무것도 없으면 전 주인이 그대로다
     expect(settle({ ...done, people: [] }).next.owners.library).toBe('A')
+  })
+
+  it('놓인 로봇은 페이즈가 닫혀도 남는다', () => {
+    const s = board({ people: [person('a', 'A', 'library')], robots: [robot('r1', 'A', 'library')] })
+    const done = settle(s).next
+    expect(done.robots.map((r) => r.id)).toEqual(['r1'])
   })
 })
 
@@ -407,11 +414,11 @@ describe('깃발 뽑기 — 서로 다른 두 사람이 손대야 한다', () =>
     expect(doAct(s, 'a', { kind: 'pull' }).ok).toBe(true)
   })
 
-  it('**페이즈당 횟수 한도는 없다** — 페이즈가 넘어가도 진행이 이어진다', () => {
+  it('뽑다 만 것은 페이즈가 닫히면 같이 사라진다 — 깃발도 없다', () => {
     let s = must(withTwo(), 'a', { kind: 'pull' })
     s = settle(s).next
-    s = must(s, 'a2', { kind: 'pull' })
-    expect(s.flags.library?.B).toBe(1)
+    expect(s.flagPullHits).toEqual({})
+    expect(s.flags).toEqual({})
   })
 
   it('팀을 골라 뽑는다', () => {
