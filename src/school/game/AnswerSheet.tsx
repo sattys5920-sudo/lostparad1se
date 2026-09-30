@@ -84,7 +84,7 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
         <header className="sc-ans__head">
           <p className="sc-ans__eyebrow">2 - 3 교실 · 마지막 시험</p>
           <h2>답 안 지</h2>
-          <p className="sc-ans__lead">열넷의 역할을 적는다. 한 문항에 {Math.round(1000 / seats.length) / 10} 점.</p>
+          <p className="sc-ans__lead">열넷의 역할을 적는다.</p>
         </header>
         <ol className="sc-ans__list">
           {seats.map((s, i) => (
