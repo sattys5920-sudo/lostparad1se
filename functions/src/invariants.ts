@@ -13,7 +13,7 @@ import { canStandAt, roomOfCell, TILE_BY_ID, type Cell, type TileId } from '../.
 import { isBlockedCell } from '../../shared/rules/blocked'
 import { isFixture } from '../../shared/rules/fixtures'
 import { TEAMS } from '../../shared/rules/lobby'
-import { ROBOTS_PER_ROOM, ROBOTS_PER_TEAM, type Robot } from '../../shared/rules/occupy'
+import { MAX_CARRIED_ROBOTS, type Robot } from '../../shared/rules/occupy'
 import { RESOURCES } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc, TeamDoc, TileDoc } from '../../shared/model'
 import { requireHost } from './host'
@@ -31,8 +31,7 @@ export type ViolationKind =
   | 'tokensNegative'
   | 'cellShared'
   | 'cellBlocked'
-  | 'robotsOverTeam'
-  | 'robotsOverRoom'
+  | 'robotsOverHands'
   | 'slipCountMismatch'
   | 'tileOwnerBad'
 
@@ -53,8 +52,7 @@ export const VIOLATION_LABEL: Record<ViolationKind, string> = {
   tokensNegative: '토큰 상자가 음수다',
   cellShared: '한 칸에 둘이 섰다',
   cellBlocked: '설 수 없는 칸에 섰다',
-  robotsOverTeam: '분단 로봇이 한도를 넘었다',
-  robotsOverRoom: '방 로봇이 한도를 넘었다',
+  robotsOverHands: '한 사람이 든 로봇이 한도를 넘었다',
   slipCountMismatch: '쪽지 수가 어긋났다',
   tileOwnerBad: '방 주인이 이상하다',
 }
@@ -142,17 +140,13 @@ export async function checkInvariants(gameId: string, nowMs: number): Promise<Vi
     if ((t.phaseTokens ?? 0) < 0) bad('tokensNegative', `${teamName(d.id)} phaseTokens = ${t.phaseTokens}`)
   }
 
-  // ── 로봇 — 팀 한도 · 방 한도 ──
-  const byTeam = new Map<string, number>()
-  const byRoom = new Map<string, number>()
+  // ── 로봇 — 한도는 한 사람이 드는 수 하나뿐이다(방 · 분단 한도는 없다) ──
+  const byHands = new Map<string, number>()
   for (const d of robots.docs) {
     const r = d.data() as Robot
-    byTeam.set(r.team, (byTeam.get(r.team) ?? 0) + 1)
-    // 방 한도는 **놓인 것만** 먹는다. 든 로봇은 가방 속이다
-    if (r.tileId && !r.carriedBy) byRoom.set(r.tileId, (byRoom.get(r.tileId) ?? 0) + 1)
+    if (r.carriedBy) byHands.set(r.carriedBy, (byHands.get(r.carriedBy) ?? 0) + 1)
   }
-  for (const [team, n] of byTeam) if (n > ROBOTS_PER_TEAM) bad('robotsOverTeam', `${teamName(team)} 로봇 ${n} > ${ROBOTS_PER_TEAM}`)
-  for (const [tile, n] of byRoom) if (n > ROBOTS_PER_ROOM) bad('robotsOverRoom', `${roomName(tile)} 로봇 ${n} > ${ROBOTS_PER_ROOM}`)
+  for (const [who, n] of byHands) if (n > MAX_CARRIED_ROBOTS) bad('robotsOverHands', `${who} 로봇 ${n} > ${MAX_CARRIED_ROBOTS}`)
 
   // ── 쪽지 — 든 것 + 바닥 + 찢긴 것 = 기대값 ──
   const expected = (qa.data() as { expectedSlips?: number } | undefined)?.expectedSlips

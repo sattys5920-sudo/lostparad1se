@@ -218,7 +218,8 @@ async function main(): Promise<void> {
 
   console.log('\n── 찢기 ──')
   await must('takeSlip', reader.token, { gameId: GAME, slipId: n1.slipId })
-  await must('tearSlip', reader.token, { gameId: GAME, slipId: n1.slipId })
+  await must('dropSlip', reader.token, { gameId: GAME, slipId: n1.slipId })
+  await must('tearSlipHere', reader.token, { gameId: GAME, slipId: n1.slipId })
   check((await noteOf(host, N1)).state === 'torn', '운영자 화면: 찢김')
   const d3 = await slipDoc(n1.slipId as string)
   // 찢긴 종이는 발밑 옆 바닥에 남는다 — 맵에 그려지고 테이프로 붙인다

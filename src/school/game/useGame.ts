@@ -298,7 +298,6 @@ export function gameActions(gameId: string) {
     takeSlip: (slipId: string) => callServer('takeSlip', { ...g, slipId }),
     readSlip: (slipId: string) => callServer('readSlip', { ...g, slipId }),
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
-    tearSlip: (slipId: string) => callServer('tearSlip', { ...g, slipId }),
     /** 바닥의 메모를 그 자리에서 읽는다 — 줍지 않는다. 글은 응답으로만 온다 */
     readSlipHere: (slipId: string) =>
       callServer('readSlipHere', { ...g, slipId }) as Promise<{ line?: string; whose?: string | null }>,

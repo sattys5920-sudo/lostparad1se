@@ -34,7 +34,7 @@ import {
 } from '../../shared/rules/deal'
 import { ITEM_KINDS, type Satchel } from '../../shared/rules/items'
 import { CROPS } from '../../shared/rules/crop'
-import { MAX_CARRIED_ROBOTS, ROBOTS_PER_TEAM } from '../../shared/rules/occupy'
+import { MAX_CARRIED_ROBOTS } from '../../shared/rules/occupy'
 import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
 import type { GameDoc, PawnDoc, TeamDoc } from '../../shared/model'
@@ -370,15 +370,13 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
    * 넘어오면 팀 한도도 본다. 넘치면 성립하지 않고 탁자로 돌아간다
    */
   if (aBots.length > 0 || bBots.length > 0) {
-    const [aHeld, bHeld, aTeamBots, bTeamBots] = await Promise.all([
+    const [aHeld, bHeld] = await Promise.all([
       ref.collection('robots').where('carriedBy', '==', seen.aId).get(),
       ref.collection('robots').where('carriedBy', '==', seen.bId).get(),
-      ref.collection('robots').where('team', '==', a.team).get(),
-      ref.collection('robots').where('team', '==', b.team).get(),
     ])
-    const caps = { sameTeam: a.team === b.team, carryCap: MAX_CARRIED_ROBOTS, teamCap: ROBOTS_PER_TEAM }
-    const aNo = robotSwapNo({ ...caps, carried: aHeld.size, gives: aBots.length, gets: bBots.length, teamRobots: aTeamBots.size })
-    const bNo = robotSwapNo({ ...caps, carried: bHeld.size, gives: bBots.length, gets: aBots.length, teamRobots: bTeamBots.size })
+    const caps = { carryCap: MAX_CARRIED_ROBOTS }
+    const aNo = robotSwapNo({ ...caps, carried: aHeld.size, gives: aBots.length, gets: bBots.length })
+    const bNo = robotSwapNo({ ...caps, carried: bHeld.size, gives: bBots.length, gets: aBots.length })
     const no = aNo ?? bNo
     if (no) {
       // 탁자는 둘이 같이 본다 — 누구 쪽인지 대지 않고 까닭만 적는다

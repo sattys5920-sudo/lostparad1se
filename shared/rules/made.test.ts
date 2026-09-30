@@ -12,8 +12,6 @@ const ok = (over: Partial<TakeInput> = {}): TakeInput => ({
   mine: true,
   here: LAB,
   tileId: LAB,
-  teamRobots: 0,
-  teamCap: 6,
   carried: 0,
   carryCap: 2,
   ...over,
@@ -49,7 +47,6 @@ describe('완성품을 가져간다', () => {
   })
 
   it('한도에 걸리면 못 가져간다', () => {
-    expect(whyNotTake(ok({ teamRobots: 6 }))).toBe('teamFull')
     expect(whyNotTake(ok({ carried: 2 }))).toBe('handsFull')
   })
 })

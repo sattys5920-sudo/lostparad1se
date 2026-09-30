@@ -348,8 +348,10 @@ export interface PawnDoc {
   hiddenUntilMs?: GameMs
   /** 오늘 쓴 토큰. 08:00에 0으로. */
   tokensUsedToday: number
-  /** 오늘 표를 던졌는가. */
+  /** 오늘 표를 던졌는가(옛 판). 지금은 votedKinds 를 본다. */
   votedToday: boolean
+  /** **오늘 준 표의 종류.** 신뢰표 한 장, 호감표 한 장 — 종류마다 하루 한 장이다. 자정에 비운다 */
+  votedKinds?: string[]
   /** 정보부장이 오늘 보낸 사람을 들여다본 횟수. */
   peeksToday: number
 }
@@ -618,6 +620,8 @@ export interface PlayerViewDoc {
     prompt: string | null
     choices: string[]
     iFailed: boolean
+    /** 남이 먼저 맞혔는가 — 「누군가가 해결한 문제다」 */
+    solvedByOther?: boolean
   }[]
   /** 내가 가 본 방. 지도가 채워지는 것은 개인의 기록이다. */
   visitedTiles: TileId[]

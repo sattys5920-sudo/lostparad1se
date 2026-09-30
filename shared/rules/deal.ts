@@ -157,15 +157,12 @@ export const SHORT_MESSAGE: Record<StakeRefusal, string> = {
 /**
  * 로봇이 오가고 나서 **받는 쪽이 한도를 넘는가.** 넘으면 그 이유, 아니면 null.
  *
- * 받은 로봇은 손에 든다 — 한 사람이 드는 한도(carryCap)를 본다. 다른 팀에서
- * 넘어오면 그 팀 머릿수가 늘어나니 팀 한도(teamCap)도 본다. 같은 팀끼리는
- * 팀 수가 그대로다.
+ * 받은 로봇은 손에 든다 — 한 사람이 드는 한도(carryCap)만 본다. 분단 한도는 없다.
  */
-export type RobotSwapNo = 'handsFull' | 'teamFull'
+export type RobotSwapNo = 'handsFull'
 
 export const ROBOT_SWAP_MESSAGE: Record<RobotSwapNo, string> = {
   handsFull: '로봇은 두 기까지 든다 — 하나를 놓고 와야 받는다.',
-  teamFull: '받는 분단은 로봇을 더 가질 수 없다.',
 }
 
 export function robotSwapNo(a: {
@@ -175,15 +172,10 @@ export function robotSwapNo(a: {
   gives: number
   /** 받는 사람이 받는 수 */
   gets: number
-  /** 받는 사람 팀의 로봇 수(든 것·놓인 것 모두) */
-  teamRobots: number
-  sameTeam: boolean
   carryCap: number
-  teamCap: number
 }): RobotSwapNo | null {
   if (a.gets <= 0) return null
   if (a.carried - a.gives + a.gets > a.carryCap) return 'handsFull'
-  if (!a.sameTeam && a.teamRobots - a.gives + a.gets > a.teamCap) return 'teamFull'
   return null
 }
 

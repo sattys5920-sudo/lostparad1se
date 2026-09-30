@@ -62,7 +62,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
   return (
     <div className="sc-qz">
       <h2>
-        들고 있는 문제 <span>{papers.length} 장</span>
+        들고 있는 문제 <span>{papers.filter((q) => !q.solvedByOther).length} 장</span>
       </h2>
       <ul className="sc-qz__list">
         {papers.map((q) => (
@@ -76,9 +76,10 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
               <img className="sc-qz__pic" src={goodIcon('quizOpen')} alt="" width={24} height={24} />
               <p className="sc-qz__prompt">{q.prompt}</p>
             </div>
-            {q.iFailed && <p className="sc-qz__warn">한 번 틀렸다. 이 문제는 다시 못 푼다.</p>}
+            {q.solvedByOther && <p className="sc-qz__warn">누군가가 해결한 문제다.</p>}
+            {!q.solvedByOther && q.iFailed && <p className="sc-qz__warn">한 번 틀렸다. 이 문제는 다시 못 푼다.</p>}
 
-            {!q.iFailed && (
+            {!q.solvedByOther && !q.iFailed && (
               <div className="sc-qz__short">
                 <input
                   id={`quiz-${q.id}`}

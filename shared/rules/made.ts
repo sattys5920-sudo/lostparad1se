@@ -36,13 +36,12 @@ export interface MadeDoc {
 export const onlyMakerNow = (openPhaseNo: number | null, madePhaseNo: number | undefined): boolean =>
   openPhaseNo !== null && madePhaseNo !== undefined && openPhaseNo === madePhaseNo
 
-export type MadeNo = 'notYours' | 'walking' | 'elsewhere' | 'teamFull' | 'handsFull'
+export type MadeNo = 'notYours' | 'walking' | 'elsewhere' | 'handsFull'
 
 export const MADE_NO: Record<MadeNo, string> = {
   notYours: '페이즈 동안에는 연구한 사람만 가져간다',
   walking: '걷는 중이다 — 도착해야 가져간다',
   elsewhere: '그 방에 있어야 가져간다',
-  teamFull: '로봇을 더 가질 수 없다',
   handsFull: '로봇은 두 기까지 든다 — 하나를 놓고 와야 가져간다',
 }
 
@@ -57,10 +56,6 @@ export interface TakeInput {
   here: TileId | null
   /** 완성품이 놓인 방. */
   tileId: TileId
-  /** 그 사람 팀이 지금 가진 로봇 수. */
-  teamRobots: number
-  /** 팀당 한도. */
-  teamCap: number
   /** 그 사람이 지금 들고 있는 로봇 수. **가져간 것은 손에 든다** — 방 한도가 아니라 이것을 본다 */
   carried: number
   /** 한 사람이 드는 한도. */
@@ -76,7 +71,6 @@ export function whyNotTake(a: TakeInput): MadeNo | null {
   if (!a.mine && onlyMakerNow(a.openPhaseNo, a.madePhaseNo)) return 'notYours'
   if (a.here === null) return 'walking'
   if (a.here !== a.tileId) return 'elsewhere'
-  if (a.teamRobots >= a.teamCap) return 'teamFull'
   if (a.carried >= a.carryCap) return 'handsFull'
   return null
 }

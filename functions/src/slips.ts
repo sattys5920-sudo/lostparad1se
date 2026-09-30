@@ -223,58 +223,8 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   return { tileId: here }
 })
 
-/** 찢는다. 찢긴 종이가 발밑 옆에 남는다 — 테이프를 가진 누군가가 붙이면 다시 쪽지가 된다. */
-export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId } = req.data
-  const slipId = docId(req.data.slipId, NO_SLIP)
-  const { nowMs } = await freshNow(gameId)
-  // **선 자리를 적어야 조각이 남는다.** 줍기·두기·건네기가 모두
-  // 서 있기를 요구하는데 찢기만 걷는 중에도 됐다 — 여기서 맞춘다
-  const self = await me(gameId, uid)
-  const here = self.tileId
-  if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
-  // 조각이 떨어질 칸 — 발밑 옆. 둘레가 다 차 있으면 칸 없이 방에 남는다(맵은 그 방 한 칸에 그린다)
-  const scrapCell = self.at ? dropCellNear(self.at, await takenCells(gameId)) : null
-  let subject = ''
-  let isNote = false
-  await db.runTransaction(async (tx) => {
-    const ref = slipsOf(gameId).doc(slipId)
-    const snap = await tx.get(ref)
-    if (!snap.exists) throw new HttpsError('not-found', '그런 쪽지가 없다.')
-    if ((snap.data() as SlipDoc).heldBy !== uid) {
-      throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
-    }
-    // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다.
-    // 찢긴 종이는 발밑 옆 칸에 남는다 — tileId 는 비운다(바닥의 「한 장」에
-    // 안 세야 한다). 조각은 tornAt 으로 따로 센다
-    // 비밀 쪽지(56장)도 같다 — 테이프로 붙이면 다시 쪽지가 된다
-    isNote = Boolean((snap.data() as SlipDoc).noteId)
-    tx.update(ref, {
-      tileId: null,
-      heldBy: null,
-      tornBy: uid,
-      tornAt: here,
-      // 손에서 찢은 종이는 **발밑 옆 바닥에 찢긴 채로** 떨어진다 — 맵에 그려진다.
-      // 비밀 쪽지(56장)도 조각은 남는다. 다만 테이프로는 못 붙인다(use.ts)
-      x: scrapCell?.x ?? null,
-      y: scrapCell?.y ?? null,
-      atMs: nowMs,
-    })
-    subject = (snap.data() as SlipDoc).subjectId
-  })
-  // **누구의 쪽지를 찢었는지가 판정의 전부다.** 미화부의 「내 비밀이
-  // 적힌 쪽지를 찾아 찢는다」가 ownerId 로 갈린다. **손으로 쓴 빈
-  // 종이는 안 센다** — 개인 미션은 운영자가 놓은 쪽지(56장) 몫이다
-  if (isNote) {
-    await note(gameId, 'slipTear', nowMs, { id: uid, team: (await me(gameId, uid)).team }, {
-      subjectId: slipId,
-      ownerId: subject,
-    })
-  }
-  await refreshViews(gameId)
-  return { torn: true }
-})
+// **손에 든 쪽지는 못 찢는다.** 찢는 것은 바닥에서만 한다(tearSlipHere) —
+// 찢긴 종이가 그 자리에 남아야 테이프로 되살리는 일이 뜻을 갖는다.
 
 /**
  * 바닥의 쪽지를 **그 자리에서 읽는다.** 줍지 않는다 — 읽고 나면 그대로

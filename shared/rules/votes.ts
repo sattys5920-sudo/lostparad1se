@@ -30,12 +30,12 @@ export interface CastInput {
   voterTeam: TeamId
   targetId: string
   targetTeam: TeamId
-  /** 오늘 이미 던졌는가. */
+  /** 오늘 **이 종류의 표를** 이미 던졌는가. 종류마다 하루 한 장이다. */
   votedToday: boolean
 }
 
 /**
- * 던질 수 있는가. 하루 한 장, 시간 제한은 없다.
+ * 던질 수 있는가. **종류마다 하루 한 장** — 신뢰표 한 장, 호감표 한 장. 시간 제한은 없다.
  *
  * **하루 종일 던질 수 있다.** 갱신은 자정 기준으로만 돈다(catchup.ts의
  * dayStart) — 언제 던졌든 하루에 한 장이라는 값만 지킨다.

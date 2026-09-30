@@ -15,7 +15,7 @@ import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { START_TILE, TILE_IDS, canRoamTo } from '../shared/rules/board'
 import { ENTRY_CELLS, isBlockedCell } from '../shared/rules/blocked'
 import { dropCellsIn } from '../shared/rules/quiz'
-import { ROBOTS_PER_ROOM, ROBOTS_PER_TEAM } from '../shared/rules/occupy'
+import { MAX_CARRIED_ROBOTS } from '../shared/rules/occupy'
 import { dayHourMs } from '../shared/rules/clock'
 
 const PROJECT = 'demo-goei'
@@ -175,14 +175,10 @@ async function main(): Promise<void> {
   await breakOne('토큰 음수', 'tokensNegative',
     () => patch('teams/B', { phaseTokens: -2 }),
     () => patch('teams/B', { phaseTokens: tokens }))
-  // 로봇 — 팀 한도는 방마다 하나씩 흩어 두고(방 한도에 안 걸리게), 방 한도는 한 방에 몰아서
-  const rooms = TILE_IDS.slice(0, ROBOTS_PER_TEAM + 1)
-  await breakOne('팀 로봇 초과', 'robotsOverTeam',
-    async () => { for (let i = 0; i < rooms.length; i++) await create('robots', `qr${i}`, { id: `qr${i}`, team: 'C', tileId: rooms[i], carriedBy: null }) },
-    async () => { for (let i = 0; i < rooms.length; i++) await remove(`robots/qr${i}`) })
-  await breakOne('방 로봇 초과', 'robotsOverRoom',
-    async () => { for (let i = 0; i <= ROBOTS_PER_ROOM; i++) await create('robots', `qs${i}`, { id: `qs${i}`, team: 'D', tileId: other, carriedBy: null }) },
-    async () => { for (let i = 0; i <= ROBOTS_PER_ROOM; i++) await remove(`robots/qs${i}`) })
+  // 로봇 — 한도는 한 사람이 드는 수 하나뿐이다. 한 사람 손에 하나 더 쥐여 본다
+  await breakOne('든 로봇 초과', 'robotsOverHands',
+    async () => { for (let i = 0; i <= MAX_CARRIED_ROBOTS; i++) await create('robots', `qs${i}`, { id: `qs${i}`, team: 'D', tileId: other, carriedBy: 'qa-hands' }) },
+    async () => { for (let i = 0; i <= MAX_CARRIED_ROBOTS; i++) await remove(`robots/qs${i}`) })
   const owner = (await read(`tiles/${other}`)).ownerTeam as string | null
   await breakOne('방 주인이 Z', 'tileOwnerBad',
     () => patch(`tiles/${other}`, { ownerTeam: 'Z' }),
@@ -206,10 +202,10 @@ async function main(): Promise<void> {
 
   console.log('\n── 기록 ──')
   const hist = (await inv()).history
-  check(hist.length === 10, '어긋남 열 건이 남았다', String(hist.length))
+  check(hist.length === 9, '어긋남 아홉 건이 남았다', String(hist.length))
   check(hist.every((v) => v.lastEvent !== null && typeof v.lastEvent.text === 'string'), '건마다 직전 로그 한 줄이 붙어 있다')
   const kindsSeen = new Set(hist.map((v) => v.kind))
-  check(kindsSeen.size === 10, '열 종류가 다 다르다', [...kindsSeen].join(','))
+  check(kindsSeen.size === 9, '아홉 종류가 다 다르다', [...kindsSeen].join(','))
 
   console.log('\n── 참가자는 못 부른다 ──')
   check((await call('hostInvariants', a.token, { gameId: GAME })).code === 'PERMISSION_DENIED', 'hostInvariants')

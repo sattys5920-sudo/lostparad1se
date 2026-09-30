@@ -542,6 +542,8 @@ export interface View {
     choices: string[]
     /** 내가 이미 틀렸는가. 남이 틀렸는지는 안 온다. */
     iFailed: boolean
+    /** 남이 먼저 맞혔는가. 누가 맞혔는지는 안 온다. */
+    solvedByOther: boolean
   }[]
   memories: { tileId: TileId; team: TeamId; atMs: number }[]
   sightAtMs: number | null
@@ -942,11 +944,11 @@ export function projectView(world: World, viewerId: string): View {
      * **내가 든 것만 문장이 온다.**
      *
      * 펼쳐 본 것이 뜬다. 종이는 누가 맞힐 때까지 바닥에 남는다.
-     * 푼 종이는 목록에서 빠진다 — 손에서 사라지는 것이 「끝났다」의
-     * 표시다. 남이 먼저 맞혀서 끝난 것도 그렇게 사라진다
+     * 내가 맞힌 종이는 목록에서 빠진다. **남이 먼저 맞힌 것은 남는다** —
+     * 「누군가가 해결한 문제다」로 뜬다. 선착순 한 명이라 더는 못 푼다
      */
     myQuizzes: (world.quizzes ?? [])
-      .filter((q) => (q.heldBy === viewerId || (q.openedBy ?? []).includes(viewerId)) && q.solvedTeam === null)
+      .filter((q) => (q.heldBy === viewerId || (q.openedBy ?? []).includes(viewerId)) && !(q.solvedTeam !== null && q.heldBy === viewerId))
       .map((q) => ({
         id: q.id,
         kind: q.kind,
@@ -955,6 +957,8 @@ export function projectView(world: World, viewerId: string): View {
         // 남이 틀렸는지는 안 간다. 「저 사람은 이미 틀렸다」를 알면
         // 누가 무엇을 모르는지가 공개 정보가 된다
         iFailed: q.wrongBy.includes(viewerId),
+        // 누가 맞혔는지는 안 간다. 끝났다는 것만 간다
+        solvedByOther: q.solvedTeam !== null,
       })),
     // 들고 있는 것. **읽은 것만 문장이 실린다** — 주웠다고 저절로
     // 읽히면 「읽는다」가 아무 일도 아닌 것이 된다

@@ -70,7 +70,7 @@ async function dayStart(c: Ctx): Promise<void> {
   // 한 걸음이 된 뒤로는 자유 시간에 그냥 걸어가는 것과 같아졌다
   const pawns = await c.tx.get(ref.collection('pawns'))
   for (const p of pawns.docs) {
-    c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, peeksToday: 0 })
+    c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, votedKinds: [], peeksToday: 0 })
   }
 
   // **투명인간은 날짜 경계와 안 묶인다.** 발표(settleBallots)부터 다음

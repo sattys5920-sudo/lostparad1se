@@ -16,10 +16,8 @@ import {
   ACT_COST,
   ACT_MINUTES,
   MAX_CARRIED_ROBOTS,
-  ROBOTS_PER_TEAM,
   ROOM_KIND,
   SMASHES_PER_PHASE,
-  ROBOTS_PER_ROOM,
   researchKnowledge,
 } from '../../../shared/rules/occupy'
 import { TILE_BY_ID, roomOfCell, type Cell } from '../../../shared/rules/board'
@@ -173,7 +171,6 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       if (!atLabMachine(myCell)) return '연구 기계 옆에 서야 한다.'
       // 지식은 팀이 함께 번다. 모자라면 토큰이 있어도 못 건다
       if ((view?.teamVault?.knowledge ?? 0) < researchKnowledge(ownsLab)) return '지식이 모자란다.'
-      if ((view?.myTeamRobots ?? 0) >= ROBOTS_PER_TEAM) return `로봇은 한 분단에 ${ROBOTS_PER_TEAM} 기까지다.`
     }
     if (kind === 'summon' && teammates.length === 0) return '부를 같은 분단 사람이 없다.'
     if (kind === 'plant') {
@@ -189,7 +186,6 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     if (kind === 'dropRobot') {
       if (carried === 0) return '들고 있는 로봇이 없다.'
       if (!canHoldFlags(here)) return `${hereName}에는 로봇을 못 놓는다.`
-      if (placedHere >= ROBOTS_PER_ROOM) return `이 방에는 로봇을 ${ROBOTS_PER_ROOM} 기까지 놓는다.`
     }
     // 거두는 것은 **놓은 사람만.** 같은 팀이 놓은 것도 못 거둔다
     if (kind === 'takeRobot') {
@@ -334,8 +330,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
         })}
       </p>
       <p className="sc-ph__note">
-        로봇 <b>{view?.myTeamRobots ?? 0}/{ROBOTS_PER_TEAM}</b> · 들고 있는 것{' '}
-        <b>{carried}/{MAX_CARRIED_ROBOTS}</b> · 이 방에 놓인 것 <b>{placedHere}/{ROBOTS_PER_ROOM}</b>
+        우리 분단 로봇 <b>{view?.myTeamRobots ?? 0}</b> · 들고 있는 것{' '}
+        <b>{carried}/{MAX_CARRIED_ROBOTS}</b> · 이 방에 놓인 것 <b>{placedHere}</b>
       </p>
     </div>
   )

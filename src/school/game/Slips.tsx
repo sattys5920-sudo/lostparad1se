@@ -11,7 +11,6 @@ import { useState } from 'react'
 import { isBlank } from '../../../shared/reveal/slips'
 import type { GameActions } from './useGame'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
-import { Sure } from './Sheet'
 import { buzz } from './Controls'
 
 export interface SlipsProps {
@@ -77,15 +76,7 @@ export function Slips({ view, seats, act, onSaid }: SlipsProps) {
                 <button disabled={busy} onClick={() => void run('여기 두었다.', () => act.dropSlip(s.id))}>
                   여기 두기
                 </button>
-                {/* 찢으면 찢긴 종이가 바닥에 남는다 — 테이프가 있어야 되돌린다. 한 번 더 누르게 한다 */}
-                <Sure
-                  className="sc-sl__tear"
-                  disabled={busy}
-                  warn="찢긴 채로 바닥에 남는다."
-                  onGo={() => void run('찢었다.', () => act.tearSlip(s.id))}
-                >
-                  찢기
-                </Sure>
+                {/* **찢는 것은 바닥에서만.** 손에 든 것은 바닥에 두고 그 자리에서 찢는다 */}
               </div>
 
               {/*

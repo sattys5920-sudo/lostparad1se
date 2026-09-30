@@ -343,7 +343,8 @@ async function main() {
   check((str(read.subjectId) ?? '') === '', '누구의 비밀도 아니다 — 주인이 안 붙는다', JSON.stringify(read.subjectId))
 
   console.log('\n── 테이프 ──')
-  await must('tearSlip', youTok, { gameId: game, slipId })
+  await must('dropSlip', youTok, { gameId: game, slipId })
+  await must('tearSlipHere', youTok, { gameId: game, slipId })
   const v4 = await viewOf(game, uidOf(you))
   check(arr(v4.mySlips).length === 0, '찢으면 손에서 없어진다')
   const scraps = arr(v4.scrapPapers)

@@ -7,7 +7,7 @@
 //
 // 털어놓기가 여기 같이 있었다. 숨긴 사실을 걷어내면서 없앴다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { canCast } from '../../shared/rules/votes'
 import { cellsTouch } from '../../shared/rules/board'
@@ -24,7 +24,7 @@ const db = getFirestore()
 // 표는 호의뿐이다. 배제는 투명인간 투표가 따로 맡는다(ballot.ts)
 const VOTE_KINDS: VoteKind[] = ['trust', 'liking']
 
-/** 하루 한 장. 시간 제한은 없다 — 갱신만 자정 기준이다. */
+/** 종류마다 하루 한 장(신뢰표 한 장 · 호감표 한 장). 시간 제한은 없다 — 갱신만 자정 기준이다. */
 export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKind }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId, kind } = req.data
@@ -53,12 +53,12 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
     voterTeam: me.team,
     targetId,
     targetTeam: you.team,
-    votedToday: me.votedToday,
+    votedToday: (me.votedKinds ?? []).includes(kind),
   })
   if (!out.ok) {
     const why: Record<string, string> = {
       self: '자기에게는 못 준다.',
-      alreadyToday: '오늘은 이미 던졌다.',
+      alreadyToday: `오늘은 이미 ${kind === 'trust' ? '신뢰표' : '호감표'}를 줬다.`,
     }
     throw new HttpsError('failed-precondition', why[out.reason as string] ?? '던질 수 없다.')
   }
@@ -75,7 +75,7 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
   }
   const batch = db.batch()
   batch.set(ref.collection('secret').doc('votes').collection('items').doc(), vote)
-  batch.update(ref.collection('pawns').doc(uid), { votedToday: true })
+  batch.update(ref.collection('pawns').doc(uid), { votedToday: true, votedKinds: FieldValue.arrayUnion(kind) })
   batch.set(ref.collection('events').doc(), {
     atMs: nowMs,
     day: game.day,

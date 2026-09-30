@@ -302,6 +302,15 @@ describe('문제 종이 — 주워야 보이고, 정답은 안 온다', () => {
     expect(JSON.stringify(v)).not.toContain('가져간 문제')
   })
 
+  it('**남이 먼저 맞힌 종이는 펼쳐 둔 사람 손에 「해결됨」으로 남는다**', () => {
+    const w = world()
+    const quizzes = (w.quizzes ?? []).map((q) => (q.id === 'qDone' ? { ...q, openedBy: ['A0', 'B0'] } : q))
+    const other = projectView({ ...w, quizzes }, 'B0').myQuizzes.find((q) => q.id === 'qDone')
+    expect(other?.solvedByOther).toBe(true)
+    // 맞힌 사람 손에서는 빠진다
+    expect(projectView({ ...w, quizzes }, 'A0').myQuizzes.map((q) => q.id)).not.toContain('qDone')
+  })
+
   it('다른 방 사람에게는 **있다는 것조차** 안 간다', () => {
     // qShut 은 A기지 안 칸(10,10)에 있다. D0 는 거기 없다
     const v = projectView(world(), 'D0')

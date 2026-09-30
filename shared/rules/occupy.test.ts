@@ -9,8 +9,6 @@ import {
   costOf,
   ENTER_COST,
   MAX_CARRIED_ROBOTS,
-  ROBOTS_PER_ROOM,
-  ROBOTS_PER_TEAM,
   KNOWLEDGE_PER_RESEARCH,
   KNOWLEDGE_PER_RESEARCH_OWNER,
   ROOM_CAPACITY,
@@ -251,7 +249,7 @@ describe('움직임', () => {
     expect(held).toHaveLength(2)
     // 든 로봇은 사람을 따라 선다. 떠난 방에 남지도, 방 한도를 먹지도 않는다
     for (const r of held) expect(r.tileId).toBe('cafeteria')
-    expect(robotsIn(s1, 'cafeteria')).toBe(ROBOTS_PER_ROOM)
+    expect(robotsIn(s1, 'cafeteria')).toBe(2)
     expect(robotsIn(s1, 'gym')).toBe(0)
   })
 })
@@ -534,26 +532,11 @@ describe('연구', () => {
     ])
   })
 
-  it('팀 한도에 걸리면 연구를 고를 수 없다 — 토큰도 안 든다', () => {
-    const full = Array.from({ length: ROBOTS_PER_TEAM }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
-    const s = board({ people: [person('a', 'A', lab.id)], robots: full })
-    expect(robotsOfTeam(s, 'A')).toBe(ROBOTS_PER_TEAM)
-    const out = doAct(s, 'a', { kind: 'research' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('한 분단에')
-    // 거절된 행동은 토큰을 먹지 않는다
-    expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
-  })
-
-  it('걸어 둔 연구도 자리를 잡는다 — 넷이 한꺼번에 걸어 한도를 넘지 못한다', () => {
-    const almost = Array.from({ length: ROBOTS_PER_TEAM - 1 }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
-    const s = board({
-      people: [person('a', 'A', lab.id), person('b', 'A', lab.id)],
-      robots: almost,
-      pendingResearch: [{ playerId: 'a', knowledge: KNOWLEDGE_PER_RESEARCH, tileId: lab.id }],
-    })
-    const out = doAct(s, 'b', { kind: 'research' })
-    expect(out.ok).toBe(false)
+  it('**분단 한도는 없다** — 로봇이 여럿 있어도 연구를 건다', () => {
+    const many = Array.from({ length: 10 }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
+    const s = board({ people: [person('a', 'A', lab.id)], robots: many })
+    expect(robotsOfTeam(s, 'A')).toBe(10)
+    expect(doAct(s, 'a', { kind: 'research' }).ok).toBe(true)
   })
 
   /**
@@ -682,18 +665,17 @@ describe('로봇 놓기', () => {
     if (!out.ok) expect(out.why).toContain('로봇을 못 놓는다')
   })
 
-  it('방에 이미 두 기 놓였으면 못 놓는다 — 토큰도 안 든다', () => {
+  it('**방 한도는 없다** — 이미 여럿 놓인 방에도 놓는다', () => {
     const s = board({
       people: [person('a', 'A', 'storage')],
       robots: [
         robot('mine', 'A', 'storage', 'a'),
         robot('x1', 'B', 'storage'),
         robot('x2', 'B', 'storage'),
+        robot('x3', 'C', 'storage'),
       ],
     })
-    const out = doAct(s, 'a', { kind: 'dropRobot' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain(`${ROBOTS_PER_ROOM} 기`)
+    expect(doAct(s, 'a', { kind: 'dropRobot' }).ok).toBe(true)
   })
 
   it('들고 있는 것은 방 한도를 안 먹는다 — 둘 들고 와도 둘 다 놓는다', () => {

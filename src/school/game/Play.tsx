@@ -2116,7 +2116,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             /*
               표. **거래와 같은 기준 — 바로 옆 칸이라야 한다.** 같은
               방만으로는 모자라다(캐릭터끼리 안 겹치게 자리를 잡으니
-              정확히 같은 칸일 수도 없다). 하루 한 장이고, 우리 팀에도
+              정확히 같은 칸일 수도 없다). 종류마다 하루 한 장이고, 우리 팀에도
               준다. 서버도 같은 것을 본다(vote.ts 의 cellsTouch)
             */
             ...MEET_VOTES.map((k) => ({

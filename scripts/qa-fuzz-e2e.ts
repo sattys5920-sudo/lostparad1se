@@ -427,19 +427,19 @@ async function main(): Promise<void> {
   check(typeof slipId === 'string', '메모 한 장이 바닥에 놓였다')
   snap = await snapshot()
   rejects(await call('readSlip', you.token, { gameId: GAME, slipId }), '안 든 쪽지 readSlip', 'PERMISSION_DENIED')
-  rejects(await call('tearSlip', you.token, { gameId: GAME, slipId }), '안 든 쪽지 tearSlip', 'PERMISSION_DENIED')
   rejects(await call('dropSlip', you.token, { gameId: GAME, slipId }), '안 든 쪽지 dropSlip', 'PERMISSION_DENIED')
   for (const id of ['nope', '', undefined, 42, null, {}, 'a/b', '__proto__']) {
-    for (const fn of ['takeSlip', 'readSlip', 'dropSlip', 'tearSlip']) rejects(await call(fn, me.token, { gameId: GAME, slipId: id }), `${fn} slipId=${JSON.stringify(id) ?? 'undefined'}`)
+    for (const fn of ['takeSlip', 'readSlip', 'dropSlip', 'tearSlipHere']) rejects(await call(fn, me.token, { gameId: GAME, slipId: id }), `${fn} slipId=${JSON.stringify(id) ?? 'undefined'}`)
   }
   snap = await unchanged(snap, '쪽지 오용 뒤 판이 그대로다')
   // 줍고 찢는다 — 찢긴 것은 누구도 못 줍고 못 읽는다
   await must('takeSlip', me.token, { gameId: GAME, slipId })
-  await must('tearSlip', me.token, { gameId: GAME, slipId })
+  await must('dropSlip', me.token, { gameId: GAME, slipId })
+  await must('tearSlipHere', me.token, { gameId: GAME, slipId })
   snap = await snapshot()
   rejects(await call('takeSlip', you.token, { gameId: GAME, slipId }), '찢긴 쪽지 takeSlip')
   rejects(await call('readSlip', me.token, { gameId: GAME, slipId }), '찢긴 쪽지 readSlip(찢은 사람)')
-  rejects(await call('tearSlip', me.token, { gameId: GAME, slipId }), '찢긴 쪽지 tearSlip 두 번')
+  rejects(await call('tearSlipHere', me.token, { gameId: GAME, slipId }), '찢긴 쪽지 tearSlipHere 두 번')
   rejects(await call('dropSlip', me.token, { gameId: GAME, slipId }), '찢긴 쪽지 dropSlip')
   snap = await unchanged(snap, '찢긴 쪽지 오용 뒤 판이 그대로다')
 

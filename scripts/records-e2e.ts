@@ -277,7 +277,8 @@ async function main(): Promise<void> {
   check(gave?.ownerId === slip.d.subjectId, '누구의 쪽지를 넘겼는지도 적힌다')
 
   // 찢기 — B0 가 들고 있으니 B0 가 찢는다
-  await must('tearSlip', B[0].token, { gameId: GAME, slipId: slip.id })
+  await must('dropSlip', B[0].token, { gameId: GAME, slipId: slip.id })
+  await must('tearSlipHere', B[0].token, { gameId: GAME, slipId: slip.id })
   rows = await recordsNow()
   const torn = rows.find((r) => r.kind === 'slipTear')
   check(torn?.actorId === B[0].uid, '찢은 사람이 적힌다')

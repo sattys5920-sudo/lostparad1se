@@ -12,7 +12,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { MADE_NO, landsToOwner, whyNotTake, type MadeDoc } from '../../shared/rules/made'
-import { MAX_CARRIED_ROBOTS, ROBOTS_PER_TEAM, type PendingResearch } from '../../shared/rules/occupy'
+import { MAX_CARRIED_ROBOTS, type PendingResearch } from '../../shared/rules/occupy'
 import type { TileId } from '../../shared/rules/board'
 import type { TeamId } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc } from '../../shared/model'
@@ -43,11 +43,10 @@ interface RobotRow {
 
 /**
  * 그 사람이 로봇을 하나 더 받을 수 있는가. **받은 로봇은 손에 든다** —
- * 방에 놓이는 것이 아니니 방 한도는 안 본다. 팀 한도와 드는 한도를 본다.
+ * 방에 놓이는 것이 아니니 드는 한도만 본다.
  */
-async function handsFor(gameId: string, team: TeamId, holder: string): Promise<boolean> {
+async function handsFor(gameId: string, holder: string): Promise<boolean> {
   const rows = (await robotsOf(gameId).get()).docs.map((d) => d.data() as RobotRow)
-  if (rows.filter((r) => r.team === team).length >= ROBOTS_PER_TEAM) return false
   return rows.filter((r) => r.carriedBy === holder).length < MAX_CARRIED_ROBOTS
 }
 
@@ -102,7 +101,7 @@ export async function landResearch(gameId: string): Promise<void> {
     const team = pawn?.team
     // 본인이 그 연구실에 서 있으면 바로 받는다
     if (pawn && team && landsToOwner(pawn.tileId, r.tileId)) {
-      if (await handsFor(gameId, team, r.playerId)) {
+      if (await handsFor(gameId, r.playerId)) {
         const id = await bornFor(gameId, team, r.tileId, r.playerId)
         await note(gameId, 'robotBorn', nowMs, { id: r.playerId, team }, {
           tileId: r.tileId,
@@ -167,8 +166,6 @@ export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) =
       mine: m.byPlayerId === uid,
       here: pawn.tileId,
       tileId: m.tileId,
-      teamRobots: bots.filter((r) => r.team === pawn.team).length,
-      teamCap: ROBOTS_PER_TEAM,
       carried: bots.filter((r) => r.carriedBy === uid).length,
       carryCap: MAX_CARRIED_ROBOTS,
     })

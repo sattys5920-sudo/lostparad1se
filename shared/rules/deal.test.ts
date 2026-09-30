@@ -185,7 +185,7 @@ describe('누가 무엇을 주고받는가', () => {
 })
 
 describe('로봇이 오갈 때 받는 쪽 한도', () => {
-  const base = { carried: 0, gives: 0, gets: 1, teamRobots: 0, sameTeam: false, carryCap: 2, teamCap: 6 }
+  const base = { carried: 0, gives: 0, gets: 1, carryCap: 2 }
 
   it('받는 것이 없으면 볼 것도 없다', () => {
     expect(robotSwapNo({ ...base, gets: 0, carried: 5 })).toBeNull()
@@ -196,10 +196,6 @@ describe('로봇이 오갈 때 받는 쪽 한도', () => {
     expect(robotSwapNo({ ...base, carried: 2, gives: 1 })).toBeNull()
   })
 
-  it('다른 팀에서 넘어오면 팀 한도를 본다 — 같은 팀끼리는 안 본다', () => {
-    expect(robotSwapNo({ ...base, teamRobots: 6 })).toBe('teamFull')
-    expect(robotSwapNo({ ...base, teamRobots: 6, sameTeam: true })).toBeNull()
-  })
 })
 
 describe('딴 것도 탁자에 오른다', () => {
