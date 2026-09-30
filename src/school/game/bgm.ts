@@ -76,18 +76,24 @@ function apply() {
   void audio.play().catch(() => waitForTouch())
 }
 
-/** 막혔다 — 첫 터치에서 다시 튼다 */
+/**
+ * 막혔다 — 첫 터치에서 다시 튼다.
+ *
+ * **손을 뗄 때 튼다.** 휴대폰 브라우저가 「사람이 눌렀다」로 쳐 주는 것은
+ * 손가락을 뗄 때(touchend · pointerup · click)다. 누르기 시작할 때
+ * (pointerdown)는 아이폰이 허락으로 안 쳐서, 그 자리에서 play() 를
+ * 부르면 또 거절됐다 — 아무리 눌러도 음악이 안 나왔다.
+ */
+const TOUCH_EVENTS = ['touchend', 'pointerup', 'click', 'keydown'] as const
 function waitForTouch() {
   if (waiting) return
   waiting = true
   const go = () => {
     waiting = false
-    window.removeEventListener('pointerdown', go)
-    window.removeEventListener('keydown', go)
+    for (const ev of TOUCH_EVENTS) window.removeEventListener(ev, go, true)
     apply()
   }
-  window.addEventListener('pointerdown', go, { once: true })
-  window.addEventListener('keydown', go, { once: true })
+  for (const ev of TOUCH_EVENTS) window.addEventListener(ev, go, true)
 }
 
 /** 판이 있는 동안 부른다(로비 · 진행 · 엔딩). 판 · 날 · 감독관 스위치를 음악에 알린다 */
