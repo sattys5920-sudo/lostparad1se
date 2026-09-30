@@ -32,6 +32,7 @@ import { BallotDesk } from './BallotDesk'
 import { ClockDesk } from './ClockDesk'
 import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
+import { AssignDesk } from './AssignDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import './admin.css'
@@ -139,6 +140,8 @@ function Desk() {
       }
       const seeded = (await act.seedPlayers(qaPw, 0)) as { seated?: number }
       setSaid(`${seeded.seated ?? 0}명이 앉았다. 시작하는 중…`)
+      // **QA 판 차리기에만** 무작위로 나눈다 — 실제 판은 「배정」 목록에서 한 사람씩 정한다
+      await act.assignAll()
       await act.startGame()
       // 비밀번호를 여기 한 번 더 적는다. 다른 기기에 쳐 넣어야 하는 값이다
       setSaid(`차렸다. qa01 … qa14 · 비밀번호 ${qaPw}`)
@@ -153,11 +156,11 @@ function Desk() {
   const seats = game?.seats ?? []
   const running = game !== null && game !== undefined && game.phase !== 'lobby'
   /*
-   * 배정했는가. **자리의 팀으로 본다** — 역할이 적힌 곳(secret/roster)은
-   * 운영자도 못 읽는다. 팀과 역할은 한 트랜잭션에서 같이 정해지므로,
-   * 팀이 차 있으면 역할도 나뉜 것이다
+   * 다 배정했는가. **자리의 팀과 「정해진 시각」으로 본다** — 운영자가
+   * 한 사람씩 정할 때 둘이 같이 찍힌다(hostAssignSeat). 역할이 빈 자리가
+   * 있으면 서버가 시작을 거절한다
    */
-  const assigned = seats.length === TOTAL_SEATS && seats.every((s) => s.team !== null)
+  const assigned = seats.length === TOTAL_SEATS && seats.every((s) => s.team !== null && s.dealtAtMs != null)
 
   /**
    * 다음에 넘길 것을 미리 묻는다.
@@ -273,37 +276,15 @@ function Desk() {
           <>
             <section className="sc-ad__sec">
               <h2>배정</h2>
-              {/*
-                팀과 개인 미션을 한꺼번에 나눈다. **한 번뿐이다** —
-                누르는 순간 각자 학생증에 제 역할이 뜬다. 다시 나누려면
-                판을 초기화해야 한다
-              */}
-              <p className="sc-ad__hint">
-                {assigned ?
-                  '나눴다. 각자 학생증에 제 팀과 미션이 떴다.'
-                : seats.length < TOTAL_SEATS ?
-                  `열넷이 다 앉아야 나눈다. 지금 ${seats.length}명.`
-                : '누르면 팀과 개인 미션이 한꺼번에 정해진다. 되돌리려면 판을 초기화해야 한다.'}
-              </p>
-              <button
-                className="is-primary"
-                disabled={busy || assigned || seats.length < TOTAL_SEATS}
-                onClick={() =>
-                  void run('배정', async () => {
-                    const r = (await act.assignAll()) as { assigned?: number; teams?: Record<string, number> }
-                    const by = Object.entries(r.teams ?? {})
-                      .map(([t, n]) => `${t} ${n}`)
-                      .join(' · ')
-                    setSaid(`${r.assigned ?? 0}명에게 나눴다. ${by}`)
-                  })
-                }
-              >
-                팀 · 개인 미션 배정
-              </button>
+              <AssignDesk seats={seats} act={act} onSaid={setSaid} />
             </section>
             <section className="sc-ad__sec">
               <h2>시작</h2>
-              {!assigned && <p className="sc-ad__hint">배정을 먼저 해야 시작한다.</p>}
+              {!assigned && (
+                <p className="sc-ad__hint">
+                  {seats.length < TOTAL_SEATS ? `열넷이 다 들어와야 시작한다. 지금 ${seats.length}명.` : '열넷 모두 팀과 역할을 정해야 시작한다.'}
+                </p>
+              )}
               <button
                 className="is-primary"
                 disabled={busy || !assigned}

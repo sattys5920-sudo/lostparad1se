@@ -8,18 +8,9 @@
 // 역할이 바뀌지 않아야 하고(**배정은 한 번뿐이다**), 시험에서 천 번을
 // 돌려 보려면 재현이 돼야 한다.
 //
-// 규칙 수치는 roles.ts의 ASSIGN_RULES에 있다. 여기서는 읽기만 한다.
+// 배정 규칙(갈래 · ★)은 없앴다. 운영자가 고른다.
 import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
-import {
-  ASSIGN_RULES,
-  ASTRAY_BRANCH,
-  BRANCHES,
-  ROLE_BRANCH,
-  ROLE_IDS,
-  ROSTER_SIZE,
-  type MissionBranch,
-  type RoleId,
-} from './roles'
+import { ROLE_IDS, ROSTER_SIZE, type RoleId } from './roles'
 
 export interface Player {
   id: string
@@ -68,14 +59,7 @@ function checkRoster(players: readonly Player[]): void {
   }
 }
 
-// ── 배정이 규칙을 지키는가 ──────────────────────────────────────
-
-/** 4인 팀. ★ 둘이 여기 먼저 들어간다. */
-const bigTeams = (): TeamId[] => {
-  const sizes = Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]
-  const most = Math.max(...sizes.map(([, n]) => n))
-  return sizes.filter(([, n]) => n === most).map(([t]) => t)
-}
+// ── 배정이 맞는가(열넷 · 한 역할은 한 사람) ──────────────────────────────────────
 
 export interface DealtRole {
   playerId: string
@@ -90,35 +74,14 @@ export interface DealtRole {
  * 규칙이 빡빡한지 알 수 없다.
  */
 export function validateDeal(dealt: readonly DealtRole[]): { ok: true } | { ok: false; reason: string } {
+  /*
+   * **배정 규칙은 없다.** 전에는 팀마다 손 갈래 하나 · ★ 셋은 서로 다른
+   * 팀 · 같은 갈래 셋 금지를 지켰는데, 이제 운영자가 한 사람씩 고른다
+   * (lobby.ts 의 hostAssignSeat). 남은 것은 「열넷 · 한 역할은 한 사람」뿐이다
+   */
   if (dealt.length !== ROSTER_SIZE) return { ok: false, reason: `열네 명이어야 한다 (${dealt.length}명)` }
   if (new Set(dealt.map((d) => d.roleId)).size !== ROSTER_SIZE) {
     return { ok: false, reason: '같은 역할이 두 번 나갔다' }
-  }
-
-  const teams = [...new Set(dealt.map((d) => d.team))]
-  const branchesIn = (team: TeamId): MissionBranch[] =>
-    dealt.filter((d) => d.team === team).map((d) => ROLE_BRANCH[d.roleId])
-
-  for (const team of teams) {
-    const got = branchesIn(team)
-    const hands = got.filter((b) => b === 'hand').length
-    if (hands < ASSIGN_RULES.handPerTeamAtLeast) {
-      return { ok: false, reason: `${team}팀에 손 갈래가 없다` }
-    }
-    for (const b of BRANCHES) {
-      if (got.filter((x) => x === b).length > ASSIGN_RULES.sameBranchPerTeamAtMost) {
-        return { ok: false, reason: `${team}팀에 같은 갈래가 너무 많다 (${b})` }
-      }
-    }
-  }
-
-  const astrayTeams = dealt.filter((d) => ROLE_BRANCH[d.roleId] === ASTRAY_BRANCH).map((d) => d.team)
-  if (ASSIGN_RULES.astrayOnePerTeam && new Set(astrayTeams).size !== astrayTeams.length) {
-    return { ok: false, reason: '★ 둘이 같은 팀에 들어갔다' }
-  }
-  const big = new Set(bigTeams())
-  if (astrayTeams.filter((t) => big.has(t)).length < ASSIGN_RULES.astrayInBigTeams) {
-    return { ok: false, reason: '★ 이 4인 팀에 덜 들어갔다' }
   }
   return { ok: true }
 }
@@ -126,11 +89,8 @@ export function validateDeal(dealt: readonly DealtRole[]): { ok: true } | { ok: 
 // ── 배정 ────────────────────────────────────────────────────────
 
 /**
- * 열네 명에게 역할을 나눈다.
- *
- * 조건을 만족할 때까지 무작위로 다시 섞는다. 규칙을 하나씩 끼워 맞춰
- * 넣으면 특정 자리에 특정 역할이 몰리는 편향이 생긴다 — 섞고 버리는
- * 쪽이 고르다.
+ * 열네 명에게 역할을 무작위로 나눈다. **시험 대본과 봇 시뮬레이션용이다** —
+ * 실제 판은 운영자가 한 사람씩 고른다(hostAssignSeat).
  *
  * 같은 명단·같은 씨앗이면 늘 같은 결과다. 들어온 순서는 결과에 영향을
  * 주지 않는다 — 아이디로 먼저 정렬한다.
@@ -139,20 +99,8 @@ export function assignRoles(players: readonly Player[], seed: string): Assignmen
   checkRoster(players)
   const roster = [...players].sort((a, b) => a.id.localeCompare(b.id))
 
-  for (let attempt = 0; attempt < ASSIGN_RULES.maxTries; attempt++) {
-    const rnd = rngFrom(`${seed}#${attempt}`)
-    const roles = shuffled(ROLE_IDS, rnd)
-    const dealt: DealtRole[] = roster.map((p, i) => ({ playerId: p.id, team: p.team, roleId: roles[i] }))
-    if (!validateDeal(dealt).ok) continue
-
-    return dealt.map((d) => ({
-      playerId: d.playerId,
-      team: d.team,
-      roleId: d.roleId,
-      targetId: null,
-    }))
-  }
-  throw new Error('배정 규칙을 만족하는 짝을 찾지 못했다')
+  const roles = shuffled(ROLE_IDS, rngFrom(`${seed}#0`))
+  return roster.map((p, i) => ({ playerId: p.id, team: p.team, roleId: roles[i], targetId: null }))
 }
 
 /** 그 사람에게 내려보낼 한 줄. 남의 역할은 절대 들어가지 않는다. */

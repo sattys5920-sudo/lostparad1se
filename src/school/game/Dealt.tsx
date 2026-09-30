@@ -1,6 +1,7 @@
 // 배정이 끝났다 — 학생증 한 장이 넘어온다.
 //
-// 열넷이 차는 순간 서버가 팀과 역할을 나눈다(lobby.ts 의 settleRoster).
+// 운영자가 한 사람씩 팀과 역할을 정한다(lobby.ts 의 hostAssignSeat) — 정하는
+// 순간 이 카드가 뜬다. 고쳐 주면 다시 뜬다.
 // **그 사실을 화면이 알려 주지 않으면 아무 일도 안 일어난 것과 같다.**
 // 전에는 배정이 운영자의 시작 단추에 매여 있었고, 시작한 뒤에도 본인이
 // 「나」 탭을 열어 봐야 자기가 누구인지 알았다.
@@ -21,9 +22,13 @@ const SEEN = 'sc.dealt.seen'
 
 const keyOf = (gameId: string, uid: string) => `${SEEN}:${gameId}:${uid}`
 
-export function dealtSeen(gameId: string, uid: string): boolean {
+/**
+ * 이 배정을 봤는가. **배정마다 따로 센다** — 운영자가 고쳐 주면(시각이
+ * 바뀌면) 다시 뜬다. stamp 는 자리의 dealtAtMs 다
+ */
+export function dealtSeen(gameId: string, uid: string, stamp: number): boolean {
   try {
-    return localStorage.getItem(keyOf(gameId, uid)) === '1'
+    return localStorage.getItem(keyOf(gameId, uid)) === String(stamp)
   } catch {
     // 사파리 사생활 보호 모드에서는 읽기부터 막힌다. 그러면 늘 띄운다 —
     // 두 번 보는 것이 한 번도 못 보는 것보다 낫다
@@ -31,9 +36,9 @@ export function dealtSeen(gameId: string, uid: string): boolean {
   }
 }
 
-export function markDealtSeen(gameId: string, uid: string): void {
+export function markDealtSeen(gameId: string, uid: string, stamp: number): void {
   try {
-    localStorage.setItem(keyOf(gameId, uid), '1')
+    localStorage.setItem(keyOf(gameId, uid), String(stamp))
   } catch {
     // 저장이 막히면 다음에 또 뜬다
   }
@@ -66,7 +71,7 @@ export function Dealt({ name, team, look, paper, snowLevel, onClose }: DealtProp
     <div className="sc-dl" role="dialog" aria-label="배정된 학생증">
       <Snow level={snowLevel} />
       <div className="sc-dl__in">
-        <p className="sc-dl__top">열넷이 찼다 · 반과 역할이 정해졌다</p>
+        <p className="sc-dl__top">반과 역할이 정해졌다</p>
         <IdCard
           name={name}
           team={team}

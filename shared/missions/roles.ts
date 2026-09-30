@@ -92,23 +92,8 @@ export const ROLE_BY_ID: Record<RoleId, RoleSpec> = Object.fromEntries(
 
 // ── 배정 규칙 ───────────────────────────────────────────────────
 
-/**
- * 네 갈래를 열네 자리에 어떻게 흩을까.
- *
- * 수치는 전부 여기 있다. 배정 코드는 이 값을 읽기만 한다.
- */
-export const ASSIGN_RULES = {
-  /** 모든 팀은 손 갈래를 최소 이만큼 받는다. 팀에 보탬이 되는 사람이 있어야 한다. */
-  handPerTeamAtLeast: 1,
-  /** 한 팀에 같은 갈래가 이만큼 들어가면 안 된다. */
-  sameBranchPerTeamAtMost: 2,
-  /** ★ 셋은 서로 다른 팀에. */
-  astrayOnePerTeam: true,
-  /** ★ 중 이만큼은 4인 팀에 먼저 넣는다. */
-  astrayInBigTeams: 2,
-  /** 조건을 만족할 때까지 무작위 재시도. 이 횟수 안에 끝난다. */
-  maxTries: 500,
-} as const
+// 네 갈래를 팀에 어떻게 흩을지 정하던 배정 규칙(ASSIGN_RULES)은 없앴다 —
+// 운영자가 한 사람씩 팀과 역할을 고른다(functions/src/lobby.ts 의 hostAssignSeat).
 
 /** 갈래별 인원. 문서의 배정 표와 같아야 한다. */
 export const BRANCH_COUNT: Record<MissionBranch, number> = {

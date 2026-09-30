@@ -6,7 +6,6 @@
 // 맞대어 본다.
 import { describe, expect, it } from 'vitest'
 import {
-  ASSIGN_RULES,
   BRANCHES,
   BRANCH_COUNT,
   DAY4_CHOICES,
@@ -159,14 +158,3 @@ describe('진행도 상태', () => {
   })
 })
 
-describe('배정 규칙 수치', () => {
-  it('팀마다 손 갈래 하나 이상, 같은 갈래는 둘까지', () => {
-    expect(ASSIGN_RULES.handPerTeamAtLeast).toBe(1)
-    expect(ASSIGN_RULES.sameBranchPerTeamAtMost).toBe(2)
-  })
-
-  it('★ 셋은 서로 다른 팀에, 그중 둘은 4인 팀에', () => {
-    expect(ASSIGN_RULES.astrayOnePerTeam).toBe(true)
-    expect(ASSIGN_RULES.astrayInBigTeams).toBe(2)
-  })
-})

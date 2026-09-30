@@ -5,7 +5,7 @@
 // 시작되지 않는다 — 그건 게임 당일에 알면 안 되는 일이다.
 import { describe, expect, it } from 'vitest'
 import { assignRoles, validateDeal, type Player } from './assign'
-import { ASTRAY_BRANCH, ROLE_BRANCH, ROLE_IDS, ROSTER_SIZE } from './roles'
+import { ROLE_IDS, ROSTER_SIZE } from './roles'
 import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
 
 /** 4·4·3·3 자리에 사람을 앉힌다. */
@@ -42,57 +42,11 @@ describe('배정', () => {
     expect(assignRoles(shuffledIn, 'order')).toEqual(assignRoles(people, 'order'))
   })
 
-  it(`천 판 모두 규칙을 지킨다`, () => {
+  it(`천 판 모두 열넷에게 한 역할씩이다`, () => {
     for (let i = 0; i < RUNS; i++) {
       const out = assignRoles(people, `run-${i}`)
       const check = validateDeal(out)
       expect(check.ok, `${i}판: ${check.ok ? '' : check.reason}`).toBe(true)
-    }
-  })
-
-  it('천 판 모두 팀마다 손 갈래를 하나 이상 받는다', () => {
-    for (let i = 0; i < RUNS; i++) {
-      const out = assignRoles(people, `hand-${i}`)
-      for (const team of Object.keys(STARTING_TEAM_SIZES) as TeamId[]) {
-        const hands = out.filter((a) => a.team === team && ROLE_BRANCH[a.roleId] === 'hand')
-        expect(hands.length, `${i}판 ${team}팀`).toBeGreaterThanOrEqual(1)
-      }
-    }
-  })
-
-  it('천 판 모두 ★ 셋이 서로 다른 팀에 간다', () => {
-    for (let i = 0; i < RUNS; i++) {
-      const out = assignRoles(people, `star-${i}`)
-      const teams = out.filter((a) => ROLE_BRANCH[a.roleId] === ASTRAY_BRANCH).map((a) => a.team)
-      expect(teams, `${i}판`).toHaveLength(3)
-      expect(new Set(teams).size, `${i}판`).toBe(3)
-    }
-  })
-
-  it('천 판 모두 ★ 둘 이상이 4인 팀에 간다', () => {
-    const big = new Set(
-      (Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][])
-        .filter(([, n]) => n === Math.max(...Object.values(STARTING_TEAM_SIZES)))
-        .map(([t]) => t),
-    )
-    for (let i = 0; i < RUNS; i++) {
-      const out = assignRoles(people, `big-${i}`)
-      const inBig = out
-        .filter((a) => ROLE_BRANCH[a.roleId] === ASTRAY_BRANCH)
-        .filter((a) => big.has(a.team)).length
-      expect(inBig, `${i}판`).toBeGreaterThanOrEqual(2)
-    }
-  })
-
-  it('천 판 모두 한 팀에 같은 갈래가 셋 이상 들어가지 않는다', () => {
-    for (let i = 0; i < RUNS; i++) {
-      const out = assignRoles(people, `branch-${i}`)
-      const count = new Map<string, number>()
-      for (const a of out) {
-        const key = `${a.team}:${ROLE_BRANCH[a.roleId]}`
-        count.set(key, (count.get(key) ?? 0) + 1)
-      }
-      for (const [key, n] of count) expect(n, `${i}판 ${key}`).toBeLessThanOrEqual(2)
     }
   })
 })

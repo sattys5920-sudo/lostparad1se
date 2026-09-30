@@ -430,6 +430,11 @@ export function gameActions(gameId: string) {
     /** 닷새가 시작된다. 시각을 안 주면 지금부터다. */
     /** 팀과 개인 미션을 한꺼번에 나눈다. 운영자만, 한 번만. */
     assignAll: () => callServer('assignAll', { ...g }),
+    /** 운영자 — 한 사람에게 팀과 역할을 정한다. 그 사람 화면에 학생증이 뜬다 */
+    hostAssignSeat: (playerId: string, team: string, roleId: string) =>
+      callServer('hostAssignSeat', { ...g, playerId, team, roleId }),
+    /** 운영자 — 누가 어느 팀 · 어느 역할인가 */
+    hostRoster: () => callServer('hostRoster', { ...g }),
     // 시각을 안 보낸다 — 서버가 판의 시계(개발용 배속 포함)로 적는다. 기기 시계를 보내면 배속 판에서 시작 시각이 어긋난다
     startGame: (startAtMs?: number) => callServer('startGame', { ...g, ...(startAtMs ? { startAtMs } : {}) }),
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */

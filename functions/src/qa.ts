@@ -13,7 +13,6 @@ import { TOTAL_SEATS } from '../../shared/rules/lobby'
 import type { GameDoc, SeatEntry } from '../../shared/model'
 import type { AvatarLook } from '../../shared/look'
 import { createAccount, setAccountLook } from './account'
-import { clearRoster, readRoster } from './lobby'
 import { gameRef, requireUid } from './index'
 
 const db = getFirestore()
@@ -84,7 +83,7 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
 
   const seated = await db.runTransaction(async (tx) => {
     // 읽기가 먼저다. 트랜잭션은 쓰기 뒤에 읽을 수 없다
-    const [gameSnap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, req.data.gameId)])
+    const gameSnap = await tx.get(ref)
     const now = gameSnap.data() as GameDoc
     if (now.phase !== 'lobby') throw new HttpsError('failed-precondition', '그새 시작했다.')
     const seats = [...now.seats]
@@ -97,9 +96,8 @@ export const seedPlayers = onCall<{ gameId: string; password: string; leaveSeats
       seats.push(seat)
     }
     tx.update(ref, { seats })
-    // 봇으로 채워도 나누지는 않는다. 나누는 자리는 운영자의 「배정」
-    // 하나뿐이다 — 사람이 앉을 때와 같은 길이다
-    clearRoster(tx, hadRoster)
+    // 봇으로 채워도 나누지는 않는다 — 운영자가 한 사람씩 정한다. **이미 정해
+    // 둔 사람의 배정은 그대로 둔다**(전에는 통째로 지웠다)
     return seats.length
   })
 

@@ -3,11 +3,14 @@
 // 이 대본이 붙드는 것은 넷이다.
 //   1. 열셋까지는 아무것도 안 나뉜다
 //   2. 열넷째가 앉는 순간 열넷 몫이 나뉜다
-//   3. 한 자리가 비면 통째로 지워진다(남은 열셋의 배정도 못 믿는다)
+//   3. 한 자리가 비면 그 사람 것만 지워진다(남은 열셋은 그대로다)
 //   4. **팀은 전체 공개, 역할·숨긴 사실·개인 미션은 개인 공개**
 //
 //   npx vite-node scripts/deal-e2e.ts
 import { createHash } from 'node:crypto'
+
+import { ROLE_IDS, ROLE_NAMES } from '../shared/missions/roleNames'
+import { STARTING_TEAM_SIZES } from '../shared/rules/v2'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -108,7 +111,7 @@ async function main() {
   // **왜 거절했는지까지 본다.** 「아직 안 시작했다」로 막히면 배정이
   // 안 된 것을 확인한 게 아니라 다른 문에 걸린 것이다
   check(
-    !early.ok && (early.err ?? '').includes('이 판에 없는 사람이다'),
+    !early.ok && (early.err ?? '').includes('아직 배정되지 않았다'),
     '배정 전에는 학생증도 없다 — 나눠 둔 것이 없어서다',
     early.ok ? '내려와 버렸다' : (early.err ?? ''),
   )
@@ -189,26 +192,26 @@ async function main() {
 
   console.log('\n── 한 자리가 비면 ──')
   await must('leaveGame', toks.get(ids[13]) as string, { gameId: game })
-  check((await rosterSize(game)) === 0, '나눠 둔 역할이 통째로 지워진다')
-  const gone = await call('myPaper', toks.get(ids[0]) as string, { gameId: game })
-  check(
-    !gone.ok && (gone.err ?? '').includes('이 판에 없는 사람이다'),
-    '남아 있는 사람의 학생증도 같이 사라진다',
-    gone.ok ? '아직 내려온다' : (gone.err ?? ''),
-  )
+  check((await rosterSize(game)) === 13, '나간 사람 것만 지워진다', String(await rosterSize(game)))
+  const kept = (await must('myPaper', toks.get(ids[0]) as string, { gameId: game })) as { roleName?: string }
+  check(kept.roleName === paper.roleName, '남아 있는 사람의 학생증은 그대로다', `${paper.roleName} → ${kept.roleName}`)
 
   console.log('\n── 다시 차면 ──')
   await must('joinGame', toks.get(ids[13]) as string, { gameId: game, name: '열넷째' })
-  // 자리만 다시 찬다. **저절로 나뉘지 않는다** — 운영자가 또 눌러야 한다
-  check((await rosterSize(game)) === 0, '자리가 차도 저절로 안 나뉜다')
-  await must('assignAll', host, { gameId: game })
-  check((await rosterSize(game)) === 14, '다시 배정하면 나뉜다')
-  const again = (await must('myPaper', toks.get(ids[0]) as string, { gameId: game })) as { roleName?: string }
-  check(
-    again.roleName === paper.roleName,
-    '같은 명단·같은 씨앗이면 같은 역할이다',
-    `${paper.roleName} → ${again.roleName}`,
-  )
+  // 자리만 다시 찬다. **저절로 나뉘지 않는다** — 운영자가 그 사람 몫을 정한다
+  check((await rosterSize(game)) === 13, '자리가 차도 저절로 안 나뉜다')
+  const back = await call('myPaper', toks.get(ids[13]) as string, { gameId: game })
+  check(!back.ok, '돌아온 사람은 아직 학생증이 없다', back.ok ? '내려와 버렸다' : (back.err ?? ''))
+  const rows = ((await must('hostRoster', host, { gameId: game })) as { rows: { roleId: string | null }[] }).rows
+  const taken = new Set(rows.map((r) => r.roleId))
+  const freeRole = ROLE_IDS.find((r) => !taken.has(r)) as string
+  const nowTeams = await seatTeams(game, toks.get(ids[0]) as string)
+  const freeTeam = (['A', 'B', 'C', 'D'] as const).find((t) => nowTeams.filter((x) => x === t).length < STARTING_TEAM_SIZES[t]) as string
+  const lastUid = uidOf(ids[13])
+  await must('hostAssignSeat', host, { gameId: game, playerId: lastUid, team: freeTeam, roleId: freeRole })
+  check((await rosterSize(game)) === 14, '운영자가 그 사람 몫을 정하면 다시 열넷이다')
+  const again = (await must('myPaper', toks.get(ids[13]) as string, { gameId: game })) as { roleName?: string }
+  check(again.roleName === ROLE_NAMES[freeRole as keyof typeof ROLE_NAMES], '비어 있던 역할을 받았다', again.roleName ?? '')
 
   console.log(bad === 0 ? '\n다 맞았다.' : `\n어긋난 것 ${bad}개.`)
   if (bad > 0) process.exitCode = 1

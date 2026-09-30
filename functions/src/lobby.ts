@@ -16,6 +16,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { assignRoles, type Player } from '../../shared/missions/assign'
+import { ROLE_IDS, ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { START_CELLS } from '../../shared/rules/blocked'
 import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
@@ -202,7 +203,7 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
   return db.runTransaction(async (tx) => {
     const ref = gameRef(req.data.gameId)
     // **읽기가 먼저다.** 트랜잭션은 쓰기 뒤에 읽을 수 없다
-    const [snap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, req.data.gameId)])
+    const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
     const game = snap.data() as GameDoc
     if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
@@ -231,14 +232,14 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
       throw new HttpsError('resource-exhausted', `${team}팀은 다 찼다.`)
     }
 
-    const seat: SeatEntry = { playerId: uid, name, team, look }
+    // 다시 앉는 사람은 **받아 둔 배정을 그대로 들고 간다** — 운영자가 한 사람씩
+    // 정하므로, 한 사람이 들어오고 나간다고 남의 배정이 틀어질 일이 없다
+    const seat: SeatEntry = { playerId: uid, name, team, look, dealtAtMs: mine >= 0 ? (seats[mine].dealtAtMs ?? null) : null }
     if (mine >= 0) seats[mine] = seat
     else seats.push(seat)
 
     tx.update(ref, { seats })
-    // 자리가 바뀌었으니 나눠 둔 것이 있으면 무효다
-    clearRoster(tx, hadRoster)
-    return { seat, seated: seats.length, need: TOTAL_SEATS, dealt: false }
+    return { seat, seated: seats.length, need: TOTAL_SEATS, dealt: seat.dealtAtMs != null }
   })
 })
 
@@ -247,15 +248,15 @@ export const leaveGame = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   return db.runTransaction(async (tx) => {
     const ref = gameRef(req.data.gameId)
-    const [snap, hadRoster] = await Promise.all([tx.get(ref), readRoster(tx, req.data.gameId)])
+    const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
     const game = snap.data() as GameDoc
     if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
     const seats = game.seats.filter((s) => s.playerId !== uid)
     tx.update(ref, { seats })
-    // 한 자리가 비면 나눠 둔 역할을 **통째로 지운다.** 남은 열셋의
-    // 배정도 빈 자리에 매여 있어서, 그냥 두면 규칙이 안 맞는다
-    clearRoster(tx, hadRoster)
+    // 나간 사람의 배정만 지운다. 남은 사람들 것은 운영자가 한 사람씩 정한
+    // 그대로다 — 역할이 비었으니 그 역할을 다른 사람에게 줄 수 있게 된다
+    tx.delete(rosterOf(req.data.gameId).doc(uid))
     return { seated: seats.length, need: TOTAL_SEATS }
   })
 })
@@ -312,7 +313,9 @@ export const assignAll = onCall<{ gameId: string }>(async (req) => {
       throw new HttpsError('failed-precondition', `역할을 나누지 못했다: ${(e as Error).message}`)
     }
 
-    tx.update(ref, { seats: withTeams })
+    // 자리마다 「정해진 시각」을 찍는다 — 화면이 이걸 보고 학생증을 띄운다
+    const stamp = nowOf(game)
+    tx.update(ref, { seats: withTeams.map((s) => ({ ...s, dealtAtMs: stamp })) })
     for (const a of dealt) {
       tx.set(rosterOf(gameId).doc(a.playerId), {
         playerId: a.playerId,
@@ -326,6 +329,70 @@ export const assignAll = onCall<{ gameId: string }>(async (req) => {
   // 누가 어느 팀인지도 역할도 안 적는다 — 나눴다는 것과 몇 명인지만
   await logEvent(gameId, 'assigned', nowOf(before.data() as GameDoc), null, { assigned: out.assigned })
   return out
+})
+
+/**
+ * **한 사람에게 팀과 역할을 정한다.** 운영자가 명단에서 한 줄씩 누른다.
+ *
+ * 저장하는 순간 그 사람의 자리에 dealtAtMs 가 찍히고, 그 사람 화면이
+ * 학생증을 받아 팝업으로 띄운다. 다시 정하면(고쳐 주면) 다시 뜬다.
+ *
+ * 배정 규칙(갈래 · ★)은 없다 — 운영자가 고른 대로다. 지키는 것은 둘뿐이다:
+ *   - **한 역할은 한 사람.** 열넷에 열네 역할이라, 둘이 같은 역할이면
+ *     누군가는 역할이 없다. 이미 준 역할은 먼저 다른 사람에게서 빼야 한다
+ *   - **팀 인원.** 판이 4 · 4 · 3 · 3 으로 돌아서 넘치게는 못 넣는다
+ */
+export const hostAssignSeat = onCall<{ gameId: string; playerId: string; team: TeamId; roleId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId, playerId } = req.data
+  const team = req.data.team
+  const roleId = String(req.data.roleId ?? '') as RoleId
+  if (!TEAMS.includes(team)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
+  if (!ROLE_IDS.includes(roleId)) throw new HttpsError('invalid-argument', '그런 역할은 없다.')
+  const ref = gameRef(gameId)
+  const out = await db.runTransaction(async (tx) => {
+    const [snap, roster] = await Promise.all([tx.get(ref), readRoster(tx, gameId)])
+    if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+    const game = snap.data() as GameDoc
+    if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다. 배정은 시작 전에만 한다.')
+    const seats = [...game.seats]
+    const i = seats.findIndex((s) => s.playerId === playerId)
+    if (i < 0) throw new HttpsError('not-found', '명단에 없는 사람이다.')
+    const other = roster.docs.find((d) => d.id !== playerId && (d.data() as { roleId?: string }).roleId === roleId)
+    if (other) {
+      const who = seats.find((s) => s.playerId === other.id)?.name ?? '다른 사람'
+      throw new HttpsError('failed-precondition', `${ROLE_NAMES[roleId]}은(는) 이미 ${who}에게 줬다.`)
+    }
+    const inTeam = seats.filter((s, j) => j !== i && s.team === team).length
+    if (inTeam >= STARTING_TEAM_SIZES[team]) {
+      throw new HttpsError('failed-precondition', `${team}팀은 ${STARTING_TEAM_SIZES[team]}명이 다 찼다.`)
+    }
+    const nowMs = nowOf(game)
+    seats[i] = { ...seats[i], team, dealtAtMs: nowMs }
+    tx.update(ref, { seats })
+    tx.set(rosterOf(gameId).doc(playerId), { playerId, team, roleId, targetId: null })
+    return { nowMs, dealt: roster.docs.filter((d) => d.id !== playerId).length + 1 }
+  })
+  // 누가 무엇을 받았는지는 안 적는다 — 한 사람 정했다는 것만
+  await logEvent(gameId, 'assigned', out.nowMs, null, { assigned: out.dealt })
+  return { ok: true, assigned: out.dealt }
+})
+
+/**
+ * 운영자 명단 — 누가 어느 팀 · 어느 역할인가. **운영자만.**
+ *
+ * 역할은 비밀 문서(secret/roster)에만 있어서, 운영자 화면도 이 문으로
+ * 묻는다. 공개 문서(판)에는 팀과 「정해진 시각」만 있다.
+ */
+export const hostRoster = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const snap = await rosterOf(req.data.gameId).get()
+  return {
+    rows: snap.docs.map((d) => {
+      const r = d.data() as { team?: string; roleId?: string }
+      return { playerId: d.id, team: r.team ?? null, roleId: r.roleId ?? null }
+    }),
+  }
 })
 
 /** 배정 결과를 운영자 화면에 한 줄로 보여 주려고. 누가 어느 팀인지는 안 담는다. */

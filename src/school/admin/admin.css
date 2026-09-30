@@ -1125,3 +1125,29 @@
 .sc-vt__name { min-width: 0; font-size: var(--fs-body); color: var(--sc-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sc-vt__count { flex: none; font-size: var(--fs-cap); color: var(--sc-text-2); white-space: nowrap; }
 .sc-vt__count b { font-size: var(--fs-body); font-weight: 600; color: var(--sc-text); font-variant-numeric: tabular-nums; margin-right: 2px; }
+
+/* ── 배정 — 한 사람씩 팀과 역할 ─────────────────────────────── */
+.sc-as { display: flex; flex-direction: column; gap: var(--sp-2); }
+.sc-as__teams { margin: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-label); color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+.sc-as__teams span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.sc-as__teams span.is-full { color: var(--sc-text); font-weight: 600; }
+.sc-as__teams i, .sc-as__name i { width: 10px; height: 10px; border: 1px solid var(--sc-line-strong); flex: 0 0 auto; }
+.sc-as__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.sc-as__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--sc-line);
+}
+.sc-as__list li.is-dealt { border-color: var(--sc-line-strong); }
+.sc-as__name { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sc-as__list select { min-height: 36px; max-width: 9.5em; }
+.sc-as__list button { min-height: 36px; white-space: nowrap; }
+@media (max-width: 420px) {
+  .sc-as__list li { grid-template-columns: 1fr 1fr; }
+  .sc-as__name { grid-column: 1 / -1; }
+  .sc-as__list select { max-width: none; width: 100%; }
+  .sc-as__list button { grid-column: 1 / -1; }
+}

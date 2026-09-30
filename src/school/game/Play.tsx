@@ -303,14 +303,24 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   /*
    * 배정된 학생증.
    *
-   * **열넷이 차는 순간 서버가 나눈다**(lobby.ts). 자리가 다 찬 뒤에만
-   * 부른다 — 그 전에는 나눠 둔 것이 없어서 서버가 거절한다.
+   * **운영자가 한 사람씩 정한다**(lobby.ts 의 hostAssignSeat). 내 자리에
+   * 「정해진 시각」(dealtAtMs)이 찍히면 받아 온다 — 운영자가 고쳐 주면
+   * 시각이 바뀌어 다시 받고 다시 띄운다.
    */
-  const full = seats.length === TOTAL_SEATS
-  const card = useMyPaper(act, full && mine !== undefined, 0)
-  const [cardShut, setCardShut] = useState(false)
-  // 판마다 한 번만 띄운다. 새로고침마다 나오면 그건 공지가 아니다
-  const sawCard = uid !== null && dealtSeen(gameId, uid)
+  const stamp = mine?.dealtAtMs ?? 0
+  const card = useMyPaper(act, stamp > 0, stamp)
+  /** 받아 온 학생증이 어느 배정의 것인가. 옛 배정의 카드를 새 것처럼 띄우지 않는다 */
+  const [paperFor, setPaperFor] = useState(0)
+  useEffect(() => {
+    if (card.paper) setPaperFor(stamp)
+    // 새 학생증이 도착한 그 순간의 배정 시각을 붙인다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.paper])
+  const [shutFor, setShutFor] = useState(0)
+  /** 「내 학생증」 단추로 다시 편 것 */
+  const [showCard, setShowCard] = useState(false)
+  // 배정마다 한 번만 띄운다. 새로고침마다 나오면 그건 공지가 아니다
+  const sawCard = uid !== null && dealtSeen(gameId, uid, stamp)
 
   /**
    * 시작 전에도 서로가 보인다.
@@ -346,7 +356,14 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
   const NOT_YET = '아직 시작 전이다.'
   const beforeDirs = useMemo(() => padFace(ways, false, 0, ENTER_COST), [ways])
   const beforeGrid: Act[] = [
-    { key: 'hand', icon: 'hand', label: '손패', why: NOT_YET, run: () => {} },
+    // 배정받은 뒤에는 학생증을 다시 펼 수 있다. 판이 서면 「나」 탭에 늘 있다
+    {
+      key: 'card',
+      icon: 'hand',
+      label: '내 학생증',
+      why: card.paper && paperFor === stamp && stamp > 0 ? undefined : '아직 반과 역할이 안 정해졌다.',
+      run: () => setShowCard(true),
+    },
     { key: 'atlas', icon: 'atlas', label: '전체 맵', why: NOT_YET, run: () => {} },
     // 이 둘은 게임 안의 일이 아니다. 나가는 문도 더보기 뒤에 있다
     { key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) },
@@ -457,7 +474,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 명단에 있어 모두가 아는 것이고, 역할과 숨긴 사실은 이 카드가
    * 처음이자 본인에게만 오는 자리다.
    */
-  if (card.paper && !cardShut && !sawCard && uid) {
+  if (card.paper && paperFor === stamp && stamp > 0 && uid && (showCard || (shutFor !== stamp && !sawCard))) {
     return (
       <Dealt
         name={me.nickname}
@@ -466,8 +483,9 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
         paper={card.paper}
         snowLevel={state.game?.snow?.level ?? 5}
         onClose={() => {
-          markDealtSeen(gameId, uid)
-          setCardShut(true)
+          markDealtSeen(gameId, uid, stamp)
+          setShutFor(stamp)
+          setShowCard(false)
         }}
       />
     )
