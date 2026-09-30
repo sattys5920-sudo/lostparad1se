@@ -265,6 +265,15 @@ const BAND_TOP: Record<Floor, number> = (() => {
   return out
 })()
 
+/** 전개도 줄(y)이 몇 층인가. 층 사이 벽이면 null. 미니맵이 「어느 층 복도」를 적을 때 쓴다. */
+export function floorAtY(y: number): Floor | null {
+  for (const floor of STACK) {
+    const top = BAND_TOP[floor]
+    if (y >= top && y < top + bandHeight(PLAN_BY_FLOOR[floor])) return floor
+  }
+  return null
+}
+
 /** 전개도 전체 크기. 그림판이 이 크기로 잡힌다. */
 export const PLAN_W =
   PLAN_MARGIN +

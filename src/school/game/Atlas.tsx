@@ -14,8 +14,8 @@ import {
   type MapFacts,
   type RoomFacts,
 } from './MapPlan'
-import { ALLEY_NAME, TILES, isAlleyCell } from '../../../shared/rules/board'
-import { MAP_H, MAP_W, roomAt, tileAt } from '../map/world'
+import { ALLEY_NAME, FLOOR_NAME, TILES, floorAtY, isAlleyCell } from '../../../shared/rules/board'
+import { MAP_H, MAP_W, doorHere, roomAt, roomById, tileAt } from '../map/world'
 import { ARCADE_COUNT, ARCADE_NAME } from '../../../shared/rules/arcade'
 import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
@@ -61,6 +61,20 @@ export function useMiniMapOn(): [boolean, (v: boolean) => void] {
  * 넘을 때마다 selfRef 로 온다 — 멈출 때까지 기다리지 않는다.
  */
 const WIN = 31
+/**
+ * 미니맵 아래에 적는 지금 자리. 방이면 방 이름, 문턱이면 그 방,
+ * 복도면 「2 층 복도」. 점만 있으면 도면을 읽을 줄 알아야 어디인지 안다.
+ */
+export function placeName(x: number, y: number): string {
+  const room = roomAt(x, y)
+  if (room) return room.name
+  const door = doorHere(x, y)
+  if (door) return roomById[door.a]?.name ?? ''
+  if (isAlleyCell(x, y)) return ALLEY_NAME
+  const floor = floorAtY(y)
+  return floor ? `${FLOOR_NAME[floor]} 복도` : ''
+}
+
 export function LiveMiniMap({
   selfRef,
   fallback,
@@ -79,6 +93,7 @@ export function LiveMiniMap({
   onOpen: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const placeRef = useRef<HTMLSpanElement | null>(null)
   // 도면 한 장 — 주인이 바뀔 때만 다시 그린다
   const ownerKey = TILES.map((t) => tiles[t.id as TileId]?.ownerTeam ?? '-').join('')
   const plan = useMemo(() => {
@@ -133,6 +148,9 @@ export function LiveMiniMap({
       const me = selfRef.current ?? fallbackRef.current
       const size = cv.clientWidth
       if (!me || size <= 0) return
+      // 자리 이름은 글자로 — 캔버스에 쓰면 픽셀 글꼴이 뭉개진다. 바뀔 때만 고친다
+      const where = placeName(me.x, me.y)
+      if (placeRef.current && placeRef.current.textContent !== where) placeRef.current.textContent = where
       const blink = Math.floor(t / 450) % 2
       const others = pawnsRef.current.filter((p) => p.playerId !== meId && p.at && !p.walking)
       const key = `${me.x},${me.y},${size},${blink},${others.map((p) => `${p.at?.x},${p.at?.y}`).join(';')},${plan.width}`
@@ -176,6 +194,7 @@ export function LiveMiniMap({
   return (
     <button className="sc-mini is-live" onClick={onOpen} aria-label="전체 맵 열기">
       <canvas ref={canvasRef} className="sc-mini__canvas" />
+      <span ref={placeRef} className="sc-mini__place" aria-live="polite" />
     </button>
   )
 }
