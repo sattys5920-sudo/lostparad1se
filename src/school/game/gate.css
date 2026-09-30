@@ -286,6 +286,12 @@
   cursor: pointer;
 }
 
+.sc-gt a.sc-gt__link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-3);
+}
+
 /* 바닥 한 줄 — 왼쪽에 자판기 도장, 오른쪽에 안내 문구 */
 .sc-gt__sign {
   flex: none;

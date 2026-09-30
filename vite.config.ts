@@ -16,6 +16,8 @@ export default defineConfig({
       input: {
         // 본 게임. 로그인 → 자리 → 닷새
         main: resolve(root, 'index.html'),
+        // 규칙집. 게임 밖에서 여는 읽을거리 — 스크립트 없는 한 장이다
+        rules: resolve(root, 'rules.html'),
         // 옛 주소로 들어온 사람을 뿌리로 넘기는 문지방. 테스터에게
         // 나눠 준 링크가 이 주소였다
         play: resolve(root, 'play.html'),

@@ -142,6 +142,11 @@ import {
 } from '../../../shared/rules/occupy'
 import { armSfx, setSoundOn, soundIsOn } from './sfx'
 import { Prologue, ReplayPrologue } from '../reveal/Prologue'
+
+/** 규칙집은 게임 밖의 한 장이다. 새 창으로 열어 판은 그대로 둔다 */
+function openRules(): void {
+  window.open('/rules.html', '_blank', 'noopener')
+}
 import './play.css'
 import { ringTile, tearTile } from './noteArt'
 import './ballot.css'
@@ -600,6 +605,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
             <div className="sc-pl__more">
               <ReplayPrologue />
               <SoundToggle />
+              <button className="sc-pl__rules" onClick={openRules}>규칙 읽기</button>
             </div>
             {/* 시작 전에는 그냥 나간다. 아직 잃을 것이 없어서 묻지 않는다 */}
             <SignOut note={`들어와 있는 계정 · ${me.nickname}`} />
@@ -2399,6 +2405,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             <button onClick={() => { closeSheet(); setArchive(true) }}>보관함</button>
             {/* 시트는 그대로 두고 위에 덮는다. 다 보고 나면 이 자리로 돌아온다 */}
             <ReplayPrologue />
+            <button onClick={openRules}>규칙 읽기</button>
           </div>
           {/*
             **나가는 문은 한 군데 더 있어야 한다.**
