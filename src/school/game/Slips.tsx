@@ -77,11 +77,11 @@ export function Slips({ view, seats, act, onSaid }: SlipsProps) {
                 <button disabled={busy} onClick={() => void run('여기 두었다.', () => act.dropSlip(s.id))}>
                   여기 두기
                 </button>
-                {/* 찢은 쪽지는 영영 사라진다. 한 번 더 누르게 한다 */}
+                {/* 찢으면 찢긴 종이가 바닥에 남는다 — 테이프가 있어야 되돌린다. 한 번 더 누르게 한다 */}
                 <Sure
                   className="sc-sl__tear"
                   disabled={busy}
-                  warn="영영 사라진다."
+                  warn="찢긴 채로 바닥에 남는다."
                   onGo={() => void run('찢었다.', () => act.tearSlip(s.id))}
                 >
                   찢기

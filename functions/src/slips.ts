@@ -6,7 +6,7 @@
 //
 // 처리는 셋이다.
 //
-//   찢기    영영 사라진다. 내 비밀이 적힌 쪽지를 주웠을 때 할 일이다
+//   찢기    찢긴 종이가 발밑 옆 바닥에 남는다. 테이프가 있으면 누구든 붙인다
 //   두기    선 방에 놓는다. 다음에 그 방에 온 사람이 줍는다
 //   건네기  마주 선 사람에게 준다. 값을 부르려면 교역에 실어 보낸다(deal.ts)
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
@@ -223,7 +223,7 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   return { tileId: here }
 })
 
-/** 찢는다. **영영 사라진다.** 내 비밀이 적힌 쪽지를 주웠을 때 할 일이다. */
+/** 찢는다. 찢긴 종이가 발밑 옆에 남는다 — 테이프를 가진 누군가가 붙이면 다시 쪽지가 된다. */
 export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
@@ -248,7 +248,7 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
     // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다.
     // 찢긴 종이는 발밑 옆 칸에 남는다 — tileId 는 비운다(바닥의 「한 장」에
     // 안 세야 한다). 조각은 tornAt 으로 따로 센다
-    // **56장은 되돌릴 수 없다** — 조각은 남아도 테이프로 못 붙인다
+    // 비밀 쪽지(56장)도 같다 — 테이프로 붙이면 다시 쪽지가 된다
     isNote = Boolean((snap.data() as SlipDoc).noteId)
     tx.update(ref, {
       tileId: null,
@@ -318,8 +318,8 @@ export const readSlipHere = onCall<{ gameId: string; slipId: string }>(async (re
 
 /**
  * 바닥의 쪽지를 **그 자리에서 찢는다.** 찢긴 종이가 그 칸에 남아 맵에
- * 그려진다. 메모 · 빈 종이는 테이프를 가진 사람이 옆에서 짚으면 다시
- * 붙인다. 비밀 쪽지는 되돌릴 수 없다.
+ * 그려진다. 테이프를 가진 사람이 옆에서 짚으면 다시
+ * 붙인다. 비밀 쪽지도 붙인다.
  *
  * 비밀 쪽지를 찢으면 주워서 찢은 것과 똑같이 slipTear 한 줄이 남는다
  * (미화부의 「내 비밀이 적힌 쪽지를 찢는다」가 센다). 메모 · 빈 종이는

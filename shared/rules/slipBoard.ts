@@ -6,7 +6,7 @@
 //   대기   아직 안 뿌렸다
 //   뿌림   바닥에 있다(어느 방)
 //   주움   누가 들고 있다
-//   찢김   영영 사라졌다. 되돌릴 수 없다
+//   찢김   찢긴 종이로 바닥에 있다. 테이프로 붙이면 다시 「주움」이 된다
 import type { RoleId } from '../missions/roleNames'
 import { START_TILE, TILES, type TileId } from './board'
 

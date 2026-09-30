@@ -3,7 +3,7 @@
 //   읽기: 옆 칸에서만. 문장과 「누구의 일이다」가 응답으로만 온다. 바닥에
 //         그대로 남는다. 처음 한 번 slipRead 한 줄(개인 미션이 센다)
 //   찢기: 그 칸에 찢긴 종이로 남아 맵에 그려진다. slipTear 한 줄
-//   테이프: 비밀 쪽지는 되돌릴 수 없다
+//   테이프: 비밀 쪽지도 붙인다 — 접힌 채 손에 오고, 읽으면 찢기 전 문장 그대로
 //
 //   npx vite-node scripts/floor-slip-e2e.ts
 import { createHash } from 'node:crypto'
@@ -156,8 +156,17 @@ async function main() {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { items: { mapValue: { fields: { tape: { integerValue: '1' } } } } } }),
   })
+  const lineBefore = read.ok ? String(read.result.line) : ''
   const tape = await call('useItem', readerTok, { gameId: game, kind: 'tape', scrapId: slipId })
-  check(!tape.ok, '비밀 쪽지는 찢으면 되돌릴 수 없다 — 테이프로 못 붙인다', tape.ok ? '붙었다' : (tape.err ?? ''))
+  check(tape.ok, '**비밀 쪽지도 테이프로 붙인다**', tape.ok ? '' : (tape.err ?? ''))
+  const v3 = await viewOf(game, readerUid)
+  check(!arr(v3.scrapPapers).some((p) => str(p.id) === slipId), '붙이면 바닥의 찢긴 종이가 사라진다')
+  const held = arr(v3.mySlips).find((p) => str(p.id) === slipId)
+  check(held !== undefined, '접힌 채로 내 손에 온다')
+  check(str(held?.line) !== null, '이미 읽은 사람이면 붙이자마자 문장이 보인다(읽은 것은 안 잊는다)', String(str(held?.line)).slice(0, 20))
+  check(str(held?.line) === lineBefore, '찢기 전 문장 그대로다')
+  const log3 = await records(game)
+  check(recOf(log3, 'slipRead', readerUid).length === 1, '붙여서 다시 봐도 미션 「읽기」는 한 번뿐이다')
 
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   process.exit(bad === 0 ? 0 : 1)

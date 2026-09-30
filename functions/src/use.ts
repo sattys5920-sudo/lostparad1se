@@ -224,8 +224,8 @@ export const useItem = onCall<UseInput>(async (req) => {
       const snap = await tx.get(scrapRef)
       if (!snap.exists) throw new HttpsError('not-found', '그런 조각이 없다.')
       const s = snap.data() as SlipDoc
-      // **56장은 찢으면 끝이다.** 조각도 안 남기지만, 옛 판의 조각이 있어도 못 붙인다
-      if (s.noteId) throw new HttpsError('failed-precondition', '찢긴 쪽지는 되돌릴 수 없다.')
+      // **비밀 쪽지(56장)도 붙인다.** 찢긴 종이가 바닥에 남아 있으면 무엇이든 된다.
+      // 조각 없이 사라진 옛 판의 56장(tornAt 이 비어 있다)은 아래에서 걸린다
       if (s.tornBy === null || (s.tornAt ?? null) === null) throw new HttpsError('failed-precondition', '여기 없는 조각이다.')
       // 칸에 떨어진 조각은 **그 옆에 서야** 붙인다. 칸 없는 옛 조각은 그 방에 서 있으면 된다
       const cellOk =

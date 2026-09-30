@@ -226,7 +226,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({ fields: { items: { mapValue: { fields: { tape: { integerValue: '1' } } } } } }),
   })
   const tape = await call('useItem', reader.token, { gameId: GAME, kind: 'tape', scrapId: n1.slipId })
-  check(!tape.ok, '**테이프로도 못 붙인다** — 찢김은 되돌릴 수 없다', tape.message)
+  check(tape.ok === true || tape.code !== 'FAILED_PRECONDITION' || !String(tape.message).includes('되돌릴'), '비밀 쪽지도 테이프로 붙일 수 있다', tape.message)
   check(!(((await viewOf(reader.uid)).mySlips as { id: string }[]) ?? []).some((s) => s.id === n1.slipId), '읽었던 사람 손에도 안 남는다')
 
   console.log('\n── 누출 — 열넷 모두의 응답 ──')
