@@ -35,7 +35,7 @@ import {
 } from '../map/world'
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { MAP, UI } from '../skin'
-import { pixelFrame } from '../char/pixel'
+import { SMALL_FOOT, SMALL_PX, pixelFrame, pixelFrameSmall } from '../char/pixel'
 // 명단에서 온 생김새는 어떤 값이 들어 있을지 모른다. 서버는 검사하지
 // 않고 옮기기만 하므로, 그리기 직전에 여기서 접어 넣는다
 import { normalizeLook } from '../char/look'
@@ -2523,12 +2523,15 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         dot(x, y, team, asleep)
         return
       }
-      const img = pixelFrame(normalizeLook(look), team, dir, frame)
+      // 24 화소면 줄·칸을 골라 뽑은 그림을 1:1 로 — 그냥 줄이면 눈과 입이 빠진다
+      const small = CHAR_PX === SMALL_PX
+      const img = small ? pixelFrameSmall(normalizeLook(look), team, dir, frame) : pixelFrame(normalizeLook(look), team, dir, frame)
       const k = CHAR_PX / img.width
       const dw = Math.round(img.width * k)
       const dh = Math.round(img.height * k)
+      const foot = small ? SMALL_FOOT : 6 * k
       ctx.globalAlpha = asleep ? 0.5 : 1
-      ctx.drawImage(img, Math.round(x - dw / 2), Math.round(y - dh + 6 * k), dw, dh)
+      ctx.drawImage(img, Math.round(x - dw / 2), Math.round(y - dh + foot), dw, dh)
       ctx.globalAlpha = 1
     }
 

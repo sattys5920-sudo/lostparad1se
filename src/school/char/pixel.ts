@@ -1431,3 +1431,49 @@ export function pixelSheet(look: AvatarLook, team: TeamId | null): HTMLCanvasEle
   })
   return c
 }
+
+// ── 지도용 작은 그림(24 칸) ──────────────────────────────────────
+//
+// 지도는 사람을 24 화소로 세운다(CHAR_PX). 32 칸 그림을 그대로 0.75 배로
+// 줄이면 **네 칸마다 한 줄이 통째로 빠진다** — 1·5·9·13·17… 번째 줄과
+// 칸이다. 하필 13 번째 칸이 왼쪽 눈, 17 번째 줄이 입이라, 지도 위의 모두가
+// 눈 하나 없이 섰다.
+//
+// 그래서 **뺄 줄과 칸을 손으로 고른다.** 얼굴(눈·입·턱)은 한 칸도 안 빼고,
+// 머리 옆·다리처럼 한 줄 빠져도 티가 안 나는 곳에서만 뺀다. 그림이 쓰는
+// 자리는 가로 6~25, 세로 3~31 이다(parts 전수 조사).
+
+/** 남기는 가로 칸 — 16 칸. 얼굴(12~19)은 전부 남는다. 옆얼굴 눈(20)도 */
+const SMALL_COLS = [6, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 25]
+/** 남기는 세로 줄 — 22 줄. 이마 아래부터 턱까지(12~20)는 전부 남는다 */
+const SMALL_ROWS = [3, 4, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 26, 28, 30, 31]
+export const SMALL_PX = 24
+/** 작은 그림에서 발끝이 서는 줄 — 32 칸 그림의 26 번째 줄이 가는 자리 */
+export const SMALL_FOOT = SMALL_PX - (SMALL_PX - SMALL_ROWS.length + SMALL_ROWS.indexOf(26))
+
+const smallCache = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>()
+
+/** 지도에 세우는 24×24. 줄·칸을 골라 뽑아서 얼굴이 안 빠진다 */
+export function pixelFrameSmall(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number): HTMLCanvasElement {
+  const src = pixelFrame(look, team, dir, frame)
+  const hit = smallCache.get(src)
+  if (hit) return hit
+  const c = document.createElement('canvas')
+  c.width = SMALL_PX
+  c.height = SMALL_PX
+  const ctx = c.getContext('2d') as CanvasRenderingContext2D
+  const from = (src.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, PX, PX)
+  const out = ctx.createImageData(SMALL_PX, SMALL_PX)
+  const ox = Math.floor((SMALL_PX - SMALL_COLS.length) / 2)
+  const oy = SMALL_PX - SMALL_ROWS.length
+  SMALL_ROWS.forEach((sy, j) => {
+    SMALL_COLS.forEach((sx, i) => {
+      const a = (sy * PX + sx) * 4
+      const b = ((oy + j) * SMALL_PX + (ox + i)) * 4
+      for (let k = 0; k < 4; k++) out.data[b + k] = from.data[a + k]
+    })
+  })
+  ctx.putImageData(out, 0, 0)
+  smallCache.set(src, c)
+  return c
+}
