@@ -787,7 +787,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       if (quiz) {
         void act
           .takeQuiz(quiz.id)
-          .then(() => setSaid('문제를 주웠다. 손패에서 푼다.'))
+          .then(() => setSaid('문제를 펼쳤다. 손패에서 푼다. 누가 맞히기 전까지 종이는 바닥에 남는다.'))
           .catch((e: Error) => refuse(e.message))
       } else if (slip) {
         void act
@@ -1338,6 +1338,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     const leave: MeetRow = { key: 'leave', label: '그냥 둔다', onPick: () => setThing(null) }
     switch (t.what) {
       case 'quiz':
+        // 문제 종이는 줍지 않는다 — 펼쳐 보고, 맞히는 사람이 나올 때까지 바닥에 남는다
+        return [{ key: 'take', label: '펼쳐 본다', why: far, onPick: pick(() => takePaper(t.cell)) }, leave]
       case 'slip':
         return [{ key: 'take', label: '줍는다', why: far, onPick: pick(() => takePaper(t.cell)) }, leave]
       case 'board':

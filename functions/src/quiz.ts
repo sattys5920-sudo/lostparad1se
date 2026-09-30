@@ -61,8 +61,16 @@ export interface QuizPaperDoc {
    */
   x: number
   y: number
-  /** 주워 간 사람. null 이면 아직 바닥에 있다. */
+  /**
+   * 바닥에서 걷힌 종이의 임자. null 이면 아직 바닥에 있다.
+   *
+   * **이제 맞힌 사람만 걷는다.** 펼쳐 본 사람은 openedBy 에 적히고
+   * 종이는 바닥에 그대로 있다 — 누가 맞히기 전까지 다른 사람도 와서
+   * 펼쳐 본다. 옛 판에는 먼저 주운 사람이 여기 적혀 있다
+   */
   heldBy: string | null
+  /** 펼쳐 본 사람들. 이 사람들 손패에 문제가 뜨고, 이 사람들만 답을 낸다 */
+  openedBy?: string[]
   /** 틀린 사람들. 그 사람만 다시 못 푼다 — 같은 팀 다른 사람은 할 수 있다. */
   wrongBy: string[]
   /** 맞힌 사람. 차면 이 종이는 끝이다. */
@@ -111,11 +119,14 @@ export const hostPullQuiz = onCall<{ gameId: string; paperId: string }>(async (r
 })
 
 /**
- * 줍는다. **손패에 들어온다.**
+ * 펼쳐 본다. **종이는 바닥에 그대로 있고, 문제가 내 손패에 뜬다.**
  *
- * 옆 칸에 서야 한다 — 기물·심부름 물건과 같은 자다. 주우면 문제
- * 문장이 그 사람에게만 간다. 바닥에 있는 동안에는 누구에게도 문장이
- * 안 간다(views 의 quizFloor 가 자리만 싣는다).
+ * 옆 칸에 서야 한다 — 기물·심부름 물건과 같은 자다. 펼친 사람에게만
+ * 문장이 간다. 바닥에 있는 동안 안 펼친 사람에게는 자리만 간다.
+ *
+ * 전에는 줍는 순간 바닥에서 걷혔다. 주운 사람이 틀리면 그 종이는 그
+ * 사람 손에 묶여 아무도 못 풀었다. 이제 **맞히는 사람이 나올 때까지**
+ * 바닥에 남고, 맞히면 사라진다.
  */
 export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
   const uid = requireUid(req.auth)
@@ -129,11 +140,11 @@ export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) 
     const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 문제가 없다.')
     const q = snap.data() as QuizPaperDoc
-    // **먼저 줍는 손이 임자다.** 남이 가져간 뒤에는 자리만 남는다
+    if (q.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 맞혔다.')
     if (q.heldBy) throw new HttpsError('failed-precondition', '이미 누가 주워 갔다.')
-    if (q.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 가져갔다.')
     mustBeBeside(pawn, q)
-    tx.update(ref, { heldBy: uid })
+    const opened = q.openedBy ?? []
+    if (!opened.includes(uid)) tx.update(ref, { openedBy: [...opened, uid] })
   })
 
   await note(gameId, 'quizTake', nowMs, { id: uid, team: pawn.team }, {
@@ -160,12 +171,14 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
     if (!paperSnap.exists) throw new HttpsError('not-found', '그런 문제가 없다.')
     const paper = paperSnap.data() as QuizPaperDoc
     /*
-     * **들고 있어야 푼다.** 어디에 서 있는지는 안 본다 — 주워서
-     * 손패에 넣은 뒤로는 걸어 다니며 생각해도 된다.
+     * **펼쳐 본 사람만 푼다.** 어디에 서 있는지는 안 본다 — 펼친 뒤로는
+     * 걸어 다니며 생각해도 된다. 옛 판의 「주운 사람」도 푼다
      */
-    if (paper.heldBy !== uid) throw new HttpsError('failed-precondition', '들고 있지 않은 문제다.')
+    if (paper.heldBy !== uid && !(paper.openedBy ?? []).includes(uid)) {
+      throw new HttpsError('failed-precondition', '펼쳐 보지 않은 문제다.')
+    }
     // 먼저 닿은 답이 이겼다. 뒤에 온 사람은 여기서 걸린다
-    if (paper.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 가져갔다.')
+    if (paper.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 맞혔다.')
     if (paper.wrongBy.includes(uid)) throw new HttpsError('failed-precondition', '한 번 틀린 문제다.')
 
     const quizSnap = await tx.get(bankOf(gameId).doc(paper.quizId))
@@ -181,7 +194,8 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
     // **맞힌 사람의 팀 금고에 지식이 는다**
     const teamRef = ref.collection('teams').doc(pawn.team)
     const teamNow = (await tx.get(teamRef)).data() as TeamDoc | undefined
-    tx.update(paperRef, { solvedBy: uid, solvedTeam: pawn.team })
+    // **맞힌 사람이 걷는다** — heldBy 가 차면 바닥에서 사라진다(자리 막기도 풀린다)
+    tx.update(paperRef, { solvedBy: uid, solvedTeam: pawn.team, heldBy: uid })
     tx.update(teamRef, { resources: gain(purseOf(teamNow), { knowledge: KNOWLEDGE_PER_QUIZ }) })
     // 해설은 맞힌 사람에게만, 그것도 응답으로만 간다. 문서에는 안 남는다
     return { correct: true as const, explain: quiz.explain || null }

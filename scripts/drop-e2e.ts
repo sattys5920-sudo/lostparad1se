@@ -230,9 +230,9 @@ async function main() {
   const paperId = str(papers[0]?.id)
   await must('takeQuiz', meTok, { gameId: game, paperId: paperId as string })
   const v6 = await viewOf(game, meUid)
-  check(arr(v6.quizzesHere).length === 0, '주웠으니 바닥에서 사라진다')
+  check(arr(v6.quizzesHere).length === 1, '**펼쳐 봐도 바닥에 그대로 있다** — 누가 맞힐 때까지')
   const mine = arr(v6.myQuizzes)
-  check(str(mine[0]?.prompt) === '눈이 가장 많이 오는 달은?', '주우면 문제가 온다', String(str(mine[0]?.prompt)))
+  check(str(mine[0]?.prompt) === '눈이 가장 많이 오는 달은?', '펼치면 문제가 온다', String(str(mine[0]?.prompt)))
   check(!JSON.stringify(v6).includes('"explain"'), '해설은 주운 뒤에도 안 온다')
   check(!JSON.stringify(v6).includes('한 달'), '정답은 주운 뒤에도 안 샌다')
 
@@ -246,6 +246,29 @@ async function main() {
   check(wrong.correct === false, '틀린 답은 틀렸다고 한다')
   const again = await call('answerQuiz', meTok, { gameId: game, paperId: paperId as string, given: '한 달' })
   check(!again.ok, '한 번 틀리면 다시 못 낸다', again.ok ? '받아 버렸다' : (again.err ?? ''))
+  check(arr((await viewOf(game, meUid)).quizzesHere).length === 1, '틀려도 종이는 바닥에 남는다')
+
+  // **다른 사람이 와서 펼치고 맞히면 바닥에서 사라진다**
+  const solver = 'qa03'
+  const solverTok = await tok(solver)
+  const solverUid = uidOf(solver)
+  const peek = await call('answerQuiz', solverTok, { gameId: game, paperId: paperId as string, given: '한 달' })
+  check(!peek.ok, '펼쳐 보지 않은 사람은 답을 못 낸다', peek.ok ? '받아 버렸다' : (peek.err ?? ''))
+  await call('roamTo', solverTok, { gameId: game, tileId: HERE })
+  await must('tick', host, { gameId: game })
+  let solverStood = false
+  for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1], [-1, 0]]) {
+    const c = { x: (spot?.x ?? 0) + dx, y: (spot?.y ?? 0) + dy }
+    if (!canDropQuizAt(c.x, c.y)) continue
+    const r = await call('standAt', solverTok, { gameId: game, x: c.x, y: c.y })
+    if (r.ok && (r.result as { ok?: boolean }).ok !== false) { solverStood = true; break }
+  }
+  check(solverStood, '다른 사람이 종이 옆에 섰다')
+  await must('takeQuiz', solverTok, { gameId: game, paperId: paperId as string })
+  const right = (await must('answerQuiz', solverTok, { gameId: game, paperId: paperId as string, given: '한 달' })) as { correct?: boolean }
+  check(right.correct === true, '다른 사람이 맞혔다')
+  check(arr((await viewOf(game, solverUid)).quizzesHere).length === 0, '**맞히면 바닥에서 사라진다**')
+  check(arr((await viewOf(game, meUid)).myQuizzes).length === 0, '먼저 펼쳤던 사람 손패에서도 사라진다')
 
   console.log('\n── 없는 방 ──')
   const nowhere = await call('hostDrop', host, { gameId: game, tileId: '옥탑방', kind: 'memo', text: '어디에' })

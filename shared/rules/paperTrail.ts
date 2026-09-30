@@ -40,7 +40,7 @@ export const TRAIL_LABEL: Record<TrailKind, string> = {
   slipGive: '건넸다',
   slipDrop: '내려놓았다',
   slipTear: '찢었다',
-  quizTake: '주웠다',
+  quizTake: '펼쳤다',
   quizWrong: '틀렸다',
   quizSolved: '맞혔다',
 }

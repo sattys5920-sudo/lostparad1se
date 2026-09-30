@@ -265,6 +265,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         prompt: quiz?.prompt ?? null,
         choices: quiz?.choices ?? [],
         heldBy: paper.heldBy ?? null,
+        openedBy: paper.openedBy ?? [],
         solvedTeam: (paper.solvedTeam ?? null) as 'A' | 'B' | 'C' | 'D' | null,
         wrongBy: paper.wrongBy ?? [],
       }

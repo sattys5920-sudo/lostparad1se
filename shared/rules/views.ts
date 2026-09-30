@@ -136,8 +136,10 @@ export interface WorldQuiz {
   /** **투영이 든 사람에게만 실어 준다.** 바닥에 있는 동안에는 안 간다. */
   prompt: string | null
   choices: readonly string[]
-  /** 주워 간 사람. null 이면 아직 바닥에 있다. */
+  /** 바닥에서 걷어 간 사람(맞힌 사람). null 이면 아직 바닥에 있다. */
   heldBy: string | null
+  /** 펼쳐 본 사람들. 이 사람들에게만 문장이 간다. */
+  openedBy?: readonly string[]
   solvedTeam: TeamId | null
   /** 틀린 사람들. 투영이 내 것만 본다. */
   wrongBy: readonly string[]
@@ -930,11 +932,12 @@ export function projectView(world: World, viewerId: string): View {
     /*
      * **내가 든 것만 문장이 온다.**
      *
+     * 펼쳐 본 것이 뜬다. 종이는 누가 맞힐 때까지 바닥에 남는다.
      * 푼 종이는 목록에서 빠진다 — 손에서 사라지는 것이 「끝났다」의
      * 표시다. 남이 먼저 맞혀서 끝난 것도 그렇게 사라진다
      */
     myQuizzes: (world.quizzes ?? [])
-      .filter((q) => q.heldBy === viewerId && q.solvedTeam === null)
+      .filter((q) => (q.heldBy === viewerId || (q.openedBy ?? []).includes(viewerId)) && q.solvedTeam === null)
       .map((q) => ({
         id: q.id,
         kind: q.kind,

@@ -678,6 +678,20 @@
 .sc-mi__open .sc-sl h2,
 .sc-mi__open .sc-sl p,
 .sc-mi__open .sc-sl li { color: var(--ink); }
+/* 쪽지 한 장의 칸도 종이 색으로. 어두운 칸이 남아 있으면 위의 먹색
+   글씨가 어두운 바탕에 얹혀 **읽은 쪽지가 안 읽혔다** */
+.sc-mi__open .sc-sl__list > li {
+  border: 1px solid var(--ink-2);
+  border-radius: 0;
+  background: var(--paper);
+}
+.sc-mi__open .sc-sl__row button {
+  border: 1px solid var(--ink-2);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+.sc-mi__open .sc-sl__row .sc-sl__tear { color: var(--danger); }
 
 /* ── 종이 위에 얹히는 옛 조각들 ─────────────────────────────
  *
