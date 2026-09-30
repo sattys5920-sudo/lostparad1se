@@ -9,7 +9,7 @@ import { useState } from 'react'
 
 import type { GameDoc } from '../../../shared/model'
 import type { GameActions } from '../game/useGame'
-import { BGM_TRACKS, bgmDay } from '../game/bgm'
+import { BGM_TRACKS, bgmTrack } from '../game/bgm'
 
 export function LobbyStageDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions; onSaid: (t: string) => void }) {
   const [busy, setBusy] = useState(false)
@@ -73,15 +73,30 @@ export function TabLockDesk({ game, act, onSaid }: { game: GameDoc; act: GameAct
 }
 
 
-/** 배경음악. **틀면 꺼 둔 사람도 다시 켜진다.** 끄면 모두 꺼진다 */
+/**
+ * 배경음악. **곡을 골라 누르면 그 곡이 튼다** — 날이 바뀌어도 저절로 안
+ * 바뀐다. 틀면 꺼 둔 사람도 다시 켜진다. 끄면 모두 꺼진다.
+ */
 export function BgmDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions; onSaid: (t: string) => void }) {
   const [busy, setBusy] = useState(false)
   const on = game.bgm?.on ?? true
-  async function set(next: boolean) {
+  const now = bgmTrack(game.bgm)
+  async function play(track: number) {
     setBusy(true)
     try {
-      await act.hostSetBgm(next)
-      onSaid(next ? '음악을 틀었다. 꺼 둔 사람도 다시 켜진다.' : '음악을 껐다. 모두 꺼진다.')
+      await act.hostSetBgm(true, track)
+      onSaid(`${track} 번 「${BGM_TRACKS[track].name}」을 틀었다. 꺼 둔 사람도 다시 켜진다.`)
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function stop() {
+    setBusy(true)
+    try {
+      await act.hostSetBgm(false)
+      onSaid('음악을 껐다. 모두 꺼진다.')
     } catch (e) {
       onSaid((e as Error).message)
     } finally {
@@ -90,14 +105,17 @@ export function BgmDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions
   }
   return (
     <div className="sc-ad__row">
-      <button className="is-primary" disabled={busy} onClick={() => void set(true)}>
-        {on ? '다시 틀기' : '틀기'}
-      </button>
-      <button disabled={busy || !on} onClick={() => void set(false)}>
+      {[1, 2, 3, 4].map((t) => (
+        <button key={t} className={on && now === t ? 'is-primary' : ''} disabled={busy} onClick={() => void play(t)}>
+          {t} · {BGM_TRACKS[t].name}
+          {on && now === t ? ' ♪' : ''}
+        </button>
+      ))}
+      <button disabled={busy || !on} onClick={() => void stop()}>
         끄기
       </button>
       <span className="sc-ad__hint">
-        지금: {on ? '틀어 두었다' : '꺼 두었다'} · {BGM_TRACKS[bgmDay(game.phase, game.day)]?.name ?? '없음'}. 틀면 꺼 둔 사람도 다시 켜진다.
+        지금: {on ? `${now} 번 「${BGM_TRACKS[now].name}」 틀어 두었다` : '꺼 두었다'}. 누른 곡이 날이 바뀌어도 계속 나온다. 틀면 꺼 둔 사람도 다시 켜진다.
       </span>
     </div>
   )

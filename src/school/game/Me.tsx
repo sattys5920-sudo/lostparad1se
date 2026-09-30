@@ -706,7 +706,7 @@ function BgmSwitch() {
         </label>
       </div>
       <p className="sc-np__hint">
-        {bgm.available ? `오늘의 곡 · ${bgm.track}. 꺼 두어도 감독관이 다시 틀면 다시 켜진다.` : '감독관이 음악을 꺼 두었다.'}
+        {bgm.available ? `지금 곡 · ${bgm.track}. 꺼 두어도 감독관이 다시 틀면 다시 켜진다.` : '감독관이 음악을 꺼 두었다.'}
       </p>
     </section>
   )

@@ -154,7 +154,8 @@ export interface GameDoc {
    * 배경음악. 날마다 곡이 다르다(DAY 1~4). 감독관이 틀고 끈다 — 없으면 틀어 둔 것.
    * **틀 때마다 atMs 가 새로 적힌다.** 그보다 먼저 끈 사람은 다시 켜진다
    */
-  bgm?: { on: boolean; atMs: number }
+  /** 배경음악. track 은 감독관이 고른 곡(1~4). 날이 바뀌어도 저절로 안 바뀐다 */
+  bgm?: { on: boolean; atMs: number; track?: number }
   /** 답안지가 열려 있다 — 모두의 화면에 뜬다. 채점하면 닫힌다 */
   answerSheet?: { openAtMs: number } | null
   /** 채점 결과. **여기 적히는 순간 정답이 모두에게 간다** */

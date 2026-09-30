@@ -29,14 +29,23 @@ export const hostSetLobbyStage = onCall<{ gameId: string; stage: 'locked' | 'tal
 /**
  * 배경음악을 틀고 끈다. **틀면 꺼 둔 사람도 다시 켜진다** — atMs 가 새로
  * 적히고, 각자 끈 시각이 그보다 앞이면 켜진 것으로 본다(화면의 bgm.ts).
+ *
+ * **곡은 감독관이 고른다(1~4).** 전에는 날마다 곡이 저절로 바뀌었다. 곡을
+ * 안 주면 틀어 두었던 곡을 그대로 둔다.
  */
-export const hostSetBgm = onCall<{ gameId: string; on: boolean }>(async (req) => {
+export const hostSetBgm = onCall<{ gameId: string; on: boolean; track?: number }>(async (req) => {
   requireHost(req.auth)
   const { gameId } = req.data
   const ref = gameRef(gameId)
   const snap = await ref.get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  const bgm = { on: req.data.on === true, atMs: Date.now() }
+  const asked = Number(req.data.track)
+  if (req.data.track !== undefined && !(Number.isInteger(asked) && asked >= 1 && asked <= 4)) {
+    throw new HttpsError('invalid-argument', '곡은 1~4 번이다.')
+  }
+  const before = (snap.data() as GameDoc).bgm?.track
+  const track = req.data.track !== undefined ? asked : (before ?? 1)
+  const bgm = { on: req.data.on === true, atMs: Date.now(), track }
   await ref.update({ bgm })
   return { bgm }
 })

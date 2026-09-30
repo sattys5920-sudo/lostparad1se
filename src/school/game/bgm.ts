@@ -1,11 +1,12 @@
-// 배경음악 — 날마다 한 곡.
+// 배경음악 — 감독관이 고른 한 곡.
 //
-//   DAY 1  그라나도 에스파다
-//   DAY 2  Says
-//   DAY 3  Tango
-//   DAY 4  Minority
+//   1  그라나도 에스파다
+//   2  Says
+//   3  Tango
+//   4  Minority
 //
-// 감독관이 틀고 끈다(game.bgm). 각자 「나」 탭에서 끌 수 있고, 끈 것은
+// 감독관이 곡을 골라 틀고 끈다(game.bgm.track). **날이 바뀌어도 저절로 안
+// 바뀐다** — 전에는 DAY 마다 곡이 바뀌었다. 각자 「나」 탭에서 끌 수 있고, 끈 것은
 // 이 기기에 적는다. **감독관이 다시 틀면 끈 사람도 켜진다** — 끈 시각이
 // 감독관이 튼 시각보다 앞이면 켜진 것으로 본다.
 //
@@ -20,14 +21,10 @@ export const BGM_TRACKS: Readonly<Record<number, { src: string; name: string }>>
   4: { src: '/bgm/day4.mp3', name: 'Minority' },
 }
 
-/**
- * 지금 틀 곡의 날. 시작 전 로비는 DAY 1 곡, 끝난 뒤(엔딩)는 DAY 4 곡을
- * 이어서 튼다. 판이 도는 동안은 그날 곡이다
- */
-export function bgmDay(phase: string | undefined, day: number): number {
-  if (phase === 'lobby') return 1
-  if (phase === 'finished') return 4
-  return Math.min(4, Math.max(1, day))
+/** 지금 틀 곡. 감독관이 고른 번호, 아직 안 골랐으면 1 번 */
+export function bgmTrack(bgm: { track?: number } | undefined): number {
+  const t = Number(bgm?.track)
+  return Number.isInteger(t) && BGM_TRACKS[t] ? t : 1
 }
 
 const VOLUME = 0.45

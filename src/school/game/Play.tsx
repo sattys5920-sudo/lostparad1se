@@ -2624,10 +2624,10 @@ export function Play() {
   const state = useGame(signedIn ? GAME_ID : null)
   const act = useMemo(() => gameActions(GAME_ID), [])
   /*
-   * 배경음악. 로비는 DAY 1 곡, 판이 도는 동안은 그날 곡, 엔딩은 DAY 4 곡.
+   * 배경음악. 감독관이 고른 곡(1~4)을 튼다 — 날이 바뀌어도 저절로 안 바뀐다.
    * 감독관이 언제든 틀고 끄고, 각자 「나」 탭에서 끈다
    */
-  useBgm(GAME_ID, bgmDay(state.game?.phase, state.game?.day ?? 0), state.game?.bgm, Boolean(state.game))
+  useBgm(GAME_ID, bgmTrack(state.game?.bgm), state.game?.bgm, Boolean(state.game))
 
   /**
    * 엔딩 송출 — 지금 어느 화면에 있든 그 위로 뜬다.
@@ -2750,4 +2750,4 @@ export function Play() {
 
 import { teamName, teamNo } from '../../../shared/rules/bundan'
 import { AnswerResult, AnswerSheet } from './AnswerSheet'
-import { bgmDay, useBgm } from './bgm'
+import { bgmTrack, useBgm } from './bgm'
