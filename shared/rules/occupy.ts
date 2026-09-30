@@ -368,7 +368,8 @@ export const ACT_COST: Record<ActionKind, number> = {
   dropRobot: 0,
   // 놓았던 것을 도로 드는 것도 같다
   takeRobot: 0,
-  smashRobot: 1,
+  // **부수기는 토큰이 아니라 드라이버가 든다**(items). 한 기에 한 자루
+  smashRobot: 0,
 }
 
 /**

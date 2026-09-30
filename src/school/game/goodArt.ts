@@ -99,6 +99,22 @@ const WHISTLE = P([
   '            ',
 ])
 
+/** 드라이버 — 손잡이와 가는 날. 로봇을 분해한다. */
+const SCREWDRIVER = P([
+  '            ',
+  '         3  ',
+  '        323 ',
+  '       323  ',
+  '      323   ',
+  '    3323    ',
+  '   311133   ',
+  '  3111113   ',
+  ' 3111113    ',
+  ' 311113     ',
+  '  3333      ',
+  '            ',
+])
+
 /** 남의 명찰 — 위에 집게가 달린 이름표. */
 /** 깃발 — 깃대 하나에 삼각기. 팀 상자로 가는 것이다(rules/flag). */
 const FLAG = P([
@@ -241,6 +257,7 @@ export const GOOD_ART: Readonly<Record<string, readonly string[]>> = {
   slips: NOTE,
   robots: ROBOT,
   whistle: WHISTLE,
+  screwdriver: SCREWDRIVER,
   flag: FLAG,
   lock: LOCK,
   lockpick: LOCKPICK,

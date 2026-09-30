@@ -72,7 +72,7 @@ const board = (over: Partial<PhaseState> = {}): PhaseState => ({
   vaults: Object.fromEntries(TEAM_IDS.map((t) => [t, { money: 99, knowledge: 99 }])),
   // 주머니는 **사람마다**다. 시험에 나오는 이름을 넉넉히 채워 둔다
   satchels: Object.fromEntries(
-    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { lock: 9, whistle: 9 }]),
+    ['a', 'b', 'c', 'x', 'y', 'a1', 'a2', 'b1', 'c1'].map((id) => [id, { lock: 9, whistle: 9, screwdriver: 9 }]),
   ),
   // 상자도 한 사람 몫만큼 넣어 둔다. 모자란 경우는 따로 쓴다
   wallets: Object.fromEntries(TEAM_IDS.map((t) => [t, TOKENS_PER_PHASE])),
@@ -473,8 +473,21 @@ describe('로봇', () => {
     const out = doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r2' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('이미 부쉈다')
-    // 거절은 값을 물리지 않는다
-    expect(purse(s, 'A')).toBe(99 - ACT_COST.smashRobot)
+    // 거절은 드라이버를 물리지 않는다. 토큰은 원래 안 든다
+    expect(ACT_COST.smashRobot).toBe(0)
+    expect(purse(s, 'A')).toBe(99)
+    expect(s.satchels.a?.screwdriver).toBe(8)
+  })
+
+  it('**드라이버가 없으면 못 부순다** — 한 기에 한 자루', () => {
+    const s = board({
+      people: [person('a', 'A', 'library')],
+      robots: [robot('r1', 'B', 'library')],
+      satchels: { a: {} },
+    })
+    const out = doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('드라이버')
   })
 
   it('둘이 가면 두 기를 나눠 부순다 — 로봇 둘짜리 방은 혼자 못 뺏는다', () => {

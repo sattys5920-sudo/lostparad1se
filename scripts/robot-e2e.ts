@@ -147,11 +147,18 @@ async function main() {
   await must('phaseAct', a0.token, { gameId: GAME, kind: 'dropRobot' })
   check((await listDocs(`games/${GAME}/robots`)).filter((r) => r.tileId === ROOM && r.carriedBy === null).length === 2, '두 기를 놓았다')
 
-  console.log('\n── 부수기 — 놓인 것만 ──')
+  console.log('\n── 부수기 — 드라이버 한 자루에 한 기 · 놓인 것만 ──')
+  const noTool = await call('phaseAct', b0.token, { gameId: GAME, kind: 'smashRobot', targetRobot: 'bot-r1' })
+  check(!noTool.ok && String(noTool.message).includes('드라이버'), '**드라이버가 없으면 못 부순다**', noTool.message)
+  await fetch(`${FS}/games/${GAME}/pawns/${b0.uid}?updateMask.fieldPaths=items`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { items: { mapValue: { fields: { screwdriver: { integerValue: '1' } } } } } }),
+  })
   const carried = await call('phaseAct', b0.token, { gameId: GAME, kind: 'smashRobot', targetRobot: 'bot-r2' })
   check(!carried.ok, '남이 든 로봇은 못 부순다', carried.message)
   await must('phaseAct', b0.token, { gameId: GAME, kind: 'smashRobot', targetRobot: 'bot-r1' })
   check(!(await getDoc(`games/${GAME}/robots/bot-r1`)).id, '놓인 로봇은 부서진다')
+  check(Number((await getDoc(`games/${GAME}/pawns/${b0.uid}`)).items?.screwdriver ?? 0) === 0, '**드라이버 한 자루가 빠졌다**')
 
   console.log('\n── 거래 — 받는 쪽 두 기 한도 ──')
   // b0 은 두 기를 들었다. a1 이 한 기를 건네면 세 기가 되니 안 된다

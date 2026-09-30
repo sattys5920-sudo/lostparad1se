@@ -3,13 +3,13 @@
 // 쓰는 길이 둘이다.
 //
 //   행동에 딸린 것   use 가 찬 물건. 그 행동을 걸 때 저절로 하나 빠진다
-//                    (호루라기 — 팀원을 부른다)
+//                    (호루라기 — 팀원을 부른다 · 드라이버 — 로봇을 분해한다)
 //   손으로 쓰는 것   use 가 빈 물건. 「쓰기」를 눌러야 쓰인다
 //                    (자물쇠 · 락픽 · 빈 종이 · 지우개 · 테이프)
 import type { ActionKind } from './occupy'
 
 /** 학교에서 주울 만한 것들. 그럴듯한 물건이어야 쓸 때 말이 된다. */
-export type ItemKind = 'whistle' | 'lock' | 'lockpick' | 'paper' | 'eraser' | 'tape' | 'trap'
+export type ItemKind = 'whistle' | 'screwdriver' | 'lock' | 'lockpick' | 'paper' | 'eraser' | 'tape' | 'trap'
 
 export interface ItemSpec {
   kind: ItemKind
@@ -35,6 +35,16 @@ export const ITEMS: readonly ItemSpec[] = [
     name: '호루라기',
     text: '페이즈 중에 불어서 같은 분단 한 명을 내 쪽으로 한 칸 부른다.',
     use: 'summon',
+  },
+  /*
+   * **드라이버는 로봇을 분해하는 데 쓴다.** 로봇 한 기에 한 자루가
+   * 빠진다. 토큰은 안 든다 — 호루라기와 같은 길이다.
+   */
+  {
+    kind: 'screwdriver',
+    name: '드라이버',
+    text: '점령전 중에 이 방에 놓인 다른 분단 로봇 1 기를 분해한다. 쓰면 없어진다.',
+    use: 'smashRobot',
   },
   {
     kind: 'lock',

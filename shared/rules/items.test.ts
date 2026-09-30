@@ -23,7 +23,7 @@ describe('물건', () => {
   it('손으로 쓰는 여섯은 어느 행동에도 안 걸려 있다', () => {
     const hand = ITEMS.filter((i) => isHandItem(i.kind)).map((i) => i.kind)
     expect(hand).toEqual(['lock', 'lockpick', 'paper', 'eraser', 'tape', 'trap'])
-    expect(Object.values(ITEM_FOR)).toEqual(['whistle'])
+    expect(Object.values(ITEM_FOR)).toEqual(['whistle', 'screwdriver'])
   })
 
   it('락픽은 가방에서 안 쓰고 문 앞에서 쓴다', () => {
