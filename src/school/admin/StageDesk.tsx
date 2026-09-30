@@ -9,7 +9,7 @@ import { useState } from 'react'
 
 import type { GameDoc } from '../../../shared/model'
 import type { GameActions } from '../game/useGame'
-import { BGM_TRACKS, bgmTrack } from '../game/bgm'
+import { BGM_TRACKS, bgmTrack, useBgmToggle } from '../game/bgm'
 
 export function LobbyStageDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions; onSaid: (t: string) => void }) {
   const [busy, setBusy] = useState(false)
@@ -81,6 +81,8 @@ export function BgmDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions
   const [busy, setBusy] = useState(false)
   const on = game.bgm?.on ?? true
   const now = bgmTrack(game.bgm)
+  /** 이 폰에서 듣는가. 모두에게 트는 것과 따로다 */
+  const here = useBgmToggle()
   async function play(track: number) {
     setBusy(true)
     try {
@@ -114,8 +116,13 @@ export function BgmDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions
       <button disabled={busy || !on} onClick={() => void stop()}>
         끄기
       </button>
+      <label className="sc-ad__hereBgm">
+        <input id="ad-bgm-here" type="checkbox" checked={here.on} disabled={!here.available} onChange={here.toggle} />
+        이 폰에서 듣기 · {!here.available ? '모두 꺼 둠' : here.on ? '켜짐' : '꺼짐'}
+      </label>
       <span className="sc-ad__hint">
         지금: {on ? `${now} 번 「${BGM_TRACKS[now].name}」 틀어 두었다` : '꺼 두었다'}. 누른 곡이 날이 바뀌어도 계속 나온다. 틀면 꺼 둔 사람도 다시 켜진다.
+        「이 폰에서 듣기」는 이 관리자 폰에서만 켜고 끈다 — 플레이어들 음악은 그대로다. 소리가 안 나면 화면을 한 번 누른다.
       </span>
     </div>
   )

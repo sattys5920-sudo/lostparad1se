@@ -1216,3 +1216,7 @@
 .sc-ad__peekList div { display: grid; grid-template-columns: 72px 1fr; gap: var(--sp-2); font-size: var(--fs-label); }
 .sc-ad__peekList dt { color: var(--sc-text-dim); }
 .sc-ad__peekList dd { margin: 0; }
+
+/* 배경음악 — 이 관리자 폰에서만 듣고 끄는 스위치 */
+.sc-ad__hereBgm { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 44px; font-size: var(--fs-label); cursor: pointer; }
+.sc-ad__hereBgm input { width: 20px; height: 20px; }

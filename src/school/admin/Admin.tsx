@@ -36,6 +36,7 @@ import { GardenDesk } from './Garden'
 import { AssignDesk } from './AssignDesk'
 import { NoticeDesk } from './NoticeDesk'
 import { BgmDesk, LobbyStageDesk, TabLockDesk } from './StageDesk'
+import { bgmTrack, useBgm } from '../game/bgm'
 import { AnswerDesk } from './AnswerDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
@@ -96,6 +97,8 @@ const leftText = (ms: number): string => {
 function Desk() {
   const state = useGame(GAME_ID)
   const act = useMemo(() => gameActions(GAME_ID), [])
+  // 감독관 폰에서도 같은 곡이 나온다. 이 폰에서만 끄는 스위치는 배경음악 칸에 있다
+  useBgm(GAME_ID, bgmTrack(state.game?.bgm), state.game?.bgm, Boolean(state.game))
   const [said, setSaid] = useState('')
   const [busy, setBusy] = useState(false)
   const [qaPw, setQaPw] = useState('')
