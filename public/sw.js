@@ -14,7 +14,7 @@
 // 화면이 서버보다 새것인 창은 이미 한 번 검은 화면을 냈다. 서비스
 // 워커가 옛 껍데기를 쥐고 있으면 그 창이 더 오래 산다 — 그래서
 // html 은 언제나 서버가 먼저고, 새 워커는 기다리지 않고 곧장 넘겨받는다.
-const CACHE = 'sc-static-v3'
+const CACHE = 'sc-static-v4'
 
 self.addEventListener('install', (e) => {
   // 기다리지 않는다. 낡은 껍데기를 오래 쥐고 있을수록 손해다
@@ -62,7 +62,9 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     (async () => {
       try {
-        const res = await fetch(req)
+        // **브라우저 캐시도 건너뛴다.** 그냥 fetch 하면 Hosting 이 한 시간
+        // 쥐라고 한 첫 장을 브라우저가 그대로 내줘서, 배포해도 옛 화면이 떴다
+        const res = await fetch(req, { cache: 'no-cache' })
         if (res.ok) (await caches.open(CACHE)).put(req, res.clone())
         return res
       } catch (err) {
