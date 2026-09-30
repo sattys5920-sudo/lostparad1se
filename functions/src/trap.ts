@@ -24,7 +24,7 @@ import {
 import type { Cell } from '../../shared/rules/board'
 import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
-import { freshNow } from './turn'
+import { freshNow, requireFree } from './turn'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
 import { notify } from './notify'
@@ -87,6 +87,8 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
   const phaseNo = game.phaseNow.no
 
   const pawn = await myPawn(gameId, uid)
+  // 덫에 걸렸거나 하던 일이 안 끝났으면 못 맡긴다
+  requireFree(pawn, nowMs)
   mustBeAtMaker(pawn, maker)
   const team = pawn.team as TeamId
 
@@ -135,6 +137,7 @@ export const takeTrap = onCall<{ gameId: string; maker: number }>(async (req) =>
   const openPhaseNo = game.phaseNow?.open ? game.phaseNow.no : null
 
   const pawn = await myPawn(gameId, uid)
+  requireFree(pawn, nowMs)
   mustBeAtMaker(pawn, maker)
 
   const jobRef = jobsOf(gameId).doc(String(maker))

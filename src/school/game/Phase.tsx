@@ -22,7 +22,7 @@ import {
   ROBOTS_PER_ROOM,
   researchKnowledge,
 } from '../../../shared/rules/occupy'
-import { TILE_BY_ID, type Cell } from '../../../shared/rules/board'
+import { TILE_BY_ID, roomOfCell, type Cell } from '../../../shared/rules/board'
 import { canHoldFlags } from '../../../shared/rules/flag'
 import { TEAM_COLOR } from './MapPlan'
 import { atLabMachine } from '../../../shared/rules/trap'
@@ -160,6 +160,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     const busyLeft = (view?.myBusyUntilMs ?? 0) - now
     if (busyLeft > 0) return `${view?.myBusyKind ?? '하는'} 중이다. ${leftText(busyLeft)} 남았다.`
     if (!here) return '걷는 중이다.'
+    // 복도로 나와 있으면 방의 일은 못 한다. 서버도 서 있는 칸으로 본다
+    if (kind !== 'research' && myCell && roomOfCell(myCell.x, myCell.y) !== here) return '방 안에 들어가 있어야 한다.'
     // 얼마가 드는지는 이름 옆 그림이 말한다. 여기서는 모자란다는 것만
     if (tokens < ACT_COST[kind]) return '팀 토큰이 모자란다.'
     // 물건이 드는 행동은 물건이 먼저다. 없으면 자판기에 가야 한다
@@ -185,6 +187,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     // 이 방에 놓인 우리 로봇이 아니라 **들고 있는 것**을 본다
     if (kind === 'dropRobot') {
       if (carried === 0) return '들고 있는 로봇이 없다.'
+      if (!canHoldFlags(here)) return `${hereName}에는 로봇을 못 놓는다.`
       if (placedHere >= ROBOTS_PER_ROOM) return `이 방에는 로봇을 ${ROBOTS_PER_ROOM}기까지 놓는다.`
     }
     // 거두는 것은 **놓은 사람만.** 같은 팀이 놓은 것도 못 거둔다

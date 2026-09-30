@@ -16,6 +16,7 @@ import { DAY4_CHOICES, DAY4_CHOICE_DAY } from '../../../shared/rules/choices'
 import { VOTE_LABEL } from '../../../shared/rules/v2'
 import { STATUS_LABEL } from '../../../shared/missions/roleNames'
 import { NOT_DEALT } from '../../../shared/missions/paper'
+import { NoticeList } from './NoticePop'
 import { Bag } from './UseItem'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
@@ -199,6 +200,13 @@ export function Me(props: MeProps) {
               {!paper.counting && <p className="sc-mi__fine">판이 열리면 센다.</p>}
             </>
           )}
+        </Card>
+
+        {/* ── 공지 ─────────────────────────────────────
+            운영자가 보낸 말과 1위 발표, 투명인간 발표. 팝업으로 한 번
+            뜨고 여기 남는다. 최근 것부터 */}
+        <Card title="공 지">
+          <NoticeList notices={view?.notices} />
         </Card>
 
         {/* 마지막 선택. **그날에만 카드가 생긴다** */}

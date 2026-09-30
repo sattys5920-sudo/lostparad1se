@@ -353,6 +353,9 @@ export function gameActions(gameId: string) {
     castBallot: (targetId: string) => callServer('castBallot', { ...g, targetId }),
     /** 운영자가 오늘의 투명인간을 푼다. 사유를 남긴다. */
     clearInvisible: (reason: string) => callServer('clearInvisible', { ...g, reason }),
+    hostNotice: (text: string, toPlayerId: string | null) => callServer('hostNotice', { ...g, text, toPlayerId }),
+    hostAnnounceLeader: () => callServer('hostAnnounceLeader', { ...g }),
+    noticeTemplates: () => callServer('noticeTemplates', {}),
     /** 문제 은행을 본다. **운영자만** — 정답과 해설이 여기서만 나온다. */
     hostQuizList: () => callServer('hostQuizList', g),
     /** 비밀 쪽지 판. 사람마다 나간 장수와 바닥에 남은 자리. **운영자만.** */

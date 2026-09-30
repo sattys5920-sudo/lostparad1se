@@ -34,7 +34,7 @@ import {
 } from './crop'
 import type { Satchel, Satchels } from './items'
 import { canSeeMemory } from '../reveal/archive'
-import { noticesFor, type Notice } from '../reveal/notice'
+import { noticeLine, noticesFor, type Notice, type NoticeLine } from '../reveal/notice'
 
 // ── 서버가 쥐고 있는 것 ─────────────────────────────────────────
 
@@ -546,7 +546,7 @@ export interface View {
   }[]
   memories: { tileId: TileId; team: TeamId; atMs: number }[]
   sightAtMs: number | null
-  notices: { id: string; text: string; atMs: number }[]
+  notices: NoticeLine[]
 }
 
 /**
@@ -633,7 +633,7 @@ export function projectView(world: World, viewerId: string): View {
       mySlips: [],
       memories: [],
       sightAtMs: null,
-      notices: noticesFor(world.notices, viewerId).map((n) => ({ id: n.id, text: n.text, atMs: n.atMs })),
+      notices: noticesFor(world.notices, viewerId).map(noticeLine),
     }
   }
 
@@ -973,7 +973,7 @@ export function projectView(world: World, viewerId: string): View {
     memories: world.memories.filter((m) => canSeeMemory(m, team, world.over)),
     // A의 시선은 깨달음에 이른 본인에게만
     sightAtMs: world.awakenedAtMs[viewerId] ?? null,
-    notices: noticesFor(world.notices, viewerId).map((n) => ({ id: n.id, text: n.text, atMs: n.atMs })),
+    notices: noticesFor(world.notices, viewerId).map(noticeLine),
   }
 }
 

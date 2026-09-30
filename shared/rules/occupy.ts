@@ -719,7 +719,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (!canHoldFlags(mine.tileId)) return no(`${TILE_BY_ID[mine.tileId].name}에는 깃발을 못 꽂는다.`)
       // 꽂는 건 혼자 하는 일이다 — 지워진 사람도 꽂을 수 있다
       const box = state.flagBoxes[mine.team] ?? 0
-      if (box <= 0) return no('팀 깃발이 없다. 하루에 한 번 들어오고, 자판기에서도 산다.')
+      if (box <= 0) return no('팀 깃발이 없다. 페이즈마다 새로 채워지고, 자판기에서도 산다.')
       return {
         ok: true,
         spent: cost,
@@ -772,6 +772,8 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     case 'dropRobot': {
       // **놓는 순간부터 이 방의 깃발 하나다.** 혼자 하는 일이라 지워진 사람도 놓는다
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
+      // 깃발을 못 꽂는 방(2-3 교실)에는 로봇도 안 놓는다 — 놓아 봐야 판정에서 안 센다
+      if (!canHoldFlags(mine.tileId)) return no(`${TILE_BY_ID[mine.tileId].name}에는 로봇을 못 놓는다.`)
       const held = carriedOf(playerId)
       if (held.length === 0) return no('들고 있는 로봇이 없다.')
       // 고른 것이 있으면 그것, 없으면 아무거나 하나. 남의 것을 고를 수는 없다

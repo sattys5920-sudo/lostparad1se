@@ -26,7 +26,7 @@ import type { GameDoc, RosterDoc } from '../../shared/model'
 
 import { buildLog } from './ending'
 import { catchUp } from './catchup'
-import { crushTargetFor } from './missionDays'
+import { crushTargetFor, todayFromMs } from './missionDays'
 import { gameRef, nowOf, requireUid } from './index'
 
 /**
@@ -122,8 +122,15 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     ...(over ? {} : { voteCutoffDay: game.day }),
   })
 
-  const result = judge({ playerId: uid, team: mine.team, roleId, targetId: crushTargetId }, log)
-  // 하루가 바뀔 때 부르는 자리다 — 받은 표 조항은 여기서만 갱신된다
+  /*
+   * **미션은 하루짜리다.** 도는 중이면 오늘 0시부터 한 것만 센다 — 판 전체로
+   * 세면 첫날 해낸 것이 나흘 내내 「달성」으로 남았다. 오늘 받은 표는 빼고
+   * 센다(dropVotes). 표는 자정 판정이 센다
+   */
+  const fromMs = over ? undefined : await todayFromMs(gameId, game)
+  const dayLog =
+    fromMs === undefined ? log : (await buildLog(gameId, game, { over: false, fromMs, dropVotes: true })).log
+  const result = judge({ playerId: uid, team: mine.team, roleId, targetId: crushTargetId }, dayLog)
   const phase: Phase = over ? 'end' : 'dayTurned'
   const shown = discloseFor(result, phase)
 

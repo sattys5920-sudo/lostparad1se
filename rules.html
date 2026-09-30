@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0d0f16" />
-    <meta name="description" content="남겨진 아이들 — 나흘 동안의 규칙. 방 차지하기, 자판기, 쪽지, 투명인간 투표, 개인 미션." />
+    <meta name="description" content="남겨진 아이들 — 점령전 진행, 자유 시간, 돈과 지식 버는 법, 자판기, 로봇·덫, 거래." />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>남겨진 아이들 규칙</title>
     <link rel="preload" href="/fonts/Galmuri11.woff2" as="font" type="font/woff2" crossorigin />
@@ -309,10 +309,10 @@
     <header class="top">
       <div class="wrap">
         <p class="eyebrow">2 - 3 교실 게시물</p>
-        <h1>남겨진 아이들<br />— 나흘 동안의 규칙</h1>
+        <h1>남겨진 아이들<br />— 게임 규칙</h1>
         <p class="lead">
-          열네 명이 네 팀으로 나뉘어 나흘 동안 학교의 방을 차지한다. 그 사이 누군가는 매일 투명인간이 되고,
-          저마다 남에게 말하지 않은 역할이 하나씩 있다. 게임을 하다 헷갈리면 여기서 찾아보면 된다.
+          네 팀이 학교의 방을 차지한다. 점수는 <strong>가진 방의 수</strong>이고, 방 주인은 <strong>점령전(페이즈)</strong>이 끝날 때 정해진다.
+          점령전 사이의 <strong>자유 시간</strong>에는 돈과 지식을 벌고 물건을 사서 다음 점령전을 준비한다.
         </p>
         <div class="teams" aria-label="네 팀과 처음 인원">
           <span class="team"><i style="background: var(--team-a)"></i>A팀 4명</span>
@@ -325,147 +325,87 @@
 
     <nav class="toc" aria-label="차례">
       <ol>
-        <li><a href="#start">처음</a></li>
-        <li><a href="#days">나흘</a></li>
-        <li><a href="#score">방 차지하기</a></li>
-        <li><a href="#move">움직이기</a></li>
-        <li><a href="#money">자원</a></li>
-        <li><a href="#earn">벌기</a></li>
+        <li><a href="#phase">점령전</a></li>
+        <li><a href="#free">자유 시간</a></li>
+        <li><a href="#money">돈 벌기</a></li>
+        <li><a href="#know">지식 벌기</a></li>
         <li><a href="#vend">자판기</a></li>
-        <li><a href="#make">만들기</a></li>
+        <li><a href="#make">로봇·덫</a></li>
         <li><a href="#deal">거래·이적</a></li>
         <li><a href="#paper">쪽지</a></li>
-        <li><a href="#talk">말·무전</a></li>
-        <li><a href="#invisible">투명인간</a></li>
-        <li><a href="#votes">신뢰·호감</a></li>
-        <li><a href="#role">역할·미션</a></li>
-        <li><a href="#arcade">오락실</a></li>
+        <li><a href="#votes">투표</a></li>
         <li><a href="#when">한눈에</a></li>
       </ol>
     </nav>
 
     <main class="wrap">
-      <!-- ─────────────────────────────── 처음 -->
-      <section id="start">
-        <h2><span class="no">00</span>처음 들어오면</h2>
-        <ol class="steps">
-          <li>이름과 암호로 가입하고 캐릭터를 만든다. 짧은 이야기가 한 번 나온다. 「더보기」에서 다시 볼 수 있다.</li>
-          <li>로비에서 <strong>「들어간다」</strong>를 누르면 <strong>2-3 교실</strong>에 앉는다. 판이 시작되기 전에는 교실 밖으로 못 나가지만, 교실 안에서 말은 할 수 있다.</li>
-          <li>운영자가 한 사람씩 <strong>팀과 역할</strong>을 정한다. 정해지는 순간 내 화면에 <strong>학생증</strong>이 뜬다. 판이 시작되기 전까지는 교실 아래쪽 「내 학생증」으로, 시작한 뒤에는 「나」 탭에서 다시 볼 수 있다.</li>
-          <li>열네 명이 다 정해지면 운영자가 판을 시작한다. 모두 2-3 교실에서 출발하고, 방은 전부 주인이 없는 상태로 시작한다.</li>
-        </ol>
+      <!-- ─────────────────────────────── 점령전 -->
+      <section id="phase">
+        <h2><span class="no">01</span>점령전은 이렇게 진행된다</h2>
         <div class="paper">
-          <p class="eyebrow">공개되는 것과 숨겨진 것</p>
-          <ul>
-            <li><strong>팀은 모두에게 공개된다.</strong> 맵에서 완장 색으로 보인다.</li>
-            <li><strong>역할은 나만 안다.</strong> 운영자 말고는 아무도 모른다.</li>
-            <li>돈·아이템은 나만, 팀 금고(지식·토큰·깃발)는 우리 팀만 본다.</li>
-          </ul>
+          <p class="eyebrow">점수는 하나뿐</p>
+          <p><strong>팀 점수 = 가진 방의 수.</strong> 방 하나가 1점이다. 2-3 교실은 누구의 것도 될 수 없어서, 다툴 수 있는 방은 <strong>스물네 개</strong>다. 동점이면 공동 순위다(예: 1 · 2 · 2 · 4).</p>
         </div>
-        <h3>화면 아래 다섯 칸</h3>
+
+        <h3>1. 운영자가 점령전을 연다</h3>
+        <ul>
+          <li>한 번 열리면 <strong>60분</strong>이다. 하루에 몇 번 열지는 운영자가 정한다. 열릴 때와 닫힐 때 팀 무전과 알림이 온다.</li>
+          <li>열리는 순간 팀마다 <strong>토큰 6개</strong>가 들어오고, 팀 깃발 상자가 <strong>4개로 다시 채워진다</strong>.</li>
+          <li>아무도 자리를 옮기지 않는다. 서 있던 곳에서 시작한다.</li>
+        </ul>
+
+        <h3>2. 60분 동안 하는 일</h3>
         <div class="scroll">
           <table>
+            <thead><tr><th>행동</th><th>드는 것</th><th>하는 일</th></tr></thead>
             <tbody>
-              <tr><td class="k">맵</td><td>학교를 걷는 화면. 방 이동, 페이즈 행동, 방 안 말하기를 한다. 사람을 누르면 거래·표 주기·이적 메뉴가 뜬다.</td></tr>
-              <tr><td class="k">나</td><td>학생증, 가진 것(토큰·돈·지식·아이템·쪽지·로봇), 오늘의 미션, 지난 판정, 받은 표, 알림.</td></tr>
-              <tr><td class="k">무전</td><td>우리 팀 채널과 열네 명 전원 채널.</td></tr>
-              <tr><td class="k">투표</td><td>그날의 투명인간 투표용지.</td></tr>
-              <tr><td class="k">메모</td><td>나만 보는 수첩(다른 열세 명에 대한 한 줄씩), 「지금 여기」(같은 방 사람), 기록 보관함.</td></tr>
+              <tr><td class="k">방에 들어가기</td><td>토큰 1 · 10분</td><td>우리 팀 방은 토큰 0. 걸어가는 10분 동안은 어느 방에도 없는 것으로 친다</td></tr>
+              <tr><td class="k">깃발 꽂기</td><td>깃발 1</td><td>서 있는 방에 우리 팀 깃발을 꽂는다. 다른 팀이 있어도 된다</td></tr>
+              <tr><td class="k">깃발 뽑기</td><td>손댈 때마다 토큰 1</td><td><strong>서로 다른 두 사람</strong>이 손대야 깃발 1개가 뽑힌다</td></tr>
+              <tr><td class="k">로봇 놓기 · 거두기</td><td>없음</td><td>놓인 로봇 1기 = 깃발 1개. 거두는 건 놓은 사람만</td></tr>
+              <tr><td class="k">로봇 부수기</td><td>토큰 1</td><td>같은 방에 놓인 다른 팀 로봇. 한 사람이 한 점령전에 1기</td></tr>
+              <tr><td class="k">로봇 연구</td><td>팀 지식 3 · 20분</td><td>연구실 기계 옆에서. <a href="#make">자세히</a></td></tr>
+              <tr><td class="k">덫 맡기기</td><td>내 돈 3 · 20분</td><td>기술실 제조기 옆에서. <a href="#make">자세히</a></td></tr>
+              <tr><td class="k">호출</td><td>호루라기 1</td><td>같은 팀 한 명을 내 방으로 부른다. 둘 다 10분 묶인다</td></tr>
             </tbody>
           </table>
         </div>
-      </section>
+        <ul>
+          <li>깃발·로봇·호출은 <strong>방 안에 서서</strong> 한다. 문 밖 복도에서는 그 방에 할 수 없다.</li>
+          <li>방마다 한 번에 들어갈 수 있는 인원이 있다(아래 지도의 숫자). 걸어오는 중인 사람도 자리를 차지한다.</li>
+          <li>복도에 놓인 <strong>덫은 점령전 중에만</strong> 걸린다. 다른 팀이 밟으면 10분 동안 그 자리에 묶인다.</li>
+        </ul>
 
-      <!-- ─────────────────────────────── 나흘 -->
-      <section id="days">
-        <h2><span class="no">01</span>나흘의 흐름</h2>
-        <p>
-          판은 <strong>나흘</strong>이다. 시계는 한국 시간 그대로 흐르지만, 날짜는 <strong>운영자가 넘긴다</strong>. 아침,
-          21시 정산, 마지막 날 끝은 모두 운영자가 누를 때 일어난다.
-        </p>
-        <dl class="day">
-          <dt>아침</dt>
-          <dd>
-            <p>앱을 열면 아직 못 본 <strong>A의 기록</strong>이 먼저 나온다. 건너뛸 수 없고, 다 본 기록은 보관함에 남는다.</p>
-            <p class="dim">날이 바뀌면 개인 미션이 새로 시작되고, 신뢰·호감표도 다시 한 장 생긴다.</p>
-          </dd>
-          <dt>자유 시간</dt>
-          <dd>
-            <p>페이즈가 열려 있지 않은 동안은 모두 자유 시간이다. 방 이동은 <strong>공짜이고 바로 된다</strong>. 자판기, 화분, 심부름, 문제 종이는 이때만 쓸 수 있다.</p>
-          </dd>
-          <dt>페이즈</dt>
-          <dd>
-            <p>운영자가 여는 <strong>60분</strong>짜리 점령전. 하루에 몇 번 열지는 운영자가 정한다. 열릴 때와 닫힐 때 팀 무전에 종이 울리고 알림이 온다.</p>
-            <p>이동에 <strong>토큰이 들고 시간이 걸린다</strong>. 깃발·로봇·연구·호출은 페이즈 중에만 할 수 있다. 페이즈가 닫히는 순간 방 주인이 정해진다.</p>
-          </dd>
-          <dt>투명인간 투표</dt>
-          <dd>
-            <p>운영자가 열고 닫는다. 하루에 한 번이고 <strong>마지막 날에는 없다</strong>. <a href="#invisible">자세히</a></p>
-          </dd>
-          <dt>21시 정산</dt>
-          <dd>
-            <p>그날 순위를 매긴다. <strong>꼴찌 팀은 다음 페이즈에 토큰 +2</strong>를 받는다(공동 꼴찌면 모두 받고, 네 팀이 같으면 아무도 안 받는다).</p>
-          </dd>
-          <dt>나흘 끝</dt>
-          <dd>
-            <p>넷째 날 밤 운영자가 판을 닫고 엔딩을 띄운다. 끝난 판에서는 「엔딩 · 회고 · 판정」을 볼 수 있다.</p>
-          </dd>
-        </dl>
-        <p class="note">첫날(DAY 1)에는 아침이 없다. 판이 시작되고 곧바로 첫날이다.</p>
-      </section>
-
-      <!-- ─────────────────────────────── 점수 -->
-      <section id="score">
-        <h2><span class="no">02</span>방 차지하기 — 점수</h2>
-        <div class="paper">
-          <p class="eyebrow">점수는 하나뿐</p>
-          <p><strong>팀 점수 = 가진 방의 수.</strong> 방 하나가 1점이다. 2-3 교실은 누구의 것도 될 수 없으니, 다툴 수 있는 방은 <strong>스물네 개</strong>다. 동점이면 공동 순위다(예: 1 · 2 · 2 · 4).</p>
-        </div>
-
-        <h3>방 주인은 페이즈가 닫힐 때 정해진다</h3>
+        <h3>3. 끝나는 순간 방 주인이 정해진다</h3>
         <ul>
           <li>방마다 <strong>꽂힌 깃발 수 + 놓인 로봇 수</strong>를 팀별로 센다. <strong>서 있는 사람은 세지 않는다.</strong></li>
-          <li>가장 많은 팀이 하나면 그 팀이 주인이 된다.</li>
-          <li><strong>동점이거나 아무것도 없으면 원래 주인이 그대로</strong> 가진다.</li>
-          <li>꽂은 깃발과 놓인 로봇은 뽑히거나 부서지기 전까지 다음 페이즈에도 남는다.</li>
-          <li>주인이 바뀐 방은 양쪽 팀 무전에 「차지했다 / 빼앗겼다」로 뜬다. 맵 위쪽 점수 막대에 팀별 방 수가 늘 보인다.</li>
+          <li>가장 많은 팀이 하나면 그 팀이 주인이 된다. <strong>동점이거나 아무것도 없으면 원래 주인이 그대로</strong> 가진다.</li>
+          <li>꽂은 깃발과 놓인 로봇은 뽑히거나 부서지기 전까지 다음 점령전에도 남는다.</li>
+          <li>주인이 바뀐 방은 양쪽 팀 무전에 뜨고, 맵 위쪽 점수 막대에 팀별 방 수가 보인다.</li>
+          <li>운영자가 <strong>1위 발표</strong>를 하면 그 순간의 1위 팀이 모두의 화면에 뜬다.</li>
+        </ul>
+
+        <h3>토큰</h3>
+        <ul>
+          <li>팀이 함께 쓴다. 점령전이 열릴 때마다 인원과 상관없이 <strong>6개</strong>를 받는다.</li>
+          <li>남은 토큰은 다음 점령전으로 넘어가지만 <strong>12개까지</strong>만 넘어간다(12개로 자른 뒤 6개를 더한다).</li>
+          <li>직전 점령전에 팀원 아무도 행동하지 않았으면 안 쓴 토큰의 절반을 더 받는다.</li>
+          <li>우리 팀에서 투명인간이 나왔으면 그동안 점령전마다 <strong>+4</strong>, 21시 정산 꼴찌 팀은 다음 점령전에 <strong>+2</strong>를 받는다.</li>
         </ul>
 
         <h3>깃발</h3>
         <ul>
-          <li>페이즈가 열릴 때마다 팀 깃발 상자가 <strong>4개로 다시 채워진다</strong>. 남은 것에 더해 주는 게 아니라 4개로 맞춘다.</li>
-          <li>자판기에서 <strong>10원</strong>에 더 살 수 있다(학교 전체에서 하루 10개). 산 깃발은 팀 상자에 들어가고 페이즈가 바뀌어도 남는다. 꽂을 때는 페이즈에 받은 몫을 먼저 쓴다.</li>
-          <li><span class="when w-phase">페이즈</span> <strong>꽂기</strong>: 지금 서 있는 방에 우리 팀 깃발 1개를 꽂는다. 토큰도 시간도 들지 않는다. 다른 팀이 서 있어도 꽂을 수 있다.</li>
-          <li><span class="when w-phase">페이즈</span> <strong>뽑기</strong>: 한 번 손댈 때마다 팀 토큰 1개가 든다. <strong>서로 다른 두 사람이 손대야</strong> 깃발 1개가 뽑힌다. 같은 사람이 두 번 손대는 것은 안 된다. 손댄 기록은 다음 페이즈에도 남는다.</li>
+          <li>점령전마다 4개가 들어오고(남은 것에 더하지 않고 4개로 맞춘다), 자판기에서 <strong>10원</strong>에 더 산다(학교 전체 하루 10개). 산 깃발은 계속 남고, 꽂을 때는 받은 몫을 먼저 쓴다.</li>
         </ul>
 
-        <h3>토큰 — 페이즈에 움직이는 힘</h3>
+        <h3>방을 가지면</h3>
         <ul>
-          <li>팀 공동 상자다. 페이즈가 열릴 때마다 인원과 상관없이 <strong>팀마다 6개</strong>가 들어온다.</li>
-          <li>남은 토큰은 다음 페이즈로 이어지지만, 넘어가는 몫은 <strong>12개까지</strong>다. 12개에서 자른 뒤 새로 6개를 더한다.</li>
-          <li>직전 페이즈에 팀원 아무도 행동하지 않았으면, 안 쓴 토큰의 절반(내림)을 더 받는다.</li>
-          <li>우리 팀에서 투명인간이 나왔으면, 그 사람이 투명인간인 동안 페이즈마다 <strong>+4</strong>를 더 받는다.</li>
-          <li>21시 정산 꼴찌 팀은 다음 페이즈에 <strong>+2</strong>를 받는다.</li>
-          <li>쓰는 곳: 남의 방·빈 방에 들어가기 1, 깃발 뽑기 1, 로봇 부수기 1.</li>
+          <li>점령전 중 우리 팀 방에 들어갈 때 <strong>토큰이 들지 않는다</strong>.</li>
+          <li><strong>연구실</strong>을 가지면 로봇 연구에 지식이 <strong>1</strong>만 든다. <strong>기술실</strong>을 가지면 덫이 한 번에 <strong>2개</strong> 나온다.</li>
         </ul>
 
-        <h3>방을 가지면 좋은 점</h3>
-        <ul>
-          <li>페이즈 중에 우리 팀 방에 들어갈 때는 <strong>토큰이 들지 않는다</strong>.</li>
-          <li><strong>연구실</strong>을 가지면 로봇 연구에 지식이 3이 아니라 <strong>1</strong>만 든다.</li>
-          <li><strong>기술실</strong>을 가지면 덫이 한 번에 <strong>2개</strong> 나온다.</li>
-          <li class="dim">남이 우리 방에 들어오며 낸 토큰이 우리에게 오지는 않는다. 그냥 사라진다.</li>
-        </ul>
-      </section>
-
-      <!-- ─────────────────────────────── 이동 -->
-      <section id="move">
-        <h2><span class="no">03</span>움직이기와 보기</h2>
-        <h3>학교</h3>
-        <p>
-          지하, 1층, 2층, 옥상으로 되어 있다. 복도와 계단으로 모두 이어져 있어서 어느 방에서든 어느 방으로든 갈 수 있다. 복도, 계단,
-          뒷골목은 방이 아니라서 차지할 수 없다. 숫자는 페이즈 중에 한 방에 들어갈 수 있는 인원이다.
-        </p>
+        <h3>방과 인원</h3>
+        <p class="dim">숫자는 점령전 중 한 방에 들어갈 수 있는 인원이다. 복도·계단·뒷골목은 방이 아니라 차지할 수 없다.</p>
         <div class="floors">
           <div class="floor">
             <h4>2층</h4>
@@ -509,399 +449,224 @@
             </ul>
           </div>
         </div>
-        <p class="note">
-          복도에는 <strong>자판기</strong>가 층마다 한 대씩(지하·1층·2층) 있고, <strong>심부름 게시판</strong>이 층마다 두 개씩 있다.
-          매점은 이름만 남은 방이고, 물건은 복도 자판기에서 산다.
-        </p>
+        <p class="note">보이는 방은 <strong>내가 들어가 있는 방 하나뿐</strong>이다. 같은 팀이라도 다른 방에 있으면 안 보인다. 복도에서는 6칸 안만 보인다. 방의 깃발·로봇·자물쇠는 들어가 봐야 안다.</p>
+      </section>
 
-        <h3>방에 들어가기</h3>
+      <!-- ─────────────────────────────── 자유 시간 -->
+      <section id="free">
+        <h2><span class="no">02</span>자유 시간에 할 수 있는 것</h2>
+        <p>점령전이 열려 있지 않은 동안은 모두 자유 시간이다. 방 이동은 <strong>공짜이고 바로 된다</strong>. 인원 제한도 없다(자물쇠는 막는다).</p>
         <div class="scroll">
           <table>
-            <thead><tr><th></th><th>자유 시간</th><th>페이즈</th></tr></thead>
+            <thead><tr><th>할 수 있는 것</th><th>어디서</th></tr></thead>
             <tbody>
-              <tr><td class="k">비용</td><td>없음</td><td>팀 토큰 1개(우리 팀 방은 0개). 나갈 때는 무료</td></tr>
-              <tr><td class="k">시간</td><td>바로</td><td><strong>10분</strong> 동안 「걷는 중」. 그동안은 어느 방에도 없는 것으로 친다</td></tr>
-              <tr><td class="k">인원 제한</td><td>없음</td><td>위 지도의 숫자. 걸어오는 중인 사람도 자리를 차지한다</td></tr>
-              <tr><td class="k">자물쇠</td><td colspan="2">잠근 팀이 아니면 못 들어간다. 락픽을 가지고 있으면 쓸지 묻는다</td></tr>
+              <tr><td class="k">자판기에서 사기 · 작물 팔기</td><td>층마다 복도에 한 대 <a href="#vend">→</a></td></tr>
+              <tr><td class="k">심부름</td><td>복도 게시판 <a href="#money">→</a></td></tr>
+              <tr><td class="k">화분 따기 · 시든 화분 치우기</td><td>1층 정원 <a href="#money">→</a></td></tr>
+              <tr><td class="k">문제 종이 펼치고 풀기</td><td>바닥의 접힌 종이 <a href="#know">→</a></td></tr>
+              <tr><td class="k">이적(둘째 날부터)</td><td>다른 팀 사람 바로 옆 <a href="#deal">→</a></td></tr>
+              <tr><td class="k">덫 찾아가기 · 완성된 로봇 가져가기</td><td>기술실 · 연구실. 지난 점령전 것은 누구나</td></tr>
+              <tr><td class="k">오락실</td><td>1층 뒷골목. 상품은 없다</td></tr>
             </tbody>
           </table>
         </div>
+        <p>이것들은 <span class="when w-any">언제든</span> 된다 — 점령전 중에도, 자유 시간에도.</p>
         <ul>
-          <li>페이즈가 열리거나 닫힐 때 아무도 자리를 옮기지 않는다. 서 있던 곳에서 이어서 한다.</li>
-          <li>한 칸에는 한 사람만 설 수 있다. 가구나 기계가 놓인 칸, 아직 바닥에 있는 문제 종이 위에는 설 수 없다.</li>
+          <li>거래, 쪽지 줍기·읽기·찢기·두기, 자물쇠·빈 종이·테이프 쓰기, 덫 놓기(복도 칸), 신뢰·호감표, 방 안 말하기, 무전.</li>
         </ul>
-
-        <h3>보이는 것 — 안개</h3>
-        <ul>
-          <li>보이는 방은 <strong>내가 지금 들어가 있는 방 하나뿐</strong>이다. 같은 팀이라도 다른 방에 있으면 안 보인다.</li>
-          <li>복도에서는 서로 <strong>6칸 안</strong>에 있어야 보이고 말도 들린다. 뒷골목에서는 골목 안 사람이 모두 보인다.</li>
-          <li>방 주인 팀은 맵에서 늘 보인다. 그 방의 인원, 깃발 수, 로봇, 자물쇠는 들어가 있어야 보인다.</li>
-          <li>한 번도 가 보지 않은 방은 맵에 검게 남는다.</li>
-        </ul>
+        <p class="note">자유 시간에는 <strong>깃발·로봇·연구·호출·덫 맡기기를 못 한다</strong>. 복도에 놓인 덫은 자유 시간에 밟아도 걸리지 않고 그대로 남는다.</p>
       </section>
 
-      <!-- ─────────────────────────────── 자원 -->
+      <!-- ─────────────────────────────── 돈 -->
       <section id="money">
-        <h2><span class="no">04</span>자원 세 가지</h2>
-        <p>모두 빈손으로 시작한다.</p>
+        <h2><span class="no">03</span>돈 버는 법</h2>
+        <div class="paper">
+          <p class="eyebrow">돈은 내 것</p>
+          <p>돈은 <strong>사람마다 따로</strong> 가진다. 0원에서 시작한다. 쓰는 곳은 자판기와 덫 맡기기(3원)이고, 낸 돈은 사라진다.</p>
+        </div>
+
+        <h3>① 심부름 <span class="when w-free">자유 시간</span></h3>
+        <ol class="steps">
+          <li><strong>받기</strong>: 복도 게시판(층마다 2개) 옆에서 받는다. 운영자가 붙이고, 게시판마다 두 장까지 붙는다. 한 사람은 한 번에 <strong>한 건</strong>만.</li>
+          <li><strong>집기</strong>: 출발 방에 가면 물건이 바닥에 있다. 받은 사람 눈에만 보인다.</li>
+          <li><strong>놓기</strong>: 도착 방 안에 서서 놓는다. <strong>먼저 놓은 한 사람만</strong> 돈을 받는다.</li>
+        </ol>
         <div class="scroll">
           <table>
-            <thead><tr><th>자원</th><th>누구 것</th><th>얻는 곳</th><th>쓰는 곳</th></tr></thead>
+            <thead><tr><th>보상</th><th>제한 시간</th><th>그 밖에</th></tr></thead>
             <tbody>
-              <tr><td class="k">토큰</td><td>팀</td><td>페이즈가 열릴 때마다 6개</td><td>페이즈 이동, 깃발 뽑기, 로봇 부수기</td></tr>
-              <tr><td class="k">돈</td><td><strong>나</strong></td><td>심부름, 작물 팔기, 거래</td><td>자판기, 덫 맡기기</td></tr>
-              <tr><td class="k">지식</td><td>팀</td><td>문제 종이 맞히기 +1</td><td>로봇 연구 3(연구실 주인은 1)</td></tr>
+              <tr><td class="k">1 ~ 3원</td><td>20 ~ 45분(붙은 순간부터)</td><td>여러 명이 같은 심부름을 받아 경주할 수 있다. 누가 먼저 놓으면 나머지는 실패. 포기는 언제든. 심부름 물건은 거래할 수 없다</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="note">아이템, 작물, 쪽지, 들고 있는 로봇은 <strong>개인 소유</strong>다. 팀을 옮기면 돈·아이템·작물은 그 사람을 따라간다.</p>
+
+        <h3>② 화분 → 자판기 매입구 <span class="when w-free">자유 시간</span></h3>
+        <ul>
+          <li>1층 정원에 화분 여덟 개. <strong>심는 사람은 운영자뿐</strong>이다. 흙 → 싹 → 잎 → 열매 → 시듦 순서로 자라고, 싹이 트면 무슨 작물인지 보인다. 자라는 데 얼마나 걸리는지는 아무도 모른다.</li>
+          <li>열매가 달리면 화분 옆에 서서 딴다. <strong>먼저 딴 사람이 가진다.</strong> 한 사람이 <strong>5개까지</strong> 든다. 오래 두면 시든다.</li>
+          <li>딴 작물은 자판기 <strong>매입구</strong>에 한 개씩 판다. 값은 정해져 있다.</li>
+        </ul>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>작물</th><th class="n">값</th></tr></thead>
+            <tbody>
+              <tr><td>감자 · 무 · 상추</td><td class="n">1</td></tr>
+              <tr><td>방울토마토 · 고추 · 딸기 · 당근 · 옥수수</td><td class="n">2</td></tr>
+              <tr><td>호박 · 해바라기 · 수박 · 고구마</td><td class="n">3</td></tr>
+              <tr><td>검은 튤립 · 서리버섯 · 얼음꽃</td><td class="n">4</td></tr>
+              <tr><td class="dim">드물게 피는 것 몇 가지</td><td class="n">4~8</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>③ 거래로 받기 <span class="when w-any">언제든</span></h3>
+        <p>다른 사람이 거래로 돈을 넘겨줄 수 있다. <a href="#deal">거래</a></p>
       </section>
 
-      <!-- ─────────────────────────────── 벌기 -->
-      <section id="earn">
-        <h2><span class="no">05</span>돈과 지식 벌기</h2>
+      <!-- ─────────────────────────────── 지식 -->
+      <section id="know">
+        <h2><span class="no">04</span>지식 버는 법</h2>
+        <div class="paper">
+          <p class="eyebrow">지식은 팀 것</p>
+          <p>지식은 <strong>팀 금고</strong>에 쌓인다. 0에서 시작한다. 쓰는 곳은 <strong>로봇 연구</strong>뿐이다 — 3이 들고, 연구실을 가진 팀은 1이 든다.</p>
+        </div>
 
-        <h3>심부름 <span class="when w-free">자유 시간</span></h3>
+        <h3>① 문제 종이 <span class="when w-free">자유 시간</span></h3>
         <ol class="steps">
-          <li><strong>받기</strong>: 복도 게시판 옆에서 받는다. 운영자가 붙이고, 게시판마다 두 장까지 붙는다. 한 사람은 한 번에 <strong>한 건</strong>만 받을 수 있다.</li>
-          <li><strong>집기</strong>: 출발 방에 가면 물건이 바닥에 있다. 받은 사람 눈에만 보인다.</li>
-          <li><strong>놓기</strong>: 도착 방에 서서 놓는다. <strong>먼저 놓은 한 사람만</strong> 돈을 받는다(1~3원).</li>
+          <li>운영자가 바닥에 접힌 종이를 놓는다. 옆에 서서 「펼쳐 본다」를 누르면 문제가 내 손에 들어온다. 종이는 바닥에 그대로 남고, 여러 사람이 펼칠 수 있다.</li>
+          <li>답은 <strong>펼친 사람만</strong> 낸다. 펼친 뒤에는 어디서든 낼 수 있다.</li>
+          <li><strong>가장 먼저 맞힌 한 사람</strong>의 팀 금고에 <strong>지식 +1</strong>. 종이는 맵에서 사라진다.</li>
         </ol>
         <ul>
-          <li>여러 명이 같은 심부름을 받아 경주할 수 있다. 누가 먼저 놓으면 나머지는 그 자리에서 실패한다.</li>
-          <li>붙은 순간부터 제한 시간(20~45분)이 흐른다. 넘기면 받은 사람 모두 실패한다. 포기는 언제든 할 수 있다.</li>
-          <li>심부름 물건은 거래할 수 없다.</li>
-        </ul>
-
-        <h3>화분 <span class="when w-free">자유 시간</span></h3>
-        <ul>
-          <li>1층 정원에 화분 여덟 개가 있다. <strong>심는 사람은 운영자뿐이다</strong>.</li>
-          <li>흙 → 싹 → 잎 → 열매 → 시듦 순서로 자란다. 싹이 트면 무슨 작물인지 보인다. 자라는 데 걸리는 시간은 아무도 모른다.</li>
-          <li>열매가 달리면 화분 옆에 서서 딴다. 화분에는 주인이 없어서 <strong>먼저 딴 사람이 가진다</strong>. 딴 작물은 한 사람이 <strong>5개까지</strong> 들 수 있다.</li>
-          <li>열매를 오래 두면 시든다. 시든 화분은 누구나 치울 수 있다.</li>
-          <li>딴 작물은 자판기 매입구에 판다. 값은 정해져 있고 판 사람 돈이 된다. 거래로 넘길 수도 있다.</li>
-        </ul>
-        <details>
-          <summary>작물 매입가</summary>
-          <div>
-            <div class="scroll">
-              <table>
-                <thead><tr><th>작물</th><th class="n">값</th></tr></thead>
-                <tbody>
-                  <tr><td>감자 · 무 · 상추</td><td class="n">1</td></tr>
-                  <tr><td>방울토마토 · 고추 · 딸기 · 당근 · 옥수수</td><td class="n">2</td></tr>
-                  <tr><td>호박 · 해바라기 · 수박 · 고구마</td><td class="n">3</td></tr>
-                  <tr><td>검은 튤립 · 서리버섯 · 얼음꽃</td><td class="n">4</td></tr>
-                  <tr><td class="dim">드물게 피는 것 몇 가지</td><td class="n">4~8</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </details>
-
-        <h3>문제 종이 <span class="when w-free">자유 시간</span></h3>
-        <ul>
-          <li>운영자가 바닥에 놓은 접힌 종이다. 옆에 서서 「펼쳐 본다」를 누르면 문제가 내 손에 들어오고, 종이는 바닥에 그대로 남는다. 여러 사람이 펼칠 수 있다.</li>
-          <li>답은 <strong>펼친 사람만</strong> 낼 수 있다. 펼친 뒤에는 어디서든 낼 수 있다.</li>
-          <li><strong>가장 먼저 맞힌 한 사람</strong>의 팀 금고에 <strong>지식 +1</strong>이 들어가고, 종이는 사라진다.</li>
           <li>틀리면 <strong>나만</strong> 그 문제를 다시 못 푼다. 우리 팀 다른 사람은 풀 수 있다.</li>
+          <li>문제 종이가 놓인 칸 위에는 설 수 없다.</li>
         </ul>
+
+        <h3>② 거래로 받기 <span class="when w-any">언제든</span></h3>
+        <p>다른 팀과 거래해서 지식을 받을 수 있다. 거래 탁자에 지식을 올리면 팀 금고에서 팀 금고로 옮겨진다.</p>
       </section>
 
       <!-- ─────────────────────────────── 자판기 -->
       <section id="vend">
-        <h2><span class="no">06</span>자판기 <span class="when w-free">자유 시간</span></h2>
-        <p>
-          층마다 복도에 한 대씩 있다. 기계 바로 옆 칸에 서서 쓴다. 누구에게나 같은 값이고 <strong>내 돈</strong>으로 산다.
-          「오늘」 재고는 날마다 다시 찬다.
-        </p>
+        <h2><span class="no">05</span>자판기 <span class="when w-free">자유 시간</span></h2>
+        <p>지하·1층·2층 복도에 한 대씩. 기계 바로 옆 칸에 서서 <strong>내 돈</strong>으로 산다. 「오늘」 재고는 날마다 다시 찬다.</p>
         <div class="scroll">
           <table>
             <thead><tr><th>물건</th><th class="n">값</th><th>하는 일</th></tr></thead>
             <tbody>
-              <tr><td class="k">깃발</td><td class="n">10</td><td>팀 깃발 상자에 들어간다. 학교 전체에서 하루 10개. 페이즈가 바뀌어도 남는다.</td></tr>
-              <tr><td class="k">호루라기</td><td class="n">5</td><td><span class="when w-phase">페이즈</span> 같은 팀 한 명을 내 방으로 부른다. 부른 사람과 불린 사람 둘 다 10분 동안 묶인다.</td></tr>
-              <tr><td class="k">자물쇠</td><td class="n">5</td><td>지금 서 있는 방의 문을 <strong>1시간</strong> 잠근다. 잠근 팀만 드나든다. 이미 잠긴 문에는 못 건다.</td></tr>
-              <tr><td class="k">락픽</td><td class="n">8</td><td>잠긴 문에 막히면 쓸지 묻는다. 따면 자물쇠가 풀려서 누구나 드나든다.</td></tr>
-              <tr><td class="k">빈 종이</td><td class="n">3</td><td>300자까지 적는다. 적는 즉시 발밑 옆 칸 바닥에 놓인다. 누가 썼는지는 아무도 모른다.</td></tr>
-              <tr><td class="k">테이프</td><td class="n">5</td><td>찢긴 종이를 붙인다. 붙인 종이는 접힌 채로 내 손에 들어온다.</td></tr>
-              <tr><td class="k">지우개</td><td class="n">5</td><td>오늘 투명인간 투표에서 <strong>내 이름이 적힌 표 한 장</strong>을 지운다. 학교 전체에서 하루 3개.</td></tr>
+              <tr><td class="k">깃발</td><td class="n">10</td><td>팀 깃발 상자에 들어간다. 학교 전체에서 하루 10개</td></tr>
+              <tr><td class="k">호루라기</td><td class="n">5</td><td><span class="when w-phase">점령전</span> 같은 팀 한 명을 내 방으로 부른다. 둘 다 10분 묶인다</td></tr>
+              <tr><td class="k">자물쇠</td><td class="n">5</td><td>서 있는 방의 문을 <strong>1시간</strong> 잠근다. 잠근 팀만 드나든다</td></tr>
+              <tr><td class="k">락픽</td><td class="n">8</td><td>잠긴 문에 막히면 쓸지 묻는다. 따면 누구나 드나든다</td></tr>
+              <tr><td class="k">빈 종이</td><td class="n">3</td><td>300자까지 적어 바닥에 놓는다. 누가 썼는지는 모른다</td></tr>
+              <tr><td class="k">테이프</td><td class="n">5</td><td>찢긴 종이를 붙여 내 손에 가져온다</td></tr>
+              <tr><td class="k">지우개</td><td class="n">5</td><td>오늘 투명인간 투표에서 내 이름이 적힌 표 한 장을 지운다. 학교 전체에서 하루 3개</td></tr>
             </tbody>
           </table>
         </div>
-        <ul>
-          <li>같은 기계의 <strong>매입구</strong>에 작물을 한 개씩 판다.</li>
-          <li>산 물건은 「나」 탭 → 가진 것 → 아이템에서 쓴다. 자물쇠, 빈 종이, 테이프는 <span class="when w-any">언제든</span> 쓸 수 있지만 걷는 중에는 안 된다.</li>
-          <li>지우개는 표가 한 장도 없었어도 닳는다. 몇 장이 있었는지는 알려 주지 않는다.</li>
-        </ul>
       </section>
 
       <!-- ─────────────────────────────── 만들기 -->
       <section id="make">
-        <h2><span class="no">07</span>로봇과 덫</h2>
-
-        <h3>로봇 — 연구실 <span class="when w-phase">페이즈</span></h3>
+        <h2><span class="no">06</span>로봇과 덫</h2>
+        <h3>로봇 — 연구실 <span class="when w-phase">점령전</span></h3>
         <ul>
-          <li>연구실의 연구 기계 옆에 서서 연구를 건다. <strong>팀 금고의 지식 3</strong>이 들고(연구실을 가진 팀은 1), <strong>20분</strong> 뒤에 완성된다. 기계 한 대에는 한 건만 걸 수 있다.</li>
-          <li><strong>페이즈가 끝날 때까지 완성되지 않으면 연구는 사라지고 지식도 돌아오지 않는다.</strong> 60분 페이즈에서 40분이 지나 건 연구는 완성되지 못한다.</li>
-          <li>완성될 때 연구실에 있으면 바로 손에 든다. 없으면 기계 위에 남는다. 그 페이즈 동안은 건 사람만 가져갈 수 있고, 페이즈가 지나면 <strong>누구나</strong>(다른 팀도) 가져갈 수 있다. 가져간 사람 팀의 로봇이 된다.</li>
-          <li><strong>놓기·거두기</strong>(비용 없음): 놓인 로봇 1기가 깃발 1개로 쳐진다. 들고만 있으면 세지 않는다. 거두는 것은 <strong>놓은 사람만</strong> 할 수 있다.</li>
-          <li><strong>부수기</strong>(토큰 1): 같은 방에 놓인 다른 팀 로봇을 부순다. 한 사람이 한 페이즈에 1기만 부술 수 있다.</li>
-          <li>한도: 한 사람이 들 수 있는 로봇 2기, 한 방에 놓을 수 있는 로봇 2기, 한 팀이 가질 수 있는 로봇 6기(연구 중인 것 포함).</li>
+          <li>연구 기계 옆에서 연구를 건다. <strong>팀 지식 3</strong>(연구실 주인은 1), <strong>20분</strong>. 기계 한 대에 한 건.</li>
+          <li><strong>점령전이 끝날 때까지 완성되지 않으면 연구도 지식도 사라진다.</strong> 40분이 지나 건 연구는 완성되지 못한다.</li>
+          <li>완성될 때 연구실에 있으면 바로 손에 든다. 없으면 기계 위에 남는다 — 그 점령전 동안은 건 사람만, 끝나면 <strong>누구나</strong> 가져간다. 가져간 사람 팀의 로봇이 된다.</li>
+          <li>한도: 한 사람이 드는 로봇 2기, 한 방에 놓는 로봇 2기, 한 팀 6기. 2-3 교실에는 놓을 수 없다.</li>
         </ul>
-
         <h3>덫 — 기술실</h3>
         <ul>
-          <li><span class="when w-phase">페이즈</span> 기술실 제조기 옆에서 맡긴다. <strong>내 돈 3원</strong>이 들고 <strong>20분</strong> 뒤에 1개가 나온다(기술실을 가진 팀은 2개).</li>
-          <li>그 페이즈 동안은 맡긴 사람만 찾아갈 수 있고, 지나면 누구나 찾아갈 수 있다.</li>
-          <li><span class="when w-any">언제든</span> <strong>지금 서 있는 복도 칸</strong>에 놓는다. 방 안과 뒷골목에는 못 놓고, 한 칸에 하나만 놓는다. 놓은 덫은 <strong>아무에게도 보이지 않는다</strong>. 같은 팀에게도 안 보인다.</li>
-          <li><strong>다른 팀</strong>이 밟으면 <strong>10분</strong> 동안 그 칸에 묶여 아무것도 못 한다. 밟은 덫은 사라진다. 같은 팀은 밟아도 아무 일이 없다.</li>
+          <li><span class="when w-phase">점령전</span> 제조기 옆에서 맡긴다. <strong>내 돈 3원</strong>, <strong>20분</strong> 뒤 1개(기술실 주인은 2개). 그 점령전 동안은 맡긴 사람만, 끝나면 누구나 찾아간다.</li>
+          <li><span class="when w-any">언제든</span> <strong>서 있는 복도 칸</strong>에 놓는다. 방 안·뒷골목은 안 되고, 한 칸에 하나. 놓은 덫은 <strong>아무에게도 안 보인다</strong>.</li>
+          <li><strong>점령전 중에 다른 팀이 밟으면 10분</strong> 동안 그 칸에 묶여 아무것도 못 한다. 밟은 덫은 사라진다. 자유 시간에는 밟아도 아무 일이 없고, 같은 팀은 언제 밟아도 괜찮다.</li>
         </ul>
       </section>
 
       <!-- ─────────────────────────────── 거래 -->
       <section id="deal">
-        <h2><span class="no">08</span>거래와 이적</h2>
-
+        <h2><span class="no">07</span>거래와 이적</h2>
         <h3>거래 <span class="when w-any">언제든</span></h3>
         <ol class="steps">
-          <li><strong>상하좌우로 바로 옆 칸</strong>에 선 사람을 맵에서 누르고 거래를 청한다. 대각선은 안 된다. 복도에서도, 페이즈 중에도 할 수 있다.</li>
-          <li>상대는 <strong>15초</strong> 안에 받아야 한다.</li>
-          <li>둘 다 탁자에 올린다. 탁자가 바뀌면 양쪽 준비가 함께 풀린다.</li>
-          <li>둘 다 「준비」를 누르면 <strong>3초</strong>를 센다. 그 사이에는 누구든 물릴 수 있다. 다 세면 성립한다.</li>
+          <li><strong>상하좌우로 바로 옆 칸</strong>에 선 사람을 누르고 청한다. 복도에서도, 점령전 중에도 된다.</li>
+          <li>상대가 <strong>15초</strong> 안에 받으면 탁자가 열린다. 둘 다 올린다. 탁자가 바뀌면 양쪽 준비가 풀린다.</li>
+          <li>둘 다 「준비」를 누르면 <strong>3초</strong>를 센다. 그 사이엔 누구든 물릴 수 있다. 다 세면 성립.</li>
         </ol>
-        <div class="scroll">
-          <table>
-            <thead><tr><th>올릴 수 있는 것</th><th>올릴 수 없는 것</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>돈, 지식(팀 금고에서), 아이템(덫 포함), 딴 작물, <strong>들고 있는</strong> 로봇, 쪽지(장수만 올린다. 어느 쪽지가 갈지는 고를 수 없고 접힌 채로 간다)</td>
-                <td>토큰, 심부름 물건, 놓아 둔 로봇</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
         <ul>
-          <li>한쪽만 올려도 성립한다. 선물로 줄 수 있다.</li>
-          <li>받는 쪽의 작물이 5개를 넘거나 로봇 한도를 넘으면 성립하지 않고 탁자로 돌아간다.</li>
-          <li>걷는 중이거나 투명인간이면 거래할 수 없다. 둘이 떨어지면 탁자가 접히고, 아무것도 옮겨지지 않는다.</li>
+          <li><strong>올릴 수 있는 것</strong>: 돈, 지식(팀 금고에서), 아이템(덫 포함), 딴 작물, 들고 있는 로봇, 쪽지(장수만 — 어느 쪽지가 갈지는 못 고른다).</li>
+          <li><strong>못 올리는 것</strong>: 토큰, 심부름 물건, 놓아 둔 로봇.</li>
+          <li>한쪽만 올려도 성립한다(선물). 받는 쪽 작물이 5개를 넘거나 로봇 한도를 넘으면 성립하지 않는다.</li>
+          <li>걷는 중이거나 투명인간이면 못 한다. 둘이 떨어지면 탁자가 접히고 아무것도 안 옮겨진다.</li>
         </ul>
-
         <h3>이적 <span class="when w-free">자유 시간</span></h3>
         <ul>
-          <li><strong>둘째 날부터</strong> 다른 팀 사람을 <strong>우리 팀으로 데려오자고</strong> 청할 수 있다. 바로 옆 칸에 서서, 둘 다 멈춰 있어야 한다.</li>
-          <li>상대가 15초 안에 받으면 <strong>그 자리에서 완장과 팀이 바뀐다</strong>. 무전은 옮긴 뒤의 팀 채널만 들린다.</li>
-          <li>그 팀에 남은 마지막 한 사람은 데려올 수 없다. 투명인간은 이적할 수 없다.</li>
+          <li><strong>둘째 날부터</strong> 다른 팀 사람을 <strong>우리 팀으로 데려오자고</strong> 청한다. 바로 옆 칸, 둘 다 멈춘 채로. 15초 안에 받으면 그 자리에서 팀이 바뀐다.</li>
+          <li>그 팀의 마지막 한 사람은 데려올 수 없다. 돈·물건·작물은 그 사람을 따라간다.</li>
         </ul>
       </section>
 
       <!-- ─────────────────────────────── 쪽지 -->
       <section id="paper">
-        <h2><span class="no">09</span>바닥의 종이</h2>
-        <p>바닥에는 종이가 놓인다. 한 칸에 한 장씩이고, 종이가 있는 방에 들어가 있거나 같은 층 복도에 있어야 보인다. 다루려면 종이 바로 옆 칸에 서야 한다.</p>
-        <div class="scroll">
-          <table>
-            <thead><tr><th>종류</th><th>누가 놓나</th><th>맵에서 보이는 모양</th></tr></thead>
-            <tbody>
-              <tr><td class="k">문제 종이</td><td>운영자</td><td>접힌 종이. 맞히면 사라진다(<a href="#earn">벌기</a>)</td></tr>
-              <tr><td class="k">비밀 쪽지</td><td>운영자</td><td><strong>봉인된</strong> 쪽지. 누군가의 이야기가 적혀 있다</td></tr>
-              <tr><td class="k">메모 · 빈 종이</td><td>운영자 / 플레이어</td><td>봉인 없는 쪽지. 주인이 없다</td></tr>
-              <tr><td class="k">찢긴 종이</td><td>찢은 사람</td><td>조각. 테이프로 붙일 수 있다</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>바닥 쪽지를 누르면</h3>
+        <h2><span class="no">08</span>바닥의 쪽지 <span class="when w-any">언제든</span></h2>
+        <p>종이 바로 옆 칸에 서서 누른다. 비밀 쪽지는 봉인되어 있어서 보면 구별된다.</p>
         <div class="scroll">
           <table>
             <tbody>
-              <tr><td class="k">챙긴다</td><td>먼저 누른 사람 손에 들어간다. <strong>접힌 채</strong>라서 줍기만 하면 읽히지 않는다.</td></tr>
-              <tr><td class="k">읽는다</td><td>줍지 않고 그 자리에서 읽는다. 종이는 바닥에 남아서 다음 사람도 읽을 수 있다. 비밀 쪽지라면 누구의 일인지도 함께 보인다.</td></tr>
-              <tr><td class="k">찢는다</td><td>그 칸에 찢긴 종이가 남는다.</td></tr>
-              <tr><td class="k">그냥 둔다</td><td>아무 일도 없다.</td></tr>
-              <tr><td class="k">테이프로 붙인다</td><td>찢긴 종이일 때만 뜬다. 테이프 하나를 쓰고 원래 종이를 접힌 채로 내 손에 가져온다. 비밀 쪽지도 되살릴 수 있다.</td></tr>
+              <tr><td class="k">챙긴다</td><td>먼저 누른 사람 손에 들어간다. 접힌 채라 줍기만 해서는 안 읽힌다</td></tr>
+              <tr><td class="k">읽는다</td><td>줍지 않고 그 자리에서 읽는다. 종이는 남는다</td></tr>
+              <tr><td class="k">찢는다</td><td>그 칸에 찢긴 종이가 남는다</td></tr>
+              <tr><td class="k">테이프로 붙인다</td><td>찢긴 종이에만. 테이프 하나로 원래 종이를 손에 가져온다(비밀 쪽지도)</td></tr>
             </tbody>
           </table>
         </div>
-
-        <h3>손에 든 쪽지 — 「나」 탭 → 쪽지</h3>
-        <ul>
-          <li><strong>읽기</strong>, <strong>여기 두기</strong>(발밑 가까운 빈 칸에 놓는다), <strong>찢기</strong>(조각이 발밑 옆에 떨어진다).</li>
-          <li>남에게 넘기는 방법은 <a href="#deal">거래</a>뿐이다.</li>
-        </ul>
-        <div class="paper">
-          <p class="eyebrow">누가 무엇을 했는지</p>
-          <p>누가 쪽지를 읽었는지, 주웠는지, 찢었는지는 <strong>운영자만</strong> 안다. 다른 사람에게는 바닥의 종이가 사라졌다는 것만 보인다. 빈 종이를 쓴 사람도 마찬가지다.</p>
-        </div>
+        <p class="dim">손에 든 쪽지는 「나」 탭에서 읽기 · 바닥에 두기 · 찢기를 한다. 남에게 넘기는 건 거래로만. 누가 무엇을 했는지는 운영자만 안다.</p>
       </section>
 
-      <!-- ─────────────────────────────── 말 -->
-      <section id="talk">
-        <h2><span class="no">10</span>말과 무전</h2>
-        <h3>맵에서 말하기</h3>
-        <ul>
-          <li>한 번에 <strong>60자</strong>까지. 걷는 중에는 말할 수도 들을 수도 없다.</li>
-          <li><strong>방 안</strong>: 내가 그 방에 들어온 뒤에 나온 말만 들린다. 방을 나갔다 들어오면 처음부터 다시 듣는다. 방 안의 말은 복도에서 들리지 않는다.</li>
-          <li><strong>복도</strong>: 최근 3분 안에 내 자리에서 <strong>6칸 안</strong>에서 한 말만 들린다.</li>
-        </ul>
-        <h3>무전</h3>
-        <ul>
-          <li><strong>팀 채널</strong>: 우리 팀만 듣는다. 다른 팀 채널은 들을 수 없다.</li>
-          <li><strong>전원 채널 100.1</strong>: 열네 명이 모두 듣는다. 운영자가 닫아 두면 지난 말만 읽을 수 있다.</li>
-          <li>학교 어디서든, 걷는 중에도 쓸 수 있다. 한 줄에 300자까지.</li>
-          <li>무전에 누군가의 이름을 쓰면 그 사람에게 「무전에서 누가 나를 불렀다」 알림이 간다. 알림에 내용은 나오지 않는다.</li>
-          <li>페이즈 시작과 끝, 방을 빼앗고 빼앗긴 일, 이적은 무전에 시스템 줄로 적힌다.</li>
-        </ul>
-        <p class="note">말과 무전은 점수나 미션 판정에 쓰이지 않는다. 무엇을 말할지는 마음대로다.</p>
-      </section>
-
-      <!-- ─────────────────────────────── 투명인간 -->
-      <section id="invisible">
-        <h2><span class="no">11</span>투명인간 투표</h2>
-        <ul>
-          <li>운영자가 투표를 열고 닫는다. <strong>하루에 한 번이고, 마지막 날에는 없다.</strong></li>
-          <li>「투표」 탭에서 한 사람의 이름을 적는다. 어디서든 할 수 있고, 마감 전까지는 몇 번이든 고칠 수 있다. 마지막에 적은 이름만 남는다.</li>
-          <li>나 자신과 어제의 투명인간은 적을 수 없다.</li>
-        </ul>
-        <div class="paper">
-          <p class="eyebrow">결과</p>
-          <ul>
-            <li>표를 가장 많이 받은 <strong>한 사람</strong>이 투명인간이 된다.</li>
-            <li>1등이 둘 이상이거나 표가 하나도 없으면 <strong>아무도 되지 않는다</strong>.</li>
-            <li>같은 사람이 이틀 연속으로 될 수는 없다.</li>
-            <li>발표는 한 줄뿐이다. 누가 누구를 적었는지, 몇 표였는지는 <strong>끝까지 아무에게도 공개되지 않는다</strong>.</li>
-          </ul>
-        </div>
-        <p>투명인간은 발표된 순간부터 운영자가 다음 투표를 열 때까지 이어진다.</p>
-        <div class="scroll">
-          <table>
-            <thead><tr><th>투명인간이 못 하는 것</th><th>할 수 있는 것</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>남에게 보이기(같은 팀에게도 안 보인다), 방 안 말이 남에게 들리기, 무전으로 말하기(듣기는 된다), 표 받기, 거래, 이적, 호출하기·불려 가기, 깃발 뽑기, 오락실에서 남을 부르거나 불려 가기</td>
-                <td>걷기, 깃발 꽂기, 자판기, 신뢰·호감표 주기, 쪽지 바닥에 두기</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <ul>
-          <li>투명인간이 되면 받아 둔 심부름은 저절로 취소된다.</li>
-          <li>투명인간이 나온 팀은 그동안 페이즈마다 토큰 +4를 받는다.</li>
-          <li><strong>지우개</strong>(자판기 5원)로 오늘 내 이름이 적힌 표 한 장을 지울 수 있다.</li>
-        </ul>
-      </section>
-
-      <!-- ─────────────────────────────── 신뢰·호감 -->
+      <!-- ─────────────────────────────── 투표 -->
       <section id="votes">
-        <h2><span class="no">12</span>신뢰표 · 호감표 <span class="when w-any">언제든</span></h2>
+        <h2><span class="no">09</span>투명인간 투표 · 신뢰·호감표</h2>
+        <h3>투명인간 투표</h3>
         <ul>
-          <li>하루에 <strong>한 장</strong>이다. 신뢰표와 호감표 중 하나만 준다. 자정에 다시 한 장 생긴다.</li>
-          <li><strong>바로 옆 칸</strong>에 선 사람에게만 줄 수 있다. 맵에서 사람을 누르거나, 메모 탭 「지금 여기」에서 준다. 우리 팀에게도 줄 수 있고, 나 자신과 투명인간에게는 못 준다.</li>
-          <li>점수와 자원에는 <strong>아무 영향이 없다</strong>. 어떤 역할의 개인 미션에만 쓰인다.</li>
-          <li>누가 줬는지는 끝까지 비밀이다. 받은 장수는 「나」 탭 「받은 표」에서 <strong>어제까지</strong> 받은 것만 보인다. 오늘 받은 것은 내일 더해진다.</li>
+          <li>운영자가 열고 닫는다. 하루 한 번, 마지막 날에는 없다. 「투표」 탭에서 한 사람을 적고, 마감 전까지 고칠 수 있다. 나 자신과 어제의 투명인간은 못 적는다.</li>
+          <li>가장 많이 받은 <strong>한 사람</strong>이 투명인간이 된다. 1등이 둘 이상이거나 표가 없으면 아무도 안 된다. 같은 사람이 이틀 연속은 안 된다. 몇 표였는지는 끝까지 비밀이다.</li>
+          <li>투명인간은 남에게 안 보이고, 말이 안 들리고, 무전으로 말할 수 없고, 거래·이적·호출·깃발 뽑기를 못 한다. 걷기·깃발 꽂기·자판기는 된다. 그 팀은 그동안 점령전마다 토큰 +4. 운영자가 도중에 풀 수도 있다.</li>
         </ul>
-      </section>
-
-      <!-- ─────────────────────────────── 역할 -->
-      <section id="role">
-        <h2><span class="no">13</span>역할과 개인 미션</h2>
-        <p>이 반에는 역할이 열넷 있고, 한 사람에게 하나씩이다. 누가 어떤 역할인지는 본인만 안다.</p>
-        <ul class="roles" aria-label="역할 열넷">
-          <li>반장</li><li>모범생</li><li>총무</li><li>짝꿍</li><li>도서부</li><li>미화부</li><li>주번</li>
-          <li>원예부</li><li>과학부</li><li>기술부</li><li>전교 1등</li><li>짝사랑</li><li>전학생</li><li>뒷자리</li>
-        </ul>
-        <p class="dim">몇몇 역할은 팀의 이익과 부딪치는 미션을 받는다.</p>
-
-        <h3>학생증</h3>
-        <p>앞면에는 이름, 팀, 역할, 한 줄 소개가 있다. 뒤집으면 내 이야기와 미션이 있다. 「나」 탭 맨 위에서 언제든 볼 수 있다.</p>
-
-        <h3>개인 미션은 하루짜리</h3>
+        <h3>신뢰표 · 호감표 <span class="when w-any">언제든</span></h3>
         <ul>
-          <li>매일 0부터 새로 센다. 그날 한 것만 치고, 기한은 날이 넘어가는 순간이다.</li>
-          <li>「나」 탭 「미션」에 오늘의 미션과 상태가 보인다: <em>진행 중 · 달성 · 실패 · 끝날 때 판정</em>. 어떤 조건은 끝날 때까지 결과를 알려 주지 않는다.</li>
-          <li>날이 넘어가면 운영자가 전날 판정을 확인해서 <strong>나에게만</strong> 판정서를 보낸다. 운영자가 모두에게 공개할 때는 <strong>이름과 성공·실패만</strong> 나간다. 역할과 조건은 나가지 않는다.</li>
-          <li>개인 미션은 팀 점수에 영향을 주지 않는다.</li>
+          <li>하루 <strong>한 장</strong>(둘 중 하나). 바로 옆 칸 사람에게만. 점수와 자원에는 영향이 없고, 어떤 역할의 미션에만 쓰인다. 누가 줬는지는 비밀이고, 받은 장수는 다음 날 「나」 탭에서 보인다.</li>
         </ul>
-
-        <h3>셋째 날 — 중요한 사람</h3>
-        <p>셋째 날 하루 동안, 메모 탭 「지금 여기」에서 같은 방에 있는 사람 가운데 <strong>중요한 사람</strong> 한 명을 고를 수 있다. 그날 안에는 몇 번이든 바꿀 수 있고, 누구를 골랐는지는 아무에게도 공개되지 않는다.</p>
-
-        <h3>넷째 날 — 마지막 선택</h3>
-        <p>「나」 탭에 「마지막 선택」이 뜬다. 셋 가운데 하나를 고른다. 고르지 않으면 실패다.</p>
-        <div class="scroll">
-          <table>
-            <tbody>
-              <tr><td class="k">팀을 지킨다</td><td>우리 팀이 최종 <strong>2위 안</strong>에 들면 성공(공동 2위 포함).</td></tr>
-              <tr><td class="k">나를 지킨다</td><td>내 미션을 달성하면 성공.</td></tr>
-              <tr><td class="k">그 사람을 지킨다</td><td>내가 고른 중요한 사람의 팀이 <strong>1위</strong>면 성공(공동 1위 포함).</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ─────────────────────────────── 오락실 -->
-      <section id="arcade">
-        <h2><span class="no">14</span>오락실 <span class="when w-any">언제든</span></h2>
-        <p>
-          1층 동쪽 계단 옆 샛길 끝 <strong>뒷골목</strong>에 오락기 열 대가 있다. 기계 바로 앞 칸에 서면 앉은 것이다. 입장료도
-          상품도 없다. 쉬어 가는 곳이다. 여럿이 하는 게임은 다른 기계에 앉은 사람을 불러서 한다. 한 판은 길어야 5분이다.
-        </p>
-        <div class="scroll">
-          <table>
-            <thead><tr><th>게임</th><th class="n">인원</th><th>이기는 법</th></tr></thead>
-            <tbody>
-              <tr><td class="k">업다운</td><td class="n">1</td><td>1~100 사이 숫자를 6번 안에 맞힌다</td></tr>
-              <tr><td class="k">리듬 쌓기</td><td class="n">1</td><td>목숨 3개로 8판을 깬다. 판마다 빨라진다</td></tr>
-              <tr><td class="k">뱀</td><td class="n">1</td><td>사과 15개를 먹는다</td></tr>
-              <tr><td class="k">가위바위보</td><td class="n">2</td><td>이긴다. 다섯 번 연속 비기면 무승부</td></tr>
-              <tr><td class="k">먼저 쏴</td><td class="n">2</td><td>신호가 뜨면 먼저 쏜다. 먼저 2판을 이기면 승리. 신호 전에 쏘면 부정 출발</td></tr>
-              <tr><td class="k">둘이서 한 곡</td><td class="n">2</td><td>둘이 번갈아 12박짜리 곡을 만든다(협동)</td></tr>
-              <tr><td class="k">눈치 게임</td><td class="n">2–4</td><td>숫자를 차례로 외친다. 둘이 겹치면 둘 다 탈락</td></tr>
-              <tr><td class="k">탑 쌓기</td><td class="n">2–4</td><td>함께 10층을 쌓는다(협동)</td></tr>
-              <tr><td class="k">1 to 50</td><td class="n">1–4</td><td>숫자를 차례대로 가장 빨리 누른다</td></tr>
-              <tr><td class="k">두더지 잡기</td><td class="n">1–4</td><td>30초 동안 점수를 많이 낸다. 금 +3, 폭탄 −3</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="note">게임 중에 자리에서 일어나면 진다. 협동 게임은 한 명이라도 일어나면 모두 진다.</p>
       </section>
 
       <!-- ─────────────────────────────── 한눈에 -->
       <section id="when">
-        <h2><span class="no">15</span>한눈에 — 언제 무엇을</h2>
+        <h2><span class="no">10</span>한눈에 — 언제 무엇을</h2>
         <div class="scroll">
           <table>
             <thead><tr><th>행동</th><th>언제</th><th>드는 것</th></tr></thead>
             <tbody>
               <tr><td class="k">방 들어가기</td><td><span class="when w-free">자유 시간</span></td><td>없음 · 바로</td></tr>
-              <tr><td class="k">방 들어가기</td><td><span class="when w-phase">페이즈</span></td><td>토큰 1(우리 방 0) · 10분</td></tr>
-              <tr><td class="k">깃발 꽂기</td><td><span class="when w-phase">페이즈</span></td><td>깃발 1</td></tr>
-              <tr><td class="k">깃발 뽑기</td><td><span class="when w-phase">페이즈</span></td><td>손댈 때마다 토큰 1 · 두 사람</td></tr>
-              <tr><td class="k">호출</td><td><span class="when w-phase">페이즈</span></td><td>호루라기 1 · 둘 다 10분</td></tr>
-              <tr><td class="k">로봇 연구</td><td><span class="when w-phase">페이즈</span></td><td>지식 3(연구실 주인 1) · 20분</td></tr>
-              <tr><td class="k">로봇 놓기·거두기</td><td><span class="when w-phase">페이즈</span></td><td>없음</td></tr>
-              <tr><td class="k">로봇 부수기</td><td><span class="when w-phase">페이즈</span></td><td>토큰 1</td></tr>
-              <tr><td class="k">덫 맡기기</td><td><span class="when w-phase">페이즈</span></td><td>내 돈 3 · 20분</td></tr>
+              <tr><td class="k">방 들어가기</td><td><span class="when w-phase">점령전</span></td><td>토큰 1(우리 방 0) · 10분</td></tr>
+              <tr><td class="k">깃발 꽂기</td><td><span class="when w-phase">점령전</span></td><td>깃발 1</td></tr>
+              <tr><td class="k">깃발 뽑기</td><td><span class="when w-phase">점령전</span></td><td>손댈 때마다 토큰 1 · 두 사람</td></tr>
+              <tr><td class="k">로봇 놓기·거두기</td><td><span class="when w-phase">점령전</span></td><td>없음</td></tr>
+              <tr><td class="k">로봇 부수기</td><td><span class="when w-phase">점령전</span></td><td>토큰 1</td></tr>
+              <tr><td class="k">로봇 연구</td><td><span class="when w-phase">점령전</span></td><td>팀 지식 3(연구실 주인 1) · 20분</td></tr>
+              <tr><td class="k">덫 맡기기</td><td><span class="when w-phase">점령전</span></td><td>내 돈 3 · 20분</td></tr>
+              <tr><td class="k">호출</td><td><span class="when w-phase">점령전</span></td><td>호루라기 1 · 둘 다 10분</td></tr>
+              <tr><td class="k">덫에 걸림</td><td><span class="when w-phase">점령전</span></td><td>다른 팀이 밟으면 10분</td></tr>
               <tr><td class="k">자판기 · 매입구</td><td><span class="when w-free">자유 시간</span></td><td>내 돈</td></tr>
+              <tr><td class="k">심부름</td><td><span class="when w-free">자유 시간</span></td><td>없음 · 보상 1~3원</td></tr>
               <tr><td class="k">화분 따기</td><td><span class="when w-free">자유 시간</span></td><td>없음</td></tr>
-              <tr><td class="k">심부름</td><td><span class="when w-free">자유 시간</span></td><td>없음</td></tr>
-              <tr><td class="k">문제 종이</td><td><span class="when w-free">자유 시간</span></td><td>없음</td></tr>
+              <tr><td class="k">문제 종이</td><td><span class="when w-free">자유 시간</span></td><td>없음 · 맞히면 지식 +1</td></tr>
               <tr><td class="k">이적</td><td><span class="when w-free">자유 시간</span></td><td>둘째 날부터</td></tr>
               <tr><td class="k">거래</td><td><span class="when w-any">언제든</span></td><td>없음</td></tr>
               <tr><td class="k">쪽지 · 자물쇠 · 덫 놓기</td><td><span class="when w-any">언제든</span></td><td>걷는 중에는 안 됨</td></tr>
               <tr><td class="k">신뢰·호감표</td><td><span class="when w-any">언제든</span></td><td>하루 한 장</td></tr>
-              <tr><td class="k">말 · 무전</td><td><span class="when w-any">언제든</span></td><td>없음</td></tr>
               <tr><td class="k">투명인간 투표</td><td>열려 있을 때</td><td>하루 한 표</td></tr>
             </tbody>
           </table>
         </div>
-
-        <h3>알림</h3>
-        <ul>
-          <li>무전 태그, 페이즈 시작·끝, 만든 것 완성, 공지를 알려 준다. 종류마다 「끄기 / 앱 안에서만 / 앱 밖에서도」를 고른다(「나」 탭).</li>
-          <li>알림에는 내용이 없다. 무슨 일인지는 앱을 열어 봐야 안다.</li>
-          <li>밤 12시부터 아침 8시까지는 앱 밖 알림이 오지 않는다. 아이폰은 사이트를 <strong>홈 화면에 추가</strong>해야 앱 밖 알림을 받는다.</li>
-        </ul>
       </section>
     </main>
 

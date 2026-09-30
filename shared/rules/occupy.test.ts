@@ -666,6 +666,16 @@ describe('연구에 드는 지식', () => {
 })
 
 describe('로봇 놓기', () => {
+  it('2-3 교실에는 못 놓는다 — 깃발을 못 꽂는 방이라 판정에서 안 센다', () => {
+    const s = board({
+      people: [person('a', 'A', 'centralPlaza')],
+      robots: [robot('mine', 'A', 'centralPlaza', 'a')],
+    })
+    const out = doAct(s, 'a', { kind: 'dropRobot' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toContain('로봇을 못 놓는다')
+  })
+
   it('방에 이미 두 기 놓였으면 못 놓는다 — 토큰도 안 든다', () => {
     const s = board({
       people: [person('a', 'A', 'storage')],

@@ -264,11 +264,18 @@ async function main(): Promise<void> {
   // 밟고 지나간다 — 제조기 서쪽 옆으로 돌아가 덫 칸을 비운다
   await stand(A[1].token, { x: m0.x - 1, y: m0.y })
 
-  console.log('\n── 다른 팀이 밟으면 10분 ──')
+  console.log('\n── 자유 시간에는 다른 팀이 밟아도 안 걸린다 ──')
   await putIn(B[0].uid, TECH_TILE)
   // 옆 칸에서 덫 칸을 **지나서** 다른 칸에 멈춘 걸음. via 에 덫 칸이 실린다
   // 덫 칸 오른쪽도 설 수 있는 빈 칸으로 골랐다(위)
   const stop = { x: hall.x + 1, y: hall.y }
+  const pass = await stand(B[0].token, stop, [hall])
+  check(pass.snared === undefined, '**자유 시간에는 그냥 지나간다**', JSON.stringify(pass.snared))
+  check((await trapsNow()).length === 1, '덫은 그대로 남는다')
+  check(!((await pawnsNow())[B[0].uid].busyKind), '묶이지 않았다')
+
+  console.log('\n── 페이즈 중에 다른 팀이 밟으면 10분 ──')
+  await must('openPhase', host, { gameId: GAME })
   const walk = await stand(B[0].token, stop, [hall])
   const bp = (await pawnsNow())[B[0].uid] as { at?: { x: number; y: number }; busyKind?: string; busyUntilMs?: number }
   check(walk.snared !== undefined, '**걸렸다**', JSON.stringify(walk.snared))

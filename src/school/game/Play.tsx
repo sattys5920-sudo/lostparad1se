@@ -122,6 +122,7 @@ import { Around } from './People'
 import { Me, PastVerdicts } from './Me'
 import { MissionMailbox, unseenMails } from './MissionPopup'
 import { BoardMailbox } from './MissionBoard'
+import { NoticePop } from './NoticePop'
 import { NotifyBanner } from './notify/NotifyBanner'
 import type { NotifyLink } from '../../../shared/notify/notifyData'
 import { Dealt, dealtSeen, markDealtSeen } from './Dealt'
@@ -1766,7 +1767,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               )}
               {/* 팀마다 차지한 방. **늘 떠 있고**, 페이즈가 닫혀 주인이
                   바뀌면 몇 초 번쩍이며 +1·−1 을 붙인다. 줄 오른쪽 끝이다 */}
-              <ScoreBar tiles={state.tiles} myTeam={me.team as TeamId} />
+              <ScoreBar tiles={state.tiles} myTeam={me.team as TeamId} off={game.lastHours === true} />
             </div>
             {/*
               받아 둔 심부름. **늘 보인다** — 시트로 만들면 열어 봐야
@@ -2468,6 +2469,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       <MissionMailbox inbox={state.inbox} act={act} />
       {/* 모두에게 알린 결과. 내 종이를 다 닫은 뒤에 뜬다 */}
       <BoardMailbox gameId={gameId} boards={game.missionBoards} seats={game.seats} meId={me.playerId} waiting={unseenMails(state.inbox).length > 0} />
+      {/* 운영자 공지 · 1위 발표 · 투명인간 발표. 판정 종이를 다 닫은 뒤에 뜬다 */}
+      <NoticePop gameId={gameId} uid={me.playerId} notices={state.view?.notices} waiting={unseenMails(state.inbox).length > 0} />
       {/* 앱 안 알림 배너. 무엇을 띄울지는 서버가 이미 골랐다 */}
       <NotifyBanner notes={state.inbox?.notes} onGo={goLink} />
     </div>

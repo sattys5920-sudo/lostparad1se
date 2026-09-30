@@ -90,7 +90,7 @@ export const setDevClock = onCall<{ gameId: string; anchorGameMs: number; speed:
 export { fragmentOfDay, releasedFragments } from './fragments'
 
 // 운영자 전용. 전부 읽기뿐이고, 확인은 커스텀 클레임으로 서버에서 한다.
-export { hostDashboard, hostTextAudit, hostNotice, noticeTemplates } from './admin'
+export { hostDashboard, hostTextAudit, hostNotice, hostAnnounceLeader, noticeTemplates } from './admin'
 
 // 로비. 역할은 시작할 때 나뉘고 secret에만 적힌다.
 export { assignAll, createGame, hostAssignSeat, hostRoster, joinGame, leaveGame, refreshFaces, resetGame, startGame } from './lobby'

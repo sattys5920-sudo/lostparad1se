@@ -306,6 +306,8 @@
   background: none;
 }
 .sc-pl__hud2 .sc-sb__team { padding: 0 2px; }
+/* 마지막 여섯 시간 — 숫자 대신 꺼졌다는 한 줄 */
+.sc-sb.is-off { color: var(--text-3); font-size: var(--fs-cap); font-family: var(--font-pixel); white-space: nowrap; }
 
 .sc-pl__day {
   flex: 0 0 auto;

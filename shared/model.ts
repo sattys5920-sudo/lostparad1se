@@ -833,6 +833,8 @@ export interface NoticeDoc {
   text: string
   atMs: GameMs
   byId: string
+  /** 운영자의 「1위 발표」면 그 순간 1위 팀들 */
+  leader?: TeamId[]
 }
 
 // ── 견제·약점처럼 기한이 붙는 것 ────────────────────────────────

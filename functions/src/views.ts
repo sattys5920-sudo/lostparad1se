@@ -274,7 +274,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     awakenedAtMs: Object.fromEntries(awakened.docs.map((d) => [d.id, (d.data() as { atMs: number }).atMs])),
     notices: notices.docs.map((d) => {
       const n = d.data() as NoticeDoc
-      return { id: d.id, toPlayerId: n.toPlayerId, text: n.text, atMs: n.atMs }
+      return { id: d.id, toPlayerId: n.toPlayerId, text: n.text, atMs: n.atMs, ...(n.leader ? { leader: n.leader } : {}) }
     }),
   }
 }

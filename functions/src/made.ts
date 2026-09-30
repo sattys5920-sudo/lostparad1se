@@ -20,6 +20,7 @@ import { gameRef, nowOf, requireUid } from './index'
 import { note } from './records'
 import { refreshViews } from './views'
 import { notify } from './notify'
+import { requireFree } from './turn'
 
 const db = getFirestore()
 
@@ -150,6 +151,8 @@ export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) =
   const pawnSnap = await gameRef(gameId).collection('pawns').doc(uid).get()
   if (!pawnSnap.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
   const pawn = pawnSnap.data() as PawnDoc
+  // 덫에 걸렸거나 하던 일이 안 끝났으면 못 가져간다
+  requireFree(pawn, nowMs)
 
   const bots = (await robotsOf(gameId).get()).docs.map((d) => d.data() as RobotRow)
   const ref = madeOf(gameId).doc(madeId)

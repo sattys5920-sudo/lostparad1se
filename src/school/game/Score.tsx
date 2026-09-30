@@ -61,7 +61,7 @@ export function addDelta(
   return out
 }
 
-export function ScoreBar({ tiles, myTeam }: { tiles: Partial<Record<TileId, TileDoc>>; myTeam: TeamId }) {
+export function ScoreBar({ tiles, myTeam, off = false }: { tiles: Partial<Record<TileId, TileDoc>>; myTeam: TeamId; off?: boolean }) {
   const counts = teamCounts(tiles)
   const loaded = Object.keys(tiles).length > 0
   const key = TEAM_IDS.map((t) => counts[t]).join(',')
@@ -90,6 +90,11 @@ export function ScoreBar({ tiles, myTeam }: { tiles: Partial<Record<TileId, Tile
   }, [key, loaded])
 
   if (!loaded) return null
+  /*
+   * **마지막 여섯 시간은 점수판을 끈다**(운영자 달력의 「점수판 끄기」).
+   * 숫자 대신 꺼졌다는 것만 남긴다 — 줄이 통째로 사라지면 고장으로 읽힌다
+   */
+  if (off) return <div className="sc-sb is-off" role="status">점수판 꺼짐</div>
   return (
     <div className="sc-sb" role="status" aria-live="polite" aria-label="팀마다 차지한 방">
       {TEAM_IDS.map((t) => {

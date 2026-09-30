@@ -52,6 +52,11 @@ export async function buildLog(
      * 센다. 주면 표 · 투명인간 투표도 throughDay 하루 것만 센다
      */
     fromMs?: number
+    /**
+     * **표를 아예 안 센다.** 「나」 탭의 오늘 진행도가 쓴다 — 오늘 받은 표를
+     * 바로 세어 보여 주면 방금 누가 줬는지 짐작된다. 표는 자정 판정이 센다
+     */
+    dropVotes?: boolean
   } = {},
 ): Promise<{
   log: GameLog
@@ -111,7 +116,7 @@ export async function buildLog(
   const cutoff = opts.voteCutoffDay
   const votes: JudgeVote[] = voteS.docs
     .map((d) => d.data() as VoteDoc)
-    .filter((v) => (opts.throughDay !== undefined ? inDays(v.day) : cutoff === undefined || v.day < cutoff))
+    .filter((v) => !opts.dropVotes && (opts.throughDay !== undefined ? inDays(v.day) : cutoff === undefined || v.day < cutoff))
     .map((v) => ({ voterId: v.voterId, voterTeam: v.voterTeam, targetId: v.targetId, kind: v.kind, day: v.day, atMs: v.castAtMs }))
 
 

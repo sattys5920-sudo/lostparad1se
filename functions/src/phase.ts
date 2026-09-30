@@ -477,6 +477,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
  * **먼저 들어간 쪽만** 들어가야 하는데, 읽고 쓰는 사이가 벌어지면
  * 둘 다 들어간다. 판이 스물다섯 칸에 열넷뿐이라 통째로 읽어도 싸다.
  */
+/** 서 있는 방에 하는 일. 복도에서는 못 한다 */
+const IN_ROOM_KINDS: ReadonlySet<ActionKind> = new Set(['summon', 'plant', 'pull', 'dropRobot', 'takeRobot', 'smashRobot'])
+
 export const phaseAct = onCall<{
   gameId: string
   kind: ActionKind
@@ -518,6 +521,18 @@ export const phaseAct = onCall<{
     const me = meSnap.data() as PawnDoc | undefined
     if (me?.tileId !== LAB_TILE || !atLabMachine((me.at ?? null) as Cell | null)) {
       throw new HttpsError('failed-precondition', '연구 기계 옆에 서야 한다.')
+    }
+  }
+
+  /*
+   * **방 안에서 하는 일은 방 안에 서서 한다.** 복도로 나와도 tileId 는
+   * 마지막 방으로 남는다 — 그걸 믿으면 문 밖 복도에 서서 그 방에 깃발을
+   * 꽂고 로봇을 놓았다. 서 있는 칸(at)이 그 방 바닥인지 본다
+   */
+  if (IN_ROOM_KINDS.has(kind)) {
+    const me = (await gameRef(gameId).collection('pawns').doc(uid).get()).data() as PawnDoc | undefined
+    if (me?.tileId && me.at && roomOfCell(me.at.x, me.at.y) !== me.tileId) {
+      throw new HttpsError('failed-precondition', '방 안에 들어가 있어야 한다.')
     }
   }
 
@@ -1278,8 +1293,11 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * **덫.** 지나온 복도 칸과 지금 선 칸 중 다른 팀 덫이 있는 첫 칸에서
    * 걸린다. 걸리면 거기 선 것으로 적히고 열 분 동안 묶인다 — 걸음도
    * 행동도 requireFree 가 막는다. 밟은 덫은 사라진다.
+   *
+   * **페이즈 중에만 문다.** 자유 시간에는 덫 위를 지나가도 아무 일이
+   * 없고 덫도 그대로 남는다 — 덫은 점령전의 물건이다.
    */
-  const snared = await springTrap(gameId, p.team as TeamId, [...via, { x, y }])
+  const snared = game.phaseNow?.open ? await springTrap(gameId, p.team as TeamId, [...via, { x, y }]) : null
   if (snared) {
     const until = nowMs + SNARE_MINUTES * 60_000
     /*

@@ -10,11 +10,15 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { HOST_RULES } from './story/hostRules'
 import { auditLines } from './story/audit'
 import { SOURCE_LABEL, TIME_LABEL, placesIn } from './story/timeline'
-import { checkNotice, NOTICE_TEMPLATES } from '../../shared/reveal/notice'
+import { checkNotice, leaderText, NOTICE_TEMPLATES } from '../../shared/reveal/notice'
+import { publicScore, rankTeams } from '../../shared/rules/score'
+import { TEAMS } from '../../shared/rules/lobby'
 import { requireHost } from './host'
 import { nowOf } from './index'
 import type { GameDoc } from '../../shared/model'
 import { notify } from './notify'
+import { refreshViews } from './views'
+import { tileStates } from './turn'
 
 const db = getFirestore()
 
@@ -75,9 +79,40 @@ export const hostNotice = onCall<{ gameId: string; text: string; toPlayerId?: st
     const game = gameSnap.data() as { seats?: { playerId: string }[] } | undefined
     const to = notice.toPlayerId ? [notice.toPlayerId] : (game?.seats ?? []).map((s) => s.playerId)
     await notify(req.data.gameId, to, 'notice', `notice:${ref.id}`)
+    // 공지는 views 로 내려간다. 다시 쓰지 않으면 누가 다음 행동을 할 때까지 안 뜬다
+    await refreshViews(req.data.gameId)
     return { id: ref.id, ...notice }
   },
 )
+
+/**
+ * 1위 발표. **지금 이 순간** 가진 방 수로 센 1위를 모두에게 띄운다.
+ *
+ * 점수는 정산과 같은 자로 잰다(rules/score) — 가진 방 개수, 동점은
+ * 공동이다. 화면에는 공지 팝업으로 뜨고 「나」 탭 공지 칸에 남는다.
+ */
+export const hostAnnounceLeader = onCall<{ gameId: string }>(async (req) => {
+  const uid = requireHost(req.auth)
+  const gameId = req.data.gameId
+  const snap = await db.doc(`games/${gameId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  if (game.phase !== 'running') throw new HttpsError('failed-precondition', '판이 돌고 있을 때만 발표한다.')
+
+  const tiles = tileStates((await db.collection(`games/${gameId}/tiles`).get()).docs)
+  const ranked = rankTeams(TEAMS.map((team) => publicScore({ tiles, team })))
+  const top = ranked.filter((r) => r.rank === 1)
+  const rooms = top[0]?.total ?? 0
+  const leader = top.map((r) => r.team)
+  const text = leaderText(leader, rooms)
+  if (text === null) throw new HttpsError('failed-precondition', '아직 방을 가진 팀이 없다.')
+
+  const notice = { toPlayerId: null, text, atMs: nowOf(game), byId: uid, leader }
+  const ref = await db.collection(`games/${gameId}/notices`).add(notice)
+  await notify(gameId, game.seats.map((s) => s.playerId), 'notice', `notice:${ref.id}`)
+  await refreshViews(gameId)
+  return { id: ref.id, text, leader, rooms }
+})
 
 /** 템플릿은 숨길 것이 없다. 화면이 목록을 그리는 데 쓴다. */
 export const noticeTemplates = onCall(async (req) => {

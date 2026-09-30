@@ -1,3 +1,5 @@
+import type { TeamId } from '../rules/v2'
+
 // 운영자 공지.
 //
 // 전원 또는 한 명에게 게임 안에서 말을 건다. 운영자 수칙이 「진상을
@@ -42,6 +44,32 @@ export interface Notice {
   toPlayerId: string | null
   text: string
   atMs: number
+  /** 운영자의 「1위 발표」. 그 순간 1위였던 팀 — 공동이면 여럿 */
+  leader?: TeamId[]
+}
+
+/** 화면에 내려보내는 한 줄. 누가 보냈는지(byId)는 안 싣는다 */
+export interface NoticeLine {
+  id: string
+  text: string
+  atMs: number
+  leader?: TeamId[]
+}
+
+export function noticeLine(n: Notice): NoticeLine {
+  return { id: n.id, text: n.text, atMs: n.atMs, ...(n.leader && n.leader.length > 0 ? { leader: [...n.leader] } : {}) }
+}
+
+/**
+ * 1위 발표 문장. 방 수로 센 순위의 1위 — 공동이면 함께 적는다.
+ * 방을 가진 팀이 하나도 없으면 null(발표할 것이 없다).
+ */
+export function leaderText(teams: readonly TeamId[], rooms: number): string | null {
+  if (teams.length === 0 || rooms <= 0) return null
+  const names = teams.map((t) => `${t}팀`).join(' · ')
+  return teams.length === 1
+    ? `지금 1위는 ${names}입니다. 방 ${rooms}개.`
+    : `지금 공동 1위는 ${names}입니다. 방 ${rooms}개씩.`
 }
 
 export type NoticeRefusal = 'empty' | 'tooLong'

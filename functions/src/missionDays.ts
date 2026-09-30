@@ -158,6 +158,12 @@ async function cutoffs(gameId: string): Promise<Map<string, number>> {
   return out
 }
 
+/** 오늘 0시 — DAY 1 은 판이 시작한 때, 그 뒤로는 운영자가 오늘을 넘긴 때. 모르면 undefined */
+export async function todayFromMs(gameId: string, game: GameDoc): Promise<number | undefined> {
+  if (game.day <= 1) return game.startedAtMs ?? undefined
+  return (await cutoffs(gameId)).get(`dayStart:${game.day}`)
+}
+
 /**
  * 밀린 날을 **날짜순으로** 판정한다. 판정한 날 수를 돌려준다.
  *

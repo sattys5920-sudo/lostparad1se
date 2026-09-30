@@ -306,6 +306,13 @@ export const clearInvisible = onCall<{ gameId: string; reason: string }>(async (
     byId: uid,
     detail: { reason: reason.trim().slice(0, 300) },
   })
+  // 본인에게만 알린다. 사유는 싣지 않는다 — 운영자 기록에만 남는다
+  batch.set(ref.collection('notices').doc(), {
+    toPlayerId: who,
+    text: '이제 다시 보인다. 운영자가 투명을 풀었다.',
+    atMs: nowMs,
+    byId: uid,
+  })
   await batch.commit()
   // 투명인간은 칸을 차지하지 않았다 — 누가 그 칸에 섰으면 비켜 세운다
   await reseatIfShared(gameId, who, nowMs)

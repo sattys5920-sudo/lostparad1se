@@ -37,6 +37,10 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
     }
   }
 
+  // 지금 투명인간. 운영자가 사유를 적고 바로 풀 수 있다(clearInvisible)
+  const ghost = game.invisibleId ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? '?') : null
+  const [why, setWhy] = useState('')
+
   const [seeDay, setSeeDay] = useState(day)
   const [rows, setRows] = useState<Row[] | null>(null)
   const [rowsBusy, setRowsBusy] = useState(false)
@@ -74,6 +78,33 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
           )
         )}
       </div>
+
+      <div className="sc-ad__row" style={{ marginTop: 'var(--sp-3)' }}>
+        <span className="sc-ad__pill">지금 투명인간 · {ghost ?? '없음'}</span>
+      </div>
+      {ghost && (
+        <div className="sc-ad__row">
+          <input
+            id="bd-why"
+            aria-label="푸는 까닭"
+            placeholder="푸는 까닭(운영자 기록에만 남는다)"
+            value={why}
+            onChange={(e) => setWhy(e.target.value)}
+          />
+          <button
+            className="sc-ad__danger"
+            disabled={busy || why.trim() === ''}
+            onClick={() =>
+              void run(`${ghost} 투명 풀기`, async () => {
+                await act.clearInvisible(why.trim())
+                setWhy('')
+              })
+            }
+          >
+            투명 풀기
+          </button>
+        </div>
+      )}
 
       <div className="sc-vt" style={{ marginTop: 'var(--sp-3)' }}>
         <div className="sc-sd__sum" role="status">
