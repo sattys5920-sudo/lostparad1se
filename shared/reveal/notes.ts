@@ -59,7 +59,7 @@ export function setPersonNote(
   return { ok: true, reason: null, note: { ...note, board } }
 }
 
-/** 그 사람의 역할을 짐작해 적는다. 빈 값이면 지운다 */
+/** 그 사람의 역할을 짐작해 적는다(적은 글 그대로). 빈 값이면 지운다 */
 export function setRoleGuess(note: DeductionNote, targetId: string, roleId: string): DeductionNote {
   const roleGuess = { ...(note.roleGuess ?? {}) }
   if (roleId === '') delete roleGuess[targetId]

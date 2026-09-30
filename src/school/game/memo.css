@@ -73,7 +73,7 @@
   font-family: var(--memo-hand);
   font-size: 22px;
 }
-.sc-memo__role.is-empty { color: rgba(0, 0, 0, 0.4); }
+.sc-memo__role::placeholder { color: rgba(0, 0, 0, 0.4); }
 .sc-pl-root .sc-memo__line,
 .sc-memo__line {
   width: 100%;

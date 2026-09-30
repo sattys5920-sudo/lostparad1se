@@ -160,7 +160,7 @@ async function main() {
   if ((await pl.locator('.sc-ntc').count()) > 0) await pl.locator('.sc-ntc__ok').click()
   await pl.locator('.sc-ct__tab', { hasText: '메모' }).first().click()
   await pl.waitForSelector('.sc-memo__sheet', { timeout: 15000 }).catch(() => bad.push('메모지가 없다'))
-  await pl.locator('.sc-memo__role').first().selectOption('classlead')
+  await pl.locator('.sc-memo__role').first().fill('반장')
   await pl.locator('.sc-memo__line').first().fill('아침마다 칠판 앞에 서 있다')
   await pl.waitForTimeout(1500)
   await pl.screenshot({ path: `${OUT}/3-메모탭.png` })
@@ -172,7 +172,8 @@ async function main() {
 
   await must('hostOpenAnswers', host, { gameId: game, open: true })
   await pl.waitForSelector('.sc-ans', { timeout: 15000 }).catch(() => bad.push('답안지가 안 떴다'))
-  await pl.waitForTimeout(1500)
+  // 메모를 읽고 낸 답안을 묻는 두 번의 왕복 뒤에 칸이 채워진다
+  await pl.waitForFunction(() => document.querySelectorAll('.sc-ans__list select')[1]?.value !== '', undefined, { timeout: 15000 }).catch(() => undefined)
   await pl.screenshot({ path: `${OUT}/5-답안지.png` })
   const first = await pl.locator('.sc-ans__list select').nth(1).inputValue().catch(() => '')
   if (first !== 'classlead') bad.push(`메모의 짐작이 답안지에 안 옮겨졌다: ${first}`)
