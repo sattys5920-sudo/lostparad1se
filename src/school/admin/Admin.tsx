@@ -309,7 +309,7 @@ function Desk() {
                     setSaid(
                       n === 0 ?
                         `주인 없는 자리는 없다. ${r.left ?? 0} / ${r.need ?? 0} 앉아 있다.`
-                      : `${n} 자리를 비웠다(${(r.freed ?? []).join(', ')}). 이제 ${r.left ?? 0} / ${r.need ?? 0} 이다.`,
+                      : `${n} 자리를 비웠다(${(r.freed ?? []).join(', ')}). 이제 ${r.left ?? 0} / ${r.need ?? 0}이다.`,
                     )
                     return {}
                   })

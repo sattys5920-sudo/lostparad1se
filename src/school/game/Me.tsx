@@ -267,7 +267,7 @@ export function Me(props: MeProps) {
                 {paper.votesThroughDay < 1
                   ? '첫날이다. 오늘 받은 표는 내일 더해진다.'
                   : paper.votesThroughDay < props.day
-                    ? `DAY ${paper.votesThroughDay} 까지 셌다. 오늘 것은 내일 더해진다.`
+                    ? `DAY ${paper.votesThroughDay}까지 셌다. 오늘 것은 내일 더해진다.`
                     : '끝났다. 다 셌다.'}
               </p>
             </>

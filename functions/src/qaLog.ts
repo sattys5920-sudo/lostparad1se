@@ -398,7 +398,7 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
       day: pn.day,
       kind: 'phaseOpen',
       src: 'game',
-      text: `페이즈 ${pn.no} 열림 · DAY ${pn.day}${pn.endsAtMs ? ` · ${hhmm(pn.endsAtMs)} 까지` : ''}`,
+      text: `페이즈 ${pn.no} 열림 · DAY ${pn.day}${pn.endsAtMs ? ` · ${hhmm(pn.endsAtMs)}까지` : ''}`,
     })
   }
 

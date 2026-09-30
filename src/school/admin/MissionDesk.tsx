@@ -328,8 +328,8 @@ export function MissionDesk({ act, onSaid }: { act: GameActions; onSaid: (t: str
         </button>
       </div>
       <p className="sc-md__asof">
-        {meta ? `${hhmm(meta.asOfMs)} 까지 센 판정` : ''}
-        {readAt ? ` · ${hhmm(readAt)} 에 읽음 · 10 초마다` : ''}
+        {meta ? `${hhmm(meta.asOfMs)}까지 센 판정` : ''}
+        {readAt ? ` · ${hhmm(readAt)}에 읽음 · 10 초마다` : ''}
         {err ? <b> · 못 읽었다: {err}</b> : null}
       </p>
 

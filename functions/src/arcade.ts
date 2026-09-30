@@ -526,7 +526,7 @@ function scoreLive(room: RoomDoc, raw: unknown): Omit<Scored, 'id'> & { endMs: n
     }
     case 'oneToFifty': {
       const r = fiftyReplay(seed, cleanFiftyTaps(raw))
-      const line = r.doneMs !== null ? `${(r.doneMs / 1000).toFixed(2)} 초` : `${r.reached} 까지`
+      const line = r.doneMs !== null ? `${(r.doneMs / 1000).toFixed(2)} 초` : `${r.reached}까지`
       return { score: r.score, solo: r.outcome, line, endMs: r.endMs }
     }
     case 'mole': {

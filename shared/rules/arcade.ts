@@ -117,9 +117,9 @@ export const ARCADE_GAMES: readonly ArcadeGame[] = [
   { id: 'rps', name: '가위바위보', mode: 'versus', min: 2, max: 2, blurb: '다른 기계와 한 판', kind: 'turn', ready: true },
   { id: 'quickdraw', name: '먼저 쏴', mode: 'versus', min: 2, max: 2, blurb: '신호가 뜨면 먼저 누른 쪽이 이긴다', kind: 'turn', ready: true },
   { id: 'duet', name: '둘이서 한 곡', mode: 'coop', min: 2, max: 2, blurb: '따라 치고 한 박씩 보태 곡을 만든다', kind: 'table', ready: true },
-  { id: 'nunchi', name: '눈치 게임', mode: 'versus', min: 2, max: 4, blurb: '1 부터 외친다. 겹치거나 꼴찌면 탈락', kind: 'table', ready: true },
+  { id: 'nunchi', name: '눈치 게임', mode: 'versus', min: 2, max: 4, blurb: '1부터 외친다. 겹치거나 꼴찌면 탈락', kind: 'table', ready: true },
   { id: 'tower', name: '탑 쌓기', mode: 'coop', min: 2, max: 4, blurb: '돌아가며 쌓는다. 무너지면 끝', kind: 'table', ready: true },
-  { id: 'oneToFifty', name: '1 to 50', mode: 'versus', min: 1, max: 4, blurb: '1 부터 50 까지 누가 먼저', kind: 'live', ready: true },
+  { id: 'oneToFifty', name: '1 to 50', mode: 'versus', min: 1, max: 4, blurb: '1부터 50까지 누가 먼저', kind: 'live', ready: true },
   { id: 'mole', name: '두더지 잡기', mode: 'versus', min: 1, max: 4, blurb: '30 초 동안 누가 더 많이', kind: 'live', ready: true },
 ]
 
@@ -332,7 +332,7 @@ export type UpDownRefusal = 'over' | 'notNumber' | 'outOfRange'
 export const UPDOWN_NO: Record<UpDownRefusal, string> = {
   over: '이미 끝난 판이다',
   notNumber: '숫자를 불러야 한다',
-  outOfRange: `1 부터 ${UPDOWN_MAX} 까지다`,
+  outOfRange: `1부터 ${UPDOWN_MAX}까지다`,
 }
 
 export function updownGuess(

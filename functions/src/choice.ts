@@ -64,7 +64,7 @@ export const chooseImportant = onCall<{ gameId: string; targetId: string }>(asyn
   const out = canChoosePerson({ day: game.day, chooserId: uid, targetId, known: target.exists })
   if (!out.ok) {
     const why =
-      out.reason === 'wrongDay' ? `중요한 사람은 DAY ${CHOSEN_ONE_DAY} 에 고른다.` : REFUSAL[out.reason as string]
+      out.reason === 'wrongDay' ? `중요한 사람은 DAY ${CHOSEN_ONE_DAY}에 고른다.` : REFUSAL[out.reason as string]
     throw new HttpsError('failed-precondition', why ?? '고를 수 없다.')
   }
 
@@ -84,7 +84,7 @@ export const chooseDay4 = onCall<{ gameId: string; choice: Day4Choice }>(async (
   const prev = await mine(gameId, uid)
   const out = canChooseDay4(game.day)
   if (!out.ok) {
-    const why = out.reason === 'wrongDay' ? `DAY ${DAY4_CHOICE_DAY} 에 고른다.` : REFUSAL[out.reason as string]
+    const why = out.reason === 'wrongDay' ? `DAY ${DAY4_CHOICE_DAY}에 고른다.` : REFUSAL[out.reason as string]
     throw new HttpsError('failed-precondition', why ?? '고를 수 없다.')
   }
 

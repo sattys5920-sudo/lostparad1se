@@ -899,9 +899,9 @@ function PersonCard({ p, nowMs, onRoom, onClose }: { p: LivePerson; nowMs: numbe
     : `${p.roomName ?? '?'}${p.at ? ` (${p.at.x},${p.at.y})` : ' · 칸 모름'}`
   const since =
     p.untilMs !== null
-      ? `${hhmm(p.untilMs)} 까지 (${spanText(p.untilMs - nowMs)} 남음)`
+      ? `${hhmm(p.untilMs)}까지 (${spanText(p.untilMs - nowMs)} 남음)`
       : p.sinceMs !== null
-        ? `${hhmm(p.sinceMs)} 부터 (${spanText(nowMs - p.sinceMs)})`
+        ? `${hhmm(p.sinceMs)}부터 (${spanText(nowMs - p.sinceMs)})`
         : '—'
   return (
     <div className="sc-lvm__card">
@@ -930,7 +930,7 @@ function PersonCard({ p, nowMs, onRoom, onClose }: { p: LivePerson; nowMs: numbe
         {p.roomSinceMs !== null && p.sinceMs !== p.roomSinceMs && (
           <div>
             <dt>이 방에</dt>
-            <dd>{`${hhmm(p.roomSinceMs)} 부터`}</dd>
+            <dd>{`${hhmm(p.roomSinceMs)}부터`}</dd>
           </div>
         )}
         {p.errand && (

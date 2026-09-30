@@ -183,7 +183,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
         </button>
       </div>
       <p className="sc-ad__hint">
-        대기 중에서 고른다. 3~4 번(그날)은 DAY {board.lateFromDay} 부터 후보에 들고, 한 역할이 같은 날 두 장이 되지 않게 빈 방부터 흩는다.
+        대기 중에서 고른다. 3~4 번(그날)은 DAY {board.lateFromDay}부터 후보에 들고, 한 역할이 같은 날 두 장이 되지 않게 빈 방부터 흩는다.
       </p>
 
       {/* ── 거르기 · 줄 세우기 ── */}
