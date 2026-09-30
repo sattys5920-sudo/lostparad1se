@@ -34,7 +34,7 @@ import './size.css'
 /** 시안에 세울 사람. 게임에서 만드는 것과 같은 조합이다. */
 const LOOK: AvatarLook = {
   styleSet: 'F',
-  hairStyle: 'F03',
+  hairStyle: 'F23',
   hairColor: 2,
   expression: 3,
   outfit: 2,

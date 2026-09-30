@@ -15,11 +15,11 @@ export type StyleSet = 'F' | 'M'
 export interface AvatarLook {
   /** 헤어·교복 목록의 기본 거름망. 자유 조합을 막지는 않는다 */
   styleSet: StyleSet
-  /** 머리 모양 'F00'~'M14' */
+  /** 머리 모양 'F20'~'F39' · 'M20'~'M39'. 옛 'F00'~'M14'는 화면이 새 ID로 옮겨 읽는다 */
   hairStyle: string
-  /** 머리색 0..8 */
+  /** 머리색 0..14 */
   hairColor: number
-  /** 표정 0..5 */
+  /** 표정 0..9 */
   expression: number
   /** 복장 0..5 — 하복·춘추복·동복·가디건·후드집업·체육복 */
   outfit: number

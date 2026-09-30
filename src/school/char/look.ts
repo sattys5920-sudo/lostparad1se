@@ -3,7 +3,8 @@
 // 저장 모양이 두 번 바뀌었다.
 //   1차: hair/face/color/uniform
 //   2차: hairStyle(번호)/hairColor/expression/outfit/bottom
-//   지금: styleSet/hairStyle('F00'~'M14')/…/wearStyle/neckwear
+//   3차: styleSet/hairStyle('F00'~'M14')/…/wearStyle/neckwear
+//   지금: 3차와 같은 모양, 머리만 'F20'~'F39' · 'M20'~'M39' (옛 ID는 OLD_HAIR 로 옮긴다)
 // 이미 Firestore에 남아 있는 값이 있으므로 읽을 때 옛 모양도 전부 받아 준다.
 import { HAIR_COLORS } from './palette'
 import {
@@ -12,6 +13,7 @@ import {
   HAIR_IDS_F,
   HAIR_IDS_M,
   NECKWEAR_NAMES,
+  OLD_HAIR,
   OUTFITS,
   WEAR_STYLE_NAMES,
 } from './pixel'
@@ -37,11 +39,12 @@ const wrap = (v: unknown, n: number): number => {
 
 /**
  * 옛 머리 번호를 새 ID로. 0~13은 여자 머리 그대로였고, 14번
- * 「헝클어진 짧은 머리」는 남자 목록으로 옮겨 M10이 되었다.
+ * 「헝클어진 짧은 머리」는 남자 목록으로 옮겨 M10이 되었다. 그 3차 ID를
+ * 다시 OLD_HAIR 로 지금 목록에 옮긴다.
  */
 function migrateHair(v: number): string {
-  if (v === 14) return 'M10'
-  return `F${String(wrap(v, 14)).padStart(2, '0')}`
+  const old = v === 14 ? 'M10' : `F${String(wrap(v, 14)).padStart(2, '0')}`
+  return OLD_HAIR[old]
 }
 
 /**
@@ -55,7 +58,9 @@ export function normalizeLook(raw: unknown): AvatarLook {
   const hairStyle =
     typeof r.hairStyle === 'string' && HAIR_BY_ID[r.hairStyle]
       ? r.hairStyle
-      : migrateHair(typeof r.hairStyle === 'number' ? r.hairStyle : wrap(r.hair, 15))
+      : typeof r.hairStyle === 'string' && OLD_HAIR[r.hairStyle]
+        ? OLD_HAIR[r.hairStyle]
+        : migrateHair(typeof r.hairStyle === 'number' ? r.hairStyle : wrap(r.hair, 15))
   // 새 저장값에는 wearStyle이 있다. 없으면 옛 옷 번호를 옮겨 온다
   const outfit =
     typeof r.wearStyle === 'number'

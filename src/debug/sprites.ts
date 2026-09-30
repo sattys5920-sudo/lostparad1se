@@ -30,7 +30,7 @@ TEAMS.forEach((t) => teamSel.add(new Option(t.name, t.id)))
 
 const base = (o: Partial<AvatarLook> = {}): AvatarLook => ({
   styleSet: 'F',
-  hairStyle: 'F00',
+  hairStyle: 'F20',
   hairColor: Number(colorSel.value),
   expression: 0,
   outfit: 1,
@@ -206,7 +206,7 @@ function draw(): void {
       for (const bottom of [0, 1]) {
         row.appendChild(
           card(
-            base({ outfit, wearStyle, bottom, hairStyle: bottom ? 'F00' : 'M00', styleSet: bottom ? 'F' : 'M' }),
+            base({ outfit, wearStyle, bottom, hairStyle: bottom ? 'F20' : 'M20', styleSet: bottom ? 'F' : 'M' }),
             `${OUTFIT_NAMES[outfit]} ${bottom ? '치마' : '바지'}`,
             z,
           ),

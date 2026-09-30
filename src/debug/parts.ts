@@ -15,7 +15,7 @@ import type { AvatarLook } from '../../shared/look'
 
 const out = document.getElementById('out') as HTMLDivElement
 const base = (o: Partial<AvatarLook> = {}): AvatarLook => ({
-  styleSet: 'F', hairStyle: 'F00', hairColor: 1, expression: 0, outfit: 1, wearStyle: 1, bottom: 0, neckwear: 0, ...o,
+  styleSet: 'F', hairStyle: 'F20', hairColor: 1, expression: 0, outfit: 1, wearStyle: 1, bottom: 0, neckwear: 0, ...o,
 })
 
 function sprite(look: AvatarLook, dir: Dir, Z = 3): HTMLCanvasElement {
@@ -66,7 +66,7 @@ const hairCards = (ids: string[], set: 'F' | 'M') =>
 out.insertAdjacentHTML('beforeend', '<h1>아바타 부품 목록</h1>')
 section('hairF', '머리 모양 — 여자 목록', `${HAIR_IDS_F.length}종 · 앞/뒤`, hairCards(HAIR_IDS_F, 'F'))
 section('hairM', '머리 모양 — 남자 목록', `${HAIR_IDS_M.length}종 · 앞/뒤`, hairCards(HAIR_IDS_M, 'M'))
-section('color', '머리색', `${HAIR_COLORS.length}종`, HAIR_COLORS.map((c, i) => ({ look: base({ hairColor: i, hairStyle: 'F04' }), cap: c.name, swatch: c.tone.base })))
+section('color', '머리색', `${HAIR_COLORS.length}종`, HAIR_COLORS.map((c, i) => ({ look: base({ hairColor: i, hairStyle: 'F24' }), cap: c.name, swatch: c.tone.base })))
 section('face', '표정', `${EXPRESSIONS.length}종`, EXPRESSIONS.map((e, i) => ({ look: base({ expression: i }), cap: e.name })), 5)
 section('outfit', '복장', `${OUTFITS.length}종`, OUTFITS.map((o, i) => ({ look: base({ outfit: i }), cap: o.name, sub: o.note, dirs: ['down', 'left'] as Dir[] })))
 section('wear', '착용 스타일', `${WEAR_STYLE_NAMES.length}종 · 동복 기준`, WEAR_STYLE_NAMES.map((n, i) => ({ look: base({ outfit: 2, wearStyle: i }), cap: n })))

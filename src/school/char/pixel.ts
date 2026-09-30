@@ -18,6 +18,7 @@ import {
   MOUTH_TONE,
   SCHOOL_PALETTE,
   SHOE_TONE,
+  TEAR_TONE,
   tone,
   type Tone,
 } from './palette'
@@ -52,6 +53,7 @@ type Mat =
   | 'mouth'
   | 'blush'
   | 'band'
+  | 'tear'
 /**
  * 칸 하나가 쓸 색. 'auto'는 실루엣 둘레면 테두리, 아니면 바탕.
  * 맵에서 온 칸은 색을 직접 지정한다.
@@ -80,6 +82,8 @@ const MAT_LAYER: Record<Mat, number> = {
   mouth: 9,
   blush: 9,
   hair: 8,
+  /** 울먹·당황의 눈물·땀 한 방울 */
+  tear: 9,
 }
 
 // ── 머리통 맵 ───────────────────────────────────────────────────
@@ -260,7 +264,7 @@ function bodyMap(dir: Dir, pose: Pose): string[] {
   return dir === 'up' ? backOf(front) : front
 }
 
-// ── 머리 모양 30종 ──────────────────────────────────────────────
+// ── 머리 모양 40종 ──────────────────────────────────────────────────────────────────────────────────────────
 // 머리통 맵은 건드리지 않는다. 이 표가 정하는 것은 네 가지뿐이다.
 //
 //   이마를 몇 줄 드러내는가(forehead)
@@ -301,8 +305,11 @@ const BANGS_OPEN: Partial<Record<Bangs, number>> = {
   none: 1,
 }
 type Extra =
-  | 'twin' | 'lowTwin' | 'pony' | 'highPony' | 'sidePony'
-  | 'braid' | 'bun' | 'bigBun' | 'spike' | null
+  | 'twin' | 'pony'
+  | 'braid' | 'bun' | 'bigBun' | 'spike'
+  | 'afro' | 'bow' | 'chignon' | 'tallSpike' | 'frontPony'
+  | 'hime' | 'spaceBuns' | 'headband' | 'pomp' | 'rattail'
+  | null
 type Rough = 'spikes' | 'curly' | null
 
 export interface HairSpec {
@@ -331,6 +338,10 @@ export interface HairSpec {
   extra: Extra
   /** 앞머리가 한쪽 눈을 덮는다 — 그 눈은 그리지 않는다 */
   coversEye: boolean
+  /** 옆머리를 한쪽(화면 왼쪽)으로만 내린다 — 비대칭 */
+  oneSide?: boolean
+  /** 머리결 무늬 — 한쪽 가르마 선(모범생) */
+  texture?: 'part'
 }
 
 type HairOpts = Partial<Omit<HairSpec, 'id' | 'name' | 'set'>>
@@ -359,45 +370,48 @@ function hair(id: HairId, name: string, o: HairOpts = {}): HairSpec {
 }
 
 export const HAIR_SPECS: HairSpec[] = [
-  // 여자.
-  //
-  // **묶는 모양만 다르고 앞머리는 전부 같았다.** 열다섯 중 열이 같은
-  // 한 줄짜리 앞머리를 썼다 — 정면에서 보면 뒤가 안 보이므로, 얼굴
-  // 위쪽이 다 똑같아서 열이 한 사람처럼 보였다.
-  //
-  // 이제 앞머리로도 갈린다. 겹치는 것은 셋뿐이고(full·curtain·seeThrough
-  // 가 한 번씩 더 나온다), 그 짝은 뒤가 크게 달라서 헷갈리지 않는다.
-  hair('F00', '기본 단발', { backTo: 21 }),
-  hair('F01', '긴 생머리', { bangs: 'curtain', sideTo: 25, backTo: 25 }),
-  hair('F02', '양갈래', { bangs: 'choppy', extra: 'twin' }),
-  hair('F03', '낮은 양갈래', { bangs: 'seeThrough', backTo: 20, extra: 'lowTwin' }),
-  hair('F04', '포니테일', { bangs: 'diag', extra: 'pony' }),
-  hair('F05', '높은 포니테일', { bangs: 'none', extra: 'highPony' }),
-  hair('F06', '숏컷', { bangs: 'part', backTo: 20 }),
-  hair('F07', '웨이브 단발', { bangs: 'baby', sideTo: 22, backTo: 22, wave: true }),
-  hair('F08', '긴 웨이브', { bangs: 'round', sideTo: 26, backTo: 26, wave: true }),
-  hair('F09', '앞머리 일자 단발', { bangs: 'straight', sideTo: 23, backTo: 23 }),
-  hair('F10', '사이드 포니테일', { bangs: 'comma', extra: 'sidePony' }),
-  hair('F11', '땋은 머리', { bangs: 'half', extra: 'braid' }),
-  hair('F12', '반묶음', { bangs: 'curtain', sideTo: 24, backTo: 24, extra: 'bun' }),
-  hair('F13', '보브컷', { bangs: 'heavy', sideTo: 21, backTo: 20, curlIn: true }),
-  hair('F14', '똥머리', { bangs: 'seeThrough', extra: 'bigBun' }),
-  // 남자 — 이마를 한두 줄 더 드러내고 귀가 보인다
-  hair('M00', '기본 커트', { bangs: 'half', forehead: 2, ear: true }),
-  hair('M01', '투블럭', { bangs: 'round', forehead: 2, ear: true, undercut: 2 }),
-  hair('M02', '스포츠머리', { bangs: 'none', forehead: 2, ear: true, undercut: 1 }),
-  hair('M03', '반삭', { bangs: 'none', forehead: 3, ear: true, flat: true }),
-  hair('M04', '댄디컷', { bangs: 'round', forehead: 1, ear: true }),
-  hair('M05', '5:5 가르마', { bangs: 'full', forehead: 1, ear: true, partLine: 'center' }),
-  hair('M06', '6:4 가르마', { bangs: 'diag', forehead: 2, ear: true }),
-  hair('M07', '올백', { bangs: 'none', forehead: 3, ear: true, partLine: 'back' }),
-  hair('M08', '쉼표머리', { bangs: 'comma', forehead: 2, ear: true }),
-  hair('M09', '스파이크', { bangs: 'part', forehead: 2, ear: true, extra: 'spike' }),
-  hair('M10', '헝클어진 짧은 머리', { bangs: 'full', forehead: 1, ear: true, rough: 'spikes' }),
-  hair('M11', '볼륨펌', { bangs: 'round', forehead: 1, ear: true, rough: 'curly' }),
-  hair('M12', '울프컷', { bangs: 'full', forehead: 1, ear: true, backTo: 22 }),
-  hair('M13', '바가지머리', { bangs: 'bowl', forehead: 0 }),
-  hair('M14', '눈 가린 앞머리', { bangs: 'oneEye', forehead: 1, ear: true, coversEye: true }),
+  // ── 여자 스물. 한 칸 두 칸 차이가 아니라 윤곽(높이·너비·길이·묶음)으로 갈린다
+  hair('F20', '기본 단발', { backTo: 21 }),
+  hair('F21', '숏컷', { bangs: 'part', forehead: 1, ear: true }),
+  hair('F22', '보브컷', { bangs: 'heavy', sideTo: 21, backTo: 20, curlIn: true }),
+  hair('F23', '긴 생머리', { bangs: 'curtain', sideTo: 25, backTo: 25 }),
+  hair('F24', '긴 웨이브', { bangs: 'round', sideTo: 26, backTo: 26, wave: true }),
+  hair('F25', '히메컷', { bangs: 'straight', backTo: 27, extra: 'hime' }),
+  hair('F26', '높은 양갈래', { bangs: 'choppy', extra: 'twin' }),
+  hair('F27', '포니테일', { bangs: 'diag', extra: 'pony' }),
+  hair('F28', '어깨로 넘긴 포니', { bangs: 'seeThrough', extra: 'frontPony' }),
+  hair('F29', '땋은 머리', { bangs: 'half', extra: 'braid' }),
+  hair('F30', '똥머리', { bangs: 'seeThrough', extra: 'bigBun' }),
+  hair('F31', '만두머리', { bangs: 'full', extra: 'spaceBuns' }),
+  hair('F32', '쪽머리', { bangs: 'none', forehead: 3, ear: true, partLine: 'back', extra: 'chignon' }),
+  hair('F33', '머리띠 긴 머리', { bangs: 'none', sideTo: 25, backTo: 25, extra: 'headband' }),
+  hair('F34', '한쪽으로 넘긴 긴 머리', { bangs: 'diag', sideTo: 28, backTo: 27, oneSide: true }),
+  hair('F35', '비대칭 단발', { bangs: 'comma', sideTo: 22, backTo: 20, oneSide: true, ear: true }),
+  hair('F36', '뽀글 파마', { bangs: 'baby', sideTo: 22, backTo: 22, wave: true, extra: 'afro' }),
+  hair('F37', '눈 가린 긴 머리', { bangs: 'oneEye', sideTo: 24, backTo: 24, coversEye: true }),
+  hair('F38', '리본 묶음', { bangs: 'full', sideTo: 23, backTo: 23, extra: 'bow' }),
+  hair('F39', '반묶음', { bangs: 'curtain', sideTo: 24, backTo: 24, extra: 'bun' }),
+  // ── 남자 스물 — 무늬 없이 민무늬로, 앞머리·이마·길이·볼륨·묶음으로 갈린다
+  hair('M20', '기본 커트', { bangs: 'half', forehead: 2, ear: true }),
+  hair('M21', '댄디컷', { bangs: 'round', forehead: 1, ear: true }),
+  hair('M22', '센터 가르마', { bangs: 'curtain', forehead: 1, ear: true }),
+  hair('M23', '6:4 가르마', { bangs: 'diag', forehead: 2, ear: true }),
+  hair('M24', '쉼표머리', { bangs: 'comma', forehead: 2, ear: true }),
+  hair('M25', '일자 앞머리', { bangs: 'straight', forehead: 0, ear: true }),
+  hair('M26', '스포츠머리', { bangs: 'none', forehead: 2, ear: true }),
+  hair('M27', '올백', { bangs: 'none', forehead: 3, ear: true, partLine: 'back' }),
+  hair('M28', '포마드', { bangs: 'none', forehead: 3, ear: true, partLine: 'back', extra: 'pomp' }),
+  hair('M29', '모범생 가르마', { bangs: 'diag', forehead: 2, ear: true, texture: 'part' }),
+  hair('M30', '짧은 스파이크', { bangs: 'part', forehead: 2, ear: true, extra: 'spike' }),
+  hair('M31', '높은 스파이크', { bangs: 'part', forehead: 2, ear: true, extra: 'tallSpike' }),
+  hair('M32', '헝클어진 머리', { bangs: 'full', forehead: 1, ear: true, rough: 'spikes' }),
+  hair('M33', '눈 가린 앞머리', { bangs: 'oneEye', forehead: 1, ear: true, coversEye: true }),
+  hair('M34', '울프컷', { bangs: 'full', forehead: 1, sideTo: 21, backTo: 23 }),
+  hair('M35', '어깨 장발', { bangs: 'curtain', sideTo: 22, backTo: 22 }),
+  hair('M36', '꽁지머리', { bangs: 'half', forehead: 2, ear: true, extra: 'rattail' }),
+  hair('M37', '맨번', { bangs: 'none', forehead: 3, ear: true, partLine: 'back', extra: 'bun' }),
+  hair('M38', '반묶음 장발', { bangs: 'curtain', forehead: 1, sideTo: 22, backTo: 22, extra: 'bun' }),
+  hair('M39', '헤어밴드', { bangs: 'none', forehead: 2, ear: true, rough: 'spikes', extra: 'headband' }),
 ]
 
 export const HAIR_BY_ID: Record<HairId, HairSpec> = Object.fromEntries(
@@ -407,8 +421,52 @@ export const HAIR_IDS: HairId[] = HAIR_SPECS.map((h) => h.id)
 export const HAIR_IDS_F: HairId[] = HAIR_SPECS.filter((h) => h.set === 'F').map((h) => h.id)
 export const HAIR_IDS_M: HairId[] = HAIR_SPECS.filter((h) => h.set === 'M').map((h) => h.id)
 
+/**
+ * 옛 머리 ID(F00~F14 · M00~M14)를 새 목록에서 가장 닮은 머리로.
+ *
+ * **새 ID를 F20·M20부터 매긴 까닭이 이것이다.** 옛 저장값 'F01'은 긴
+ * 생머리였는데 새 목록의 스무 개 중 두 번째는 숏컷이다. 번호를 다시 0부터
+ * 쓰면 옛 값을 읽을 때 뜻이 조용히 바뀐다. 번호대가 겹치지 않으니 어느 쪽
+ * 값인지 보기만 해도 안다.
+ */
+export const OLD_HAIR: Record<string, HairId> = {
+  F00: 'F20', // 기본 단발 → 기본 단발
+  F01: 'F23', // 긴 생머리 → 긴 생머리
+  F02: 'F26', // 양갈래 → 높은 양갈래
+  F03: 'F26', // 낮은 양갈래 → 높은 양갈래
+  F04: 'F27', // 포니테일 → 포니테일
+  F05: 'F27', // 높은 포니테일 → 포니테일
+  F06: 'F21', // 숏컷 → 숏컷
+  F07: 'F22', // 웨이브 단발 → 보브컷
+  F08: 'F24', // 긴 웨이브 → 긴 웨이브
+  F09: 'F22', // 앞머리 일자 단발 → 보브컷
+  F10: 'F28', // 사이드 포니테일 → 어깨로 넘긴 포니
+  F11: 'F29', // 땋은 머리 → 땋은 머리
+  F12: 'F39', // 반묶음 → 반묶음
+  F13: 'F22', // 보브컷 → 보브컷
+  F14: 'F30', // 똥머리 → 똥머리
+  M00: 'M20', // 기본 커트 → 기본 커트
+  M01: 'M20', // 투블럭 → 기본 커트
+  M02: 'M26', // 스포츠머리 → 스포츠머리
+  M03: 'M26', // 반삭 → 스포츠머리
+  M04: 'M21', // 댄디컷 → 댄디컷
+  M05: 'M22', // 5:5 가르마 → 센터 가르마
+  M06: 'M23', // 6:4 가르마 → 6:4 가르마
+  M07: 'M27', // 올백 → 올백
+  M08: 'M24', // 쉼표머리 → 쉼표머리
+  M09: 'M30', // 스파이크 → 짧은 스파이크
+  M10: 'M32', // 헝클어진 짧은 머리 → 헝클어진 머리
+  M11: 'M32', // 볼륨펌 → 헝클어진 머리
+  M12: 'M34', // 울프컷 → 울프컷
+  M13: 'M25', // 바가지머리 → 일자 앞머리
+  M14: 'M33', // 눈 가린 앞머리 → 눈 가린 앞머리
+}
+
 export function hairSpec(id: HairId | number | undefined): HairSpec {
-  if (typeof id === 'string' && HAIR_BY_ID[id]) return HAIR_BY_ID[id]
+  if (typeof id === 'string') {
+    const spec = HAIR_BY_ID[id] ?? HAIR_BY_ID[OLD_HAIR[id]]
+    if (spec) return spec
+  }
   return HAIR_SPECS[0]
 }
 
@@ -558,13 +616,16 @@ function roughRows(spec: HairSpec, dir: Dir): Row[] {
 function sideStrands(spec: HairSpec, dir: Dir): Row[] {
   if (!spec.sideTo || dir === 'right') return []
   const out: Row[] = []
-  for (let y = HEAD_BOTTOM; y <= spec.sideTo; y++) {
-    // 물결 — 두 줄마다 한 칸 안팎으로 흔든다
-    const w = spec.wave && (y - HEAD_BOTTOM) % 4 >= 2 ? 1 : 0
+  // **머리통 옆구리에서부터 내린다.** 턱 밑에서 시작하면 머리통과 한 칸 떨어져 따로 떠 보인다
+  for (let y = FACE_TOP + 2; y <= spec.sideTo; y++) {
+    // 물결 — 두 줄마다 한 칸 안팎으로 흔든다. 머리통 옆에서는 흔들지 않는다(떨어지지 않게)
+    const w = spec.wave && y > HEAD_BOTTOM && (y - HEAD_BOTTOM) % 4 >= 2 ? 1 : 0
     // 보브는 끝이 안으로 말린다
     const c = spec.curlIn && y >= spec.sideTo - 1 ? 1 : 0
-    out.push([y, 8 + w + c, 9 + w + c])
-    out.push([y, 22 - w - c, 23 - w - c])
+    // 긴 머리는 옆머리를 한 칸 더 두껍게 — 단발과 윤곽으로 갈린다
+    const thick = spec.sideTo >= 24 ? 1 : 0
+    out.push([y, 8 + w + c - thick, 9 + w + c])
+    if (!spec.oneSide) out.push([y, 22 - w - c, 23 - w - c + thick])
   }
   return out
 }
@@ -587,22 +648,10 @@ function tails(spec: HairSpec, dir: Dir): Row[] {
   }
   switch (spec.extra) {
     case 'twin':
-      bunch(7, 15, 20)
-      if (!near) bunch(22, 15, 20)
-      break
-    case 'lowTwin':
-      bunch(7, 18, 23)
-      if (!near) bunch(22, 18, 23)
-      break
-    case 'pony':
-      bunch(near ? 7 : 22, 14, 21)
-      break
-    case 'highPony':
-      out.push([HEAD_Y, 19, 21])
-      bunch(near ? 7 : 21, 8, 19)
-      break
-    case 'sidePony':
-      bunch(near ? 7 : 22, 15, 22)
+      // 높이 묶어 길게 — 정수리 옆에서 가슴께까지
+      out.push([HEAD_Y + 1, 7, 9])
+      bunch(6, HEAD_Y + 1, 24)
+      if (!near) { out.push([HEAD_Y + 1, 22, 24]); bunch(23, HEAD_Y + 1, 24) }
       break
     case 'braid':
       for (let y = 16; y <= 24; y += 2) {
@@ -611,13 +660,21 @@ function tails(spec: HairSpec, dir: Dir): Row[] {
       }
       break
     case 'bun':
-      out.push([HEAD_Y - 2, 14, 17], [HEAD_Y - 1, 14, 17])
-      break
     case 'bigBun':
-      // 정수리 뒤쪽 4×3. 머리 위로 두 칸까지만 올라간다
-      if (near) out.push([HEAD_Y - 2, 9, 12], [HEAD_Y - 1, 8, 12], [HEAD_Y, 8, 11])
-      else if (dir === 'up') out.push([HEAD_Y - 2, 14, 17], [HEAD_Y - 1, 13, 18], [HEAD_Y, 13, 18])
-      else out.push([HEAD_Y - 2, 15, 18], [HEAD_Y - 1, 15, 18], [HEAD_Y, 16, 19])
+      // 번은 머리통 윗줄에 겹쳐 붙인다 — frontExtras 가 그린다(따로 뜬 점처럼 안 보이게)
+      break
+    case 'chignon':
+      // 목덜미에 틀어 올린 쪽
+      if (near) out.push([HEAD_BOTTOM - 4, 7, 10], [HEAD_BOTTOM - 3, 6, 10], [HEAD_BOTTOM - 2, 6, 10], [HEAD_BOTTOM - 1, 7, 9])
+      else if (dir === 'up') out.push([HEAD_BOTTOM - 3, 13, 18], [HEAD_BOTTOM - 2, 12, 19], [HEAD_BOTTOM - 1, 13, 18])
+      break
+    case 'bow':
+      // 뒤통수의 큰 리본 — 앞에서는 머리 양옆으로 날개가 삐져나온다(accent 로 칠한다: frontExtras)
+      break
+    case 'rattail':
+      // 뒷목에 가늘게 묶은 꽁지
+      if (near) for (let y = HEAD_BOTTOM - 1; y <= HEAD_BOTTOM + 4; y++) out.push([y, 9, 10])
+      else if (dir === 'up') for (let y = HEAD_BOTTOM; y <= HEAD_BOTTOM + 5; y++) out.push([y, 15, 16])
       break
     case 'spike':
       // 뾰족 네 개. 머리 위로 두 칸까지
@@ -628,6 +685,76 @@ function tails(spec: HairSpec, dir: Dir): Row[] {
       break
   }
   return out
+}
+
+/** 얼굴 앞에 오는 것 — 히메 옆머리 · 번 · 머리띠 · 리본. 몸보다 앞에 그린다 */
+function frontExtras(spec: HairSpec, dir: Dir): { hair: Row[]; accent: Row[] } {
+  const hairRows: Row[] = []
+  const accent: Row[] = []
+  const near = dir === 'right'
+  switch (spec.extra) {
+    case 'hime':
+      // 볼 옆으로 일자로 떨어지는 옆머리. 턱 아래 두 줄에서 반듯하게 끊는다
+      if (dir === 'down') {
+        for (let y = FACE_TOP + 1; y <= HEAD_BOTTOM + 2; y++) hairRows.push([y, 10, 12], [y, 19, 21])
+      } else if (near) {
+        for (let y = FACE_TOP + 1; y <= HEAD_BOTTOM + 2; y++) hairRows.push([y, 16, 17])
+      }
+      break
+    case 'spaceBuns':
+      // 정수리 양옆 모서리에 동그란 번 둘 — 머리통 모서리에 붙여 얹는다
+      if (dir === 'right') hairRows.push([HEAD_Y - 1, 11, 14], [HEAD_Y, 10, 15], [HEAD_Y + 1, 10, 15], [HEAD_Y + 2, 11, 14])
+      else hairRows.push(
+        [HEAD_Y - 1, 9, 11], [HEAD_Y, 8, 12], [HEAD_Y + 1, 8, 12], [HEAD_Y + 2, 9, 11],
+        [HEAD_Y - 1, 20, 22], [HEAD_Y, 19, 23], [HEAD_Y + 1, 19, 23], [HEAD_Y + 2, 20, 22],
+      )
+      break
+    case 'pomp':
+      // 앞머리를 세워 넘긴 볼륨. 머리통 윗줄에 이어 붙인다
+      if (dir === 'right') hairRows.push([HEAD_Y - 2, 16, 20], [HEAD_Y - 1, 14, 21], [HEAD_Y, 13, 21])
+      else if (dir === 'down') hairRows.push([HEAD_Y - 2, 14, 18], [HEAD_Y - 1, 12, 19], [HEAD_Y, 11, 20])
+      else hairRows.push([HEAD_Y - 1, 13, 18], [HEAD_Y, 12, 19])
+      break
+    case 'bun': {
+      // 정수리에 작게 묶은 번. 머리통 윗줄에 한 줄 겹쳐 이어 붙인다
+      const o = dir === 'right' ? -2 : 0
+      hairRows.push([HEAD_Y - 2, 14 + o, 17 + o], [HEAD_Y - 1, 13 + o, 18 + o], [HEAD_Y, 13 + o, 18 + o])
+      break
+    }
+    case 'bigBun': {
+      // 정수리에 크게 틀어 올린 똥머리
+      const o = dir === 'right' ? -3 : 0
+      hairRows.push([HEAD_Y - 3, 14 + o, 17 + o], [HEAD_Y - 2, 13 + o, 18 + o], [HEAD_Y - 1, 12 + o, 19 + o], [HEAD_Y, 12 + o, 19 + o])
+      break
+    }
+    case 'tallSpike':
+      // 머리 위로 네 칸까지 솟은 두꺼운 뾰족 머리
+      for (const [x, h] of [[10, 2], [12, 4], [15, 5], [18, 4], [20, 2]] as const) {
+        const xx = dir === 'right' ? x + 1 : x
+        for (let k = 0; k <= h; k++) hairRows.push([HEAD_Y + 1 - k, xx, xx + (k < h - 1 ? 2 : 1)])
+      }
+      break
+    case 'frontPony':
+      // 한쪽 어깨 앞으로 넘긴 포니테일
+      if (dir === 'down') for (let y = HEAD_BOTTOM - 1; y <= 26; y++) hairRows.push([y, 19, 21])
+      else if (dir === 'up') for (let y = HEAD_BOTTOM - 1; y <= 22; y++) hairRows.push([y, 9, 10])
+      break
+    case 'bow':
+      // 뒤통수 큰 리본 — 앞에서는 양옆 날개가, 뒤에서는 리본 전체가 보인다
+      if (dir === 'up') accent.push([HEAD_Y + 3, 10, 13], [HEAD_Y + 4, 11, 20], [HEAD_Y + 5, 10, 13], [HEAD_Y + 3, 18, 21], [HEAD_Y + 5, 18, 21])
+      else if (dir === 'right') accent.push([HEAD_Y + 2, 7, 9], [HEAD_Y + 3, 7, 10], [HEAD_Y + 4, 7, 9])
+      else accent.push([HEAD_Y + 1, 7, 8], [HEAD_Y + 2, 7, 9], [HEAD_Y + 1, 23, 24], [HEAD_Y + 2, 22, 24])
+      break
+    case 'headband':
+      // 정수리 조금 앞을 가로지르는 빨간 머리띠
+      if (dir === 'down') accent.push([HEAD_Y + 3, 10, 21])
+      else if (near) accent.push([HEAD_Y + 3, 11, 20], [HEAD_Y + 4, 19, 20])
+      else accent.push([HEAD_Y + 3, 10, 21])
+      break
+    default:
+      break
+  }
+  return { hair: hairRows, accent }
 }
 
 // ── 표정 ────────────────────────────────────────────────────────
@@ -654,6 +781,13 @@ export const EXPRESSIONS: ExpressionSpec[] = [
   { name: '졸림', map: ['SSSSSSSS', 'SSSSSSSS', 'SEESSEES', 'SSSSSSSS'] },
   { name: '놀람', map: ['SSSSSSSS', 'SEESSEES', 'SEESSEES', 'SSSMMSSS'] },
   { name: '시무룩', map: ['SSESSESS', 'SESSSSES', 'SESSSSES', 'SSSSSSSS'] },
+  { name: '윙크', map: ['SSSSSSSS', 'SESSSSSS', 'SESSSEES', 'SSSMMSSS'] },
+  // 눈 밑에 눈물 한 방울씩(T)
+  { name: '울먹', map: ['SSESSESS', 'SESSSSES', 'SESSSSES', 'STSMMSTS'] },
+  // 눈을 가늘게 뜨고 한쪽 입꼬리만
+  { name: '씩', map: ['SSSSSSSS', 'SSSSSSSS', 'SEESSEES', 'SSSSMMSS'] },
+  // 동그래진 눈 · 관자놀이에 땀 한 방울
+  { name: '당황', map: ['SSSSSSST', 'SEESSEET', 'SEESSEES', 'SSMSMSSS'] },
 ]
 
 export const EXPRESSION_NAMES = EXPRESSIONS.map((e) => e.name)
@@ -684,6 +818,7 @@ function facePix(expression: number, dir: Dir, hair: HairSpec): Pix[] {
       else if (ch === 'E') out.push({ x, y, mat: 'eye', shade: 'base' })
       else if (ch === 'M') out.push({ x, y, mat: 'mouth', shade: 'base' })
       else if (ch === 'P') out.push({ x, y, mat: 'blush', shade: 'base' })
+      else if (ch === 'T') out.push({ x, y, mat: 'tear', shade: 'base' })
     }
   }
   return out
@@ -1140,6 +1275,7 @@ function tonesFor(look: AvatarLook, team: TeamId | null): Record<Mat, Tone> {
     mouth: MOUTH_TONE,
     blush: BLUSH_TONE,
     band: team ? BAND_TONES[team] : SHOE_TONE,
+    tear: TEAR_TONE,
   }
 }
 
@@ -1188,6 +1324,20 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
   // 머리는 맨 마지막 — 목이 없으니 턱이 어깨 위에 바로 앉는다
   const head = facing === 'up' ? HEAD_BACK : side ? HEAD_SIDE : HEAD_FRONT
   for (const p of head) g.put(p, MAT_LAYER.hair)
+  // 아프로 · 뽀글 — 머리통 윤곽 밖으로 부풀린다. 살·눈은 두고 나머지만 머리로 덮는다
+  if (spec.extra === 'afro') {
+    for (let y = HEAD_Y - 2; y <= HEAD_BOTTOM - 1; y++) {
+      const t = (y - (HEAD_Y - 2)) / (HEAD_BOTTOM + 1 - HEAD_Y)
+      const inset = t < 0.25 ? 3 - Math.round(t * 12) : t > 0.8 ? Math.round((t - 0.8) * 10) : 0
+      // 옆모습은 얼굴 앞으로는 안 부풀린다 — 이마 앞에 떨어진 머리 덩어리가 생긴다
+      const right = facing === 'right' && y >= FACE_TOP - 1 ? 16 : 24 - inset
+      for (let x = 7 + inset; x <= right; x++) {
+        const c = g.at(x, y)
+        if (c && c.mat !== 'hair') continue
+        g.paint([[y, x, x]], 'hair', 'auto', MAT_LAYER.hair)
+      }
+    }
+  }
   g.paint(sideStrands(spec, facing), 'hair')
   g.paint(backStrands(spec, facing), 'hair', 'auto', 0)
   g.paint(roughRows(spec, facing), 'hair')
@@ -1200,7 +1350,17 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
   // 지워 버린다 — 일자 앞머리와 쉼표머리가 기본 앞머리가 돼 버린다.
   for (const p of facePix(look.expression, facing, spec)) g.put(p, MAT_LAYER[p.mat])
   g.paint(bangRows(spec, facing), 'hair', 'base', MAT_LAYER.hair)
+  const fx = frontExtras(spec, facing)
+  g.paint(fx.hair, 'hair', 'auto', MAT_LAYER.hair)
+  g.paint(fx.accent, 'accent', 'auto', MAT_LAYER.eye)
 
+  if (spec.texture === 'part' && facing === 'down') {
+    // 한쪽 가르마 — 7:3 으로 가른 선과 결 한 줄
+    const px = 13
+    // 가르마 선은 살색이 아니라 짙은 결로 — 살색이면 흉터처럼 보인다
+    for (let y = HEAD_Y + 1; y <= HEAD_Y + 4; y++) if (g.at(px, y)?.mat === 'hair') g.paint([[y, px, px]], 'hair', 'shade', MAT_LAYER.hair)
+    for (let x = px + 1; x <= px + 6; x++) if (g.at(x, HEAD_Y + 3)?.mat === 'hair') g.paint([[HEAD_Y + 3, x, x]], 'hair', 'light', MAT_LAYER.hair)
+  }
   g.shadeHair(hairShadeRows(spec, facing))
   if (spec.flat) g.flattenHair()
   else {

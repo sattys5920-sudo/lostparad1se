@@ -40,9 +40,10 @@ function qaLook(i: number): AvatarLook {
   const set = i % 2 === 0 ? 'F' : 'M'
   return {
     styleSet: set,
-    hairStyle: `${set}${String((i * 3) % 15).padStart(2, '0')}`,
-    hairColor: (i * 5) % 9,
-    expression: (i * 2) % 6,
+    // 머리 ID는 F20~F39 · M20~M39 — 옛 F00~M14 와 번호대가 겹치지 않는다
+    hairStyle: `${set}${20 + ((i * 7) % 20)}`,
+    hairColor: (i * 4) % 15,
+    expression: (i * 3) % 10,
     outfit: i % 6,
     wearStyle: i % 3,
     bottom: set === 'F' ? i % 2 : 0,

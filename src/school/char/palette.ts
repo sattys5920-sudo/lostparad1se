@@ -58,7 +58,7 @@ export interface Named {
 }
 
 /**
- * 머리색 9종. 머리 모양과 따로 고른다.
+ * 머리색 15종. 머리 모양과 따로 고른다.
  * 새까만색은 넣지 않는다 — 도트에서 덩어리로 뭉쳐 결이 죽는다.
  */
 export const HAIR_COLORS: Named[] = [
@@ -71,6 +71,13 @@ export const HAIR_COLORS: Named[] = [
   { name: '민트', tone: tone('#7fbfa8') },
   { name: '은회색', tone: tone('#b9b6c4') },
   { name: '적갈', tone: tone('#9e4b45') },
+  // 뒤에 붙인 여섯. 앞 아홉의 번호는 그대로라 옛 저장값이 그대로 맞는다
+  { name: '백금', tone: tone('#e6dcb8') },
+  { name: '주황', tone: tone('#d4803f') },
+  { name: '라벤더', tone: tone('#a48fcf') },
+  { name: '와인', tone: tone('#7d3148') },
+  { name: '애쉬 카키', tone: tone('#8b8a68') },
+  { name: '진남', tone: tone('#3e4d80') },
 ]
 
 /**
@@ -117,6 +124,8 @@ export const SHOE_TONE = tone('#3a3d45')
 export const MOUTH_TONE = tone('#8e4038')
 /** 볼터치 — 표정 맵의 P 칸. */
 export const BLUSH_TONE = tone('#d98a86')
+/** 울먹·당황 표정의 눈물·땀 */
+export const TEAR_TONE = tone('#8fc6ea')
 
 /**
  * 팀. 팀 수와 색은 여기서만 고친다.
