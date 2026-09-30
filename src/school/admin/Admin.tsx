@@ -14,7 +14,7 @@
 // 운영자가 하는 일은 자주 하는 순으로 셋이다: 판을 돌리는 것(페이즈·
 // 달력), 판 위에 무엇을 놓는 것(심부름·화분·종이), 가끔 손보는 것
 // (시작·QA·문제 은행·가입). 그 셋이 탭이다.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { deleteAccounts, listAccounts, logOut, type AccountSummary } from '../accounts'
 import { gameActions, useGame } from '../game/useGame'
@@ -559,6 +559,7 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
   const [asked, setAsked] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  const [at, setAt] = useState<number | null>(null)
   const load = useCallback(() => {
     setBusy(true)
     void listAccounts()
@@ -566,11 +567,44 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
         setRows(r.rows)
         setMe(r.me)
         setPicked(new Set())
+        setAt(Date.now())
       })
       .catch((e) => onSaid((e as Error).message))
       .finally(() => setBusy(false))
   }, [onSaid])
   useEffect(load, [load])
+
+  /*
+   * **저절로 다시 받는다.** 전에는 화면을 열 때 한 번만 받아서, 켜 둔
+   * 관리자 화면에는 그 뒤에 가입한 사람이 안 떴다 — 가입이 안 되는 줄 알았다.
+   * 조용히 받는 것이라 고른 칸은 건드리지 않는다. 지운 뒤에만 비운다(load)
+   */
+  const pickedRef = useRef(picked)
+  pickedRef.current = picked
+  useEffect(() => {
+    const quiet = () =>
+      void listAccounts()
+        .then((r) => {
+          setRows(r.rows)
+          setMe(r.me)
+          setAt(Date.now())
+          // 그새 지워진 계정은 고른 칸에서도 뺀다
+          const ids = new Set(r.rows.map((x) => x.id))
+          if ([...pickedRef.current].some((id) => !ids.has(id))) {
+            setPicked(new Set([...pickedRef.current].filter((id) => ids.has(id))))
+          }
+        })
+        .catch(() => undefined)
+    const t = setInterval(quiet, 10_000)
+    const onShow = () => {
+      if (document.visibilityState === 'visible') quiet()
+    }
+    document.addEventListener('visibilitychange', onShow)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onShow)
+    }
+  }, [])
 
   const toggle = (id: string) => {
     const next = new Set(picked)
@@ -587,7 +621,10 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
 
   return (
     <>
-      <p className="sc-ad__hint">{rows.length} 명이 가입했다.</p>
+      <p className="sc-ad__hint">
+        {rows.length} 명이 가입했다.
+        {at !== null && ` · ${new Date(at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}에 받음 · 10 초마다 다시 받는다`}
+      </p>
       <ul className="sc-ad__accounts">
         {rows.map((r) => (
           <li key={r.id}>
