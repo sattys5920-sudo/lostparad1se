@@ -178,7 +178,7 @@ export function Gate({ onIn }: { onIn: () => void }) {
 
             <div className="sc-gt__body">
               <h1 className="sc-gt__title" onClick={tapTitle}>
-                남겨진 아이들
+                투명인간
               </h1>
               <div className="sc-gt__rule" />
 
