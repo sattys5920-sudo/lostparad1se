@@ -1809,6 +1809,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           onClose={blurNow}
           stuck={talk.stuck}
           self={{ playerId: me.playerId, name: me.name, team: me.team ?? null }}
+          mute={iAmInvisible}
         />
 
         <div className="sc-ct">

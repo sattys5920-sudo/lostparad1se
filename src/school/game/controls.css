@@ -712,6 +712,17 @@ html[data-typing='sy'] .sc-sy {
   font-size: var(--fs-body);
 }
 .sc-sy__box::placeholder { color: var(--text-2); font-size: var(--fs-body); }
+/* 보이지 않는 동안 — 칸 대신 한 줄. 무전의 닫힌 채널(.sc-rd__shut)과 같은 결 */
+.sc-sy .sc-sy__mute {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--sp-3);
+  align-self: center;
+  color: var(--text-2);
+  font-size: var(--fs-label);
+  text-align: center;
+}
 
 /* 상한이 가까울 때만 뜬다. 늘 떠 있으면 잔소리다 */
 .sc-sy__left {

@@ -153,10 +153,8 @@ export const INVISIBLE_CANNOT = {
   /** 표를 받는다. */
   receiveVote: false,
   /**
-   * 친 말이 남에게 간다.
-   *
-   * **줄 자체가 안 간다.** 가려서 보내면 「어느 방에 있는가」가 새는데,
-   * 그것은 맵이 일부러 지워 놓은 값이다. 본인 화면에만 남는다.
+   * 맵에서 말한다. **아예 못 친다**(functions/src/chat.ts 가 거절한다).
+   * 전에는 쳐지되 본인 화면에만 남았다 — 이제는 무전과 같이 듣기만 한다.
    */
   speakInClass: false,
   /** 거래(쪽지 넘기기 포함)·이적 — **마주 보고 하는 일 전부.** */
@@ -193,6 +191,13 @@ export function chatReaches(
 ): boolean {
   return !line.invisible || line.playerId === viewerId
 }
+
+/**
+ * **보이지 않는 동안에는 아무 말도 못 한다.** 분단 무전 · 전원 무전 ·
+ * 맵에서 하는 말 모두. 듣기만 한다. 서버가 거절할 때와 화면이 입력 칸
+ * 대신 적을 때 같은 말을 쓴다
+ */
+export const MUTE_WHILE_INVISIBLE = '보이지 않는 동안에는 말할 수 없다. 듣기만 한다.'
 
 /** 지금 이 사람이 투명인간인가. */
 export function isInvisible(invisibleId: string | null | undefined, playerId: string): boolean {

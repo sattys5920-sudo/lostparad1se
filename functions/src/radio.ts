@@ -31,6 +31,7 @@ import { gameRef, nowOf, requireUid } from './index'
 import { sinceOf } from './chat'
 import { requireHost } from './host'
 import { notify } from './notify'
+import { MUTE_WHILE_INVISIBLE } from '../../shared/rules/invisible'
 
 const db = getFirestore()
 
@@ -110,7 +111,7 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
   // 무전도 마주 보고 하는 대화다 — 지워진 동안은 팀 채널이든 전원
   // 채널이든 말할 수 없다
   if (game.invisibleId === uid) {
-    throw new HttpsError('failed-precondition', '지워진 동안에는 무전으로 말할 수 없다.')
+    throw new HttpsError('failed-precondition', MUTE_WHILE_INVISIBLE)
   }
   const row: RadioDocRaw = {
     team: toAll ? ALL_CHANNEL : pawn.team,

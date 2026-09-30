@@ -147,17 +147,20 @@ async function main(): Promise<void> {
     .map((x) => x.stringValue)
   check(!ids.includes(g), '남의 목록에 아예 없다', `${ids.length}명 보인다`)
 
-  console.log('\n── 친 말이 남에게 안 간다 ──')
-  await call('say', tkG, { gameId: GAME, text: '나 여기 있어' })
+  console.log('\n── 아무 말도 못 한다 ──')
+  // 맵에서 하는 말 · 분단 무전 · 전원 무전 — **셋 다 거절한다.** 듣기만 한다
+  for (const [name, go] of [
+    ['맵 말하기', () => call('say', tkG, { gameId: GAME, text: '나 여기 있어' })],
+    ['분단 무전', () => call('radio', tkG, { gameId: GAME, text: '나 여기 있어', channel: 'team' })],
+    ['전원 무전', () => call('radio', tkG, { gameId: GAME, text: '나 여기 있어', channel: 'all' })],
+  ] as const) {
+    const why = await no(go())
+    check(why.includes('말할 수 없다'), `${name} 못 한다`, why)
+  }
   const heard = (await call('chatLines', tkN, { gameId: GAME })) as { lines?: { playerId: string }[] }
-  check(
-    !(heard.lines ?? []).some((l) => l.playerId === g),
-    '옆사람에게는 줄째로 안 간다 — 위치가 안 샌다',
-    `${(heard.lines ?? []).length}줄 들렸다`,
-  )
-  const mine = (await call('chatLines', tkG, { gameId: GAME })) as { lines?: { playerId: string; muted?: boolean }[] }
-  const own = (mine.lines ?? []).find((l) => l.playerId === g)
-  check(own !== undefined && own.muted === true, '본인에게는 「전해지지 않았다」로 남는다')
+  check(!(heard.lines ?? []).some((l) => l.playerId === g), '옆사람에게 아무 줄도 안 간다')
+  const mine = (await call('chatLines', tkG, { gameId: GAME })) as { lines?: { playerId: string }[] }
+  check(!(mine.lines ?? []).some((l) => l.playerId === g), '본인 화면에도 남는 줄이 없다 — 쳐지지 않았다')
 
   // 뷰를 다시 쓰려고 옆사람을 한 번 떼어 놓았다. 마주 보고 하는 일을
   // 보려면 도로 옆 칸에 세워야 한다 — 거래는 붙어 서야 꺼낸다

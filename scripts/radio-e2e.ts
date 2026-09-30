@@ -101,7 +101,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({ fields: { invisibleId: { stringValue: other.uid } } }),
   })
   const refused = await call('radio', other.token, { gameId: GAME, text: '나야', channel: 'all' })
-  check(!refused.ok && /지워진/.test(refused.message ?? ''), '전원 채널에 말할 수 없다', refused.message)
+  check(!refused.ok && /말할 수 없다/.test(refused.message ?? ''), '전원 채널에 말할 수 없다', refused.message)
   check((await lines(other, 'all')).some((l) => l.text === '모두에게'), '듣기는 한다')
   // 지워진 동안에는 분단 채널에도 말할 수 없다(radio.ts). 듣기만 한다
   const teamNo = await call('radio', other.token, { gameId: GAME, text: '분단에도 안 된다', channel: 'team' })

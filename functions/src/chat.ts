@@ -14,7 +14,7 @@
 // 자기가 무슨 말을 했는지는 안다. 다만 아무도 듣지 않았다. 원문은
 // 서버가 그대로 쥐고 있다가 엔딩 6번 장면에서 되돌려 준다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { chatReaches } from '../../shared/rules/invisible'
+import { MUTE_WHILE_INVISIBLE, chatReaches } from '../../shared/rules/invisible'
 import { nearInHall } from '../../shared/rules/fog'
 
 import { ROOM_SAY_MAX } from '../../shared/rules/v2'
@@ -138,6 +138,10 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
 
   const { game, nowMs } = await loadNow(gameId)
   const early = beforeStart(game, uid)
+  // **보이지 않는 동안에는 말하지 못한다.** 무전과 같다 — 듣기만 한다
+  if (!early && game.invisibleId === uid) {
+    throw new HttpsError('failed-precondition', MUTE_WHILE_INVISIBLE)
+  }
 
   let tileId: TileId
   let team: string

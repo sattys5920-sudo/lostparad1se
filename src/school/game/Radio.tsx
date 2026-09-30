@@ -24,7 +24,6 @@ import { CHAT_MAX_LEN } from '../../../shared/rules/v2'
 import {
   ALL_FREQ,
   ALL_NOTE,
-  ALL_MUTE,
   ALL_SHUT,
   RADIO_NOTE,
   TEAM_FREQ,
@@ -383,7 +382,8 @@ function RadioRoom({
           query,
           me.name,
         )
-  const shut = channel === 'all' && (!allOpen || invisible)
+  // 보이지 않는 동안에는 어느 채널로도 말하지 못한다. 닫힌 전원 채널은 누구나 못 한다
+  const shut = invisible || (channel === 'all' && !allOpen)
 
   // 맨 아래에 붙어 있을 때만 따라 내려간다. 올려 읽는 중이면 안 건드린다.
   // 먼저 세운 줄이 붉게 바뀌며 한 줄 길어져도 따라간다 — 그래서 수가 아니라 목록을 본다
@@ -593,7 +593,7 @@ function RadioRoom({
           </div>
         )}
         {shut ? (
-          <p className="sc-rd__shut">{allOpen ? ALL_MUTE : ALL_SHUT}</p>
+          <p className="sc-rd__shut">{invisible ? MUTE_WHILE_INVISIBLE : ALL_SHUT}</p>
         ) : (
         <div className="sc-rd__field">
           <input
@@ -623,3 +623,4 @@ function RadioRoom({
 }
 
 import { teamName } from '../../../shared/rules/bundan'
+import { MUTE_WHILE_INVISIBLE } from '../../../shared/rules/invisible'

@@ -53,7 +53,6 @@ export const ALL_CLOSED = '운영자가 전원 채널을 닫았다. 지난 말�
 /** 닫혀 있을 때 */
 export const ALL_SHUT = '전원 채널은 지금 닫혀 있다.'
 /** 지워진 사람에게 — 전원 채널은 듣기만 한다 */
-export const ALL_MUTE = '보이지 않는 동안에는 듣기만 한다.'
 
 export const ALL_NOTE = '열넷이 다 듣는다. 다른 분단도 읽는다.'
 
