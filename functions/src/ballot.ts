@@ -18,7 +18,6 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { canName, countBallots, eraseFrom, pickInvisible, type Ballot } from '../../shared/rules/invisible'
 import { TOTAL_DAYS, type TeamId } from '../../shared/rules/v2'
 import { TEAMS } from '../../shared/rules/lobby'
-import { sys } from '../../shared/rules/radio'
 import type { GameDoc } from '../../shared/model'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 import { erasedOn } from './use'
@@ -26,7 +25,6 @@ import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { logSecret } from './qaLog'
 import { requireHost } from './host'
-import { sysLine } from './radio'
 import { reseatIfShared } from './seat'
 import { gameRef, nowOf, requireUid } from './index'
 
@@ -236,11 +234,7 @@ export async function settleBallots(
     // 세고 나면 문은 닫힌 것이다 — 운영자가 안 닫고 날을 넘겼어도
     ...(game.ballot?.day === day ? { 'ballot.open': false } : {}),
   })
-  // 그 팀 무전에만 적힌다. 다들 아는 것은 발표(announceBallots)뿐이다
-  if (picked.playerId && team) {
-    const name = game.seats.find((s) => s.playerId === picked.playerId)?.name ?? ''
-    if (name) sysLine(batch, gameId, team, sys.invisible(name), nowMs, day)
-  }
+  // 무전에는 안 적는다 — 무전은 사람끼리 하는 말만 오간다
   /*
    * **그날의 결과를 한 장 남긴다.**
    *

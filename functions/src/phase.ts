@@ -65,8 +65,6 @@ import { FLAGS_PER_PHASE, spendFlags, type FlagBoxes, type FlagMap } from '../..
 import { openInterval } from './reveal'
 import { refreshViews } from './views'
 import { note } from './records'
-import { sysLine } from './radio'
-import { sys } from '../../shared/rules/radio'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { notify } from './notify'
@@ -418,8 +416,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
     phaseNow: { no, day, open: true, openedAtMs: nowMs, endsAtMs },
     ...freeze,
   })
-  // 네 팀 무전에 종이 울린다. 무전만 보고 있어도 교시가 열린 줄 안다
-  for (const t of TEAMS) sysLine(batch, gameId, t, sys.phaseOpen(no), nowMs, day)
+  // **무전에는 아무 알림도 안 적는다.** 무전은 사람끼리 하는 말만 오간다
   const everyone = game.seats.map((s) => s.playerId)
   // 지난 페이즈의 기록은 여기서 지운다. 연구 대기는 남긴다 —
   // 이번 페이즈가 닫힐 때 로봇이 될 것들이다
@@ -935,17 +932,7 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
     const now = team ?? null
     if (was === now) continue
     batch.update(ref.collection('tiles').doc(tileId), { ownerTeam: now })
-    /*
-     * 주인이 바뀐 방을 **양쪽 무전에** 적는다.
-     *
-     * 가져간 팀에게는 「차지했다」, 잃은 팀에게는 「빼앗겼다」. 둘 다
-     * 그 팀이 다음 페이즈에 지도에서 보는 것이라, 여기가 새 정보가
-     * 새는 구멍은 아니다 — 한 줄로 옮겨 적는 것뿐이다.
-     */
-    const room = TILE_BY_ID[tileId as TileId]?.name ?? tileId
-    const day = game.phaseNow.day
-    if (now) sysLine(batch, gameId, now, sys.roomTaken(room), nowMs, day)
-    if (was) sysLine(batch, gameId, was, sys.roomLost(room, now), nowMs, day)
+    // 주인이 바뀐 것은 맵(방 색)으로만 안다. 무전에는 안 적는다
   }
 
   // **누가 어디 서서 무엇을 가져갔는지 남긴다.** 개인 미션의
@@ -968,12 +955,23 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   }
 
   const no = game.phaseNow.no
+  /*
+   * **누가 무엇을 했는지는 끝나도 안 나온다.** 모두가 읽는 기록에는 방의
+   * 결과(어느 분단이 가져갔다)만 남기고, 사람이 적힌 줄은 감독관만 읽는
+   * secret 쪽에만 둔다 — 몰래 한 배신이 결과 기록으로 새면 안 된다
+   */
   batch.set(ref.collection('phaseLog').doc(String(no)), {
     no,
     day: game.phaseNow.day,
     atMs: nowMs,
-    // 페이즈 중에는 누가 무엇을 했는지 안 보인다. 닫힐 때 한꺼번에 나온다 —
-    // 점령전의 결과는 숨길 것이 아니라 다음 페이즈를 위한 재료다
+    lines: out.log
+      .filter((l) => l.kind === 'captured')
+      .map((l) => ({ kind: l.kind, ...(l.tileId ? { tileId: l.tileId } : {}), ...(l.team ? { team: l.team } : {}) })),
+  })
+  batch.set(ref.collection('secret').doc('phaseLog').collection('items').doc(String(no)), {
+    no,
+    day: game.phaseNow.day,
+    atMs: nowMs,
     lines: out.log,
   })
   batch.update(ref, {
@@ -987,7 +985,6 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
     phaseDone: no,
     pendingResearch: out.next.pendingResearch,
   })
-  for (const t of TEAMS) sysLine(batch, gameId, t, sys.phaseClose(no), nowMs, game.phaseNow.day)
   // 이번 페이즈의 기록은 페이즈와 함께 끝난다
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 

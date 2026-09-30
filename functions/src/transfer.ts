@@ -17,14 +17,12 @@ import {
   type TransferState,
 } from '../../shared/rules/transfer'
 import { cellsTouch } from '../../shared/rules/board'
-import { sys } from '../../shared/rules/radio'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import { freshNow, myPawn, refuseIfInvisible } from './turn'
 import { refreshViews } from './views'
 import { logSecret } from './qaLog'
 import { note } from './records'
-import { sysLine } from './radio'
 import { gameRef, requireUid } from './index'
 import { docId } from './ids'
 import { teamName } from '../../shared/rules/bundan'
@@ -142,9 +140,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
     tx.update(gRef.collection('secret').doc('roster').collection('items').doc(uid), { team: ask.byTeam })
     // **로봇도 주인을 따라간다.** 들고 있던 것도, 방에 놓아 둔 것도 그 순간 새 분단 로봇이 된다
     for (const r of [...carried.docs, ...placed.docs]) tx.update(r.ref, { team: ask.byTeam })
-    // 두 팀 무전에만 적힌다. 공지는 없다 — 마주쳐야 안다
-    sysLine(tx, gameId, ask.fromTeam, sys.movedOut(seat?.name ?? '', ask.byTeam), nowMs, game.day)
-    sysLine(tx, gameId, ask.byTeam, sys.movedIn(seat?.name ?? ''), nowMs, game.day)
+    // **어디에도 안 알린다.** 무전에도 공지에도 없다 — 마주쳐야 안다
     tx.update(ref, { status: 'taken' })
     return { from: ask.fromTeam, to: ask.byTeam, name: seat?.name ?? '' }
   })

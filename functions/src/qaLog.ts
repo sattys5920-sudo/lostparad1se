@@ -291,7 +291,8 @@ export async function collectEvents(gameId: string, opts: CollectOpts = {}): Pro
     sinced(secret.doc('records').collection('items')).get(),
     sinced(qaLogOf(gameId)).get(),
     ref.collection('schedule').get(),
-    sinced(ref.collection('phaseLog')).get(),
+    // 사람까지 적힌 온전한 쪽. 모두가 읽는 phaseLog 에는 방 결과만 있다
+    sinced(secret.doc('phaseLog').collection('items')).get(),
     secret.doc('ballotDays').collection('items').get(),
     secret.doc('ballots').collection('items').get(),
     sinced(ref.collection('notices')).get(),

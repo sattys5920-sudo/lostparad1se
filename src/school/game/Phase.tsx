@@ -138,7 +138,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
   /** 이 방에 꽂힌 깃발 — 팀마다. 들어와 있는 방이라 서버가 보내 준다 */
   const flagsHere = (here ? view?.flagCounts?.[here] : undefined) ?? {}
   const flagRows = (Object.entries(flagsHere) as [TeamId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  const pullable = flagRows.filter(([t]) => t !== me.team)
+  // 우리 분단 깃발도 뽑을 수 있다 — 몰래 하는 배신이다. 누가 뽑았는지는 끝나도 안 나온다
+  const pullable = flagRows
   const teamFlags = view?.myTeamFlags ?? 0
   /** 이 방에 놓인 로봇 수 — 한도(ROBOTS_PER_ROOM)는 놓인 것만 먹는다 */
   const placedHere = robots.filter((r) => asRoom(r.tileId) === here).length
@@ -256,8 +257,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
       <ul className="sc-ph__list">
         {KINDS.map((k) => {
           const no = why(k)
-          // 뽑기는 고를 팀이 둘 이상일 때만 펼친다. 하나면 바로 뽑는다
-          const picking = k === 'pull' && pullable.length > 1
+          // 뽑기는 고를 팀이 둘 이상이거나 우리 분단 깃발이 끼면 펼친다 — 제 깃발을 한 번에 잘못 뽑지 않게
+          const picking = k === 'pull' && (pullable.length > 1 || pullable.some(([t]) => t === me.team))
           // 놓기·거두기는 고를 것이 없다 — 든 것도 내가 놓은 것도 서로 똑같다
           const fold = k === 'summon' || picking || k === 'smashRobot'
           return (
@@ -293,7 +294,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
                 <div className="sc-ph__targets">
                   {pullable.map(([t, n]) => (
                     <button key={t} disabled={busy} onClick={() => void send(k, { targetTeam: t })}>
-                      {teamName(t)} 깃발 <em>{n}</em>
+                      {t === me.team ? '우리 분단' : teamName(t)} 깃발 <em>{n}</em>
                     </button>
                   ))}
                 </div>
@@ -434,14 +435,17 @@ export function PhaseLog({
 }) {
   const last = rows[rows.length - 1]
   if (!last) return null
+  // **누가 무엇을 했는지는 안 보인다.** 방이 어느 분단 것이 됐는지만 — 옛 기록에 사람 줄이 있어도 거른다
+  const lines = last.lines.filter((l) => l.kind === 'captured')
   return (
     <div className="sc-ph__log">
       <h2>
         지난 페이즈 <span>{last.no} 번</span>
       </h2>
       <ul>
-        {last.lines.map((l, i) => (
-          <li key={i} className={l.kind === 'captured' ? 'is-big' : ''}>
+        {lines.length === 0 && <li>주인이 바뀐 방이 없다.</li>}
+        {lines.map((l, i) => (
+          <li key={i} className="is-big">
             {(SAYS[l.kind] ?? (() => l.kind))(l, seats)}
           </li>
         ))}
