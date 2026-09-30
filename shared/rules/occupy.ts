@@ -253,11 +253,11 @@ export interface Robot {
 export const isPlaced = (r: Pick<Robot, 'carriedBy'>): boolean => r.carriedBy === null
 
 /**
- * 이 사람이 이 로봇을 도로 거둘 수 있는가. **지금 우리 분단 로봇이고, 놓은 사람만**
- * (옛 판은 같은 팀 누구나). 이적해 간 사람은 옛 분단에 놓고 온 로봇을 못 걷어 간다
+ * 이 사람이 이 로봇을 도로 거둘 수 있는가. **주인만** — 만든 사람, 거래로 받았으면 받은
+ * 사람이다. 분단은 안 본다(옛 판처럼 놓은 사람이 안 적힌 로봇만 같은 팀 누구나)
  */
 export const canCollectRobot = (r: Pick<Robot, 'carriedBy' | 'team' | 'placedBy'>, playerId: string, team: TeamId): boolean =>
-  isPlaced(r) && r.team === team && (r.placedBy ? r.placedBy === playerId : true)
+  isPlaced(r) && (r.placedBy ? r.placedBy === playerId : r.team === team)
 
 /**
  * 걸어 둔 연구 한 건.
@@ -743,6 +743,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (!bot) return no('그 로봇은 들고 있지 않다.')
       bot.carriedBy = null
       bot.placedBy = playerId
+      bot.team = mine.team
       bot.tileId = mine.tileId
       log = { kind: 'robotLeft', playerId, tileId: mine.tileId, targetRobot: bot.id }
       break
@@ -760,6 +761,8 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (!canCollectRobot(bot, playerId, mine.team)) return no('놓은 사람만 거둔다.')
       bot.carriedBy = playerId
       bot.placedBy = null
+      // 손에 든 로봇은 든 사람 분단 것이다 — 이적한 주인이 거두면 새 분단 로봇이 된다
+      bot.team = mine.team
       log = { kind: 'robotTaken', playerId, tileId: mine.tileId, targetRobot: bot.id }
       break
     }

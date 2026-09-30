@@ -768,8 +768,9 @@ describe('로봇 수거 — 놓은 사람만', () => {
     expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a2', 'A')).toBe(false)
   })
 
-  it('canCollectRobot — 이적해 간 사람은 옛 분단에 놓고 온 로봇을 못 걷는다', () => {
-    expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a', 'B')).toBe(false)
+  it('canCollectRobot — 주인은 분단이 바뀌어도 거둔다 · 같은 분단 남은 못 거둔다', () => {
+    expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a', 'B')).toBe(true)
+    expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a2', 'A')).toBe(false)
   })
 })
 
