@@ -22,7 +22,8 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import {
   ACT_COST,
   ACT_MINUTES,
-  MOVE_MINUTES,
+  ENTER_MINUTES,
+  EXIT_MINUTES,
   PHASE_MINUTES,
   TOKENS_PER_PHASE,
   TOKEN_CAP,
@@ -525,6 +526,8 @@ export const phaseAct = onCall<{
 
   /** 내가 방을 떠났다면 그 방. 체류 기록을 닫아야 한다. */
   let leftFor: TileId | null = null
+  /** 내가 걷는 분 — 들어서기만이면 5, 방에서 곧장이면 10 */
+  let myMinutes: number | null = null
   // 계단으로 곧바로 선 자리. 0분이라 도착 예약 없이 여기서 끝난다
   let steppedTo: TileId | null = null
   let left = 0
@@ -635,8 +638,18 @@ export const phaseAct = onCall<{
       }
     }
 
-    // 사람 — 바뀐 것만 쓴다
-    const arriveAt = nowMs + MOVE_MINUTES * 60_000
+    /*
+     * 사람 — 바뀐 것만 쓴다.
+     *
+     * **들어서는 데 5분, 나서는 데 5분.** 복도에 나와 있던 사람은 이미
+     * 나서는 5분을 치렀으니(standAt) 들어서는 5분만 걷는다. 방 안에서 곧장
+     * 다른 방으로 가거나 불려 가면 둘을 합친 10분이다
+     */
+    const minutesFor = (id: string): number => {
+      const d = pawns.docs.find((x) => x.id === id)?.data() as PawnDoc | undefined
+      const inHall = !!d?.at && roomOfCell(d.at.x, d.at.y) === null
+      return inHall ? ENTER_MINUTES : ENTER_MINUTES + EXIT_MINUTES
+    }
     const wasAt = new Map(before.people.map((p) => [p.playerId, p]))
     /** 이번에 세운 칸. 한 번에 둘이 계단을 타도 겹치지 않게 */
     const seated: Cell[] = []
@@ -670,8 +683,11 @@ export const phaseAct = onCall<{
         continue
       }
 
-      // 문을 넘었다. 걷는 5분 동안 어느 방에도 없다
+      // 문을 넘었다. 걷는 동안 어느 방에도 없다
       const to = p.toTile as TileId
+      const mins = minutesFor(p.playerId)
+      const arriveAt = nowMs + mins * 60_000
+      if (p.playerId === uid) myMinutes = mins
       tx.update(doc.ref, {
         tileId: null,
         fromTile: was.tileId,
@@ -830,7 +846,7 @@ export const phaseAct = onCall<{
   await refreshViews(gameId)
   // 비밀 기록 — 페이즈 중 행동은 닫힐 때까지 숨긴다. events 는 참가자가 읽는다
   await logSecret(gameId, 'phaseAct', nowMs, uid, { kind, ...(req.data.targetTile ? { targetTile: req.data.targetTile } : {}) }, { day: game.day })
-  return { kind, tokens: left, walking: leftFor !== null }
+  return { kind, tokens: left, walking: leftFor !== null, ...(myMinutes !== null ? { minutes: myMinutes } : {}) }
 })
 
 /** 페이즈가 지금 어떤지. **무엇을 했는지는 안 나간다.** */
@@ -1303,7 +1319,18 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
     return { ok: true, same: false, snared: { ...stay, untilMs: until } }
   }
 
+  /*
+   * **점령전 중 방에서 복도로 나서면 5분 묶인다.** 들어서는 5분(phaseAct)과
+   * 짝이다 — 나서는 것도 시간이 든다. 자유 시간에는 드나드는 데 시간이 없다
+   */
+  const leftRoom =
+    game.phaseNow?.open === true && !!p.at && p.tileId !== null && roomOfCell(p.at.x, p.at.y) === p.tileId && roomOfCell(x, y) === null
+  if (leftRoom) {
+    const until = nowMs + EXIT_MINUTES * 60_000
+    await ref.update({ busyUntilMs: until, busyKind: '방에서 나가는' })
+  }
+
   await logSecret(gameId, 'standAt', nowMs, uid, { x, y }, { tileId: p.tileId })
   await refreshViews(gameId)
-  return { ok: true, same: false }
+  return { ok: true, same: false, ...(leftRoom ? { leaving: EXIT_MINUTES } : {}) }
 })

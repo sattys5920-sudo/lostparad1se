@@ -1627,9 +1627,11 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 })
                 .then((r) => {
                   const left = (r as { tokens?: number }).tokens
+                  // 복도에서 들어서면 5분, 방 안에서 곧장 가면 나서는 5분이 더 붙는다 — 서버가 잰 값
+                  const mins = (r as { minutes?: number }).minutes ?? MOVE_MINUTES
                   say(
                     phaseOpen
-                      ? `${TILE_BY_ID[to].name}(으)로 간다. ${MOVE_MINUTES} 분 · 토큰 ${left ?? '?'} 개 남았다.`
+                      ? `${TILE_BY_ID[to].name}(으)로 간다. ${mins} 분 · 토큰 ${left ?? '?'} 개 남았다.`
                       : `${TILE_BY_ID[to].name}(으)로 들어갔다.`,
                   )
                   // 서버가 세운 칸 — 들어선 칸에 누가 있었으면 옆 빈 칸이다
@@ -2465,7 +2467,9 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       */}
       {busyLeftMs > 0 && (
         <div className="sc-pl__busy" role="status">
-          <p className="sc-pl__busyWhat">{busyKind === '덫' ? '덫에 걸렸다' : (busyKind ?? '하는 중')}</p>
+          <p className="sc-pl__busyWhat">
+            {busyKind === '덫' ? '덫에 걸렸다' : busyKind === '방에서 나가는' ? '방에서 나가는 중' : (busyKind ?? '하는 중')}
+          </p>
           <p className="sc-pl__busyLeft">{leftText(busyLeftMs)}</p>
         </div>
       )}

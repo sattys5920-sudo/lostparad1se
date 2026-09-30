@@ -98,6 +98,10 @@ export const ENTER_COST = 1
  * 나서는 5분 + 다음 방에 닿는 5분」이다.
  */
 export const MOVE_MINUTES = 10
+/** 복도에서 방으로 들어서는 데 드는 시간. 방 안에서 곧장 다른 방으로 가면 나가는 5분이 더 붙는다 */
+export const ENTER_MINUTES = 5
+/** 점령전 중 방에서 복도로 나서는 데 드는 시간. 그동안은 그 자리에 묶인다 */
+export const EXIT_MINUTES = 5
 
 // **거래는 값이 안 든다.**
 //
@@ -389,7 +393,8 @@ export const ACT_COST: Record<ActionKind, number> = {
  * 로봇 부수기는 순식간이다. 값만 든다.
  */
 export const ACT_MINUTES: Record<ActionKind, number> = {
-  move: MOVE_MINUTES,
+  // 들어가는 값만 적는다. 방 안에서 곧장 가면 나가는 5분이 더 붙는다(서버가 잰다)
+  move: ENTER_MINUTES,
   research: 20,
   // 불려 오는 사람이 한 방 걷는 동안 둘 다 묶인다. 걸음과 같은 10분
   summon: MOVE_MINUTES,
