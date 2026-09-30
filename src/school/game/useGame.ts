@@ -271,6 +271,7 @@ export function gameActions(gameId: string) {
     peekDay: () => callServer('peekDay', g),
     /** 내 학생증과 생활기록부. **서버가 내 몫만 깎아서 준다** */
     myPaper: () => callServer('myPaper', g),
+    renameMe: (name: string) => callServer<{ name: string }>('renameMe', { ...g, name }),
     // ── 알림 ──
     notifyConfig: () => callServer('notifyConfig', {}),
     setNotifySettings: (settings: unknown) => callServer('setNotifySettings', { ...g, settings }),

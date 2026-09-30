@@ -77,6 +77,87 @@ export interface MeProps {
   onGo?: (link: NotifyLink) => void
 }
 
+/**
+ * 이름 바꾸기. 평소에는 밑줄 한 줄이고, 누르면 칸이 열린다.
+ *
+ * 서버가 자리 이름을 고치면 판 문서가 바뀌어 학생증·명단·지도 이름표가
+ * 저절로 따라온다. 남과 같은 이름이면 서버가 거절한다.
+ */
+function Rename({ name, act, onSaid }: { name: string; act: GameActions; onSaid: (text: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState(name)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const next = text.trim()
+  const ok = next.length > 0 && next.length <= NAME_MAX && next !== name
+
+  async function save() {
+    if (!ok) return
+    setBusy(true)
+    setErr('')
+    try {
+      await act.renameMe(next)
+      buzz('ok')
+      onSaid(`이름을 「${next}」(으)로 바꿨다.`)
+      setOpen(false)
+    } catch (e) {
+      buzz('no')
+      setErr((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <p className="sc-mi__link">
+        <button
+          type="button"
+          onClick={() => {
+            setText(name)
+            setErr('')
+            setOpen(true)
+          }}
+        >
+          이름 바꾸기
+        </button>
+      </p>
+    )
+  }
+  return (
+    <form
+      className="sc-mi__rename"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void save()
+      }}
+    >
+      <label htmlFor="me-rename">새 이름 · {next.length}/{NAME_MAX}</label>
+      <input
+        id="me-rename"
+        type="text"
+        value={text}
+        maxLength={NAME_MAX}
+        autoComplete="off"
+        enterKeyHint="done"
+        onChange={(e) => setText(e.target.value)}
+      />
+      {err && <p className="sc-mi__rename-err">{err}</p>}
+      <div className="sc-mi__rename-row">
+        <button type="button" onClick={() => setOpen(false)} disabled={busy}>
+          그만두기
+        </button>
+        <button type="submit" className="is-primary" disabled={busy || !ok}>
+          {busy ? '바꾸는 중' : '바꾸기'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+/** 이름 글자 수 한도. 서버(renameMe · joinGame)와 같다 */
+const NAME_MAX = 12
+
 /** 진행도 막대 칸 수. 도트 막대는 칸이 적어야 한 칸이 읽힌다. */
 const BAR_CELLS = 8
 
@@ -285,6 +366,9 @@ export function Me(props: MeProps) {
         <p className="sc-mi__link">
           <button type="button" onClick={() => setLogOpen(true)}>기록 보기</button>
         </p>
+
+        {/* ── 이름 바꾸기 ──────────────────────────────── */}
+        <Rename name={me.name} act={act} onSaid={onSaid} />
 
         {/* ── ⑦ 맨 아래 ────────────────────────────────── */}
         <p className="sc-mi__foot">

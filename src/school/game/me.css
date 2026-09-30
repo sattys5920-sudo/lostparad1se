@@ -673,6 +673,31 @@
 
 .sc-mi__note { text-align: center; }
 
+/* 이름 바꾸기 칸 — 열렸을 때만. 학생증과 같은 종이 위에 적는다 */
+.sc-mi__rename {
+  display: grid;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-2);
+}
+.sc-mi__rename label { font-size: var(--fs-pixel); color: var(--text-2); }
+.sc-mi__rename input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: var(--bg-1);
+  color: var(--text-1);
+  font: inherit;
+  font-size: 16px;
+}
+.sc-mi__rename-err { margin: 0; font-size: var(--fs-pixel); color: var(--danger); }
+.sc-mi__rename-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.sc-mi__rename-row button { min-height: 44px; }
+
 /* 시트 안에 얹히는 문제 종이·쪽지는 종이 위에 올라간다. 어두운 탭에
    맞춰 둔 색이 종이 위에서 안 읽히므로 여기서 되돌린다 */
 .sc-mi__open .sc-sl h2,

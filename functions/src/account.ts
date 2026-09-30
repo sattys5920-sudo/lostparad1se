@@ -32,7 +32,7 @@ const ITERATIONS = 120_000
 const ID_RE = /^[a-z0-9_-]{3,16}$/
 const MIN_PASSWORD = 6
 
-const accountRef = (id: string) => db.doc(`schoolSessions/live/accounts/${id}`)
+export const accountRef = (id: string) => db.doc(`schoolSessions/live/accounts/${id}`)
 const secretRef = (id: string) => db.doc(`schoolSessions/live/accounts/${id}/auth/secret`)
 
 const normalizeId = (raw: string) => String(raw ?? '').trim().toLowerCase()

@@ -23,7 +23,7 @@ import { STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shar
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
 import { seedGarden } from './garden'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
-import { cleanName, lookOfAccount, looksByUid } from './account'
+import { accountRef, cleanName, lookOfAccount, looksByUid } from './account'
 import { gameRef, nowOf, requireUid } from './index'
 import { refreshViews } from './views'
 import { requireHost } from './host'
@@ -264,6 +264,46 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     tx.update(ref, { seats })
     return { seat, seated: seats.length, need: TOTAL_SEATS, dealt: seat.dealtAtMs != null }
   })
+})
+
+/**
+ * 내 이름을 바꾼다. 「나」 탭에서 누른다. **판이 돈 뒤에도 된다.**
+ *
+ * 자리(seats)의 이름 하나만 고치면 된다 — 명단·지도·투표·답안지는 다
+ * 자리에서 이름을 찾아 쓴다. 이미 남은 무전·채팅 줄은 그때 이름 그대로다.
+ * 계정 닉네임도 같이 고쳐, 다음 판에 앉을 때도 새 이름으로 앉는다.
+ *
+ * **남과 같은 이름은 안 된다.** 누가 누구인지 헷갈리게 만드는 것이 곧
+ * 속임수가 되는 게임이라, 띄어쓰기·대소문자만 다른 이름도 같은 이름으로 본다.
+ */
+export const renameMe = onCall<{ gameId: string; name: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const name = cleanName(req.data.name)
+  if (name.length === 0 || name.length > 12) {
+    throw new HttpsError('invalid-argument', '이름은 1~12 자다.')
+  }
+  const key = (s: string) => s.replace(/\s+/g, '').toLowerCase()
+  const accountId = req.auth?.token?.accountId as string | undefined
+  const out = await db.runTransaction(async (tx) => {
+    const ref = gameRef(req.data.gameId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+    const game = snap.data() as GameDoc
+    const seats = [...game.seats]
+    const mine = seats.findIndex((s) => s.playerId === uid)
+    if (mine < 0) throw new HttpsError('failed-precondition', '이 판에 앉아 있지 않다.')
+    if (seats[mine].name === name) return { name, same: true }
+    if (seats.some((s, i) => i !== mine && key(s.name) === key(name))) {
+      throw new HttpsError('already-exists', '같은 이름이 이미 있다.')
+    }
+    seats[mine] = { ...seats[mine], name }
+    tx.update(ref, { seats })
+    return { name, same: false, atMs: nowOf(game), before: game.seats[mine].name }
+  })
+  // 계정은 판 밖이라 트랜잭션에 안 묶는다. 실패해도 이 판의 이름은 바뀌었다
+  if (accountId) await accountRef(accountId).update({ nickname: name }).catch(() => undefined)
+  if (!out.same) await logEvent(req.data.gameId, 'rename', out.atMs ?? Date.now(), uid, { from: out.before, to: name }).catch(() => undefined)
+  return { name: out.name }
 })
 
 /** 로비에서 일어난다. 시작한 뒤에는 못 한다. */
