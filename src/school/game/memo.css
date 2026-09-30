@@ -1,5 +1,4 @@
 /* 메모 탭 — 책상에 붙인 메모지. 손글씨로 적는다 */
-@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
 
 .sc-memo {
   --memo-ink: #2b2a33;
@@ -9,8 +8,9 @@
 }
 .sc-memo__hint {
   margin: 0 var(--sp-1) var(--sp-3);
-  font-size: var(--fs-cap);
-  line-height: 1.6;
+  font-family: var(--memo-hand);
+  font-size: 19px;
+  line-height: 1.4;
   color: var(--text-2);
 }
 .sc-memo__board {

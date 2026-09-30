@@ -17,7 +17,6 @@ import {
   ACT_MINUTES,
   MAX_CARRIED_ROBOTS,
   ROOM_KIND,
-  SMASHES_PER_PHASE,
   researchKnowledge,
 } from '../../../shared/rules/occupy'
 import { TILE_BY_ID, roomOfCell, type Cell } from '../../../shared/rules/board'
@@ -195,7 +194,6 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     if (kind === 'smashRobot') {
       if (enemyRobotsHere.length === 0) return '이 방에 놓인 상대 로봇이 없다.'
       // 상대가 보고 있어도 부순다. 대신 한 사람 한 페이즈에 한 기다
-      if ((view?.mySmashes ?? 0) >= SMASHES_PER_PHASE) return '이번 페이즈에는 이미 부쉈다.'
     }
     return null
   }

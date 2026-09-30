@@ -179,15 +179,14 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
     }
     // 먼저 닿은 답이 이겼다. 뒤에 온 사람은 여기서 걸린다
     if (paper.solvedBy) throw new HttpsError('failed-precondition', '이미 누가 맞혔다.')
-    if (paper.wrongBy.includes(uid)) throw new HttpsError('failed-precondition', '한 번 틀린 문제다.')
 
     const quizSnap = await tx.get(bankOf(gameId).doc(paper.quizId))
     if (!quizSnap.exists) throw new HttpsError('not-found', '문제가 사라졌다.')
     const quiz = quizSnap.data() as QuizDoc
 
     if (!isCorrect(given, quiz.answers)) {
-      // 틀린 사람만 다시 못 푼다. 같은 팀 다른 사람은 할 수 있다
-      tx.update(paperRef, { wrongBy: [...paper.wrongBy, uid] })
+      // **틀려도 다시 푼다.** 틀린 적이 있다는 것만 적어 둔다(기록용)
+      if (!paper.wrongBy.includes(uid)) tx.update(paperRef, { wrongBy: [...paper.wrongBy, uid] })
       return { correct: false as const, explain: null }
     }
 

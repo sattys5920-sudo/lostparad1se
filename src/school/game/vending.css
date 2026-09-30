@@ -347,3 +347,38 @@
   color: var(--text-2);
 }
 .sc-vd__crop:disabled { opacity: 0.5; cursor: default; }
+
+/* 구매 확인 — 기계 위에 작은 종이 한 장 */
+.sc-vd__ask {
+  position: fixed;
+  z-index: 85;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(300px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: var(--r-paper);
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--bg-0) 70%, transparent), 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.sc-vd__askQ { margin: 0; font-size: var(--fs-title); font-weight: 700; }
+.sc-vd__askWhat { margin: 0; font-size: var(--fs-body); color: var(--ink-2); }
+.sc-vd__askRow { display: flex; gap: var(--sp-2); justify-content: flex-end; }
+.sc-pl-root .sc-vd__askRow button,
+.sc-vd__askRow button {
+  min-height: var(--hit);
+  padding: 0 var(--sp-4);
+  appearance: none;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-game);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.sc-pl-root .sc-vd__askRow .is-yes,
+.sc-vd__askRow .is-yes { background: var(--ink); color: var(--paper); }

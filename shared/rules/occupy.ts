@@ -119,7 +119,9 @@ export const MAX_CARRIED_ROBOTS = 2
  */
 
 /**
- * 한 사람이 한 페이즈에 부술 수 있는 로봇.
+ * (옛 규칙) 한 사람이 한 페이즈에 부술 수 있는 로봇. **지금은 안 쓴다** —
+ * 부수기는 드라이버 한 자루에 한 기이고, 드라이버가 하루 열 자루다.
+ *
  *
  * 전에는 「그 방에 상대 팀 사람이 없어야」 부술 수 있었다. 그래서
  * 로봇만 남은 방이 교착됐다 — 부수러 가려면 아무도 없을 때 가야 하고,
@@ -761,10 +763,8 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
 
     case 'smashRobot': {
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
-      // **상대가 보고 있어도 부순다.** 남의 눈을 피해야 한다는 조건을
-      // 없앤 대신, 한 사람은 한 페이즈에 한 기까지다
-      const done = state.smashedBy.filter((id) => id === playerId).length
-      if (done >= SMASHES_PER_PHASE) return no('이번 페이즈에는 이미 부쉈다.')
+      // **상대가 보고 있어도 부순다.** 사람마다 몇 기라는 한도는 없다 —
+      // 드라이버가 한 기에 한 자루이고, 드라이버가 학교 전체 하루 열 자루다
       // **놓인 것만 부순다.** 남이 들고 있는 로봇은 가방 속이다
       const bot = robots.find(
         (r) => r.id === act.targetRobot && isPlaced(r) && r.tileId === mine.tileId && r.team !== mine.team,

@@ -85,8 +85,9 @@ const of = (kind: ItemKind) => ({ name: ITEM_BY_KIND[kind].name, text: ITEM_BY_K
  */
 export const SHOP_ITEMS: readonly ShopItem[] = [
   { id: 'whistle', ...of('whistle'), cost: { money: 5 } },
-  // 로봇 한 기를 분해하는 데 한 자루. 깃발 값과 같다 — 깃발 하나를 지우는 셈이다
-  { id: 'screwdriver', ...of('screwdriver'), cost: { money: 10 } },
+  // 로봇 한 기를 분해하는 데 한 자루. 깃발 값과 같다 — 깃발 하나를 지우는 셈이다.
+  // **학교 전체 하루 열 자루.** 부수는 수는 사람이 아니라 이것으로 묶는다
+  { id: 'screwdriver', ...of('screwdriver'), cost: { money: 10 }, stockPerDay: 10 },
   /*
    * **깃발.** 팀 상자로 들어간다. 학교 전체에 하루 열 개뿐이라 먼저
    * 오는 쪽이 가져간다 — 돈이 많아도 기계 앞에 늦게 오면 없다.

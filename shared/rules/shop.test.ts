@@ -85,10 +85,11 @@ describe('상점', () => {
     expect(SHOP_ITEMS.some((i) => i.gives === 'trap')).toBe(false)
   })
 
-  it('**지우개와 깃발만 하루 몫이 걸려 있다**', () => {
+  it('**드라이버 · 깃발 · 지우개만 하루 몫이 걸려 있다**', () => {
     const limited = SHOP_ITEMS.filter((i) => i.stockPerDay !== undefined)
-    expect(limited.map((i) => i.id)).toEqual(['flag', 'eraser'])
+    expect(limited.map((i) => i.id)).toEqual(['screwdriver', 'flag', 'eraser'])
     expect(shopItemById('eraser')?.stockPerDay).toBe(3)
+    expect(shopItemById('screwdriver')?.stockPerDay).toBe(10)
   })
 
   it('값은 모두 돈이고, 0원짜리는 없다', () => {

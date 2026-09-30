@@ -47,7 +47,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
         buzz('ok')
         onSaid(`맞혔다. 지식 ${KNOWLEDGE_PER_QUIZ} 점.${out.explain ? ` ${out.explain}` : ''}`)
       } else {
-        onSaid('틀렸다. 이 문제는 다시 못 푼다.')
+        onSaid('틀렸다. 다시 풀 수 있다.')
         setShook(id)
         window.setTimeout(() => setShook((k) => (k === id ? null : k)), 260)
       }
@@ -77,9 +77,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
               <p className="sc-qz__prompt">{q.prompt}</p>
             </div>
             {q.solvedByOther && <p className="sc-qz__warn">누군가가 해결한 문제다.</p>}
-            {!q.solvedByOther && q.iFailed && <p className="sc-qz__warn">한 번 틀렸다. 이 문제는 다시 못 푼다.</p>}
-
-            {!q.solvedByOther && !q.iFailed && (
+            {!q.solvedByOther && (
               <div className="sc-qz__short">
                 <input
                   id={`quiz-${q.id}`}

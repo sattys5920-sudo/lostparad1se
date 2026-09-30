@@ -265,7 +265,18 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
     setBin(null)
   }, [])
 
+  /** 「구매하시겠습니까?」를 묻는 중. 예를 눌러야 동전이 들어간다 */
+  const [asking, setAsking] = useState(false)
+  function ask() {
+    noise.wake()
+    if (busy || !chosen) return
+    // 못 사는 것은 묻지 않는다 — 바로 까닭을 띄운다
+    if (chosen.why) return buy()
+    setAsking(true)
+  }
+
   function buy() {
+    setAsking(false)
     noise.wake()
     if (busy || !chosen) return
     if (chosen.why) {
@@ -404,16 +415,32 @@ export function Vending({ where, money, soldOut, crops = {}, act, onSaid, onClos
           }
         </div>
 
+        {/* ── 구매 확인 ── 한 번 묻는다 */}
+        {asking && chosen && (
+          <div className="sc-vd__ask" role="alertdialog" aria-label="구매 확인">
+            <p className="sc-vd__askQ">구매하시겠습니까?</p>
+            <p className="sc-vd__askWhat">
+              {chosen.item.name} · {chosen.cost}
+            </p>
+            <div className="sc-vd__askRow">
+              <button onClick={() => setAsking(false)}>취소</button>
+              <button className="is-yes" onClick={buy}>
+                구매
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── 동전 투입구 ──────────────────────────────── */}
         <div className="sc-vd__coinRow">
-          <button className="sc-vd__push" disabled={busy || !chosen} onClick={buy}>
+          <button className="sc-vd__push" disabled={busy || !chosen} onClick={ask}>
             넣기
           </button>
           <span className="sc-vd__coinLab">돈</span>
           <button
             className="sc-vd__slot is-inline"
             disabled={busy || !chosen}
-            onClick={buy}
+            onClick={ask}
             aria-label="동전 넣기"
           >
             {coinY !== null && <i className="sc-vd__coin" style={{ transform: `translateY(${coinY}px)` }} />}

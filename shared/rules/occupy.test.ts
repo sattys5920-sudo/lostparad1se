@@ -463,20 +463,19 @@ describe('로봇', () => {
     expect(s.robots).toHaveLength(0)
   })
 
-  it('한 사람은 한 페이즈에 한 기까지다', () => {
+  it('**사람마다 한도는 없다** — 드라이버 두 자루면 두 기를 부순다', () => {
     let s = board({
       people: [person('a', 'A', 'library')],
       robots: [robot('r1', 'B', 'library'), robot('r2', 'B', 'library')],
       wallets: { A: 99 },
     })
     s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r1' })
-    const out = doAct(s, 'a', { kind: 'smashRobot', targetRobot: 'r2' })
-    expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('이미 부쉈다')
-    // 거절은 드라이버를 물리지 않는다. 토큰은 원래 안 든다
+    s = must(s, 'a', { kind: 'smashRobot', targetRobot: 'r2' })
+    expect(s.robots).toHaveLength(0)
+    // 토큰은 안 든다. 드라이버가 한 기에 한 자루씩 빠진다
     expect(ACT_COST.smashRobot).toBe(0)
     expect(purse(s, 'A')).toBe(99)
-    expect(s.satchels.a?.screwdriver).toBe(8)
+    expect(s.satchels.a?.screwdriver).toBe(7)
   })
 
   it('**드라이버가 없으면 못 부순다** — 한 기에 한 자루', () => {

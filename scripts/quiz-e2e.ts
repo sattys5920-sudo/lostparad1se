@@ -321,14 +321,14 @@ async function main(): Promise<void> {
     check(!JSON.stringify(v).includes(PROMPT_OPEN), '본문도 안 간다')
   }
 
-  console.log('\n── 틀리면 그 사람만 다시 못 푼다 ──')
+  console.log('\n── 틀려도 다시 푼다 ──')
   const notMine = await call('answerQuiz', A[1].token, { gameId: GAME, paperId: target.id, given: ANSWER })
   check(notMine.code === 'FAILED_PRECONDITION', '**안 든 사람은 답을 못 낸다**', String(notMine.message ?? notMine.code))
   const wrong = await must('answerQuiz', A[0].token, { gameId: GAME, paperId: target.id, given: '배' })
   check(wrong.correct === false, '틀렸다고 온다')
   check(wrong.explain === null, '틀린 사람에게는 해설이 안 간다')
-  const again = await call('answerQuiz', A[0].token, { gameId: GAME, paperId: target.id, given: ANSWER })
-  check(again.code === 'FAILED_PRECONDITION', '같은 사람은 다시 못 푼다', String(again.code))
+  const again = await call('answerQuiz', A[0].token, { gameId: GAME, paperId: target.id, given: '감' })
+  check(again.ok && (again.data as { correct?: boolean }).correct === false, '**틀린 사람도 다시 낸다**', again.ok ? '' : String(again.message))
 
   console.log('\n── 맞히면 팀 금고에 지식이 붙고 종이는 끝난다 ──')
   /*
