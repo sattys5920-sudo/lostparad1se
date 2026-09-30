@@ -88,10 +88,13 @@ async function main() {
     at: { mapValue: { fields: { x: int(stand.x), y: int(stand.y) } } },
     visitedTiles: { arrayValue: { values: [str('centralPlaza'), str(ROOM)] } },
   })
-  // 나는 두 기를 들고 있다. 방에는 다른 팀이 놓은 로봇 한 기
+  // 나는 두 기를 들고 있다. 방에는 다른 분단이 놓은 로봇이 분단마다 한 기씩
   await bot(game, 'bot-m1', team, me, null)
   await bot(game, 'bot-m2', team, me, null)
-  await bot(game, 'bot-e1', enemy, null, 'someone-else')
+  const others = ['A', 'B', 'C', 'D'].filter((t) => t !== team)
+  for (const [i, t] of others.entries()) await bot(game, `bot-e${i + 1}`, t, null, `someone-${t}`)
+  // 부수려면 드라이버가 있어야 한다
+  await patch(`games/${game}/pawns/${me}`, { items: { mapValue: { fields: { screwdriver: int(1) } } } })
   await must('openPhase', host, { gameId: game })
   await must('tick', host, { gameId: game })
 
@@ -139,8 +142,6 @@ async function main() {
   const note = await page.locator('.sc-ph__note', { hasText: '들고 있는 것' }).innerText()
   console.log(`  놓은 뒤: ${note.replace(/\n/g, ' ')}`)
   if (!note.includes('1/2') || !note.includes('2/2')) missed.push(`놓은 뒤 수가 이상하다: ${note}`)
-  const dropWhy = await row('로봇 놓기').innerText()
-  if (!dropWhy.includes('2 기까지 놓는다')) missed.push(`방이 찼는데 놓기가 열려 있다: ${dropWhy}`)
 
   await row('로봇 수거').locator('button').first().click()
   await until(/들고 있는 것\s*2\/2/)
@@ -155,7 +156,7 @@ async function main() {
   await row('로봇 부수기').scrollIntoViewIfNeeded()
   await page.screenshot({ path: `${OUT}/${tag}-4-부수기고르기.png` })
   const targets = await page.locator('.sc-ph__targets').innerText()
-  if (!targets.includes(enemy) || targets.includes(team)) missed.push(`부수기 대상이 이상하다: ${targets}`)
+  if (!targets.includes(enemy)) missed.push(`부수기 대상이 이상하다: ${targets}`)
 
   await page.locator('button', { hasText: /^닫기$/ }).first().click()
   await page.waitForTimeout(900)

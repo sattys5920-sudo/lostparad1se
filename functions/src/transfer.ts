@@ -111,10 +111,11 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   const gRef = gameRef(gameId)
 
   const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | null>(async (tx) => {
-    const [snap, gSnap, carried] = await Promise.all([
+    const [snap, gSnap, carried, placed] = await Promise.all([
       tx.get(ref),
       tx.get(gRef),
       tx.get(gRef.collection('robots').where('carriedBy', '==', uid)),
+      tx.get(gRef.collection('robots').where('placedBy', '==', uid)),
     ])
     if (!snap.exists) throw new HttpsError('not-found', '그런 제안이 없다.')
     const ask = snap.data() as TransferState
@@ -139,8 +140,8 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
     tx.update(gRef, { seats: gd.seats.map((s) => (s.playerId === uid ? { ...s, team: ask.byTeam } : s)) })
     tx.update(gRef.collection('pawns').doc(uid), { team: ask.byTeam, teamSinceMs: nowMs })
     tx.update(gRef.collection('secret').doc('roster').collection('items').doc(uid), { team: ask.byTeam })
-    // **들고 있던 로봇도 사람을 따라간다** — 새 분단 로봇이 된다
-    for (const r of carried.docs) tx.update(r.ref, { team: ask.byTeam })
+    // **로봇도 주인을 따라간다.** 들고 있던 것도, 방에 놓아 둔 것도 그 순간 새 분단 로봇이 된다
+    for (const r of [...carried.docs, ...placed.docs]) tx.update(r.ref, { team: ask.byTeam })
     // 두 팀 무전에만 적힌다. 공지는 없다 — 마주쳐야 안다
     sysLine(tx, gameId, ask.fromTeam, sys.movedOut(seat?.name ?? '', ask.byTeam), nowMs, game.day)
     sysLine(tx, gameId, ask.byTeam, sys.movedIn(seat?.name ?? ''), nowMs, game.day)
