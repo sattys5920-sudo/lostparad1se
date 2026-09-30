@@ -149,7 +149,6 @@ function openRules(): void {
   window.open('/rules.html', '_blank', 'noopener')
 }
 import './play.css'
-import { ringTile, tearTile } from './noteArt'
 import './ballot.css'
 import './note.css'
 import './me.css'
@@ -360,20 +359,33 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 나서 손가락이 자리를 다시 외워야 한다.
    */
   const NOT_YET = '아직 시작 전이다.'
-  const beforeDirs = useMemo(() => padFace(ways, false, 0, ENTER_COST), [ways])
+  /*
+   * **시작 전 잠금.** 가입 · 아바타 · 프롤로그 뒤에는 아무것도 못 한다.
+   * 감독관이 풀면(talk) 2-3 교실 안에서 걷고 말한다. 그 밖의 단추는
+   * 판이 시작돼야 열린다.
+   */
+  const talkOpen = state.game?.lobbyStage === 'talk'
+  const WAIT = '감독관이 풀 때까지 기다린다.'
+  const beforeDirs = useMemo(
+    () =>
+      talkOpen
+        ? padFace(ways, false, 0, ENTER_COST)
+        : { up: { open: false }, down: { open: false }, left: { open: false }, right: { open: false } },
+    [ways, talkOpen],
+  )
   const beforeGrid: Act[] = [
     // 배정받은 뒤에는 학생증을 다시 펼 수 있다. 판이 서면 「나」 탭에 늘 있다
     {
       key: 'card',
       icon: 'hand',
       label: '내 학생증',
-      why: card.paper && paperFor === stamp && stamp > 0 ? undefined : '아직 반과 역할이 안 정해졌다.',
+      why: WAIT,
       run: () => setShowCard(true),
     },
     { key: 'atlas', icon: 'atlas', label: '전체 맵', why: NOT_YET, run: () => {} },
-    // 이 둘은 게임 안의 일이 아니다. 나가는 문도 더보기 뒤에 있다
-    { key: 'roster', icon: 'tabMe', label: '모인 사람', run: () => setRoster(true) },
-    { key: 'more', icon: 'more', label: '더 보기', run: () => setBefore(true) },
+    // **판이 시작되기 전에는 아무것도 안 눌린다** — 감독관이 연다
+    { key: 'roster', icon: 'tabMe', label: '모인 사람', why: WAIT, run: () => setRoster(true) },
+    { key: 'more', icon: 'more', label: '더 보기', why: WAIT, run: () => setBefore(true) },
   ]
 
   // 팀을 안 보낸다. 어느 반인지는 서버가 정해서 알려 준다 —
@@ -535,6 +547,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
               onTapRoom={() => {}}
               onTapPerson={() => {}}
               onStand={() => {}}
+              /* 감독관이 풀기 전에는 한 걸음도 못 뗀다 */
+              frozen={!talkOpen}
             />
             <header className="sc-pl__head">
               <div className="sc-pl__hud1">
@@ -552,7 +566,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
                   말줄이 그 자리에 앉으면서 글자 위에 글자가 겹쳤다 */}
               <div className="sc-pl__hud2">
                 <span className="sc-pl__where">{TILE_BY_ID[START_TILE as TileId].name}</span>
-                <span className="sc-pl__crowd">밖으로는 못 나간다</span>
+                <span className="sc-pl__crowd">{talkOpen ? '밖으로는 못 나간다' : WAIT}</span>
               </div>
             </header>
           </div>
@@ -569,6 +583,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
             onClose={blurNow}
             stuck={talk.stuck}
             self={{ playerId: mine.playerId, name: mine.name, team: mine.team ?? null }}
+            mute={!talkOpen}
+            muteText={WAIT}
           />
 
           {/*
@@ -859,6 +875,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     [act, refuse, state.view?.quizzesHere, state.view?.slipPapers],
   )
   const [tab, setTab] = useState<Tab>('map')
+  /** 감독관이 잠근 탭. 보고 있던 탭이 잠기면 잠기지 않은 첫 탭으로 옮긴다 */
+  const lockedTabs = useMemo(() => new Set(state.game?.lockedTabs ?? []), [state.game?.lockedTabs])
+  useEffect(() => {
+    if (!lockedTabs.has(tab)) return
+    const free = (['map', 'me', 'radio', 'vote', 'note'] as Tab[]).find((t) => !lockedTabs.has(t))
+    if (free) setTab(free)
+  }, [lockedTabs, tab])
   /*
    * **탭마다 구르던 자리를 기억한다.** 탭은 떼지 않고 숨기기만 하는데,
    * 숨기는 동안(display:none) 브라우저가 구른 자리를 잊는다. 떠날 때
@@ -1934,30 +1957,17 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           투표용지, 투표 탭은 투표함, 여기는 책상에 펴 둔 수첩이다 */}
       <section className="sc-pl__tab sc-pl__scroll sc-nb-root" hidden={tab !== 'note'}>
         <p className="sc-nb__top">메모 · 열셋</p>
-        <div className="sc-nb">
-          <div className="sc-nb__page">
-            {uid && (
-              <Notes
-                gameId={gameId}
-                meId={uid}
-                classmates={game.seats
-                  .filter((sx) => sx.playerId !== uid)
-                  .map((sx) => ({ id: sx.playerId, name: sx.name }))}
-              />
-            )}
-          </div>
-          {/* 종이 가장자리를 문 스프링. 글자 위로 와야 꿴 것으로 보인다 */}
-          <span
-            className="sc-nb__rings"
-            aria-hidden="true"
-            style={{ backgroundImage: `url(${ringTile()})` }}
+        {/* **책상에 붙인 메모지 열셋.** 한 장에 한 사람 — 짐작한 역할과
+            한 줄 메모를 손글씨로 적는다. 마지막 답안지가 이것으로 채워진다 */}
+        {uid && (
+          <Notes
+            gameId={gameId}
+            meId={uid}
+            classmates={game.seats
+              .filter((sx) => sx.playerId !== uid)
+              .map((sx) => ({ id: sx.playerId, name: sx.name, team: sx.team ?? null }))}
           />
-          <span
-            className="sc-nb__tear"
-            aria-hidden="true"
-            style={{ backgroundImage: `url(${tearTile()})` }}
-          />
-        </div>
+        )}
 
         {/* 남에게 하는 일. **여기가 남을 적어 두는 자리다** —
             전에는 「나」 탭에 있었는데, 내 것들 사이에 남의 카드
@@ -1982,12 +1992,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       <TabBar
         now={tab}
         onPick={(k) => pickTab(k as Tab)}
+        onLocked={(label) => showToast(`${label} 탭은 감독관이 잠가 두었다.`)}
         tabs={[
-          { key: 'map', icon: 'tabMap', label: '맵' },
-          { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0 },
-          { key: 'radio', icon: 'tabRadio', label: '무전', dot: radioNew > 0 },
-          { key: 'vote', icon: 'tabVote', label: '투표' },
-          { key: 'note', icon: 'tabNote', label: '메모' },
+          { key: 'map', icon: 'tabMap', label: '맵', locked: lockedTabs.has('map') },
+          { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0, locked: lockedTabs.has('me') },
+          { key: 'radio', icon: 'tabRadio', label: '무전', dot: radioNew > 0, locked: lockedTabs.has('radio') },
+          { key: 'vote', icon: 'tabVote', label: '투표', locked: lockedTabs.has('vote') },
+          { key: 'note', icon: 'tabNote', label: '메모', locked: lockedTabs.has('note') },
         ]}
       />
 
@@ -2700,12 +2711,21 @@ export function Play() {
       <Lobby gameId={GAME_ID} me={me} />
     )
 
+  const myUid = auth?.currentUser?.uid ?? null
   return (
     <>
       {content}
+      {/* 답안지 · 채점 결과. 감독관이 띄우면 어느 화면에 있든 그 위로 뜬다 */}
+      {state.game && myUid && phase !== 'lobby' && (
+        <>
+          <AnswerSheet game={state.game} gameId={GAME_ID} uid={myUid} act={act} />
+          <AnswerResult game={state.game} gameId={GAME_ID} uid={myUid} act={act} />
+        </>
+      )}
       {endingOverlayOn && <FinalNoteOverlay act={act} onClose={() => setEndingOverlayOn(false)} />}
     </>
   )
 }
 
 import { teamName, teamNo } from '../../../shared/rules/bundan'
+import { AnswerResult, AnswerSheet } from './AnswerSheet'

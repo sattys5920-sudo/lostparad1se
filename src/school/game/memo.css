@@ -1,0 +1,92 @@
+/* 메모 탭 — 책상에 붙인 메모지. 손글씨로 적는다 */
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
+
+.sc-memo {
+  --memo-ink: #2b2a33;
+  --memo-pen: #1f4e8c;
+  --memo-hand: 'Nanum Pen Script', var(--font-body);
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+.sc-memo__hint {
+  margin: 0 var(--sp-1) var(--sp-3);
+  font-size: var(--fs-cap);
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.sc-memo__board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4) var(--sp-3);
+}
+@media (min-width: 560px) {
+  .sc-memo__board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.sc-memo__sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-2) var(--sp-2);
+  color: var(--memo-ink);
+  /* 메모지 결 — 아주 흐린 줄 */
+  background-image: repeating-linear-gradient(180deg, transparent 0 23px, rgba(0, 0, 0, 0.07) 23px 24px) !important;
+  background-blend-mode: multiply;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.28);
+}
+/* 윗단 가운데 붙인 마스킹 테이프 */
+.sc-memo__tape {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 46px;
+  height: 14px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+}
+.sc-memo__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--memo-hand);
+  font-size: 24px;
+  line-height: 1;
+  word-break: keep-all;
+}
+.sc-memo__band { flex: none; width: 10px; height: 10px; border-radius: 2px; }
+.sc-pl-root .sc-memo__role,
+.sc-memo__role {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 2px;
+  appearance: none;
+  border: 0;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.35);
+  border-radius: 0;
+  background: transparent;
+  color: var(--memo-pen);
+  font-family: var(--memo-hand);
+  font-size: 22px;
+}
+.sc-memo__role.is-empty { color: rgba(0, 0, 0, 0.4); }
+.sc-pl-root .sc-memo__line,
+.sc-memo__line {
+  width: 100%;
+  min-height: 48px;
+  padding: 2px;
+  resize: none;
+  border: 0;
+  background: transparent;
+  color: var(--memo-ink);
+  font-family: var(--memo-hand);
+  font-size: 20px;
+  line-height: 24px;
+}
+.sc-memo__line::placeholder { color: rgba(0, 0, 0, 0.3); }
+.sc-memo__role:focus-visible,
+.sc-memo__line:focus-visible { outline: 2px solid var(--memo-pen); outline-offset: 1px; }

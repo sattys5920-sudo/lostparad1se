@@ -1,0 +1,115 @@
+/* 답안지 — 시험지 한 장. 줄 친 종이 위에 손글씨 */
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
+
+.sc-ans {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(var(--sp-4) + env(safe-area-inset-top, 0px)) var(--sp-4)
+    calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--bg-0) 86%, transparent);
+}
+.sc-ans__sheet {
+  width: 100%;
+  max-width: 380px;
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) calc(var(--sp-4) + 14px);
+  color: var(--ink);
+  border-radius: var(--r-paper);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  /* 줄 친 시험지 — 왼쪽에 빨간 여백선 */
+  background:
+    linear-gradient(90deg, transparent 22px, color-mix(in srgb, #c0392b 55%, transparent) 22px, color-mix(in srgb, #c0392b 55%, transparent) 23px, transparent 23px),
+    repeating-linear-gradient(180deg, var(--paper) 0 27px, color-mix(in srgb, var(--ink-3) 45%, var(--paper)) 27px 28px);
+}
+.sc-ans__head { display: flex; flex-direction: column; gap: 2px; }
+.sc-ans__eyebrow {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
+  letter-spacing: 0.2em;
+  color: var(--ink-2);
+}
+.sc-ans__head h2 {
+  margin: 0;
+  font-family: 'Nanum Pen Script', var(--font-body);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+.sc-ans__lead { margin: 0; font-size: var(--fs-label); color: var(--ink-2); }
+.sc-ans__sub { margin: var(--sp-2) 0 0; font-family: var(--font-pixel); font-size: var(--fs-pixel); letter-spacing: 0.2em; color: var(--ink-2); }
+.sc-ans__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sc-ans__list li {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 34px;
+}
+.sc-ans__list.is-key li { grid-template-columns: 26px 1fr auto auto; }
+.sc-ans__no { font-family: 'Nanum Pen Script', var(--font-body); font-size: 20px; color: var(--ink-2); }
+.sc-ans__name { font-family: 'Nanum Pen Script', var(--font-body); font-size: 22px; line-height: 1; word-break: keep-all; }
+.sc-ans__name em { font-style: normal; font-size: 16px; color: var(--ink-2); }
+.sc-ans__role { font-family: 'Nanum Pen Script', var(--font-body); font-size: 22px; font-weight: 400; color: #1f4e8c; }
+.sc-ans__mark { font-family: 'Nanum Pen Script', var(--font-body); font-size: 20px; white-space: nowrap; }
+.sc-ans__mark.is-ok { color: #c0392b; }
+.sc-ans__mark.is-no { color: var(--ink-2); text-decoration: line-through; }
+.sc-ans__list select {
+  min-height: 34px;
+  max-width: 140px;
+  font-family: 'Nanum Pen Script', var(--font-body);
+  font-size: 20px;
+  color: #1f4e8c;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--ink-2);
+  border-radius: 0;
+}
+.sc-ans__scores { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sc-ans__scores li { display: flex; justify-content: space-between; font-family: 'Nanum Pen Script', var(--font-body); font-size: 21px; }
+.sc-ans__scores li.is-me { color: #c0392b; }
+.sc-ans__said { margin: 0; font-size: var(--fs-label); color: var(--ink-2); }
+.sc-ans__row { display: flex; gap: var(--sp-2); justify-content: flex-end; }
+.sc-pl-root .sc-ans__send,
+.sc-pl-root .sc-ans__later,
+.sc-ans__send,
+.sc-ans__later {
+  min-height: var(--hit);
+  padding: 0 var(--sp-3);
+  appearance: none;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-game);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.sc-ans__send { background: var(--ink); color: var(--paper); }
+.sc-ans__send:disabled { opacity: 0.5; }
+.sc-pl-root .sc-ans__reopen,
+.sc-ans__reopen {
+  position: fixed;
+  z-index: 79;
+  right: var(--sp-3);
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  min-height: var(--hit);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--ink);
+  border-radius: var(--r-game);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}

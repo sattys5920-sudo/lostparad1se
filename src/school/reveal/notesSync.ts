@@ -31,6 +31,7 @@ export async function loadNote(gameId: string, playerId: string): Promise<Deduct
     ownerId: playerId,
     entryNotes: raw.entryNotes ?? {},
     board: raw.board ?? [],
+    roleGuess: raw.roleGuess ?? {},
   }
 }
 

@@ -142,6 +142,22 @@ export interface GameDoc {
   invisibleId: string | null
   /** 전원 채널이 닫혀 있는가. 운영자가 여닫는다. 없으면 열려 있다 */
   allChannelClosed?: boolean
+  /**
+   * **시작 전 잠금.** 가입 · 아바타 · 프롤로그 뒤에는 아무것도 못 한다
+   * (locked, 없으면 이것). 감독관이 풀면 2-3 교실 안에서 걷고 말한다(talk).
+   * 판이 시작되면 전부 열린다.
+   */
+  lobbyStage?: 'locked' | 'talk'
+  /** 감독관이 잠근 탭. 잠긴 탭은 눌리지 않는다 */
+  lockedTabs?: string[]
+  /** 답안지가 열려 있다 — 모두의 화면에 뜬다. 채점하면 닫힌다 */
+  answerSheet?: { openAtMs: number } | null
+  /** 채점 결과. **여기 적히는 순간 정답이 모두에게 간다** */
+  answerResult?: {
+    atMs: number
+    key: { playerId: string; name: string; roleId: string }[]
+    scores: { playerId: string; name: string; correct: number; total: number; score: number; submitted: boolean }[]
+  } | null
   /** 날마다 누가 지워졌는가. 엔딩이 「한 번이라도 있었는가」를 여기서 본다. */
   invisibleByDay: Record<number, string | null>
   /** 모두에게 알린 그날 미션 결과. 키는 d1 · d2 …(hostMissionBoard). 이름과 성공/실패만 */

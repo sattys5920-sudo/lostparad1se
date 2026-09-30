@@ -152,6 +152,11 @@ export { hostOpenBallot, hostCloseBallot } from './ballotGate'
 // 운영자 코드. 코드는 저장소가 아니라 배포 환경변수에 있다.
 export { hostEnter } from './hostgate'
 
+// 시작 전 잠금 · 탭 잠금. 감독관만
+export { hostSetLobbyStage, hostSetTabLock } from './stage'
+// 답안지 — 마지막에 서로의 역할을 맞힌다
+export { hostOpenAnswers, submitAnswers, myAnswers, hostAnswers, hostGradeAnswers } from './answers'
+
 // QA용 채우기. 운영자만, 로비에서만.
 export { seedPlayers } from './qa'
 

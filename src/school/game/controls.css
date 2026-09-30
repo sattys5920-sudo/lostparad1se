@@ -450,6 +450,8 @@
   color: var(--ct-gold);
   border-top-color: var(--ct-gold);
 }
+/* 감독관이 잠근 탭. 흐리게 — 누르면 까닭을 말한다 */
+.sc-ct__tab.is-locked { opacity: 0.35; }
 .sc-ct__tab img { opacity: 0.55; }
 .sc-ct__tab.is-on img { opacity: 1; }
 

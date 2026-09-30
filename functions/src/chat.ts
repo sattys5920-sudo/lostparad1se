@@ -138,6 +138,8 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
 
   const { game, nowMs } = await loadNow(gameId)
   const early = beforeStart(game, uid)
+  // **시작 전에는 감독관이 풀어야 말한다**(lobbyStage)
+  if (early && game.lobbyStage !== 'talk') throw new HttpsError('failed-precondition', '감독관이 풀 때까지 기다린다.')
   // **보이지 않는 동안에는 말하지 못한다.** 무전과 같다 — 듣기만 한다
   if (!early && game.invisibleId === uid) {
     throw new HttpsError('failed-precondition', MUTE_WHILE_INVISIBLE)

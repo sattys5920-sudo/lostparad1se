@@ -2,9 +2,9 @@
 //
 // 보관함 항목마다 메모를 붙이고, 열세 명 각자에게 한 줄을 적는다.
 //
-// **역할 태그는 없앴다.** 남의 역할을 맞히는 판이 아니게 됐다 —
-// 개인 미션은 저마다 할 일이지 서로 알아맞힐 정체가 아니다. 남은
-// 것은 혼자 적는 메모뿐이다.
+// **역할 추측이 다시 생겼다.** 마지막에 답안지로 서로의 역할을
+// 맞힌다(shared/rules/answers). 사람마다 짐작한 역할을 적어 두면
+// 답안지가 뜰 때 그것으로 칸이 미리 채워진다.
 //
 // 운영자 대시보드에도 나가지 않는다. 남의 추리를 들여다보는 순간
 // 이 노트는 혼자 생각하는 자리가 아니게 된다.
@@ -23,6 +23,8 @@ export interface DeductionNote {
   entryNotes: Record<string, string>
   /** 나를 뺀 열세 명. */
   board: PersonTag[]
+  /** 사람마다 짐작한 역할 id. 비어 있으면 아직 모른다 */
+  roleGuess?: Record<string, string>
 }
 
 export function emptyNote(ownerId: string): DeductionNote {
@@ -55,6 +57,14 @@ export function setPersonNote(
     ? note.board.map((t) => (t.targetId === targetId ? next : t))
     : [...note.board, next]
   return { ok: true, reason: null, note: { ...note, board } }
+}
+
+/** 그 사람의 역할을 짐작해 적는다. 빈 값이면 지운다 */
+export function setRoleGuess(note: DeductionNote, targetId: string, roleId: string): DeductionNote {
+  const roleGuess = { ...(note.roleGuess ?? {}) }
+  if (roleId === '') delete roleGuess[targetId]
+  else roleGuess[targetId] = roleId
+  return { ...note, roleGuess }
 }
 
 /** 보관함 항목에 메모를 붙인다. 빈 글은 지우는 것으로 본다. */

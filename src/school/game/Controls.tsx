@@ -348,25 +348,30 @@ export interface TabDef {
   label: string
   /** 볼 것이 새로 생겼다 — 아이콘 모서리에 점 하나 */
   dot?: boolean
+  /** 감독관이 잠갔다. 흐리게 두고 누르면 까닭을 말한다 */
+  locked?: boolean
 }
 
 export function TabBar({
   tabs,
   now,
   onPick,
+  onLocked,
 }: {
   tabs: readonly TabDef[]
   now: string
   onPick: (key: string) => void
+  onLocked?: (label: string) => void
 }) {
   return (
     <nav className="sc-ct__tabs">
       {tabs.map((t) => (
         <button
           key={t.key}
-          className={`sc-ct__tab${t.key === now ? ' is-on' : ''}`}
+          className={`sc-ct__tab${t.key === now ? ' is-on' : ''}${t.locked ? ' is-locked' : ''}`}
           aria-current={t.key === now ? 'page' : undefined}
-          onClick={() => onPick(t.key)}
+          aria-disabled={t.locked || undefined}
+          onClick={() => (t.locked ? onLocked?.(t.label) : onPick(t.key))}
         >
           <span className="sc-ct__tabIcon">
             <img src={uiIcon(t.icon)} alt="" width={16} height={16} />

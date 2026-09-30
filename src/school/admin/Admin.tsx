@@ -34,6 +34,8 @@ import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { AssignDesk } from './AssignDesk'
 import { NoticeDesk } from './NoticeDesk'
+import { LobbyStageDesk, TabLockDesk } from './StageDesk'
+import { AnswerDesk } from './AnswerDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import './admin.css'
@@ -276,6 +278,10 @@ function Desk() {
           /* ── 로비. 배정하고 시작한다 ── */
           <>
             <section className="sc-ad__sec">
+              <h2>시작 전 잠금</h2>
+              {game && <LobbyStageDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+            <section className="sc-ad__sec">
               <h2>배정</h2>
               <AssignDesk seats={seats} act={act} onSaid={setSaid} />
             </section>
@@ -370,6 +376,16 @@ function Desk() {
             <section className="sc-ad__sec">
               <h2>발표 · 공지</h2>
               <NoticeDesk seats={seats} act={act} onSaid={setSaid} />
+            </section>
+
+            <section className="sc-ad__sec">
+              <h2>탭 잠금</h2>
+              {game && <TabLockDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+
+            <section className="sc-ad__sec">
+              <h2>답안지 — 역할 맞히기</h2>
+              {game && <AnswerDesk game={game} act={act} onSaid={setSaid} />}
             </section>
 
             <section className="sc-ad__sec">

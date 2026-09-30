@@ -72,6 +72,8 @@ export interface SayProps {
   self?: { playerId: string; name: string; team: string | null }
   /** 보이지 않는 동안이다. 칸 대신 「말할 수 없다」를 적는다 — 듣기만 한다 */
   mute?: boolean
+  /** 칸 대신 적을 말. 없으면 투명인간의 말이다 */
+  muteText?: string
 }
 
 /** 평소에 남기는 줄 수. 채팅 모드에서는 들어온 뒤의 말 전부를 펼친다 */
@@ -82,7 +84,7 @@ type Row = { kind: 'line'; l: ChatLine } | { kind: 'out'; o: Outgoing }
 const toneOf = (team: string | null | undefined) =>
   (TEAM_COLOR as Record<string, string>)[team ?? ''] ?? 'var(--text-1)'
 
-export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck, self, mute = false }: SayProps) {
+export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck, self, mute = false, muteText }: SayProps) {
   const meId = self?.playerId ?? null
   // **서 있기만 하면 된다.** 누가 듣는지는 보내고 나서 알 일이다
   const can = hereName !== null
@@ -247,7 +249,7 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck, 
         */}
         {/* 보이지 않는 동안에는 칸 대신 까닭을 적는다. 서버도 거절한다 */}
         {mute ? (
-          <p className="sc-sy__mute" role="status">{MUTE_WHILE_INVISIBLE}</p>
+          <p className="sc-sy__mute" role="status">{muteText ?? MUTE_WHILE_INVISIBLE}</p>
         ) : (
           <input
             {...box}

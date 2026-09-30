@@ -367,6 +367,20 @@ export function gameActions(gameId: string) {
     setDevClock: (anchorGameMs: number, speed: number) => callServer('setDevClock', { ...g, anchorGameMs, speed }),
     /** 전원 채널을 여닫는다 */
     hostSetAllChannel: (open: boolean) => callServer('hostSetAllChannel', { ...g, open }),
+    /** 시작 전 잠금 — locked(아무것도) · talk(2-3 교실 안에서 걷고 말하기) */
+    hostSetLobbyStage: (stage: 'locked' | 'talk') => callServer('hostSetLobbyStage', { ...g, stage }),
+    /** 탭 하나를 잠그거나 연다 */
+    hostSetTabLock: (tab: string, locked: boolean) => callServer('hostSetTabLock', { ...g, tab, locked }),
+    /** 답안지 — 감독관이 열고 닫는다 */
+    hostOpenAnswers: (open: boolean) => callServer('hostOpenAnswers', { ...g, open }),
+    /** 답안지 — 낸다. 채점 전까지 고쳐 낸다 */
+    submitAnswers: (answers: Record<string, string>) => callServer('submitAnswers', { ...g, answers }),
+    /** 답안지 — 내가 낸 것 */
+    myAnswers: () => callServer('myAnswers', g),
+    /** 답안지 — 감독관이 본다 */
+    hostAnswers: () => callServer('hostAnswers', g),
+    /** 답안지 — 채점하고 모두에게 보낸다 */
+    hostGradeAnswers: () => callServer('hostGradeAnswers', g),
     /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
     hostLiveMap: () => callServer('hostLiveMap', g),
     /** 운영자 — 방에서 오간 말. room 은 방 아이디 · 'hall' · 'all'. summary 면 방마다 줄 수 */
