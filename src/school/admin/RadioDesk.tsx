@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { GameActions } from '../game/useGame'
+import { teamName } from '../../../shared/rules/bundan'
 
 type Channel = 'A' | 'B' | 'C' | 'D' | 'ALL'
 
@@ -34,7 +35,7 @@ interface Line {
 const LIST_MS = 5000
 const LIVE_MS = 2000
 
-const CHANNEL_NAME: Record<Channel, string> = { A: 'A팀 무전', B: 'B팀 무전', C: 'C팀 무전', D: 'D팀 무전', ALL: '전원 채널' }
+const CHANNEL_NAME: Record<Channel, string> = { A: `${teamName('A')} 무전`, B: `${teamName('B')} 무전`, C: `${teamName('C')} 무전`, D: `${teamName('D')} 무전`, ALL: '전원 채널' }
 
 function hhmm(ms: number): string {
   const f = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(ms))

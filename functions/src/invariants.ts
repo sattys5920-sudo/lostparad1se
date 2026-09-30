@@ -19,6 +19,7 @@ import type { GameDoc, PawnDoc, TeamDoc, TileDoc } from '../../shared/model'
 import { requireHost } from './host'
 import { gameRef, nowOf } from './index'
 import { lastEvent, qaDocOf, type LogRow } from './qaLog'
+import { teamName } from '../../shared/rules/bundan'
 
 const db = getFirestore()
 
@@ -52,7 +53,7 @@ export const VIOLATION_LABEL: Record<ViolationKind, string> = {
   tokensNegative: '토큰 상자가 음수다',
   cellShared: '한 칸에 둘이 섰다',
   cellBlocked: '설 수 없는 칸에 섰다',
-  robotsOverTeam: '팀 로봇이 한도를 넘었다',
+  robotsOverTeam: '분단 로봇이 한도를 넘었다',
   robotsOverRoom: '방 로봇이 한도를 넘었다',
   slipCountMismatch: '쪽지 수가 어긋났다',
   tileOwnerBad: '방 주인이 이상하다',
@@ -136,9 +137,9 @@ export async function checkInvariants(gameId: string, nowMs: number): Promise<Vi
     const t = d.data() as TeamDoc
     for (const r of RESOURCES) {
       const v = t.resources?.[r] ?? 0
-      if (v < 0) bad('vaultNegative', `${d.id}팀 ${r} = ${v}`)
+      if (v < 0) bad('vaultNegative', `${teamName(d.id)} ${r} = ${v}`)
     }
-    if ((t.phaseTokens ?? 0) < 0) bad('tokensNegative', `${d.id}팀 phaseTokens = ${t.phaseTokens}`)
+    if ((t.phaseTokens ?? 0) < 0) bad('tokensNegative', `${teamName(d.id)} phaseTokens = ${t.phaseTokens}`)
   }
 
   // ── 로봇 — 팀 한도 · 방 한도 ──
@@ -150,7 +151,7 @@ export async function checkInvariants(gameId: string, nowMs: number): Promise<Vi
     // 방 한도는 **놓인 것만** 먹는다. 든 로봇은 가방 속이다
     if (r.tileId && !r.carriedBy) byRoom.set(r.tileId, (byRoom.get(r.tileId) ?? 0) + 1)
   }
-  for (const [team, n] of byTeam) if (n > ROBOTS_PER_TEAM) bad('robotsOverTeam', `${team}팀 로봇 ${n} > ${ROBOTS_PER_TEAM}`)
+  for (const [team, n] of byTeam) if (n > ROBOTS_PER_TEAM) bad('robotsOverTeam', `${teamName(team)} 로봇 ${n} > ${ROBOTS_PER_TEAM}`)
   for (const [tile, n] of byRoom) if (n > ROBOTS_PER_ROOM) bad('robotsOverRoom', `${roomName(tile)} 로봇 ${n} > ${ROBOTS_PER_ROOM}`)
 
   // ── 쪽지 — 든 것 + 바닥 + 찢긴 것 = 기대값 ──

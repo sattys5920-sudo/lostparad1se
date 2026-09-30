@@ -188,7 +188,7 @@ export type RobotSwapNo = 'handsFull' | 'teamFull'
 
 export const ROBOT_SWAP_MESSAGE: Record<RobotSwapNo, string> = {
   handsFull: '로봇은 두 기까지 든다 — 하나를 놓고 와야 받는다.',
-  teamFull: '받는 팀은 로봇을 더 가질 수 없다.',
+  teamFull: '받는 분단은 로봇을 더 가질 수 없다.',
 }
 
 export function robotSwapNo(a: {

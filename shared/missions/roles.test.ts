@@ -148,7 +148,7 @@ describe('마지막 선택', () => {
 
   it('세 번째 줄은 중요한 사람의 팀이 1위다', () => {
     expect(DAY4_CHOICES[2].id).toBe('chosen')
-    expect(DAY4_CHOICES[2].text).toBe('중요한 사람의 팀이 1위')
+    expect(DAY4_CHOICES[2].text).toBe('중요한 사람의 분단이 1위')
   })
 })
 

@@ -33,13 +33,13 @@ export const ITEMS: readonly ItemSpec[] = [
   {
     kind: 'whistle',
     name: '호루라기',
-    text: '페이즈 중에 불어서 같은 팀 한 명을 내 쪽으로 한 칸 부른다.',
+    text: '페이즈 중에 불어서 같은 분단 한 명을 내 쪽으로 한 칸 부른다.',
     use: 'summon',
   },
   {
     kind: 'lock',
     name: '자물쇠',
-    text: '이 방 문을 한 시간 잠근다. 우리 팀만 드나든다.',
+    text: '이 방 문을 한 시간 잠근다. 우리 분단만 드나든다.',
   },
   /*
    * **자물쇠를 따는 것.** 가방에서 꺼내 쓰는 단추가 없다 — 잠긴 문에
@@ -76,7 +76,7 @@ export const ITEMS: readonly ItemSpec[] = [
   {
     kind: 'trap',
     name: '덫',
-    text: '복도에 놓는다. 안 보인다. 페이즈 중에 다른 팀이 밟으면 10분 묶인다.',
+    text: '복도에 놓는다. 안 보인다. 페이즈 중에 다른 분단이 밟으면 10분 묶인다.',
   },
 ]
 

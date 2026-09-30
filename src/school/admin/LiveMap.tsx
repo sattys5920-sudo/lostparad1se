@@ -116,7 +116,6 @@ const LABEL_BELOW = 0.9
 /** 도트 사람 한 몸(판 화소). 플레이어 화면(CHAR_PX)과 같다 */
 const CHAR_PX = 24
 
-const TEAMS: TeamId[] = ['A', 'B', 'C', 'D']
 const TOP_DOWN: Floor[] = [...FLOORS].reverse()
 
 // ── 시각 ────────────────────────────────────────────────────────
@@ -546,11 +545,11 @@ export function LiveMap({ act, onSaid }: { act: GameActions; onSaid: (t: string)
         />
       )}
 
-      <div className="sc-lvm__chips" role="group" aria-label="팀 거르기">
-        {(['all', ...TEAMS] as const).map((t) => (
+      <div className="sc-lvm__chips" role="group" aria-label="분단 거르기">
+        {(['all', ...TEAM_ORDER] as const).map((t) => (
           <button key={t} className={team === t ? 'is-on' : ''} onClick={() => setTeam(t)}>
             {t !== 'all' && <i style={{ background: TEAM_COLOR[t] }} />}
-            {t === 'all' ? `전체 ${people.length}` : `${t} ${people.filter((p) => p.team === t).length}`}
+            {t === 'all' ? `전체 ${people.length}` : `${teamNo(t)} ${people.filter((p) => p.team === t).length}`}
           </button>
         ))}
       </div>
@@ -909,7 +908,7 @@ function PersonCard({ p, nowMs, onRoom, onClose }: { p: LivePerson; nowMs: numbe
       <header>
         <i className="sc-lvm__dot" style={{ background: p.team ? TEAM_COLOR[p.team] : undefined }} />
         <b>{p.name}</b>
-        <span className="sc-lvm__team">{p.team ? `${p.team}팀` : '팀 없음'}</span>
+        <span className="sc-lvm__team">{p.team ? `${teamName(p.team)}` : '분단 없음'}</span>
         {p.invisible && <span className="sc-lvm__badge is-invis">투명</span>}
         <button className="sc-lvm__x" onClick={onClose} aria-label="닫기">
           ✕
@@ -1033,7 +1032,7 @@ function RoomCard({
         <b>{chatRoomName(room)}</b>
         {state?.owner && (
           <span className="sc-lvm__team" style={{ color: TEAM_COLOR[state.owner] }}>
-            {state.owner}팀 방
+            {teamName(state.owner)} 방
           </span>
         )}
         {room !== 'all' && <span className="sc-lvm__team">{inside.length}명</span>}
@@ -1045,11 +1044,11 @@ function RoomCard({
         <p className="sc-lvm__facts">
           {flags.map(([t, n]) => (
             <span key={t} style={{ color: TEAM_COLOR[t] }}>
-              깃발 {t} {n}
+              깃발 {teamName(t)} {n}
             </span>
           ))}
           {state.robots > 0 && <span>로봇 {state.robots}</span>}
-          {state.lockedBy && <span>{state.lockedBy}팀 자물쇠</span>}
+          {state.lockedBy && <span>{teamName(state.lockedBy)} 자물쇠</span>}
         </p>
       )}
       {inside.length > 0 && (
@@ -1127,3 +1126,5 @@ function RoomCard({
     </div>
   )
 }
+
+import { TEAM_ORDER, teamName, teamNo } from '../../../shared/rules/bundan'

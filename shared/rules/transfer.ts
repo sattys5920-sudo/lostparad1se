@@ -49,11 +49,11 @@ export const TRANSFER_NO: Record<TransferNo, string> = {
   phase: '점령전 중에는 못 꺼낸다',
   early: `${TRANSFER_FROM_DAY}일째부터 꺼낼 수 있다`,
   self: '나에게는 못 꺼낸다',
-  sameTeam: '같은 팀이다',
+  sameTeam: '같은 분단이다',
   walking: '둘 다 멈춰 서야 한다',
   far: '바로 옆 칸에 서야 한다 — 한 걸음 더 다가간다',
   asking: '이미 묻고 있는 중이다',
-  lastOne: '그 팀에 마지막 한 사람이다',
+  lastOne: '그 분단에 마지막 한 사람이다',
 }
 
 export interface TransferAsk {

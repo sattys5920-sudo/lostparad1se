@@ -51,11 +51,11 @@ export const ROLE_DATA: readonly RoleData[] = [
     situation: [
       "다음 날 아침, 선생님이 물었다. 학생들 사이에서 수상한 일이 벌어지고 있냐고. 투명인간 투표에 대해서 알고 있었지만, 괜히 일이 커지는 게 싫어서 잘 모르겠다고 답했다. 선생님은 더 묻지 않았다. 모범생이 모른다고 하면 대체로 없는 일이었으니까.",
     ],
-    goal: "서로 다른 두 팀으로부터 신뢰표를 2장 이상 받는다.",
+    goal: "서로 다른 두 분단으로부터 신뢰표를 2장 이상 받는다.",
     line: "이번에도 믿음을 받는다. 그 믿음으로 무엇을 할지는 본인이 정한다.",
     clauses: [
       { kind: "trustReceived", text: "받은 신뢰표", need: 2, disclosure: "daily" },
-      { kind: "trustTeams", text: "보낸 사람의 팀 수", need: 2, disclosure: "daily" },
+      { kind: "trustTeams", text: "보낸 사람의 분단 수", need: 2, disclosure: "daily" },
     ],
     footnote: "보낸 사람은 보이지 않는다. 진행도가 바로 오르면 방금 누가 줬는지 역추적된다.",
     notes: [
@@ -75,11 +75,11 @@ export const ROLE_DATA: readonly RoleData[] = [
     situation: [
       "반에서 걷는 돈은 전부 총무를 거친다. 단체 티셔츠, 사진값, 졸업 앨범. A가 투명인간이 되었기 때문에, 단체 티셔츠 비용을 A에게만 걷지 않았다. 없는 사람한테 돈을 걷는 게 이상해 보였고 말을 거는 것도 애매했다. 투명인간이 끝나면 물어봐야지 했지만, 까먹은 바람에 주문서를 제출했다. 그래서 A의 티셔츠는 없었다.",
     ],
-    goal: "자판기에서 아이템을 2번 이상 산다. 그리고 다른 팀 사람과 거래를 1번 이상 성립시킨다.",
+    goal: "자판기에서 아이템을 2번 이상 산다. 그리고 다른 분단 사람과 거래를 1번 이상 성립시킨다.",
     line: "이번에는 돈이 돌게 한다.",
     clauses: [
       { kind: "vendBuys", text: "자판기 구매", need: 2, disclosure: "realtime" },
-      { kind: "dealsWithOtherTeam", text: "다른 팀과 성립한 거래", need: 1, disclosure: "realtime" },
+      { kind: "dealsWithOtherTeam", text: "다른 분단과 성립한 거래", need: 1, disclosure: "realtime" },
     ],
     footnote: "자판기 매입(파는 것)은 안 센다. 거래는 한쪽만 물건을 올려도 성립이다.",
     notes: [
@@ -239,10 +239,10 @@ export const ROLE_DATA: readonly RoleData[] = [
     situation: [
       "창고 문고리는 몇 달 전부터 안에서 열리지 않았다. 청소 당번들이 몇 번이나 말했고, 그때마다 고쳐 주겠다고 했다. 공구는 있었다. 십 분이면 되는 일이었다. 다만 늘 다른 게 먼저였고 창고는 급하지 않았다. 귀찮았으니까.",
     ],
-    goal: "남의 팀 로봇을 1기 이상 파괴한다.",
+    goal: "남의 분단 로봇을 1기 이상 파괴한다.",
     line: "이번에는 미루지 않는다. 손을 대는 쪽으로.",
     clauses: [
-      { kind: "robotsSmashedOfOthers", text: "무너뜨린 남의 팀 로봇", need: 1, disclosure: "realtime" },
+      { kind: "robotsSmashedOfOthers", text: "무너뜨린 남의 분단 로봇", need: 1, disclosure: "realtime" },
     ],
     footnote: "이적으로 한도가 넘쳐 저절로 사라진 것은 안 센다.",
     notes: [
@@ -291,7 +291,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { kind: "targetSlipRead", text: "그 사람의 쪽지 읽기", need: 1, disclosure: "realtime" },
       { kind: "coStayWithTarget", text: "같은 방에서 함께 있은 시간", minutes: 15, disclosure: "realtime" },
     ],
-    footnote: "대상은 그날 밤 운영자가 다른 팀 사람 중에서 정한다. 이름만 알려 주고 위치는 알려 주지 않는다. 대상은 모른다.",
+    footnote: "대상은 그날 밤 운영자가 다른 분단 사람 중에서 정한다. 이름만 알려 주고 위치는 알려 주지 않는다. 대상은 모른다.",
     notes: [
       { slot: 1, kind: "role", text: "가방에 부치지 못한 편지를 넣고 다니는 건 짝사랑이다." },
       { slot: 2, kind: "name", text: "{이름}은 하루에 몇 번씩 같은 방향을 본다." },
@@ -309,13 +309,13 @@ export const ROLE_DATA: readonly RoleData[] = [
     situation: [
       "전에 다니던 학교에서도 비슷한 일을 겪었다. 이 학교에서 A가 처음 적혔을 때 바로 무슨 일이 일어나고 있는지 알고 있었다. 어른들에게 말했으면 한 번은 멈췄을 것이다. 다만, 전 학교에서도 고발은 무용했다. 그러니 귀찮아질 필요가 없었다. 어차피 또 얼마 지나지 않아 전학을 갈 테니까.",
     ],
-    goal: "매일 밤 자정(최종 결과 제외) 우리 팀이 1위가 되면 안 된다. 그리고 다른 두 팀의 방에 각각 10분 이상 서 있어 본다.",
+    goal: "매일 밤 자정(최종 결과 제외) 우리 분단이 1위가 되면 안 된다. 그리고 다른 두 분단의 방에 각각 10분 이상 서 있어 본다.",
     line: "이번에도 어디에도 속하지 않는다.",
     clauses: [
-      { kind: "teamNotFirstAtEnd", text: "우리 팀이 1위가 아님", disclosure: "daily" },
-      { kind: "otherTeamRoomsStood", text: "서 있어 본 다른 팀 방", need: 2, minutes: 10, disclosure: "realtime" },
+      { kind: "teamNotFirstAtEnd", text: "우리 분단이 1위가 아님", disclosure: "daily" },
+      { kind: "otherTeamRoomsStood", text: "서 있어 본 다른 분단 방", need: 2, minutes: 10, disclosure: "realtime" },
     ],
-    footnote: "공동 1위도 1위다. 순위는 그날 자정의 방 개수로 본다. 방은 서 있던 그 시점의 소유 팀 기준.",
+    footnote: "공동 1위도 1위다. 순위는 그날 자정의 방 개수로 본다. 방은 서 있던 그 시점의 소유 분단 기준.",
     notes: [
       { slot: 1, kind: "role", text: "전학생은 전에 다니던 학교 이야기를 절대 하지 않는다." },
       { slot: 2, kind: "role", text: "전학생은 이번 학기에 전학 왔다. 반에 녹아드는 게 이상하리만치 빨랐다." },

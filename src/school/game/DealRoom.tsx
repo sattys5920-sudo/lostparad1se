@@ -22,6 +22,7 @@ import { cropIcon, goodIcon } from './goodArt'
 import { SFX } from './sfx'
 import type { LiveDeal } from './useDeal'
 import type { GameActions } from './useGame'
+import { teamName } from '../../../shared/rules/bundan'
 
 /**
  * 탁자에 올릴 수 있는 것들. **서버가 아는 것과 하나씩 맞는다.**
@@ -42,7 +43,7 @@ const CROP_KEY = (id: string) => `crop:${id}`
 
 const SLOTS: readonly Slot[] = [
   { key: 'money', name: '돈', from: '내 것', icon: () => goodIcon('money') },
-  { key: 'knowledge', name: '지식', from: '팀 금고', icon: () => goodIcon('knowledge') },
+  { key: 'knowledge', name: '지식', from: '분단 금고', icon: () => goodIcon('knowledge') },
   ...ITEMS.map((i) => ({ key: i.kind, name: i.name, from: '내 것', icon: () => goodIcon(i.kind) })),
   { key: 'slips', name: '쪽지', from: '접힌 채', icon: () => goodIcon('slips') },
   { key: 'robots', name: '로봇', from: '들고 있는', icon: () => goodIcon('robots') },
@@ -225,7 +226,7 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
       <section className={'sc-dr__side' + (flash ? ' is-flash' : '')}>
         <header>
           <b>{otherName}</b>
-          <span>{theirSide.team}팀</span>
+          <span>{teamName(theirSide.team)}</span>
           <em className={theirSide.ready ? 'is-ready' : ''}>{theirSide.ready ? '준비됨' : '고르는 중'}</em>
         </header>
         <Slots
@@ -251,7 +252,7 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
       <section className="sc-dr__side is-mine">
         <header>
           <b>나</b>
-          <span>{me.team}팀</span>
+          <span>{teamName(me.team)}</span>
           <em className={mySide.ready ? 'is-ready' : ''}>{mySide.ready ? '준비됨' : '고르는 중'}</em>
         </header>
         <Slots pile={draft} team={me.team} lit={mySide.ready} none="여기에 올린다." />

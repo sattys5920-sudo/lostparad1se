@@ -105,7 +105,7 @@ export const hostAnnounceLeader = onCall<{ gameId: string }>(async (req) => {
   const rooms = top[0]?.total ?? 0
   const leader = top.map((r) => r.team)
   const text = leaderText(leader, rooms)
-  if (text === null) throw new HttpsError('failed-precondition', '아직 방을 가진 팀이 없다.')
+  if (text === null) throw new HttpsError('failed-precondition', '아직 방을 가진 분단이 없다.')
 
   const notice = { toPlayerId: null, text, atMs: nowOf(game), byId: uid, leader }
   const ref = await db.collection(`games/${gameId}/notices`).add(notice)

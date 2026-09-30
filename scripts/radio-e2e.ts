@@ -1,7 +1,7 @@
 // 무전 — 팀 채널 · 전원 채널 · 운영자 엿듣기.
 //
 //   - 팀 채널 줄은 그 팀에게만 · 전원 채널 줄은 열넷 모두에게
-//   - 지워진 사람은 전원 채널에 말할 수 없다(듣기는 한다)
+//   - 지워진 사람은 무전으로 말할 수 없다 — 전원 · 분단 채널 모두(듣기는 한다)
 //   - 운영자는 다섯 채널 목록과 한 채널의 줄을 본다 · 참가자는 못 본다
 //   - 줄이 300 넘게 쌓여도 처음 켠 사람은 최근 줄을 받는다
 //
@@ -101,10 +101,11 @@ async function main(): Promise<void> {
     body: JSON.stringify({ fields: { invisibleId: { stringValue: other.uid } } }),
   })
   const refused = await call('radio', other.token, { gameId: GAME, text: '나야', channel: 'all' })
-  check(!refused.ok && /지워진 사람/.test(refused.message ?? ''), '전원 채널에 말할 수 없다', refused.message)
+  check(!refused.ok && /지워진/.test(refused.message ?? ''), '전원 채널에 말할 수 없다', refused.message)
   check((await lines(other, 'all')).some((l) => l.text === '모두에게'), '듣기는 한다')
-  const teamOk = await call('radio', other.token, { gameId: GAME, text: '팀엔 된다', channel: 'team' })
-  check(teamOk.ok, '팀 채널에는 말한다')
+  // 지워진 동안에는 분단 채널에도 말할 수 없다(radio.ts). 듣기만 한다
+  const teamNo = await call('radio', other.token, { gameId: GAME, text: '분단에도 안 된다', channel: 'team' })
+  check(!teamNo.ok, '분단 채널에도 말할 수 없다', teamNo.ok ? '말해졌다' : teamNo.message)
 
   console.log('\n── 운영자 ──')
   const ov = (await must('hostRadioOverview', host, { gameId: GAME })).channels as { channel: string; lines: number }[]

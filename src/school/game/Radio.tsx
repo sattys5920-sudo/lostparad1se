@@ -460,7 +460,7 @@ function RadioRoom({
             className={'sc-rd__chtab' + (ch === channel ? ' is-on' : '')}
             onClick={() => onPick(ch)}
           >
-            {ch === 'team' ? `${me.team}팀` : allOpen ? '전원' : '전원 · 닫힘'}
+            {ch === 'team' ? `${teamName(me.team)}` : allOpen ? '전원' : '전원 · 닫힘'}
             {ch !== channel && otherNew > 0 && <i className="sc-rd__chdot" aria-label={`새 줄 ${otherNew}`} />}
           </button>
         ))}
@@ -471,7 +471,7 @@ function RadioRoom({
           <span className="sc-rd__freq">
             {channel === 'team' ? (
               <>
-                <b>{TEAM_FREQ[me.team]}</b> MHz · {me.team}팀
+                <b>{TEAM_FREQ[me.team]}</b> MHz · {teamName(me.team)}
               </>
             ) : (
               <>
@@ -600,7 +600,7 @@ function RadioRoom({
             {...box}
             id="rd-say"
             placeholder={channel === 'team' ? '무전한다' : '모두에게 말한다'}
-            aria-label={channel === 'team' ? '같은 팀에게 무전하기' : '전원에게 무전하기'}
+            aria-label={channel === 'team' ? '같은 분단에게 무전하기' : '전원에게 무전하기'}
             // 올려 읽던 중이었어도 칠 때는 맨 아래를 본다
             onFocus={() => toBottom()}
           />
@@ -621,3 +621,5 @@ function RadioRoom({
     </div>
   )
 }
+
+import { teamName } from '../../../shared/rules/bundan'

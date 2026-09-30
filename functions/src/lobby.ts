@@ -28,6 +28,7 @@ import { gameRef, nowOf, requireUid } from './index'
 import { refreshViews } from './views'
 import { requireHost } from './host'
 import { logEvent } from './qaLog'
+import { teamName } from '../../shared/rules/bundan'
 
 const db = getFirestore()
 
@@ -211,7 +212,7 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     const seats = [...game.seats]
     const mine = seats.findIndex((s) => s.playerId === uid)
     const wanted = canPick ? req.data.team : undefined
-    if (wanted && !TEAMS.includes(wanted)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
+    if (wanted && !TEAMS.includes(wanted)) throw new HttpsError('invalid-argument', '그런 분단은 없다.')
 
     if (mine < 0 && seats.length >= TOTAL_SEATS) {
       throw new HttpsError('resource-exhausted', '자리가 없다.')
@@ -229,7 +230,7 @@ export const joinGame = onCall<{ gameId: string; name: string; team?: TeamId }>(
     const others = seats.filter((s) => s.playerId !== uid)
     const team = wanted ?? (mine >= 0 ? seats[mine].team : null)
     if (team && others.filter((s) => s.team === team).length >= STARTING_TEAM_SIZES[team]) {
-      throw new HttpsError('resource-exhausted', `${team}팀은 다 찼다.`)
+      throw new HttpsError('resource-exhausted', `${teamName(team)}은 다 찼다.`)
     }
 
     // 다시 앉는 사람은 **받아 둔 배정을 그대로 들고 간다** — 운영자가 한 사람씩
@@ -347,7 +348,7 @@ export const hostAssignSeat = onCall<{ gameId: string; playerId: string; team: T
   const { gameId, playerId } = req.data
   const team = req.data.team
   const roleId = String(req.data.roleId ?? '') as RoleId
-  if (!TEAMS.includes(team)) throw new HttpsError('invalid-argument', '그런 팀은 없다.')
+  if (!TEAMS.includes(team)) throw new HttpsError('invalid-argument', '그런 분단은 없다.')
   if (!ROLE_IDS.includes(roleId)) throw new HttpsError('invalid-argument', '그런 역할은 없다.')
   const ref = gameRef(gameId)
   const out = await db.runTransaction(async (tx) => {
@@ -365,7 +366,7 @@ export const hostAssignSeat = onCall<{ gameId: string; playerId: string; team: T
     }
     const inTeam = seats.filter((s, j) => j !== i && s.team === team).length
     if (inTeam >= STARTING_TEAM_SIZES[team]) {
-      throw new HttpsError('failed-precondition', `${team}팀은 ${STARTING_TEAM_SIZES[team]}명이 다 찼다.`)
+      throw new HttpsError('failed-precondition', `${teamName(team)}은 ${STARTING_TEAM_SIZES[team]}명이 다 찼다.`)
     }
     const nowMs = nowOf(game)
     seats[i] = { ...seats[i], team, dealtAtMs: nowMs }

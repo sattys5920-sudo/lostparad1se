@@ -13,11 +13,11 @@ import { uiIcon } from './uiArt'
 
 /** 그림에 붙는 이름. 눈에는 안 보이고 낭독기와 툴팁에만 나온다. */
 const WORD: Record<string, string> = {
-  token: '팀 토큰',
+  token: '분단 토큰',
   money: '돈',
   knowledge: '지식',
   clock: '분',
-  flag: '팀 깃발',
+  flag: '분단 깃발',
 }
 
 /** 조작부 그림(uiArt)에서 오는 것. 나머지는 물건 그림(goodArt)이다 */

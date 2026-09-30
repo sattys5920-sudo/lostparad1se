@@ -9,6 +9,7 @@ import { type ReactNode } from 'react'
 import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
 import { capacityOf } from '../../../shared/rules/occupy'
 import type { TeamId } from '../types'
+import { teamName } from '../../../shared/rules/bundan'
 
 export interface ActionsProps {
   tileId: TileId
@@ -49,7 +50,7 @@ export function Actions({ tileId, where, owner = null, lockedBy = null, onClose,
         {spec.name}
         {/* 자물쇠. 값보다 먼저 눈에 들어야 한다 — 걸어갔다가 문 앞에서
             돌아서는 것이 제일 아깝다 */}
-        {lockedBy && <span className="sc-ac__locked">{lockedBy}팀이 잠갔다</span>}
+        {lockedBy && <span className="sc-ac__locked">{teamName(lockedBy)}이 잠갔다</span>}
         {onClose && (
           <button className="sc-ac__close" onClick={onClose} aria-label="닫기">
             ✕
@@ -64,8 +65,8 @@ export function Actions({ tileId, where, owner = null, lockedBy = null, onClose,
       {where === 'there' && (
         <dl className="sc-ac__facts">
           <div>
-            <dt>차지한 팀</dt>
-            <dd>{owner ? `${owner}팀` : '없다'}</dd>
+            <dt>차지한 분단</dt>
+            <dd>{owner ? `${teamName(owner)}` : '없다'}</dd>
           </div>
           <div>
             {/* **페이즈에만 걸리는 한도다.** 자유 시간에는 몇이든 들어간다 */}

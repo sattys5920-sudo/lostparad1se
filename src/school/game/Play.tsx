@@ -263,7 +263,7 @@ function Roll({ seats, uid }: { seats: SeatEntry[]; uid: string | null }) {
             {s.look ? <AvatarFace look={s.look} team={s.team} scale={2} /> : <i className="sc-roll__dot" />}
           </span>
           <b>{s.name}</b>
-          <em>{s.team}</em>
+          <em>{s.team ? teamNo(s.team) : ''}</em>
         </li>
       ))}
       {Array.from({ length: empty }, (_, i) => (
@@ -1732,8 +1732,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               <span className="sc-pl__me">
                 {/* 팀은 완장 색으로 먼저 읽힌다. **글자도 같이 둔다** —
                     색만으로 가르면 색을 못 가리는 사람에게는 팀이 없다 */}
-                <i className="sc-pl__band" style={{ background: colorOfTeam(me.team) }} aria-label={`${me.team}팀`}>
-                  {me.team}
+                <i className="sc-pl__band" style={{ background: colorOfTeam(me.team) }} aria-label={`${teamName(me.team)}`}>
+                  {teamNo(me.team)}
                 </i>
                 {seatName(me, game.seats.indexOf(me))}
               </span>
@@ -1816,7 +1816,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           {/* 자유 시간에는 토큰 칸이 아예 없다. 쓸 데가 없는 숫자다 */}
           <ResourceRow
             tokens={phaseOpen ? (state.view?.myTeamTokens ?? null) : null}
-            tokenLabel="팀 토큰"
+            tokenLabel="분단 토큰"
             money={state.view?.myMoney ?? null}
             knowledge={state.view?.teamVault?.knowledge ?? null}
             mates={mates}
@@ -2145,7 +2145,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                       setPerson(null)
                       act
                         .askTransfer(who)
-                        .then(() => say('우리 팀으로 오겠느냐고 물었다.'))
+                        .then(() => say('우리 분단으로 오겠느냐고 물었다.'))
                         .catch((e) => refuse((e as Error).message))
                     },
                   },
@@ -2327,7 +2327,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {/* 우리 팀 넷. **자원 줄을 누르면 여기가 열린다** — 작은 네모 넷만
           보고는 누가 누구인지 알 수 없다 */}
       {sheet === 'team' && (
-        <Sheet title={`${me.team}팀`} onClose={closeSheet}>
+        <Sheet title={`${teamName(me.team)}`} onClose={closeSheet}>
           <ul className="sc-pl__team">
             {mates.map((m) => (
               <li key={m.playerId}>
@@ -2340,8 +2340,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           <ul className="sc-pl__teamNums">
             {/* **페이즈 상자는 넷이 나눠 쓴다.** 내 것이 아니라는 게 여기서
                 보여야 한다 — 먼저 쓰는 사람이 임자다 */}
-            <li><span>페이즈 토큰(팀 공용)</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
-            <li><span>팀 지식</span><span>{state.view?.teamVault?.knowledge ?? '—'}</span></li>
+            <li><span>페이즈 토큰(분단 공용)</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
+            <li><span>분단 지식</span><span>{state.view?.teamVault?.knowledge ?? '—'}</span></li>
           </ul>
         </Sheet>
       )}
@@ -2433,7 +2433,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 </span>
               </li>
               <li><span>도착 대기</span><span>{arriveAtMs == null ? '없다' : `${Math.max(0, Math.ceil((arriveAtMs - nowMs) / 60000))}분`}</span></li>
-              <li><span>팀 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
+              <li><span>분단 토큰</span><span>{state.view?.myTeamTokens ?? '—'}</span></li>
               <li><span>마지막 응답</span><span>{said || '없다'}</span></li>
             </ul>
           </details>
@@ -2706,3 +2706,5 @@ export function Play() {
     </>
   )
 }
+
+import { teamName, teamNo } from '../../../shared/rules/bundan'

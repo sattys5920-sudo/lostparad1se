@@ -28,6 +28,7 @@ import { note } from './records'
 import { sysLine } from './radio'
 import { gameRef, requireUid } from './index'
 import { docId } from './ids'
+import { teamName } from '../../shared/rules/bundan'
 
 const db = getFirestore()
 
@@ -156,5 +157,5 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   await refreshViews(gameId)
   return moved === null
     ? { moved: false }
-    : { moved: true, team: moved.to, said: `이제 ${moved.to}팀이다.` }
+    : { moved: true, team: moved.to, said: `이제 ${teamName(moved.to)}이다.` }
 })

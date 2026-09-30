@@ -9,6 +9,7 @@
 // 알려 주지 않는다.
 import { josa } from '../text'
 import type { TeamId } from './v2'
+import { teamName } from './bundan'
 
 /**
  * 팀마다 주파수가 다르다.
@@ -41,7 +42,7 @@ export const RADIO_STALE_MS = 25_000
 
 /** 입력 칸 아래 한 줄. 무전이 무엇인지 여기 다 적는다. */
 export const RADIO_NOTE =
-  '같은 팀끼리만 닿는다. 학교 어디에 있든 닿고, 걷는 중에도 닿는다.'
+  '같은 분단끼리만 닿는다. 학교 어디에 있든 닿고, 걷는 중에도 닿는다.'
 
 /** 전원 채널 — 열넷이 다 듣는 주파수 */
 export const ALL_FREQ = '100.1'
@@ -54,7 +55,7 @@ export const ALL_SHUT = '전원 채널은 지금 닫혀 있다.'
 /** 지워진 사람에게 — 전원 채널은 듣기만 한다 */
 export const ALL_MUTE = '보이지 않는 동안에는 듣기만 한다.'
 
-export const ALL_NOTE = '열넷이 다 듣는다. 다른 팀도 읽는다.'
+export const ALL_NOTE = '열넷이 다 듣는다. 다른 분단도 읽는다.'
 
 // ── 시각 ────────────────────────────────────────────────────────
 
@@ -124,8 +125,8 @@ export const sys = {
   roomLost: (room: string, to: TeamId | null): string =>
     to === null
       ? `${room}${josa(room, '을/를')} 놓쳤다.`
-      : `${room}${josa(room, '을/를')} ${to}팀에게 빼앗겼다.`,
+      : `${room}${josa(room, '을/를')} ${teamName(to)}에게 빼앗겼다.`,
   invisible: (name: string): string => `${name}${josa(name, '은/는')} 오늘 보이지 않는다.`,
-  movedOut: (name: string, to: TeamId): string => `${name}${josa(name, '이/가')} ${to}팀으로 갔다.`,
-  movedIn: (name: string): string => `${name}${josa(name, '이/가')} 우리 팀으로 왔다.`,
+  movedOut: (name: string, to: TeamId): string => `${name}${josa(name, '이/가')} ${teamName(to)}으로 갔다.`,
+  movedIn: (name: string): string => `${name}${josa(name, '이/가')} 우리 분단으로 왔다.`,
 } as const

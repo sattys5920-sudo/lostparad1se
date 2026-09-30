@@ -613,7 +613,7 @@ function charged(out: ActResult, state: PhaseState, playerId: string): ActResult
   const team = state.people.find((p) => p.playerId === playerId)?.team
   if (!team) return out
   const left = walletOf(out.next, team) - out.spent
-  if (left < 0) return no('팀 토큰이 모자란다.')
+  if (left < 0) return no('분단 토큰이 모자란다.')
   return { ...out, next: { ...out.next, wallets: { ...out.next.wallets, [team]: left } } }
 }
 
@@ -634,7 +634,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   if (!me) return no('이 판에 없는 사람이다.')
 
   const cost = costOf(state, me.team, act)
-  if (walletOf(state, me.team) < cost) return no(`팀 토큰이 모자란다. ${cost}개가 든다.`)
+  if (walletOf(state, me.team) < cost) return no(`분단 토큰이 모자란다. ${cost}개가 든다.`)
 
   // 물건이 드는 행동이면 **먼저** 있는지 본다. 거절은 값을 먹지 않는다
   const needItem = ITEM_FOR[act.kind] ?? null
@@ -700,7 +700,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       const target = act.targetPlayer ? byId.get(act.targetPlayer) : undefined
       if (!target) return no('그런 사람이 없다.')
-      if (target.team !== mine.team) return no('같은 팀만 부를 수 있다.')
+      if (target.team !== mine.team) return no('같은 분단만 부를 수 있다.')
       // 보이지 않는 사람은 부를 수 없다. 부르는 쪽도 못 부른다
       if (state.invisibleId === playerId) return no('보이지 않는 동안에는 부를 수 없다.')
       if (state.invisibleId === target.playerId) return no('그런 사람이 없다.')
@@ -719,7 +719,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
       if (!canHoldFlags(mine.tileId)) return no(`${TILE_BY_ID[mine.tileId].name}에는 깃발을 못 꽂는다.`)
       // 꽂는 건 혼자 하는 일이다 — 지워진 사람도 꽂을 수 있다
       const box = state.flagBoxes[mine.team] ?? 0
-      if (box <= 0) return no('팀 깃발이 없다. 페이즈마다 새로 채워지고, 자판기에서도 산다.')
+      if (box <= 0) return no('분단 깃발이 없다. 페이즈마다 새로 채워지고, 자판기에서도 산다.')
       return {
         ok: true,
         spent: cost,
@@ -835,7 +835,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
         (r) => state.people.find((q) => q.playerId === r.playerId)?.team === mine.team,
       )
       if (robotsOfTeam(state, mine.team) + coming.length >= ROBOTS_PER_TEAM) {
-        return no(`로봇은 팀당 ${ROBOTS_PER_TEAM}기까지다.`)
+        return no(`로봇은 한 분단에 ${ROBOTS_PER_TEAM}기까지다.`)
       }
       // 값은 **이 연구실을 누가 쥐고 있느냐**로 갈린다
       const landlord = state.owners[mine.tileId] ?? null

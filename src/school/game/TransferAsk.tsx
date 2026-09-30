@@ -5,6 +5,7 @@
 // 닷새의 편이 갈리는 일이라, 열다섯 초 안에 누르는 손이 그걸 알아야 한다.
 import { TRANSFER_ASK_MS } from '../../../shared/rules/transfer'
 import type { TeamId } from '../../../shared/rules/v2'
+import { teamName } from '../../../shared/rules/bundan'
 
 export interface TransferAskProps {
   /** 부른 사람. */
@@ -24,10 +25,10 @@ export function TransferAsk({ fromName, toTeam, askedAtMs, nowMs, onAnswer }: Tr
     <div className="sc-da sc-da--move">
       <p className="sc-da__who">
         <b>{fromName}</b>
-        <span>{toTeam}팀</span>
+        <span>{teamName(toTeam)}</span>
       </p>
       <p className="sc-da__say">
-        <b>{toTeam}팀으로 오라고 한다.</b> 이적하시겠습니까?
+        <b>{teamName(toTeam)}으로 오라고 한다.</b> 이적하시겠습니까?
       </p>
       <p className="sc-da__fine">누르면 그 자리에서 넘어간다.</p>
       {/* 남은 시간을 줄로 보인다. 숫자만으로는 급한 줄 모른다 */}

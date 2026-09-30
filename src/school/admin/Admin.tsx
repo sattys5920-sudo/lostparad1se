@@ -283,7 +283,7 @@ function Desk() {
               <h2>시작</h2>
               {!assigned && (
                 <p className="sc-ad__hint">
-                  {seats.length < TOTAL_SEATS ? `열넷이 다 들어와야 시작한다. 지금 ${seats.length}명.` : '열넷 모두 팀과 역할을 정해야 시작한다.'}
+                  {seats.length < TOTAL_SEATS ? `열넷이 다 들어와야 시작한다. 지금 ${seats.length}명.` : '열넷 모두 분단과 역할을 정해야 시작한다.'}
                 </p>
               )}
               <button

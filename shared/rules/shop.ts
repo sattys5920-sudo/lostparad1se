@@ -92,7 +92,7 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
   {
     id: 'flag',
     name: '깃발',
-    text: '우리 팀 깃발 상자에 하나 들어간다. 페이즈 중에 방에 꽂는다.',
+    text: '우리 분단 깃발 상자에 하나 들어간다. 페이즈 중에 방에 꽂는다.',
     cost: { money: FLAG_PRICE },
     stockPerDay: FLAG_STOCK_PER_DAY,
     flags: 1,

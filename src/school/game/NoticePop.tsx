@@ -6,6 +6,7 @@
 //
 // 봤는지는 이 기기에 적는다(판 · 사람마다). 한꺼번에 여럿이 밀려 있으면
 // 최근 셋만 한 장에 모아 띄운다 — 오래된 것은 공지 칸에 있다.
+import { teamNo } from '../../../shared/rules/bundan'
 import { useState } from 'react'
 
 import type { NoticeLine } from '../../../shared/reveal/notice'
@@ -46,7 +47,7 @@ function Leader({ teams }: { teams: readonly string[] }) {
       {teams.map((t) => (
         <span key={t}>
           <i style={{ background: TEAM_COLOR[t as keyof typeof TEAM_COLOR] }} />
-          {t}
+          {teamNo(t)}
         </span>
       ))}
     </p>

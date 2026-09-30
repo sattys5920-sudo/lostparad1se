@@ -108,7 +108,7 @@ describe('배정할 수 있는가', () => {
     const seats = seated()
     for (let i = 0; i < STARTING_TEAM_SIZES.A + 1; i++) seats[i] = { ...seats[i], team: 'A' as TeamId }
     expect(canAssign(seats).ok).toBe(false)
-    expect(canAssign(seats).reason).toMatch('A팀')
+    expect(canAssign(seats).reason).toMatch('2분단')
   })
 
   it('정원만큼 못 박은 것은 된다', () => {

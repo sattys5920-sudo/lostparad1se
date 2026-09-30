@@ -1,4 +1,5 @@
 import type { TeamId } from '../rules/v2'
+import { byBundan, teamName } from '../rules/bundan'
 
 // 운영자 공지.
 //
@@ -66,7 +67,8 @@ export function noticeLine(n: Notice): NoticeLine {
  */
 export function leaderText(teams: readonly TeamId[], rooms: number): string | null {
   if (teams.length === 0 || rooms <= 0) return null
-  const names = teams.map((t) => `${t}팀`).join(' · ')
+  // 1분단부터 적는다 — 안쪽 글자 순(A · B)으로 적으면 「2분단 · 1분단」이 된다
+  const names = [...teams].sort(byBundan).map((t) => teamName(t)).join(' · ')
   return teams.length === 1
     ? `지금 1위는 ${names}입니다. 방 ${rooms}개.`
     : `지금 공동 1위는 ${names}입니다. 방 ${rooms}개씩.`

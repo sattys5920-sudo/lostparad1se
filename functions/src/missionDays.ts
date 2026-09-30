@@ -438,7 +438,7 @@ export const hostSetCrushTarget = onCall<{ gameId: string; targetId?: string | n
     if (targetId === crush.playerId) throw new HttpsError('invalid-argument', '자기 자신은 대상이 될 수 없다.')
     const seat = game.seats.find((s) => s.playerId === targetId)
     if (!seat) throw new HttpsError('invalid-argument', '그런 사람이 없다.')
-    if (seat.team === crush.team) throw new HttpsError('invalid-argument', '같은 팀은 대상이 될 수 없다.')
+    if (seat.team === crush.team) throw new HttpsError('invalid-argument', '같은 분단은 대상이 될 수 없다.')
   }
   const key = `byDay.${game.day}`
   await crushOf(gameId).set({ [key]: targetId === null ? FieldValue.delete() : targetId }, { merge: true })

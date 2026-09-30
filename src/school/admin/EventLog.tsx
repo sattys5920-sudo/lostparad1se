@@ -82,7 +82,7 @@ const KIND_LABEL: Record<string, string> = {
   dealAnswered: '거래 답',
   dealCancelled: '거래 접음',
   dealSettled: '거래 성립',
-  tradeAccepted: '거래(팀)',
+  tradeAccepted: '거래(분단)',
   transferAsked: '이적 청함',
   transferAnswered: '이적 답',
   teamMoved: '이적',

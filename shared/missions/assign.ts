@@ -33,6 +33,7 @@ export interface Assignment {
 
 // 주사위는 shared/rand 에 있다. 이 파일을 거쳐 가져가던 곳이 있어 그대로 내보낸다
 import { rngFrom } from '../rand'
+import { teamName } from '../rules/bundan'
 export { rngFrom }
 
 function shuffled<T>(items: readonly T[], rnd: () => number): T[] {
@@ -55,7 +56,7 @@ function checkRoster(players: readonly Player[]): void {
   }
   for (const [team, size] of Object.entries(STARTING_TEAM_SIZES) as [TeamId, number][]) {
     const got = players.filter((p) => p.team === team).length
-    if (got !== size) throw new Error(`${team}팀은 ${size}명이어야 한다 (${got}명)`)
+    if (got !== size) throw new Error(`${teamName(team)}은 ${size}명이어야 한다 (${got}명)`)
   }
 }
 

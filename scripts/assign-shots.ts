@@ -101,7 +101,7 @@ async function main() {
   await ad.screenshot({ path: `${OUT}/2-운영자-목록.png`, fullPage: true })
 
   // 수아에게 A팀 · 첫 역할을 준다 — 화면의 고르개로
-  await ad.selectOption('select[aria-label="수아 팀"]', 'A')
+  await ad.selectOption('select[aria-label="수아 분단"]', 'A')
   await ad.selectOption('select[aria-label="수아 역할"]', ROLE_IDS[0])
   await ad.locator('.sc-as__list li', { hasText: '수아' }).locator('button').click()
   const came = await pl.waitForSelector('.sc-dl', { timeout: 15000 }).then(() => true).catch(() => false)

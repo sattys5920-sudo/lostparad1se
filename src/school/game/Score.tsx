@@ -7,6 +7,7 @@
 //
 // 세는 재료는 공개 문서(tiles)뿐이다. 누가 어느 방을 쥐었는지는 이미
 // 지도 테두리 색으로 누구에게나 보이므로, 여기서 새로 새는 것은 없다.
+import { teamName, teamNo, TEAM_ORDER } from '../../../shared/rules/bundan'
 import { useEffect, useRef, useState } from 'react'
 
 import { TEAMS } from '../char/palette'
@@ -18,7 +19,7 @@ import type { TileId } from '../types'
 /** 번쩍임이 남아 있는 시간. 페이즈가 닫히고 다들 화면을 볼 틈이다. */
 export const SCORE_FLASH_MS = 4000
 
-const TEAM_NAME = Object.fromEntries(TEAMS.map((t) => [t.id, t.name])) as Record<TeamId, string>
+const TEAM_NAME = Object.fromEntries(TEAMS.map((t) => [t.id, teamName(t.id)])) as Record<TeamId, string>
 
 /** 팀마다 쥔 방 수. 넷이 **늘 다 있다** — 0 인 팀도 0 으로 선다. */
 export function teamCounts(tiles: Partial<Record<TileId, TileDoc>>): Record<TeamId, number> {
@@ -96,8 +97,8 @@ export function ScoreBar({ tiles, myTeam, off = false }: { tiles: Partial<Record
    */
   if (off) return <div className="sc-sb is-off" role="status">점수판 꺼짐</div>
   return (
-    <div className="sc-sb" role="status" aria-live="polite" aria-label="팀마다 차지한 방">
-      {TEAM_IDS.map((t) => {
+    <div className="sc-sb" role="status" aria-live="polite" aria-label="분단마다 차지한 방">
+      {TEAM_ORDER.map((t) => {
         const d = flash[t]
         return (
           <span
@@ -107,7 +108,7 @@ export function ScoreBar({ tiles, myTeam, off = false }: { tiles: Partial<Record
           >
             {/* 색만으로는 안 가른다 — 색맹이면 붉은 팀과 초록 팀이 같다. 네모 안에 글자 */}
             <i style={{ background: colorOfTeam(t) }} aria-hidden>
-              {t}
+              {teamNo(t)}
             </i>
             <b aria-hidden>{counts[t]}</b>
             {d !== undefined && (

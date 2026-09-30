@@ -180,7 +180,7 @@ export function ResourceRow({
   onOpen: () => void
 }) {
   return (
-    <button className="sc-ct__bar" onClick={onOpen} aria-label="우리 팀 보기">
+    <button className="sc-ct__bar" onClick={onOpen} aria-label="우리 분단 보기">
       {tokens !== null && <Res icon="token" label={tokenLabel} value={tokens} />}
       <Res icon="money" label="돈" value={money} />
       <Res icon="knowledge" label="지식" value={knowledge} tone="know" />

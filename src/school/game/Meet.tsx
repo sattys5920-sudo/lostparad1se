@@ -11,6 +11,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 
 import type { TeamId } from '../../../shared/rules/v2'
 import type { PersonAt } from './Walk'
+import { teamName } from '../../../shared/rules/bundan'
 
 /** 차림표 한 줄의 높이. iOS 가 말하는 최소 손가락 자리(44)보다 한 뼘 위다. */
 const ROW_H = 48
@@ -134,7 +135,7 @@ export function Meet({ name, team, sub, at, rows, onClose }: MeetProps) {
       >
         <header className="sc-mt__head">
           <b>{name}</b>
-          <i>{sub ?? `${team === null ? '?' : team}팀`}</i>
+          <i>{sub ?? `${teamName(team === null ? '?' : team)}`}</i>
         </header>
         {rows.map((r) => (
           <button

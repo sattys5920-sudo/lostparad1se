@@ -12,6 +12,7 @@ import {
   TOTAL_DAYS,
   type TeamId,
 } from './v2'
+import { teamName } from './bundan'
 
 export const TEAMS = Object.keys(STARTING_TEAM_SIZES) as TeamId[]
 
@@ -74,7 +75,7 @@ export function canAssign(seats: readonly Seat[]): { ok: boolean; reason: string
   for (const t of TEAMS) {
     const got = pinned(seats).filter((s) => s.team === t).length
     if (got > STARTING_TEAM_SIZES[t]) {
-      return { ok: false, reason: `${t}팀에 ${STARTING_TEAM_SIZES[t]}명보다 많이 못 박혀 있다 (${got}명).` }
+      return { ok: false, reason: `${teamName(t)}에 ${STARTING_TEAM_SIZES[t]}명보다 많이 못 박혀 있다 (${got}명).` }
     }
   }
   return { ok: true, reason: null }
@@ -129,7 +130,7 @@ export function canStart(seats: readonly Seat[]): { ok: boolean; reason: string 
   if (seats.some((s) => s.team === null)) return { ok: false, reason: '아직 배정하지 않았다.' }
   for (const t of TEAMS) {
     const got = seats.filter((s) => s.team === t).length
-    if (got !== STARTING_TEAM_SIZES[t]) return { ok: false, reason: `${t}팀은 ${STARTING_TEAM_SIZES[t]}명이어야 한다 (${got}명).` }
+    if (got !== STARTING_TEAM_SIZES[t]) return { ok: false, reason: `${teamName(t)}은 ${STARTING_TEAM_SIZES[t]}명이어야 한다 (${got}명).` }
   }
   return { ok: true, reason: null }
 }

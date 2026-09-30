@@ -23,6 +23,7 @@ import type { BallotDayDoc } from './ballot'
 import type { MissionDayDoc, MissionLogDoc } from './missionDays'
 import { HOST_UID, requireHost } from './host'
 import { gameRef, nowOf } from './index'
+import { teamName } from '../../shared/rules/bundan'
 
 
 /** QA 몫. secret 아래라 참가자는 못 읽는다. */
@@ -187,10 +188,10 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'dealAnswered': return `${who} 거래 ${d.accept ? '받음' : '물림'}`
     case 'dealCancelled': return `${who} 거래 접음`
     case 'dealSettled': return `${who} ↔ ${name(e.targetId)} 거래 성립${room ? ` (${room})` : ''}`
-    case 'transferAsked': return `${who} → ${name(e.targetId)} 이적 청함 (${String(d.toTeam ?? '')}팀으로)`
-    case 'transferAnswered': return `${who} 이적 ${d.accept ? `수락 · 다음 페이즈부터 ${String(d.team ?? '')}팀` : '거절'}`
+    case 'transferAsked': return `${who} → ${name(e.targetId)} 이적 청함 (${teamName(String(d.toTeam ?? ''))}으로)`
+    case 'transferAnswered': return `${who} 이적 ${d.accept ? `수락 · 다음 페이즈부터 ${teamName(String(d.team ?? ''))}` : '거절'}`
     case 'trapCommissioned': return `${who} 덫 맡김 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.count ?? '')}개`
-    case 'lockPicked': return `${who} 자물쇠 땀${room ? ` (${room})` : ''} · ${String(d.team ?? '')}팀 자물쇠`
+    case 'lockPicked': return `${who} 자물쇠 땀${room ? ` (${room})` : ''} · ${teamName(String(d.team ?? ''))} 자물쇠`
     case 'trapTaken': return `${who} 덫 찾음 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.got ?? '')}개`
     case 'slipScattered': return `운영자 쪽지 뿌림 → ${room}${d.n ? ` · ${String(d.n)}장` : ''}`
     case 'slipPulled': return '운영자 쪽지 회수'
@@ -199,9 +200,9 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'ballotCast': return `${who} 투명인간 표 적음`
     case 'ballotOpen': return `DAY ${e.day} 투명인간 투표 열림`
     case 'ballotClose': return `DAY ${e.day} 투명인간 투표 닫힘`
-    case 'assigned': return `팀 · 미션 배정 · ${String(d.assigned ?? '')}명`
+    case 'assigned': return `분단 · 미션 배정 · ${String(d.assigned ?? '')}명`
     case 'reset': return '판 되돌림 → 로비'
-    case 'seatJoined': return `${who} 앉음${d.team ? ` · ${String(d.team)}팀` : ''}`
+    case 'seatJoined': return `${who} 앉음${d.team ? ` · ${teamName(String(d.team))}` : ''}`
     case 'seatLeft': return `${who} 일어남`
     default: {
       const keys = Object.keys(d)
@@ -225,8 +226,8 @@ function recordText(r: GameRecord, name: (id?: string | null) => string): string
     case 'slipDrop': return `${a} 쪽지 내려놓음${at}`
     case 'researchStart': return `${a} 연구 맡김(만든 로봇 +1)${at}`
     case 'robotBorn': return `${a} 로봇 받음${at}`
-    case 'robotSmashed': return `${a} 로봇 부숨${r.otherTeam ? ` · ${r.otherTeam}팀 것` : ''}${at}`
-    case 'robotGone': return `로봇 사라짐 · ${r.actorTeam}팀`
+    case 'robotSmashed': return `${a} 로봇 부숨${r.otherTeam ? ` · ${teamName(r.otherTeam)} 것` : ''}${at}`
+    case 'robotGone': return `로봇 사라짐 · ${teamName(r.actorTeam)}`
     case 'robotOwner': return `로봇 주인 바뀜 · ${b} → ${a}`
     case 'quizTake': return `${a} 문제 종이 주움${at}`
     case 'quizSolved': return `${a} 문제 맞힘${at}`
@@ -237,7 +238,7 @@ function recordText(r: GameRecord, name: (id?: string | null) => string): string
     case 'errandDone': return `${a} 심부름 끝${at}`
     case 'errandQuit': return `${a} 심부름 그만둠`
     case 'potHarvest': return `${a} 수확 · ${String(r.subjectId ?? '')}${at}`
-    case 'teamMoved': return `${a} 이적 · ${String(r.otherTeam ?? '?')}팀 → ${r.actorTeam}팀`
+    case 'teamMoved': return `${a} 이적 · ${teamName(String(r.otherTeam ?? '?'))} → ${teamName(r.actorTeam)}`
     case 'arcadeDone': return `${a} 오락기 ${String(r.subjectId ?? '')}${b ? ` vs ${b}` : ''}`
     default: return `${a} ${r.kind}`
   }
@@ -250,7 +251,7 @@ function phaseLineText(
 ): string {
   const who = name(l.playerId)
   const room = roomName(l.tileId)
-  const bits = [who, l.kind, room, l.team ? `${l.team}팀` : '', l.targetPlayer ? `→ ${name(l.targetPlayer)}` : '', l.targetRobot ? '로봇' : '', l.why ? `(${l.why})` : '']
+  const bits = [who, l.kind, room, l.team ? `${teamName(l.team)}` : '', l.targetPlayer ? `→ ${name(l.targetPlayer)}` : '', l.targetRobot ? '로봇' : '', l.why ? `(${l.why})` : '']
   return bits.filter(Boolean).join(' ')
 }
 

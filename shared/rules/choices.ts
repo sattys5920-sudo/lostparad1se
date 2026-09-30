@@ -47,9 +47,9 @@ export interface Day4ChoiceSpec {
 }
 
 export const DAY4_CHOICES: readonly Day4ChoiceSpec[] = [
-  { id: 'team', label: '팀을 지킨다', text: '우리 팀이 최종 2위 이내' },
+  { id: 'team', label: '분단을 지킨다', text: '우리 분단이 최종 2위 이내' },
   { id: 'self', label: '나를 지킨다', text: '내 주 미션 달성' },
-  { id: 'chosen', label: '그 사람을 지킨다', text: '중요한 사람의 팀이 1위' },
+  { id: 'chosen', label: '그 사람을 지킨다', text: '중요한 사람의 분단이 1위' },
 ]
 
 export const DAY4_CHOICE_IDS: readonly Day4Choice[] = DAY4_CHOICES.map((c) => c.id)

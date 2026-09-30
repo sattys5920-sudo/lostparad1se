@@ -12,11 +12,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { ROLE_IDS, ROLE_NAMES, type RoleId } from '../../../shared/missions/roleNames'
 import { STARTING_TEAM_SIZES, type TeamId } from '../../../shared/rules/v2'
-import { TEAMS } from '../../../shared/rules/lobby'
 import type { SeatEntry } from '../../../shared/model'
 import { TEAM_COLOR } from '../game/MapPlan'
 import type { GameActions } from '../game/useGame'
 import { Dots } from '../game/Shell'
+import { TEAM_ORDER, teamName } from '../../../shared/rules/bundan'
 
 interface RosterRow {
   playerId: string
@@ -58,13 +58,13 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
     const team = (d?.team || s.team || '') as TeamId | ''
     const roleId = (d?.roleId || cur?.roleId || '') as RoleId | ''
     if (!team || !roleId) {
-      onSaid('팀과 역할을 둘 다 골라야 한다.')
+      onSaid('분단과 역할을 둘 다 골라야 한다.')
       return
     }
     setBusy(s.playerId)
     try {
       await act.hostAssignSeat(s.playerId, team, roleId)
-      onSaid(`${s.name} — ${team}팀 · ${ROLE_NAMES[roleId]}. 그 사람 화면에 학생증이 뜬다.`)
+      onSaid(`${s.name} — ${teamName(team)} · ${ROLE_NAMES[roleId]}. 그 사람 화면에 학생증이 뜬다.`)
       setDraft((x) => {
         const next = { ...x }
         delete next[s.playerId]
@@ -84,10 +84,10 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
         들어온 사람 {seats.length}명 · 배정 {done}명. 누르는 순간 그 사람 화면에 학생증이 뜬다.
       </p>
       <p className="sc-as__teams">
-        {TEAMS.map((t) => (
+        {TEAM_ORDER.map((t) => (
           <span key={t} className={teamCount(t) === STARTING_TEAM_SIZES[t] ? 'is-full' : ''}>
             <i style={{ background: TEAM_COLOR[t] }} aria-hidden />
-            {t} {teamCount(t)}/{STARTING_TEAM_SIZES[t]}
+            {teamName(t)} {teamCount(t)}/{STARTING_TEAM_SIZES[t]}
           </span>
         ))}
       </p>
@@ -107,14 +107,14 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
                 {s.name}
               </b>
               <select
-                aria-label={`${s.name} 팀`}
+                aria-label={`${s.name} 분단`}
                 value={team}
                 onChange={(e) => setDraft((x) => ({ ...x, [s.playerId]: { team: e.target.value as TeamId, roleId } }))}
               >
-                <option value="">팀</option>
-                {TEAMS.map((t) => (
+                <option value="">분단</option>
+                {TEAM_ORDER.map((t) => (
                   <option key={t} value={t} disabled={t !== s.team && teamCount(t) >= STARTING_TEAM_SIZES[t]}>
-                    {t}팀
+                    {teamName(t)}
                   </option>
                 ))}
               </select>

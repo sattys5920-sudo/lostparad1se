@@ -22,6 +22,7 @@ import { Snow } from '../reveal/Snow'
 import { MINIMAP_ON_KEY } from './timing'
 import { Sheet } from './Sheet'
 import type { TeamId, TileId } from '../types'
+import { teamName, teamNo } from '../../../shared/rules/bundan'
 
 const KIND_NAME: Record<string, string> = {
   narrow: '좁은 방',
@@ -551,8 +552,8 @@ export function FullMap({
                 <i className="sc-at__band" style={r.owner ? { background: TEAM_COLOR[r.owner] } : undefined} />
                 {/* 바탕 색만으로 주인을 가르지 않는다. 모서리에 팀 글자 */}
                 {r.owner && (
-                  <b className="sc-at__who" style={{ background: TEAM_COLOR[r.owner] }} aria-label={`${r.owner}팀 방`}>
-                    {r.owner}
+                  <b className="sc-at__who" style={{ background: TEAM_COLOR[r.owner] }} aria-label={`${teamName(r.owner)} 방`}>
+                    {teamNo(r.owner)}
                   </b>
                 )}
                 {label.length > 0 && <span className="sc-at__nm">{label}</span>}
@@ -602,9 +603,9 @@ function RoomSheet({
       <div className="sc-at__sheet">
       <dl>
         <div>
-          <dt>차지한 팀</dt>
+          <dt>차지한 분단</dt>
           <dd className={room.owner === myTeam ? 'is-ours' : undefined}>
-            {room.owner ? `${room.owner}팀` : '없다'}
+            {room.owner ? `${teamName(room.owner)}` : '없다'}
           </dd>
         </div>
         <div>

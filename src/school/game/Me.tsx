@@ -37,6 +37,7 @@ import type { MissionBoard } from '../../../shared/missions/mail'
 import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
 import type { TeamId } from '../types'
 import { buzz } from './Controls'
+import { teamName } from '../../../shared/rules/bundan'
 
 export interface MeProps {
   me: SeatEntry
@@ -375,7 +376,7 @@ export function IdCard({
               />
               <div className="sc-mi__who">
                 <b>{name}</b>
-                <span className="sc-mi__cls">2학년 3반 · {team}팀</span>
+                <span className="sc-mi__cls">2학년 3반 · {teamName(team)}</span>
                 {/* 역할 이름만. 갈래(팀의 길·사람의 길·밖의 길)는 안 적는다 —
                     이름이 이미 그보다 많은 것을 말하고, 갈래까지 붙으면
                     남에게 화면을 한 번 보여 줄 때 넷 중 하나로 좁혀진다 */}

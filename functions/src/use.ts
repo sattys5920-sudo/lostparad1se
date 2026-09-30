@@ -152,7 +152,7 @@ export const useItem = onCall<UseInput>(async (req) => {
       const by = t?.lockedBy ?? null
       // 시각이 지난 자물쇠는 없는 것이다 — 그냥 들어가면 된다. 락픽을 안 문다
       if (!by || (t?.lockUntilMs ?? 0) <= nowMs) throw new HttpsError('failed-precondition', '잠겨 있지 않다.')
-      if (by === team) throw new HttpsError('failed-precondition', '우리 팀 자물쇠다. 그냥 들어가면 된다.')
+      if (by === team) throw new HttpsError('failed-precondition', '우리 분단 자물쇠다. 그냥 들어가면 된다.')
       tx.update(tileRef, { lockedBy: null, lockUntilMs: 0 })
       said = `${TILE_BY_ID[to].name} 자물쇠를 땄다.`
       picked = { team: by as TeamId, tileId: to }

@@ -4,6 +4,7 @@
 // 꺼냈다가 무시당하는 데까지 돈이 들면 아무도 말을 못 꺼낸다.
 import { DEAL_ASK_MS } from '../../../shared/rules/deal'
 import type { TeamId } from '../../../shared/rules/v2'
+import { teamName } from '../../../shared/rules/bundan'
 
 export interface DealAskProps {
   /** 건 사람. 받는 쪽 화면에만 뜬다. */
@@ -21,7 +22,7 @@ export function DealAsk({ fromName, fromTeam, askedAtMs, nowMs, onAnswer }: Deal
     <div className="sc-da">
       <p className="sc-da__who">
         <b>{fromName}</b>
-        <span>{fromTeam}팀</span>
+        <span>{teamName(fromTeam)}</span>
       </p>
       <p className="sc-da__say">거래하자고 한다.</p>
       {/* 남은 시간을 줄로 보인다. 숫자만으로는 급한 줄 모른다 */}

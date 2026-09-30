@@ -298,7 +298,7 @@ describe('호출', () => {
     const s = board({ people: [person('a', 'A', 'baseA'), person('b', 'B', 'classroom')] })
     const out = doAct(s, 'a', { kind: 'summon', targetPlayer: 'b' })
     expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('같은 팀')
+    if (!out.ok) expect(out.why).toContain('같은 분단')
   })
 
   it('이미 같은 방이면 부를 것이 없다', () => {
@@ -534,7 +534,7 @@ describe('연구', () => {
     expect(robotsOfTeam(s, 'A')).toBe(ROBOTS_PER_TEAM)
     const out = doAct(s, 'a', { kind: 'research' })
     expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('팀당')
+    if (!out.ok) expect(out.why).toContain('한 분단에')
     // 거절된 행동은 토큰을 먹지 않는다
     expect(purse(s, 'A')).toBe(TOKENS_PER_PHASE)
   })
@@ -959,7 +959,7 @@ describe('토큰은 팀이 한 주머니를 나눠 쓴다', () => {
     expect(purse(s2, 'A')).toBe(0)
     const out = doAct(s2, 'a2', { kind: 'move', targetTile: 'gym' })
     expect(out.ok).toBe(false)
-    if (!out.ok) expect(out.why).toContain('팀 토큰')
+    if (!out.ok) expect(out.why).toContain('분단 토큰')
   })
 
   it('남의 팀 상자는 안 건드린다', () => {
