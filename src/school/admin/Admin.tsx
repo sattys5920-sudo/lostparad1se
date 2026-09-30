@@ -282,6 +282,10 @@ function Desk() {
               {game && <LobbyStageDesk game={game} act={act} onSaid={setSaid} />}
             </section>
             <section className="sc-ad__sec">
+              <h2>배경음악</h2>
+              {game && <BgmDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+            <section className="sc-ad__sec">
               <h2>배정</h2>
               <AssignDesk seats={seats} act={act} onSaid={setSaid} />
             </section>

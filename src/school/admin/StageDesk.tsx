@@ -9,6 +9,7 @@ import { useState } from 'react'
 
 import type { GameDoc } from '../../../shared/model'
 import type { GameActions } from '../game/useGame'
+import { BGM_TRACKS, bgmDay } from '../game/bgm'
 
 export function LobbyStageDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions; onSaid: (t: string) => void }) {
   const [busy, setBusy] = useState(false)
@@ -71,7 +72,6 @@ export function TabLockDesk({ game, act, onSaid }: { game: GameDoc; act: GameAct
   )
 }
 
-const TRACK_NAME: Record<number, string> = { 1: '그라나도 에스파다', 2: 'Says', 3: 'Tango', 4: 'Minority' }
 
 /** 배경음악. **틀면 꺼 둔 사람도 다시 켜진다.** 끄면 모두 꺼진다 */
 export function BgmDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions; onSaid: (t: string) => void }) {
@@ -97,7 +97,7 @@ export function BgmDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions
         끄기
       </button>
       <span className="sc-ad__hint">
-        지금: {on ? '틀어 두었다' : '꺼 두었다'} · DAY {game.day} 곡 {TRACK_NAME[game.day] ?? '없음'}. 틀면 꺼 둔 사람도 다시 켜진다.
+        지금: {on ? '틀어 두었다' : '꺼 두었다'} · {BGM_TRACKS[bgmDay(game.phase, game.day)]?.name ?? '없음'}. 틀면 꺼 둔 사람도 다시 켜진다.
       </span>
     </div>
   )

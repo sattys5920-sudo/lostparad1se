@@ -20,6 +20,16 @@ export const BGM_TRACKS: Readonly<Record<number, { src: string; name: string }>>
   4: { src: '/bgm/day4.mp3', name: 'Minority' },
 }
 
+/**
+ * 지금 틀 곡의 날. 시작 전 로비는 DAY 1 곡, 끝난 뒤(엔딩)는 DAY 4 곡을
+ * 이어서 튼다. 판이 도는 동안은 그날 곡이다
+ */
+export function bgmDay(phase: string | undefined, day: number): number {
+  if (phase === 'lobby') return 1
+  if (phase === 'finished') return 4
+  return Math.min(4, Math.max(1, day))
+}
+
 const VOLUME = 0.45
 const KEY = 'sc.bgm.mutedAt'
 
@@ -83,7 +93,7 @@ function waitForTouch() {
   window.addEventListener('keydown', go, { once: true })
 }
 
-/** 판이 도는 동안 부른다. 판 · 날 · 감독관 스위치를 음악에 알린다 */
+/** 판이 있는 동안 부른다(로비 · 진행 · 엔딩). 판 · 날 · 감독관 스위치를 음악에 알린다 */
 export function useBgm(gameId: string, day: number, bgm: { on: boolean; atMs: number } | undefined, running: boolean) {
   const hostOn = running && (bgm?.on ?? true)
   const hostAt = bgm?.atMs ?? 0
