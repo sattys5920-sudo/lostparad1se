@@ -39,6 +39,8 @@ export interface AccountSummary {
   face: boolean
   /** 지금 돌고 있는 판에 앉아 있는가. 지우기 전에 알아야 한다 */
   playing: boolean
+  /** 만든 캐릭터. 안 만들었으면 null */
+  avatar: AvatarLook | null
 }
 
 interface AccountDoc {
@@ -227,8 +229,9 @@ export async function markPrologueSeen(): Promise<void> {
  * 소금·해시는 안 나온다. 다른 문서에 있고 그쪽은 서버만 읽는다.
  */
 export async function listAccounts(): Promise<{ rows: AccountSummary[]; me: string }> {
-  const reply = await callServer<{ rows: AccountSummary[]; me: string }>('hostAccounts', {})
-  return { rows: reply.rows ?? [], me: reply.me ?? '' }
+  const reply = await callServer<{ rows: (Omit<AccountSummary, 'avatar'> & { avatar?: unknown })[]; me: string }>('hostAccounts', {})
+  const rows = (reply.rows ?? []).map((r) => ({ ...r, avatar: r.avatar ? normalizeLook(r.avatar) : null }))
+  return { rows, me: reply.me ?? '' }
 }
 
 /**

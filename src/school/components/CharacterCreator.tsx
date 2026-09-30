@@ -77,7 +77,7 @@ interface Crop {
  * 도트 스프라이트 한 장. 정수 배율로만 키우고 뭉개지지 않게 한다.
  * crop을 주면 그 부분만 잘라 그린다.
  */
-function Sprite({
+export function Sprite({
   look,
   team,
   dir = 'down',

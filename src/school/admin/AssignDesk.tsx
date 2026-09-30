@@ -17,6 +17,9 @@ import { TEAM_COLOR } from '../game/MapPlan'
 import type { GameActions } from '../game/useGame'
 import { Dots } from '../game/Shell'
 import { TEAM_ORDER, teamName } from '../../../shared/rules/bundan'
+import { normalizeLook } from '../char/look'
+import type { AvatarLook } from '../../../shared/look'
+import { AvatarPeek, FaceChip } from './AvatarPeek'
 
 interface RosterRow {
   playerId: string
@@ -37,6 +40,8 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
       .catch((e) => onSaid((e as Error).message))
   }, [act, onSaid])
   // 자리가 바뀌면(누가 들어오고 나가면) 다시 묻는다
+  /** 크게 보는 얼굴 */
+  const [peek, setPeek] = useState<{ look: AvatarLook; name: string } | null>(null)
   const seatKey = seats.map((s) => `${s.playerId}:${s.dealtAtMs ?? 0}`).join(',')
   useEffect(load, [load, seatKey])
 
@@ -98,6 +103,7 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
 
   return (
     <div className="sc-as">
+      {peek && <AvatarPeek look={peek.look} title={peek.name} onClose={() => setPeek(null)} />}
       <p className="sc-ad__hint">
         들어온 사람 {seats.length} 명 · 배정 {done} 명. 누르는 순간 그 사람 화면에 학생증이 뜬다.
       </p>
@@ -122,6 +128,13 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
             <li key={s.playerId} className={dealt ? 'is-dealt' : ''}>
               <b className="sc-as__name">
                 <i style={{ background: s.team ? TEAM_COLOR[s.team] : 'transparent' }} aria-hidden />
+                {s.look && (
+                  <FaceChip
+                    look={normalizeLook(s.look)}
+                    label={s.name}
+                    onOpen={() => setPeek({ look: normalizeLook(s.look), name: s.name })}
+                  />
+                )}
                 {s.name}
               </b>
               <select

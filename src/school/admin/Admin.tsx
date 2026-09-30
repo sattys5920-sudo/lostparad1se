@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { deleteAccounts, listAccounts, logOut, type AccountSummary } from '../accounts'
+import { AvatarPeek, FaceChip } from './AvatarPeek'
 import { gameActions, useGame } from '../game/useGame'
 import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
@@ -558,6 +559,8 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [asked, setAsked] = useState(false)
   const [busy, setBusy] = useState(false)
+  /** 크게 보는 사람 */
+  const [peek, setPeek] = useState<AccountSummary | null>(null)
 
   const [at, setAt] = useState<number | null>(null)
   const load = useCallback(() => {
@@ -621,13 +624,21 @@ function Signups({ onSaid }: { onSaid: (t: string) => void }) {
 
   return (
     <>
+      {peek?.avatar && (
+        <AvatarPeek look={peek.avatar} title={`${peek.nickname || '(이름 없음)'} · ${peek.id}`} onClose={() => setPeek(null)} />
+      )}
       <p className="sc-ad__hint">
-        {rows.length} 명이 가입했다.
+        {rows.length} 명이 가입했다. 얼굴을 누르면 크게 본다.
         {at !== null && ` · ${new Date(at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}에 받음 · 10 초마다 다시 받는다`}
       </p>
       <ul className="sc-ad__accounts">
         {rows.map((r) => (
           <li key={r.id}>
+            {r.avatar ? (
+              <FaceChip look={r.avatar} label={r.nickname || r.id} onOpen={() => setPeek(r)} />
+            ) : (
+              <span className="sc-ad__faceChip is-none" aria-hidden />
+            )}
             <label>
               {/* 제 계정은 못 고른다. 골라 봐야 서버가 거절한다 */}
               <input

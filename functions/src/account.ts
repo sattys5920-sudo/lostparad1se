@@ -379,6 +379,8 @@ export const hostAccounts = onCall(async (req) => {
       nickname: typeof r.nickname === 'string' ? r.nickname : '',
       createdAtMs: typeof r.createdAtMs === 'number' ? r.createdAtMs : 0,
       face: r.avatar != null,
+      // 운영자가 누가 어떻게 생겼는지 본다. 그림은 화면이 번호로 다시 그린다
+      avatar: r.avatar ?? null,
       playing: seated.has(uid),
     }
   })

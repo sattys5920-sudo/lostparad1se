@@ -1169,3 +1169,50 @@
 .sc-an-desk__who span { opacity: 0.75; font-size: 0.9em; }
 .sc-an-desk__ans { margin: 4px 0 8px; padding-left: 20px; font-size: 0.9em; }
 
+/* ── 가입 목록의 얼굴 ── */
+.sc-ad button.sc-ad__faceChip,
+.sc-ad__faceChip {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: 0;
+  background: var(--sc-bg-2);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.sc-ad__faceChip.is-none { border-style: dashed; cursor: default; }
+
+/* 크게 보기 — 화면을 덮는 한 장 */
+.sc-ad__peek {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 8, 14, 0.72);
+}
+.sc-ad__peekBox {
+  width: min(420px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4, 16px);
+  border: 1px solid var(--sc-line);
+  background: var(--bg-1);
+}
+.sc-ad__peekBox h3 { margin: 0; font-size: var(--fs-label); }
+.sc-ad__peekDirs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
+.sc-ad__peekDirs figure { margin: 0; display: grid; justify-items: center; gap: 4px; background: var(--bg-2); padding: var(--sp-2) 0; }
+.sc-ad__peekDirs canvas { max-width: 100%; height: auto !important; }
+.sc-ad__peekDirs figcaption { font-size: var(--fs-cap); color: var(--sc-text-dim); }
+.sc-ad__peekList { margin: 0; display: grid; gap: 4px; }
+.sc-ad__peekList div { display: grid; grid-template-columns: 72px 1fr; gap: var(--sp-2); font-size: var(--fs-label); }
+.sc-ad__peekList dt { color: var(--sc-text-dim); }
+.sc-ad__peekList dd { margin: 0; }
