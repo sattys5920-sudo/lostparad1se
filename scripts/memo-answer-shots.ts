@@ -172,11 +172,11 @@ async function main() {
 
   await must('hostOpenAnswers', host, { gameId: game, open: true })
   await pl.waitForSelector('.sc-ans', { timeout: 15000 }).catch(() => bad.push('답안지가 안 떴다'))
-  // 메모를 읽고 낸 답안을 묻는 두 번의 왕복 뒤에 칸이 채워진다
-  await pl.waitForFunction(() => document.querySelectorAll('.sc-ans__list select')[1]?.value !== '', undefined, { timeout: 15000 }).catch(() => undefined)
+  // 메모는 답안지로 안 넘어간다 — 칸은 비어서 뜬다
+  await pl.waitForTimeout(3000)
   await pl.screenshot({ path: `${OUT}/5-답안지.png` })
   const first = await pl.locator('.sc-ans__list select').nth(1).inputValue().catch(() => '')
-  if (first !== 'classlead') bad.push(`메모의 짐작이 답안지에 안 옮겨졌다: ${first}`)
+  if (first !== '') bad.push(`메모의 짐작이 답안지로 넘어왔다: ${first}`)
   await pl.locator('.sc-ans__send').click()
   await pl.waitForTimeout(1500)
 

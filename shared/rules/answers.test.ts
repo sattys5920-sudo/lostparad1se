@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { cleanAnswers, gradeSheet, guessToRole, scoreOf } from './answers'
+import { cleanAnswers, gradeSheet, scoreOf } from './answers'
 
 describe('답안지 채점', () => {
   it('열네 문항 — 다 맞히면 100, 하나 맞히면 7.1', () => {
@@ -22,19 +22,3 @@ describe('답안지 채점', () => {
   })
 })
 
-describe('메모에 적은 역할 짐작', () => {
-  it('역할 이름과 같으면 id 로 — 띄어쓰기는 안 본다', () => {
-    expect(guessToRole('반장')).toBe('classlead')
-    expect(guessToRole(' 반 장 ')).toBe('classlead')
-  })
-
-  it('전에 고르던 때 저장된 id 도 받는다', () => {
-    expect(guessToRole('classlead')).toBe('classlead')
-  })
-
-  it('이름이 아닌 글은 칸을 채우지 않는다', () => {
-    expect(guessToRole('반장 같음?')).toBeNull()
-    expect(guessToRole('')).toBeNull()
-    expect(guessToRole(undefined)).toBeNull()
-  })
-})

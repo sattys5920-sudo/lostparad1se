@@ -5,7 +5,7 @@
 // 누르면 정답과 점수가 모두에게 간다.
 //
 // **한 문항은 100 ÷ 문항 수.** 열넷이면 한 문항이 약 7.1 점이다.
-import { ROLE_IDS, ROLE_NAMES, canonRoleId, type RoleId } from '../missions/roleNames'
+import { ROLE_IDS, canonRoleId, type RoleId } from '../missions/roleNames'
 
 /** 점수를 소수 첫째 자리까지. 열네 문항 다 맞히면 100 이다 */
 export function scoreOf(correct: number, total: number): number {
@@ -27,22 +27,6 @@ export function gradeSheet(
 
 /** 드롭다운에 쓰는 역할 목록 */
 export const ANSWER_ROLES: readonly RoleId[] = ROLE_IDS
-
-/**
- * 메모 탭에 적어 둔 짐작을 역할 id 로. 답안지 칸을 미리 채울 때 쓴다.
- *
- * 메모는 고르지 않고 글로 적는다 — 고르는 목록을 보이면 어떤 역할이 있는지
- * 새어 나간다. 그래서 적은 글이 역할 이름과 같을 때만 id 로 옮긴다.
- * 띄어쓰기는 안 본다. 전에 고르던 때 저장된 id 도 받아 준다.
- */
-export function guessToRole(text: string | null | undefined): RoleId | null {
-  if (!text) return null
-  const id = canonRoleId(text)
-  if (id) return id
-  const want = text.replace(/\s+/g, '')
-  if (!want) return null
-  return ANSWER_ROLES.find((r) => ROLE_NAMES[r].replace(/\s+/g, '') === want) ?? null
-}
 
 /** 받은 답안을 정리한다. 명단에 없는 사람 · 없는 역할은 버린다 */
 export function cleanAnswers(raw: unknown, people: readonly string[]): Record<string, RoleId> {

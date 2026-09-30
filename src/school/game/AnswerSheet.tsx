@@ -4,15 +4,14 @@
 // 열넷 한 사람 한 사람 옆에 역할을 고르고 낸다. 채점 전까지는 고쳐 낸다.
 // 감독관이 「채점하기」를 누르면 정답과 점수가 뜬다(AnswerResult).
 //
-// 메모 탭에 적어 둔 추측이 역할 이름과 똑같으면 그것으로 칸을 미리 채운다.
-// 메모는 글로 적으므로(고르는 목록을 보이면 역할이 새므로) 이름을 맞춰 본다.
+// **메모 탭은 끌어오지 않는다.** 칸은 비어서 뜨고, 전에 낸 답안이 있으면
+// 그것만 다시 채운다.
 import { useEffect, useMemo, useState } from 'react'
 
 import type { GameDoc } from '../../../shared/model'
 import { ROLE_NAMES, canonRoleId, type RoleId } from '../../../shared/missions/roleNames'
-import { ANSWER_ROLES, guessToRole } from '../../../shared/rules/answers'
+import { ANSWER_ROLES } from '../../../shared/rules/answers'
 import type { GameActions } from './useGame'
-import { loadNote } from '../reveal/notesSync'
 import './answerSheet.css'
 
 const roleLabel = (id: string | null | undefined): string => {
@@ -30,31 +29,20 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState('')
 
-  // 열릴 때마다 한 번 — 낸 것이 있으면 그것, 없으면 메모 탭의 추측
+  // 열릴 때마다 한 번 — 전에 낸 것이 있으면 그것, 없으면 빈칸
   useEffect(() => {
     if (openAt === null) return
     setHidden(false)
     let live = true
     void (async () => {
-      const guess: Record<string, string> = {}
-      try {
-        const note = await loadNote(gameId, uid)
-        for (const [pid, text] of Object.entries(note?.roleGuess ?? {})) {
-          const r = guessToRole(text)
-          if (r) guess[pid] = r
-        }
-      } catch {
-        // 메모를 못 읽어도 답안지는 뜬다
-      }
       try {
         const mine = (await act.myAnswers()) as { answers?: Record<string, string>; atMs?: number | null }
         if (!live) return
-        const sent = mine.answers ?? {}
-        setPicks({ ...guess, ...sent })
+        setPicks(mine.answers ?? {})
         setSentAt(mine.atMs ?? null)
         setDirty(false)
       } catch {
-        if (live) setPicks(guess)
+        if (live) setPicks({})
       }
     })()
     return () => {
