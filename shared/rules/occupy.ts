@@ -252,9 +252,12 @@ export interface Robot {
 /** 방에 놓인 로봇인가 — 판정 · 방 한도 · 남에게 보이는 것은 이것만이다 */
 export const isPlaced = (r: Pick<Robot, 'carriedBy'>): boolean => r.carriedBy === null
 
-/** 이 사람이 이 로봇을 도로 거둘 수 있는가. 놓은 사람만(옛 판은 같은 팀) */
+/**
+ * 이 사람이 이 로봇을 도로 거둘 수 있는가. **지금 우리 분단 로봇이고, 놓은 사람만**
+ * (옛 판은 같은 팀 누구나). 이적해 간 사람은 옛 분단에 놓고 온 로봇을 못 걷어 간다
+ */
 export const canCollectRobot = (r: Pick<Robot, 'carriedBy' | 'team' | 'placedBy'>, playerId: string, team: TeamId): boolean =>
-  isPlaced(r) && (r.placedBy ? r.placedBy === playerId : r.team === team)
+  isPlaced(r) && r.team === team && (r.placedBy ? r.placedBy === playerId : true)
 
 /**
  * 걸어 둔 연구 한 건.

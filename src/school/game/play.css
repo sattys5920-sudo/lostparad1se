@@ -2419,9 +2419,7 @@
 
 /* ── 엔딩 — 운영자가 적은 한 편 ────────────────────────────── */
 .sc-en {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
+  /* 화면을 덮지 않는다 — 덮으면 아래 탭바(회고 · 판정)가 가려져 못 누른다 */
   display: grid;
   place-items: center;
   padding: var(--sp-6) var(--sp-4);
@@ -2463,3 +2461,5 @@
 
 /* 바닥에서 읽은 메모 — 시트에 한 장. 종이는 바닥에 그대로 있다 */
 .sc-fr__line { font-size: var(--fs-body); line-height: 1.6; white-space: pre-wrap; word-break: keep-all; }
+
+.sc-en__wait { margin: 0; max-width: 22em; text-align: center; font-size: var(--fs-body); line-height: 1.6; color: var(--text-2); }

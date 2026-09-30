@@ -262,6 +262,10 @@ async function main(): Promise<void> {
     const liveR = await getDoc(`games/${GAME}/live/${P(0).uid}`, asPlayer(P(1).token))
     check(liveW.ok && liveR.status === 200 && Number(liveR.d?.x) === c0.x, '시작 전 교실 안 자리는 live/{uid} 에 직접 적고, 남도 읽는다(규칙)', `write ${liveW.status} · read ${liveR.status}`)
 
+    // 시작 전 대화는 감독관이 풀어야 된다(잠금 → 대화)
+    const muted = await call('say', P(0).token, { gameId: GAME, text: '잠긴 채 한마디' })
+    check(!muted.ok && korean(muted.message), '감독관이 풀기 전에는 say 가 거절된다', `${muted.code} ${muted.message}`)
+    await must('hostSetLobbyStage', host, { gameId: GAME, stage: 'talk' })
     const said = await call('say', P(0).token, { gameId: GAME, text: '시작 전 한마디' })
     const heard = await call('chatLines', P(1).token, { gameId: GAME, sinceMs: 0 })
     const lines = (heard.data?.lines as { text: string; playerId: string }[]) ?? []

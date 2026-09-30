@@ -175,6 +175,8 @@ async function main(): Promise<void> {
   console.log('\n── 시작 ──')
   check((await call('startGame', players[1].token, { gameId: GAME })).code === 'PERMISSION_DENIED', '운영자가 아니면 시작 못 한다')
   const startAtMs = Date.UTC(2026, 2, 1, 23, 0, 0) // DAY 1 08:00 KST
+  // 시작 전에 감독관이 열넷의 분단·역할을 나눈다
+  check((await call('assignAll', hostToken, { gameId: GAME })).ok, '감독관이 열넷을 배정한다')
   const started = await call('startGame', hostToken, { gameId: GAME, startAtMs })
   check(started.ok, '운영자가 시작한다', started.message ?? '')
   check((await call('startGame', hostToken, { gameId: GAME })).code === 'FAILED_PRECONDITION', '두 번 시작 못 한다')
@@ -215,7 +217,7 @@ async function main(): Promise<void> {
   const teams = await listDocs(`games/${GAME}/teams`)
   check(teams.length === 4, '팀 문서 넷')
 
-  // 아침 넷(DAY 2~5) + 정산 다섯 + 마지막 여섯 시간 하나 + 끝 하나
+  // 나흘 — 아침 셋(DAY 2~4) + 정산 넷 + 마지막 여섯 시간 하나 + 끝 하나
   const schedule = await listDocs(`games/${GAME}/schedule`)
   const kinds: Record<string, number> = {}
   for (const id of schedule) {
@@ -225,8 +227,8 @@ async function main(): Promise<void> {
     check((d?.doneAtMs as { nullValue?: null })?.nullValue === null, `${k}은 아직 안 밀렸다`)
   }
   check(
-    kinds.dayStart === 4 && kinds.settlement === 5 && kinds.lastHours === 1 && kinds.gameEnd === 1,
-    '정시 이벤트가 아침 4 · 정산 5 · 마지막 6시간 1 · 끝 1',
+    kinds.dayStart === 3 && kinds.settlement === 4 && kinds.lastHours === 1 && kinds.gameEnd === 1,
+    '정시 이벤트가 아침 3 · 정산 4 · 마지막 6시간 1 · 끝 1',
     JSON.stringify(kinds),
   )
 

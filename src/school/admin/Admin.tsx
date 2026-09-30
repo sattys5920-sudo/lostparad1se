@@ -191,8 +191,9 @@ function Desk() {
   }, [act, phaseName, dayNow, said])
 
   // 판이 돌기 전에는 진행·놓기 탭에 할 것이 없다. 관리로 보낸다
+  // 판이 서면 진행으로 돌아온다 — 관리에 남아 있으면 「되돌리기」 옆에 떨어진다
   useEffect(() => {
-    if (!running) setTab('manage')
+    setTab(running ? 'go' : 'manage')
   }, [running])
 
   const phaseNo = game?.phaseNow?.no ?? 0
@@ -286,6 +287,10 @@ function Desk() {
               {game && <BgmDesk game={game} act={act} onSaid={setSaid} />}
             </section>
             <section className="sc-ad__sec">
+              <h2>탭 잠금 — 시작하기 전에 미리</h2>
+              {game && <TabLockDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+            <section className="sc-ad__sec">
               <h2>배정</h2>
               <AssignDesk seats={seats} act={act} onSaid={setSaid} />
             </section>
@@ -343,9 +348,9 @@ function Desk() {
                   닫고 처리
                   <span>{phaseLeft ?? '진행 중'}</span>
                 </button>
-              : <button className="is-primary" disabled={busy} onClick={() => void run('열기', () => act.openPhase())}>
+              : <button className="is-primary" disabled={busy || game?.phase !== 'running'} onClick={() => void run('열기', () => act.openPhase())}>
                   페이즈 열기
-                  <span>한 시간</span>
+                  <span>{game?.phase === 'finished' ? '판이 끝났다' : '한 시간'}</span>
                 </button>
               }
             </section>
@@ -359,7 +364,7 @@ function Desk() {
                 끝나는 것도 여기서 민다.
               */}
               <button
-                disabled={busy || nextUp === null}
+                disabled={busy || nextUp === null || phaseOpen}
                 onClick={() =>
                   void run(nextUp ? (CALENDAR[nextUp.kind] ?? '넘기기') : '넘기기', async () => {
                     const r = (await act.pushDay()) as { next?: { kind: string; day: number } | null }
@@ -370,6 +375,7 @@ function Desk() {
               >
                 {nextUp ? `다음 — DAY ${nextUp.day} · ${CALENDAR[nextUp.kind] ?? nextUp.kind}` : '더 넘길 것이 없다'}
               </button>
+              {phaseOpen && <p className="sc-ad__hint">점령전을 먼저 닫아야 달력을 넘긴다.</p>}
             </section>
 
             <section className="sc-ad__sec">
@@ -395,6 +401,11 @@ function Desk() {
             <section className="sc-ad__sec">
               <h2>답안지 — 역할 맞히기</h2>
               {game && <AnswerDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+
+            <section className="sc-ad__sec">
+              <h2>엔딩</h2>
+              <EndingDesk act={act} onSaid={setSaid} />
             </section>
 
             <section className="sc-ad__sec">

@@ -216,6 +216,9 @@ async function main(): Promise<void> {
   // 않는다 — 걸리면 그 페이즈를 통째로 길에서 버리게 된다
   const opened = await must('openPhase', host, { gameId: GAME })
   check(opened.no === 1, '첫 페이즈가 열렸다', `${opened.no}번`)
+  // 점령전이 열려 있는 동안 달력은 안 넘어간다
+  const pushedMid = await call('pushDay', host, { gameId: GAME })
+  check(!pushedMid.ok && pushedMid.code === 'FAILED_PRECONDITION', '점령전 중에는 달력을 못 넘긴다', `${pushedMid.code} ${pushedMid.message}`)
   now = (await pawnsNow())[a0.uid]
   // 되돌아가는 이동은 없다 — 연구실까지 갔으면 연구실에서 한 시간을 시작한다
   check(now.tileId === 'labRoom', '멀리 있던 사람이 **그 자리에서** 시작한다', String(now.tileId))

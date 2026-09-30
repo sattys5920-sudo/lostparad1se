@@ -17,7 +17,6 @@ import {
   type TransferState,
 } from '../../shared/rules/transfer'
 import { cellsTouch } from '../../shared/rules/board'
-import { dayNumber } from '../../shared/rules/clock'
 import { sys } from '../../shared/rules/radio'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
@@ -33,11 +32,6 @@ import { teamName } from '../../shared/rules/bundan'
 const db = getFirestore()
 
 const asksOf = (gameId: string) => gameRef(gameId).collection('transfers')
-
-/** 게임 속 며칠째인가. 시작 전이면 0일이라 아무것도 못 꺼낸다. */
-function dayOf(game: GameDoc, nowMs: number): number {
-  return game.startedAtMs == null ? 0 : dayNumber(game.startedAtMs, nowMs)
-}
 
 /** 아직 답을 기다리는 제안. 시간이 지난 것은 없는 것으로 친다. */
 async function liveAskOf(gameId: string, uid: string, nowMs: number): Promise<boolean> {
@@ -74,7 +68,7 @@ export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async 
   const fromTeamSize = pawns.docs.filter((d) => (d.data() as PawnDoc).team === their.team).length
 
   const no = whyNotTransfer({
-    day: dayOf(game, nowMs),
+    day: game.day,
     phaseOpen: game.phaseNow?.open === true,
     byId: uid,
     byTeam: mine.team,
@@ -117,7 +111,11 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   const gRef = gameRef(gameId)
 
   const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | null>(async (tx) => {
-    const [snap, gSnap] = await Promise.all([tx.get(ref), tx.get(gRef)])
+    const [snap, gSnap, carried] = await Promise.all([
+      tx.get(ref),
+      tx.get(gRef),
+      tx.get(gRef.collection('robots').where('carriedBy', '==', uid)),
+    ])
     if (!snap.exists) throw new HttpsError('not-found', '그런 제안이 없다.')
     const ask = snap.data() as TransferState
     if (ask.toId !== uid) throw new HttpsError('permission-denied', '불린 사람만 답한다.')
@@ -141,6 +139,8 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
     tx.update(gRef, { seats: gd.seats.map((s) => (s.playerId === uid ? { ...s, team: ask.byTeam } : s)) })
     tx.update(gRef.collection('pawns').doc(uid), { team: ask.byTeam, teamSinceMs: nowMs })
     tx.update(gRef.collection('secret').doc('roster').collection('items').doc(uid), { team: ask.byTeam })
+    // **들고 있던 로봇도 사람을 따라간다** — 새 분단 로봇이 된다
+    for (const r of carried.docs) tx.update(r.ref, { team: ask.byTeam })
     // 두 팀 무전에만 적힌다. 공지는 없다 — 마주쳐야 안다
     sysLine(tx, gameId, ask.fromTeam, sys.movedOut(seat?.name ?? '', ask.byTeam), nowMs, game.day)
     sysLine(tx, gameId, ask.byTeam, sys.movedIn(seat?.name ?? ''), nowMs, game.day)

@@ -128,10 +128,12 @@ async function main(): Promise<void> {
   const seatVals = ((g?.seats ?? {}) as { arrayValue?: { values?: unknown[] } }).arrayValue?.values ?? []
   check(seatVals.length === TOTAL_SEATS, '자리 열넷이 남았다', `${seatVals.length}자리`)
 
-  for (const sub of ['pawns', 'tiles', 'teams', 'schedule', 'events', 'views']) {
+  for (const sub of ['pawns', 'tiles', 'teams', 'schedule', 'views']) {
     const n = await count(`games/${GAME}/${sub}`)
     check(n === 0, `${sub} 가 비었다`, `${n}개`)
   }
+  // 기록은 비운 뒤 「되돌렸다」 한 줄만 남는다
+  check((await count(`games/${GAME}/events`)) === 1, 'events 는 되돌린 기록 한 줄만 남았다', `${await count(`games/${GAME}/events`)}개`)
   // 비밀 문서도 같이 지워진다. 남으면 지난 판의 역할이 새 판에 붙는다
   check((await count(`games/${GAME}/secret/roster/items`)) === 0, '지난 판의 역할이 안 남았다')
   check((await count(`games/${GAME}/secret/tokens/items`)) === 0, '지난 판의 토큰 상자가 안 남았다')
@@ -144,7 +146,8 @@ async function main(): Promise<void> {
   check(str(g?.phase) === 'running', '다시 돈다', str(g?.phase))
   check(num(g?.day) === 1, 'DAY 1 부터다', String(num(g?.day)))
   check((await count(`games/${GAME}/pawns`)) === TOTAL_SEATS, '말 열넷이 다시 섰다')
-  check((await count(`games/${GAME}/schedule`)) === 11, '달력 열한 칸이 새로 깔렸다', `${await count(`games/${GAME}/schedule`)}칸`)
+  // 나흘 — 아침 셋 · 정산 넷 · 마지막 여섯 시간 하나 · 끝 하나
+  check((await count(`games/${GAME}/schedule`)) === 9, '달력 아홉 칸이 새로 깔렸다', `${await count(`games/${GAME}/schedule`)}칸`)
 
   const peek = (await call('peekDay', host, { gameId: GAME })).next as { kind: string; day: number } | null
   check(peek?.kind === 'settlement' && peek.day === 1, '다음에 넘길 것은 DAY 1 정산이다', `${peek?.kind} ${peek?.day}`)

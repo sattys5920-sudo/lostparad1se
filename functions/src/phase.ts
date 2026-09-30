@@ -608,6 +608,11 @@ export const phaseAct = onCall<{
      */
     const mineDoc = pawns.docs.find((d) => d.id === uid)
     if (mineDoc) requireFree(mineDoc.data() as PawnDoc, nowMs)
+    // **덫에 걸렸거나 하던 일이 있는 사람은 불러낼 수 없다.** 호루라기가 덫을 푸는 길이 되면 안 된다
+    if (kind === 'summon' && act.targetPlayer) {
+      const theirs = pawns.docs.find((d) => d.id === act.targetPlayer)?.data() as PawnDoc | undefined
+      if (theirs && (theirs.busyUntilMs ?? 0) > nowMs) throw new HttpsError('failed-precondition', '그 사람은 지금 움직일 수 없다.')
+    }
 
     const out = doAct(before, uid, act)
     if (!out.ok) throw new HttpsError('failed-precondition', out.why)
@@ -873,6 +878,16 @@ export const closePhase = onCall<{ gameId: string }>(async (req) => {
  */
 export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number) {
   if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '열린 페이즈가 없다.')
+  // **한 번만 닫는다.** 끝 시각 직후에 두 요청이 함께 들어와도 먼저 적은 쪽만
+  // 판정한다 — 둘 다 닫으면 무전 줄이 두 번 적히고 기록이 빈 채로 덮인다
+  const claimNo = game.phaseNow.no
+  const won = await db.runTransaction(async (tx) => {
+    const g = (await tx.get(gameRef(gameId))).data() as (GameDoc & { closingNo?: number }) | undefined
+    if (!g?.phaseNow?.open || g.phaseNow.no !== claimNo || g.closingNo === claimNo) return false
+    tx.update(gameRef(gameId), { closingNo: claimNo })
+    return true
+  })
+  if (!won) return { no: claimNo, captured: 0, lines: 0, alreadyClosed: true }
 
   const { state } = await loadBoard(gameId)
   const out = settle(state)

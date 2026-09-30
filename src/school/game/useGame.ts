@@ -449,6 +449,8 @@ export function gameActions(gameId: string) {
     /** 운영자 — 한 사람에게 팀과 역할을 정한다. 그 사람 화면에 학생증이 뜬다 */
     hostAssignSeat: (playerId: string, team: string, roleId: string) =>
       callServer('hostAssignSeat', { ...g, playerId, team, roleId }),
+    /** 한 사람의 배정을 푼다 — 분단 · 역할을 비운다 */
+    hostUnassignSeat: (playerId: string) => callServer('hostUnassignSeat', { ...g, playerId }),
     /** 운영자 — 누가 어느 팀 · 어느 역할인가 */
     hostRoster: () => callServer('hostRoster', { ...g }),
     // 시각을 안 보낸다 — 서버가 판의 시계(개발용 배속 포함)로 적는다. 기기 시계를 보내면 배속 판에서 시작 시각이 어긋난다

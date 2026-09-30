@@ -767,6 +767,10 @@ describe('로봇 수거 — 놓은 사람만', () => {
     expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a', 'A')).toBe(true)
     expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a2', 'A')).toBe(false)
   })
+
+  it('canCollectRobot — 이적해 간 사람은 옛 분단에 놓고 온 로봇을 못 걷는다', () => {
+    expect(canCollectRobot(placed('r', 'A', 'storage', 'a'), 'a', 'B')).toBe(false)
+  })
 })
 
 describe('점령해도 드나드는 것은 못 막는다', () => {

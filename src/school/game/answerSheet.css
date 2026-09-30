@@ -103,7 +103,8 @@
   position: fixed;
   z-index: 79;
   right: var(--sp-3);
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  /* 위쪽에 둔다. 아래는 조작부와 탭바 자리라 가린다 */
+  top: calc(var(--sp-3) + 64px + env(safe-area-inset-top, 0px));
   min-height: var(--hit);
   padding: 0 var(--sp-3);
   border: 1px solid var(--ink);

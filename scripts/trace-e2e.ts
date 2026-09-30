@@ -155,6 +155,9 @@ async function main(): Promise<void> {
   const clock = (ms: number) => must('setDevClock', host, { gameId: GAME, anchorGameMs: ms, speed: 1 })
   // 이적은 DAY 2 부터 꺼낼 수 있다
   await clock(dayHourMs(START, 2, 10))
+  // 날은 감독관 달력이 넘긴다 — DAY 1 정산 → DAY 2 아침
+  await must('pushDay', host, { gameId: GAME })
+  await must('pushDay', host, { gameId: GAME })
   await must('tick', host, { gameId: GAME })
   check(true, '열넷 · DAY 2')
 
@@ -196,10 +199,8 @@ async function main(): Promise<void> {
   await standTogether(a, b, String((await pawnOf(a)).tileId), spot)
   const asked = await must('askTransfer', aTok, { gameId: GAME, toPlayerId: b })
   await must('answerTransfer', bTok, { gameId: GAME, askId: String(asked.id), accept: true })
-  check(String((await pawnOf(b)).team) === bTeam, '합의만으로는 안 바뀐다 — 다음 페이즈다')
-
-  await must('openPhase', host, { gameId: GAME })
-  check(String((await pawnOf(b)).team) === aTeam, '페이즈가 열리며 팀이 바뀌었다', String((await pawnOf(b)).team))
+  // 이적은 합의하는 그 자리에서 바로 된다
+  check(String((await pawnOf(b)).team) === aTeam, '합의하면 바로 팀이 바뀐다', String((await pawnOf(b)).team))
 
   const log = await records(GAME)
   const moves = recOf(log, 'teamMoved', b)
@@ -214,20 +215,8 @@ async function main(): Promise<void> {
    * 「아무도 안 지워졌다」가 동률 때문인지 표가 모자라서인지가
    * 갈려 있어야 셀 수 있다
    */
-  await must('closePhase', host, { gameId: GAME })
-  /*
-   * **표는 그날 마지막 페이즈가 닫힐 때 센다.** 하루는 열 페이즈라
-   * 스무 번째가 DAY 2 의 끝이다. 거기까지 밀고 나서 적는다 — 아무
-   * 페이즈에서나 적고 닫으면 세는 자리에 안 걸린다
-   */
-  let phaseNo = 0
-  for (let i = 0; i < 24; i++) {
-    const open = await must('openPhase', host, { gameId: GAME })
-    phaseNo = Number(open.no)
-    if (phaseNo % 10 === 0) break
-    await must('closePhase', host, { gameId: GAME })
-  }
-  check(phaseNo % 10 === 0, '그날 마지막 페이즈까지 밀었다', `${phaseNo}번째`)
+  // 투표함은 감독관이 연다 · 닫는 순간 센다
+  await must('hostOpenBallot', host, { gameId: GAME })
 
   // 한 사람에게 몰아준다. 몰아주면 그 사람이 지워진다
   const voters = all.map((p) => String(p.id)).filter((id) => id !== a && id !== b)
@@ -247,10 +236,12 @@ async function main(): Promise<void> {
   )
 
   // 닫는 순간 센다
-  await must('closePhase', host, { gameId: GAME })
+  await must('hostCloseBallot', host, { gameId: GAME })
   const days = await docsIn('secret/ballotDays/items')
   check(days.length >= 1, '그날 결과가 한 장 남았다', `${days.length}장`)
-  const row = days[0]
+  // 표를 적은 날의 줄을 본다 — 앞선 날(표 없이 넘긴 날)의 줄도 남아 있다
+  const ballotDay0 = Number((ballots[0] as { day?: number })?.day ?? -1)
+  const row = days.find((d) => Number(d.day) === ballotDay0) ?? days[0]
   console.log(`    (남은 줄 — day ${String(row?.day)} · ${String(row?.reason)} · ${String(row?.invisibleId)})`)
   check(typeof row?.reason === 'string' && String(row.reason).length > 0, '왜 그렇게 됐는지가 적힌다', String(row?.reason))
   /*

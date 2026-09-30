@@ -19,7 +19,7 @@ import { assignRoles, type Player } from '../../shared/missions/assign'
 import { ROLE_IDS, ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
 import { START_TILE, TILES } from '../../shared/rules/board'
 import { START_CELLS } from '../../shared/rules/blocked'
-import { ROLE_TITLES, STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
+import { STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
 import { seedGarden } from './garden'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
@@ -159,6 +159,26 @@ export const refreshFaces = onCall<{ gameId: string }>(async (req) => {
  * 되돌린 뒤에는 로비다. 「닷새 시작」을 다시 눌러야 돈다 — 지우는
  * 것과 시작하는 것을 한 번에 하면, 잘못 눌렀을 때 되돌릴 틈이 없다.
  */
+/**
+ * 한 사람의 배정을 푼다. **분단도 역할도 비운다** — 열넷이 다 배정되면
+ * 역할도 분단 자리도 다 차서, 풀지 않고는 둘을 맞바꿀 수가 없다.
+ */
+export const hostUnassignSeat = onCall<{ gameId: string; playerId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId, playerId } = req.data
+  const ref = gameRef(gameId)
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+    const game = snap.data() as GameDoc
+    if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다. 배정은 시작 전에만 푼다.')
+    const seats = game.seats.map((s) => (s.playerId === playerId ? { ...s, team: null, dealtAtMs: null } : s))
+    tx.update(ref, { seats })
+    tx.delete(rosterOf(gameId).doc(playerId))
+  })
+  return { ok: true }
+})
+
 export const resetGame = onCall<{ gameId: string }>(async (req) => {
   requireHost(req.auth)
   const ref = gameRef(req.data.gameId)
@@ -169,7 +189,9 @@ export const resetGame = onCall<{ gameId: string }>(async (req) => {
   // 자리는 들고 있는다. 지우고 나서 그대로 다시 앉힌다
   // 얼굴은 여기서 다시 읽는다. 옛 자리의 빈 얼굴을 그대로 들고 오면
   // 새 판에서도 그 사람만 점으로 남는다
-  const seats = await freshFaces(game.seats ?? [])
+  // **배정은 지운다.** 명단(secret/roster)이 통째로 지워지므로 자리에 남은
+  // 분단 · 학생증 표시도 같이 비워야 「판 시작」이 거짓으로 켜지지 않는다
+  const seats = (await freshFaces(game.seats ?? [])).map((s) => ({ ...s, team: null, dealtAtMs: null }))
   await db.recursiveDelete(ref)
   await ref.set(freshLobby(`${req.data.gameId}-${Date.now()}`, seats))
   await logEvent(req.data.gameId, 'reset', nowOf(game), null, { seats: seats.length })
@@ -482,11 +504,10 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   // 말은 모두 2-3 교실에 서 있다. 직책은 팀 안에서 순서대로
   for (const team of TEAMS) {
     const members = seats.filter((s) => s.team === team)
-    members.forEach((s, i) => {
+    members.forEach((s) => {
       batch.set(ref.collection('pawns').doc(s.playerId), {
         playerId: s.playerId,
         team,
-        title: ROLE_TITLES[i % ROLE_TITLES.length],
         tileId: START_TILE,
         /*
          * **선 칸도 나눠 준다.** 열넷이 한 교실에서 시작하는데 칸을 안 정해

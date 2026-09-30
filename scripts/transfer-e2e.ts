@@ -80,15 +80,21 @@ async function seatTeam(who: string): Promise<string | null> {
 }
 
 async function main(): Promise<void> {
-  const he = `th${TAG}`
-  await call('signUpAccount', null, { id: he, password: PW })
-  await tok(he)
-  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ADMIN },
-    body: JSON.stringify({ localId: uidOf(he), customAttributes: JSON.stringify({ admin: true }) }),
+  // 감독관은 이메일 계정에 admin 표시를 붙여 들어온다 — 사용자 지정 토큰은 표시를 안 싣는다
+  const email = `host-${TAG}@x.test`
+  const body = JSON.stringify({ email, password: 'password', returnSecureToken: true })
+  await fetch(`${AUTH}/accounts:signUp?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+  const look = await fetch(`${AUTH}/accounts:lookup`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ email: [email] }),
   })
-  const host = await tok(he)
+  const { users } = (await look.json()) as { users: { localId: string }[] }
+  await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ localId: users[0].localId, customAttributes: JSON.stringify({ admin: true }) }),
+  })
+  const inn = await fetch(`${AUTH}/accounts:signInWithPassword?key=fake`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+  const host = ((await inn.json()) as { idToken: string }).idToken
   await call('createGame', host, { gameId: GAME, seed: 'tr' })
 
   // 사람 둘을 서로 다른 팀에 앉힌다. 나머지는 봇으로 채운다
@@ -137,6 +143,9 @@ async function main(): Promise<void> {
 
   console.log('\n── DAY 2 자유 시간 ──')
   await call('setDevClock', host, { gameId: GAME, anchorGameMs: dayHourMs(START, 2, 10), speed: 1 })
+  // 날은 감독관 달력이 넘긴다 — DAY 1 정산 → DAY 2 아침
+  await call('pushDay', host, { gameId: GAME })
+  await call('pushDay', host, { gameId: GAME })
   await call('tick', host, { gameId: GAME })
 
   check(

@@ -181,7 +181,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     myBallots: Object.fromEntries(
       ballots.docs
         .map((d) => d.data() as { day: number; voterId: string; targetId: string })
-        .filter((b) => b.day === (game.phaseNow?.day ?? game.day))
+        .filter((b) => b.day === game.day)
         .map((b) => [b.voterId, b.targetId]),
     ),
     // 엔딩 송출을 사람마다 언제 봤나. **투영이 본인 것만 떼어 보낸다**

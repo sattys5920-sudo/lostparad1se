@@ -272,7 +272,8 @@ export interface TeamDoc {
 export interface PawnDoc {
   playerId: string
   team: TeamId
-  title: RoleTitle
+  /** 옛 직함(v2). **이제 안 적는다** — 역할 이름과 겹쳐 역할처럼 읽혔다 */
+  title?: RoleTitle
   /**
    * 전투 자리. 직전 페이즈가 끝난 곳이다.
    *

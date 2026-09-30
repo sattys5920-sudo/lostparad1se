@@ -12,7 +12,8 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { LOCK_MS, PAPER_MAX, countOf, isHandItem, takeItem, type ItemKind, type Satchel } from '../../shared/rules/items'
-import { TILE_BY_ID, canRoamTo, isAlleyCell, isHallCell, type TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, canRoamTo, isAlleyCell, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
+import { canHoldFlags } from '../../shared/rules/flag'
 import { trapsOf, type TrapSetDoc } from './trap'
 import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
@@ -94,7 +95,7 @@ export const useItem = onCall<UseInput>(async (req) => {
   const text = String(req.data.text ?? '').trim().slice(0, PAPER_MAX)
   if (kind === 'paper' && text === '') throw new HttpsError('invalid-argument', '적을 말이 없다.')
 
-  const day = game.phaseNow?.day ?? game.day
+  const day = game.day
   /*
    * 빈 종이를 놓을 칸. **트랜잭션 밖에서 미리 센다** — 종이가 놓인 칸을
    * 훑는 질의는 트랜잭션 안에서 못 한다. 둘이 같은 순간 같은 칸을 고르면
@@ -124,6 +125,10 @@ export const useItem = onCall<UseInput>(async (req) => {
     if (kind === 'lock') {
       // **자물쇠는 점령전 중에만 건다.** 그 페이즈가 끝나거나 락픽으로 따면 사라진다
       if (!game.phaseNow?.open) throw new HttpsError('failed-precondition', '자물쇠는 점령전 중에만 걸 수 있다.')
+      // **서 있는 방에 건다.** 복도에서 예전에 들렀던 방을 잠그지 못한다. 2-3 교실은 누구의 방도 아니다
+      // 칸을 모르는 옛 말(at 없음)은 선 방(tileId)을 믿는다
+      if (me.at && roomOfCell(me.at.x, me.at.y) !== here) throw new HttpsError('failed-precondition', '잠글 방 안에 서야 한다.')
+      if (!canHoldFlags(here as TileId)) throw new HttpsError('failed-precondition', `${TILE_BY_ID[here as TileId].name}은 잠글 수 없다.`)
       const tileRef = ref.collection('tiles').doc(here as TileId)
       const t = (await tx.get(tileRef)).data() as TileDoc | undefined
       const until = t?.lockUntilMs ?? 0

@@ -52,6 +52,24 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
 
   if (rows === null) return <p className="sc-ad__hint"><Dots /></p>
 
+  async function unassign(s: SeatEntry) {
+    setBusy(s.playerId)
+    try {
+      await act.hostUnassignSeat(s.playerId)
+      onSaid(`${s.name}의 배정을 풀었다. 분단 · 역할이 비었다.`)
+      setDraft((x) => {
+        const next = { ...x }
+        delete next[s.playerId]
+        return next
+      })
+      load()
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function save(s: SeatEntry) {
     const cur = byId.get(s.playerId)
     const d = draft[s.playerId]
@@ -91,7 +109,7 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
           </span>
         ))}
       </p>
-      {seats.length === 0 && <p className="sc-ad__hint">아직 아무도 안 들어왔다. 가입한 사람이 로비에서 「들어간다」를 누르면 여기 뜬다.</p>}
+      {seats.length === 0 && <p className="sc-ad__hint">아직 아무도 안 들어왔다. 가입한 사람이 로비에서 「들어가기」를 누르면 여기 뜬다.</p>}
       <ul className="sc-as__list">
         {seats.map((s) => {
           const cur = byId.get(s.playerId)
@@ -143,6 +161,12 @@ export function AssignDesk({ seats, act, onSaid }: { seats: readonly SeatEntry[]
               >
                 {busy === s.playerId ? '…' : dealt && !changed ? '배정됨' : dealt ? '고치기' : '배정'}
               </button>
+              {/* 역할 · 분단을 맞바꾸려면 한쪽을 먼저 푼다 — 열넷이 다 차면 빈 자리가 없다 */}
+              {(s.team || cur?.roleId) && (
+                <button disabled={busy !== null} onClick={() => void unassign(s)}>
+                  풀기
+                </button>
+              )}
             </li>
           )
         })}

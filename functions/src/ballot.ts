@@ -27,7 +27,6 @@ import { refreshViews } from './views'
 import { logSecret } from './qaLog'
 import { requireHost } from './host'
 import { sysLine } from './radio'
-import { dropAllErrands } from './errand'
 import { reseatIfShared } from './seat'
 import { gameRef, nowOf, requireUid } from './index'
 
@@ -260,9 +259,7 @@ export async function settleBallots(
   }
   batch.set(ballotDaysOf(gameId).doc(`d${day}`), dayDoc)
   await batch.commit()
-  // 없는 사람에게 일을 맡길 수는 없다 — 이미 받아 둔 심부름을 놓는다.
-  // 트랜잭션 밖에서 한다(errand.ts 가 다른 문서를 읽고 쓴다)
-  if (picked.playerId) await dropAllErrands(gameId, picked.playerId)
+  // 받아 둔 심부름은 그대로 둔다 — 보이지 않아도 심부름은 한다(룰북 08)
   // **득표수는 어디에도 안 적는다.** 누가 지워졌는지와 왜인지만 남는다
   return { invisibleId: picked.playerId, reason: picked.reason }
 }

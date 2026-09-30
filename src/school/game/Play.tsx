@@ -122,7 +122,7 @@ import { Around } from './People'
 import { Me, PastVerdicts } from './Me'
 import { MissionMailbox, unseenMails } from './MissionPopup'
 import { BoardMailbox } from './MissionBoard'
-import { NoticePop } from './NoticePop'
+import { NoticePop, hasUnseenNotice } from './NoticePop'
 import { NotifyBanner } from './notify/NotifyBanner'
 import type { NotifyLink } from '../../../shared/notify/notifyData'
 import { Dealt, dealtSeen, markDealtSeen } from './Dealt'
@@ -365,7 +365,8 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 판이 시작돼야 열린다.
    */
   const talkOpen = state.game?.lobbyStage === 'talk'
-  const WAIT = '감독관이 풀 때까지 기다린다.'
+  // 풀린 뒤에도 단추는 판이 시작돼야 열린다 — 그때는 까닭이 다르다
+  const WAIT = talkOpen ? '판이 시작되면 열린다.' : '감독관이 풀 때까지 기다린다.'
   const beforeDirs = useMemo(
     () =>
       talkOpen
@@ -675,9 +676,16 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
           <div className="sc-pl__verdicts">
             <PastVerdicts inbox={state.inbox} boards={game.missionBoards} seats={game.seats} meId={myUid ?? ''} />
           </div>
-        ) : (
+        ) : game.endingBroadcast ? (
           <LiveEnding gameId={gameId} />
+        ) : (
+          /* **엔딩은 감독관이 송출해야 뜬다.** 그 전에는 기다린다 */
+          <div className="sc-en">
+            <p className="sc-en__wait">종례가 끝났다. 감독관이 엔딩을 틀 때까지 기다린다.</p>
+          </div>
         )}
+        {/* 끝난 뒤에도 공지 · 1위 발표가 뜬다 */}
+        <NoticePop gameId={gameId} uid={myUid ?? ''} notices={state.view?.notices} waiting={unseenMails(state.inbox).length > 0} />
         {/* 마지막 날 판정은 판이 끝난 뒤에 온다. 엔딩 위에도 뜬다 */}
         <MissionMailbox inbox={state.inbox} act={gameActions(gameId)} />
         <BoardMailbox gameId={gameId} boards={game.missionBoards} seats={game.seats} meId={myUid ?? ''} waiting={unseenMails(state.inbox).length > 0} />
@@ -1995,7 +2003,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         onLocked={(label) => showToast(`${label} 탭은 감독관이 잠가 두었다.`)}
         tabs={[
           { key: 'map', icon: 'tabMap', label: '맵', locked: lockedTabs.has('map') },
-          { key: 'me', icon: 'tabMe', label: '나', dot: (state.view?.notices?.length ?? 0) > 0, locked: lockedTabs.has('me') },
+          { key: 'me', icon: 'tabMe', label: '나', dot: hasUnseenNotice(gameId, uid ?? '', state.view?.notices), locked: lockedTabs.has('me') },
           { key: 'radio', icon: 'tabRadio', label: '무전', dot: radioNew > 0, locked: lockedTabs.has('radio') },
           { key: 'vote', icon: 'tabVote', label: '투표', locked: lockedTabs.has('vote') },
           { key: 'note', icon: 'tabNote', label: '메모', locked: lockedTabs.has('note') },

@@ -244,6 +244,8 @@ async function main() {
 
   // **잠그는 것은 선 방이다.** 복도는 못 잠근다 — 매점 안으로 들여놓는다
   await standAt(game, meUid, MART_TILE)
+  // 방 **안** 칸에 세운다 — 복도 칸에 선 채로는 못 잠근다
+  await standBy(game, meUid, dropCellsIn(MART_TILE)[0])
   const early = await call('useItem', meTok, { gameId: game, kind: 'lock' })
   check(!early.ok && (early.err ?? '').includes('점령전'), '**자유 시간에는 못 건다**', early.ok ? '걸렸다' : (early.err ?? ''))
   check((await bagOf(game, meUid)).lock === locks0, '못 건 자물쇠는 그대로 있다', JSON.stringify(await bagOf(game, meUid)))

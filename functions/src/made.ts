@@ -80,18 +80,27 @@ export async function researchTierUp(gameId: string, team: TeamId) {
  * 페이즈가 닫혀 있으면 아무것도 안 한다 — 안 익은 연구는 닫힐 때
  * 규칙이 이미 버렸고, 익은 것은 페이즈 안에서만 놓인다.
  */
-export async function landResearch(gameId: string): Promise<void> {
+export async function landResearch(gameId: string, atMs?: number): Promise<void> {
   const snap = await gameRef(gameId).get()
   if (!snap.exists) return
   const game = snap.data() as GameDoc
   if (game.phase !== 'running' || !game.phaseNow?.open) return
-  const nowMs = nowOf(game)
+  // 저절로 닫히기 직전에는 끝 시각으로 부른다 — 끝나는 순간 익은 연구도 판정에 든다
+  const nowMs = atMs ?? nowOf(game)
 
-  const hidden = await hiddenOf(gameId).get()
-  const rows = ((hidden.data()?.pendingResearch ?? []) as Brewing[]).filter(
-    (r) => r && typeof r.doneAtMs === 'number' && r.tileId,
-  )
-  const ripe = rows.filter((r) => r.doneAtMs <= nowMs)
+  /*
+   * **익은 줄을 먼저 뺀다(트랜잭션).** 두 요청이 같은 순간에 들어와도
+   * 한 줄은 한 번만 로봇이 된다 — 뺀 쪽만 만든다.
+   */
+  const ripe = await db.runTransaction(async (tx) => {
+    const hidden = await tx.get(hiddenOf(gameId))
+    const rows = ((hidden.data()?.pendingResearch ?? []) as Brewing[]).filter(
+      (r) => r && typeof r.doneAtMs === 'number' && r.tileId,
+    )
+    const done = rows.filter((r) => r.doneAtMs <= nowMs)
+    if (done.length > 0) tx.update(hiddenOf(gameId), { pendingResearch: rows.filter((r) => r.doneAtMs > nowMs) })
+    return done
+  })
   if (ripe.length === 0) return
   // 맡긴 사람에게 알린다(제작 완료). 받았든 놓였든 다 된 것은 같다
   for (const r of ripe) await notify(gameId, [r.playerId], 'made', `made:research:${r.playerId}:${r.doneAtMs}`)
@@ -127,8 +136,6 @@ export async function landResearch(gameId: string): Promise<void> {
     await madeOf(gameId).add(doc)
   }
 
-  const left = rows.filter((r) => r.doneAtMs > nowMs)
-  await hiddenOf(gameId).update({ pendingResearch: left })
   await refreshViews(gameId)
 }
 

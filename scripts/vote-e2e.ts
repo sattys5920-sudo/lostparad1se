@@ -186,11 +186,14 @@ async function main(): Promise<void> {
   const bad = await call('castVote', A[0].token, { gameId: GAME, targetId: B[0].uid, kind: 'suspicion' })
   check(!bad.ok && bad.code === 'INVALID_ARGUMENT', '신뢰 · 호감 말고는 없다', bad.message)
 
-  console.log('\n── 우리 팀에도 준다 · 하루 한 장 ──')
+  console.log('\n── 우리 팀에도 준다 · 종류마다 하루 한 장 ──')
   await voteBeside(A[1], A[2], 'trust')
   check(true, '같은 팀에게 신뢰표를 줬다')
-  const twice = await call('castVote', A[1].token, { gameId: GAME, targetId: A[2].uid, kind: 'liking' })
-  check(!twice.ok && (twice.message ?? '').includes('이미'), '하루 한 장뿐 — 종류를 바꿔도', twice.message ?? '또 줬다')
+  // 신뢰표 한 장 · 호감표 한 장 — 종류마다 하루 한 장이다
+  const other = await call('castVote', A[1].token, { gameId: GAME, targetId: A[2].uid, kind: 'liking' })
+  check(other.ok, '같은 날 호감표도 한 장 더 준다', other.message ?? '')
+  const twice = await call('castVote', A[1].token, { gameId: GAME, targetId: A[2].uid, kind: 'trust' })
+  check(!twice.ok && (twice.message ?? '').includes('이미'), '같은 종류는 하루 한 장뿐', twice.message ?? '또 줬다')
 
   console.log('\n── 밤에도 준다 ──')
   // 옛 규칙은 08~21시였다. 지금은 시간 제한이 없다
@@ -200,8 +203,8 @@ async function main(): Promise<void> {
   await voteBeside(D[0], C[0], 'trust')
   check(true, '같은 사람에게 다른 사람이 신뢰표를 줬다')
   // 바로 옆에 선 채로 한 장 더 — 거절 이유가 「이미」여야 한다
-  const late2 = await call('castVote', B[0].token, { gameId: GAME, targetId: C[0].uid, kind: 'trust' })
-  check(!late2.ok && (late2.message ?? '').includes('이미'), '밤에도 하루 한 장', late2.message ?? '또 줬다')
+  const late2 = await call('castVote', B[0].token, { gameId: GAME, targetId: C[0].uid, kind: 'liking' })
+  check(!late2.ok && (late2.message ?? '').includes('이미'), '밤에도 호감표는 하루 한 장', late2.message ?? '또 줬다')
 
   console.log('\n── 받은 표는 날이 넘어가야 오른다 ──')
   const today = await paperOf(C[0])
@@ -222,7 +225,7 @@ async function main(): Promise<void> {
   check(next.votesReceived.trust === 1 && next.votesReceived.liking === 1, '어제 받은 신뢰 1 · 호감 1이 올랐다', JSON.stringify(next.votesReceived))
   check(next.votesThroughDay === 1, 'DAY 1까지 셌다', String(next.votesThroughDay))
   const mate = await paperOf(A[2])
-  check(mate.votesReceived.trust === 1, '우리 팀에게 받은 표도 센다', JSON.stringify(mate.votesReceived))
+  check(mate.votesReceived.trust === 1 && mate.votesReceived.liking === 1, '우리 팀에게 받은 표도 센다', JSON.stringify(mate.votesReceived))
 
   const raw = JSON.stringify(next) + JSON.stringify(mate)
   check(![B[0], D[0], A[1]].some((p) => raw.includes(p.uid)) && !raw.includes('voterId'), '받는 쪽에는 누가 줬는지가 없다')
@@ -230,13 +233,13 @@ async function main(): Promise<void> {
   console.log('\n── 날이 바뀌면 다시 한 장 ──')
   await voteBeside(B[0], C[1], 'trust')
   check(true, '어제 준 사람이 오늘 또 준다')
-  const again = await call('castVote', B[0].token, { gameId: GAME, targetId: C[1].uid, kind: 'liking' })
-  check(!again.ok && (again.message ?? '').includes('이미'), '그리고 오늘도 한 장뿐', again.message ?? '또 줬다')
+  const again = await call('castVote', B[0].token, { gameId: GAME, targetId: C[1].uid, kind: 'trust' })
+  check(!again.ok && (again.message ?? '').includes('이미'), '그리고 오늘도 신뢰표는 한 장뿐', again.message ?? '또 줬다')
 
   console.log('\n── 공개 기록에 사람이 없다 ──')
   const evs = (await getAll(`games/${GAME}/events`)).filter((e) => e.d.kind === 'vote')
   const evJson = JSON.stringify(evs)
-  check(evs.length === 4, '표 기록 네 줄 — 준 만큼', `${evs.length}줄`)
+  check(evs.length === 5, '표 기록 다섯 줄 — 준 만큼', `${evs.length}줄`)
   check(!people.some((p) => evJson.includes(p.uid)), '표 기록에 보낸 사람도 받은 사람도 없다')
   const asPlayer = await fetch(`${FS}/games/${GAME}/secret/votes/items`, { headers: { Authorization: `Bearer ${A[0].token}` } })
   check(asPlayer.status === 403, '플레이어는 표 원본을 못 읽는다', String(asPlayer.status))

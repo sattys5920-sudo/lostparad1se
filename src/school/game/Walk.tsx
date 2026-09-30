@@ -1412,7 +1412,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const ny = self.ty + dy
         // 갇혀 있으면 이 방 테두리가 곧 벽이다 — 십자키도 어둡게 둔다
         if (shutIn(nx, ny)) return 'shut'
-        if (stairHere(nx, ny)) return 'door'
+        // 계단은 값이 없다 — 층을 옮기는 것은 방에 드는 것이 아니다
+        if (stairHere(nx, ny)) return 'open'
         const door = doorHere(nx, ny)
         if (door) {
           // **우리 팀이 차지한 방으로 들어가는 문은 값이 없다**(rules/occupy 의 costOf).

@@ -244,8 +244,9 @@ async function main() {
     correct?: boolean
   }
   check(wrong.correct === false, '틀린 답은 틀렸다고 한다')
-  const again = await call('answerQuiz', meTok, { gameId: game, paperId: paperId as string, given: '한 달' })
-  check(!again.ok, '한 번 틀리면 다시 못 낸다', again.ok ? '받아 버렸다' : (again.err ?? ''))
+  // 틀린 사람도 다시 낼 수 있다 — 또 틀리게 내 본다(맞히면 아래 다른 사람 차례가 없어진다)
+  const again = await call('answerQuiz', meTok, { gameId: game, paperId: paperId as string, given: '세 달' })
+  check(again.ok && (again.result as { correct?: boolean }).correct === false, '틀려도 다시 낼 수 있다', again.ok ? JSON.stringify(again.result) : again.err)
   check(arr((await viewOf(game, meUid)).quizzesHere).length === 1, '틀려도 종이는 바닥에 남는다')
 
   // **다른 사람이 와서 펼치고 맞히면 바닥에서 사라진다**
@@ -268,7 +269,9 @@ async function main() {
   const right = (await must('answerQuiz', solverTok, { gameId: game, paperId: paperId as string, given: '한 달' })) as { correct?: boolean }
   check(right.correct === true, '다른 사람이 맞혔다')
   check(arr((await viewOf(game, solverUid)).quizzesHere).length === 0, '**맞히면 바닥에서 사라진다**')
-  check(arr((await viewOf(game, meUid)).myQuizzes).length === 0, '먼저 펼쳤던 사람 손패에서도 사라진다')
+  // 먼저 펼쳤던 사람 손패에는 「누군가가 해결한 문제다」로 남는다(선착순 한 명)
+  const mineAfter = arr((await viewOf(game, meUid)).myQuizzes)
+  check(mineAfter.length === 1 && (mineAfter[0].solvedByOther as { booleanValue?: boolean })?.booleanValue === true, '먼저 펼쳤던 사람 손패에는 「누군가가 해결한 문제다」로 남는다', JSON.stringify(mineAfter))
 
   console.log('\n── 없는 방 ──')
   const nowhere = await call('hostDrop', host, { gameId: game, tileId: '옥탑방', kind: 'memo', text: '어디에' })

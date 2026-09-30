@@ -8,6 +8,7 @@
 // 결과여야 한다** — 그래서 효과를 적는 것과 doneAtMs를 찍는 것이 한
 // 트랜잭션 안에 있다.
 import type { Transaction } from 'firebase-admin/firestore'
+import { HttpsError } from 'firebase-functions/v2/https'
 
 import { clockItems, nextByHand, type Due } from '../../shared/rules/catchup'
 import type { TileState } from '../../shared/rules/resources'
@@ -372,6 +373,8 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   if (game.phaseNow?.open && game.phaseNow.endsAtMs != null && game.phaseNow.endsAtMs <= toMs) {
     const endMs = game.phaseNow.endsAtMs
     await applyUpTo(endMs)
+    // 끝나는 순간까지 익은 연구를 먼저 놓는다 — 닫힌 뒤에는 버려진다
+    await landResearch(gameId, endMs)
     const fresh = (await ref.get()).data() as GameDoc
     if (fresh.phaseNow?.open) await closePhaseNow(gameId, fresh, endMs)
     game = (await ref.get()).data() as GameDoc
@@ -449,6 +452,9 @@ export async function pushByHand(gameId: string): Promise<HandResult> {
   if (game.phase !== 'running') {
     return { pushed: null, next: null, day: game.day, phase: game.phase }
   }
+  // **점령전이 열려 있으면 달력을 안 넘긴다.** 정산·아침이 열린 교시 한가운데
+  // 끼면 토큰이 두 번 차고 날짜가 교시와 어긋난다 — 먼저 닫는다
+  if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '점령전을 먼저 닫아야 달력을 넘긴다.')
 
   const { due, docs } = await handQueue(gameId)
   const item = nextByHand(due)

@@ -19,6 +19,13 @@ const KEEP = 200
 
 const keyOf = (gameId: string, uid: string) => `${SEEN}:${gameId}:${uid}`
 
+/** 아직 안 본 공지가 있는가 — 「나」 탭 점이 이것만 본다 */
+export function hasUnseenNotice(gameId: string, uid: string, notices: readonly { id: string }[] | undefined): boolean {
+  if (!notices || notices.length === 0) return false
+  const seen = loadSeen(gameId, uid)
+  return notices.some((n) => !seen.has(n.id))
+}
+
 function loadSeen(gameId: string, uid: string): Set<string> {
   try {
     const raw = localStorage.getItem(keyOf(gameId, uid))

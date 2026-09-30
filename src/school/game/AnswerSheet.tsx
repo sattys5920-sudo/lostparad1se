@@ -24,6 +24,8 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
   const [hidden, setHidden] = useState(false)
   const [picks, setPicks] = useState<Record<string, string>>({})
   const [sentAt, setSentAt] = useState<number | null>(null)
+  /** 낸 뒤에 고쳤는가 — 고친 것은 다시 내야 채점에 든다 */
+  const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState('')
 
@@ -46,6 +48,7 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
         const sent = mine.answers ?? {}
         setPicks({ ...guess, ...sent })
         setSentAt(mine.atMs ?? null)
+        setDirty(false)
       } catch {
         if (live) setPicks(guess)
       }
@@ -62,7 +65,8 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
   if (hidden) {
     return (
       <button className="sc-ans__reopen" onClick={() => setHidden(false)}>
-        답안지 {sentAt ? '· 냈다' : `· ${filled}/${seats.length}`}
+        {/* 접어 둔다고 내는 것이 아니다 — 「제출」을 눌러야 채점에 든다 */}
+        답안지 {sentAt ? (dirty ? '· 고친 것은 아직 안 냈다' : '· 냈다') : `· 아직 안 냈다 ${filled}/${seats.length}`}
       </button>
     )
   }
@@ -73,6 +77,7 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
     try {
       await act.submitAnswers(picks)
       setSentAt(Date.now())
+      setDirty(false)
       setSaid('냈다. 감독관이 채점하면 결과가 뜬다. 그 전까지는 고쳐 낼 수 있다.')
     } catch (e) {
       setSaid((e as Error).message)
@@ -100,7 +105,10 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
               <select
                 id={`as-${s.playerId}`}
                 value={picks[s.playerId] ?? ''}
-                onChange={(e) => setPicks((p) => ({ ...p, [s.playerId]: e.target.value }))}
+                onChange={(e) => {
+                  setPicks((p) => ({ ...p, [s.playerId]: e.target.value }))
+                  setDirty(true)
+                }}
               >
                 <option value="">고른다</option>
                 {ANSWER_ROLES.map((r) => (
