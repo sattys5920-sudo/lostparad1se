@@ -396,8 +396,8 @@ export const ACT_MINUTES: Record<ActionKind, number> = {
   // 들어가는 값만 적는다. 방 안에서 곧장 가면 나가는 5분이 더 붙는다(서버가 잰다)
   move: ENTER_MINUTES,
   research: 20,
-  // 불려 오는 사람이 한 방 걷는 동안 둘 다 묶인다. 걸음과 같은 10분
-  summon: MOVE_MINUTES,
+  // 불려 오는 사람이 오는 동안 둘 다 묶인다. 호루라기는 빠르다 — 5분
+  summon: 5,
   plant: 0,
   pull: 0,
   dropRobot: 0,

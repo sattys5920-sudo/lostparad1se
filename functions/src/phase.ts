@@ -646,6 +646,8 @@ export const phaseAct = onCall<{
      * 다른 방으로 가거나 불려 가면 둘을 합친 10분이다
      */
     const minutesFor = (id: string): number => {
+      // 호루라기로 불려 가는 사람은 나서고 들어서는 것까지 호출 한 번 값이다
+      if (kind === 'summon') return ACT_MINUTES.summon
       const d = pawns.docs.find((x) => x.id === id)?.data() as PawnDoc | undefined
       const inHall = !!d?.at && roomOfCell(d.at.x, d.at.y) === null
       return inHall ? ENTER_MINUTES : ENTER_MINUTES + EXIT_MINUTES

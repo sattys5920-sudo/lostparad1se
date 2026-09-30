@@ -118,6 +118,24 @@ async function main() {
   const direct = await must('phaseAct', tok, { gameId: game, kind: 'move', targetTile: TO })
   check(direct.minutes === 10, '방 안에서 곧장 가면 10 분(나서기 + 들어서기)', JSON.stringify(direct))
 
+  console.log('\n── 호루라기 호출 ──')
+  // 같은 분단 한 명을 불러온다 — 불린 사람도 부른 사람도 5분
+  await put()
+  const pawns = ((await fetch(`${FS}/games/${game}/pawns?pageSize=50`, { headers: ADMIN }).then((r) => r.json())) as { documents: { name: string; fields: Record<string, { stringValue?: string }> }[] }).documents
+  const myTeam = pawns.find((d) => d.name.endsWith(me))?.fields.team?.stringValue
+  const mate = pawns.find((d) => !d.name.endsWith(me) && d.fields.team?.stringValue === myTeam)
+  const mateId = mate?.name.split('/').pop() as string
+  await patch(`games/${game}/pawns/${mateId}`, { tileId: str(TO), postTile: str(TO), busyUntilMs: str(null), busyKind: str(null), at: { mapValue: { fields: { x: int(standAndSpot(TO).stand.x), y: int(standAndSpot(TO).stand.y) } } } })
+  await patch(`games/${game}/pawns/${me}`, { items: { mapValue: { fields: { whistle: int(1) } } } })
+  const called = await call('phaseAct', tok, { gameId: game, kind: 'summon', targetPlayer: mateId })
+  const mp = await pawnOf(game, mateId)
+  const pm = await pawnOf(game, me)
+  const clock2 = Number((await must('clockNow', tok, { gameId: game })).nowMs)
+  const arrive = (num(mp.arriveAtMs) - clock2) / 60_000
+  const held = (num(pm.busyUntilMs) - clock2) / 60_000
+  check(called.ok && Math.round(arrive) === 5, '불린 사람은 5 분 뒤에 닿는다', `${called.err} ${arrive.toFixed(2)} 분`)
+  check(Math.round(held) === 5, '부른 사람도 5 분 묶인다', `${held.toFixed(2)} 분`)
+
   console.log(bad === 0 ? '\n전부 통과.' : `\n${bad}개 틀렸다.`)
   process.exit(bad === 0 ? 0 : 1)
 }

@@ -627,6 +627,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       phase: 0,
     }
     let lastRoom: TileId | null = null
+    /** 방에서 나와 아직 복도 칸을 서버에 안 알렸다 */
+    let leavingRoom = false
     /**
      * 옮겨 세웠다(도로 서기 · 제자리 · 서버가 정한 칸). **실시간 자리를 한 번 더
      * 적는다.** 안 적으면 남의 화면에는 거절당한 칸에 선 채로 남는다 — 멈춘
@@ -1441,8 +1443,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
 
       const room = roomAt(self.tx, self.ty)?.id ?? null
       if (room !== lastRoom) {
+        const wasRoom = lastRoom
         lastRoom = room
         roomRef.current(room)
+        /*
+         * **방에서 복도로 나선 그 칸을 곧바로 적는다.** 멈출 때까지 기다리면
+         * 점령전의 「나가는 5분」이 복도를 한참 걸은 뒤에야 시작된다 —
+         * 문을 넘는 순간 서버가 묶어야 한다
+         */
+        leavingRoom = wasRoom !== null && room === null
+      }
+      // 문턱 칸은 복도가 아니라 서버가 안 받는다 — 복도 칸을 처음 밟을 때 보낸다
+      if (leavingRoom && room === null && serverTile !== null && tileAt(self.tx, self.ty) === 'hall') {
+        leavingRoom = false
+        told = `${self.tx},${self.ty}`
+        standRef.current(self.tx, self.ty, walked.splice(0))
       }
 
       // **방이 바뀌면 그때 서버에 말한다.**
