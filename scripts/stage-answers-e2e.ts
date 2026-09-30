@@ -146,6 +146,17 @@ async function main() {
   const after = ((await gameDoc(game)).lockedTabs as { arrayValue?: { values?: { stringValue: string }[] } })?.arrayValue?.values?.map((v) => v.stringValue) ?? []
   check(JSON.stringify(after) === JSON.stringify(['vote']), '다시 누르면 열린다', JSON.stringify(after))
 
+  console.log('\n── 배경음악 ──')
+  check(!(await call('hostSetBgm', p0, { gameId: game, on: false })).ok, '보통 사람은 음악을 못 끈다')
+  await must('hostSetBgm', host, { gameId: game, on: false })
+  const off = (await gameDoc(game)).bgm as { mapValue?: { fields?: Record<string, { booleanValue?: boolean; integerValue?: string }> } }
+  check(off?.mapValue?.fields?.on?.booleanValue === false, '감독관이 끄면 꺼진 것으로 적힌다')
+  const offAt = Number(off?.mapValue?.fields?.atMs?.integerValue ?? 0)
+  await new Promise((r) => setTimeout(r, 20))
+  await must('hostSetBgm', host, { gameId: game, on: true })
+  const on = (await gameDoc(game)).bgm as { mapValue?: { fields?: Record<string, { booleanValue?: boolean; integerValue?: string }> } }
+  check(on?.mapValue?.fields?.on?.booleanValue === true && Number(on?.mapValue?.fields?.atMs?.integerValue ?? 0) > offAt, '**다시 틀면 새 시각이 적힌다** — 꺼 둔 사람이 다시 켜지는 기준')
+
   console.log('\n── 답안지 ──')
   const seats = arr((await gameDoc(game)).seats).map((s) => str(s.playerId) as string)
   const early = await call('submitAnswers', p0, { gameId: game, answers: {} })

@@ -34,7 +34,7 @@ import { ErrandDesk } from './Errands'
 import { GardenDesk } from './Garden'
 import { AssignDesk } from './AssignDesk'
 import { NoticeDesk } from './NoticeDesk'
-import { LobbyStageDesk, TabLockDesk } from './StageDesk'
+import { BgmDesk, LobbyStageDesk, TabLockDesk } from './StageDesk'
 import { AnswerDesk } from './AnswerDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
@@ -376,6 +376,11 @@ function Desk() {
             <section className="sc-ad__sec">
               <h2>발표 · 공지</h2>
               <NoticeDesk seats={seats} act={act} onSaid={setSaid} />
+            </section>
+
+            <section className="sc-ad__sec">
+              <h2>배경음악</h2>
+              {game && <BgmDesk game={game} act={act} onSaid={setSaid} />}
             </section>
 
             <section className="sc-ad__sec">

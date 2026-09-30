@@ -771,6 +771,8 @@ function NoSeat({ phase }: { phase: GamePhase }) {
 
 function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
+  // 배경음악 — 날마다 한 곡. 감독관이 틀고 끄고, 각자 「나」 탭에서 끈다
+  useBgm(gameId, state.game?.day ?? 0, state.game?.bgm, state.game?.phase === 'running')
   const act = useMemo(() => gameActions(gameId), [gameId])
   const online = useOnline()
   // **앱이 돌아오면 서버에 다시 묻는다.** 화면을 껐다 켜는 사이에
@@ -2729,3 +2731,4 @@ export function Play() {
 
 import { teamName, teamNo } from '../../../shared/rules/bundan'
 import { AnswerResult, AnswerSheet } from './AnswerSheet'
+import { useBgm } from './bgm'

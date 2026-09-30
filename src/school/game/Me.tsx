@@ -31,6 +31,7 @@ import type { AvatarLook } from '../../../shared/look'
 import type { InboxDoc, MissionMail } from '../../../shared/missions/mail'
 import type { NotifyLink } from '../../../shared/notify/notifyData'
 import { NotifyPanel } from './notify/NotifyPanel'
+import { useBgmToggle } from './bgm'
 import { MissionPopup, finalMail, receivedMails, resultWord, sentText } from './MissionPopup'
 import { BoardPopup, boardsOf } from './MissionBoard'
 import type { MissionBoard } from '../../../shared/missions/mail'
@@ -273,6 +274,9 @@ export function Me(props: MeProps) {
             </>
           )}
         </Card>
+
+        {/* ── 배경음악 — 나만 끈다. 감독관이 다시 틀면 다시 켜진다 ── */}
+        <BgmSwitch />
 
         {/* ── 알림 — 설정과 받은 알림 ──────────────────── */}
         <NotifyPanel act={act} inbox={props.inbox ?? null} onGo={(l) => props.onGo?.(l)} />
@@ -603,4 +607,23 @@ export function cells(have: number, bar: number): number {
 /** 카드 오른쪽 위에 적을 한 마디. */
 export function stateOf(m: MissionShown): string {
   return STATUS_LABEL[m.status]
+}
+
+/** 배경음악 스위치. 감독관이 꺼 두었으면 흐리게 */
+function BgmSwitch() {
+  const bgm = useBgmToggle()
+  return (
+    <section className="sc-np" aria-label="배경음악">
+      <div className="sc-np__head">
+        <b>배경음악</b>
+        <label className="sc-np__master">
+          <input id="me-bgm" type="checkbox" checked={bgm.on} disabled={!bgm.available} onChange={bgm.toggle} />
+          <span>{!bgm.available ? '꺼져 있다' : bgm.on ? '켜짐' : '꺼짐'}</span>
+        </label>
+      </div>
+      <p className="sc-np__hint">
+        {bgm.available ? `오늘의 곡 · ${bgm.track}. 꺼 두어도 감독관이 다시 틀면 다시 켜진다.` : '감독관이 음악을 꺼 두었다.'}
+      </p>
+    </section>
+  )
 }

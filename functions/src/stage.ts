@@ -26,6 +26,21 @@ export const hostSetLobbyStage = onCall<{ gameId: string; stage: 'locked' | 'tal
   return { stage }
 })
 
+/**
+ * 배경음악을 틀고 끈다. **틀면 꺼 둔 사람도 다시 켜진다** — atMs 가 새로
+ * 적히고, 각자 끈 시각이 그보다 앞이면 켜진 것으로 본다(화면의 bgm.ts).
+ */
+export const hostSetBgm = onCall<{ gameId: string; on: boolean }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const ref = gameRef(gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const bgm = { on: req.data.on === true, atMs: Date.now() }
+  await ref.update({ bgm })
+  return { bgm }
+})
+
 export const hostSetTabLock = onCall<{ gameId: string; tab: string; locked: boolean }>(async (req) => {
   requireHost(req.auth)
   const { gameId, tab } = req.data

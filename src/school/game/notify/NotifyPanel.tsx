@@ -1,18 +1,16 @@
 // 「나」 탭 — 알림 설정과 보관함.
 //
-//   설정   전체 스위치 하나, 종류마다 끄기 · 앱 안에서만 · 앱 밖에서도.
-//          「앱 밖에서도」를 누르는 그 순간에만 권한을 묻는다. 거절당하면
-//          「앱 안에서만」으로 되돌리고 까닭을 적는다. 아이폰에서 홈 화면에
-//          안 넣었으면 넣는 법을 적는다.
+//   설정   **셋 중 하나** — 안 받기 · 받기 · 앱 밖에서도 받기. 받으면 모든
+//          종류가 다 온다(종류마다 고르지 않는다).
+//          「앱 밖에서도 받기」를 누르는 그 순간에만 권한을 묻는다. 거절당하면
+//          「받기」로 되돌리고 까닭을 적는다. 아이폰에서 홈 화면에 안 넣었으면
+//          넣는 법을 적는다.
 //   보관함 최근 20줄. 안 읽은 줄에 점. 펼치면 읽은 것으로 친다.
 import { useState } from 'react'
 
 import {
   DENIED_TEXT,
   IOS_GUIDE,
-  MODE_LABEL,
-  NOTIFY_HINT,
-  NOTIFY_LABEL,
   NOTIFY_TYPES,
   settingsOf,
   type NoteItem,
@@ -28,6 +26,22 @@ import { disablePush, enablePush } from './push'
 import './notify.css'
 
 const MODES: readonly NotifyMode[] = ['off', 'app', 'push']
+const LEVEL_LABEL: Record<NotifyMode, string> = { off: '안 받기', app: '받기', push: '앱 밖에서도 받기' }
+const LEVEL_HINT: Record<NotifyMode, string> = {
+  off: '아무 알림도 안 온다.',
+  app: '모든 알림이 앱 안에 뜬다.',
+  push: '모든 알림이 앱 안에 뜨고, 앱을 닫아 두어도 휴대폰 알림으로 온다.',
+}
+
+/** 지금 설정을 셋 중 하나로 본다. 앱 밖이 하나라도 있으면 앱 밖이다 */
+const levelOf = (s: NotifySettings): NotifyMode =>
+  !s.on ? 'off' : Object.values(s.modes).includes('push') ? 'push' : 'app'
+
+/** 셋 중 하나를 모든 종류에 똑같이 */
+const allAt = (m: NotifyMode): NotifySettings => ({
+  on: m !== 'off',
+  modes: Object.fromEntries(NOTIFY_TYPES.map((t) => [t, m === 'off' ? 'app' : m])) as Record<NotifyType, NotifyMode>,
+})
 
 const WHY: Record<string, string> = {
   denied: DENIED_TEXT,
@@ -54,6 +68,7 @@ export function NotifyPanel({
   const saved = settingsOf(inbox?.settings)
   const [draft, setDraft] = useState<NotifySettings | null>(null)
   const s = draft ?? saved
+  const level = levelOf(s)
   const [why, setWhy] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
@@ -71,24 +86,23 @@ export function NotifyPanel({
     }
   }
 
-  async function pick(t: NotifyType, m: NotifyMode) {
+  async function pick(m: NotifyMode) {
     if (busy) return
     setWhy(null)
-    const next: NotifySettings = { ...s, modes: { ...s.modes, [t]: m } }
-    if (m === 'push' && s.on) {
+    if (m === 'push') {
       setBusy(true)
       const got = await enablePush(act)
       setBusy(false)
       if (got !== 'ok') {
-        // 못 켰다 — 앱 안에서만으로 되돌리고 까닭을 적는다
+        // 못 켰다 — 받기로 되돌리고 까닭을 적는다
         setWhy(WHY[got] ?? WHY.failed)
-        await save({ ...next, modes: { ...next.modes, [t]: 'app' } })
+        await save(allAt('app'))
         return
       }
     }
-    await save(next)
-    // 앱 밖을 하나도 안 쓰게 되면 이 기기를 뗀다
-    if (!Object.values(next.modes).includes('push')) void disablePush(act)
+    await save(allAt(m))
+    // 앱 밖을 안 쓰게 되면 이 기기를 뗀다
+    if (m !== 'push') void disablePush(act)
   }
 
   function toggleArchive() {
@@ -104,41 +118,22 @@ export function NotifyPanel({
     <section className="sc-np" aria-label="알림">
       <div className="sc-np__head">
         <b>알림</b>
-        <label className="sc-np__master">
-          <input
-            id="np-on"
-            type="checkbox"
-            checked={s.on}
-            onChange={(e) => void save({ ...s, on: e.target.checked })}
-          />
-          <span>{s.on ? '켜짐' : '꺼짐'}</span>
-        </label>
       </div>
-
-      <ul className={'sc-np__list' + (s.on ? '' : ' is-off')}>
-        {NOTIFY_TYPES.map((t) => (
-          <li key={t}>
-            <div className="sc-np__row">
-              <span className="sc-np__name">{NOTIFY_LABEL[t]}</span>
-              <div className="sc-np__seg" role="radiogroup" aria-label={`${NOTIFY_LABEL[t]} 알림`}>
-                {MODES.map((m) => (
-                  <button
-                    key={m}
-                    role="radio"
-                    aria-checked={s.modes[t] === m}
-                    disabled={!s.on || busy}
-                    className={s.modes[t] === m ? 'is-on' : ''}
-                    onClick={() => void pick(t, m)}
-                  >
-                    {MODE_LABEL[m]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="sc-np__hint">{NOTIFY_HINT[t]}</p>
-          </li>
+      <div className="sc-np__seg" role="radiogroup" aria-label="알림 받기">
+        {MODES.map((m) => (
+          <button
+            key={m}
+            role="radio"
+            aria-checked={level === m}
+            disabled={busy}
+            className={level === m ? 'is-on' : ''}
+            onClick={() => void pick(m)}
+          >
+            {LEVEL_LABEL[m]}
+          </button>
         ))}
-      </ul>
+      </div>
+      <p className="sc-np__hint">{LEVEL_HINT[level]}</p>
       {why && (
         <p className="sc-np__why" role="alert">
           {why}

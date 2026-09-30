@@ -369,6 +369,8 @@ export function gameActions(gameId: string) {
     hostSetAllChannel: (open: boolean) => callServer('hostSetAllChannel', { ...g, open }),
     /** 시작 전 잠금 — locked(아무것도) · talk(2-3 교실 안에서 걷고 말하기) */
     hostSetLobbyStage: (stage: 'locked' | 'talk') => callServer('hostSetLobbyStage', { ...g, stage }),
+    /** 배경음악을 틀고 끈다. 틀면 꺼 둔 사람도 다시 켜진다 */
+    hostSetBgm: (on: boolean) => callServer('hostSetBgm', { ...g, on }),
     /** 탭 하나를 잠그거나 연다 */
     hostSetTabLock: (tab: string, locked: boolean) => callServer('hostSetTabLock', { ...g, tab, locked }),
     /** 답안지 — 감독관이 열고 닫는다 */

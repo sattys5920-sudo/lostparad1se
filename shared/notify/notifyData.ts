@@ -35,12 +35,17 @@ export const MODE_LABEL: Record<NotifyMode, string> = {
   push: '앱 밖에서도',
 }
 
+/**
+ * 처음에는 **받기(앱 안)** 로 모두 같다. 앱 밖(휴대폰 알림)은 「앱 밖에서도
+ * 받기」를 눌러 이 기기에서 권한을 받은 뒤에야 켠다 — 권한도 없는데 앱 밖으로
+ * 고른 것처럼 보이면 안 된다
+ */
 export const NOTIFY_DEFAULT: Record<NotifyType, NotifyMode> = {
-  tag: 'push',
+  tag: 'app',
   phaseStart: 'app',
   phaseEnd: 'app',
   made: 'app',
-  notice: 'push',
+  notice: 'app',
 }
 
 /** 알림 한 줄 — 배너와 잠긴 화면에 뜨는 글 */

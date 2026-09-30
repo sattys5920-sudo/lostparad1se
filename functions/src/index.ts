@@ -153,7 +153,7 @@ export { hostOpenBallot, hostCloseBallot } from './ballotGate'
 export { hostEnter } from './hostgate'
 
 // 시작 전 잠금 · 탭 잠금. 감독관만
-export { hostSetLobbyStage, hostSetTabLock } from './stage'
+export { hostSetLobbyStage, hostSetTabLock, hostSetBgm } from './stage'
 // 답안지 — 마지막에 서로의 역할을 맞힌다
 export { hostOpenAnswers, submitAnswers, myAnswers, hostAnswers, hostGradeAnswers } from './answers'
 

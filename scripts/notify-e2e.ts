@@ -122,7 +122,7 @@ async function main(): Promise<void> {
   const had = (await notesOf(b)).length
   for (let i = 0; i < 7; i += 1) await must('hostNotice', host, { gameId: GAME, text: `공지 ${i}`, toPlayerId: b.uid })
   const bn = await notesOf(b)
-  check(bn[0]?.text === '알림 3건' && bn[0].count === 3, '1분에 다섯 건을 넘으면 한 줄로 묶는다', bn[0]?.text)
+  check(bn[0]?.text === '알림 3 건' && bn[0].count === 3, '1분에 다섯 건을 넘으면 한 줄로 묶는다', bn[0]?.text)
   check(bn.length === had + 5, '묶인 줄 하나 + 앞의 넷', String(bn.length - had))
 
   console.log('\n── 페이즈 ──')
@@ -138,6 +138,8 @@ async function main(): Promise<void> {
   const bad = await call('pushSubscribe', a.token, { gameId: GAME, sub: { endpoint: 'http://no', keys: {} } })
   check(!bad.ok, '이상한 구독은 거절')
   await must('pushSubscribe', a.token, { gameId: GAME, sub: { endpoint: 'https://127.0.0.1:9/push/x', keys: { p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM', auth: 'tBHItJI5svbpez7KI4CCXg' } } })
+  // 처음에는 모두 앱 안이다. 「앱 밖에서도 받기」를 고른 사람에게만 앱 밖으로 간다
+  await must('setNotifySettings', a.token, { gameId: GAME, settings: { on: true, modes: { tag: 'push', phaseStart: 'push', phaseEnd: 'push', made: 'push', notice: 'push' } } })
   await must('hostNotice', host, { gameId: GAME, text: '세 번째', toPlayerId: a.uid })
   const lg = (await must('hostNotifyLog', host, { gameId: GAME })) as { rows: { type: string; channel: string; ok: boolean; target: string; err?: string }[]; fails: Record<string, { push: number }>; devices: number }
   check(lg.rows.some((r) => r.channel === 'app' && r.ok), '앱 안 기록이 남는다')

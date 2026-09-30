@@ -18,11 +18,9 @@ describe('조용한 시간', () => {
 })
 
 describe('설정 읽기', () => {
-  it('비었으면 기본값 — 태그 · 공지는 앱 밖에서도', () => {
+  it('비었으면 기본값 — 모두 받기(앱 안). 앱 밖은 권한을 받은 뒤에', () => {
     expect(settingsOf(undefined)).toEqual(DEFAULT_SETTINGS)
-    expect(DEFAULT_SETTINGS.modes.tag).toBe('push')
-    expect(DEFAULT_SETTINGS.modes.notice).toBe('push')
-    expect(DEFAULT_SETTINGS.modes.made).toBe('app')
+    for (const m of Object.values(DEFAULT_SETTINGS.modes)) expect(m).toBe('app')
   })
   it('모르는 값은 기본값으로', () => {
     const s = settingsOf({ on: false, modes: { tag: 'off', made: 'loud' } })
