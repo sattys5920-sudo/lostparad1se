@@ -21,7 +21,7 @@ import { freshNow } from './turn'
 import { refreshViews } from './views'
 import { bumpSlips } from './qaLog'
 import { takenCells } from './notes'
-import { dropCellNear } from '../../shared/rules/quiz'
+import { atPaper, dropCellNear } from '../../shared/rules/quiz'
 import type { Cell } from '../../shared/rules/board'
 import { note } from './records'
 import { logSecret } from './qaLog'
@@ -226,11 +226,15 @@ export const useItem = onCall<UseInput>(async (req) => {
       const s = snap.data() as SlipDoc
       // **56장은 찢으면 끝이다.** 조각도 안 남기지만, 옛 판의 조각이 있어도 못 붙인다
       if (s.noteId) throw new HttpsError('failed-precondition', '찢긴 쪽지는 되돌릴 수 없다.')
-      if (s.tornBy === null || (s.tornAt ?? null) !== here) {
-        throw new HttpsError('failed-precondition', '여기 없는 조각이다.')
-      }
+      if (s.tornBy === null || (s.tornAt ?? null) === null) throw new HttpsError('failed-precondition', '여기 없는 조각이다.')
+      // 칸에 떨어진 조각은 **그 옆에 서야** 붙인다. 칸 없는 옛 조각은 그 방에 서 있으면 된다
+      const cellOk =
+        typeof s.x === 'number' && typeof s.y === 'number'
+          ? atPaper((me.at ?? null) as Cell | null, { x: s.x, y: s.y })
+          : s.tornAt === here
+      if (!cellOk) throw new HttpsError('failed-precondition', '찢긴 종이 옆에 서야 한다.')
       // **접힌 채로 온다.** 붙였다고 읽히지는 않는다 — 읽기는 읽기다
-      tx.update(scrapRef, { tornBy: null, tornAt: null, heldBy: uid, tileId: null })
+      tx.update(scrapRef, { tornBy: null, tornAt: null, heldBy: uid, tileId: null, x: null, y: null })
       said = '조각을 붙였다.'
     }
 

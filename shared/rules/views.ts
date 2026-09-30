@@ -526,6 +526,11 @@ export interface View {
    */
   slipPapers: { id: string; x: number; y: number; kind: 'slip' | 'memo' }[]
   /**
+   * 바닥의 **찢긴 종이** — 자리만. 무엇이 적혔던 종이인지는 테이프로
+   * 붙여서 읽어야 안다. 보이는 칸의 것만 온다.
+   */
+  scrapPapers: { id: string; x: number; y: number }[]
+  /**
    * 내가 주워 든 문제. **나에게만 온다.**
    *
    * 여기서만 문장이 실린다 — 남이 들고 있는 종이는 무엇이 적혔는지도,
@@ -623,6 +628,7 @@ export function projectView(world: World, viewerId: string): View {
       soldOutItems: [],
       quizzesHere: [],
       slipPapers: [],
+      scrapPapers: [],
       myQuizzes: [],
       mySlips: [],
       memories: [],
@@ -929,6 +935,12 @@ export function projectView(world: World, viewerId: string): View {
           s.heldBy === null && s.torn !== true && typeof s.x === 'number' && typeof s.y === 'number' && seesCell(s.x, s.y),
       )
       .map((s) => ({ id: s.id, x: s.x, y: s.y, kind: s.memo === true ? ('memo' as const) : ('slip' as const) })),
+    scrapPapers: (world.slips ?? [])
+      .filter(
+        (s): s is typeof s & { x: number; y: number } =>
+          s.torn === true && (s.tornAt ?? null) !== null && typeof s.x === 'number' && typeof s.y === 'number' && seesCell(s.x, s.y),
+      )
+      .map((s) => ({ id: s.id, x: s.x, y: s.y })),
     /*
      * **내가 든 것만 문장이 온다.**
      *

@@ -166,7 +166,7 @@ export function Me(props: MeProps) {
               <h4>아이템</h4>
               <Bag items={items} view={view} act={act} onSaid={onSaid} />
               <h4>쪽지</h4>
-              {slipCount === 0 && (view?.scrapsHere?.length ?? 0) === 0 ? (
+              {slipCount === 0 ? (
                 <p className="sc-mi__none">아직 쪽지가 없다. 바닥을 살펴보세요.</p>
               ) : (
                 props.slips

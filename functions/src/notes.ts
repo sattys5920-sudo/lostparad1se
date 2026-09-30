@@ -63,7 +63,9 @@ export async function takenCells(gameId: string): Promise<Set<string>> {
   const out = new Set<string>()
   for (const d of slips.docs) {
     const s = d.data() as SlipDoc
-    if (s.heldBy === null && s.tornBy === null && typeof s.x === 'number' && typeof s.y === 'number') out.add(`${s.x},${s.y}`)
+    if (s.heldBy !== null || typeof s.x !== 'number' || typeof s.y !== 'number') continue
+    // 바닥의 종이와 **찢긴 조각** 모두 칸을 차지한다(옛 판의 56장 조각은 tornAt 이 비어 있다)
+    if (s.tornBy === null || (s.tornAt ?? null) !== null) out.add(`${s.x},${s.y}`)
   }
   for (const d of floor.docs) {
     const q = d.data() as { x: number; y: number; heldBy: string | null; solvedBy: string | null }

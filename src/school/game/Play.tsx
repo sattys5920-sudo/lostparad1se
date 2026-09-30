@@ -773,8 +773,43 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       ...(state.view?.quizzesHere ?? []).map((q) => ({ x: q.x, y: q.y, kind: 'quiz' as const })),
       // 비밀 쪽지는 봉인한 그림, 메모(운영자 메모 · 빈 종이)는 봉인 없는 그림이다
       ...(state.view?.slipPapers ?? []).map((q) => ({ x: q.x, y: q.y, kind: q.kind === 'memo' ? ('memo' as const) : ('slip' as const) })),
+      // 찢긴 종이. 테이프로 붙일 수 있다
+      ...(state.view?.scrapPapers ?? []).map((q) => ({ x: q.x, y: q.y, kind: 'scrap' as const })),
     ],
-    [state.view?.quizzesHere, state.view?.slipPapers],
+    [state.view?.quizzesHere, state.view?.slipPapers, state.view?.scrapPapers],
+  )
+  /** 바닥에서 읽은 메모. 닫으면 사라진다 — 종이는 바닥에 그대로 있다 */
+  const [floorRead, setFloorRead] = useState<{ line: string; whose: string | null } | null>(null)
+  /**
+   * 바닥의 쪽지에 하는 일 — 읽기 · 찢기. **줍지 않는다.** 칸으로 어느
+   * 종이인지 찾는다. 테이프는 찢긴 종이 쪽이다
+   */
+  const onFloorMemo = useCallback(
+    (at: { x: number; y: number }, what: 'read' | 'tear' | 'tape') => {
+      if (what === 'tape') {
+        const scrap = (state.view?.scrapPapers ?? []).find((q) => q.x === at.x && q.y === at.y)
+        if (!scrap) return
+        void act
+          .useItem('tape', { scrapId: scrap.id })
+          .then(() => setSaid('붙였다. 접힌 채로 내 손에 있다 — 나 탭 쪽지에서 읽는다.'))
+          .catch((e: Error) => refuse(e.message))
+        return
+      }
+      const memo = (state.view?.slipPapers ?? []).find((q) => q.x === at.x && q.y === at.y)
+      if (!memo) return
+      if (what === 'read') {
+        void act
+          .readSlipHere(memo.id)
+          .then((out) => setFloorRead({ line: out.line ?? '', whose: out.whose ?? null }))
+          .catch((e: Error) => refuse(e.message))
+      } else {
+        void act
+          .tearSlipHere(memo.id)
+          .then(() => setSaid('찢었다. 찢긴 종이가 그 자리에 남는다.'))
+          .catch((e: Error) => refuse(e.message))
+      }
+    },
+    [act, refuse, state.view?.slipPapers, state.view?.scrapPapers],
   )
   /**
    * 옆 칸의 종이를 줍는다. 맵에서 탭해도, 아래 단추를 눌러도 여기로 온다.
@@ -792,7 +827,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       } else if (slip) {
         void act
           .takeSlip(slip.id)
-          .then(() => setSaid('쪽지를 주웠다. 손패에서 읽는다.'))
+          .then(() => setSaid('챙겼다. 나 탭 가진 것 · 쪽지에 있다.'))
           .catch((e: Error) => refuse(e.message))
       }
     },
@@ -1321,11 +1356,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     arcade: '오락기',
     quiz: '문제 종이',
     slip: '쪽지',
+    memo: '쪽지',
+    scrap: '찢긴 종이',
   }
   // 머리줄은 「무엇 · 어디」. 멀고 가까운 것은 줄마다 적으니 여기 또 안 적는다
   const thingName = (t: TapThing) => THING_NAME[t.what]
   const thingSub = (t: TapThing) =>
-    t.what === 'quiz' || t.what === 'slip' ? '바닥' : t.name !== undefined && t.name !== THING_NAME[t.what] ? t.name : ''
+    t.what === 'quiz' || t.what === 'slip' || t.what === 'memo' || t.what === 'scrap' ? '바닥' : t.name !== undefined && t.name !== THING_NAME[t.what] ? t.name : ''
   const thingRows = (t: TapThing): MeetRow[] => {
     const far = t.near ? null : `가까이 가야 한다 · ${t.steps}칸`
     // 연구는 페이즈의 일이다. 자유 시간에는 까닭을 적는다
@@ -1340,8 +1377,29 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       case 'quiz':
         // 문제 종이는 줍지 않는다 — 펼쳐 보고, 맞히는 사람이 나올 때까지 바닥에 남는다
         return [{ key: 'take', label: '펼쳐 본다', why: far, onPick: pick(() => takePaper(t.cell)) }, leave]
+      /*
+       * **바닥의 쪽지는 네 가지다** — 비밀 쪽지도 메모(운영자 메모 · 빈
+       * 종이)도 같다. 챙기면 바닥에서 사라지고 내 것이 된다(거래도 된다).
+       * 읽으면 그 자리에 그대로 있다. 찢으면 찢긴 종이가 그 칸에 남는다
+       */
       case 'slip':
-        return [{ key: 'take', label: '줍는다', why: far, onPick: pick(() => takePaper(t.cell)) }, leave]
+      case 'memo':
+        return [
+          { key: 'take', label: '챙긴다', why: far, onPick: pick(() => takePaper(t.cell)) },
+          { key: 'read', label: '읽는다', why: far, onPick: pick(() => onFloorMemo(t.cell, 'read')) },
+          { key: 'tear', label: '찢는다', why: far, onPick: pick(() => onFloorMemo(t.cell, 'tear')) },
+          leave,
+        ]
+      case 'scrap':
+        return [
+          {
+            key: 'tape',
+            label: '테이프로 붙인다',
+            why: far ?? (countOf(state.view?.myItems, 'tape') > 0 ? null : '테이프가 있어야 한다'),
+            onPick: pick(() => onFloorMemo(t.cell, 'tape')),
+          },
+          leave,
+        ]
       case 'board':
         return [open('board', '심부름 보기', 'board')]
       case 'vending':
@@ -1968,6 +2026,15 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               )}
             </>
           )}
+        </Sheet>
+      )}
+
+      {/* 바닥에서 읽은 메모. **종이는 바닥에 그대로다** — 닫으면 끝이다 */}
+      {floorRead !== null && (
+        <Sheet title="쪽지" onClose={() => setFloorRead(null)}>
+          <p className="sc-sl__line sc-fr__line">{floorRead.line}</p>
+          {floorRead.whose && <p className="sc-sl__whose">{floorRead.whose}의 일이다.</p>}
+          <p className="sc-sl__note">바닥에 그대로 두었다.</p>
         </Sheet>
       )}
 

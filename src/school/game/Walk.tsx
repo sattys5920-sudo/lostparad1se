@@ -91,7 +91,7 @@ export interface PersonAt {
  * 일어나면 눌러야 할 곳을 찾아 더듬게 된다.
  */
 export interface TapThing {
-  what: FixtureKind | 'quiz' | 'slip'
+  what: FixtureKind | 'quiz' | 'slip' | 'memo' | 'scrap'
   /** 기물 이름(「2층 게시판」 등). 종이에는 없다 */
   name?: string
   cell: { x: number; y: number }
@@ -165,7 +165,7 @@ export interface WalkProps {
    * 바닥의 종이 — 문제 종이와 비밀 쪽지. 보이는 칸 것만 온다.
    * 둘은 그림만 다르고 밟을 수 없는 것도, 옆에서 탭해 줍는 것도 같다.
    */
-  papers?: readonly { x: number; y: number; kind?: 'quiz' | 'slip' | 'memo' }[]
+  papers?: readonly { x: number; y: number; kind?: 'quiz' | 'slip' | 'memo' | 'scrap' }[]
   /**
    * 정원의 화분과 씨앗 상자. **정원에 서 있을 때만 온다** — 서버가
    * 그 방 사람에게만 단계를 보낸다.
@@ -854,7 +854,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       if (paper) {
         const cell = { x: paper.x, y: paper.y }
         thingRef.current?.(
-          { what: paper.kind === 'slip' || paper.kind === 'memo' ? 'slip' : 'quiz', cell, near: facing(me, cell), steps: gap(cell) },
+          { what: paper.kind ?? 'quiz', cell, near: facing(me, cell), steps: gap(cell) },
           screenAt(cell),
         )
         return
@@ -1727,7 +1727,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
              펼친 그림도 그렸는데, 이제 바닥에 펼쳐진 종이는 없다 */
           const paper = papersRef.current.find((t) => t.x === x && t.y === y)
           if (paper) {
-            const img = paper.kind === 'slip' ? sprites.slip : paper.kind === 'memo' ? sprites.memo : sprites.paper
+            const img =
+              paper.kind === 'slip' ? sprites.slip
+              : paper.kind === 'memo' ? sprites.memo
+              : paper.kind === 'scrap' ? sprites.scrap
+              : sprites.paper
             const in3 = Math.round((TILE - img.width) / 2)
             ctx.drawImage(img, x * TILE - camX + in3, y * TILE - camY + in3)
           }

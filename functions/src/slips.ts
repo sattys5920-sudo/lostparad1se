@@ -12,7 +12,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
-import type { Cell, TileId } from '../../shared/rules/board'
+import { roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
 import { atPaper, dropCellNear } from '../../shared/rules/quiz'
 import { takenCells } from './notes'
 import type { PawnDoc } from '../../shared/model'
@@ -22,6 +22,8 @@ import { refreshViews } from './views'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { docId } from './ids'
+import { fillSubject } from '../../shared/reveal/slips'
+import { SLIP_NOTE_BY_ID } from './story/slipNotes'
 
 const NO_SLIP = '그런 쪽지가 없다.'
 import { bumpSlips, logEvent } from './qaLog'
@@ -91,10 +93,6 @@ export interface SlipDoc {
 
 const slipsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('slips').collection('items')
 
-/** 지금 내가 선 방. 걷는 중이면 null 이다. */
-async function whereAmI(gameId: string, uid: string): Promise<TileId | null> {
-  return (await me(gameId, uid)).tileId
-}
 
 /** 나. 기록에 팀이 들어가므로 자리와 팀을 같이 가져온다. 선 칸도 같이 — 칸에 놓인 쪽지는 옆에 서야 줍는다. */
 async function me(gameId: string, uid: string): Promise<{ tileId: TileId | null; team: PawnDoc['team']; at: Cell | null }> {
@@ -233,8 +231,11 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const { nowMs } = await freshNow(gameId)
   // **선 자리를 적어야 조각이 남는다.** 줍기·두기·건네기가 모두
   // 서 있기를 요구하는데 찢기만 걷는 중에도 됐다 — 여기서 맞춘다
-  const here = await whereAmI(gameId, uid)
+  const self = await me(gameId, uid)
+  const here = self.tileId
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
+  // 조각이 떨어질 칸 — 발밑 옆. 둘레가 다 차 있으면 칸 없이 방에 남는다(맵은 그 방 한 칸에 그린다)
+  const scrapCell = self.at ? dropCellNear(self.at, await takenCells(gameId)) : null
   let subject = ''
   let isNote = false
   await db.runTransaction(async (tx) => {
@@ -245,11 +246,21 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
       throw new HttpsError('permission-denied', '내가 들고 있는 쪽지가 아니다.')
     }
     // 문서를 지우지 않는다. 누가 무엇을 없앴는지가 나중에 이야기가 된다.
-    // 조각은 찢은 방에 남는다 — tileId 는 비운다(바닥의 「한 장」에
+    // 찢긴 종이는 발밑 옆 칸에 남는다 — tileId 는 비운다(바닥의 「한 장」에
     // 안 세야 한다). 조각은 tornAt 으로 따로 센다
-    // **56장은 조각도 안 남는다** — 찢으면 영영 사라진다. 테이프로도 못 붙인다
+    // **56장은 되돌릴 수 없다** — 조각은 남아도 테이프로 못 붙인다
     isNote = Boolean((snap.data() as SlipDoc).noteId)
-    tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, tornAt: isNote ? null : here, atMs: nowMs })
+    tx.update(ref, {
+      tileId: null,
+      heldBy: null,
+      tornBy: uid,
+      tornAt: here,
+      // 손에서 찢은 종이는 **발밑 옆 바닥에 찢긴 채로** 떨어진다 — 맵에 그려진다.
+      // 비밀 쪽지(56장)도 조각은 남는다. 다만 테이프로는 못 붙인다(use.ts)
+      x: scrapCell?.x ?? null,
+      y: scrapCell?.y ?? null,
+      atMs: nowMs,
+    })
     subject = (snap.data() as SlipDoc).subjectId
   })
   // **누구의 쪽지를 찢었는지가 판정의 전부다.** 미화부의 「내 비밀이
@@ -260,6 +271,81 @@ export const tearSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
       subjectId: slipId,
       ownerId: subject,
     })
+  }
+  await refreshViews(gameId)
+  return { torn: true }
+})
+
+/**
+ * 바닥의 쪽지를 **그 자리에서 읽는다.** 줍지 않는다 — 읽고 나면 그대로
+ * 바닥에 있고, 다음 사람도 와서 읽는다.
+ *
+ * 비밀 쪽지도 메모도 된다. 글은 **이 응답으로만** 간다 — 내 몫(views)에도
+ * 안 실린다. 옆 칸에 서야 한다. 비밀 쪽지를 처음 읽으면 주워서 읽은
+ * 것과 똑같이 slipRead 한 줄이 남는다(개인 미션이 센다).
+ */
+export const readSlipHere = onCall<{ gameId: string; slipId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
+  const self = await me(gameId, uid)
+  const { game, nowMs } = await freshNow(gameId)
+  let first = false
+  let doc: SlipDoc | null = null
+  await db.runTransaction(async (tx) => {
+    const ref = slipsOf(gameId).doc(slipId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', NO_SLIP)
+    const s = snap.data() as SlipDoc
+    if (!onCell(s)) throw new HttpsError('failed-precondition', '바닥에 없는 쪽지다.')
+    if (!atPaper(self.at, { x: s.x, y: s.y })) throw new HttpsError('failed-precondition', '쪽지 옆에 서야 한다.')
+    if (!s.readBy.includes(uid)) {
+      tx.update(ref, { readBy: [...s.readBy, uid] })
+      first = true
+    }
+    doc = s
+  })
+  const s = doc as SlipDoc | null
+  if (!s) throw new HttpsError('not-found', NO_SLIP)
+  // 이름을 끼운 문장 — 주워서 읽을 때(views)와 같은 문장이다
+  const owner = game.seats.find((x) => x.playerId === s.subjectId)?.name ?? null
+  const line = s.noteId ? fillSubject(SLIP_NOTE_BY_ID[s.noteId]?.text ?? '', owner) : fillSubject(s.text ?? '', owner)
+  if (first && s.noteId) {
+    await note(gameId, 'slipRead', nowMs, { id: uid, team: self.team }, { subjectId: slipId, ownerId: s.subjectId })
+  }
+  return { line, whose: s.subjectId ? owner : null }
+})
+
+/**
+ * 바닥의 쪽지를 **그 자리에서 찢는다.** 찢긴 종이가 그 칸에 남아 맵에
+ * 그려진다. 메모 · 빈 종이는 테이프를 가진 사람이 옆에서 짚으면 다시
+ * 붙인다. 비밀 쪽지는 되돌릴 수 없다.
+ *
+ * 비밀 쪽지를 찢으면 주워서 찢은 것과 똑같이 slipTear 한 줄이 남는다
+ * (미화부의 「내 비밀이 적힌 쪽지를 찢는다」가 센다). 메모 · 빈 종이는
+ * 어떤 쪽지 미션에도 안 세므로 줄을 안 남긴다.
+ */
+export const tearSlipHere = onCall<{ gameId: string; slipId: string }>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId } = req.data
+  const slipId = docId(req.data.slipId, NO_SLIP)
+  const self = await me(gameId, uid)
+  const { nowMs } = await freshNow(gameId)
+  let torn: SlipDoc | null = null
+  await db.runTransaction(async (tx) => {
+    const ref = slipsOf(gameId).doc(slipId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', NO_SLIP)
+    const s = snap.data() as SlipDoc
+    if (!onCell(s)) throw new HttpsError('failed-precondition', '바닥에 없는 쪽지다.')
+    if (!atPaper(self.at, { x: s.x, y: s.y })) throw new HttpsError('failed-precondition', '쪽지 옆에 서야 한다.')
+    const room = roomOfCell(s.x, s.y) ?? self.tileId ?? s.placedTile ?? null
+    tx.update(ref, { tileId: null, heldBy: null, tornBy: uid, tornAt: room, atMs: nowMs })
+    torn = s
+  })
+  const t = torn as SlipDoc | null
+  if (t?.noteId) {
+    await note(gameId, 'slipTear', nowMs, { id: uid, team: self.team }, { subjectId: slipId, ownerId: t.subjectId })
   }
   await refreshViews(gameId)
   return { torn: true }

@@ -299,6 +299,11 @@ export function gameActions(gameId: string) {
     readSlip: (slipId: string) => callServer('readSlip', { ...g, slipId }),
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
     tearSlip: (slipId: string) => callServer('tearSlip', { ...g, slipId }),
+    /** 바닥의 메모를 그 자리에서 읽는다 — 줍지 않는다. 글은 응답으로만 온다 */
+    readSlipHere: (slipId: string) =>
+      callServer('readSlipHere', { ...g, slipId }) as Promise<{ line?: string; whose?: string | null }>,
+    /** 바닥의 메모를 그 자리에서 찢는다 — 찢긴 종이가 그 칸에 남는다 */
+    tearSlipHere: (slipId: string) => callServer('tearSlipHere', { ...g, slipId }),
     // ── 심부름 ────────────────────────────────────────────
     /** 게시판 앞에서 한 장 받는다. 한 번에 하나뿐이다. */
     takeErrand: (errandId: string) => callServer('takeErrand', { ...g, errandId }),

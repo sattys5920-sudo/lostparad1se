@@ -1,7 +1,8 @@
 // 빈 종이와 문제 종이 — 사람이 하는 순서대로 찍는다.
 //
 //   A(qa01) 자판기에서 빈 종이를 사고 → 적고 → 복도 바닥에 놓는다
-//   B(qa02) 걸어와서 → 맵에서 짚어 줍고 → 읽고 → 찢는다(찢긴 뒤 바닥)
+//   B(qa02) 걸어와서 → 맵에서 짚으면 네 가지(챙긴다·읽는다·찢는다·그냥 둔다)
+//           → 그 자리에서 읽는다(바닥에 그대로) → 찢는다(찢긴 종이가 남는다)
 //   문제 종이 — B 가 펼쳐 보고 틀린다(바닥에 남는다) → A 가 맞힌다(사라진다)
 //
 //   1. cd functions && npm run build  (에뮬레이터 다시 띄우기)
@@ -12,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 
 import pw from '/opt/node22/lib/node_modules/playwright/index.js'
-import { cellNow, pickOnMap, tap, walkTo as walkToCell } from './lib/walk'
+import { cellNow, pickOnMap, tap, tapCell, walkTo as walkToCell } from './lib/walk'
 import { dayHourMs } from '../shared/rules/clock'
 import { SHOP_ITEMS, VENDINGS } from '../shared/rules/shop'
 import { canDropQuizAt } from '../shared/rules/quiz'
@@ -226,38 +227,38 @@ async function main() {
   await shot(B, '07-B-멀리서-바닥의-종이.png')
   await walk(B, bUid, at, '종이 옆')
   await B.waitForTimeout(1000)
-  if (!(await pickOnMap(B, at, '줍는다'))) {
-    missed.push('B 가 종이를 짚었는데 「줍는다」가 없다')
-    await shot(B, '08-B-짚음-실패.png')
-  } else {
-    await B.waitForTimeout(1500)
-    await shot(B, '08-B-주웠다.png')
-  }
 
-  // ── B: 읽는다 ───────────────────────────────────────────────
-  console.log('\n── B: 읽기 ──')
-  await openBag(B)
-  await B.locator('.sc-sl').scrollIntoViewIfNeeded().catch(() => undefined)
+  // ── B: 짚으면 네 가지 ─────────────────────────────────────
+  console.log('\n── B: 네 가지 ──')
+  await tapCell(B, at)
+  await B.waitForTimeout(700)
+  await shot(B, '08-B-짚으면-네가지.png')
+  const rows = await B.locator('.sc-mt__row').allInnerTexts()
+  console.log(`  차림표: ${rows.map((r) => r.replace(/\s+/g, ' ')).join(' / ')}`)
+  await B.locator('.sc-mt__back').click().catch(() => undefined)
   await B.waitForTimeout(300)
-  await shot(B, '09-B-접힌-쪽지.png')
-  await tap(B, '.sc-sl__row button', '읽기')
-  await B.waitForTimeout(1500)
-  await B.locator('.sc-sl').scrollIntoViewIfNeeded().catch(() => undefined)
-  await shot(B, '10-B-읽었다.png')
 
-  // ── B: 찢는다 ───────────────────────────────────────────────
-  console.log('\n── B: 찢기 ──')
-  await B.locator('.sc-sl__tear').click()
+  // 읽는다 — 그 자리에서. 종이는 바닥에 그대로
+  if (!(await pickOnMap(B, at, '읽는다'))) missed.push('「읽는다」가 없다')
+  await B.waitForSelector('.sc-fr__line', { timeout: 8000 }).catch(() => missed.push('읽은 글이 안 떴다'))
+  await B.waitForTimeout(400)
+  await shot(B, '09-B-그자리에서-읽었다.png')
+  await closeSheet(B)
+  await B.waitForTimeout(600)
+  await shot(B, '10-B-읽어도-바닥에-그대로.png')
+
+  // 찢는다 — 그 칸에 찢긴 종이로 남는다
+  if (!(await pickOnMap(B, at, '찢는다'))) missed.push('「찢는다」가 없다')
+  await B.waitForTimeout(1800)
+  await shot(B, '11-B-찢었다-찢긴종이.png')
+  await tapCell(B, at)
+  await B.waitForTimeout(700)
+  await shot(B, '12-B-찢긴종이-짚으면.png')
+  await B.locator('.sc-mt__back').click().catch(() => undefined)
   await B.waitForTimeout(300)
-  await shot(B, '11-B-찢기-한번더.png')
-  await B.locator('.sc-sl__tear').click()
-  await B.waitForFunction(() => document.querySelectorAll('.sc-sl__list > li').length === 0, null, { timeout: 15_000 }).catch(() => undefined)
-  await B.waitForTimeout(800)
-  await B.locator('.sc-mi__open').scrollIntoViewIfNeeded().catch(() => undefined)
-  await shot(B, '12-B-찢은뒤-가진것.png')
-  await tab(B, '맵')
-  await B.waitForTimeout(1200)
-  await shot(B, '13-B-찢은뒤-맵바닥.png')
+  const scraps = arr((await viewOf(game, bUid)).scrapPapers).length
+  console.log(`  B 가 보는 찢긴 종이: ${scraps}장`)
+  if (scraps !== 1) missed.push('찢긴 종이가 맵에 없다')
 
   // ── 문제 종이 ───────────────────────────────────────────────
   console.log('\n── 문제 종이 ──')

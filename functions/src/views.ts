@@ -312,8 +312,10 @@ export async function refreshViews(gameId: string): Promise<number> {
  * 칸 없는 종이를 「그 방에 서 있으면」으로 받으므로 그대로 주워진다.
  */
 function legacyCell(id: string, s: SlipDoc): { x: number | null; y: number | null } {
-  if (s.heldBy || s.tornBy || !s.tileId) return { x: null, y: null }
-  const cells = dropCellsIn(s.tileId)
+  // 찢긴 조각은 찢긴 방(tornAt), 바닥의 종이는 놓인 방(tileId)
+  const room = s.heldBy ? null : s.tornBy ? (s.tornAt ?? null) : (s.tileId ?? null)
+  if (!room) return { x: null, y: null }
+  const cells = dropCellsIn(room)
   if (cells.length === 0) return { x: null, y: null }
   let h = 0
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0

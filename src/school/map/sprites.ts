@@ -4,7 +4,7 @@
 // 있는지는 props.ts 가 안다. 여기서는 바닥·벽·문·계단과 흔적만 굽는다.
 import { MAP } from '../skin'
 import { PROP_ART, PROP_KINDS, type PropKind } from './props'
-import { MEMO_SHUT, PAPER_SHUT, POT_ART, SLIP_SEAL, SLIP_SHUT, THING_ART } from './thingArt'
+import { MEMO_SHUT, SCRAP_SHUT, PAPER_SHUT, POT_ART, SLIP_SEAL, SLIP_SHUT, THING_ART } from './thingArt'
 import { POT_TONES, cropPalette, fruitPotRows } from './cropArt'
 import { CROPS } from '../../../shared/rules/crop'
 import { THING_ICONS, type ThingIcon } from '../../../shared/rules/errand'
@@ -486,6 +486,8 @@ export interface SpriteSet {
   slip: HTMLCanvasElement
   /** 바닥의 메모 — 운영자 메모와 손으로 쓴 빈 종이. 봉인이 없다 */
   memo: HTMLCanvasElement
+  /** 바닥의 찢긴 종이 */
+  scrap: HTMLCanvasElement
   marks: Record<MarkKind, HTMLCanvasElement>
   shadow: HTMLCanvasElement
 }
@@ -519,6 +521,7 @@ export function buildSprites(): SpriteSet {
     paper: bake(PAPER_SHUT as unknown as string[]),
     slip: bake(SLIP_SHUT as unknown as string[], { '9': SLIP_SEAL }),
     memo: bake(MEMO_SHUT as unknown as string[]),
+    scrap: bake(SCRAP_SHUT as unknown as string[]),
     /*
      * 화분 그림. 단계 다섯에 **작물마다의 열매**를 더한다 —
      * 열매 단계는 작물마다 제 모양 그림(map/cropArt)을 화분 위에 얹은

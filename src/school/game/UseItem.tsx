@@ -32,7 +32,6 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
   const [writing, setWriting] = useState(false)
   const [text, setText] = useState('')
 
-  const scraps = view?.scrapsHere ?? []
   const rows = (Object.entries(items) as [ItemKind, number][]).filter(([, n]) => (n ?? 0) > 0)
   /*
    * 들고 있는 심부름 물건. **여기 한 줄로 선다.**
@@ -180,18 +179,8 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
               </div>
             )}
 
-            {kind === 'tape' &&
-              (scraps.length === 0 ? (
-                <p className="sc-mi__howto">이 방에는 붙일 조각이 없다.</p>
-              ) : (
-                <button
-                  className="sc-mi__use"
-                  disabled={busy}
-                  onClick={() => void use('tape', { scrapId: scraps[0]?.id })}
-                >
-                  조각 붙이기 ({scraps.length}무더기)
-                </button>
-              ))}
+            {/* 테이프는 맵에서 쓴다 — 바닥의 찢긴 종이 옆에서 짚으면 「테이프로 붙인다」가 뜬다 */}
+            {kind === 'tape' && <p className="sc-mi__howto">찢긴 종이 옆에서 맵을 짚어 붙인다.</p>}
           </li>
         )
       })}

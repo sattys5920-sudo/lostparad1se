@@ -2460,3 +2460,6 @@
 }
 .sc-at__alley.is-here { border-style: solid; border-color: var(--accent); color: var(--text-1); }
 .sc-at__alleyN { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* 바닥에서 읽은 메모 — 시트에 한 장. 종이는 바닥에 그대로 있다 */
+.sc-fr__line { font-size: var(--fs-body); line-height: 1.6; white-space: pre-wrap; word-break: keep-all; }

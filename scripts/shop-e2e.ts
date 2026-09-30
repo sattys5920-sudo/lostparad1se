@@ -360,8 +360,9 @@ async function main() {
   await must('tearSlip', youTok, { gameId: game, slipId })
   const v4 = await viewOf(game, uidOf(you))
   check(arr(v4.mySlips).length === 0, '찢으면 손에서 없어진다')
-  const scraps = arr(v4.scrapsHere)
-  check(scraps.length === 1, '찢긴 조각이 그 방에 남는다', `${scraps.length}무더기`)
+  const scraps = arr(v4.scrapPapers)
+  check(scraps.length === 1, '**찢긴 종이가 맵 바닥에 그려진다** — 찢은 사람 발밑 옆', `${scraps.length}장`)
+  const scrapAt = { x: num(scraps[0]?.x), y: num(scraps[0]?.y) }
   check(arr(v4.slipsHere).length === 0, '조각은 바닥의 「한 장」에 안 센다')
   const dump4 = JSON.stringify(v4)
   check(!dump4.includes(MEMO) && !dump4.includes('0412'), '**조각에도 글은 없다** — 붙여야 종이가 된다')
@@ -379,7 +380,15 @@ async function main() {
 
   await standAt(game, meUid, 'artRoom')
   const scrapId = String(str(scraps[0]?.id) ?? '')
+  // 같은 방이어도 떨어져 있으면 못 붙인다 — 찢긴 종이 옆에 서야 한다
+  const farFromScrap = artCells.find((c) => Math.max(Math.abs(c.x - scrapAt.x), Math.abs(c.y - scrapAt.y)) >= 3) ?? artCells[0]
+  await standBy(game, meUid, farFromScrap)
+  const tooFarTape = await call('useItem', meTok, { gameId: game, kind: 'tape', scrapId })
+  check(!tooFarTape.ok, '찢긴 종이에서 떨어져 있으면 못 붙인다', tooFarTape.ok ? '붙였다' : (tooFarTape.err ?? ''))
+  const besideScrap = artCells.find((c) => Math.max(Math.abs(c.x - scrapAt.x), Math.abs(c.y - scrapAt.y)) === 1) ?? scrapAt
+  await standBy(game, meUid, besideScrap)
   await must('useItem', meTok, { gameId: game, kind: 'tape', scrapId })
+  check(arr((await viewOf(game, meUid)).scrapPapers).length === 0, '붙이면 바닥에서 찢긴 종이가 사라진다')
   const v5 = await viewOf(game, meUid)
   const taped = arr(v5.mySlips)[0] ?? {}
   check(arr(v5.mySlips).length === 1, '붙이면 내 손에 온다')
@@ -397,6 +406,38 @@ async function main() {
     recOf(paperLog, 'slipRead').length === 0 && recOf(paperLog, 'slipTear').length === 0 && recOf(paperLog, 'slipGive').length === 0,
     '빈 종이를 읽고 찢어도 미션 줄(읽기·찢기·건네기)이 안 생긴다',
   )
+
+  console.log('\n── 바닥의 메모 — 그 자리에서 읽기 · 찢기 ──')
+  {
+    await must('buyShopItem', meTok, { gameId: game, itemId: 'paper' }).catch(async () => {
+      await standBy(game, meUid, MY_SIDE)
+      await must('buyShopItem', meTok, { gameId: game, itemId: 'paper' })
+    })
+    await standAt(game, meUid, 'artRoom')
+    await standBy(game, meUid, mine)
+    await standAt(game, youUid, 'artRoom')
+    await standBy(game, youUid, farCell)
+    await must('useItem', meTok, { gameId: game, kind: 'paper', text: '두 번째 종이' })
+    const papersNow = arr((await viewOf(game, youUid)).slipPapers)
+    const memo = papersNow.find((p) => str(p.kind) === 'memo')
+    const memoId = String(str(memo?.id) ?? '')
+    const memoAt = { x: num(memo?.x), y: num(memo?.y) }
+    const farRead = await call('readSlipHere', youTok, { gameId: game, slipId: memoId })
+    check(!farRead.ok, '떨어져서는 못 읽는다', farRead.ok ? '읽었다' : (farRead.err ?? ''))
+    const nearMemo = artCells.find((c) => Math.max(Math.abs(c.x - memoAt.x), Math.abs(c.y - memoAt.y)) === 1) ?? memoAt
+    await standBy(game, youUid, nearMemo)
+    const readHere = await call('readSlipHere', youTok, { gameId: game, slipId: memoId })
+    check(readHere.ok && String(readHere.result.line) === '두 번째 종이', '옆에서 읽으면 글이 온다', readHere.ok ? String(readHere.result.line) : (readHere.err ?? ''))
+    const vAfterRead = await viewOf(game, youUid)
+    check(arr(vAfterRead.slipPapers).some((p) => str(p.id) === memoId), '**읽어도 바닥에 그대로 있다**')
+    check(!JSON.stringify(vAfterRead).includes('두 번째 종이'), '읽은 글은 내 몫(views)에도 안 남는다 — 응답으로만 왔다')
+    await must('tearSlipHere', youTok, { gameId: game, slipId: memoId })
+    const vAfterTear = await viewOf(game, youUid)
+    check(!arr(vAfterTear.slipPapers).some((p) => str(p.id) === memoId), '찢으면 쪽지 그림은 사라지고')
+    const torn = arr(vAfterTear.scrapPapers).find((p) => str(p.id) === memoId)
+    check(torn !== undefined && num(torn.x) === memoAt.x && num(torn.y) === memoAt.y, '**그 칸에 찢긴 종이로 남는다**')
+    check(arr(vAfterTear.mySlips).length === 0, '찢어도 내 손에는 안 들어온다')
+  }
 
   console.log('\n── 지우개 ──')
   // 두 사람이 나를 적는다. 한 장을 지우면 동점이 되어 아무도 안 지워진다
