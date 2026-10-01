@@ -904,7 +904,12 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   const won = await db.runTransaction(async (tx) => {
     const g = (await tx.get(gameRef(gameId))).data() as (GameDoc & { closingNo?: number }) | undefined
     if (!g?.phaseNow?.open || g.phaseNow.no !== claimNo || g.closingNo === claimNo) return false
-    tx.update(gameRef(gameId), { closingNo: claimNo })
+    /*
+     * **누르는 순간 닫힌다.** 판정을 다 쓰기 전이라도 페이즈는 이 쓰기에서
+     * 닫힌다 — 그 뒤로 들어오는 행동은 phaseAct 가 트랜잭션 안에서 보고 거절한다.
+     * 판정 쓰기가 중간에 실패해도 페이즈가 열린 채로 굳지 않는다
+     */
+    tx.update(gameRef(gameId), { closingNo: claimNo, 'phaseNow.open': false })
     return true
   })
   if (!won) return { no: claimNo, captured: 0, lines: 0, alreadyClosed: true }

@@ -74,17 +74,26 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
     castAtMs: nowMs,
     settled: false,
   }
-  const batch = db.batch()
-  batch.set(ref.collection('secret').doc('votes').collection('items').doc(), vote)
-  batch.update(ref.collection('pawns').doc(uid), { votedToday: true, votedKinds: FieldValue.arrayUnion(kind) })
-  batch.set(ref.collection('events').doc(), {
-    atMs: nowMs,
-    day: game.day,
-    kind: 'vote',
-    // 보낸 사람도 받은 사람도 기록에 남기지 않는다. 정산에서 팀 합계만 쓴다
-    detail: {},
+  /*
+   * **종류마다 하루 한 장 — 무조건.** 표 문서 이름을 「날 · 사람 · 종류」로 정해
+   * 두고 트랜잭션 안에서 본다. 빠르게 두 번 눌러도 두 번째는 이미 있는 문서를 본다
+   */
+  const voteRef = ref.collection('secret').doc('votes').collection('items').doc(`d${game.day}:${uid}:${kind}`)
+  await db.runTransaction(async (tx) => {
+    const [had, mineNow] = await Promise.all([tx.get(voteRef), tx.get(ref.collection('pawns').doc(uid))])
+    if (had.exists || ((mineNow.data() as PawnDoc | undefined)?.votedKinds ?? []).includes(kind)) {
+      throw new HttpsError('failed-precondition', `오늘은 이미 ${kind === 'trust' ? '신뢰표' : '호감표'}를 줬다.`)
+    }
+    tx.set(voteRef, vote)
+    tx.update(ref.collection('pawns').doc(uid), { votedToday: true, votedKinds: FieldValue.arrayUnion(kind) })
+    tx.set(ref.collection('events').doc(), {
+      atMs: nowMs,
+      day: game.day,
+      kind: 'vote',
+      // 보낸 사람도 받은 사람도 기록에 남기지 않는다. 정산에서 팀 합계만 쓴다
+      detail: {},
+    })
   })
-  await batch.commit()
   await refreshViews(gameId)
   // 짚었는지도 알려 주지 않는다. 알려 주면 역할을 하나씩 찍어 볼 수 있다
   return { cast: kind }

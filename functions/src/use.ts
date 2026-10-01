@@ -204,6 +204,9 @@ export const useItem = onCall<UseInput>(async (req) => {
     if (kind === 'eraser') {
       const key = erasedKey(day, uid)
       const eRef = erasedOf(gameId).doc(key)
+      // **표를 세기 전에만 쓴다.** 센 뒤에 지우면 효과 없이 지우개만 닳는다
+      const counted = await tx.get(gameRef(gameId).collection('secret').doc('ballotDays').collection('items').doc(`d${day}`))
+      if (counted.exists) throw new HttpsError('failed-precondition', '오늘 표는 이미 셌다. 지우개는 표를 세기 전에만 쓴다.')
       const had = ((await tx.get(eRef)).data() as ErasedDoc | undefined)?.n ?? 0
       tx.set(eRef, { day, targetId: uid, n: had + 1 })
       /*
