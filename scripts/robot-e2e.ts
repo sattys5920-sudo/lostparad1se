@@ -55,7 +55,8 @@ function check(ok: boolean, label: string, detail = ''): void {
 }
 const GAME = `rb${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
-const ROOM = 'library'
+// 넷이 함께 서는 방이라 정원(6)이 넉넉한 방을 쓴다 — 도서관(정원 2)이면 페이즈가 열릴 때 늦게 온 둘이 복도로 나간다
+const ROOM = 'artRoom'
 async function getDoc(path: string) { return plain(await (await fetch(`${FS}/${path}`, { headers: ADMIN })).json()) as Record<string, any> }
 async function listDocs(path: string): Promise<Record<string, any>[]> {
   const r = await fetch(`${FS}/${path}?pageSize=300`, { headers: ADMIN })

@@ -265,7 +265,7 @@ async function main(): Promise<void> {
   const asked = await must('askDeal', A[0].token, { gameId: GAME, toPlayerId: B[0].uid })
   const dealId = String(asked.id)
   await must('answerDeal', B[0].token, { gameId: GAME, dealId, accept: true })
-  await must('stakeDeal', A[0].token, { gameId: GAME, dealId, stake: { slips: 1 } })
+  await must('stakeDeal', A[0].token, { gameId: GAME, dealId, stake: { slipIds: [slip.id] } })
   await must('readyDeal', A[0].token, { gameId: GAME, dealId, ready: true })
   await must('readyDeal', B[0].token, { gameId: GAME, dealId, ready: true })
   // 앞서 맞춘 시계 뒤로 실제 시간이 흐른다 — 넉넉히 넘긴다

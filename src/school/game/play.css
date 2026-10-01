@@ -648,6 +648,26 @@
 }
 .sc-dr__step button:disabled { opacity: 0.35; cursor: default; }
 
+/* 쪽지는 한 장씩 고른다 — 이름 칸 아래로 고를 쪽지들이 줄지어 선다 */
+.sc-dr__bag li.sc-dr__slips { grid-template-columns: 1fr; }
+.sc-dr__picks { display: flex; flex-wrap: wrap; gap: var(--sp-1); min-width: 0; }
+.sc-dr__picks button {
+  appearance: none;
+  max-width: 100%;
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--sc-line);
+  background: var(--bg-2);
+  color: var(--sc-text-2);
+  font: inherit;
+  font-size: var(--fs-cap);
+  border-radius: var(--r-game);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-dr__picks button.is-on { border-color: var(--sc-accent, currentColor); color: var(--sc-text-1, inherit); background: var(--bg-3, var(--bg-2)); }
+
 /* 열 개 스무 개를 한 개씩 누르게 두지 않는다 */
 .sc-dr__slide { grid-column: 1 / -1; width: 100%; height: 16px; margin: 0 0 var(--sp-1); }
 

@@ -471,7 +471,7 @@ async function main(): Promise<void> {
   snap = await snapshot()
   rejects(await call('stakeDeal', mate.token, { gameId: GAME, dealId, stake: {} }), '남의 거래에 stakeDeal', 'PERMISSION_DENIED')
   rejects(await call('stakeDeal', me.token, { gameId: GAME, dealId, stake: { money: 1e12 } }), 'stakeDeal 없는 돈 1e12', 'FAILED_PRECONDITION')
-  rejects(await call('stakeDeal', me.token, { gameId: GAME, dealId, stake: { slips: 1 } }), 'stakeDeal 없는 쪽지', 'FAILED_PRECONDITION')
+  rejects(await call('stakeDeal', me.token, { gameId: GAME, dealId, stake: { slipIds: ['nope'] } }), 'stakeDeal 없는 쪽지', 'FAILED_PRECONDITION')
   rejects(await call('stakeDeal', me.token, { gameId: GAME, dealId, stake: { items: { whistle: 1 } } }), 'stakeDeal 없는 물건', 'FAILED_PRECONDITION')
   rejects(await call('readyDeal', me.token, { gameId: GAME, dealId, ready: true }), '빈 탁자에 readyDeal', 'FAILED_PRECONDITION')
   rejects(await call('settleDeal', me.token, { gameId: GAME, dealId }), '안 익은 거래 settleDeal', 'FAILED_PRECONDITION')

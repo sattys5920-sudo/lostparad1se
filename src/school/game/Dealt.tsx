@@ -21,12 +21,15 @@ import type { TeamId } from '../types'
 const SEEN = 'sc.dealt.seen'
 
 const keyOf = (gameId: string, uid: string) => `${SEEN}:${gameId}:${uid}`
+/** 저장이 막힌 브라우저용 — 이 창을 닫기 전까지는 다시 안 띄운다 */
+const seenHere = new Map<string, number>()
 
 /**
  * 이 배정을 봤는가. **배정마다 따로 센다** — 운영자가 고쳐 주면(시각이
  * 바뀌면) 다시 뜬다. stamp 는 자리의 dealtAtMs 다
  */
 export function dealtSeen(gameId: string, uid: string, stamp: number): boolean {
+  if (seenHere.get(keyOf(gameId, uid)) === stamp) return true
   try {
     return localStorage.getItem(keyOf(gameId, uid)) === String(stamp)
   } catch {
@@ -37,6 +40,7 @@ export function dealtSeen(gameId: string, uid: string, stamp: number): boolean {
 }
 
 export function markDealtSeen(gameId: string, uid: string, stamp: number): void {
+  seenHere.set(keyOf(gameId, uid), stamp)
   try {
     localStorage.setItem(keyOf(gameId, uid), String(stamp))
   } catch {

@@ -2,7 +2,7 @@
 //
 // 여기가 뚫리면 첫날 아침에 나흘치를 다 읽는다. 그 판은 되돌릴 수 없다.
 import { describe, expect, it } from 'vitest'
-import { canRelease, releasedDays } from './release'
+import { canRelease, openDays, releasedDays } from './release'
 
 const seoul = (iso: string) => new Date(`${iso}+09:00`).getTime()
 const START = seoul('2026-03-02T08:00:00')
@@ -63,5 +63,21 @@ describe('지금까지 열린 날', () => {
 
   it('판이 시작하기 전에는 첫 조각도 없다', () => {
     expect(releasedDays(START, seoul('2026-03-02T07:00:00'))).toEqual([])
+  })
+})
+
+describe('openDays — 감독관이 넘긴 달력을 따른다', () => {
+  const start = Date.UTC(2026, 9, 1, 14, 58) // 23:58 KST
+  it('연습 동안은 아무 날도 안 열린다', () => {
+    expect(openDays({ practice: true, day: 1, startedAtMs: start }, start + 60_000)).toEqual([])
+  })
+  it('23:58 에 DAY 1 을 시작해도 자정이 지나 DAY 2 가 열리지 않는다', () => {
+    expect(openDays({ day: 1, startedAtMs: start }, start + 10 * 60_000)).toEqual([1])
+  })
+  it('감독관이 DAY 2 를 넘기면 시각과 상관없이 그날이 열린다', () => {
+    expect(openDays({ day: 2, startedAtMs: start }, start + 60_000)).toEqual([1, 2])
+  })
+  it('시작 전에는 없다', () => {
+    expect(openDays({ day: 1, startedAtMs: null }, start)).toEqual([])
   })
 })

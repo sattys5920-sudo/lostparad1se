@@ -52,3 +52,17 @@ export const REFUSAL_MESSAGE: Record<ReleaseRefusal, string> = {
   notYet: '아직 열리지 않았다.',
   notStarted: '아직 판이 시작되지 않았다.',
 }
+
+/**
+ * **판에서 지금 열린 날 — 감독관이 넘긴 달력(game.day)을 따른다.**
+ *
+ * 날은 시계가 아니라 감독관이 「다음 날 아침」을 눌러 넘긴다. 달력 자정으로
+ * 세면(releasedDays) 23:58 에 DAY 1 을 시작한 판은 2 분 뒤 DAY 2 기록이
+ * 열리고, 감독관이 DAY 2 를 일찍 넘기면 자정까지 안 열린다. 연습 동안은
+ * 아무 날도 안 열린다.
+ */
+export function openDays(game: { practice?: boolean; day?: number; startedAtMs?: number | null }, nowMs: number): number[] {
+  if (game.practice || !game.startedAtMs || nowMs < game.startedAtMs) return []
+  const upTo = Math.min(Math.max(0, Math.floor(game.day ?? 0)), TOTAL_DAYS)
+  return Array.from({ length: upTo }, (_, i) => i + 1)
+}

@@ -56,7 +56,8 @@ interface Ctx {
    * 모듈 바깥에 두면 안 된다. 두 요청이 동시에 따라잡으면 서로의
    * 목록이 섞인다.
    */
-  landed: { playerId: string; tileId: TileId; atMs: number }[]
+  /** 선 자리. 꽉 찬 방 문 앞 복도에 선 사람은 tileId 가 null 이다 — 어느 방에도 안 센다 */
+  landed: { playerId: string; tileId: TileId | null; atMs: number }[]
 }
 
 /**
@@ -235,7 +236,8 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
         text: `${TILE_BY_ID[tileId].name}은(는) 이미 꽉 찬 방이다. 들어가지 못했다.`,
         atMs: c.atMs,
       })
-      c.landed.push({ playerId, tileId: back, atMs: c.atMs })
+      // 문 앞 **복도**에 섰다 — 어느 방 체류도 아니다
+      c.landed.push({ playerId, tileId: null, atMs: c.atMs })
       c.tx.set(qaLogOf(c.gameId).doc(), {
         atMs: c.atMs,
         day: c.day,
@@ -403,7 +405,7 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
 
   // 칸에 선 말의 체류 기록을 연다. 트랜잭션 안에서 하면 읽기·쓰기
   // 순서에 걸린다 — 도착 처리기는 이미 쓰기 단계에 있다
-  for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs)
+  for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs, a.tileId === null ? 'walking' : 'standing')
   if (landed.length > 0) await refreshAwakening(gameId)
 
   // 시든 거래를 접는다. 답 없는 청, 자리를 뜬 사람, 열린 페이즈 —
@@ -489,7 +491,7 @@ export async function pushByHand(gameId: string): Promise<HandResult> {
   if (did && (item.kind === 'dayStart' || item.kind === 'gameEnd')) await catchUpMissionDays(gameId)
 
   // 판이 바뀌었으니 각자 몫을 다시 짠다. 틀린 안개는 새는 안개다
-  for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs)
+  for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs, a.tileId === null ? 'walking' : 'standing')
   if (did) await refreshViews(gameId)
 
   const last = (await ref.get()).data() as GameDoc

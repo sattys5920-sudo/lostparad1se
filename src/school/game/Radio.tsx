@@ -469,7 +469,7 @@ function RadioRoom({
           <span className="sc-rd__freq">
             {channel === 'team' ? (
               <>
-                <b>{TEAM_FREQ[me.team]}</b> MHz · {teamName(me.team)}
+                <b>{TEAM_FREQ[me.team] ?? '—'}</b> MHz · {teamName(me.team)}
               </>
             ) : (
               <>

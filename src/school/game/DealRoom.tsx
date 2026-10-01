@@ -67,14 +67,23 @@ function pileOf(stake: Stake | undefined): Pile {
   return out
 }
 
-/** 화면이 센 것을 서버가 아는 모양으로. */
-function stakeOf(p: Pile): Stake {
+/** 화면이 센 것을 서버가 아는 모양으로. 쪽지는 고른 것 하나하나를 보낸다 */
+function stakeOf(p: Pile, slipIds: readonly string[]): Stake {
   const items: Partial<Record<ItemKind, number>> = {}
   for (const i of ITEMS) if (p[i.kind] > 0) items[i.kind] = p[i.kind]
   const crops: Record<string, number> = {}
   for (const c of CROPS) if (p[CROP_KEY(c.id)] > 0) crops[c.id] = p[CROP_KEY(c.id)]
-  return { money: p.money, knowledge: p.knowledge, slips: p.slips, robots: p.robots, items, crops }
+  return { money: p.money, knowledge: p.knowledge, slips: slipIds.length, slipIds: [...slipIds], robots: p.robots, items, crops }
 }
+
+/** 손에 든 쪽지 한 장을 고를 때 붙이는 이름. 읽은 것은 첫 줄 몇 자, 안 읽은 것은 「접힌 쪽지」 */
+function slipLabel(s: { read: boolean; line: string | null }, i: number): string {
+  if (!s.read) return `접힌 쪽지 ${i + 1}`
+  const line = (s.line ?? '').replace(/\s+/g, ' ').trim()
+  return line.length > 18 ? `「${line.slice(0, 18)}…」` : `「${line || '빈 쪽지'}」`
+}
+
+const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x))
 
 /** 내가 지금 내놓을 수 있는 양. **이만큼만 집힌다.** */
 function haveOf(view: PlayerViewDoc | null): Pile {
@@ -115,28 +124,42 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
   // 손끝이 먼저 움직이고 서버가 따라온다. **다만 서버가 거절하면 서버
   // 것으로 돌아간다** — 화면에만 올려 둔 물건이 있으면 안 된다
   const [draft, setDraft] = useState<Pile>(onTable)
+  /** 올리려고 고른 쪽지 — 한 장씩 다르다 */
+  const tableSlips = useMemo(() => mySide.stake.slipIds ?? [], [mySide.stake.slipIds])
+  const [slipDraft, setSlipDraft] = useState<string[]>(tableSlips)
   const dirty = useRef(false)
   useEffect(() => {
-    if (!dirty.current) setDraft(onTable)
-  }, [onTable])
+    if (!dirty.current) {
+      setDraft(onTable)
+      setSlipDraft(tableSlips)
+    }
+  }, [onTable, tableSlips])
 
   // 누를 때마다 부르지 않는다. 한 개씩 다섯 번 누르면 다섯 번 오간다
   useEffect(() => {
-    if (!dirty.current || same(draft, onTable)) return
+    if (!dirty.current || (same(draft, onTable) && sameIds(slipDraft, tableSlips))) return
     const t = setTimeout(() => {
       act
-        .stakeDeal(deal.id, stakeOf(draft))
+        .stakeDeal(deal.id, stakeOf(draft, slipDraft))
         .then(() => {
           dirty.current = false
         })
         .catch((e) => {
           dirty.current = false
           setDraft(onTable)
+          setSlipDraft(tableSlips)
           onSaid((e as Error).message)
         })
     }, 300)
     return () => clearTimeout(t)
-  }, [draft, onTable, act, deal.id, onSaid])
+  }, [draft, slipDraft, onTable, tableSlips, act, deal.id, onSaid])
+
+  /** 내 손의 쪽지. 그새 손을 떠난 것은 고른 데서도 뺀다 */
+  const mySlips = useMemo(() => view?.mySlips ?? [], [view?.mySlips])
+  const toggleSlip = (id: string) => {
+    dirty.current = true
+    setSlipDraft((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
+  }
 
   // 상대가 무언가 올리면 반짝인다. 「지금 바뀌었다」가 안 보이면 탁자를
   // 계속 노려보게 된다
@@ -255,10 +278,36 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
           <span>{teamName(me.team)}</span>
           <em className={mySide.ready ? 'is-ready' : ''}>{mySide.ready ? '준비됨' : '고르는 중'}</em>
         </header>
-        <Slots pile={draft} team={me.team} lit={mySide.ready} none="여기에 올린다." />
+        <Slots pile={{ ...draft, slips: slipDraft.length }} team={me.team} lit={mySide.ready} none="여기에 올린다." />
 
         <ul className="sc-dr__bag">
-          {SLOTS.filter((s) => have[s.key] > 0).map((s) => (
+          {SLOTS.filter((s) => have[s.key] > 0).map((s) =>
+            s.key === 'slips' ? (
+              /* **쪽지는 한 장씩 고른다.** 저마다 다른 쪽지라 몇 장이 아니라 어느 것인지가 거래다 */
+              <li key={s.key} className="sc-dr__slips">
+                <span className="sc-dr__what">
+                  <img src={s.icon()} alt="" width={24} height={24} />
+                  {s.name}
+                  <em>골라서 올린다 · {slipDraft.length}/{mySlips.length}</em>
+                </span>
+                <span className="sc-dr__picks">
+                  {mySlips.map((sl, i) => {
+                    const on = slipDraft.includes(sl.id)
+                    return (
+                      <button
+                        key={sl.id}
+                        className={'is-inline' + (on ? ' is-on' : '')}
+                        aria-pressed={on}
+                        onClick={() => toggleSlip(sl.id)}
+                      >
+                        {on ? '✓ ' : ''}
+                        {slipLabel(sl, i)}
+                      </button>
+                    )
+                  })}
+                </span>
+              </li>
+            ) : (
             <li key={s.key}>
               <span className="sc-dr__what">
                 <img src={s.icon()} alt="" width={24} height={24} />
@@ -297,7 +346,8 @@ export function DealRoom({ me, deal, view, otherName, nowMs, act, onSaid, onClos
                 />
               )}
             </li>
-          ))}
+            ),
+          )}
           {count(have) === 0 && <li className="sc-dr__none">내놓을 것이 없다.</li>}
         </ul>
       </section>

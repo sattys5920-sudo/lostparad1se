@@ -26,8 +26,8 @@ export type DealStatus = 'asking' | 'open' | 'settling' | 'done' | 'gone'
 /**
  * 한쪽이 탁자에 올려놓은 것.
  *
- * **쪽지는 장수만 적는다.** 무엇인지도 누구 것인지도 성립해야 보인다 —
- * 접힌 채로 건네는 것이 쪽지다. 어느 쪽지인지는 서버만 안다.
+ * **쪽지는 한 장씩 골라 올린다**(slipIds). 상대 화면에는 장수만 보인다 —
+ * 무엇이 적혔는지는 받아서 읽어야 안다. 성립하면 고른 바로 그 쪽지가 넘어간다.
  */
 export interface Stake {
   /** 내 지갑에서 나간다. 크게 움직이면 우리 팀 무전에 한 줄 남는다. */
@@ -35,8 +35,13 @@ export interface Stake {
   knowledge: number
   /** 내 주머니의 물건. */
   items: Satchel
-  /** 접힌 쪽지 장수. */
+  /** 올린 쪽지 장수. 고른 쪽지(slipIds)의 수와 같다 — 셈과 빈 판 확인이 이것을 본다 */
   slips: number
+  /**
+   * **고른 쪽지 하나하나.** 손에 든 쪽지는 저마다 다르다 — 어느 것을 건넬지는
+   * 올리는 사람이 고른다. 없으면 옛 거래판이다(장수만 적던 때)
+   */
+  slipIds?: string[]
   /** 들고 있는 로봇만. 방에 놓은 것은 못 건넨다. */
   robots: number
   /**
@@ -51,7 +56,7 @@ export interface Stake {
 /** 작물 아이디 → 개수 */
 export type CropBag = Record<string, number>
 
-export const EMPTY_STAKE: Stake = { money: 0, knowledge: 0, items: {}, slips: 0, robots: 0, crops: {} }
+export const EMPTY_STAKE: Stake = { money: 0, knowledge: 0, items: {}, slips: 0, slipIds: [], robots: 0, crops: {} }
 
 /** 딴 것 더미의 개수. 음수나 빈 칸은 0으로 센다 */
 export const cropTotal = (bag: CropBag | undefined): number =>

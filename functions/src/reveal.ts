@@ -9,7 +9,7 @@ import { onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { TOTAL_DAYS } from '../../shared/rules/v2'
-import { releasedDays } from '../../shared/reveal/release'
+import { openDays } from '../../shared/reveal/release'
 import { snowView } from '../../shared/rules/snow'
 import type { Interval } from '../../shared/rules/presence'
 import type { TileId } from '../../shared/rules/board'
@@ -38,8 +38,8 @@ export const markMorning = onCall<{ gameId: string; read?: number[]; skipped?: n
     const { gameId } = req.data
     const { game, nowMs } = await freshNow(gameId)
 
-    // 연습 동안은 열린 날이 없다(fragments.ts 와 같다)
-    const open = game.practice ? [] : releasedDays(game.startedAtMs ?? null, nowMs)
+    // 열린 날은 감독관이 넘긴 달력을 따른다. 연습 동안은 없다(fragments.ts 와 같다)
+    const open = openDays(game, nowMs)
     const clean = (days: unknown): number[] =>
       [...new Set((Array.isArray(days) ? days : []).map(Number))]
         .filter((d) => Number.isInteger(d) && d >= 1 && d <= TOTAL_DAYS)
@@ -104,9 +104,8 @@ export async function refreshAwakening(gameId: string): Promise<{ released: numb
   const snap = await gameRef(gameId).get()
   const game = snap.data() as GameDoc
   const nowMs = nowOf(game)
-  const from = game.startedAtMs ?? nowMs
-
-  const progress = { released: releasedDays(from, nowMs).length }
+  // 열린 날은 감독관이 넘긴 달력을 따른다(openDays)
+  const progress = { released: openDays(game, nowMs).length }
   await gameRef(gameId).update({ snow: snowView(progress) })
   return progress
 }

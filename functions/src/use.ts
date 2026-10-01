@@ -18,7 +18,7 @@ import { trapsOf, type TrapSetDoc } from './trap'
 import type { GameDoc, PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import type { SlipDoc } from './slips'
-import { freshNow, refuseIfSnared } from './turn'
+import { freshNow, refuseIfSnared, refuseInPractice } from './turn'
 import { refreshViews } from './views'
 import { bumpSlips } from './qaLog'
 import { takenCells } from './notes'
@@ -88,6 +88,8 @@ export const useItem = onCall<UseInput>(async (req) => {
 
   const { game, nowMs } = await freshNow(gameId)
   await refuseIfSnared(gameId, uid, nowMs)
+  // **지우개는 연습 때 못 쓴다.** 연습도 DAY 1 이라, 쓰면 DAY 1 투표에서 표가 지워진다
+  if (kind === 'eraser') refuseInPractice(game, '지우개를 쓸')
   const ref = gameRef(gameId)
   const meRef = ref.collection('pawns').doc(uid)
 

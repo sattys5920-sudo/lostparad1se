@@ -72,6 +72,8 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
   const seat = game.seats.find((s) => s.playerId === uid)
 
   const toAll = req.data.channel === 'all'
+  // **배정을 숨겨 둔 동안은 분단 무전이 없다** — 같은 분단끼리만 들리면 그것으로 분단이 드러난다
+  if (!toAll && game.hideDeal) throw new HttpsError('failed-precondition', '아직 분단 무전을 쓸 수 없다.')
   if (toAll && game.allChannelClosed === true) {
     throw new HttpsError('failed-precondition', ALL_SHUT)
   }
@@ -114,6 +116,8 @@ export const radioLines = onCall<{ gameId: string; sinceMs?: number; channel?: '
   const { game, nowMs } = await freshNow(gameId)
   const pawn = await myPawn(gameId, uid)
   const toAll = req.data.channel === 'all'
+  // 배정을 숨겨 둔 동안은 분단 무전이 비어 있다(radio 와 같다)
+  if (!toAll && game.hideDeal) return { lines: [], day: game.day, team: null, channel: 'team' }
   // **옮겨 온 사람은 옮긴 뒤부터 듣는다.** 방에서 하는 말이 「들어온
   // 뒤의 말만」인 것과 같다 — 배신 한 번에 그 팀 하루치가 넘어가면
   // 안 된다. 전원 채널은 팀과 상관없으니 처음부터 다 듣는다

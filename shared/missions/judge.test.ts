@@ -381,6 +381,23 @@ describe('전학생 — 1위가 아니어야 한다', () => {
     expect(stood(need).met).toBe(true)
   })
 
+  it('그날 이적했으면 서 있던 그때의 내 분단으로 가른다', () => {
+    // B 에 있다가 START+3시간에 A 로 넘어왔다(자정의 분단은 A)
+    const moved = START + 3 * 60 * MIN
+    const records = did('teamMoved', 1, { atMs: moved, actorTeam: 'A', otherTeam: 'B' })
+    const stay = (tileId: string, at: number): Interval => ({ playerId: 'me', tileId, startMs: at, endMs: at + minutes * MIN, state: 'standing' })
+    const intervals: Interval[] = [
+      stay('rA', START), // 이적 전 — A 는 그때 남의 분단이었다 → 센다
+      stay('rB0', START + 60 * MIN), // 이적 전 — B 는 그때 내 분단이었다 → 안 센다
+      stay('rB', moved + 10 * MIN), // 이적 뒤 — B 는 이제 남의 분단이다 → 센다
+      stay('rA2', moved + 60 * MIN), // 이적 뒤 — A 는 이제 내 분단이다 → 안 센다
+    ]
+    const own = (tileId: string, team: TeamId) => ({ tileId, team, ownerBefore: null, atMs: START - MIN })
+    const ownerChanges = [own('rA', 'A'), own('rB0', 'B'), own('rB', 'B'), own('rA2', 'A')]
+    const m = mainOf('newcomer', { intervals, ownerChanges, records })
+    expect(m.clauses[1].have).toBe(2)
+  })
+
   it(`${minutes}분을 못 채운 방은 안 센다`, () => {
     const intervals: Interval[] = [
       { playerId: 'me', tileId: 'r1', startMs: START, endMs: START + (minutes - 1) * MIN, state: 'standing' },

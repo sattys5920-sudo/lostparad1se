@@ -188,7 +188,9 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
 
   const all = await postedOf(gameId).get()
   const rows = all.docs.map((d) => d.data() as ErrandDoc)
-  if (rows.some((e) => e.specId === spec.id && e.day === game.day)) {
+  // 연습 때 낸 심부름은 0 일째다 — DAY 1 에 같은 심부름을 다시 낼 수 있다
+  const postDay = game.practice ? 0 : game.day
+  if (rows.some((e) => e.specId === spec.id && e.day === postDay)) {
     throw new HttpsError('failed-precondition', '오늘 이미 나간 심부름이다.')
   }
   const onBoard = rows.filter((e) => e.boardId === boardId && liveOf(e)).length
@@ -210,7 +212,7 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
     // 운영자가 풀의 출발 방을 고쳤을 때 판 위의 물건이 순간이동한다
     cell: thingCellOf(spec.id, spec.from),
     postedMs: nowMs,
-    day: game.day,
+    day: postDay,
     takers: {},
     doneBy: null,
     doneMs: null,

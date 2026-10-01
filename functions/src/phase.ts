@@ -451,7 +451,8 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // 열넷 모두에게 — 결과는 없다, 열렸다는 것뿐
   await notify(gameId, everyone, 'phaseStart', `phaseStart:${no}`)
   // 이적은 answerTransfer 가 그 자리에서 teamMoved 를 남긴다 — 여기서는 안 짚는다
-  // 복도로 내보낸 사람도 방(tileId)은 그대로라 체류도 그대로다 — 서 있던 방의 체류가 이어진다
+  // 복도로 내보낸 사람은 그 방 체류를 닫는다 — 복도에 선 시간은 방에 있은 시간이 아니다(standAt 과 같다)
+  for (const o of pushedOut) await openInterval(gameId, o.playerId, null, nowMs, 'walking')
   await refreshViews(gameId)
   await logEvent(gameId, 'phaseOpen', nowMs, null, { no, day, endsAtMs, returned, pushedOut }, { day })
   // allInAtMs 는 남겨 둔다 — 이제는 늘 지금이다. 아무도 걷지 않는다
@@ -1299,6 +1300,8 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
     }
     const cellRef = cellsOf(gameId).doc(`${x}_${y}`)
     const oldRef = p.at ? cellsOf(gameId).doc(`${p.at.x}_${p.at.y}`) : null
+    /** 이번 걸음이 방 → 복도인가, 복도 → 방인가. 체류 기록을 그 자리에서 바꾼다(아래) */
+    let crossed: 'in' | 'out' | null = null
     const took = await inTx(async (tx) => {
       const [claim, old] = await Promise.all([tx.get(cellRef), oldRef ? tx.get(oldRef) : null])
       const by = claim.exists ? (claim.data() as { by: string }).by : null
@@ -1313,10 +1316,19 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
       // **복도에서 방 안으로 들어섰으면 그때가 들어온 시각이다** — 정원을 넘은 방에서 누구를 내보낼지 이걸로 본다
       const wasOut = !!p.at && roomOfCell(p.at.x, p.at.y) !== p.tileId
       const nowIn = p.tileId !== null && roomOfCell(x, y) === p.tileId
+      crossed = wasOut && nowIn ? 'in' : !wasOut && !nowIn && p.tileId !== null ? 'out' : null
       tx.update(ref, { at: { x, y }, ...(wasOut && nowIn ? { inSinceMs: nowMs } : {}) })
       return true
     })
     if (!took) return { ok: false, code: 'occupied', why: '누가 먼저 섰다.', at: await keepSeat(gameId, uid, p, { x, y }) }
+    /*
+     * **복도에 선 시간은 방에 있은 시간이 아니다.** 방을 나서 복도에 서면 그 방
+     * 체류를 닫고(어느 방에도 안 세는 구간), 다시 들어서면 새로 연다. 안 그러면
+     * 복도에 10 분 서 있어도 마지막에 들어갔던 방에 10 분 있은 것으로 판정됐다
+     * (전학생 · 반장 · 짝사랑). 방에 다시 들어온 사람은 다시 들어온 뒤의 말만 듣는다
+     */
+    if (crossed === 'in') await openInterval(gameId, uid, p.tileId as TileId, nowMs)
+    if (crossed === 'out') await openInterval(gameId, uid, null, nowMs, 'walking')
   }
 
   /*

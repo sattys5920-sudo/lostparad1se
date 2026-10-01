@@ -235,8 +235,11 @@ async function main(): Promise<void> {
   await must('assignAll', host, { gameId: GAME })
   await must('startGame', host, { gameId: GAME, startAtMs: START })
   let clock = dayHourMs(START, 1, 10)
+  /** 시계를 ms 만큼 민다. **맞춘 뒤 흐른 실제 시간도 더한다** — 안 그러면 판 시계가 뒤로 간다 */
+  let pushedReal = Date.now()
   const push = async (ms: number): Promise<void> => {
-    clock += ms
+    clock += ms + (Date.now() - pushedReal)
+    pushedReal = Date.now()
     await must('setDevClock', host, { gameId: GAME, anchorGameMs: clock, speed: 1 })
     await must('tick', host, { gameId: GAME })
   }
@@ -369,8 +372,10 @@ async function main(): Promise<void> {
     stake: { money: (vault.money ?? 0) + 99 },
   })
   check(!tooMuch.ok && tooMuch.code === 'FAILED_PRECONDITION', '금고에 없는 돈은 못 올린다', tooMuch.message)
-  const ghostSlip = await call('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { slips: 5 } })
+  const ghostSlip = await call('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { slipIds: ['없는쪽지'] } })
   check(!ghostSlip.ok, '없는 쪽지도 못 올린다', ghostSlip.message)
+  const countOnly = await call('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { slips: 1 } })
+  check(!countOnly.ok, '**장수만 보내면 안 받는다 — 한 장씩 골라 올린다**', countOnly.message)
   check(Number(staked(await dealNow(id), 'a').money) === 2, '막힌 뒤에도 탁자는 아까 그대로다')
 
   // ── 3. 자리를 뜨거나 페이즈가 열리면 사라진다 ───────────────
@@ -455,15 +460,15 @@ async function main(): Promise<void> {
   })
 
   id = await open()
-  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1, slips: 1 } })
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1, slipIds: [slip.id] } })
   await must('stakeDeal', you.token, { gameId: GAME, dealId: id, stake: { knowledge: 1 } })
 
   // 쪽지 내용이 거래판에 없는지 먼저 본다
   const board = JSON.stringify(await dealNow(id))
-  check(!board.includes(slip.id), '거래판에 **어느 쪽지인지가 없다**')
+  check(board.includes(slip.id), '**고른 그 쪽지가 거래판에 적힌다**')
   const line = String(slip.d.text ?? '')
-  check(line === '' || !board.includes(line), '쪽지 본문도 없다')
-  check(Number(staked(await dealNow(id), 'a').slips) === 1, '장수만 적힌다')
+  check(line === '' || !board.includes(line), '쪽지 본문은 없다 — 받아서 읽어야 안다')
+  check(Number(staked(await dealNow(id), 'a').slips) === 1, '장수도 같이 적힌다(상대 화면은 장수만 그린다)')
 
   const aBefore = await purseNow(me.uid)
   const bBefore = await purseNow(you.uid)
@@ -472,13 +477,15 @@ async function main(): Promise<void> {
   const early = await call('settleDeal', me.token, { gameId: GAME, dealId: id })
   check(!early.ok, '다 세기 전에는 성립하지 않는다', early.message)
 
-  await push(DEAL_COUNTDOWN_MS + 1000)
+  // 세는 끝(settleAtMs) 뒤로 넘긴다. 앞서 맞춘 시계 뒤로 실제 시간이 흘렀으니, 맞춘 값에 더하기만 하면 덜 갈 수 있다
+  const settleAt = Number((await dealNow(id)).settleAtMs ?? 0)
+  await push(Math.max(DEAL_COUNTDOWN_MS + 1000, settleAt + 1000 - clock))
   // 둘이 **같이** 부른다. 한 번만 먹어야 한다
   const both = await Promise.all([
     call('settleDeal', me.token, { gameId: GAME, dealId: id }),
     call('settleDeal', you.token, { gameId: GAME, dealId: id }),
   ])
-  check(both.every((r) => r.ok), '**둘 다 성립을 눌러도 둘 다 성사로 끝난다**', JSON.stringify(both.map((r) => r.code ?? 'ok')))
+  check(both.every((r) => r.ok), '**둘 다 성립을 눌러도 둘 다 성사로 끝난다**', JSON.stringify(both.map((r) => r.ok ? 'ok' : `${r.code} ${r.message}`)))
   check(String((await dealNow(id)).status) === 'done', '탁자가 닫혔다')
   // 늦게 온 성립 · 준비 취소가 끝난 거래를 다시 열지 않는다
   const late = await call('settleDeal', you.token, { gameId: GAME, dealId: id })

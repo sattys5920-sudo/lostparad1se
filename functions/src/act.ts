@@ -68,8 +68,10 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
    * 무엇보다 같은 순간 둘이 사면 둘 다 「아직 남았다」를 본다 —
    * 트랜잭션 안에서 올리는 칸이라야 열넷이 동시에 눌러도 하나다.
    */
+  // **연습 때 판 것은 DAY 1 재고에서 안 뺀다** — 연습은 0 일째로 따로 센다
+  const stockDay = game.practice ? 0 : game.day
   const stockRef = item.stockPerDay
-    ? ref.collection('secret').doc('shopStock').collection('items').doc(`d${game.day}:${item.id}`)
+    ? ref.collection('secret').doc('shopStock').collection('items').doc(`d${stockDay}:${item.id}`)
     : null
 
   await db.runTransaction(async (tx) => {
@@ -103,7 +105,7 @@ export const buyShopItem = onCall<{ gameId: string; itemId: string }>(async (req
      */
     if (item.flags) tx.update(teamRef, { boughtFlags: (teamNow?.boughtFlags ?? 0) + item.flags })
 
-    if (stockRef) tx.set(stockRef, { day: game.day, itemId: item.id, n: soldToday + 1 })
+    if (stockRef) tx.set(stockRef, { day: stockDay, itemId: item.id, n: soldToday + 1 })
     // 누가 어느 자판기에서 샀나 — 자리가 실린다. 공개 events 가 아니라 운영자 로그로
     tx.set(qaLogOf(gameId).doc(), {
       atMs: nowMs,

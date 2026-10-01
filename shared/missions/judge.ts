@@ -144,8 +144,44 @@ const distinctSubjects = (rows: readonly GameRecord[]): number =>
 function staysOf(log: GameLog): Stay[] {
   return log.intervals
     .filter((iv) => iv.tileId !== null && (iv.state === 'standing' || iv.state === 'asleep'))
-    .map((iv) => ({ playerId: iv.playerId, tileId: iv.tileId, startMs: Math.max(iv.startMs, log.startedAtMs), endMs: iv.endMs }))
-    .filter((s) => s.endMs === null || s.endMs > s.startMs)
+    // **센 기간 뒤도 자른다.** 밀린 날을 나중에 판정하면 그 뒤에 끝난 체류가 통째로 들어왔다
+    .map((iv) => ({
+      playerId: iv.playerId,
+      tileId: iv.tileId,
+      startMs: Math.max(iv.startMs, log.startedAtMs),
+      endMs: Math.min(iv.endMs ?? log.nowMs, log.nowMs),
+    }))
+    .filter((s) => s.endMs > s.startMs)
+}
+
+/**
+ * **그 시각에 나는 어느 분단이었나.** 이적 기록(teamMoved)을 되짚는다.
+ *
+ * 판정은 자정의 분단(c.me.team)으로 하는데, 그날 이적했으면 이적 전에 서 있던
+ * 방은 옛 분단 기준으로 봐야 한다 — 옛 분단 방에 서 있던 것이 「다른 분단 방」으로
+ * 세어지거나, 새 분단 방에 미리 서 있던 것이 버려졌다.
+ */
+function teamAt(c: Ctx, atMs: number): TeamId {
+  const moves = mine(c, 'teamMoved').sort((a, b) => a.atMs - b.atMs)
+  let team = (moves[0]?.otherTeam ?? myTeam(c)) as TeamId
+  for (const m of moves) if (m.atMs <= atMs) team = m.actorTeam
+  return team
+}
+
+/** 내 체류를 이적 시각에서 잘라, 조각마다 그때의 내 분단을 붙인다 */
+function myStaysByTeam(c: Ctx, stays: readonly Stay[]): { team: TeamId; stay: Stay }[] {
+  const cuts = mine(c, 'teamMoved').map((m) => m.atMs).sort((a, b) => a - b)
+  const out: { team: TeamId; stay: Stay }[] = []
+  for (const s of stays) {
+    if (s.playerId !== meOf(c)) continue
+    let at = s.startMs
+    const end = s.endMs ?? c.log.nowMs
+    for (const cut of [...cuts.filter((x) => x > at && x < end), end]) {
+      out.push({ team: teamAt(c, at), stay: { ...s, startMs: at, endMs: cut } })
+      at = cut
+    }
+  }
+  return out
 }
 
 /** 내 투명인간 표가 적중한 날. 동률로 무효가 된 날은 애초에 안 들어온다. */
@@ -249,10 +285,17 @@ function measure(clause: Clause, c: Ctx): Measured {
       return { unit: 'flag', have: log.teamTiedRank[myTeam(c)] !== 1 ? 1 : 0 }
     case 'otherTeamRoomsStood': {
       const least = (clause.minutes ?? 1) * MINUTE_MS
-      const stays = staysOf(log)
-      const teams = TEAM_IDS.filter((t) => t !== myTeam(c)).filter(
-        // 서 있던 그 시점에 그 팀 방이었어야 한다
-        (t) => stayInTeamRoomsAtTimeMs(stays, me, t, log.ownerChanges, log.nowMs) >= least,
+      const pieces = myStaysByTeam(c, staysOf(log))
+      const teams = TEAM_IDS.filter(
+        // 서 있던 그 시점에 그 팀 방이었어야 하고, **그때 내 분단이 아니었어야** 한다
+        (t) =>
+          stayInTeamRoomsAtTimeMs(
+            pieces.filter((p) => p.team !== t).map((p) => p.stay),
+            me,
+            t,
+            log.ownerChanges,
+            log.nowMs,
+          ) >= least,
       )
       return { unit: 'count', have: teams.length }
     }

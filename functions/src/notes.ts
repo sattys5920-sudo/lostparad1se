@@ -123,7 +123,8 @@ async function place(
       readBy: [],
       tornBy: null,
       tornAt: null,
-      placedDay: game.day,
+      // 연습 때 뿌린 것은 0 일째다 — DAY 1 무작위 뿌리기가 그 역할을 건너뛰지 않게
+      placedDay: game.practice ? 0 : game.day,
       everHeld: false,
       placedTile: room,
       placedAtMs: nowOf(game),

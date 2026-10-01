@@ -3,7 +3,7 @@
 // 이 파일이 서버 전용 문장과 화면 사이의 유일한 문이다. 열린 날만
 // 내려보낸다(releasedDays).
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { REFUSAL_MESSAGE, releasedDays } from '../../shared/reveal/release'
+import { REFUSAL_MESSAGE, openDays } from '../../shared/reveal/release'
 import { FRAGMENT_BY_DAY } from './story/fragments'
 import { gameRef, nowOf } from './index'
 import type { GameDoc } from '../../shared/model'
@@ -51,7 +51,8 @@ async function load(gameId: string): Promise<GameDoc> {
 export const releasedFragments = onCall<{ gameId: string }>(async (req) => {
   if (!req.auth?.uid) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
   const game = await load(req.data.gameId)
-  // **연습 동안은 아무 날도 안 열린다.** 「연습 끝 · DAY 1 시작」을 누르면 그때 DAY 1 아침이 열린다
-  const days = game.practice ? [] : releasedDays(game.startedAtMs ?? null, nowOf(game))
+  // **열린 날은 감독관이 넘긴 달력을 따른다.** 연습 동안은 아무 날도 안 열리고,
+  // 「연습 끝 · DAY 1 시작」에서 DAY 1, 「다음 날 아침」을 누를 때마다 그날이 열린다
+  const days = openDays(game, nowOf(game))
   return { days, fragments: days.map(payloadOf) }
 })

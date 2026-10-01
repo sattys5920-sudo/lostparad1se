@@ -656,7 +656,8 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   const revealSeat = state.game?.seats.find((s) => s.playerId === revealUid) ?? null
   const startedAt = state.game?.startedAtMs ?? null
   const revealStamp =
-    revealSeat?.team && revealSeat.dealtAtMs && startedAt !== null && revealSeat.dealtAtMs >= startedAt && !state.game?.hideDeal
+    // 판이 도는 동안에만 — 끝난 판을 새 기기로 열었을 때 학생증이 다시 뜨지 않게
+    state.game?.phase === 'running' && revealSeat?.team && revealSeat.dealtAtMs && startedAt !== null && revealSeat.dealtAtMs >= startedAt && !state.game?.hideDeal
       ? revealSeat.dealtAtMs
       : 0
   const [revealShut, setRevealShut] = useState(0)
@@ -677,6 +678,16 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
     if (wasPractice.current && !practiceNow) setMorningDone(false)
     wasPractice.current = practiceNow
   }, [practiceNow])
+  /*
+   * **감독관이 「다음 날 아침」을 누르면 그날 아침도 그 자리에서 연다.** 날은
+   * 달력이 아니라 감독관이 넘긴다 — 켜 둔 화면도 새로고침 없이 그날 기록을 본다
+   */
+  const dayNow = state.game?.day ?? 0
+  const lastDay = useRef(dayNow)
+  useEffect(() => {
+    if (lastDay.current > 0 && dayNow > lastDay.current) setMorningDone(false)
+    lastDay.current = dayNow
+  }, [dayNow])
 
   // 들어올 때마다 밀린 일을 따라잡는다. 아무도 없던 사이의 아침과
   // 정산이 여기서 처리된다
@@ -1055,7 +1066,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 내 팀. **판이 돌고 있으면 반드시 있다** — 배정 없이는 시작이 안
    * 되고, 이 화면은 시작한 뒤에만 그려진다. 타입만 그걸 모른다
    */
-  const myTeam = (me?.team ?? 'A') as TeamId
+  // 배정을 숨겨 둔 동안은 분단이 없다(null) — 「1 분단」으로 메우면 거래창 · 무전에 엉뚱한 분단이 찍힌다
+  const myTeam = (me?.team ?? (game?.hideDeal ? null : 'A')) as TeamId
   const invisibleName = game?.invisibleId
     ? (game.seats.find((s) => s.playerId === game.invisibleId)?.name ?? null)
     : null

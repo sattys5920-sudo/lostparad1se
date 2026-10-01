@@ -125,8 +125,8 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
   const over = game.phase === 'finished'
   const { log } = await buildLog(gameId, game, {
     over,
-    // 끝났으면 다 센다. 도는 중이면 **어제까지만** 센다
-    ...(over ? {} : { voteCutoffDay: game.day }),
+    // 끝났으면 다 센다(연습 때 한 일은 빼고 — DAY 1 시작부터). 도는 중이면 **어제까지만** 센다
+    ...(over ? (game.startedAtMs ? { fromMs: game.startedAtMs } : {}) : { voteCutoffDay: game.day }),
   })
 
   /*
@@ -136,7 +136,8 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
    */
   const fromMs = over ? undefined : await todayFromMs(gameId, game)
   const dayLog =
-    fromMs === undefined ? log : (await buildLog(gameId, game, { over: false, fromMs, dropVotes: true })).log
+    // 투명인간 투표도 **오늘 것만** 센다(throughDay) — 안 그러면 지난날 맞힌 것이 오늘 달성으로 보였다
+    fromMs === undefined ? log : (await buildLog(gameId, game, { over: false, fromMs, throughDay: game.day, dropVotes: true })).log
   const result = judge({ playerId: uid, team: mine.team, roleId, targetId: crushTargetId }, dayLog)
   /*
    * **문서의 공개 시점대로.** 「하루가 바뀔 때」 조항은 그날 안에는 안 보인다 —

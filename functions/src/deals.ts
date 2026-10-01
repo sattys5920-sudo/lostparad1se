@@ -81,10 +81,22 @@ function cleanStake(raw: unknown): Stake {
     const v = n((r.crops as Record<string, unknown> | undefined)?.[c.id])
     if (v > 0) crops[c.id] = v
   }
+  /*
+   * **쪽지는 한 장씩 골라 올린다.** 아이디만 받는다 — 같은 장을 두 번 올려도 한 장이다.
+   * 장수만 보내면(옛 화면) 어느 것을 건넬지 모르므로 받지 않는다
+   */
+  const rawIds = (r as { slipIds?: unknown }).slipIds
+  // 쪽지 아이디 꼴이 아닌 것이 섞였으면 **조용히 빼지 않고 거절한다** — 빼면 올린 줄 알았던 쪽지가 탁자에서 사라진다
+  if (Array.isArray(rawIds) && rawIds.some((x) => typeof x !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(x))) {
+    throw new HttpsError('failed-precondition', '그 쪽지는 지금 손에 없다.')
+  }
+  const slipIds = Array.isArray(rawIds) ? [...new Set(rawIds as string[])].slice(0, 60) : null
+  if (slipIds === null && n(r.slips) > 0) throw new HttpsError('invalid-argument', '쪽지는 한 장씩 골라 올린다.')
   return {
     money: n(r.money),
     knowledge: n(r.knowledge),
-    slips: n(r.slips),
+    slips: slipIds?.length ?? 0,
+    slipIds: slipIds ?? [],
     robots: n(r.robots),
     items,
     crops,
@@ -250,7 +262,11 @@ export const stakeDeal = onCall<{ gameId: string; dealId: string; stake: unknown
   const short = shortOf(stake, have)
   if (short) throw new HttpsError('failed-precondition', SHORT_MESSAGE[short])
 
-  // 쪽지는 장수만 거래판에 적는다. 어느 것이 넘어갈지는 성립하는 순간 손에 든 것에서 정한다
+  // 고른 쪽지가 **정말 지금 내 손에 있는 것**이어야 한다. 성립할 때 한 번 더 본다
+  const picked = await Promise.all((stake.slipIds ?? []).map((id) => slipsOf(gameId).doc(id).get()))
+  if (picked.some((s) => !s.exists || s.get('heldBy') !== uid || s.get('torn') === true)) {
+    throw new HttpsError('failed-precondition', '그 쪽지는 지금 손에 없다.')
+  }
 
   return db.runTransaction(async (tx) => {
     const ref = dealsOf(gameId).doc(dealId)
@@ -393,14 +409,34 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     const bDoc = bNow.data() as PawnDoc
     const aTeamRef = ref.collection('teams').doc(aDoc.team as string)
     const bTeamRef = ref.collection('teams').doc(bDoc.team as string)
-    const take = (q: FirebaseFirestore.Query, n: number) => (n > 0 ? tx.get(q.limit(n)).then((x) => x.docs) : Promise.resolve([]))
+    /*
+     * 든 쪽지를 다 읽어 **비밀 쪽지부터** n 장 고른다. 앞에서 n 장을 그냥 자르면 문서
+     * 순서대로 빈 종이(메모)가 먼저 끌려가서, 비밀 쪽지 두 장을 건넨 도서부가 한 장만
+     * 건넨 것으로 판정됐다
+     */
+    const take = (q: FirebaseFirestore.Query, n: number) =>
+      n > 0
+        ? tx.get(q).then((x) =>
+            // 운영자가 놓은 쪽지(noteId 가 있는 것)가 먼저다
+            [...x.docs].sort((p, q2) => Number(!p.get('noteId')) - Number(!q2.get('noteId'))).slice(0, n),
+          )
+        : Promise.resolve([])
+    /*
+     * **고른 그 쪽지가 넘어간다.** 다만 지금도 그 사람 손에 있어야 한다 — 그새 바닥에
+     * 두었거나 찢었으면 모자란 것이다(아래 shortOf 가 탁자로 돌려보낸다).
+     * 장수만 적힌 옛 거래판은 손에 든 것에서 고른다
+     */
+    const pick = (stake: Stake, holder: string) =>
+      stake.slipIds === undefined
+        ? take(slipsOf(gameId).where('heldBy', '==', holder), stake.slips)
+        : Promise.all(stake.slipIds.map((id) => tx.get(slipsOf(gameId).doc(id)))).then((xs) =>
+            xs.filter((s) => s.exists && s.get('heldBy') === holder && s.get('torn') !== true),
+          )
     const [aTeamSnap, bTeamSnap, aSlips, bSlips, aHeld, bHeld] = await Promise.all([
       tx.get(aTeamRef),
       tx.get(bTeamRef),
-      // 쪽지는 **지금 손에 든 것**에서 넘긴다. 올릴 때 골라 둔 것을 쓰면, 그새
-      // 바닥에 둔 쪽지가 남의 손에서 끌려온다
-      take(slipsOf(gameId).where('heldBy', '==', d.aId), d.a.stake.slips),
-      take(slipsOf(gameId).where('heldBy', '==', d.bId), d.b.stake.slips),
+      pick(d.a.stake, d.aId),
+      pick(d.b.stake, d.bId),
       // 든 로봇은 **전부** 읽는다 — 내놓을 것과 받는 쪽 손의 자리를 한 번에 센다
       tx.get(ref.collection('robots').where('carriedBy', '==', d.aId)).then((x) => x.docs),
       tx.get(ref.collection('robots').where('carriedBy', '==', d.bId)).then((x) => x.docs),

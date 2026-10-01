@@ -21,6 +21,7 @@ import { START_TILE, TILES } from '../../shared/rules/board'
 import { START_CELLS } from '../../shared/rules/blocked'
 import { STARTING_RESOURCES, STARTING_TEAM_SIZES, type TeamId } from '../../shared/rules/v2'
 import { TEAMS, TOTAL_SEATS, canAssign, canStart, dealTeams, mayPickTeam, timedEvents } from '../../shared/rules/lobby'
+import { BY_HAND } from '../../shared/rules/catchup'
 import { seedGarden } from './garden'
 import { SCHEDULE_ORD, type GameDoc, type ScheduleDoc, type SeatEntry } from '../../shared/model'
 import { accountRef, cleanName, lookOfAccount, looksByUid } from './account'
@@ -624,13 +625,29 @@ export const hostEndPractice = onCall<{ gameId: string }>(async (req) => {
   const ref = gameRef(req.data.gameId)
   const snap = await ref.get()
   if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  const game = snap.data() as GameDoc
-  if (game.phase !== 'running' || !game.practice) throw new HttpsError('failed-precondition', '연습 중인 판이 아니다.')
-  const nowMs = nowOf(game)
-  // 달력을 새 시작에 맞춰 다시 깐다 — 아직 안 넘긴 것만 지우고 다시 놓는다
+  const game0 = snap.data() as GameDoc
+  if (game0.phase !== 'running' || !game0.practice) throw new HttpsError('failed-precondition', '연습 중인 판이 아니다.')
+  const nowMs = nowOf(game0)
+  /*
+   * **한 번만 넘어간다.** 두 창에서 거의 같이 누르면 둘 다 「연습 중」을 보고
+   * 달력을 두 벌 깔았다. 연습을 끄는 것을 트랜잭션으로 먼저 잡고, 잡은 쪽만
+   * 달력을 다시 깐다
+   */
+  await db.runTransaction(async (tx) => {
+    const g = (await tx.get(ref)).data() as GameDoc
+    if (g.phase !== 'running' || !g.practice) throw new HttpsError('failed-precondition', '연습 중인 판이 아니다.')
+    tx.update(ref, {
+      practice: false,
+      startedAtMs: nowMs,
+      // 숨겨 둔 분단 · 역할을 지금 공개한다 — 배정 시각이 새로 찍혀 학생증 팝업이 뜬다
+      ...(g.hideDeal ? { hideDeal: false, seats: revealSeats(g.seats, nowMs) } : {}),
+    })
+  })
+  // 달력을 새 시작에 맞춰 다시 깐다 — 감독관이 넘기는 네 가지 중 아직 안 넘긴 것만 지우고 다시 놓는다.
+  // 걷는 사람의 도착 예약(arrive)은 건드리지 않는다
   const sched = await ref.collection('schedule').where('doneAtMs', '==', null).get()
   const batch = db.batch()
-  for (const d of sched.docs) batch.delete(d.ref)
+  for (const d of sched.docs) if (BY_HAND.includes((d.data() as ScheduleDoc).kind)) batch.delete(d.ref)
   for (const e of timedEvents(nowMs)) {
     const item: ScheduleDoc = {
       dueAtMs: e.dueAtMs,
@@ -641,12 +658,6 @@ export const hostEndPractice = onCall<{ gameId: string }>(async (req) => {
     }
     batch.set(ref.collection('schedule').doc(), item)
   }
-  batch.update(ref, {
-    practice: false,
-    startedAtMs: nowMs,
-    // 숨겨 둔 분단 · 역할을 지금 공개한다 — 배정 시각이 새로 찍혀 학생증 팝업이 뜬다
-    ...(game.hideDeal ? { hideDeal: false, seats: revealSeats(game.seats, nowMs) } : {}),
-  })
   batch.set(ref.collection('events').doc(), { atMs: nowMs, day: 1, kind: 'practiceEnd', detail: {} })
   await batch.commit()
   await refreshViews(req.data.gameId)
@@ -668,15 +679,19 @@ function revealSeats(seats: GameDoc['seats'], atMs: number): GameDoc['seats'] {
 export const hostSetHideDeal = onCall<{ gameId: string; on: boolean }>(async (req) => {
   requireHost(req.auth)
   const ref = gameRef(req.data.gameId)
-  const snap = await ref.get()
-  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  const game = snap.data() as GameDoc
-  if (!(game.phase === 'lobby' || (game.phase === 'running' && game.practice))) {
-    throw new HttpsError('failed-precondition', '시작 전이나 연습 시간에만 바꾼다.')
-  }
   const on = req.data.on === true
-  if (on === !!game.hideDeal) return { hideDeal: on }
-  if (on) await ref.update({ hideDeal: true })
-  else await ref.update({ hideDeal: false, seats: revealSeats(game.seats, nowOf(game)) })
+  // **트랜잭션으로 읽고 쓴다.** 자리표를 통째로 다시 쓰므로, 그 사이 들어온 배정 · 이름 바꾸기를 덮으면 안 된다
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+    const game = snap.data() as GameDoc
+    // 켜는 것은 시작 전 · 연습 때만. **끄는(공개하는) 것은 언제든 된다** — 숨긴 채로 판이 돌면 풀 길이 없다
+    if (on && !(game.phase === 'lobby' || (game.phase === 'running' && game.practice))) {
+      throw new HttpsError('failed-precondition', '시작 전이나 연습 시간에만 바꾼다.')
+    }
+    if (on === !!game.hideDeal) return
+    if (on) tx.update(ref, { hideDeal: true })
+    else tx.update(ref, { hideDeal: false, seats: revealSeats(game.seats, nowOf(game)) })
+  })
   return { hideDeal: on }
 })

@@ -20,7 +20,7 @@ import type {
   TeamDoc,
   TileDoc,
 } from '../../shared/model'
-import { releasedDays } from '../../shared/reveal/release'
+import { openDays } from '../../shared/reveal/release'
 import { purseOf } from '../../shared/rules/resources'
 import { fillSubject } from '../../shared/reveal/slips'
 import type { SlipDoc } from './slips'
@@ -190,7 +190,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     shopSold: Object.fromEntries(
       shopStock.docs
         .map((d) => d.data() as { day?: number; itemId?: string; n?: number })
-        .filter((r) => r.day === game.day && typeof r.itemId === 'string')
+        .filter((r) => r.day === (game.practice ? 0 : game.day) && typeof r.itemId === 'string')
         .map((r) => [r.itemId as string, r.n ?? 0]),
     ),
     tiles: tiles.docs.map((d) => {
@@ -201,8 +201,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, lockedBy: locked }
     }),
     roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: canonRoleId(r.roleId) ?? r.roleId, targetId: r.targetId ?? null })),
-    // 연습 동안은 열린 날이 없다(fragments.ts 와 같다)
-    releasedDays: game.practice ? [] : releasedDays(game.startedAtMs ?? null, nowMs),
+    // 열린 날은 감독관이 넘긴 달력을 따른다. 연습 동안은 없다(fragments.ts 와 같다)
+    releasedDays: openDays(game, nowMs),
     progress: progress.docs.map((d) => {
       const p = d.data() as ProgressDoc
       return { playerId: p.playerId ?? d.id, handledDays: p.handledDays ?? [], readDays: p.readDays ?? [] }
