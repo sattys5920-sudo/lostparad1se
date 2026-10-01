@@ -69,7 +69,7 @@ import { note } from './records'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { notify } from './notify'
-import { cellsOf, claimSeat, pickSeat, seatPawn, takenFrom } from './seat'
+import { cellsOf, claimSeat, pickSeat, pushOutOverflow, seatPawn, takenFrom } from './seat'
 import { checkInvariants } from './invariants'
 import { inTx } from './contended'
 import { logEvent, logSecret } from './qaLog'
@@ -440,18 +440,20 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   await batch.commit()
   /*
    * 칸이 없는 사람만 세운다(칸을 나눠 주기 전에 시작한 판). 복도에 선 사람도
-   * 방 안 사람도 **그 자리 그대로다** — 여는 순간 아무도 옮기지 않는다
+   * 방 안 사람도 **그 자리 그대로다** — 다만 정원을 넘은 방은 늦게 들어온
+   * 사람부터 문 앞 복도로 내보낸다(자유 시간에는 정원이 없었다)
    */
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
     if (p.tileId && !p.at) await seatPawn(gameId, d.id, p.tileId as TileId, nowMs)
   }
+  const pushedOut = await pushOutOverflow(gameId, nowMs)
   // 열넷 모두에게 — 결과는 없다, 열렸다는 것뿐
   await notify(gameId, everyone, 'phaseStart', `phaseStart:${no}`)
   // 이적은 answerTransfer 가 그 자리에서 teamMoved 를 남긴다 — 여기서는 안 짚는다
-  // 아무도 안 옮겼으니 체류도 그대로다 — 서 있던 방의 체류가 이어진다
+  // 복도로 내보낸 사람도 방(tileId)은 그대로라 체류도 그대로다 — 서 있던 방의 체류가 이어진다
   await refreshViews(gameId)
-  await logEvent(gameId, 'phaseOpen', nowMs, null, { no, day, endsAtMs, returned }, { day })
+  await logEvent(gameId, 'phaseOpen', nowMs, null, { no, day, endsAtMs, returned, pushedOut }, { day })
   // allInAtMs 는 남겨 둔다 — 이제는 늘 지금이다. 아무도 걷지 않는다
   /*
    * **granted 는 실제로 나눠 준 토큰이다.** 여기에 팀 인원수(sizes)가
@@ -704,6 +706,7 @@ export const phaseAct = onCall<{
           asleep: false,
           visitedTiles: [...been],
           at: cell,
+          inSinceMs: nowMs,
         })
         if (p.playerId === uid) steppedTo = p.tileId
         continue
@@ -1136,6 +1139,7 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
       arriveAtMs: null,
       path: [],
       at: cell,
+      inSinceMs: nowMs,
       visitedTiles: [...been],
     })
   })
@@ -1306,7 +1310,10 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
       if (old?.exists && (old.data() as { by: string }).by === uid) tx.delete(old.ref)
       // **자리도 같은 트랜잭션에서 옮긴다.** 따로 적으면 그 사이에 온 사람이
       // 「표시는 있는데 그 사람이 아직 그 칸에 없다」를 보고 덮어쓴다
-      tx.update(ref, { at: { x, y } })
+      // **복도에서 방 안으로 들어섰으면 그때가 들어온 시각이다** — 정원을 넘은 방에서 누구를 내보낼지 이걸로 본다
+      const wasOut = !!p.at && roomOfCell(p.at.x, p.at.y) !== p.tileId
+      const nowIn = p.tileId !== null && roomOfCell(x, y) === p.tileId
+      tx.update(ref, { at: { x, y }, ...(wasOut && nowIn ? { inSinceMs: nowMs } : {}) })
       return true
     })
     if (!took) return { ok: false, code: 'occupied', why: '누가 먼저 섰다.', at: await keepSeat(gameId, uid, p, { x, y }) }

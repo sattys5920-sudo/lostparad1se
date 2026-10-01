@@ -1198,6 +1198,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     let lastBounce = bounceRef.current?.n ?? 0
     /** 서버가 세운 첫 칸을 따랐는가 */
     let adopted = false
+    /** 지난 프레임에 서버가 알던 내 칸 */
+    let lastServerAt = ''
+    /** 최근 3 초 동안 내가 밟은 칸. 서버가 뒤늦게 돌려준 내 걸음인지 가린다 */
+    const stoodLately: { key: string; ms: number }[] = []
     /** 「누가 서 있다」를 마지막으로 띄운 때 */
     let lastBlockedMs = 0
     // 옮겨 세운 것을 이미 따라갔는지. 처음 값은 지금 것이라, 화면을
@@ -1300,6 +1304,35 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         lastServerTile = serverTile
         asked = false
         skipCatchUp = true
+      }
+      /*
+       * **페이즈가 열리며 정원이 넘쳐 복도로 내보내졌다.** 방은 그대로인데
+       * 서버 칸만 문 앞 복도로 바뀐다. 내가 방 안에 멈춰 서 있고, 그 칸이 최근에
+       * 내가 밟은 칸이 아니면(뒤늦게 온 내 걸음이 아니면) 서버 칸을 따른다
+       */
+      const stoodKey = `${self.tx},${self.ty}`
+      if (stoodLately[stoodLately.length - 1]?.key !== stoodKey) stoodLately.push({ key: stoodKey, ms: now })
+      while (stoodLately.length > 0 && now - stoodLately[0].ms > 3000) stoodLately.shift()
+      const atKey = pawn?.at ? `${pawn.at.x},${pawn.at.y}` : ''
+      if (atKey !== lastServerAt) {
+        const before = lastServerAt
+        lastServerAt = atKey
+        if (
+          before !== '' &&
+          hallAt &&
+          serverTile &&
+          serverTile === lastServerTile &&
+          !self.moving &&
+          autoPath.length === 0 &&
+          !asked &&
+          roomAt(self.tx, self.ty) !== null &&
+          !stoodLately.some((x) => x.key === atKey)
+        ) {
+          standAt(hallAt.x, hallAt.y)
+          told = atKey
+          walked.length = 0
+          skipCatchUp = true
+        }
       }
       if (serverTile && serverTile !== lastServerTile) {
         // **이미 제 발로 가 있으면 건드리지 않는다.**

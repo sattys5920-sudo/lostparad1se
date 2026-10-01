@@ -266,7 +266,7 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
     const held = await c.tx.get(ref.collection('robots').where('carriedBy', '==', playerId))
     claimSeat(c.tx, c.gameId, playerId, cell, c.atMs)
     for (const d of held.docs) c.tx.update(d.ref, { tileId })
-    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, at: cell, visitedTiles: [...been] })
+    c.tx.update(pawnRef, { tileId, fromTile: null, path: [], arriveAtMs: null, at: cell, inSinceMs: c.atMs, visitedTiles: [...been] })
     // 이 칸에 섰다. 체류 기록은 트랜잭션 밖에서 연다
     c.landed.push({ playerId, tileId, atMs: c.atMs })
   } else {

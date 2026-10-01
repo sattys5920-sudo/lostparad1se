@@ -531,6 +531,7 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number; practice?:
         playerId: s.playerId,
         team,
         tileId: START_TILE,
+        inSinceMs: startedAtMs,
         /*
          * **선 칸도 나눠 준다.** 열넷이 한 교실에서 시작하는데 칸을 안 정해
          * 두면 각자 화면이 고른 칸이 겹친다. 자리 순서대로 한 칸씩 띄운 칸

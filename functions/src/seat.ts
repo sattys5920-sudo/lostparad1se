@@ -11,8 +11,9 @@
 import { getFirestore, type DocumentSnapshot, type QueryDocumentSnapshot, type Transaction } from 'firebase-admin/firestore'
 
 import type { GameDoc, PawnDoc } from '../../shared/model'
-import { roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
-import { nearestOpenHall, seatIn } from '../../shared/rules/seat'
+import { ROOF_LANDINGS, TILE_BY_ID, roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
+import { capacityOf } from '../../shared/rules/occupy'
+import { entryCellOf, nearestOpenHall, seatIn } from '../../shared/rules/seat'
 import { gameRef } from './index'
 
 const db = getFirestore()
@@ -124,5 +125,63 @@ export async function reseatIfShared(gameId: string, uid: string, atMs: number):
     claimSeat(tx, gameId, uid, cell, atMs)
     tx.update(ref, { at: cell })
     return cell
+  })
+}
+
+/**
+ * **페이즈가 열릴 때 정원을 넘은 방을 비운다 — 늦게 들어온 사람부터.**
+ *
+ * 자유 시간에는 정원이 없어서 좁은 방에 여럿이 들어가 있을 수 있다.
+ * 그대로 페이즈를 열면 정원보다 많은 사람이 그 방을 쓴다. 넘친 만큼
+ * 그 방에 들어온 시각(inSinceMs)이 늦은 사람부터 문 앞 복도에 세운다.
+ * 들어온 시각이 같으면 아무 쪽이나 같은 순서로(id) 가른다.
+ *
+ * 덫에 묶였거나 하던 일이 있는 사람은 옮기지 않는다 — 머릿수에는 든다.
+ * 복도에 빈 칸이 없으면 그 사람은 그대로 둔다. 내보낸 사람을 돌려준다.
+ */
+export async function pushOutOverflow(gameId: string, nowMs: number): Promise<{ playerId: string; room: TileId }[]> {
+  const ref = gameRef(gameId)
+  return db.runTransaction(async (tx) => {
+    const [pawns, papers] = await Promise.all([tx.get(ref.collection('pawns')), tx.get(papersOf(gameId))])
+    const rooms = new Map<TileId, { id: string; p: PawnDoc }[]>()
+    for (const d of pawns.docs) {
+      const p = d.data() as PawnDoc
+      if (p.tileId === null || !p.at || roomOfCell(p.at.x, p.at.y) !== p.tileId) continue
+      const list = rooms.get(p.tileId as TileId) ?? []
+      list.push({ id: d.id, p })
+      rooms.set(p.tileId as TileId, list)
+    }
+    const taken = takenFrom(pawns.docs, papers.docs, null)
+    const out: { playerId: string; room: TileId; cell: Cell }[] = []
+    for (const [room, list] of rooms) {
+      let over = list.length - capacityOf(room)
+      if (over <= 0) continue
+      const order = list
+        .filter((x) => (x.p.busyUntilMs ?? 0) <= nowMs && (x.p.boundUntilMs ?? 0) <= nowMs)
+        .sort((a, b) => (b.p.inSinceMs ?? 0) - (a.p.inSinceMs ?? 0) || b.id.localeCompare(a.id))
+      for (const x of order) {
+        if (over <= 0) break
+        // 옥상은 문 앞 복도가 없다 — 2층 계단통으로 내려선다
+        const cell =
+          nearestOpenHall(entryCellOf(room), taken) ??
+          (room === 'rooftop' ? (ROOF_LANDINGS.map((c) => nearestOpenHall(c, taken)).find((c) => c !== null) ?? null) : null)
+        if (!cell) break
+        taken.add(`${cell.x},${cell.y}`)
+        if (x.p.at) taken.delete(`${x.p.at.x},${x.p.at.y}`)
+        out.push({ playerId: x.id, room, cell })
+        over--
+      }
+    }
+    for (const o of out) {
+      claimSeat(tx, gameId, o.playerId, o.cell, nowMs)
+      // 방은 그대로다(tileId) — 문 앞 복도에 선 것이다. 다시 들어가려면 다른 사람과 똑같이 들어간다
+      tx.update(ref.collection('pawns').doc(o.playerId), { at: o.cell })
+      tx.set(ref.collection('notices').doc(), {
+        toPlayerId: o.playerId,
+        text: `${TILE_BY_ID[o.room].name}은(는) 정원 ${capacityOf(o.room)} 명을 넘었다. 늦게 들어온 차례로 문 앞 복도에 나왔다.`,
+        atMs: nowMs,
+      })
+    }
+    return out.map(({ playerId, room }) => ({ playerId, room }))
   })
 }

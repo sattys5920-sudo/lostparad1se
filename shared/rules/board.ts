@@ -528,6 +528,24 @@ const HALLS_OF: Record<TileId, Set<number>> = (() => {
 })()
 
 /**
+ * **옥상에서 내려선 자리** — 2층 계단통 복도의 가운데 칸들.
+ *
+ * 옥상에는 문 앞 복도가 없다. 페이즈가 열릴 때 정원을 넘은 옥상에서
+ * 사람을 내보내면 여기로 내려선다(옥상 문이 곧 이 계단통이다).
+ */
+export const ROOF_LANDINGS: readonly Cell[] = (() => {
+  const top = STAIR_FLOORS[STAIR_FLOORS.length - 1]
+  const out: Cell[] = []
+  for (const end of STAIR_ENDS) {
+    const at = STAIR_HALL_AT.get(`${top}_${end}`)
+    if (at === undefined) continue
+    const r = HALLS[at].rect
+    out.push({ x: r.x + Math.floor(r.w / 2), y: r.y + Math.floor(r.h / 2) })
+  }
+  return out
+})()
+
+/**
  * 복도로 이어져 있는가. **같은 복도에 붙은 방끼리는 오갈 수 있다.**
  *
  * 계단으로 층을 넘는 것은 여기 없다 — 그것은 이웃(계단 ↔ 계단)이
