@@ -81,7 +81,7 @@ export function nextGame(
  * 분단은 자리표(seats)와 보이는 사람(visiblePawns)으로 화면 곳곳에 퍼진다 —
  * 완장 색, 이름표, 말풍선, 메모장 띠, 점수판의 「우리」. 하나하나 막는 대신
  * 받는 자리에서 「아직 배정 전」(team: null)으로 바꿔 둔다. 배정 시각도
- * 지운다 — 로비의 학생증 팝업이 안 뜨게. 감독관 화면은 그대로 본다.
+ * 지운다 — 로비의 학생증 팝업이 안 뜨게. 분단 금고의 지식도 가린다. 감독관 화면은 그대로 본다.
  */
 export function hideDealOf(s: GameState): GameState {
   const g = s.game
@@ -90,7 +90,12 @@ export function hideDealOf(s: GameState): GameState {
     ...s,
     game: { ...g, seats: g.seats.map((x) => ({ ...x, team: null, dealtAtMs: undefined })) },
     view: s.view
-      ? { ...s.view, visiblePawns: s.view.visiblePawns.map((p) => ({ ...p, team: null as unknown as TeamId })) }
+      ? {
+          ...s.view,
+          visiblePawns: s.view.visiblePawns.map((p) => ({ ...p, team: null as unknown as TeamId })),
+          // **지식도 가린다.** 분단 금고라서, 남이 번 만큼 내 숫자가 오르면 같은 분단이 드러난다 — 「—」로 보인다
+          teamVault: undefined as unknown as PlayerViewDoc['teamVault'],
+        }
       : s.view,
   }
 }
