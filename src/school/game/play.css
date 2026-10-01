@@ -558,15 +558,17 @@
 }
 .sc-dr__slots.is-ready { border-width: 2px; }
 
+/* **한 줄짜리 칸.** 그림 · 이름 · 수를 옆으로 늘어놓는다 — 세로로 쌓으면 칸 하나가
+   60px 를 먹어서, 아래 내 소지품 목록이 두 줄밖에 안 보였다 */
 .sc-dr__slot {
   min-width: 46px;
   border: 2px solid var(--sc-line-strong);
   border-radius: 0;
-  padding: var(--sp-1) var(--sp-1);
+  padding: 2px var(--sp-1);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0;
+  gap: 4px;
   font-size: var(--fs-cap);
   background: var(--bg-1);
 }
@@ -584,7 +586,7 @@
   border-style: dashed;
   border-color: var(--sc-line);
   background: transparent;
-  min-height: 26px;
+  min-height: 28px;
 }
 .sc-dr__none { font-size: var(--fs-cap); color: var(--sc-text-dim); align-self: center; }
 
@@ -617,7 +619,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  max-height: 104px;
+  /* 화면 높이에 맞춰 넉넉히 — 작은 폰에서도 대여섯 줄은 보인다 */
+  max-height: clamp(150px, 30dvh, 260px);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
