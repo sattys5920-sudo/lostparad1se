@@ -778,6 +778,23 @@
   gap: var(--sp-2);
 }
 
+/*
+ * **시트 안 칸에 적는 동안은 시트를 보이는 창(키보드 위)에 맞춘다.**
+ *
+ * 시트는 화면 아래에 붙어 있어서, 아래쪽 칸(가방의 문제 답 칸 등)을
+ * 누르면 키보드가 그 칸을 덮었다. 사파리가 칸을 보이게 밀어 올려도 지도를
+ * 고정하느라 도로 내리므로(useKeyboardInset) 칸이 키보드 뒤에 남았고,
+ * 위쪽을 누르면 그게 「뒤를 눌러 닫기」가 되어 시트가 닫혔다.
+ * 적는 동안은 보이는 창의 자리와 높이(--vv-top · --vv-h)에 시트를 세운다.
+ */
+.sc-sheet:has(input:focus, textarea:focus) {
+  inset: auto 0 auto 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-h, 100%);
+}
+.sc-sheet:has(input:focus, textarea:focus) .sc-sheet__back { min-height: 0; }
+.sc-sheet:has(input:focus, textarea:focus) .sc-sheet__panel { max-height: 100%; }
+
 /* ── 홈 화면에 추가 ───────────────────────────────────────── */
 
 .sc-home {

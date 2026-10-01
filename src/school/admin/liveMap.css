@@ -277,3 +277,31 @@
 .sc-lvm__dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--sc-text-dim); }
 .sc-lvm__inv { margin-left: 4px; padding: 0 4px; font-size: var(--fs-cap); font-weight: 400; border: 1px dashed var(--sc-line-strong); color: var(--sc-text-dim); }
 .sc-lvm__who.is-invis .sc-lvm__tag { outline: 1px dashed #b9bec8; outline-offset: -1px; }
+
+/* 분단 현황 — 분단마다 한 칸. 위에 네 수, 아래에 사람마다 돈 */
+.sc-lvm__teams {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-2);
+}
+.sc-lvm__team {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--tm);
+  padding: var(--sp-1) var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-1);
+}
+.sc-lvm__team h3 { margin: 0; font-size: var(--fs-label); display: flex; align-items: center; gap: 6px; }
+.sc-lvm__team h3 i { width: 8px; height: 8px; border-radius: 50%; background: var(--tm); }
+.sc-lvm__team dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+.sc-lvm__team dl div { display: flex; flex-direction: column; align-items: flex-start; }
+.sc-lvm__team dt { font-size: var(--fs-cap); color: var(--sc-text-dim); }
+.sc-lvm__team dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sc-lvm__team dd small { font-weight: 400; color: var(--sc-text-dim); font-size: var(--fs-cap); }
+.sc-lvm__team ul { list-style: none; margin: 0; padding: 4px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 2px; }
+.sc-lvm__team li { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1); font-size: var(--fs-cap); }
+.sc-lvm__team li b { font-variant-numeric: tabular-nums; }
+.sc-lvm__team li b::after { content: ' 코인'; font-weight: 400; color: var(--sc-text-dim); }
+.sc-ad .sc-lvm__team li button { background: none; border: 0; padding: 0; min-height: 24px; color: inherit; font: inherit; text-align: left; cursor: pointer; }

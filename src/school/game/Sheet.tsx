@@ -52,8 +52,25 @@ export function Sheet({ title, onClose, children, peek = false, panelRef: outer 
 
   return (
     <div className={'sc-sheet' + (peek ? ' is-peek' : '')} role="dialog" aria-label={title}>
-      {/* 뒤를 눌러도 닫힌다. 시트 밖은 전부 닫기 자리다 */}
-      {!peek && <button className="sc-sheet__back" aria-label="닫기" onClick={onClose} />}
+      {/*
+        뒤를 눌러도 닫힌다. 시트 밖은 전부 닫기 자리다.
+        **적는 중이면 키보드만 내린다** — 키보드를 내리려고 밖을 누른 것인데
+        쓰던 답과 함께 시트가 사라지면 처음부터 다시 열어야 한다
+      */}
+      {!peek && (
+        <button
+          className="sc-sheet__back"
+          aria-label="닫기"
+          onClick={() => {
+            const el = document.activeElement
+            if ((el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) && panelRef.current?.contains(el)) {
+              el.blur()
+              return
+            }
+            onClose()
+          }}
+        />
+      )}
       <div
         className="sc-sheet__panel"
         ref={(el) => {
@@ -75,7 +92,17 @@ export function Sheet({ title, onClose, children, peek = false, panelRef: outer 
           <h2>{title}</h2>
           <button onClick={onClose}>닫기</button>
         </header>
-        <div className="sc-sheet__body">{children}</div>
+        <div
+          className="sc-sheet__body"
+          onFocus={(e) => {
+            // 칸을 누르면 그 칸이 보이게 — 시트가 키보드 위로 줄어든 뒤에 맞춘다
+            const el = e.target
+            if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return
+            window.setTimeout(() => el.scrollIntoView({ block: 'nearest' }), 350)
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   )

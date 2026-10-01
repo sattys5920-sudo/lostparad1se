@@ -56,6 +56,8 @@ interface Cell {
 }
 export interface LivePerson {
   playerId: string
+  /** 개인 돈(코인) */
+  money?: number
   name: string
   team: TeamId | null
   look: AvatarLook | null
@@ -84,8 +86,21 @@ interface RoomState {
   flags: Partial<Record<TeamId, number>>
   robots: number
 }
+/** 분단 하나의 현황 — 감독관만 본다 */
+interface TeamState {
+  team: string
+  tokens: number
+  /** 이번 페이즈 몫으로 남은 깃발 */
+  flags: number
+  /** 자판기에서 산 깃발 */
+  boughtFlags: number
+  knowledge: number
+  robotsPlaced: number
+  robotsCarried: number
+}
 interface LiveMapData {
   nowMs: number
+  teams?: TeamState[]
   phaseNow: { no: number; open: boolean; endsAtMs: number | null } | null
   people: LivePerson[]
   rooms: Record<string, RoomState>
@@ -661,6 +676,8 @@ export function LiveMap({
 
       {failed && <p className="sc-lvm__warn">다시 읽지 못했다 — {failed}</p>}
 
+      <TeamBoard teams={data.teams ?? []} people={people} onPerson={(id) => pickPerson(id, true)} />
+
       {picked && <PersonCard p={picked} nowMs={data.nowMs} onRoom={(r) => setPane({ kind: 'room', room: r })} onClose={() => setPane(null)} />}
       {pane?.kind === 'room' && (
         <RoomCard
@@ -712,6 +729,49 @@ export function LiveMap({
         ))}
       </div>
       </>)}
+    </div>
+  )
+}
+
+// ── 분단 현황 ───────────────────────────────────────────────────
+
+/**
+ * 분단마다 한 줄 — 토큰 · 깃발 · 로봇 · 지식, 그 아래 사람마다 돈.
+ * 3 초마다 지도와 같이 새로 읽는다(hostLiveMap). 이름을 누르면 지도에서 그 사람을 짚는다
+ */
+function TeamBoard({ teams, people, onPerson }: { teams: TeamState[]; people: LivePerson[]; onPerson: (id: string) => void }) {
+  if (teams.length === 0) return null
+  return (
+    <div className="sc-lvm__teams" aria-label="분단 현황">
+      {TEAM_ORDER.map((id) => {
+        const t = teams.find((x) => x.team === id)
+        if (!t) return null
+        const members = people.filter((p) => p.team === id)
+        return (
+          <section key={id} className="sc-lvm__team" style={{ '--tm': TEAM_COLOR[id] } as CSSProperties}>
+            <h3>
+              <i />
+              {teamName(id)}
+            </h3>
+            <dl>
+              <div><dt>토큰</dt><dd>{t.tokens}</dd></div>
+              <div><dt>깃발</dt><dd>{t.flags}{t.boughtFlags > 0 && <small> +산 {t.boughtFlags}</small>}</dd></div>
+              <div><dt>로봇</dt><dd>{t.robotsPlaced}{t.robotsCarried > 0 && <small> +든 {t.robotsCarried}</small>}</dd></div>
+              <div><dt>지식</dt><dd>{t.knowledge}</dd></div>
+            </dl>
+            <ul>
+              {members.map((p) => (
+                <li key={p.playerId}>
+                  <button className="is-inline" onClick={() => onPerson(p.playerId)}>
+                    {p.name}
+                  </button>
+                  <b>{p.money ?? 0}</b>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
     </div>
   )
 }

@@ -11,7 +11,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { TILE_BY_ID, isHallCell, roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
 import { ARCADE_BY_ID, LIVE_ROOM, machineAtSeat, type RoomDoc } from '../../shared/rules/arcade'
 import type { FlagMap } from '../../shared/rules/flag'
-import type { GameDoc, LiveDoc, PawnDoc, TileDoc } from '../../shared/model'
+import type { GameDoc, LiveDoc, PawnDoc, TeamDoc, TileDoc } from '../../shared/model'
 import type { ChatDocRaw } from './chat'
 import { LIVE as LIVE_DEAL, dealsOf, type DealDoc } from './dealroom'
 import type { ErrandDoc } from './errand'
@@ -51,7 +51,7 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
   const realNow = Date.now()
   const ref = gameRef(gameId)
 
-  const [pawns, deals, arcade, errands, live, tiles, robots, flagDoc, quizFloor, slips, stays] = await Promise.all([
+  const [pawns, deals, arcade, errands, live, tiles, robots, flagDoc, quizFloor, slips, stays, teamDocs] = await Promise.all([
     ref.collection('pawns').get(),
     dealsOf(gameId).where('status', 'in', LIVE_DEAL).get(),
     ref.collection('arcadeRooms').where('status', 'in', [...LIVE_ROOM]).get(),
@@ -64,6 +64,7 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
     ref.collection('secret').doc('slips').collection('items').get(),
     // 지금 방에 **언제 들어왔나**. 안 닫힌 체류 칸의 시작이 곧 그 시각이다
     ref.collection('secret').doc('intervals').collection('items').where('endMs', '==', null).get(),
+    ref.collection('teams').get(),
   ])
 
   const seats = game.seats ?? []
@@ -187,6 +188,8 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
 
     return {
       playerId: id,
+      /** 개인 돈(코인). 감독관 현황판이 사람마다 보인다 */
+      money: Math.max(0, Number(p?.money ?? 0)),
       name: seat.name,
       team,
       look: seat.look ?? null,
@@ -254,10 +257,31 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
     if (anyOnFloor && e.cell) floor.push({ x: e.cell.x, y: e.cell.y, kind: 'thing', icon: e.icon })
   }
 
+  /*
+   * **분단 현황** — 감독관만 본다. 토큰 · 깃발(이번 페이즈 몫 + 자판기에서 산 것)
+   * · 로봇(방에 놓인 것 + 손에 든 것) · 지식. 돈은 사람 것이라 사람마다 따로다
+   */
+  const teams = teamDocs.docs
+    .map((d) => {
+      const t = d.data() as TeamDoc
+      const mine = robots.docs.map((r) => r.data() as { team?: string; carriedBy?: string | null }).filter((r) => r.team === d.id)
+      return {
+        team: d.id,
+        tokens: Number(t.phaseTokens ?? 0),
+        flags: Number(t.flags ?? 0),
+        boughtFlags: Number(t.boughtFlags ?? 0),
+        knowledge: Number(t.resources?.knowledge ?? 0),
+        robotsPlaced: mine.filter((r) => !r.carriedBy).length,
+        robotsCarried: mine.filter((r) => !!r.carriedBy).length,
+      }
+    })
+    .sort((a, b) => a.team.localeCompare(b.team))
+
   return {
     nowMs,
     phase: game.phase,
     day: game.day,
+    teams,
     phaseNow: game.phaseNow ? { no: game.phaseNow.no, open: game.phaseNow.open, endsAtMs: game.phaseNow.endsAtMs ?? null } : null,
     people,
     rooms,
