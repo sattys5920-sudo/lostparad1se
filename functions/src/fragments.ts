@@ -51,6 +51,7 @@ async function load(gameId: string): Promise<GameDoc> {
 export const releasedFragments = onCall<{ gameId: string }>(async (req) => {
   if (!req.auth?.uid) throw new HttpsError('unauthenticated', '로그인이 필요하다.')
   const game = await load(req.data.gameId)
-  const days = releasedDays(game.startedAtMs ?? null, nowOf(game))
+  // **연습 동안은 아무 날도 안 열린다.** 「연습 끝 · DAY 1 시작」을 누르면 그때 DAY 1 아침이 열린다
+  const days = game.practice ? [] : releasedDays(game.startedAtMs ?? null, nowOf(game))
   return { days, fragments: days.map(payloadOf) }
 })

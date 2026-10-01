@@ -38,7 +38,8 @@ export const markMorning = onCall<{ gameId: string; read?: number[]; skipped?: n
     const { gameId } = req.data
     const { game, nowMs } = await freshNow(gameId)
 
-    const open = releasedDays(game.startedAtMs ?? null, nowMs)
+    // 연습 동안은 열린 날이 없다(fragments.ts 와 같다)
+    const open = game.practice ? [] : releasedDays(game.startedAtMs ?? null, nowMs)
     const clean = (days: unknown): number[] =>
       [...new Set((Array.isArray(days) ? days : []).map(Number))]
         .filter((d) => Number.isInteger(d) && d >= 1 && d <= TOTAL_DAYS)

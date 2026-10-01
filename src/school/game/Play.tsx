@@ -663,6 +663,20 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   const revealSeen = revealUid !== null && revealStamp > 0 && dealtSeen(gameId, revealUid, revealStamp)
   const revealAct = useMemo(() => gameActions(gameId), [gameId])
   const revealCard = useMyPaper(revealAct, revealStamp > 0 && !revealSeen && revealShut !== revealStamp, revealStamp)
+  /** 공개 학생증을 아직 받는 중이다 — 받기 전에 아침이 먼저 시작되면 학생증이 그 위를 덮어 아침이 처음부터 다시 돈다 */
+  const revealPending = revealStamp > 0 && !revealSeen && revealShut !== revealStamp && !revealCard.err
+
+  /*
+   * **연습이 끝나면 DAY 1 아침을 그때 연다.** 연습 동안은 열린 날이 없어서
+   * 아침이 그냥 지나갔다(morningDone). 연습 → DAY 1 로 바뀌는 순간 다시 세워
+   * 학생증 다음에 DAY 1 아침이 재생되게 한다
+   */
+  const practiceNow = !!state.game?.practice
+  const wasPractice = useRef(practiceNow)
+  useEffect(() => {
+    if (wasPractice.current && !practiceNow) setMorningDone(false)
+    wasPractice.current = practiceNow
+  }, [practiceNow])
 
   // 들어올 때마다 밀린 일을 따라잡는다. 아무도 없던 사이의 아침과
   // 정산이 여기서 처리된다
@@ -732,6 +746,8 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
 
   // 아침 시퀀스가 먼저다. 볼 것이 없으면 저절로 지나간다
   if (!morningDone) {
+    // 학생증이 먼저다 — 받아 오는 짧은 사이는 비워 둔다
+    if (revealPending) return <div className="sc-pl" />
     return <LiveMorning gameId={gameId} onDone={() => setMorningDone(true)} />
   }
 

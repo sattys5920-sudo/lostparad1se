@@ -201,7 +201,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, lockedBy: locked }
     }),
     roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: canonRoleId(r.roleId) ?? r.roleId, targetId: r.targetId ?? null })),
-    releasedDays: releasedDays(game.startedAtMs ?? null, nowMs),
+    // 연습 동안은 열린 날이 없다(fragments.ts 와 같다)
+    releasedDays: game.practice ? [] : releasedDays(game.startedAtMs ?? null, nowMs),
     progress: progress.docs.map((d) => {
       const p = d.data() as ProgressDoc
       return { playerId: p.playerId ?? d.id, handledDays: p.handledDays ?? [], readDays: p.readDays ?? [] }

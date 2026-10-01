@@ -132,6 +132,8 @@ async function main(): Promise<void> {
   check((await no(call('pushDay', host, { gameId: GAME }))).includes('연습'), '날을 못 넘긴다')
   check((await no(call('hostOpenBallot', host, { gameId: GAME }))).includes('연습'), '투표를 못 연다')
   check((await no(call('castVote', tkA, { gameId: GAME, targetId: b, kind: 'trust' }))).includes('연습'), '신뢰·호감표를 못 준다')
+  const frag0 = await call('releasedFragments', tkA, { gameId: GAME })
+  check(Array.isArray(frag0.days) && (frag0.days as number[]).length === 0, '**연습 동안은 「A의 기록」 아침이 안 열린다**', JSON.stringify(frag0.days))
   const paper = await call('myPaper', tkA, { gameId: GAME })
   check(paper.counting === false && paper.practice === true, '「나」 탭 미션은 아직 안 센다', JSON.stringify([paper.counting, paper.practice]))
 
@@ -151,6 +153,8 @@ async function main(): Promise<void> {
   check(num(g.startedAtMs) >= day1 && Number(ended.startedAtMs) >= day1, '**누른 순간이 DAY 1 의 시작이 된다**', `${num(g.startedAtMs)} vs ${day1}`)
   check(num((await doc(`games/${GAME}`)).day) === 1, '날은 DAY 1 그대로다')
   check(num((await doc(`games/${GAME}/pawns/${a}`)).money) === 7, '**연습 동안 번 돈은 그대로 간다**')
+  const frag1 = await call('releasedFragments', tkA, { gameId: GAME })
+  check(JSON.stringify(frag1.days) === '[1]', '**연습이 끝나면 DAY 1 아침이 열린다**', JSON.stringify(frag1.days))
   const paper2 = await call('myPaper', tkA, { gameId: GAME })
   check(paper2.counting === true, '이제 미션을 센다')
   check((await no(call('openPhase', host, { gameId: GAME }))) === '', '이제 페이즈가 열린다')
