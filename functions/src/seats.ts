@@ -1,7 +1,7 @@
 // 주인 없는 자리를 비운다.
 //
-// 계정을 지워도 명단은 그대로 둔다 — 돌고 있는 판의 기록이 거기 걸려
-// 있어서다. 그런데 **아직 시작 안 한 판에서는 그 자리가 그냥 막힌
+// 시작한 판에서는 계정을 지워도 명단은 그대로 둔다 — 돌고 있는 판의 기록이
+// 거기 걸려 있어서다. 로비에서는 자리와 역할 배정 기록을 같이 지운다. 그런데 **아직 시작 안 한 판에서는 그 자리가 그냥 막힌
 // 자리가 된다.** 들어올 사람은 없는데 자리는 차 있어서, 새로 가입한
 // 사람이 「자리가 없다」를 듣는다. 실제로 그렇게 막혔다.
 //
@@ -35,8 +35,24 @@ async function sweepGhosts(gameId: string): Promise<{ freed: string[]; left: num
 
   const alive = await accountUids()
   const seats = (game.seats ?? []).filter((s) => alive.has(s.playerId))
-  const freed = (game.seats ?? []).filter((s) => !alive.has(s.playerId)).map((s) => s.name || s.playerId)
-  if (freed.length > 0) await ref.update({ seats })
+  const gone = (game.seats ?? []).filter((s) => !alive.has(s.playerId))
+  const freed = gone.map((s) => s.name || s.playerId)
+  if (gone.length > 0) {
+    // **역할 배정 기록(명단)도 같이 지운다.** 자리만 비우면 지운 사람의 역할이
+    // 명단에 남아, 다시 배정할 때 그 역할이 빈 사람 몫으로 걸려 있다
+    const batch = db.batch()
+    batch.update(ref, { seats })
+    for (const s of gone) batch.delete(ref.collection('secret').doc('roster').collection('items').doc(s.playerId))
+    await batch.commit()
+  }
+  // 자리에서는 이미 빠졌는데 명단에만 남은 사람도 걷는다(전에 지운 계정)
+  const roster = await ref.collection('secret').doc('roster').collection('items').get()
+  const stale = roster.docs.filter((d) => !alive.has(d.id))
+  if (stale.length > 0) {
+    const batch = db.batch()
+    for (const d of stale) batch.delete(d.ref)
+    await batch.commit()
+  }
   return { freed, left: seats.length }
 }
 
