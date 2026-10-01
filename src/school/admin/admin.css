@@ -177,7 +177,7 @@
 
 /* ── 손잡이. 한 벌만 있다 ─────────────────────────────────────────
  *
- * 빌려 온 도구(문제 은행 .sc-qzh · 떨어뜨리기 .sc-dr · 심부름 .sc-ed ·
+ * 빌려 온 도구(떨어뜨리기 .sc-dr · 심부름 .sc-ed ·
  * 화분 .sc-ga)가 저마다 제 단추를 그렸다. 여기서는 전부 같은 손잡이다 —
  * 겹수를 낮게 잡아서(.sc-ad button) 각 도구의 .is-on 같은 표시는 살린다.
  */
@@ -321,33 +321,6 @@
 .sc-ad__tagDot { color: var(--text-2); }
 .sc-ad__tagPlay { color: var(--team-c); }
 .sc-ad__tagMe { color: var(--text-2); }
-
-/* ── 빌려 온 도구 — 문제 은행 ──────────────────────────────────── */
-
-/* 제목은 묶음 제목이 이미 한다. 두 번 적지 않는다 */
-.sc-ad .sc-qzh { margin: 0; padding: 0; border: 0; background: none; display: flex; flex-direction: column; gap: var(--sp-2); }
-.sc-ad .sc-qzh > h2 { display: none; }
-.sc-ad .sc-qzh > button { width: 100%; }
-.sc-ad .sc-qzh__count,
-.sc-ad .sc-qzh__thin { margin: 0; font-size: var(--fs-label); line-height: 20px; }
-.sc-ad .sc-qzh__form { gap: var(--sp-1); }
-.sc-ad .sc-qzh__form label { font-size: var(--fs-label); line-height: 20px; color: var(--sc-text-2); margin-top: var(--sp-1); }
-.sc-ad .sc-qzh__row { display: flex; gap: var(--sp-1); margin-top: var(--sp-2); }
-.sc-ad .sc-qzh__row button { flex: 1; }
-.sc-ad .sc-qzh__list { margin: var(--sp-3) 0 0; gap: var(--sp-1); }
-.sc-ad .sc-qzh__list > li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-1) var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--r-game);
-  background: var(--bg-2);
-  font-size: var(--fs-label);
-  line-height: 20px;
-}
-.sc-ad .sc-qzh__list button { min-height: 36px; padding: 0 var(--sp-3); font-size: var(--fs-label); }
 
 /* ── 떨어뜨리기 · 심부름 · 화분 — 자리만 잡는다 ────────────────
  * 단추와 입력칸은 위의 한 벌이 그린다. 여기는 줄과 사이뿐이다.

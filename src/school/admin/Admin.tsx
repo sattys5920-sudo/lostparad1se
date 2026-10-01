@@ -13,13 +13,12 @@
 // 때는 페이즈 하나 닫으려고 열 줄짜리 심부름 목록을 지나쳐야 했다.
 // 운영자가 하는 일은 자주 하는 순으로 셋이다: 판을 돌리는 것(페이즈·
 // 달력), 판 위에 무엇을 놓는 것(심부름·화분·종이), 가끔 손보는 것
-// (시작·QA·문제 은행·가입). 그 셋이 탭이다.
+// (시작·QA·가입). 그 셋이 탭이다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { deleteAccounts, listAccounts, logOut, type AccountSummary } from '../accounts'
 import { AvatarPeek, FaceChip } from './AvatarPeek'
 import { gameActions, useGame } from '../game/useGame'
-import { QuizHost } from '../game/Quiz'
 import { DropHost } from './Drop'
 import { SlipDesk } from './SlipDesk'
 import { PaperDesk } from './PaperDesk'
@@ -528,10 +527,6 @@ function Desk() {
             <section className="sc-ad__sec">
               <h2>엔딩</h2>
               <EndingDesk act={act} onSaid={setSaid} />
-            </section>
-            <section className="sc-ad__sec">
-              <h2>문제 은행</h2>
-              <QuizHost act={act} onSaid={setSaid} />
             </section>
             <section className="sc-ad__sec">
               <h2>가입</h2>

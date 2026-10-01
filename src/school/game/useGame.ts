@@ -405,8 +405,6 @@ export function gameActions(gameId: string) {
     hostScatterRandom: (n: number) => callServer('hostScatterRandom', { ...g, n }),
     /** 아직 아무도 안 주운 쪽지를 거둔다. 그 사람 몫 한 자리가 다시 빈다. */
     hostPullSlip: (slipId: string) => callServer('hostPullSlip', { ...g, slipId }),
-    hostQuizUpsert: (quiz: unknown, id?: string) => callServer('hostQuizUpsert', { ...g, id, quiz }),
-    hostQuizRemove: (id: string) => callServer('hostQuizRemove', { ...g, id }),
     /**
      * 바닥에 한 장 놓는다. **운영자만** — 서버가 토큰을 본다.
      *

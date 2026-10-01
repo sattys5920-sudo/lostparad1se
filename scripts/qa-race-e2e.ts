@@ -271,6 +271,9 @@ const purse = async (g: Game, t: string): Promise<{ money: number; knowledge: nu
   const r = ((await teamDoc(g, t)).resources ?? {}) as Record<string, number>
   return { money: Number(r.money ?? 0), knowledge: Number(r.knowledge ?? 0) }
 }
+/** 그 사람 돈. **돈은 사람 것이다** — 말 문서의 money */
+const cash = async (g: Game, uid: string): Promise<{ money: number }> =>
+  ({ money: Number(((await getDoc(`games/${g.id}/pawns/${uid}`)) as Record<string, unknown> | null)?.money ?? 0) })
 const tokensOf = async (g: Game, t: string): Promise<number> => Number((await teamDoc(g, t)).phaseTokens ?? 0)
 const records = (g: Game, kind: string, extra: [string, unknown][] = []) =>
   query(`games/${g.id}/secret/records`, 'items', [['kind', kind], ...extra])
@@ -430,7 +433,8 @@ async function freeTimeCases(): Promise<void> {
       const errandId = String(posted.posted)
       const t = await nowMs(g)
       await patchDoc(`games/${g.id}/errands/${errandId}`, { takers: { [a.uid]: { tookMs: t, carrying: true }, [b.uid]: { tookMs: t, carrying: true } } })
-      const [pa, pb] = [await purse(g, a.team), await purse(g, b.team)]
+      // **심부름 보상은 사람에게 바로 간다** — 분단 금고가 아니라 그 사람 돈이다
+      const [pa, pb] = [await cash(g, a.uid), await cash(g, b.uid)]
       const [ra, rb] = await race(
         () => call('dropThing', a.token, { gameId: g.id }),
         () => call('dropThing', b.token, { gameId: g.id }),
@@ -439,7 +443,7 @@ async function freeTimeCases(): Promise<void> {
       const doc = (await getDoc(`games/${g.id}/errands/${errandId}`)) ?? {}
       const winner = oa[0] === 'won' ? a : ob[0] === 'won' ? b : null
       const coins = Number((oa[0] === 'won' ? ra : rb).data.coins ?? 0)
-      const [qa, qb] = [await purse(g, a.team), await purse(g, b.team)]
+      const [qa, qb] = [await cash(g, a.uid), await cash(g, b.uid)]
       const done = await records(g, 'errandDone', [['subjectId', errandId]])
       const ev = (await qaRows(g, 'errandDone')).length
       const notes = [...noteOf(oa), ...noteOf(ob)]

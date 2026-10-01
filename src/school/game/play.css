@@ -1973,33 +1973,6 @@
 .sc-qz__short { display: flex; gap: var(--sp-1); }
 .sc-qz__short input { flex: 1; min-width: 0; font: inherit; font-size: var(--fs-label); padding: var(--sp-1) var(--sp-2); }
 .sc-qz__note { margin: var(--sp-2) 0 0; font-size: var(--fs-cap); color: var(--sc-text-dim); }
-
-/* 문제 은행 — 운영자만 본다. 정답이 보이는 유일한 화면이다 */
-.sc-qzh {
-  margin: var(--sp-3) 0 0;
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px dashed var(--sc-quiz-edge);
-  border-radius: var(--r-game);
-}
-.sc-qzh h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-label); }
-.sc-qzh__count { margin: 0 0 var(--sp-1); font-size: var(--fs-cap); color: var(--sc-text-dim); }
-.sc-qzh__thin { margin: 0 0 var(--sp-1); font-size: var(--fs-cap); color: var(--sc-danger); }
-.sc-qzh__form { display: flex; flex-direction: column; gap: var(--sp-1); }
-.sc-qzh__form label { font-size: var(--fs-cap); color: var(--sc-text-dim); margin-top: var(--sp-1); }
-.sc-qzh__form input,
-.sc-qzh__form textarea { font: inherit; font-size: var(--fs-label); padding: var(--sp-1) var(--sp-2); width: 100%; box-sizing: border-box; }
-.sc-qzh__kind { display: flex; gap: var(--sp-1); }
-.sc-qzh__kind button.is-on { border-color: var(--sc-quiz-mark); color: var(--sc-quiz-mark); }
-.sc-qzh__row { display: flex; gap: var(--sp-1); margin-top: var(--sp-2); }
-.sc-qzh__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
-.sc-qzh__list > li {
-  display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: baseline;
-  font-size: var(--fs-cap); padding-top: var(--sp-1); border-top: 1px solid var(--sc-line);
-}
-.sc-qzh__tag { color: var(--sc-quiz-mark); }
-.sc-qzh__prompt { flex: 1; min-width: 120px; }
-.sc-qzh__ans { color: var(--sc-text-dim); }
-
 /* ── 오늘의 투명인간 ────────────────────────────────────────────
    신뢰·호감 표와 다른 화면이다. 호의가 아니라 배제라, 색을 빼고
    테두리도 지운다 — 단추처럼 보이면 가볍게 눌린다 */
