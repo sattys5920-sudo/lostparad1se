@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { realTimeOf, type DevClock } from '../../../shared/rules/clock'
 
-import { CHAT_POLL_MS, SAY_BUBBLE_CHARS, SAY_BUBBLE_MS } from './timing'
+import { CHAT_POLL_MS, SAY_BUBBLE_CHARS, SAY_BUBBLE_MS, whileVisible } from './timing'
 import type { GameActions } from './useGame'
 
 export interface ChatLine {
@@ -152,8 +152,8 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
 
   useEffect(() => {
     void pull()
-    const t = setInterval(() => void pull(), CHAT_POLL_MS)
-    return () => clearInterval(t)
+    // 보이는 동안만 묻는다. 다시 보이면 바로 한 번 — 그사이 줄도 그때 온다
+    return whileVisible(() => void pull(), CHAT_POLL_MS)
   }, [pull])
 
   return { lines, pull, stuck }

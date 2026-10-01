@@ -35,7 +35,7 @@ import {
 import type { TeamId } from '../types'
 import { buzz } from './Controls'
 import { TEAM_COLOR } from './MapPlan'
-import { CHAT_POLL_MS } from './timing'
+import { CHAT_POLL_MS, whileVisible } from './timing'
 import type { GameActions } from './useGame'
 import { useKeyboardInset } from './useKeyboardInset'
 import { useOutbox, useSendBox, type Outgoing } from './useOutbox'
@@ -203,10 +203,10 @@ export function Radio(props: RadioProps) {
       }
     }
     void tick()
-    const t = window.setInterval(() => void tick(), OTHER_POLL_MS)
+    const stop = whileVisible(() => void tick(), OTHER_POLL_MS)
     return () => {
       alive = false
-      window.clearInterval(t)
+      stop()
     }
   }, [act, other, me.playerId])
 
@@ -306,8 +306,8 @@ function RadioRoom({
 
   useEffect(() => {
     void pull()
-    const t = setInterval(() => void pull(), CHAT_POLL_MS)
-    return () => clearInterval(t)
+    // 보이는 동안만 묻는다. 다시 보이면 바로 한 번
+    return whileVisible(() => void pull(), CHAT_POLL_MS)
   }, [pull])
 
 

@@ -8,6 +8,29 @@
 /** 채팅을 다시 가져오는 간격. */
 export const CHAT_POLL_MS = 2500
 
+/**
+ * **보이는 동안만** ms 마다 fn 을 부른다. 멈추는 함수를 돌려준다.
+ *
+ * 다른 앱을 보는 동안에도 채팅을 2.5 초마다 물었다 — 아무도 안 보는
+ * 화면을 위해 서버가 문서를 읽었다. 숨으면 건너뛰고, 다시 보이는 순간
+ * 한 번 바로 부른다. 「어디까지 받았나」는 부르는 쪽이 들고 있으므로
+ * 그사이 오간 줄도 그때 다 온다.
+ */
+export function whileVisible(fn: () => void, ms: number): () => void {
+  const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden'
+  const t = setInterval(() => {
+    if (!hidden()) fn()
+  }, ms)
+  const onShow = () => {
+    if (!hidden()) fn()
+  }
+  document.addEventListener('visibilitychange', onShow)
+  return () => {
+    clearInterval(t)
+    document.removeEventListener('visibilitychange', onShow)
+  }
+}
+
 /** 한 칸(16px)을 걷는 데 걸리는 시간. 방 안 걸음이다. */
 export const STEP_MS = 160
 /**

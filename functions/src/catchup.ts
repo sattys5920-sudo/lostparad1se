@@ -364,7 +364,12 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
     return { applied: 0, day: game.day, phase: game.phase }
   }
 
-  const pending = await ref.collection('schedule').where('dueAtMs', '<=', toMs).get()
+  /*
+   * **아직 안 민 것만 읽는다.** 걸음마다 도착이 한 줄씩 쌓여서, 시각으로
+   * 물으면 지난 도착을 몇백 줄씩 매번 다시 읽었다. 민 것은 어차피 아래에서
+   * 거른다(dueItems) — 결과는 같고, 읽는 것은 지금 걷는 사람 몫과 남은 달력뿐이다
+   */
+  const pending = await ref.collection('schedule').where('doneAtMs', '==', null).get()
   const due: Due[] = pending.docs.map((d) => {
     const s = d.data() as ScheduleDoc
     return { id: d.id, dueAtMs: s.dueAtMs, ord: s.ord, kind: s.kind, doneAtMs: s.doneAtMs }
@@ -400,7 +405,8 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   }
   await applyUpTo(toMs)
 
-  await ref.update({ caughtUpToMs: toMs })
+  // 「어디까지 따라잡았나」는 안 적는다. 읽는 곳이 없는데, 판 문서를 고치면
+  // 열넷 화면이 판 문서를 다시 받는다 — 4 초마다 열다섯 장씩 읽기가 나갔다
 
   // 칸에 선 말의 체류 기록을 연다. 트랜잭션 안에서 하면 읽기·쓰기
   // 순서에 걸린다 — 도착 처리기는 이미 쓰기 단계에 있다

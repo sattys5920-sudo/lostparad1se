@@ -83,12 +83,10 @@ export async function endDeal(gameId: string, dealId: string, why: string): Prom
  */
 export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
   const ref = gameRef(gameId)
-  const [snap, gameSnap, pawns] = await Promise.all([
-    dealsOf(gameId).where('status', 'in', LIVE).get(),
-    ref.get(),
-    ref.collection('pawns').get(),
-  ])
+  // 열린 거래가 없으면 판과 열넷 말은 안 읽는다 — 따라잡기가 몇 초마다 여기를 지난다
+  const snap = await dealsOf(gameId).where('status', 'in', LIVE).get()
   if (snap.empty) return
+  const [gameSnap, pawns] = await Promise.all([ref.get(), ref.collection('pawns').get()])
   const game = gameSnap.data() as { phaseNow?: { open?: boolean }; invisibleId?: string | null }
   // 자리만 본다. **방은 안 묻는다** — 복도에서 마주 선 둘도 흥정한다
   const at = new Map<string, Cell | null>()
