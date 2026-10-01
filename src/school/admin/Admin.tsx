@@ -378,11 +378,6 @@ function Desk() {
         : tab === 'go' ?
           /* ── 진행. 판을 돌리는 두 손잡이 ── */
           <>
-            {/* 맨 위에 실시간 지도 — 열넷이 지금 어디를 걷는가. 목록은 「지도」 탭에 */}
-            <section className="sc-ad__sec">
-              <h2>지금 학교</h2>
-              <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} compact />
-            </section>
             {game?.practice && (
               <section className="sc-ad__sec">
                 <h2>연습 시간</h2>

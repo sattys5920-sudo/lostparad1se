@@ -534,13 +534,10 @@ export function LiveMap({
   act,
   gameId,
   onSaid,
-  compact = false,
 }: {
   act: GameActions
   gameId: string
   onSaid: (t: string) => void
-  /** 진행 탭 맨 위에 얹을 때 — 지도만. 열넷 목록과 분단 거르기는 「지도」 탭에 있다 */
-  compact?: boolean
 }) {
   const visible = useVisible()
   const liveSpots = useLiveSpots(gameId, visible)
@@ -693,7 +690,6 @@ export function LiveMap({
         />
       )}
 
-      {!compact && (<>
       <div className="sc-lvm__chips" role="group" aria-label="분단 거르기">
         {(['all', ...TEAM_ORDER] as const).map((t) => (
           <button key={t} className={team === t ? 'is-on' : ''} onClick={() => setTeam(t)}>
@@ -728,7 +724,6 @@ export function LiveMap({
           </section>
         ))}
       </div>
-      </>)}
     </div>
   )
 }
