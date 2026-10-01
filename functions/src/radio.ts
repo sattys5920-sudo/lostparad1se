@@ -50,7 +50,7 @@ export interface RadioDocRaw {
   /**
    * 칠 때 지워져 있었는가. 이제는 지워진 동안 아예 못 치므로 새 줄은
    * 늘 false다 — 이 값을 남겨 두는 것은 이 규칙이 생기기 전에 이미
-   * 쌓인 줄을 그대로 읽기 위해서다(이름 옆 「안 보임」 표시).
+   * 쌓인 줄을 그대로 읽기 위해서다 — 그런 줄은 남에게 이름 없이 간다.
    */
   invisible: boolean
   /** 사람이 친 것이 아니라 판이 적은 줄. 화면에서 서식이 다르다. */
@@ -129,8 +129,7 @@ export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | '
     .filter((s) => s.playerId !== uid && (toAll || s.team === pawn.team) && s.name.length > 0 && text.includes(s.name))
     .map((s) => s.playerId)
   if (called.length > 0) await notify(gameId, called, 'tag', `tag:${uid}:${nowMs}`)
-  // 지워져 있어도 팀에게는 닿는다
-  return { said: true, heard: true }
+  return { said: true }
 })
 
 /**
@@ -154,22 +153,13 @@ export const radioLines = onCall<{ gameId: string; sinceMs?: number; channel?: '
   const since = toAll ? sinceOf(req.data.sinceMs) : Math.max(sinceOf(req.data.sinceMs), pawn.teamSinceMs ?? 0)
 
   /*
-   * **켜 둔 사람을 센다.** 「수신 n」이 이 수다.
-   *
-   * 무전을 가져가는 일 자체가 맥이다 — 앱을 켜 두고 있으면 탭이
-   * 어디에 있든 계속 가져간다. 지도의 실시간 자리는 걷는 동안에만
-   * 적혀서, 방에 가만히 선 팀원이 6초 만에 사라진다.
-   *
-   * 나는 안 센다. 내가 말하면 들을 사람 수다.
+   * 무전을 가져가는 일 자체가 맥이다 — 운영자 화면이 켜 둔 사람을 센다.
+   * **플레이어에게는 그 수를 안 돌려준다.**
    */
   const ref = gameRef(gameId)
   if (nowMs - (pawn.radioAtMs ?? 0) > RADIO_BEAT_MS / 2) {
     await ref.collection('pawns').doc(uid).update({ radioAtMs: nowMs })
   }
-  const crew = toAll ? await ref.collection('pawns').get() : await ref.collection('pawns').where('team', '==', pawn.team).get()
-  const here = crew.docs.filter(
-    (d) => d.id !== uid && nowMs - ((d.data() as { radioAtMs?: number }).radioAtMs ?? 0) < RADIO_STALE_MS,
-  ).length
 
   // **최근 것부터** 300줄을 잘라 뒤집는다. 오래된 것부터 자르면 줄이 쌓인
   // 판에서 처음 켠 사람이 아침 말만 받고 지금 말은 못 받는다
@@ -184,18 +174,18 @@ export const radioLines = onCall<{ gameId: string; sinceMs?: number; channel?: '
     .reverse()
     .map((d) => d.data() as RadioDocRaw)
     .map((r) => ({
-      playerId: r.playerId,
-      name: r.name,
+      // 칠 때 지워져 있던 사람의 줄은 남에게 이름을 안 싣는다
+      playerId: r.invisible && r.playerId !== uid ? '' : r.playerId,
+      name: r.invisible && r.playerId !== uid ? '' : r.name,
       team: r.team,
       atMs: r.atMs,
       text: r.text,
-      /** 칠 때 지워져 있었다. 이름 옆에 「안 보임」이 붙는다 */
       hidden: r.invisible,
       /** 판이 적은 줄. 화면이 서식을 가른다 */
       system: r.system === true,
     }))
 
-  return { lines, day: game.day, team: pawn.team, channel: toAll ? 'all' : 'team', here }
+  return { lines, day: game.day, team: pawn.team, channel: toAll ? 'all' : 'team' }
 })
 
 /** 한 채널의 줄을 운영자 화면 모양으로 */

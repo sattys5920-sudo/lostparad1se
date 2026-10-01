@@ -509,7 +509,7 @@ export interface View {
     canDrop: boolean
   } | null
   /** 내가 들고 있는 쪽지. 읽은 것만 문장이 실린다. */
-  mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
+  mySlips: { id: string; read: boolean; line: string | null }[]
   /**
    * 눈에 띄는 문제 종이. **자리만이다.**
    *
@@ -966,9 +966,9 @@ export function projectView(world: World, viewerId: string): View {
       .filter((s) => s.heldBy === viewerId)
       .map((s) => {
         const read = s.readBy.includes(viewerId)
-        // **읽어야 문장이 온다.** 안 읽었으면 적힌 것도, 누구의
-        // 비밀인지도 안 간다
-        return { id: s.id, read, line: read ? s.line : null, subjectId: read ? s.subjectId : null }
+        // **읽어야 문장이 온다.** 누구의 쪽지인지(주인)는 읽어도 안 간다 —
+        // 「반장이다」 쪽지 밑에 주인 이름이 붙으면 한 장으로 역할이 다 드러난다
+        return { id: s.id, read, line: read ? s.line : null }
       }),
     // 먼저 가져간 팀만. 끝나면 전원
     memories: world.memories.filter((m) => canSeeMemory(m, team, world.over)),

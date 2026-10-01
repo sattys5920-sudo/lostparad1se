@@ -92,8 +92,8 @@ async function main(): Promise<void> {
   await must('radio', a.token, { gameId: GAME, text: '모두에게', channel: 'all' })
   check((await lines(other, 'all')).some((l) => l.text === '모두에게'), '다른 팀도 듣는다')
   check(!(await lines(mate, 'team')).some((l) => l.text === '모두에게'), '팀 채널에는 안 섞인다')
-  const here = (await must('radioLines', other.token, { gameId: GAME, channel: 'all' })).here as number
-  check(here >= 1, '전원 채널의 수신 수는 팀을 가리지 않는다 — 다른 팀 사람이 센다', String(here))
+  const here = (await must('radioLines', other.token, { gameId: GAME, channel: 'all' })).here
+  check(here === undefined, '켜 둔 사람 수는 안 온다', String(here))
 
   console.log('\n── 지워진 사람 ──')
   await fetch(`${FS}/games/${GAME}?updateMask.fieldPaths=invisibleId`, {

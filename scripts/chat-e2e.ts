@@ -166,7 +166,7 @@ async function main(): Promise<void> {
   await meetAt(must, GAME, 'hallway', people, (ms) => clock(ms), dayHourMs(START, 2, 14))
 
   const said = await must('say', C[0].token, { gameId: GAME, text: GHOST_SAID })
-  check(said.heard === false, '친 사람에게 「들리지 않았다」고 알려 준다')
+  check(said.heard === undefined, '「들리지 않았다」는 안 알린다')
 
   check((await linesOf(C[0].token)).some((l) => l.text === GHOST_SAID && l.muted), '본인 화면에만 원문이 남는다')
 

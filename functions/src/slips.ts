@@ -263,7 +263,8 @@ export const readSlipHere = onCall<{ gameId: string; slipId: string }>(async (re
   if (first && s.noteId) {
     await note(gameId, 'slipRead', nowMs, { id: uid, team: self.team }, { subjectId: slipId, ownerId: s.subjectId })
   }
-  return { line, whose: s.subjectId ? owner : null }
+  // 누구의 쪽지인지는 안 돌려준다 — 문장 밑에 주인 이름이 붙으면 역할이 드러난다
+  return { line }
 })
 
 /**

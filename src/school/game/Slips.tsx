@@ -10,18 +10,17 @@ import { useState } from 'react'
 
 import { isBlank } from '../../../shared/reveal/slips'
 import type { GameActions } from './useGame'
-import type { PlayerViewDoc, SeatEntry } from '../../../shared/model'
+import type { PlayerViewDoc } from '../../../shared/model'
 import { buzz } from './Controls'
 
 export interface SlipsProps {
   view: PlayerViewDoc | null
-  seats: readonly SeatEntry[]
   act: GameActions
   onSaid: (text: string) => void
   /** 되돌릴 수 없는 것은 한 번 묻는다. */
 }
 
-export function Slips({ view, seats, act, onSaid }: SlipsProps) {
+export function Slips({ view, act, onSaid }: SlipsProps) {
   const [busy, setBusy] = useState(false)
 
   const mine = view?.mySlips ?? []
@@ -41,8 +40,6 @@ export function Slips({ view, seats, act, onSaid }: SlipsProps) {
       setBusy(false)
     }
   }
-
-  const nameOf = (id: string) => seats.find((s) => s.playerId === id)?.name ?? '누군가'
 
   return (
     <section className="sc-sl">
@@ -68,7 +65,6 @@ export function Slips({ view, seats, act, onSaid }: SlipsProps) {
                   <p className="sc-sl__line">
                     {isBlank(s.line ?? '') ? '(이 쪽지에 적힐 말은 아직 준비 중이다)' : s.line}
                   </p>
-                  {s.subjectId && <p className="sc-sl__whose">{nameOf(s.subjectId)}의 일이다.</p>}
                 </>
               )}
 

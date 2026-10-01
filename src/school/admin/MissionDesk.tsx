@@ -526,11 +526,6 @@ function PlayerRow({
       {open && (
         <div className="sc-md__body">
           <Clauses title="미션" list={r.truth.clauses} view={r.view.clauses} delta={dMain} hasPrev={prev !== null} />
-          {r.final && (
-            <p className="sc-md__line">
-              <Dot s={r.truth.choice} /> 마지막 선택 <b>{STATUS_LABEL[r.truth.choice]}</b>
-            </p>
-          )}
           <p className="sc-md__line">
             판정 <b>{STATUS_LABEL[r.truth.status]}</b>
             {r.view.status !== r.truth.status && <> · 본인 몫 {STATUS_LABEL[r.view.status]}</>}
@@ -671,11 +666,6 @@ function MailCard({ mail }: { mail: MissionMail }) {
       </p>
       <p className={`sc-md__result is-${mail.status}`}>{RESULT_LINE[mail.status]}</p>
       <ul>{lines(mail.clauses)}</ul>
-      {mail.final && (
-        <p className="sc-md__mailSub">
-          마지막 선택 — {RESULT_LINE[mail.choice]}
-        </p>
-      )}
       {mail.line && <p className="sc-md__mission">{mail.line}</p>}
     </div>
   )

@@ -291,7 +291,7 @@ export interface PawnDoc {
    */
   teamSinceMs?: GameMs
   /**
-   * 무전을 마지막으로 가져간 시각. **「수신 n」이 이것을 센다.**
+   * 무전을 마지막으로 가져간 시각. **운영자 화면의 「켜 둔 사람」이 이것을 센다.**
    *
    * 지도의 실시간 자리(live)는 걷는 동안에만 적히고 6초면 낡는다 —
    * 방에 가만히 선 팀원이 곧바로 「없는 사람」이 되어서 무전 인원으로는
@@ -617,7 +617,7 @@ export interface PlayerViewDoc {
   /** 딴 작물. 키가 작물 아이디다. */
   myCrops?: Record<string, number>
   /** 내가 들고 있는 쪽지. **읽은 것만** 문장이 실린다. */
-  mySlips: { id: string; read: boolean; line: string | null; subjectId: string | null }[]
+  mySlips: { id: string; read: boolean; line: string | null }[]
   /**
    * 눈에 띄는 문제 종이. **자리까지다** — 무엇이 적혔는지는 주워야 온다.
    *

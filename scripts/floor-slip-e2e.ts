@@ -133,7 +133,7 @@ async function main() {
   console.log('\n── 그 자리에서 읽기 ──')
   const read = await call('readSlipHere', readerTok, { gameId: game, slipId })
   check(read.ok && String(read.result.line ?? '').length > 0, '옆에서 읽으면 문장이 온다', read.ok ? String(read.result.line).slice(0, 30) : (read.err ?? ''))
-  check(read.ok && typeof read.result.whose === 'string' && String(read.result.whose).length > 0, '「누구의 일이다」도 온다', read.ok ? String(read.result.whose) : '')
+  check(read.ok && read.result.whose === undefined, '「누구의 일이다」는 안 온다 — 주인 이름이 붙으면 역할이 드러난다', read.ok ? String(read.result.whose) : '')
   const v1 = await viewOf(game, readerUid)
   check(arr(v1.slipPapers).some((p) => str(p.id) === slipId), '**읽어도 바닥에 그대로 있다**')
   check(arr(v1.mySlips).length === 0, '읽어도 내 손에는 안 들어온다')

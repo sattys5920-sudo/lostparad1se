@@ -389,15 +389,14 @@ describe('쪽지 — 주워서 읽어야 안다', () => {
     const mine = v.mySlips.find((s) => s.id === 'sBlind')
     expect(mine?.read).toBe(false)
     expect(mine?.line).toBeNull()
-    expect(mine?.subjectId).toBeNull()
     expect(JSON.stringify(v)).not.toContain(SLIP_BLIND)
   })
 
-  it('읽었으면 문장과 주인이 온다', () => {
+  it('읽었으면 문장은 오지만 **주인은 안 온다**', () => {
     const v = projectView(world(), 'A1')
     const mine = v.mySlips.find((s) => s.id === 'sHeld')
     expect(mine?.line).toBe(SLIP_HELD)
-    expect(mine?.subjectId).toBe('D0')
+    expect(mine && 'subjectId' in mine).toBe(false)
   })
 
   it('**남이 읽은 쪽지는 나에게 안 온다**', () => {

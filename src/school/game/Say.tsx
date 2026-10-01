@@ -96,11 +96,8 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck, 
   const post = useCallback(
     async (text: string) => {
       try {
-        const res = (await act.say(text)) as { heard?: boolean }
+        await act.say(text)
         buzz('ok')
-        // 들리지 않았다는 것만은 알려 준다. 허공에 대고 친 줄 모르면
-        // 대답이 없는 이유를 영영 알 수 없다
-        if (res.heard === false) onSaid('아무도 듣지 못했다.')
       } catch (e) {
         onSaid((e as Error).message)
         buzz('no')

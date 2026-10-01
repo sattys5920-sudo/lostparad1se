@@ -670,7 +670,7 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
           <LiveRetro gameId={gameId} />
         ) : endTab === 'verdicts' ? (
           <div className="sc-pl__verdicts">
-            <PastVerdicts inbox={state.inbox} boards={game.missionBoards} seats={game.seats} meId={myUid ?? ''} />
+            <PastVerdicts inbox={state.inbox} />
           </div>
         ) : game.endingBroadcast ? (
           <LiveEnding gameId={gameId} />
@@ -826,7 +826,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     [state.view?.quizzesHere, state.view?.slipPapers, state.view?.scrapPapers],
   )
   /** 바닥에서 읽은 메모. 닫으면 사라진다 — 종이는 바닥에 그대로 있다 */
-  const [floorRead, setFloorRead] = useState<{ line: string; whose: string | null } | null>(null)
+  const [floorRead, setFloorRead] = useState<{ line: string } | null>(null)
   /**
    * 바닥의 쪽지에 하는 일 — 읽기 · 찢기. **줍지 않는다.** 칸으로 어느
    * 종이인지 찾는다. 테이프는 찢긴 종이 쪽이다
@@ -847,7 +847,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       if (what === 'read') {
         void act
           .readSlipHere(memo.id)
-          .then((out) => setFloorRead({ line: out.line ?? '', whose: out.whose ?? null }))
+          .then((out) => setFloorRead({ line: out.line ?? '' }))
           .catch((e: Error) => refuse(e.message))
       } else {
         void act
@@ -1887,7 +1887,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         {tab === 'me' && (
         <Me
           me={me}
-          boards={game.missionBoards}
           day={game.day}
           look={look}
           view={state.view}
@@ -1904,7 +1903,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             uid ? (
               <Slips
                 view={state.view}
-                seats={game.seats}
                 act={act}
                 onSaid={setSaid}
               />
@@ -2085,7 +2083,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       {floorRead !== null && (
         <Sheet title="쪽지" onClose={() => setFloorRead(null)}>
           <p className="sc-sl__line sc-fr__line">{floorRead.line}</p>
-          {floorRead.whose && <p className="sc-sl__whose">{floorRead.whose}의 일이다.</p>}
           <p className="sc-sl__note">바닥에 그대로 두었다.</p>
         </Sheet>
       )}

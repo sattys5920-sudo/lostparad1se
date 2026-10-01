@@ -48,7 +48,7 @@ export interface RadioLine {
   team: string
   atMs: number
   text: string
-  /** 칠 때 지워져 있었다. 이름 옆에 「안 보임」이 붙는다 */
+  /** 칠 때 지워져 있었다. 그런 줄은 이름이 비어서 온다 */
   hidden: boolean
   /** 판이 적은 줄 */
   system: boolean
@@ -58,6 +58,8 @@ export interface RadioLine {
 const SPIKE_MS = 500
 /** 파형이 한 걸음 가는 데 걸리는 시간. 초당 여덟 번이다 */
 const WAVE_STEP_MS = 125
+/** 파형 높이 칸. 켜 둔 사람 수와 상관없이 늘 이 높이로 출렁인다 */
+const WAVE_IDLE = 2
 
 /**
  * 수신 상태 바의 파형.
@@ -257,11 +259,6 @@ function RadioRoom({
   const [stuck, setStuck] = useState<string | null>(null)
   const failsRef = useRef(0)
   const [spikeAt, setSpikeAt] = useState(0)
-  /**
-   * 지금 무전을 켜 둔 팀원 수. **나는 안 센다** — 내가 말하면 들을
-   * 사람 수다. 서버가 세어 준다(무전을 가져가는 일 자체가 맥이다).
-   */
-  const [here, setHere] = useState(0)
   /** 위로 올려 읽는 중에 쌓인 줄 수 */
   const [behind, setBehind] = useState(0)
   const sinceRef = useRef(0)
@@ -284,8 +281,7 @@ function RadioRoom({
     if (pullingRef.current) return
     pullingRef.current = true
     try {
-      const res = (await act.radioLines(sinceRef.current, channel)) as { lines?: RadioLine[]; here?: number }
-      setHere(Math.max(0, Math.floor(res.here ?? 0)))
+      const res = (await act.radioLines(sinceRef.current, channel)) as { lines?: RadioLine[] }
       const fresh = res.lines ?? []
       if (fresh.length === 0) return
       sinceRef.current = Math.max(sinceRef.current, ...fresh.map((l) => l.atMs))
@@ -479,11 +475,9 @@ function RadioRoom({
               </>
             )}
           </span>
-          <span className={`sc-rd__conn${here > 0 ? ' is-on' : ''}`}>
-            {here > 0 ? `수신 ${here}` : '수신 없음'}
-          </span>
         </div>
-        <Wave connected={here} spikeAt={spikeAt} on={active} />
+        {/* 파형 높이는 늘 같다 — 몇이 켜 두었는지는 안 알린다 */}
+        <Wave connected={WAVE_IDLE} spikeAt={spikeAt} on={active} />
       </header>
 
       {/* ── 오간 말 ─────────────────────────────────────── */}
@@ -550,10 +544,6 @@ function RadioRoom({
                   style={{ color: (TEAM_COLOR as Record<string, string>)[l.team] ?? 'var(--rd-on)' }}
                 >
                   {l.name}
-                  {/* 칠 때 지워져 있었다. 오늘 판정에서 빠진 사람이라,
-                      셋이 넷인 줄 알고 방을 나누면 그날 작전이 통째로
-                      어긋난다 — 무전은 막지 않는 대신 이것을 붙인다 */}
-                  {l.hidden && <i>안 보임</i>}
                 </span>
                 <span className="sc-rd__text">
                   {l.text}

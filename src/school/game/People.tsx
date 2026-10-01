@@ -1,4 +1,4 @@
-// 남에게 하는 일 — 표와 「중요한 사람」.
+// 남에게 하는 일 — 표.
 //
 // **수첩 탭에 산다.** 전에는 「나」 탭에 있었는데, 아침에는 열넷이 한
 // 교실에 서 있어서 카드 열셋이 그 탭의 절반을 먹었다. 남에 대한
@@ -12,7 +12,6 @@
 // 「던졌다」만 알려 주고, 누구에게 줬는지는 내 몫에도 안 담긴다.
 import { useState } from 'react'
 
-import { CHOSEN_ONE_DAY } from '../../../shared/rules/choices'
 import { VOTE_LABEL, type VoteKind } from '../../../shared/rules/v2'
 import { TEAM_COLOR } from './MapPlan'
 import type { GameActions } from './useGame'
@@ -52,9 +51,11 @@ export function Around(props: AroundProps) {
   // **여기 있는 사람만 보인다.** 명단을 통째로 펴 놓으면 학교
   // 반대편 사람에게도 뭔가 할 수 있을 것처럼 보인다. 만나야 한다
   const here = new Set(props.hereIds)
-  // 마주 선 사람만. **투명인간은 여기 없다** — 서버가 위치를 아예
-  // 안 보내므로 here 에 들어오지 않는다. 화면이 거르는 것이 아니다
-  const others = seats.filter((s) => s.playerId !== me.playerId && here.has(s.playerId))
+  // 마주 선 사람만. **투명인간은 목록에 아예 안 뜬다** — 서버가 위치를
+  // 안 보내 here 에 들지 않지만, 화면도 한 번 더 거른다
+  const others = seats.filter(
+    (s) => s.playerId !== me.playerId && s.playerId !== props.invisibleId && here.has(s.playerId),
+  )
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true)
@@ -85,8 +86,6 @@ export function Around(props: AroundProps) {
               {s.name}
               {/* 팀은 글자가 아니라 완장 색이다. 다른 화면과 같은 규칙 */}
               <span className="sc-pe__band" style={{ background: TEAM_COLOR[s.team as TeamId] }} aria-hidden />
-              {props.invisibleId === s.playerId && <em>오늘 지워짐</em>}
-              {props.chosenId === s.playerId && <i>중요한 사람</i>}
             </button>
             {picked === s.playerId && (
               <div className="sc-pe__acts">
@@ -100,11 +99,6 @@ export function Around(props: AroundProps) {
                     {VOTE_LABEL[k]}
                   </button>
                 ))}
-                {props.day === CHOSEN_ONE_DAY && (
-                  <button disabled={busy} onClick={() => run('선택', () => act.chooseImportant(s.playerId))}>
-                    중요한 사람으로
-                  </button>
-                )}
               </div>
             )}
           </li>

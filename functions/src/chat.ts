@@ -188,7 +188,7 @@ export const say = onCall<{ gameId: string; text: string }>(async (req) => {
     invisible: game.invisibleId === uid,
   }
   await chatOf(gameId).add(row)
-  return { said: true, heard: !row.invisible }
+  return { said: true }
 })
 
 /**

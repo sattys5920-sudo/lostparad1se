@@ -225,13 +225,6 @@ export function MissionPopup({ mail, onClose }: { mail: MissionMail; onClose: ()
 
           <Lines rows={mail.clauses} />
 
-          {mail.final && (
-            <p className="sc-jd__choice">
-              <span>마지막 선택</span>
-              <b className={`is-${mail.choice}`}>{STATUS_LABEL[mail.choice]}</b>
-            </p>
-          )}
-
           <p className="sc-jd__line">{mail.line}</p>
 
           <button type="button" ref={closeRef} className="sc-jd__close" onClick={onClose}>

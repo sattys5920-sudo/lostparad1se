@@ -301,7 +301,7 @@ export function gameActions(gameId: string) {
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
     /** 바닥의 메모를 그 자리에서 읽는다 — 줍지 않는다. 글은 응답으로만 온다 */
     readSlipHere: (slipId: string) =>
-      callServer('readSlipHere', { ...g, slipId }) as Promise<{ line?: string; whose?: string | null }>,
+      callServer('readSlipHere', { ...g, slipId }) as Promise<{ line?: string }>,
     /** 바닥의 메모를 그 자리에서 찢는다 — 찢긴 종이가 그 칸에 남는다 */
     tearSlipHere: (slipId: string) => callServer('tearSlipHere', { ...g, slipId }),
     // ── 심부름 ────────────────────────────────────────────
