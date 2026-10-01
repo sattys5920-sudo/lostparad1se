@@ -14,7 +14,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  padding: var(--sp-2) var(--sp-2) var(--sp-2);
+  /* 노치 · 상태 표시줄 아래부터 — 「나가기」가 그 밑에 깔리면 못 누른다 */
+  padding: calc(var(--sa-top, env(safe-area-inset-top, 0px)) + var(--sp-2)) var(--sp-2) calc(var(--sa-bottom, env(safe-area-inset-bottom, 0px)) + var(--sp-2));
   box-sizing: border-box;
   background: var(--bg-2);
   overflow: hidden;
@@ -24,12 +25,15 @@
 .sc-vd__out {
   flex: 0 0 auto;
   align-self: flex-start;
-  padding: var(--sp-1) var(--sp-1);
-  border: 0;
-  background: transparent;
-  color: var(--text-2);
+  /* **눈에 띄게.** 자판기는 화면을 통째로 쓰니 이것이 유일한 출구다 */
+  min-height: 44px;
+  padding: 0 var(--sp-3);
+  border: 2px solid var(--sc-line-strong, var(--line-strong));
+  background: var(--bg-1);
+  color: var(--text-1);
   font: inherit;
-  font-size: var(--fs-cap);
+  font-size: var(--fs-body);
+  font-weight: 600;
   cursor: pointer;
 }
 
