@@ -268,7 +268,8 @@ async function main(): Promise<void> {
   await must('stakeDeal', A[0].token, { gameId: GAME, dealId, stake: { slips: 1 } })
   await must('readyDeal', A[0].token, { gameId: GAME, dealId, ready: true })
   await must('readyDeal', B[0].token, { gameId: GAME, dealId, ready: true })
-  clockAt += DEAL_COUNTDOWN_MS + 2_000
+  // 앞서 맞춘 시계 뒤로 실제 시간이 흐른다 — 넉넉히 넘긴다
+  clockAt += DEAL_COUNTDOWN_MS + 60_000
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: clockAt, speed: 1 })
   await must('settleDeal', A[0].token, { gameId: GAME, dealId })
   rows = await recordsNow()

@@ -30,7 +30,6 @@ import {
   GARDEN_TILE,
   POT_CELLS,
   growHoursOf,
-  nameShows,
   pickCrop,
   stageOf,
   type PotStage,
@@ -102,36 +101,6 @@ export async function seedGarden(gameId: string): Promise<void> {
   await batch.commit()
 }
 
-/**
- * 싹이 난 「그 애가 심은 것」을 알린다. **그 방에 선 사람에게만.**
- *
- * 시드는 것은 여기서 안 건드린다 — 시간으로 계산하면 나오는 값이라
- * 문서를 고칠 일이 없다. 화분을 비우는 것은 사람이 한다(치우기).
- */
-export async function sweepGarden(gameId: string, nowMs: number): Promise<boolean> {
-  const snap = await potsOf(gameId).where('toldHers', '==', false).get()
-  const hers = snap.docs.filter((d) => {
-    const pot = d.data() as PotDoc
-    return pot.cropId === 'hers' && nameShows(stageNow(pot, nowMs))
-  })
-  if (hers.length === 0) return false
-
-  const pawns = await gameRef(gameId).collection('pawns').get()
-  const here = pawns.docs.filter((d) => (d.data() as PawnDoc).tileId === (GARDEN_TILE as TileId))
-  const batch = db.batch()
-  for (const d of hers) {
-    batch.update(d.ref, { toldHers: true })
-    for (const p of here) {
-      batch.set(gameRef(gameId).collection('notices').doc(), {
-        toPlayerId: p.id,
-        text: `화분 하나에 못 보던 싹이 났다. ${CROP_BY_ID.hers.name}이다.`,
-        atMs: nowMs,
-      })
-    }
-  }
-  await batch.commit()
-  return true
-}
 
 // ── 운영자 ──────────────────────────────────────────────────────
 

@@ -134,7 +134,14 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
   const dayLog =
     fromMs === undefined ? log : (await buildLog(gameId, game, { over: false, fromMs, dropVotes: true })).log
   const result = judge({ playerId: uid, team: mine.team, roleId, targetId: crushTargetId }, dayLog)
-  const phase: Phase = over ? 'end' : 'dayTurned'
+  /*
+   * **문서의 공개 시점대로.** 「하루가 바뀔 때」 조항은 그날 안에는 안 보인다 —
+   * 결과는 날을 넘길 때 판정으로 온다(전학생의 「우리 분단 1 위 아님」이 지금
+   * 순위로 새지 않는다). 「발표 뒤」 조항은 오늘 투표를 센 뒤부터 보인다(뒷자리)
+   */
+  const ballotCounted =
+    !over && (await gameRef(gameId).collection('secret').doc('ballotDays').collection('items').doc(`d${game.day}`).get()).exists
+  const phase: Phase = over ? 'end' : ballotCounted ? 'ballotShown' : 'live'
   const shown = discloseFor(result, phase)
 
   // 받은 표. 종류별로 센다 — **누가 줬는지만** 끝까지 안 보낸다

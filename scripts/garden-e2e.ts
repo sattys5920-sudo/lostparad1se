@@ -290,13 +290,7 @@ async function main() {
   check(pickOld.ok, '오래된 열매도 딴다', pickOld.ok ? '' : (pickOld.err ?? ''))
 
   console.log('\n── 그 애가 심은 것 ──')
-  /*
-   * 판에 두 번뿐인 작물이다. 싹이 나면 **그 방에 선 사람 전원**이
-   * 짧은 알림을 받는다 — 흔하면 그냥 비싼 작물이고, 두 번뿐이라
-   * 그 자리에 있었다는 것이 이야기가 된다.
-   *
-   * 무엇이 심길지는 서버가 뽑으므로 시험이 손으로 심어 둔다.
-   */
+  // **싹이 나도 알림은 없다.** 「못 보던 싹이 났다」 알림은 지웠다 — 화분 앞에 서야 안다
   await fetch(`${FS}/games/${game}/pots/5`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({
@@ -312,18 +306,9 @@ async function main() {
   const noticed = await fetch(`${FS}/games/${game}/notices`, { headers: ADMIN })
   const rows = ((await noticed.json()) as { documents?: { fields?: Record<string, unknown> }[] }).documents ?? []
   const hersRows = rows.filter((d) => (str(d.fields?.text) ?? '').includes(CROP_BY_ID.hers.name))
-  const toMe = hersRows.some((d) => str(d.fields?.toPlayerId) === meUid)
-  const toYou = hersRows.some((d) => str(d.fields?.toPlayerId) === youUid)
-  const toOut = hersRows.some((d) => str(d.fields?.toPlayerId) === uidOf('qa03'))
-  check(toMe && toYou, '**정원에 선 사람 전원이 알림을 받는다**', `${hersRows.length}줄`)
-  check(!toOut, '정원 밖 사람에게는 안 간다')
-  // 두 번 부르면 두 번 울리지 않는다
-  const before = hersRows.length
-  await must('tick', host, { gameId: game })
-  const again = await fetch(`${FS}/games/${game}/notices`, { headers: ADMIN })
-  const rows2 = ((await again.json()) as { documents?: { fields?: Record<string, unknown> }[] }).documents ?? []
-  const after = rows2.filter((d) => (str(d.fields?.text) ?? '').includes(CROP_BY_ID.hers.name)).length
-  check(after === before, '한 번만 울린다', `${before} → ${after}`)
+  check(hersRows.length === 0, '**싹이 나도 알림은 안 간다**', `${hersRows.length}줄`)
+  void meUid
+  void youUid
 
   console.log('\n── 매입구 ──')
   /*
