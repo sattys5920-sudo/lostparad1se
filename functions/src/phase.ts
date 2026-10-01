@@ -323,11 +323,12 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '이미 열려 있다.')
 
   const ref = gameRef(gameId)
-  const [pawns, tiles, teams, asking] = await Promise.all([
+  const [pawns, tiles, teams, asking, arcade] = await Promise.all([
     ref.collection('pawns').get(),
     ref.collection('tiles').get(),
     ref.collection('teams').get(),
     ref.collection('transfers').where('status', '==', 'asking').get(),
+    ref.collection('arcadeRooms').where('status', 'in', ['lobby', 'playing']).get(),
   ])
   const owners: Partial<Record<TileId, TeamId | null>> = {}
   for (const d of tiles.docs) owners[d.id as TileId] = (d.data() as TileDoc).ownerTeam ?? null
@@ -345,6 +346,8 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   // **이적은 자유 시간에만.** 묻고 답하던 중에 종이 치면 그 제안은 없던
   // 일이 된다 — 창이 닫히고, 다음 자유 시간에 다시 물어야 한다
   for (const d of asking.docs) batch.update(d.ref, { status: 'gone' })
+  // **오락실은 자유 시간에만.** 종이 치면 고르던 방도 하던 판도 그 자리에서 닫힌다
+  for (const d of arcade.docs) batch.update(d.ref, { status: 'gone', deadlineMs: null })
 
   // **이적은 answerTransfer 에서 바로 발효된다.** 수락한 자리에서 팀·
   // 완장이 즉시 바뀌므로, 여기서는 pawns 가 이미 지금 팀을 담고 있다.
@@ -1081,7 +1084,12 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
   const ref = gameRef(gameId)
   let seat: Cell | null = null
   await inTx(async (tx) => {
-    const mine = await tx.get(ref.collection('pawns').doc(uid))
+    const [mine, gNow] = await Promise.all([tx.get(ref.collection('pawns').doc(uid)), tx.get(ref)])
+    // **문을 넘는 순간 종이 쳤으면 공짜로 못 들어간다.** 판을 트랜잭션 안에서 다시 본다 —
+    // 점령전이 열렸으면 토큰을 써서 들어간다(phaseAct move)
+    if ((gNow.data() as GameDoc | undefined)?.phaseNow?.open) {
+      throw new HttpsError('failed-precondition', '페이즈 중에는 토큰을 써서 움직인다.')
+    }
     // 페이즈가 닫히면 하던 일도 끊기지만, 그 사이에 이 문으로 들어올
     // 수 있다. 여기서도 한 번 본다
     if (mine.exists) requireFree(mine.data() as PawnDoc, nowMs)

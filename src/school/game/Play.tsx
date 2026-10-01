@@ -2188,19 +2188,22 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           안 보냈으므로 여기에도 없다 */}
       {sheet === 'arcade' && myMachine !== null && (
         <Sheet title="오락기" onClose={closeSheet}>
-          <Arcade
-            act={act}
-            meId={me.playerId}
-            machine={myMachine}
-            seated={seatedAt}
-            room={arcadeRoom}
-            invites={arcadeInvites}
-            onDismiss={dismissRoom}
-          />
+          {phaseOpen ?
+            <FreeTimeOnly what="오락실" />
+          : <Arcade
+              act={act}
+              meId={me.playerId}
+              machine={myMachine}
+              seated={seatedAt}
+              room={arcadeRoom}
+              invites={arcadeInvites}
+              onDismiss={dismissRoom}
+            />
+          }
         </Sheet>
       )}
       {/* 부름은 창이 닫혀 있어도 뜬다. 받으면 창이 열린다 */}
-      {arcadeInvites[0] && sheet !== 'arcade' && (
+      {arcadeInvites[0] && sheet !== 'arcade' && !phaseOpen && (
         <ArcadeAsk
           room={arcadeInvites[0]}
           onAnswer={(yes) => {

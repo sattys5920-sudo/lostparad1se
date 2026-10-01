@@ -69,7 +69,7 @@ import type { TeamId } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import { josa } from '../../shared/text'
 import { note } from './records'
-import { freshNow, myPawn, refuseIfInvisible, requireAwake, refuseIfSnared } from './turn'
+import { freshNow, mustBeFreeTime, myPawn, refuseIfInvisible, requireAwake, refuseIfSnared } from './turn'
 import { gameRef, requireUid } from './index'
 import { docId } from './ids'
 
@@ -251,6 +251,8 @@ export const arcadeOpen = onCall<{ gameId: string; game: ArcadeGameId }>(async (
   const spec = ARCADE_BY_ID[req.data.game]
   if (!spec.ready) throw new HttpsError('failed-precondition', '아직 준비 중인 게임이다.')
   const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   await refuseIfSnared(gameId, uid, nowMs)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
@@ -286,6 +288,8 @@ export const arcadeInvite = onCall<{ gameId: string; roomId: string; playerId: s
   const playerId = docId(req.data.playerId, '부를 사람을 골라야 한다.')
   if (playerId === uid) throw new HttpsError('invalid-argument', '부를 사람을 골라야 한다.')
   const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   await refuseIfSnared(gameId, uid, nowMs)
   // 지워진 사람은 없는 사람이다 — 부르지도, 불리지도 않는다
   refuseIfInvisible(game.invisibleId, uid, playerId, '다른 기계를 부를')
@@ -318,7 +322,9 @@ export const arcadeAnswer = onCall<{ gameId: string; roomId: string; accept: boo
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const roomId = docId(req.data.roomId, NO_ROOM)
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   await refuseIfSnared(gameId, uid, nowMs)
   if (req.data.accept) {
     const me = await myPawn(gameId, uid)
@@ -356,7 +362,9 @@ export const arcadeBegin = onCall<{ gameId: string; roomId: string }>(async (req
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const roomId = docId(req.data.roomId, NO_ROOM)
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   const ref = roomsOf(gameId).doc(roomId)
   const first = await ref.get()
   if (!first.exists) throw new HttpsError('not-found', '그런 방이 없다.')
@@ -413,7 +421,9 @@ export const arcadeMove = onCall<{ gameId: string; roomId: string; n: number }>(
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const roomId = docId(req.data.roomId, NO_ROOM)
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
   mustSit(pawn)
@@ -456,7 +466,9 @@ export const arcadePick = onCall<{ gameId: string; roomId: string; pick: RpsPick
   const roomId = docId(req.data.roomId, NO_ROOM)
   if (!isRpsPick(req.data.pick)) throw new HttpsError('invalid-argument', '가위·바위·보 중에 낸다.')
   const pick = req.data.pick
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   const me = await myPawn(gameId, uid)
   requireAwake(me, nowMs)
   mustSit(me)
@@ -549,7 +561,9 @@ export const arcadeSubmit = onCall<{ gameId: string; roomId: string; log: unknow
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const roomId = docId(req.data.roomId, NO_ROOM)
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   const me = await myPawn(gameId, uid)
   mustSit(me)
 
@@ -701,7 +715,9 @@ export const arcadePlay = onCall<{ gameId: string; roomId: string; move?: { roun
   const { gameId } = req.data
   const roomId = docId(req.data.roomId, NO_ROOM)
   const move = req.data.move ?? {}
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  // **오락실은 자유 시간에만.** 점령전이 열리면 하던 판도 닫힌다(openPhase)
+  mustBeFreeTime(game, '오락실을 쓸')
   const me = await myPawn(gameId, uid)
   requireAwake(me, nowMs)
   mustSit(me)
