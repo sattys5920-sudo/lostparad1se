@@ -108,9 +108,11 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
    * 있으니 그대로 보내고, 조항은 빈 채로 둔다. counting 이 false 인
    * 동안 화면은 막대 대신 「닷새가 열리면 센다」를 적는다.
    */
-  if (game.phase === 'lobby') {
+  // 연습 시간에도 안 센다 — 「연습 끝 · DAY 1 시작」부터 센다
+  if (game.phase === 'lobby' || game.practice) {
     return {
       ...head,
+      ...(game.practice ? { practice: true } : {}),
       counting: false,
       main: { text: role.main.text, clauses: [], status: 'endOnly' as const },
       votesReceived: { trust: 0, liking: 0 },

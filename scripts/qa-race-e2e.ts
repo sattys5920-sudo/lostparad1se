@@ -2,12 +2,13 @@
 //
 // 경주마다 전제를 새로 깔고, 경쟁하는 요청을 한 틱에 같이 쏘고(Promise.all),
 // 끝나면 **딱 한쪽만 이겼고 진 쪽은 한국어로 거절당했는지**와 문서 상태가
-// 맞는지를 운영자 열쇠(REST)로 센다. 기본 100번씩.
+// 맞는지를 운영자 열쇠(REST)로 센다. 기본 20번씩, 한 판에 콜러블을 여럿 부르는
+// 느린 경주(거래·페이즈·4b·8b)는 10번씩 — 100번이면 한 판이 10분 제한을 넘긴다.
 //
 //   1  같은 칸에 둘이 standAt            → 한 사람만 선다 · 한 칸에 둘이 없다
 //   2  같은 쪽지에 둘이 takeSlip          → heldBy 하나 · slipTake 한 줄
 //   3  같은 심부름에 둘이 dropThing       → doneBy 하나 · 돈 한 번 · errandDone 한 줄
-//   4a 같은 종이에 둘이 takeQuiz          → heldBy 하나 · quizTake 한 줄
+//   4a 같은 종이를 둘이 takeQuiz(펼치기)  → **둘 다** 펼친다 · 종이는 바닥에 · openedBy 둘 · quizTake 두 줄
 //   4b 든 사람이 answerQuiz 를 둘 동시에  → solvedBy 하나 · 지식 +1 한 번 · quizSolved 한 줄
 //   5  같은 화분에 둘이 harvestPot        → 화분 빈다 · 작물 +1 한 번 · potHarvest 한 줄
 //   6a 받는 쪽이 answerDeal 둘 동시에     → 한 번만 열린다
@@ -17,11 +18,12 @@
 //   6e 한 사람이 askDeal 둘 동시에        → 하나만 생긴다
 //   7a 팀 토큰 1 · 두 팀원이 move 동시에  → 하나만 · 토큰 0 · 음수 없음
 //   7b 한 사람이 move 둘 동시에           → 하나만 · 토큰 하나만 든다
-//   8a 좁은 방(정원 2)에 한 자리 남았을 때 둘이 move → 하나만
+//   8a 좁은 방(정원 2)에 한 자리 남았을 때 둘이 move → 둘 다 떠난다(걸어오는 사람은 자리를 안 잡는다)
+//      · 토큰 둘 · 도착하면 하나만 들어가고 늦은 쪽은 문 밖 — 방 안은 정원을 안 넘는다
 //   8b 자유 시간 roamTo 는 정원이 없다    → 둘 다 들어가되 서로 다른 칸
-//   9  둘이 castBallot 동시에             → 둘 다 · 표 두 장
+//   9  (운영자가 투표를 연 뒤) 둘이 castBallot 동시에 → 둘 다 · 표 두 장
 //
-//   npx vite-node scripts/qa-race-e2e.ts [1 2 4a ...]     N=100 (환경변수로 바꾼다)
+//   npx vite-node scripts/qa-race-e2e.ts [1 2 4a ...]     N=20 · N_SLOW=10 (환경변수로 바꾼다. N 만 주면 전부 N)
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
@@ -40,7 +42,11 @@ const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/doc
 const ADMIN = { Authorization: 'Bearer owner' }
 const JSONH = { 'Content-Type': 'application/json' }
 
-const N = Math.max(1, Number(process.env.N ?? 100))
+// 기본 20. 100이면 전체가 10분 제한을 넘긴다
+const N = Math.max(1, Number(process.env.N ?? 20))
+/** 한 판에 2~4초 드는 경주의 횟수. N 을 직접 주면 그 값을 따른다 */
+const N_SLOW = Math.max(1, Number(process.env.N_SLOW ?? (process.env.N ? N : 10)))
+const SLOW = new Set(['4b', '6a', '6b', '6c', '6d', '6e', '7a', '7b', '8b'])
 const ONLY = new Set(process.argv.slice(2))
 const wants = (id: string) => ONLY.size === 0 || ONLY.has(id) || ONLY.has(id.replace(/[a-z]$/, ''))
 
@@ -302,6 +308,7 @@ const thrown = (r: Res): [Outcome, string] => judge(r, () => true)
 
 async function runCase(id: string, label: string, expect: 1 | 'all', n: number, round: (i: number) => Promise<Round>): Promise<void> {
   if (!wants(id)) return
+  if (SLOW.has(id)) n = Math.min(n, N_SLOW)
   const t: Tally = { wins: 0, losses: 0, bothWon: 0, bothLost: 0, inconsistent: 0, unclear: 0, refusals: new Map(), problems: [] }
   tallies.push({ id, label, expect, t })
   process.stdout.write(`\n[${id}] ${label} × ${n}\n  `)
@@ -475,7 +482,11 @@ async function freeTimeCases(): Promise<void> {
       await putDoc(`games/${g.id}/secret/quiz/floor/${paperId}`, { quizId, x: spot.x, y: spot.y, heldBy: null, wrongBy: [], solvedBy: null, solvedTeam: null, atMs: 0 })
       return paperId
     }
-    await runCase('4a', '같은 문제 종이에 두 사람이 takeQuiz', 1, N, async (i) => {
+    // **종이는 줍는 것이 아니라 펼치는 것이다.** 펼쳐도 바닥에 그대로 남고
+    // (heldBy 는 비어 있다), 펼친 사람이 openedBy 에 쌓인다 — 맞히는 사람이
+    // 나올 때까지 여럿이 같이 본다. 그래서 둘이 동시에 펼치면 **둘 다** 된다.
+    // 동시성으로 볼 것은 openedBy 에 둘이 다 남는가(한쪽이 덮어써 지워지지 않는가)다
+    await runCase('4a', '같은 문제 종이를 두 사람이 takeQuiz(펼치기) — 둘 다 펼친다', 'all', N, async (i) => {
       const paperId = await plant(i)
       const [ra, rb] = await race(
         () => call('takeQuiz', a.token, { gameId: g.id, paperId }),
@@ -483,12 +494,15 @@ async function freeTimeCases(): Promise<void> {
       )
       const oa = thrown(ra), ob = thrown(rb)
       const doc = (await getDoc(`games/${g.id}/secret/quiz/floor/${paperId}`)) ?? {}
-      const winner = oa[0] === 'won' ? a.uid : ob[0] === 'won' ? b.uid : null
+      const opened = (doc.openedBy ?? []) as string[]
       const took = await records(g, 'quizTake', [['subjectId', paperId]])
+      const won = [oa, ob].filter((o) => o[0] === 'won').length
       const notes = [...noteOf(oa), ...noteOf(ob)]
       let consistent = true
-      if (doc.heldBy !== winner) { consistent = false; notes.push(`heldBy=${String(doc.heldBy)}`) }
-      if (took.length !== (winner ? 1 : 0)) { consistent = false; notes.push(`quizTake ${took.length}줄`) }
+      if (doc.heldBy !== null) { consistent = false; notes.push(`heldBy=${String(doc.heldBy)} — 펼쳤을 뿐인데 바닥에서 걷혔다`) }
+      const wantOpened = [oa[0] === 'won' ? a.uid : null, ob[0] === 'won' ? b.uid : null].filter((x): x is string => x !== null)
+      if (opened.length !== wantOpened.length || !wantOpened.every((u) => opened.includes(u))) { consistent = false; notes.push(`openedBy ${opened.length}명 (펼친 ${wantOpened.length})`) }
+      if (took.length !== won) { consistent = false; notes.push(`quizTake ${took.length}줄 (펼친 ${won})`) }
       return { outcomes: [oa[0], ob[0]], consistent, notes }
     })
     await runCase('4b', '든 사람이 정답 answerQuiz 를 둘 동시에', 1, N, async (i) => {
@@ -560,7 +574,10 @@ async function freeTimeCases(): Promise<void> {
     await putIn(g, q.uid, room)
     await stand(g, p, mine.x, mine.y)
     await stand(g, q, yours.x, yours.y)
-    for (const t of ['C', 'D']) await patchDoc(`games/${g.id}/teams/${t}`, { resources: { money: 500, knowledge: 500 } })
+    // **돈은 사람 것(말 문서 money), 지식은 팀 금고(teams.resources.knowledge)다.**
+    // 거래에 걸 돈은 거는 사람 지갑에, 지식은 그 팀 금고에 깔아 둔다
+    for (const t of ['C', 'D']) await patchDoc(`games/${g.id}/teams/${t}`, { resources: { money: 0, knowledge: 500 } })
+    for (const who of [p, q]) await patchDoc(`games/${g.id}/pawns/${who.uid}`, { money: 500 })
     const dealDoc = async (id: string) => (await getDoc(`games/${g.id}/deals/${id}`)) ?? {}
     const openDeal = async (): Promise<string> => {
       const asked = await must('askDeal', p.token, { gameId: g.id, toPlayerId: q.uid })
@@ -618,7 +635,8 @@ async function freeTimeCases(): Promise<void> {
       await readyBoth(id)
       // 세던 시각을 지나게 한다
       await patchDoc(`games/${g.id}/deals/${id}`, { settleAtMs: 0 })
-      const [pc, pd] = [await purse(g, 'C'), await purse(g, 'D')]
+      // 돈은 p·q 지갑에서, 지식은 C·D 금고에서 옮겨진다
+      const [pc, pd, mp, mq] = [await purse(g, 'C'), await purse(g, 'D'), await cash(g, p.uid), await cash(g, q.uid)]
       const [r1, r2] = await race(
         () => call('settleDeal', p.token, { gameId: g.id, dealId: id }),
         () => call('settleDeal', q.token, { gameId: g.id, dealId: id }),
@@ -627,15 +645,15 @@ async function freeTimeCases(): Promise<void> {
       const j = (r: Res) => judge(r, (d) => d.ok === true && d.already !== true, (d) => d.ok === true && d.already === true)
       const o1 = j(r1), o2 = j(r2)
       const d = await dealDoc(id)
-      const [qc, qd] = [await purse(g, 'C'), await purse(g, 'D')]
+      const [qc, qd, np, nq] = [await purse(g, 'C'), await purse(g, 'D'), await cash(g, p.uid), await cash(g, q.uid)]
       const trades = (await records(g, 'trade', [['actorId', p.uid]])).length
       const accepted = (await events(g, 'tradeAccepted')).length
       const won = [o1, o2].filter((o) => o[0] === 'won').length
       const notes = [...noteOf(o1), ...noteOf(o2)]
       let consistent = true
       if (d.status !== 'done') { consistent = false; notes.push(`status=${String(d.status)}`) }
-      const moved = qc.money === pc.money - won && qc.knowledge === pc.knowledge + won && qd.money === pd.money + won && qd.knowledge === pd.knowledge - won
-      if (!moved) { consistent = false; notes.push(`금고 C ${pc.money}/${pc.knowledge}→${qc.money}/${qc.knowledge} D ${pd.money}/${pd.knowledge}→${qd.money}/${qd.knowledge}`) }
+      const moved = np.money === mp.money - won && nq.money === mq.money + won && qc.knowledge === pc.knowledge + won && qd.knowledge === pd.knowledge - won
+      if (!moved) { consistent = false; notes.push(`돈 p ${mp.money}→${np.money} q ${mq.money}→${nq.money} · 지식 C ${pc.knowledge}→${qc.knowledge} D ${pd.knowledge}→${qd.knowledge}`) }
       if (trades !== tradesBefore + won) { consistent = false; notes.push(`trade 기록 +${trades - tradesBefore}`) }
       if (accepted !== acceptedBefore + won) { consistent = false; notes.push(`tradeAccepted 이벤트 +${accepted - acceptedBefore}`) }
       tradesBefore = trades
@@ -690,6 +708,8 @@ async function freeTimeCases(): Promise<void> {
   // 9 · 둘이 castBallot 동시에 — 둘 다 된다
   if (wants('9')) {
     await refresh(g)
+    // 표는 운영자가 투표를 연 뒤에만 받는다(ballotGate)
+    await must('hostOpenBallot', g.host, { gameId: g.id })
     await runCase('9', '두 사람이 castBallot 을 동시에 — 둘 다 적힌다', 'all', N, async (i) => {
       for (const d of await listAll(`games/${g.id}/secret/ballots/items`)) await deleteDoc(`games/${g.id}/secret/ballots/items/${d.id}`)
       const a = g.people[(2 * i) % TOTAL_SEATS], b = g.people[(2 * i + 1) % TOTAL_SEATS]
@@ -787,8 +807,18 @@ async function phaseCases(): Promise<void> {
   })
 
   if (wants('8a')) {
-    await patchDoc(`games/${g.id}/pawns/${C[0].uid}`, { tileId: narrow, arriveAtMs: null, path: [] })
-    await runCase('8a', `정원 ${cap} 인 방에 한 자리 남았을 때 둘이 move 를 동시에`, 1, N, async () => {
+    // 방 안에 한 사람(C[0])을 세워 한 자리만 남긴다. 칸(at)을 비우면 방 한가운데로 친다
+    await putIn(g, C[0].uid, narrow)
+    /** 지금 그 방 **안에** 선 사람. 복도로 나온 사람·걷는 사람은 안 센다(서버와 같은 자) */
+    const insideOf = (rows: Pawn[]) => rows.filter((p) => p.tileId === narrow && (!p.at || roomOfCell(p.at.x, p.at.y) === narrow))
+    /*
+     * **걸어오는 사람은 자리를 안 잡는다.** 떠날 때는 지금 방 안에 선 사람만
+     * 세므로, 한 자리 남은 방으로 둘이 동시에 떠나면 둘 다 떠난다(토큰도 둘 다
+     * 낸다). 정원은 **도착할 때** 지켜진다 — 먼저 닿은 쪽이 들어서고 늦은 쪽은
+     * 문 앞 복도에 선다. 그래서 여기서는 「둘 다 떠난다」와, 도착을 당겨
+     * 처리한 뒤 「방 안이 정원을 안 넘는다 · 둘 중 하나만 들어갔다」를 본다
+     */
+    await runCase('8a', `정원 ${cap} 인 방에 한 자리 남았을 때 둘이 move 를 동시에 — 둘 다 떠나고 하나만 들어선다`, 'all', N, async () => {
       const [a, b] = [B[0], B[1]]
       await reset([a, b], 'B', 6)
       const [r1, r2] = await race(
@@ -796,14 +826,24 @@ async function phaseCases(): Promise<void> {
         () => call('phaseAct', b.token, { gameId: g.id, kind: 'move', targetTile: narrow }),
       )
       const o1 = judge(r1, (d) => d.walking === true), o2 = judge(r2, (d) => d.walking === true)
-      const rows = await pawns(g)
-      const heading = rows.filter((p) => p.tileId === narrow || (p.path ?? []).includes(narrow)).length
       const tokens = await tokensOf(g, 'B')
       const won = [o1, o2].filter((o) => o[0] === 'won').length
       const notes = [...noteOf(o1), ...noteOf(o2)]
       let consistent = true
-      if (heading > cap) { consistent = false; notes.push(`방으로 ${heading}명 (정원 ${cap})`) }
-      if (tokens !== 6 - won) { consistent = false; notes.push(`팀 토큰 ${tokens}`) }
+      if (tokens !== 6 - won) { consistent = false; notes.push(`팀 토큰 ${tokens} (바란 ${6 - won})`) }
+      // 도착을 지금으로 당겨 시계가 처리하게 한다
+      const t = await nowMs(g)
+      for (const d of await query(`games/${g.id}`, 'schedule', [['kind', 'arrive']])) {
+        if (d.d.doneAtMs === null) await patchDoc(`games/${g.id}/schedule/${d.id}`, { dueAtMs: t - 1000 })
+      }
+      await must('tick', g.host, { gameId: g.id })
+      const rows = await pawns(g)
+      const inside = insideOf(rows)
+      const mineIn = inside.filter((p) => p.id === a.uid || p.id === b.uid).length
+      if (inside.length > cap) { consistent = false; notes.push(`방 안 ${inside.length}명 (정원 ${cap})`) }
+      if (mineIn !== Math.min(won, cap - 1)) { consistent = false; notes.push(`둘 중 들어선 사람 ${mineIn}명 (떠난 ${won})`) }
+      if (walking(rows, [a.uid, b.uid]) !== 0) { consistent = false; notes.push('도착을 처리했는데 아직 걷는 사람이 있다') }
+      if (stacked(rows).length > 0) { consistent = false; notes.push(`겹친 칸 ${stacked(rows).join(' ')}`) }
       return { outcomes: [o1[0], o2[0]], consistent, notes }
     })
   }
@@ -811,7 +851,7 @@ async function phaseCases(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log(`동시성 경주 — 경주마다 ${N}번`)
+  console.log(`동시성 경주 — 경주마다 ${N}번 (느린 경주는 ${N_SLOW}번)`)
   await freeTimeCases()
   await phaseCases()
 

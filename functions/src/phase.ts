@@ -321,6 +321,7 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   const { gameId } = req.data
   const { game, nowMs } = await freshNow(gameId)
   if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '이미 열려 있다.')
+  if (game.practice) throw new HttpsError('failed-precondition', '연습 시간이다. 먼저 「연습 끝 · DAY 1 시작」을 누른다.')
 
   const ref = gameRef(gameId)
   const [pawns, tiles, teams, asking, arcade] = await Promise.all([

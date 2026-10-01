@@ -323,6 +323,10 @@ function Desk() {
               >
                 판 시작
               </button>
+              <button disabled={busy || !assigned} onClick={() => void run('연습 시작', () => act.startGame(undefined, true))}>
+                연습으로 시작
+                <span>미션 · 날짜에 안 들어간다 — 「연습 끝 · DAY 1 시작」을 누를 때까지</span>
+              </button>
               <QaSetUp busy={busy} qaPw={qaPw} setQaPw={setQaPw} onGo={setUpQa} />
               <button disabled={busy || qaPw.length < 8} onClick={() => void run('채우기', () => act.seedPlayers(qaPw, 0))}>
                 QA 열넷 채우기 (자리만)
@@ -356,6 +360,25 @@ function Desk() {
         : tab === 'go' ?
           /* ── 진행. 판을 돌리는 두 손잡이 ── */
           <>
+            {game?.practice && (
+              <section className="sc-ad__sec">
+                <h2>연습 시간</h2>
+                <p className="sc-ad__hint">
+                  지금은 연습이다. 페이즈 · 투표 · 날 넘기기 · 쪽지 · 신뢰·호감표는 막혀 있고, 미션에도 안 들어간다.
+                  연습 동안 번 돈 · 지식 · 물건은 그대로 간다.
+                </p>
+                <button
+                  className="is-primary"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!window.confirm('연습을 끝내고 지금부터 DAY 1을 시작할까요?')) return
+                    void run('DAY 1 시작', () => act.hostEndPractice())
+                  }}
+                >
+                  연습 끝 · DAY 1 시작
+                </button>
+              </section>
+            )}
             <section className="sc-ad__sec">
               <h2>페이즈 {phaseNo}</h2>
               {phaseOpen ?

@@ -437,7 +437,9 @@ export function gameActions(gameId: string) {
     /** 운영자 — 누가 어느 팀 · 어느 역할인가 */
     hostRoster: () => callServer('hostRoster', { ...g }),
     // 시각을 안 보낸다 — 서버가 판의 시계(개발용 배속 포함)로 적는다. 기기 시계를 보내면 배속 판에서 시작 시각이 어긋난다
-    startGame: (startAtMs?: number) => callServer('startGame', { ...g, ...(startAtMs ? { startAtMs } : {}) }),
+    startGame: (startAtMs?: number, practice?: boolean) =>
+      callServer('startGame', { ...g, ...(startAtMs ? { startAtMs } : {}), ...(practice ? { practice: true } : {}) }),
+    hostEndPractice: () => callServer('hostEndPractice', g),
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */
     seedPlayers: (password: string, leaveSeats = 1) =>
       callServer('seedPlayers', { ...g, password, leaveSeats }),

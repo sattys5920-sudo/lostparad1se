@@ -40,6 +40,8 @@ export interface MyPaperDoc {
   targetName: string | null
   /** 감독관이 계산해 적은 최종 점수. 안 적었으면 null — 내 것만 온다 */
   finalScore?: number | null
+  /** 연습 시간이다 — 아직 안 센다 */
+  practice?: boolean
   /**
    * 진행도를 세고 있는가. 로비에서는 false 다 — 칸도 지갑도 아직
    * 안 놓여서 셀 것이 없다. 미션 **문장**은 그때도 온다.

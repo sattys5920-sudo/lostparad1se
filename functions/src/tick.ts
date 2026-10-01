@@ -45,6 +45,8 @@ export const tick = onCall<{ gameId: string }>(async (req) => {
  */
 export const pushDay = onCall<{ gameId: string }>(async (req) => {
   requireHost(req.auth)
+  const before = (await gameRef(req.data.gameId).get()).data() as GameDoc | undefined
+  if (before?.practice) throw new HttpsError('failed-precondition', '연습 시간이다. 먼저 「연습 끝 · DAY 1 시작」을 누른다.')
   const out = await pushByHand(req.data.gameId)
   if (out.pushed) {
     const game = (await gameRef(req.data.gameId).get()).data() as GameDoc

@@ -33,6 +33,7 @@ export const hostOpenBallot = onCall<{ gameId: string }>(async (req) => {
   if (game.phase !== 'running') throw new HttpsError('failed-precondition', '판이 돌고 있지 않다.')
   const day = game.day
   if (day >= TOTAL_DAYS) throw new HttpsError('failed-precondition', '마지막 날에는 투표가 없다.')
+  if (game.practice) throw new HttpsError('failed-precondition', '연습 시간이다. 먼저 「연습 끝 · DAY 1 시작」을 누른다.')
   if ((await gameRef(gameId).collection('secret').doc('ballotDays').collection('items').doc(`d${day}`).get()).exists) {
     throw new HttpsError('failed-precondition', '오늘 표는 이미 셌다.')
   }

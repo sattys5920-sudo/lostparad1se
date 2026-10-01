@@ -256,7 +256,7 @@ export function Me(props: MeProps) {
           {paper && (
             <>
               <p className="sc-mi__mission">{paper.main.text}</p>
-              {!paper.counting && <p className="sc-mi__fine">판이 열리면 센다.</p>}
+              {!paper.counting && <p className="sc-mi__fine">{paper.practice ? '연습 시간이다. DAY 1이 시작되면 센다.' : '판이 열리면 센다.'}</p>}
             </>
           )}
         </Card>
@@ -452,7 +452,7 @@ export function IdCard({
                     <b>{paper.targetName}</b>
                   </p>
                 )}
-                {!paper.counting && <p className="sc-mi__fine">판이 열리면 센다.</p>}
+                {!paper.counting && <p className="sc-mi__fine">{paper.practice ? '연습 시간이다. DAY 1이 시작되면 센다.' : '판이 열리면 센다.'}</p>}
               </>
             )}
           </div>

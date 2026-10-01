@@ -94,6 +94,12 @@ export interface GameDoc {
   seats: SeatEntry[]
   /** 게임이 시작된 게임 속 시각. */
   startedAtMs: GameMs | null
+  /**
+   * **연습 시간.** 판은 돌지만 DAY · 페이즈 · 미션에는 아무것도 안 들어간다.
+   * 감독관이 「연습 끝 · DAY 1 시작」을 누르면 그 순간이 DAY 1 의 시작이 된다.
+   * 연습 동안 번 돈 · 지식 · 물건은 그대로 간다
+   */
+  practice?: boolean
   /** 개발용 시계. anchorRealMs가 0이면 실제 시각 그대로. */
   clock: { anchorRealMs: number; anchorGameMs: number; speed: number }
   /** 따라잡기가 여기까지 처리했다. 이 뒤로 밀린 일을 순서대로 민다. */

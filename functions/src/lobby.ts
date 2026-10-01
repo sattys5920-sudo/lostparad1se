@@ -458,7 +458,7 @@ const countByTeam = (seats: readonly SeatEntry[]): Record<string, number> => {
  * 나온다는 이유였는데, 그 사이에 규칙이 바뀌면 사람들이 이미 본
  * 역할과 다른 답이 나온다. 나누는 자리는 하나여야 한다.
  */
-export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (req) => {
+export const startGame = onCall<{ gameId: string; startAtMs?: number; practice?: boolean }>(async (req) => {
   requireHost(req.auth)
   const ref = gameRef(req.data.gameId)
   const snap = await ref.get()
@@ -584,6 +584,8 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
     caughtUpToMs: startedAtMs,
     day: 1,
     startedRealMs: FieldValue.serverTimestamp(),
+    // 연습으로 시작하면 「연습 끝 · DAY 1 시작」 전까지는 미션 · 날짜에 안 들어간다
+    practice: req.data.practice === true,
   })
 
   await batch.commit()
@@ -605,4 +607,40 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
   // 「아직 안 시작했나」로 보인다
   await refreshViews(req.data.gameId)
   return { startedAtMs, players: seats.length }
+})
+
+/**
+ * **연습을 끝내고 DAY 1 을 연다.** 운영자만.
+ *
+ * 누르는 순간을 판의 시작으로 다시 잡는다 — DAY 1 미션은 여기서부터 0 으로
+ * 세고, A 의 기록과 달력도 여기서부터 잰다. 연습 동안 번 돈 · 지식 · 물건 ·
+ * 작물은 그대로 둔다. 연습 동안의 행동은 그 앞 시각이라 어떤 날에도 안 든다
+ */
+export const hostEndPractice = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const ref = gameRef(req.data.gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  if (game.phase !== 'running' || !game.practice) throw new HttpsError('failed-precondition', '연습 중인 판이 아니다.')
+  const nowMs = nowOf(game)
+  // 달력을 새 시작에 맞춰 다시 깐다 — 아직 안 넘긴 것만 지우고 다시 놓는다
+  const sched = await ref.collection('schedule').where('doneAtMs', '==', null).get()
+  const batch = db.batch()
+  for (const d of sched.docs) batch.delete(d.ref)
+  for (const e of timedEvents(nowMs)) {
+    const item: ScheduleDoc = {
+      dueAtMs: e.dueAtMs,
+      ord: SCHEDULE_ORD[e.kind],
+      kind: e.kind,
+      payload: { day: e.day },
+      doneAtMs: null,
+    }
+    batch.set(ref.collection('schedule').doc(), item)
+  }
+  batch.update(ref, { practice: false, startedAtMs: nowMs })
+  batch.set(ref.collection('events').doc(), { atMs: nowMs, day: 1, kind: 'practiceEnd', detail: {} })
+  await batch.commit()
+  await refreshViews(req.data.gameId)
+  return { startedAtMs: nowMs }
 })

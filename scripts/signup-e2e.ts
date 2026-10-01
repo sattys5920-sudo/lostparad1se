@@ -15,6 +15,8 @@ const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1'
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
 const ADMIN = { Authorization: 'Bearer owner' }
+/** 감독관 코드. 에뮬레이터는 functions/.env 의 값을 읽는다 */
+const CODE = process.env.HOST_CODE ?? 'test-host-code'
 
 let failures = 0
 function check(ok: boolean, label: string, detail = ''): void {
@@ -45,6 +47,16 @@ async function asPlayer(id: string, password = PW): Promise<string> {
   })
   return ((await r.json()) as { idToken: string }).idToken
 }
+/** 감독관은 계정이 아니라 코드로 들어온다(hostEnter). 받은 증표를 ID 토큰으로 바꾼다 */
+async function asHost(): Promise<string> {
+  const custom = String((await call('hostEnter', null, { code: CODE })).token ?? '')
+  const r = await fetch(`${AUTH}/accounts:signInWithCustomToken?key=fake`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: custom, returnSecureToken: true }),
+  })
+  return ((await r.json()) as { idToken: string }).idToken
+}
 async function exists(path: string): Promise<boolean> {
   return (await fetch(`${FS}/${path}`, { headers: ADMIN })).ok
 }
@@ -52,18 +64,21 @@ async function exists(path: string): Promise<boolean> {
 interface Row { id: string; nickname: string; face: boolean; playing: boolean }
 
 async function main(): Promise<void> {
-  // 운영자 계정 — 사람이 쓰는 문으로 만들고 표시만 붙인다
+  // 운영자는 계정이 아니다 — 코드만으로 들어온다(hostEnter)
+  const host = await asHost()
+
+  // 옛 방식: 가입한 계정에 운영자 표시를 박아 두면 운영자가 되던 때가 있었다.
+  // 지금은 로그인할 때 그 표시를 떼므로 **계정으로는 운영자가 못 된다**
   const bossId = `boss${TAG}`
   await call('signUpAccount', null, { id: bossId, password: PW })
-  // **한 번 들어와야 Auth 에 사람이 생긴다.** 증표를 만드는 것만으로는
-  // 사용자 기록이 없어서, 운영자 표시를 붙일 자리가 없다
+  // 한 번 들어와야 Auth 에 사람이 생긴다 — 그래야 표시를 박을 자리가 있다
   await asPlayer(bossId)
   await fetch(`${AUTH}/projects/${PROJECT}/accounts:update`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ localId: uidOf(bossId), customAttributes: JSON.stringify({ admin: true }) }),
   })
-  const host = await asPlayer(bossId)
+  const stale = await asPlayer(bossId)
 
   const a = `alpha${TAG}`
   const b = `beta${TAG}`
@@ -77,6 +92,8 @@ async function main(): Promise<void> {
   const noKill = await call('hostDeleteAccounts', plain, { ids: [b] }).then(() => '', (e: Error) => e.message)
   check(noKill.includes('감독관만'), '가입자가 남을 못 지운다', noKill)
   check(await exists(`schoolSessions/live/accounts/${b}`), '거절당한 계정은 그대로 있다')
+  const staleList = await call('hostAccounts', stale, {}).then(() => '', (e: Error) => e.message)
+  check(staleList.includes('감독관만'), '옛 운영자 표시를 박은 계정도 로그인하면 표시가 떨어져 못 편다', staleList)
 
   console.log('\n── 목록 ──')
   const rows = ((await call('hostAccounts', host, {})).rows ?? []) as Row[]
@@ -87,10 +104,8 @@ async function main(): Promise<void> {
   check(leaked === null, '소금·해시가 안 딸려 나온다', leaked ? String(leaked[0]) : '')
   check(mine?.face === false, '얼굴을 안 만든 것이 보인다')
 
-  console.log('\n── 내 것은 못 지운다 ──')
-  const self = await call('hostDeleteAccounts', host, { ids: [bossId] })
-  check((self.gone as string[]).length === 0, '운영자가 제 계정을 못 지운다')
-  check(((self.kept as { id: string; why: string }[])[0] ?? {}).why === '내 계정이다', '까닭을 말해 준다')
+  // 「내 것은 못 지운다」 검사는 지웠다 — 운영자는 이제 계정이 아니라 코드로
+  // 들어오는 고정 uid 라서 지울 「제 계정」이 없다
 
   console.log('\n── 지운다 ──')
   const out = await call('hostDeleteAccounts', host, { ids: [b, `없는${TAG}`] })

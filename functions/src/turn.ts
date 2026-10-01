@@ -107,6 +107,11 @@ export async function refuseIfSnared(gameId: string, uid: string, nowMs: number)
   requireUnsnared((await gameRef(gameId).collection('pawns').doc(uid).get()).data() as PawnDoc | undefined, nowMs)
 }
 
+/** 연습 시간에는 못 하는 일. 미션 · 날짜에 남는 일들이다 */
+export function refuseInPractice(game: GameDoc, what: string): void {
+  if (game.practice) throw new HttpsError('failed-precondition', `연습 시간에는 ${what} 수 없다.`)
+}
+
 export { requireUid }
 
 /**

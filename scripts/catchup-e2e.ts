@@ -12,7 +12,8 @@
 //   npx -y -p firebase-tools firebase emulators:start \
 //     --only firestore,functions,auth --project demo-goei
 //   npx vite-node scripts/catchup-e2e.ts
-import { STARTING_TEAM_SIZES, TOKEN_CAP, TOTAL_DAYS, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, TOTAL_DAYS, type TeamId } from '../shared/rules/v2'
+import { TOKEN_CAP } from '../shared/rules/occupy'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 
@@ -122,9 +123,10 @@ async function main(): Promise<void> {
   check(r.applied === 0, 'DAY 1 낮에는 밀 것이 없다', `${r.applied}건`)
   check(num((await game())?.day) === 1, '아직 1일차')
 
-  // 08:00에 2개로 시작해 10·12시에 한 개씩 → 4개
-  const tokensOf = async (t: TeamId) => num((await doc(`games/${GAME}/teams/${t}`))?.tokens)
-  check((await tokensOf('A')) === 4, 'DAY 1 12:00까지 토큰 넷', `${await tokensOf('A')}개`)
+  // 토큰은 **팀 상자 하나**(teams/{팀}.phaseTokens)이고, 시계가 아니라 운영자가
+  // 페이즈를 열 때(openPhase)만 채워진다. 시간이 흘러도 저절로 늘지 않는다
+  const tokensOf = async (t: TeamId) => num((await doc(`games/${GAME}/teams/${t}`))?.phaseTokens)
+  check((await tokensOf('A')) === 0, '페이즈를 안 열었으니 DAY 1 12:00에도 팀 토큰은 0', `${await tokensOf('A')}개`)
 
   console.log('\n── 정산 ──')
   // 21시가 지나도 시계는 정산을 안 민다. 여기가 이 판의 새 규칙이다
@@ -169,56 +171,48 @@ async function main(): Promise<void> {
   check((await events('dayStart')).length === 2, '아침 기록이 둘')
   check((await events('settlement')).length === 2, '정산 기록이 둘')
 
-  // 토큰은 한도를 넘지 않는다
+  // 날을 넘겨도(아침·정산) 토큰은 안 생긴다 — 채우는 곳은 openPhase 하나다.
+  // 어느 쪽이든 팀 상자는 한도(occupy TOKEN_CAP)를 넘지 않는다
   const t3 = await tokensOf('A')
+  check(t3 === 0, '날을 넘겨도 팀 토큰은 저절로 안 생긴다', `${t3}개`)
   check(t3 <= TOKEN_CAP, `토큰이 한도(${TOKEN_CAP})를 안 넘는다`, `${t3}개`)
 
-  // 만회 보너스: 꼴찌 팀은 다음 08:00에 더 받는다
-  const g3 = await game()
-  const comeback = ((g3?.comebackTeams as { arrayValue: { values: { stringValue: TeamId }[] } }).arrayValue.values ?? [])[0]?.stringValue
-  check(Boolean(comeback), '만회 팀이 정해졌다', comeback)
+  // 「만회 팀」 검사는 지웠다 — 만회 보너스(꼴찌 팀이 다음 아침에 더 받는 것)가
+  // 규칙에서 없어졌다. 받는 쪽이 없으니 볼 것이 없다
 
-  console.log('\n── 핵심 칸이 열리는가 ──')
-  const opened = (await game())?.openedTiles as { arrayValue: { values?: { stringValue: string }[] } }
-  const names = (opened.arrayValue.values ?? []).map((v) => v.stringValue)
-  // DAY 1 운동장·방송실, DAY 2 강당·학생회실. DAY 3에는 없다
-  //
-  // DAY 1의 08:00은 시작 그 자체라 예정 이벤트가 없다. 첫날 것을
-  // startGame이 직접 놓지 않으면 영영 안 열린다
-  check(names.includes('playground') && names.includes('broadcastRoom'), 'DAY 1 핵심 둘이 열렸다', names.join(','))
-  check(names.includes('auditorium') && names.includes('studentCouncil'), 'DAY 2 핵심 둘이 열렸다', names.join(','))
-  check(!names.includes('centralPlaza'), '중앙광장은 아직 안 열렸다')
-
-  // 그날까지 나온 기록이 가리킨 칸의 가치가 올라 있다
-  const boosted = ((await game())?.boostedTiles as { arrayValue: { values?: { stringValue: string }[] } }).arrayValue.values ?? []
-  check(boosted.length === 3, 'DAY 3까지 기록 셋이 칸을 가리켰다', boosted.map((v) => v.stringValue).join(','))
+  // 「핵심 칸이 열리는가」(openedTiles)·「기록이 가리킨 칸의 가치」(boostedTiles)
+  // 검사는 지웠다 — 날마다 핵심 칸이 열리는 규칙과 칸 가치 올리기가 없어져서
+  // 서버가 그 값을 더는 적지 않는다
 
   console.log('\n── 마지막 여섯 시간 ──')
-  await setClock(dayHourMs(START, 5, 16))
-  // 정산 3 · 아침 4 · 정산 4 · 아침 5 · 점수판 끄기 → 다섯
-  for (let i = 0; i < 5; i++) h = await call('pushDay', host, { gameId: GAME })
-  check((h.pushed as { kind: string } | null)?.kind === 'lastHours', '다섯째에 점수판을 껐다')
+  // 판은 이제 나흘(TOTAL_DAYS)이다. 마지막 날 15시에 점수판을 끈다
+  await setClock(dayHourMs(START, TOTAL_DAYS, 16))
+  // 정산 3 · 아침 4 · 점수판 끄기 → 셋
+  for (let i = 0; i < 3; i++) h = await call('pushDay', host, { gameId: GAME })
+  check((h.pushed as { kind: string } | null)?.kind === 'lastHours', '셋째에 점수판을 껐다', String((h.pushed as { kind: string } | null)?.kind))
   const g5 = await game()
   check((g5?.lastHours as { booleanValue: boolean }).booleanValue === true, '점수판이 꺼졌다')
   const scoreA = await doc(`games/${GAME}/teams/A`)
   check('nullValue' in (scoreA?.publicScore as object), '공개 점수가 지워졌다')
 
   console.log('\n── 끝 ──')
-  await setClock(dayHourMs(START, 5, 25))
-  // **닷새가 지나도 저절로 안 끝난다.** 여기가 「엔딩만 뜬다」를 막는 자리다
+  await setClock(dayHourMs(START, TOTAL_DAYS, 25))
+  // **마지막 날이 지나도 저절로 안 끝난다.** 여기가 「엔딩만 뜬다」를 막는 자리다
   r = await call('tick', seats[4], { gameId: GAME })
-  check(r.applied === 0, '닷새가 다 지나도 시계는 판을 안 끝낸다', `${r.applied}건`)
+  check(r.applied === 0, `${TOTAL_DAYS}일이 다 지나도 시계는 판을 안 끝낸다`, `${r.applied}건`)
   check(r.phase === 'running', '아직 돌고 있다', String(r.phase))
 
   h = await call('pushDay', host, { gameId: GAME })
-  check((h.pushed as { kind: string } | null)?.kind === 'settlement', 'DAY 5 정산을 넘겼다')
+  check((h.pushed as { kind: string } | null)?.kind === 'settlement', `DAY ${TOTAL_DAYS} 정산을 넘겼다`)
   h = await call('pushDay', host, { gameId: GAME })
   check((h.pushed as { kind: string } | null)?.kind === 'gameEnd', '운영자가 판을 끝냈다')
   check(h.phase === 'finished', '판이 끝났다', String(h.phase))
   h = await call('pushDay', host, { gameId: GAME })
   check(h.pushed === null, '끝난 판은 더 넘길 것이 없다')
 
-  check((await doneCount()) === 11, '예정 이벤트 열하나가 전부 밀렸다', `${await doneCount()}건`)
+  // 아침 3(DAY 2~4) · 정산 4 · 점수판 끄기 1 · 끝 1 → 아홉
+  const scheduled = (TOTAL_DAYS - 1) + TOTAL_DAYS + 1 + 1
+  check((await doneCount()) === scheduled, `예정 이벤트 ${scheduled}개가 전부 밀렸다`, `${await doneCount()}건`)
   check((await events('gameEnd')).length === 1, '끝 기록이 하나')
   check((await events('settlement')).length === TOTAL_DAYS, '정산이 날마다', `${(await events('settlement')).length}건`)
 
@@ -253,9 +247,7 @@ async function main(): Promise<void> {
   check(logged === pushedKinds.length, '민 만큼만 기록됐다', `말한 것 ${pushedKinds.length} · 남은 것 ${logged}`)
   check(pushedKinds.length >= 1, '적어도 한 칸은 넘어갔다', `${pushedKinds.length}칸`)
 
-  console.log('\n── 중앙광장 ──')
-  const finalOpened = ((await game())?.openedTiles as { arrayValue: { values?: { stringValue: string }[] } }).arrayValue.values ?? []
-  check(finalOpened.map((v) => v.stringValue).includes('centralPlaza'), 'DAY 5에 중앙광장이 열렸다')
+  // 「DAY 5에 중앙광장이 열렸다」 검사는 지웠다 — 핵심 칸 열기(openedTiles)가 규칙에서 없어졌다
 
   console.log(failures === 0 ? '\n전부 통과.' : `\n${failures}개 실패.`)
   process.exit(failures === 0 ? 0 : 1)

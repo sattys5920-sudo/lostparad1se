@@ -16,7 +16,7 @@ import { roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
 import { atPaper, dropCellNear } from '../../shared/rules/quiz'
 import { takenCells } from './notes'
 import type { PawnDoc } from '../../shared/model'
-import { freshNow, refuseIfSnared } from './turn'
+import { freshNow, refuseIfSnared, refuseInPractice } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, nowOf, requireUid } from './index'
@@ -119,7 +119,8 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const slipId = docId(req.data.slipId, NO_SLIP)
   const self = await me(gameId, uid)
   const here = self.tileId
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  refuseInPractice(game, '쪽지를 만질')
   await refuseIfSnared(gameId, uid, nowMs)
 
   let subject = ''
@@ -157,7 +158,8 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const slipId = docId(req.data.slipId, NO_SLIP)
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  refuseInPractice(game, '쪽지를 만질')
   await refuseIfSnared(gameId, uid, nowMs)
   let first = false
   let subject = ''
@@ -203,7 +205,8 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   if (!here) throw new HttpsError('failed-precondition', '걷는 중이다.')
   const cell = self.at ? dropCellNear(self.at, await takenCells(gameId)) : null
   if (!cell) throw new HttpsError('failed-precondition', '여기에는 놓을 자리가 없다.')
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  refuseInPractice(game, '쪽지를 만질')
   await refuseIfSnared(gameId, uid, nowMs)
 
   let subject = ''
@@ -243,6 +246,7 @@ export const readSlipHere = onCall<{ gameId: string; slipId: string }>(async (re
   const slipId = docId(req.data.slipId, NO_SLIP)
   const self = await me(gameId, uid)
   const { game, nowMs } = await freshNow(gameId)
+  refuseInPractice(game, '쪽지를 만질')
   await refuseIfSnared(gameId, uid, nowMs)
   let first = false
   let doc: SlipDoc | null = null
@@ -285,7 +289,8 @@ export const tearSlipHere = onCall<{ gameId: string; slipId: string }>(async (re
   const { gameId } = req.data
   const slipId = docId(req.data.slipId, NO_SLIP)
   const self = await me(gameId, uid)
-  const { nowMs } = await freshNow(gameId)
+  const { game, nowMs } = await freshNow(gameId)
+  refuseInPractice(game, '쪽지를 만질')
   await refuseIfSnared(gameId, uid, nowMs)
   let torn: SlipDoc | null = null
   await db.runTransaction(async (tx) => {

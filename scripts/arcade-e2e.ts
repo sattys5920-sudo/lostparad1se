@@ -134,7 +134,9 @@ async function main() {
   const twoOnOne = await call('standAt', td, { gameId: game, x: m0.seat.x, y: m0.seat.y })
   check(!twoOnOne.ok, '한 기계에는 한 사람 — 앉은 자리에 못 끼어든다', twoOnOne.ok ? '끼어들었다' : (twoOnOne.err ?? ''))
   const onCab = await call('standAt', td, { gameId: game, x: m0.cell.x, y: m0.cell.y })
-  check(!onCab.ok, '기계 칸 위에는 못 선다', onCab.ok ? '섰다' : (onCab.err ?? ''))
+  // 물건 칸은 오류가 아니라 보통 응답 { ok: false, code: 'blocked' } 로 거절한다 — 그것도 못 선 것이다
+  const cabRefused = !onCab.ok || (onCab.result.ok === false && onCab.result.code === 'blocked')
+  check(cabRefused, '기계 칸 위에는 못 선다', !onCab.ok ? (onCab.err ?? '') : cabRefused ? String(onCab.result.why ?? 'blocked') : '섰다')
 
   console.log('\n── 업다운 ──')
   const s = await must('arcadeOpen', ta, { gameId: game, game: 'updown' })
@@ -267,9 +269,10 @@ async function main() {
   await must('arcadeSubmit', ta, { gameId: game, roomId: ra, log: played, cleared: 99 })
   await must('arcadeSubmit', tb, { gameId: game, roomId: rb, log: mash })
   const [ea, eb] = [await room(ra), await room(rb)]
-  check(ea.status === 'done' && ea.results?.[ua]?.line.startsWith('2판'), '두 판 깬 기록은 「2판」 — 화면이 적은 숫자는 안 본다', ea.results?.[ua]?.line)
+  // 서버가 적는 줄은 「2 판 · 최대 4 박」 꼴이다(숫자와 「판」 사이에 띄어쓰기)
+  check(ea.status === 'done' && /^2 ?판/.test(ea.results?.[ua]?.line ?? ''), '두 판 깬 기록은 「2 판」 — 화면이 적은 숫자는 안 본다', ea.results?.[ua]?.line)
   check(ea.results?.[ua]?.outcome === 'lose', `${SOLO_PASS_ROUNDS}판을 못 깨면 CLEAR 가 아니다`)
-  check(eb.results?.[ub]?.line.startsWith('0판'), '마구 두드린 기록은 한 판도 못 깬다', eb.results?.[ub]?.line)
+  check(/^0 ?판/.test(eb.results?.[ub]?.line ?? ''), '마구 두드린 기록은 한 판도 못 깬다', eb.results?.[ub]?.line)
   const twiceSubmit = await call('arcadeSubmit', ta, { gameId: game, roomId: ra, log: played })
   check(!twiceSubmit.ok, '끝난 판에는 또 못 낸다')
 
