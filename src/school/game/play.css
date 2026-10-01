@@ -511,7 +511,14 @@
 .sc-hd__none { margin: 0; font-size: var(--fs-cap); color: var(--text-2); }
 
 /* 거래창. **세로 세 단** — 위가 상대, 가운데가 오가는 방향, 아래가 나 */
-.sc-dr { display: flex; flex-direction: column; gap: var(--sp-1); }
+/* **시트 높이 안에 다 들어간다.** 상대 칸 · 가운데 · 내 칸 · 단추는 늘 보이고,
+   남는 높이를 내 소지품 목록이 쓰고 그 안에서만 구른다 — 많이 올려도 상대가
+   올린 것이 화면 위로 밀려나지 않는다 */
+.sc-dr { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1 1 auto; min-height: 0; }
+.sc-dr > * { flex-shrink: 0; }
+/* 세로 flex 의 최소 높이는 내용 전체라, 0 으로 풀어 줘야 목록이 줄어든다 */
+.sc-dr > .sc-dr__side.is-mine { flex: 1 1 auto; min-height: 0; }
+.sc-dr__side > header, .sc-dr__side > .sc-dr__slots { flex-shrink: 0; }
 
 .sc-dr__side {
   border: 1px solid var(--line);
@@ -552,6 +559,10 @@
   flex-wrap: wrap;
   gap: var(--sp-1);
   min-height: 38px;
+  /* 여러 종류를 올려도 두 줄 반까지만 — 넘치면 칸 안에서 구른다 */
+  max-height: 84px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 2px solid var(--sc-line);
   border-radius: 0;
   background: var(--bg-2);
@@ -610,8 +621,7 @@
 }
 
 /* 내 소지품. 가진 것만 나온다 — 「짝 0」 같은 빈 줄은 아예 없다.
-   **목록만 안에서 구른다.** 시트는 화면의 70%까지인데 여기가 길어지면
-   상대가 올린 것이 화면 밖으로 밀린다 — 그러면 흥정이 아니다 */
+   **목록만 안에서 구른다.** 높이는 시트(화면의 70%)에서 나머지를 뺀 만큼이다 */
 .sc-dr__bag {
   list-style: none;
   margin: 0;
@@ -619,11 +629,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  /* 화면 높이에 맞춰 넉넉히 — 작은 폰에서도 대여섯 줄은 보인다 */
-  max-height: clamp(150px, 30dvh, 260px);
+  flex: 1 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+/* 줄이 많으면 작은 폰에서도 두어 줄은 남긴다. 그보다 좁으면 시트 전체가 구른다 */
+.sc-dr__bag:has(> li + li + li) { min-height: 96px; }
 .sc-dr__bag li {
   display: grid;
   grid-template-columns: 1fr auto;
