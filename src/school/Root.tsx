@@ -12,7 +12,6 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '../firebase'
 import { Play } from './game/Play'
 import { Admin } from './admin/Admin'
-import { NewVersion } from './NewVersion'
 
 export function Root() {
   const [ready, setReady] = useState(false)
@@ -45,12 +44,10 @@ export function Root() {
    */
   return host ? (
     <div className="school-root">
-      <NewVersion />
       <Admin />
     </div>
   ) : (
     <div className="school-root sc-pl-root">
-      <NewVersion />
       <Play />
     </div>
   )

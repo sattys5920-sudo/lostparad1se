@@ -55,8 +55,11 @@ interface CrushDoc {
 }
 
 export async function crushTargetFor(gameId: string, day: number): Promise<string | null> {
-  const doc = (await crushOf(gameId).get()).data() as CrushDoc | undefined
-  return doc?.byDay?.[String(day)] ?? null
+  const doc = (await crushOf(gameId).get()).data() as (CrushDoc & Record<string, unknown>) | undefined
+  const legacy = doc?.[`byDay.${day}`]
+  // **옛 저장도 읽는다.** 전에는 점이 든 이름(「byDay.1」)을 칸 하나로 적어서 byDay 안에
+  // 안 들어갔다 — 그때 정해 둔 대상이 사라지지 않게 그 칸도 본다
+  return doc?.byDay?.[String(day)] ?? (typeof legacy === 'string' ? legacy : null)
 }
 
 export const snapId = (day: number, playerId: string) => `d${day}_${playerId}`
@@ -438,7 +441,15 @@ export const hostSetCrushTarget = onCall<{ gameId: string; targetId?: string | n
     const seat = game.seats.find((s) => s.playerId === targetId)
     if (!seat) throw new HttpsError('invalid-argument', '그런 사람이 없다.')
   }
-  const key = `byDay.${game.day}`
-  await crushOf(gameId).set({ [key]: targetId === null ? FieldValue.delete() : targetId }, { merge: true })
+  /*
+   * **byDay 지도 안의 그날 칸에 적는다.** set 은 점이 든 이름을 경로로 안 읽는다 —
+   * `{ 'byDay.1': … }` 로 적으면 「byDay.1」이라는 칸이 따로 생겨서 대상이 안 정해졌다.
+   * 그렇게 생긴 옛 칸은 여기서 지운다
+   */
+  const day = String(game.day)
+  await crushOf(gameId).set(
+    { byDay: { [day]: targetId === null ? FieldValue.delete() : targetId }, [`byDay.${day}`]: FieldValue.delete() },
+    { merge: true },
+  )
   return { day: game.day, targetId }
 })

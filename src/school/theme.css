@@ -231,22 +231,3 @@
   }
 }
 
-/* 새 화면 띠 — 맨 위, 무엇보다 앞. 누르면 새로 고친다(NewVersion.tsx) */
-.sc-newver {
-  position: fixed;
-  top: max(0px, env(safe-area-inset-top));
-  left: 50%;
-  z-index: 1000;
-  transform: translateX(-50%);
-  min-height: 44px;
-  max-width: calc(100vw - 32px);
-  padding: 0 16px;
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-  background: var(--accent, #f0d58c);
-  color: #14161f;
-  font: inherit;
-  font-size: 14px;
-  white-space: nowrap;
-  cursor: pointer;
-}
