@@ -187,6 +187,43 @@ async function main(): Promise<void> {
   check((await seatTeam(b)) === 'B', '그대로 B분단이다')
   await putSeats(seatsBefore)
 
+  console.log('\n── 15 초가 지나면 무산된다 ──')
+  const fromB0 = all.find((d) => str(d.fields.team) === 'B' && !d.name.endsWith(b))!.name.split('/').pop()!
+  await fetch(`${FS}/games/${GAME}/transfers?documentId=old${TAG}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        byId: { stringValue: fromB0 },
+        byTeam: { stringValue: 'B' },
+        toId: { stringValue: b },
+        fromTeam: { stringValue: 'A' },
+        askedAtMs: { integerValue: '1' },
+        status: { stringValue: 'asking' },
+      },
+    }),
+  })
+  check(
+    (await no(call('answerTransfer', tkB, { gameId: GAME, askId: `old${TAG}`, accept: true }))).includes('시간이 지났다'),
+    '15 초가 지난 제안은 받을 수 없다',
+  )
+  check(str((await doc(`games/${GAME}/transfers/old${TAG}`)).status) === 'gone', '**지난 제안은 접힌다** — 양쪽 창이 닫힌다')
+
+  // 놓아 둔 덫 하나 — 이적하면 따라가야 한다
+  await fetch(`${FS}/games/${GAME}/secret/traps/set?documentId=trap${TAG}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({
+      fields: {
+        x: { integerValue: '1' },
+        y: { integerValue: '1' },
+        team: { stringValue: 'B' },
+        byPlayerId: { stringValue: b },
+        atMs: { integerValue: '1' },
+      },
+    }),
+  })
+
   const ask = await call('askTransfer', tkA, { gameId: GAME, toPlayerId: b })
   check(typeof ask.id === 'string', '마주 서면 꺼낼 수 있다')
   check(
@@ -207,6 +244,7 @@ async function main(): Promise<void> {
     '언제 이 팀이 됐는지도 적혔다 — 무전이 이것을 본다',
     JSON.stringify(since),
   )
+  check(str((await doc(`games/${GAME}/secret/traps/set/trap${TAG}`)).team) === 'A', '**놓아 둔 덫도 새 분단 것이 됐다**')
   check(
     str((await doc(`games/${GAME}/secret/roster/items/${b}`)).team) === 'A',
     '명단이 A팀으로 옮겨졌다 — 안개와 미션 채점이 이것을 본다',

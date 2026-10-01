@@ -39,7 +39,8 @@ export function useTransfer(gameId: string | null, uid: string | null): Transfer
     const seen = new Map<string, LiveTransfer[]>()
     const settle = () => {
       const all = [...seen.values()].flat()
-      const live = all.find((t) => t.status === 'asking') ?? null
+      // 가장 최근 것. 접히지 못하고 남은 옛 제안이 새 제안을 가리면 안 된다
+      const live = all.filter((t) => t.status === 'asking').sort((x, y) => y.askedAtMs - x.askedAtMs)[0] ?? null
       if (live) {
         seat.current = live.id
         setAsk(live)

@@ -38,7 +38,7 @@ import {
 import type { Cell, TileId } from '../../shared/rules/board'
 import type { PawnDoc } from '../../shared/model'
 import { requireHost } from './host'
-import { freshNow, mustBeFreeTime, myPawn } from './turn'
+import { freshNow, mustBeFreeTime, myPawn, refuseIfSnared } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -232,6 +232,7 @@ export const harvestPot = onCall<{ gameId: string; pot: number }>(async (req) =>
     throw new HttpsError('invalid-argument', '그런 화분이 없다.')
   }
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   mustBeFreeTime(game, '화분을 딸')
   const p = await myPawn(gameId, uid)
   requireGarden(p)

@@ -16,7 +16,7 @@ import { roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
 import { atPaper, dropCellNear } from '../../shared/rules/quiz'
 import { takenCells } from './notes'
 import type { PawnDoc } from '../../shared/model'
-import { freshNow } from './turn'
+import { freshNow, refuseIfSnared } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, nowOf, requireUid } from './index'
@@ -120,6 +120,7 @@ export const takeSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const self = await me(gameId, uid)
   const here = self.tileId
   const { nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
 
   let subject = ''
   await db.runTransaction(async (tx) => {
@@ -157,6 +158,7 @@ export const readSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const { gameId } = req.data
   const slipId = docId(req.data.slipId, NO_SLIP)
   const { nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   let first = false
   let subject = ''
   let isNote = false
@@ -202,6 +204,7 @@ export const dropSlip = onCall<{ gameId: string; slipId: string }>(async (req) =
   const cell = self.at ? dropCellNear(self.at, await takenCells(gameId)) : null
   if (!cell) throw new HttpsError('failed-precondition', '여기에는 놓을 자리가 없다.')
   const { nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
 
   let subject = ''
   await db.runTransaction(async (tx) => {
@@ -240,6 +243,7 @@ export const readSlipHere = onCall<{ gameId: string; slipId: string }>(async (re
   const slipId = docId(req.data.slipId, NO_SLIP)
   const self = await me(gameId, uid)
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   let first = false
   let doc: SlipDoc | null = null
   await db.runTransaction(async (tx) => {
@@ -282,6 +286,7 @@ export const tearSlipHere = onCall<{ gameId: string; slipId: string }>(async (re
   const slipId = docId(req.data.slipId, NO_SLIP)
   const self = await me(gameId, uid)
   const { nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   let torn: SlipDoc | null = null
   await db.runTransaction(async (tx) => {
     const ref = slipsOf(gameId).doc(slipId)

@@ -20,7 +20,6 @@ import {
   askExpired,
   canReady,
   dealHasAnything,
-  isSideA,
   newDeal,
   readyToSettle,
   robotSwapNo,
@@ -39,7 +38,7 @@ import { cellsTouch } from '../../shared/rules/board'
 import { purseOf } from '../../shared/rules/resources'
 import type { GameDoc, PawnDoc, TeamDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn, refuseIfInvisible } from './turn'
+import { freshNow, myPawn, refuseIfInvisible, refuseIfSnared } from './turn'
 import { note, noteAll } from './records'
 import { logSecret } from './qaLog'
 import { gameRef, nowOf, requireUid } from './index'
@@ -127,6 +126,7 @@ export const askDeal = onCall<{ gameId: string; toPlayerId: string }>(async (req
   const { gameId } = req.data
   const toPlayerId = docId(req.data.toPlayerId, '그런 사람이 없다.')
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   // **페이즈 중에도 흥정한다.** 마주 선 둘이 물건을 주고받는 일은
   // 점령과 같이 일어나도 이상하지 않다 — 옆 칸에 서 있어야 하는
   // 것은 그대로다
@@ -211,6 +211,7 @@ export const answerDeal = onCall<{ gameId: string; dealId: string; accept: boole
   const { gameId, accept } = req.data
   const dealId = docId(req.data.dealId, NO_DEAL)
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   const out = await db.runTransaction(async (tx) => {
     const ref = dealsOf(gameId).doc(dealId)
     const snap = await tx.get(ref)
@@ -241,6 +242,7 @@ export const stakeDeal = onCall<{ gameId: string; dealId: string; stake: unknown
   const dealId = docId(req.data.dealId, NO_DEAL)
   const stake = cleanStake(req.data.stake)
   const { nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   await sweepDeals(gameId, nowMs)
 
   const pawn = await myPawn(gameId, uid)
@@ -248,12 +250,7 @@ export const stakeDeal = onCall<{ gameId: string; dealId: string; stake: unknown
   const short = shortOf(stake, have)
   if (short) throw new HttpsError('failed-precondition', SHORT_MESSAGE[short])
 
-  // 쪽지는 어느 것을 올렸는지 서버만 안다. 장수만 거래판에 적는다.
-  // 0장이면 묻지 않는다 — limit(0)은 Firestore가 거절한다
-  const slipIds =
-    stake.slips > 0
-      ? (await slipsOf(gameId).where('heldBy', '==', uid).limit(stake.slips).get()).docs.map((d) => d.id)
-      : []
+  // 쪽지는 장수만 거래판에 적는다. 어느 것이 넘어갈지는 성립하는 순간 손에 든 것에서 정한다
 
   return db.runTransaction(async (tx) => {
     const ref = dealsOf(gameId).doc(dealId)
@@ -266,8 +263,6 @@ export const stakeDeal = onCall<{ gameId: string; dealId: string; stake: unknown
     if (!sideOf(deal, uid)) throw new HttpsError('permission-denied', '이 거래의 사람이 아니다.')
     const next = afterStake(deal, uid, stake)
     tx.update(ref, { ...asDoc(next) })
-    const key = isSideA(deal, uid) ? 'a' : 'b'
-    tx.set(dealSlipsOf(gameId).doc(dealId), { [key]: slipIds }, { merge: true })
     return { ok: true }
   })
 })
@@ -278,12 +273,17 @@ export const readyDeal = onCall<{ gameId: string; dealId: string; ready: boolean
   const { gameId, ready } = req.data
   const dealId = docId(req.data.dealId, NO_DEAL)
   const { nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   return db.runTransaction(async (tx) => {
     const ref = dealsOf(gameId).doc(dealId)
     const snap = await tx.get(ref)
     if (!snap.exists) throw new HttpsError('not-found', '그런 거래가 없다.')
     const deal = snap.data() as DealDoc
     if (!sideOf(deal, uid)) throw new HttpsError('permission-denied', '이 거래의 사람이 아니다.')
+    // **끝난 거래는 끝난 것이다.** 성립과 「준비 취소」가 엇갈려도 다시 열지 않는다
+    if (deal.status !== 'open' && deal.status !== 'settling') {
+      throw new HttpsError('failed-precondition', deal.status === 'done' ? '이미 성사됐다.' : '이미 지나갔다.')
+    }
     if (ready && !canReady(deal, uid)) {
       throw new HttpsError('failed-precondition', dealHasAnything(deal) ? '지금은 못 누른다.' : '탁자가 비었다.')
     }
@@ -328,10 +328,23 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   if (!sideOf(seen, uid)) throw new HttpsError('permission-denied', '이 거래의 사람이 아니다.')
   if (!readyToSettle(seen, nowMs)) throw new HttpsError('failed-precondition', '아직 성립할 때가 아니다.')
 
-  // 트랜잭션 밖에서 미리 읽는다 — 안에서는 읽기 뒤에 쓸 수 없다
-  const slipPlan = (await dealSlipsOf(gameId).doc(dealId).get()).data() as
-    | { a?: string[]; b?: string[] }
-    | undefined
+  const dealRef = dealsOf(gameId).doc(dealId)
+  /*
+   * **성립을 못 하면 탁자로 돌린다 — 아직 세는 중일 때만.** 둘 다 성립을 부르면
+   * 먼저 닿은 쪽이 이미 끝냈을 수 있다. 그때 늦은 쪽이 옮겨진 뒤의 소지품을 보고
+   * 「모자란다」며 끝난 거래를 다시 열면 안 된다 — 끝난 거래는 끝난 것이다
+   */
+  const backToTable = async (why: string) => {
+    const was = await db.runTransaction(async (tx) => {
+      const now = (await tx.get(dealRef)).data() as DealDoc | undefined
+      if (now?.status !== 'settling') return now?.status ?? null
+      tx.update(dealRef, { status: 'open', why, 'a.ready': false, 'b.ready': false })
+      return 'reopened' as const
+    })
+    if (was === 'done') return { ok: true, already: true }
+    throw new HttpsError('failed-precondition', was === 'reopened' ? why : '이미 지나갔다.')
+  }
+
   const [aPawn, bPawn] = await Promise.all([
     ref.collection('pawns').doc(seen.aId).get(),
     ref.collection('pawns').doc(seen.bId).get(),
@@ -343,80 +356,86 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     await endDeal(gameId, dealId, '자리를 잃어 사라졌다.')
     throw new HttpsError('failed-precondition', '거래가 사라졌다.')
   }
-  const [aHave, bHave] = await Promise.all([
-    holdingsOf(gameId, seen.aId, a),
-    holdingsOf(gameId, seen.bId, b),
-  ])
-  const aShort = shortOf(seen.a.stake, aHave)
-  const bShort = shortOf(seen.b.stake, bHave)
-  if (aShort || bShort) {
-    const why = `${aShort ? '상대' : '우리'} 쪽 ${SHORT_MESSAGE[(aShort ?? bShort) as never]}`
-    await dealsOf(gameId).doc(dealId).update({ status: 'open', why, 'a.ready': false, 'b.ready': false })
-    throw new HttpsError('failed-precondition', why)
-  }
-
-  // limit(0)은 Firestore가 거절한다 — 안 올렸으면 묻지도 않는다
-  const botsOf = async (who: string, howMany: number) =>
-    howMany > 0
-      ? (await ref.collection('robots').where('carriedBy', '==', who).limit(howMany).get()).docs
-      : []
-  const [aBots, bBots] = await Promise.all([
-    botsOf(seen.aId, seen.a.stake.robots),
-    botsOf(seen.bId, seen.b.stake.robots),
-  ])
 
   /*
-   * **받는 쪽 한도.** 받은 로봇은 손에 드니 두 기까지이고, 다른 팀에서
-   * 넘어오면 팀 한도도 본다. 넘치면 성립하지 않고 탁자로 돌아간다
+   * **받는 쪽 한도.** 받은 로봇은 손에 드니 두 기까지다. 넘치면 성립하지 않고
+   * 탁자로 돌아간다
    */
-  if (aBots.length > 0 || bBots.length > 0) {
+  if (seen.a.stake.robots > 0 || seen.b.stake.robots > 0) {
     const [aHeld, bHeld] = await Promise.all([
       ref.collection('robots').where('carriedBy', '==', seen.aId).get(),
       ref.collection('robots').where('carriedBy', '==', seen.bId).get(),
     ])
     const caps = { carryCap: MAX_CARRIED_ROBOTS }
-    const aNo = robotSwapNo({ ...caps, carried: aHeld.size, gives: aBots.length, gets: bBots.length })
-    const bNo = robotSwapNo({ ...caps, carried: bHeld.size, gives: bBots.length, gets: aBots.length })
+    const aGives = Math.min(seen.a.stake.robots, aHeld.size)
+    const bGives = Math.min(seen.b.stake.robots, bHeld.size)
+    const aNo = robotSwapNo({ ...caps, carried: aHeld.size, gives: aGives, gets: bGives })
+    const bNo = robotSwapNo({ ...caps, carried: bHeld.size, gives: bGives, gets: aGives })
     const no = aNo ?? bNo
-    if (no) {
-      // 탁자는 둘이 같이 본다 — 누구 쪽인지 대지 않고 까닭만 적는다
-      const why = ROBOT_SWAP_MESSAGE[no]
-      await dealsOf(gameId).doc(dealId).update({ status: 'open', why, 'a.ready': false, 'b.ready': false })
-      throw new HttpsError('failed-precondition', why)
-    }
+    // 탁자는 둘이 같이 본다 — 누구 쪽인지 대지 않고 까닭만 적는다
+    if (no) return backToTable(ROBOT_SWAP_MESSAGE[no])
   }
 
-  await db.runTransaction(async (tx) => {
-    const dealRef = dealsOf(gameId).doc(dealId)
+  /*
+   * **성립하는 순간의 소지품으로 옮긴다.** 사람·금고·쪽지·로봇을 전부 이
+   * 트랜잭션 안에서 읽는다 — 밖에서 읽은 값으로 덮어쓰면, 그 사이 쓴 물건이
+   * 되살아나거나 모자란 돈이 생겨난다. 모자라면 성립하지 않고 탁자로 돌아간다
+   */
+  const moved = await db.runTransaction(async (tx) => {
     const fresh = await tx.get(dealRef)
     const d = fresh.data() as DealDoc
     // **여기서 한 번만 먹는다.** 둘이 같이 불러도 나중 쪽은 그냥 끝난다
+    if (d.status === 'done') return 'already' as const
     if (d.status !== 'settling') throw new HttpsError('failed-precondition', '이미 지나갔다.')
+
+    const [aNow, bNow] = await Promise.all([tx.get(aPawn.ref), tx.get(bPawn.ref)])
+    const aDoc = aNow.data() as PawnDoc
+    const bDoc = bNow.data() as PawnDoc
+    const aTeamRef = ref.collection('teams').doc(aDoc.team as string)
+    const bTeamRef = ref.collection('teams').doc(bDoc.team as string)
+    const take = (q: FirebaseFirestore.Query, n: number) => (n > 0 ? tx.get(q.limit(n)).then((x) => x.docs) : Promise.resolve([]))
+    const [aTeamSnap, bTeamSnap, aSlips, bSlips, aBots, bBots] = await Promise.all([
+      tx.get(aTeamRef),
+      tx.get(bTeamRef),
+      // 쪽지는 **지금 손에 든 것**에서 넘긴다. 올릴 때 골라 둔 것을 쓰면, 그새
+      // 바닥에 둔 쪽지가 남의 손에서 끌려온다
+      take(slipsOf(gameId).where('heldBy', '==', d.aId), d.a.stake.slips),
+      take(slipsOf(gameId).where('heldBy', '==', d.bId), d.b.stake.slips),
+      take(ref.collection('robots').where('carriedBy', '==', d.aId), d.a.stake.robots),
+      take(ref.collection('robots').where('carriedBy', '==', d.bId), d.b.stake.robots),
+    ])
+    const aPurse = purseOf(aTeamSnap.data() as TeamDoc | undefined)
+    const bPurse = purseOf(bTeamSnap.data() as TeamDoc | undefined)
+    const have = (p: PawnDoc, purse: { knowledge: number }, slips: number, robots: number): Holdings => ({
+      money: Math.max(0, Number(p.money ?? 0)),
+      knowledge: purse.knowledge,
+      items: p.items ?? {},
+      slips,
+      robots,
+      crops: p.crops ?? {},
+    })
+    const aShort = shortOf(d.a.stake, have(aDoc, aPurse, aSlips.length, aBots.length))
+    const bShort = shortOf(d.b.stake, have(bDoc, bPurse, bSlips.length, bBots.length))
+    if (aShort || bShort) {
+      const why = `${aShort ? '상대' : '우리'} 쪽 ${SHORT_MESSAGE[(aShort ?? bShort) as never]}`
+      tx.update(dealRef, { status: 'open', why, 'a.ready': false, 'b.ready': false })
+      return { short: why as string }
+    }
 
     /*
      * **지식은 팀 금고에서 팀 금고로.** 지식은 팀 것이라, 마주 선 둘이
      * 한 거래가 두 팀 금고를 움직인다. 같은 팀끼리면 같은 금고라 오간
-     * 것이 없다 — 안 건드린다.
-     *
-     * **돈은 사람에게서 사람에게로.** 돈은 번 사람 것이라 같은 팀끼리도
-     * 오간다. 읽기를 먼저 다 하고 쓴다 — 트랜잭션은 읽기가 앞서야 한다
+     * 것이 없다 — 안 건드린다. **돈은 사람에게서 사람에게로.**
      */
-    const aTeamRef = ref.collection('teams').doc(a.team)
-    const bTeamRef = ref.collection('teams').doc(b.team)
-    const [aTeamSnap, bTeamSnap, aNow, bNow] = await Promise.all([
-      tx.get(aTeamRef), tx.get(bTeamRef), tx.get(aPawn.ref), tx.get(bPawn.ref),
-    ])
     const know = (had: Record<string, number>, give: Stake, get: Stake) => ({
       ...had,
-      knowledge: Math.max(0, (had.knowledge ?? 0) - give.knowledge + get.knowledge),
+      knowledge: (had.knowledge ?? 0) - give.knowledge + get.knowledge,
     })
-    if (a.team !== b.team) {
-      tx.update(aTeamRef, { resources: know(purseOf(aTeamSnap.data() as TeamDoc | undefined), d.a.stake, d.b.stake) })
-      tx.update(bTeamRef, { resources: know(purseOf(bTeamSnap.data() as TeamDoc | undefined), d.b.stake, d.a.stake) })
+    if (aDoc.team !== bDoc.team) {
+      tx.update(aTeamRef, { resources: know(aPurse, d.a.stake, d.b.stake) })
+      tx.update(bTeamRef, { resources: know(bPurse, d.b.stake, d.a.stake) })
     }
-    const cash = (p: PawnDoc | undefined) => Math.max(0, Number(p?.money ?? 0))
-    const aMoney = Math.max(0, cash(aNow.data() as PawnDoc | undefined) - d.a.stake.money + d.b.stake.money)
-    const bMoney = Math.max(0, cash(bNow.data() as PawnDoc | undefined) - d.b.stake.money + d.a.stake.money)
+    const cash = (p: PawnDoc) => Math.max(0, Number(p.money ?? 0))
 
     // 개인 것 — 주머니. 거는 데도 성립하는 데도 값은 안 든다
     const bag = (base: Satchel, give: Satchel, get: Satchel): Satchel => {
@@ -429,35 +448,27 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       return out
     }
 
-    // 딴 것 — 트랜잭션 안에서 읽은 지금 더미에서 옮긴다
-    const aCrops = cropBag((aNow.data() as PawnDoc | undefined)?.crops, d.a.stake.crops, d.b.stake.crops)
-    const bCrops = cropBag((bNow.data() as PawnDoc | undefined)?.crops, d.b.stake.crops, d.a.stake.crops)
-
     tx.update(aPawn.ref, {
-      items: bag(a.items ?? {}, d.a.stake.items, d.b.stake.items),
-      money: aMoney,
-      crops: aCrops,
+      items: bag(aDoc.items ?? {}, d.a.stake.items, d.b.stake.items),
+      money: cash(aDoc) - d.a.stake.money + d.b.stake.money,
+      crops: cropBag(aDoc.crops, d.a.stake.crops, d.b.stake.crops),
     })
     tx.update(bPawn.ref, {
-      items: bag(b.items ?? {}, d.b.stake.items, d.a.stake.items),
-      money: bMoney,
-      crops: bCrops,
+      items: bag(bDoc.items ?? {}, d.b.stake.items, d.a.stake.items),
+      money: cash(bDoc) - d.b.stake.money + d.a.stake.money,
+      crops: cropBag(bDoc.crops, d.b.stake.crops, d.a.stake.crops),
     })
 
     // 쪽지 — 접힌 채로 손이 바뀐다. 받는 쪽은 이제부터 읽을 수 있다
-    for (const id of (slipPlan?.a ?? []).slice(0, d.a.stake.slips)) {
-      tx.update(slipsOf(gameId).doc(id), { heldBy: d.bId })
-    }
-    for (const id of (slipPlan?.b ?? []).slice(0, d.b.stake.slips)) {
-      tx.update(slipsOf(gameId).doc(id), { heldBy: d.aId })
-    }
+    for (const sl of aSlips) tx.update(sl.ref, { heldBy: d.bId })
+    for (const sl of bSlips) tx.update(sl.ref, { heldBy: d.aId })
 
-    // 로봇 — 들고 있는 것만 넘어간다. 받은 사람 손에 들리고, 그 팀 머릿수가 된다
-    for (const r of aBots.slice(0, d.a.stake.robots)) {
-      tx.update(r.ref, { carriedBy: d.bId, team: d.b.team, tileId: b.tileId ?? r.get('tileId'), placedBy: null })
+    // 로봇 — 들고 있는 것만 넘어간다. 받은 사람 손에 들리고, 그 사람 분단 것이 된다
+    for (const r of aBots) {
+      tx.update(r.ref, { carriedBy: d.bId, team: bDoc.team, tileId: bDoc.tileId ?? r.get('tileId'), placedBy: null })
     }
-    for (const r of bBots.slice(0, d.b.stake.robots)) {
-      tx.update(r.ref, { carriedBy: d.aId, team: d.a.team, tileId: a.tileId ?? r.get('tileId'), placedBy: null })
+    for (const r of bBots) {
+      tx.update(r.ref, { carriedBy: d.aId, team: aDoc.team, tileId: aDoc.tileId ?? r.get('tileId'), placedBy: null })
     }
 
     tx.update(dealRef, { status: 'done', why: '' })
@@ -468,10 +479,18 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       atMs: nowMs,
       day: game.day,
       kind: 'tradeAccepted',
-      team: d.b.team,
-      detail: { fromTeam: d.a.team },
+      team: bDoc.team,
+      detail: { fromTeam: aDoc.team },
     })
+    return {
+      aBots: aBots.map((r) => r.id),
+      bBots: bBots.map((r) => r.id),
+      aSlips: aSlips.map((x) => x.id),
+      bSlips: bSlips.map((x) => x.id),
+    }
   })
+  if (moved === 'already') return { ok: true, already: true }
+  if ('short' in moved) throw new HttpsError('failed-precondition', moved.short ?? '이미 지나갔다.')
 
   // 거래 한 줄. 양쪽을 한 줄에 적어 두면 받기만 한 사람도 거래한 것으로 세어진다
   const askedIsA = seen.askedBy === seen.aId
@@ -488,23 +507,23 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   )
   // 짝이 손을 바꿨으면 따로 한 줄 — 심부름꾼의 「내가 만든 짝이 끝날 때 남의 것」이 이 줄을 따라간다
   await noteAll(gameId, [
-    ...aBots.slice(0, seen.a.stake.robots).map((r) => ({
+    ...moved.aBots.map((id) => ({
       kind: 'robotOwner' as const,
       atMs: nowMs,
       actorId: seen.bId,
       actorTeam: seen.b.team,
       otherId: seen.aId,
       otherTeam: seen.a.team,
-      subjectId: r.id,
+      subjectId: id,
     })),
-    ...bBots.slice(0, seen.b.stake.robots).map((r) => ({
+    ...moved.bBots.map((id) => ({
       kind: 'robotOwner' as const,
       atMs: nowMs,
       actorId: seen.aId,
       actorTeam: seen.a.team,
       otherId: seen.bId,
       otherTeam: seen.b.team,
-      subjectId: r.id,
+      subjectId: id,
     })),
   ])
   /*
@@ -512,8 +531,8 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
    * 도서부의 「남에게 건넨 쪽지」가 거래로 넘긴 것도 센다
    */
   const handed = [
-    ...(slipPlan?.a ?? []).slice(0, seen.a.stake.slips).map((id) => ({ id, from: 'a' as const })),
-    ...(slipPlan?.b ?? []).slice(0, seen.b.stake.slips).map((id) => ({ id, from: 'b' as const })),
+    ...moved.aSlips.map((id) => ({ id, from: 'a' as const })),
+    ...moved.bSlips.map((id) => ({ id, from: 'b' as const })),
   ]
   if (handed.length > 0) {
     const owners = await Promise.all(handed.map((h) => slipsOf(gameId).doc(h.id).get()))

@@ -16,7 +16,9 @@ import { publicScore } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
 import { TEAMS } from '../../shared/rules/lobby'
-import type { TileId } from '../../shared/rules/board'
+import { TILE_BY_ID, roomOfCell, type TileId } from '../../shared/rules/board'
+import { capacityOf } from '../../shared/rules/occupy'
+import { entryCellOf, nearestOpenHall } from '../../shared/rules/seat'
 import type {
   GameDoc,
   PawnDoc,
@@ -27,7 +29,7 @@ import type {
 import { announceBallots } from './ballot'
 import { gameRef, nowOf } from './index'
 import { qaLogOf } from './qaLog'
-import { claimSeat, pickSeat } from './seat'
+import { claimSeat, pickSeat, takenFrom } from './seat'
 import { catchUpMissionDays } from './missionDays'
 import { refreshViews } from './views'
 import { landResearch } from './made'
@@ -208,6 +210,44 @@ async function arrive(c: Ctx, payload: Record<string, unknown>): Promise<void> {
   const pawn = snap.data() as PawnDoc
   // 길을 바꿨으면 옛 도착은 없던 것이다. 남은 경로로 알아본다
   if (pawn.path[0] !== tileId) return
+
+  if (rest.length === 0 && c.game.phaseNow?.open) {
+    /*
+     * **꽉 찬 방에는 못 들어간다.** 정원은 지금 그 방 안에 선 사람만 센다 —
+     * 걸어오는 사람은 자리를 안 잡으므로, 같은 자리를 노리고 둘이 떠나면
+     * 늦게 닿은 쪽은 문 앞 복도에 선다. 걸은 시간과 낸 토큰은 그대로 쓴 것이다
+     */
+    const everyone = await c.tx.get(ref.collection('pawns'))
+    const inside = everyone.docs.filter((d) => {
+      if (d.id === playerId) return false
+      const o = d.data() as PawnDoc
+      return o.tileId === tileId && (!o.at || roomOfCell(o.at.x, o.at.y) === tileId)
+    }).length
+    if (inside >= capacityOf(tileId)) {
+      const back = (pawn.fromTile ?? pawn.postTile ?? tileId) as TileId
+      const outside = nearestOpenHall(entryCellOf(tileId), takenFrom(everyone.docs, [], playerId))
+      const held = await c.tx.get(ref.collection('robots').where('carriedBy', '==', playerId))
+      claimSeat(c.tx, c.gameId, playerId, outside, c.atMs)
+      for (const d of held.docs) c.tx.update(d.ref, { tileId: back })
+      c.tx.update(pawnRef, { tileId: back, fromTile: null, path: [], arriveAtMs: null, ...(outside ? { at: outside } : {}) })
+      c.tx.set(ref.collection('notices').doc(), {
+        toPlayerId: playerId,
+        text: `${TILE_BY_ID[tileId].name}은(는) 이미 꽉 찬 방이다. 들어가지 못했다.`,
+        atMs: c.atMs,
+      })
+      c.landed.push({ playerId, tileId: back, atMs: c.atMs })
+      c.tx.set(qaLogOf(c.gameId).doc(), {
+        atMs: c.atMs,
+        day: c.day,
+        kind: 'arriveFull',
+        playerId,
+        team: pawn.team,
+        tileId,
+        detail: { back },
+      })
+      return
+    }
+  }
 
   if (rest.length === 0) {
     // 발을 들였으니 지도에 남는다. 사람마다 따로 쌓인다

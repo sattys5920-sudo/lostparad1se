@@ -53,7 +53,7 @@ import { MADE_NO } from '../../../shared/rules/made'
 import { LAB_MACHINES, LAB_TILE } from '../../../shared/rules/trap'
 import { FullMap, LiveMiniMap, useMiniMapOn } from './Atlas'
 import { ScoreBar } from './Score'
-import { Phase, PhaseLog, leftText } from './Phase'
+import { Phase, leftText } from './Phase'
 import { josa } from '../../../shared/text'
 import { Slips } from './Slips'
 import { TECH_TILE } from '../../../shared/rules/trap'
@@ -85,7 +85,7 @@ import { Arcade, ArcadeAsk } from './Arcade'
 import { useArcade } from './useArcade'
 import { ARCADE_COUNT, ARCADE_BY_ID, LIVE_ROOM, machineAtSeat } from '../../../shared/rules/arcade'
 import { unlockChip } from './chip'
-import { TRANSFER_NO, whyNotTransfer } from '../../../shared/rules/transfer'
+import { TRANSFER_NO, askExpired, whyNotTransfer } from '../../../shared/rules/transfer'
 import { TransferAsk } from './TransferAsk'
 import { DealRoom } from './DealRoom'
 import { useDeal } from './useDeal'
@@ -1292,6 +1292,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 마지막 한 사람이다」 둘은 넣지 않는다 — 모르는 것을 지어내느니
    * 켜 둔 채로 서버가 거절하며 까닭을 말하게 둔다.
    */
+  /** 아직 살아 있는 이적 제안. **15 초가 지나면 무산** — 양쪽 다 창이 닫힌다 */
+  const moveLive = moveAsk !== null && moveAsk.status === 'asking' && !askExpired(moveAsk, nowMs)
   const moveNo =
     person && personTeam && me
       ? whyNotTransfer({
@@ -1303,7 +1305,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           toTeam: personTeam,
           bothStanding: standingOn !== null,
           nextTo,
-          asking: moveAsk?.status === 'asking',
+          asking: moveLive,
         })
       : 'walking'
 
@@ -1607,6 +1609,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             padRef={padRef}
             /* 종이 치면 서버가 전선으로 옮겨 세운다. 화면도 그때 따라간다 */
             placeAtMs={phaseOpen ? (state.game?.phaseNow?.openedAtMs ?? null) : null}
+            reenterCosts={phaseOpen}
             onCross={(to, at) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
               // 바로 옆방이다 — 마주치라고 있는 시간이라 걸음에 쓰면
@@ -1694,7 +1697,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   // 없던 사람도 서버가 빈 칸에 세워 돌려준다 — 안 돌아가면 남의 칸
                   // 위에 선 채로 남는다
                   const back = out?.at ?? was
-                  if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked') && back) {
+                  if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked' || out.code === 'reenter') && back) {
                     showToast(out.why ?? '거기에는 설 수 없다.')
                     // Walk 는 아직 거절당한 그 칸(x,y)에 서 있을 때만 따른다 —
                     // 대답을 기다리는 사이 이미 걸어서 더 갔으면 지난 일이다
@@ -1909,7 +1912,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               />
             ) : null
           }
-          log={<PhaseLog rows={state.phaseLog} seats={game.seats} />}
           inbox={state.inbox}
           onGo={goLink}
           act={act}
@@ -1934,7 +1936,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
         <Ballot
           me={me}
           seats={game.seats}
-          invisibleId={game.invisibleId ?? null}
+          /* 어제의 투명인간. 투표를 열면 game.invisibleId 는 비워지므로 날짜별 기록을 본다 — 서버(castBallot)와 같은 값 */
+          invisibleId={game.invisibleByDay?.[game.day] ?? game.invisibleId ?? null}
           day={game.day}
           view={state.view}
           act={act}
@@ -2246,7 +2249,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
       {/* ── 이적 ────────────────────────────────────────────
           불린 쪽에만 뜬다. 옛 팀은 발효될 때까지 아무것도 모른다 */}
-      {moveAsk?.status === 'asking' && moveAsk.toId === me.playerId && (
+      {moveLive && moveAsk.toId === me.playerId && (
         <TransferAsk
           fromName={nameOf(moveAsk.byId)}
           toTeam={moveAsk.byTeam}
@@ -2261,7 +2264,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           }}
         />
       )}
-      {moveAsk?.status === 'asking' && moveAsk.byId === me.playerId && (
+      {moveLive && moveAsk.byId === me.playerId && (
         <p className="sc-da__wait">{nameOf(moveAsk.toId)}의 답을 기다린다.</p>
       )}
 
@@ -2311,6 +2314,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             onSaid={setSaid}
             myCell={myCell}
             nearPot={(i) => beside(myCell, POT_CELLS[i])}
+            phaseOpen={phaseOpen}
           />
         </Sheet>
       )}

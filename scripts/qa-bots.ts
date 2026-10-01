@@ -521,7 +521,7 @@ async function main(): Promise<void> {
 
   // ── 끝 — 집계 ──
   const g = (await doc(`games/${GAME}`)) as Game
-  const phaseLog = await col(`games/${GAME}/phaseLog`)
+  const phaseLog = await col(`games/${GAME}/secret/phaseLog/items`)
   const missionDays = await col(`games/${GAME}/secret/missionDays/items`)
   const ballotDays = await col(`games/${GAME}/secret/ballotDays/items`)
   const schedule = await col(`games/${GAME}/schedule`)

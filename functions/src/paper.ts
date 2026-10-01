@@ -28,6 +28,7 @@ import { buildLog } from './ending'
 import { catchUp } from './catchup'
 import { crushTargetFor, todayFromMs } from './missionDays'
 import { gameRef, nowOf, requireUid } from './index'
+import { finalScoresOf } from './answers'
 
 /**
  * 내 학생증과 생활기록부.
@@ -81,6 +82,8 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
 
   // 짝사랑의 대상은 매일 밤 운영자가 정한다 — 오늘 치를 읽는다
   const crushTargetId = roleId === 'crush' ? await crushTargetFor(gameId, game.day) : null
+  // 감독관이 적은 최종 점수 — 내 것만 꺼낸다
+  const finalScore = ((await finalScoresOf(gameId).get()).data()?.byId ?? {})[uid]
 
   const head = {
     roleId,
@@ -93,6 +96,7 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
     line: role.line,
     // 짝사랑만 채워진다. 이름만이고 어디 있는지 · 어느 팀인지는 안 보낸다
     targetName: crushTargetId ? (game.seats.find((x) => x.playerId === crushTargetId)?.name ?? null) : null,
+    finalScore: typeof finalScore === 'number' ? finalScore : null,
   }
 
   /*

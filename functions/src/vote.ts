@@ -14,7 +14,7 @@ import { cellsTouch } from '../../shared/rules/board'
 import type { VoteKind } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc, VoteDoc } from '../../shared/model'
 import { refreshViews } from './views'
-import { freshNow, myPawn } from './turn'
+import { freshNow, myPawn, refuseIfSnared } from './turn'
 import { gameRef, requireUid } from './index'
 import { requireHost } from './host'
 import { docId } from './ids'
@@ -31,6 +31,7 @@ export const castVote = onCall<{ gameId: string; targetId: string; kind: VoteKin
   if (!VOTE_KINDS.includes(kind)) throw new HttpsError('invalid-argument', '그런 표는 없다.')
   const targetId = docId(req.data.targetId, '그런 사람이 없다.')
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   const ref = gameRef(gameId)
 
   // **지워진 사람도 표는 준다.** 믿는다고 말하는 일까지 빼앗지는

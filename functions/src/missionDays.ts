@@ -412,7 +412,8 @@ export const hostCrushTarget = onCall<{ gameId: string }>(async (req) => {
   const crush = await crushOf14(gameId)
   if (!crush) return { day: game.day, crushPlayerId: null, crushName: null, candidates: [], targetId: null }
   const candidates = game.seats
-    .filter((s) => s.team !== null && s.team !== crush.team && s.playerId !== crush.playerId)
+    // **분단은 안 가린다.** 같은 분단 사람도 대상이 될 수 있다
+    .filter((s) => s.team !== null && s.playerId !== crush.playerId)
     .map((s) => ({ id: s.playerId, name: s.name, team: s.team as TeamId }))
   const targetId = await crushTargetFor(gameId, game.day)
   return { day: game.day, crushPlayerId: crush.playerId, crushName: nameIn(game)(crush.playerId), candidates, targetId }
@@ -421,8 +422,7 @@ export const hostCrushTarget = onCall<{ gameId: string }>(async (req) => {
 /**
  * 오늘의 대상을 정한다(또는 targetId 를 안 주면 거둔다). **오늘 치만.**
  *
- * 다른 팀 사람이어야 한다 — 배정 때 무작위로 고르던 것과 같은 규칙을
- * 여기서도 지킨다.
+ * 분단은 안 가린다 — 나 말고는 누구든 된다.
  */
 export const hostSetCrushTarget = onCall<{ gameId: string; targetId?: string | null }>(async (req) => {
   requireHost(req.auth)
@@ -437,7 +437,6 @@ export const hostSetCrushTarget = onCall<{ gameId: string; targetId?: string | n
     if (targetId === crush.playerId) throw new HttpsError('invalid-argument', '자기 자신은 대상이 될 수 없다.')
     const seat = game.seats.find((s) => s.playerId === targetId)
     if (!seat) throw new HttpsError('invalid-argument', '그런 사람이 없다.')
-    if (seat.team === crush.team) throw new HttpsError('invalid-argument', '같은 분단은 대상이 될 수 없다.')
   }
   const key = `byDay.${game.day}`
   await crushOf(gameId).set({ [key]: targetId === null ? FieldValue.delete() : targetId }, { merge: true })

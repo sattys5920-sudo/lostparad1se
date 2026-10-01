@@ -69,7 +69,7 @@ import type { TeamId } from '../../shared/rules/v2'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import { josa } from '../../shared/text'
 import { note } from './records'
-import { freshNow, myPawn, refuseIfInvisible, requireAwake } from './turn'
+import { freshNow, myPawn, refuseIfInvisible, requireAwake, refuseIfSnared } from './turn'
 import { gameRef, requireUid } from './index'
 import { docId } from './ids'
 
@@ -251,6 +251,7 @@ export const arcadeOpen = onCall<{ gameId: string; game: ArcadeGameId }>(async (
   const spec = ARCADE_BY_ID[req.data.game]
   if (!spec.ready) throw new HttpsError('failed-precondition', '아직 준비 중인 게임이다.')
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   const pawn = await myPawn(gameId, uid)
   requireAwake(pawn, nowMs)
   const machine = mustSit(pawn)
@@ -285,6 +286,7 @@ export const arcadeInvite = onCall<{ gameId: string; roomId: string; playerId: s
   const playerId = docId(req.data.playerId, '부를 사람을 골라야 한다.')
   if (playerId === uid) throw new HttpsError('invalid-argument', '부를 사람을 골라야 한다.')
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   // 지워진 사람은 없는 사람이다 — 부르지도, 불리지도 않는다
   refuseIfInvisible(game.invisibleId, uid, playerId, '다른 기계를 부를')
   const [me, them] = await Promise.all([myPawn(gameId, uid), myPawn(gameId, playerId)])
@@ -317,6 +319,7 @@ export const arcadeAnswer = onCall<{ gameId: string; roomId: string; accept: boo
   const { gameId } = req.data
   const roomId = docId(req.data.roomId, NO_ROOM)
   const { nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   if (req.data.accept) {
     const me = await myPawn(gameId, uid)
     requireAwake(me, nowMs)

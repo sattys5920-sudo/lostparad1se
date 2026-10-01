@@ -19,7 +19,7 @@ import { NoticeList } from './NoticePop'
 import { Bag } from './UseItem'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
-import { Sheet, Sure } from './Sheet'
+import { Sure } from './Sheet'
 import { Dots } from './Shell'
 import { TEAM_COLOR } from './MapPlan'
 import { pixelFrame } from '../char/pixel'
@@ -63,8 +63,6 @@ export interface MeProps {
   slips: ReactNode
   act: GameActions
   onSaid: (text: string) => void
-  /** 지난 페이즈 기록. 링크를 누르면 시트가 올라온다. */
-  log: ReactNode
   onSignOut: () => void
   /** 우편함 — 운영자가 보낸 내 판정. 지난 판정이 여기서 나온다 */
   inbox?: InboxDoc | null
@@ -160,7 +158,6 @@ export function Me(props: MeProps) {
   const { me, view, paper, act, onSaid } = props
   const [haveOpen, setHaveOpen] = useState(false)
   const [flipped, setFlipped] = useState(false)
-  const [logOpen, setLogOpen] = useState(false)
 
   const items = view?.myItems ?? {}
   const itemCount = Object.values(items).reduce<number>((a, b) => a + (b ?? 0), 0)
@@ -314,16 +311,20 @@ export function Me(props: MeProps) {
           )}
         </Card>
 
+        {/* ── 최종 점수 — 감독관이 계산해 적으면 뜬다 ── */}
+        {typeof paper?.finalScore === 'number' && (
+          <Card title="최 종 점 수">
+            <p className="sc-mi__votes">
+              <b>{paper.finalScore}</b> 점
+            </p>
+          </Card>
+        )}
+
         {/* ── 배경음악 — 나만 끈다. 감독관이 다시 틀면 다시 켜진다 ── */}
         <BgmSwitch />
 
         {/* ── 알림 — 설정과 받은 알림 ──────────────────── */}
         <NotifyPanel act={act} inbox={props.inbox ?? null} onGo={(l) => props.onGo?.(l)} />
-
-        {/* ── ⑥ 지난 페이즈 기록 ───────────────────────── */}
-        <p className="sc-mi__link">
-          <button type="button" onClick={() => setLogOpen(true)}>기록 보기</button>
-        </p>
 
         {/* ── 이름 바꾸기 ──────────────────────────────── */}
         <Rename name={me.name} act={act} onSaid={onSaid} />
@@ -344,12 +345,6 @@ export function Me(props: MeProps) {
       </div>
       </div>
 
-      {/* ── 시트들 ────────────────────────────────────── */}
-      {logOpen && (
-        <Sheet title="지난 페이즈" onClose={() => setLogOpen(false)}>
-          {props.log}
-        </Sheet>
-      )}
     </div>
   )
 }

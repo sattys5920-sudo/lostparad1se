@@ -59,6 +59,8 @@ const CALL_LABEL: Record<string, string> = {
   giveUpErrand: '심부름 포기',
   harvestPot: '수확',
   hostEnter: '로그인',
+  hostFinalScores: '최종 점수 불러오기',
+  hostSetFinalScore: '최종 점수 저장',
   joinGame: '참가',
   logInAccount: '로그인',
   myAnswers: '답안지 불러오기',

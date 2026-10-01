@@ -32,7 +32,7 @@ import {
 import { TILE_BY_ID, type Cell, type TileId } from '../../shared/rules/board'
 import type { PawnDoc } from '../../shared/model'
 import { requireHost } from './host'
-import { freshNow, mustBeFreeTime, myPawn } from './turn'
+import { freshNow, mustBeFreeTime, myPawn, refuseIfSnared } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -229,6 +229,7 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
   const { gameId } = req.data
   const errandId = docId(req.data.errandId, '그런 심부름이 없다.')
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   mustBeFreeTime(game, '심부름을 받을')
   await sweepErrands(gameId, nowMs)
 
@@ -261,6 +262,7 @@ export const pickUpThing = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   mustBeFreeTime(game, '물건을 집을')
   await sweepErrands(gameId, nowMs)
   const pawn = await myPawn(gameId, uid)
@@ -293,6 +295,7 @@ export const dropThing = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
   const { gameId } = req.data
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   mustBeFreeTime(game, '물건을 놓을')
   await sweepErrands(gameId, nowMs)
   const pawn = await myPawn(gameId, uid)

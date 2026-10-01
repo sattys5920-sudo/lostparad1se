@@ -20,7 +20,7 @@ import {
 import type { Cell } from '../../shared/rules/board'
 import { gain, purseOf } from '../../shared/rules/resources'
 import type { PawnDoc, TeamDoc } from '../../shared/model'
-import { freshNow, mustBeFreeTime } from './turn'
+import { freshNow, mustBeFreeTime, refuseIfSnared } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
@@ -116,6 +116,7 @@ export const takeQuiz = onCall<{ gameId: string; paperId: string }>(async (req) 
   const { gameId } = req.data
   const paperId = docId(req.data.paperId, NO_PAPER)
   const [pawn, { game, nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
+  await refuseIfSnared(gameId, uid, nowMs)
   mustBeFreeTime(game, '문제를 주울')
 
   await db.runTransaction(async (tx) => {
@@ -144,6 +145,7 @@ export const answerQuiz = onCall<{ gameId: string; paperId: string; given: strin
   const paperId = docId(req.data.paperId, NO_PAPER)
   if (typeof given !== 'string') throw new HttpsError('invalid-argument', '답이 없다.')
   const [pawn, { game, nowMs }] = await Promise.all([pawnOf(gameId, uid), freshNow(gameId)])
+  await refuseIfSnared(gameId, uid, nowMs)
   mustBeFreeTime(game, '문제를 풀')
 
   const ref = gameRef(gameId)

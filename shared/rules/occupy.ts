@@ -219,6 +219,11 @@ export interface Person {
   tileId: TileId | null
   /** 걷는 중이라면 가는 곳. 서 있으면 null. */
   toTile?: TileId | null
+  /**
+   * 방에서 복도로 나와 서 있다. tileId 는 마지막으로 들어간 방으로 남지만
+   * **그 방 정원에는 안 든다** — 방은 지금 그 안에 있는 사람만 센다.
+   */
+  inHall?: boolean
 }
 
 /** 팀마다 하나인 페이즈 토큰 상자. */
@@ -292,7 +297,7 @@ export interface PhaseState {
    * 바뀌어도 남는다.
    */
   flagPullHits: Readonly<Partial<Record<TileId, Readonly<Partial<Record<TeamId, readonly string[]>>>>>>
-  /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
+  /** 이번 페이즈에 로봇을 부순 사람. 기록만 한다 — 부수는 수에는 한도가 없다. */
   smashedBy: readonly string[]
   /** 사람마다 가진 물건. 행동에 딸린 물건은 **쓰는 사람 것에서** 빠진다. */
   satchels: Satchels
@@ -587,8 +592,9 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
   const byId = new Map(people.map((p) => [p.playerId, p]))
   const mine = byId.get(playerId) as Person
 
-  // 걸어오는 중인 사람도 한 자리를 잡아 둔다. **로봇은 정원에 안 든다**
-  const seats = (tileId: TileId) => people.filter((p) => p.tileId === tileId || p.toTile === tileId).length
+  // **지금 그 방 안에 있는 사람만 센다.** 걸어오는 사람도, 복도로 나온 사람도
+  // 자리를 안 잡는다 — 먼저 들어선 사람이 자리를 갖는다. **로봇은 정원에 안 든다**
+  const seats = (tileId: TileId) => people.filter((p) => p.tileId === tileId && !p.inHall).length
   const carriedOf = (id: string) => robots.filter((r) => r.carriedBy === id)
 
   /**
@@ -603,6 +609,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
    */
   function step(p: Person, to: TileId): string | null {
     if (p.tileId === null) return '이미 걷는 중이다.'
+    if (p.tileId === to && !p.inHall) return '이미 그 방이다.'
     // **복도로 닿으면 간다.** 자유 시간과 같은 문을 쓴다 — 다른 것은
     // 값뿐이다. 층을 넘으려면 계단을 한 번 들르니 문이 둘, 토큰도 둘
     if (!canRoamTo(p.tileId, to)) return '거기까지는 복도가 안 이어진다.'
@@ -764,9 +771,8 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     case 'research': {
       if (mine.tileId === null) return no('걷는 중이다. 도착해야 할 수 있다.')
       if (ROOM_KIND[mine.tileId] !== 'lab') return no('연구실에서만 연구할 수 있다.')
-      if (state.pendingResearch.some((r) => r.playerId === playerId)) {
-        return no('이미 연구를 걸어 두었다.')
-      }
+      // **한 사람이 여러 대에 걸어도 된다.** 연구 수에는 한도가 없다 —
+      // 손에 드는 로봇이 두 기까지일 뿐이다
       // 값은 **이 연구실을 누가 쥐고 있느냐**로 갈린다
       const landlord = state.owners[mine.tileId] ?? null
       const ownsLab = landlord === mine.team

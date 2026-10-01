@@ -37,21 +37,11 @@ export interface GameState {
   teams: Partial<Record<TeamId, TeamDoc>>
   tiles: Partial<Record<TileId, TileDoc>>
   /** 페이즈가 끝날 때마다 한 줄씩. 무슨 일이 있었는지 여기 남는다. */
-  phaseLog: { no: number; day: number; lines: PhaseLogLine[] }[]
   error: string | null
 }
 
-export interface PhaseLogLine {
-  kind: string
-  playerId?: string
-  tileId?: TileId
-  team?: TeamId
-  targetPlayer?: string
-  targetRobot?: string
-  why?: string
-}
 
-const EMPTY: GameState = { loading: true, game: null, view: null, inbox: null, teams: {}, tiles: {}, phaseLog: [], error: null }
+const EMPTY: GameState = { loading: true, game: null, view: null, inbox: null, teams: {}, tiles: {}, error: null }
 
 /**
  * 판을 구독한다.
@@ -181,19 +171,6 @@ export function useGame(gameId: string | null): GameState {
           const tiles: Partial<Record<TileId, TileDoc>> = {}
           snap.forEach((d) => (tiles[d.id as TileId] = d.data() as TileDoc))
           setState((s) => ({ ...s, tiles }))
-        },
-        fail,
-      ),
-    )
-    stop.push(
-      onSnapshot(
-        collection(base, 'phaseLog'),
-        (snap) => {
-          if (snap.empty && snap.metadata.fromCache) return
-          const rows = snap.docs
-            .map((d) => d.data() as { no: number; day: number; lines: PhaseLogLine[] })
-            .sort((a, b) => a.no - b.no)
-          setState((s) => ({ ...s, phaseLog: rows }))
         },
         fail,
       ),
@@ -381,6 +358,8 @@ export function gameActions(gameId: string) {
     hostAnswers: () => callServer('hostAnswers', g),
     /** 답안지 — 채점하고 모두에게 보낸다 */
     hostGradeAnswers: () => callServer('hostGradeAnswers', g),
+    hostFinalScores: () => callServer('hostFinalScores', g),
+    hostSetFinalScore: (playerId: string, score: number | null) => callServer('hostSetFinalScore', { ...g, playerId, score }),
     /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
     hostLiveMap: () => callServer('hostLiveMap', g),
     /** 운영자 — 방에서 오간 말. room 은 방 아이디 · 'hall' · 'all'. summary 면 방마다 줄 수 */

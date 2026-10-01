@@ -129,7 +129,7 @@ export function Bag({ items, view, act, onSaid }: BagProps) {
 
             {kind === 'trap' && (
               <button className="sc-mi__use" disabled={busy} onClick={() => void use('trap')}>
-                이 복도 칸에 놓기
+                이 칸에 놓기
               </button>
             )}
 

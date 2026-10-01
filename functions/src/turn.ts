@@ -92,6 +92,21 @@ export function requireFree(pawn: PawnDoc, nowMs: number): void {
   }
 }
 
+/**
+ * **덫에 걸리면 아무것도 못 한다.** 걷기·점령 행동만이 아니라 거래·물건
+ * 쓰기·쪽지·자판기·심부름·이적·표 주기까지 막는다. 말(무전·채팅)과 투표
+ * 탭은 막지 않는다 — 몸이 하는 일이 아니다.
+ */
+export function requireUnsnared(pawn: PawnDoc | undefined, nowMs: number): void {
+  if (!pawn || pawn.busyKind !== '덫') return
+  const left = busyLeft(pawn, nowMs)
+  if (left > 0) throw new HttpsError('failed-precondition', `덫에 걸려 있다. ${left} 분 동안 아무것도 못 한다.`)
+}
+
+export async function refuseIfSnared(gameId: string, uid: string, nowMs: number): Promise<void> {
+  requireUnsnared((await gameRef(gameId).collection('pawns').doc(uid).get()).data() as PawnDoc | undefined, nowMs)
+}
+
 export { requireUid }
 
 /**

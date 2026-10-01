@@ -478,8 +478,12 @@ async function main(): Promise<void> {
     call('settleDeal', me.token, { gameId: GAME, dealId: id }),
     call('settleDeal', you.token, { gameId: GAME, dealId: id }),
   ])
-  check(both.some((r) => r.ok), '성립했다', JSON.stringify(both.map((r) => r.code ?? 'ok')))
+  check(both.every((r) => r.ok), '**둘 다 성립을 눌러도 둘 다 성사로 끝난다**', JSON.stringify(both.map((r) => r.code ?? 'ok')))
   check(String((await dealNow(id)).status) === 'done', '탁자가 닫혔다')
+  // 늦게 온 성립 · 준비 취소가 끝난 거래를 다시 열지 않는다
+  const late = await call('settleDeal', you.token, { gameId: GAME, dealId: id })
+  const unready = await call('readyDeal', me.token, { gameId: GAME, dealId: id, ready: false })
+  check(late.ok && !unready.ok && String((await dealNow(id)).status) === 'done', '**끝난 거래는 다시 안 열린다**', `${late.message ?? 'ok'} / ${unready.message ?? 'ok'}`)
 
   const aAfter = await purseNow(me.uid)
   const bAfter = await purseNow(you.uid)

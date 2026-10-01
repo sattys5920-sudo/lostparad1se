@@ -18,7 +18,7 @@ import { trapsOf, type TrapSetDoc } from './trap'
 import type { PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import type { SlipDoc } from './slips'
-import { freshNow } from './turn'
+import { freshNow, refuseIfSnared } from './turn'
 import { refreshViews } from './views'
 import { bumpSlips } from './qaLog'
 import { takenCells } from './notes'
@@ -87,6 +87,7 @@ export const useItem = onCall<UseInput>(async (req) => {
   if (!isHandItem(kind)) throw new HttpsError('invalid-argument', '손으로 쓰는 물건이 아니다.')
 
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   const ref = gameRef(gameId)
   const meRef = ref.collection('pawns').doc(uid)
 
@@ -215,7 +216,10 @@ export const useItem = onCall<UseInput>(async (req) => {
 
     if (kind === 'trap') {
       const at = me.at ?? null
-      if (!at || !isHallCell(at.x, at.y)) throw new HttpsError('failed-precondition', '복도에 서서 놓는다.')
+      // **복도에도 방 안에도 놓는다.** 문턱처럼 어느 쪽도 아닌 칸만 안 된다
+      if (!at || (!isHallCell(at.x, at.y) && roomOfCell(at.x, at.y) === null)) {
+        throw new HttpsError('failed-precondition', '여기에는 못 놓는다.')
+      }
       // 뒷골목은 땅 싸움 밖이다. 오락하러 온 사람을 묶는 덫은 없다
       if (isAlleyCell(at.x, at.y)) throw new HttpsError('failed-precondition', '뒷골목에는 덫을 못 놓는다.')
       // 한 칸에 하나. 우리 것이든 남의 것이든 겹쳐 놓지 않는다

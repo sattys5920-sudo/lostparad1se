@@ -147,7 +147,7 @@ function flagBoxesOf(teams: FirebaseFirestore.QuerySnapshot): FlagBoxes {
 
 interface HiddenPhase {
   pendingResearch: Brewing[]
-  /** 이번 페이즈에 로봇을 부순 사람. 한 사람 한 기까지다. */
+  /** 이번 페이즈에 로봇을 부순 사람. 기록만 한다 — 부수는 수에는 한도가 없다. */
   smashedBy: string[]
   /** 이번 페이즈에 무엇이든 한 사람. 결석 보정이 이 목록을 본다. */
   actedBy: string[]
@@ -198,6 +198,7 @@ function personOf(id: string, p: PawnDoc): Person {
     // 메우면 문 사이에 있는 사람이 전선에 서 있는 것으로 세어진다
     tileId: (p.tileId ?? null) as TileId | null,
     toTile: (p.path?.[0] ?? null) as TileId | null,
+    inHall: p.tileId != null && !!p.at && roomOfCell(p.at.x, p.at.y) !== p.tileId,
   }
 }
 
@@ -358,7 +359,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
     const post = (p.tileId ?? p.postTile ?? `base${p.team}`) as TileId
-    batch.update(d.ref, { postTile: post, asleep: false, busyUntilMs: null, busyKind: null })
+    // **덫은 풀지 않는다.** 걸린 10 분은 종이 쳐도 끝까지 간다
+    const snared = p.busyKind === '덫' && (p.busyUntilMs ?? 0) > nowMs
+    batch.update(d.ref, { postTile: post, asleep: false, ...(snared ? {} : { busyUntilMs: null, busyKind: null }) })
   }
 
   /**
@@ -557,7 +560,8 @@ export const phaseAct = onCall<{
   /** 연구를 맡긴 사람 — 팀과 방. 맡긴 순간 「만든 로봇」 한 줄을 남긴다 */
   let commissioned: { team: TeamId; tileId: TileId } | null = null
   await inTx(async (tx) => {
-    const [pawns, bots, tiles, hidden, teams, flagSnap, madeSnap, papers] = await Promise.all([
+    const [gNow, pawns, bots, tiles, hidden, teams, flagSnap, madeSnap, papers] = await Promise.all([
+      tx.get(ref),
       tx.get(ref.collection('pawns')),
       tx.get(robotsOf(gameId)),
       tx.get(ref.collection('tiles')),
@@ -568,6 +572,15 @@ export const phaseAct = onCall<{
       // 계단으로 곧바로 설 때 빈 칸을 고른다 — 바닥 종이 칸은 못 선다
       kind === 'move' ? tx.get(ref.collection('secret').doc('quiz').collection('floor').where('heldBy', '==', null)) : Promise.resolve(null),
     ])
+    /*
+     * **마감과 엇갈리면 여기서 가린다.** 닫기는 먼저 closingNo 를 적고 판을
+     * 읽는다 — 그 앞에 커밋된 깃발은 이 페이즈 판정에 들고, 뒤에 닿은 행동은
+     * 토큰을 안 쓰고 거절된다. 닫힌 페이즈의 깃발이 다음 페이즈로 새지 않는다
+     */
+    const g = gNow.data() as (GameDoc & { closingNo?: number }) | undefined
+    if (!g?.phaseNow?.open || g.phaseNow.no !== game.phaseNow?.no || g.closingNo === g.phaseNow.no) {
+      throw new HttpsError('failed-precondition', '이 페이즈는 끝났다.')
+    }
     const h = { ...EMPTY_HIDDEN, ...(hidden.data() as Partial<HiddenPhase> | undefined) }
     /*
      * **연구 기계 한 대에 한 건.** 돌고 있는 연구와, 다 됐는데 안 치운
@@ -901,6 +914,12 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   const ref = gameRef(gameId)
   const batch = db.batch()
 
+  // **덫에 걸린 사람은 페이즈가 닫혀도 그대로 묶여 있다**
+  const snaredIds = new Set(
+    (await ref.collection('pawns').where('busyKind', '==', '덫').get()).docs
+      .filter((d) => ((d.data() as PawnDoc).busyUntilMs ?? 0) > nowMs)
+      .map((d) => d.id),
+  )
   // 전투 자리를 지금 자리로 옮긴다. 다음 자유 시간에 아무리 멀리 가도
   // 다음 페이즈에는 여기로 돌아온다. **토큰은 그대로 둔다** — 들고 간다
   for (const p of out.next.people) {
@@ -911,8 +930,7 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
     if (where) {
       batch.update(ref.collection('pawns').doc(p.playerId), {
         postTile: where,
-        busyUntilMs: null,
-        busyKind: null,
+        ...(snaredIds.has(p.playerId) ? {} : { busyUntilMs: null, busyKind: null }),
       })
     }
   }
@@ -966,18 +984,10 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
 
   const no = game.phaseNow.no
   /*
-   * **누가 무엇을 했는지는 끝나도 안 나온다.** 모두가 읽는 기록에는 방의
-   * 결과(어느 분단이 가져갔다)만 남기고, 사람이 적힌 줄은 감독관만 읽는
-   * secret 쪽에만 둔다 — 몰래 한 배신이 결과 기록으로 새면 안 된다
+   * **페이즈 기록은 모두에게 안 낸다.** 「○○이 n 분단 것이 됐다」 같은 목록은
+   * 없앴다 — 주인이 바뀐 방은 맵의 방 색과 점수 막대로만 안다. 사람까지
+   * 적힌 온전한 기록은 감독관만 읽는 secret 쪽에 둔다
    */
-  batch.set(ref.collection('phaseLog').doc(String(no)), {
-    no,
-    day: game.phaseNow.day,
-    atMs: nowMs,
-    lines: out.log
-      .filter((l) => l.kind === 'captured')
-      .map((l) => ({ kind: l.kind, ...(l.tileId ? { tileId: l.tileId } : {}), ...(l.team ? { team: l.team } : {}) })),
-  })
   batch.set(ref.collection('secret').doc('phaseLog').collection('items').doc(String(no)), {
     no,
     day: game.phaseNow.day,
@@ -1161,13 +1171,13 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new HttpsError('invalid-argument', '그런 칸은 없다.')
   /*
    * **지나온 칸들.** 화면은 멈춘 뒤에 한 번만 적어 보내므로, 그 사이
-   * 밟고 지나간 복도 칸은 여기에 실려 온다 — 덫은 그 칸들에서 걸린다.
-   * 복도 칸만 본다. 방 안에는 덫이 없다
+   * 밟고 지나간 칸은 여기에 실려 온다 — 덫은 그 칸들에서 걸린다.
+   * 덫은 복도에도 방 안에도 놓이므로 둘 다 본다
    */
   const via: Cell[] = (Array.isArray(req.data.via) ? req.data.via : [])
     .slice(0, 200)
     .map((c) => ({ x: Math.floor(Number(c?.x)), y: Math.floor(Number(c?.y)) }))
-    .filter((c) => Number.isFinite(c.x) && Number.isFinite(c.y) && isHallCell(c.x, c.y))
+    .filter((c) => Number.isFinite(c.x) && Number.isFinite(c.y) && (isHallCell(c.x, c.y) || roomOfCell(c.x, c.y) !== null))
 
   const ref = gameRef(gameId).collection('pawns').doc(uid)
   const snap = await ref.get()
@@ -1196,6 +1206,14 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 한 번 더 본다 — 화면이 보내는 값을 믿으면 손으로 부른 요청 하나로
    * 기계 안에 서 있는 사람이 생긴다.
    */
+  /*
+   * **점령전 중 복도에서 그 방으로 되돌아가는 것도 들어가는 것이다.** 마지막 방
+   * (tileId)이 그대로라 칸만 적으면 공짜로 들어가진다 — 들어가기(phaseAct move)로 간다
+   */
+  const reentry = room !== null && room === p.tileId && !!p.at && roomOfCell(p.at.x, p.at.y) === null
+  if (reentry && (await gameRef(gameId).get()).data()?.phaseNow?.open === true) {
+    return { ok: false, code: 'reenter', why: '방에 들어가려면 토큰을 쓴다.', at: p.at }
+  }
   if (isFixture(x, y)) return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.', at: await keepSeat(gameId, uid, p, { x, y }) }
   /*
    * **가구 · 팻말 위에도 못 선다.** 화면은 가구 배치(furniture.ts)로 막는데

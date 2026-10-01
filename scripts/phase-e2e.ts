@@ -513,10 +513,9 @@ async function main(): Promise<void> {
   check(b1.ok && b2.ok, '**남의 분단 방에도 꽂는다**', `${b1.message ?? ''} ${b2.message ?? ''}`)
   await must('closePhase', host, { gameId: GAME })
   check((await ownerOfTile('artRoom')) === 'B', 'B 깃발 둘 — B 가 가져갔다', String(await ownerOfTile('artRoom')))
-  const log2 = await getAll(`games/${GAME}/phaseLog`)
-  check(JSON.stringify(log2).includes('captured'), '점령이 로그에 남았다')
-  // 누가 어디에 꽂았는지는 로그에 안 나온다. 주인이 바뀐 것만 나온다
-  check(!JSON.stringify(log2).includes('flagPlanted'), '**누가 꽂았는지는 로그에도 안 나온다**')
+  // 「○○이 n 분단 것이 됐다」 같은 공개 목록은 없앴다 — 감독관 기록에만 남는다
+  check((await getAll(`games/${GAME}/phaseLog`)).length === 0, '**페이즈 결과 목록은 모두에게 안 나온다**')
+  check(JSON.stringify(await getAll(`games/${GAME}/secret/phaseLog/items`)).includes('captured'), '점령은 감독관 기록에 남았다')
 
   console.log('\n── 깃발은 페이즈가 닫히면 사라진다 ──')
   check(Object.keys((await secretFlags()).artRoom ?? {}).length === 0, '**판정이 끝나면 꽂힌 깃발을 걷는다**', JSON.stringify((await secretFlags()).artRoom ?? {}))

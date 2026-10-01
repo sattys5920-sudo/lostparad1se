@@ -38,6 +38,7 @@ import { NoticeDesk } from './NoticeDesk'
 import { BgmDesk, LobbyStageDesk, TabLockDesk } from './StageDesk'
 import { bgmTrack, useBgm } from '../game/bgm'
 import { AnswerDesk } from './AnswerDesk'
+import { FinalScoreDesk } from './FinalScoreDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import './admin.css'
@@ -416,6 +417,11 @@ function Desk() {
             <section className="sc-ad__sec">
               <h2>답안지 — 역할 맞히기</h2>
               {game && <AnswerDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+
+            <section className="sc-ad__sec">
+              <h2>최종 점수</h2>
+              <FinalScoreDesk act={act} onSaid={setSaid} />
             </section>
 
             <section className="sc-ad__sec">

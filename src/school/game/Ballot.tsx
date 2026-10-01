@@ -172,11 +172,9 @@ export function Ballot(props: BallotProps) {
   const geoRef = useRef<Geo | null>(null)
   const timer = useRef<number | null>(null)
 
-  // 적을 수 있는 사람만 종이에 오른다. 나, 어제 지워진 사람은 빠진다
-  const named = useMemo(
-    () => seats.filter((s) => s.playerId !== me.playerId && s.playerId !== invisibleId),
-    [seats, me.playerId, invisibleId],
-  )
+  // 나는 종이에 안 오른다. **어제의 투명인간은 오르되 못 적는다** — 누르면 까닭을 알린다
+  const named = useMemo(() => seats.filter((s) => s.playerId !== me.playerId), [seats, me.playerId])
+  const barred = (id: string) => id === invisibleId || refused.includes(id)
 
   const chosen = pick ?? mine
   const chosenName = named.find((s) => s.playerId === chosen)?.name ?? null
@@ -361,15 +359,15 @@ export function Ballot(props: BallotProps) {
                       className={
                         'sc-bt__name' +
                         (chosen === s.playerId ? ' is-on' : '') +
-                        (refused.includes(s.playerId) ? ' is-no' : '')
+                        (barred(s.playerId) ? ' is-no' : '')
                       }
                       disabled={playing || closed || refused.includes(s.playerId)}
                       aria-pressed={chosen === s.playerId}
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => setPick(s.playerId)}
+                      onClick={() => (s.playerId === invisibleId ? onSaid('이 사람은 투표할 수 없다.') : setPick(s.playerId))}
                     >
                       <span>{s.name}</span>
-                      <i aria-hidden="true">{refused.includes(s.playerId) ? '✕' : '✓'}</i>
+                      <i aria-hidden="true">{barred(s.playerId) ? '✕' : '✓'}</i>
                     </button>
                   </li>
                 ))}

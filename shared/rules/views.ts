@@ -545,13 +545,16 @@ export interface View {
  * 정한다. 방이 몇 명 찼는지(정원)를 보라고 간다.
  */
 function countRooms(
-  pawns: readonly { playerId: string; team: TeamId; tileId: TileId | null }[],
+  pawns: readonly { playerId: string; team: TeamId; tileId: TileId | null; at?: Cell | null }[],
   visible: ReadonlySet<TileId>,
 ): Record<TileId, number> {
-  // **로봇은 정원에 안 든다.** 사람만 센다 — 로봇 수는 robotCounts 가 따로 간다
+  // **로봇은 정원에 안 든다.** 사람만 센다 — 로봇 수는 robotCounts 가 따로 간다.
+  // **지금 그 방 안에 선 사람만.** 복도로 나온 사람은 마지막 방(tileId)이 남아
+  // 있어도 안 센다 — 서버의 정원 검사(occupy.ts)와 같은 자다
   const out: Record<TileId, number> = {}
   for (const p of pawns) {
     if (p.tileId === null || !visible.has(p.tileId)) continue
+    if (p.at && roomOfCell(p.at.x, p.at.y) !== p.tileId) continue
     out[p.tileId] = (out[p.tileId] ?? 0) + 1
   }
   return out

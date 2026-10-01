@@ -241,6 +241,11 @@ export interface WalkProps {
    */
   placeAtMs?: number | null
   /**
+   * 복도에서 **나왔던 그 방에 다시 들어서도** 값을 치르는가(점령전). 그때는
+   * 같은 방이어도 서버에 들어간다고 말한다 — 토큰과 들어서는 5 분이 든다
+   */
+  reenterCosts?: boolean
+  /**
    * 남들이 만들어 둔 캐릭터. playerId → 생김새.
    *
    * 명단(games/{id}.seats)에서 온다 — 이름이 거기 있으니 얼굴도 거기
@@ -501,7 +506,7 @@ const FOOT_PX = CHAR_PX * (6 / 32)
 /** 막혔다는 말을 다시 띄우기까지. 벽에 대고 밀어도 도배하지 않는다 */
 const BLOCKED_SAY_MS = 1500
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -599,6 +604,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   walkingRef.current = walking
   const placeRef = useRef(placeAtMs)
   placeRef.current = placeAtMs
+  const reenterRef = useRef(reenterCosts)
+  reenterRef.current = reenterCosts
   const pinRef = useRef(pinAt)
   pinRef.current = pinAt
   const bounceRef = useRef(bounce)
@@ -635,6 +642,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     let selfSeen = ''
     /** 방에서 나와 아직 복도 칸을 서버에 안 알렸다 */
     let leavingRoom = false
+    /** 복도에서 서버가 아는 그 방으로 도로 들어섰다 — 점령전이면 값을 치르러 간다 */
+    let reentering = false
     /**
      * 옮겨 세웠다(도로 서기 · 제자리 · 서버가 정한 칸). **실시간 자리를 한 번 더
      * 적는다.** 안 적으면 남의 화면에는 거절당한 칸에 선 채로 남는다 — 멈춘
@@ -1181,6 +1190,10 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      */
     let askedAtMs = 0
     let lastServerTile: TileId | null = null
+    /** 지난 프레임에 서버가 나를 걷는 중(tileId null)으로 알고 있었다 */
+    let serverWasWalking = false
+    /** 걷다가 방이 아니라 복도에 세워졌다 — 멈추는 대로 그 칸에 선다 */
+    let landedHall: { x: number; y: number } | null = null
     /** 마지막으로 따른 서버의 거절. n 이 바뀔 때만 한 번 선다 */
     let lastBounce = bounceRef.current?.n ?? 0
     /** 서버가 세운 첫 칸을 따랐는가 */
@@ -1270,6 +1283,24 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 잡지 않는다. 같은 프레임 안에서 되짚는 표시일 뿐이라 매 프레임
       // false 로 되돌아간다
       let skipCatchUp = false
+      /*
+       * **꽉 찬 방이라 못 들어갔다.** 서버가 문 앞 복도에 세웠다. 방이 바뀐 것만
+       * 보고 그 방 안으로 세우면 복도에 선 서버와 어긋난다 — 서버 칸을 따른다
+       */
+      const hallAt = pawn?.at && roomAt(pawn.at.x, pawn.at.y) === null ? pawn.at : null
+      if (serverWasWalking && pawn && pawn.tileId !== null) landedHall = hallAt
+      serverWasWalking = !!pawn && pawn.tileId === null
+      if (serverTile && landedHall && !self.moving) {
+        const hallAt = landedHall
+        landedHall = null
+        standAt(hallAt.x, hallAt.y)
+        told = `${hallAt.x},${hallAt.y}`
+        autoPath = []
+        walked.length = 0
+        lastServerTile = serverTile
+        asked = false
+        skipCatchUp = true
+      }
       if (serverTile && serverTile !== lastServerTile) {
         // **이미 제 발로 가 있으면 건드리지 않는다.**
         //
@@ -1463,6 +1494,14 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
          * 문을 넘는 순간 서버가 묶어야 한다
          */
         leavingRoom = wasRoom !== null && room === null
+        /*
+         * **복도에 나섰다가 그 방으로 되돌아와도 들어가는 것이다.** 서버는
+         * 마지막 방(tileId)을 그대로 들고 있어서 방이 바뀐 것으로 안 보인다 —
+         * 서버가 나를 복도에 세워 두었을 때만 센다(문턱만 밟고 돌아온 것은 아니다)
+         */
+        const serverAt = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId)?.at ?? null
+        reentering =
+          reenterRef.current && wasRoom === null && room !== null && !!serverAt && roomAt(serverAt.x, serverAt.y) === null
       }
       // 문턱 칸은 복도가 아니라 서버가 안 받는다 — 복도 칸을 처음 밟을 때 보낸다
       if (leavingRoom && room === null && serverTile !== null && tileAt(self.tx, self.ty) === 'hall') {
@@ -1477,7 +1516,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 문은 방과 복도를 이을 뿐이라 어디로 가는지 모르고, 계단참처럼
       // 문이 아예 없는 방도 있다. 들어가고 나서 선 자리를 보는 편이
       // 한 가지로 다 된다
-      if (room !== null && serverTile !== null && room !== serverTile && !asked && !walkingRef.current) {
+      if (room !== null && serverTile !== null && (room !== serverTile || reentering) && !asked && !walkingRef.current) {
+        reentering = false
         asked = true
         askedAtMs = performance.now()
         const back = { x: self.tx, y: self.ty }

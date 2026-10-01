@@ -39,6 +39,7 @@ export function GardenSheet({
   onSaid,
   myCell,
   nearPot,
+  phaseOpen = false,
 }: {
   view: PlayerViewDoc | null
   act: GameActions
@@ -46,6 +47,8 @@ export function GardenSheet({
   myCell: { x: number; y: number } | null
   /** 그 화분 앞에 서 있는가. */
   nearPot: (i: number) => boolean
+  /** 점령전 중이다 — 따기는 자유 시간에만 되므로 버튼을 안 그린다 */
+  phaseOpen?: boolean
 }) {
   const [busy, setBusy] = useState(false)
   const pots = view?.potsHere ?? []
@@ -83,7 +86,7 @@ export function GardenSheet({
               )}
               <b>{lineOf(pot)}</b>
               {!close && pot.stage !== 'empty' && <span className="sc-gd__far">앞으로 가야 한다</span>}
-              {close && pot.stage === 'fruit' && (
+              {close && pot.stage === 'fruit' && !phaseOpen && (
                 <button
                   className="is-go"
                   disabled={busy || !pot.canPick}

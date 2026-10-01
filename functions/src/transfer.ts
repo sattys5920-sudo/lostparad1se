@@ -19,7 +19,8 @@ import {
 import { cellsTouch } from '../../shared/rules/board'
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
-import { freshNow, myPawn, refuseIfInvisible } from './turn'
+import { freshNow, myPawn, refuseIfInvisible, refuseIfSnared } from './turn'
+import { trapsOf } from './trap'
 import { refreshViews } from './views'
 import { logSecret } from './qaLog'
 import { note } from './records'
@@ -37,6 +38,10 @@ async function liveAskOf(gameId: string, uid: string, nowMs: number): Promise<bo
     asksOf(gameId).where('byId', '==', uid).where('status', '==', 'asking').get(),
     asksOf(gameId).where('toId', '==', uid).where('status', '==', 'asking').get(),
   ])
+  // **15 초가 지난 것은 여기서 접는다.** 아무도 답하지 않으면 문서가 'asking' 으로
+  // 남아 양쪽 화면에 창이 걸린 채 남는다
+  const stale = rows.flatMap((r) => r.docs).filter((d) => askExpired(d.data() as TransferState, nowMs))
+  await Promise.all(stale.map((d) => d.ref.update({ status: 'gone' })))
   return rows.some((r) => r.docs.some((d) => !askExpired(d.data() as TransferState, nowMs)))
 }
 
@@ -52,6 +57,7 @@ export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async 
   const { gameId } = req.data
   const toPlayerId = docId(req.data.toPlayerId, '그런 사람이 없다.')
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   const mine = await myPawn(gameId, uid)
 
   const theirSnap = await gameRef(gameId).collection('pawns').doc(toPlayerId).get()
@@ -72,7 +78,8 @@ export const askTransfer = onCall<{ gameId: string; toPlayerId: string }>(async 
     byTeam: mine.team,
     toId: toPlayerId,
     toTeam: their.team,
-    bothStanding: mine.tileId !== null && their.tileId !== null && mine.tileId === their.tileId,
+    // **옆 칸이면 된다.** 거래와 같다 — 복도에서 마주 선 둘은 들어갔던 방이 달라도 된다
+    bothStanding: mine.tileId !== null && their.tileId !== null,
     nextTo: cellsTouch(mine.at, their.at),
     asking: (await liveAskOf(gameId, uid, nowMs)) || (await liveAskOf(gameId, toPlayerId, nowMs)),
     fromTeamSize,
@@ -105,23 +112,26 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   const { gameId, accept } = req.data
   const askId = docId(req.data.askId, '그런 제안이 없다.')
   const { game, nowMs } = await freshNow(gameId)
+  await refuseIfSnared(gameId, uid, nowMs)
   const ref = asksOf(gameId).doc(askId)
   const gRef = gameRef(gameId)
 
-  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | 'lastOne' | 'phase' | null>(async (tx) => {
-    const [snap, gSnap, carried, placed] = await Promise.all([
+  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | 'lastOne' | 'phase' | 'expired' | null>(async (tx) => {
+    const [snap, gSnap, carried, placed, traps] = await Promise.all([
       tx.get(ref),
       tx.get(gRef),
       tx.get(gRef.collection('robots').where('carriedBy', '==', uid)),
       tx.get(gRef.collection('robots').where('placedBy', '==', uid)),
+      tx.get(trapsOf(gameId).where('byPlayerId', '==', uid)),
     ])
     if (!snap.exists) throw new HttpsError('not-found', '그런 제안이 없다.')
     const ask = snap.data() as TransferState
     if (ask.toId !== uid) throw new HttpsError('permission-denied', '불린 사람만 답한다.')
     if (ask.status !== 'asking') throw new HttpsError('failed-precondition', '이미 끝난 제안이다.')
     if (askExpired(ask, nowMs)) {
+      // 던지면 이 쓰기도 되감긴다 — 접어 두고 밖에서 거절한다
       tx.update(ref, { status: 'gone' })
-      throw new HttpsError('failed-precondition', '시간이 지났다.')
+      return 'expired' as const
     }
     if (!accept) {
       tx.update(ref, { status: 'refused' })
@@ -151,6 +161,8 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
     tx.update(gRef.collection('secret').doc('roster').collection('items').doc(uid), { team: ask.byTeam })
     // **로봇도 주인을 따라간다.** 들고 있던 것도, 방에 놓아 둔 것도 그 순간 새 분단 로봇이 된다
     for (const r of [...carried.docs, ...placed.docs]) tx.update(r.ref, { team: ask.byTeam })
+    // **놓아 둔 덫도 따라간다.** 새 분단 덫이 되어 옛 분단을 문다
+    for (const t of traps.docs) tx.update(t.ref, { team: ask.byTeam })
     // **어디에도 안 알린다.** 무전에도 공지에도 없다 — 마주쳐야 안다
     tx.update(ref, { status: 'taken' })
     return { from: ask.fromTeam, to: ask.byTeam, name: seat?.name ?? '' }
@@ -158,6 +170,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
 
   if (moved === 'lastOne') throw new HttpsError('failed-precondition', `${TRANSFER_NO.lastOne}.`)
   if (moved === 'phase') throw new HttpsError('failed-precondition', `${TRANSFER_NO.phase}.`)
+  if (moved === 'expired') throw new HttpsError('failed-precondition', '시간이 지났다.')
   await logSecret(gameId, 'transferAnswered', nowMs, uid, { askId, accept: moved !== null, ...(moved ? { team: moved.to } : {}) }, { day: game.day })
   if (moved) {
     // 개인 미션의 「그 사건이 일어난 시점의 팀」이 이 줄을 되짚는다 —

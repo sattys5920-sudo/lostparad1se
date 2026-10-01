@@ -498,19 +498,18 @@ async function main(): Promise<void> {
     const pn = g.phaseNow as { open: boolean; no: number; endsAtMs: number }
     atClose = await pawnsNow()
     check(ticked.ok && pn.open === false && Number(g.phaseDone) === no, '참가자의 tick 한 번에 페이즈가 저절로 닫힌다', `open=${pn.open} phaseDone=${g.phaseDone}`)
-    const log = await getDoc(`games/${GAME}/phaseLog/${no}`)
-    check(log.status === 200 && Number(log.d?.atMs) === endsAt, `phaseLog/${no} 가 생기고 atMs 가 endsAtMs 다`, `${log.d?.atMs} vs ${endsAt}`)
+    const log = await getDoc(`games/${GAME}/secret/phaseLog/items/${no}`)
+    check(log.status === 200 && Number(log.d?.atMs) === endsAt, `감독관 기록 phaseLog/${no} 가 생기고 atMs 가 endsAtMs 다`, `${log.d?.atMs} vs ${endsAt}`)
     const wAt = atClose[walker.uid]
     const caps = await getAll(`games/${GAME}/captures`)
     const standingWalker = caps.filter((c) => ((c.d.standing as string[]) ?? []).includes(walker.uid)).map((c) => c.id)
     check(wAt.tileId === null, '닫히는 순간 걷던 사람은 어느 방에도 없다(tileId null)', spot(wAt))
-    check(standingWalker.length === 0 && !JSON.stringify(log.d?.lines).includes(walker.uid), '닫힐 때 방 머릿수(captures.standing) · phaseLog 어디에도 걷던 사람이 없다', `captures ${caps.length}건`)
+    check(standingWalker.length === 0 && !JSON.stringify(((log.d?.lines as { kind: string }[]) ?? []).filter((l) => l.kind === 'captured')).includes(walker.uid), '닫힐 때 방 머릿수(captures.standing) · phaseLog 어디에도 걷던 사람이 없다', `captures ${caps.length}건`)
     check(caps.every((c) => Number(c.d.atMs) === endsAt), `판정(captures)의 시각이 모두 endsAtMs 다`, `${caps.length}건`)
 
-    // 열넷이 같은 phaseLog 를 읽는다
-    const logs = await Promise.all(people.map((p) => getDoc(`games/${GAME}/phaseLog/${no}`, asPlayer(p.token))))
-    const bodies = new Set(logs.map((l) => JSON.stringify(l.d)))
-    check(logs.every((l) => l.status === 200) && bodies.size === 1, `열넷 모두 phaseLog/${no} 를 읽고 내용이 똑같다`, `${logs.filter((l) => l.status === 200).length}/14 · ${bodies.size}가지`)
+    // 페이즈 결과 목록은 모두에게 안 나온다 — 참가자는 감독관 기록을 못 읽는다
+    const logs = await Promise.all(people.map((p) => getDoc(`games/${GAME}/secret/phaseLog/items/${no}`, asPlayer(p.token))))
+    check(logs.every((l) => l.status !== 200), `참가자는 아무도 phaseLog/${no} 를 못 읽는다`, `${logs.filter((l) => l.status === 200).length}/14 읽음`)
 
     // 닫힌 뒤: 걷던 사람 말고는 그 자리, 자유 시간 걸음이 된다
     const changed = people

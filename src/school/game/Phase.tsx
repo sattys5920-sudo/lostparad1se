@@ -77,9 +77,9 @@ const LABEL: Record<ActionKind, string> = {
 const WHAT: Record<ActionKind, string> = {
   move: '맵에서 걸어서 간다. 복도와 계단은 값이 없다.',
   research: '20 분 뒤 이 방에 완성품이 놓인다. 이 페이즈 동안은 나만 가져간다.',
-  summon: '호루라기를 불어 같은 분단 한 명을 한 칸 끌어온다. 둘 다 못 움직인다.',
+  summon: '호루라기를 불어 같은 분단 한 명을 내가 있는 방으로 부른다. 둘 다 못 움직인다.',
   plant: '이 방에 우리 분단 깃발을 꽂는다. 페이즈가 끝나면 사라진다.',
-  pull: '다른 분단 깃발에 손을 댄다. 서로 다른 두 사람이 손대야 하나가 뽑힌다.',
+  pull: '깃발에 손을 댄다. 우리 분단 깃발도 뽑을 수 있다. 서로 다른 두 사람이 손대야 하나가 뽑힌다.',
   dropRobot: '들고 있는 로봇 1 기를 이 방에 놓는다. 놓아야 깃발 하나로 센다.',
   takeRobot: '내가 놓은 로봇 1 기를 도로 든다. 든 로봇은 판정에 안 든다.',
   smashRobot: '드라이버로 이 방에 놓인 상대 로봇 1 기를 분해한다.',
@@ -192,7 +192,7 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
     }
     if (kind === 'smashRobot') {
       if (enemyRobotsHere.length === 0) return '이 방에 놓인 상대 로봇이 없다.'
-      // 상대가 보고 있어도 부순다. 대신 한 사람 한 페이즈에 한 기다
+      // 상대가 보고 있어도 부순다. 부수는 수에는 한도가 없다
     }
     return null
   }
@@ -334,66 +334,6 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
   )
 }
 
-const nameOf = (seats: readonly SeatEntry[], id: string) => seats.find((s) => s.playerId === id)?.name ?? '누군가'
 
 // ── 운영자 ──────────────────────────────────────────────────────
 
-// ── 지난 페이즈에 있었던 일 ─────────────────────────────────────
-
-const SAYS: Record<string, (l: Line, seats: readonly SeatEntry[]) => string> = {
-  moved: (l, s) => `${who(l, s)}이(가) ${room(l)}(으)로 갔다.`,
-  moveBlocked: (l, s) => `${who(l, s)}은(는) ${room(l)}에 못 들어갔다 — ${l.why ?? ''}`,
-  summoned: (l, s) => `${who(l, s)}이(가) ${nameOf(s, l.targetPlayer ?? '')}을(를) 불렀다.`,
-  summonFailed: (l, s) => `${who(l, s)}의 호출이 불발됐다 — ${l.why ?? ''}`,
-  flagPlanted: (l, s) => `${who(l, s)}이(가) ${room(l)}에 ${teamName(l.team)} 깃발을 꽂았다.`,
-  flagPulled: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 ${teamName(l.team)} 깃발을 뽑았다.`,
-  robotLeft: (l, s) => `${who(l, s)}이(가) ${room(l)}에 로봇을 두고 갔다.`,
-  robotSmashed: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 로봇을 부쉈다.`,
-  smashFailed: (l, s) => `${who(l, s)}이(가) 로봇을 못 부쉈다 — ${l.why ?? ''}`,
-  researchStarted: (l, s) => `${who(l, s)}이(가) ${room(l)}에서 연구를 걸었다.`,
-  researchDone: (l, s) => `${who(l, s)}에게 로봇 1 기가 붙었다.`,
-  researchFailed: (l, s) => `${who(l, s)}의 연구가 안 됐다 — ${l.why ?? ''}`,
-  captured: (l) => `${room(l)}이(가) ${teamName(l.team)} 것이 됐다.`,
-  held: (l) => `${room(l)}은(는) 그대로다.`,
-}
-
-interface Line {
-  kind: string
-  playerId?: string
-  tileId?: string
-  team?: TeamId
-  targetPlayer?: string
-  targetRobot?: string
-  why?: string
-}
-
-const who = (l: Line, seats: readonly SeatEntry[]) => nameOf(seats, l.playerId ?? '')
-const room = (l: Line) => (l.tileId ? (TILE_BY_ID[l.tileId]?.name ?? l.tileId) : '어딘가')
-
-export function PhaseLog({
-  rows,
-  seats,
-}: {
-  rows: readonly { no: number; day: number; lines: Line[] }[]
-  seats: readonly SeatEntry[]
-}) {
-  const last = rows[rows.length - 1]
-  if (!last) return null
-  // **누가 무엇을 했는지는 안 보인다.** 방이 어느 분단 것이 됐는지만 — 옛 기록에 사람 줄이 있어도 거른다
-  const lines = last.lines.filter((l) => l.kind === 'captured')
-  return (
-    <div className="sc-ph__log">
-      <h2>
-        지난 페이즈 <span>{last.no} 번</span>
-      </h2>
-      <ul>
-        {lines.length === 0 && <li>주인이 바뀐 방이 없다.</li>}
-        {lines.map((l, i) => (
-          <li key={i} className="is-big">
-            {(SAYS[l.kind] ?? (() => l.kind))(l, seats)}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}

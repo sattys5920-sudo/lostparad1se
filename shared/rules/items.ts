@@ -27,13 +27,13 @@ export interface ItemSpec {
 
 export const ITEMS: readonly ItemSpec[] = [
   /*
-   * **호루라기는 부르는 데 쓴다.** 불면 같은 팀 한 명이 내 쪽으로 한
-   * 칸 온다(호출). 깃발과는 상관없다 — 불러 모아 같이 꽂는 데 쓴다.
+   * **호루라기는 부르는 데 쓴다.** 불면 같은 팀 한 명이 내가 있는 방으로
+   * 온다(호출). 깃발과는 상관없다 — 불러 모아 같이 꽂는 데 쓴다.
    */
   {
     kind: 'whistle',
     name: '호루라기',
-    text: '페이즈 중에 불어서 같은 분단 한 명을 내 쪽으로 한 칸 부른다.',
+    text: '페이즈 중에 불어서 같은 분단 한 명을 내가 있는 방으로 부른다.',
     use: 'summon',
   },
   /*
@@ -76,7 +76,7 @@ export const ITEMS: readonly ItemSpec[] = [
   {
     kind: 'tape',
     name: '테이프',
-    text: '이 방의 찢긴 조각 한 무더기를 붙인다.',
+    text: '옆 칸의 찢긴 종이 한 장을 붙인다.',
     needs: 'scrap',
   },
   /*

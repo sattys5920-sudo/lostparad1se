@@ -228,12 +228,19 @@ async function main(): Promise<void> {
   check(Number(bTook.got) === 2 && (await itemsOf(B[0].uid)) === 2, '**자유 시간에 남의 팀이 찾아갔다**', `${await itemsOf(B[0].uid)}개`)
   check((await jobsNow()).length === 0, '찾아가면 제조기가 빈다')
 
-  console.log('\n── 놓기: 복도에만 ──')
+  console.log('\n── 놓기: 복도에도 방 안에도 ──')
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: T0 + 70 * 60_000, speed: 1 })
   await putIn(A[0].uid, TECH_TILE)
   await stand(A[0].token, { x: m0.x + 1, y: m0.y })
   const inRoom = await call('useItem', A[0].token, { gameId: GAME, kind: 'trap' })
-  check(inRoom.code === 'FAILED_PRECONDITION', '**방 안에는 못 놓는다**', String(inRoom.message ?? inRoom.code))
+  const roomSet = await trapsNow()
+  check(inRoom.ok === true && roomSet.length === 1, '**방 안에도 놓는다**', String(inRoom.message ?? inRoom.code))
+  // 아래 복도 시험을 위해 방 안 덫을 거두고 손에 하나 돌려준다
+  for (const t of roomSet) await fetch(`${FS}/games/${GAME}/secret/traps/set/${t.id}`, { method: 'DELETE', headers: ADMIN })
+  await fetch(`${FS}/games/${GAME}/pawns/${A[0].uid}?updateMask.fieldPaths=items`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
+    body: JSON.stringify({ fields: { items: { mapValue: { fields: { trap: { integerValue: '1' } } } } } }),
+  })
   // 지하 복도 한 칸. 기술실 문 아래.
   // **설 수 있는 빈 칸이라야 한다** — 기물 · 가구 칸이 아니고, 아무도 안 서 있고,
   // 바로 오른쪽(덫을 지나서 멈출 칸)도 그렇다

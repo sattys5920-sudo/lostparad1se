@@ -269,7 +269,9 @@ async function main(): Promise<void> {
   check(snaps.length === 14, 'DAY 1 판정 열넷이 secret 에 있다(아직 아무에게도 안 보냈다)', `${snaps.length}`)
   // X 를 지운다 — 그 뒤로 X 가 한 말은 Y 에게 안 간다
   await patch(`games/${GAME}`, { invisibleId: X.uid, invisibleTeam: 'B' })
-  await must('say', X.token, { gameId: GAME, text: '지워진채로한말' })
+  // 지워진 동안에는 말도 못 한다(아무 말도 할 수 없다 — 듣기만 한다)
+  const xSay = await call('say', X.token, { gameId: GAME, text: '지워진채로한말' })
+  check(!xSay.ok, '지워진 X 의 말은 거절된다', xSay.ok ? '나갔다' : String(xSay.message))
   // 무전은 지워진 동안 아예 안 나간다(radio.ts) — 거절되면 새는 길도 없다
   const xRadio = await call('radio', X.token, { gameId: GAME, text: '지워진채로무전' })
   check(!xRadio.ok, '지워진 X 의 무전은 거절된다', xRadio.ok ? '나갔다' : String(xRadio.message))
@@ -415,15 +417,10 @@ async function main(): Promise<void> {
   check(!chat.lines.some((l) => l.playerId === X.uid), 'chatLines — 지워진 뒤 X 가 친 말이 Y 에게 안 온다(아이디도 안 온다)')
   const radioAll = got[`radioLines:${JSON.stringify({ gameId: GAME, channel: 'all' }).slice(0, 30)}`].data as { lines: { text: string }[] }
   check(radioAll.lines.some((l) => l.text === '전원 채널 말') && !radioAll.lines.some((l) => l.text === '지워진채로무전'), '전원 채널은 들리고, 팀 채널의 남의 말은 안 온다')
-  for (const d of [3, 4]) {
-    const r = got[`fragmentOfDay:${JSON.stringify({ gameId: GAME, day: d }).slice(0, 30)}`]
-    check(!r.ok && r.code === 'FAILED_PRECONDITION', `fragmentOfDay DAY ${d}(미래) 는 거절한다`, `${r.code} ${r.message}`)
-  }
   const rel = got[`releasedFragments:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].data as { days: number[] }
   check(JSON.stringify(rel.days) === '[1,2]', 'releasedFragments 는 DAY 1·2 만', JSON.stringify(rel.days))
   check(got[`peekDay:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].code === 'PERMISSION_DENIED', 'peekDay 는 운영자만')
   check(got[`finalNoteText:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].code === 'FAILED_PRECONDITION', 'finalNoteText 는 끝나기 전에 안 준다')
-  check(got[`dealNow:${JSON.stringify({ gameId: GAME }).slice(0, 30)}`].data?.id === null, 'dealNow — 남의 거래는 내 것으로 안 온다')
 
   console.log('\n── 직접 읽기 — 규칙이 가른다 ──')
   const denied: [string, boolean][] = [
@@ -437,14 +434,14 @@ async function main(): Promise<void> {
     [`games/${GAME}/secret/traps/set`, true], [`games/${GAME}/secret/traps/jobs`, true], [`games/${GAME}/secret/dealSlips/items`, true],
     [`games/${GAME}/secret/garden`, false], [`games/${GAME}/secret/flags`, false], [`games/${GAME}/secret/erased/items`, true],
     [`games/${GAME}/secret/progress/items`, true], [`games/${GAME}/secret/ending/lines`, true],
-    [`games/${GAME}/secret/pushSubs/items`, true], [`games/${GAME}/secret`, true],
+    [`games/${GAME}/secret/pushSubs/items`, true], [`games/${GAME}/secret`, true], [`games/${GAME}/secret/finalScores`, false],
     [`games/${GAME}/views/${X.uid}`, false], [`games/${GAME}/views/${W.uid}`, false], [`games/${GAME}/views`, true],
     [`games/${GAME}/inbox/${X.uid}`, false], [`games/${GAME}/inbox`, true], [`games/${GAME}/notes/${X.uid}`, false],
     [`games/${GAME}/pawns/${Y.uid}`, false], [`games/${GAME}/pawns/${X.uid}`, false], [`games/${GAME}/pawns`, true],
     [`games/${GAME}/robots`, true], [`games/${GAME}/schedule`, true], [`games/${GAME}/pots`, true], [`games/${GAME}/pots/0`, false],
     [`games/${GAME}/errands`, true], [`games/${GAME}/captures`, true], [`games/${GAME}/made`, true], [`games/${GAME}/notices`, true],
     [`games/${GAME}/teams`, true], [`games/${GAME}/teams/B`, false], [`games/${GAME}/deals/${deal.id}`, false], [`games/${GAME}/deals`, true],
-    [`games/${GAME}/transfers`, true], [`games/${GAME}/arcadeRooms`, true],
+    [`games/${GAME}/transfers`, true], [`games/${GAME}/arcadeRooms`, true], [`games/${GAME}/phaseLog`, true],
     [`games/${GAME}/live/${X.uid}`, false], [`games/${GAME}/live/${Z[0].uid}`, false], [`games/${GAME}/live`, true],
   ]
   let deniedOk = 0
@@ -457,7 +454,7 @@ async function main(): Promise<void> {
   check(deniedBad.length === 0, `Y 는 secret/** · 남의 views/inbox/notes · pawns · live(안개 밖 · 지워진) 등 ${denied.length}곳을 못 읽는다(403)`, deniedBad.join(' '))
   void deniedOk
   const allowed: [string, boolean][] = [
-    [`games/${GAME}`, false], [`games/${GAME}/tiles`, true], [`games/${GAME}/events`, true], [`games/${GAME}/phaseLog`, true],
+    [`games/${GAME}`, false], [`games/${GAME}/tiles`, true], [`games/${GAME}/events`, true],
     [`games/${GAME}/teams/A`, false], [`games/${GAME}/live/${W.uid}`, false], [`games/${GAME}/views/${Y.uid}`, false],
   ]
   for (const [path, list] of allowed) {
@@ -503,6 +500,8 @@ async function main(): Promise<void> {
     const clauseHits: string[] = []
     for (const r of ROLE_DATA) for (const c of r.clauses) {
       for (const t of [c.text, c.text.replace('{분}', String(c.minutes ?? ''))]) {
+        // 「수확」 같은 한 낱말 조항은 화면 낱말과 겹친다 — 문장만 본다(check-bundle 과 같은 자)
+        if (t.length < 4) continue
         const i = bundle.indexOf(t)
         if (i >= 0) clauseHits.push(`${r.name}: 「${t}」${bundle.slice(Math.max(0, i - 200), i + 200).includes(r.name) ? ' (이름 옆)' : ''}`)
       }

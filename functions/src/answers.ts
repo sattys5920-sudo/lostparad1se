@@ -8,7 +8,7 @@
 //
 // **정답은 채점하는 순간에만 밖으로 나간다.** 그 전까지 역할은 secret 에만 있다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { gameRef, requireUid } from './index'
 import { requireHost } from './host'
@@ -20,6 +20,8 @@ const db = getFirestore()
 
 const sheetsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('answers').collection('items')
 const rosterOf = (gameId: string) => gameRef(gameId).collection('secret').doc('roster').collection('items')
+/** 최종 점수. **감독관이 계산해 적는다** — 게임이 매기지 않는다. 사람마다 제 것만 본다 */
+export const finalScoresOf = (gameId: string) => gameRef(gameId).collection('secret').doc('finalScores')
 
 interface SheetDoc {
   playerId: string
@@ -125,4 +127,33 @@ export const hostGradeAnswers = onCall<{ gameId: string }>(async (req) => {
     tx.update(gameRef(gameId), { answerResult: result, answerSheet: null })
   })
   return { graded: result.scores.length }
+})
+
+/** 감독관 — 최종 점수 전부(열넷 이름과 함께). */
+export const hostFinalScores = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const game = await gameOf(gameId)
+  const byId = ((await finalScoresOf(gameId).get()).data()?.byId ?? {}) as Record<string, number>
+  return {
+    rows: game.seats.map((s) => ({ playerId: s.playerId, name: s.name, score: typeof byId[s.playerId] === 'number' ? byId[s.playerId] : null })),
+  }
+})
+
+/** 감독관 — 한 사람의 최종 점수를 적는다. score 가 null 이면 지운다. */
+export const hostSetFinalScore = onCall<{ gameId: string; playerId: string; score: number | null }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId, playerId } = req.data
+  const game = await gameOf(gameId)
+  if (!game.seats.some((s) => s.playerId === playerId)) throw new HttpsError('invalid-argument', '그런 사람이 없다.')
+  const raw = req.data.score
+  if (raw === null || raw === undefined) {
+    await finalScoresOf(gameId).set({ byId: { [playerId]: FieldValue.delete() } }, { merge: true })
+    return { playerId, score: null }
+  }
+  const score = Number(raw)
+  if (!Number.isFinite(score) || Math.abs(score) > 100000) throw new HttpsError('invalid-argument', '점수가 이상하다.')
+  const kept = Math.round(score * 10) / 10
+  await finalScoresOf(gameId).set({ byId: { [playerId]: kept } }, { merge: true })
+  return { playerId, score: kept }
 })

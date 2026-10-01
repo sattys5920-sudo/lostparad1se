@@ -224,7 +224,9 @@ export function Radio(props: RadioProps) {
 
   return (
     <RadioRoom
-      key={channel}
+      /* **분단이 바뀌면 새로 받는다.** 옛 분단 무전은 남기지 않는다 — 서버도
+         이적한 뒤의 줄만 준다(teamSinceMs) */
+      key={`${channel}-${me.team}`}
       {...props}
       channel={channel}
       otherNew={otherNew}
