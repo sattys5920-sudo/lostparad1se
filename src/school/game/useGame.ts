@@ -14,7 +14,7 @@
 //
 // 말의 위치도, 남의 가방도, 표도 여기 없다. 규칙이 막아서가 아니라
 // 서버가 애초에 담지 않아서다.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { collection, doc, onSnapshot } from 'firebase/firestore'
 
 import type { InboxDoc } from '../../../shared/missions/mail'
@@ -75,7 +75,33 @@ export function nextGame(
   return snap.data ?? null
 }
 
-export function useGame(gameId: string | null): GameState {
+/**
+ * **배정을 숨겨 둔 동안(hideDeal) 참가자 화면에서 분단을 지운다.**
+ *
+ * 분단은 자리표(seats)와 보이는 사람(visiblePawns)으로 화면 곳곳에 퍼진다 —
+ * 완장 색, 이름표, 말풍선, 메모장 띠, 점수판의 「우리」. 하나하나 막는 대신
+ * 받는 자리에서 「아직 배정 전」(team: null)으로 바꿔 둔다. 배정 시각도
+ * 지운다 — 로비의 학생증 팝업이 안 뜨게. 감독관 화면은 그대로 본다.
+ */
+export function hideDealOf(s: GameState): GameState {
+  const g = s.game
+  if (!g?.hideDeal) return s
+  return {
+    ...s,
+    game: { ...g, seats: g.seats.map((x) => ({ ...x, team: null, dealtAtMs: undefined })) },
+    view: s.view
+      ? { ...s.view, visiblePawns: s.view.visiblePawns.map((p) => ({ ...p, team: null as unknown as TeamId })) }
+      : s.view,
+  }
+}
+
+export function useGame(gameId: string | null, opts: { host?: boolean } = {}): GameState {
+  const raw = useGameRaw(gameId)
+  const host = opts.host === true
+  return useMemo(() => (host ? raw : hideDealOf(raw)), [raw, host])
+}
+
+function useGameRaw(gameId: string | null): GameState {
   const [state, setState] = useState<GameState>(EMPTY)
   const uid = auth?.currentUser?.uid ?? null
 
@@ -440,6 +466,7 @@ export function gameActions(gameId: string) {
     startGame: (startAtMs?: number, practice?: boolean) =>
       callServer('startGame', { ...g, ...(startAtMs ? { startAtMs } : {}), ...(practice ? { practice: true } : {}) }),
     hostEndPractice: () => callServer('hostEndPractice', g),
+    hostSetHideDeal: (on: boolean) => callServer('hostSetHideDeal', { ...g, on }),
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */
     seedPlayers: (password: string, leaveSeats = 1) =>
       callServer('seedPlayers', { ...g, password, leaveSeats }),

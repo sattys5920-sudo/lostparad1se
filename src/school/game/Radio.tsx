@@ -376,7 +376,7 @@ function RadioRoom({
     query === null
       ? []
       : mentionPicks(
-          people.filter((p) => channel === 'all' || p.team === me.team).map((p) => p.name),
+          people.filter((p) => channel === 'all' || (me.team != null && p.team === me.team)).map((p) => p.name),
           query,
           me.name,
         )

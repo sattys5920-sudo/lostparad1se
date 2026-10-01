@@ -95,7 +95,7 @@ const leftText = (ms: number): string => {
 }
 
 function Desk() {
-  const state = useGame(GAME_ID)
+  const state = useGame(GAME_ID, { host: true })
   const act = useMemo(() => gameActions(GAME_ID), [])
   // 감독관 폰에서도 같은 곡이 나온다. 이 폰에서만 끄는 스위치는 배경음악 칸에 있다
   useBgm(GAME_ID, bgmTrack(state.game?.bgm), state.game?.bgm, Boolean(state.game))
@@ -306,6 +306,24 @@ function Desk() {
               {game && <TabLockDesk game={game} act={act} onSaid={setSaid} />}
             </section>
             <section className="sc-ad__sec">
+              <h2>배정 숨기기</h2>
+              <p className="sc-ad__hint">
+                {game?.hideDeal
+                  ? '켜져 있다. 배정해도 참가자 화면에는 분단 · 역할이 안 나온다. 「연습 끝 · DAY 1 시작」(또는 「판 시작」)을 누르면 학생증 팝업으로 공개된다.'
+                  : '꺼져 있다. 배정하면 그 자리에서 참가자에게 학생증이 뜬다. 연습 전에 숨기려면 배정하기 전에 켠다.'}
+              </p>
+              <button
+                className={game?.hideDeal ? '' : 'is-primary'}
+                disabled={busy || !game}
+                onClick={() => {
+                  if (game?.hideDeal && !window.confirm('지금 공개할까요? 참가자 모두에게 학생증이 뜬다.')) return
+                  void run('배정 숨기기', () => act.hostSetHideDeal(!game?.hideDeal))
+                }}
+              >
+                {game?.hideDeal ? '지금 공개하기' : '배정 숨기기 켜기'}
+              </button>
+            </section>
+            <section className="sc-ad__sec">
               <h2>배정</h2>
               <AssignDesk seats={seats} act={act} onSaid={setSaid} />
             </section>
@@ -366,6 +384,7 @@ function Desk() {
                 <p className="sc-ad__hint">
                   지금은 연습이다. 페이즈 · 투표 · 날 넘기기 · 쪽지 · 신뢰·호감표는 막혀 있고, 미션에도 안 들어간다.
                   연습 동안 번 돈 · 지식 · 물건은 그대로 간다.
+                  {game.hideDeal ? ' 분단 · 역할은 숨겨져 있다 — 이 단추를 누르면 학생증 팝업으로 공개된다.' : ''}
                 </p>
                 <button
                   className="is-primary"

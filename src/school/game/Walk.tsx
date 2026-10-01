@@ -1491,7 +1491,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           // **우리 팀이 차지한 방으로 들어가는 문은 값이 없다**(rules/occupy 의 costOf).
           // 복도로 나가는 문도 값이 없다 — 값은 방에 들어설 때만 붙는다
           const into = acrossFrom(door, roomAt(self.tx, self.ty)?.id ?? null)
-          if (into === null || tilesRef.current[into]?.ownerTeam === me.team) return 'open'
+          if (into === null || (me.team != null && tilesRef.current[into]?.ownerTeam === me.team)) return 'open'
           return 'door'
         }
         if (isWalkable(nx, ny)) return 'open'

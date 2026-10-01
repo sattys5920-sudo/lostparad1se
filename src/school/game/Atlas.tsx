@@ -600,7 +600,7 @@ export function FullMap({
   const pawnsSeen = facts.view?.visiblePawns ?? []
   const inAlley = pawnsSeen.some((p) => p.playerId === facts.meId && p.at != null && isAlleyCell(p.at.x, p.at.y))
   const alleyCount = pawnsSeen.filter((p) => p.at != null && isAlleyCell(p.at.x, p.at.y)).length
-  const ours = rooms.filter((r) => r.owner === facts.myTeam).length
+  const ours = facts.myTeam == null ? 0 : rooms.filter((r) => r.owner === facts.myTeam).length
   const left = clock.open && clock.endsAtMs != null ? Math.max(0, clock.endsAtMs - clock.nowMs) : null
 
   return (
@@ -771,7 +771,7 @@ function RoomSheet({
       <dl>
         <div>
           <dt>차지한 분단</dt>
-          <dd className={room.owner === myTeam ? 'is-ours' : undefined}>
+          <dd className={myTeam != null && room.owner === myTeam ? 'is-ours' : undefined}>
             {room.owner ? `${teamName(room.owner)}` : '없다'}
           </dd>
         </div>

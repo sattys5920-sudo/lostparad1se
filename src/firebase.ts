@@ -60,6 +60,7 @@ const CALL_LABEL: Record<string, string> = {
   harvestPot: '수확',
   hostEnter: '로그인',
   hostEndPractice: 'DAY 1 시작',
+  hostSetHideDeal: '배정 숨기기',
   hostFinalScores: '최종 점수 불러오기',
   hostSetFinalScore: '최종 점수 저장',
   joinGame: '참가',

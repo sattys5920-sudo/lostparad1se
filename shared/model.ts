@@ -100,6 +100,12 @@ export interface GameDoc {
    * 연습 동안 번 돈 · 지식 · 물건은 그대로 간다
    */
   practice?: boolean
+  /**
+   * **배정 숨김.** 분단 · 역할은 서버에 정해져 있지만 참가자 화면에는 안 보인다.
+   * 「연습 끝 · DAY 1 시작」(또는 그냥 판 시작)에서 풀리고, 그때 자리마다
+   * 배정 시각(dealtAtMs)을 새로 찍어 학생증 팝업이 한 번 뜬다
+   */
+  hideDeal?: boolean
   /** 개발용 시계. anchorRealMs가 0이면 실제 시각 그대로. */
   clock: { anchorRealMs: number; anchorGameMs: number; speed: number }
   /** 따라잡기가 여기까지 처리했다. 이 뒤로 밀린 일을 순서대로 민다. */

@@ -587,6 +587,8 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number; practice?:
     startedRealMs: FieldValue.serverTimestamp(),
     // 연습으로 시작하면 「연습 끝 · DAY 1 시작」 전까지는 미션 · 날짜에 안 들어간다
     practice: req.data.practice === true,
+    // 배정을 숨긴 채 연습 없이 시작하면 시작하는 순간 공개한다
+    ...(game.hideDeal && req.data.practice !== true ? { hideDeal: false, seats: revealSeats(seats, startedAtMs) } : {}),
   })
 
   await batch.commit()
@@ -639,9 +641,42 @@ export const hostEndPractice = onCall<{ gameId: string }>(async (req) => {
     }
     batch.set(ref.collection('schedule').doc(), item)
   }
-  batch.update(ref, { practice: false, startedAtMs: nowMs })
+  batch.update(ref, {
+    practice: false,
+    startedAtMs: nowMs,
+    // 숨겨 둔 분단 · 역할을 지금 공개한다 — 배정 시각이 새로 찍혀 학생증 팝업이 뜬다
+    ...(game.hideDeal ? { hideDeal: false, seats: revealSeats(game.seats, nowMs) } : {}),
+  })
   batch.set(ref.collection('events').doc(), { atMs: nowMs, day: 1, kind: 'practiceEnd', detail: {} })
   await batch.commit()
   await refreshViews(req.data.gameId)
   return { startedAtMs: nowMs }
+})
+
+/** 배정 공개 — 분단이 정해진 자리마다 배정 시각을 새로 찍는다. 화면이 이걸 보고 학생증을 띄운다 */
+function revealSeats(seats: GameDoc['seats'], atMs: number): GameDoc['seats'] {
+  return seats.map((s) => (s.team ? { ...s, dealtAtMs: atMs } : s))
+}
+
+/**
+ * **배정 숨기기 · 공개.** 로비에서, 또는 연습 중에만 바꾼다.
+ *
+ * 켜 두면 분단 · 역할이 참가자 화면에 안 나온다(배정은 그대로 한다).
+ * 끄면 그 자리에서 공개한다 — 배정 시각을 새로 찍어 학생증 팝업이 뜬다.
+ * 보통은 「연습 끝 · DAY 1 시작」이 알아서 끈다.
+ */
+export const hostSetHideDeal = onCall<{ gameId: string; on: boolean }>(async (req) => {
+  requireHost(req.auth)
+  const ref = gameRef(req.data.gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  if (!(game.phase === 'lobby' || (game.phase === 'running' && game.practice))) {
+    throw new HttpsError('failed-precondition', '시작 전이나 연습 시간에만 바꾼다.')
+  }
+  const on = req.data.on === true
+  if (on === !!game.hideDeal) return { hideDeal: on }
+  if (on) await ref.update({ hideDeal: true })
+  else await ref.update({ hideDeal: false, seats: revealSeats(game.seats, nowOf(game)) })
+  return { hideDeal: on }
 })

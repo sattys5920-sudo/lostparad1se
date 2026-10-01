@@ -52,6 +52,8 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
   if (!first.exists) throw new HttpsError('not-found', '그런 판이 없다.')
   if ((first.data() as GameDoc).phase !== 'lobby') await catchUp(gameId, nowOf(first.data() as GameDoc))
   const game = (await gameRef(gameId).get()).data() as GameDoc
+  // **배정을 숨겨 둔 동안은 배정 전과 같다.** 「나」 탭은 「배정 전」을 적는다
+  if (game.hideDeal && game.seats.some((s) => s.playerId === uid)) throw new HttpsError('failed-precondition', NOT_DEALT)
 
   const mineSnap = await gameRef(gameId)
     .collection('secret')

@@ -296,6 +296,9 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
    * 본다(chat.ts 의 beforeStart).
    */
   const talk = useChatLines(act, 'room', { room: START_TILE })
+  // 배정을 숨겨 둔 동안은 말줄의 분단 색도 지운다
+  const dealHidden = !!state.game?.hideDeal
+  const talkLines = useMemo(() => (dealHidden ? talk.lines.map((l) => ({ ...l, team: '' })) : talk.lines), [dealHidden, talk.lines])
   const typing = useTyping()
   useKeyboardInset()
   const blurNow = useCallback(() => {
@@ -575,7 +578,7 @@ function Lobby({ gameId, me }: { gameId: string; me: { nickname: string; avatar:
             hereName={TILE_BY_ID[START_TILE as TileId].name}
             act={act}
             onSaid={showToast}
-            lines={talk.lines}
+            lines={talkLines}
             pull={talk.pull}
             open={typing}
             onClose={blurNow}
@@ -644,6 +647,23 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   /** 끝난 판의 세 칸 — 엔딩 · 회고 · 판정(마지막 날까지의 개인 미션) */
   const [endTab, setEndTab] = useState<'ending' | 'retro' | 'verdicts'>('ending')
 
+  /*
+   * **숨겨 둔 배정을 공개하는 학생증.** 「연습 끝 · DAY 1 시작」이 자리마다 배정
+   * 시각을 새로 찍는다(판이 시작된 시각 이후). 로비에서 본 배정은 시작보다 앞이라
+   * 여기서 다시 뜨지 않는다. 사람마다 한 번만 — 닫으면 다시 안 뜬다
+   */
+  const revealUid = auth?.currentUser?.uid ?? null
+  const revealSeat = state.game?.seats.find((s) => s.playerId === revealUid) ?? null
+  const startedAt = state.game?.startedAtMs ?? null
+  const revealStamp =
+    revealSeat?.team && revealSeat.dealtAtMs && startedAt !== null && revealSeat.dealtAtMs >= startedAt && !state.game?.hideDeal
+      ? revealSeat.dealtAtMs
+      : 0
+  const [revealShut, setRevealShut] = useState(0)
+  const revealSeen = revealUid !== null && revealStamp > 0 && dealtSeen(gameId, revealUid, revealStamp)
+  const revealAct = useMemo(() => gameActions(gameId), [gameId])
+  const revealCard = useMyPaper(revealAct, revealStamp > 0 && !revealSeen && revealShut !== revealStamp, revealStamp)
+
   // 들어올 때마다 밀린 일을 따라잡는다. 아무도 없던 사이의 아침과
   // 정산이 여기서 처리된다
   useEffect(() => {
@@ -660,6 +680,22 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   const myUid = auth?.currentUser?.uid ?? null
   if (myUid && !game.seats.some((s) => s.playerId === myUid)) {
     return <NoSeat phase={game.phase} />
+  }
+
+  if (revealCard.paper && revealStamp > 0 && !revealSeen && revealShut !== revealStamp && revealUid && revealSeat?.team) {
+    return (
+      <Dealt
+        name={revealSeat.name}
+        team={revealSeat.team}
+        look={look}
+        paper={revealCard.paper}
+        snowLevel={game.snow?.level ?? 5}
+        onClose={() => {
+          markDealtSeen(gameId, revealUid, revealStamp)
+          setRevealShut(revealStamp)
+        }}
+      />
+    )
   }
 
   // 종례가 끝났으면 엔딩과 회고만 남는다
@@ -1070,7 +1106,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 열넷을 통째로 다시 쓴다. 「나」 탭을 볼 때와 날짜가 바뀔 때만
    * 부른다(useMyPaper).
    */
-  const mine = useMyPaper(act, tab === 'me', game?.day ?? 0)
+  // 배정을 공개하는 순간(hideDeal 이 풀릴 때)에도 다시 받는다 — 「배정 전」에 머물지 않게
+  const mine = useMyPaper(act, tab === 'me', (game?.day ?? 0) + (game?.hideDeal ? 0.5 : 0))
 
   // 표시가 한 층일 때와 두 층일 때, 안전 영역이 있을 때와 없을 때
   // 높이가 다 다르다. 방이 바뀌거나 화면이 돌면 다시 잰다
@@ -1092,7 +1129,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 지금 앉아 있는 거래판. **views 가 아니라 거래판 문서를 직접 본다** —
    * 상대가 물건을 올리는 것이 그 자리에서 보여야 흥정이다.
    */
-  const { deal, dismiss: leaveDeal } = useDeal(gameId, uid)
+  const { deal: dealDoc, dismiss: leaveDeal } = useDeal(gameId, uid)
+  // 배정을 숨겨 둔 동안은 거래창에 분단이 안 나온다
+  const dealHidden = !!state.game?.hideDeal
+  const deal = useMemo(
+    () =>
+      dealDoc && dealHidden
+        ? { ...dealDoc, a: { ...dealDoc.a, team: null as unknown as TeamId }, b: { ...dealDoc.b, team: null as unknown as TeamId } }
+        : dealDoc,
+    [dealDoc, dealHidden],
+  )
   // 오락실 방. 먼저 낸 수와 먼저 끝낸 점수는 이 문서에 없다 — 서버가 봉인한다
   const { room: arcadeRoom, invites: arcadeInvites, dismiss: dismissRoom } = useArcade(gameId, uid)
   /*
@@ -1224,6 +1270,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    * 풍선이 같은 줄을 봐야 하는데, 따로 세면 둘이 다른 것을 보게 된다.
    */
   const talk = useChatLines(act, 'room', { room: standingOn })
+  // 배정을 숨겨 둔 동안은 말줄의 분단 색도 지운다
+  const talkLines = useMemo(() => (dealHidden ? talk.lines.map((l) => ({ ...l, team: '' })) : talk.lines), [dealHidden, talk.lines])
 
   /**
    * 지금 머리 위에 떠 있어야 할 말. 사람마다 마지막 한 줄이다.
@@ -1474,7 +1522,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
          */
         const i = LAB_MACHINES.findIndex((c) => c.x === t.cell.x && c.y === t.cell.y)
         const lab = (state.view?.labsHere ?? []).find((l) => l.i === i) ?? null
-        const need = researchKnowledge(state.tiles[LAB_TILE]?.ownerTeam === myTeam)
+        const need = researchKnowledge(myTeam != null && state.tiles[LAB_TILE]?.ownerTeam === myTeam)
         const have = state.view?.teamVault?.knowledge ?? 0
         const research: MeetRow = {
           key: 'lab',
@@ -1536,7 +1584,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    */
   const mates = useMemo(() => {
     return (game?.seats ?? [])
-      .filter((sx) => sx.team === me?.team)
+      // 분단을 숨겨 둔 동안(null)은 아무도 같은 분단이 아니다
+      .filter((sx) => me?.team != null && sx.team === me.team)
       .map((sx) => ({
         playerId: sx.playerId,
         here: sx.playerId === me?.playerId || live.current.has(sx.playerId),
@@ -1845,7 +1894,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           hereName={placeName(standingOn, myCell)}
           act={act}
           onSaid={setSaid}
-          lines={talk.lines}
+          lines={talkLines}
           pull={talk.pull}
           open={typing}
           onClose={blurNow}
@@ -2332,7 +2381,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             myCell={myCell}
             phaseOpen={phaseOpen}
             nowMs={nowMs}
-            ownsTech={state.tiles[TECH_TILE]?.ownerTeam === me.team}
+            ownsTech={me.team != null && state.tiles[TECH_TILE]?.ownerTeam === me.team}
           />
         </Sheet>
       )}
