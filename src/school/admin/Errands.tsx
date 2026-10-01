@@ -48,14 +48,13 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
       setPosted(out.posted ?? [])
       setNowMs(out.nowMs ?? 0)
       /*
-       * 기본으로 고르는 것은 **오늘 아직 안 나간 첫 것**이다. 첫 줄을
-       * 그냥 고르면 비커가 이미 나간 날에 「비커 (오늘 나갔다)」가
-       * 골라진 채로 뜨고, 붙이기가 죽어 있는 까닭을 한참 찾는다.
+       * 기본으로 고르는 것은 **지금 게시판에 안 붙어 있는 첫 것**이다. 첫 줄을
+       * 그냥 고르면 붙어 있는 것이 골라진 채로 뜨고, 붙이기가 죽어 있는
+       * 까닭을 한참 찾는다.
        */
       if (pick === '') {
         const posted = out.posted ?? []
-        const day = posted.find((p) => !p.expired && p.doneBy === null)?.day ?? posted[0]?.day
-        const gone = new Set(posted.filter((p) => p.day === day).map((p) => p.specId))
+        const gone = new Set(posted.filter((p) => !p.expired && p.doneBy === null).map((p) => p.specId))
         const first = (out.pool ?? []).find((e) => !gone.has(e.id)) ?? (out.pool ?? [])[0]
         if (first) setPick(first.id)
       }
@@ -83,8 +82,8 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
 
   const chosen = pool.find((e) => e.id === pick) ?? null
   const live = posted.filter((p) => !p.expired && p.doneBy === null)
-  /** 오늘 이미 나간 것. 다시 못 붙인다 — 자동 배치가 없어도 규칙은 같다 */
-  const today = new Set(posted.filter((p) => p.day === (live[0]?.day ?? p.day)).map((p) => p.specId))
+  /** 지금 게시판에 붙어 있는 것. 끝나거나 시간이 지나면 다시 붙인다 */
+  const today = new Set(live.map((p) => p.specId))
   const onBoard = (id: string) => live.filter((p) => p.boardId === id).length
 
   return (
@@ -96,7 +95,7 @@ export function ErrandDesk({ act, onSaid }: { act: GameActions; onSaid: (t: stri
           {pool.map((e) => (
             <option key={e.id} value={e.id} disabled={today.has(e.id)}>
               {e.thing} · {TILE_BY_ID[e.from]?.name}에 있다
-              {today.has(e.id) ? ' (오늘 나갔다)' : ''}
+              {today.has(e.id) ? ' (지금 붙어 있다)' : ''}
             </option>
           ))}
         </select>

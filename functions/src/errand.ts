@@ -169,8 +169,8 @@ export const hostErrands = onCall<{ gameId: string }>(async (req) => {
  * 붙이는 사람이 방을 고른다 — 그래서 같은 물건이 날마다 다른 일이 된다.
  * 고른 방은 이 장에 베껴 두고 끝까지 안 바뀐다.
  *
- * **같은 심부름은 하루에 한 번만.** 자동 배치가 없으니 이 규칙도
- * 여기 하나에만 있으면 된다 — 손으로 뚫을 수 있는 문을 남기지 않는다.
+ * **같은 심부름은 한 번에 한 장만** 붙는다. 끝나거나 시간이 지나면 그날
+ * 다시 낼 수 있다.
  */
 export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: string; to: TileId }>(async (req) => {
   requireHost(req.auth)
@@ -188,10 +188,15 @@ export const hostPostErrand = onCall<{ gameId: string; specId: string; boardId: 
 
   const all = await postedOf(gameId).get()
   const rows = all.docs.map((d) => d.data() as ErrandDoc)
-  // 연습 때 낸 심부름은 0 일째다 — DAY 1 에 같은 심부름을 다시 낼 수 있다
+  // 연습 때 낸 심부름은 0 일째다(기록용)
   const postDay = game.practice ? 0 : game.day
-  if (rows.some((e) => e.specId === spec.id && e.day === postDay)) {
-    throw new HttpsError('failed-precondition', '오늘 이미 나간 심부름이다.')
+  /*
+   * **같은 심부름은 붙어 있는 동안만 막는다.** 끝났거나 시간이 지났으면
+   * 그날 다시 낼 수 있다. 붙어 있는 것과 겹치면 같은 물건이 같은 칸에
+   * 둘 놓인다(물건 자리는 심부름마다 정해져 있다)
+   */
+  if (rows.some((e) => e.specId === spec.id && liveOf(e))) {
+    throw new HttpsError('failed-precondition', '같은 심부름이 아직 게시판에 붙어 있다.')
   }
   const onBoard = rows.filter((e) => e.boardId === boardId && liveOf(e)).length
   if (onBoard >= ERRANDS_PER_BOARD) {

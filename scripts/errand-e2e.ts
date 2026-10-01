@@ -1,7 +1,7 @@
 // 심부름 — 붙이고, 받고, 나르고, 먼저 놓는다.
 //
 // 붙드는 것은 여섯이다.
-//   1. 운영자만 붙인다. 같은 심부름은 하루에 한 번, 게시판은 두 장까지
+//   1. 운영자만 붙인다. 같은 심부름은 붙어 있는 동안 한 장, 끝나면 다시. 게시판은 두 장까지
 //   2. 게시판 앞에 서야 받는다. 한 사람에 하나
 //   3. **남이 무엇을 받았는지는 어느 몫에도 없다** — 경주다
 //   4. **물건은 받은 사람에게만 있다** — 남의 응답에는 없다
@@ -143,7 +143,7 @@ async function main() {
   check(String(posted.board) === BOARD.name, '고른 게시판에 붙었다', String(posted.board))
   check(String(posted.to) === '양호실', '**도착지는 붙일 때 고른 방이다**', String(posted.to))
   const again = await call('hostPostErrand', host, { gameId: game, specId: 'beaker', boardId: BOARD.id, to: TO })
-  check(!again.ok, '**같은 심부름은 하루에 한 번**', again.ok ? '두 번 붙었다' : (again.err ?? ''))
+  check(!again.ok, '**붙어 있는 동안 같은 심부름은 못 붙인다**', again.ok ? '두 번 붙었다' : (again.err ?? ''))
   await must('hostPostErrand', host, { gameId: game, specId: 'broom', boardId: BOARD.id, to: 'auditorium' })
   const full = await call('hostPostErrand', host, { gameId: game, specId: 'tray', boardId: BOARD.id, to: 'hallway' })
   check(!full.ok, '게시판은 두 장까지다', full.ok ? '세 장 붙었다' : (full.err ?? ''))
@@ -284,6 +284,10 @@ async function main() {
   )
   const vLost = await viewOf(game, youUid)
   check(mapOf(vLost.myErrand).thing === undefined, '늦은 쪽 손에서 물건이 사라진다')
+
+  // **끝난 심부름은 그날 다시 낼 수 있다** — 붙어 있는 동안만 막는다
+  const reposted = await call('hostPostErrand', host, { gameId: game, specId: 'beaker', boardId: BOARD.id, to: TO })
+  check(reposted.ok, '**끝난 심부름은 같은 날 다시 붙인다**', reposted.ok ? '' : (reposted.err ?? ''))
 
   console.log('\n── 포기 ──')
   // **둘 다 게시판 앞에 세운다.** 한쪽만 세우면 받기에서 막힌다.
