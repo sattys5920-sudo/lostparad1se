@@ -394,16 +394,19 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
     const aTeamRef = ref.collection('teams').doc(aDoc.team as string)
     const bTeamRef = ref.collection('teams').doc(bDoc.team as string)
     const take = (q: FirebaseFirestore.Query, n: number) => (n > 0 ? tx.get(q.limit(n)).then((x) => x.docs) : Promise.resolve([]))
-    const [aTeamSnap, bTeamSnap, aSlips, bSlips, aBots, bBots] = await Promise.all([
+    const [aTeamSnap, bTeamSnap, aSlips, bSlips, aHeld, bHeld] = await Promise.all([
       tx.get(aTeamRef),
       tx.get(bTeamRef),
       // 쪽지는 **지금 손에 든 것**에서 넘긴다. 올릴 때 골라 둔 것을 쓰면, 그새
       // 바닥에 둔 쪽지가 남의 손에서 끌려온다
       take(slipsOf(gameId).where('heldBy', '==', d.aId), d.a.stake.slips),
       take(slipsOf(gameId).where('heldBy', '==', d.bId), d.b.stake.slips),
-      take(ref.collection('robots').where('carriedBy', '==', d.aId), d.a.stake.robots),
-      take(ref.collection('robots').where('carriedBy', '==', d.bId), d.b.stake.robots),
+      // 든 로봇은 **전부** 읽는다 — 내놓을 것과 받는 쪽 손의 자리를 한 번에 센다
+      tx.get(ref.collection('robots').where('carriedBy', '==', d.aId)).then((x) => x.docs),
+      tx.get(ref.collection('robots').where('carriedBy', '==', d.bId)).then((x) => x.docs),
     ])
+    const aBots = aHeld.slice(0, d.a.stake.robots)
+    const bBots = bHeld.slice(0, d.b.stake.robots)
     const aPurse = purseOf(aTeamSnap.data() as TeamDoc | undefined)
     const bPurse = purseOf(bTeamSnap.data() as TeamDoc | undefined)
     const have = (p: PawnDoc, purse: { knowledge: number }, slips: number, robots: number): Holdings => ({
@@ -420,6 +423,18 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
       const why = `${aShort ? '상대' : '우리'} 쪽 ${SHORT_MESSAGE[(aShort ?? bShort) as never]}`
       tx.update(dealRef, { status: 'open', why, 'a.ready': false, 'b.ready': false })
       return { short: why as string }
+    }
+    // **손에 드는 로봇은 무조건 두 기까지** — 성립하는 순간의 손으로 다시 센다
+    if (aBots.length > 0 || bBots.length > 0) {
+      const caps = { carryCap: MAX_CARRIED_ROBOTS }
+      const swapNo =
+        robotSwapNo({ ...caps, carried: aHeld.length, gives: aBots.length, gets: bBots.length }) ??
+        robotSwapNo({ ...caps, carried: bHeld.length, gives: bBots.length, gets: aBots.length })
+      if (swapNo) {
+        const why = ROBOT_SWAP_MESSAGE[swapNo]
+        tx.update(dealRef, { status: 'open', why, 'a.ready': false, 'b.ready': false })
+        return { short: why as string }
+      }
     }
 
     /*

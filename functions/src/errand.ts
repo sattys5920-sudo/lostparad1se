@@ -240,7 +240,12 @@ export const takeErrand = onCall<{ gameId: string; errandId: string }>(async (re
 
   const ref = postedOf(gameId).doc(errandId)
   await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref)
+    // **한 사람 한 건 — 무조건.** 붙은 심부름 전부를 트랜잭션 안에서 다시 본다.
+    // 두 장을 동시에 받으려 해도 한쪽이 쓴 문서를 다른 쪽이 읽었으므로 다시 돌아와 걸린다
+    const [snap, live] = await Promise.all([tx.get(ref), tx.get(postedOf(gameId).where('expired', '==', false))])
+    if (live.docs.some((d) => d.id !== errandId && liveOf(d.data() as ErrandDoc) && (d.data() as ErrandDoc).takers[uid])) {
+      throw new HttpsError('failed-precondition', `한 번에 ${ERRANDS_PER_PERSON} 개까지다.`)
+    }
     if (!snap.exists) throw new HttpsError('not-found', '그런 심부름이 없다.')
     const e = snap.data() as ErrandDoc
     if (!liveOf(e)) throw new HttpsError('failed-precondition', '이미 끝난 심부름이다.')

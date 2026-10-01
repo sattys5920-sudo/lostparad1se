@@ -9,7 +9,7 @@
 // 따라잡기가 지날 때마다 익은 것을 처리한다 — 시계가 따로 돌지 않고
 // 사람이 서버를 두드릴 때 밀린 것이 따라잡히는, 이 판의 방식이다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { MADE_NO, landsToOwner, whyNotTake, type MadeDoc } from '../../shared/rules/made'
 import { MAX_CARRIED_ROBOTS, type PendingResearch } from '../../shared/rules/occupy'
@@ -33,27 +33,27 @@ export interface Brewing extends PendingResearch {
   doneAtMs: number
 }
 
-interface RobotRow {
-  id: string
-  team: TeamId
-  tileId: TileId
-  carriedBy: string | null
-  placedBy?: string | null
-}
+
+/** 새 로봇 이름 */
+const newBotId = () => `bot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 
 /**
- * 그 사람이 로봇을 하나 더 받을 수 있는가. **받은 로봇은 손에 든다** —
- * 방에 놓이는 것이 아니니 드는 한도만 본다.
+ * **손에 드는 로봇은 무조건 두 기까지.** 트랜잭션 안에서 지금 든 것을 세고,
+ * 사람 문서도 같이 건드린다 — 같은 사람에게 로봇이 동시에 둘 들어오면
+ * 한쪽이 쓴 사람 문서를 다른 쪽이 읽었으므로 다시 돌아와 센다.
+ * (든 로봇을 세는 질의만으로는 새로 생기는 문서를 못 막는다)
  */
-async function handsFor(gameId: string, holder: string): Promise<boolean> {
-  const rows = (await robotsOf(gameId).get()).docs.map((d) => d.data() as RobotRow)
-  return rows.filter((r) => r.carriedBy === holder).length < MAX_CARRIED_ROBOTS
+async function readHands(tx: FirebaseFirestore.Transaction, gameId: string, holder: string) {
+  const pawnRef = gameRef(gameId).collection('pawns').doc(holder)
+  const [pawn, held] = await Promise.all([tx.get(pawnRef), tx.get(robotsOf(gameId).where('carriedBy', '==', holder))])
+  return { pawnRef, pawn: pawn.data() as PawnDoc | undefined, carried: held.size }
 }
 
-/** 로봇 하나를 낸다. **그 사람이 들고 간다** — 부르는 쪽이 handsFor 로 먼저 본다 */
-async function bornFor(gameId: string, team: TeamId, tileId: TileId, holder: string): Promise<string> {
-  const id = `bot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-  await robotsOf(gameId).doc(id).set({ id, team, tileId, carriedBy: holder, placedBy: null })
+/** readHands 뒤에 부른다. 로봇 하나를 그 사람 손에 쥐여 준다 */
+function giveBot(tx: FirebaseFirestore.Transaction, gameId: string, pawnRef: FirebaseFirestore.DocumentReference, team: TeamId, tileId: TileId, holder: string): string {
+  const id = newBotId()
+  tx.set(robotsOf(gameId).doc(id), { id, team, tileId, carriedBy: holder, placedBy: null })
+  tx.update(pawnRef, { handsRev: FieldValue.increment(1) })
   return id
 }
 
@@ -106,34 +106,36 @@ export async function landResearch(gameId: string, atMs?: number): Promise<void>
   for (const r of ripe) await notify(gameId, [r.playerId], 'made', `made:research:${r.playerId}:${r.doneAtMs}`)
 
   for (const r of ripe) {
-    const pawn = (await gameRef(gameId).collection('pawns').doc(r.playerId).get()).data() as PawnDoc | undefined
-    const team = pawn?.team
-    // 본인이 그 연구실에 서 있으면 바로 받는다
-    if (pawn && team && landsToOwner(pawn.tileId, r.tileId)) {
-      if (await handsFor(gameId, r.playerId)) {
-        const id = await bornFor(gameId, team, r.tileId, r.playerId)
-        await note(gameId, 'robotBorn', nowMs, { id: r.playerId, team }, {
-          tileId: r.tileId,
-          subjectId: id,
-          ownerId: r.playerId,
-        })
-        await researchTierUp(gameId, team)
-        continue
+    // 본인이 그 연구실에 서 있고 손에 자리가 있으면 바로 받는다. 아니면 완성품으로 놓인다 —
+    // 이 페이즈 동안은 건 사람만 가져간다
+    const landed = await db.runTransaction(async (tx) => {
+      const { pawnRef, pawn, carried } = await readHands(tx, gameId, r.playerId)
+      const team = pawn?.team as TeamId | undefined
+      if (pawn && team && landsToOwner(pawn.tileId, r.tileId) && carried < MAX_CARRIED_ROBOTS) {
+        return { id: giveBot(tx, gameId, pawnRef, team, r.tileId, r.playerId), team }
       }
       // 손이 찼으면(두 기) 받지 못한다. 물건은 그대로 놓인다 — 하나 놓고 와서 가져간다
+      const doc: MadeDoc = {
+        tileId: r.tileId,
+        byPlayerId: r.playerId,
+        byTeam: team ?? ('A' as TeamId),
+        atMs: nowMs,
+        // 이 페이즈 동안은 건 사람 것이다
+        phaseNo: game.phaseNow!.no,
+        // 치워질 때까지 이 기계는 찼다 — 한 대에 한 건
+        ...(typeof r.machine === 'number' ? { machine: r.machine } : {}),
+      }
+      tx.set(madeOf(gameId).doc(), doc)
+      return { id: null, team }
+    })
+    if (landed.id && landed.team) {
+      await note(gameId, 'robotBorn', nowMs, { id: r.playerId, team: landed.team }, {
+        tileId: r.tileId,
+        subjectId: landed.id,
+        ownerId: r.playerId,
+      })
+      await researchTierUp(gameId, landed.team)
     }
-    // 못 받았다. 완성품으로 놓인다 — 이 페이즈 동안은 건 사람만 가져간다
-    const doc: MadeDoc = {
-      tileId: r.tileId,
-      byPlayerId: r.playerId,
-      byTeam: team ?? ('A' as TeamId),
-      atMs: nowMs,
-      // 이 페이즈 동안은 건 사람 것이다
-      phaseNo: game.phaseNow.no,
-      // 치워질 때까지 이 기계는 찼다 — 한 대에 한 건
-      ...(typeof r.machine === 'number' ? { machine: r.machine } : {}),
-    }
-    await madeOf(gameId).add(doc)
   }
 
   await refreshViews(gameId)
@@ -160,11 +162,10 @@ export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) =
   // 덫에 걸렸거나 하던 일이 안 끝났으면 못 가져간다
   requireFree(pawn, nowMs)
 
-  const bots = (await robotsOf(gameId).get()).docs.map((d) => d.data() as RobotRow)
   const ref = madeOf(gameId).doc(madeId)
 
-  const made = await db.runTransaction<MadeDoc>(async (tx) => {
-    const d = await tx.get(ref)
+  const { made, id } = await db.runTransaction(async (tx) => {
+    const [d, hands] = await Promise.all([tx.get(ref), readHands(tx, gameId, uid)])
     if (!d.exists) throw new HttpsError('not-found', '그런 완성품이 없다.')
     const m = d.data() as MadeDoc
     const no = whyNotTake({
@@ -173,16 +174,16 @@ export const takeMade = onCall<{ gameId: string; madeId: string }>(async (req) =
       mine: m.byPlayerId === uid,
       here: pawn.tileId,
       tileId: m.tileId,
-      carried: bots.filter((r) => r.carriedBy === uid).length,
+      // **트랜잭션 안에서 센다** — 두 개를 동시에 가져가도 두 기를 못 넘는다
+      carried: hands.carried,
       carryCap: MAX_CARRIED_ROBOTS,
     })
     if (no) throw new HttpsError('failed-precondition', `${MADE_NO[no]}.`)
     // **먼저 가져간 사람만 가진다.** 둘이 같은 것을 노리면 여기서 갈린다
     tx.delete(ref)
-    return m
+    return { made: m, id: giveBot(tx, gameId, hands.pawnRef, pawn.team as TeamId, m.tileId, uid) }
   })
 
-  const id = await bornFor(gameId, pawn.team, made.tileId, uid)
   await note(gameId, 'robotBorn', nowMs, { id: uid, team: pawn.team }, {
     tileId: made.tileId,
     subjectId: id,

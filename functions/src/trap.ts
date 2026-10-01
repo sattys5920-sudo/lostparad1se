@@ -22,7 +22,7 @@ import {
   whyNotTakeTrap,
 } from '../../shared/rules/trap'
 import type { Cell } from '../../shared/rules/board'
-import type { PawnDoc, TileDoc } from '../../shared/model'
+import type { GameDoc, PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import { freshNow, requireFree } from './turn'
 import { refreshViews } from './views'
@@ -98,7 +98,12 @@ export const commissionTrap = onCall<{ gameId: string; maker: number }>(async (r
   const techRef = ref.collection('tiles').doc(TECH_TILE)
 
   const count = await db.runTransaction(async (tx) => {
-    const [job, meSnap, tech] = await Promise.all([tx.get(jobRef), tx.get(meRef), tx.get(techRef)])
+    const [job, meSnap, tech, gNow] = await Promise.all([tx.get(jobRef), tx.get(meRef), tx.get(techRef), tx.get(ref)])
+    // **닫히는 순간과 엇갈리면 돈을 안 받고 거절한다**
+    const g = gNow.data() as (GameDoc & { closingNo?: number }) | undefined
+    if (!g?.phaseNow?.open || g.phaseNow.no !== phaseNo || g.closingNo === phaseNo) {
+      throw new HttpsError('failed-precondition', '페이즈에만 만들 수 있다.')
+    }
     // 한 제조기에 한 건. 다 됐는데 안 찾아간 것도 자리를 차지한다
     if (job.exists) throw new HttpsError('failed-precondition', '이 제조기는 돌고 있다.')
     // **맡긴 사람 돈에서 낸다.** 돈은 사람 것이다

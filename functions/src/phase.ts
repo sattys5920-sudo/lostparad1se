@@ -1311,7 +1311,11 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * **페이즈 중에만 문다.** 자유 시간에는 덫 위를 지나가도 아무 일이
    * 없고 덫도 그대로 남는다 — 덫은 점령전의 물건이다.
    */
-  const snared = game.phaseNow?.open ? await springTrap(gameId, p.team as TeamId, [...via, { x, y }]) : null
+  // **지금 페이즈인지는 쓰기 직전에 다시 읽는다.** 위에서 읽은 판은 닫히기 전 것일 수 있다 —
+  // 닫힌 뒤에 덫이 물거나 「나가는 5 분」에 묶이면 안 된다
+  const live = (await gameRef(gameId).get()).data() as (GameDoc & { closingNo?: number }) | undefined
+  const phaseLive = !!live?.phaseNow?.open && live.closingNo !== live.phaseNow.no
+  const snared = phaseLive ? await springTrap(gameId, p.team as TeamId, [...via, { x, y }]) : null
   if (snared) {
     const until = nowMs + SNARE_MINUTES * 60_000
     /*
@@ -1342,7 +1346,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 짝이다 — 나서는 것도 시간이 든다. 자유 시간에는 드나드는 데 시간이 없다
    */
   const leftRoom =
-    game.phaseNow?.open === true && !!p.at && p.tileId !== null && roomOfCell(p.at.x, p.at.y) === p.tileId && roomOfCell(x, y) === null
+    phaseLive && !!p.at && p.tileId !== null && roomOfCell(p.at.x, p.at.y) === p.tileId && roomOfCell(x, y) === null
   if (leftRoom) {
     const until = nowMs + EXIT_MINUTES * 60_000
     await ref.update({ busyUntilMs: until, busyKind: '방에서 나가는' })

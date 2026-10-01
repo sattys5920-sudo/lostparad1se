@@ -15,7 +15,7 @@ import { LOCK_MS, PAPER_MAX, countOf, isHandItem, takeItem, type ItemKind, type 
 import { TILE_BY_ID, canRoamTo, isAlleyCell, isHallCell, roomOfCell, type TileId } from '../../shared/rules/board'
 import { canHoldFlags } from '../../shared/rules/flag'
 import { trapsOf, type TrapSetDoc } from './trap'
-import type { PawnDoc, TileDoc } from '../../shared/model'
+import type { GameDoc, PawnDoc, TileDoc } from '../../shared/model'
 import type { TeamId } from '../../shared/rules/v2'
 import type { SlipDoc } from './slips'
 import { freshNow, refuseIfSnared } from './turn'
@@ -131,7 +131,14 @@ export const useItem = onCall<UseInput>(async (req) => {
       if (me.at && roomOfCell(me.at.x, me.at.y) !== here) throw new HttpsError('failed-precondition', '잠글 방 안에 서야 한다.')
       if (!canHoldFlags(here as TileId)) throw new HttpsError('failed-precondition', `${TILE_BY_ID[here as TileId].name}은 잠글 수 없다.`)
       const tileRef = ref.collection('tiles').doc(here as TileId)
-      const t = (await tx.get(tileRef)).data() as TileDoc | undefined
+      // **트랜잭션 안에서 페이즈를 다시 본다.** 닫히는 순간 건 자물쇠가 다음 페이즈까지 남지 않게
+      const [t, gNow] = await Promise.all([
+        tx.get(tileRef).then((x) => x.data() as TileDoc | undefined),
+        tx.get(ref).then((x) => x.data() as (GameDoc & { closingNo?: number }) | undefined),
+      ])
+      if (!gNow?.phaseNow?.open || gNow.closingNo === gNow.phaseNow.no || gNow.phaseNow.no !== game.phaseNow.no) {
+        throw new HttpsError('failed-precondition', '자물쇠는 점령전 중에만 걸 수 있다.')
+      }
       const until = t?.lockUntilMs ?? 0
       // **덮어 걸 수 없다.** 남의 자물쇠 위에 내 것을 걸 수 있으면
       // 잠갔다는 사실이 아무 뜻이 없고, 우리 것 위에 또 걸면 한

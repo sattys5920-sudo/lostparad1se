@@ -60,7 +60,14 @@ export async function liveDealOf(gameId: string, uid: string): Promise<string | 
 
 /** 거래를 접는다. **아무것도 안 옮긴다** — 올린 것은 선언일 뿐이라 돌아갈 것이 없다. */
 export async function endDeal(gameId: string, dealId: string, why: string): Promise<void> {
-  await dealsOf(gameId).doc(dealId).update({ status: 'gone', why })
+  // **살아 있을 때만 접는다.** 막 성립한 거래를 「서로 떨어졌다」로 덮으면
+  // 물건은 오갔는데 화면에는 무산으로 보인다
+  const ref = dealsOf(gameId).doc(dealId)
+  await db.runTransaction(async (tx) => {
+    const now = (await tx.get(ref)).data() as DealDoc | undefined
+    if (!now || !LIVE.includes(now.status)) return
+    tx.update(ref, { status: 'gone', why })
+  })
 }
 
 /**
@@ -87,8 +94,7 @@ export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
   const at = new Map<string, Cell | null>()
   for (const d of pawns.docs) at.set(d.id, (d.data() as PawnDoc).at ?? null)
 
-  const batch = db.batch()
-  let any = false
+  const ending: { id: string; why: string }[] = []
   for (const d of snap.docs) {
     const deal = d.data() as DealDoc
     let why: string | null = null
@@ -104,8 +110,7 @@ export async function sweepDeals(gameId: string, nowMs: number): Promise<void> {
       why = '서로 떨어졌다.'
     }
     if (!why) continue
-    batch.update(d.ref, { status: 'gone', why })
-    any = true
+    ending.push({ id: d.id, why })
   }
-  if (any) await batch.commit()
+  for (const e of ending) await endDeal(gameId, e.id, e.why)
 }

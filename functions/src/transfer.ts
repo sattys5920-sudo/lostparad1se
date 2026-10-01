@@ -116,7 +116,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   const ref = asksOf(gameId).doc(askId)
   const gRef = gameRef(gameId)
 
-  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | 'lastOne' | 'phase' | 'expired' | null>(async (tx) => {
+  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | 'lastOne' | 'phase' | 'expired' | 'stale' | null>(async (tx) => {
     const [snap, gSnap, carried, placed, traps] = await Promise.all([
       tx.get(ref),
       tx.get(gRef),
@@ -138,6 +138,15 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
       return null
     }
     const gd = gSnap.data() as GameDoc
+    /*
+     * **답하는 순간 다시 본다.** 그사이 둘 중 하나가 투명인간이 됐거나, 부른
+     * 사람이 다른 분단으로 옮겼으면 그 제안은 없던 일이다
+     */
+    const byNow = gd.seats.find((s) => s.playerId === ask.byId)
+    if (gd.invisibleId === uid || gd.invisibleId === ask.byId || byNow?.team !== ask.byTeam) {
+      tx.update(ref, { status: 'gone' })
+      return 'stale' as const
+    }
     // **이적은 자유 시간에만.** 묻는 사이에 점령전이 열리면 그 제안은 없던
     // 일이다(openPhase 가 이미 접는다). 여기서는 그 틈에 들어온 답을 막는다
     if (gd.phaseNow?.open === true) {
@@ -171,6 +180,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   if (moved === 'lastOne') throw new HttpsError('failed-precondition', `${TRANSFER_NO.lastOne}.`)
   if (moved === 'phase') throw new HttpsError('failed-precondition', `${TRANSFER_NO.phase}.`)
   if (moved === 'expired') throw new HttpsError('failed-precondition', '시간이 지났다.')
+  if (moved === 'stale') throw new HttpsError('failed-precondition', '그 제안은 없던 일이 됐다.')
   await logSecret(gameId, 'transferAnswered', nowMs, uid, { askId, accept: moved !== null, ...(moved ? { team: moved.to } : {}) }, { day: game.day })
   if (moved) {
     // 개인 미션의 「그 사건이 일어난 시점의 팀」이 이 줄을 되짚는다 —

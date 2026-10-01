@@ -156,7 +156,15 @@ export function useGame(gameId: string | null): GameState {
           stopTeam = onSnapshot(
             doc(base, 'teams', mine),
             (d) => setState((s) => ({ ...s, teams: { [mine]: d.data() as TeamDoc } })),
-            fail,
+            /*
+             * **거절돼도 판 화면은 그대로 둔다.** 이적하는 순간 옛 분단 문서는
+             * 못 읽게 된다 — 그 칸만 비우고, 다음 판 문서가 오면 지금 분단을
+             * 다시 청한다. 이 구독 하나 때문에 화면 전체가 오류로 바뀌면 안 된다
+             */
+            () => {
+              if (watching === mine) watching = null
+              setState((s) => ({ ...s, teams: {} }))
+            },
           )
         }, fail),
       )
