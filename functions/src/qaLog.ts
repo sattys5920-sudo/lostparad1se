@@ -177,6 +177,12 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'vote': return '표 한 장'
     case 'errandDone': return `${who} 심부름 끝 · +${String(d.coins ?? '')} 코인 (${room})`
     case 'devClock': return `시계 맞춤 · ${String(d.speed ?? '')} 배속`
+    case 'errandPickUp': return `${who} 심부름 물건 집음 · ${String(d.thing ?? '')}${room ? ` (${room})` : ''}`
+    case 'errandExpired': {
+      const took = ((d.takers as string[] | undefined) ?? []).map((id) => name(id)).join(', ')
+      const held = ((d.carrying as string[] | undefined) ?? []).map((id) => name(id)).join(', ')
+      return `심부름 시간 지남 · ${String(d.thing ?? '')} (${String(d.limitMin ?? '')} 분)${took ? ` · 받은 사람 ${took}` : ' · 받은 사람 없음'}${held ? ` · 들고 있던 사람 ${held}` : ''}`
+    }
     case 'invisibleCleared': return `${who} 투명인간 해제 · ${short(d.reason, 60)}`
     // ── qaLog 가 새로 적는 것 ──
     case 'phaseOpen': return `페이즈 ${String(d.no ?? '')} 열림 · DAY ${String(d.day ?? e.day)}${d.returned !== undefined ? ` · 돌아옴 ${String(d.returned)} 명` : ''}`

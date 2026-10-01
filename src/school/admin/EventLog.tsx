@@ -117,6 +117,10 @@ const KIND_LABEL: Record<string, string> = {
   reset: '되돌림',
   invisibleCleared: '투명 해제',
   errandDone: '심부름 끝',
+  errandTake: '심부름 받음',
+  errandQuit: '심부름 그만둠',
+  errandPickUp: '심부름 물건 집음',
+  errandExpired: '심부름 시간 지남',
 }
 const kindName = (k: string) => KIND_LABEL[k] ?? k
 

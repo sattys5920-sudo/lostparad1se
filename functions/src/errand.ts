@@ -36,7 +36,7 @@ import { freshNow, mustBeFreeTime, myPawn, refuseIfSnared } from './turn'
 import { note } from './records'
 import { refreshViews } from './views'
 import { gameRef, requireUid } from './index'
-import { qaLogOf } from './qaLog'
+import { logSecret, qaLogOf } from './qaLog'
 import { docId } from './ids'
 
 const db = getFirestore()
@@ -90,16 +90,28 @@ const liveOf = (d: ErrandDoc): boolean => d.doneBy === null && !d.expired
 export async function sweepErrands(gameId: string, nowMs: number): Promise<boolean> {
   const snap = await postedOf(gameId).where('expired', '==', false).get()
   const batch = db.batch()
-  let any = false
+  const gone: ErrandDoc[] = []
   for (const d of snap.docs) {
     const e = d.data() as ErrandDoc
     if (e.doneBy !== null) continue
     if (!isExpired(e.postedMs, e.limitMin, nowMs)) continue
     batch.update(d.ref, { expired: true, takers: {} })
-    any = true
+    gone.push(e)
   }
-  if (any) await batch.commit()
-  return any
+  if (gone.length === 0) return false
+  await batch.commit()
+  // **운영자 로그에 남긴다** — 받은 사람 목록은 여기서 비워지므로, 누가 들고 있었는지를 지금 적는다
+  for (const e of gone) {
+    const takers = Object.entries(e.takers ?? {})
+    await logSecret(gameId, 'errandExpired', nowMs, null, {
+      thing: e.thing,
+      limitMin: e.limitMin,
+      postedMs: e.postedMs,
+      takers: takers.map(([id]) => id),
+      carrying: takers.filter(([, t]) => t.carrying).map(([id]) => id),
+    })
+  }
+  return true
 }
 
 /** 내가 지금 받아 둔 심부름. 없으면 null. */
@@ -292,6 +304,7 @@ export const pickUpThing = onCall<{ gameId: string }>(async (req) => {
     throw new HttpsError('failed-precondition', '물건 옆에 서야 집는다.')
   }
   await postedOf(gameId).doc(mine.id).update({ [`takers.${uid}.carrying`]: true })
+  await logSecret(gameId, 'errandPickUp', nowMs, uid, { thing: mine.doc.thing }, { tileId: mine.doc.from })
   await refreshViews(gameId)
   return { carrying: mine.doc.thing }
 })
