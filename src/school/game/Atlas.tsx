@@ -722,7 +722,11 @@ export function FullMap({
                 {label.length > 0 && <span className="sc-at__nm">{label}</span>}
                 {/* **가리는 것은 머릿수뿐이다.** 이름도 정원도 차지한
                     팀도 판에 드러난 것이라 처음부터 보인다 */}
-                {r.count !== null ? <Seats room={r} /> : <span className="sc-at__q">?</span>}
+                {r.count !== null ? (
+                  <Seats room={r} />
+                ) : (
+                  <span className="sc-at__q">{r.open ? '?' : `? / ${r.capacity}`}</span>
+                )}
                 {KIND_DOT[r.kind] && <i className={`sc-at__kind ${KIND_DOT[r.kind]}`} />}
                 {r.id === facts.here && <i className="sc-at__me" />}
               </button>
@@ -786,6 +790,10 @@ function RoomSheet({
               '모른다'
             )}
           </dd>
+        </div>
+        <div>
+          <dt>정원</dt>
+          <dd>{room.open ? '없다' : `${room.capacity} 명`}</dd>
         </div>
       </dl>
       <ul className="sc-at__can">
