@@ -19,7 +19,10 @@ export interface CropSpec {
   name: string
   /** 자판기 매입가. 흥정은 없다. */
   price: number
-  /** 다 자라는 데 걸리는 시간(게임 시계, 시간 단위). 이 사이에서 뽑는다. */
+  /**
+   * 다 자라는 데 걸리는 시간(게임 시계, **분 단위**). 이 사이에서 뽑는다.
+   * 전체가 10 분 ~ 5 시간 안이다 — 시간 단위(1~12 시간)일 때는 연습 한 판 안에 열매를 못 봤다.
+   */
   growMin: number
   growMax: number
   /**
@@ -42,26 +45,26 @@ export interface CropSpec {
 }
 
 export const CROPS: readonly CropSpec[] = [
-  { id: 'potato', name: '감자', price: 1, growMin: 1, growMax: 2, weight: 6, color: '#b08a52' },
-  { id: 'radish', name: '무', price: 1, growMin: 1, growMax: 2, weight: 6, color: '#e6ecef' },
-  { id: 'lettuce', name: '상추', price: 1, growMin: 1, growMax: 3, weight: 6, color: '#7fbf5a' },
-  { id: 'tomato', name: '방울토마토', price: 2, growMin: 2, growMax: 3, weight: 6, color: '#d8483f' },
-  { id: 'pepper', name: '고추', price: 2, growMin: 2, growMax: 4, weight: 6, color: '#e0562f' },
-  { id: 'strawberry', name: '딸기', price: 2, growMin: 2, growMax: 4, weight: 6, color: '#e0455f' },
-  { id: 'carrot', name: '당근', price: 2, growMin: 2, growMax: 5, weight: 6, color: '#e08a35' },
-  { id: 'corn', name: '옥수수', price: 2, growMin: 3, growMax: 5, weight: 6, color: '#e8c85a' },
-  { id: 'pumpkin', name: '호박', price: 3, growMin: 3, growMax: 6, weight: 6, color: '#e09040' },
-  { id: 'sunflower', name: '해바라기', price: 3, growMin: 3, growMax: 6, weight: 6, color: '#f0c93a' },
-  { id: 'watermelon', name: '수박', price: 3, growMin: 4, growMax: 7, weight: 6, color: '#3f9e5a' },
-  { id: 'sweetPotato', name: '고구마', price: 3, growMin: 4, growMax: 8, weight: 6, color: '#a8506a' },
-  { id: 'blackTulip', name: '검은 튤립', price: 4, growMin: 4, growMax: 8, weight: 6, color: '#4a4260' },
-  { id: 'frostMushroom', name: '서리버섯', price: 4, growMin: 2, growMax: 9, weight: 6, color: '#bcd4e0' },
-  { id: 'iceFlower', name: '얼음꽃', price: 4, growMin: 5, growMax: 9, weight: 6, color: '#9fd4e8' },
+  { id: 'potato', name: '감자', price: 1, growMin: 10, growMax: 35, weight: 6, color: '#b08a52' },
+  { id: 'radish', name: '무', price: 1, growMin: 10, growMax: 35, weight: 6, color: '#e6ecef' },
+  { id: 'lettuce', name: '상추', price: 1, growMin: 10, growMax: 65, weight: 6, color: '#7fbf5a' },
+  { id: 'tomato', name: '방울토마토', price: 2, growMin: 35, growMax: 65, weight: 6, color: '#d8483f' },
+  { id: 'pepper', name: '고추', price: 2, growMin: 35, growMax: 90, weight: 6, color: '#e0562f' },
+  { id: 'strawberry', name: '딸기', price: 2, growMin: 35, growMax: 90, weight: 6, color: '#e0455f' },
+  { id: 'carrot', name: '당근', price: 2, growMin: 35, growMax: 115, weight: 6, color: '#e08a35' },
+  { id: 'corn', name: '옥수수', price: 2, growMin: 65, growMax: 115, weight: 6, color: '#e8c85a' },
+  { id: 'pumpkin', name: '호박', price: 3, growMin: 65, growMax: 140, weight: 6, color: '#e09040' },
+  { id: 'sunflower', name: '해바라기', price: 3, growMin: 65, growMax: 140, weight: 6, color: '#f0c93a' },
+  { id: 'watermelon', name: '수박', price: 3, growMin: 90, growMax: 170, weight: 6, color: '#3f9e5a' },
+  { id: 'sweetPotato', name: '고구마', price: 3, growMin: 90, growMax: 195, weight: 6, color: '#a8506a' },
+  { id: 'blackTulip', name: '검은 튤립', price: 4, growMin: 90, growMax: 195, weight: 6, color: '#4a4260' },
+  { id: 'frostMushroom', name: '서리버섯', price: 4, growMin: 35, growMax: 220, weight: 6, color: '#bcd4e0' },
+  { id: 'iceFlower', name: '얼음꽃', price: 4, growMin: 115, growMax: 220, weight: 6, color: '#9fd4e8' },
   // ── 여기부터 잘 안 나온다 ────────────────────────────────────
-  { id: 'nightGlory', name: '밤에 피는 나팔꽃', price: 4, growMin: 6, growMax: 10, weight: 1, color: '#6a5bb5' },
-  { id: 'paperFlower', name: '종이꽃', price: 5, growMin: 6, growMax: 11, weight: 1, color: '#efe6d2' },
-  { id: 'namelessGrass', name: '이름 없는 풀', price: 5, growMin: 1, growMax: 12, weight: 1, color: '#8a9a7a' },
-  { id: 'glassBerry', name: '유리 열매', price: 6, growMin: 8, growMax: 12, weight: 1, color: '#bfe4e8' },
+  { id: 'nightGlory', name: '밤에 피는 나팔꽃', price: 4, growMin: 140, growMax: 245, weight: 1, color: '#6a5bb5' },
+  { id: 'paperFlower', name: '종이꽃', price: 5, growMin: 140, growMax: 275, weight: 1, color: '#efe6d2' },
+  { id: 'namelessGrass', name: '이름 없는 풀', price: 5, growMin: 10, growMax: 300, weight: 1, color: '#8a9a7a' },
+  { id: 'glassBerry', name: '유리 열매', price: 6, growMin: 195, growMax: 300, weight: 1, color: '#bfe4e8' },
   /**
    * **판 전체에서 두 번뿐이다.**
    *
@@ -69,7 +72,7 @@ export const CROPS: readonly CropSpec[] = [
    * 흔하면 그냥 비싼 작물이고, 두 번뿐이라 그 자리에 있었다는 것이
    * 이야기가 된다.
    */
-  { id: 'hers', name: '그 애가 심은 것', price: 8, growMin: 10, growMax: 12, weight: 1, maxPerGame: 2, color: '#f0d68a' },
+  { id: 'hers', name: '그 애가 심은 것', price: 8, growMin: 245, growMax: 300, weight: 1, maxPerGame: 2, color: '#f0d68a' },
 ]
 
 export const CROP_BY_ID: Record<string, CropSpec> = Object.fromEntries(CROPS.map((c) => [c.id, c]))
@@ -138,6 +141,6 @@ export function pickCrop(roll: number, usedCounts: Readonly<Record<string, numbe
   return pool[pool.length - 1] as CropSpec
 }
 
-/** 자라는 데 걸릴 시간을 뽑는다. **범위 안에서 한 번**, 그리고 안 바뀐다. */
-export const growHoursOf = (spec: CropSpec, roll: number): number =>
+/** 자라는 데 걸릴 시간(분)을 뽑는다. **범위 안에서 한 번**, 그리고 안 바뀐다. */
+export const growMinutesOf = (spec: CropSpec, roll: number): number =>
   spec.growMin + Math.floor(roll * (spec.growMax - spec.growMin + 1))

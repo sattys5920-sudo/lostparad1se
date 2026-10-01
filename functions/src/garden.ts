@@ -29,7 +29,7 @@ import {
   CROP_BY_ID,
   GARDEN_TILE,
   POT_CELLS,
-  growHoursOf,
+  growMinutesOf,
   pickCrop,
   stageOf,
   type PotStage,
@@ -48,7 +48,7 @@ const potsOf = (gameId: string) => gameRef(gameId).collection('pots')
 /** 판 전체에서 무엇이 몇 번 나왔나. **「그 애가 심은 것」을 세는 자리다.** */
 const tallyRef = (gameId: string) => gameRef(gameId).collection('secret').doc('garden')
 
-const HOUR_MS = 3_600_000
+const MINUTE_MS = 60_000
 
 /** 화분 한 자리. 비어 있으면 cropId 가 null 이다. */
 export interface PotDoc {
@@ -139,7 +139,7 @@ export const hostPlant = onCall<{ gameId: string; pot: number; cropId?: string }
       if (wanted !== null) throw new HttpsError('failed-precondition', `${spec.name}은 이 판에 다 나갔다.`)
       spec = pickCrop(rollOf(seed, 3), used)
     }
-    const growMs = growHoursOf(spec, rollOf(seed, 2)) * HOUR_MS
+    const growMs = growMinutesOf(spec, rollOf(seed, 2)) * MINUTE_MS
     planted = spec.name
     tx.set(ref, { cropId: spec.id, plantedMs: nowMs, growMs, toldHers: false })
     tx.set(tallyRef(gameId), { used: { ...used, [spec.id]: (used[spec.id] ?? 0) + 1 } })

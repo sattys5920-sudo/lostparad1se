@@ -6,7 +6,7 @@ import {
   CROP_BY_ID,
   GARDEN_TILE,
   POT_CELLS,
-  growHoursOf,
+  growMinutesOf,
   nameShows,
   pickCrop,
   stageOf,
@@ -22,6 +22,9 @@ describe('작물 표', () => {
     for (const c of CROPS) {
       expect(c.growMin, c.name).toBeGreaterThan(0)
       expect(c.growMax, c.name).toBeGreaterThanOrEqual(c.growMin)
+      // 10 분 ~ 5 시간
+      expect(c.growMin, c.name).toBeGreaterThanOrEqual(10)
+      expect(c.growMax, c.name).toBeLessThanOrEqual(300)
       expect(c.price, c.name).toBeGreaterThan(0)
     }
   })
@@ -68,7 +71,7 @@ describe('뽑기', () => {
   it('자라는 시간은 범위 안이다', () => {
     for (const c of CROPS) {
       for (const roll of [0, 0.5, 0.999]) {
-        const h = growHoursOf(c, roll)
+        const h = growMinutesOf(c, roll)
         expect(h, `${c.name} ${roll}`).toBeGreaterThanOrEqual(c.growMin)
         expect(h, `${c.name} ${roll}`).toBeLessThanOrEqual(c.growMax)
       }
