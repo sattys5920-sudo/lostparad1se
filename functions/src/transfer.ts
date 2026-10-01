@@ -108,7 +108,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   const ref = asksOf(gameId).doc(askId)
   const gRef = gameRef(gameId)
 
-  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | 'lastOne' | null>(async (tx) => {
+  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | 'lastOne' | 'phase' | null>(async (tx) => {
     const [snap, gSnap, carried, placed] = await Promise.all([
       tx.get(ref),
       tx.get(gRef),
@@ -127,13 +127,13 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
       tx.update(ref, { status: 'refused' })
       return null
     }
-    // 묻고 답하는 사이에 종이 칠 수 있다. 그때는 안 넘어간다 —
-    // 페이즈가 열린 뒤에 편이 바뀌면 그 판정이 사고가 된다
-    if (game.phaseNow?.open === true) {
-      tx.update(ref, { status: 'gone' })
-      throw new HttpsError('failed-precondition', `${TRANSFER_NO.phase}.`)
-    }
     const gd = gSnap.data() as GameDoc
+    // **이적은 자유 시간에만.** 묻는 사이에 점령전이 열리면 그 제안은 없던
+    // 일이다(openPhase 가 이미 접는다). 여기서는 그 틈에 들어온 답을 막는다
+    if (gd.phaseNow?.open === true) {
+      tx.update(ref, { status: 'gone' })
+      return 'phase' as const
+    }
     const seat = gd.seats.find((s) => s.playerId === uid)
     /*
      * **분단은 늘 넷이다 — 마지막 한 사람은 못 떠난다.** 묻는 순간에도
@@ -157,6 +157,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   })
 
   if (moved === 'lastOne') throw new HttpsError('failed-precondition', `${TRANSFER_NO.lastOne}.`)
+  if (moved === 'phase') throw new HttpsError('failed-precondition', `${TRANSFER_NO.phase}.`)
   await logSecret(gameId, 'transferAnswered', nowMs, uid, { askId, accept: moved !== null, ...(moved ? { team: moved.to } : {}) }, { day: game.day })
   if (moved) {
     // 개인 미션의 「그 사건이 일어난 시점의 팀」이 이 줄을 되짚는다 —

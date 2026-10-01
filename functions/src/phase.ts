@@ -322,10 +322,11 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   if (game.phaseNow?.open) throw new HttpsError('failed-precondition', '이미 열려 있다.')
 
   const ref = gameRef(gameId)
-  const [pawns, tiles, teams] = await Promise.all([
+  const [pawns, tiles, teams, asking] = await Promise.all([
     ref.collection('pawns').get(),
     ref.collection('tiles').get(),
     ref.collection('teams').get(),
+    ref.collection('transfers').where('status', '==', 'asking').get(),
   ])
   const owners: Partial<Record<TileId, TeamId | null>> = {}
   for (const d of tiles.docs) owners[d.id as TileId] = (d.data() as TileDoc).ownerTeam ?? null
@@ -339,6 +340,10 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
    * 끝난 자리에서 이어지듯, 페이즈도 자유 시간이 끝난 자리에서 이어진다.
    * 걷는 중인 사람(tileId === null)은 걷던 대로 도착한다.
    */
+
+  // **이적은 자유 시간에만.** 묻고 답하던 중에 종이 치면 그 제안은 없던
+  // 일이 된다 — 창이 닫히고, 다음 자유 시간에 다시 물어야 한다
+  for (const d of asking.docs) batch.update(d.ref, { status: 'gone' })
 
   // **이적은 answerTransfer 에서 바로 발효된다.** 수락한 자리에서 팀·
   // 완장이 즉시 바뀌므로, 여기서는 pawns 가 이미 지금 팀을 담고 있다.

@@ -212,8 +212,43 @@ async function main(): Promise<void> {
     '명단이 A팀으로 옮겨졌다 — 안개와 미션 채점이 이것을 본다',
   )
 
-  console.log('\n── 페이즈를 열고, 그 중에는 못 꺼낸다 ──')
+  console.log('\n── 묻는 중에 종이 치면 그 제안은 없던 일이 된다 ──')
+  // b 에게 B분단 사람이 묻고 있는 상황을 바로 적어 둔다(시간은 안 넘게 멀리 잡는다)
+  const fromB = all.find((d) => str(d.fields.team) === 'B' && !d.name.endsWith(b))!.name.split('/').pop()!
+  const putAsk = (id: string) =>
+    fetch(`${FS}/games/${GAME}/transfers?documentId=${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...ADMIN },
+      body: JSON.stringify({
+        fields: {
+          byId: { stringValue: fromB },
+          byTeam: { stringValue: 'B' },
+          toId: { stringValue: b },
+          fromTeam: { stringValue: 'A' },
+          askedAtMs: { integerValue: String(9e15) },
+          status: { stringValue: 'asking' },
+        },
+      }),
+    })
+  const askStatus = async (id: string) => str((await doc(`games/${GAME}/transfers/${id}`)).status)
+  await putAsk(`pend${TAG}`)
+  check((await askStatus(`pend${TAG}`)) === 'asking', '자유 시간에 묻고 있다')
   await call('openPhase', host, { gameId: GAME })
+  check((await askStatus(`pend${TAG}`)) === 'gone', '**페이즈가 열리면 묻던 것이 접힌다** — 창이 닫힌다')
+  check(
+    (await no(call('answerTransfer', tkB, { gameId: GAME, askId: `pend${TAG}`, accept: true }))).includes('이미 끝난'),
+    '접힌 제안은 받을 수 없다',
+  )
+  // 종과 답이 엇갈려 아직 접히기 전인 제안에 답이 들어와도 막고, 접어 둔다
+  await putAsk(`race${TAG}`)
+  check(
+    (await no(call('answerTransfer', tkB, { gameId: GAME, askId: `race${TAG}`, accept: true }))).includes(TRANSFER_NO.phase),
+    '페이즈 중에 들어온 수락은 거절한다',
+  )
+  check((await askStatus(`race${TAG}`)) === 'gone', '거절하면서 그 제안도 접힌다')
+  check((await seatTeam(b)) === 'A', '분단은 그대로다')
+
+  console.log('\n── 페이즈 중에는 못 꺼낸다 ──')
   check(
     (await no(call('askTransfer', tkB, { gameId: GAME, toPlayerId: a }))).includes(TRANSFER_NO.phase),
     '점령전 중에는 거절한다',
