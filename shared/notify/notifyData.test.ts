@@ -1,21 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_SETTINGS, isQuiet, quietEndsAt, settingsOf } from './notifyData'
-
-const kst = (h: number, m = 0) => Date.UTC(2026, 2, 3, h - 9, m)
-
-describe('조용한 시간', () => {
-  it('서울 00:00~07:59 는 조용하다', () => {
-    expect(isQuiet(kst(0))).toBe(true)
-    expect(isQuiet(kst(7, 59))).toBe(true)
-    expect(isQuiet(kst(8))).toBe(false)
-    expect(isQuiet(kst(23, 59))).toBe(false)
-  })
-  it('끝나는 시각은 그날 08:00', () => {
-    expect(quietEndsAt(kst(3, 20))).toBe(kst(8))
-    expect(quietEndsAt(kst(12))).toBe(kst(12))
-  })
-})
+import { DEFAULT_SETTINGS, settingsOf } from './notifyData'
 
 describe('설정 읽기', () => {
   it('비었으면 기본값 — 모두 받기(앱 안). 앱 밖은 권한을 받은 뒤에', () => {

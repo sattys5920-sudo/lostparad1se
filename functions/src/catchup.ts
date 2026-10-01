@@ -36,7 +36,6 @@ import { landResearch } from './made'
 import { tellReadyTraps } from './trap'
 import { closePhaseNow } from './phase'
 import { inTx } from './contended'
-import { flushQueue } from './notify'
 import { sweepDeals } from './dealroom'
 import { openInterval, refreshAwakening } from './reveal'
 
@@ -418,8 +417,6 @@ export async function catchUp(gameId: string, toMs: number): Promise<CatchUpResu
   await landResearch(gameId)
   // 다 된 덫을 맡긴 사람에게 알린다
   await tellReadyTraps(gameId, toMs)
-  // 조용한 시간에 미뤄 둔 제작 완료 — 08:00 이 지났으면 지금 보낸다
-  await flushQueue()
   if (applied > 0) await refreshViews(gameId)
 
   const last = (await ref.get()).data() as GameDoc

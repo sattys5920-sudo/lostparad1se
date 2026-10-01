@@ -4,16 +4,14 @@
 //             본인만 읽는 문서라 화면이 구독하다가 배너를 띄운다
 //   앱 밖     웹 푸시. 기기마다 구독이 따로 있다(secret/pushSubs). 죽은 구독은 지운다
 //
-// 종류 · 문구 · 기본값 · 조용한 시간은 shared/notify/notifyData.ts 에 있다.
+// 종류 · 문구 · 기본값은 shared/notify/notifyData.ts 에 있다.
 // **알림에는 내용을 안 싣는다** — 태그는 무슨 말인지, 페이즈 종료는 결과를,
 // 공지는 본문을 안 싣는다.
 //
 // 지키는 것
 //   같은 알림 두 번     dedupe 키로 한 번만(secret/notifyKeys)
 //   몰아치기            한 사람에게 1분에 다섯 건을 넘으면 「알림 n건」 한 줄로 묶는다
-//   조용한 시간         00:00~08:00(서울) 에는 앱 밖으로 안 보낸다. 제작 완료만 모아 두었다가
-//                       08:00 뒤 첫 따라잡기(누가 앱을 열 때)에 보낸다 — 예약 작업은 이 프로젝트
-//                       권한으로 못 만든다(배포가 거절했다)
+//   조용한 시간         **없다.** 밤에도 일이 생기면 그때 앱 밖으로 보낸다
 //   기록                종류 · 받는 사람 · 시각 · 길(앱 안/밖) · 성공 여부(secret/notifyLog)
 import { createHash } from 'node:crypto'
 
@@ -29,9 +27,6 @@ import {
   NOTIFY_TYPES,
   PUSH_TITLE,
   burstText,
-  isQuiet,
-  madeBatchText,
-  quietEndsAt,
   settingsOf,
   type NoteItem,
   type NotifySettings,
@@ -46,8 +41,6 @@ const db = getFirestore()
 
 const inboxOf = (gameId: string) => gameRef(gameId).collection('inbox')
 const secretOf = (gameId: string, name: string) => gameRef(gameId).collection('secret').doc(name).collection('items')
-/** 조용한 시간에 미뤄 둔 제작 완료. 08:00 이 지나면 따라잡기가 턴다 */
-const queue = () => db.collection('notifyQueue')
 
 // ── 웹 푸시 열쇠 ─────────────────────────────────────────────────
 //
@@ -175,40 +168,8 @@ async function notifyOne(gameId: string, uid: string, type: NotifyType, key: str
   await log(gameId, { type, target: uid, atMs: nowMs, channel: 'app', ok: true, key })
   // 묶이기 시작하면 앱 밖으로는 더 안 보낸다 — 주머니가 1분 내내 떨지 않게
   if (out.mode !== 'push' || out.burst) return
-  if (isQuiet(nowMs)) {
-    // 조용한 시간. 제작 완료만 끝나는 시각에 모아 보낸다 — 나머지는 앱 안에만 남는다
-    if (type === 'made') await queue().add({ gameId, uid, dueAtMs: quietEndsAt(nowMs), atMs: nowMs })
-    return
-  }
   await pushTo(gameId, uid, { text: NOTIFY_TEXT[type], type, link: NOTIFY_LINK[type], badge: out.unread }, fullKey)
 }
-
-/**
- * 미뤄 둔 제작 완료를 턴다 — 사람마다 한 줄로 묶어서.
- * 따라잡기(catchUp)가 부른다. 조용한 시간이면 아무것도 안 한다.
- */
-export async function flushQueue(nowMs = Date.now()): Promise<number> {
-  if (isQuiet(nowMs)) return 0
-  const due = await queue().where('dueAtMs', '<=', nowMs).get()
-  const groups = new Map<string, { gameId: string; uid: string; n: number }>()
-  for (const d of due.docs) {
-    const q = d.data() as { gameId: string; uid: string }
-    const k = `${q.gameId}/${q.uid}`
-    const g = groups.get(k) ?? { gameId: q.gameId, uid: q.uid, n: 0 }
-    g.n += 1
-    groups.set(k, g)
-  }
-  await Promise.all(
-    [...groups.values()].map((g) =>
-      pushTo(g.gameId, g.uid, { text: madeBatchText(g.n), type: 'made', link: NOTIFY_LINK.made, badge: g.n }, `queue:${nowMs}:${g.uid}`),
-    ),
-  )
-  const batch = db.batch()
-  for (const d of due.docs) batch.delete(d.ref)
-  await batch.commit()
-  return groups.size
-}
-
 
 // ── 참가자가 부르는 것 ───────────────────────────────────────────
 

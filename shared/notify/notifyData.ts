@@ -1,4 +1,5 @@
-// 알림 — 종류 · 문구 · 기본값 · 조용한 시간. **숫자와 문구는 전부 여기.**
+// 알림 — 종류 · 문구 · 기본값. **숫자와 문구는 전부 여기.**
+// 조용한 시간은 없다 — 밤에도 일이 생기면 그때 앱 밖으로 보낸다.
 //
 // 서버(functions/src/notify.ts)가 보낼지 말지를 다 정하고, 화면은 이 파일로
 // 설정 칸과 배너를 그린다. **알림에는 내용이 없다.** 태그는 누가 무슨 말을
@@ -55,16 +56,10 @@ export const NOTIFY_LINK: Record<NotifyType, NotifyLink> = {
 /** 잠긴 화면 알림 제목 */
 export const PUSH_TITLE = '투명인간'
 
-/** 조용한 시간(서울) — 이 사이에는 앱 밖으로 안 보낸다. 제작 완료는 끝나는 시각에 모아 보낸다 */
-export const QUIET_FROM_HOUR = 0
-export const QUIET_TO_HOUR = 8
-
 /** 한 사람에게 1분에 이보다 많이 오면 한 줄로 묶는다 */
 export const BURST_PER_MINUTE = 5
 export const burstText = (n: number): string => `알림 ${n} 건`
 
-/** 모아 보낸 제작 완료 */
-export const madeBatchText = (n: number): string => (n > 1 ? `맡긴 것 ${n} 건이 다 됐다` : NOTIFY_TEXT.made)
 
 /** 「나」 탭 보관함에 남기는 수 */
 export const ARCHIVE_MAX = 20
@@ -106,17 +101,4 @@ export function settingsOf(raw: unknown): NotifySettings {
     if (m === 'off' || m === 'app' || m === 'push') modes[t] = m
   }
   return { on: r.on !== false, modes }
-}
-
-/** 서울 시각으로 조용한 시간인가 */
-export function isQuiet(ms: number): boolean {
-  const h = Math.floor((((ms + 9 * 3_600_000) % 86_400_000) + 86_400_000) % 86_400_000 / 3_600_000)
-  return h >= QUIET_FROM_HOUR && h < QUIET_TO_HOUR
-}
-
-/** 조용한 시간이 끝나는 시각(서울 08:00). 조용한 시간이 아니면 그 시각 그대로 */
-export function quietEndsAt(ms: number): number {
-  if (!isQuiet(ms)) return ms
-  const day = Math.floor((ms + 9 * 3_600_000) / 86_400_000) * 86_400_000 - 9 * 3_600_000
-  return day + QUIET_TO_HOUR * 3_600_000
 }
