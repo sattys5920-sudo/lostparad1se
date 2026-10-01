@@ -598,7 +598,8 @@ html[data-typing='sy'] .sc-sy {
   overflow-y: auto;
   overscroll-behavior: contain;
   border-top: 1px solid var(--line-strong);
-  background: color-mix(in srgb, var(--bg-0) 72%, transparent);
+  /* 글자가 커진 만큼 밑의 단추 글씨가 비치면 읽기 어렵다 — 거의 막는다 */
+  background: color-mix(in srgb, var(--bg-0) 90%, transparent);
   pointer-events: auto;
 }
 
@@ -621,6 +622,27 @@ html[data-typing='sy'] .sc-sy {
 }
 /* 면이 깔리면 테는 필요 없다 */
 .sc-sy.is-open .sc-sy__line { text-shadow: none; }
+
+/*
+ * **펼쳐 읽을 때는 읽히는 크기로.** 평소 세 줄은 지도 위에 얹는 게임 글자라
+ * 픽셀 글꼴 11 이지만, 채팅을 치며 지난 말을 읽을 때 그 크기는 너무 작고
+ * 긴 말은 한 줄에서 잘렸다. 펼친 동안은 본문 글꼴 14 로 키우고 줄을 바꿔
+ * 끝까지 보인다(픽셀 글꼴은 11 · 22 배율만 또렷해서 글꼴을 바꾼다).
+ */
+.sc-sy.is-open .sc-sy__log {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 20px;
+  gap: 2px;
+}
+.sc-sy.is-open .sc-sy__line {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* 적는 중에는 키보드 위 보이는 높이에 맞춘다 — 화면 높이로 재면 위쪽 줄이 화면 밖으로 나간다 */
+html[data-typing='sy'] .sc-sy.is-open .sc-sy__log {
+  max-height: calc(var(--vv-h, 60dvh) * 0.6);
+}
 
 @keyframes sc-sy-rise {
   from { transform: translateY(15px); opacity: 0; }
