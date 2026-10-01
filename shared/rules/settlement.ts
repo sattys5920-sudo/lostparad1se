@@ -15,7 +15,6 @@
 // 때문이다. 영역전만 돌려 보고 싶을 때 이 파일을 떼면 된다.
 import { countBallots, pickInvisible, type Ballot, type PickResult } from './invisible'
 import { settle, type ScoreBreakdown, type SettlementResult } from './score'
-import type { TeamId } from './v2'
 
 export interface SettlementInput {
   /** 생산과 표를 이미 반영한 점수. */
@@ -49,22 +48,4 @@ export function settleDay(input: SettlementInput): DailySettlement {
     yesterdayId: input.yesterdayInvisibleId ?? null,
   })
   return { ...base, invisible }
-}
-
-/** 화면에 내려보낼 전부. 사람마다 몇 장 받았는지는 들어 있지 않다. */
-export interface SettlementView {
-  ranked: SettlementResult['ranked']
-  spotlighted: TeamId[]
-  comeback: TeamId[]
-  /** 내일의 투명인간. 없으면 null — 이것도 그대로 알린다. */
-  invisibleId: string | null
-}
-
-export function settlementView(s: DailySettlement): SettlementView {
-  return {
-    ranked: s.ranked,
-    spotlighted: s.spotlighted,
-    comeback: s.comeback,
-    invisibleId: s.invisible.playerId,
-  }
 }

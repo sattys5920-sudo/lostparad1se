@@ -62,10 +62,9 @@ describe('firestore.indexes.json', () => {
     expect(missing, `색인 없는 쿼리: ${JSON.stringify(missing)}`).toEqual([])
   })
 
-  it('chatLines · radioLines · unheardLines 셋은 반드시 있다', () => {
+  it('chatLines · radioLines 둘은 반드시 있다', () => {
     const pairs = indexes().map((ix) => ix.fields.map((f) => f.fieldPath).join('+'))
     expect(pairs).toContain('tileId+atMs')
     expect(pairs).toContain('team+atMs')
-    expect(pairs).toContain('invisible+atMs')
   })
 })

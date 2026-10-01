@@ -6,9 +6,6 @@
 //
 // 토큰은 여기서 빼지 않는다(tokens.ts). 서버가 검사와 빼기를 한
 // 트랜잭션으로 묶는다.
-import { type TeamId } from './v2'
-import { type TileId } from './board'
-import { type TileState } from './resources'
 
 export interface ActionGate {
   /** 발이 묶여 있는가. */
@@ -23,10 +20,4 @@ export function checkGate(gate: ActionGate): { ok: boolean; reason: GateRefusal 
   if (gate.bound) return { ok: false, reason: 'bound' }
   if (gate.asleep) return { ok: false, reason: 'asleep' }
   return { ok: true, reason: null }
-}
-
-/** 그 칸이 우리 것인지 보는 짧은 도우미. 시험과 서버가 같이 쓴다. */
-export function ownerLookup(tiles: readonly TileState[]): (tileId: TileId) => TeamId | null {
-  const map = new Map(tiles.map((t) => [t.tileId, t.ownerTeam]))
-  return (tileId) => map.get(tileId) ?? null
 }

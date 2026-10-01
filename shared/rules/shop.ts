@@ -46,8 +46,6 @@ export const VENDINGS: readonly VendingSpot[] = [
   { id: 'f2', name: '2 층 복도', floor: 'f2', cell: { x: 32, y: 31 } },
 ]
 
-export const VENDING_BY_ID: Record<string, VendingSpot> = Object.fromEntries(VENDINGS.map((v) => [v.id, v]))
-
 /**
  * 어느 기계 앞에 서 있는가. 아니면 null.
  *

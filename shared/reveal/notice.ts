@@ -33,10 +33,6 @@ export const NOTICE_TEMPLATES: readonly NoticeTemplate[] = [
   },
 ]
 
-export const TEMPLATE_BY_ID: Record<string, NoticeTemplate> = Object.fromEntries(
-  NOTICE_TEMPLATES.map((t) => [t.id, t]),
-)
-
 export const NOTICE_MAX = 300
 
 export interface Notice {
@@ -81,11 +77,6 @@ export function checkNotice(text: string): { ok: boolean; reason: NoticeRefusal 
   if (t.length === 0) return { ok: false, reason: 'empty' }
   if (t.length > NOTICE_MAX) return { ok: false, reason: 'tooLong' }
   return { ok: true, reason: null }
-}
-
-export const NOTICE_REFUSAL_MESSAGE: Record<NoticeRefusal, string> = {
-  empty: '보낼 말을 적어 주세요.',
-  tooLong: `${NOTICE_MAX} 자까지 보낼 수 있습니다.`,
 }
 
 /**

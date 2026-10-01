@@ -21,22 +21,18 @@ import {
   nextWallet,
   walletOf,
   ownerOf,
-  robotsIn,
   roomsOf,
   teamRanks,
-  robotsCarriedBy,
   canCollectRobot,
   researchKnowledge,
   vaultOf,
-  robotsOfTeam,
   settle,
   stepToward,
   type Act,
   type PhaseState,
   type Person,
-  type Robot,
-} from './occupy'
-import { TILES, isAdjacent, type TileId } from './board'
+  type Robot } from './occupy'
+import { TILES, type TileId } from './board'
 import { TEAM_IDS, type TeamId } from './v2'
 import { PULL_COST, PULL_HITS, type FlagMap } from './flag'
 
@@ -144,16 +140,6 @@ describe('토큰이 한 페이즈의 전부다', () => {
 })
 
 describe('움직임', () => {
-  it('복도가 이어지면 옆방이 아니어도 간다', () => {
-    // 교무실과 화장실은 1층 양 끝이고 이웃이 아니다. 그래도 복도
-    // 하나로 이어져 있으니 문 하나 값에 간다
-    expect(isAdjacent('baseA', 'baseB')).toBe(false)
-    const s = board({ people: [person('a', 'A', 'baseA')] })
-    const out = doAct(s, 'a', { kind: 'move', targetTile: 'baseB' })
-    expect(out.ok).toBe(true)
-    if (out.ok) expect(at(out.next, 'a').toTile).toBe('baseB')
-  })
-
 
   it('층을 넘어도 한 걸음이다 — 계단은 문이라 셈에 안 든다', () => {
     // 2층 교실에서 1층 연구실까지. 사이에 계단이 둘 있지만 칸이 아니다
@@ -233,25 +219,6 @@ describe('움직임', () => {
     expect(out.ok).toBe(false)
   })
 
-  it('들고 있는 로봇은 가방 속이라 같이 간다 — 저쪽 방이 로봇으로 차 있어도', () => {
-    const s0 = board({
-      people: [person('a', 'B', 'gym')],
-      robots: [
-        robot('r1', 'B', 'gym', 'a'),
-        robot('r2', 'B', 'gym', 'a'),
-        robot('x1', 'A', 'cafeteria'),
-        robot('x2', 'A', 'cafeteria'),
-      ],
-    })
-    const s1 = land(must(s0, 'a', { kind: 'move', targetTile: 'cafeteria' }), 'a')
-    expect(at(s1, 'a').tileId).toBe('cafeteria')
-    const held = s1.robots.filter((r) => r.carriedBy === 'a')
-    expect(held).toHaveLength(2)
-    // 든 로봇은 사람을 따라 선다. 떠난 방에 남지도, 방 한도를 먹지도 않는다
-    for (const r of held) expect(r.tileId).toBe('cafeteria')
-    expect(robotsIn(s1, 'cafeteria')).toBe(2)
-    expect(robotsIn(s1, 'gym')).toBe(0)
-  })
 })
 
 describe('호출', () => {
@@ -544,13 +511,6 @@ describe('연구', () => {
     ])
   })
 
-  it('**분단 한도는 없다** — 로봇이 여럿 있어도 연구를 건다', () => {
-    const many = Array.from({ length: 10 }, (_, i) => robot(`r${i}`, 'A', 'baseA'))
-    const s = board({ people: [person('a', 'A', lab.id)], robots: many })
-    expect(robotsOfTeam(s, 'A')).toBe(10)
-    expect(doAct(s, 'a', { kind: 'research' }).ok).toBe(true)
-  })
-
   /**
    * **안 익은 연구는 페이즈가 닫힐 때 사라진다.** 값도 안 돌아온다.
    *
@@ -690,18 +650,6 @@ describe('로봇 놓기', () => {
     expect(doAct(s, 'a', { kind: 'dropRobot' }).ok).toBe(true)
   })
 
-  it('들고 있는 것은 방 한도를 안 먹는다 — 둘 들고 와도 둘 다 놓는다', () => {
-    let s = board({
-      people: [person('a', 'A', 'storage')],
-      robots: [robot('m1', 'A', 'storage', 'a'), robot('m2', 'A', 'storage', 'a')],
-    })
-    expect(robotsIn(s, 'storage')).toBe(0)
-    s = must(s, 'a', { kind: 'dropRobot' })
-    s = must(s, 'a', { kind: 'dropRobot' })
-    expect(robotsIn(s, 'storage')).toBe(2)
-    expect(ACT_COST.dropRobot).toBe(0)
-  })
-
   it('고른 로봇을 놓는다 — 남이 든 것은 못 고른다', () => {
     let s = board({
       people: [person('a', 'A', 'storage'), person('a2', 'A', 'storage')],
@@ -719,15 +667,6 @@ describe('로봇 수거 — 놓은 사람만', () => {
   const placed = (id: string, team: TeamId, tileId: string, by: string): Robot => ({
     ...robot(id, team, tileId),
     placedBy: by,
-  })
-
-  it('놓은 사람은 도로 든다 — 토큰 없이', () => {
-    let s = board({ people: [person('a', 'A', 'storage')], robots: [placed('m1', 'A', 'storage', 'a')] })
-    expect(ACT_COST.takeRobot).toBe(0)
-    s = must(s, 'a', { kind: 'takeRobot' })
-    expect(s.robots[0]).toMatchObject({ carriedBy: 'a', placedBy: null })
-    expect(robotsIn(s, 'storage')).toBe(0)
-    expect(robotsCarriedBy(s, 'a')).toBe(1)
   })
 
   it('같은 팀이어도 남이 놓은 것은 못 거둔다', () => {

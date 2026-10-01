@@ -4,13 +4,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   coStaySeconds,
-  presentAt,
-  stayedSeconds,
   tileAt,
-  tilesStayedOver,
   visitedTiles,
-  type Interval,
-} from './presence'
+  type Interval } from './presence'
 import type { TileId } from './board'
 
 const seoul = (iso: string) => new Date(`${iso}+09:00`).getTime()
@@ -28,63 +24,6 @@ function iv(
 }
 
 const all = { from: seoul('2026-03-02T00:00:00'), to: seoul('2026-03-04T00:00:00') }
-
-describe('체류', () => {
-  it('한 칸에 머문 시간을 센다', () => {
-    const log = [iv('a', 'library', '2026-03-02T10:00:00', '2026-03-02T12:00:00')]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(2 * HOUR)
-  })
-
-  it('같은 칸에 여러 번 왔으면 더한다', () => {
-    const log = [
-      iv('a', 'library', '2026-03-02T10:00:00', '2026-03-02T11:00:00'),
-      iv('a', 'gym', '2026-03-02T11:00:00', '2026-03-02T12:00:00'),
-      iv('a', 'library', '2026-03-02T12:00:00', '2026-03-02T12:30:00'),
-    ]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(1.5 * HOUR)
-  })
-
-  // 멈추는 구간이 없어졌다. 밤도 그대로 센다
-  it('밤을 걸쳐도 그대로 센다', () => {
-    const log = [iv('a', 'library', '2026-03-02T23:00:00', '2026-03-03T09:00:00')]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(10 * HOUR)
-  })
-
-  it('새벽에만 서 있어도 센다', () => {
-    const log = [iv('a', 'library', '2026-03-03T01:00:00', '2026-03-03T05:00:00')]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(4 * HOUR)
-  })
-
-  it('잠든 말도 그 자리에 있는 것으로 센다', () => {
-    const log = [iv('a', 'library', '2026-03-02T10:00:00', '2026-03-02T12:00:00', 'asleep')]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(2 * HOUR)
-  })
-
-  it('걷는 중은 어느 칸에도 세지 않는다', () => {
-    const log = [
-      iv('a', null, '2026-03-02T10:00:00', '2026-03-02T10:30:00', 'walking'),
-      iv('a', 'library', '2026-03-02T10:30:00', '2026-03-02T11:00:00'),
-    ]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(0.5 * HOUR)
-  })
-
-  it('아직 서 있으면 구간 끝까지 센다', () => {
-    const log = [iv('a', 'library', '2026-03-02T10:00:00', null)]
-    expect(stayedSeconds(log, 'a', 'library', all.from, seoul('2026-03-02T14:00:00'))).toBe(4 * HOUR)
-  })
-
-  it('구간 밖은 자른다', () => {
-    const log = [iv('a', 'library', '2026-03-02T09:00:00', '2026-03-02T20:00:00')]
-    const from = seoul('2026-03-02T10:00:00')
-    const to = seoul('2026-03-02T12:00:00')
-    expect(stayedSeconds(log, 'a', 'library', from, to)).toBe(2 * HOUR)
-  })
-
-  it('남의 구간은 세지 않는다', () => {
-    const log = [iv('b', 'library', '2026-03-02T10:00:00', '2026-03-02T12:00:00')]
-    expect(stayedSeconds(log, 'a', 'library', all.from, all.to)).toBe(0)
-  })
-})
 
 describe('동석', () => {
   it('겹친 만큼만 센다', () => {
@@ -163,18 +102,6 @@ describe('그 순간 누가 어디에', () => {
     iv('c', null, '2026-03-02T11:00:00', '2026-03-02T12:00:00', 'walking'),
   ]
 
-  it('그 칸에 선 사람을 센다 — 잠든 사람도 포함', () => {
-    expect(presentAt(log, 'library', seoul('2026-03-02T11:30:00')).sort()).toEqual(['a', 'b'])
-  })
-
-  it('끝난 구간은 그 시각에 이미 빠져 있다', () => {
-    expect(presentAt(log, 'library', seoul('2026-03-02T12:00:00'))).toEqual(['b'])
-  })
-
-  it('시작 전에는 아무도 없다', () => {
-    expect(presentAt(log, 'library', seoul('2026-03-02T09:00:00'))).toEqual([])
-  })
-
   it('그 사람이 선 칸을 짚는다', () => {
     expect(tileAt(log, 'a', seoul('2026-03-02T11:00:00'))).toBe('library')
     expect(tileAt(log, 'c', seoul('2026-03-02T11:30:00'))).toBe(null)
@@ -182,25 +109,3 @@ describe('그 순간 누가 어디에', () => {
   })
 })
 
-describe('조건에 맞는 칸 세기', () => {
-  const log = [
-    iv('a', 'library', '2026-03-02T10:00:00', '2026-03-02T12:00:00'),
-    iv('a', 'gym', '2026-03-02T12:00:00', '2026-03-02T12:30:00'),
-    iv('a', 'garden', '2026-03-02T13:00:00', '2026-03-02T15:00:00'),
-  ]
-
-  it('기준 시간을 넘긴 칸만 남는다', () => {
-    const out = tilesStayedOver(log, 'a', 1 * HOUR, all.from, all.to)
-    expect([...out].sort()).toEqual(['garden', 'library'])
-  })
-
-  it('거른 뒤에 센다', () => {
-    const out = tilesStayedOver(log, 'a', 1 * HOUR, all.from, all.to, (id) => id === 'garden')
-    expect([...out]).toEqual(['garden'])
-  })
-
-  it('딱 맞으면 들어간다', () => {
-    const out = tilesStayedOver(log, 'a', 30 * 60, all.from, all.to, (id) => id === 'gym')
-    expect([...out]).toEqual(['gym'])
-  })
-})

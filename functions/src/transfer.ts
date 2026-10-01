@@ -108,7 +108,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
   const ref = asksOf(gameId).doc(askId)
   const gRef = gameRef(gameId)
 
-  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | null>(async (tx) => {
+  const moved = await db.runTransaction<{ from: TeamId; to: TeamId; name: string } | 'lastOne' | null>(async (tx) => {
     const [snap, gSnap, carried, placed] = await Promise.all([
       tx.get(ref),
       tx.get(gRef),
@@ -135,6 +135,17 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
     }
     const gd = gSnap.data() as GameDoc
     const seat = gd.seats.find((s) => s.playerId === uid)
+    /*
+     * **분단은 늘 넷이다 — 마지막 한 사람은 못 떠난다.** 묻는 순간에도
+     * 보지만 답하는 순간에 다시 센다. 같은 분단 둘에게 동시에 묻고 둘 다
+     * 받으면 묻던 때의 셈으로는 분단이 통째로 빈다
+     */
+    const left = gd.seats.filter((s) => s.team === (seat?.team ?? ask.fromTeam)).length
+    if (left <= 1) {
+      // 던지면 이 쓰기도 되감긴다 — 접어 두고 밖에서 거절한다
+      tx.update(ref, { status: 'gone' })
+      return 'lastOne' as const
+    }
     tx.update(gRef, { seats: gd.seats.map((s) => (s.playerId === uid ? { ...s, team: ask.byTeam } : s)) })
     tx.update(gRef.collection('pawns').doc(uid), { team: ask.byTeam, teamSinceMs: nowMs })
     tx.update(gRef.collection('secret').doc('roster').collection('items').doc(uid), { team: ask.byTeam })
@@ -145,6 +156,7 @@ export const answerTransfer = onCall<{ gameId: string; askId: string; accept: bo
     return { from: ask.fromTeam, to: ask.byTeam, name: seat?.name ?? '' }
   })
 
+  if (moved === 'lastOne') throw new HttpsError('failed-precondition', `${TRANSFER_NO.lastOne}.`)
   await logSecret(gameId, 'transferAnswered', nowMs, uid, { askId, accept: moved !== null, ...(moved ? { team: moved.to } : {}) }, { day: game.day })
   if (moved) {
     // 개인 미션의 「그 사건이 일어난 시점의 팀」이 이 줄을 되짚는다 —

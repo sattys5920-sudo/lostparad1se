@@ -56,9 +56,6 @@ export const atPaper = (me: Cell | null | undefined, cell: Cell | null | undefin
 /** 맞힌 사람 지갑에 들어가는 지식. */
 export const KNOWLEDGE_PER_QUIZ = 1
 
-/** 객관식 보기 수. 지금은 객관식을 안 낸다 — 옛 문서를 읽을 때만 쓴다. */
-export const QUIZ_CHOICES = 4
-
 /**
  * 판을 시작하기 전에 등록돼 있어야 할 문제 수.
  *

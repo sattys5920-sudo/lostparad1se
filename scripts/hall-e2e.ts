@@ -194,8 +194,9 @@ async function main() {
   // 한 걸음 물러나면 접힌다. 복도라고 느슨해지지 않는다
   if (open.ok) {
     await must('standAt', youTok, { gameId: game, x: NEXT.x + 2, y: NEXT.y })
-    const after = await call('dealNow', meTok, { gameId: game })
-    const txt = JSON.stringify(after.ok ? after.result : {})
+    await call('tick', meTok, { gameId: game })
+    const dealDocs = await fetch(`${FS}/games/${game}/deals`, { headers: ADMIN }).then((r) => r.json())
+    const txt = JSON.stringify(dealDocs)
     check(!txt.includes('"asked"') && !txt.includes('"open"'), '한 걸음 떨어지면 복도에서도 접힌다', txt.slice(0, 80))
   }
 

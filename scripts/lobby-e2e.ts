@@ -181,7 +181,6 @@ async function main(): Promise<void> {
   check(started.ok, '운영자가 시작한다', started.message ?? '')
   check((await call('startGame', hostToken, { gameId: GAME })).code === 'FAILED_PRECONDITION', '두 번 시작 못 한다')
   check((await call('joinGame', players[1].token, { gameId: GAME, name: '늦둥이' })).code === 'FAILED_PRECONDITION', '시작한 뒤엔 못 앉는다')
-  check((await call('leaveGame', players[1].token, { gameId: GAME })).code === 'FAILED_PRECONDITION', '시작한 뒤엔 못 일어난다')
 
   console.log('\n── 놓인 것 ──')
   const roster = await listDocs(`games/${GAME}/secret/roster/items`)

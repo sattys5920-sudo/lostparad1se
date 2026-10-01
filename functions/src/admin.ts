@@ -7,10 +7,7 @@
 // 투명인간 해제 같은 것은 기존 운영자 도구로만 한다.
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
-import { HOST_RULES } from './story/hostRules'
-import { auditLines } from './story/audit'
-import { SOURCE_LABEL, TIME_LABEL, placesIn } from './story/timeline'
-import { checkNotice, leaderText, NOTICE_TEMPLATES } from '../../shared/reveal/notice'
+import { checkNotice, leaderText } from '../../shared/reveal/notice'
 import { publicScore, rankTeams } from '../../shared/rules/score'
 import { TEAMS } from '../../shared/rules/lobby'
 import { requireHost } from './host'
@@ -23,41 +20,6 @@ import { tileStates } from './turn'
 const db = getFirestore()
 
 /** 커스텀 클레임으로만 통과한다. 토큰에 admin이 없으면 여기서 끝난다. */
-
-/**
- * 추리 지도.
- *
- * 표를 **보낸 사람은 담지 않는다.** 운영자에게도 보이지 않는다.
- * 추리 노트도 담지 않는다 — notes/{playerId}는 규칙이 본인 말고
- * 아무에게도 열어 주지 않고, 여기서 우회하지도 않는다.
- */
-export const hostDashboard = onCall<{ gameId: string }>(async (req) => {
-  requireHost(req.auth)
-  const gameId = req.data.gameId
-
-  const snap = await db.doc(`games/${gameId}`).get()
-  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-
-  return { rules: HOST_RULES }
-})
-
-/** 텍스트 검수. A에 관한 문장을 사건 시간순으로. */
-export const hostTextAudit = onCall<{ gameId: string }>(async (req) => {
-  requireHost(req.auth)
-  const lines = auditLines()
-  return {
-    timeLabels: TIME_LABEL,
-    sourceLabels: SOURCE_LABEL,
-    lines: lines.map((l) => ({
-      source: l.source,
-      where: l.where,
-      text: l.text,
-      tag: l.tag,
-      places: placesIn(l.text),
-    })),
-    untaggedCount: lines.filter((l) => l.tag === null).length,
-  }
-})
 
 /** 공지를 보낸다. 전원이면 toPlayerId를 비워 둔다. */
 export const hostNotice = onCall<{ gameId: string; text: string; toPlayerId?: string | null }>(
@@ -114,8 +76,3 @@ export const hostAnnounceLeader = onCall<{ gameId: string }>(async (req) => {
   return { id: ref.id, text, leader, rooms }
 })
 
-/** 템플릿은 숨길 것이 없다. 화면이 목록을 그리는 데 쓴다. */
-export const noticeTemplates = onCall(async (req) => {
-  requireHost(req.auth)
-  return { templates: NOTICE_TEMPLATES }
-})

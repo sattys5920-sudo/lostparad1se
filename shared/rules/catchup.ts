@@ -31,12 +31,6 @@ export function dueItems(items: readonly Due[], toMs: number): Due[] {
     .sort((a, b) => a.dueAtMs - b.dueAtMs || a.ord - b.ord || a.id.localeCompare(b.id))
 }
 
-/** 아직 안 온 일 중 가장 이른 시각. 없으면 null — 다음 알람을 걸 때 쓴다. */
-export function nextDueMs(items: readonly Due[], afterMs: number): number | null {
-  const left = items.filter((i) => i.doneAtMs === null && i.dueAtMs > afterMs)
-  return left.length === 0 ? null : Math.min(...left.map((i) => i.dueAtMs))
-}
-
 /**
  * **달력은 사람이 넘긴다.**
  *

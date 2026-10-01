@@ -7,10 +7,8 @@ import {
   pendingDays,
   handledDays,
   readDays,
-  shouldPlay,
   startMorning,
-  type DayScript,
-} from './morning'
+  type DayScript } from './morning'
 
 const one: DayScript = { day: 1, papers: [{ hasTop: false }] }
 const two: DayScript = { day: 2, papers: [{ hasTop: false }, { hasTop: false }] }
@@ -33,10 +31,6 @@ describe('안 본 날', () => {
     expect(pendingDays([3, 1, 2], [])).toEqual([1, 2, 3])
   })
 
-  it('다 봤으면 재생하지 않는다', () => {
-    expect(shouldPlay([1, 2], [1, 2])).toBe(false)
-    expect(shouldPlay([1, 2], [1])).toBe(true)
-  })
 })
 
 describe('한 날에 장면은 하나뿐이다', () => {
@@ -128,7 +122,6 @@ describe('건너뛰기는 없다', () => {
     expect(pendingDays(before, handledDays(before, s))).toEqual([])
   })
 })
-
 
 describe('다 본 뒤', () => {
   it('더 탭해도 아무 일도 없다', () => {

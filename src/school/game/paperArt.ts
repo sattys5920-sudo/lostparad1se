@@ -258,13 +258,6 @@ export function paperSlice(key: string): string {
   return url
 }
 
-/** 조각 여덟을 CSS 변수로 묶어 준다. 종이 div 하나에 통째로 얹는다. */
-export function paperVars(): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const k of Object.keys(ART)) out[`--pa-${k.toLowerCase()}`] = `url(${paperSlice(k)})`
-  return out
-}
-
 /**
  * 조각 하나를 다른 캔버스에 직접 찍는다. **뜯긴 자리는 뚫는다.**
  *

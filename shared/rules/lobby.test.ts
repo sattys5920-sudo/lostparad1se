@@ -5,12 +5,9 @@ import {
   canAssign,
   canStart,
   dealTeams,
-  openTeams,
   seatName,
-  seatsLeft,
   timedEvents,
-  type Seat,
-} from './lobby'
+  type Seat } from './lobby'
 import { STARTING_TEAM_SIZES, TOTAL_DAYS, type TeamId } from './v2'
 import { dayNumber, secondsIntoSeoulDay } from './clock'
 
@@ -25,24 +22,6 @@ describe('자리', () => {
     expect(full()).toHaveLength(14)
   })
 
-  it('빈 로비는 네 팀 다 열려 있다', () => {
-    expect(openTeams([])).toHaveLength(4)
-    expect(seatsLeft([])).toEqual({ A: 4, B: 4, C: 3, D: 3 })
-  })
-
-  it('안 고른 사람은 가장 많이 빈 팀으로 간다', () => {
-    const seats: Seat[] = [{ playerId: 'x', team: 'A' }]
-    expect(openTeams(seats)[0]).toBe('B')
-  })
-
-  it('다 찬 팀은 목록에서 빠진다', () => {
-    const seats = full().filter((s) => s.team !== 'A')
-    expect(openTeams(seats)).toEqual(['A'])
-  })
-
-  it('꽉 차면 아무 팀도 안 남는다', () => {
-    expect(openTeams(full())).toEqual([])
-  })
 })
 
 describe('시작할 수 있는가', () => {

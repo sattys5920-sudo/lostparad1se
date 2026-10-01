@@ -7,9 +7,7 @@
 // 대화는 어떤 판정에도 쓰지 않는다. 시스템 줄도 마찬가지다 —
 // 이미 그 팀이 아는 것을 한 줄로 적어 주는 것뿐이고, 여기 없는 것을
 // 알려 주지 않는다.
-import { josa } from '../text'
 import type { TeamId } from './v2'
-import { teamName } from './bundan'
 
 /**
  * 팀마다 주파수가 다르다.
@@ -109,23 +107,3 @@ export function waveAt(i: number, frame: number, connected: number, spiking: boo
 }
 
 // ── 시스템 줄 ───────────────────────────────────────────────────
-
-/**
- * 팀 대화 사이에 끼는 알림.
- *
- * **이미 그 팀이 아는 것만 적는다.** 무전만 봐도 팀 상황이 따라와야
- * 하지만, 여기가 새로운 정보가 새는 구멍이 되면 안 된다 — 방이
- * 넘어간 것도 팀원이 지워진 것도 그 팀은 원래 본다.
- */
-export const sys = {
-  phaseOpen: (no: number): string => `${no} 교시가 열렸다.`,
-  phaseClose: (no: number): string => `${no} 교시가 닫혔다.`,
-  roomTaken: (room: string): string => `${room}${josa(room, '을/를')} 차지했다.`,
-  roomLost: (room: string, to: TeamId | null): string =>
-    to === null
-      ? `${room}${josa(room, '을/를')} 놓쳤다.`
-      : `${room}${josa(room, '을/를')} ${teamName(to)}에게 빼앗겼다.`,
-  invisible: (name: string): string => `${name}${josa(name, '은/는')} 오늘 보이지 않는다.`,
-  movedOut: (name: string, to: TeamId): string => `${name}${josa(name, '이/가')} ${teamName(to)}으로 갔다.`,
-  movedIn: (name: string): string => `${name}${josa(name, '이/가')} 우리 분단으로 왔다.`,
-} as const

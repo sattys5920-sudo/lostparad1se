@@ -13,17 +13,14 @@ import {
   TILES,
   TILE_BY_ID,
   canRoamTo,
-  isAdjacent,
   pathBetween,
   rectsNear,
   STAIRWELLS,
   TILE_IDS,
   stairwellOf,
   tilesOn,
-  stepsBetween,
   START_TILE,
-  type TileId,
-} from './board'
+  type TileId } from './board'
 
 const byTier = (tier: string) => TILES.filter((t) => t.tier === tier)
 
@@ -166,16 +163,6 @@ describe('걸어서 닿는다', () => {
     expect(pathBetween('storage', 'rooftop')).toEqual(['rooftop'])
   })
 
-  // **걸음과 다리는 다른 것이다.** 걸음은 문을 세고(어디든 하나),
-  // 다리는 「가까운 방」을 센다 — 안개가 이쪽을 본다
-  it('이웃으로 세는 다리는 층을 안 넘는다', () => {
-    // 2-3 교실(2층 북서) → 과학실 → 도서관
-    expect(stepsBetween('centralPlaza', 'library')).toBe(2)
-    // 2-3 교실 → 미술실 → 무용실 → 방송실 → 학생회실
-    expect(stepsBetween('centralPlaza', 'studentCouncil')).toBe(4)
-    // 층이 다르면 아무리 걸어서 가까워도 다리가 없다
-    expect(stepsBetween('centralPlaza', 'baseA')).toBe(Number.POSITIVE_INFINITY)
-  })
 })
 
 describe('연구실', () => {
@@ -200,11 +187,6 @@ describe('연구실', () => {
 })
 
 describe('복도로 닿는 곳', () => {
-  it('같은 층 복도에 붙은 방끼리는 오갈 수 있다 — 이웃이 아니어도', () => {
-    // 2-3 교실과 음악실은 2층 복도 양끝이다. 이웃은 아니지만 걸어서 간다
-    expect(isAdjacent('centralPlaza', 'musicRoom')).toBe(false)
-    expect(canRoamTo('centralPlaza', 'musicRoom')).toBe(true)
-  })
 
   it('계단이 복도라 층도 이어진다 — 학교가 통째로 한 덩어리다', () => {
     expect(canRoamTo('centralPlaza', 'baseA')).toBe(true)

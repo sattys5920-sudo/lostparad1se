@@ -337,16 +337,3 @@ export const chatLines = onCall<{ gameId: string; sinceMs?: number }>(async (req
   // 복도에 섰으면 어느 방도 아니다. 화면이 「여기」를 그렇게 적는다
   return { lines, day: game.day, here: inHall ? null : pawn.tileId, stay }
 })
-
-/**
- * 「들리지 않았던 말」 — 엔딩 6번 장면.
- *
- * 닷새 동안 「…」로만 보였던 말을 원문으로 되돌린다. **종례가 끝난
- * 뒤에만.** 그 전에 돌려주면 투명인간이 투명인간이 아니게 된다.
- */
-export async function unheardLines(gameId: string): Promise<{ name: string; day: number; text: string }[]> {
-  const snap = await chatOf(gameId).where('invisible', '==', true).orderBy('atMs').get()
-  return snap.docs
-    .map((d) => d.data() as ChatDocRaw)
-    .map((c) => ({ name: c.name, day: c.day, text: c.text }))
-}

@@ -151,13 +151,6 @@ export function metPeople(
   return others.filter((id) => coStayMs(stays, me, id, nowMs) >= leastMs).sort()
 }
 
-/** 그 사람이 그 방에 서 있었던 시간의 합. */
-export function stayInTileMs(stays: readonly Stay[], playerId: string, tileId: TileId, nowMs: number): number {
-  return stays
-    .filter((s) => s.playerId === playerId && s.tileId === tileId)
-    .reduce((n, s) => n + Math.max(0, endOf(s, nowMs) - s.startMs), 0)
-}
-
 /**
  * 그 팀이 가진 방들에 서 있었던 시간의 합. **전학생이 이것을 센다.**
  *
@@ -177,21 +170,7 @@ export function stayInTeamRoomsMs(
     .reduce((n, s) => n + Math.max(0, endOf(s, nowMs) - s.startMs), 0)
 }
 
-/** 발을 들여 본 방. 잠깐 스쳐도 센다 — 「들였다」가 조건이다. */
-export function tilesVisited(stays: readonly Stay[], playerId: string): TileId[] {
-  const seen = new Set<TileId>()
-  for (const s of stays) {
-    if (s.playerId !== playerId || s.tileId === null) continue
-    seen.add(s.tileId)
-  }
-  return [...seen].sort()
-}
-
 // ── 쌓인 기록 읽기 ──────────────────────────────────────────────
-
-/** 이 사람이 한 일 중 그 종류만. */
-export const didBy = (rows: readonly GameRecord[], kind: RecordKind, who: string): GameRecord[] =>
-  rows.filter((r) => r.kind === kind && r.actorId === who)
 
 /**
  * 이 사람이 거래한 상대 팀들. **매점 단골과 심부름꾼이 이것을 본다.**
@@ -287,7 +266,3 @@ export function stayInTeamRoomsAtTimeMs(
   }
   return total
 }
-
-/** 이 사람이 낀 거래의 수. 제안한 것과 받은 것을 다 센다. */
-export const tradeCount = (rows: readonly GameRecord[], who: string): number =>
-  rows.filter((r) => r.kind === 'trade' && (r.actorId === who || r.otherId === who)).length

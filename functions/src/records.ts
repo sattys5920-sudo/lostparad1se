@@ -10,7 +10,6 @@
 import { getFirestore } from 'firebase-admin/firestore'
 
 import type { GameRecord, RecordKind } from '../../shared/rules/records'
-import type { Stay } from '../../shared/rules/records'
 import type { TeamId } from '../../shared/rules/v2'
 import type { TileId } from '../../shared/rules/board'
 import { gameRef } from './index'
@@ -18,14 +17,6 @@ import { gameRef } from './index'
 const db = getFirestore()
 
 const recordsOf = (gameId: string) => gameRef(gameId).collection('secret').doc('records').collection('items')
-
-/** 체류 구간. reveal.ts 가 쓰던 것과 같은 문서다. */
-interface IntervalDoc {
-  playerId: string
-  tileId: TileId | null
-  startMs: number
-  endMs: number | null
-}
 
 /**
  * 한 줄 적는다.
@@ -64,24 +55,4 @@ export async function noteAll(
     batch.set(recordsOf(gameId).doc(), clean)
   }
   await batch.commit()
-}
-
-/** 쌓인 기록 전부. **판정할 때 서버가만 읽는다.** */
-export async function allRecords(gameId: string): Promise<GameRecord[]> {
-  const snap = await recordsOf(gameId).get()
-  return snap.docs.map((d) => d.data() as GameRecord).sort((a, b) => a.atMs - b.atMs)
-}
-
-/** 체류 구간 전부. 위치와 동석이 여기서 나온다. */
-export async function allStays(gameId: string): Promise<Stay[]> {
-  const snap = await gameRef(gameId).collection('secret').doc('intervals').collection('items').get()
-  return snap.docs.map((d) => {
-    const iv = d.data() as IntervalDoc
-    return {
-      playerId: iv.playerId,
-      tileId: iv.tileId ?? null,
-      startMs: iv.startMs,
-      endMs: iv.endMs ?? null,
-    }
-  })
 }

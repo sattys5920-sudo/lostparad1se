@@ -55,9 +55,6 @@ export const TILE = 16
  */
 export const ROOM_TILES = Math.min(...BOARD.map((t) => Math.min(t.plan.w, t.plan.h)))
 
-/** 복도 너비. 셋이면 두 사람이 비켜 지나갈 수 있다. */
-export const AISLE_WIDE = 3
-
 export const MAP_W = PLAN_W
 export const MAP_H = PLAN_H
 
@@ -123,9 +120,6 @@ export interface Door {
   /** 가로로 뻗은 벽에 났는가. 위아래로 지나가는 문이다. */
   horizontal: boolean
 }
-
-/** 문 너비. 한 칸이다. 다가가는 복도는 세 칸이라 좁아도 막히지 않는다. */
-export const DOOR_WIDE = 1
 
 /** 벽이 이만큼은 맞닿아야 문을 낸다. 모서리만 스친 데에는 안 낸다. */
 const DOOR_MIN_TOUCH = 3
@@ -519,9 +513,6 @@ export function centerOf(id: TileId): { x: number; y: number } {
 export function spawnFor(_team: TeamId | null): { x: number; y: number } {
   return centerOf(START_TILE as TileId)
 }
-
-/** 팀이 정해지기 전 기본 자리. */
-export const SPAWN = spawnFor(null)
 
 /**
  * 시작 전 2-3 교실에서 **각자 서는 칸.** 자리 순서(slot)대로 나눠 준다.

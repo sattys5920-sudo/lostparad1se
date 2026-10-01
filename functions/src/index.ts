@@ -87,13 +87,13 @@ export const setDevClock = onCall<{ gameId: string; anchorGameMs: number; speed:
 )
 
 // A의 기록. 공개 시각 게이트가 여기 붙어 있다.
-export { fragmentOfDay, releasedFragments } from './fragments'
+export { releasedFragments } from './fragments'
 
 // 운영자 전용. 전부 읽기뿐이고, 확인은 커스텀 클레임으로 서버에서 한다.
-export { hostDashboard, hostTextAudit, hostNotice, hostAnnounceLeader, noticeTemplates } from './admin'
+export { hostNotice, hostAnnounceLeader } from './admin'
 
 // 로비. 역할은 시작할 때 나뉘고 secret에만 적힌다.
-export { assignAll, createGame, hostAssignSeat, hostUnassignSeat, hostRoster, joinGame, leaveGame, refreshFaces, renameMe, resetGame, startGame } from './lobby'
+export { assignAll, createGame, hostAssignSeat, hostUnassignSeat, hostRoster, joinGame, refreshFaces, renameMe, resetGame, startGame } from './lobby'
 export { sweepSeats } from './seats'
 
 // 따라잡기. 상시 서버가 없으므로 밀린 일을 다음 요청이 민다.
@@ -120,14 +120,13 @@ export {
   readyDeal,
   cancelDeal,
   settleDeal,
-  dealNow,
 } from './deals'
 
 // 표. 보낸 사람은 어디로도 나가지 않는다.
 export { castVote, hostVotes } from './vote'
 
 // 진상 공개 흐름. 아침 진행 · 체류 · 깨달음 · 눈발.
-export { markMorning, snowNow } from './reveal'
+export { markMorning } from './reveal'
 
 // 엔딩. 운영자가 버튼 하나로 전원에게 튼다. 종례가 끝난 뒤에만 된다.
 export { hostBroadcastEnding, hostEndingStatus, markEndingSeen, finalNoteText } from './ending'
@@ -157,7 +156,7 @@ export { hostOpenAnswers, submitAnswers, myAnswers, hostAnswers, hostGradeAnswer
 export { seedPlayers } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
-export { openPhase, closePhase, phaseAct, phaseNow, roamTo, standAt } from './phase'
+export { openPhase, closePhase, phaseAct, roamTo, standAt } from './phase'
 export { harvestPot } from './garden'
 export { hostPlant, hostGarden, hostPullPot } from './garden'
 export { takeSlip, readSlip, dropSlip, readSlipHere, tearSlipHere, hostPullSlip } from './slips'
@@ -178,7 +177,7 @@ export {
 } from './errand'
 
 // 문제 종이. 정답과 해설은 여기 바깥으로 나가지 않는다 — 채점도 서버가 한다
-export { takeQuiz, answerQuiz, hostQuizList, hostQuizUpsert, hostQuizRemove, hostPullQuiz } from './quiz'
+export { takeQuiz, answerQuiz, hostQuizList, hostQuizUpsert, hostQuizRemove } from './quiz'
 export { commissionTrap, takeTrap } from './trap'
 // 오락기. 답은 서버가 쥐고, 대결에서 먼저 낸 수는 봉인한다
 export { arcadeOpen, arcadeInvite, arcadeAnswer, arcadeBegin, arcadeLeave, arcadeMove, arcadePick, arcadeSubmit, arcadePlay, arcadeTick, arcadeClock } from './arcade'

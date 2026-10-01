@@ -505,7 +505,6 @@ async function main(): Promise<void> {
   rejects(await call('pickUpThing', me.token, { gameId: GAME }), '받은 것 없이 pickUpThing', 'FAILED_PRECONDITION')
   rejects(await call('dropThing', me.token, { gameId: GAME }), '받은 것 없이 dropThing', 'FAILED_PRECONDITION')
   rejects(await call('giveUpErrand', me.token, { gameId: GAME }), '받은 것 없이 giveUpErrand', 'FAILED_PRECONDITION')
-  for (const d of [99, -1, 0, NaN, '2', 1.5, {}, null, undefined]) rejects(await call('fragmentOfDay', me.token, { gameId: GAME, day: d }), `fragmentOfDay day=${JSON.stringify(d) ?? 'undefined'}`)
   for (const d of [NaN, -1, 0, 'x', 1.5, {}]) rejects(await call('seenMissionDay', me.token, { gameId: GAME, day: d }), `seenMissionDay day=${JSON.stringify(d)}`, 'INVALID_ARGUMENT')
   const mm = await call('markMorning', me.token, { gameId: GAME, read: ['x', 99, -1, 1.5, null], skipped: 'abc' })
   check(mm.ok && JSON.stringify(mm.data?.readDays) === '[]', 'markMorning 이상한 날은 다 걸러진다', JSON.stringify(mm.data))
@@ -567,7 +566,7 @@ async function main(): Promise<void> {
     ['roamTo', { tileId: 'gym' }], ['standAt', { x: 19, y: 23 }], ['castVote', { targetId: 'x', kind: 'trust' }], ['askDeal', { toPlayerId: 'x' }],
     ['phaseAct', { kind: 'move', targetTile: 'gym' }], ['castBallot', { targetId: 'x' }], ['radio', { text: '안녕' }], ['takeSlip', { slipId: 'x' }],
     ['harvestPot', { pot: 0 }], ['buyShopItem', { itemId: SHOP_ITEMS[0].id }], ['useItem', { kind: 'paper', text: '안녕' }],
-    ['commissionTrap', { maker: 0 }], ['takeErrand', { errandId: 'x' }], ['arcadeOpen', { game: 'updown' }], ['phaseNow', {}], ['dealNow', {}],
+    ['commissionTrap', { maker: 0 }], ['takeErrand', { errandId: 'x' }], ['arcadeOpen', { game: 'updown' }],
   ] as [string, Record<string, unknown>][]) {
     rejects(await call(fn, lobbyGuy.token, { gameId: LOBBY, ...args }), `시작 전 ${fn}`)
   }
@@ -586,7 +585,7 @@ async function main(): Promise<void> {
     }
   }
   snap = await snapshot()
-  const GAME_FNS = ['say', 'castVote', 'phaseNow', 'myPaper', 'clockNow', 'tick', 'chatLines', 'fragmentOfDay', 'releasedFragments', 'finalNoteText']
+  const GAME_FNS = ['say', 'castVote', 'myPaper', 'clockNow', 'tick', 'chatLines', 'releasedFragments', 'finalNoteText']
   for (const gid of ['no-such-game', 'games', undefined, 42, {}, null, 'x'.repeat(2000)]) {
     for (const fn of GAME_FNS) rejects(await call(fn, me.token, { gameId: gid, text: '안녕', targetId: you.uid, kind: 'trust', day: 1 }), `${fn} gameId=${JSON.stringify(gid) ?? 'undefined'}`)
   }

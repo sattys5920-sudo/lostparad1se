@@ -12,9 +12,6 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { uiIcon } from './uiArt'
 import type { Dir } from '../map/sprites'
 
-/** 손끝에 닿아야 하는 최소 크기. 보이는 것과 따로 잡는다. */
-export const TAP_PX = 44
-
 /** 진동을 켜 둘 것인가. 기기에만 남는다 — 판과 상관없는 취향이다. */
 const BUZZ_KEY = 'sc-buzz'
 

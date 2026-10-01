@@ -3,14 +3,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   canHoldFlags,
-  flagTotal,
   flagsIn,
   spendFlags,
   pullTarget,
   withPlanted,
   withPulled,
-  type FlagMap,
-} from './flag'
+  type FlagMap } from './flag'
 
 describe('꽂기와 뽑기', () => {
   it('꽂으면 그 방 그 팀 수가 하나 는다. 원래 것은 안 고친다', () => {
@@ -18,12 +16,6 @@ describe('꽂기와 뽑기', () => {
     const after = withPlanted(before, 'library', 'A')
     expect(flagsIn(after, 'library', 'A')).toBe(2)
     expect(flagsIn(before, 'library', 'A')).toBe(1)
-  })
-
-  it('뽑으면 하나 준다. 마지막 하나를 뽑으면 그 팀 칸이 사라진다', () => {
-    const one = withPulled({ library: { B: 1, C: 2 } }, 'library', 'B') as FlagMap
-    expect(one.library?.B).toBeUndefined()
-    expect(flagTotal(one, 'library')).toBe(2)
   })
 
   it('없는 것은 못 뽑는다', () => {

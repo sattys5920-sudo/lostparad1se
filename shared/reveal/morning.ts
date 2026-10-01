@@ -14,8 +14,6 @@
 // 하고(다시 들어와도 이어서 봐야 한다), 시험이 필요하기 때문이다.
 export type SceneId = 'record'
 
-export const SCENE_ORDER: readonly SceneId[] = ['record']
-
 /** 그날 재생에 필요한 최소한의 모양. 본문은 들어 있지 않다. */
 export interface DayScript {
   day: number
@@ -129,13 +127,3 @@ export function handledDays(before: readonly number[], after: MorningState): num
 }
 
 // ── 언제 재생하나 ───────────────────────────────────────────────
-
-/**
- * 08:00에 접속해 있으면 바로, 아니면 그날 처음 들어올 때.
- *
- * 두 경우를 굳이 가르지 않는다. 「열렸는데 아직 안 봤다」면 재생한다 —
- * 같은 조건이고, 접속 상태를 따로 추적할 필요가 없다.
- */
-export function shouldPlay(released: readonly number[], handled: readonly number[]): boolean {
-  return pendingDays(released, handled).length > 0
-}

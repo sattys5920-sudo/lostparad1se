@@ -4,7 +4,7 @@
 // 모두가 같은 이름을 적어야 한다. 그 규칙이 무너지면 매일 누군가 지워지고,
 // 그러면 이 게임이 하려는 말이 사라진다.
 import { describe, expect, it } from 'vitest'
-import { INVISIBLE_CAN, INVISIBLE_CANNOT, canName, chatReaches, countBallots, eraseFrom, isInvisible, pickInvisible } from './invisible'
+import { canName, chatReaches, countBallots, eraseFrom, pickInvisible } from './invisible'
 
 const counts = (o: Record<string, number>) =>
   Object.entries(o).map(([playerId, count]) => ({ playerId, count }))
@@ -56,27 +56,6 @@ describe('내일의 투명인간', () => {
   })
 })
 
-describe('지워진 하루', () => {
-  it('걷고, 행동하고, 벌 수 있다', () => {
-    expect(INVISIBLE_CAN.walk).toBe(true)
-    expect(INVISIBLE_CAN.act).toBe(true)
-    expect(INVISIBLE_CAN.reveal).toBe(true)
-    expect(INVISIBLE_CAN.castVote).toBe(true)
-  })
-
-  it('보이지 않고 표를 받지 못한다', () => {
-    expect(INVISIBLE_CANNOT.beSeen).toBe(false)
-    expect(INVISIBLE_CANNOT.receiveVote).toBe(false)
-  })
-
-  it('누가 투명인간인지 짚는다', () => {
-    expect(isInvisible('a', 'a')).toBe(true)
-    expect(isInvisible('a', 'b')).toBe(false)
-    expect(isInvisible(null, 'a')).toBe(false)
-    expect(isInvisible(undefined, 'a')).toBe(false)
-  })
-})
-
 describe('전체 채팅', () => {
   const said = { playerId: 'erased', invisible: true }
 
@@ -96,7 +75,6 @@ describe('전체 채팅', () => {
     expect(chatReaches({ playerId: 'anyone', invisible: false }, 'other')).toBe(true)
   })
 })
-
 
 describe('표를 세면 누가 줬는지가 사라진다', () => {
   it('받은 사람별 장수만 남는다', () => {

@@ -379,7 +379,7 @@ async function main(): Promise<void> {
   // 방을 뜨기 전에, **한 걸음만 물러나도** 탁자가 접힌다
   const back = seats!
   await stand(you.token, back.far.x, back.far.y)
-  await must('dealNow', me.token, { gameId: GAME })
+  await must('tick', me.token, { gameId: GAME })
   check(String((await dealNow(id)).status) === 'gone', '한 걸음 떨어지면 사라진다', String((await dealNow(id)).why ?? ''))
 
   await standSideBySide(room)
@@ -387,7 +387,7 @@ async function main(): Promise<void> {
   await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 2 } })
   const away = ADJACENCY[(await pawnsNow())[you.uid].tileId as string][0]
   await must('roamTo', you.token, { gameId: GAME, tileId: away })
-  await must('dealNow', me.token, { gameId: GAME })
+  await must('tick', me.token, { gameId: GAME })
   d = await dealNow(id)
   check(String(d.status) === 'gone', '방을 뜨면 사라진다', String(d.why ?? ''))
   check(
@@ -414,7 +414,7 @@ async function main(): Promise<void> {
   const mineNow = (await pawnsNow())[me.uid].tileId as string
   // 전선으로 옮겨 세워진 사람들이 있다 — 빈 칸을 새로 고른다
   const r2 = await standSideBySide(mineNow)
-  await must('dealNow', me.token, { gameId: GAME })
+  await must('tick', me.token, { gameId: GAME })
   check(String((await dealNow(id)).status) === 'open', '페이즈가 열려도 탁자는 그대로다')
   check(
     Number(((await dealNow(id)) as { a: { stake: { money: number } } }).a.stake.money) === 1,
@@ -423,7 +423,7 @@ async function main(): Promise<void> {
 
   // 페이즈 중에 한 걸음 떨어지면 그때는 접힌다 — 자리를 잃어서다
   await stand(you.token, r2.far.x, r2.far.y)
-  await must('dealNow', me.token, { gameId: GAME })
+  await must('tick', me.token, { gameId: GAME })
   check(String((await dealNow(id)).status) === 'gone', '자리가 갈리면 사라진다')
 
   // 다시 마주 서면 페이즈 중에도 새로 연다. **값은 안 든다**
@@ -518,7 +518,7 @@ async function main(): Promise<void> {
   console.log('── 덤. 답이 없으면 사라진다 ──')
   const asked = await must('askDeal', me.token, { gameId: GAME, toPlayerId: you.uid })
   await push(20_000)
-  await must('dealNow', me.token, { gameId: GAME })
+  await must('tick', me.token, { gameId: GAME })
   check(String((await dealNow(String(asked.id))).status) === 'gone', '열다섯 초가 지나면 사라진다')
 
 

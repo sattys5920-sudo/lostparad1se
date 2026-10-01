@@ -16,19 +16,6 @@ export type Bag = Partial<Record<Resource, number>>
 
 // ── 자원 셈 ─────────────────────────────────────────────────────
 
-/** 이 묶음을 낼 수 있는가. */
-export function canPay(have: Record<Resource, number>, cost: Bag): boolean {
-  return RESOURCES.every((r) => (have[r] ?? 0) >= (cost[r] ?? 0))
-}
-
-/** 낸다. 모자라면 null — 반쯤 빠진 상태를 만들지 않는다. */
-export function pay(have: Record<Resource, number>, cost: Bag): Record<Resource, number> | null {
-  if (!canPay(have, cost)) return null
-  const out = { ...have }
-  for (const r of RESOURCES) out[r] -= cost[r] ?? 0
-  return out
-}
-
 /** 받는다. */
 export function gain(have: Record<Resource, number>, bag: Bag): Record<Resource, number> {
   const out = { ...have }
@@ -52,17 +39,6 @@ export const EMPTY_PURSE: Record<Resource, number> = { money: 0, knowledge: 0 }
  */
 export const purseOf = (who: { resources?: Record<Resource, number> } | undefined): Record<Resource, number> =>
   ({ ...EMPTY_PURSE, ...(who?.resources ?? {}) })
-
-/**
- * 번 것을 금고에 넣는다.
- *
- * **상한은 없다.** 하루에 얼마를 벌든 버는 만큼 가진다 — 벌이를
- * 막는 것은 시간과 발품이지 숫자가 아니다.
- */
-export const earn = (
-  who: { resources?: Record<Resource, number> } | undefined,
-  bag: Bag,
-): Record<Resource, number> => gain(purseOf(who), bag)
 
 /**
  * 옛 판의 개인 지갑들을 팀 금고에 더한다. **한 번 옮기면 지갑은 지운다** —

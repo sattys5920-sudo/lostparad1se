@@ -162,6 +162,31 @@ async function main(): Promise<void> {
     '같은 팀에게는 못 꺼낸다',
   )
 
+  console.log('\n── 분단의 마지막 한 사람은 못 떠난다 ──')
+  // 묻고 나서 답하기 전에 B분단이 b 하나만 남은 상황을 만든다(자리표만 고친다).
+  // 같은 분단 둘에게 동시에 묻고 둘 다 받는 경우가 이 모양이다
+  const raw = (await (await fetch(`${FS}/games/${GAME}`, { headers: ADMIN })).json()) as { fields: { seats: unknown } }
+  const seatsBefore = JSON.parse(JSON.stringify(raw.fields.seats)) as { arrayValue: { values: { mapValue: { fields: Record<string, { stringValue?: string }> } }[] } }
+  const thinned = JSON.parse(JSON.stringify(seatsBefore)) as typeof seatsBefore
+  for (const v of thinned.arrayValue.values) {
+    const f = v.mapValue.fields
+    if (f.team?.stringValue === 'B' && f.playerId?.stringValue !== b) f.team = { stringValue: 'C' }
+  }
+  const putSeats = (seats: unknown) =>
+    fetch(`${FS}/games/${GAME}?updateMask.fieldPaths=seats`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...ADMIN },
+      body: JSON.stringify({ fields: { seats } }),
+    })
+  const lastAsk = await call('askTransfer', tkA, { gameId: GAME, toPlayerId: b })
+  await putSeats(thinned)
+  check(
+    (await no(call('answerTransfer', tkB, { gameId: GAME, askId: lastAsk.id, accept: true }))).includes(TRANSFER_NO.lastOne),
+    '**답하는 순간 다시 센다** — 마지막 한 사람이면 수락해도 안 넘어간다',
+  )
+  check((await seatTeam(b)) === 'B', '그대로 B분단이다')
+  await putSeats(seatsBefore)
+
   const ask = await call('askTransfer', tkA, { gameId: GAME, toPlayerId: b })
   check(typeof ask.id === 'string', '마주 서면 꺼낼 수 있다')
   check(

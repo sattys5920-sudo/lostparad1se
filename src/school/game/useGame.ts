@@ -14,7 +14,7 @@
 //
 // 말의 위치도, 남의 가방도, 표도 여기 없다. 규칙이 막아서가 아니라
 // 서버가 애초에 담지 않아서다.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { collection, doc, onSnapshot } from 'firebase/firestore'
 
 import type { InboxDoc } from '../../../shared/missions/mail'
@@ -294,7 +294,6 @@ export function gameActions(gameId: string) {
       kind: string,
       t: { targetTile?: TileId; targetPlayer?: string; targetRobot?: string; targetTeam?: string; machine?: number } = {},
     ) => callServer('phaseAct', { ...g, kind, ...t }),
-    phaseNow: () => callServer('phaseNow', g),
     takeSlip: (slipId: string) => callServer('takeSlip', { ...g, slipId }),
     readSlip: (slipId: string) => callServer('readSlip', { ...g, slipId }),
     dropSlip: (slipId: string) => callServer('dropSlip', { ...g, slipId }),
@@ -352,7 +351,6 @@ export function gameActions(gameId: string) {
     clearInvisible: (reason: string) => callServer('clearInvisible', { ...g, reason }),
     hostNotice: (text: string, toPlayerId: string | null) => callServer('hostNotice', { ...g, text, toPlayerId }),
     hostAnnounceLeader: () => callServer('hostAnnounceLeader', { ...g }),
-    noticeTemplates: () => callServer('noticeTemplates', {}),
     /** 문제 은행을 본다. **운영자만** — 정답과 해설이 여기서만 나온다. */
     hostQuizList: () => callServer('hostQuizList', g),
     /** 비밀 쪽지 판. 사람마다 나간 장수와 바닥에 남은 자리. **운영자만.** */
@@ -473,8 +471,6 @@ export function gameActions(gameId: string) {
     readyDeal: (dealId: string, ready: boolean) => callServer('readyDeal', { ...g, dealId, ready }),
     cancelDeal: (dealId: string) => callServer('cancelDeal', { ...g, dealId }),
     settleDeal: (dealId: string) => callServer('settleDeal', { ...g, dealId }),
-    /** 지금 내가 끼어 있는 거래. 시든 것을 접고 나서 답한다. */
-    dealNow: () => callServer('dealNow', g),
 
     // ── 이적 ────────────────────────────────────────────────────
     // 마주 서서 「우리 팀으로 오겠느냐」고 묻는다. 불린 쪽이 답하고,
@@ -517,10 +513,7 @@ export function gameActions(gameId: string) {
 
     /** 아침 시퀀스를 어디까지 봤는지 적는다. */
     markMorning: (read: number[], skipped: number[]) => callServer('markMorning', { ...g, read, skipped }),
-    /** A의 기록 한 조각. 공개 시각 전에는 서버가 거절한다. */
-    fragment: (day: number) => callServer('fragmentOfDay', { ...g, day }),
     releasedFragments: () => callServer('releasedFragments', g),
-    snow: () => callServer('snowNow', g),
     /** 운영자: 엔딩을 송출한다. mode 'all'은 전원, 'unseen'은 못 본 사람만 */
     hostBroadcastEnding: (mode: 'all' | 'unseen') => callServer('hostBroadcastEnding', { ...g, mode }),
     /** 운영자: 지금 송출 상태와 본 인원. 종례가 끝난 뒤에만 뜻이 있다 */
@@ -533,8 +526,3 @@ export function gameActions(gameId: string) {
 }
 
 export type GameActions = ReturnType<typeof gameActions>
-
-/** 화면이 「지금 몇 일차인가」를 자주 묻는다. */
-export function useDay(state: GameState): number {
-  return useMemo(() => state.game?.day ?? 0, [state.game?.day])
-}

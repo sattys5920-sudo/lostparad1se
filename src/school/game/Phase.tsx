@@ -9,8 +9,6 @@
 // 왜 없는지 알 수 없고, 이유 없이 막으면 왜 안 되는지 알 수 없다.
 import { useEffect, useRef, useState } from 'react'
 
-import type { DevClock } from '../../../shared/rules/clock'
-import { useGameNow } from './Shell'
 
 import {
   ACT_COST,
@@ -339,60 +337,6 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
 const nameOf = (seats: readonly SeatEntry[], id: string) => seats.find((s) => s.playerId === id)?.name ?? '누군가'
 
 // ── 운영자 ──────────────────────────────────────────────────────
-
-export function PhaseHost({
-  open,
-  no,
-  endsAtMs,
-  act,
-  onSaid,
-  clock,
-}: {
-  open: boolean
-  no: number
-  endsAtMs: number | null
-  act: GameActions
-  onSaid: (t: string) => void
-  /** 판의 시계. 없으면 실제 시각 */
-  clock?: DevClock
-}) {
-  const [busy, setBusy] = useState(false)
-  // 판의 시계로 센다. 기기 시계로 세면 배속을 건 판에서 남은 시간이 안 맞는다
-  const now = useGameNow(clock)
-  async function run(label: string, fn: () => Promise<unknown>) {
-    setBusy(true)
-    try {
-      await fn()
-      buzz('ok')
-      onSaid(`${label} 했다.`)
-    } catch (e) {
-      buzz('no')
-      onSaid((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <div className="sc-pl__hosttools">
-      <span>페이즈 {no}</span>
-      {open ? (
-        <>
-          {/* 몇 명이 무엇을 했는지는 운영자에게도 안 나간다. 시계만 본다 */}
-          <span className="sc-ph__count">
-            {endsAtMs == null ? '진행 중' : now >= endsAtMs ? '시간 끝' : `${leftText(endsAtMs - now)} 남았다`}
-          </span>
-          <button disabled={busy} onClick={() => void run('닫기', () => act.closePhase())}>
-            닫고 처리
-          </button>
-        </>
-      ) : (
-        <button disabled={busy} onClick={() => void run('열기', () => act.openPhase())}>
-          페이즈 열기
-        </button>
-      )}
-    </div>
-  )
-}
 
 // ── 지난 페이즈에 있었던 일 ─────────────────────────────────────
 

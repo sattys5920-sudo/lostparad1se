@@ -1,6 +1,6 @@
 // 눈발. A의 기록이 열린 날 수로 돈다 — snow.ts 머리말을 보라.
 import { describe, expect, it } from 'vitest'
-import { commonEndingOf, snowLevel, snowStopped, snowView } from './snow'
+import { snowLevel, snowStopped, snowView } from './snow'
 import { SNOW_LEVEL_MAX, TOTAL_DAYS } from './v2'
 
 describe('눈이 그치는 때', () => {
@@ -47,9 +47,3 @@ describe('화면에 내려보내는 것', () => {
   })
 })
 
-describe('공동 엔딩', () => {
-  it('그치면 snowStopped, 아니면 snowKept', () => {
-    expect(commonEndingOf({ released: TOTAL_DAYS })).toBe('snowStopped')
-    expect(commonEndingOf({ released: 1 })).toBe('snowKept')
-  })
-})

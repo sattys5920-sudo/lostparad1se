@@ -1,13 +1,9 @@
 // 이야기 데이터가 규칙과 어긋나지 않는지.
 //
-// 문장은 사람이 쓰고 규칙은 코드가 쥔다. 둘이 따로 자라면 A의 기억이
-// 열두 칸만 있거나, 전말에 이름이 빠진 역할이 생긴다. 그런 건 엔딩에서야
-// 드러나고, 그때는 판이 이미 끝나 있다.
+// 문장은 사람이 쓰고 규칙은 코드가 쥔다. 둘이 따로 자라면 날짜가 비거나
+// 종이 종류가 어긋난다. 그런 건 아침에야 드러나고, 그때는 늦다.
 import { describe, expect, it } from 'vitest'
 import { FRAGMENTS, FRAGMENT_BY_DAY } from './fragments'
-import { MEMORIES, MEMORY_TILE_IDS } from './memories'
-import { HOST_RULES } from './hostRules'
-import { MEMORY_TILES } from '../../../shared/rules/memory'
 import { TILE_BY_ID } from '../../../shared/rules/board'
 import { TOTAL_DAYS } from '../../../shared/rules/v2'
 
@@ -47,25 +43,5 @@ describe('A의 기록', () => {
   it('종이 종류가 문서대로다 — 1 일기장 / 2 메모 / 3 일기장 / 4 메모', () => {
     const kinds = FRAGMENTS.map((f) => f.papers.map((p) => p.kind).join('+'))
     expect(kinds).toEqual(['diary', 'note', 'diary', 'note'])
-  })
-})
-
-describe('A의 기억', () => {
-  it('규칙이 세는 열두 칸과 정확히 같다', () => {
-    expect([...MEMORY_TILE_IDS].sort()).toEqual([...MEMORY_TILES].sort())
-  })
-
-  it('열두 장면 모두 문장이 있다', () => {
-    expect(Object.keys(MEMORIES)).toHaveLength(12)
-    for (const [tile, text] of Object.entries(MEMORIES)) {
-      expect(text.length, tile).toBeGreaterThan(10)
-    }
-  })
-})
-
-describe('운영자 수칙', () => {
-  it('세 줄이 있다', () => {
-    expect(HOST_RULES).toHaveLength(3)
-    expect(HOST_RULES[0]).toContain('진상을 설명하지 않는다')
   })
 })

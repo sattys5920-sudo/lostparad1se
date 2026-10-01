@@ -112,65 +112,6 @@ export function pickInvisible(input: PickInput): PickResult {
 // ── 지워진 하루 ─────────────────────────────────────────────────
 
 /**
- * 투명인간이 못 하는 일과 할 수 있는 일.
- *
- * 가르는 선은 하나다 — **다른 사람과 마주 보고 하는 일(상호작용)만
- * 막힌다.** 거래(쪽지를 넘기는 것도 거래다)도 이적도 호출도 대화(방에서 하는 말·
- * 팀 무전·전원 채널 가리지 않는다)도 상대가 있어야 하는 일이라 안 된다.
- *
- * 혼자 하는 일은 전부 된다. 걷고, 서고, 벌고, 산다. 깃발을 꽂는 것도
- * 혼자 하는 일이라 된다 — 다만 **뽑는 것은 같은 팀 둘이 있어야 하는
- * 일이라(occupy.ts) 여전히 안 된다.** 지워졌다고 하루를 통째로
- * 빼앗지는 않는다 — 없는 사람으로 지내는 것이지 아무것도 못 하는
- * 사람이 되는 것이 아니다.
- */
-export const INVISIBLE_CAN = {
-  walk: true,
-  /** 점령전은 그대로 겨룬다 — 다만 깃발 뽑기는 상세 규칙을 occupy.ts 가 따로 가른다. */
-  act: true,
-  reveal: true,
-  /**
-   * 벌이. **심부름도 수확도 문제 풀기도 자판기도 된다.**
-   *
-   * 심부름만 막혀 있었다 — 「없는 사람에게 일을 맡길 수는 없다」는
-   * 것이었는데, 게시판은 사람이 아니다. 종이를 떼어 물건을 나르는
-   * 일에 남의 눈이 필요하지 않다. 화분도 문제 종이도 처음부터
-   * 안 막혀 있었고, 셋을 다르게 둘 까닭이 없다.
-   */
-  earn: true,
-  /**
-   * 신뢰·호감표를 **주는 것**은 된다.
-   *
-   * 지워졌다고 누군가를 믿는 일까지 빼앗지는 않는다. 받는 것은
-   * 막힌다 — 없는 사람에게는 줄 수 없다.
-   */
-  castVote: true,
-} as const
-
-export const INVISIBLE_CANNOT = {
-  /** 남에게 보인다. 같은 팀에게도. */
-  beSeen: false,
-  /** 표를 받는다. */
-  receiveVote: false,
-  /**
-   * 맵에서 말한다. **아예 못 친다**(functions/src/chat.ts 가 거절한다).
-   * 전에는 쳐지되 본인 화면에만 남았다 — 이제는 무전과 같이 듣기만 한다.
-   */
-  speakInClass: false,
-  /** 거래(쪽지 넘기기 포함)·이적 — **마주 보고 하는 일 전부.** */
-  dealWithPeople: false,
-  /** 사람을 겨눈 카드. 쓰지도 못하고 겨눠지지도 않는다. */
-  targetPeopleWithCards: false,
-  /** 호출. 부르는 쪽도 불리는 쪽도 아니다 — 어느 쪽이든 위치가 샌다. */
-  summon: false,
-  /**
-   * 무전으로 말한다. 팀 채널이든 전원 채널이든 — 상대가 있는 대화라
-   * 안 된다(functions/src/radio.ts). **듣는 것은 막지 않는다.**
-   */
-  speakOnRadio: false,
-} as const
-
-/**
  * 그 줄이 이 사람에게 가는가. **방에서 하는 말에만 쓴다.**
  *
  * 무전(팀 줄)은 이것을 안 거친다 — 지워진 것은 판정에서지 팀에서가
@@ -198,10 +139,5 @@ export function chatReaches(
  * 대신 적을 때 같은 말을 쓴다
  */
 export const MUTE_WHILE_INVISIBLE = '보이지 않는 동안에는 말할 수 없다. 듣기만 한다.'
-
-/** 지금 이 사람이 투명인간인가. */
-export function isInvisible(invisibleId: string | null | undefined, playerId: string): boolean {
-  return invisibleId != null && invisibleId === playerId
-}
 
 

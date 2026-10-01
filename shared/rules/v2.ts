@@ -21,7 +21,6 @@ export const TIMEZONE = 'Asia/Seoul'
 
 // ── 판 ──────────────────────────────────────────────────────────
 
-export const GRID = 5
 export const TOTAL_DAYS = 4
 
 export type TeamId = 'A' | 'B' | 'C' | 'D'
@@ -78,8 +77,6 @@ export const LIGHTS_OUT_HOUR = 24
 export const SETTLEMENT_HOUR = 21
 /** 마지막 여섯 시간이 시작되는 시각(DAY 5). */
 export const LAST_HOURS_START_HOUR = 15
-/** 종례 — 게임이 끝난다(DAY 5). */
-export const CLOSING_HOUR = SETTLEMENT_HOUR
 
 /** 하루 중 실제로 시간이 흐르는 길이(초). 지금은 하루 통째다. */
 export const ACTIVE_SECONDS_PER_DAY = (LIGHTS_OUT_HOUR - DAY_START_HOUR) * 3600
@@ -89,16 +86,6 @@ export const DEV_CLOCK_SPEED_MIN = 1
 export const DEV_CLOCK_SPEED_MAX = 240
 
 // ── 말과 이동 ───────────────────────────────────────────────────
-
-/**
- * 봇 시뮬레이터의 한 틱. **더는 걸음 값이 아니다.**
- *
- * 본래는 「이웃 칸 하나를 걷는 데 드는 게임 시간」이었다. 복도가
- * 생기고 계단이 문이 된 뒤로 어느 방이든 한 걸음이라 여러 칸을
- * 걷는 일이 없어졌고, 걷기와 등교 예약을 같이 들어냈다.
- * 페이즈의 걸음 값은 occupy.ts 의 MOVE_MINUTES(10분)다.
- */
-export const MOVE_GAME_MIN_PER_TILE = 15
 
 /*
  * 안개의 시야(VISION_RANGE)와 정보부장의 한 겹(INTEL_VISION_BONUS)은
@@ -128,18 +115,8 @@ export const HALL_SIGHT = 6
 // 12다 — 어느 쪽을 들여다보는지 보고 읽어야 한다. 시뮬레이터를 페이즈
 // 모형으로 옮기면 이 묶음은 tokens.ts 와 같이 걷어낸다.
 
-/** 08:00에 받는 몫. */
-export const TOKEN_DAWN_GRANT = 2
-/** 짝수 시각마다 받는 몫. */
-export const TOKEN_HOURLY_GRANT = 1
-/** 충전이 일어나는 시각 — 10·12·14·16·18·20시. */
-export const TOKEN_GRANT_HOURS: readonly number[] = [10, 12, 14, 16, 18, 20]
 /** 쌓아 둘 수 있는 한도. 넘치면 사라진다. */
 export const TOKEN_CAP = 4
-/** 한 사람이 하루에 쓸 수 있는 수. 08:00에 초기화된다. */
-export const TOKEN_PER_PLAYER_DAILY = 3
-/** 만회 팀이 다음 08:00에 더 받는 몫. 이때만 보관 한도를 넘길 수 있다. */
-export const TOKEN_COMEBACK_BONUS = 2
 
 // ── 자원 ────────────────────────────────────────────────────────
 
@@ -155,11 +132,6 @@ export const TOKEN_COMEBACK_BONUS = 2
  */
 export type Resource = 'money' | 'knowledge'
 export const RESOURCES: readonly Resource[] = ['money', 'knowledge']
-
-export const RESOURCE_LABEL: Record<Resource, string> = {
-  money: '돈',
-  knowledge: '지식',
-}
 
 /**
  * 사람 하나가 들고 시작하는 것. **빈손이다.**
@@ -198,9 +170,6 @@ export const VOTE_LABEL: Record<VoteKind, string> = {
  * 「모두의 신뢰」 같은 목표를 판정한다. 표는 점수로 가지 금고로 가지 않는다.
  */
 
-/** 하루에 한 사람이 줄 수 있는 표. */
-export const VOTE_PER_PLAYER_DAILY = 1
-
 /*
  * **생산·공부는 없앴다.** 여기 있던 PRODUCE_MONEY·STUDY_KNOWLEDGE 도
  * 같이 뺐다 — 페이즈에 토큰을 쓰는 길은 점령(이동)과 연구뿐이다.
@@ -218,15 +187,6 @@ export const VOTE_PER_PLAYER_DAILY = 1
 // 협정서·잠복…)이 여기 있었다. 로봇이 태어날 때만 한 장 뽑혔는데,
 // 로봇은 연구, 연구는 지식, 지식은 문제 종이뿐이라 — 종이를 안 놓으면
 // 카드 전체가 한 장도 안 돌았다. 만들어 놓고 입구가 바늘구멍이었다.
-
-export const CARD_FORCED_MARCH_TILES = 2
-export const CARD_WINDFALL_MONEY = 4
-export const CARD_CRAMMING_KNOWLEDGE = 4
-export const CARD_FALSE_RUMOR_MONEY = 2
-export const CARD_BLOCKADE_GAME_HOURS = 6
-export const CARD_SECRET_LETTER_REAL_HOURS = 1
-export const CARD_ACCORD_MONEY = 2
-export const CARD_HIDE_GAME_HOURS = 6
 
 // ── A의 기록과 날짜별 사건 ──────────────────────────────────────
 
@@ -248,8 +208,6 @@ export const LAST_HOURS_DAY = TOTAL_DAYS
  * A는 몇 주째였다. 우리는 하루면 된다.
  */
 export const INVISIBLE_NO_REPEAT = true
-/** 투명인간인 날에는 그 자리 체류가 이만큼 빨리 쌓인다. */
-export const INVISIBLE_STAY_MULTIPLIER = 2
 /** 한 줄에 칠 수 있는 글자 수. 서버와 화면이 같은 값을 본다. */
 export const CHAT_MAX_LEN = 300
 
@@ -262,18 +220,6 @@ export const CHAT_MAX_LEN = 300
  * 들어갈 만큼이 상한이다.
  */
 export const ROOM_SAY_MAX = 60
-
-/**
- * 도배 막이. 이 시간 안에 이만큼 치면 잠깐 잠근다.
- *
- * 서버가 거절하는 것이 아니라 **화면이 먼저 손을 붙든다** — 방 안의
- * 말은 판정에 안 쓰이므로 서버가 막을 이유가 없고, 막아야 할 것은
- * 옆 사람의 화면이 한 사람 글로 채워지는 일이다.
- */
-export const ROOM_SAY_BURST = 3
-export const ROOM_SAY_BURST_MS = 3000
-/** 붙들려 있는 시간. */
-export const ROOM_SAY_COOL_MS = 4000
 
 // ── 운영자 코드 ────────────────────────────────────────────────
 //
@@ -289,15 +235,7 @@ export const HOST_GATE_LOCK_MS = 15 * 60 * 1000
 
 // ── A의 기억 (②) ───────────────────────────────────────────────
 
-/** 기억이 묻힌 칸의 층위. 다툼이 벌어지는 곳에만 있다. */
-export const MEMORY_TIERS: readonly Tier[] = ['gate', 'cross', 'core', 'plaza']
-
 // ── 그 자리와 깨달음 (③) ───────────────────────────────────────
 /** 눈발 단계. 0이 그친 것이고 5가 가장 굵다. 수치 대신 이 값만 내려보낸다. */
 export const SNOW_LEVEL_MAX = 5
 // ── 다섯 시의 창고 (⑤) ─────────────────────────────────────────
-
-export const STORAGE_TILE = 'storage'
-export const STORAGE_LOCK_DAY = TOTAL_DAYS
-export const STORAGE_LOCK_HOUR = 17
-export const STORAGE_UNLOCK_HOUR = 19

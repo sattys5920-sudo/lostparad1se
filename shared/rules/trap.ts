@@ -94,10 +94,6 @@ export const LAB_MACHINES: readonly Cell[] = [
 export const beside = (me: Cell | null | undefined, at: Cell): boolean =>
   me != null && Math.abs(me.x - at.x) <= 1 && Math.abs(me.y - at.y) <= 1
 
-/** 내가 옆에 선 제조기. 없으면 null. 둘 사이에 서면 앞 번호다 */
-export const makerBeside = (me: Cell | null | undefined): MakerSpot | null =>
-  MAKERS.find((m) => beside(me, m.cell)) ?? null
-
 export type LabPickNo = 'far' | 'busy'
 
 export const LAB_PICK_NO: Record<LabPickNo, string> = {

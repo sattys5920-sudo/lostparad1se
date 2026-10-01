@@ -134,37 +134,6 @@ export function activeSecondsBetween(fromMs: number, toMs: number): number {
   return head + (wholeDays - 1) * ACTIVE_SECONDS_PER_DAY + tail
 }
 
-/**
- * 지금부터 활동 시간으로 이만큼 지나면 몇 시인가.
- * 깃발이 언제 끝나는지, 발 묶기가 언제 풀리는지를 이걸로 정한다.
- */
-export function addActiveSeconds(fromMs: number, seconds: number): number {
-  if (seconds <= 0) return fromMs
-  let cursor = fromMs
-  let left = seconds
-
-  // 멈춘 시간에 시작했으면 먼저 열리는 시각까지 건너뛴다
-  if (isLightsOut(cursor)) cursor = seoulTimeOn(cursor, DAY_START_HOUR)
-
-  for (;;) {
-    const leftToday = ACTIVE_SECONDS_PER_DAY - activeSecondsIntoDay(cursor)
-    if (left <= leftToday) return cursor + left * 1000
-    left -= leftToday
-    // 다음 날이 열리는 시각으로
-    cursor = seoulTimeOn(cursor + DAY * 1000, DAY_START_HOUR)
-  }
-}
-
-/** 분 단위로 쓰는 곳이 많아 감싸 둔다. 결과는 올린다. */
-export function addActiveMinutes(fromMs: number, minutes: number): number {
-  return addActiveSeconds(fromMs, Math.ceil(minutes * 60))
-}
-
-/** 남은 활동 시간(초). 끝났으면 0. */
-export function activeSecondsUntil(nowMs: number, deadlineMs: number): number {
-  return Math.ceil(activeSecondsBetween(nowMs, deadlineMs))
-}
-
 /** 게임 며칠째인가. **자정에 날이 바뀐다.** */
 export function dayNumber(startedAtMs: number, nowMs: number): number {
   const firstDawn = seoulTimeOn(startedAtMs, DAY_START_HOUR)

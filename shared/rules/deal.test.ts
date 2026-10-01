@@ -13,19 +13,16 @@ import {
   askExpired,
   canReady,
   dealHasAnything,
-  gainOf,
   newDeal,
   readyToSettle,
   robotSwapNo,
   cropTotal,
   shortOf,
   stakeIsEmpty,
-  stakeOf,
   EMPTY_STAKE,
   type DealState,
   type Holdings,
-  type Stake,
-} from './deal'
+  type Stake } from './deal'
 
 const T0 = 1_000_000
 
@@ -168,14 +165,6 @@ describe('성립 직전에 다시 센다', () => {
 })
 
 describe('누가 무엇을 주고받는가', () => {
-  it('내가 올린 것이 내가 주는 것이고, 상대가 올린 것이 내가 받는 것이다', () => {
-    let d = afterStake(open(), 'a', put({ money: 2 }))
-    d = afterStake(d, 'b', put({ slips: 1 }))
-    expect(stakeOf(d, 'a').money).toBe(2)
-    expect(gainOf(d, 'a').slips).toBe(1)
-    expect(stakeOf(d, 'b').slips).toBe(1)
-    expect(gainOf(d, 'b').money).toBe(2)
-  })
 
   it('빈 더미는 비었다고 센다', () => {
     expect(stakeIsEmpty(EMPTY_STAKE)).toBe(true)

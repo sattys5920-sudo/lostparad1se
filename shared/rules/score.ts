@@ -70,18 +70,6 @@ export function rankTeams(scores: readonly ScoreBreakdown[]): Ranked[] {
 
 // ── 21:00 정산 ──────────────────────────────────────────────────
 
-/**
- * 정산은 이 순서다. 순서를 바꾸면 답이 달라진다.
- *
- *   1. 생산이 들어온다 — 건물을 걷어낸 뒤로는 들어오는 것이 없다.
- *      자리는 남겨 둔다. 다른 수입이 생기면 여기다
- *   2. 그날 받은 표를 센다
- *   3. 그 결과로 점수와 순위가 정해진다
- *   4. 1위는 주목, 꼴찌는 만회
- */
-export const SETTLEMENT_ORDER = ['production', 'votes', 'score', 'spotlight'] as const
-export type SettlementStep = (typeof SETTLEMENT_ORDER)[number]
-
 export interface SettlementResult {
   ranked: Ranked[]
   /** 다음 정산까지 눈에 띄는 팀. **공동 1위면 모두다** */

@@ -120,7 +120,7 @@ async function main() {
     await page.waitForSelector('.sc-ct__tab', { timeout: 20000 })
     await page.locator('.sc-home__panel button').click({ timeout: 3000 }).catch(() => undefined)
     await page.waitForTimeout(1600)
-    await call('openQuiz', meTok, { gameId: game, paperId: 'p1' })
+    await call('takeQuiz', meTok, { gameId: game, paperId: 'p1' })
 
     const toMe = async () => {
       await page.evaluate(() => (document.querySelectorAll('.sc-ct__tab')[1] as HTMLElement | undefined)?.click())

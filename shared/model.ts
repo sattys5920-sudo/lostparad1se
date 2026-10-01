@@ -683,26 +683,6 @@ export interface PlayerViewDoc {
 
 // ── 채팅 ────────────────────────────────────────────────────────
 
-/**
- * games/{gameId}/chats/{room}/messages/{id}
- *
- * 손으로 친 말과 게임이 남긴 기록을 한 줄에 섞지 않는다.
- *
- *   say     사람이 친 말. **어떤 판정에도 쓰이지 않는다.**
- *   alert   우리 칸에 깃발이 꽂혔다 같은 자동 경보
- */
-export type ChatKind = 'say' | 'alert'
-
-export interface ChatDoc {
-  kind: ChatKind
-  atMs: GameMs
-  /** say는 말한 사람. alert는 없다. */
-  playerId?: string
-  nickname?: string
-  team?: TeamId
-  text: string
-}
-
 // ── 기록 ────────────────────────────────────────────────────────
 
 /**
@@ -846,11 +826,3 @@ export interface NoticeDoc {
 }
 
 // ── 견제·약점처럼 기한이 붙는 것 ────────────────────────────────
-
-/** games/{gameId}/secret/leverage/items/{id} — 누가 누구의 약점을 쥐었는가. */
-export interface LeverageDoc {
-  holderId: string
-  aboutId: string
-  gainedAtMs: GameMs
-  spentAs: 'bind' | 'extort' | null
-}

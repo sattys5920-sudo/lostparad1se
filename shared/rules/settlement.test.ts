@@ -1,6 +1,6 @@
 // 하루 정산 — 투명인간이 제대로 정해지는가, 표 수가 새지 않는가.
 import { describe, expect, it } from 'vitest'
-import { settleDay, settlementView } from './settlement'
+import { settleDay } from './settlement'
 import type { ScoreBreakdown } from './score'
 import type { Ballot } from './invisible'
 import type { TeamId } from './v2'
@@ -51,25 +51,3 @@ describe('하루 정산', () => {
   })
 })
 
-describe('화면에 내려보내는 것', () => {
-  it('투표에 관해 나가는 것은 투명인간 하나뿐이다', () => {
-    const out = settleDay({
-      scores: SCORES,
-      ballots: [at('a1', 'b1'), at('a2', 'b1'), at('a3', 'c1')],
-    })
-    const view = settlementView(out)
-    expect(view.invisibleId).toBe('b1')
-
-    const text = JSON.stringify(view)
-    // 적은 사람도, 몇 장 받았는지도 들어 있지 않다
-    expect(text).not.toContain('a1')
-    expect(text).not.toContain('voterId')
-    expect(text).not.toContain('count')
-    expect(text).not.toContain('c1')
-  })
-
-  it('아무도 지워지지 않은 날도 그대로 알린다', () => {
-    const view = settlementView(settleDay({ scores: SCORES, ballots: [] }))
-    expect(view.invisibleId).toBe(null)
-  })
-})

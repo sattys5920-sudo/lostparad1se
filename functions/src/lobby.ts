@@ -306,24 +306,6 @@ export const renameMe = onCall<{ gameId: string; name: string }>(async (req) => 
   return { name: out.name }
 })
 
-/** 로비에서 일어난다. 시작한 뒤에는 못 한다. */
-export const leaveGame = onCall<{ gameId: string }>(async (req) => {
-  const uid = requireUid(req.auth)
-  return db.runTransaction(async (tx) => {
-    const ref = gameRef(req.data.gameId)
-    const snap = await tx.get(ref)
-    if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-    const game = snap.data() as GameDoc
-    if (game.phase !== 'lobby') throw new HttpsError('failed-precondition', '이미 시작한 판이다.')
-    const seats = game.seats.filter((s) => s.playerId !== uid)
-    tx.update(ref, { seats })
-    // 나간 사람의 배정만 지운다. 남은 사람들 것은 운영자가 한 사람씩 정한
-    // 그대로다 — 역할이 비었으니 그 역할을 다른 사람에게 줄 수 있게 된다
-    tx.delete(rosterOf(req.data.gameId).doc(uid))
-    return { seated: seats.length, need: TOTAL_SEATS }
-  })
-})
-
 // ── 배정 ────────────────────────────────────────────────────────
 
 /**

@@ -76,7 +76,6 @@ import { logEvent, logSecret } from './qaLog'
 
 const db = getFirestore()
 
-
 /** 묶여 있는 동안 화면에 적는 이름. */
 const ACT_LABEL: Record<ActionKind, string> = {
   move: '이동',
@@ -852,21 +851,6 @@ export const phaseAct = onCall<{
   // 비밀 기록 — 페이즈 중 행동은 닫힐 때까지 숨긴다. events 는 참가자가 읽는다
   await logSecret(gameId, 'phaseAct', nowMs, uid, { kind, ...(req.data.targetTile ? { targetTile: req.data.targetTile } : {}) }, { day: game.day })
   return { kind, tokens: left, walking: leftFor !== null, ...(myMinutes !== null ? { minutes: myMinutes } : {}) }
-})
-
-/** 페이즈가 지금 어떤지. **무엇을 했는지는 안 나간다.** */
-export const phaseNow = onCall<{ gameId: string }>(async (req) => {
-  requireUid(req.auth)
-  const { game, nowMs } = await freshNow(req.data.gameId)
-  const p = game.phaseNow
-  return {
-    open: p?.open === true,
-    alive: phaseAlive(game, nowMs),
-    no: p?.no ?? 0,
-    day: p?.day ?? 0,
-    endsAtMs: p?.endsAtMs ?? null,
-    msLeft: p?.endsAtMs ? Math.max(0, p.endsAtMs - nowMs) : null,
-  }
 })
 
 // ── 관리자: 페이즈 닫기 ─────────────────────────────────────────

@@ -325,8 +325,6 @@ for (const [key, rows] of Object.entries(THING_ART)) {
   }
 }
 
-export const THING_PX = 12
-
 // ── 화분 ─────────────────────────────────────────────────────
 //
 // 여섯 장이다: 빈 화분 · 흙 · 싹 · 잎 · 열매 · 시듦. 한 자리에서

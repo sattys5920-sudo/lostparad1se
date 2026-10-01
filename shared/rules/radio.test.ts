@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { TEAM_FREQ, WAVE_AMP, WAVE_BARS, WAVE_MAX, stampOf, sys, waveAt } from './radio'
+import { TEAM_FREQ, WAVE_AMP, WAVE_BARS, WAVE_MAX, stampOf, waveAt } from './radio'
 
 describe('주파수', () => {
   it('네 팀이 서로 다르다', () => {
@@ -79,25 +79,3 @@ describe('파형', () => {
   })
 })
 
-describe('시스템 줄', () => {
-  it('교시', () => {
-    expect(sys.phaseOpen(3)).toBe('3 교시가 열렸다.')
-    expect(sys.phaseClose(3)).toBe('3 교시가 닫혔다.')
-  })
-
-  it('방은 받침을 보고 조사를 고른다', () => {
-    expect(sys.roomTaken('도서관')).toBe('도서관을 차지했다.')
-    expect(sys.roomTaken('과학실')).toBe('과학실을 차지했다.')
-    expect(sys.roomTaken('양호실')).toBe('양호실을 차지했다.')
-    expect(sys.roomLost('도서관', 'B')).toBe('도서관을 1 분단에게 빼앗겼다.')
-    expect(sys.roomLost('도서관', null)).toBe('도서관을 놓쳤다.')
-  })
-
-  it('이름도 받침을 본다', () => {
-    expect(sys.invisible('수아')).toBe('수아는 오늘 보이지 않는다.')
-    expect(sys.invisible('가온')).toBe('가온은 오늘 보이지 않는다.')
-    expect(sys.movedOut('마루', 'C')).toBe('마루가 4 분단으로 갔다.')
-    expect(sys.movedOut('다솜', 'C')).toBe('다솜이 4 분단으로 갔다.')
-    expect(sys.movedIn('바다')).toBe('바다가 우리 분단으로 왔다.')
-  })
-})

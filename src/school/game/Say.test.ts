@@ -120,7 +120,7 @@ describe('판이 적은 줄을 가려낸다', () => {
     expect(isSystem({ name: '아름답음' })).toBe(false)
   })
 
-  it('이름이 없으면 판이 적은 줄이다 — 서버의 sysRow 가 name 을 비운다', () => {
+  it('이름이 없으면 판이 적은 줄이다', () => {
     expect(isSystem({ name: '' })).toBe(true)
   })
 

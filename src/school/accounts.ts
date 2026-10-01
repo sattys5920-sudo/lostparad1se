@@ -146,14 +146,6 @@ export async function hostEnter(code: string): Promise<void> {
   await signInWithCustomToken(auth, reply.token)
 }
 
-/** 지금 이 사람이 운영자인가. 증표 안에 적혀 온다. */
-export async function amHost(): Promise<boolean> {
-  const user = auth?.currentUser
-  if (!user) return false
-  const res = await user.getIdTokenResult()
-  return res.claims.admin === true
-}
-
 /**
  * 지금 로그인한 사람의 계정. 새로고침하고 들어와도 읽을 수 있어야 한다.
  *

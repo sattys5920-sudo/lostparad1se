@@ -14,17 +14,11 @@ export const TYPE_LINE_GAP_MS = 400
 /** 탭하면 남은 글자가 한 번에 찍힌다. 그 뒤 다음 탭까지의 최소 간격. */
 export const TAP_GUARD_MS = 200
 
-/** 장면과 장면 사이 넘어가는 시간. */
-export const SCENE_FADE_MS = 600
-
 /** 카메라가 종이 위쪽으로 올라가는 시간(DAY 5 맨 위). */
 export const PAPER_PAN_MS = 1400
 
 /** 눈 파티클의 단계별 초당 입자 수. 0단계는 그친 것이다. */
 export const SNOW_PARTICLES: readonly number[] = [0, 8, 18, 32, 50, 72]
-
-/** 움직임을 줄여 달라고 한 사람에게는 타자와 카메라를 건너뛴다. */
-export const REDUCED_MOTION_TYPE_MS = 0
 
 /**
  * 종이 위 본문의 줄 높이(CSS px)와 확대 배율.

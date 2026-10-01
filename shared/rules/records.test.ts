@@ -5,16 +5,12 @@ import {
   coStayMs,
   metPeople,
   stayInTeamRoomsMs,
-  stayInTileMs,
-  tilesVisited,
-  tradeCount,
   tradedTeams,
   ownerAt,
   stayInTeamRoomsAtTimeMs,
   type GameRecord,
   type OwnerChange,
-  type Stay,
-} from './records'
+  type Stay } from './records'
 import type { TileId } from './board'
 import type { TeamId } from './v2'
 
@@ -97,10 +93,6 @@ describe('만난 사람 세기', () => {
 describe('방에 머문 시간', () => {
   const stays = [stay('a', 'library', 0, 10), stay('a', 'library', 20, 25), stay('a', 'gym', 30, 40)]
 
-  it('같은 방 여러 구간을 더한다', () => {
-    expect(stayInTileMs(stays, 'a', 'library', NOW)).toBe(15 * M)
-  })
-
   it('남의 팀 방에 머문 시간을 센다', () => {
     // 도서관은 B 것, 체육관은 주인이 없다
     const ownerOf = (id: string): TeamId | null => (id === 'library' ? 'B' : null)
@@ -108,13 +100,6 @@ describe('방에 머문 시간', () => {
     expect(stayInTeamRoomsMs(stays, 'a', 'C', ownerOf, NOW)).toBe(0)
   })
 
-  it('발을 들인 방을 모은다 — 잠깐 스쳐도 센다', () => {
-    expect(tilesVisited(stays, 'a')).toEqual(['gym', 'library'])
-  })
-
-  it('걷는 중은 방문한 방이 아니다', () => {
-    expect(tilesVisited([stay('a', null, 0, 10)], 'a')).toEqual([])
-  })
 })
 
 describe('거래 기록', () => {
@@ -127,13 +112,6 @@ describe('거래 기록', () => {
     otherTeam,
   })
   const rows: GameRecord[] = [at('a', 'A', 'b', 'B'), at('c', 'C', 'a', 'A'), at('a', 'A', 'b2', 'B')]
-
-  it('제안한 것과 받은 것을 다 센다', () => {
-    // 받기만 한 사람도 거래한 것이다 — 제안한 쪽만 세면
-    // 아무리 거래해도 안 센 것이 된다
-    expect(tradeCount(rows, 'a')).toBe(3)
-    expect(tradeCount(rows, 'c')).toBe(1)
-  })
 
   it('상대 팀을 모은다 — 어느 쪽에서 걸었든', () => {
     expect(tradedTeams(rows, 'a')).toEqual(['B', 'C'])

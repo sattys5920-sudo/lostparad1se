@@ -62,31 +62,6 @@ function checkRoster(players: readonly Player[]): void {
 
 // ── 배정이 맞는가(열넷 · 한 역할은 한 사람) ──────────────────────────────────────
 
-export interface DealtRole {
-  playerId: string
-  team: TeamId
-  roleId: RoleId
-}
-
-/**
- * 나눠 준 역할이 배정 규칙을 지키는지. 배정 코드와 시험이 같이 쓴다.
- *
- * 왜 어겼는지를 말로 돌려준다 — 시험이 「안 된다」만 보고는 어느
- * 규칙이 빡빡한지 알 수 없다.
- */
-export function validateDeal(dealt: readonly DealtRole[]): { ok: true } | { ok: false; reason: string } {
-  /*
-   * **배정 규칙은 없다.** 전에는 팀마다 손 갈래 하나 · ★ 셋은 서로 다른
-   * 팀 · 같은 갈래 셋 금지를 지켰는데, 이제 운영자가 한 사람씩 고른다
-   * (lobby.ts 의 hostAssignSeat). 남은 것은 「열넷 · 한 역할은 한 사람」뿐이다
-   */
-  if (dealt.length !== ROSTER_SIZE) return { ok: false, reason: `열네 명이어야 한다 (${dealt.length} 명)` }
-  if (new Set(dealt.map((d) => d.roleId)).size !== ROSTER_SIZE) {
-    return { ok: false, reason: '같은 역할이 두 번 나갔다' }
-  }
-  return { ok: true }
-}
-
 // ── 배정 ────────────────────────────────────────────────────────
 
 /**
@@ -102,9 +77,4 @@ export function assignRoles(players: readonly Player[], seed: string): Assignmen
 
   const roles = shuffled(ROLE_IDS, rngFrom(`${seed}#0`))
   return roster.map((p, i) => ({ playerId: p.id, team: p.team, roleId: roles[i], targetId: null }))
-}
-
-/** 그 사람에게 내려보낼 한 줄. 남의 역할은 절대 들어가지 않는다. */
-export function ownAssignment(all: readonly Assignment[], playerId: string): Assignment | null {
-  return all.find((a) => a.playerId === playerId) ?? null
 }

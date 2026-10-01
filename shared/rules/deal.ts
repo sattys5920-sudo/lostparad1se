@@ -113,8 +113,6 @@ export const dealHasAnything = (d: DealState): boolean =>
 export const sideOf = (d: DealState, playerId: string): DealSide | null =>
   d.a.playerId === playerId ? d.a : d.b.playerId === playerId ? d.b : null
 
-const other = (d: DealState, playerId: string): DealSide => (d.a.playerId === playerId ? d.b : d.a)
-
 /** 어느 쪽이 a 인가. 서버가 쓰기 자리를 고를 때 본다. */
 export const isSideA = (d: DealState, playerId: string): boolean => d.a.playerId === playerId
 
@@ -242,9 +240,6 @@ export const readyToSettle = (d: DealState, nowMs: number): boolean =>
 /** 그 사람이 거래에서 무엇을 내놓는가. */
 export const stakeOf = (d: DealState, playerId: string): Stake =>
   sideOf(d, playerId)?.stake ?? EMPTY_STAKE
-
-/** 그 사람이 거래에서 무엇을 받는가. */
-export const gainOf = (d: DealState, playerId: string): Stake => other(d, playerId).stake
 
 /** 빈 판 하나. 서버가 요청을 만들 때 쓴다. */
 export function newDeal(input: {

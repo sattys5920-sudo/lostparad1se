@@ -317,7 +317,8 @@ async function main(): Promise<void> {
     const v = await viewOf(p.uid)
     const held = ((v.myQuizzes ?? []) as { id: string }[]).some((q) => q.id === target.id)
     const onF = ((v.quizzesHere ?? []) as { id: string }[]).some((q) => q.id === target.id)
-    check(!held && !onF, '**남에게는 있다는 것조차 안 간다**')
+    // 종이는 누가 맞힐 때까지 바닥에 남는다 — 바닥에서는 보여도 남의 가방에는 안 들어간다
+    check(!held, '**남의 가방에는 안 들어간다**', onF ? '바닥에는 있다' : '')
     check(!JSON.stringify(v).includes(PROMPT_OPEN), '본문도 안 간다')
   }
 

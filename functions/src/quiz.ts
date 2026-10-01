@@ -101,23 +101,6 @@ function mustBeBeside(pawn: PawnDoc, paper: QuizPaperDoc): void {
   }
 }
 
-/** 운영자가 아직 아무도 안 주운 종이를 도로 거둔다. */
-export const hostPullQuiz = onCall<{ gameId: string; paperId: string }>(async (req) => {
-  requireHost(req.auth)
-  const { gameId } = req.data
-  const paperId = docId(req.data.paperId, '그런 종이가 없다.')
-  await db.runTransaction(async (tx) => {
-    const ref = floorOf(gameId).doc(paperId)
-    const snap = await tx.get(ref)
-    if (!snap.exists) throw new HttpsError('not-found', '그런 종이가 없다.')
-    const paper = snap.data() as QuizPaperDoc
-    if (paper.heldBy) throw new HttpsError('failed-precondition', '누가 주워 갔다.')
-    tx.delete(ref)
-  })
-  await refreshViews(gameId)
-  return { ok: true }
-})
-
 /**
  * 펼쳐 본다. **종이는 바닥에 그대로 있고, 문제가 내 가방에 뜬다.**
  *

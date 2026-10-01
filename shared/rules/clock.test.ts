@@ -4,20 +4,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   activeSecondsBetween,
-  addActiveMinutes,
-  addActiveSeconds,
   dayNumber,
   gameNow,
   isLightsOut,
   realTimeOf,
   secondsIntoSeoulDay,
-  seoulTimeOn,
-} from './clock'
+  seoulTimeOn } from './clock'
 import { ACTIVE_SECONDS_PER_DAY } from './v2'
 
 /** 서울 시각을 밀리초로. 서울은 UTC+9이고 서머타임이 없다. */
 const seoul = (iso: string) => new Date(`${iso}+09:00`).getTime()
-const MIN = 60
 const HOUR = 3600
 
 describe('서울 시각 읽기', () => {
@@ -71,46 +67,6 @@ describe('흐른 시간 세기', () => {
 
   it('거꾸로면 0이다', () => {
     expect(activeSecondsBetween(seoul('2026-03-02T12:00:00'), seoul('2026-03-02T11:00:00'))).toBe(0)
-  })
-})
-
-describe('활동 시간 더하기', () => {
-  it('낮에는 그냥 더해진다', () => {
-    const start = seoul('2026-03-02T10:00:00')
-    expect(addActiveMinutes(start, 30)).toBe(seoul('2026-03-02T10:30:00'))
-  })
-
-  it('자정을 넘어도 그냥 이어진다', () => {
-    // 23:30에 60분짜리 깃발 → 다음 날 00:30에 익는다
-    const start = seoul('2026-03-02T23:30:00')
-    expect(addActiveMinutes(start, 60)).toBe(seoul('2026-03-03T00:30:00'))
-  })
-
-  it('새벽에 시작해도 그 자리에서 센다', () => {
-    const start = seoul('2026-03-02T03:00:00')
-    expect(addActiveMinutes(start, 30)).toBe(seoul('2026-03-02T03:30:00'))
-  })
-
-  it('며칠을 넘겨도 맞다', () => {
-    const start = seoul('2026-03-02T20:00:00')
-    const end = addActiveSeconds(start, 24 * HOUR)
-    expect(end).toBe(seoul('2026-03-03T20:00:00'))
-  })
-
-  it('더한 만큼 다시 세면 그대로다', () => {
-    for (const iso of ['2026-03-02T08:00:00', '2026-03-02T19:12:34', '2026-03-02T23:59:00']) {
-      for (const minutes of [30, 60, 120, 180, 500]) {
-        const start = seoul(iso)
-        const end = addActiveMinutes(start, minutes)
-        expect(activeSecondsBetween(start, end)).toBe(minutes * MIN)
-      }
-    }
-  })
-
-  it('0이나 음수는 제자리다', () => {
-    const start = seoul('2026-03-02T10:00:00')
-    expect(addActiveSeconds(start, 0)).toBe(start)
-    expect(addActiveSeconds(start, -100)).toBe(start)
   })
 })
 

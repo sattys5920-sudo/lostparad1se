@@ -31,7 +31,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        // 본 게임. 로그인 → 자리 → 닷새
+        // 본 게임. 로그인 → 자리 → 나흘
         main: resolve(root, 'index.html'),
         // 규칙집. 게임 밖에서 여는 읽을거리 — 스크립트 없는 한 장이다
         rules: resolve(root, 'rules.html'),
@@ -40,9 +40,6 @@ export default defineConfig({
         play: resolve(root, 'play.html'),
         // 아바타 부품 목록. 고를 수 있는 것을 한 장에 편다
         parts: resolve(root, 'parts.html'),
-        // 검수용 페이지(proto·sprites·size·maptour·morning·archive·retro·host)는
-        // 배포하지 않는다 — 진상·역할 이름·지도 전체가 그대로 보인다.
-        // 개발 서버(npx vite)에서는 그대로 열린다
       },
     },
   },

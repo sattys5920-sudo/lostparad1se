@@ -560,10 +560,6 @@ export function canRoamTo(from: TileId, to: TileId): boolean {
 /** 방에서 곧바로 갈 수 있는 곳. 복도를 지나는 것은 한 걸음으로 친다. */
 export const ADJACENCY: Record<TileId, readonly TileId[]> = buildAdjacency()
 
-export function isAdjacent(a: TileId, b: TileId): boolean {
-  return ADJACENCY[a]?.includes(b) ?? false
-}
-
 /**
  * 여기서 걸어 나갈 수 있는 곳 전부. canRoamTo 를 한 칸씩 물어본
  * 것과 같고, 판이 작아 한 번 만들어 둔다.
@@ -573,39 +569,6 @@ export const ROAM_TO: Record<TileId, readonly TileId[]> = (() => {
   for (const a of TILE_IDS) out[a] = TILE_IDS.filter((b) => canRoamTo(a, b))
   return out
 })()
-
-/**
- * 이웃으로 몇 다리인가. **걸음이 아니다.**
- *
- * 안개가 이것을 본다 — 「가까운 방의 가까운 방」까지 보이게 할 때.
- * 이웃은 층을 안 넘으므로 층이 다르면 무한이다. 걸어서 몇 번
- * 움직이는가는 pathBetween 이 안다(어디든 한 걸음이다).
- */
-const DIST = (() => {
-  const out: Record<TileId, Record<TileId, number>> = {}
-  for (const from of TILE_IDS) {
-    const seen: Record<TileId, number> = { [from]: 0 }
-    const queue: TileId[] = [from]
-    while (queue.length > 0) {
-      const cur = queue.shift() as TileId
-      for (const next of ADJACENCY[cur]) {
-        if (seen[next] !== undefined) continue
-        seen[next] = seen[cur] + 1
-        queue.push(next)
-      }
-    }
-    out[from] = seen
-  }
-  return out
-})()
-
-export function tileDistance(a: TileId, b: TileId): number {
-  return DIST[a]?.[b] ?? Number.POSITIVE_INFINITY
-}
-
-export function stepsBetween(a: TileId, b: TileId): number {
-  return tileDistance(a, b)
-}
 
 /**
  * 두 칸 사이 최단 경로. 걸음 하나마다 도착 이벤트가 난다.

@@ -190,29 +190,6 @@ async function main() {
     `${paper.roleName} / ${asOther.roleName}`,
   )
 
-  console.log('\n── 한 자리가 비면 ──')
-  await must('leaveGame', toks.get(ids[13]) as string, { gameId: game })
-  check((await rosterSize(game)) === 13, '나간 사람 것만 지워진다', String(await rosterSize(game)))
-  const kept = (await must('myPaper', toks.get(ids[0]) as string, { gameId: game })) as { roleName?: string }
-  check(kept.roleName === paper.roleName, '남아 있는 사람의 학생증은 그대로다', `${paper.roleName} → ${kept.roleName}`)
-
-  console.log('\n── 다시 차면 ──')
-  await must('joinGame', toks.get(ids[13]) as string, { gameId: game, name: '열넷째' })
-  // 자리만 다시 찬다. **저절로 나뉘지 않는다** — 운영자가 그 사람 몫을 정한다
-  check((await rosterSize(game)) === 13, '자리가 차도 저절로 안 나뉜다')
-  const back = await call('myPaper', toks.get(ids[13]) as string, { gameId: game })
-  check(!back.ok, '돌아온 사람은 아직 학생증이 없다', back.ok ? '내려와 버렸다' : (back.err ?? ''))
-  const rows = ((await must('hostRoster', host, { gameId: game })) as { rows: { roleId: string | null }[] }).rows
-  const taken = new Set(rows.map((r) => r.roleId))
-  const freeRole = ROLE_IDS.find((r) => !taken.has(r)) as string
-  const nowTeams = await seatTeams(game, toks.get(ids[0]) as string)
-  const freeTeam = (['A', 'B', 'C', 'D'] as const).find((t) => nowTeams.filter((x) => x === t).length < STARTING_TEAM_SIZES[t]) as string
-  const lastUid = uidOf(ids[13])
-  await must('hostAssignSeat', host, { gameId: game, playerId: lastUid, team: freeTeam, roleId: freeRole })
-  check((await rosterSize(game)) === 14, '운영자가 그 사람 몫을 정하면 다시 열넷이다')
-  const again = (await must('myPaper', toks.get(ids[13]) as string, { gameId: game })) as { roleName?: string }
-  check(again.roleName === ROLE_NAMES[freeRole as keyof typeof ROLE_NAMES], '비어 있던 역할을 받았다', again.roleName ?? '')
-
   console.log(bad === 0 ? '\n다 맞았다.' : `\n어긋난 것 ${bad}개.`)
   if (bad > 0) process.exitCode = 1
 }

@@ -55,12 +55,6 @@ export function seatName(seat: { name?: string | null }, index: number): string 
   return name !== '' ? name : `${index + 1} 번 자리`
 }
 
-/** 아직 자리가 남은 팀. 적게 찬 쪽부터 — 고르지 않은 사람은 여기 첫 팀으로 간다. */
-export function openTeams(seats: readonly Seat[]): TeamId[] {
-  const left = seatsLeft(seats)
-  return TEAMS.filter((t) => left[t] > 0).sort((a, b) => left[b] - left[a] || TEAMS.indexOf(a) - TEAMS.indexOf(b))
-}
-
 /**
  * 배정을 누를 수 있는가.
  *

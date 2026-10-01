@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clockItems, dueItems, nextByHand, nextDueMs, type Due } from './catchup'
+import { clockItems, dueItems, nextByHand, type Due } from './catchup'
 import { SCHEDULE_ORD } from '../model'
 
 const d = (id: string, dueAtMs: number, kind: Due['kind'], doneAtMs: number | null = null): Due => ({
@@ -52,23 +52,6 @@ describe('밀어야 할 것', () => {
   it('며칠이 비어 있어도 한 번에 다 민다', () => {
     const items = Array.from({ length: 11 }, (_, i) => d(`s${i}`, i * 1000, 'settlement'))
     expect(dueItems(items, 99_999)).toHaveLength(11)
-  })
-})
-
-describe('다음 일', () => {
-  it('아직 안 온 것 중 가장 이른 시각', () => {
-    const items = [d('a', 100, 'dayStart'), d('b', 300, 'settlement'), d('c', 200, 'arrive')]
-    expect(nextDueMs(items, 100)).toBe(200)
-  })
-
-  it('이미 민 것은 세지 않는다', () => {
-    const items = [d('a', 200, 'dayStart', 200), d('b', 300, 'settlement')]
-    expect(nextDueMs(items, 100)).toBe(300)
-  })
-
-  it('남은 게 없으면 null', () => {
-    expect(nextDueMs([d('a', 100, 'dayStart', 100)], 0)).toBeNull()
-    expect(nextDueMs([], 0)).toBeNull()
   })
 })
 

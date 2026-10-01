@@ -42,6 +42,11 @@ function plain(v: unknown): unknown {
   if ('fields' in o) return Object.fromEntries(Object.entries(o.fields as Record<string, unknown>).map(([k, x]) => [k, plain(x)]))
   return o
 }
+/** 판 문서의 phaseNow */
+async function phaseOf(): Promise<{ open?: boolean; period?: number }> {
+  const g = (await getAll('games')).find((x) => x.id === GAME)
+  return (g?.d.phaseNow ?? {}) as { open?: boolean; period?: number }
+}
 /** 판 문서의 phaseNow.period — 화면에 보이는 「n 교시」 */
 async function periodNow(): Promise<unknown> {
   const g = (await getAll('games')).find((x) => x.id === GAME)
@@ -291,8 +296,7 @@ async function main(): Promise<void> {
   check(mid.tileId === null, '나가는 5분 · 들어가는 5분 동안은 어느 방에도 없다', String(mid.tileId))
 
   // 그 사이에 닫히면 아무 방도 못 가져간다
-  const inTransit = await must('phaseNow', a0.token, { gameId: GAME })
-  check(inTransit.alive === true, '아직 페이즈 안이다')
+  check((await phaseOf()).open === true, '아직 페이즈 안이다')
 
   await tickOn(MOVE_MINUTES)
   mid = (await pawnsNow())[a0.uid]
@@ -370,9 +374,8 @@ async function main(): Promise<void> {
   // 시각이 지난 뒤 첫 호출이 따라잡기(catchUp)로 페이즈를 닫는다 — 운영자가 안 눌러도
   const late = await call('phaseAct', B[0].token, { gameId: GAME, kind: 'plant' })
   check(late.code === 'FAILED_PRECONDITION' && /페이즈|시간/.test(String(late.message)), '시간이 끝나면 더는 못 한다', late.message)
-  const info = await must('phaseNow', B[0].token, { gameId: GAME })
+  const info = await phaseOf()
   check(info.open === false, '**시간이 지나면 저절로 닫힌다** — 운영자가 안 눌러도', JSON.stringify(info))
-  check(!JSON.stringify(info).includes('plant'), '**누가 무엇을 했는지는 안 나간다**')
 
   console.log('\n── 닫히면 깃발로 정해진다 ──')
   /*

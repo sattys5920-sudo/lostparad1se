@@ -5,7 +5,7 @@
 // A의 기록 본문은 여기 없다 — fragments.ts가 공개 시각을 지켜 따로
 // 내려보낸다. 이 파일은 「어디까지 봤는가」와 「얼마나 서 있었는가」만
 // 다룬다.
-import { HttpsError, onCall } from 'firebase-functions/v2/https'
+import { onCall } from 'firebase-functions/v2/https'
 import { getFirestore } from 'firebase-admin/firestore'
 
 import { TOTAL_DAYS } from '../../shared/rules/v2'
@@ -110,14 +110,3 @@ export async function refreshAwakening(gameId: string): Promise<{ released: numb
   return progress
 }
 
-/** 화면이 눈발을 물어본다. 사람 수는 내려가지 않는다 — 단계뿐이다. */
-export const snowNow = onCall<{ gameId: string }>(async (req) => {
-  requireUid(req.auth)
-  const { gameId } = req.data
-  const snap = await gameRef(gameId).get()
-  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
-  const progress = await refreshAwakening(gameId)
-  await refreshViews(gameId)
-  // 「여덟 명」이라고 알려 주면 남은 하나를 찾아 몰아붙이게 된다
-  return snowView(progress)
-})

@@ -59,39 +59,6 @@ export interface RadioDocRaw {
 
 const radioOf = (gameId: string) => gameRef(gameId).collection('secret').doc('radio').collection('items')
 
-/**
- * 판이 적는 줄.
- *
- * **이미 그 팀이 아는 것만 적는다.** 방이 넘어간 것도 팀원이 지워진
- * 것도 그 팀은 원래 본다 — 무전만 봐도 팀 상황이 따라오게 한 줄로
- * 옮겨 적는 것이지, 여기가 새 정보가 새는 구멍이 되면 안 된다.
- *
- * 대화와 같은 통에 들어간다. 시각 순서가 섞여야 「3교시가 열렸다」
- * 다음에 그 교시에 오간 말이 온다.
- */
-export function sysRow(team: TeamId, text: string, atMs: number, day: number): RadioDocRaw {
-  return { team, playerId: '', name: '', text, atMs, day, invisible: false, system: true }
-}
-
-/**
- * 쓰던 배치나 트랜잭션에 얹는다. 사건을 적는 자리와 같은 커밋이어야
- * 한다 — 따로 쓰면 방은 넘어갔는데 무전에는 안 뜨는 순간이 생긴다.
- */
-export interface Writes {
-  set(ref: FirebaseFirestore.DocumentReference, data: FirebaseFirestore.DocumentData): unknown
-}
-
-export function sysLine(
-  into: Writes,
-  gameId: string,
-  team: TeamId,
-  text: string,
-  atMs: number,
-  day: number,
-): void {
-  into.set(radioOf(gameId).doc(), sysRow(team, text, atMs, day))
-}
-
 /** 한 줄 보낸다. 팀 채널이면 같은 팀에게만, 전원 채널이면 열넷에게 간다. */
 export const radio = onCall<{ gameId: string; text: string; channel?: 'team' | 'all' }>(async (req) => {
   const uid = requireUid(req.auth)

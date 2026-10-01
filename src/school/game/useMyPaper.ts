@@ -22,10 +22,9 @@ import type { GameActions } from './useGame'
  * **import type 이라 한 줄도 번들에 안 실린다.** 역할 데이터는 이
  * 경로로 새지 않는다(scripts/check-bundle.ts 가 본다).
  */
-import type { ClauseView, MissionView } from '../../../shared/missions/judge'
+import type { MissionView } from '../../../shared/missions/judge'
 import { NOT_DEALT, type MyPaperDoc } from '../../../shared/missions/paper'
 
-export type ClauseShown = ClauseView
 export type MissionShown = MissionView
 export type MyPaper = MyPaperDoc
 

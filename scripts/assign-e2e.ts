@@ -166,22 +166,6 @@ async function main() {
   const paperRun = await call('myPaper', firstTok, { gameId: game })
   check(paperRun.ok && String(paperRun.result.roleId) === 'model', '판이 돌아도 정한 역할 그대로다(「나」 탭)')
 
-  console.log('\n── 나갔다 들어오면 ──')
-  const g2 = `${game}b`
-  await must('createGame', host, { gameId: g2, seed: 'as2' })
-  await must('seedPlayers', host, { gameId: g2, password: QA_PW, leaveSeats: 2 })
-  const s2 = ((await gameDoc(g2)).seats as { playerId: string }[])
-  await must('hostAssignSeat', host, { gameId: g2, playerId: s2[0].playerId, team: 'A', roleId: 'crush' })
-  await must('hostAssignSeat', host, { gameId: g2, playerId: s2[1].playerId, team: 'B', roleId: 'model' })
-  const t1 = await tok('qa01')
-  await must('leaveGame', t1, { gameId: g2 })
-  const left2 = ((await gameDoc(g2)).seats as { playerId: string; team: string | null }[])
-  check(left2.find((s) => s.playerId === s2[1].playerId)?.team === 'B', '한 사람이 나가도 **남의 배정은 그대로다**')
-  const p2 = await call('myPaper', await tok('qa02'), { gameId: g2 })
-  check(p2.ok && String(p2.result.roleId) === 'model', '남은 사람 학생증도 그대로')
-  const again = await call('hostAssignSeat', host, { gameId: g2, playerId: s2[1].playerId, team: 'B', roleId: 'crush' })
-  check(again.ok, '나간 사람의 역할은 다시 줄 수 있다', again.ok ? '' : (again.err ?? ''))
-
   console.log(bad === 0 ? '\n다 맞았다.' : `\n${bad}개 틀렸다.`)
   process.exit(bad === 0 ? 0 : 1)
 }

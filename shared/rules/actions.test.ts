@@ -1,22 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { checkGate, ownerLookup } from './actions'
-import type { TileState } from './resources'
+import { checkGate } from './actions'
 
 describe('발이 묶이면', () => {
   it('아무것도 못 한다', () => {
     expect(checkGate({ bound: true, asleep: false }).reason).toBe('bound')
     expect(checkGate({ bound: false, asleep: true }).reason).toBe('asleep')
     expect(checkGate({ bound: false, asleep: false }).ok).toBe(true)
-  })
-})
-
-describe('주인 찾기', () => {
-  it('칸 목록에서 주인을 짚는다', () => {
-    const tiles: TileState[] = [{ tileId: 'classroom', ownerTeam: 'A' }]
-    const look = ownerLookup(tiles)
-    expect(look('classroom')).toBe('A')
-    expect(look('library')).toBe(null)
   })
 })
 

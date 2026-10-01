@@ -129,20 +129,3 @@ export function refuseIfInvisible(
     throw new HttpsError('failed-precondition', '그런 사람이 없다.')
   }
 }
-
-export async function standingWith(
-  gameId: string,
-  uid: string,
-): Promise<{ tileId: string; here: Map<string, { team: string }> }> {
-  const pawn = await myPawn(gameId, uid)
-  if (pawn.tileId === null) {
-    throw new HttpsError('failed-precondition', '걷는 중이다.')
-  }
-  const all = await gameRef(gameId).collection('pawns').get()
-  const here = new Map<string, { team: string }>()
-  for (const d of all.docs) {
-    const p = d.data() as PawnDoc
-    if (d.id !== uid && p.tileId === pawn.tileId) here.set(d.id, { team: p.team })
-  }
-  return { tileId: pawn.tileId, here }
-}

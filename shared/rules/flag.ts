@@ -56,10 +56,6 @@ export type FlagBoxes = Readonly<Partial<Record<TeamId, number>>>
 /** 그 방에 그 팀 깃발이 몇 개인가. */
 export const flagsIn = (flags: FlagMap, tile: TileId, team: TeamId): number => flags[tile]?.[team] ?? 0
 
-/** 그 방에 꽂힌 깃발 전부. */
-export const flagTotal = (flags: FlagMap, tile: TileId): number =>
-  Object.values(flags[tile] ?? {}).reduce<number>((n, k) => n + (k ?? 0), 0)
-
 /**
  * 깃발을 꽂을 수 있는 방인가. **2-3 교실은 안 된다** — 열넷이 아침마다
  * 모이는 방이라 아무도 못 가진다(occupy 의 settle 과 같은 이유).

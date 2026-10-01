@@ -292,9 +292,9 @@ async function main(): Promise<void> {
     await clock(dayHourMs(START, 1, 10))
     const views = await Promise.all(people.map((p) => getDoc(`games/${GAME}/views/${p.uid}`, asPlayer(p.token))))
     const states = await Promise.all(people.map(async (p) => {
-      const ph = await must('phaseNow', p.token, { gameId: GAME })
+      const ph = (((await getDoc(`games/${GAME}`, asPlayer(p.token))).d ?? {}).phaseNow ?? {}) as { open?: boolean; no?: number }
       const ck = await must('clockNow', p.token, { gameId: GAME })
-      return `open=${ph.open} no=${ph.no} day=${ck.day}`
+      return `open=${ph.open === true} no=${ph.no ?? 0} day=${ck.day}`
     }))
     const shape = views.map((v) => `${v.status}:${(v.d?.visiblePawns as unknown[] | undefined)?.length}:${v.d?.updatedAtMs}:${JSON.stringify(v.d?.visibleTiles)}`)
     check(views.every((v) => v.status === 200), '시작 직후 열넷 모두 제 views/{uid} 를 읽는다(제 증표)', views.map((v) => v.status).join(' '))
@@ -528,7 +528,7 @@ async function main(): Promise<void> {
     await must('tick', host, { gameId: GAME })
     const wNow = (await pawnsNow())[walker.uid]
     check(wNow.tileId === walkerTo && wNow.at !== null && roomOfCell(wNow.at.x, wNow.at.y) === walkerTo, '시계를 도착 뒤로 밀면 자유 시간에 도착한다', spot(wNow))
-    const stillClosed = await must('phaseNow', walker.token, { gameId: GAME })
+    const stillClosed = ((await gameNow()).phaseNow ?? {}) as { open?: boolean }
     check(stillClosed.open === false, '도착해도 페이즈는 닫힌 채다', JSON.stringify(stillClosed))
   }
 

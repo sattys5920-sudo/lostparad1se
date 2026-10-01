@@ -128,7 +128,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { kind: "slipsRead", text: "읽은 쪽지", need: 3, disclosure: "realtime" },
       { kind: "slipsGiven", text: "남에게 건넨 쪽지", need: 2, disclosure: "realtime" },
     ],
-    footnote: "직접 건넨 것과 거래로 넘긴 것을 둘 다 센다.",
+    footnote: "거래로 넘긴 것을 센다.",
     notes: [
       { slot: 1, kind: "role", text: "반을 돌던 종이의 경로를 따라가면 어디쯤에서 도서부의 손이 나온다." },
       { slot: 2, kind: "role", text: "도서부는 읽고, 분류하고, 넘겼다." },
@@ -175,7 +175,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { kind: "roomsLocked", text: "채운 자물쇠", need: 2, disclosure: "realtime" },
       { kind: "errandsDone", text: "완료한 심부름", need: 1, disclosure: "realtime" },
     ],
-    footnote: "포기, 시간 초과, 남이 먼저 끝낸 것은 안 센다. 하루 수입 상한에 걸려 돈을 못 받아도 완료로 센다.",
+    footnote: "포기, 시간 초과, 남이 먼저 끝낸 것은 안 센다.",
     notes: [
       { slot: 1, kind: "role", text: "교실부터 창고까지 돌면서 문을 잠그는 건 그 주 주번이다." },
       { slot: 2, kind: "name", text: "{이름}은 마지막으로 학교를 나섰다." },
@@ -198,7 +198,7 @@ export const ROLE_DATA: readonly RoleData[] = [
     clauses: [
       { kind: "harvests", text: "수확", need: 3, disclosure: "realtime" },
     ],
-    footnote: "남이 심은 화분에서 따도 된다.",
+    footnote: null,
     notes: [
       { slot: 1, kind: "role", text: "원예부는 매일같이 정원을 돌본다." },
       { slot: 2, kind: "name", text: "{이름}의 서랍에는 주인 없는 물건이 몇 개 들어 있다." },
@@ -221,7 +221,7 @@ export const ROLE_DATA: readonly RoleData[] = [
     clauses: [
       { kind: "robotsMade", text: "만든 로봇", need: 2, disclosure: "realtime" },
     ],
-    footnote: "한도 초과로 불발되거나 환불된 연구는 안 센다.",
+    footnote: null,
     notes: [
       { slot: 1, kind: "role", text: "특별실 전등이나 기구가 고장 나면 신청서를 쓰는 건 과학부다." },
       { slot: 2, kind: "name", text: "{이름}의 책상에는 아직 내지 않은 종이가 쌓여 있다." },
@@ -244,7 +244,7 @@ export const ROLE_DATA: readonly RoleData[] = [
     clauses: [
       { kind: "robotsSmashedOfOthers", text: "무너뜨린 남의 분단 로봇", need: 1, disclosure: "realtime" },
     ],
-    footnote: "이적으로 한도가 넘쳐 저절로 사라진 것은 안 센다.",
+    footnote: null,
     notes: [
       { slot: 1, kind: "role", text: "반에서 뭐가 고장 나면 다들 기술부를 부른다." },
       { slot: 2, kind: "name", text: "{이름}은 손이 빠르다. 마음만 먹으면." },

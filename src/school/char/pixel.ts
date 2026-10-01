@@ -417,7 +417,6 @@ export const HAIR_SPECS: HairSpec[] = [
 export const HAIR_BY_ID: Record<HairId, HairSpec> = Object.fromEntries(
   HAIR_SPECS.map((h) => [h.id, h]),
 )
-export const HAIR_IDS: HairId[] = HAIR_SPECS.map((h) => h.id)
 export const HAIR_IDS_F: HairId[] = HAIR_SPECS.filter((h) => h.set === 'F').map((h) => h.id)
 export const HAIR_IDS_M: HairId[] = HAIR_SPECS.filter((h) => h.set === 'M').map((h) => h.id)
 
@@ -1416,20 +1415,6 @@ export function pixelFrame(look: AvatarLook, team: TeamId | null, dir: Dir, fram
   const out = dir === 'left' ? mirrored(drawn) : drawn
   cache.set(id, out)
   return out
-}
-
-/** 4방향 × 걷기 4프레임. 한 칸 64×64에 32×32를 가운데 둔다. */
-export function pixelSheet(look: AvatarLook, team: TeamId | null): HTMLCanvasElement {
-  const c = document.createElement('canvas')
-  c.width = CELL * 4
-  c.height = CELL * 4
-  const ctx = c.getContext('2d') as CanvasRenderingContext2D
-  ctx.imageSmoothingEnabled = false
-  const pad = (CELL - PX) / 2
-  DIRS.forEach((dir, row) => {
-    for (let f = 0; f < 4; f++) ctx.drawImage(pixelFrame(look, team, dir, f), f * CELL + pad, row * CELL + pad)
-  })
-  return c
 }
 
 // ── 지도용 작은 그림(24 칸) ──────────────────────────────────────

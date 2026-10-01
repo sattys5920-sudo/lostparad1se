@@ -31,28 +31,6 @@ function clip(iv: Interval, fromMs: number, toMs: number): [number, number] | nu
 
 const usable = (iv: Interval) => iv.tileId !== null && COUNTS.has(iv.state)
 
-/**
- * 그 사람이 그 칸에 머문 시간(활동 초).
- *
- * 게임 시계로 잰다. 멈추는 구간이 있으면 그만큼 빠진다 — 지금은
- * 멈추는 구간이 없어서 실제로 서 있던 시간과 같다.
- */
-export function stayedSeconds(
-  intervals: readonly Interval[],
-  playerId: string,
-  tileId: TileId,
-  fromMs: number,
-  toMs: number,
-): number {
-  let total = 0
-  for (const iv of intervals) {
-    if (iv.playerId !== playerId || iv.tileId !== tileId || !usable(iv)) continue
-    const span = clip(iv, fromMs, toMs)
-    if (span) total += activeSecondsBetween(span[0], span[1])
-  }
-  return total
-}
-
 /** 두 사람이 같은 칸에 동시에 있던 시간(활동 초). 칸이 어디든 상관없다. */
 export function coStaySeconds(
   intervals: readonly Interval[],
@@ -91,20 +69,6 @@ export function visitedTiles(intervals: readonly Interval[], playerId: string): 
   return out
 }
 
-/** 그 순간 그 칸에 서 있던 사람들. 깃발 판정과 종례가 이걸 쓴다. */
-export function presentAt(
-  intervals: readonly Interval[],
-  tileId: TileId,
-  atMs: number,
-): string[] {
-  const out = new Set<string>()
-  for (const iv of intervals) {
-    if (iv.tileId !== tileId || !usable(iv)) continue
-    if (iv.startMs <= atMs && (iv.endMs === null || iv.endMs > atMs)) out.add(iv.playerId)
-  }
-  return [...out]
-}
-
 /** 그 순간 그 사람이 선 칸. 걷는 중이면 null. */
 export function tileAt(
   intervals: readonly Interval[],
@@ -116,24 +80,4 @@ export function tileAt(
     if (iv.startMs <= atMs && (iv.endMs === null || iv.endMs > atMs)) return iv.tileId
   }
   return null
-}
-
-/**
- * 그 사람이 머문 적 있는, 조건에 맞는 칸의 수.
- * 떠날 아이의 「서로 다른 세 팀의 칸에 각각 1시간 이상」이 이걸 쓴다.
- */
-export function tilesStayedOver(
-  intervals: readonly Interval[],
-  playerId: string,
-  seconds: number,
-  fromMs: number,
-  toMs: number,
-  where: (tileId: TileId) => boolean = () => true,
-): Set<TileId> {
-  const out = new Set<TileId>()
-  for (const tileId of visitedTiles(intervals, playerId)) {
-    if (!where(tileId)) continue
-    if (stayedSeconds(intervals, playerId, tileId, fromMs, toMs) >= seconds) out.add(tileId)
-  }
-  return out
 }

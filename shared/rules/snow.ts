@@ -42,9 +42,3 @@ export interface SnowView {
 export function snowView(p: Progress): SnowView {
   return { level: snowLevel(p), stopped: snowStopped(p) }
 }
-
-export type CommonEnding = 'snowStopped' | 'snowKept'
-
-export function commonEndingOf(p: Progress): CommonEnding {
-  return snowStopped(p) ? 'snowStopped' : 'snowKept'
-}

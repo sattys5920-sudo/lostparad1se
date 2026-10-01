@@ -133,23 +133,6 @@ export const MAX_CARRIED_ROBOTS = 2
  */
 
 /**
- * (옛 규칙) 한 사람이 한 페이즈에 부술 수 있는 로봇. **지금은 안 쓴다** —
- * 부수기는 드라이버 한 자루에 한 기이고, 드라이버가 하루 열 자루다.
- *
- *
- * 전에는 「그 방에 상대 팀 사람이 없어야」 부술 수 있었다. 그래서
- * 로봇만 남은 방이 교착됐다 — 부수러 가려면 아무도 없을 때 가야 하고,
- * 방을 뺏으려면 사람을 몰고 가야 하는데 둘을 동시에 할 수가 없었다.
- *
- * 그 조건을 없애고 대신 사람마다 한 기로 묶는다. 로봇 두 기가 선 방을
- * 뺏으려면 **여럿이 같이 가서 나눠 부숴야 한다** — 혼자서는 안 된다는
- * 것이 요점이고, 그것이 원래 점령전이 시키려던 일이다.
- */
-export const SMASHES_PER_PHASE = 1
-/** 연구가 로봇이 되기까지 걸리는 페이즈. */
-export const RESEARCH_PHASES = 1
-
-/**
  * 연구 한 번에 드는 **본인 지갑의 지식.** 팀 토큰과 별개로 든다.
  *
  * 토큰은 팀이 나눠 쓰지만 지갑은 각자다. 그래서 로봇을 뽑는 일이
@@ -450,28 +433,6 @@ export interface LogLine {
 }
 
 // ── 머릿수 ──────────────────────────────────────────────────────
-
-/** 방의 정원을 차지하는 수. **사람만 센다** — 로봇은 따로 헤아린다. */
-export function seatsUsed(state: PhaseState, tileId: TileId): number {
-  // 걸어오는 중인 사람도 한 자리를 잡아 둔다. 안 그러면 정원 둘짜리
-  // 방에 셋이 동시에 출발해서 셋 다 들어간다
-  return state.people.filter((p) => p.tileId === tileId || p.toTile === tileId).length
-}
-
-/** 그 방에 **놓인** 로봇 수. 들고 있는 것은 안 센다 */
-export function robotsIn(state: PhaseState, tileId: TileId): number {
-  return state.robots.filter((r) => isPlaced(r) && r.tileId === tileId).length
-}
-
-/** 그 팀이 지금 가진 로봇 수 — 놓인 것과 든 것 모두. 한도는 없다. */
-export function robotsOfTeam(state: PhaseState, team: TeamId): number {
-  return state.robots.filter((r) => r.team === team).length
-}
-
-/** 그 사람이 들고 있는 로봇 수. MAX_CARRIED_ROBOTS 가 한도다. */
-export function robotsCarriedBy(state: PhaseState, playerId: string): number {
-  return state.robots.filter((r) => r.carriedBy === playerId).length
-}
 
 // ── 팀 점수와 순위 ──────────────────────────────────────────────
 //

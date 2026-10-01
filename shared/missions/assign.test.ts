@@ -4,7 +4,7 @@
 // 부딪혀서 어떤 자리 배치에서는 답이 없을 수도 있고, 그 경우 판이
 // 시작되지 않는다 — 그건 게임 당일에 알면 안 되는 일이다.
 import { describe, expect, it } from 'vitest'
-import { assignRoles, validateDeal, type Player } from './assign'
+import { assignRoles, type Player } from './assign'
 import { ROLE_IDS, ROSTER_SIZE } from './roles'
 import { STARTING_TEAM_SIZES, type TeamId } from '../rules/v2'
 
@@ -17,8 +17,6 @@ function roster(): Player[] {
   }
   return out
 }
-
-const RUNS = 1000
 
 describe('배정', () => {
   const people = roster()
@@ -42,13 +40,6 @@ describe('배정', () => {
     expect(assignRoles(shuffledIn, 'order')).toEqual(assignRoles(people, 'order'))
   })
 
-  it(`천 판 모두 열넷에게 한 역할씩이다`, () => {
-    for (let i = 0; i < RUNS; i++) {
-      const out = assignRoles(people, `run-${i}`)
-      const check = validateDeal(out)
-      expect(check.ok, `${i}판: ${check.ok ? '' : check.reason}`).toBe(true)
-    }
-  })
 })
 
 describe('짝사랑 대상', () => {

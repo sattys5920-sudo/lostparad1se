@@ -20,21 +20,6 @@ export const NOTIFY_LABEL: Record<NotifyType, string> = {
   notice: '공지',
 }
 
-/** 설정 칸 아래 한 줄 설명 */
-export const NOTIFY_HINT: Record<NotifyType, string> = {
-  tag: '무전(분단 · 전원)에서 누가 내 이름을 부르면. 무슨 말인지는 안 싣는다.',
-  phaseStart: '페이즈가 열리면. 모두에게 간다.',
-  phaseEnd: '페이즈가 닫히면. 결과는 안 싣는다.',
-  made: '내가 맡긴 연구 · 덫이 다 되면.',
-  notice: '감독관이 공지를 올리면. 「새 공지」만 간다.',
-}
-
-export const MODE_LABEL: Record<NotifyMode, string> = {
-  off: '끄기',
-  app: '앱 안에서만',
-  push: '앱 밖에서도',
-}
-
 /**
  * 처음에는 **받기(앱 안)** 로 모두 같다. 앱 밖(휴대폰 알림)은 「앱 밖에서도
  * 받기」를 눌러 이 기기에서 권한을 받은 뒤에야 켠다 — 권한도 없는데 앱 밖으로

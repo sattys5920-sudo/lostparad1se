@@ -362,14 +362,6 @@ export const giveUpErrand = onCall<{ gameId: string }>(async (req) => {
   return { gaveUp: mine.doc.specId }
 })
 
-/** 사람 하나를 목록에서 뺀다. 투명인간이 되면 서버가 대신 부른다. */
-export async function dropAllErrands(gameId: string, uid: string): Promise<boolean> {
-  const mine = await mineNow(gameId, uid)
-  if (!mine) return false
-  await postedOf(gameId).doc(mine.id).update({ [`takers.${uid}`]: FieldValue.delete() })
-  return true
-}
-
 /** 투영이 쓴다. 지금 붙어 있는 것과 내가 받은 것. */
 export async function errandWorld(gameId: string): Promise<{
   posted: (ErrandDoc & { id: string })[]

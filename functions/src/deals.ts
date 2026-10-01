@@ -546,11 +546,3 @@ export const settleDeal = onCall<{ gameId: string; dealId: string }>(async (req)
   return { ok: true, already: false }
 })
 
-/** 화면이 지금 판을 물을 때. 시든 것을 접고 나서 답한다. */
-export const dealNow = onCall<{ gameId: string }>(async (req) => {
-  const uid = requireUid(req.auth)
-  const { gameId } = req.data
-  const { nowMs } = await freshNow(gameId)
-  await sweepDeals(gameId, nowMs)
-  return { id: await liveDealOf(gameId, uid), nowMs }
-})

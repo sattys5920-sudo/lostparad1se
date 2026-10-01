@@ -20,7 +20,7 @@ export {
   ROLE_NAMES,
   roleName,
 } from './roleNames'
-import { ROLE_BRANCH, type MissionBranch, type RoleId } from './roleNames'
+import { type MissionBranch, type RoleId } from './roleNames'
 
 /** 판에 들어가는 사람 수. */
 export const ROSTER_SIZE = 14
@@ -101,5 +101,3 @@ export const BRANCH_COUNT: Record<MissionBranch, number> = {
   hand: 5,
   astray: 3,
 }
-
-export const branchOf = (id: RoleId): MissionBranch => ROLE_BRANCH[id]

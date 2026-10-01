@@ -149,12 +149,6 @@ export async function ballotsOn(gameId: string, day: number): Promise<Ballot[]> 
   })
 }
 
-/** 오늘 내가 적은 사람. 투영이 **본인 것만** 실어 보낸다. */
-export async function myBallotOn(gameId: string, day: number, uid: string): Promise<string | null> {
-  const snap = await ballotsOf(gameId).doc(keyOf(day, uid)).get()
-  return snap.exists ? ((snap.data() as BallotDoc).targetId ?? null) : null
-}
-
 /**
  * 운영자 — 그날(기본은 오늘) 누가 누구를 적었는지 그대로.
  *
