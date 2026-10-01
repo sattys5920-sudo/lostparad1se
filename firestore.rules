@@ -203,7 +203,9 @@ service cloud.firestore {
         // 시작한 뒤에는 그 사람의 view 에 든 사람만 연다. 안개가 가린
         // 사람, 잠복한 사람, 지워진 사람은 애초에 목록에 없다.
         allow read: if request.auth != null && (
-          (exists(/databases/$(database)/documents/games/$(gameId))
+          // **감독관은 안개 없이 모두를 본다** — 관리자 지도가 걸음을 실시간으로 따라간다
+          request.auth.token.admin == true
+          || (exists(/databases/$(database)/documents/games/$(gameId))
             && get(/databases/$(database)/documents/games/$(gameId)).data.startedAtMs == null)
           // **같은 방에 선 사람만.** 방을 나서는 순간(복도로 나가든 옆방으로
           // 건너가든) 그 사람의 live.tileId 가 바뀌어 원래 방 사람에게는 문이

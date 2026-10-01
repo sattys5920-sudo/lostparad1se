@@ -288,7 +288,7 @@ function Desk() {
           /* ── 로비의 지도. 들어온 사람이 어디에 서 있는가 ── */
           <section className="sc-ad__sec">
             <h2>지도</h2>
-            <LiveMap act={act} onSaid={setSaid} />
+            <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} />
           </section>
         : !running ?
           /* ── 로비. 배정하고 시작한다 ── */
@@ -378,6 +378,11 @@ function Desk() {
         : tab === 'go' ?
           /* ── 진행. 판을 돌리는 두 손잡이 ── */
           <>
+            {/* 맨 위에 실시간 지도 — 열넷이 지금 어디를 걷는가. 목록은 「지도」 탭에 */}
+            <section className="sc-ad__sec">
+              <h2>지금 학교</h2>
+              <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} compact />
+            </section>
             {game?.practice && (
               <section className="sc-ad__sec">
                 <h2>연습 시간</h2>
@@ -482,7 +487,7 @@ function Desk() {
           /* ── 지도. 열넷이 어디서 무엇을 하는가 · 방마다 오간 말 ── */
           <section className="sc-ad__sec">
             <h2>지도</h2>
-            <LiveMap act={act} onSaid={setSaid} />
+            <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} />
           </section>
         : tab === 'put' ?
           /* ── 놓기. 판 위에 무엇을 둔다 ── */

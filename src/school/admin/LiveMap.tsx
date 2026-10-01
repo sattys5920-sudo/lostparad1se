@@ -7,9 +7,16 @@
 //   목록   열넷을 방마다 묶어서. 팀으로 거른다
 //
 // **몇 초마다 새로 읽는다**(hostLiveMap). 탭을 떠나거나 화면이 꺼지면 멈춘다.
+// **걸음은 실시간이다.** 플레이어 화면이 적는 자리(live)를 직접 듣고 그 사이를
+// 부드럽게 이어 그린다 — 몇 초마다 순간이동하지 않는다. live 가 끊긴 사람만
+// 서버가 읽어 준 자리에 선다.
 // 한 줄(doing)은 서버가 붙인다 — 화면은 규칙을 모른다. 역할도 노트도
 // 여기 오지 않는다. 말은 운영자만 시간 창 없이 본다(hostRoomChat).
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+
+import { db } from '../../firebase'
+import type { LiveDoc } from '../../../shared/model'
 
 import type { GameActions } from '../game/useGame'
 import {
@@ -284,6 +291,9 @@ interface Spot {
   y: number
   /** 칸을 모른다 — 방 가운데 근처에 흩어 세웠다 */
   guess: boolean
+  /** 실시간 자리(live)로 선 사람 — 보는 쪽과 걷는 중인가 */
+  dir?: LiveDoc['dir']
+  moving?: boolean
 }
 
 function roomCenter(id: TileId): { x: number; y: number } {
@@ -368,13 +378,13 @@ function spotsOf(people: readonly LivePerson[]): Map<string, Spot> {
 
 /** 얼굴 한 장. 사람마다 한 번만 굽는다 */
 const faceCache = new Map<string, string>()
-function faceOf(p: LivePerson): string | null {
+function faceOf(p: LivePerson, dir: LiveDoc['dir'] = 'down', frame = 0): string | null {
   if (!p.look) return null
-  const key = `${p.playerId}-${p.team ?? '-'}`
+  const key = `${p.playerId}-${p.team ?? '-'}-${dir}-${frame}`
   const hit = faceCache.get(key)
   if (hit) return hit
   try {
-    const url = pixelFrame(normalizeLook(p.look), p.team, 'down', 0).toDataURL()
+    const url = pixelFrame(normalizeLook(p.look), p.team, dir, frame).toDataURL()
     faceCache.set(key, url)
     return url
   } catch {
@@ -388,6 +398,104 @@ const roomKeyOf = (p: LivePerson): string | null => (p.walk ? null : p.inHall ? 
 const chatRoomName = (room: string): string => (room === 'all' ? '전체' : room === 'hall' ? '복도' : (TILE_BY_ID[room as TileId]?.name ?? room))
 
 // ── 화면 ────────────────────────────────────────────────────────
+
+/** 실시간 자리를 믿는 시간. 플레이어 화면(useLive)과 같은 값이다 — 창을 닫고 간 사람이 남지 않게 */
+const LIVE_TRUST_MS = 6000
+/** 다음 자리로 따라붙는 빠르기(ms). 화면이 자리를 적는 간격(320ms)쯤이라 걸음이 끊기지 않는다 */
+const FOLLOW_MS = 140
+/** 이보다 멀리 뛰면 따라 걷지 않고 바로 선다 — 층을 옮겼거나 오래 끊겼다 */
+const SNAP_CELLS = 6
+/** 걷는 그림이 한 발 바뀌는 간격 */
+const STEP_MS = 160
+
+interface LiveSpot {
+  /** 칸 좌표(소수). 지도의 x · y 와 같은 단위다 */
+  x: number
+  y: number
+  dir: LiveDoc['dir']
+  moving: boolean
+}
+
+/**
+ * **열넷의 실시간 자리.** 감독관은 안개 없이 모두를 듣는다(firestore.rules).
+ *
+ * 받은 자리를 그대로 찍으면 0.3 초마다 한 칸씩 뛴다. 그려 둔 자리에서 받은
+ * 자리로 매 화면 조금씩 다가가게 해서 걷는 것처럼 보이게 한다. 움직이는
+ * 사람이 없으면 다시 그리지 않는다.
+ */
+function useLiveSpots(gameId: string, on: boolean): Map<string, LiveSpot> {
+  const target = useRef(new Map<string, LiveDoc & { seenAt: number }>())
+  const drawn = useRef(new Map<string, LiveSpot>())
+  const [out, setOut] = useState<Map<string, LiveSpot>>(new Map())
+
+  useEffect(() => {
+    if (!on || !db || !gameId) return
+    let first = true
+    const stop = onSnapshot(
+      collection(db, 'games', gameId, 'live'),
+      (snap) => {
+        const now = Date.now()
+        for (const ch of snap.docChanges()) {
+          if (ch.type === 'removed') {
+            target.current.delete(ch.doc.id)
+            continue
+          }
+          const d = ch.doc.data() as LiveDoc
+          // 처음 받은 묶음은 적힌 시각으로 믿는다 — 오래전에 창을 닫은 사람이 서 있지 않게.
+          // 그 뒤로 바뀐 것은 받은 그 순간이 곧 살아 있다는 뜻이다(기기 시계가 달라도)
+          target.current.set(ch.doc.id, { ...d, seenAt: first ? d.ms : now })
+        }
+        first = false
+      },
+      () => {
+        // 못 들으면 서버가 몇 초마다 읽어 주는 자리로 선다
+        target.current.clear()
+      },
+    )
+    return () => {
+      stop()
+      target.current.clear()
+    }
+  }, [gameId, on])
+
+  useEffect(() => {
+    if (!on) return
+    let raf = 0
+    let last = performance.now()
+    let shownKey = ''
+    const frame = (t: number) => {
+      const dt = Math.min(200, t - last)
+      last = t
+      const now = Date.now()
+      const k = 1 - Math.exp(-dt / FOLLOW_MS)
+      const next = new Map<string, LiveSpot>()
+      for (const [id, d] of target.current) {
+        if (now - d.seenAt > LIVE_TRUST_MS) continue
+        const had = drawn.current.get(id)
+        const far = !had || Math.abs(had.x - d.x) + Math.abs(had.y - d.y) > SNAP_CELLS
+        const x = far ? d.x : had.x + (d.x - had.x) * k
+        const y = far ? d.y : had.y + (d.y - had.y) * k
+        const close = Math.abs(x - d.x) < 0.02 && Math.abs(y - d.y) < 0.02
+        next.set(id, { x: close ? d.x : x, y: close ? d.y : y, dir: d.dir, moving: d.moving || !close })
+      }
+      drawn.current = next
+      // 바뀐 것이 있을 때만 다시 그린다. 걷는 사람은 발이 바뀌므로 시각도 넣는다
+      const walking = [...next.values()].some((v) => v.moving)
+      const key =
+        [...next.entries()].map(([id, v]) => `${id}:${v.x.toFixed(2)},${v.y.toFixed(2)},${v.dir}`).join('|') +
+        (walking ? `#${Math.floor(now / STEP_MS)}` : '')
+      if (key !== shownKey) {
+        shownKey = key
+        setOut(next)
+      }
+      raf = requestAnimationFrame(frame)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
+  }, [on])
+
+  return out
+}
 
 /** 화면이 보이는가. 꺼지면 읽기를 멈춘다 */
 function useVisible(): boolean {
@@ -407,8 +515,20 @@ interface View {
   y: number
 }
 
-export function LiveMap({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {
+export function LiveMap({
+  act,
+  gameId,
+  onSaid,
+  compact = false,
+}: {
+  act: GameActions
+  gameId: string
+  onSaid: (t: string) => void
+  /** 진행 탭 맨 위에 얹을 때 — 지도만. 열넷 목록과 분단 거르기는 「지도」 탭에 있다 */
+  compact?: boolean
+}) {
   const visible = useVisible()
+  const liveSpots = useLiveSpots(gameId, visible)
   const [data, setData] = useState<LiveMapData | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const [floor, setFloor] = useState<Floor | null>(null)
@@ -459,7 +579,18 @@ export function LiveMap({ act, onSaid }: { act: GameActions; onSaid: (t: string)
   }, [act, visible])
 
   const people = useMemo(() => data?.people ?? [], [data])
-  const spots = useMemo(() => spotsOf(people), [people])
+  const polled = useMemo(() => spotsOf(people), [people])
+  // 실시간 자리가 있는 사람은 그 자리로 — 없는 사람만 서버가 읽어 준 자리에
+  const spots = useMemo(() => {
+    const out = new Map(polled)
+    for (const p of people) {
+      const l = liveSpots.get(p.playerId)
+      const f = l ? floorOfY(l.y) : null
+      if (!l || !f) continue
+      out.set(p.playerId, { floor: f, x: (l.x + 0.5) * TILE, y: (l.y + 1) * TILE - 2, guess: false, dir: l.dir, moving: l.moving })
+    }
+    return out
+  }, [polled, liveSpots, people])
   const perFloor = useMemo(() => {
     const n: Record<Floor, number> = { roof: 0, f2: 0, f1: 0, b1: 0 }
     for (const s of spots.values()) n[s.floor] += 1
@@ -545,6 +676,7 @@ export function LiveMap({ act, onSaid }: { act: GameActions; onSaid: (t: string)
         />
       )}
 
+      {!compact && (<>
       <div className="sc-lvm__chips" role="group" aria-label="분단 거르기">
         {(['all', ...TEAM_ORDER] as const).map((t) => (
           <button key={t} className={team === t ? 'is-on' : ''} onClick={() => setTeam(t)}>
@@ -579,6 +711,7 @@ export function LiveMap({ act, onSaid }: { act: GameActions; onSaid: (t: string)
           </section>
         ))}
       </div>
+      </>)}
     </div>
   )
 }
@@ -836,7 +969,8 @@ function Board({
       {here.map((p) => {
         const sp = spots.get(p.playerId) as Spot
         const at = toScreen(sp.x, sp.y)
-        const face = dots ? null : faceOf(p)
+        // 걷는 사람은 보는 쪽으로 발을 바꿔 가며 걷는다
+        const face = dots ? null : faceOf(p, sp.dir ?? 'down', sp.moving ? Math.floor(Date.now() / STEP_MS) % 4 : 0)
         const size = Math.max(18, Math.round(CHAR_PX * s))
         const off = team !== 'all' && p.team !== team
         const cls = [
