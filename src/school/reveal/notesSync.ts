@@ -14,7 +14,7 @@ import { emptyNote, type DeductionNote } from '../../../shared/reveal/notes'
 export const SAVE_DEBOUNCE_MS = 800
 
 function requireDb(): Firestore {
-  if (!db) throw new Error('firebase가 설정되지 않았다')
+  if (!db) throw new Error('접속에 실패했다.')
   return db
 }
 

@@ -268,7 +268,7 @@ export function Say({ hereName, act, onSaid, lines, pull, open, onClose, stuck, 
         </button>}
       </div>
       {/* 보내기는 되는데 아무것도 안 돌아오면, 여기 말고는 알 데가 없다 */}
-      {stuck && <p className="sc-sy__stuck" role="alert">말을 못 받아온다 — {stuck}</p>}
+      {stuck && <p className="sc-sy__stuck" role="alert">말 불러오기에 실패했다.</p>}
     </div>
   )
 }

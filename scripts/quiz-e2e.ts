@@ -381,7 +381,7 @@ async function main(): Promise<void> {
 
   // **푼 종이는 손에서 사라진다.** 그게 「끝났다」의 표시다
   const handAfter = ((await viewOf(A[1].uid)).myQuizzes ?? []) as { id: string }[]
-  check(!handAfter.some((q) => q.id === winPaper.id), '푼 종이는 손패에서 사라진다')
+  check(!handAfter.some((q) => q.id === winPaper.id), '푼 종이는 가방에서 사라진다')
   const lateAns = await call('answerQuiz', A[1].token, { gameId: GAME, paperId: winPaper.id, given: ANSWER })
   check(lateAns.code === 'FAILED_PRECONDITION', '끝난 종이에는 답을 더 못 낸다', String(lateAns.code))
 

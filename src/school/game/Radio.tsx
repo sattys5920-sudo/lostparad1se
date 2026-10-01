@@ -293,7 +293,7 @@ function RadioRoom({
       // 한두 번은 잠깐 끊긴 것이다. 계속 그러면 거절이다 — 화면에 낸다.
       // 방 안 말줄과 같은 병을 같은 자리에서 앓았다(useChat.ts)
       failsRef.current += 1
-      if (failsRef.current >= 3) setStuck((e as Error).message || '서버가 대답하지 않는다.')
+      if (failsRef.current >= 3) setStuck('실패')
       return
     } finally {
       pullingRef.current = false
@@ -485,7 +485,7 @@ function RadioRoom({
         {/* 이 주파수가 무엇인지. 목록 맨 위에 두어 말이 쌓이면 위로 밀려
             사라진다 — 입력줄 밑에 늘 붙어 있으면 키보드 위 자리를 먹는다 */}
         <p className="sc-rd__note">{channel === 'team' ? RADIO_NOTE : ALL_NOTE}</p>
-        {stuck && <p className="sc-rd__none" role="alert">무전을 못 받아온다 — {stuck}</p>}
+        {stuck && <p className="sc-rd__none" role="alert">무전 불러오기에 실패했다.</p>}
         {empty && <p className="sc-rd__none sc-rd__empty">아직 아무도 말하지 않았다</p>}
         <ul>
           {rows.map(({ key, l, out }, i) => {

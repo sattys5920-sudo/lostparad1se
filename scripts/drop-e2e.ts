@@ -171,7 +171,7 @@ async function main() {
   const v4 = await viewOf(game, meUid)
   const read = arr(v4.mySlips)
   check(str(read[0]?.line) === MEMO, '읽으면 운영자가 쓴 그대로 온다', String(str(read[0]?.line)))
-  check(str(read[0]?.subjectId) === '', '누구의 비밀도 아니다 — 주인 자리가 비어 있다')
+  check(read[0]?.subjectId === undefined, '주인은 안 온다')
 
   /*
    * 문제 종이. **방이 아니라 칸에 놓는다** — 복도에도 놓을 수 있어야
@@ -236,7 +236,7 @@ async function main() {
   check(!JSON.stringify(v6).includes('"explain"'), '해설은 주운 뒤에도 안 온다')
   check(!JSON.stringify(v6).includes('한 달'), '정답은 주운 뒤에도 안 샌다')
 
-  /* **다른 사람 눈에는 여전히 없다.** 남의 손패가 새면 다 새는 것이다 */
+  /* **다른 사람 눈에는 여전히 없다.** 남의 가방이 새면 다 새는 것이다 */
   const vOther = await viewOf(game, uidOf(other))
   check(!JSON.stringify(vOther).includes('눈이 가장 많이'), '남의 손에 든 문제는 안 보인다')
 
@@ -269,9 +269,9 @@ async function main() {
   const right = (await must('answerQuiz', solverTok, { gameId: game, paperId: paperId as string, given: '한 달' })) as { correct?: boolean }
   check(right.correct === true, '다른 사람이 맞혔다')
   check(arr((await viewOf(game, solverUid)).quizzesHere).length === 0, '**맞히면 바닥에서 사라진다**')
-  // 먼저 펼쳤던 사람 손패에는 「누군가가 해결한 문제다」로 남는다(선착순 한 명)
+  // 먼저 펼쳤던 사람 가방에는 「누군가가 해결한 문제다」로 남는다(선착순 한 명)
   const mineAfter = arr((await viewOf(game, meUid)).myQuizzes)
-  check(mineAfter.length === 1 && (mineAfter[0].solvedByOther as { booleanValue?: boolean })?.booleanValue === true, '먼저 펼쳤던 사람 손패에는 「누군가가 해결한 문제다」로 남는다', JSON.stringify(mineAfter))
+  check(mineAfter.length === 1 && (mineAfter[0].solvedByOther as { booleanValue?: boolean })?.booleanValue === true, '먼저 펼쳤던 사람 가방에는 「누군가가 해결한 문제다」로 남는다', JSON.stringify(mineAfter))
 
   console.log('\n── 없는 방 ──')
   const nowhere = await call('hostDrop', host, { gameId: game, tileId: '옥탑방', kind: 'memo', text: '어디에' })

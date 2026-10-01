@@ -245,7 +245,10 @@ export function LiveRetro({ gameId }: { gameId: string }) {
         const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<RetroPost, 'id'>) }))
         setPosts(rows.sort((a, b) => a.atMs - b.atMs))
       },
-      (e) => setError(e.message),
+      (e) => {
+        console.error(e)
+        setError('불러오기에 실패했다.')
+      },
     )
     const stopMe = onSnapshot(doc(db, 'games', gameId, 'retired', uid), (snap) => setRetired(snap.exists()))
     return () => {
@@ -259,9 +262,10 @@ export function LiveRetro({ gameId }: { gameId: string }) {
 
   const retire = useCallback(async () => {
     if (!db || !uid) return
-    await setDoc(doc(db, 'games', gameId, 'retired', uid), { playerId: uid, atMs: Date.now() }).catch((e) =>
-      setError((e as Error).message),
-    )
+    await setDoc(doc(db, 'games', gameId, 'retired', uid), { playerId: uid, atMs: Date.now() }).catch((e) => {
+      console.error(e)
+      setError('저장에 실패했다.')
+    })
   }, [gameId, uid])
 
   const post = useCallback(
@@ -271,7 +275,10 @@ export function LiveRetro({ gameId }: { gameId: string }) {
       // 화면에서 이름만 가리면 문서를 직접 읽는 순간 누군지 보인다
       const ref = doc(collection(db, 'games', gameId, 'retro'))
       const { id: _id, ...body } = newPost({ id: ref.id, authorId: uid, anonymous, text, atMs: Date.now() })
-      await setDoc(ref, body).catch((e) => setError((e as Error).message))
+      await setDoc(ref, body).catch((e) => {
+        console.error(e)
+        setError('저장에 실패했다.')
+      })
     },
     [gameId, uid],
   )

@@ -1,6 +1,6 @@
-// 시험지 한 장 — **복도에서 줍고 손패에서 푼다.**
+// 시험지 한 장 — **복도에서 줍고 가방에서 푼다.**
 //
-// 운영자가 놓은 종이를 복도에서 주워 손패에 넣고, 거기서 답을 적는
+// 운영자가 놓은 종이를 복도에서 주워 가방에 넣고, 거기서 답을 적는
 // 한 줄기를 찍는다. 복도를 쓰는 것은 일부러다 — 복도에 놓을 수 있게
 // 하려고 주소를 방에서 칸으로 옮겼고, 그게 도는지는 복도에서만 보인다.
 //
@@ -196,16 +196,16 @@ async function main() {
       await page.screenshot({ path: `${OUT}/quiz-${size.w}-주웠다-${tag}.png` })
 
       /*
-       * **손패에서 푼다.** 어디에 서 있는지는 이제 안 본다 —
+       * **가방에서 푼다.** 어디에 서 있는지는 이제 안 본다 —
        * 주머니 속 물건이라 걸어 다니며 생각해도 된다.
        */
-      await tap(page, '.sc-ct__act', '손패')
+      await tap(page, '.sc-ct__act', '가방')
       await page.waitForTimeout(1200)
       const up = await page.locator('.sc-qz__prompt').first().isVisible().catch(() => false)
       if (!up) {
-        missed.push(`${tag}${size.w}: 손패에 문제가 안 뜸`)
+        missed.push(`${tag}${size.w}: 가방에 문제가 안 뜸`)
       } else {
-        await page.screenshot({ path: `${OUT}/quiz-${size.w}-손패-${tag}.png` })
+        await page.screenshot({ path: `${OUT}/quiz-${size.w}-가방-${tag}.png` })
         /*
          * **펼친 종이 그림.** goodIcon 이 모르는 이름을 받으면 빈
          * 문자열을 주고, 화면에는 깨진 그림이 조용히 남는다 — 눈으로는
@@ -300,12 +300,12 @@ async function main() {
         }
         await call('tick', host, { gameId: game })
         await page.waitForTimeout(1800)
-        // 손패가 열려 있다. 닫아야 맵을 짚는다
+        // 가방이 열려 있다. 닫아야 맵을 짚는다
         await page.locator('.sc-sheet__back').first().click().catch(() => undefined)
         await page.waitForTimeout(400)
         if (!(await pickOnMap(page, next, '줍는다'))) missed.push(`${tag}${size.w}: 둘째 종이를 짚었는데 「줍는다」가 없다`)
         await page.waitForTimeout(1600)
-        await tap(page, '.sc-ct__act', '손패')
+        await tap(page, '.sc-ct__act', '가방')
         await page.waitForTimeout(1200)
         const boxes = page.locator('.sc-qz__short input')
         const n = await boxes.count()

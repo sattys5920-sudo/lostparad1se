@@ -1,8 +1,8 @@
-// 문제 종이 — 펼쳐 보고 손패에서 푼다.
+// 문제 종이 — 펼쳐 보고 가방에서 푼다.
 //
-// 옆에 서서 펼치면 문제가 내 손패에 뜬다. **종이는 바닥에 그대로 있다**
+// 옆에 서서 펼치면 문제가 내 가방에 뜬다. **종이는 바닥에 그대로 있다**
 // — 다른 사람도 와서 펼쳐 볼 수 있고, **먼저 맞히는 한 사람이 가져간다.**
-// 맞히는 순간 바닥에서 사라지고, 펼쳐 본 나머지 손패에서도 사라진다.
+// 맞히는 순간 바닥에서 사라지고, 펼쳐 본 나머지 가방에서도 사라진다.
 //
 // 전에는 먼저 줍는 사람이 임자였다. 주운 사람이 틀리면 종이가 그 손에
 // 묶여 아무도 못 풀었다.
@@ -25,7 +25,7 @@ export interface QuizProps {
   onSaid: (text: string) => void
 }
 
-/** 손패에 든 문제. 손패 안에 얹는다 — 탭이 아니라 주머니 속이다. */
+/** 가방에 든 문제. 가방 안에 얹는다 — 탭이 아니라 주머니 속이다. */
 export function Quiz({ view, act, onSaid }: QuizProps) {
   const [busy, setBusy] = useState(false)
   const [typed, setTyped] = useState<Record<string, string>>({})
@@ -69,7 +69,7 @@ export function Quiz({ view, act, onSaid }: QuizProps) {
           <li key={q.id} className={'is-open' + (shook === q.id ? ' is-wrong' : '')}>
             {/*
               **펼친 종이 그림.** 바닥의 것은 접혀 있다 — 주운 뒤로는
-              펴서 읽고 있는 것이라, 손패에서는 다르게 생겨야 한다.
+              펴서 읽고 있는 것이라, 가방에서는 다르게 생겨야 한다.
               alt 가 비어 있는 것은 옆 글이 곧 문제 문장이어서다
             */}
             <div className="sc-qz__head">

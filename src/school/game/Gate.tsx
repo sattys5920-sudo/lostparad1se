@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react'
 
 import { hostEnter, logIn, signUp } from '../accounts'
+import { CallFailed } from '../../firebase'
 import { vendingStamp } from './gateArt'
 import { Snow } from '../reveal/Snow'
 import { PaperSheet } from './Paper'
@@ -119,7 +120,11 @@ export function Gate({ onIn }: { onIn: () => void }) {
       setGone(true)
       setTimeout(onIn, FOLD_MS)
     } catch (e) {
-      setError((e as Error).message)
+      // 로그인 오류는 까닭을 안 밝힌다. 가입은 고칠 수 있는 말(아이디 모양 ·
+      // 이미 있는 아이디 등)만 그대로 두고 나머지는 한 줄이다
+      setError(
+        mode === 'up' && !(e instanceof CallFailed) ? (e as Error).message : mode === 'up' ? '가입에 실패했습니다.' : '로그인에 실패했습니다.',
+      )
       shake()
       buzz('no')
       setBusy(false)

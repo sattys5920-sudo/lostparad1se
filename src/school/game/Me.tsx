@@ -240,13 +240,13 @@ export function Me(props: MeProps) {
 
         {/* ── ③ 주 미션 ─────────────────────────────────── */}
         <Card title="미 션" state={paper?.counting ? STATUS_LABEL[paper.main.status] : null}>
-          {/* 배정 전은 고장이 아니다 — 「못 받아왔다」도 다시 시도도 안 붙인다 */}
+          {/* 배정 전은 고장이 아니다 — 「실패」도 다시 시도도 안 붙인다 */}
           {undealt && <p className="sc-mi__none">아직 배정되지 않았다</p>}
           {!paper &&
             !undealt &&
             (props.paperErr ? (
               <p className="sc-mi__none">
-                못 받아왔다 — {props.paperErr}{' '}
+                불러오기에 실패했다.{' '}
                 {props.paperRetry && (
                   <button type="button" className="sc-mi__retry" onClick={props.paperRetry}>
                     다시 시도
@@ -399,7 +399,7 @@ export function IdCard({
     [look, team],
   )
   const undealt = !paper && err === NOT_DEALT
-  const waiting = undealt ? '아직 배정되지 않았다' : err ? `못 받아왔다 — ${err}` : null
+  const waiting = undealt ? '아직 배정되지 않았다' : err ? '불러오기에 실패했다.' : null
   return (
     <Card title="학 생 증" className={'sc-mi__idcard' + (invisible ? ' is-gone' : '')}>
       {/*
@@ -614,21 +614,17 @@ export function stateOf(m: MissionShown): string {
   return STATUS_LABEL[m.status]
 }
 
-/** 배경음악 스위치. 감독관이 꺼 두었으면 흐리게 */
+/** 배경음악 — 켜고 끄는 칸 하나뿐이다 */
 function BgmSwitch() {
   const bgm = useBgmToggle()
   return (
     <section className="sc-np" aria-label="배경음악">
       <div className="sc-np__head">
-        <b>배경음악</b>
         <label className="sc-np__master">
           <input id="me-bgm" type="checkbox" checked={bgm.on} disabled={!bgm.available} onChange={bgm.toggle} />
-          <span>{!bgm.available ? '꺼져 있다' : bgm.on ? '켜짐' : '꺼짐'}</span>
+          <span>배경음악</span>
         </label>
       </div>
-      <p className="sc-np__hint">
-        {bgm.available ? `지금 곡 · ${bgm.track}. 꺼 두어도 감독관이 다시 틀면 다시 켜진다.` : '감독관이 음악을 꺼 두었다.'}
-      </p>
     </section>
   )
 }

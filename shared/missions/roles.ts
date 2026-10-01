@@ -14,7 +14,6 @@ export type { RoleId, MissionBranch } from './roleNames'
 export {
   ASTRAY_BRANCH,
   BRANCHES,
-  BRANCH_LABEL,
   ROLES_BY_BRANCH,
   ROLE_BRANCH,
   ROLE_IDS,

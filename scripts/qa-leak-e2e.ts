@@ -13,7 +13,7 @@
 //   npx vite-node scripts/qa-leak-e2e.ts   (에뮬레이터가 떠 있어야 한다)
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { STARTING_TEAM_SIZES, ROLE_TITLES, type TeamId } from '../shared/rules/v2'
+import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
 import { START_TILE, TILE_IDS, canRoamTo, canStandAt, roomOfCell, type TileId } from '../shared/rules/board'
@@ -300,7 +300,7 @@ async function main(): Promise<void> {
   }
   for (const s of sentencesOfMd(md)) for (const v of fill(s)) storyNeedles.add(v)
   const slipNeedles = SLIP_NOTES.flatMap((n) => fill(n.text))
-  const roleIdNeedles = ROLE_IDS.filter((id) => !(ROLE_TITLES as readonly string[]).includes(id))
+  const roleIdNeedles = [...ROLE_IDS]
   const fragmentNeedles = FRAGMENTS.flatMap((f) => f.papers.flatMap((p) => [...p.lines, ...(p.topLines ?? [])]).map((l) => ({ day: f.day, line: l })))
   const cropNames = Object.values(CROP_BY_ID).map((c) => c.name)
   check(storyNeedles.size > 200 && slipNeedles.length > 56 && fragmentNeedles.length >= 4, `바늘 — 문장 ${storyNeedles.size} · 쪽지 ${slipNeedles.length} · 조각 ${fragmentNeedles.length}`)

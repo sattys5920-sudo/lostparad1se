@@ -413,8 +413,11 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
         }
       : {}
 
+  // 화면에 보이는 「n 교시」. 날마다 1부터 다시 센다 — no 는 판 전체에서 센다
+  const period = (game.phaseNow?.day === day ? (game.phaseNow.period ?? 0) : 0) + 1
+
   batch.update(ref, {
-    phaseNow: { no, day, open: true, openedAtMs: nowMs, endsAtMs },
+    phaseNow: { no, period, day, open: true, openedAtMs: nowMs, endsAtMs },
     ...freeze,
   })
   // **무전에는 아무 알림도 안 적는다.** 무전은 사람끼리 하는 말만 오간다
@@ -995,6 +998,7 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   batch.update(ref, {
     phaseNow: {
       no,
+      period: game.phaseNow.period ?? 1,
       day: game.phaseNow.day,
       open: false,
       openedAtMs: game.phaseNow.openedAtMs,
@@ -1019,7 +1023,7 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   /*
    * **문제 종이도 쪽지도 여기서 안 뿌린다.** 운영자가 손으로 놓는다(drop.ts).
    * 펴 둔 것을 도로 접는 일도 없다 — 이제 펴는 물건이 아니라 줍는
-   * 물건이고, 주운 사람 손패에 그대로 남는다.
+   * 물건이고, 주운 사람 가방에 그대로 남는다.
    */
   await refreshViews(gameId)
   await logEvent(gameId, 'phaseClose', nowMs, null, { no, day: game.phaseNow.day, captured: out.log.filter((l) => l.kind === 'captured').length, lines: out.log.length }, { day: game.phaseNow.day })

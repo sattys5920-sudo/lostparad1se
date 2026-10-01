@@ -291,7 +291,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { kind: "targetSlipRead", text: "그 사람의 쪽지 읽기", need: 1, disclosure: "realtime" },
       { kind: "coStayWithTarget", text: "같은 방에서 함께 있은 시간", minutes: 15, disclosure: "realtime" },
     ],
-    footnote: "대상은 그날 밤 감독관이 다른 분단 사람 중에서 정한다. 이름만 알려 주고 위치는 알려 주지 않는다. 대상은 모른다.",
+    footnote: "대상은 날마다 정해진다.",
     notes: [
       { slot: 1, kind: "role", text: "가방에 부치지 못한 편지를 넣고 다니는 건 짝사랑이다." },
       { slot: 2, kind: "name", text: "{이름}은 하루에 몇 번씩 같은 방향을 본다." },

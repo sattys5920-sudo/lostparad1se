@@ -201,24 +201,6 @@ export const VOTE_LABEL: Record<VoteKind, string> = {
 /** 하루에 한 사람이 줄 수 있는 표. */
 export const VOTE_PER_PLAYER_DAILY = 1
 
-// ── 팀 직책 ─────────────────────────────────────────────────────
-
-export type RoleTitle = 'classPresident' | 'treasurer' | 'intelOfficer' | 'athleticDirector'
-
-export const ROLE_TITLES: readonly RoleTitle[] = [
-  'classPresident',
-  'treasurer',
-  'intelOfficer',
-  'athleticDirector',
-]
-
-export const ROLE_TITLE_LABEL: Record<RoleTitle, string> = {
-  classPresident: '학급회장',
-  treasurer: '총무',
-  intelOfficer: '정보부장',
-  athleticDirector: '체육부장',
-}
-
 /*
  * **생산·공부는 없앴다.** 여기 있던 PRODUCE_MONEY·STUDY_KNOWLEDGE 도
  * 같이 뺐다 — 페이즈에 토큰을 쓰는 길은 점령(이동)과 연구뿐이다.

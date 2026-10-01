@@ -163,8 +163,8 @@ async function main() {
   await page.screenshot({ path: `${OUT}/${tag}-2맵.png` })
   await audit(page, '맵')
 
-  // 시트 셋 — 깃발(페이즈 행동) · 손패 · 더보기
-  for (const [label, file] of [['깃발', '7시트-깃발'], ['손패', '7시트-손패'], ['더 보기', '7시트-더보기']] as const) {
+  // 시트 셋 — 깃발(페이즈 행동) · 가방 · 더보기
+  for (const [label, file] of [['깃발', '7시트-깃발'], ['가방', '7시트-가방'], ['더 보기', '7시트-더보기']] as const) {
     const b = page.locator('.sc-ct__act', { hasText: label }).first()
     if (!(await b.count())) continue
     await b.evaluate((el) => (el as HTMLElement).click())

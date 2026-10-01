@@ -54,25 +54,17 @@ interface AccountDoc {
 }
 
 function requireDb(): Firestore {
-  if (!db) throw new Error('firebase가 설정되지 않았다')
+  if (!db) throw new Error('접속에 실패했다.')
   return db
 }
 
 /**
- * Firestore가 규칙으로 막으면 "false for 'create' @ L41" 같은 말이 그대로
- * 화면에 뜬다. 읽는 사람은 무엇을 해야 할지 알 수 없고, 정작 필요한 조치는
- * 콘솔에 규칙을 다시 붙여넣는 것이다. 그 말을 대신 띄운다.
+ * Firestore 오류 원문("false for 'create' @ L41" 같은 것)은 화면에 안
+ * 띄운다. 원문은 콘솔에만 남긴다.
  */
 function friendly(e: unknown): Error {
-  const raw = e instanceof Error ? e.message : String(e)
-  const code = (e as { code?: string })?.code
-  if (code === 'permission-denied' || /permission|false for/i.test(raw)) {
-    return new Error('서버가 요청을 막았다. 관리자가 Firestore 규칙을 최신으로 올려야 한다.')
-  }
-  if (code === 'unavailable' || /offline|network|client is offline/i.test(raw)) {
-    return new Error('서버에 닿지 못했다. 연결을 확인해라.')
-  }
-  return e instanceof Error ? e : new Error(raw)
+  console.error(e)
+  return new Error('불러오기에 실패했다.')
 }
 
 function accountsCol() {
@@ -114,7 +106,7 @@ interface AuthReply {
 }
 
 async function enter(reply: AuthReply): Promise<Account> {
-  if (!auth) throw new Error('서버에 연결되어 있지 않다.')
+  if (!auth) throw new Error('접속에 실패했다.')
   await signInWithCustomToken(auth, reply.token)
   // 진짜 값은 뒤이은 loadMe()의 myAccount()가 Firestore에서 다시 읽어
   // 채운다. 여기서는 방금 로그인했다는 것만 확인하면 된다
@@ -147,7 +139,7 @@ export async function logIn(rawId: string, password: string): Promise<Account> {
  * 그래서 서버가 새 증표를 만들어 주고 그걸로 다시 들어간다.
  */
 export async function hostEnter(code: string): Promise<void> {
-  if (!auth) throw new Error('서버에 연결되어 있지 않다.')
+  if (!auth) throw new Error('접속에 실패했다.')
   // **로그인해 두지 않아도 된다.** 운영자는 계정이 없다 — 코드 하나로
   // 들어오고, 나가면 그걸로 끝이다
   const reply = await callServer<{ token: string }>('hostEnter', { code: code.trim() })

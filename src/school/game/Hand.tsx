@@ -1,6 +1,6 @@
-// 손패 — 주워 든 것.
+// 가방 — 주워 든 것.
 //
-// 카드는 없앴다. 손패가 카드 넉 장을 쥐던 자리였는데, 카드로 가는
+// 카드는 없앴다. 가방이 카드 넉 장을 쥐던 자리였는데, 카드로 가는
 // 입구(로봇이 태어날 때 한 장)가 바늘구멍이라 한 판에 한 장도 안
 // 돌았다. 지금 손에 드는 것은 주운 문제 종이뿐이다.
 //
@@ -22,7 +22,7 @@ export function Hand({ view, act, onSaid }: HandProps) {
   const papers = view?.myQuizzes ?? []
   return (
     <div className="sc-hd">
-      <h2>손패 <span>{papers.filter((q) => !q.solvedByOther).length} 장</span></h2>
+      <h2>가방 <span>{papers.filter((q) => !q.solvedByOther).length} 장</span></h2>
       {papers.length === 0 && <p className="sc-hd__none">아직 문제 종이가 없다. 바닥을 살펴보세요.</p>}
       {/* 주워 든 문제. **주머니 속이라 여기 있다** — 자리도 안 보고
           푸는 것이라 맵과는 상관이 없다 */}

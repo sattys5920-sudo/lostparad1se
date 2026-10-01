@@ -57,7 +57,3 @@ export const ANNOUNCE_NOBODY = '오늘은 아무도 지워지지 않았습니다
 export const INVISIBLE_NOTICE =
   '내일 하루 당신은 보이지 않습니다. 누구와도 거래하거나 표를 주고받을 수 없습니다. ' +
   '쪽지는 바닥에 두는 것만 가능합니다.'
-
-/** 처음 들어올 때 한 번. 확인해야 넘어간다. */
-export const CONTENT_NOTE =
-  '이 게임은 학교 따돌림과 한 학생의 죽음을 다룹니다. 힘들어지면 언제든 감독관에게 알려 주세요.'

@@ -138,7 +138,7 @@ async function main() {
    * 읽힌다 — 통째로 같은지 보면 있는 것도 없다고 나온다.
    */
   const has = (list: readonly string[], name: string) => list.some((t) => t.startsWith(name))
-  for (const stay of ['자리 차지', '손패']) {
+  for (const stay of ['자리 차지', '가방']) {
     if (!has(inPhase, stay)) missed.push(`페이즈 행동 칸에 「${stay}」가 없다`)
   }
 

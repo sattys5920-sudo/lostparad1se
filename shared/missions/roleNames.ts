@@ -84,13 +84,6 @@ export const ROLE_BRANCH: Record<RoleId, MissionBranch> = {
   backseat: 'astray',
 }
 
-export const BRANCH_LABEL: Record<MissionBranch, string> = {
-  people: '사람',
-  slip: '쪽지',
-  hand: '손',
-  astray: '어긋남',
-}
-
 export const BRANCHES: readonly MissionBranch[] = ['people', 'slip', 'hand', 'astray']
 
 export const ROLES_BY_BRANCH: Record<MissionBranch, readonly RoleId[]> = {

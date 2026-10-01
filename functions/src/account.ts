@@ -117,10 +117,7 @@ async function dropStaleAdmin(uid: string): Promise<void> {
  * 있어야 한다(iam.serviceAccountTokenCreator). 에뮬레이터는 서명을 하지
  * 않으니 여기서는 절대 안 걸리고, 올린 뒤 첫 가입에서 터진다.
  *
- * 그냥 두면 화면에 `INTERNAL` 넉 자만 뜬다. 읽는 사람은 무엇이
- * 잘못됐는지 알 수 없고, 정작 필요한 조치는 권한 한 줄을 주는 것이다.
- * 그래서 서버 로그에 원문을 남기고, 화면에는 무엇을 해야 하는지 적어
- * 보낸다 — 비밀이 아니라 설정 실수다.
+ * 원문은 서버 로그에만 남긴다. 화면에는 「로그인에 실패했습니다.」뿐이다.
  */
 export async function mintToken(uid: string, claims: Record<string, unknown>): Promise<string> {
   try {
@@ -128,14 +125,7 @@ export async function mintToken(uid: string, claims: Record<string, unknown>): P
   } catch (e) {
     const raw = (e as Error).message ?? ''
     console.error('createCustomToken 실패', raw)
-    if (/signBlob|iam\.serviceAccounts|TokenCreator|PERMISSION_DENIED/i.test(raw)) {
-      throw new HttpsError(
-        'failed-precondition',
-        '서버가 로그인 증표를 만들지 못했다. 함수를 돌리는 서비스 계정에 ' +
-          'roles/iam.serviceAccountTokenCreator 권한이 필요하다.',
-      )
-    }
-    throw new HttpsError('internal', `로그인 증표를 만들지 못했다: ${raw}`)
+    throw new HttpsError('internal', '로그인에 실패했습니다.')
   }
 }
 

@@ -300,7 +300,7 @@ export const clearInvisible = onCall<{ gameId: string; reason: string }>(async (
   // 본인에게만 알린다. 사유는 싣지 않는다 — 운영자 기록에만 남는다
   batch.set(ref.collection('notices').doc(), {
     toPlayerId: who,
-    text: '이제 다시 보인다. 감독관이 투명을 풀었다.',
+    text: '이제 다시 보인다.',
     atMs: nowMs,
     byId: uid,
   })

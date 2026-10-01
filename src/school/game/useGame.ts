@@ -12,7 +12,7 @@
 //   games/{id}/teams/{t}    자원과 순위
 //   games/{id}/tiles/{t}    칸 주인
 //
-// 말의 위치도, 남의 손패도, 표도 여기 없다. 규칙이 막아서가 아니라
+// 말의 위치도, 남의 가방도, 표도 여기 없다. 규칙이 막아서가 아니라
 // 서버가 애초에 담지 않아서다.
 import type { Day4Choice } from '../../../shared/rules/choices'
 import { useEffect, useMemo, useState } from 'react'
@@ -339,7 +339,7 @@ export function gameActions(gameId: string) {
     useItem: (kind: string, more: { text?: string; scrapId?: string; tileId?: string } = {}) =>
       callServer('useItem', { ...g, kind, ...more }),
     /** 문제 종이를 펼친다. **그 방 사람 전원에게 보이게 된다.** */
-    /** 문제 종이를 줍는다. **손패에 들어온다** — 옆 칸에 서야 한다 */
+    /** 문제 종이를 줍는다. **가방에 들어온다** — 옆 칸에 서야 한다 */
     takeQuiz: (paperId: string) => callServer('takeQuiz', { ...g, paperId }),
     /** 기술실 제조기에 덫을 맡긴다. 내 돈 3코인, 페이즈에만 */
     commissionTrap: (maker: number) => callServer('commissionTrap', { ...g, maker }),

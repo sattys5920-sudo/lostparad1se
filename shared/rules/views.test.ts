@@ -255,7 +255,7 @@ describe('진상 공개', () => {
 describe('열넷 몫을 통째로 훑는다', () => {
   const all = projectAll(world())
 
-  it('남의 손패 아이디가 없다', () => {
+  it('남의 가방 아이디가 없다', () => {
     for (const r of ROSTER) {
       const mine = json(all[r.playerId])
       const theirs = r.team === 'A' ? 'cB' : 'cA'

@@ -500,11 +500,11 @@
 
 /* ── 거래 ─────────────────────────────────────────────────────── */
 
-/* ── 손패 ────────────────────────────────────────────────────
+/* ── 가방 ────────────────────────────────────────────────────
    **sc-hd 다.** 전에는 sc-dl 이었는데 배정 알림(Dealt.tsx)이 같은
    이름을 쓰고 있었다 — 그쪽은 position: fixed 에 어두운 바탕이라,
-   뒤에 오는 me.css 가 이겨서 손패가 통째로 어두운 전체화면이 됐다.
-   손패에 문제 종이를 넣기 전까지는 글이 몇 줄뿐이라 안 보였다 */
+   뒤에 오는 me.css 가 이겨서 가방이 통째로 어두운 전체화면이 됐다.
+   가방에 문제 종이를 넣기 전까지는 글이 몇 줄뿐이라 안 보였다 */
 .sc-hd { display: flex; flex-direction: column; gap: var(--sp-2); }
 .sc-hd h2 { margin: var(--sp-2) 0 0; font-size: var(--fs-label); display: flex; gap: var(--sp-2); align-items: baseline; }
 .sc-hd h2 span { font-size: var(--fs-cap); color: var(--sc-text-dim); font-weight: 400; }

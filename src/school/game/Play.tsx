@@ -677,7 +677,7 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
         ) : (
           /* **엔딩은 감독관이 송출해야 뜬다.** 그 전에는 기다린다 */
           <div className="sc-en">
-            <p className="sc-en__wait">종례가 끝났다. 감독관이 엔딩을 틀 때까지 기다린다.</p>
+            <p className="sc-en__wait">종례가 끝났다.</p>
           </div>
         )}
         {/* 끝난 뒤에도 공지 · 1위 발표가 뜬다 */}
@@ -869,7 +869,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       if (quiz) {
         void act
           .takeQuiz(quiz.id)
-          .then(() => setSaid('문제를 펼쳤다. 손패에서 푼다. 누가 맞히기 전까지 종이는 바닥에 남는다.'))
+          .then(() => setSaid('문제를 펼쳤다. 가방에서 푼다. 누가 맞히기 전까지 종이는 바닥에 남는다.'))
           .catch((e: Error) => refuse(e.message))
       } else if (slip) {
         void act
@@ -1281,7 +1281,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
     return () => clearInterval(t)
   }, [arriveAtMs, busyUntilMs, act])
 
-  const phaseNo = state.game?.phaseNow?.no ?? 0
+  // 화면에 보이는 교시 — 날마다 1부터
+  const phaseNo = state.game?.phaseNow?.period ?? state.game?.phaseNow?.no ?? 0
   const phaseOpen = state.game?.phaseNow?.open === true
 
   /**
@@ -1347,7 +1348,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   /**
    * 아래 칸에 무엇을 놓는가.
    *
-   * **늘 같다.** 손패 · 이 방 · 전체 맵 · 더보기, 페이즈 중에는 앞에
+   * **늘 같다.** 가방 · 이 방 · 전체 맵 · 더보기, 페이즈 중에는 앞에
    * 깃발이 붙는다. 서는 자리에 따라 칸이 바뀌면 같은 자리를 눌러도
    * 다른 일이 일어난다 — 물건에 붙은 일은 맵에서 그 물건을 짚는다.
    */
@@ -1373,13 +1374,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       ? [
           // 페이즈의 일은 깃발이 먼저다. 누르면 행동 시트가 열리고 맨 위가 꽂기다
           { key: 'post', icon: 'plant', label: '깃발', run: () => setSheet('act') },
-          { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
+          { key: 'hand', icon: 'hand', label: '가방', run: () => setSheet('hand') },
         ]
       : [
           // 자유 시간에 하는 일. **「말」은 여기 없다** — 화면 아래에
           // 늘 떠 있는 줄로 옮겼다. 말하는 것이 생산·공부와 같은 칸에
           // 서 있으면, 한마디 건네는 일이 마음먹고 고르는 행동이 된다
-          { key: 'hand', icon: 'hand', label: '손패', run: () => setSheet('hand') },
+          { key: 'hand', icon: 'hand', label: '가방', run: () => setSheet('hand') },
         ]
     /*
      * 「이 방」 칸은 없앴다. 방에서 하던 일은 물건을 짚어서 하고, 페이즈의
@@ -2088,7 +2089,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       )}
 
       {sheet === 'hand' && (
-        <Sheet title="손패" onClose={closeSheet}>
+        <Sheet title="가방" onClose={closeSheet}>
           <Hand me={{ ...me, team: myTeam }} view={state.view} act={act} onSaid={setSaid} />
         </Sheet>
       )}
@@ -2669,7 +2670,7 @@ export function Play() {
     // 거절도 없이 계속 기다린다 — 화면은 「불러오는 중」에 굳는다
     let done = false
     const late = setTimeout(() => {
-      if (!done) setMeError('서버가 대답하지 않는다.')
+      if (!done) setMeError('늦다')
     }, 8000)
     void myAccount()
       .then((a) => {
@@ -2693,7 +2694,7 @@ export function Play() {
     else setMe(null)
   }, [signedIn, loadMe])
 
-  if (!firebaseConfigured) return <p className="sc-pl__wait">firebase 설정이 없다.</p>
+  if (!firebaseConfigured) return <p className="sc-pl__wait">접속에 실패했다.</p>
   if (!ready) return null
   if (!signedIn) return <Gate onIn={() => setSignedIn(true)} />
   if (meError !== null) return <Waiting what="내 계정" error={meError} onRetry={loadMe} />

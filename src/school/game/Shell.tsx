@@ -251,7 +251,7 @@ export function Waiting({
 }: {
   /** 무엇을 기다리는가. 늦어질 때만 보인다. */
   what: string
-  /** 서버가 거절했으면 그 말. **삼키지 않는다.** */
+  /** 실패했으면 무엇이든. 원문은 안 보이고 「○○ 불러오기에 실패했다.」 한 줄이다 */
   error?: string | null
   onRetry?: () => void
   afterMs?: number
@@ -267,10 +267,8 @@ export function Waiting({
   return (
     <div className="sc-wait">
       <p className="sc-wait__what">
-        {error ? '서버가 거절했다.' : `${what}${josa(what, '을/를')} 기다리고 있다.`}
+        {error ? `${what} 불러오기에 실패했다.` : `${what}${josa(what, '을/를')} 기다리고 있다.`}
       </p>
-      {error && <p className="sc-wait__why">{error}</p>}
-      {!error && <p className="sc-wait__why">연결이 느리거나, 서버가 대답하지 않는다.</p>}
       <div className="sc-wait__row">
         <button onClick={() => (onRetry ? onRetry() : location.reload())}>다시 해 본다</button>
         <button

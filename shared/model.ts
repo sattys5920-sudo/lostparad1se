@@ -1,6 +1,5 @@
 import type {
   Resource,
-  RoleTitle,
   TeamId,
   VoteKind,
 } from './rules/v2'
@@ -111,7 +110,15 @@ export interface GameDoc {
    * endsAtMs 를 넘기면 열려 있어도 아무도 못 움직인다. 늦게 닫히는
    * 페이즈에서 토큰이 남은 사람만 유리해지면 안 된다.
    */
-  phaseNow?: { no: number; day: number; open: boolean; openedAtMs: GameMs; endsAtMs?: GameMs }
+  phaseNow?: {
+    no: number
+    /** 그날 몇 번째 교시인가. 날마다 1부터. 화면의 「n 교시」가 이것이다 */
+    period?: number
+    day: number
+    open: boolean
+    openedAtMs: GameMs
+    endsAtMs?: GameMs
+  }
   /**
    * **그날 아침에 찍어 둔 팀 순위.** 하루 동안 움직이지 않는다.
    *
@@ -273,8 +280,6 @@ export interface TeamDoc {
 export interface PawnDoc {
   playerId: string
   team: TeamId
-  /** 옛 직함(v2). **이제 안 적는다** — 역할 이름과 겹쳐 역할처럼 읽혔다 */
-  title?: RoleTitle
   /**
    * 전투 자리. 직전 페이즈가 끝난 곳이다.
    *

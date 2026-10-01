@@ -127,7 +127,7 @@ async function openBag(page: Page): Promise<void> {
   await page.waitForTimeout(400)
 }
 
-/** 아래 칸의 단추(손패 · 이 방 …)를 이름으로 누른다 */
+/** 아래 칸의 단추(가방 · 이 방 …)를 이름으로 누른다 */
 async function act(page: Page, label: string): Promise<void> {
   await page.evaluate((l) => {
     const b = [...document.querySelectorAll('.sc-ct__act')].find((e) => e.textContent?.includes(l))
@@ -281,10 +281,10 @@ async function main() {
   if (!(await pickOnMap(B, qCell, '펼쳐 본다'))) missed.push('B 가 문제 종이를 짚었는데 「펼쳐 본다」가 없다')
   await B.waitForTimeout(1500)
   await shot(B, '15-B-펼쳤다-바닥에-그대로.png')
-  await act(B, '손패')
-  await B.waitForSelector('.sc-qz__short input', { timeout: 8000 }).catch(() => missed.push('손패에 문제가 없다'))
+  await act(B, '가방')
+  await B.waitForSelector('.sc-qz__short input', { timeout: 8000 }).catch(() => missed.push('가방에 문제가 없다'))
   await B.fill('.sc-qz__short input', '두 달').catch(() => undefined)
-  await shot(B, '16-B-손패-답적기.png')
+  await shot(B, '16-B-가방-답적기.png')
   await tap(B, '.sc-qz__short button', '낸다').catch(() => undefined)
   await B.waitForTimeout(1500)
   await shot(B, '17-B-틀렸다.png')
@@ -297,8 +297,8 @@ async function main() {
   await A.waitForTimeout(800)
   if (!(await pickOnMap(A, qCell, '펼쳐 본다'))) missed.push('A 가 문제 종이를 짚었는데 「펼쳐 본다」가 없다')
   await A.waitForTimeout(1200)
-  await act(A, '손패')
-  await A.waitForSelector('.sc-qz__short input', { timeout: 8000 }).catch(() => missed.push('A 손패에 문제가 없다'))
+  await act(A, '가방')
+  await A.waitForSelector('.sc-qz__short input', { timeout: 8000 }).catch(() => missed.push('A 가방에 문제가 없다'))
   await A.fill('.sc-qz__short input', '한 달').catch(() => undefined)
   await tap(A, '.sc-qz__short button', '낸다').catch(() => undefined)
   await A.waitForTimeout(1500)

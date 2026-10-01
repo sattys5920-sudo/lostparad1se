@@ -117,7 +117,7 @@ export function useChatLines(act: GameActions, channel: Channel, opts: TalkOpts 
       // 한두 번은 잠깐 끊긴 것이다. 다음 번에 다시 가져온다.
       // 계속 그러면 그건 끊긴 게 아니라 거절이다 — 화면에 낸다
       failsRef.current += 1
-      if (failsRef.current >= STUCK_AFTER) setStuck((e as Error).message || '서버가 대답하지 않는다.')
+      if (failsRef.current >= STUCK_AFTER) setStuck('실패')
     } finally {
       pullingRef.current = false
     }

@@ -1750,7 +1750,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             ctx.drawImage(img, x * TILE - camX + in2, y * TILE - camY + in2)
           }
           /* 문제 종이. **접힌 것 하나뿐이다** — 주우면 지도에서 사라지고
-             손패에서 펼친 그림이 된다. 전에는 그 자리에서 펴는 물건이라
+             가방에서 펼친 그림이 된다. 전에는 그 자리에서 펴는 물건이라
              펼친 그림도 그렸는데, 이제 바닥에 펼쳐진 종이는 없다 */
           const paper = papersRef.current.find((t) => t.x === x && t.y === y)
           if (paper) {

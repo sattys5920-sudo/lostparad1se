@@ -68,7 +68,7 @@ async function rulesChecks(env: RulesTestEnvironment): Promise<void> {
   await expectDenied('로그인 안 한 쪽은 아예 못 읽는다', getDoc(doc(anon, notePath)))
 
   console.log('\n── 그 사람 몫 ──')
-  // views/{playerId}에 그 사람에게만 가는 것이 담긴다 — 손패, 쪽지,
+  // views/{playerId}에 그 사람에게만 가는 것이 담긴다 — 가방, 쪽지,
   // 미션 진행도. 본인만 읽고, 본인도 못 고친다
   const viewPath = `games/${GAME}/views/${ME}`
   await expectAllowed('본인은 자기 몫을 읽는다', getDoc(doc(me, viewPath)))

@@ -42,6 +42,11 @@ function plain(v: unknown): unknown {
   if ('fields' in o) return Object.fromEntries(Object.entries(o.fields as Record<string, unknown>).map(([k, x]) => [k, plain(x)]))
   return o
 }
+/** 판 문서의 phaseNow.period — 화면에 보이는 「n 교시」 */
+async function periodNow(): Promise<unknown> {
+  const g = (await getAll('games')).find((x) => x.id === GAME)
+  return (g?.d.phaseNow as { period?: number } | undefined)?.period
+}
 async function getAll(path: string): Promise<{ id: string; d: Record<string, unknown> }[]> {
   const r = await fetch(`${FS}/${path}?pageSize=300`, { headers: ADMIN })
   if (!r.ok) return []
@@ -216,6 +221,7 @@ async function main(): Promise<void> {
   // 않는다 — 걸리면 그 페이즈를 통째로 길에서 버리게 된다
   const opened = await must('openPhase', host, { gameId: GAME })
   check(opened.no === 1, '첫 페이즈가 열렸다', `${opened.no}번`)
+  check((await periodNow()) === 1, '화면의 교시는 1 교시', String(await periodNow()))
   // 점령전이 열려 있는 동안 달력은 안 넘어간다
   const pushedMid = await call('pushDay', host, { gameId: GAME })
   check(!pushedMid.ok && pushedMid.code === 'FAILED_PRECONDITION', '점령전 중에는 달력을 못 넘긴다', `${pushedMid.code} ${pushedMid.message}`)
@@ -420,6 +426,7 @@ async function main(): Promise<void> {
   const boughtA = await boughtOf('A')
   check(boughtA === FLAG_STOCK_PER_DAY, `산 것 ${FLAG_STOCK_PER_DAY}개는 따로 적혀 있다`, String(boughtA))
   await openWide()
+  check((await periodNow()) === 2, '같은 날 두 번째는 2 교시', String(await periodNow()))
   check(
     (await flagBoxOf('A')) === FLAGS_PER_PHASE + boughtA,
     `페이즈 몫 ${FLAGS_PER_PHASE} + 산 것 ${boughtA} — 남은 몫은 쌓이지 않는다`,
