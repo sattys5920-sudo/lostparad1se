@@ -66,5 +66,8 @@ export const hostCloseBallot = onCall<{ gameId: string }>(async (req) => {
   await gameRef(gameId).collection('events').add({ atMs: nowMs, day, kind: 'ballotClose', detail: {} })
   // 닫는 순간 센다. 이미 셌으면(정산이 먼저 지나갔으면) 아무 일도 안 한다
   await announceBallots(gameId, day)
+  // **새 투명인간은 그 순간 모두에게서 사라진다.** 다음에 누가 움직일
+  // 때까지 views 를 그대로 두면 지워진 사람이 남의 화면에 그대로 서 있다
+  await refreshViews(gameId)
   return { day, open: false }
 })

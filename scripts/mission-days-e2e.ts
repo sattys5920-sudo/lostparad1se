@@ -70,7 +70,7 @@ interface Snap {
   roleId: string
   final: boolean
   asOfMs: number
-  truth: { status: string; clauses: Clause[]; choice: string }
+  truth: { status: string; clauses: Clause[] }
   view: { status: string; clauses: Clause[]; choice: string }
 }
 interface DayOut { days: { day: number; final: boolean }[]; day: number | null; rows: Snap[] }
@@ -273,7 +273,6 @@ async function main(): Promise<void> {
   check(last.day === 4 && last.rows.every((r) => r.final), 'DAY 4 판정이 최종이다')
   check(last.rows.every((r) => r.truth.status === 'met' || r.truth.status === 'failed'), '최종에는 진행 중 · 끝날 때 판정이 없다')
   check(rowOf(last, backseat.playerId).truth.clauses[0].status === 'met', '뒷자리: 투표가 없는 마지막 날은 달성으로 친다')
-  check(last.rows.every((r) => r.truth.choice === 'met' || r.truth.choice === 'failed'), '마지막 선택도 정해졌다')
 
   console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`)
   if (failures > 0) process.exitCode = 1

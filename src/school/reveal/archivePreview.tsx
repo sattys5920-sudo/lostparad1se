@@ -12,9 +12,6 @@ const ITEMS = buildArchive({
   viewerTeam: 'A',
   records: [1, 2, 3].map((day) => ({ day, atMs: day * 1000 })),
   unreadDays: [3],
-  memories: [{ tileId: 'library', team: 'A', atMs: 6000 }],
-  sights: [{ ownerId: 'me', atMs: 7000 }],
-  tileName: (id) => (id === 'library' ? '도서관' : id),
 })
 
 function App() {

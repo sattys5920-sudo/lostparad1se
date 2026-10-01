@@ -7,7 +7,7 @@
 //
 //   달성          그날 다 채웠다
 //   실패          그날 못 채웠다
-//   끝날 때 판정  마지막 선택뿐 — 마지막 날에만 정해진다
+//   끝날 때 판정  지금은 쓰는 조항이 없다 — 남아 있으면 마지막 날에 연다
 //   (진행 중은 하루 중간에 「나」 탭이 보여 주는 상태다 — 자정 판정에는 없다)
 //
 // 투명인간 투표가 없는 날(마지막 날)은 뒷자리의 투표 조항을 달성으로 친다 —
@@ -25,7 +25,7 @@ import type { ClauseProgress, Mode, PersonalResult, Unit } from './judge'
 export type DayStatus = MissionStatus
 
 export interface DayContext {
-  /** 마지막 날인가. 마지막 선택이 이날 정해진다 */
+  /** 마지막 날인가. 「끝날 때」 조항이 이날 열린다 */
   final: boolean
   /** 이날 투명인간 투표가 없었다(마지막 날). 뒷자리의 투표 조항을 달성으로 친다 */
   noBallot: boolean
@@ -56,14 +56,11 @@ export interface DayClauseView {
 export interface DayVerdict {
   status: DayStatus
   clauses: DayClause[]
-  /** 마지막 선택. 마지막 날에만 정해진다 */
-  choice: DayStatus
 }
 
 export interface DayVerdictView {
   status: DayStatus
   clauses: DayClauseView[]
-  choice: DayStatus
 }
 
 /** 투명인간 투표에 걸린 조항 */
@@ -100,7 +97,6 @@ export function dayVerdict(result: PersonalResult, ctx: DayContext): DayVerdict 
   return {
     status: combine(clauses.map((c) => c.status)),
     clauses,
-    choice: ctx.final ? (result.choiceMet ? 'met' : 'failed') : 'endOnly',
   }
 }
 
@@ -130,7 +126,6 @@ export function dayView(v: DayVerdict, final: boolean): DayVerdictView {
   return {
     status: combine(clauses.map((c) => c.status)),
     clauses,
-    choice: v.choice,
   }
 }
 

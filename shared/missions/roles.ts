@@ -103,18 +103,3 @@ export const BRANCH_COUNT: Record<MissionBranch, number> = {
 }
 
 export const branchOf = (id: RoleId): MissionBranch => ROLE_BRANCH[id]
-
-// ── DAY 3·4의 선택 ──────────────────────────────────────────────
-
-// 날짜는 v2.ts의 시간표에 있다. 여기서 다시 내보내기만 한다
-export { CHOSEN_ONE_DAY, DAY4_CHOICE_DAY } from '../rules/v2'
-
-// 선택지는 shared/rules/choices.ts에 있다. 화면이 라벨 세 줄 때문에
-// 미션 조건 열넷을 불러오지 않도록 갈라 두었다
-export {
-  DAY4_CHOICES,
-  DAY4_CHOICE_IDS,
-  DAY4_TEAM_RANK_WITHIN,
-  type Day4Choice,
-  type Day4ChoiceSpec,
-} from '../rules/choices'

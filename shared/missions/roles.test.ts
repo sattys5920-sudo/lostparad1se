@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest'
 import {
   BRANCHES,
   BRANCH_COUNT,
-  DAY4_CHOICES,
   ROLES,
   ROLE_BRANCH,
   ROLE_BY_ID,
@@ -139,17 +138,6 @@ describe('조건 수치', () => {
     }
   })
 
-})
-
-describe('마지막 선택', () => {
-  it('셋이다', () => {
-    expect(DAY4_CHOICES).toHaveLength(3)
-  })
-
-  it('세 번째 줄은 중요한 사람의 팀이 1위다', () => {
-    expect(DAY4_CHOICES[2].id).toBe('chosen')
-    expect(DAY4_CHOICES[2].text).toBe('중요한 사람의 분단이 1 위')
-  })
 })
 
 describe('진행도 상태', () => {

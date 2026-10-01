@@ -12,7 +12,6 @@ import { HttpsError } from 'firebase-functions/v2/https'
 
 import { clockItems, nextByHand, type Due } from '../../shared/rules/catchup'
 import type { TileState } from '../../shared/rules/resources'
-import { closingMutual, closingTogether } from '../../shared/rules/choices'
 import { publicScore } from '../../shared/rules/score'
 import { settleDay } from '../../shared/rules/settlement'
 import { tallyVotes, type Vote } from '../../shared/rules/votes'
@@ -71,7 +70,7 @@ async function dayStart(c: Ctx): Promise<void> {
   // 한 걸음이 된 뒤로는 자유 시간에 그냥 걸어가는 것과 같아졌다
   const pawns = await c.tx.get(ref.collection('pawns'))
   for (const p of pawns.docs) {
-    c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, votedKinds: [], peeksToday: 0 })
+    c.tx.update(p.ref, { tokensUsedToday: 0, votedToday: false, votedKinds: [] })
   }
 
   // **투명인간은 날짜 경계와 안 묶인다.** 발표(settleBallots)부터 다음
@@ -183,30 +182,9 @@ async function settlement(c: Ctx): Promise<void> {
   })
 }
 
-/**
- * DAY 5 자정 — 판이 끝난다.
- *
- * 종례 순간의 두 가지를 여기서 굳힌다. 중요한 사람과 같은 칸에
- * 있었는가, 서로를 골랐는가. 나중에 다시 계산하면 「그 순간」이
- * 아니라 「지금」을 재게 된다.
- */
+/** 마지막 날 자정 — 판이 끝난다. */
 async function gameEnd(c: Ctx): Promise<void> {
   const ref = gameRef(c.gameId)
-  const [pawnSnap, choiceSnap] = await Promise.all([
-    c.tx.get(ref.collection('pawns')),
-    c.tx.get(ref.collection('secret').doc('choices').collection('items')),
-  ])
-
-  const tileAt: Record<string, string | null> = {}
-  for (const d of pawnSnap.docs) tileAt[d.id] = (d.data() as PawnDoc).tileId
-  const chosenBy: Record<string, string | null> = {}
-  for (const d of pawnSnap.docs) chosenBy[d.id] = null
-  for (const d of choiceSnap.docs) chosenBy[d.id] = (d.data() as { chosenId: string | null }).chosenId ?? null
-
-  const together = closingTogether({ chosenBy, tileAt })
-  const mutual = closingMutual(chosenBy)
-
-  c.tx.set(ref.collection('secret').doc('closing'), { chosenBy, tileAt, together, mutual, atMs: c.atMs })
   c.tx.update(ref, { phase: 'finished' })
   c.tx.set(ref.collection('events').doc(), { atMs: c.atMs, day: c.day, kind: 'gameEnd', detail: {} })
 }

@@ -9,7 +9,6 @@
 // 부르므로 화면이 이 파일을 불러도 그 알맹이는 번들에 안 실린다
 // (verbatimModuleSyntax) — scripts/check-bundle.ts 가 그걸 본다.
 import type { MissionView } from './judge'
-import type { MissionStatus } from './roleNames'
 
 /**
  * 배정 전이라 명단에 내 줄이 아직 없을 때 서버가 돌려주는 말.
@@ -45,8 +44,6 @@ export interface MyPaperDoc {
    */
   counting: boolean
   main: MissionView
-  /** 마지막 선택. 끝나야 판정한다. */
-  choice: MissionStatus
   /** 종류별 합계다. **누가 줬는지는** 끝까지 안 온다. */
   votesReceived: { trust: number; liking: number }
   /** 표를 어디까지 셌는가. 화면이 「어제까지」라고 적는다. */

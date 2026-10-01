@@ -16,14 +16,12 @@ const clause = (over: Partial<ClauseProgress>): ClauseProgress => ({
   broken: false,
   ...over,
 })
-const result = (clauses: ClauseProgress[], choiceMet = false): PersonalResult => ({
+const result = (clauses: ClauseProgress[]): PersonalResult => ({
   playerId: 'me',
   roleId: 'duty',
   main: { text: '', clauses, met: clauses.every((c) => c.met), broken: clauses.some((c) => c.broken) },
-  choiceMet,
 })
 const mid = { final: false, noBallot: false }
-const end = { final: true, noBallot: true }
 
 describe('하루짜리 — 자정이 기한이다', () => {
   it('그날 채웠으면 달성', () => {
@@ -33,11 +31,6 @@ describe('하루짜리 — 자정이 기한이다', () => {
     const v = dayVerdict(result([clause({ have: 2 })]), mid)
     expect(v.status).toBe('failed')
     expect(v.clauses[0].have).toBe(2)
-  })
-  it('마지막 선택만 마지막 날에 정해진다', () => {
-    expect(dayVerdict(result([clause({})], true), mid).choice).toBe('endOnly')
-    expect(dayVerdict(result([clause({})], true), end).choice).toBe('met')
-    expect(dayVerdict(result([clause({})], false), end).choice).toBe('failed')
   })
 })
 

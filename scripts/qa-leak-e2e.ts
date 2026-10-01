@@ -443,7 +443,7 @@ async function main(): Promise<void> {
     [`games/${GAME}/secret/missionDays/items`, true], [`games/${GAME}/secret/phase`, false], [`games/${GAME}/secret/cells/items`, true],
     [`games/${GAME}/secret/traps/set`, true], [`games/${GAME}/secret/traps/jobs`, true], [`games/${GAME}/secret/dealSlips/items`, true],
     [`games/${GAME}/secret/garden`, false], [`games/${GAME}/secret/flags`, false], [`games/${GAME}/secret/erased/items`, true],
-    [`games/${GAME}/secret/progress/items`, true], [`games/${GAME}/secret/choices/items`, true], [`games/${GAME}/secret/ending/lines`, true],
+    [`games/${GAME}/secret/progress/items`, true], [`games/${GAME}/secret/ending/lines`, true],
     [`games/${GAME}/secret/pushSubs/items`, true], [`games/${GAME}/secret`, true],
     [`games/${GAME}/views/${X.uid}`, false], [`games/${GAME}/views/${W.uid}`, false], [`games/${GAME}/views`, true],
     [`games/${GAME}/inbox/${X.uid}`, false], [`games/${GAME}/inbox`, true], [`games/${GAME}/notes/${X.uid}`, false],

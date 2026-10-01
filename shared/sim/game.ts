@@ -257,8 +257,6 @@ export function simulateGame(seed: string, startMs: number): SimResult {
       ranked.ranked.map((r) => [r.team, r.tiedRank]),
     ) as Record<TeamId, number>,
     slipsHeldAtEnd: {},
-    chosenBy: {},
-    choiceMet: {},
   }
 
   const personal = assignments.map((a) => {

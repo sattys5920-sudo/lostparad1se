@@ -19,7 +19,7 @@ import { pendingDays } from '../../../shared/reveal/morning'
 import { prologueText } from '../../../shared/reveal/prologue'
 import type { DeductionNote } from '../../../shared/reveal/notes'
 import { newPost, type RetroPost } from '../../../shared/reveal/retro'
-import { TILE_BY_ID, type TileId } from '../../../shared/rules/board'
+import type { TileId } from '../../../shared/rules/board'
 import { normalizeLook } from '../char/look'
 import type { TeamId } from '../../../shared/rules/v2'
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore'
@@ -168,10 +168,6 @@ export function LiveArchive({ gameId, onClose }: { gameId: string; onClose?: () 
       records: (v.handledDays ?? []).map((day) => ({ day, atMs: day })),
       // 건너뛴 날이 「읽지 않음」이다 — 처리했지만 끝까지 보지 않은 날
       unreadDays: (v.handledDays ?? []).filter((d) => !read.has(d)),
-      memories: v.memories ?? [],
-      sights: v.sightAtMs ? [{ ownerId: uid, atMs: v.sightAtMs }] : [],
-      over: state.game?.phase === 'finished',
-      tileName: (id) => TILE_BY_ID[id]?.name ?? id,
     })]
   }, [state.view, state.game?.phase, uid, seats, nameOf])
 

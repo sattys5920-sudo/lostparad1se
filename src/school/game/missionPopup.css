@@ -152,18 +152,6 @@
 .sc-jd__st.is-met { color: var(--ink); }
 .sc-jd__st.is-failed { color: var(--danger); }
 
-.sc-jd__choice {
-  display: flex;
-  justify-content: space-between;
-  margin: var(--sp-2) 0 0;
-  padding: var(--sp-2) 0 0;
-  border-top: 1px dashed var(--ink-3);
-  font-size: var(--fs-pixel);
-  color: var(--ink-2);
-}
-.sc-jd__choice b { font-weight: 400; color: var(--ink); }
-.sc-jd__choice b.is-failed { color: var(--danger); }
-
 /* 미션 한 줄 — 맨 아래에 흐리게 */
 .sc-jd__line {
   margin: var(--sp-3) 0 0;

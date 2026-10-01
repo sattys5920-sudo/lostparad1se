@@ -25,8 +25,6 @@ export interface AroundProps {
   day: number
   /** 오늘 지워진 사람. 표를 받지 않는다. */
   invisibleId: string | null
-  /** 내가 고른 중요한 사람. */
-  chosenId: string | null
   /** 지금 나와 같은 자리에 서 있는 사람들. */
   hereIds: readonly string[]
   /**

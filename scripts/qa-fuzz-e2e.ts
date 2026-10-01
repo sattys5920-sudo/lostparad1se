@@ -505,12 +505,6 @@ async function main(): Promise<void> {
   rejects(await call('pickUpThing', me.token, { gameId: GAME }), '받은 것 없이 pickUpThing', 'FAILED_PRECONDITION')
   rejects(await call('dropThing', me.token, { gameId: GAME }), '받은 것 없이 dropThing', 'FAILED_PRECONDITION')
   rejects(await call('giveUpErrand', me.token, { gameId: GAME }), '받은 것 없이 giveUpErrand', 'FAILED_PRECONDITION')
-  rejects(await call('chooseImportant', me.token, { gameId: GAME, targetId: 'nobody' }), 'chooseImportant 없는 사람 (DAY 1)')
-  for (const t of [undefined, 42, null, {}, '', 'a/b']) {
-    const r = await call('chooseImportant', me.token, { gameId: GAME, targetId: t })
-    observe(isReject(r), `[choice.ts] chooseImportant targetId=${JSON.stringify(t) ?? 'undefined'} (DAY 1)`, `${r.status} ${r.code} ${r.message}`)
-  }
-  for (const c of [undefined, 42, null, 'everything', '__proto__']) rejects(await call('chooseDay4', me.token, { gameId: GAME, choice: c }), `chooseDay4 choice=${JSON.stringify(c) ?? 'undefined'}`)
   for (const d of [99, -1, 0, NaN, '2', 1.5, {}, null, undefined]) rejects(await call('fragmentOfDay', me.token, { gameId: GAME, day: d }), `fragmentOfDay day=${JSON.stringify(d) ?? 'undefined'}`)
   for (const d of [NaN, -1, 0, 'x', 1.5, {}]) rejects(await call('seenMissionDay', me.token, { gameId: GAME, day: d }), `seenMissionDay day=${JSON.stringify(d)}`, 'INVALID_ARGUMENT')
   const mm = await call('markMorning', me.token, { gameId: GAME, read: ['x', 99, -1, 1.5, null], skipped: 'abc' })

@@ -40,8 +40,6 @@ function log(over: Partial<GameLog> = {}): GameLog {
     ownerChanges: [],
     teamTiedRank: { A: 2, B: 1, C: 3, D: 4 },
     slipsHeldAtEnd: {},
-    chosenBy: {},
-    choiceMet: {},
     ...over,
   }
 }
@@ -491,36 +489,5 @@ describe('그때의 팀으로 센다 — 나중에 이적해도 그 일은 그�
     // a2 는 지금 A 팀이지만 던질 때는 D 팀이었다
     const out = mainOf('model', { votes: [v('a2', 'D'), v('b1', 'B'), v('b2', 'B')] })
     expect(out.clauses[1].have).toBe(2)
-  })
-})
-
-describe('마지막 선택 — 판정이 직접 셈한다', () => {
-  const run = (choice: 'team' | 'self' | 'chosen', rank: Partial<Record<TeamId, number>>, chosen: string | null = null) =>
-    judge(
-      me('duty'),
-      log({
-        day4Choice: { me: choice },
-        chosenBy: { me: chosen },
-        teamTiedRank: { A: 4, B: 4, C: 4, D: 4, ...rank },
-        records: [
-          ...did('errandDone', needOf('duty', 'errandsDone')),
-          ...did('roomLock', needOf('duty', 'roomsLocked')),
-        ],
-      }),
-    ).choiceMet
-  it('팀을 지킨다 — 공동 2위도 2위 이내다', () => {
-    expect(run('team', { A: 2 })).toBe(true)
-    expect(run('team', { A: 3 })).toBe(false)
-  })
-  it('나를 지킨다 — 주 미션을 채웠으면 된다', () => {
-    expect(run('self', {})).toBe(true)
-  })
-  it('그 사람을 지킨다 — 중요한 사람의 팀이 (공동) 1위', () => {
-    expect(run('chosen', { B: 1 }, 'b1')).toBe(true)
-    expect(run('chosen', { B: 2 }, 'b1')).toBe(false)
-    expect(run('chosen', { B: 1 }, null)).toBe(false)
-  })
-  it('안 골랐으면 실패다', () => {
-    expect(judge(me('duty'), log({ day4Choice: {} })).choiceMet).toBe(false)
   })
 })

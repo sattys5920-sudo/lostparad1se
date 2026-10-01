@@ -24,7 +24,7 @@ const SITE = 'http://127.0.0.1:8899'
 const OUT = '/tmp/claude-0/shots'
 
 const MY_PW = 'me-pass1'
-/** 마지막 선택이 뜨는 날. shared/rules/v2.ts 와 같은 값이다 */
+/** 마지막 날. shared/rules/v2.ts 와 같은 값이다 */
 const LAST_DAY = 4
 const QA_PW = 'seed-password-1'
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
@@ -278,7 +278,7 @@ async function main() {
     const last = await page.evaluate(
       () => (document.querySelector('.sc-mi-root') as HTMLElement | null)?.innerText ?? '',
     )
-    if (!last.includes('마 지 막 선 택')) bad.push(`${size.w}: 마지막 날인데 선택 카드가 없다`)
+    if (last.includes('마 지 막 선 택')) bad.push(`${size.w}: 지운 「마지막 선택」 카드가 남아 있다`)
     await shot('5-마지막날')
 
     await ctx.close()

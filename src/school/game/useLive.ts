@@ -9,8 +9,9 @@
 // 가만히 선 열넷이 계속 두드리면 느려지는 쪽은 판 전체다.
 //
 // 누가 누구를 읽어도 되는지는 **규칙이 정한다**(firestore.rules 의
-// live/{playerId}). 내 view 에 든 사람의 문서만 열린다 — 안개가 가린
-// 사람, 잠복한 사람, 지워진 사람은 목록에 없으니 문이 안 열린다.
+// live/{playerId}). 내 view 에 든 사람의 문서만, 그것도 그 사람이 나와
+// 같은 방에 있을 때만 열린다 — 안개가 가린 사람, 잠복한 사람, 지워진
+// 사람, 방을 나간 사람은 문이 안 열린다.
 // 화면이 받아서 숨기는 것이 아니라 오지를 않는다.
 import { useEffect, useRef, type RefObject } from 'react'
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore'
@@ -44,6 +45,9 @@ export const LIVE_LOBBY_STALE_MS = 12_000
  */
 export const LIVE_EVERY_MS = 320
 
+/** 규칙이 거절한 사람에게 다시 붙어 보는 간격. */
+const LIVE_RETRY_MS = 3000
+
 /** 내가 지금 어디 있는지 적는다. 실패는 삼킨다 — 그림 하나 때문에 화면이 멎으면 안 된다. */
 export function pushLive(gameId: string, uid: string, at: LiveDoc): void {
   if (!db) return
@@ -69,21 +73,46 @@ export function useLive(gameId: string, ids: readonly string[]): RefObject<Map<s
     if (!db || !gameId || key === '') return
     const base = collection(db, 'games', gameId, 'live')
     const mine = key.split(',')
-    const stop = mine.map((id) =>
-      onSnapshot(
-        doc(base, id),
-        (snap) => {
-          const d = snap.data() as LiveDoc | undefined
-          if (d) box.current.set(id, d)
-          else box.current.delete(id)
-        },
-        // 규칙이 거절하면 그 사람은 안 보이는 것이다. 조용히 지운다
-        () => box.current.delete(id),
-      ),
-    )
+    const stops = new Map<string, () => void>()
+    const timers: number[] = []
+    let alive = true
+    /*
+     * 규칙이 거절하면 그 사람은 안 보이는 것이다. 조용히 지운다.
+     *
+     * **거절은 잠깐일 수 있다.** 그 사람이 방을 나서는 순간 문이 닫히는데
+     * (live.tileId 가 내 방과 달라진다), 문턱만 밟고 도로 들어오면 목록은
+     * 그대로라 다시 붙을 계기가 없다. 몇 초 뒤에 한 번 더 붙어 본다 —
+     * 목록에서 빠지면(서버가 views 를 다시 썼으면) 그때 그친다.
+     */
+    const listen = (id: string) => {
+      stops.set(
+        id,
+        onSnapshot(
+          doc(base, id),
+          (snap) => {
+            const d = snap.data() as LiveDoc | undefined
+            if (d) box.current.set(id, d)
+            else box.current.delete(id)
+          },
+          () => {
+            box.current.delete(id)
+            timers.push(
+              window.setTimeout(() => {
+                if (alive) listen(id)
+              }, LIVE_RETRY_MS),
+            )
+          },
+        ),
+      )
+    }
+    mine.forEach(listen)
     // 목록에서 빠진 사람은 화면에서도 지운다
     for (const had of [...box.current.keys()]) if (!mine.includes(had)) box.current.delete(had)
-    return () => stop.forEach((f) => f())
+    return () => {
+      alive = false
+      timers.forEach((t) => window.clearTimeout(t))
+      stops.forEach((f) => f())
+    }
   }, [gameId, key])
 
   return box

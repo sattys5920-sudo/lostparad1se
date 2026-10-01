@@ -380,8 +380,6 @@ export interface PawnDoc {
   votedToday: boolean
   /** **오늘 준 표의 종류.** 신뢰표 한 장, 호감표 한 장 — 종류마다 하루 한 장이다. 자정에 비운다 */
   votedKinds?: string[]
-  /** 정보부장이 오늘 보낸 사람을 들여다본 횟수. */
-  peeksToday: number
 }
 
 // ── 숨김: 서버만 ────────────────────────────────────────────────
@@ -469,6 +467,8 @@ export interface PlayerViewDoc {
    * 곳은 여전히 하나다(projectView).
    */
   visibleIds?: string[]
+  /** 내가 안에 서 있는 방(복도면 null). live 규칙이 그 사람의 방과 견준다 */
+  liveRoom?: TileId | null
   /**
    * 내 말이 걷는 중이면 도착 시각. **내 것만 실린다** — 남이 언제
    * 도착하는지까지 알면 문 앞에서 기다렸다 덮치는 것이 계산이 된다.
@@ -664,19 +664,6 @@ export interface PlayerViewDoc {
   roomCounts: Record<TileId, number>
   /** 안개가 걷힌 칸. 나머지는 어둡게 덮는다. */
   visibleTiles: TileId[]
-  /** 우리 팀 비밀 목표. */
-  /** 우리가 꽂은 깃발 중 가짜인 것. 우리 팀만 안다. */
-  /** 정보부장이 들여다본 결과. */
-  peeked: { voteKind: VoteKind; voterNickname: string }[]
-  /** 동맹 제안. 관련된 두 팀만. */
-  proposals: { id: string; fromTeam: TeamId; toTeam: TeamId; status: string; createdAtMs: GameMs }[]
-  /**
-   * DAY 3·4에 내가 고른 것. **남이 무엇을 골랐는지는 없다.**
-   *
-   * 「누가 나를 중요한 사람으로 골랐나」가 보이면 그걸 노리고 서로
-   * 붙어 다니게 된다. 고르는 일이 마음이 아니라 수가 된다.
-   */
-  myChoice: { chosenId: string | null; day4: string | null } | null
 
   // ── 진상 공개 흐름 ──
   //
@@ -690,10 +677,6 @@ export interface PlayerViewDoc {
   handledDays: number[]
   /** 끝까지 본 날. 보관함이 「읽지 않음」을 가리는 데 쓴다. */
   readDays: number[]
-  /** 우리 팀이 먼저 연 A의 기억. 끝나면 열셋 전부. */
-  memories: { tileId: TileId; team: TeamId; atMs: GameMs }[]
-  /** A의 시선. 그 자리에 서 본 본인에게만. */
-  sightAtMs: GameMs | null
   /** 나에게 온 운영자 공지. 전체 공지와 내 것만 섞여 있다. */
   notices: { id: string; text: string; atMs: GameMs }[]
 }

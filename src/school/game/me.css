@@ -511,28 +511,6 @@
 .sc-mi__bar em.is-on { background: var(--ink); box-shadow: none; }
 .sc-mi__bar b { font-size: var(--fs-pixel); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
-/* 마지막 선택 */
-.sc-mi__pick { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.sc-mi__pick button {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-  width: 100%;
-  min-height: 44px;
-  padding: var(--sp-2) var(--sp-2);
-  appearance: none;
-  border: 1px solid var(--ink-3);
-  border-radius: 0;
-  background: var(--paper);
-  font: inherit;
-  text-align: left;
-  color: var(--ink);
-  cursor: pointer;
-}
-.sc-mi__pick button.is-on { border-color: var(--danger); border-width: 2px; padding: var(--sp-2) var(--sp-2); }
-.sc-mi__pick b { font-size: var(--fs-pixel); }
-.sc-mi__pick span { font-size: var(--fs-pixel); line-height: 14px; color: var(--ink-2); word-break: keep-all; }
-
 /* ── 지난 판정 ─────────────────────────────────────────── */
 
 .sc-mi__past { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }

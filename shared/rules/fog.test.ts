@@ -96,15 +96,18 @@ describe('보이는 말', () => {
     expect(out.map((p) => p.playerId)).toEqual(['b1'])
   })
 
-  it('걷는 말은 떠난 칸이나 다음 칸이 보이면 보인다', () => {
+  it('걷는 말은 가는 방이 보일 때만 보인다 — 떠난 방에서는 안 보인다', () => {
     const out = visiblePawns({
       ...base,
       pawns: [
         pawn({ playerId: 'b1', team: 'B', fromTile: 'gym', toTile: 'studentCouncil' }),
         pawn({ playerId: 'b2', team: 'B', fromTile: 'gym', toTile: 'auditorium' }),
+        pawn({ playerId: 'b3', team: 'B', fromTile: 'studentCouncil', toTile: 'auditorium' }),
       ],
     })
     expect(out.map((p) => p.playerId)).toEqual(['b1'])
+    // 어디서 오는지도 안 간다
+    expect(out[0].fromTile).toBe(null)
   })
 
   it('잠복한 말은 안개가 걷힌 칸에 서 있어도 안 보인다', () => {

@@ -17,7 +17,7 @@
 // 순수 함수다. Firestore를 모른다 — 그래야 시험할 수 있다.
 import type { FlagBoxes, FlagMap } from './flag'
 import { visiblePawns, visibleTiles, type PawnPosition, type PawnView } from './fog'
-import type { TeamId, VoteKind } from './v2'
+import type { TeamId } from './v2'
 import { floorOfCell, roomOfCell, type Cell, type TileId } from './board'
 import { SHOP_ITEMS } from './shop'
 import { LAB_MACHINES, LAB_TILE, MAKERS, TECH_TILE } from './trap'
@@ -32,7 +32,6 @@ import {
   type PotStage,
 } from './crop'
 import type { Satchel, Satchels } from './items'
-import { canSeeMemory } from '../reveal/archive'
 import { noticeLine, noticesFor, type Notice, type NoticeLine } from '../reveal/notice'
 
 // ── 서버가 쥐고 있는 것 ─────────────────────────────────────────
@@ -201,16 +200,6 @@ export interface World {
   tiles: readonly WorldTile[]
   /** 열넷의 역할. **자기 한 줄만 나간다.** */
   roster: readonly WorldRoster[]
-  /** 가짜 깃발. 꽂은 팀만 안다. */
-  /** 정보부장이 들여다본 결과. 본 사람만 안다. */
-  peeks: readonly { playerId: string; voteKind: VoteKind; voterNickname: string }[]
-  /**
-   * DAY 3·4의 선택. **본인 것만 나간다.**
-   *
-   * 「누가 나를 중요한 사람으로 골랐나」가 보이면 그걸 노리고 서로
-   * 붙어 다니게 된다. 고르는 일이 마음이 아니라 수가 된다.
-   */
-  choices: readonly { playerId: string; chosenId: string | null; day4: string | null }[]
   // ── 진상 공개 흐름 ──
   releasedDays: readonly number[]
   progress: readonly { playerId: string; handledDays: readonly number[]; readDays: readonly number[] }[]
@@ -235,9 +224,6 @@ export interface World {
   quizzes?: readonly WorldQuiz[]
   /** 기술실 제조기에 걸린 건들. 복도의 덫은 세계에도 안 실린다 */
   trapJobs?: readonly { i: number; team: TeamId; byPlayerId: string; count: number; readyAtMs: number; phaseNo: number }[]
-  memories: readonly { tileId: TileId; team: TeamId; atMs: number }[]
-  /** 깨달음에 이른 시각. A의 시선이 그때 열린다. */
-  awakenedAtMs: Readonly<Record<string, number>>
   notices: readonly Notice[]
 }
 
@@ -267,6 +253,13 @@ export interface View {
    */
   visibleIds: string[]
   /**
+   * 내가 지금 안에 서 있는 방. 복도면 null. **Firestore 규칙이 이것을 읽는다** —
+   * live 문서는 그 사람의 실시간 방(tileId)이 이 값과 같을 때만 열린다.
+   * 방을 나서는 순간(복도로 나가든 옆방으로 건너가든) 원래 방 사람은
+   * 그 사람의 걸음을 더는 못 받는다 — 서버가 views 를 다시 쓰기 전에도.
+   */
+  liveRoom: TileId | null
+  /**
    * 보이는 방에 **놓인** 로봇. 든 것은 가방 속이라 안 온다.
    * mine 은 내가 놓은 것인가 — 거둘 수 있는 것은 이것뿐이다. 누가 놓았는지는 안 온다.
    */
@@ -288,9 +281,6 @@ export interface View {
    */
   roomCounts: Record<TileId, number>
   visibleTiles: TileId[]
-  peeked: { voteKind: VoteKind; voterNickname: string }[]
-  /** 내가 고른 것. 남이 무엇을 골랐는지는 없다. */
-  myChoice: { chosenId: string | null; day4: string | null } | null
   own: { roleId: string; targetId: string | null } | null
   /**
    * 내 말이 걷는 중이면 도착 시각. 서 있으면 null.
@@ -545,8 +535,6 @@ export interface View {
     /** 남이 먼저 맞혔는가. 누가 맞혔는지는 안 온다. */
     solvedByOther: boolean
   }[]
-  memories: { tileId: TileId; team: TeamId; atMs: number }[]
-  sightAtMs: number | null
   notices: NoticeLine[]
 }
 
@@ -588,12 +576,11 @@ export function projectView(world: World, viewerId: string): View {
       updatedAtMs: world.nowMs,
       visiblePawns: [],
       visibleIds: [],
+      liveRoom: null,
       visibleRobots: [],
       madeHere: [],
       roomCounts: {},
       visibleTiles: [],
-      peeked: [],
-      myChoice: null,
       own: null,
       myArriveAtMs: null,
       myBusyUntilMs: null,
@@ -632,8 +619,6 @@ export function projectView(world: World, viewerId: string): View {
       scrapPapers: [],
       myQuizzes: [],
       mySlips: [],
-      memories: [],
-      sightAtMs: null,
       notices: noticesFor(world.notices, viewerId).map(noticeLine),
     }
   }
@@ -727,6 +712,7 @@ export function projectView(world: World, viewerId: string): View {
      * 같은 계산에서 떼어 낸다. 따로 세면 언젠가 어긋난다.
      */
     visibleIds: seen.map((p) => p.playerId),
+    liveRoom: myRoom,
     visibleTiles: [...visible].sort(),
     // **보이는 방의 자물쇠만.** 안 보이는 방까지 오면 「저기 누가
     // 있었다」가 공짜로 새어 나간다 — 문을 잠근 사람은 그 방에 있었다
@@ -789,13 +775,6 @@ export function projectView(world: World, viewerId: string): View {
     ).map((i) => i.id),
 
     // 내 것
-    peeked: world.peeks
-      .filter((p) => p.playerId === viewerId)
-      .map((p) => ({ voteKind: p.voteKind, voterNickname: p.voterNickname })),
-    myChoice: (() => {
-      const c = world.choices.find((x) => x.playerId === viewerId)
-      return c ? { chosenId: c.chosenId, day4: c.day4 } : null
-    })(),
     // 역할은 **자기 한 줄뿐이다.** 남의 것은 들어가지 않는다
     own: me ? { roleId: me.roleId, targetId: me.targetId } : null,
     myArriveAtMs: world.pawns.find((p) => p.playerId === viewerId)?.arriveAtMs ?? null,
@@ -970,10 +949,6 @@ export function projectView(world: World, viewerId: string): View {
         // 「반장이다」 쪽지 밑에 주인 이름이 붙으면 한 장으로 역할이 다 드러난다
         return { id: s.id, read, line: read ? s.line : null }
       }),
-    // 먼저 가져간 팀만. 끝나면 전원
-    memories: world.memories.filter((m) => canSeeMemory(m, team, world.over)),
-    // A의 시선은 깨달음에 이른 본인에게만
-    sightAtMs: world.awakenedAtMs[viewerId] ?? null,
     notices: noticesFor(world.notices, viewerId).map(noticeLine),
   }
 }

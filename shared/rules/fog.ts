@@ -169,8 +169,16 @@ export function visiblePawns(input: PawnVisionInput): PawnView[] {
      * 방에도 없는 것이다(복도는 위의 nearInHall 이 맡는다).
      */
     const room = pawn.tileId === null ? null : pawn.at ? roomOfCell(pawn.at.x, pawn.at.y) : pawn.tileId
-    const where = pawn.tileId !== null ? [room] : [pawn.fromTile, pawn.toTile]
-    if (where.some((id) => id !== null && input.visible.has(id))) out.push(viewOf(pawn))
+    if (pawn.tileId !== null) {
+      if (room !== null && input.visible.has(room)) out.push(viewOf(pawn))
+      continue
+    }
+    /*
+     * **걷는 말은 가는 방에서만 보인다.** 떠난 방 사람에게는 나서는 순간
+     * 사라진다 — 어디로 가는지 따라볼 수 없다. 가는 방 사람에게도 어디서
+     * 오는지는 안 간다
+     */
+    if (pawn.toTile !== null && input.visible.has(pawn.toTile)) out.push({ ...viewOf(pawn), fromTile: null })
   }
   return out
 }

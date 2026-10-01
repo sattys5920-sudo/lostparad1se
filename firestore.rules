@@ -206,9 +206,14 @@ service cloud.firestore {
         allow read: if request.auth != null && (
           (exists(/databases/$(database)/documents/games/$(gameId))
             && get(/databases/$(database)/documents/games/$(gameId)).data.startedAtMs == null)
+          // **같은 방에 선 사람만.** 방을 나서는 순간(복도로 나가든 옆방으로
+          // 건너가든) 그 사람의 live.tileId 가 바뀌어 원래 방 사람에게는 문이
+          // 닫힌다 — 어디로 가는지 따라볼 수 없다. 복도끼리는 둘 다 null 이다
           || (exists(/databases/$(database)/documents/games/$(gameId)/views/$(request.auth.uid))
             && get(/databases/$(database)/documents/games/$(gameId)/views/$(request.auth.uid))
-                 .data.visibleIds.hasAny([playerId]))
+                 .data.visibleIds.hasAny([playerId])
+            && (resource == null || resource.data.tileId == get(/databases/$(database)/documents/games/$(gameId)/views/$(request.auth.uid))
+                 .data.get('liveRoom', null)))
         );
         allow write: if request.auth != null && request.auth.uid == playerId;
       }

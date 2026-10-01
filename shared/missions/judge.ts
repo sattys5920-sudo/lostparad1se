@@ -20,7 +20,6 @@ import {
   type MissionStatus,
   clauseText,
 } from './roles'
-import { day4Met, type Day4Choice } from '../rules/choices'
 import type { Assignment } from './assign'
 import { coStaySeconds, type Interval } from '../rules/presence'
 import { stayInTeamRoomsAtTimeMs, type GameRecord, type OwnerChange, type Stay } from '../rules/records'
@@ -96,15 +95,6 @@ export interface GameLog {
   teamTiedRank: Record<TeamId, number>
   /** 끝날 때 내 손에 남아 있는 쪽지. */
   slipsHeldAtEnd: Readonly<Record<string, readonly string[]>>
-  /** DAY 3에 고른 중요한 사람. */
-  chosenBy: Record<string, string | null>
-  /**
-   * 마지막 선택이 맞아떨어졌는가 — **판정이 직접 셈하지 않은 옛 값.**
-   * day4Choice 가 있으면 그쪽으로 판정하고 이것은 안 본다.
-   */
-  choiceMet: Record<string, boolean>
-  /** DAY 4에 고른 것. 안 골랐으면 null */
-  day4Choice?: Record<string, Day4Choice | null>
 }
 
 // ── 조항 하나의 진행도 ──────────────────────────────────────────
@@ -330,8 +320,6 @@ export interface PersonalResult {
   playerId: string
   roleId: Assignment['roleId']
   main: MissionProgress
-  /** 마지막 선택이 맞아떨어졌는가. */
-  choiceMet: boolean
 }
 
 /**
@@ -347,24 +335,7 @@ export function judge(me: Assignment, log: GameLog): PersonalResult {
     playerId: me.playerId,
     roleId: me.roleId,
     main,
-    choiceMet: choiceMetOf(c, main.met),
   }
-}
-
-/**
- * 마지막 선택을 지켰는가. **순위는 공동 순위다** — 공동 2위도 「2위 이내」,
- * 공동 1위도 「1위」다. 안 골랐으면 실패다.
- */
-function choiceMetOf(c: Ctx, mainMet: boolean): boolean {
-  const picks = c.log.day4Choice
-  if (!picks) return c.log.choiceMet[meOf(c)] === true
-  const chosen = c.log.chosenBy[meOf(c)] ?? null
-  return day4Met({
-    choice: picks[meOf(c)] ?? null,
-    teamRank: c.log.teamTiedRank[myTeam(c)] ?? 99,
-    mainMet,
-    chosenTeamFirst: chosen !== null && c.log.teamTiedRank[c.log.teamOf(chosen)] === 1,
-  })
 }
 
 // ── 어디까지 보여 줄까 ──────────────────────────────────────────
@@ -449,8 +420,6 @@ export interface PersonalView {
   playerId: string
   roleId: Assignment['roleId']
   main: MissionView
-  /** 마지막 선택은 끝나야 판정한다. */
-  choice: MissionStatus
 }
 
 /** 본인에게 내려보낼 전부. 남의 역할도 남의 진행도도 들어 있지 않다. */
@@ -459,6 +428,5 @@ export function discloseFor(result: PersonalResult, phase: Phase): PersonalView 
     playerId: result.playerId,
     roleId: result.roleId,
     main: discloseMission(result.main, phase),
-    choice: phase === 'end' ? (result.choiceMet ? 'met' : 'failed') : 'endOnly',
   }
 }

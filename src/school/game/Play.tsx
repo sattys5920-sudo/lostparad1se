@@ -1995,7 +1995,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           nearIds={nearIds}
           hereName={placeName(standingOn, myCell)}
           invisibleId={game.invisibleId}
-          chosenId={state.view?.myChoice?.chosenId ?? null}
           act={act}
           onSaid={setSaid}
         />

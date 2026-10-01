@@ -68,14 +68,6 @@ function world(over = false, invisibleId: string | null = null): World {
       { tileId: 'centralPlaza', ownerTeam: null },
     ],
     roster: ROSTER,
-    peeks: [
-      { playerId: 'A0', voteKind: 'trust', voterNickname: '누군가' },
-      { playerId: 'B0', voteKind: 'liking', voterNickname: '다른누군가' },
-    ],
-    choices: [
-      { playerId: 'A0', chosenId: 'B0', day4: 'bond' },
-      { playerId: 'B0', chosenId: 'A0', day4: 'team' },
-    ],
     releasedDays: [1, 2],
     progress: [
       { playerId: 'A0', handledDays: [1, 2], readDays: [1] },
@@ -138,11 +130,6 @@ function world(over = false, invisibleId: string | null = null): World {
         wrongBy: [],
       },
     ],
-    memories: [
-      { tileId: 'library', team: 'A', atMs: 30 },
-      { tileId: 'gym', team: 'B', atMs: 40 },
-    ],
-    awakenedAtMs: { A0: 50 },
     notices: [
       { id: 'n1', toPlayerId: null, text: '전원에게', atMs: 60 },
       { id: 'n2', toPlayerId: 'A0', text: 'A0에게만', atMs: 70 },
@@ -152,44 +139,8 @@ function world(over = false, invisibleId: string | null = null): World {
 
 const json = (v: unknown) => JSON.stringify(v)
 
-describe('역할', () => {
-
-  it('엿본 결과는 엿본 사람만', () => {
-    expect(projectView(world(), 'A0').peeked).toHaveLength(1)
-    expect(projectView(world(), 'A1').peeked).toEqual([])
-    expect(json(projectView(world(), 'A1'))).not.toContain('누군가')
-  })
-})
-
 // 잠복은 「안 보인다」이고 투명인간은 「없는 사람」이다.
 // 위치 데이터가 아예 안 나간다
-// 「누가 나를 중요한 사람으로 골랐나」가 보이면 그걸 노리고 서로
-// 붙어 다니게 된다. 고르는 일이 마음이 아니라 수가 된다
-describe('선택', () => {
-  it('내가 고른 것은 내 몫에 있다', () => {
-    expect(projectView(world(), 'A0').myChoice).toEqual({ chosenId: 'B0', day4: 'bond' })
-  })
-
-  it('안 고른 사람은 비어 있다', () => {
-    expect(projectView(world(), 'A1').myChoice).toBeNull()
-  })
-
-  it('남이 무엇을 골랐는지는 어느 몫에도 없다', () => {
-    const all = projectAll(world())
-    for (const r of ROSTER) {
-      if (r.playerId === 'B0') continue
-      expect(json(all[r.playerId])).not.toContain('"day4":"team"')
-    }
-  })
-
-  it('누가 나를 골랐는지도 안 보인다', () => {
-    // B0이 A0을 골랐다. A0의 몫에는 그 사실이 없다
-    const v = projectView(world(), 'A0')
-    expect(v.myChoice?.chosenId).toBe('B0')
-    expect(json(v).match(/"chosenId"/g)?.length).toBe(1)
-  })
-})
-
 describe('투명인간', () => {
   it('남에게 보이지 않는다 — 같은 팀에게도', () => {
     const all = projectAll(world(false, 'A1'))
@@ -218,21 +169,6 @@ describe('투명인간', () => {
 })
 
 describe('진상 공개', () => {
-  it('A의 기억은 먼저 가져간 팀만', () => {
-    expect(projectView(world(), 'A0').memories.map((m) => m.tileId)).toEqual(['library'])
-    expect(projectView(world(), 'C0').memories).toEqual([])
-  })
-
-  it('끝나면 열셋이 전원에게 열린다', () => {
-    const v = projectView(world(true), 'C0')
-    expect(v.memories.map((m) => m.tileId).sort()).toEqual(['gym', 'library'])
-  })
-
-  it('A의 시선은 깨달음에 이른 본인에게만', () => {
-    expect(projectView(world(), 'A0').sightAtMs).toBe(50)
-    expect(projectView(world(), 'A1').sightAtMs).toBeNull()
-  })
-
   it('공지는 전체와 내 것만 섞인다', () => {
     expect(projectView(world(), 'A0').notices.map((n) => n.id)).toEqual(['n1', 'n2'])
     expect(projectView(world(), 'A1').notices.map((n) => n.id)).toEqual(['n1'])

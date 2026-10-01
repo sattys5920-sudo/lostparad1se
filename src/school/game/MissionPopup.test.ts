@@ -9,7 +9,6 @@ const mail = (day: number, over: Partial<MissionMail> = {}): MissionMail => ({
   final: false,
   status: 'met',
   clauses: [],
-  choice: 'endOnly',
   roleName: '주번',
   line: '이번에는 …',
   sentAtMs: 1000 + day,

@@ -129,10 +129,6 @@ export { castVote, hostVotes } from './vote'
 // 진상 공개 흐름. 아침 진행 · 체류 · 깨달음 · 눈발.
 export { markMorning, snowNow } from './reveal'
 
-// DAY 3 중요한 사람, DAY 4 무엇을 지킬 것인가.
-export { chooseImportant, chooseDay4 } from './choice'
-
-
 // 엔딩. 운영자가 버튼 하나로 전원에게 튼다. 종례가 끝난 뒤에만 된다.
 export { hostBroadcastEnding, hostEndingStatus, markEndingSeen, finalNoteText } from './ending'
 export { myPaper } from './paper'

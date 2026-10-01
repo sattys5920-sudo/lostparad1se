@@ -1,19 +1,12 @@
 // 기록 보관함.
 //
-// 세 탭이 있다. 기록 · 기억 · 내 추리.
-//
-// 보관함은 **보는 사람마다 따로 만든다.** 전체 목록을 만들어 두고
-// 「너는 이건 못 봐」 표시를 붙이는 방식은 쓰지 않는다 — 그러면 목록에
-// 남의 팀만 아는 기억이 제목만이라도 실려 나간다. 여기서는 애초에
-// 담지 않는다.
-import type { TileId } from '../rules/board'
+// 두 탭이 있다. 기록 · 내 추리.
 import type { TeamId } from '../rules/v2'
 
-export type ArchiveTab = 'record' | 'memory' | 'mine'
+export type ArchiveTab = 'record' | 'mine'
 
 export const ARCHIVE_TABS: readonly { id: ArchiveTab; label: string }[] = [
   { id: 'record', label: '기록' },
-  { id: 'memory', label: '기억' },
   { id: 'mine', label: '내 추리' },
 ]
 
@@ -22,20 +15,6 @@ export const ARCHIVE_TABS: readonly { id: ArchiveTab; label: string }[] = [
 /** 공개된 A의 기록 한 조각. 전원 공통이다. */
 export interface RecordSource {
   day: number
-  atMs: number
-}
-
-/** 칸에 묻힌 A의 기억. 먼저 가져간 팀만 안다. */
-export interface MemorySource {
-  tileId: TileId
-  /** 이 기억을 연 팀. */
-  team: TeamId
-  atMs: number
-}
-
-/** A의 시선. 그 자리에 서 본 사람에게만 열린다. */
-export interface SightSource {
-  ownerId: string
   atMs: number
 }
 
@@ -50,8 +29,6 @@ export interface ArchiveItem {
   title: string
   /** 아직 안 읽은 조각. 건너뛴 아침이 여기 남는다. */
   unread?: boolean
-  /** 기억이면 어느 칸인지. */
-  tileId?: TileId
   day?: number
 }
 
@@ -61,26 +38,9 @@ export interface BuildInput {
   records: readonly RecordSource[]
   /** 건너뛰어서 아직 안 읽은 날. */
   unreadDays?: readonly number[]
-  memories: readonly MemorySource[]
-  sights: readonly SightSource[]
-  /** 끝났으면 기억 열세 장면이 전원에게 열린다. */
-  over?: boolean
-  /** 칸 이름을 붙이는 데 쓴다. */
-  tileName: (id: TileId) => string
 }
 
-/** 이 사람이 그 기억을 볼 수 있는가. */
-export function canSeeMemory(m: MemorySource, viewerTeam: TeamId, over: boolean): boolean {
-  return over || m.team === viewerTeam
-}
-
-/**
- * 보는 사람의 보관함을 만든다.
- *
- * 담기지 않은 것은 목록에도 없다. 제목만 남기지도 않는다 —
- * 「A의 기억 · 과학실」이라는 줄 하나로도 어느 팀이 무엇을 쥐었는지가
- * 샌다.
- */
+/** 보는 사람의 보관함을 만든다. */
 export function buildArchive(input: BuildInput): ArchiveItem[] {
   const out: ArchiveItem[] = []
   const unread = new Set(input.unreadDays ?? [])
@@ -94,23 +54,6 @@ export function buildArchive(input: BuildInput): ArchiveItem[] {
       day: r.day,
       unread: unread.has(r.day),
     })
-  }
-
-  for (const m of input.memories) {
-    if (!canSeeMemory(m, input.viewerTeam, input.over === true)) continue
-    out.push({
-      id: `memory:${m.tileId}`,
-      tab: 'memory',
-      atMs: m.atMs,
-      title: `A의 기억 · ${input.tileName(m.tileId)}`,
-      tileId: m.tileId,
-    })
-  }
-
-  for (const s of input.sights) {
-    // A의 시선은 본인 것만 있다. 남의 것은 서버가 애초에 넘기지 않는다
-    if (s.ownerId !== input.viewerId) continue
-    out.push({ id: 'sight:mine', tab: 'memory', atMs: s.atMs, title: 'A의 시선' })
   }
 
   return out.sort((a, b) => a.atMs - b.atMs || a.id.localeCompare(b.id))

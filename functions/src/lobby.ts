@@ -569,7 +569,6 @@ export const startGame = onCall<{ gameId: string; startAtMs?: number }>(async (r
         // 거래를 거는 개인 토큰. 자정에 다시 찬다
         votedToday: false,
         votedKinds: [],
-        peeksToday: 0,
       })
     })
   }

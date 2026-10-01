@@ -42,13 +42,6 @@ export interface ProgressDoc {
   readDays: number[]
 }
 
-/** 먼저 가져간 팀만 아는 A의 기억. */
-export interface MemoryDoc {
-  tileId: TileId
-  team: 'A' | 'B' | 'C' | 'D'
-  atMs: number
-}
-
 const sub = (gameId: string, name: string) => gameRef(gameId).collection(name)
 const secret = (gameId: string, name: string) =>
   gameRef(gameId).collection('secret').doc(name).collection('items')
@@ -56,7 +49,7 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, peeks, choices, progress, memories, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, awakened, notices, traps, flagDoc, endingSeen] =
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, progress, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, notices, traps, flagDoc, endingSeen] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -65,10 +58,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       sub(gameId, 'robots').get(),
       sub(gameId, 'made').get(),
       secret(gameId, 'roster').get(),
-      secret(gameId, 'peeks').get(),
-      secret(gameId, 'choices').get(),
       secret(gameId, 'progress').get(),
-      secret(gameId, 'memories').get(),
       secret(gameId, 'slips').get(),
       gameRef(gameId).collection('secret').doc('ballots').collection('items').get(),
       gameRef(gameId).collection('secret').doc('quiz').collection('bank').get(),
@@ -76,7 +66,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       gameRef(gameId).collection('secret').doc('shopStock').collection('items').get(),
       errandWorld(gameId),
       gardenWorld(gameId),
-      secret(gameId, 'awakened').get(),
       sub(gameId, 'notices').get(),
       trapWorld(gameId),
       gameRef(gameId).collection('secret').doc('flags').get(),
@@ -212,11 +201,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       return { tileId: d.id as TileId, ownerTeam: t.ownerTeam, lockedBy: locked }
     }),
     roster: rosterRows.map((r) => ({ playerId: r.playerId, team: r.team, roleId: canonRoleId(r.roleId) ?? r.roleId, targetId: r.targetId ?? null })),
-    peeks: peeks.docs.map((d) => d.data() as { playerId: string; voteKind: 'trust' | 'liking'; voterNickname: string }),
-    choices: choices.docs.map((d) => {
-      const c = d.data() as { chosenId: string | null; day4: string | null }
-      return { playerId: d.id, chosenId: c.chosenId ?? null, day4: c.day4 ?? null }
-    }),
     releasedDays: releasedDays(game.startedAtMs ?? null, nowMs),
     progress: progress.docs.map((d) => {
       const p = d.data() as ProgressDoc
@@ -270,8 +254,6 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
         wrongBy: paper.wrongBy ?? [],
       }
     }),
-    memories: memories.docs.map((d) => d.data() as MemoryDoc),
-    awakenedAtMs: Object.fromEntries(awakened.docs.map((d) => [d.id, (d.data() as { atMs: number }).atMs])),
     notices: notices.docs.map((d) => {
       const n = d.data() as NoticeDoc
       return { id: d.id, toPlayerId: n.toPlayerId, text: n.text, atMs: n.atMs, ...(n.leader ? { leader: n.leader } : {}) }

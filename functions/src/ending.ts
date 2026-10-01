@@ -20,7 +20,6 @@ import { FINAL_NOTE_LINES } from './story/finalNote'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { refreshViews } from './views'
-import type { ChoiceDoc } from './choice'
 
 const secret = (gameId: string, name: string) =>
   gameRef(gameId).collection('secret').doc(name).collection('items')
@@ -63,7 +62,6 @@ export async function buildLog(
   roster: RosterDoc[]
   seats: GameDoc['seats']
   ranked: { team: TeamId; rank: number; total: number }[]
-  choices: Map<string, ChoiceDoc>
 }> {
   const ref = gameRef(gameId)
   const nowMs = opts.asOfMs ?? nowOf(game)
@@ -74,14 +72,12 @@ export async function buildLog(
   // 센 기간의 처음. 하루 판정이면 그날 0시다
   const startedAtMs = opts.fromMs ?? game.startedAtMs ?? nowMs
 
-  const [rosterS, ivS, voteS, capS, tileS, choiceS, closingS, recordS, ballotDayS, ballotS, slipS] = await Promise.all([
+  const [rosterS, ivS, voteS, capS, tileS, recordS, ballotDayS, ballotS, slipS] = await Promise.all([
     secret(gameId, 'roster').get(),
     secret(gameId, 'intervals').get(),
     secret(gameId, 'votes').get(),
     ref.collection('captures').get(),
     ref.collection('tiles').get(),
-    secret(gameId, 'choices').get(),
-    ref.collection('secret').doc('closing').get(),
     // **오래 쓰기만 하던 자리를 이제 읽는다.** 자판기·심부름·화분·쪽지·
     // 짝·시험지·이적이 전부 여기 쌓여 있었는데 판정에는 안 들어갔다
     ref.collection('secret').doc('records').collection('items').get(),
@@ -167,11 +163,6 @@ export async function buildLog(
     .filter((r) => inDays(r.day))
     .sort((a, b) => a.day - b.day)
 
-  const choices = new Map(choiceS.docs.map((d) => [d.id, d.data() as ChoiceDoc]))
-  const closing = closingS.data() as
-    | { together: Record<string, boolean>; mutual: Record<string, boolean>; chosenBy: Record<string, string | null> }
-    | undefined
-
 
   const log: GameLog = {
     startedAtMs,
@@ -187,14 +178,9 @@ export async function buildLog(
     ownerChanges,
     teamTiedRank,
     slipsHeldAtEnd,
-    // 종례 때 굳힌 것이 있으면 그것, 아니면 지금 고른 것
-    chosenBy: closing?.chosenBy ?? Object.fromEntries([...choices].map(([id, c]) => [id, c.chosenId ?? null])),
-    choiceMet: {},
-    // 마지막 선택은 판정이 직접 셈한다(judge.choiceMetOf)
-    day4Choice: Object.fromEntries([...choices].map(([id, c]) => [id, c.day4 ?? null])),
   }
 
-  return { log, roster, seats: game.seats, ranked: ranked.map((r) => ({ team: r.team, rank: r.rank, total: r.total })), choices }
+  return { log, roster, seats: game.seats, ranked: ranked.map((r) => ({ team: r.team, rank: r.rank, total: r.total })) }
 }
 
 /**
