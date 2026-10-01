@@ -160,9 +160,12 @@ export function Me(props: MeProps) {
   const [flipped, setFlipped] = useState(false)
 
   const items = view?.myItems ?? {}
-  // 들고 있는 심부름 물건도 하나로 센다 — 아이템창에 같이 들어 있는데 0 으로 뜨면 못 집은 줄 안다
+  // 들고 있는 심부름 물건과 딴 작물도 센다 — 아이템창에 같이 들어 있는데 0 으로 뜨면 못 집은 줄 안다
+  const cropCount = Object.values(view?.myCrops ?? {}).reduce<number>((a, b) => a + (b ?? 0), 0)
   const itemCount =
-    Object.values(items).reduce<number>((a, b) => a + (b ?? 0), 0) + (view?.myErrand?.carrying === true ? 1 : 0)
+    Object.values(items).reduce<number>((a, b) => a + (b ?? 0), 0) +
+    (view?.myErrand?.carrying === true ? 1 : 0) +
+    cropCount
   const slipCount = view?.mySlips?.length ?? 0
   /** 아직 배정 전인가. 고장이 아니라 기다리는 중이다 */
   const undealt = !paper && props.paperErr === NOT_DEALT
