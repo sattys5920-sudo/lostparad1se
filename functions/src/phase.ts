@@ -64,7 +64,7 @@ import { freshNow, refuseIfInvisible, requireFree } from './turn'
 import { madeOf, researchTierUp, type Brewing } from './made'
 import { FLAGS_PER_PHASE, spendFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
 import { openInterval } from './reveal'
-import { refreshViews } from './views'
+import { refreshViews, refreshViewsSoon } from './views'
 import { note } from './records'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
@@ -1381,6 +1381,13 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
   }
 
   await logSecret(gameId, 'standAt', nowMs, uid, { x, y }, { tileId: p.tileId })
-  await refreshViews(gameId)
+  /*
+   * **그냥 멈춘 것은 묶어서 비춘다.** 걷다 서는 일은 열넷이 쉴 새 없이
+   * 한다 — 멈출 때마다 세상을 통째로 읽으면 읽기 비용이 거의 다 여기서
+   * 나간다. 1.5 초 안의 멈춤은 한 번에 비춘다(refreshViewsSoon).
+   * 방에서 나서며 묶이는 것은 본인 화면에 바로 떠야 하니 바로 비춘다
+   */
+  if (leftRoom) await refreshViews(gameId)
+  else await refreshViewsSoon(gameId)
   return { ok: true, same: false, ...(leftRoom ? { leaving: EXIT_MINUTES } : {}) }
 })

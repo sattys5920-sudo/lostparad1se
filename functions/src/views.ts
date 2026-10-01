@@ -49,7 +49,16 @@ const secret = (gameId: string, name: string) =>
 /** Firestore에서 세상을 긁어모은다. */
 export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
   const nowMs = nowOf(game)
-  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, progress, slips, ballots, quizBank, quizFloor, shopStock, errands, garden, notices, traps, flagDoc, endingSeen] =
+  /*
+   * **쓰는 것만 읽는다.** 이 함수는 사람이 멈출 때마다 돈다 — 읽은
+   * 문서 한 장이 하루에 수만 번 곱해진다. 그래서 지난 날의 표와 매점
+   * 기록은 안 읽고, 엔딩을 본 기록은 엔딩이 나간 뒤에만 읽고, 문제
+   * 은행은 바닥에 놓인 종이가 가리키는 것만 읽는다. 투영에 넘기는
+   * 내용은 전과 같다 — 버리던 것을 처음부터 안 가져올 뿐이다
+   */
+  const stockDay = game.practice ? 0 : game.day
+  const endingOn = game.phase === 'finished' || game.endingBroadcast != null
+  const [hiddenPhase, pawns, teams, tiles, robots, made, roster, progress, slips, ballots, quizFloor, shopStock, errands, garden, notices, traps, flagDoc, endingSeen] =
     await Promise.all([
       gameRef(gameId).collection('secret').doc('phase').get(),
       sub(gameId, 'pawns').get(),
@@ -60,17 +69,26 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       secret(gameId, 'roster').get(),
       secret(gameId, 'progress').get(),
       secret(gameId, 'slips').get(),
-      gameRef(gameId).collection('secret').doc('ballots').collection('items').get(),
-      gameRef(gameId).collection('secret').doc('quiz').collection('bank').get(),
+      gameRef(gameId).collection('secret').doc('ballots').collection('items').where('day', '==', game.day).get(),
       gameRef(gameId).collection('secret').doc('quiz').collection('floor').get(),
-      gameRef(gameId).collection('secret').doc('shopStock').collection('items').get(),
+      gameRef(gameId).collection('secret').doc('shopStock').collection('items').where('day', '==', stockDay).get(),
       errandWorld(gameId),
       gardenWorld(gameId),
       sub(gameId, 'notices').get(),
       trapWorld(gameId),
       gameRef(gameId).collection('secret').doc('flags').get(),
-      secret(gameId, 'endingSeen').get(),
+      endingOn ? secret(gameId, 'endingSeen').get().then((q) => q.docs) : Promise.resolve([]),
     ])
+
+  // 바닥 종이가 가리키는 문제만 꺼낸다. 은행 전체(예순 장 넘게)를 매번 읽지 않는다
+  const quizIds = [...new Set(quizFloor.docs.map((d) => (d.data() as QuizPaperDoc).quizId).filter((id): id is string => typeof id === 'string' && id !== ''))]
+  const bankRef = gameRef(gameId).collection('secret').doc('quiz').collection('bank')
+  const quizBank = new Map<string, QuizDoc>()
+  if (quizIds.length > 0) {
+    for (const b of await db.getAll(...quizIds.map((id) => bankRef.doc(id)))) {
+      if (b.exists) quizBank.set(b.id, b.data() as QuizDoc)
+    }
+  }
 
   const rosterRows = roster.docs.map((d) => d.data() as RosterDoc)
 
@@ -175,7 +193,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     ),
     // 엔딩 송출을 사람마다 언제 봤나. **투영이 본인 것만 떼어 보낸다**
     endingSeen: Object.fromEntries(
-      endingSeen.docs.map((d) => [d.id, (d.data() as { seenAtMs: number }).seenAtMs]),
+      endingSeen.map((d) => [d.id, (d.data() as { seenAtMs: number }).seenAtMs]),
     ),
     robots: robots.docs.map((d) => {
       const r = d.data() as { team: WorldPawn['team']; tileId: TileId; carriedBy: string | null; placedBy?: string | null }
@@ -190,7 +208,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     shopSold: Object.fromEntries(
       shopStock.docs
         .map((d) => d.data() as { day?: number; itemId?: string; n?: number })
-        .filter((r) => r.day === (game.practice ? 0 : game.day) && typeof r.itemId === 'string')
+        .filter((r) => r.day === stockDay && typeof r.itemId === 'string')
         .map((r) => [r.itemId as string, r.n ?? 0]),
     ),
     tiles: tiles.docs.map((d) => {
@@ -241,7 +259,7 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
     // 없으므로 여기서 끊는다. 안 실으면 실수로도 못 샌다
     quizzes: quizFloor.docs.map((d) => {
       const paper = d.data() as QuizPaperDoc
-      const quiz = quizBank.docs.find((b) => b.id === paper.quizId)?.data() as QuizDoc | undefined
+      const quiz = quizBank.get(paper.quizId)
       return {
         id: d.id,
         x: paper.x,
@@ -283,6 +301,41 @@ export async function refreshViews(gameId: string): Promise<number> {
   }
   await batch.commit()
   return Object.keys(views).length
+}
+
+/** 멈춤을 몇 ms 단위로 묶는가. */
+const SOON_GAP_MS = 1500
+/** 서버마다 시계가 조금씩 다르다. 경계를 이만큼 넘겨서 읽는다 */
+const SOON_SLACK_MS = 100
+/** 고리 칸 수. 같은 칸을 다시 쓰는 것은 한참 뒤다 */
+const SOON_RING = 64
+
+/**
+ * **곧** 열넷 몫을 다시 쓴다. 멈춰 설 때(standAt) 쓴다.
+ *
+ * 열넷이 걷다 서다 하면 멈춤마다 세상을 통째로 읽었다 — 그것이 읽기
+ * 비용의 거의 전부였다. 그래서 시각을 1.5 초 칸으로 나누고, **한 칸에
+ * 한 번만** 다시 쓴다. 그 칸에서 처음 멈춘 사람이 칸이 끝나기를 기다렸다가
+ * 다시 쓰고, 나머지는 그냥 돌아간다.
+ *
+ * 빠지는 멈춤은 없다. 멈춘 자리를 적은 **뒤에** 칸을 고르고, 다시 쓰기는
+ * 그 칸이 **끝난 뒤에** 읽기 시작한다 — 칸 안에서 적힌 것은 다 읽힌다.
+ * 대신 남의 화면에는 최대 2 초쯤 늦게 비친다. 거래·물건처럼 상태가
+ * 바뀌는 일은 이것을 안 쓰고 refreshViews 를 바로 부른다.
+ */
+export async function refreshViewsSoon(gameId: string): Promise<void> {
+  const slot = Math.floor(Date.now() / SOON_GAP_MS) + 1
+  const ref = gameRef(gameId).collection('secret').doc('viewsSoon').collection('ring').doc(String(slot % SOON_RING))
+  const mine = await db.runTransaction(async (tx) => {
+    const had = (await tx.get(ref)).data() as { slot?: number } | undefined
+    if (had?.slot === slot) return false
+    tx.set(ref, { slot })
+    return true
+  })
+  if (!mine) return
+  const wait = slot * SOON_GAP_MS + SOON_SLACK_MS - Date.now()
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+  await refreshViews(gameId)
 }
 
 /**
