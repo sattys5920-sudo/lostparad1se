@@ -1198,3 +1198,32 @@
 /* 배경음악 — 이 관리자 폰에서만 듣고 끄는 스위치 */
 .sc-ad__hereBgm { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 44px; font-size: var(--fs-label); cursor: pointer; }
 .sc-ad__hereBgm input { width: 20px; height: 20px; }
+
+/* ── 지금 점수 ── */
+.sc-sd {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.sc-sd__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  column-gap: var(--sp-3);
+  row-gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.sc-sd__rank { font-size: var(--fs-label); color: var(--sc-text-dim); min-width: 2.5em; }
+.sc-sd__team { display: inline-flex; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--sc-text); }
+.sc-sd__team i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.sc-sd__n { font-size: var(--fs-body); color: var(--sc-text); }
+.sc-sd__rooms {
+  grid-column: 2 / -1;
+  font-size: var(--fs-label);
+  line-height: 18px;
+  color: var(--sc-text-dim);
+  word-break: keep-all;
+}

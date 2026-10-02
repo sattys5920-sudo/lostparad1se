@@ -38,6 +38,7 @@ import { BgmDesk, LobbyStageDesk, TabLockDesk } from './StageDesk'
 import { bgmTrack, useBgm } from '../game/bgm'
 import { AnswerDesk } from './AnswerDesk'
 import { FinalScoreDesk } from './FinalScoreDesk'
+import { ScoreDesk } from './ScoreDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
 import './admin.css'
@@ -378,6 +379,7 @@ function Desk() {
         : tab === 'go' ?
           /* ── 진행. 판을 돌리는 두 손잡이 ── */
           <>
+            <ScoreDesk tiles={state.tiles} phaseOpen={phaseOpen} />
             {game?.practice && (
               <section className="sc-ad__sec">
                 <h2>연습 시간</h2>
