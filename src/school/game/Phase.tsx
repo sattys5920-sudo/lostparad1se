@@ -30,7 +30,7 @@ import { uiIcon } from './uiArt'
 import { Cost } from './Cost'
 import { Sure } from './Sheet'
 import { buzz } from './Controls'
-import { teamName, teamNo } from '../../../shared/rules/bundan'
+import { teamName } from '../../../shared/rules/bundan'
 
 /** 규칙 쪽 TileId 는 string, 지도 쪽은 스물다섯 개 유니온이다. 경계를 여기 모은다. */
 const asRoom = (id: string): TileId => id as TileId
@@ -246,7 +246,8 @@ export function Phase({ me, here: hereIn, seats, view, tiles, endsAtMs, nowMs: n
             flagRows.map(([t, n]) => (
               <b key={t} className={t === me.team ? 'is-mine' : ''}>
                 <i style={{ background: TEAM_COLOR[t] }} />
-                {teamNo(t)} {n}
+                {/* 「2 2」로 붙여 쓰면 「22」로 읽힌다 — 분단과 개수를 말로 적는다 */}
+                {teamName(t)} {n} 개
               </b>
             ))
           )}
