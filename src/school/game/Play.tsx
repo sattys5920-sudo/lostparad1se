@@ -4,6 +4,7 @@
 //
 // 여기서 게임 규칙을 판단하지 않는다. 무엇을 할 수 있는지도 서버가
 // 정하고, 화면은 서버가 거절하면 그 말을 그대로 보인다.
+import { nearestOpenHall } from '../../../shared/rules/seat'
 import { whileVisible } from './timing'
 import { PING_MS } from '../../../shared/rules/online'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -132,7 +133,7 @@ import { useMyPaper } from './useMyPaper'
 import { logOut } from '../accounts'
 import { Notes } from './Notes'
 import { TOTAL_SEATS, seatName } from '../../../shared/rules/lobby'
-import { ADJACENCY, ALLEY_NAME, START_TILE, TILE_BY_ID, cellsTouch, isAlleyCell, isHallCell, type TileId } from '../../../shared/rules/board'
+import { ADJACENCY, ALLEY_NAME, START_TILE, TILE_BY_ID, cellsTouch, isAlleyCell, isHallCell, roomOfCell, type TileId } from '../../../shared/rules/board'
 import { atVending } from '../../../shared/rules/shop'
 import type { GamePhase, SeatEntry } from '../../../shared/model'
 import {
@@ -1795,11 +1796,43 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   // 위에 선 채로 남는다
                   const back = out?.at ?? was
                   if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked' || out.code === 'reenter') && back) {
-                    showToast(out.why ?? '거기에는 설 수 없다.')
                     // Walk 는 아직 거절당한 그 칸(x,y)에 서 있을 때만 따른다 —
                     // 대답을 기다리는 사이 이미 걸어서 더 갔으면 지난 일이다
-                    setBounce((b) => ({ x: back.x, y: back.y, n: (b?.n ?? 0) + 1, from: { x, y } }))
-                    setMyCell({ x: back.x, y: back.y })
+                    const goBack = (to: { x: number; y: number }, why: string | null) => {
+                      if (why) showToast(why)
+                      setBounce((b) => ({ x: to.x, y: to.y, n: (b?.n ?? 0) + 1, from: { x, y } }))
+                      setMyCell({ x: to.x, y: to.y })
+                    }
+                    /*
+                     * **방에서 나가던 길이면 방 안으로 되돌리지 않는다.** 서버가 아는
+                     * 칸(back)은 아직 방 안이라, 나서서 밟은 복도 칸에 누가 서 있으면
+                     * 「제자리」가 방 안이 되어 나왔다가 도로 들어가졌다. 종이 치면 모두
+                     * 문 앞 복도로 나오므로 문 밖이 붐벼서 자주 그랬다. 가까운 빈 복도
+                     * 칸에 다시 서 본다 — 그것도 안 되면 그때 되돌린다
+                     */
+                    const leaving =
+                      (out.code === 'occupied' || out.code === 'blocked') &&
+                      isHallCell(x, y) &&
+                      roomOfCell(back.x, back.y) !== null
+                    const taken = new Set(
+                      (state.view?.visiblePawns ?? [])
+                        .filter((p) => p.playerId !== uid && p.at)
+                        .map((p) => `${(p.at as { x: number }).x},${(p.at as { y: number }).y}`),
+                    )
+                    taken.add(`${x},${y}`)
+                    const alt = leaving ? nearestOpenHall({ x, y }, taken) : null
+                    if (!alt) {
+                      goBack(back, out.why ?? '거기에는 설 수 없다.')
+                      return
+                    }
+                    void act
+                      .standAt(alt.x, alt.y, via)
+                      .then((r2) => {
+                        const o2 = r2 as { ok?: boolean; why?: string; at?: { x: number; y: number } | null }
+                        if (o2?.ok === false) goBack(o2.at ?? back, o2.why ?? '거기에는 설 수 없다.')
+                        else goBack(alt, null)
+                      })
+                      .catch(() => goBack(back, out.why ?? '거기에는 설 수 없다.'))
                   }
                 })
                 // 그 밖의 거절(문턱에 멈췄다 등)은 흘려보낸다 — 걷다 멈춘 자리를
