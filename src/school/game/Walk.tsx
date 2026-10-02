@@ -231,16 +231,6 @@ export interface WalkProps {
    */
   padRef: RefObject<HTMLDivElement | null>
   /**
-   * 서버가 나를 **옮겨 세운** 시각. 페이즈가 열린 시각을 넘긴다.
-   *
-   * 종이 치면 자유 시간에 어디까지 갔든 전선으로 돌아간다. 그때는
-   * 화면도 군말 없이 따라가야 한다 — 평소의 맞추기는 「방 안에 있을
-   * 때만」이라 복도에 서 있던 사람을 안 옮긴다. 옮겨 세운 것을 모른
-   * 채로 두면 서버는 전선에, 아바타는 복도에 있고 그 뒤로 어느 문도
-   * 안 열린다.
-   */
-  placeAtMs?: number | null
-  /**
    * 복도에서 **나왔던 그 방에 다시 들어서도** 값을 치르는가(점령전). 그때는
    * 같은 방이어도 서버에 들어간다고 말한다 — 토큰과 들어서는 5 분이 든다
    */
@@ -506,7 +496,7 @@ const FOOT_PX = CHAR_PX * (6 / 32)
 /** 막혔다는 말을 다시 띄우기까지. 벽에 대고 밀어도 도배하지 않는다 */
 const BLOCKED_SAY_MS = 1500
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, placeAtMs = null, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -602,8 +592,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const walking = myPawn?.walking === true
   const walkingRef = useRef(walking)
   walkingRef.current = walking
-  const placeRef = useRef(placeAtMs)
-  placeRef.current = placeAtMs
   const reenterRef = useRef(reenterCosts)
   reenterRef.current = reenterCosts
   const pinRef = useRef(pinAt)
@@ -1204,9 +1192,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     const stoodLately: { key: string; ms: number }[] = []
     /** 「누가 서 있다」를 마지막으로 띄운 때 */
     let lastBlockedMs = 0
-    // 옮겨 세운 것을 이미 따라갔는지. 처음 값은 지금 것이라, 화면을
-    // 켤 때 괜히 한 번 튀지 않는다
-    let lastPlaceAt: number | null = placeRef.current
     /** 그리기가 쓴 카메라. 탭한 자리를 지도 좌표로 되돌릴 때 쓴다. */
     const camRef = { x: 0, y: 0 }
 
@@ -1232,12 +1217,6 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const pawn = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId) ?? null
       const serverTile = asRoom(pawn?.tileId)
 
-      // **옮겨 세웠다. 군말 없이 따라간다.**
-      //
-      // 아래 맞추기들은 「방 안에 있을 때만」이라 복도에 선 사람을
-      // 그냥 둔다. 평소에는 그게 맞다 — 복도로 나서자마자 도로
-      // 방 안으로 튕기면 걸을 수가 없으니까. 그런데 종이 쳐서 서버가
-      // 사람을 통째로 옮긴 순간만은 예외다
       /*
        * **덫에 걸렸다.** 서버가 세운 칸이 내 자리와 다르면 도로 세운다.
        * 걸음 자체는 frozen 이 막고, 이건 걸리기 전에 이미 지나쳐 온
@@ -1268,19 +1247,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
        * 교실 칸을 나눠 준다(겹치지 않게). 화면이 한가운데에서 시작해 제 칸을
        * 따로 고르면 그 나눔이 헛일이 된다
        */
-      if (!adopted && pawn?.at && serverTile && roomAt(pawn.at.x, pawn.at.y)?.id === serverTile && !self.moving) {
+      /*
+       * **복도에 서 있었으면 복도 칸에 선다.** 전에는 방 안 칸만 따랐다 — 복도에
+       * 서 있던 사람이 앱을 다시 열면 화면이 처음 자리(방 안)에 세우고 그 칸을
+       * 서버에 알려서, 복도에 있던 사람이 방 안으로 들어가졌다
+       */
+      if (
+        !adopted &&
+        pawn?.at &&
+        serverTile &&
+        (roomAt(pawn.at.x, pawn.at.y)?.id === serverTile || tileAt(pawn.at.x, pawn.at.y) === 'hall') &&
+        !self.moving
+      ) {
         adopted = true
         standAt(pawn.at.x, pawn.at.y)
         told = `${pawn.at.x},${pawn.at.y}`
-      }
-
-      if (placeRef.current !== lastPlaceAt) {
-        lastPlaceAt = placeRef.current
-        if (serverTile) {
-          placeIn(serverTile)
-          lastServerTile = serverTile
-          asked = false
-        }
       }
 
       // 이 프레임에 위 두 맞추기를 건너뛰었으면 선다 — 바로 아래에서 또

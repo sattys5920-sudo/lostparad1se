@@ -1093,8 +1093,14 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   useEffect(() => {
     setMyCell(null)
   }, [standingOn])
+  /**
+   * 지금 선 칸. 화면이 서버에 적어 보낸 칸이 먼저고, **아직 안 보냈으면 서버가
+   * 아는 칸이다.** 앱을 연 채 복도에 서 있던 사람은 화면이 그 칸을 그대로 따르고
+   * 따로 보내지 않는다 — 그때 이것이 없으면 복도에 서서 「2-3 교실」이 떴다
+   */
+  const hereCell = myCell ?? (state.view?.visiblePawns.find((p) => p.playerId === uid)?.at ?? null)
   /** 복도에 서 있는가. 방 안이면 false 다 — 서버와 같은 기준이다 */
-  const inHall = myCell !== null && isHallCell(myCell.x, myCell.y)
+  const inHall = hereCell !== null && isHallCell(hereCell.x, hereCell.y)
 
   /*
    * **기계 앞을 떠나면 자판기가 저절로 닫힌다.**
@@ -1693,8 +1699,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
             tiles={state.tiles}
             nowMs={nowMs}
             padRef={padRef}
-            /* 종이 치면 서버가 전선으로 옮겨 세운다. 화면도 그때 따라간다 */
-            placeAtMs={phaseOpen ? (state.game?.phaseNow?.openedAtMs ?? null) : null}
+            /*
+              종이 쳐도 **화면이 방 안으로 옮겨 세우지 않는다.** 예전에는 종이 치면
+              전선(마지막 방)으로 돌아갔고 화면도 그 방 안으로 따라갔는데, 지금은
+              모두 복도에서 시작한다 — 그 따라가기가 남아 있어서 복도에 있던 사람이
+              화면에서만 방 안으로 들어가졌다. 서버가 세운 복도 칸은 Walk 가 서버
+              칸이 바뀔 때 따라간다
+            */
             reenterCosts={phaseOpen}
             onCross={(to, at) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
@@ -1869,7 +1880,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 떠 있어야 한다. 둘 다 없으면 CSS 가 빈 판을 접는다 */}
             <div className="sc-pl__hud2">
               {inHall ?
-                <span className="sc-pl__where">{placeName(standingOn, myCell)}</span>
+                <span className="sc-pl__where">{placeName(standingOn, hereCell)}</span>
               : standingOn !== null && (
                 <>
                   <span className="sc-pl__where">{TILE_BY_ID[standingOn].name}</span>
@@ -1926,7 +1937,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           키보드는 그 위를 덮기만 한다.
         */}
         <Say
-          hereName={placeName(standingOn, myCell)}
+          hereName={placeName(standingOn, hereCell)}
           act={act}
           onSaid={setSaid}
           lines={talkLines}
@@ -1984,7 +1995,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           invisible={iAmInvisible}
           invisibleName={invisibleName}
           hereIds={hereIds}
-          hereName={placeName(standingOn, myCell)}
+          hereName={placeName(standingOn, hereCell)}
           seats={game.seats}
           snowLevel={state.game?.snow?.level ?? 5}
           slips={
@@ -2080,7 +2091,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           day={game.day}
           hereIds={hereIds}
           nearIds={nearIds}
-          hereName={placeName(standingOn, myCell)}
+          hereName={placeName(standingOn, hereCell)}
           invisibleId={game.invisibleId}
           act={act}
           onSaid={setSaid}
