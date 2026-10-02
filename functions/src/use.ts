@@ -109,6 +109,8 @@ export const useItem = onCall<UseInput>(async (req) => {
   let said = ''
   let locked: { team: TeamId; tileId: TileId } | null = null
   let picked: { team: TeamId; tileId: TileId } | null = null
+  /** 놓은 덫의 칸과 팀 — 운영자 로그에 남긴다 */
+  let trapAt: { x: number; y: number; team: TeamId } | null = null
 
   await db.runTransaction(async (tx) => {
     const meSnap = await tx.get(meRef)
@@ -239,6 +241,7 @@ export const useItem = onCall<UseInput>(async (req) => {
       if (!dup.empty) throw new HttpsError('failed-precondition', '여기에는 이미 놓여 있다.')
       const doc: TrapSetDoc = { x: at.x, y: at.y, team, byPlayerId: uid, atMs: nowMs }
       tx.set(trapsOf(gameId).doc(), doc)
+      trapAt = { x: at.x, y: at.y, team }
       said = '덫을 놓았다.'
     }
 
@@ -271,6 +274,11 @@ export const useItem = onCall<UseInput>(async (req) => {
   const pickedResult = picked as { team: TeamId; tileId: TileId } | null
   // **공개 로그에 안 싣는다.** 누가 땄는지는 운영자만 본다
   if (pickedResult) await logSecret(gameId, 'lockPicked', nowMs, uid, { team: pickedResult.team }, { day, tileId: pickedResult.tileId })
+  // **누가 어디에 덫을 놓았나.** 운영자 로그에만 — 칸이 공개 기록에 실리면 덫이 아니다
+  const trapResult = trapAt as { x: number; y: number; team: TeamId } | null
+  if (trapResult) {
+    await logSecret(gameId, 'trapSet', nowMs, uid, { x: trapResult.x, y: trapResult.y }, { day, tileId: roomOfCell(trapResult.x, trapResult.y), team: trapResult.team })
+  }
   if (lockedResult) await note(gameId, 'roomLock', nowMs, { id: uid, team: lockedResult.team }, { tileId: lockedResult.tileId })
   await refreshViews(gameId)
   return { used: kind, said }

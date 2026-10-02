@@ -109,6 +109,8 @@ const KIND_LABEL: Record<string, string> = {
   memoDropped: '메모 놓음',
   trapCommissioned: '덫 맡김',
   trapTaken: '덫 찾음',
+  trapSet: '덫 놓음',
+  trapSprung: '덫 걸림',
   lockPicked: '자물쇠 땀',
   dayPushed: '달력 넘김',
   missionJudge: '자정 판정',

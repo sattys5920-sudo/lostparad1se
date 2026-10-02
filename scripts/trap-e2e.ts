@@ -294,6 +294,12 @@ async function main(): Promise<void> {
   const bv = await viewOf(B[0].uid)
   check((bv.mySnaredAt as { x: number } | null)?.x === hall.x, '화면에 걸린 칸이 간다', JSON.stringify(bv.mySnaredAt))
   check(JSON.stringify(bv.notices).includes('덫에 걸렸다'), '걸린 사람에게 알림이 간다')
+  // **운영자 로그에 누가 놓았고 누가 걸렸는지 남는다**
+  const log = (await must('hostEventLog', host, { gameId: GAME, kinds: ['trapSet', 'trapSprung'] })) as { rows?: { kind: string; actor?: string; target?: string; text: string }[] }
+  const setRow = (log.rows ?? []).filter((r) => r.kind === 'trapSet').pop()
+  const sprung = (log.rows ?? []).find((r) => r.kind === 'trapSprung')
+  check(!!setRow && setRow.text.includes('덫 놓음') && setRow.text.includes(`(${hall.x},${hall.y})`), '**놓은 사람과 칸이 로그에 남는다**', setRow?.text)
+  check(!!sprung && !!sprung.target && sprung.target === setRow?.actor && sprung.actor !== sprung.target, '**걸린 사람과 놓은 사람이 로그에 남는다**', `${sprung?.text} · 걸린 ${sprung?.actor} · 놓은 ${sprung?.target}`)
   // 옆의 진짜 복도 칸. 「설 수 없다」가 아니라 「덫에 걸려 있다」로 막혀야 한다
   // 오른쪽 칸은 설 수 있는 빈 칸이다(위에서 골랐다) — 다른 것에 막힐 일이 없다
   const next = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: hall.x + dx, y: hall.y + dy })).find((c) => standable(c.x, c.y))

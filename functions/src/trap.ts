@@ -195,7 +195,11 @@ export async function trapWorld(gameId: string): Promise<{ jobs: (TrapJobDoc & {
  * standAt 이 부른다. 찾으면 그 덫을 지우고 그 칸을 돌려준다 — 걸린
  * 사람은 거기 선 것으로 적힌다. 우리 팀 덫은 그냥 지나간다.
  */
-export async function springTrap(gameId: string, team: TeamId, path: readonly Cell[]): Promise<Cell | null> {
+export async function springTrap(
+  gameId: string,
+  team: TeamId,
+  path: readonly Cell[],
+): Promise<(Cell & { byPlayerId: string | null; byTeam: TeamId }) | null> {
   if (path.length === 0) return null
   const snap = await trapsOf(gameId).get()
   if (snap.empty) return null
@@ -208,7 +212,9 @@ export async function springTrap(gameId: string, team: TeamId, path: readonly Ce
     const hit = byCell.get(`${c.x},${c.y}`)
     if (hit) {
       await hit.ref.delete()
-      return { x: c.x, y: c.y }
+      // **누가 놓은 덫인지 같이 돌려준다** — 운영자 로그에 「누가 놓은 덫에 누가 걸렸나」를 남긴다
+      const t = hit.data() as TrapSetDoc
+      return { x: c.x, y: c.y, byPlayerId: t.byPlayerId ?? null, byTeam: t.team }
     }
   }
   return null

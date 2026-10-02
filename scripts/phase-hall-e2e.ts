@@ -127,8 +127,14 @@ async function main(): Promise<void> {
   // f 는 다른 방으로 걷기 시작한다 — 도착 전에 교시를 닫는다
   const fGo = await must('phaseAct', f.token, { gameId: GAME, kind: 'move', targetTile: R2 })
   check(fGo.ok !== false, `f 가 ${R2} 로 걷기 시작했다`, JSON.stringify(fGo))
+  check((await pawnOf(f.uid)).tileId === null, 'f 는 걷는 중이다')
   await must('closePhase', host, { gameId: GAME })
-  check((await pawnOf(f.uid)).tileId === null, 'f 는 아직 걷는 중이다')
+  const fClosed = await pawnOf(f.uid)
+  check(
+    fClosed.tileId === R2 && fClosed.at !== null && roomOfCell(fClosed.at.x, fClosed.at.y) === R2 && fClosed.path.length === 0 && fClosed.arriveAtMs === null,
+    '**교시가 닫히면 걷던 f 는 바로 가던 방 안에 선다**',
+    JSON.stringify(fClosed),
+  )
 
   console.log('\n── 자유 시간에 여기저기 자리를 잡는다 ──')
   const skip = new Set<string>()
@@ -157,14 +163,14 @@ async function main(): Promise<void> {
   check(inHall(row(e).at) && ROOF_LANDINGS.some((l) => dist(l, row(e).at as never) <= 6), '옥상의 e 는 2층 계단통으로 내려섰다', JSON.stringify(row(e).at))
   check(row(c).at?.x === cWas?.x && row(c).at?.y === cWas?.y, '이미 복도에 있던 c 는 그대로다')
   check(row(g).at?.x === gCell.x && row(g).at?.y === gCell.y, '덫에 걸린 g 는 그 자리 그대로다')
-  check(row(f).tileId === R2 && inHall(row(f).at) && row(f).path.length === 0 && row(f).arriveAtMs === null, `걷던 f 는 가던 방(${TILES[R2 as never].name}) 문 앞 복도에 섰다`, JSON.stringify(row(f)))
-  check(row(f).at !== null && dist(row(f).at as never, entryCellOf(R2 as never)) <= 7, 'f 는 가던 방 문 가까이에 섰다')
+  check(row(f).tileId === R2 && inHall(row(f).at) && row(f).path.length === 0 && row(f).arriveAtMs === null, `닫힐 때 도착한 f 는 그 방(${TILES[R2 as never].name}) 문 앞 복도로`, JSON.stringify(row(f)))
+  check(row(f).at !== null && dist(row(f).at as never, entryCellOf(R2 as never)) <= 7, 'f 는 그 방 문 가까이에 섰다')
   const seen = rows.filter((r) => r.at).map((r) => `${r.at?.x},${r.at?.y}`)
   check(new Set(seen).size === seen.length, '판 전체에 한 칸에 둘이 선 곳이 없다')
   const bad = rows.filter((r) => r.id !== g.uid && !inHall(r.at))
   check(bad.length === 0, '덫에 걸린 사람 말고는 모두 복도다', bad.map((r) => r.id).join(' '))
 
-  console.log('\n── 걷던 사람의 도착 예약은 사라졌다 ──')
+  console.log('\n── 도착 예약이 남아 저절로 들어서지 않는다 ──')
   await must('setDevClock', host, { gameId: GAME, anchorGameMs: t0 + 30 * 60_000, speed: 1 })
   await must('tick', f.token, { gameId: GAME })
   const fLater = await pawnOf(f.uid)

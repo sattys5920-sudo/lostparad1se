@@ -74,6 +74,7 @@ import { cellsOf, claimSeat, pickSeat, pushEveryoneOut, seatPawn, takenFrom } fr
 import { checkInvariants } from './invariants'
 import { inTx } from './contended'
 import { logEvent, logSecret } from './qaLog'
+import { arriveNow } from './catchup'
 
 const db = getFirestore()
 
@@ -1021,6 +1022,8 @@ export async function closePhaseNow(gameId: string, game: GameDoc, nowMs: number
   batch.set(hiddenOf(gameId), EMPTY_HIDDEN)
 
   await batch.commit()
+  // **걷던 사람은 지금 도착한다.** 판정 뒤라 땅에는 안 센다(catchup.arriveNow)
+  await arriveNow(gameId, nowMs)
   // 열넷 모두에게 — **결과는 안 싣는다.** 끝났다는 것뿐
   await notify(gameId, game.seats.map((s) => s.playerId), 'phaseEnd', `phaseEnd:${no}`)
   // 내일의 투명인간은 여기서 안 고른다. 하루에 몇 교시를 열지는 날마다
@@ -1353,7 +1356,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
      */
     const onIt = await gameRef(gameId).collection('pawns').where('at.x', '==', snared.x).where('at.y', '==', snared.y).get()
     const free = !onIt.docs.some((d) => blocks(d.id, d.data() as PawnDoc))
-    const stay = free ? snared : { x, y }
+    const stay = free ? { x: snared.x, y: snared.y } : { x, y }
     await ref.update({ at: stay, busyUntilMs: until, busyKind: '덫' })
     if (free && (snared.x !== x || snared.y !== y)) {
       await cellsOf(gameId).doc(`${snared.x}_${snared.y}`).set({ by: uid, atMs: nowMs })
@@ -1365,6 +1368,15 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
       atMs: nowMs,
     })
     await logSecret(gameId, 'standAt', nowMs, uid, { x, y }, { tileId: p.tileId })
+    // **누가 놓은 덫에 누가 걸렸나.** 운영자 로그에만 — 걸린 사람에게도 놓은 사람은 안 알려 준다
+    await logSecret(
+      gameId,
+      'trapSprung',
+      nowMs,
+      uid,
+      { x: stay.x, y: stay.y, byTeam: snared.byTeam, minutes: SNARE_MINUTES },
+      { day: game.day, tileId: roomOfCell(stay.x, stay.y), team: p.team ?? null, targetId: snared.byPlayerId },
+    )
     await refreshViews(gameId)
     return { ok: true, same: false, snared: { ...stay, untilMs: until } }
   }

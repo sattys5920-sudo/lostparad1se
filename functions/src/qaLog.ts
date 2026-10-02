@@ -198,6 +198,8 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     case 'transferAnswered': return `${who} 이적 ${d.accept ? `수락 · 다음 페이즈부터 ${teamName(String(d.team ?? ''))}` : '거절'}`
     case 'trapCommissioned': return `${who} 덫 맡김 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.count ?? '')} 개`
     case 'lockPicked': return `${who} 자물쇠 땀${room ? ` (${room})` : ''} · ${teamName(String(d.team ?? ''))} 자물쇠`
+    case 'trapSet': return `${who} 덫 놓음 (${String(d.x ?? '')},${String(d.y ?? '')}) ${room || '복도'}`
+    case 'trapSprung': return `${who} 덫에 걸림 (${String(d.x ?? '')},${String(d.y ?? '')}) ${room || '복도'} · ${e.targetId ? `${name(e.targetId)}이(가) 놓은 덫` : `${teamName(String(d.byTeam ?? ''))} 덫`} · ${String(d.minutes ?? '')} 분`
     case 'trapTaken': return `${who} 덫 찾음 · 제조기 ${Number(d.maker ?? 0) + 1} · ${String(d.got ?? '')} 개`
     case 'slipScattered': return `감독관 쪽지 뿌림 → ${room}${d.n ? ` · ${String(d.n)} 장` : ''}`
     case 'slipPulled': return '감독관 쪽지 회수'

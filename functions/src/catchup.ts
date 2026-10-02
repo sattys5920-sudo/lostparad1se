@@ -342,6 +342,31 @@ async function applyItem(
 
 // ── 밀기 ────────────────────────────────────────────────────────
 
+/**
+ * **페이즈가 닫히면 걷던 사람은 그 자리에서 도착한다.**
+ *
+ * 자유 시간에는 드나들기가 즉시다. 페이즈 끝에 걷는 중이던 사람을 남은 몇
+ * 분 동안 묶어 두면 자유 시간인데도 못 움직였다. 남은 도착 예약을 닫히는
+ * 시각(atMs)으로 당겨 지금 민다 — 닫힌 뒤라 정원을 안 보고 가던 방에 선다.
+ * 판정은 이미 끝났으므로 이 도착은 방 주인을 바꾸지 않는다. 민 수를 돌려준다
+ */
+export async function arriveNow(gameId: string, atMs: number): Promise<number> {
+  const pending = await gameRef(gameId).collection('schedule').where('doneAtMs', '==', null).get()
+  // 먼저 떠난 사람이 먼저 자리를 고른다 — 원래 닿았을 차례대로
+  const walks = pending.docs
+    .map((d) => ({ id: d.id, s: d.data() as ScheduleDoc }))
+    .filter((x) => x.s.kind === 'arrive')
+    .sort((a, b) => a.s.dueAtMs - b.s.dueAtMs || a.id.localeCompare(b.id))
+  const landed: Ctx['landed'] = []
+  let n = 0
+  for (const w of walks) {
+    if (await applyItem(gameId, { id: w.id, dueAtMs: atMs, ord: w.s.ord, kind: w.s.kind, doneAtMs: null }, w.s, landed)) n += 1
+  }
+  for (const a of landed) await openInterval(gameId, a.playerId, a.tileId, a.atMs, a.tileId === null ? 'walking' : 'standing')
+  if (landed.length > 0) await refreshAwakening(gameId)
+  return n
+}
+
 export interface CatchUpResult {
   applied: number
   day: number
