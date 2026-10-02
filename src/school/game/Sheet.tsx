@@ -95,10 +95,12 @@ export function Sheet({ title, onClose, children, peek = false, panelRef: outer 
         <div
           className="sc-sheet__body"
           onFocus={(e) => {
-            // 칸을 누르면 그 칸이 보이게 — 시트가 키보드 위로 줄어든 뒤에 맞춘다
+            // 칸을 누르면 그 칸이 보이게 — 적는 동안 시트는 화면 위쪽에 붙으므로
+            // 칸이 든 줄(문제 종이 한 장 등)을 시트 맨 위로 올린다. 문제 문장도 같이 보인다
             const el = e.target
             if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return
-            window.setTimeout(() => el.scrollIntoView({ block: 'nearest' }), 350)
+            const row = el.closest('li') ?? el
+            window.setTimeout(() => row.scrollIntoView({ block: 'start' }), 350)
           }}
         >
           {children}

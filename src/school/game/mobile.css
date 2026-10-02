@@ -794,6 +794,24 @@
 }
 .sc-sheet:has(input:focus, textarea:focus) .sc-sheet__back { min-height: 0; }
 .sc-sheet:has(input:focus, textarea:focus) .sc-sheet__panel { max-height: 100%; }
+/*
+ * **그래도 가려지는 아이폰이 있다(아이폰 17).** 키보드가 떠도 보이는 창의
+ * 높이를 안 줄여 알려 주는 판에서는 위 규칙이 시트를 줄이지 못하고, 시트가
+ * 바닥에 붙은 채 키보드 뒤에 남는다. 그래서 적는 동안은 **시트를 화면 위쪽에
+ * 붙인다** — 키보드는 아래에서 올라오므로 위쪽은 어느 판에서나 보인다.
+ * 뒤(닫기 자리)는 시트 아래로 보내 그대로 누를 수 있게 둔다(누르면 키보드만 내린다)
+ */
+.sc-sheet:has(input:focus, textarea:focus) {
+  justify-content: flex-start;
+  padding-top: var(--sa-top, 0px);
+}
+.sc-sheet:has(input:focus, textarea:focus) .sc-sheet__back { order: 1; }
+.sc-sheet:has(input:focus, textarea:focus) .sc-sheet__panel {
+  border-top: 0;
+  border-bottom: 1px solid var(--sc-line-strong);
+  border-radius: 0 0 var(--r-paper) var(--r-paper);
+  padding-bottom: 0;
+}
 
 /* ── 홈 화면에 추가 ───────────────────────────────────────── */
 
