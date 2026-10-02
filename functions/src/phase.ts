@@ -65,6 +65,7 @@ import { madeOf, researchTierUp, type Brewing } from './made'
 import { FLAGS_PER_PHASE, spendFlags, type FlagBoxes, type FlagMap } from '../../shared/rules/flag'
 import { openInterval } from './reveal'
 import { refreshViews, refreshViewsSoon } from './views'
+import { isAway } from '../../shared/rules/online'
 import { note } from './records'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
@@ -1245,7 +1246,8 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    */
   if (machineAtSeat({ x, y }) !== null && !(p.at?.x === x && p.at?.y === y)) {
     const there = await gameRef(gameId).collection('pawns').where('at.x', '==', x).where('at.y', '==', y).get()
-    if (there.docs.some((d) => d.id !== uid)) throw new HttpsError('failed-precondition', '그 기계에는 누가 앉아 있다.')
+    // 앱을 끈 사람은 자리를 막지 않는다(rules/online)
+    if (there.docs.some((d) => d.id !== uid && !isAway((d.data() as PawnDoc).seenMs, Date.now()))) throw new HttpsError('failed-precondition', '그 기계에는 누가 앉아 있다.')
   }
   /*
    * **덫에 걸려 있으면 그 자리다.** 걸린 칸 말고 다른 칸을 적어 오면
@@ -1258,7 +1260,8 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 없는 것으로 치고 선다 — 투명이 풀릴 때 겹쳐 있으면 서버가 비켜 세운다
    */
   const ghost = game.invisibleId ?? null
-  const blocks = (id: string, d: PawnDoc) => id !== uid && id !== ghost && d.tileId !== null
+  // **앱을 끈 사람도 칸을 막지 않는다**(rules/online) — 남의 맵에서 사라졌는데 막히면 투명한 벽이다
+  const blocks = (id: string, d: PawnDoc) => id !== uid && id !== ghost && d.tileId !== null && !isAway(d.seenMs, Date.now())
   if (p.busyKind === '덫' && (p.busyUntilMs ?? 0) > nowMs && !(p.at?.x === x && p.at?.y === y)) {
     throw new HttpsError('failed-precondition', `덫에 걸려 있다. ${Math.ceil(((p.busyUntilMs ?? 0) - nowMs) / 60_000)} 분 남았다.`)
   }
@@ -1304,7 +1307,7 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
       const by = claim.exists ? (claim.data() as { by: string }).by : null
       if (by && by !== uid && by !== ghost) {
         const o = (await tx.get(gameRef(gameId).collection('pawns').doc(by))).data() as PawnDoc | undefined
-        if (o && o.tileId !== null && o.at?.x === x && o.at?.y === y) return false
+        if (o && o.tileId !== null && o.at?.x === x && o.at?.y === y && !isAway(o.seenMs, Date.now())) return false
       }
       tx.set(cellRef, { by: uid, atMs: nowMs })
       if (old?.exists && (old.data() as { by: string }).by === uid) tx.delete(old.ref)

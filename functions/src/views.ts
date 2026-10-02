@@ -31,6 +31,7 @@ import type { QuizDoc, QuizPaperDoc } from './quiz'
 import { errandWorld } from './errand'
 import { gardenWorld } from './garden'
 import { trapWorld } from './trap'
+import { isAway } from '../../shared/rules/online'
 import { gameRef, nowOf } from './index'
 
 const db = getFirestore()
@@ -112,6 +113,8 @@ export async function loadWorld(gameId: string, game: GameDoc): Promise<World> {
       busyKind: p.busyKind ?? null,
       postTile: p.postTile ?? null,
       visitedTiles: p.visitedTiles ?? [],
+      // 앱을 5 분 넘게 안 켰나 — 실제 시각으로 잰다(게임 시계가 아니다)
+      away: isAway(p.seenMs, Date.now()),
     }
   })
 

@@ -423,6 +423,32 @@ describe('방 안의 머릿수', () => {
   })
 })
 
+describe('앱을 끈 사람', () => {
+  const inside = { x: 15, y: 72 }
+  const setUp = () => {
+    const w = world()
+    w.pawns = [
+      pawn('A0', 'A', 'baseA', { at: inside }),
+      pawn('B0', 'B', 'baseA', { away: true }), // 같은 방, 앱을 5 분 넘게 안 켰다
+      pawn('B1', 'B', 'baseA'),
+    ]
+    return w
+  }
+
+  it('남의 맵에서는 사라진다 — 정원(머릿수)에는 센다', () => {
+    const v = projectView(setUp(), 'A0')
+    expect(v.visiblePawns.map((p) => p.playerId)).not.toContain('B0')
+    expect(v.visibleIds).not.toContain('B0')
+    expect(v.visiblePawns.map((p) => p.playerId)).toContain('B1')
+    expect(v.roomCounts.baseA).toBe(3)
+  })
+
+  it('본인 화면에는 제 말이 있다', () => {
+    const v = projectView(setUp(), 'B0')
+    expect(v.visiblePawns.map((p) => p.playerId)).toContain('B0')
+  })
+})
+
 describe('돈은 사람 것, 지식은 팀 것', () => {
   const w = (): World => ({
     ...world(),

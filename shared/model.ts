@@ -390,6 +390,8 @@ export interface PawnDoc {
   busyKind?: string
   /** 발 묶기 — 움직이지도 행동하지도 못한다. 판정에서는 센다. */
   boundUntilMs?: GameMs
+  /** 앱이 마지막으로 「켜 있다」고 알린 **실제** 시각(ping). 5 분 넘게 없으면 맵에서 사라진다(rules/online) */
+  seenMs?: number
   /** 잠복 — 누구에게도 보이지 않는다. 판정에서는 센다. */
   hiddenUntilMs?: GameMs
   /** 오늘 쓴 토큰. 08:00에 0으로. */

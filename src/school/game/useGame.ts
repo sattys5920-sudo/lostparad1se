@@ -251,6 +251,8 @@ export function gameActions(gameId: string) {
   return {
     /** 밀린 일을 따라잡는다. 화면이 열릴 때와 오래 있다가 돌아올 때. */
     tick: () => callServer('tick', g),
+    /** 앱을 켜 두었다고 알린다. 5 분 넘게 안 오면 남의 맵에서 사라진다(rules/online) */
+    ping: () => callServer('ping', g),
 
     // ── 운영자만 ────────────────────────────────────────────────
     // 화면에서 막지 않는다. 운영자가 아니면 서버가 거절한다.

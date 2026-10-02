@@ -157,6 +157,8 @@ export { seedPlayers } from './qa'
 
 // 페이즈 — 자유 시간과 점령전.
 export { openPhase, closePhase, phaseAct, roamTo, standAt } from './phase'
+// 앱을 켜 두었다는 신호 — 5 분 넘게 없으면 남의 맵에서 사라진다
+export { ping } from './online'
 export { harvestPot } from './garden'
 export { hostPlant, hostGarden, hostPullPot } from './garden'
 export { takeSlip, readSlip, dropSlip, readSlipHere, tearSlipHere, hostPullSlip } from './slips'

@@ -6,6 +6,7 @@
 // 쪽지 문안도 안 싣는다 — 운영자 대시보드라도 그것은 볼 일이 아니다.
 // 말(hostRoomChat)은 따로 부른다. 플레이어는 「들어온 뒤의 말」만
 // 듣지만 운영자는 시간 창 없이 전부 본다. 어느 쪽도 판정에는 안 쓴다.
+import { isAway } from '../../shared/rules/online'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import { TILE_BY_ID, isHallCell, roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
@@ -185,6 +186,8 @@ export const hostLiveMap = onCall<{ gameId: string }>(async (req) => {
       kind = 'idle'
       doing = '방 안에서 걷는 중'
     }
+    // 앱을 5 분 넘게 안 켰다 — 남의 맵에서는 사라졌다(rules/online). 감독관에게는 보인다
+    if (isAway(p?.seenMs, realNow)) doing = `앱 꺼짐 · ${doing}`
 
     return {
       playerId: id,

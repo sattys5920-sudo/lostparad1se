@@ -13,6 +13,7 @@ import { getFirestore, type DocumentSnapshot, type QueryDocumentSnapshot, type T
 import type { GameDoc, PawnDoc } from '../../shared/model'
 import { ROOF_LANDINGS, roomOfCell, type Cell, type TileId } from '../../shared/rules/board'
 import { entryCellOf, nearestOpenHall, nearestOpenHallOffLane, seatIn } from '../../shared/rules/seat'
+import { isAway } from '../../shared/rules/online'
 import { gameRef } from './index'
 
 const db = getFirestore()
@@ -44,6 +45,8 @@ export function takenFrom(
     if (d.id === except || d.id === ghost) continue
     const p = d.data() as PawnDoc | undefined
     if (!p || p.tileId === null || !p.at) continue
+    // 앱을 끈 사람은 칸을 막지 않는다(rules/online). 돌아오면 reseatIfShared 가 비켜 세운다
+    if (isAway(p.seenMs, Date.now())) continue
     out.add(`${p.at.x},${p.at.y}`)
   }
   for (const d of papers) {

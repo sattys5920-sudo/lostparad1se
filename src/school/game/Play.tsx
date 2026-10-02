@@ -4,6 +4,8 @@
 //
 // 여기서 게임 규칙을 판단하지 않는다. 무엇을 할 수 있는지도 서버가
 // 정하고, 화면은 서버가 거절하면 그 말을 그대로 보인다.
+import { whileVisible } from './timing'
+import { PING_MS } from '../../../shared/rules/online'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
@@ -844,6 +846,13 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   // 페이즈가 열렸을 수도 닫혔을 수도 있다 — 옛 화면에 대고 단추를
   // 누르게 두면 안 된다
   useWakeUp(useCallback(() => { void act.tick() }, [act]))
+  // **앱을 켜 두었다고 알린다.** 보이는 동안 1 분마다, 다시 보이는 순간 한 번.
+  // 5 분 넘게 안 오면 남의 맵에서 사라지고 칸도 안 막는다(rules/online)
+  useEffect(() => {
+    const send = () => void act.ping().catch(() => {})
+    send()
+    return whileVisible(send, PING_MS)
+  }, [act])
   const uid = auth?.currentUser?.uid ?? null
   const [standingRoom, setStandingRoom] = useState<TileId | null>(null)
   /** 맵에서 누른 먼 방. 거기로 걸어가거나 내일 아침을 예약한다. */

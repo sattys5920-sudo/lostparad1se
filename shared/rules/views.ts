@@ -47,6 +47,8 @@ export interface WorldPawn extends PawnPosition {
   postTile?: TileId | null
   /** 가 본 방. 본인 몫에만 실린다. */
   visitedTiles?: readonly TileId[]
+  /** 앱을 5 분 넘게 안 켰다(rules/online). **남의 맵에서 사라진다** — 정원에는 센다 */
+  away?: boolean
 }
 
 export interface WorldTile {
@@ -667,10 +669,15 @@ export function projectView(world: World, viewerId: string): View {
   }
 
 
+  /*
+   * **앱을 끈 사람은 남의 맵에 안 그린다.** 끈 채 서 있는 사람이 길을 막았다.
+   * 그려지지 않으면 화면도 그 칸을 안 막는다. 정원(roomCounts)에는 그대로 센다
+   */
+  const onMap = seenPawns.filter((p) => p.playerId === viewerId || !p.away)
   const seen = visiblePawns({
     viewerId,
     viewerTeam: team,
-    pawns: seenPawns,
+    pawns: onMap,
     visible,
     // 내가 선 칸. **복도에 섰으면 같은 복도 사람이 보인다**
     at: myCell,
