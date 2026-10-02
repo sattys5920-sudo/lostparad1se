@@ -88,6 +88,11 @@ export interface LiveDoc {
 /** games/{gameId} */
 export interface GameDoc {
   phase: GamePhase
+  /**
+   * 운영자가 「모두 새로고침」을 누른 횟수. 앱을 켜 둔 화면은 이 값이 바뀌는
+   * 것을 보면 한 번 새로 연다 — 배포한 것을 폰이 옛 화면으로 쥐고 있을 때 쓴다
+   */
+  reloadNo?: number
   /** 역할을 나눌 때 쓴 씨앗. 같은 명단·같은 씨앗이면 늘 같은 결과다. */
   seed: string
   /** 로비에 앉은 사람들. 시작하면 더 바뀌지 않는다. */

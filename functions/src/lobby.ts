@@ -695,3 +695,16 @@ export const hostSetHideDeal = onCall<{ gameId: string; on: boolean }>(async (re
   })
   return { hideDeal: on }
 })
+
+/**
+ * **켜 둔 화면을 모두 한 번 새로 연다.** 판 문서의 reloadNo 를 하나 올리면,
+ * 앱을 켜 둔 참가자 화면이 그 바뀜을 보고 새로고침한다(useGame). 운영자
+ * 화면은 안 연다. 앱을 꺼 둔 사람은 다음에 켤 때 어차피 새 화면이다
+ */
+export const hostReloadAll = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const ref = gameRef(req.data.gameId)
+  if (!(await ref.get()).exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  await ref.update({ reloadNo: FieldValue.increment(1) })
+  return { ok: true }
+})

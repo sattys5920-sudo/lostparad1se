@@ -101,12 +101,12 @@ export function hideDealOf(s: GameState): GameState {
 }
 
 export function useGame(gameId: string | null, opts: { host?: boolean } = {}): GameState {
-  const raw = useGameRaw(gameId)
   const host = opts.host === true
+  const raw = useGameRaw(gameId, host)
   return useMemo(() => (host ? raw : hideDealOf(raw)), [raw, host])
 }
 
-function useGameRaw(gameId: string | null): GameState {
+function useGameRaw(gameId: string | null, host: boolean): GameState {
   const [state, setState] = useState<GameState>(EMPTY)
   const uid = auth?.currentUser?.uid ?? null
 
@@ -158,10 +158,24 @@ function useGameRaw(gameId: string | null): GameState {
         fail,
       ),
     )
+    /*
+     * **운영자의 「모두 새로고침」.** 서버에서 처음 받은 값을 기억해 두고, 그 뒤에
+     * 바뀌면 한 번 새로 연다. 캐시에서 온 값은 안 본다 — 옛 값이 먼저 오고 새 값이
+     * 뒤따르면 열자마자 또 열린다. 운영자 화면은 안 연다
+     */
+    let reloadSeen: number | null = null
     stop.push(
       onSnapshot(base, (snap) => {
         const g = snap.data() as GameDoc | undefined
         if (!g || snap.metadata.fromCache) return
+        const r = g.reloadNo ?? 0
+        if (!host) {
+          if (reloadSeen === null) reloadSeen = r
+          else if (r !== reloadSeen) {
+            location.reload()
+            return
+          }
+        }
         latestClock = g.clock
         if (isStale()) void probe()
       }),
@@ -236,7 +250,7 @@ function useGameRaw(gameId: string | null): GameState {
       )
     }
     return () => stop.forEach((f) => f())
-  }, [gameId, uid])
+  }, [gameId, uid, host])
 
   return state
 }
@@ -473,6 +487,7 @@ export function gameActions(gameId: string) {
     startGame: (startAtMs?: number, practice?: boolean) =>
       callServer('startGame', { ...g, ...(startAtMs ? { startAtMs } : {}), ...(practice ? { practice: true } : {}) }),
     hostEndPractice: () => callServer('hostEndPractice', g),
+    hostReloadAll: () => callServer('hostReloadAll', g),
     hostSetHideDeal: (on: boolean) => callServer('hostSetHideDeal', { ...g, on }),
     /** QA용으로 자리를 채운다. 로비에서만 먹는다. */
     seedPlayers: (password: string, leaveSeats = 1) =>

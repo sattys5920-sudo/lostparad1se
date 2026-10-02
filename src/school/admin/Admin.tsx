@@ -413,6 +413,20 @@ function Desk() {
             </section>
 
             <section className="sc-ad__sec">
+              <h2>새로고침</h2>
+              <p className="sc-ad__hint">앱을 켜 둔 사람 모두의 화면을 한 번 새로 연다. 배포한 것이 폰에 안 보일 때 쓴다. 쓰던 글이나 열어 둔 창은 닫힌다.</p>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  if (!window.confirm('켜 둔 화면을 모두 새로고침할까요?')) return
+                  void run('모두 새로고침', () => act.hostReloadAll())
+                }}
+              >
+                모두 새로고침
+              </button>
+            </section>
+
+            <section className="sc-ad__sec">
               <h2>달력</h2>
               {/*
                 **시계가 판을 끝내지 않는다.** 세워 두고 며칠 지나면
