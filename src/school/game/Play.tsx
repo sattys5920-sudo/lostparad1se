@@ -1795,6 +1795,18 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   // 없던 사람도 서버가 빈 칸에 세워 돌려준다 — 안 돌아가면 남의 칸
                   // 위에 선 채로 남는다
                   const back = out?.at ?? was
+                  /*
+                   * **그사이 서버가 나를 옮겼다**(종이 쳐서 문 앞 복도로 내보냈다). 보낸
+                   * 칸은 지난 일이다 — 서버 칸으로 말없이 선다
+                   */
+                  if (out?.ok === false && out.code === 'moved') {
+                    if (out.at) {
+                      const to = out.at
+                      setBounce((b) => ({ x: to.x, y: to.y, n: (b?.n ?? 0) + 1, from: { x, y } }))
+                      setMyCell({ x: to.x, y: to.y })
+                    }
+                    return
+                  }
                   if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked' || out.code === 'reenter') && back) {
                     // Walk 는 아직 거절당한 그 칸(x,y)에 서 있을 때만 따른다 —
                     // 대답을 기다리는 사이 이미 걸어서 더 갔으면 지난 일이다

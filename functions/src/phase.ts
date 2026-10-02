@@ -1302,11 +1302,31 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
       return { ok: false, code: 'occupied', why: '누가 서 있다.', at: await keepSeat(gameId, uid, p, { x, y }) }
     }
     const cellRef = cellsOf(gameId).doc(`${x}_${y}`)
-    const oldRef = p.at ? cellsOf(gameId).doc(`${p.at.x}_${p.at.y}`) : null
     /** 이번 걸음이 방 → 복도인가, 복도 → 방인가. 체류 기록을 그 자리에서 바꾼다(아래) */
     let crossed: 'in' | 'out' | null = null
+    let movedTo: Cell | null = null
     const took = await inTx(async (tx) => {
-      const [claim, old] = await Promise.all([tx.get(cellRef), oldRef ? tx.get(oldRef) : null])
+      const [claim, me, live] = await Promise.all([tx.get(cellRef), tx.get(ref), tx.get(gameRef(gameId))])
+      /*
+       * **그사이 서버가 나를 복도로 내보냈으면 이 걸음은 지난 일이다.** 종이 칠 때가
+       * 그렇다 — 방 안을 걷다 멈춘 칸을 적으러 온 요청이, 모두를 복도로 내보낸
+       * (pushEveryoneOut) 뒤에 닿으면 방 안 칸으로 덮어써서 토큰 없이 방에 남았다.
+       * 내 문서와 판을 이 트랜잭션에서 다시 읽어, 지금 복도에 서 있고 점령전 중이면
+       * 방 안 칸은 적지 않는다(위의 reentry 와 같은 규칙을 지금 자리로 다시 잰다).
+       * 내가 앞서 보낸 걸음이 먼저 닿아 자리가 바뀐 것은 그대로 이어 간다
+       */
+      const fresh = me.data() as PawnDoc | undefined
+      const nowAt = fresh?.at ?? null
+      const pushedOut =
+        !!fresh &&
+        (fresh.tileId !== p.tileId ||
+          (room !== null && !!nowAt && roomOfCell(nowAt.x, nowAt.y) === null && (live.data() as GameDoc | undefined)?.phaseNow?.open === true))
+      if (!fresh || pushedOut) {
+        movedTo = nowAt
+        return 'moved' as const
+      }
+      const oldRef = nowAt ? cellsOf(gameId).doc(`${nowAt.x}_${nowAt.y}`) : null
+      const old = oldRef ? await tx.get(oldRef) : null
       const by = claim.exists ? (claim.data() as { by: string }).by : null
       if (by && by !== uid && by !== ghost) {
         const o = (await tx.get(gameRef(gameId).collection('pawns').doc(by))).data() as PawnDoc | undefined
@@ -1317,12 +1337,13 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
       // **자리도 같은 트랜잭션에서 옮긴다.** 따로 적으면 그 사이에 온 사람이
       // 「표시는 있는데 그 사람이 아직 그 칸에 없다」를 보고 덮어쓴다
       // **복도에서 방 안으로 들어섰으면 그때가 들어온 시각이다** — 정원을 넘은 방에서 누구를 내보낼지 이걸로 본다
-      const wasOut = !!p.at && roomOfCell(p.at.x, p.at.y) !== p.tileId
+      const wasOut = !!nowAt && roomOfCell(nowAt.x, nowAt.y) !== p.tileId
       const nowIn = p.tileId !== null && roomOfCell(x, y) === p.tileId
       crossed = wasOut && nowIn ? 'in' : !wasOut && !nowIn && p.tileId !== null ? 'out' : null
       tx.update(ref, { at: { x, y }, ...(wasOut && nowIn ? { inSinceMs: nowMs } : {}) })
       return true
     })
+    if (took === 'moved') return { ok: false, code: 'moved', why: null, at: movedTo }
     if (!took) return { ok: false, code: 'occupied', why: '누가 먼저 섰다.', at: await keepSeat(gameId, uid, p, { x, y }) }
     /*
      * **복도에 선 시간은 방에 있은 시간이 아니다.** 방을 나서 복도에 서면 그 방
