@@ -142,7 +142,7 @@ export { say, chatLines } from './chat'
 // 무전 — 방에 매이지 않고 같은 팀끼리만 통한다.
 export { radio, radioLines, hostRadioOverview, hostRadioLines, hostSetAllChannel } from './radio'
 // 투명인간 투표의 문. 운영자가 열고 닫는다
-export { hostOpenBallot, hostCloseBallot } from './ballotGate'
+export { hostOpenBallot, hostCloseBallot, hostReopenBallot } from './ballotGate'
 
 // 운영자 코드. 코드는 저장소가 아니라 배포 환경변수에 있다.
 export { hostEnter } from './hostgate'

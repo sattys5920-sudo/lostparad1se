@@ -77,6 +77,18 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
             </button>
           )
         )}
+        {/* 투표를 열기 전에 정산을 넘겨 0 장으로 세어 버린 날 — 되돌리고 다시 연다 */}
+        {!last && counted && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              if (!window.confirm(`DAY ${day} 투표 결과를 되돌리고 다시 열까요? 그때 나간 결과 공지도 지운다.`)) return
+              void run('투표 다시 열기', () => act.hostReopenBallot())
+            }}
+          >
+            다시 열기
+          </button>
+        )}
       </div>
 
       <div className="sc-ad__row" style={{ marginTop: 'var(--sp-3)' }}>

@@ -393,6 +393,7 @@ export function gameActions(gameId: string) {
     /** 투명인간 투표를 연다 · 닫는다(닫으면 그 자리에서 센다) */
     hostOpenBallot: () => callServer('hostOpenBallot', g),
     hostCloseBallot: () => callServer('hostCloseBallot', g),
+    hostReopenBallot: () => callServer('hostReopenBallot', g),
     /** 개발용 시계 — 이 시각부터 이 배속으로 */
     setDevClock: (anchorGameMs: number, speed: number) => callServer('setDevClock', { ...g, anchorGameMs, speed }),
     /** 전원 채널을 여닫는다 */
