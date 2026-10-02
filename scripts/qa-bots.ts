@@ -392,6 +392,7 @@ async function adminTick(a: Admin, g: Game): Promise<void> {
   if (g.ballot?.open && h >= BALLOT_CLOSE_H && a.ballotClosedDay !== g.day) {
     a.ballotClosedDay = g.day
     await call('host', 'hostCloseBallot', a.token, { gameId: GAME })
+    await call('host', 'hostAnnounceBallot', a.token, { gameId: GAME })
   }
   // 달력 — 때가 되면 넘긴다(운영자가 부재면 ABSENT 시간 늦게)
   const next = (await call('host', 'peekDay', a.token, { gameId: GAME })).data?.next as { kind: string; day: number } | null | undefined

@@ -394,6 +394,7 @@ export function gameActions(gameId: string) {
     hostOpenBallot: () => callServer('hostOpenBallot', g),
     hostCloseBallot: () => callServer('hostCloseBallot', g),
     hostReopenBallot: () => callServer('hostReopenBallot', g),
+    hostAnnounceBallot: () => callServer('hostAnnounceBallot', g),
     /** 개발용 시계 — 이 시각부터 이 배속으로 */
     setDevClock: (anchorGameMs: number, speed: number) => callServer('setDevClock', { ...g, anchorGameMs, speed }),
     /** 전원 채널을 여닫는다 */

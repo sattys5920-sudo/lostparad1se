@@ -3,11 +3,14 @@
 //   열기   그날 투표를 받기 시작한다. 화면의 투표 탭이 이때 열린다.
 //          **지난 투명인간은 여기서 풀린다** — 발표부터 다음 투표가
 //          열릴 때까지가 투명인간의 전부다(settleBallots 가 지운다)
-//   닫기   그 자리에서 센다(settleBallots) — 최다 한 명이 그 자리에서
-//          지워진다. 동률이면 아무도 안 지워진다. 결과는 공지로 나간다
+//   닫기   표를 그만 받는다. **세지도 발표하지도 않는다**
+//   발표   그때 센다(settleBallots) — 최다 한 명이 그 자리에서 지워진다.
+//          동률이면 아무도 안 지워진다. 결과는 공지로 나간다
 //
-// 운영자가 안 닫고 날을 넘기면 정산 때 세던 길(announceBallots)이 그대로
-// 남아 있다 — 문이 열린 채로 하루가 끝나는 일은 없다.
+// 닫기와 발표를 나눈 까닭: 오늘 표로 내일 투명인간을 정하니, 날을 넘긴 뒤에
+// 발표하고 그때부터 적용하고 싶다. 정산(21 시)도 더는 저절로 세지 않는다 —
+// 투표를 열기 전에 정산을 넘겨 0 장으로 세어 버린 일이 있었다. 대신 발표 안 한
+// 투표가 남아 있으면 다음 투표를 못 연다.
 //
 // 하루에 한 번이다. 이미 센 날은 다시 못 연다 — 다만 오늘 것은 운영자가
 // 되돌려 다시 열 수 있다(hostReopenBallot). 투표 전에 정산을 넘긴 날을 위해서다.
@@ -42,6 +45,10 @@ export const hostOpenBallot = onCall<{ gameId: string }>(async (req) => {
   if (game.ballot?.open && game.ballot.day === day) throw new HttpsError('failed-precondition', '이미 열려 있다.')
   // **다른 날 투표가 아직 열려 있으면 먼저 닫는다.** 그대로 열면 그 표를 세지도 않고 덮어쓴다
   if (game.ballot?.open) throw new HttpsError('failed-precondition', `DAY ${game.ballot.day} 투표가 아직 열려 있다. 먼저 닫는다.`)
+  // **닫아 놓고 발표 안 한 투표가 있으면 먼저 발표한다.** 열면 지난 투명인간을 풀고 새 표를 받으므로 그 표가 묻힌다
+  if (game.ballot && game.ballot.day !== day && !(String(game.ballot.day + 1) in (game.invisibleByDay ?? {}))) {
+    throw new HttpsError('failed-precondition', `DAY ${game.ballot.day} 투표 결과를 아직 발표하지 않았다. 먼저 발표한다.`)
+  }
   const nowMs = nowOf(game)
   const batch = db.batch()
   batch.update(gameRef(gameId), {
@@ -69,12 +76,33 @@ export const hostCloseBallot = onCall<{ gameId: string }>(async (req) => {
   const nowMs = nowOf(game)
   await gameRef(gameId).update({ 'ballot.open': false, 'ballot.closedAtMs': nowMs })
   await gameRef(gameId).collection('events').add({ atMs: nowMs, day, kind: 'ballotClose', detail: {} })
-  // 닫는 순간 센다. 이미 셌으면(정산이 먼저 지나갔으면) 아무 일도 안 한다
-  await announceBallots(gameId, day)
+  // **닫기만 한다.** 세고 알리는 것은 「결과 발표」(hostAnnounceBallot) 때다
+  await refreshViews(gameId)
+  return { day, open: false }
+})
+
+/**
+ * **결과 발표.** 닫아 둔 투표를 세어 알리고, 그 순간부터 투명인간이 된다.
+ * 날을 넘긴 뒤에 눌러도 된다 — 세는 것은 그 투표의 날(ballot.day) 표다.
+ */
+export const hostAnnounceBallot = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const snap = await gameRef(gameId).get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  const b = game.ballot
+  if (!b) throw new HttpsError('failed-precondition', '연 투표가 없다.')
+  if (b.open) throw new HttpsError('failed-precondition', '투표를 먼저 닫는다.')
+  if ((await gameRef(gameId).collection('secret').doc('ballotDays').collection('items').doc(`d${b.day}`).get()).exists) {
+    throw new HttpsError('failed-precondition', `DAY ${b.day} 결과는 이미 발표했다.`)
+  }
+  await announceBallots(gameId, b.day)
   // **새 투명인간은 그 순간 모두에게서 사라진다.** 다음에 누가 움직일
   // 때까지 views 를 그대로 두면 지워진 사람이 남의 화면에 그대로 서 있다
   await refreshViews(gameId)
-  return { day, open: false }
+  const after = (await gameRef(gameId).get()).data() as GameDoc
+  return { day: b.day, invisibleId: after.invisibleId ?? null }
 })
 
 /**

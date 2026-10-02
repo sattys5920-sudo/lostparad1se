@@ -23,13 +23,18 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
   const [busy, setBusy] = useState(false)
   const day = game.day
   const open = game.ballot?.open === true && game.ballot.day === day
+  const countedOn = (d: number) => String(d + 1) in (game.invisibleByDay ?? {})
   /*
-   * **어제 연 투표가 아직 열려 있다.** 날을 먼저 넘기고 나서 닫으면 그때 발표된다 —
-   * 투명인간을 다음 날부터 적용하려고 일부러 이렇게 쓴다. 그때는 오늘 것 대신
-   * 그 투표의 「닫기」를 보여 준다. 안 그러면 「열기」가 떠서 어제 표를 세지도
-   * 않고 덮어쓴다
+   * **다른 날 투표가 아직 열려 있다.** 날을 먼저 넘긴 뒤에 닫아도 된다 — 그때는
+   * 오늘 것 대신 그 투표의 「닫기」를 보여 준다. 안 그러면 「열기」가 떠서 그 표를
+   * 덮어쓴다(서버도 막는다)
    */
   const lagging = game.ballot?.open === true && game.ballot.day !== day ? game.ballot.day : null
+  /**
+   * **닫았는데 아직 발표 안 한 투표.** 닫기와 발표가 따로다 — 오늘 표로 내일
+   * 투명인간을 정하니, 날을 넘긴 뒤에 발표하고 그때부터 적용할 수 있다
+   */
+  const unannounced = game.ballot && !game.ballot.open && !countedOn(game.ballot.day) ? game.ballot.day : null
   const counted = String(day + 1) in (game.invisibleByDay ?? {})
   const last = day >= TOTAL_DAYS
   const run = async (label: string, fn: () => Promise<unknown>) => {
@@ -72,18 +77,39 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
       {lagging !== null && (
         <div className="sc-ad__row">
           <span className="sc-ad__pill">DAY {lagging} 투표 · 아직 열림</span>
-          <button className="sc-ad__danger" disabled={busy} onClick={() => void run(`DAY ${lagging} 투표 닫기 · 집계`, () => act.hostCloseBallot())}>
+          <button className="sc-ad__danger" disabled={busy} onClick={() => void run(`DAY ${lagging} 투표 닫기`, () => act.hostCloseBallot())}>
             DAY {lagging} 투표 닫기
           </button>
         </div>
       )}
+      {unannounced !== null && (
+        <div className="sc-ad__row">
+          <span className="sc-ad__pill">DAY {unannounced} 투표 · 닫음 · 발표 전</span>
+          <button
+            className="is-primary"
+            disabled={busy}
+            onClick={() => {
+              if (!window.confirm(`DAY ${unannounced} 투명인간을 지금 발표할까요? 발표하는 순간부터 투명인간이 된다.`)) return
+              void run(`DAY ${unannounced} 결과 발표`, () => act.hostAnnounceBallot())
+            }}
+          >
+            결과 발표
+          </button>
+          {/* 오늘 것이면 닫은 투표를 다시 열어 더 받을 수 있다 */}
+          {unannounced === day && (
+            <button disabled={busy} onClick={() => void run('투표 다시 열기', () => act.hostOpenBallot())}>
+              다시 열기
+            </button>
+          )}
+        </div>
+      )}
       <div className="sc-ad__row">
         <span className="sc-ad__pill">
-          DAY {day} 투표 · {last ? '마지막 날 없음' : counted ? '셌다' : open ? '열림' : '닫힘'}
+          DAY {day} 투표 · {last ? '마지막 날 없음' : counted ? '발표함' : open ? '열림' : unannounced === day ? '닫음' : '아직 안 엶'}
         </span>
-        {!last && !counted && lagging === null && (
+        {!last && !counted && lagging === null && unannounced === null && (
           open ? (
-            <button className="sc-ad__danger" disabled={busy} onClick={() => void run('투표 닫기 · 집계', () => act.hostCloseBallot())}>
+            <button className="sc-ad__danger" disabled={busy} onClick={() => void run('투표 닫기', () => act.hostCloseBallot())}>
               투표 닫기
             </button>
           ) : (
@@ -92,7 +118,7 @@ export function BallotDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
             </button>
           )
         )}
-        {/* 투표를 열기 전에 정산을 넘겨 0 장으로 세어 버린 날 — 되돌리고 다시 연다 */}
+        {/* 이미 발표한 오늘 투표를 되돌리고 다시 연다 — 전에 정산이 0 장으로 세어 버린 날 같은 때 */}
         {!last && counted && (
           <button
             disabled={busy}

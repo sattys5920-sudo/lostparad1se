@@ -153,7 +153,7 @@ async function main(): Promise<void> {
   const rows = await getAll(`games/${GAME}/secret/ballots/items`)
   check(rows.filter((r) => r.d.voterId === A[0].uid).length === 1, '두 장이 되지 않는다', `${rows.length}장`)
 
-  console.log('\n── 하루가 끝나면 그 자리에서 한 명이 정해진다 ──')
+  console.log('\n── 닫고 발표하면 그 자리에서 한 명이 정해진다 ──')
   // B0 에게 두 표, C0 에게 한 표 — 갈리지 않게
   await must('castBallot', A[1].token, { gameId: GAME, targetId: B[0].uid })
   await must('castBallot', C[0].token, { gameId: GAME, targetId: B[1].uid })
@@ -163,10 +163,17 @@ async function main(): Promise<void> {
   await land(11)
   await must('closePhase', host, { gameId: GAME })
   check((await gameNow()).invisibleId == null, '교시를 닫는 것만으로는 안 정해진다', String((await gameNow()).invisibleId))
+  // **닫기는 표만 그만 받는다.** 세고 알리는 것은 「결과 발표」 때다
+  await must('hostCloseBallot', host, { gameId: GAME })
+  const late = await call('castBallot', A[2].token, { gameId: GAME, targetId: B[0].uid })
+  check(late.code === 'FAILED_PRECONDITION', '닫은 뒤에는 더 못 적는다', String(late.message))
+  check((await gameNow()).invisibleId == null, '**닫기만으로는 안 정해진다** — 발표 전이다', String((await gameNow()).invisibleId))
   const pushed = await must('pushDay', host, { gameId: GAME })
   check((pushed.pushed as { kind?: string } | null)?.kind === 'settlement', '달력을 넘기면 그날 정산이다', JSON.stringify(pushed.pushed))
-  const late = await call('castBallot', A[2].token, { gameId: GAME, targetId: B[0].uid })
-  check(late.code === 'FAILED_PRECONDITION', '센 뒤에는 더 못 적는다', String(late.message))
+  check((await gameNow()).invisibleId == null, '**정산도 표를 세지 않는다**', String((await gameNow()).invisibleId))
+  await must('hostAnnounceBallot', host, { gameId: GAME })
+  const twice = await call('hostAnnounceBallot', host, { gameId: GAME })
+  check(twice.code === 'FAILED_PRECONDITION', '같은 날을 두 번 발표하지 않는다', String(twice.message))
   const g0 = await gameNow()
   check((g0.invisibleByDay as Record<string, string | null> | undefined)?.['2'] === B[0].uid, '내일 몫에도 적힌다', JSON.stringify(g0.invisibleByDay))
   // 다음 투표가 열릴 때까지가 전부다 — 발표되는 순간 바로 지워진다

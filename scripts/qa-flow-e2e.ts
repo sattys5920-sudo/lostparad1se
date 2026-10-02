@@ -6,8 +6,8 @@
 //
 //   1  페이즈가 열려도 아무도 안 옮긴다 — 선 자리에서 시작한다(returned: 0)
 //   2  endsAtMs 가 지나면 누가 두드리든(tick · 아무 행동) 그 시각으로 저절로 닫힌다
-//   3  투명인간 투표는 운영자가 열어야 적고(hostOpenBallot), 닫는 순간 센다(hostCloseBallot).
-//      안 닫고 날을 넘기면 정산이 센다
+//   3  투명인간 투표는 운영자가 열어야 적고(hostOpenBallot), 닫고(hostCloseBallot)
+//      「결과 발표」(hostAnnounceBallot)를 누를 때 센다. 정산은 세지 않는다
 //
 // 검사마다 걸린 시간(ms)을 같이 찍고, 끝에 느린 것부터 늘어놓는다.
 //
@@ -515,7 +515,8 @@ async function main(): Promise<void> {
     const wAt = atClose[walker.uid]
     const caps = await getAll(`games/${GAME}/captures`)
     const standingWalker = caps.filter((c) => ((c.d.standing as string[]) ?? []).includes(walker.uid)).map((c) => c.id)
-    check(wAt.tileId === null, '닫히는 순간 걷던 사람은 어느 방에도 없다(tileId null)', spot(wAt))
+    // **닫히는 순간 걷던 사람은 바로 도착한다**(catchup.arriveNow) — 판정 뒤라 땅에는 안 센다
+    check(wAt.tileId === walkerTo && wAt.at !== null && roomOfCell(wAt.at.x, wAt.at.y) === walkerTo, '닫히는 순간 걷던 사람은 가던 방에 바로 도착한다', spot(wAt))
     check(standingWalker.length === 0 && !JSON.stringify(((log.d?.lines as { kind: string }[]) ?? []).filter((l) => l.kind === 'captured')).includes(walker.uid), '닫힐 때 방 머릿수(captures.standing) · phaseLog 어디에도 걷던 사람이 없다', `captures ${caps.length}건`)
     check(caps.every((c) => Number(c.d.atMs) === endsAt), `판정(captures)의 시각이 모두 endsAtMs 다`, `${caps.length}건`)
 
@@ -534,11 +535,11 @@ async function main(): Promise<void> {
     const again = await call('closePhase', host, { gameId: GAME })
     check(again.ok && again.data?.alreadyClosed === true, '이미 저절로 닫힌 뒤 운영자의 closePhase 는 alreadyClosed:true 로 답한다(오류 아님)', JSON.stringify(again.data))
 
-    // 걷던 사람은 자유 시간에 도착한다
+    // 원래 도착 시각을 지나도 다시 도착하지 않는다 — 예약은 닫힐 때 이미 썼다
     await clock(endsAt + (MOVE_MINUTES + 1) * M)
     await must('tick', host, { gameId: GAME })
     const wNow = (await pawnsNow())[walker.uid]
-    check(wNow.tileId === walkerTo && wNow.at !== null && roomOfCell(wNow.at.x, wNow.at.y) === walkerTo, '시계를 도착 뒤로 밀면 자유 시간에 도착한다', spot(wNow))
+    check(wNow.tileId === walkerTo && wNow.at !== null && roomOfCell(wNow.at.x, wNow.at.y) === walkerTo, '원래 도착 시각이 지나도 그 방 그대로다', spot(wNow))
     const stillClosed = ((await gameNow()).phaseNow ?? {}) as { open?: boolean }
     check(stillClosed.open === false, '도착해도 페이즈는 닫힌 채다', JSON.stringify(stillClosed))
   }
@@ -574,6 +575,7 @@ async function main(): Promise<void> {
     check(v0.d?.myBallot === T1.uid, '본인 화면에는 제가 적은 한 줄이 온다', String(v0.d?.myBallot))
 
     const closed = await must('hostCloseBallot', host, { gameId: GAME })
+    await must('hostAnnounceBallot', host, { gameId: GAME })
     const d1 = await getDoc(`games/${GAME}/secret/ballotDays/items/d1`)
     const g = await gameNow()
     const byDay = (g.invisibleByDay as Record<string, string | null>) ?? {}
@@ -604,6 +606,7 @@ async function main(): Promise<void> {
     const outs = await Promise.all(people.map((p) => call('castBallot', p.token, { gameId: GAME, targetId: p.uid === X.uid ? T1.uid : X.uid })))
     check(outs.every((o) => o.ok), `열넷이 적는다 — 열셋이 봇${X.i}(X) 를`, outs.filter((o) => !o.ok).map((o) => o.message).join(' · ') || '14/14')
     const closed = await must('hostCloseBallot', host, { gameId: GAME })
+    await must('hostAnnounceBallot', host, { gameId: GAME })
     const d2 = await getDoc(`games/${GAME}/secret/ballotDays/items/d2`)
     const gAfter = await gameNow()
     const byDay = (gAfter.invisibleByDay as Record<string, string | null>) ?? {}
@@ -663,7 +666,7 @@ async function main(): Promise<void> {
   }
 
   // ════════════════════════════════════════════════════════════════
-  head('투표 — 운영자가 안 닫으면 정산이 센다 (DAY 3 → 4)')
+  head('투표 — 날을 넘긴 뒤에 닫고 발표한다 (DAY 3 → 4)')
   {
     const Z = T1
     await must('hostOpenBallot', host, { gameId: GAME })
@@ -678,17 +681,24 @@ async function main(): Promise<void> {
     check(open3.open === true && open3.day === 3, '안 닫은 채로 둔다', JSON.stringify(open3))
 
     const s5 = await must('pushDay', host, { gameId: GAME })
+    const d3a = await getDoc(`games/${GAME}/secret/ballotDays/items/d3`)
+    check((s5.pushed as { kind: string })?.kind === 'settlement' && d3a.status !== 200 && ((await gameNow()).ballot as { open: boolean }).open === true, '**정산은 표를 세지 않는다** — 투표는 열린 채다', `${JSON.stringify(s5.pushed)} d3=${d3a.status}`)
+    const s6 = await must('pushDay', host, { gameId: GAME })
+    check((s6.pushed as { kind: string })?.kind === 'dayStart' && (await gameNow()).day === 4, 'DAY 4 아침을 넘겼다 — 아직 발표 전이다', JSON.stringify(s6.pushed))
+    // DAY 4 는 마지막 날이라 어차피 투표가 없다 — 여는 것이 막히기만 하면 된다
+    const early = await call('hostOpenBallot', host, { gameId: GAME })
+    check(!early.ok, 'DAY 3 투표가 열린 채로 새 투표는 못 연다', String(early.message))
+    await must('hostCloseBallot', host, { gameId: GAME })
+    check((await gameNow()).invisibleId == null, '닫기만으로는 안 정해진다 — 아직 아무도 아니다', String((await gameNow()).invisibleId))
+    await must('hostAnnounceBallot', host, { gameId: GAME })
     const g = await gameNow()
     const d3 = await getDoc(`games/${GAME}/secret/ballotDays/items/d3`)
     const byDay = (g.invisibleByDay as Record<string, string | null>) ?? {}
-    check((s5.pushed as { kind: string })?.kind === 'settlement' && d3.status === 200 && d3.d?.invisibleId === Z.uid, '정산을 넘기면 그때 센다 — ballotDays/d3 = Z', `${JSON.stringify(s5.pushed)} ${JSON.stringify(d3.d)}`)
-    check((g.ballot as { open: boolean }).open === false, '세고 나면 ballot.open 이 거짓이다', JSON.stringify(g.ballot))
+    check(d3.status === 200 && d3.d?.invisibleId === Z.uid, '발표하면 그때 센다 — ballotDays/d3 = Z', JSON.stringify(d3.d))
+    check((g.ballot as { open: boolean }).open === false, 'ballot.open 이 거짓이다', JSON.stringify(g.ballot))
     check(byDay['4'] === Z.uid, 'invisibleByDay[4] === Z', JSON.stringify(byDay))
-    check(g.invisibleId === Z.uid, '정산이 세면 그 자리에서 Z 가 지워진다', `invisibleId=${g.invisibleId === Z.uid ? 'Z' : g.invisibleId === X.uid ? 'X' : String(g.invisibleId)}`)
-
-    const s6 = await must('pushDay', host, { gameId: GAME })
-    const g4 = await gameNow()
-    check((s6.pushed as { kind: string })?.kind === 'dayStart' && g4.day === 4 && g4.invisibleId === Z.uid && g4.invisibleId !== X.uid, 'DAY 4 — 지워진 사람이 X 에서 Z 로 바뀌었다', `day=${g4.day} invisibleId=${g4.invisibleId === Z.uid ? 'Z' : String(g4.invisibleId)}`)
+    const g4 = g
+    check(g4.day === 4 && g4.invisibleId === Z.uid && g4.invisibleId !== X.uid, 'DAY 4 — 발표하는 순간 지워진 사람이 X 에서 Z 로 바뀌었다', `day=${g4.day} invisibleId=${g4.invisibleId === Z.uid ? 'Z' : String(g4.invisibleId)}`)
     await clock(dayHourMs(START, 4, 10))
     // X 가 다시 움직인다
     await goTo(X, rooms4[1])

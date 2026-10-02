@@ -26,7 +26,6 @@ import type {
   TileDoc,
   VoteDoc,
 } from '../../shared/model'
-import { announceBallots } from './ballot'
 import { gameRef, nowOf } from './index'
 import { qaLogOf } from './qaLog'
 import { claimSeat, pickSeat, takenFrom } from './seat'
@@ -152,8 +151,8 @@ async function settlement(c: Ctx): Promise<void> {
 
   const result = settleDay({
     scores,
-    // 투명인간은 전용 투표로 정한다(ballot.ts). 이 정산을 손으로 넘긴
-    // 직후 pushByHand 가 announceBallots 로 센다
+    // 투명인간은 전용 투표로 정한다(ballot.ts). 운영자가 「결과 발표」를
+    // 누를 때 센다(ballotGate.hostAnnounceBallot) — 정산과는 따로다
     ballots: [],
     // 이틀 연속은 없다
     yesterdayInvisibleId: c.game.invisibleByDay[c.day] ?? null,
@@ -511,10 +510,9 @@ export async function pushByHand(gameId: string): Promise<HandResult> {
   const payload = docs.get(item.id) as ScheduleDoc
   const landed: Ctx['landed'] = []
   const did = await applyItem(gameId, item, payload, landed)
-  // 그날 정산을 넘기면 투명인간 표를 센다. 하루에 몇 교시를 열든 상관없다
-  if (did && item.kind === 'settlement') {
-    await announceBallots(gameId, (payload.payload?.day as number) ?? game.day)
-  }
+  // **정산은 투명인간 표를 세지 않는다.** 운영자가 「결과 발표」를 누를 때 센다
+  // (ballotGate.hostAnnounceBallot). 전에는 여기서 셌는데, 투표를 열기도 전에
+  // 정산을 넘겨 그날 표가 0 장으로 끝난 일이 있었다
   // **자정 판정.** 날이 넘어갔거나 판이 끝났으면 어제(마지막 날)까지 판정해 굳힌다
   if (did && (item.kind === 'dayStart' || item.kind === 'gameEnd')) await catchUpMissionDays(gameId)
 

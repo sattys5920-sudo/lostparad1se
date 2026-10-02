@@ -171,6 +171,7 @@ async function main(): Promise<void> {
   await must('castBallot', me.token, { gameId: GAME, targetId: other.uid })
   await must('castBallot', mate.token, { gameId: GAME, targetId: other.uid })
   await must('hostCloseBallot', host, { gameId: GAME })
+  await must('hostAnnounceBallot', host, { gameId: GAME })
   await setClock(dayHourMs(START, 1, 20))
   await must('tick', other.token, { gameId: GAME })
   const before = await getAll(`games/${GAME}/schedule`)

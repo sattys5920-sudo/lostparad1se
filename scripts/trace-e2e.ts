@@ -237,6 +237,7 @@ async function main(): Promise<void> {
 
   // 닫는 순간 센다
   await must('hostCloseBallot', host, { gameId: GAME })
+  await must('hostAnnounceBallot', host, { gameId: GAME })
   const days = await docsIn('secret/ballotDays/items')
   check(days.length >= 1, '그날 결과가 한 장 남았다', `${days.length}장`)
   // 표를 적은 날의 줄을 본다 — 앞선 날(표 없이 넘긴 날)의 줄도 남아 있다
