@@ -16,6 +16,7 @@ import { KNOWLEDGE_PER_QUIZ, QUIZ_MIN_BANK, canDropQuizAt } from '../shared/rule
 import { stepToward } from '../shared/rules/occupy'
 import { HALLS, TILE_BY_ID, roomOfCell, type TileId } from '../shared/rules/board'
 import { FIXTURE_CELLS, isFixture } from '../shared/rules/fixtures'
+import { insideCell, isInside, takenOf } from './lib/inside'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -107,7 +108,8 @@ async function standFar(token: string, room: TileId, c: Cell): Promise<void> {
       if (Math.abs(x - c.x) <= 1 && Math.abs(y - c.y) <= 1) continue
       if (isFixture(x, y)) continue
       const out = await call('standAt', token, { gameId: GAME, x, y })
-      if (!out.code) return
+      // 「누가 서 있다」 같은 거절은 던지지 않고 ok:false 로 온다 — 그것도 못 선 것이다
+      if (!out.code && (out.data as { ok?: boolean } | undefined)?.ok !== false) return
     }
   throw new Error(`${room} 에 멀리 설 자리가 없다`)
 }
@@ -244,6 +246,12 @@ async function main(): Promise<void> {
       await must('roamTo', p.token, { gameId: GAME, tileId: next })
     }
     check((await pawnsNow())[p.uid].tileId === goal, `${goal} 에 닿았다`, `${here} → ${(await pawnsNow())[p.uid].tileId}`)
+    // 앞에서 연 교시 때문에 문 앞 복도에 서 있을 수 있다 — 방 안으로 다시 선다
+    const all = await pawnsNow()
+    if (!isInside(goal, all[p.uid].at as never)) {
+      const c = insideCell(goal, takenOf(all as never))
+      if (c) await must('standAt', p.token, { gameId: GAME, x: c.x, y: c.y })
+    }
   }
   const onFloorView = (await viewOf(A[0].uid)).quizzesHere as { id: string; x: number; y: number }[]
   const seen = onFloorView.find((q) => q.id === target.id)

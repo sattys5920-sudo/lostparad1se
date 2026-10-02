@@ -251,6 +251,8 @@ async function main() {
   check((await bagOf(game, meUid)).lock === locks0, '못 건 자물쇠는 그대로 있다', JSON.stringify(await bagOf(game, meUid)))
 
   await must('openPhase', host, { gameId: game })
+  // 교시가 열리면 모두 문 앞 복도로 나온다 — 매점 안에 다시 세운다(들어간 것으로 친다)
+  await standBy(game, meUid, dropCellsIn(MART_TILE)[0])
   const locked = await must('useItem', meTok, { gameId: game, kind: 'lock' })
   check(String(locked.said ?? '').includes('매점'), '점령전에는 선 방 문을 잠근다', String(locked.said))
   check((await bagOf(game, meUid)).lock === locks0 - 1, '**건 자물쇠는 없어진다** — 소모품이다', JSON.stringify(await bagOf(game, meUid)))

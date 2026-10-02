@@ -291,6 +291,8 @@ async function main(): Promise<void> {
   // 아니라 「로봇이 나면 한 줄 남는가」다
   // **연구 기계 옆에 서야 건다.** 기술실·연구실에 기계가 생기면서
   // 방에 서 있는 것만으로는 안 된다 — 자리(at)까지 놓는다
+  // 교시를 먼저 연다 — 열리는 순간 모두 문 앞 복도로 나오므로, 연 다음에 세운다
+  await must('openPhase', host, { gameId: GAME })
   await put(A[1].uid, { tileId: LAB_TILE, postTile: LAB_TILE, path: [], arriveAtMs: null, fromTile: null })
   await fetch(`${FS}/games/${GAME}/pawns/${A[1].uid}?updateMask.fieldPaths=at`, {
     method: 'PATCH',
@@ -326,7 +328,6 @@ async function main(): Promise<void> {
       },
     }),
   })
-  await must('openPhase', host, { gameId: GAME })
   const acted = await call('phaseAct', A[1].token, { gameId: GAME, kind: 'research' })
   check(acted.ok, '연구를 걸었다', acted.ok ? '' : `${acted.code} ${acted.message}`)
   /*

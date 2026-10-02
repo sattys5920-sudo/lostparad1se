@@ -93,8 +93,9 @@ async function main() {
       at: { mapValue: { fields: { x: int(inRoom.x), y: int(inRoom.y) } } },
       busyUntilMs: str(null), busyKind: str(null),
     })
-  await put()
+  // 교시가 열리면 모두 복도로 나온다 — 연 다음에 방 안에 다시 세운다
   await must('openPhase', host, { gameId: game })
+  await put()
   console.log(`판 ${game}`)
 
   console.log('\n── 방에서 복도로 나서기 ──')

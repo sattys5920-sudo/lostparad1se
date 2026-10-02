@@ -139,6 +139,18 @@ async function main(): Promise<void> {
    * 지식은 **팀 금고에** 준다(teams/{team}.resources). 사람 문서에
    * 넣으면 openPhase 가 옛 지갑으로 보고 금고에 더해 버린다.
    */
+  const backToMachine = async () => {
+    for (const u of [uMe, uFoe]) {
+      await put(`games/${GAME}/pawns/${u}`, { tileId: str(lab.id) })
+      await fetch(`${FS}/games/${GAME}/pawns/${u}?updateMask.fieldPaths=at`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...ADMIN },
+        body: JSON.stringify({ fields: {
+          at: { mapValue: { fields: { x: { integerValue: String(LAB_MACHINES[0].x - 1) }, y: { integerValue: String(LAB_MACHINES[0].y) } } } },
+        } }),
+      })
+    }
+  }
   for (const u of [uMe, uFoe]) {
     await put(`games/${GAME}/pawns/${u}`, { tileId: str(lab.id), postTile: str(lab.id) })
     await fetch(`${FS}/games/${GAME}/pawns/${u}?updateMask.fieldPaths=at`, {
@@ -161,6 +173,8 @@ async function main(): Promise<void> {
   await call('setDevClock', host, { gameId: GAME, anchorGameMs: dayHourMs(START, 1, 10), speed: 1 })
   await call('tick', host, { gameId: GAME })
   await call('openPhase', host, { gameId: GAME })
+  // 교시가 열리면 모두 복도로 나온다 — 둘을 연구 기계 옆에 다시 세운다(들어간 것으로 친다)
+  await backToMachine()
 
   console.log(`\n── 걸어도 바로는 안 나온다 (${ACT_MINUTES.research}분) ──`)
   const before = await robotsOf('A')
@@ -223,7 +237,7 @@ async function main(): Promise<void> {
   console.log('\n── 안 익은 채로 닫히면 그냥 끝 ──')
   // 앞에서 닫았다. 페이즈를 새로 연다
   await call('openPhase', host, { gameId: GAME })
-  await put(`games/${GAME}/pawns/${uMe}`, { tileId: str(lab.id) })
+  await backToMachine()
   const kBefore = (await vault(uMe)).knowledge
   await call('phaseAct', tkMe, { gameId: GAME, kind: 'research' })
   const kPaid = (await vault(uMe)).knowledge

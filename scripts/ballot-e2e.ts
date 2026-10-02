@@ -13,6 +13,7 @@ import { dayHourMs } from '../shared/rules/clock'
 import { stepToward } from '../shared/rules/occupy'
 import { roomOfCell } from '../shared/rules/board'
 import { canSeatAt } from '../shared/rules/seat'
+import { dropCellsIn } from '../shared/rules/quiz'
 
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
@@ -206,6 +207,20 @@ async function main(): Promise<void> {
 
   // 신뢰·호감표는 **옆 칸**에만 준다(cellsTouch). 같은 방만으로는 안 된다 —
   // B0 를 A0 바로 옆 빈 칸에 세워야 투명인간 규칙 자체를 본다
+  /*
+   * **교시가 열리면 모두 복도로 나온다.** 앞에서 연 교시 때문에 A0 가 문 앞
+   * 복도에 서 있을 수 있다 — 자유 시간이니 걸어서 방 안 빈 칸에 다시 선다
+   */
+  {
+    const was = await pawnsNow()
+    const aWas = was[A[0].uid].at as { x: number; y: number } | null
+    if (!aWas || roomOfCell(aWas.x, aWas.y) !== where) {
+      const used = new Set(Object.values(was).filter((p) => p.tileId !== null && p.at).map((p) => `${(p.at as { x: number }).x},${(p.at as { y: number }).y}`))
+      const spot = dropCellsIn(where as never).find((c) => canSeatAt(c.x, c.y) && !used.has(`${c.x},${c.y}`) &&
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => roomOfCell(c.x + dx, c.y + dy) === where && canSeatAt(c.x + dx, c.y + dy) && !used.has(`${c.x + dx},${c.y + dy}`)))
+      if (spot) await must('standAt', A[0].token, { gameId: GAME, x: spot.x, y: spot.y })
+    }
+  }
   const now = await pawnsNow()
   const aAt = now[A[0].uid].at as { x: number; y: number }
   const taken = new Set(

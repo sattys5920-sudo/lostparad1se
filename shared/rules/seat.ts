@@ -100,3 +100,14 @@ export function nearestOpenHall(from: Cell, taken: ReadonlySet<string>, reach = 
   }
   return null
 }
+
+/**
+ * 복도에서 가까운 빈 칸 — **문 앞 길은 비워 둔다.** 종이 칠 때 한 방 사람을
+ * 모두 문 밖으로 내보내면 문 바로 앞 칸부터 차서, 다시 들어가려는 사람이
+ * 그 칸에 막힌다. 길 밖에 빈 칸이 없을 때만 길 위에 세운다(seatNear 와 같다).
+ */
+export function nearestOpenHallOffLane(from: Cell, taken: ReadonlySet<string>, reach = HALL_STEP_ASIDE_REACH): Cell | null {
+  const off = new Set(taken)
+  for (const k of LANE) off.add(k)
+  return nearestOpenHall(from, off, reach) ?? nearestOpenHall(from, taken, reach)
+}

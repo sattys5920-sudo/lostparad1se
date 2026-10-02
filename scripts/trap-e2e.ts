@@ -80,6 +80,7 @@ async function must(name: string, tk: string, data: unknown): Promise<Record<str
 const GAME = `tp${Date.now()}`
 const START = Date.UTC(2026, 2, 1, 23, 0, 0)
 
+import { placeInside } from './lib/inside'
 import { MAKERS, TECH_TILE, TRAP_COIN_COST, TRAP_MAKE_MINUTES, SNARE_MINUTES } from '../shared/rules/trap'
 import { isHallCell } from '../shared/rules/board'
 import { isBlockedCell } from '../shared/rules/blocked'
@@ -123,6 +124,8 @@ async function putIn(uid: string, tile: string): Promise<void> {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...ADMIN },
     body: JSON.stringify({ fields: { tileId: { stringValue: tile }, postTile: { stringValue: tile } } }),
   })
+  // 교시가 열리면 모두 문 앞 복도로 나온다 — 자리까지 방 안 빈 칸에 놓는다(들어간 것으로 친다)
+  await placeInside(FS, ADMIN, GAME, [uid], tile)
 }
 
 async function main(): Promise<void> {
@@ -164,7 +167,7 @@ async function main(): Promise<void> {
 
   console.log(`\n── 페이즈: ${TRAP_COIN_COST}코인으로 1개 ──`)
   await must('openPhase', host, { gameId: GAME })
-  // 종이 치면 전선으로 옮겨진다. 다시 기술실 제조기 옆에 세운다
+  // 종이 치면 문 앞 복도로 나온다. 다시 기술실 안(들어간 것으로 친다), 제조기 옆에 세운다
   await putIn(A[0].uid, TECH_TILE)
   await stand(A[0].token, { x: m0.x + 1, y: m0.y })
   await fund(A[0].uid, TRAP_COIN_COST - 1)

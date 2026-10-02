@@ -12,6 +12,7 @@ import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { VENDINGS } from '../shared/rules/shop'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
+import { isHallCell, roomOfCell } from '../shared/rules/board'
 import { ACT_COST, MOVE_MINUTES, ROOM_KIND, TOKENS_PER_PHASE, capacityOf, nextWallet, stepToward } from '../shared/rules/occupy'
 import { FLAGS_PER_PHASE, FLAG_PRICE, FLAG_STOCK_PER_DAY } from '../shared/rules/flag'
 
@@ -235,6 +236,10 @@ async function main(): Promise<void> {
   check(now.tileId === 'labRoom', '멀리 있던 사람이 **그 자리에서** 시작한다', String(now.tileId))
   check(now.postTile === 'labRoom', '전선이 지금 선 방으로 맞춰진다', String(now.postTile))
   check(now.arriveAtMs === null, '걷는 중이 아니다', String(now.arriveAtMs))
+  {
+    const at = now.at as { x: number; y: number } | null
+    check(!!at && isHallCell(at.x, at.y) && roomOfCell(at.x, at.y) === null, '**그 방 문 앞 복도에서** 시작한다 — 방 안이 아니다', JSON.stringify(at))
+  }
   /*
    * 도서관까지 **방을 옮겨** 간 a0 하나만 끌려 온다.
    *
@@ -443,13 +448,18 @@ async function main(): Promise<void> {
    */
   const walkTo = async (who: { uid: string; token: string }, goal: string) => {
     for (let i = 0; i < 8; i++) {
-      const here = (await pawnsNow())[who.uid].tileId as string | null
-      if (here === goal) return
+      const me = (await pawnsNow())[who.uid]
+      const here = me.tileId as string | null
+      // **문 앞 복도에 서 있으면 아직 들어간 것이 아니다.** 종이 치면 모두
+      // 복도에서 시작한다 — 그 방이면 다시 들어간다
+      const at = me.at as { x: number; y: number } | null | undefined
+      const outside = !!at && roomOfCell(at.x, at.y) !== here
+      if (here === goal && !outside) return
       if (here === null) {
         await tickOn(MOVE_MINUTES)
         continue
       }
-      const next = stepToward(here, goal)
+      const next = here === goal ? goal : stepToward(here, goal)
       if (!next) return
       const r = await call('phaseAct', who.token, { gameId: GAME, kind: 'move', targetTile: next })
       if (!r.ok) return
@@ -508,6 +518,9 @@ async function main(): Promise<void> {
 
   console.log('\n── 깃발을 더 꽂으면 가져간다 ──')
   await openWide()
+  // 종이 치면 둘 다 문 앞 복도로 나온다 — 다시 들어가서 꽂는다
+  await walkTo(B[0], 'artRoom')
+  await walkTo(B[1], 'artRoom')
   const b1 = await call('phaseAct', B[0].token, { gameId: GAME, kind: 'plant' })
   const b2 = await call('phaseAct', B[1].token, { gameId: GAME, kind: 'plant' })
   check(b1.ok && b2.ok, '**남의 분단 방에도 꽂는다**', `${b1.message ?? ''} ${b2.message ?? ''}`)
@@ -523,6 +536,9 @@ async function main(): Promise<void> {
   console.log('\n── 뽑으려면 서로 다른 두 사람이 손대야 한다 ──')
   // 미술실: B 가 깃발 둘을 새로 꽂는다. A 둘이 가서 B 깃발 하나를 뽑는다
   await openWide()
+  // 종이 치면 모두 문 앞 복도로 나온다 — B 둘도 다시 들어가서 꽂는다
+  await walkTo(B[0], 'artRoom')
+  await walkTo(B[1], 'artRoom')
   await must('phaseAct', B[0].token, { gameId: GAME, kind: 'plant' })
   await must('phaseAct', B[1].token, { gameId: GAME, kind: 'plant' })
   await walkTo(A[1], 'artRoom')

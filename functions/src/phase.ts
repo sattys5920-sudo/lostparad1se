@@ -69,7 +69,7 @@ import { note } from './records'
 import { gameRef, nowOf, requireUid } from './index'
 import { requireHost } from './host'
 import { notify } from './notify'
-import { cellsOf, claimSeat, pickSeat, pushOutOverflow, seatPawn, takenFrom } from './seat'
+import { cellsOf, claimSeat, pickSeat, pushEveryoneOut, seatPawn, takenFrom } from './seat'
 import { checkInvariants } from './invariants'
 import { inTx } from './contended'
 import { logEvent, logSecret } from './qaLog'
@@ -336,12 +336,9 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
   const batch = db.batch()
 
   /*
-   * **페이즈는 지금 서 있는 그 자리에서 시작한다.** 되돌아가는 이동은 없다.
-   *
-   * 전에는 「직전 페이즈가 끝난 자리」로 옮겨 세웠다. 자유 시간에 어디까지
-   * 갔든 종이 치면 제자리였는데, 그 규칙을 지웠다 — 자유 시간이 페이즈가
-   * 끝난 자리에서 이어지듯, 페이즈도 자유 시간이 끝난 자리에서 이어진다.
-   * 걷는 중인 사람(tileId === null)은 걷던 대로 도착한다.
+   * **페이즈는 모두 복도에서 시작한다.** 방 안에 있던 사람은 그 방 문 앞
+   * 복도로, 걷던 사람은 가던 방 문 앞 복도로 나온다(pushEveryoneOut, 아래).
+   * 「직전 페이즈가 끝난 자리」로 되돌리는 이동은 여전히 없다.
    */
 
   // **이적은 자유 시간에만.** 묻고 답하던 중에 종이 치면 그 제안은 없던
@@ -439,20 +436,20 @@ export const openPhase = onCall<{ gameId: string }>(async (req) => {
 
   await batch.commit()
   /*
-   * 칸이 없는 사람만 세운다(칸을 나눠 주기 전에 시작한 판). 복도에 선 사람도
-   * 방 안 사람도 **그 자리 그대로다** — 다만 정원을 넘은 방은 늦게 들어온
-   * 사람부터 문 앞 복도로 내보낸다(자유 시간에는 정원이 없었다)
+   * 칸이 없는 사람만 먼저 세운다(칸을 나눠 주기 전에 시작한 판). 그다음
+   * **모두 복도로 내보낸다** — 방 안 사람은 그 방 문 앞, 걷던 사람은 가던 방
+   * 문 앞. 미리 들어가 있던 사람이 토큰 없이 시작하는 일이 없다
    */
   for (const d of pawns.docs) {
     const p = d.data() as PawnDoc
     if (p.tileId && !p.at) await seatPawn(gameId, d.id, p.tileId as TileId, nowMs)
   }
-  const pushedOut = await pushOutOverflow(gameId, nowMs)
+  const pushedOut = await pushEveryoneOut(gameId, nowMs)
   // 열넷 모두에게 — 결과는 없다, 열렸다는 것뿐
   await notify(gameId, everyone, 'phaseStart', `phaseStart:${no}`)
   // 이적은 answerTransfer 가 그 자리에서 teamMoved 를 남긴다 — 여기서는 안 짚는다
   // 복도로 내보낸 사람은 그 방 체류를 닫는다 — 복도에 선 시간은 방에 있은 시간이 아니다(standAt 과 같다)
-  for (const o of pushedOut) await openInterval(gameId, o.playerId, null, nowMs, 'walking')
+  for (const o of pushedOut) if (!o.walking) await openInterval(gameId, o.playerId, null, nowMs, 'walking')
   await refreshViews(gameId)
   await logEvent(gameId, 'phaseOpen', nowMs, null, { no, day, endsAtMs, returned, pushedOut }, { day })
   // allInAtMs 는 남겨 둔다 — 이제는 늘 지금이다. 아무도 걷지 않는다

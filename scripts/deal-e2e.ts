@@ -13,7 +13,8 @@
 //   npx vite-node scripts/deal-e2e.ts
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
-import { ADJACENCY } from '../shared/rules/board'
+import { ADJACENCY, isHallCell } from '../shared/rules/board'
+import { canSeatAt } from '../shared/rules/seat'
 import { dayHourMs } from '../shared/rules/clock'
 import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
 import { stepToward } from '../shared/rules/occupy'
@@ -316,6 +317,29 @@ async function main(): Promise<void> {
     await stand(you.token, seats.yours.x, seats.yours.y)
     return seats
   }
+  /** 복도에서 둘을 옆 칸에 세운다 — 페이즈 중에는 모두 복도에서 시작한다 */
+  const hallSideBySide = async () => {
+    const all = await pawnsNow()
+    const from = all[me.uid].at as { x: number; y: number }
+    const free = (x: number, y: number, who: string) =>
+      isHallCell(x, y) && canSeatAt(x, y) && !Object.entries(all).some(([id, p]) => {
+        const at = p.at as { x: number; y: number } | null | undefined
+        return id !== who && id !== me.uid && id !== you.uid && p.tileId !== null && at?.x === x && at?.y === y
+      })
+    for (let d = 0; d <= 8; d++) {
+      for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) {
+        const c = { x: from.x + dx, y: from.y + dy }
+        if (!free(c.x, c.y, me.uid) || !free(c.x + 1, c.y, you.uid)) continue
+        let far: { x: number; y: number } | null = null
+        for (let k = 4; k <= 10 && !far; k++) for (const [fx, fy] of [[k, 0], [-k, 0], [0, k], [0, -k]]) if (!far && free(c.x + fx, c.y + fy, you.uid)) far = { x: c.x + fx, y: c.y + fy }
+        if (!far) continue
+        await stand(me.token, c.x, c.y)
+        await stand(you.token, c.x + 1, c.y)
+        return { mine: c, yours: { x: c.x + 1, y: c.y }, far }
+      }
+    }
+    throw new Error('복도에 둘이 나란히 설 빈 칸이 없다')
+  }
   const room = await face()
   check((await pawnsNow())[you.uid].tileId === room, '둘이 같은 방에 섰다', room)
 
@@ -401,26 +425,25 @@ async function main(): Promise<void> {
   )
 
   /*
-   * **페이즈가 열렸다고 탁자가 접히지는 않는다.**
+   * **페이즈가 열리면 탁자는 접힌다 — 자리가 갈리기 때문이다.**
    *
-   * 전에는 페이즈가 열리는 것만으로 살아 있는 거래가 전부 사라졌다.
-   * 마주 선 둘이 물건을 주고받는 일은 점령과 같이 일어나도 이상하지
-   * 않다 — 접히는 것은 자리를 잃을 때뿐이다.
-   *
-   * 페이즈가 열리면 다들 전선으로 옮겨 세워지므로 대개는 갈라진다.
-   * 여기서는 손으로 나란히 세워 두고, 그래도 살아 있는지를 본다.
+   * 페이즈 자체가 거래를 닫지는 않는다. 다만 종이 치면 모두 각자 방 문 앞
+   * 복도로 나오므로 마주 서 있던 둘이 갈라지고, 갈라지면 접힌다. 올린 것은
+   * 선언일 뿐이라 돌아올 것도 없다. 복도에서 다시 마주 서면 새로 연다.
    */
   await face()
   id = await open()
   await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1 } })
   await must('openPhase', host, { gameId: GAME })
-
-  // roamTo 는 페이즈 중에 안 된다. 손으로 나란히 세운다
-  const mineNow = (await pawnsNow())[me.uid].tileId as string
-  // 전선으로 옮겨 세워진 사람들이 있다 — 빈 칸을 새로 고른다
-  const r2 = await standSideBySide(mineNow)
   await must('tick', me.token, { gameId: GAME })
-  check(String((await dealNow(id)).status) === 'open', '페이즈가 열려도 탁자는 그대로다')
+  check(String((await dealNow(id)).status) === 'gone', '페이즈가 열리면 모두 복도로 나와 갈라지니 탁자가 접힌다', String((await dealNow(id)).status))
+
+  // roamTo 는 페이즈 중에 안 되고, 방 안으로는 토큰을 써야 들어간다 — 복도에서 나란히 선다
+  const r2 = await hallSideBySide()
+  id = await open()
+  await must('stakeDeal', me.token, { gameId: GAME, dealId: id, stake: { money: 1 } })
+  await must('tick', me.token, { gameId: GAME })
+  check(String((await dealNow(id)).status) === 'open', '복도에서 마주 서면 페이즈 중에도 탁자가 열린다')
   check(
     Number(((await dealNow(id)) as { a: { stake: { money: number } } }).a.stake.money) === 1,
     '올려 둔 것도 그대로다',

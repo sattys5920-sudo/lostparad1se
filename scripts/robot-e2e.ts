@@ -14,6 +14,7 @@ import { dayHourMs } from '../shared/rules/clock'
 import { DEAL_COUNTDOWN_MS } from '../shared/rules/deal'
 import { TILE_BY_ID, roomOfCell } from '../shared/rules/board'
 import { canSeatAt } from '../shared/rules/seat'
+import { placeInside } from './lib/inside'
 const PROJECT = 'demo-goei'
 const FN = `http://127.0.0.1:5001/${PROJECT}/asia-northeast3`
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1'
@@ -120,6 +121,9 @@ async function main() {
 
   console.log('\n── 페이즈 — 놓기 ──')
   await must('openPhase', host, { gameId: GAME })
+  // 교시가 열리면 모두 문 앞 복도로 나온다 — 넷을 방 안에 다시 세운다(들어간 것으로 친다)
+  await placeInside(FS, ADMIN, GAME, [a0.uid, a1.uid, b0.uid, b1.uid], ROOM)
+  await must('tick', host, { gameId: GAME })
   let vb = await viewOf(b0.uid)
   check(!(vb.visibleRobots ?? []).some((r: any) => r.id === 'bot-r1'), '남이 든 로봇은 내 화면에 안 온다', JSON.stringify(vb.visibleRobots))
   let va = await viewOf(a0.uid)

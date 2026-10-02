@@ -140,6 +140,21 @@ describe('토큰이 한 페이즈의 전부다', () => {
 })
 
 describe('움직임', () => {
+  it('문 앞 복도로 나온 사람은 같은 방에 다시 들어간다 — 토큰 1, 우리 방이면 0', () => {
+    const out = { ...person('a', 'A', 'storage'), inHall: true }
+    const s = board({ people: [out] })
+    const back = doAct(s, 'a', { kind: 'move', targetTile: 'storage' })
+    expect(back.ok).toBe(true)
+    if (!back.ok) return
+    expect(back.spent).toBe(ENTER_COST)
+    expect(at(arrive(back.next, 'a'), 'a').tileId).toBe('storage')
+    const own = doAct(board({ people: [out], owners: { storage: 'A' } }), 'a', { kind: 'move', targetTile: 'storage' })
+    expect(own.ok && own.spent).toBe(0)
+    // 방 안에 있으면 여전히 「이미 그 방이다」
+    const inside = doAct(board({ people: [person('a', 'A', 'storage')] }), 'a', { kind: 'move', targetTile: 'storage' })
+    expect(inside.ok).toBe(false)
+  })
+
 
   it('층을 넘어도 한 걸음이다 — 계단은 문이라 셈에 안 든다', () => {
     // 2층 교실에서 1층 연구실까지. 사이에 계단이 둘 있지만 칸이 아니다

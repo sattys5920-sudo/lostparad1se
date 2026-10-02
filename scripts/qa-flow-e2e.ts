@@ -15,7 +15,8 @@
 import { STARTING_TEAM_SIZES, type TeamId } from '../shared/rules/v2'
 import { TOTAL_SEATS } from '../shared/rules/lobby'
 import { dayHourMs } from '../shared/rules/clock'
-import { ADJACENCY, START_TILE, TILE_IDS, canRoamTo, roomOfCell, type Cell, type TileId } from '../shared/rules/board'
+import { ADJACENCY, START_TILE, TILE_IDS, canRoamTo, isHallCell, roomOfCell, type Cell, type TileId } from '../shared/rules/board'
+import { placeInside } from './lib/inside'
 import { dropCellsIn } from '../shared/rules/quiz'
 import { START_CELLS, isBlockedCell } from '../shared/rules/blocked'
 import { isFixture } from '../shared/rules/fixtures'
@@ -437,7 +438,14 @@ async function main(): Promise<void> {
     atOpen = await pawnsNow()
     const moved = people.filter((p) => spot(before[p.uid]) !== spot(atOpen[p.uid])).map((p) => `봇${p.i} ${spot(before[p.uid])}→${spot(atOpen[p.uid])}`)
     check(Number(opened.returned) === 0, 'openPhase 가 아무도 안 옮긴다 — returned 0', `${opened.returned}`)
-    check(moved.length === 0, '열넷의 tileId · at 이 열기 전과 똑같다', moved.join(' · ') || '14/14 같다')
+    void moved
+    // **모두 복도에서 시작한다.** 방(tileId)은 그대로, 자리(at)는 그 방 문 앞 복도다
+    const sameRoom = people.filter((p) => before[p.uid].tileId !== atOpen[p.uid].tileId).map((p) => `봇${p.i}`)
+    check(sameRoom.length === 0, '열넷의 방(tileId)은 열기 전과 같다', sameRoom.join(' ') || '14/14 같다')
+    const notOut = people.filter((p) => { const a = atOpen[p.uid].at; return !a || roomOfCell(a.x, a.y) !== null || !isHallCell(a.x, a.y) }).map((p) => `봇${p.i} ${spot(atOpen[p.uid])}`)
+    check(notOut.length === 0, '열넷 모두 문 앞 복도에 섰다', notOut.join(' · ') || '14/14 복도')
+    const outKeys = people.map((p) => spot(atOpen[p.uid]))
+    check(new Set(outKeys).size === outKeys.length, '복도에서도 한 칸에 한 사람')
     // 배속 1 이라 setDevClock 과 openPhase 사이에도 게임 시계가 실제로 흐른다 — 몇 초 안이면 같은 시각으로 친다
     const drift = Number(opened.endsAtMs) - (T0 + 60 * M)
     check(drift >= 0 && drift < 10_000, '끝나는 시각이 한 시간 뒤다(호출 사이에 흐른 몇 초까지)', `${(Number(opened.endsAtMs) - T0) / M}분 (+${drift}ms)`)
@@ -464,6 +472,8 @@ async function main(): Promise<void> {
     check(step.ok && step.data?.walking === true, `phaseAct move ${here}→${to} 가 된다(걷기 시작)`, step.ok ? JSON.stringify(step.data) : `${step.code} ${step.message}`)
     check(tokensAfter === tokensBefore - ACT_COST.move, `팀 ${mover.team} 상자에서 토큰 ${ACT_COST.move}개가 빠진다`, `${tokensBefore} → ${tokensAfter}`)
     const pRoom = atOpen[planter.uid].tileId as TileId
+    // 꽂으려면 방 안이어야 한다 — 시험 준비로 바로 들여 세운다(입장 자체는 위 move 가 본다)
+    await placeInside(FS, ADMIN, GAME, [planter.uid], pRoom)
     const plant = await call('phaseAct', planter.token, { gameId: GAME, kind: 'plant' })
     const flags = ((await getDoc(`games/${GAME}/secret/flags`)).d?.tiles as Record<string, Record<string, number>> | undefined) ?? {}
     check(plant.ok && flags[pRoom]?.[planter.team] === 1, `phaseAct plant 가 ${pRoom} 에 ${planter.team} 깃발 하나를 꽂는다`, plant.ok ? JSON.stringify(flags[pRoom]) : `${plant.code} ${plant.message}`)
@@ -489,8 +499,10 @@ async function main(): Promise<void> {
     walkerTo = await nextRoomOf(from, true)
     const w = await call('phaseAct', walker.token, { gameId: GAME, kind: 'move', targetTile: walkerTo })
     const wp = (await pawnsNow())[walker.uid]
-    const lateBy = Number(wp.arriveAtMs) - (endsAt + (MOVE_MINUTES - 2) * M)
-    check(w.ok && wp.tileId === null && lateBy >= 0 && lateBy < 10_000, `끝나기 2분 전에 걷기 시작 — 도착은 끝난 뒤(${MOVE_MINUTES - 2}분 뒤)`, w.ok ? `${from}→${walkerTo} arrive=+${(Number(wp.arriveAtMs) - endsAt) / M}분` : `${w.code} ${w.message}`)
+    // 복도에서 나서면 들어서는 5 분, 방 안에서 곧장 가면 10 분 — 서버가 돌려준 값으로 잰다
+    const mins = Number(w.data?.minutes ?? MOVE_MINUTES)
+    const lateBy = Number(wp.arriveAtMs) - (endsAt + (mins - 2) * M)
+    check(w.ok && wp.tileId === null && mins > 2 && lateBy >= 0 && lateBy < 10_000, `끝나기 2분 전에 걷기 시작 — 도착은 끝난 뒤(${mins - 2}분 뒤)`, w.ok ? `${from}→${walkerTo} arrive=+${(Number(wp.arriveAtMs) - endsAt) / M}분` : `${w.code} ${w.message}`)
 
     await clock(endsAt + 1000)
     const ticked = await call('tick', P(10).token, { gameId: GAME })
@@ -513,9 +525,9 @@ async function main(): Promise<void> {
 
     // 닫힌 뒤: 걷던 사람 말고는 그 자리, 자유 시간 걸음이 된다
     const changed = people
-      .filter((p) => p.uid !== walker.uid && p.uid !== mover.uid && spot(atOpen[p.uid]) !== spot(atClose[p.uid]))
+      .filter((p) => p.uid !== walker.uid && p.uid !== mover.uid && p.uid !== planter.uid && spot(atOpen[p.uid]) !== spot(atClose[p.uid]))
       .map((p) => `봇${p.i} ${spot(atOpen[p.uid])}→${spot(atClose[p.uid])}`)
-    check(changed.length === 0, '닫힌 직후 자리가 그대로다(걸어간 둘 말고)', changed.join(' · ') || '12/12 같다')
+    check(changed.length === 0, '닫힌 직후 자리가 그대로다(걸어간 둘 · 들여 세운 하나 말고)', changed.join(' · ') || '11/11 같다')
     check(spot(atClose[offline.uid]) === spot(atOpen[offline.uid]), 'offline 사람은 페이즈 내내 그 자리였다', spot(atClose[offline.uid]))
     const roamBack = await call('roamTo', P(2).token, { gameId: GAME, tileId: START_TILE })
     check(roamBack.ok, '닫힌 직후 roamTo 가 다시 된다 — 자유 시간', roamBack.ok ? String(roamBack.data?.tileId) : `${roamBack.code} ${roamBack.message}`)

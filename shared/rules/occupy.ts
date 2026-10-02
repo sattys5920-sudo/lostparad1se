@@ -612,7 +612,11 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     if (p.tileId === to && !p.inHall) return '이미 그 방이다.'
     // **복도로 닿으면 간다.** 자유 시간과 같은 문을 쓴다 — 다른 것은
     // 값뿐이다. 층을 넘으려면 계단을 한 번 들르니 문이 둘, 토큰도 둘
-    if (!canRoamTo(p.tileId, to)) return '거기까지는 복도가 안 이어진다.'
+    // **문 앞 복도에서 그 방으로 다시 들어가는 것은 문 하나다.** 방에서 방으로
+    // 잇는 길(canRoamTo)은 같은 방을 안 잇는다 — 그걸 물으면 복도로 나온 사람이
+    // 제 방에 영영 못 들어간다. 종이 치면 모두 복도에서 시작하므로 늘 있는 일이다
+    const reentry = p.inHall === true && p.tileId === to
+    if (!reentry && !canRoamTo(p.tileId, to)) return '거기까지는 복도가 안 이어진다.'
     // **자물쇠는 걸음을 막는다.** 부르는 것도 걸음이라, 잠긴 방으로는
     // 불려 들어가지도 않는다 — 막는 자리를 여기 하나로 둔 값이다
     const lockedBy = state.locks?.[to] ?? null

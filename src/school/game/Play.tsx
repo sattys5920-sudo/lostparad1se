@@ -1841,8 +1841,6 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                 no={phaseNo}
                 endsAtMs={phaseEndsAtMs}
                 nowMs={nowMs}
-                post={(state.view?.myPost ?? null) as TileId | null}
-                standing={standingOn}
               />
               <span className="sc-pl__me">
                 {/* 팀은 완장 색으로 먼저 읽힌다. **글자도 같이 둔다** —
@@ -2633,24 +2631,17 @@ function PhaseClock({
   no,
   endsAtMs,
   nowMs,
-  post,
-  standing,
 }: {
   open: boolean
   no: number
   endsAtMs: number | null
   /** 게임 속 지금. 실제 시각이 아니다 — 판마다 시계가 따로 돈다 */
   nowMs: number
-  /** 종이 치면 돌아갈 자리. 지난 페이즈가 끝날 때 서 있던 방이다. */
-  post: TileId | null
-  /** 지금 서 있는 방. 거기가 곧 전선이면 굳이 안 알려 준다. */
-  standing: TileId | null
 }) {
   if (!open || endsAtMs == null) {
-    // **어디까지 가도 된다는 것을 여기서 알려 준다.** 종이 치면
-    // 서버가 전선으로 옮겨 세우니, 돌아올 길을 계산할 필요가 없다
-    const back = post && post !== standing ? ` · 종이 치면 ${TILE_BY_ID[post].name}` : ''
-    return <span className="sc-pl__clock">자유 시간{back}</span>
+    // 종이 쳐도 어느 방으로 되돌아가지 않는다 — 모두 복도에서 시작한다.
+    // 「종이 치면 ○○」 같은 안내는 틀린 말이라 안 붙인다
+    return <span className="sc-pl__clock">자유 시간</span>
   }
   const left = Math.max(0, endsAtMs - nowMs)
   const mm = Math.floor(left / 60000)
