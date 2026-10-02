@@ -495,6 +495,8 @@ const FOOT_PX = CHAR_PX * (6 / 32)
 
 /** 막혔다는 말을 다시 띄우기까지. 벽에 대고 밀어도 도배하지 않는다 */
 const BLOCKED_SAY_MS = 1500
+/** 알린 칸이 서버에 안 비치면 이만큼 기다렸다 한 번 더 알린다 — 서버가 비추는 묶음(1.5 초)보다 넉넉히 */
+const RESEND_AFTER_MS = 4000
 
 export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -632,6 +634,12 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     let leavingRoom = false
     /** 복도에서 서버가 아는 그 방으로 도로 들어섰다 — 점령전이면 값을 치르러 간다 */
     let reentering = false
+    /**
+     * **마지막으로 밟은 복도 칸.** 문을 넘다 거절당하면 여기로 물러선다 — 들어선
+     * 방 안 칸에 그대로 두면, 서버가 아는 방(마지막 방)과 어긋나서 아래 맞추기가
+     * 그 방 안으로 순간이동시켰다(복도에 있던 사람이 엉뚱한 방에 들어가졌다)
+     */
+    let lastHall: { x: number; y: number } | null = null
     /**
      * 옮겨 세웠다(도로 서기 · 제자리 · 서버가 정한 칸). **실시간 자리를 한 번 더
      * 적는다.** 안 적으면 남의 화면에는 거절당한 칸에 선 채로 남는다 — 멈춘
@@ -1180,8 +1188,13 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
     let lastServerTile: TileId | null = null
     /** 지난 프레임에 서버가 나를 걷는 중(tileId null)으로 알고 있었다 */
     let serverWasWalking = false
-    /** 걷다가 방이 아니라 복도에 세워졌다 — 멈추는 대로 그 칸에 선다 */
-    let landedHall: { x: number; y: number } | null = null
+    /**
+     * 걷기가 끝나 서버가 세운 칸 — 들어간 방 안의 빈 칸이든, 꽉 차서(또는 종이
+     * 쳐서) 세워진 문 앞 복도든. 멈추는 대로 그 칸에 선다
+     */
+    let landed: { x: number; y: number } | null = null
+    /** 걷는 중에 화면을 열었으면 가던 방 문턱에 한 번 세웠다 */
+    let walkPlaced = false
     /** 마지막으로 따른 서버의 거절. n 이 바뀔 때만 한 번 선다 */
     let lastBounce = bounceRef.current?.n ?? 0
     /** 서버가 세운 첫 칸을 따랐는가 */
@@ -1269,17 +1282,35 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // false 로 되돌아간다
       let skipCatchUp = false
       /*
-       * **꽉 찬 방이라 못 들어갔다.** 서버가 문 앞 복도에 세웠다. 방이 바뀐 것만
-       * 보고 그 방 안으로 세우면 복도에 선 서버와 어긋난다 — 서버 칸을 따른다
+       * **걷는 중에 화면을 열었다.** 서버는 걷는 사람의 칸을 안 알려 준다 — 그대로
+       * 두면 처음 자리(우리 분단 교실)에 선 채로 몇 분을 기다린다. 걸어서 넘었을 때
+       * 서 있었을 자리, 가던 방 문턱에 세운다. 도착하면 아래에서 서버 칸으로 간다
+       */
+      if (!walkPlaced && pawn?.walking && !self.moving) {
+        walkPlaced = true
+        const to = asRoom(pawn.toTile)
+        if (to && !adopted) {
+          const door = entryCellOf(to)
+          standAt(door.x, door.y)
+          told = `${door.x},${door.y}`
+          adopted = true
+        }
+      }
+      /*
+       * **걷기가 끝나면 서버가 세운 칸에 선다.** 들어간 방 안의 빈 칸이든, 꽉 찬
+       * 방이라 못 들어가 세워진 문 앞 복도든, 걷는 사이 종이 쳐서 세워진 복도든.
+       * 방이 바뀐 것만 보고 맞추면 문턱에 선 채로 남아 서버 칸과 한 칸 어긋나고
+       * (남의 화면 · 「바로 옆」 판정은 서버 칸이다), 복도에 세워졌으면 방 안으로
+       * 끌려 들어간다
        */
       const hallAt = pawn?.at && roomAt(pawn.at.x, pawn.at.y) === null ? pawn.at : null
-      if (serverWasWalking && pawn && pawn.tileId !== null) landedHall = hallAt
+      if (serverWasWalking && pawn && pawn.tileId !== null) landed = pawn.at ?? null
       serverWasWalking = !!pawn && pawn.tileId === null
-      if (serverTile && landedHall && !self.moving) {
-        const hallAt = landedHall
-        landedHall = null
-        standAt(hallAt.x, hallAt.y)
-        told = `${hallAt.x},${hallAt.y}`
+      if (serverTile && landed && !self.moving) {
+        const at = landed
+        landed = null
+        standAt(at.x, at.y)
+        told = `${at.x},${at.y}`
         autoPath = []
         walked.length = 0
         lastServerTile = serverTile
@@ -1287,9 +1318,13 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         skipCatchUp = true
       }
       /*
-       * **페이즈가 열리며 정원이 넘쳐 복도로 내보내졌다.** 방은 그대로인데
-       * 서버 칸만 문 앞 복도로 바뀐다. 내가 방 안에 멈춰 서 있고, 그 칸이 최근에
-       * 내가 밟은 칸이 아니면(뒤늦게 온 내 걸음이 아니면) 서버 칸을 따른다
+       * **종이 쳐서 복도로 내보내졌다.** 방은 그대로인데 서버 칸만 문 앞 복도로
+       * 바뀐다. 내가 방 안에 있고, 그 칸이 최근에 내가 밟은 칸이 아니면(뒤늦게 온
+       * 내 걸음이 아니면) 서버 칸을 따른다.
+       *
+       * **걷던 중이어도 따른다.** 전에는 멈춰 서 있을 때만 따랐다 — 방 안을 걷던
+       * 사람은 화면만 방 안에 남았다가, 멈추는 순간 「방에 들어가려면 토큰을 쓴다」
+       * 며 튕겨 나갔다
        */
       const stoodKey = `${self.tx},${self.ty}`
       if (stoodLately[stoodLately.length - 1]?.key !== stoodKey) stoodLately.push({ key: stoodKey, ms: now })
@@ -1303,14 +1338,13 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           hallAt &&
           serverTile &&
           serverTile === lastServerTile &&
-          !self.moving &&
-          autoPath.length === 0 &&
           !asked &&
           roomAt(self.tx, self.ty) !== null &&
           !stoodLately.some((x) => x.key === atKey)
         ) {
           standAt(hallAt.x, hallAt.y)
           told = atKey
+          autoPath = []
           walked.length = 0
           skipCatchUp = true
         }
@@ -1517,6 +1551,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         reentering =
           reenterRef.current && wasRoom === null && room !== null && !!serverAt && roomAt(serverAt.x, serverAt.y) === null
       }
+      if (tileAt(self.tx, self.ty) === 'hall') lastHall = { x: self.tx, y: self.ty }
       // 문턱 칸은 복도가 아니라 서버가 안 받는다 — 복도 칸을 처음 밟을 때 보낸다
       if (leavingRoom && room === null && serverTile !== null && tileAt(self.tx, self.ty) === 'hall') {
         leavingRoom = false
@@ -1535,6 +1570,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         asked = true
         askedAtMs = performance.now()
         const back = { x: self.tx, y: self.ty }
+        // 거절당하면 물러설 복도 칸. 복도를 거쳐 오지 않았으면(계단참 등) 들어선 칸이다
+        const retreat = lastHall ?? back
         const said = crossRef.current(room, back)
         // 거절당하면 그 자리에서 푼다. 안 그러면 한 번 막힌 뒤로
         // 영영 못 움직인다.
@@ -1549,9 +1586,15 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           void said.then((ok) => {
             if (ok === false) {
               asked = false
+              /*
+               * **들어서려던 방 밖, 마지막 복도 칸으로 물러선다.** 전에는 들어선 칸에
+               * 그대로 섰다 — 서버는 나를 복도(마지막 방)에 두고 있으니, 다음
+               * 프레임의 맞추기가 「방이 어긋났다」며 마지막 방 안으로 순간이동시켰다.
+               * 다음 프레임이 방에서 복도로 나선 것으로 보고 이 칸을 서버에 알린다
+               */
               if (self.tx === back.x && self.ty === back.y && !self.moving && autoPath.length === 0) {
                 autoPath = []
-                standAt(back.x, back.y)
+                standAt(retreat.x, retreat.y)
               }
               return
             }
@@ -2597,8 +2640,20 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      * 서버를 두드린다. 같은 칸을 두 번 보내지도 않는다.
      */
     let told = ''
+    /** 마지막으로 알린 때 */
+    let toldAtMs = 0
+    /** 한 번 더 알린 어긋남(내 칸|서버 칸). 같은 어긋남에는 다시 안 보낸다 */
+    let resent = ''
     const tellTimer = window.setInterval(() => {
       if (self.moving || autoPath.length > 0) return
+      /*
+       * **문을 넘는 대답을 기다리는 동안, 그리고 걷는 동안에는 안 적는다.**
+       * 방에 들어서면 그 칸에 멈추고, 들어가기(phaseAct)가 끝나기 전에 이 칸이
+       * 먼저 닿으면 서버는 「복도에서 방으로 그냥 들어왔다」고 보고 복도로 돌려
+       * 세운다 — 토큰을 내고 걷는 중인데 화면만 복도로 튕겨 나갔다. 걷는 동안에는
+       * 어차피 받지 않는다. 도착하면 서버가 세운 칸에 서고, 그다음부터 적는다
+       */
+      if (asked || walkingRef.current) return
       // **한 칸에 둘이 서 있으면 한쪽이 비킨다.** 둘이 동시에 들어오면
       // 서로의 자리를 모른 채 같은 칸을 고를 수 있다. 아이디가 뒤인
       // 쪽이 비킨다 — 둘 다 비키면 둘 다 계속 어긋난다
@@ -2618,8 +2673,23 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         }
       }
       const here = `${self.tx},${self.ty}`
-      if (here === told) return
+      if (here === told) {
+        /*
+         * **알린 칸과 서버 칸이 어긋난 채 굳었으면 한 번 더 알린다.** 걷다 서다를
+         * 빨리 하면 알림이 여럿 나가고, 서버에서 차례가 뒤바뀌면 앞서 보낸 칸이
+         * 나중에 적힌다 — 화면은 이미 알렸다고 보고 다시 안 보내서, 남의 화면과
+         * 「바로 옆」 판정에는 한 칸 옆 자리가 그대로 남았다. 서버 칸이 늦게
+         * 비치는 것(1.5 초 묶음)을 넉넉히 기다린 뒤, 같은 어긋남에는 한 번만
+         */
+        const srv = viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId)?.at ?? null
+        const off = srv ? `${here}|${srv.x},${srv.y}` : ''
+        const room = roomAt(self.tx, self.ty)?.id ?? null
+        const fits = tileAt(self.tx, self.ty) === 'hall' || (room !== null && room === asRoom(viewRef.current?.visiblePawns.find((p) => p.playerId === me.playerId)?.tileId))
+        if (!srv || `${srv.x},${srv.y}` === here || !fits || pinRef.current || off === resent || performance.now() - toldAtMs < RESEND_AFTER_MS) return
+        resent = off
+      }
       told = here
+      toldAtMs = performance.now()
       standRef.current(self.tx, self.ty, walked.splice(0))
     }, 500)
 
