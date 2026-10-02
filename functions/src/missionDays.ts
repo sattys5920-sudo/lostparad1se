@@ -148,6 +148,36 @@ export async function judgeMissionDay(
   return true
 }
 
+/**
+ * **이미 판정한 날을 같은 자로 다시 판정한다** — 결과(truth · view)만 바꾸고,
+ * 운영자가 뒤집은 것(override)과 보낸 시각(sentAtMs)은 그대로 둔다.
+ *
+ * 투명인간 결과를 날을 넘긴 뒤에 발표하면(ballotGate.hostAnnounceBallot), 그날
+ * 미션은 이미 발표 전 기록으로 판정돼 있다 — 뒷자리(「내가 적은 이름이 투명인간이
+ * 됨」)가 결과 없이 실패로 굳는다. 발표하는 자리에서 이것을 부른다. 그날을 아직
+ * 판정 안 했으면 아무 일도 없다. 다시 판정한 사람 수를 돌려준다
+ */
+export async function rejudgeMissionDay(gameId: string, day: number): Promise<number> {
+  const meta = (await missionDaysOf(gameId).doc(`d${day}`).get()).data() as MissionDayDoc | undefined
+  if (!meta) return 0
+  const game = (await gameRef(gameId).get()).data() as GameDoc
+  const { log, roster } = await buildLog(gameId, game, { over: true, fromMs: meta.fromMs, asOfMs: meta.asOfMs, throughDay: day })
+  const ctx = { final: meta.final, noBallot: !hasBallot(day) }
+  const crushTarget = await crushTargetFor(gameId, day)
+  const batch = db.batch()
+  let n = 0
+  for (const r of roster as RosterDoc[]) {
+    const roleId = canonRoleId(r.roleId)
+    if (!roleId) continue
+    const targetId = roleId === 'crush' ? crushTarget : (r.targetId ?? null)
+    const truth = dayVerdict(judge({ playerId: r.playerId, team: r.team, roleId, targetId }, log), ctx)
+    batch.set(missionSnapsOf(gameId).doc(snapId(day, r.playerId)), { truth, view: dayView(truth, meta.final) }, { merge: true })
+    n += 1
+  }
+  await batch.commit()
+  return n
+}
+
 /** 그날 밤을 어디서 자를까 — 다음 날을 실제로 넘긴 시각. 마지막 날은 판이 끝난 시각 */
 async function cutoffs(gameId: string): Promise<Map<string, number>> {
   const snap = await gameRef(gameId).collection('schedule').where('kind', 'in', ['dayStart', 'gameEnd']).get()

@@ -22,6 +22,7 @@ import type { GameDoc } from '../../shared/model'
 import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 
 import { announceBallots } from './ballot'
+import { rejudgeMissionDay } from './missionDays'
 import { requireHost } from './host'
 import { reseatIfShared } from './seat'
 import { refreshViews } from './views'
@@ -98,11 +99,14 @@ export const hostAnnounceBallot = onCall<{ gameId: string }>(async (req) => {
     throw new HttpsError('failed-precondition', `DAY ${b.day} 결과는 이미 발표했다.`)
   }
   await announceBallots(gameId, b.day)
+  // **그날 미션을 이미 판정했으면 다시 판정한다.** 날을 넘긴 뒤 발표하면 뒷자리가
+  // 발표 전 기록(결과 없음)으로 실패로 굳어 있다
+  const rejudged = await rejudgeMissionDay(gameId, b.day)
   // **새 투명인간은 그 순간 모두에게서 사라진다.** 다음에 누가 움직일
   // 때까지 views 를 그대로 두면 지워진 사람이 남의 화면에 그대로 서 있다
   await refreshViews(gameId)
   const after = (await gameRef(gameId).get()).data() as GameDoc
-  return { day: b.day, invisibleId: after.invisibleId ?? null }
+  return { day: b.day, invisibleId: after.invisibleId ?? null, rejudged }
 })
 
 /**
