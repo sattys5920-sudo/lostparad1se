@@ -40,6 +40,8 @@ export const hostOpenBallot = onCall<{ gameId: string }>(async (req) => {
     throw new HttpsError('failed-precondition', '오늘 표는 이미 셌다.')
   }
   if (game.ballot?.open && game.ballot.day === day) throw new HttpsError('failed-precondition', '이미 열려 있다.')
+  // **다른 날 투표가 아직 열려 있으면 먼저 닫는다.** 그대로 열면 그 표를 세지도 않고 덮어쓴다
+  if (game.ballot?.open) throw new HttpsError('failed-precondition', `DAY ${game.ballot.day} 투표가 아직 열려 있다. 먼저 닫는다.`)
   const nowMs = nowOf(game)
   const batch = db.batch()
   batch.update(gameRef(gameId), {
