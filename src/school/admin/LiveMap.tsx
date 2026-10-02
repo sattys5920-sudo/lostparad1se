@@ -673,7 +673,7 @@ export function LiveMap({
 
       {failed && <p className="sc-lvm__warn">다시 읽지 못했다 — {failed}</p>}
 
-      <TeamBoard teams={data.teams ?? []} people={people} onPerson={(id) => pickPerson(id, true)} />
+      <TeamBoard teams={data.teams ?? []} rooms={data.rooms} people={people} onPerson={(id) => pickPerson(id, true)} />
 
       {picked && <PersonCard p={picked} nowMs={data.nowMs} onRoom={(r) => setPane({ kind: 'room', room: r })} onClose={() => setPane(null)} />}
       {pane?.kind === 'room' && (
@@ -734,7 +734,17 @@ export function LiveMap({
  * 분단마다 한 줄 — 토큰 · 깃발 · 로봇 · 지식, 그 아래 사람마다 돈.
  * 3 초마다 지도와 같이 새로 읽는다(hostLiveMap). 이름을 누르면 지도에서 그 사람을 짚는다
  */
-function TeamBoard({ teams, people, onPerson }: { teams: TeamState[]; people: LivePerson[]; onPerson: (id: string) => void }) {
+function TeamBoard({
+  teams,
+  rooms,
+  people,
+  onPerson,
+}: {
+  teams: TeamState[]
+  rooms: Record<string, RoomState>
+  people: LivePerson[]
+  onPerson: (id: string) => void
+}) {
   if (teams.length === 0) return null
   return (
     <div className="sc-lvm__teams" aria-label="분단 현황">
@@ -742,6 +752,11 @@ function TeamBoard({ teams, people, onPerson }: { teams: TeamState[]; people: Li
         const t = teams.find((x) => x.team === id)
         if (!t) return null
         const members = people.filter((p) => p.team === id)
+        // **꽂은 깃발이 어느 방에 몇 개인가.** 위 「깃발 n 남음」은 아직 안 꽂고 가진 것이다
+        const planted = ROOM_ORDER.flatMap((r) => {
+          const n = rooms[r]?.flags?.[id] ?? 0
+          return n > 0 ? [`${TILE_BY_ID[r as TileId].name} ${n}`] : []
+        })
         return (
           <section key={id} className="sc-lvm__team" style={{ '--tm': TEAM_COLOR[id] } as CSSProperties}>
             <h3>
@@ -750,10 +765,13 @@ function TeamBoard({ teams, people, onPerson }: { teams: TeamState[]; people: Li
             </h3>
             <dl>
               <div><dt>토큰</dt><dd>{t.tokens}</dd></div>
-              <div><dt>깃발</dt><dd>{t.flags}{t.boughtFlags > 0 && <small> +산 {t.boughtFlags}</small>}</dd></div>
+              <div><dt>깃발</dt><dd>{t.flags}<small> 남음</small>{t.boughtFlags > 0 && <small> +산 {t.boughtFlags}</small>}</dd></div>
               <div><dt>로봇</dt><dd>{t.robotsPlaced}{t.robotsCarried > 0 && <small> +든 {t.robotsCarried}</small>}</dd></div>
               <div><dt>지식</dt><dd>{t.knowledge}</dd></div>
             </dl>
+            <p className="sc-lvm__planted">
+              <span>꽂은 깃발</span> {planted.length > 0 ? planted.join(' · ') : '없음'}
+            </p>
             <ul>
               {members.map((p) => (
                 <li key={p.playerId}>

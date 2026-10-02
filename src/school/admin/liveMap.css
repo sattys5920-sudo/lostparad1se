@@ -300,6 +300,8 @@
 .sc-lvm__team dt { font-size: var(--fs-cap); color: var(--sc-text-dim); }
 .sc-lvm__team dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .sc-lvm__team dd small { font-weight: 400; color: var(--sc-text-dim); font-size: var(--fs-cap); }
+.sc-lvm__planted { margin: 0; font-size: var(--fs-cap); line-height: 16px; color: var(--sc-text); word-break: keep-all; }
+.sc-lvm__planted span { color: var(--sc-text-dim); }
 .sc-lvm__team ul { list-style: none; margin: 0; padding: 4px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 2px; }
 .sc-lvm__team li { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1); font-size: var(--fs-cap); }
 .sc-lvm__team li b { font-variant-numeric: tabular-nums; }
