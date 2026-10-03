@@ -920,7 +920,7 @@ function EndingDesk({ act, onSaid }: { act: ReturnType<typeof gameActions>; onSa
     void load()
     // 본 인원을 실시간으로 보이려고 몇 초마다 되풀이해 부른다 —
     // 이 콜러블은 구독이 아니라서 다른 길이 없다
-    const t = setInterval(() => void load(), 4000)
+    const t = setInterval(() => void load(), 10_000)
     return () => clearInterval(t)
   }, [load])
 

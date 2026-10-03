@@ -125,9 +125,9 @@ interface ChatSum {
 }
 
 /** 지도를 다시 읽는 간격 · 말을 다시 읽는 간격 · 방마다 줄 수를 다시 세는 간격 */
-const MAP_MS = 3000
-const CHAT_MS = 2500
-const SUM_MS = 10_000
+const MAP_MS = 10_000
+const CHAT_MS = 10_000
+const SUM_MS = 30_000
 
 /** 넓히는 끝. 한 칸이 48px 이면 얼굴이 또렷하다 */
 const MAX_SCALE = 3
@@ -732,7 +732,7 @@ export function LiveMap({
 
 /**
  * 분단마다 한 줄 — 토큰 · 깃발 · 로봇 · 지식, 그 아래 사람마다 돈.
- * 3 초마다 지도와 같이 새로 읽는다(hostLiveMap). 이름을 누르면 지도에서 그 사람을 짚는다
+ * 10 초마다 지도와 같이 새로 읽는다(hostLiveMap). 이름을 누르면 지도에서 그 사람을 짚는다
  */
 function TeamBoard({
   teams,

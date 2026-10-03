@@ -32,8 +32,8 @@ interface Line {
 }
 
 /** 목록을 다시 읽는 간격 · 채널 안에서 새 줄을 받는 간격 */
-const LIST_MS = 5000
-const LIVE_MS = 2000
+const LIST_MS = 15_000
+const LIVE_MS = 6000
 
 const CHANNEL_NAME: Record<Channel, string> = { A: `${teamName('A')} 무전`, B: `${teamName('B')} 무전`, C: `${teamName('C')} 무전`, D: `${teamName('D')} 무전`, ALL: '전원 채널' }
 
