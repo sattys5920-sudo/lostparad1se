@@ -389,7 +389,8 @@ export function EventLog({
         <p className="sc-ad__hint">{busy ? '읽는 중이다.' : '기록이 없다.'}</p>
       ) : (
         <>
-          {truncated && (showAll || shown.length <= PAGE) && (
+          {/* 앞이 잘렸으면 늘 띄운다 — 「앞 n 줄 더」를 먼저 눌러야 보이면 못 찾는다 */}
+          {truncated && (
             <button className="sc-lg__more" disabled={busy} onClick={() => void loadOlder()}>
               이전 기록 더 불러오기
             </button>
