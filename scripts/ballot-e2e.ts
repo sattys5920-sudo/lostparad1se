@@ -303,6 +303,15 @@ async function main(): Promise<void> {
     '사유가 기록에 남는다',
   )
 
+  console.log('\n── 감독관이 되돌릴 수 있다 ──')
+  const restoreAsPlayer = await call('hostRestoreInvisible', A[0].token, { gameId: GAME })
+  check(!restoreAsPlayer.ok, '플레이어는 못 되돌린다', String(restoreAsPlayer.code))
+  const restored = await must('hostRestoreInvisible', host, { gameId: GAME })
+  check(restored.restored === B[0].uid && ((await gameNow()).invisibleId ?? null) === B[0].uid, '마지막 발표 결과대로 다시 투명인간이 된다', JSON.stringify(restored))
+  const twiceRestore = await call('hostRestoreInvisible', host, { gameId: GAME })
+  check(!twiceRestore.ok, '투명인간이 있으면 또 되돌리지 않는다', String(twiceRestore.message))
+  await must('clearInvisible', host, { gameId: GAME, reason: '시험 — 다시 푼다' })
+
   console.log('\n── 풀린 사람은 다음 투표에 다시 적는다 ──')
   await must('hostOpenBallot', host, { gameId: GAME })
   const target = people.find((p) => p.uid !== B[0].uid) as (typeof people)[number]

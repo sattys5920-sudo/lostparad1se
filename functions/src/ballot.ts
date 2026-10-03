@@ -203,10 +203,8 @@ export async function settleBallots(
   // 오고 더 가지 않는다 — 결과 한 줄 말고는 아무것도 안 나간다
   const picked = pickInvisible({
     counts: eraseFrom(countBallots(await ballotsOn(gameId, day)), await erasedOn(gameId, day)),
-    // **오늘 이미 지워진 사람.** 지금은 game.invisibleId 가 아니다 —
-    // hostOpenBallot 이 오늘 투표를 열 때 그 자리에서 이미 비워 뒀다.
-    // invisibleByDay[day] 는 그 값이 비워지기 전에 적힌, 오늘 내내
-    // 지워져 있던 사람이라 여기서는 이걸 본다
+    // **오늘 이미 지워진 사람.** game.invisibleId 는 감독관이 풀었으면
+    // 비어 있다 — invisibleByDay[day] 가 그날 지워져 있던 사람이다
     yesterdayId: game.invisibleByDay[day] ?? null,
   })
   const team = picked.playerId ? (game.seats.find((s) => s.playerId === picked.playerId)?.team ?? null) : null
@@ -215,8 +213,8 @@ export async function settleBallots(
   const nowMs = nowOf(game)
   const batch = db.batch()
   /*
-   * **그 자리에서 지운다.** 발표되는 순간부터 다음 투표가 열릴 때까지가
-   * 투명인간의 전부다 — hostOpenBallot 이 다음번에 비운다. 전에는
+   * **그 자리에서 지운다.** 발표되는 순간부터 다음 결과가 발표될 때까지가
+   * 투명인간이다 — 다음 발표가 이 자리를 덮어쓴다(투표를 열어도 안 풀린다). 전에는
    * 「다음 날 08:00부터」였다. 이제 08:00 은 자정과 같은 시각이 됐고
    * (DAY_START_HOUR=0), 그 경계에 매일 까닭도 없어서 발표 즉시로
    * 바꿨다. invisibleByDay 는 그대로 둔다 — 뒷자리가 날짜로 되짚는다

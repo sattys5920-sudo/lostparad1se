@@ -670,7 +670,7 @@ async function main(): Promise<void> {
   {
     const Z = T1
     await must('hostOpenBallot', host, { gameId: GAME })
-    check((await gameNow()).invisibleId == null, '투표가 열리면 X 가 풀린다')
+    check((await gameNow()).invisibleId === X.uid, '**투표를 열어도 X 는 그대로 투명인간이다** — 다음 발표까지', String((await gameNow()).invisibleId))
     const voters = people.filter((p) => p.uid !== Z.uid && p.uid !== X.uid).slice(0, 5)
     const outs = await Promise.all(voters.map((p) => call('castBallot', p.token, { gameId: GAME, targetId: Z.uid })))
     check(outs.every((o) => o.ok), `다섯이 봇${Z.i}(Z) 를 적는다`, outs.filter((o) => !o.ok).map((o) => o.message).join(' · ') || '5/5')
@@ -689,7 +689,7 @@ async function main(): Promise<void> {
     const early = await call('hostOpenBallot', host, { gameId: GAME })
     check(!early.ok, 'DAY 3 투표가 열린 채로 새 투표는 못 연다', String(early.message))
     await must('hostCloseBallot', host, { gameId: GAME })
-    check((await gameNow()).invisibleId == null, '닫기만으로는 안 정해진다 — 아직 아무도 아니다', String((await gameNow()).invisibleId))
+    check((await gameNow()).invisibleId === X.uid, '닫기만으로는 안 바뀐다 — 아직 X 그대로다', String((await gameNow()).invisibleId))
     await must('hostAnnounceBallot', host, { gameId: GAME })
     const g = await gameNow()
     const d3 = await getDoc(`games/${GAME}/secret/ballotDays/items/d3`)

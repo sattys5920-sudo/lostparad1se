@@ -1,8 +1,11 @@
 // 투명인간 투표의 문 — 운영자가 열고 닫는다.
 //
 //   열기   그날 투표를 받기 시작한다. 화면의 투표 탭이 이때 열린다.
-//          **지난 투명인간은 여기서 풀린다** — 발표부터 다음 투표가
-//          열릴 때까지가 투명인간의 전부다(settleBallots 가 지운다)
+//          **투표만 연다** — 지금 투명인간은 그대로다. 투명인간은 다음
+//          결과 발표로 새 사람이 정해지거나 감독관이 「투명 풀기」를 누를
+//          때까지다. 전에는 여기서 풀었는데, 하루 종일 투명인간을 두면서
+//          그날 투표를 열 수가 없었다
+//   되돌리기  잘못 풀린 투명인간을 마지막 발표 결과대로 다시 지운다
 //   닫기   표를 그만 받는다. **세지도 발표하지도 않는다**
 //   발표   그때 센다(settleBallots) — 최다 한 명이 그 자리에서 지워진다.
 //          동률이면 아무도 안 지워진다. 결과는 공지로 나간다
@@ -19,7 +22,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 import { TOTAL_DAYS } from '../../shared/rules/v2'
 import type { GameDoc } from '../../shared/model'
-import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
+import { ANNOUNCE_NOBODY, INVISIBLE_NOTICE, OLD_INVISIBLE_NOTICE, announceInvisible } from '../../shared/story/vote'
 
 import { announceBallots } from './ballot'
 import { rejudgeMissionDay } from './missionDays'
@@ -54,14 +57,10 @@ export const hostOpenBallot = onCall<{ gameId: string }>(async (req) => {
   const batch = db.batch()
   batch.update(gameRef(gameId), {
     ballot: { day, open: true, openedAtMs: nowMs },
-    // 지난 투명인간을 여기서 푼다. 다음 투표가 열렸으니 그 시간은 끝났다
-    invisibleId: null,
-    invisibleTeam: null,
+    // **지금 투명인간은 안 건드린다.** 투표만 연다
   })
   batch.set(gameRef(gameId).collection('events').doc(), { atMs: nowMs, day, kind: 'ballotOpen', detail: {} })
   await batch.commit()
-  // 투명인간은 칸을 차지하지 않았다 — 누가 그 칸에 섰으면 비켜 세운다
-  if (game.invisibleId) await reseatIfShared(gameId, game.invisibleId, nowMs)
   await refreshViews(gameId)
   return { day, open: true }
 })
@@ -99,6 +98,11 @@ export const hostAnnounceBallot = onCall<{ gameId: string }>(async (req) => {
     throw new HttpsError('failed-precondition', `DAY ${b.day} 결과는 이미 발표했다.`)
   }
   await announceBallots(gameId, b.day)
+  // **지난 투명인간은 새 결과로 바뀌는 이 순간 다시 보인다.** 투명인간은 칸을
+  // 차지하지 않았다 — 누가 그 칸에 섰으면 비켜 세운다
+  const was = game.invisibleId ?? null
+  const now = ((await gameRef(gameId).get()).data() as GameDoc).invisibleId ?? null
+  if (was && was !== now) await reseatIfShared(gameId, was, nowOf(game))
   // **그날 미션을 이미 판정했으면 다시 판정한다.** 날을 넘긴 뒤 발표하면 뒷자리가
   // 발표 전 기록(결과 없음)으로 실패로 굳어 있다
   const rejudged = await rejudgeMissionDay(gameId, b.day)
@@ -144,7 +148,7 @@ export const hostReopenBallot = onCall<{ gameId: string }>(async (req) => {
     const n = d.data() as { toPlayerId?: string | null; text?: string; atMs?: number }
     if (!near(n.atMs)) return false
     if ((n.toPlayerId ?? null) === null) return n.text === ANNOUNCE_NOBODY || (n.text ?? '').startsWith(announceInvisible(''))
-    return !!was.invisibleId && n.toPlayerId === was.invisibleId && n.text === INVISIBLE_NOTICE
+    return !!was.invisibleId && n.toPlayerId === was.invisibleId && (n.text === INVISIBLE_NOTICE || n.text === OLD_INVISIBLE_NOTICE)
   })
 
   const batch = db.batch()
@@ -152,13 +156,51 @@ export const hostReopenBallot = onCall<{ gameId: string }>(async (req) => {
   for (const d of stale) batch.delete(d.ref)
   batch.update(ref, {
     [`invisibleByDay.${day + 1}`]: FieldValue.delete(),
-    invisibleId: null,
-    invisibleTeam: null,
+    // 되돌리는 결과로 정해진 투명인간만 푼다 — 다른 날 결과로 남아 있는 사람은 그대로
+    ...(game.invisibleId && game.invisibleId === was.invisibleId ? { invisibleId: null, invisibleTeam: null } : {}),
     ballot: { day, open: true, openedAtMs: nowMs },
   })
   batch.set(ref.collection('events').doc(), { atMs: nowMs, day, kind: 'ballotOpen', detail: { reopened: true } })
   await batch.commit()
-  if (game.invisibleId) await reseatIfShared(gameId, game.invisibleId, nowMs)
+  if (game.invisibleId && game.invisibleId === was.invisibleId) await reseatIfShared(gameId, game.invisibleId, nowMs)
   await refreshViews(gameId)
   return { day, open: true, removedNotices: stale.length }
+})
+
+/**
+ * **투명인간 되돌리기.** 잘못 풀린 투명인간을 마지막으로 발표한 결과대로 다시
+ * 지운다 — 투표를 열면 풀리던 때 풀린 사람, 「투명 풀기」를 잘못 누른 사람.
+ *
+ * 마지막 결과(ballotDays 의 가장 늦은 날)에 사람이 있어야 한다. 지금 투명인간이
+ * 있으면 안 한다 — 둘이 될 수 없다. 본인에게는 처음 지워질 때와 같은 공지가 간다
+ */
+export const hostRestoreInvisible = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const ref = gameRef(gameId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', '그런 판이 없다.')
+  const game = snap.data() as GameDoc
+  if (game.phase !== 'running') throw new HttpsError('failed-precondition', '판이 돌고 있지 않다.')
+  if (game.invisibleId) throw new HttpsError('failed-precondition', '지금 투명인간이 있다. 먼저 푼다.')
+  const days = await ref.collection('secret').doc('ballotDays').collection('items').get()
+  const lastResult = days.docs
+    .map((d) => d.data() as { day: number; invisibleId?: string | null })
+    .sort((a, b) => b.day - a.day)[0]
+  if (!lastResult) throw new HttpsError('failed-precondition', '발표한 투표 결과가 없다.')
+  const who = lastResult.invisibleId ?? null
+  if (!who) throw new HttpsError('failed-precondition', `DAY ${lastResult.day} 발표에서는 아무도 안 뽑혔다.`)
+  const seat = game.seats.find((s) => s.playerId === who)
+  const nowMs = nowOf(game)
+  const batch = db.batch()
+  batch.update(ref, {
+    invisibleId: who,
+    invisibleTeam: seat?.team ?? null,
+    [`invisibleByDay.${lastResult.day + 1}`]: who,
+  })
+  batch.set(ref.collection('events').doc(), { atMs: nowMs, day: game.day, kind: 'invisibleRestored', playerId: who, detail: { fromDay: lastResult.day } })
+  batch.set(ref.collection('notices').doc(), { toPlayerId: who, text: INVISIBLE_NOTICE, atMs: nowMs })
+  await batch.commit()
+  await refreshViews(gameId)
+  return { restored: who, name: seat?.name ?? null, fromDay: lastResult.day }
 })

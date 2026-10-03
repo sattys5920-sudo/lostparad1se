@@ -184,6 +184,7 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
       return `심부름 시간 지남 · ${String(d.thing ?? '')} (${String(d.limitMin ?? '')} 분)${took ? ` · 받은 사람 ${took}` : ' · 받은 사람 없음'}${held ? ` · 들고 있던 사람 ${held}` : ''}`
     }
     case 'invisibleCleared': return `${who} 투명인간 해제 · ${short(d.reason, 60)}`
+    case 'invisibleRestored': return `${who} 투명인간 되돌림 · DAY ${String(d.fromDay ?? '')} 결과`
     // ── qaLog 가 새로 적는 것 ──
     case 'phaseOpen': return `페이즈 ${String(d.no ?? '')} 열림 · DAY ${String(d.day ?? e.day)}${d.returned !== undefined ? ` · 돌아옴 ${String(d.returned)} 명` : ''}`
     case 'phaseClose': return `페이즈 ${String(d.no ?? '')} 닫힘 · 점령 ${String(d.captured ?? 0)} · 줄 ${String(d.lines ?? 0)}`
