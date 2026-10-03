@@ -38,9 +38,9 @@ describe('이름 끼워 넣기', () => {
   })
 })
 
-describe('한 사람 앞으로 넉 장', () => {
-  it('열넷이면 쉰여섯 장이다', () => {
-    expect(SLIPS_PER_PERSON * 14).toBe(56)
+describe('한 사람 앞으로 다섯 장', () => {
+  it('열넷이면 일흔 장이다', () => {
+    expect(SLIPS_PER_PERSON * 14).toBe(70)
   })
 })
 

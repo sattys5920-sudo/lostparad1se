@@ -1,4 +1,4 @@
-// 쪽지 56장을 진짜 서버로.
+// 쪽지 70장을 진짜 서버로.
 //
 // 운영자가 방을 골라 뿌리고, 사람이 줍고 · 읽고 · 두고 · 찢는다. 확인할 것:
 //
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
 
   console.log('\n── 배포판 ──')
   const b0 = await board(host)
-  check(b0.notes.length === 56, '56장', `${b0.notes.length}`)
+  check(b0.notes.length === 70, '70장', `${b0.notes.length}`)
   check(b0.notes.every((n) => n.state === 'waiting'), '처음에는 전부 대기')
   check(b0.notes.every((n) => !n.text.includes('{이름}')), '운영자 전문에도 {이름}이 실제 이름으로 바뀌어 있다')
   const byPlayer = await call('hostSlipBoard', people[0].token, { gameId: GAME })
@@ -170,8 +170,8 @@ async function main(): Promise<void> {
   for (const n of today) perRole.set(n.roleKey, (perRole.get(n.roleKey) ?? 0) + 1)
   const doneIds = ((rand.done as { noteId: string }[]) ?? []).map((d) => d.noteId)
   check(Number(rand.scattered) === 6, '무작위 6장', String(rand.scattered))
-  // 1·2번은 첫날부터, 3·4번(그날)은 DAY 3부터다
-  check(doneIds.every((id) => /-s[12]-/.test(id)), '무작위는 DAY 3 전에 3·4번을 안 고른다', doneIds.join(','))
+  // 1·2번과 5번(미션)은 첫날부터, 3·4번(그날)은 DAY 3부터다
+  check(doneIds.every((id) => /-s[125]-/.test(id)), '무작위는 DAY 3 전에 3·4번을 안 고른다', doneIds.join(','))
   check(doneIds.every((id) => (perRole.get(SLIP_NOTES.find((x) => x.id === id)?.roleKey ?? '') ?? 0) === 1), '**무작위는 한 역할을 같은 날 두 장 안 만든다**')
   await setDay(3)
   const rand3 = await must('hostScatterRandom', host, { gameId: GAME, n: 14 })

@@ -513,7 +513,7 @@ async function main(): Promise<void> {
     const fragHits = fragmentNeedles.filter((f) => bundle.includes(f.line))
     check(fragHits.length === 0, '번들에 A 의 조각 문장이 없다', fragHits.map((f) => `DAY${f.day}`).join(' '))
     const slipHits = SLIP_NOTES.filter((n) => bundle.includes(n.text))
-    check(slipHits.length === 0, '번들에 쪽지 56장 문안이 없다', slipHits.map((n) => n.id).slice(0, 3).join(' '))
+    check(slipHits.length === 0, '번들에 쪽지 70장 문안이 없다', slipHits.map((n) => n.id).slice(0, 3).join(' '))
     const nameCount = Object.values(ROLE_NAMES).filter((n) => bundle.includes(n)).length
     console.log(`  · 역할 이름은 ${nameCount}/14 개가 번들에 있다 — 이름은 공개다(roleNames.ts)`)
   }

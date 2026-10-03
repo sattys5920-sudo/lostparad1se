@@ -1,4 +1,4 @@
-// 쪽지 56장 배포판 — 운영자 화면과 서버가 같이 쓰는 셈.
+// 쪽지 70장 배포판 — 운영자 화면과 서버가 같이 쓰는 셈.
 //
 // **문안은 여기 없다.** 문안은 서버 전용(functions/src/story/slipNotes.ts)이고,
 // 여기서는 번호 · 역할 · 짝 · 상태만 다룬다. 화면이 불러도 새는 것이 없다.
@@ -35,7 +35,7 @@ export interface BoardNote {
   /** 역할 번호(1~14). 목록 순서다 */
   no: number
   roleKey: RoleId
-  slot: 1 | 2 | 3 | 4
+  slot: 1 | 2 | 3 | 4 | 5
   kind: 'role' | 'name'
   state: SlipState
   /** 판에 나간 쪽지 문서의 번호. 회수할 때 쓴다. 대기면 null */
@@ -70,8 +70,11 @@ export function roleWarn(notes: readonly BoardNote[]): RoleWarn {
   return { solvable, crowdedDays }
 }
 
+/** 3~4번(그날)인가. 5번(미션)은 그날 것이 아니라 언제든 뿌린다 */
+export const isLateSlot = (slot: number): boolean => slot === 3 || slot === 4
+
 /** 3~4번(그날)을 이날 뿌리면 한 번 더 물어야 하는가 */
-export const needsEarlyConfirm = (slot: 1 | 2 | 3 | 4, day: number): boolean => slot >= 3 && day < LATE_FROM_DAY
+export const needsEarlyConfirm = (slot: 1 | 2 | 3 | 4 | 5, day: number): boolean => isLateSlot(slot) && day < LATE_FROM_DAY
 
 /**
  * 무작위로 n장 고른다. **서버가 부른다** — 화면이 고른 것을 믿지 않는다.
@@ -102,7 +105,7 @@ export function planScatter(input: {
   const today = new Map<RoleId, number>()
   for (const n of input.notes) if (n.placedDay === input.day) today.set(n.roleKey, (today.get(n.roleKey) ?? 0) + 1)
   const pool = shuffle(
-    input.notes.filter((n) => n.state === 'waiting' && (n.slot <= 2 || input.day >= LATE_FROM_DAY)),
+    input.notes.filter((n) => n.state === 'waiting' && (!isLateSlot(n.slot) || input.day >= LATE_FROM_DAY)),
   )
   const busy = new Set(input.notes.filter((n) => n.state === 'placed' && n.room).map((n) => n.room as TileId))
   const rooms = input.rooms ?? SCATTER_ROOMS

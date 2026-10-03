@@ -517,7 +517,7 @@ function Desk() {
             </section>
           </>
         : tab === 'slips' ?
-          /* ── 쪽지 56장. 역할마다 넉 장, 방을 골라 뿌린다 ── */
+          /* ── 쪽지 70장. 역할마다 다섯 장, 방을 골라 뿌린다 ── */
           <section className="sc-ad__sec">
             <h2>쪽지 배포</h2>
             <SlipDesk act={act} onSaid={setSaid} />

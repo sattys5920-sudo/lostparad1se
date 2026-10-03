@@ -1,13 +1,13 @@
-// 쪽지 56장 배포 — 운영자 화면의 「쪽지」 탭.
+// 쪽지 70장 배포 — 운영자 화면의 「쪽지」 탭.
 //
 // **서버가 판을 준다**(hostSlipBoard). 문안 전문도 거기서 온다 — 운영자
 // 몫이라 {이름}은 실제 이름으로 바뀌어 있다. 번들에는 문안이 없다.
 //
-//   한눈에   뿌림 n / 56 · 주움 · 찢김
+//   한눈에   뿌림 n / 70 · 주움 · 찢김
 //   경고     이름형과 역할형이 하나라도 같이 나갔으면 「완성 가능」 노란 점 ·
 //            같은 날 한 역할이 두 장 이상이면 「몰림」 · 3~4번을 DAY 3 전에
 //            뿌리면 한 번 더
-//   목록     역할 열넷을 접어 둔다. 펼치면 넉 장 — 번호 · 종류 · 문안 · 상태 · 위치 · 단추
+//   목록     역할 열넷을 접어 둔다. 펼치면 다섯 장 — 번호 · 종류 · 문안 · 상태 · 위치 · 단추
 //
 // 화면이 막는 것은 편의뿐이다. 뿌리기 · 회수 · 무작위는 서버가 다시 본다.
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -56,7 +56,7 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
   const [full, setFull] = useState<Set<string>>(new Set())
   const [where, setWhere] = useState<Record<string, string>>({})
   const [fRole, setFRole] = useState<RoleId | ''>('')
-  const [fSlot, setFSlot] = useState<'' | '1' | '2' | '3' | '4'>('')
+  const [fSlot, setFSlot] = useState<'' | '1' | '2' | '3' | '4' | '5'>('')
   const [fState, setFState] = useState<SlipState | ''>('')
   const [sort, setSort] = useState<Sort>('role')
   const [howMany, setHowMany] = useState(4)
@@ -196,12 +196,13 @@ export function SlipDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string
             </option>
           ))}
         </select>
-        <select aria-label="번호" value={fSlot} onChange={(e) => setFSlot(e.target.value as '' | '1' | '2' | '3' | '4')}>
+        <select aria-label="번호" value={fSlot} onChange={(e) => setFSlot(e.target.value as '' | '1' | '2' | '3' | '4' | '5')}>
           <option value="">번호 전부</option>
           <option value="1">1 번</option>
           <option value="2">2 번</option>
           <option value="3">3 번</option>
           <option value="4">4 번</option>
+          <option value="5">5 번(미션)</option>
         </select>
         <select aria-label="상태" value={fState} onChange={(e) => setFState(e.target.value as SlipState | '')}>
           <option value="">상태 전부</option>

@@ -1,13 +1,13 @@
-// 쪽지 56장 — 데이터가 문서와 같고, 퍼즐이 한 장으로 풀리지 않는가.
+// 쪽지 70장 — 데이터가 문서와 같고, 퍼즐이 한 장으로 풀리지 않는가.
 import { describe, expect, it } from 'vitest'
 import { SLIP_NOTES } from './slipNotes'
 import { checkSlipNotes, NAME_MARK } from './slipNotesCheck'
 import { ROLE_IDS, ROLE_NAMES } from '../../../shared/missions/roleNames'
 import { parseNotesMd } from '../../../scripts/lib/notesMd'
 
-describe('쪽지 56장', () => {
-  it('열넷 × 넉 장 = 쉰여섯 장이다', () => {
-    expect(SLIP_NOTES).toHaveLength(ROLE_IDS.length * 4)
+describe('쪽지 70장', () => {
+  it('열넷 × 다섯 장 = 일흔 장이다', () => {
+    expect(SLIP_NOTES).toHaveLength(ROLE_IDS.length * 5)
   })
   it('규칙을 다 지킨다', () => {
     expect(checkSlipNotes(SLIP_NOTES, ROLE_NAMES).errors).toEqual([])
@@ -32,11 +32,11 @@ describe('검사가 잡는다', () => {
     const bad = base.map((n) => (n.id === 'r02-s4-name' ? { ...n, text: `${NAME_MARK}은 반장이다.` } : n))
     expect(checkSlipNotes(bad, ROLE_NAMES).errors.some((e) => e.includes('반장'))).toBe(true)
   })
-  it('역할마다 넉 장이 아니면', () => {
+  it('역할마다 다섯 장이 아니면', () => {
     const bad = base.filter((n) => n.id !== 'r03-s4-name')
     const errs = checkSlipNotes(bad, ROLE_NAMES).errors
-    expect(errs.some((e) => e.includes('3 장이다'))).toBe(true)
-    expect(errs.some((e) => e.includes('번호(1~4 번)가 겹치거나 빠졌다'))).toBe(true)
+    expect(errs.some((e) => e.includes('4 장이다'))).toBe(true)
+    expect(errs.some((e) => e.includes('번호(1~5 번)가 겹치거나 빠졌다'))).toBe(true)
   })
   it('지금 데이터는 역할마다 이름형이 정확히 한 장이다 — 알림이 하나도 없다', () => {
     const { errors, notices } = checkSlipNotes(base, ROLE_NAMES)

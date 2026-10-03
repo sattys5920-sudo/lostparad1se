@@ -14,7 +14,7 @@
 //   line       미션 한 줄(「이번에는 …」)
 //   clauses    세는 것 · 기준 · 공개 시점
 //   footnote   조건 표 아래 단서
-//   notes      쪽지 넉 장. {이름}은 읽는 순간 서버가 그 역할을 받은 사람 이름으로
+//   notes      쪽지 다섯 장(5 번은 미션). {이름}은 읽는 순간 서버가 그 역할을 받은 사람 이름으로
 import type { RoleData } from './roleTypes'
 
 export const ROLE_DATA: readonly RoleData[] = [
@@ -39,6 +39,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}은 그 일을 한 번도 빠뜨린 적이 없다. 적는 것만큼은." },
       { slot: 3, kind: "role", text: "그날 명단에는 남은 사람이 없다고 적혀 있었다. 적은 건 반장이다." },
       { slot: 4, kind: "role", text: "반장은 그날 교실 세 개만 들여다봤다. 눈이 와서 빨리 가고 싶었다." },
+      { slot: 5, kind: "role", text: "반장은 5 명 이상의 다른 사람과 같은 방에 1 분 이상 함께 머물러야 한단다." },
     ],
   },
   {
@@ -63,6 +64,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "role", text: "모범생의 말이라면 되묻지 않는다." },
       { slot: 3, kind: "role", text: "학생들끼리 수상한 짓을 하고 있지 않냐는 물음에 모범생은 잘 모르겠다고 했다." },
       { slot: 4, kind: "name", text: "{이름}은 전날 투명인간 투표에 대해 모를 리 없었다." },
+      { slot: 5, kind: "role", text: "모범생은 서로 다른 두 분단에게서 신뢰표를 2 장 이상 받아야 한단다." },
     ],
   },
   {
@@ -87,6 +89,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "role", text: "총무는 누가 얼마를 냈는지 다 외운다." },
       { slot: 3, kind: "role", text: "그 학기 단체 티셔츠 주문서에 A의 몫은 없었다." },
       { slot: 4, kind: "name", text: "{이름}은 없는 사람에게 받는 게 이상하다고 생각했다." },
+      { slot: 5, kind: "role", text: "총무는 자판기에서 아이템을 2 번 이상 사고, 다른 분단 사람과 거래를 1 번 이상 성립시켜야 한단다." },
     ],
   },
   {
@@ -110,6 +113,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "role", text: "짝꿍은 필요한 말만 했다. 지우개 좀, 몇 페이지야, 그 정도." },
       { slot: 3, kind: "name", text: "A는 {이름}에게 편지를 보여 주면서 웃었다고 한다." },
       { slot: 4, kind: "role", text: "짝꿍은 못 본 척했다. 대답하면 다음 주에 자기가 될 것 같아서." },
+      { slot: 5, kind: "role", text: "짝꿍은 쪽지를 2 장 읽어야 한단다." },
     ],
   },
   {
@@ -134,6 +138,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "role", text: "도서부는 읽고, 분류하고, 넘겼다." },
       { slot: 3, kind: "role", text: "A의 이야기가 적힌 종이가 반을 돌 때, 도서부도 그걸 쥐었다 놓았다." },
       { slot: 4, kind: "name", text: "{이름}은 자기가 시작한 게 아니니 상관이 없는 일이라 생각했다." },
+      { slot: 5, kind: "role", text: "도서부는 쪽지를 3 장 읽고, 2 장을 다른 사람에게 건네야 한단다." },
     ],
   },
   {
@@ -157,6 +162,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}은 남의 것을 읽는 건 예의가 아니라고 생각했다." },
       { slot: 3, kind: "role", text: "그날 아침 창고 앞 눈 위에 젖은 종이가 한 장 있었다. 주운 건 미화부다." },
       { slot: 4, kind: "role", text: "미화부가 버린 것은 마지막 단서였을지도 모른다." },
+      { slot: 5, kind: "role", text: "미화부는 쪽지를 3 장 찢어야 한단다." },
     ],
   },
   {
@@ -181,6 +187,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}은 마지막으로 학교를 나섰다." },
       { slot: 3, kind: "role", text: "창고에서 소리가 난 것 같았지만, 주번은 열어 보지 않고 자물쇠를 채웠다." },
       { slot: 4, kind: "role", text: "주번은 그날 버스가 끊길까 봐 서둘렀다." },
+      { slot: 5, kind: "role", text: "주번은 문에 자물쇠를 2 번 이상 채우고, 심부름을 1 번 이상 해야 한단다." },
     ],
   },
   {
@@ -204,6 +211,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}의 서랍에는 주인 없는 물건이 몇 개 들어 있다." },
       { slot: 3, kind: "role", text: "화분 옆에 떨어져 있던 A의 휴대폰을 주운 건 원예부다." },
       { slot: 4, kind: "role", text: "원예부는 월요일에 돌려주려고 했다." },
+      { slot: 5, kind: "role", text: "원예부는 화분에서 3 번 이상 수확해야 한단다." },
     ],
   },
   {
@@ -227,6 +235,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}의 책상에는 아직 내지 않은 종이가 쌓여 있다." },
       { slot: 3, kind: "role", text: "그 주 창고 전등은 나가 있었다. 마지막으로 방문한 사람은 과학부다." },
       { slot: 4, kind: "role", text: "과학부는 내일 제출하려고 했다." },
+      { slot: 5, kind: "role", text: "과학부는 로봇을 2 기 이상 만들어야 한단다." },
     ],
   },
   {
@@ -250,6 +259,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}은 손이 빠르다. 마음만 먹으면." },
       { slot: 3, kind: "role", text: "창고 문이 안에서 안 열린다는 말을 여러 번 들은 건 기술부다." },
       { slot: 4, kind: "role", text: "기술부는 십 분이면 되는 일이라고 했다." },
+      { slot: 5, kind: "role", text: "기술부는 남의 분단 로봇을 1 기 이상 부숴야 한단다." },
     ],
   },
   {
@@ -273,6 +283,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "role", text: "전교 1 등은 시험지를 받으면 손이 먼저 움직인다." },
       { slot: 3, kind: "role", text: "A의 등수가 무너진 학기에 처음으로 1 등이 된 건 전교 1 등이다." },
       { slot: 4, kind: "name", text: "{이름}은 짐작이 갔지만 묻지 않았다. 물어보면 자리가 흔들릴 것 같아서." },
+      { slot: 5, kind: "role", text: "전교 1 등은 문제를 3 개 이상 맞혀야 한단다." },
     ],
   },
   {
@@ -297,6 +308,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}은 하루에 몇 번씩 같은 방향을 본다." },
       { slot: 3, kind: "role", text: "편지를 쓴 사람은 짝사랑이다." },
       { slot: 4, kind: "role", text: "짝사랑은 네 시 반에 교문까지 갔다가 돌아섰다." },
+      { slot: 5, kind: "role", text: "짝사랑은 그날 정해진 한 사람의 쪽지를 찾아 읽고, 그 사람과 같은 방에 모두 15 분 이상 함께 있어야 한단다." },
     ],
   },
   {
@@ -321,6 +333,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "role", text: "전학생은 이번 학기에 전학 왔다. 반에 녹아드는 게 이상하리만치 빨랐다." },
       { slot: 3, kind: "role", text: "전학생은 이런 광경이 낯설지 않다고 생각했다." },
       { slot: 4, kind: "name", text: "{이름}은 말하지 않았다. 이미 해 봤으니까." },
+      { slot: 5, kind: "role", text: "전학생은 매일 밤 자기 분단이 1 위가 되지 않게 하고, 다른 두 분단의 방에 각각 10 분 이상 서 있어야 한단다." },
     ],
   },
   {
@@ -344,6 +357,7 @@ export const ROLE_DATA: readonly RoleData[] = [
       { slot: 2, kind: "name", text: "{이름}은 교실 전체를 다 보고 있다." },
       { slot: 3, kind: "role", text: "A의 이름이 뒷자리의 표 하나 때문에 가장 많이 나온 날도 있었다." },
       { slot: 4, kind: "role", text: "뒷자리는 한 번도 거르지 않고 적었다. 안 적으면 자기가 될 것 같아서." },
+      { slot: 5, kind: "role", text: "뒷자리는 매일 자기가 적은 이름이 투명인간이 되게 해야 한단다." },
     ],
   },
 ]

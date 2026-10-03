@@ -58,8 +58,8 @@ export const clauseText = (c: Pick<Clause, 'text' | 'minutes'>): string =>
   c.text.replace(/\{분\}/g, String(c.minutes ?? ''))
 
 export interface RoleNote {
-  /** 1~4번. 1~2번은 습관, 3~4번은 그날 — 그날 것만 DAY 3 이후에 뿌린다 */
-  slot: 1 | 2 | 3 | 4
+  /** 1~5번. 1~2번은 습관, 3~4번은 그날, 5번은 미션 — 그날 것만 DAY 3 이후에 뿌린다 */
+  slot: 1 | 2 | 3 | 4 | 5
   kind: 'role' | 'name'
   /** 이름형이면 {이름} 이 들어 있다. 읽는 순간 서버가 채운다 */
   text: string

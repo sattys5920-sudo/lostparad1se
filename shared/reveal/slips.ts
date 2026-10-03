@@ -8,8 +8,8 @@
 // 「추리 노트」(reveal/notes.ts)와는 다른 것이다. 그쪽은 내가 혼자 적는
 // 메모고, 이쪽은 판 위에 굴러다니는 물건이다.
 //
-// **쪽지는 56장, 문안이 정해져 있다**(functions/src/story/slipNotes.ts ·
-// docs/notes_56_linked.md). 역할마다 넉 장이고 두 장씩 짝이다. 운영자가
+// **쪽지는 70장, 문안이 정해져 있다**(functions/src/story/slipNotes.ts ·
+// docs/notes_56_linked.md). 역할마다 다섯 장이다 — 두 장씩 짝인 넉 장과 미션 한 장. 운영자가
 // 배포 탭에서 방을 골라 뿌린다(functions/src/notes.ts).
 //
 //   누구의 것   그 역할을 받은 사람. 쪽지 미션 「나에 대한 쪽지」가 이걸로 갈린다
@@ -22,12 +22,12 @@
 import { josa, type Pair } from '../text'
 
 /**
- * 한 사람 앞으로 놓을 수 있는 쪽지 수. 열넷이면 쉰여섯 장이다.
+ * 한 사람 앞으로 놓을 수 있는 쪽지 수. 열넷이면 일흔 장이다.
  *
  * 찢기거나 주워 간 것도 센다 — 판에 나간 수다. 운영자가 거둔 것만
  * 빠진다(거두면 문서가 지워진다).
  */
-export const SLIPS_PER_PERSON = 4
+export const SLIPS_PER_PERSON = 5
 
 /** 쪽지 한 장에 적을 수 있는 길이. 주워서 읽는 것이라 말보다 길다. */
 export const SLIP_TEXT_MAX = 300
