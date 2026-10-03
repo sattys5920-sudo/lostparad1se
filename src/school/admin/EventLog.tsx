@@ -48,6 +48,8 @@ interface InvOut {
 const TAIL_MS = 3000
 /** 처음 여는 화면에 받는 줄 수 — 그 뒤는 따라가기가 붙인다 */
 const FIRST_LIMIT = 600
+/** 종류를 골랐을 때 받는 줄 수 — 판 처음부터 그 종류 전부 */
+const PICKED_LIMIT = 5000
 /** 한 번에 그리는 줄 수. 더 있으면 「앞을 더」 */
 const PAGE = 300
 
@@ -169,13 +171,22 @@ export function EventLog({
     return at
   }, [rows, serverNow])
 
+  /*
+   * **종류를 골랐으면 서버에서 그 종류만 판 처음부터 받는다.** 전에는 모든 종류의
+   * 최근 600 줄만 받아 화면에서 걸렀다 — 걷기 같은 줄이 쌓이면 점령 기록처럼
+   * 드문 줄은 앞쪽이 통째로 잘려 최근 것만 보였다
+   */
+  const pickedKinds = useMemo(() => [...picked].sort(), [picked])
+  const kindKey = pickedKinds.join('|')
+
   /** 처음 · 새로 읽기 — 최근 것부터 */
   const load = useCallback(async () => {
     setBusy(true)
     try {
-      const out = (await act.hostEventLog({ limit: FIRST_LIMIT })) as unknown as LogOut
+      const sel = kindKey ? kindKey.split('|') : []
+      const out = (await act.hostEventLog(sel.length > 0 ? { kinds: sel, limit: PICKED_LIMIT } : { limit: FIRST_LIMIT })) as unknown as LogOut
       setRows(out.rows)
-      setKinds(out.kinds)
+      setKinds((had) => [...new Set([...had, ...out.kinds])].sort())
       setTruncated(out.truncated)
       setServerNow(out.nowMs)
     } catch (e) {
@@ -183,7 +194,25 @@ export function EventLog({
     } finally {
       setBusy(false)
     }
-  }, [act, onSaid])
+  }, [act, onSaid, kindKey])
+
+  /** 잘린 앞쪽을 더 받는다 — 지금 맨 앞 줄 이전 것 */
+  const loadOlder = useCallback(async () => {
+    const first = rows[0]
+    if (!first) return
+    setBusy(true)
+    try {
+      const sel = kindKey ? kindKey.split('|') : []
+      const out = (await act.hostEventLog({ untilMs: first.atMs, limit: FIRST_LIMIT, ...(sel.length > 0 ? { kinds: sel } : {}) })) as unknown as LogOut
+      setRows((had) => merge(had, out.rows))
+      setTruncated(out.truncated)
+      setShowAll(true)
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }, [act, onSaid, kindKey, rows])
 
   /** 불변식 — 지금 검사 */
   const checkNow = useCallback(async () => {
@@ -195,10 +224,13 @@ export function EventLog({
     }
   }, [act, onSaid])
 
+  // 종류를 바꾸면 그 종류로 다시 받는다
   useEffect(() => {
     void load()
+  }, [load])
+  useEffect(() => {
     void checkNow()
-  }, [load, checkNow])
+  }, [checkNow])
 
   /** 따라가기 — 마지막 줄 뒤만 받아 붙인다 */
   useEffect(() => {
@@ -357,6 +389,11 @@ export function EventLog({
         <p className="sc-ad__hint">{busy ? '읽는 중이다.' : '기록이 없다.'}</p>
       ) : (
         <>
+          {truncated && (showAll || shown.length <= PAGE) && (
+            <button className="sc-lg__more" disabled={busy} onClick={() => void loadOlder()}>
+              이전 기록 더 불러오기
+            </button>
+          )}
           {!showAll && shown.length > PAGE && (
             <button className="sc-lg__more" onClick={() => setShowAll(true)}>
               앞 {shown.length - PAGE} 줄 더
