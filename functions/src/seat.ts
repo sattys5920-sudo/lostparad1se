@@ -147,7 +147,7 @@ export async function reseatIfShared(gameId: string, uid: string, atMs: number):
  * **덫에 묶인 사람은 옮기지 않는다** — 걸린 칸에서 못 벗어나는 것이 덫이다.
  * 복도에 빈 칸이 없으면 그 사람은 그대로 둔다. 내보낸 사람을 돌려준다.
  */
-export async function pushEveryoneOut(gameId: string, nowMs: number): Promise<{ playerId: string; room: TileId; walking: boolean }[]> {
+export async function pushEveryoneOut(gameId: string, nowMs: number, onlyRoom: TileId | null = null): Promise<{ playerId: string; room: TileId; walking: boolean }[]> {
   const ref = gameRef(gameId)
   return db.runTransaction(async (tx) => {
     const [pawns, papers, arrivals] = await Promise.all([
@@ -166,6 +166,8 @@ export async function pushEveryoneOut(gameId: string, nowMs: number): Promise<{ 
       const walking = p.tileId === null
       const room = (walking ? (p.path?.[0] ?? p.fromTile ?? null) : p.tileId) as TileId | null
       if (!room) continue
+      // 한 방만 비울 때(공사 중인 방)는 그 방 사람만 — 그 방으로 걷던 사람도 문 앞에 선다
+      if (onlyRoom !== null && room !== onlyRoom) continue
       // 이미 복도에 선 사람은 그대로다
       if (!walking && (!p.at || roomOfCell(p.at.x, p.at.y) !== room)) continue
       const from = entryCellOf(room)

@@ -194,4 +194,4 @@ export { hostLiveMap, hostRoomChat } from './hostLive'
 // QA — 시각순 로그와 불변식 검사. 운영자만.
 export { hostEventLog } from './qaLog'
 export { hostInvariants } from './invariants'
-export { hostSetPlazaOpen } from './construction'
+export { hostEvictPlaza, hostSetPlazaOpen } from './construction'
