@@ -2034,7 +2034,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                   </div>
                 ) : (
                   <p className="sc-pl__photo-hint">
-                    {mySpot ? '2-3 교실 바닥, 내 이름 자리에 서면 자세를 고를 수 있다.' : '기념사진을 찍는 중이다.'}
+                    {underConstruction ? '2-3 교실은 아직 공사 중이다.' : mySpot ? '2-3 교실 바닥, 내 이름 자리에 서면 자세를 고를 수 있다.' : '기념사진을 찍는 중이다.'}
                   </p>
                 )}
               </div>

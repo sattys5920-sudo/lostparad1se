@@ -1227,3 +1227,31 @@
   color: var(--sc-text-dim);
   word-break: keep-all;
 }
+
+/* 기념사진 캡처 화면 — 2-3 교실만 화면 가득. 단추는 2 초 뒤 숨는다 */
+.sc-ps {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #1b1d26;
+}
+.sc-ps__canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+.sc-ps__close {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 12px;
+  padding: 6px 12px;
+  border: 1px solid #f4f5fa;
+  background: rgba(17, 18, 26, 0.7);
+  color: #f4f5fa;
+  transition: opacity 0.3s;
+}
+.sc-ps__close.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}

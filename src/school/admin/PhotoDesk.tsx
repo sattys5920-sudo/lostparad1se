@@ -5,11 +5,14 @@ import { useState } from 'react'
 import type { GameDoc } from '../../../shared/model'
 import { PHOTO_BANNER, PHOTO_BANNER_MAX, PHOTO_POSE_NAME } from '../../../shared/rules/photo'
 import type { GameActions } from '../game/useGame'
+import { PhotoShot } from './PhotoShot'
 
 export function PhotoDesk({ game, act, onSaid }: { game: GameDoc; act: GameActions; onSaid: (t: string) => void }) {
   const on = game.photo?.on === true
   const [banner, setBanner] = useState(game.photo?.banner ?? PHOTO_BANNER)
   const [busy, setBusy] = useState(false)
+  /** 캡처용 크게 보기 */
+  const [shot, setShot] = useState(false)
   const posed = Object.entries(game.photo?.poses ?? {})
 
   async function run(next: boolean) {
@@ -47,6 +50,13 @@ export function PhotoDesk({ game, act, onSaid }: { game: GameDoc; act: GameActio
         </button>
         <span className="sc-ad__pill">{on ? `켜짐 · 자세 고른 사람 ${posed.length} 명` : '꺼짐'}</span>
       </div>
+      {on && (
+        <div className="sc-ad__row">
+          <button onClick={() => setShot(true)}>크게 보기 (캡처용)</button>
+          <span className="sc-ad__hint">2-3 교실만 화면 가득 — 그대로 캡처하면 된다. 가로로 돌리면 더 크다.</span>
+        </div>
+      )}
+      {shot && <PhotoShot game={game} act={act} onClose={() => setShot(false)} />}
       {on && posed.length > 0 && (
         <p className="sc-ad__hint">
           {posed
