@@ -1303,3 +1303,40 @@
 .sc-rk__rank { color: var(--sc-text-dim); }
 .sc-rk__who { color: var(--sc-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-rk__n { color: var(--sc-text-2); text-align: right; }
+
+/* ── 회고 — 참가자가 남긴 글. 쓴 순서대로 ── */
+.sc-rv {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.sc-rv li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+}
+.sc-rv__top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-label);
+  line-height: 20px;
+}
+.sc-rv__who { font-weight: 700; color: var(--sc-text); }
+.sc-rv__who.is-anon { font-weight: 400; color: var(--sc-text-dim); }
+.sc-rv__at { color: var(--sc-text-dim); font-variant-numeric: tabular-nums; }
+.sc-rv li p {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--sc-text);
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}

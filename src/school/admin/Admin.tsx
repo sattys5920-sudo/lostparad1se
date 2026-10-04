@@ -23,6 +23,7 @@ import { DropHost } from './Drop'
 import { SlipDesk } from './SlipDesk'
 import { PaperDesk } from './PaperDesk'
 import { RankDesk } from './RankDesk'
+import { RetroDesk } from './RetroDesk'
 import { RadioDesk } from './RadioDesk'
 import { LiveMap } from './LiveMap'
 import { MissionDesk } from './MissionDesk'
@@ -83,7 +84,7 @@ const CALENDAR: Record<string, string> = {
   gameEnd: '나흘 끝 · 엔딩',
 }
 
-type Tab = 'go' | 'map' | 'put' | 'slips' | 'missions' | 'votes' | 'papers' | 'radio' | 'log' | 'manage'
+type Tab = 'go' | 'map' | 'put' | 'slips' | 'missions' | 'votes' | 'papers' | 'retro' | 'radio' | 'log' | 'manage'
 
 /** 판의 상태를 우리말로. 알약에 running 이 그대로 찍히고 있었다 */
 const PHASE_NAME: Record<string, string> = {
@@ -257,6 +258,7 @@ function Desk() {
                 ['missions', '미션'],
                 ['votes', '표'],
                 ['papers', '이력'],
+                ['retro', '회고'],
                 ['radio', '무전'],
                 ['log', '로그'],
                 ['manage', '관리'],
@@ -565,6 +567,12 @@ function Desk() {
               <PaperDesk act={act} onSaid={setSaid} />
             </section>
           </>
+        : tab === 'retro' ?
+          /* ── 회고. 참가자가 역할을 내려놓고 남긴 글 ── */
+          <section className="sc-ad__sec">
+            <h2>회고</h2>
+            <RetroDesk gameId={GAME_ID} game={game} />
+          </section>
         : tab === 'log' ?
           /* ── QA 로그. 모든 상태 변화를 시각순으로 · 불변식 검사 ── */
           <section className="sc-ad__sec">
