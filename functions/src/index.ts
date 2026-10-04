@@ -165,7 +165,7 @@ export { hostPlant, hostGarden, hostPullPot } from './garden'
 export { takeSlip, readSlip, dropSlip, readSlipHere, tearSlipHere, hostPullSlip } from './slips'
 export { hostSlipBoard, hostScatterSlip, hostScatterRandom } from './notes'
 export { hostPapers } from './paperTrail'
-// 순위 — 심부름 · 걸음 · 문제 · 쪽지 발견. 운영자만
+// 순위 — 심부름 · 걸음 · 문제 · 쪽지 발견 · 작물. 운영자만
 export { hostRanks } from './ranks'
 export { hostMissionBoard, hostMissionDay, hostMissionOverride, hostMissionSend, seenMissionDay, hostCrushTarget, hostSetCrushTarget } from './missionDays'
 export { notifyConfig, setNotifySettings, pushSubscribe, pushUnsubscribe, readNotes, hostNotifyLog } from './notify'
