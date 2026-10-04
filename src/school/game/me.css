@@ -815,3 +815,21 @@
   max-width: 480px;
   margin: 0 auto;
 }
+
+/* 최종 점수 칸 — 성적통지표 다시 보기 */
+.sc-pl-root .sc-mi__report,
+.sc-mi__report {
+  margin: var(--sp-2) 0 0;
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  appearance: none;
+  border: 1px solid var(--ink-2);
+  border-radius: 0;
+  background: var(--paper);
+  font: inherit;
+  font-size: var(--fs-pixel);
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sc-mi__report:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

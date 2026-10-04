@@ -418,6 +418,10 @@ export function gameActions(gameId: string) {
     hostGradeAnswers: () => callServer('hostGradeAnswers', g),
     hostFinalScores: () => callServer('hostFinalScores', g),
     hostSetFinalScore: (playerId: string, score: number | null) => callServer('hostSetFinalScore', { ...g, playerId, score }),
+    /** 성적통지표 — 감독관이 보낸다. 열넷 화면에 한 번에 뜬다 */
+    hostReleaseReportCards: () => callServer('hostReleaseReportCards', g),
+    /** 성적통지표 — 내 것(보낸 뒤에만) */
+    myReportCard: () => callServer('myReportCard', g),
     /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
     hostLiveMap: () => callServer('hostLiveMap', g),
     /** 운영자 — 방에서 오간 말. room 은 방 아이디 · 'hall' · 'all'. summary 면 방마다 줄 수 */

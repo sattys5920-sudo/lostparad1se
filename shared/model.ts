@@ -182,6 +182,8 @@ export interface GameDoc {
   bgm?: { on: boolean; atMs: number; track?: number }
   /** 답안지가 열려 있다 — 모두의 화면에 뜬다. 채점하면 닫힌다 */
   answerSheet?: { openAtMs: number } | null
+  /** 성적통지표를 보낸 시각(실제 시각). 있으면 열넷 화면에 한 번 뜬다 — 다시 보내면 또 뜬다 */
+  reportCardAtMs?: number | null
   /** 채점 결과. **여기 적히는 순간 정답이 모두에게 간다** */
   answerResult?: {
     atMs: number

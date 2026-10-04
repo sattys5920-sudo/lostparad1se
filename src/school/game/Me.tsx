@@ -68,6 +68,8 @@ export interface MeProps {
   inbox?: InboxDoc | null
   /** 알림 보관함에서 한 줄을 누르면 그 화면으로 */
   onGo?: (link: NotifyLink) => void
+  /** 성적통지표 다시 보기. 보내기 전에는 없다 */
+  onReportCard?: () => void
 }
 
 /**
@@ -316,12 +318,17 @@ export function Me(props: MeProps) {
           )}
         </Card>
 
-        {/* ── 최종 점수 — 감독관이 계산해 적으면 뜬다 ── */}
+        {/* ── 최종 점수 — 감독관이 성적통지표를 보내면 뜬다 ── */}
         {typeof paper?.finalScore === 'number' && (
           <Card title="최 종 점 수">
             <p className="sc-mi__votes">
               <b>{paper.finalScore}</b> 점
             </p>
+            {props.onReportCard && (
+              <button type="button" className="sc-mi__report" onClick={props.onReportCard}>
+                성적통지표 보기
+              </button>
+            )}
           </Card>
         )}
 

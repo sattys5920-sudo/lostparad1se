@@ -85,7 +85,8 @@ export const myPaper = onCall<{ gameId: string }, Promise<MyPaperDoc>>(async (re
   // 짝사랑의 대상은 매일 밤 운영자가 정한다 — 오늘 치를 읽는다
   const crushTargetId = roleId === 'crush' ? await crushTargetFor(gameId, game.day) : null
   // 감독관이 적은 최종 점수 — 내 것만 꺼낸다
-  const finalScore = ((await finalScoresOf(gameId).get()).data()?.byId ?? {})[uid]
+  // **성적통지표를 보내기 전에는 안 보인다** — 열넷에게 한 번에 연다(answers.hostReleaseReportCards)
+  const finalScore = game.reportCardAtMs ? ((await finalScoresOf(gameId).get()).data()?.byId ?? {})[uid] : undefined
 
   const head = {
     roleId,

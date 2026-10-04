@@ -126,6 +126,7 @@ import { Me, PastVerdicts } from './Me'
 import { MissionMailbox, unseenMails } from './MissionPopup'
 import { BoardMailbox } from './MissionBoard'
 import { NoticePop, hasUnseenNotice } from './NoticePop'
+import { ReportCardPop } from './ReportCard'
 import { NotifyBanner } from './notify/NotifyBanner'
 import type { NotifyLink } from '../../../shared/notify/notifyData'
 import { Dealt, dealtSeen, markDealtSeen } from './Dealt'
@@ -746,6 +747,8 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
         )}
         {/* 끝난 뒤에도 공지 · 1위 발표가 뜬다 */}
         <NoticePop gameId={gameId} uid={myUid ?? ''} notices={state.view?.notices} waiting={unseenMails(state.inbox).length > 0} />
+        {/* 성적통지표 — 감독관이 보내면 한 번 뜬다 */}
+        <ReportCardPop gameId={gameId} uid={myUid ?? ''} atMs={game.reportCardAtMs} act={gameActions(gameId)} waiting={unseenMails(state.inbox).length > 0} />
         {/* 마지막 날 판정은 판이 끝난 뒤에 온다. 엔딩 위에도 뜬다 */}
         <MissionMailbox inbox={state.inbox} act={gameActions(gameId)} />
         <BoardMailbox gameId={gameId} boards={game.missionBoards} seats={game.seats} meId={myUid ?? ''} waiting={unseenMails(state.inbox).length > 0} />
@@ -843,6 +846,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const state = useGame(gameId)
   const act = useMemo(() => gameActions(gameId), [gameId])
   const online = useOnline()
+  /** 「나」 탭에서 성적통지표를 다시 연다 */
+  const [reportOpen, setReportOpen] = useState(false)
   // **앱이 돌아오면 서버에 다시 묻는다.** 화면을 껐다 켜는 사이에
   // 페이즈가 열렸을 수도 닫혔을 수도 있다 — 옛 화면에 대고 단추를
   // 누르게 두면 안 된다
@@ -1152,6 +1157,12 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
    */
   // 배정을 공개하는 순간(hideDeal 이 풀릴 때)에도 다시 받는다 — 「배정 전」에 머물지 않게
   const mine = useMyPaper(act, tab === 'me', (game?.day ?? 0) + (game?.hideDeal ? 0.5 : 0))
+  // **성적통지표를 보내면 「나」 탭을 다시 읽는다** — 그때부터 최종 점수가 보인다
+  const reportAt = game?.reportCardAtMs ?? null
+  const reloadMine = mine.reload
+  useEffect(() => {
+    if (reportAt) reloadMine()
+  }, [reportAt, reloadMine])
 
   // 표시가 한 층일 때와 두 층일 때, 안전 영역이 있을 때와 없을 때
   // 높이가 다 다르다. 방이 바뀌거나 화면이 돌면 다시 잰다
@@ -2054,6 +2065,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
           }
           inbox={state.inbox}
           onGo={goLink}
+          onReportCard={game.reportCardAtMs ? () => setReportOpen(true) : undefined}
           act={act}
           onSaid={setSaid}
           onSignOut={() => {
@@ -2643,6 +2655,16 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
       <BoardMailbox gameId={gameId} boards={game.missionBoards} seats={game.seats} meId={me.playerId} waiting={unseenMails(state.inbox).length > 0} />
       {/* 운영자 공지 · 1위 발표 · 투명인간 발표. 판정 종이를 다 닫은 뒤에 뜬다 */}
       <NoticePop gameId={gameId} uid={me.playerId} notices={state.view?.notices} waiting={unseenMails(state.inbox).length > 0} />
+      {/* 성적통지표 — 감독관이 보내면 한 번 뜬다. 「나」 탭에서 다시 연다 */}
+      <ReportCardPop
+        gameId={gameId}
+        uid={me.playerId}
+        atMs={game.reportCardAtMs}
+        act={act}
+        open={reportOpen}
+        onClosed={() => setReportOpen(false)}
+        waiting={unseenMails(state.inbox).length > 0}
+      />
       {/* 앱 안 알림 배너. 무엇을 띄울지는 서버가 이미 골랐다 */}
       <NotifyBanner notes={state.inbox?.notes} onGo={goLink} />
     </div>

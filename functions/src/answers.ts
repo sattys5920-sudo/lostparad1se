@@ -14,7 +14,10 @@ import { gameRef, requireUid } from './index'
 import { requireHost } from './host'
 import type { GameDoc, RosterDoc } from '../../shared/model'
 import { cleanAnswers, gradeSheet } from '../../shared/rules/answers'
-import { canonRoleId, type RoleId } from '../../shared/missions/roleNames'
+import { canonRoleId, ROLE_NAMES, type RoleId } from '../../shared/missions/roleNames'
+import { rankRows, type ReportCard, type ReportDay } from '../../shared/rules/reportCard'
+import { TOTAL_DAYS } from '../../shared/rules/v2'
+import { missionSnapsOf, type MissionSnapDoc } from './missionDays'
 
 const db = getFirestore()
 
@@ -156,4 +159,63 @@ export const hostSetFinalScore = onCall<{ gameId: string; playerId: string; scor
   const kept = Math.round(score * 10) / 10
   await finalScoresOf(gameId).set({ byId: { [playerId]: kept } }, { merge: true })
   return { playerId, score: kept }
+})
+
+/**
+ * 감독관 — **성적통지표를 보낸다.** 그 순간 열넷 화면에 동시에 뜬다(게임 문서의
+ * reportCardAtMs). 다시 누르면 고친 점수로 또 뜬다. 안 적은 사람을 돌려준다
+ */
+export const hostReleaseReportCards = onCall<{ gameId: string }>(async (req) => {
+  requireHost(req.auth)
+  const { gameId } = req.data
+  const game = await gameOf(gameId)
+  const byId = ((await finalScoresOf(gameId).get()).data()?.byId ?? {}) as Record<string, number>
+  const scored = game.seats.filter((s) => typeof byId[s.playerId] === 'number')
+  if (scored.length === 0) throw new HttpsError('failed-precondition', '적은 점수가 하나도 없다.')
+  const atMs = Date.now()
+  await gameRef(gameId).update({ reportCardAtMs: atMs })
+  return { atMs, scored: scored.length, missing: game.seats.filter((s) => typeof byId[s.playerId] !== 'number').map((s) => s.name) }
+})
+
+/** 각자 — 내 성적통지표. **보내기 전에는 없다** */
+export const myReportCard = onCall<{ gameId: string }, Promise<ReportCard>>(async (req) => {
+  const uid = requireUid(req.auth)
+  const { gameId } = req.data
+  const game = await gameOf(gameId)
+  const atMs = game.reportCardAtMs ?? null
+  if (!atMs) throw new HttpsError('failed-precondition', '아직 성적통지표가 안 나왔다.')
+  const seat = game.seats.find((s) => s.playerId === uid)
+  if (!seat) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
+  const [scores, mine, snaps] = await Promise.all([
+    finalScoresOf(gameId).get(),
+    rosterOf(gameId).doc(uid).get(),
+    missionSnapsOf(gameId).where('playerId', '==', uid).get(),
+  ])
+  const byId = (scores.data()?.byId ?? {}) as Record<string, number>
+  const all = rankRows(
+    game.seats
+      .filter((s) => typeof byId[s.playerId] === 'number')
+      .map((s) => ({ playerId: s.playerId, name: s.name, team: s.team ?? null, score: byId[s.playerId] })),
+  )
+  const roleId = canonRoleId((mine.data() as RosterDoc | undefined)?.roleId)
+  const snapOf = new Map(snaps.docs.map((d) => [(d.data() as MissionSnapDoc).day, d.data() as MissionSnapDoc]))
+  // 감독관이 뒤집었으면 뒤집은 쪽. 숨긴 조항까지 센 판정(truth)이다 — 다 끝났으니 가릴 것이 없다
+  const days: ReportDay[] = Array.from({ length: TOTAL_DAYS }, (_, i) => {
+    const s = snapOf.get(i + 1)
+    const st = s ? (s.override?.status ?? s.truth.status) : null
+    return { day: i + 1, status: st === 'met' || st === 'failed' ? st : null }
+  })
+  const me = all.find((r) => r.playerId === uid) ?? null
+  return {
+    atMs,
+    me: {
+      name: seat.name,
+      team: seat.team ?? null,
+      roleName: roleId ? (ROLE_NAMES[roleId] ?? '') : '',
+      score: me?.score ?? null,
+      rank: me?.rank ?? null,
+    },
+    days,
+    all,
+  }
 })

@@ -478,7 +478,7 @@ function Desk() {
 
             <section className="sc-ad__sec">
               <h2>최종 점수</h2>
-              <FinalScoreDesk act={act} onSaid={setSaid} />
+              <FinalScoreDesk act={act} onSaid={setSaid} sentAtMs={game?.reportCardAtMs ?? null} />
             </section>
 
             <section className="sc-ad__sec">
