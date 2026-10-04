@@ -38,10 +38,13 @@ import { VENDINGS } from '../../../shared/rules/shop'
 import { LAB_MACHINES, MAKERS } from '../../../shared/rules/trap'
 import { ARCADE_MACHINES } from '../../../shared/rules/arcade'
 import type { AvatarLook } from '../../../shared/look'
-import { TILE, doorIsHorizontal, drawPiece, markAt, propAt, roomAt, signAt, stairHere, tileAt } from '../map/world'
+import { TILE, doorIsHorizontal, drawPiece, markAt, propAt, roomAt, roomById, signAt, stairHere, tileAt } from '../map/world'
 import { PAL, buildSprites, type SpriteSet } from '../map/sprites'
 import { signSheet } from '../map/signs'
-import { pixelFrame } from '../char/pixel'
+import { photoFrame, pixelFrame } from '../char/pixel'
+import type { GameDoc } from '../../../shared/model'
+import { PHOTO_ROBOT, PHOTO_ROOM, type PhotoPose } from '../../../shared/rules/photo'
+import { bakeBanner, bakeParty, drawOtumo } from '../map/party'
 import { normalizeLook } from '../char/look'
 import { TEAM_COLOR } from '../game/MapPlan'
 import type { TeamId } from '../types'
@@ -220,7 +223,7 @@ function nearWalk(x: number, y: number): boolean {
  * 한 층을 도트 그대로 그린다. **플레이어 화면(Walk)과 같은 조각을 쓴다** —
  * 바닥 · 벽 · 문 · 계단 · 소품 · 팻말 · 기물. 안개와 눈은 없다.
  */
-function paintFloor(cv: HTMLCanvasElement, floor: Floor, rooms: Record<string, RoomState>, items: LiveMapData['floor']): void {
+function paintFloor(cv: HTMLCanvasElement, floor: Floor, rooms: Record<string, RoomState>, items: LiveMapData['floor'], photo: GameDoc['photo'] = null): void {
   const b = BOUNDS[floor]
   const w = (b.x1 - b.x0 + 1) * TILE
   const h = (b.y1 - b.y0 + 1) * TILE
@@ -271,9 +274,11 @@ function paintFloor(cv: HTMLCanvasElement, floor: Floor, rooms: Record<string, R
         ctx.fillRect(dx, dy, TILE, TILE)
         ctx.globalCompositeOperation = 'source-over'
       }
-      const mark = markAt(x, y)
+      // 기념사진 중이면 2-3 교실은 기물이 다 빠지고 잔치 장식이 선다(아래에서 그린다)
+      const party = photo?.on === true && room === PHOTO_ROOM
+      const mark = party ? null : markAt(x, y)
       if (mark) ctx.drawImage(sp.marks[mark], dx, dy)
-      const prop = propAt(x, y)
+      const prop = party ? null : propAt(x, y)
       if (prop) drawPiece(ctx, sp.props[prop.kind], prop.ox, prop.oy, dx, dy)
       const k = `${x},${y}`
       if (BOARD_CELLS.has(k)) ctx.drawImage(sp.props.noticeBoard, dx, dy - TILE)
@@ -282,11 +287,29 @@ function paintFloor(cv: HTMLCanvasElement, floor: Floor, rooms: Record<string, R
       if (VENDING_CELLS.has(k)) ctx.drawImage(sp.props.vending, dx, dy - TILE)
       const cab = ARCADE_CELLS.get(k)
       if (cab !== undefined) ctx.drawImage(sp.props[CABINETS[cab % CABINETS.length]], dx, dy - TILE)
-      const sign = signAt(x, y)
+      const sign = party ? null : signAt(x, y)
       if (sign) signs.push({ img: plates[sign.id], ox: sign.ox, dx, dy })
     }
   }
   for (const s of signs) drawPiece(ctx, s.img, s.ox, 0, s.dx, s.dy)
+  // 기념사진 — 플레이어 화면과 같은 잔치 그림 · 현수막 · 오투모
+  const pr = roomById[PHOTO_ROOM as keyof typeof roomById]?.rects[0]
+  if (photo?.on && pr && floorOfY(pr.y) === floor) {
+    ctx.drawImage(bakeParty(pr), (pr.x - 1 - b.x0) * TILE, (pr.y - 1 - b.y0) * TILE)
+    const cells = pr.w - 2
+    const bx = (pr.x + 1 - b.x0) * TILE
+    const by = (pr.y - 1 - b.y0) * TILE - 4
+    ctx.drawImage(bakeBanner(cells), bx, by)
+    ctx.font = "11px Galmuri11, 'Apple SD Gothic Neo', sans-serif"
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.lineWidth = 2
+    ctx.strokeStyle = '#ffffff'
+    ctx.fillStyle = '#e0457b'
+    ctx.strokeText(photo.banner, bx + (cells * TILE) / 2, by + 11)
+    ctx.fillText(photo.banner, bx + (cells * TILE) / 2, by + 11)
+    drawOtumo(ctx, (PHOTO_ROBOT.x - b.x0) * TILE + TILE / 2, (PHOTO_ROBOT.y - b.y0) * TILE + TILE / 2, 0)
+  }
   // 바닥에 놓인 종이 · 심부름 물건 — 자리만
   for (const it of items) {
     if (floorOfY(it.y) !== floor) continue
@@ -393,13 +416,15 @@ function spotsOf(people: readonly LivePerson[]): Map<string, Spot> {
 
 /** 얼굴 한 장. 사람마다 한 번만 굽는다 */
 const faceCache = new Map<string, string>()
-function faceOf(p: LivePerson, dir: LiveDoc['dir'] = 'down', frame = 0): string | null {
+function faceOf(p: LivePerson, dir: LiveDoc['dir'] = 'down', frame = 0, pose?: PhotoPose): string | null {
   if (!p.look) return null
-  const key = `${p.playerId}-${p.team ?? '-'}-${dir}-${frame}`
+  const shot = pose && pose !== 'stand' ? pose : null
+  const key = `${p.playerId}-${p.team ?? '-'}-${dir}-${frame}-${shot ?? ''}`
   const hit = faceCache.get(key)
   if (hit) return hit
   try {
-    const url = pixelFrame(normalizeLook(p.look), p.team, dir, frame).toDataURL()
+    // 기념사진 자세를 골랐으면 정면으로 그 자세(플레이어 화면과 같다)
+    const url = (shot ? photoFrame(normalizeLook(p.look), p.team, shot) : pixelFrame(normalizeLook(p.look), p.team, shot ? 'down' : dir, frame)).toDataURL()
     faceCache.set(key, url)
     return url
   } catch {
@@ -534,10 +559,13 @@ export function LiveMap({
   act,
   gameId,
   onSaid,
+  photo = null,
 }: {
   act: GameActions
   gameId: string
   onSaid: (t: string) => void
+  /** 기념사진 — 켜져 있으면 2-3 교실을 꾸민 모습으로 그린다 */
+  photo?: GameDoc['photo']
 }) {
   const visible = useVisible()
   const liveSpots = useLiveSpots(gameId, visible)
@@ -669,6 +697,7 @@ export function LiveMap({
         focus={focus}
         onPerson={(id) => pickPerson(id, false)}
         onRoom={(room) => setPane({ kind: 'room', room })}
+        photo={photo}
       />
 
       {failed && <p className="sc-lvm__warn">다시 읽지 못했다 — {failed}</p>}
@@ -802,6 +831,7 @@ function Board({
   focus,
   onPerson,
   onRoom,
+  photo,
 }: {
   floor: Floor
   data: LiveMapData
@@ -813,6 +843,7 @@ function Board({
   focus: { x: number; y: number; n: number } | null
   onPerson: (id: string) => void
   onRoom: (room: string) => void
+  photo: GameDoc['photo']
 }) {
   const boxRef = useRef<HTMLDivElement | null>(null)
   const cvRef = useRef<HTMLCanvasElement | null>(null)
@@ -872,13 +903,13 @@ function Board({
   }, [focus, floor])
 
   // 그림 — 층이나 방 주인, 바닥 물건이 바뀔 때만 다시 그린다
-  const paintKey = JSON.stringify([floor, Object.entries(data.rooms).map(([k, r]) => [k, r.owner]), data.floor])
+  const paintKey = JSON.stringify([floor, Object.entries(data.rooms).map(([k, r]) => [k, r.owner]), data.floor, photo?.on ? photo.banner : null])
   useEffect(() => {
     const cv = cvRef.current
     if (!cv) return
-    paintFloor(cv, floor, data.rooms, data.floor)
+    paintFloor(cv, floor, data.rooms, data.floor, photo)
     // 팻말 글꼴이 늦게 오면 한 번 더
-    const t = window.setTimeout(() => paintFloor(cv, floor, data.rooms, data.floor), 600)
+    const t = window.setTimeout(() => paintFloor(cv, floor, data.rooms, data.floor, photo), 600)
     return () => window.clearTimeout(t)
     // paintKey 가 곧 그림의 재료다
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1043,7 +1074,7 @@ function Board({
         const sp = spots.get(p.playerId) as Spot
         const at = toScreen(sp.x, sp.y)
         // 걷는 사람은 보는 쪽으로 발을 바꿔 가며 걷는다
-        const face = dots ? null : faceOf(p, sp.dir ?? 'down', sp.moving ? Math.floor(Date.now() / STEP_MS) % 4 : 0)
+        const face = dots ? null : faceOf(p, sp.dir ?? 'down', sp.moving ? Math.floor(Date.now() / STEP_MS) % 4 : 0, !sp.moving && photo?.on ? photo.poses?.[p.playerId] : undefined)
         const size = Math.max(18, Math.round(CHAR_PX * s))
         const off = team !== 'all' && p.team !== team
         const cls = [

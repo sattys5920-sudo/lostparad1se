@@ -291,7 +291,7 @@ function Desk() {
           /* ── 로비의 지도. 들어온 사람이 어디에 서 있는가 ── */
           <section className="sc-ad__sec">
             <h2>지도</h2>
-            <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} />
+            <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} photo={game?.photo ?? null} />
           </section>
         : !running ?
           /* ── 로비. 배정하고 시작한다 ── */
@@ -510,7 +510,7 @@ function Desk() {
           /* ── 지도. 열넷이 어디서 무엇을 하는가 · 방마다 오간 말 ── */
           <section className="sc-ad__sec">
             <h2>지도</h2>
-            <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} />
+            <LiveMap act={act} gameId={GAME_ID} onSaid={setSaid} photo={game?.photo ?? null} />
           </section>
         : tab === 'put' ?
           /* ── 놓기. 판 위에 무엇을 둔다 ── */
