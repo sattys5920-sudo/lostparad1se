@@ -11,6 +11,9 @@ import { isAway } from '../../shared/rules/online'
 import { gameRef, nowOf, requireUid } from './index'
 import { reseatIfShared } from './seat'
 import { refreshViewsSoon } from './views'
+import { CONSTRUCTION_ROOM, isUnderConstruction } from '../../shared/rules/construction'
+import { roomOfCell } from '../../shared/rules/board'
+import { evictPlaza } from './construction'
 
 export const ping = onCall<{ gameId: string }>(async (req) => {
   const uid = requireUid(req.auth)
@@ -24,6 +27,17 @@ export const ping = onCall<{ gameId: string }>(async (req) => {
   const now = Date.now()
   const wasAway = isAway(p.seenMs, now)
   await ref.update({ seenMs: now })
+  /*
+   * **공사 중인 2-3 교실 안에 서 있으면 복도로 내보낸다.** 닫힌 뒤에도 안에 남은
+   * 사람이다 — 1 분마다 오는 이 문에서 본다. 안에 선 사람만 게임 문서를 읽는다
+   */
+  if (p.tileId === CONSTRUCTION_ROOM && p.at && roomOfCell(p.at.x, p.at.y) === CONSTRUCTION_ROOM) {
+    const game = (await gameRef(gameId).get()).data() as GameDoc | undefined
+    if (game && isUnderConstruction(game, CONSTRUCTION_ROOM)) {
+      await evictPlaza(gameId, game, 'auto')
+      return { ok: true, back: wasAway }
+    }
+  }
   if (wasAway) {
     const game = (await gameRef(gameId).get()).data() as GameDoc | undefined
     if (game) await reseatIfShared(gameId, uid, nowOf(game))

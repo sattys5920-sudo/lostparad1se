@@ -185,7 +185,7 @@ function eventText(e: EventDoc & { targetId?: string; byId?: string }, name: (id
     }
     case 'invisibleCleared': return `${who} 투명인간 해제 · ${short(d.reason, 60)}`
     case 'invisibleRestored': return `${who} 투명인간 되돌림 · DAY ${String(d.fromDay ?? '')} 결과`
-    case 'plazaEvict': return `2-3 교실(공사 중)에서 복도로 내보냄 · ${((d.pushedOut as { playerId: string }[] | undefined) ?? []).map((o) => name(o.playerId)).join(', ') || '없음'}`
+    case 'plazaEvict': return `2-3 교실(공사 중)에서 복도로 내보냄${d.by === 'auto' ? '(자동)' : ''} · ${((d.pushedOut as { playerId: string }[] | undefined) ?? []).map((o) => name(o.playerId)).join(', ') || '없음'}`
     // ── qaLog 가 새로 적는 것 ──
     case 'phaseOpen': return `페이즈 ${String(d.no ?? '')} 열림 · DAY ${String(d.day ?? e.day)}${d.returned !== undefined ? ` · 돌아옴 ${String(d.returned)} 명` : ''}`
     case 'phaseClose': return `페이즈 ${String(d.no ?? '')} 닫힘 · 점령 ${String(d.captured ?? 0)} · 줄 ${String(d.lines ?? 0)}`
