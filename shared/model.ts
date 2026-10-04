@@ -89,6 +89,11 @@ export interface LiveDoc {
 export interface GameDoc {
   phase: GamePhase
   /**
+   * 2-3 교실 공사가 끝났는가. **없으면 공사 중** — 판이 도는 동안 아무도 못
+   * 들어간다(rules/construction). 감독관이 「열기」를 누르면 true
+   */
+  plazaOpen?: boolean
+  /**
    * 운영자가 「모두 새로고침」을 누른 횟수. 앱을 켜 둔 화면은 이 값이 바뀌는
    * 것을 보면 한 번 새로 연다 — 배포한 것을 폰이 옛 화면으로 쥐고 있을 때 쓴다
    */

@@ -73,6 +73,7 @@ import { notify } from './notify'
 import { cellsOf, claimSeat, pickSeat, pushEveryoneOut, seatPawn, takenFrom } from './seat'
 import { checkInvariants } from './invariants'
 import { inTx } from './contended'
+import { CONSTRUCTION_ROOM, CONSTRUCTION_WHY, isUnderConstruction } from '../../shared/rules/construction'
 import { logEvent, logSecret } from './qaLog'
 import { arriveNow } from './catchup'
 
@@ -298,6 +299,7 @@ async function loadBoard(gameId: string): Promise<{ state: PhaseState; game: Gam
       invisibleId: game.invisibleId ?? null,
       // **살아 있는 것만 담는다.** 순수 함수는 시계를 모른다
       locks: liveLocks(tiles.docs, nowOf(game)),
+      closed: isUnderConstruction(game, CONSTRUCTION_ROOM) ? [CONSTRUCTION_ROOM] : [],
     },
   }
 }
@@ -623,6 +625,7 @@ export const phaseAct = onCall<{
       // **살아 있는 것만 담는다.** 지난 자물쇠를 지우러 다시 오는
       // 일이 없게, 시각만 보고 살았는지를 판단한다
       locks: liveLocks(tiles.docs, nowMs),
+      closed: isUnderConstruction(game, CONSTRUCTION_ROOM) ? [CONSTRUCTION_ROOM] : [],
     }
 
     /*
@@ -1102,6 +1105,8 @@ export const roamTo = onCall<{ gameId: string; tileId: TileId; at?: { x: number;
     if (!mine.exists) throw new HttpsError('permission-denied', '이 판에 없는 사람이다.')
     const p = mine.data() as PawnDoc
     if (p.tileId === tileId) throw new HttpsError('failed-precondition', '이미 그 방이다.')
+    // **공사 중인 방은 자유 시간에도 못 들어간다**(rules/construction)
+    if (isUnderConstruction(gNow.data() as GameDoc | undefined, tileId)) throw new HttpsError('failed-precondition', CONSTRUCTION_WHY)
 
     const here = (p.tileId ?? p.postTile) as TileId
     // **복도로 닿으면 들어간다.** 옆방만 허용하면, 복도 한복판에서
@@ -1231,6 +1236,17 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * (tileId)이 그대로라 칸만 적으면 공짜로 들어가진다 — 들어가기(phaseAct move)로 간다
    */
   const reentry = room !== null && room === p.tileId && !!p.at && roomOfCell(p.at.x, p.at.y) === null
+  /*
+   * **공사 중인 방에는 칸을 적어서도 못 들어간다.** 그 방에서 복도로 나온 사람은
+   * 마지막 방(tileId)이 그대로라, 문을 다시 밟으면 칸만 적고 들어가진다
+   */
+  if (
+    room === CONSTRUCTION_ROOM &&
+    !(p.at && roomOfCell(p.at.x, p.at.y) === room) &&
+    isUnderConstruction((await gameRef(gameId).get()).data() as GameDoc | undefined, room)
+  ) {
+    return { ok: false, code: 'closed', why: CONSTRUCTION_WHY, at: p.at ?? null }
+  }
   if (reentry && (await gameRef(gameId).get()).data()?.phaseNow?.open === true) {
     return { ok: false, code: 'reenter', why: '방에 들어가려면 토큰을 쓴다.', at: p.at }
   }

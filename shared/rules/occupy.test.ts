@@ -35,6 +35,7 @@ import {
 import { TILES, type TileId } from './board'
 import { TEAM_IDS, type TeamId } from './v2'
 import { PULL_COST, PULL_HITS, type FlagMap } from './flag'
+import { CONSTRUCTION_ROOM, CONSTRUCTION_WHY } from './construction'
 
 const person = (playerId: string, team: TeamId, tileId: string): Person => ({
   playerId,
@@ -1165,5 +1166,16 @@ describe('자물쇠', () => {
     const out = doAct(s, 'b', { kind: 'summon', targetPlayer: 'b1' })
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.why).toContain('잠겨')
+  })
+})
+
+describe('공사 중인 방', () => {
+  it('닫힌 방으로는 페이즈 걸음이 안 된다 — 열리면 된다', () => {
+    const s0 = board({ people: [person('a', 'A', 'cafeteria')], closed: [CONSTRUCTION_ROOM] })
+    const out = doAct(s0, 'a', { kind: 'move', targetTile: CONSTRUCTION_ROOM })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.why).toBe(CONSTRUCTION_WHY)
+    const open = doAct({ ...s0, closed: [] }, 'a', { kind: 'move', targetTile: CONSTRUCTION_ROOM })
+    if (!open.ok) expect(open.why).not.toBe(CONSTRUCTION_WHY)
   })
 })

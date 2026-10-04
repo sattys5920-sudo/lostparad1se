@@ -18,6 +18,7 @@
 // 같은 입력에 늘 같은 결과라, 서버가 돌리든 시험이 돌리든 같다.
 import { ROAM_TO, TILE_BY_ID, TILES, canRoamTo, type TileId } from './board'
 import { ITEM_BY_KIND, ITEM_FOR, LOCKED_DOOR, countOf, takeItem, type Satchels } from './items'
+import { CONSTRUCTION_WHY } from './construction'
 import { TOTAL_SEATS } from './lobby'
 import { PULL_COST, PULL_HITS, canHoldFlags, flagsIn, pullTarget, withPlanted, withPulled, type FlagBoxes, type FlagMap } from './flag'
 import type { TeamId, Tier } from './v2'
@@ -324,6 +325,8 @@ export interface PhaseState {
    * 없다 — 서버가 부를 때 살아 있는 것만 담아서 넘긴다.
    */
   locks?: Readonly<Partial<Record<TileId, TeamId>>>
+  /** 공사 중이라 아무도 못 들어가는 방(rules/construction) */
+  closed?: readonly TileId[]
   /**
    * 오늘 지워진 사람. 없으면 null.
    *
@@ -619,6 +622,7 @@ function runAct(state: PhaseState, playerId: string, act: Act): ActResult {
     if (!reentry && !canRoamTo(p.tileId, to)) return '거기까지는 복도가 안 이어진다.'
     // **자물쇠는 걸음을 막는다.** 부르는 것도 걸음이라, 잠긴 방으로는
     // 불려 들어가지도 않는다 — 막는 자리를 여기 하나로 둔 값이다
+    if (state.closed?.includes(to)) return CONSTRUCTION_WHY
     const lockedBy = state.locks?.[to] ?? null
     if (lockedBy !== null && lockedBy !== p.team) return LOCKED_DOOR
     const room = capacityOf(to)
