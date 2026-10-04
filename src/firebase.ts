@@ -62,6 +62,8 @@ const CALL_LABEL: Record<string, string> = {
   hostEndPractice: 'DAY 1 시작',
   hostSetHideDeal: '배정 숨기기',
   hostFinalScores: '최종 점수 불러오기',
+  hostPapers: '종이 이력 불러오기',
+  hostRanks: '순위 세기',
   hostSetFinalScore: '최종 점수 저장',
   joinGame: '참가',
   logInAccount: '로그인',

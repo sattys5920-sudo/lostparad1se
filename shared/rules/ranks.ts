@@ -44,55 +44,102 @@ export function walkable(x: number, y: number): boolean {
   return canStandAt(x, y) && !isBlockedCell(x, y)
 }
 
-const STAIR_CELLS: Record<string, number[]> = {}
-for (const s of STAIRWELLS) {
-  const list = (STAIR_CELLS[s.floor] ??= [])
-  for (let y = s.plan.y; y < s.plan.y + s.plan.h; y++)
-    for (let x = s.plan.x; x < s.plan.x + s.plan.w; x++) list.push(y * PLAN_W + x)
+/**
+ * 걸을 수 있는 칸만 번호를 매긴 길 그물. 칸이 4천 개 남짓이라 한 번만
+ * 만들어 두고 같이 쓴다.
+ */
+interface Grid {
+  /** 전개도 칸 → 그물 번호. 못 걷는 칸은 -1 */
+  node: Int32Array
+  /** 이웃 목록(CSR) — node i 의 이웃은 next[start[i] .. start[i + 1]) */
+  start: Int32Array
+  next: Int32Array
+  size: number
+  /** 층마다 계단통 칸의 그물 번호 */
+  stairs: Record<string, number[]>
 }
 
-/**
- * 두 칸 사이 걸음 수. 출발 칸마다 한 번만 길을 넓혀 퍼뜨리고 기억한다.
- * 길이 없으면(벽에 갇힌 칸 같은 옛 기록) 가로세로 거리로 친다.
- */
-export function walkDistance(): (a: Cell, b: Cell) => number {
-  const cache = new Map<number, Int32Array>()
-  const from = (c: Cell): Int32Array => {
-    const key = c.y * PLAN_W + c.x
-    const hit = cache.get(key)
-    if (hit) return hit
-    const dist = new Int32Array(PLAN_W * PLAN_H).fill(-1)
-    const queue = new Int32Array(PLAN_W * PLAN_H)
-    let head = 0
-    let tail = 0
-    dist[key] = 0
-    queue[tail++] = key
-    while (head < tail) {
-      const k = queue[head++]
-      const x = k % PLAN_W
-      const y = (k - x) / PLAN_W
+let GRID: Grid | null = null
+function grid(): Grid {
+  if (GRID) return GRID
+  const node = new Int32Array(PLAN_W * PLAN_H).fill(-1)
+  let size = 0
+  for (let y = 0; y < PLAN_H; y++) for (let x = 0; x < PLAN_W; x++) if (walkable(x, y)) node[y * PLAN_W + x] = size++
+  const start = new Int32Array(size + 1)
+  const list: number[] = []
+  for (let y = 0; y < PLAN_H; y++)
+    for (let x = 0; x < PLAN_W; x++) {
+      const i = node[y * PLAN_W + x]
+      if (i < 0) continue
+      start[i] = list.length
       for (const [nx, ny] of [
         [x + 1, y],
         [x - 1, y],
         [x, y + 1],
         [x, y - 1],
       ]) {
-        if (!walkable(nx, ny)) continue
-        const nk = ny * PLAN_W + nx
-        if (dist[nk] !== -1) continue
-        dist[nk] = dist[k] + 1
-        queue[tail++] = nk
+        if (nx < 0 || ny < 0 || nx >= PLAN_W || ny >= PLAN_H) continue
+        const j = node[ny * PLAN_W + nx]
+        if (j >= 0) list.push(j)
       }
     }
-    cache.set(key, dist)
-    return dist
+  start[size] = list.length
+  const stairs: Record<string, number[]> = {}
+  for (const st of STAIRWELLS)
+    for (let y = st.plan.y; y < st.plan.y + st.plan.h; y++)
+      for (let x = st.plan.x; x < st.plan.x + st.plan.w; x++) {
+        const i = node[y * PLAN_W + x]
+        if (i >= 0) (stairs[st.floor] ??= []).push(i)
+      }
+  GRID = { node, start, next: Int32Array.from(list), size, stairs }
+  return GRID
+}
+
+const FAR = 0xffff
+
+/**
+ * 두 칸 사이 걸음 수.
+ *
+ * **출발 칸마다 길을 한 번만 퍼뜨리고 그 줄을 기억한다.** 줄 하나가 칸 수
+ * × 2 바이트라 다 채워도 30 MB 남짓이다 — 전개도 전체를 줄마다 담던
+ * 때는 실제 판에서 서버 메모리를 넘었다.
+ * 길이 없으면(벽에 갇힌 칸 같은 옛 기록) 가로세로 거리로 친다.
+ */
+export function walkDistance(): (a: Cell, b: Cell) => number {
+  const g = grid()
+  let rows: Uint16Array | null = null
+  const done = new Uint8Array(g.size)
+  const queue = new Int32Array(g.size)
+  const row = (i: number): Uint16Array => {
+    rows ??= new Uint16Array(g.size * g.size)
+    const out = rows.subarray(i * g.size, (i + 1) * g.size)
+    if (done[i]) return out
+    out.fill(FAR)
+    out[i] = 0
+    let head = 0
+    let tail = 0
+    queue[tail++] = i
+    while (head < tail) {
+      const k = queue[head++]
+      for (let e = g.start[k]; e < g.start[k + 1]; e++) {
+        const j = g.next[e]
+        if (out[j] !== FAR) continue
+        out[j] = out[k] + 1
+        queue[tail++] = j
+      }
+    }
+    done[i] = 1
+    return out
   }
+  const nodeOf = (c: Cell) => (c.x < 0 || c.y < 0 || c.x >= PLAN_W || c.y >= PLAN_H ? -1 : g.node[c.y * PLAN_W + c.x])
   const manhattan = (a: Cell, b: Cell) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
   /** 그 층 계단통까지 가장 가까운 걸음 */
   const toStairs = (c: Cell, floor: Floor): number | null => {
-    const d = from(c)
+    const i = nodeOf(c)
+    if (i < 0) return null
+    const d = row(i)
     let best: number | null = null
-    for (const k of STAIR_CELLS[floor] ?? []) if (d[k] >= 0 && (best === null || d[k] < best)) best = d[k]
+    for (const k of g.stairs[floor] ?? []) if (d[k] !== FAR && (best === null || d[k] < best)) best = d[k]
     return best
   }
   return (a, b) => {
@@ -105,8 +152,11 @@ export function walkDistance(): (a: Cell, b: Cell) => number {
       if (up !== null && down !== null) return up + down
       return 0
     }
-    const d = from(a)[b.y * PLAN_W + b.x]
-    return d >= 0 ? d : manhattan(a, b)
+    const i = nodeOf(a)
+    const j = nodeOf(b)
+    if (i < 0 || j < 0) return manhattan(a, b)
+    const d = row(i)[j]
+    return d !== FAR ? d : manhattan(a, b)
   }
 }
 

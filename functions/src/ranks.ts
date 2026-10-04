@@ -29,7 +29,8 @@ const bump = (m: Map<string, number>, id: string | undefined, by = 1) => {
   if (id) m.set(id, (m.get(id) ?? 0) + by)
 }
 
-export const hostRanks = onCall<{ gameId: string }>(async (req) => {
+// 기록을 판 전체로 읽는다 — 다른 콜러블보다 메모리 · 시간을 넉넉히
+export const hostRanks = onCall<{ gameId: string }>({ memory: '512MiB', timeoutSeconds: 120 }, async (req) => {
   requireHost(req.auth)
   const { gameId } = req.data
   const ref = gameRef(gameId)
