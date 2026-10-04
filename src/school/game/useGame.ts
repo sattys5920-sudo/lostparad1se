@@ -422,6 +422,10 @@ export function gameActions(gameId: string) {
     hostReleaseReportCards: () => callServer('hostReleaseReportCards', g),
     /** 성적통지표 — 내 것(보낸 뒤에만) */
     myReportCard: () => callServer('myReportCard', g),
+    /** 기념사진 — 2-3 교실을 비우고 현수막을 건다 · 걷는다 */
+    hostPhoto: (on: boolean, banner?: string) => callServer('hostPhoto', { ...g, on, ...(banner !== undefined ? { banner } : {}) }),
+    /** 기념사진 — 내 이름 자리에 서서 자세를 고른다 */
+    setPhotoPose: (pose: string) => callServer('setPhotoPose', { ...g, pose }),
     /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
     hostLiveMap: () => callServer('hostLiveMap', g),
     /** 운영자 — 방에서 오간 말. room 은 방 아이디 · 'hall' · 'all'. summary 면 방마다 줄 수 */

@@ -446,16 +446,29 @@ for (const [id, lx, ly, kind] of MARKS) {
 //
 // 어느 실인지는 소품과 팻말이 말한다. 바닥은 점령만 말한다.
 
+/**
+ * **기념사진 중에 비우는 방**(rules/photo). 그 방의 소품 · 흔적 · 팻말이
+ * 안 그려지고 그 칸도 걸을 수 있다. 서버도 같은 칸을 열어 준다(photo.photoClears)
+ */
+let clearedRoom: string | null = null
+export function setClearedRoom(id: string | null): void {
+  clearedRoom = id
+}
+const cleared = (x: number, y: number): boolean => clearedRoom !== null && roomAt(x, y)?.id === clearedRoom
+
 export function markAt(x: number, y: number): MarkKind | null {
+  if (cleared(x, y)) return null
   return marks.get(key(x, y)) ?? null
 }
 
 export function propAt(x: number, y: number): PropCell | null {
+  if (cleared(x, y)) return null
   return props.get(key(x, y)) ?? null
 }
 
 /** 그 칸에 팻말이 깔렸는가. 방 이름판의 어느 조각인지까지 알려 준다. */
 export function signAt(x: number, y: number): SignCell | null {
+  if (cleared(x, y)) return null
   return signs.get(key(x, y)) ?? null
 }
 
@@ -491,8 +504,8 @@ export function setBlockedCells(cells: readonly { x: number; y: number }[]): voi
 /** 걸을 수 있는가. 키는 "x,y". */
 export function isWalkable(x: number, y: number): boolean {
   if (tileAt(x, y) === 'wall') return false
-  if (props.has(key(x, y))) return false
-  if (signs.has(key(x, y))) return false
+  if (props.has(key(x, y)) && !cleared(x, y)) return false
+  if (signs.has(key(x, y)) && !cleared(x, y)) return false
   // 복도의 게시판과 자판기. **소품과 같은 갈래다** — 그림만 얹혀
   // 있으면 사람이 기계를 뚫고 지나간다(rules/fixtures)
   if (isFixture(x, y)) return false

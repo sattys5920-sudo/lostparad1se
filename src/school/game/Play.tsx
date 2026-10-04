@@ -50,7 +50,9 @@ const POT_ART_OF: Record<PotStage, string> = {
  */
 const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }): boolean =>
   me !== null && Math.abs(me.x - c.x) <= 1 && Math.abs(me.y - c.y) <= 1
-import { Walk, type DirWay, type PersonAt, type TapThing } from './Walk'
+import { Walk, type DirWay, type PersonAt, type PhotoScene, type TapThing } from './Walk'
+import { PHOTO_POSE_IDS, PHOTO_POSE_NAME, PHOTO_ROOM, photoSpots, type PhotoPose } from '../../../shared/rules/photo'
+import { setClearedRoom } from '../map/world'
 import { Meet, type MeetRow } from './Meet'
 import { MADE_NO } from '../../../shared/rules/made'
 import { LAB_MACHINES, LAB_TILE } from '../../../shared/rules/trap'
@@ -1109,6 +1111,36 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const inHall = hereCell !== null && isHallCell(hereCell.x, hereCell.y)
 
   /*
+   * **기념사진.** 감독관이 켜면 2-3 교실의 기물이 다 빠지고 위 벽에 현수막이
+   * 걸린다. 바닥에는 열넷의 이름 자리가 붙고, 내 이름 자리에 서야 자세를
+   * 고를 수 있다 — 서버도 같은 칸을 본다
+   */
+  const photo = game?.photo?.on ? game.photo : null
+  useEffect(() => {
+    setClearedRoom(photo ? PHOTO_ROOM : null)
+    return () => setClearedRoom(null)
+  }, [photo])
+  const photoSpotOf = useMemo(() => (photo && game ? photoSpots(game.seats) : null), [photo, game])
+  const photoScene = useMemo<PhotoScene | null>(() => {
+    if (!photo || !game || !photoSpotOf) return null
+    const atOf = new Map((state.view?.visiblePawns ?? []).map((p) => [p.playerId, p.at ?? null]))
+    return {
+      banner: photo.banner,
+      poses: photo.poses ?? {},
+      spots: game.seats.flatMap((sx, i) => {
+        const c = photoSpotOf.get(sx.playerId)
+        if (!c) return []
+        const at = sx.playerId === uid ? hereCell : atOf.get(sx.playerId)
+        return [{ x: c.x, y: c.y, name: seatName(sx, i), mine: sx.playerId === uid, filled: at?.x === c.x && at?.y === c.y }]
+      }),
+    }
+  }, [photo, game, photoSpotOf, state.view?.visiblePawns, uid, hereCell])
+  const mySpot = uid ? (photoSpotOf?.get(uid) ?? null) : null
+  const onMySpot = mySpot !== null && hereCell?.x === mySpot.x && hereCell?.y === mySpot.y
+  const myPose: PhotoPose = (uid ? photo?.poses?.[uid] : undefined) ?? 'stand'
+  const [posing, setPosing] = useState(false)
+
+  /*
    * **기계 앞을 떠나면 자판기가 저절로 닫힌다.**
    *
    * 화면이 남아 있으면 눌러 봐야 서버가 「자판기 앞에 서야 산다」로
@@ -1718,6 +1750,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               화면에서만 방 안으로 들어가졌다. 서버가 세운 복도 칸은 Walk 가 서버
               칸이 바뀔 때 따라간다
             */
+            photo={photoScene}
             reenterCosts={phaseOpen}
             onCross={(to, at) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
@@ -1968,6 +2001,36 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               말줄은 지도 위에 얹히는 고정 줄이라 흐름을 비켜 간다.
             */}
             <ErrandStrip view={state.view} act={act} onSaid={setSaid} />
+            {/* 기념사진 — 내 이름 자리에 서면 자세 단추가 뜬다 */}
+            {photo && (
+              <div className="sc-pl__photo">
+                {onMySpot ? (
+                  <div className="sc-pl__poses" role="group" aria-label="자세">
+                    {PHOTO_POSE_IDS.map((id) => (
+                      <button
+                        key={id}
+                        className={myPose === id ? 'is-on' : ''}
+                        aria-pressed={myPose === id}
+                        disabled={posing}
+                        onClick={() => {
+                          setPosing(true)
+                          void act
+                            .setPhotoPose(id)
+                            .catch((e: Error) => showToast(e.message))
+                            .finally(() => setPosing(false))
+                        }}
+                      >
+                        {PHOTO_POSE_NAME[id]}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="sc-pl__photo-hint">
+                    {mySpot ? '2-3 교실 바닥, 내 이름 자리에 서면 자세를 고를 수 있다.' : '기념사진을 찍는 중이다.'}
+                  </p>
+                )}
+              </div>
+            )}
             {/* 본인에게만 옅은 표시. 남에게는 위치 자체가 안 간다.
                 **머리 판에 붙인다** — 지도 아래에 두었더니 말줄이 덮었다 */}
             {iAmInvisible && <p className="sc-pl__ghost">오늘 당신은 보이지 않습니다.</p>}

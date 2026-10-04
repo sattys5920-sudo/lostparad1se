@@ -1165,6 +1165,37 @@
 .sc-wk__tag.is-me { color: var(--text-1); font-weight: 700; }
 
 /*
+ * 기념사진 현수막 글자. 천은 캔버스가 그리고 글자만 여기서 얹는다 —
+ * 논리 화소로 구운 글자는 키우면 획이 뭉개져 「모두」가 「보누」로 읽혔다.
+ * 천 색은 맵 그림과 같은 값이라 테마를 안 탄다
+ */
+.sc-wk__banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  font-family: 'Galmuri11', var(--font-ui, sans-serif);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: #9c2f2a;
+  pointer-events: none;
+}
+/* 아직 아무도 안 선 이름 자리. 바닥 테이프 안에 적힌 이름 */
+.sc-wk__spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  font-size: var(--fs-cap);
+  line-height: 11px;
+  white-space: nowrap;
+  color: #3b4258;
+  pointer-events: none;
+}
+.sc-wk__spot.is-me { color: #8a6410; font-weight: 700; }
+
+/*
  * 들고 있는 물건. 머리 위 한 줄이다.
  *
  * 이름표(발치)와 달리 **면을 깐다** — 이름은 사람의 일부로 읽혀야

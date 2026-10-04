@@ -11,6 +11,7 @@
 //
 // 테두리는 한 색이 아니다. 닿아 있는 색을 어둡게 한 값을 쓴다 —
 // 머리 테두리는 가장 어두운 머리색, 살 테두리는 진한 갈색.
+import { PHOTO_POSE_IDS, PHOTO_POSE_NAME, type PhotoPose } from '../../../shared/rules/photo'
 import {
   BAND_TONES,
   BLUSH_TONE,
@@ -1294,7 +1295,123 @@ function bandRows(side: boolean, dir: Dir, bob = 0): Row[] {
   ]
 }
 
-function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Grid {
+// ── 기념사진 자세 ─────────────────────────────────────────────
+//
+// 정면 서기 그림에서 팔만 떼어 내고 다시 그린다. 팔은 소매 한 칸에 양옆
+// 테두리(지도 맵의 OwO)다 — 가운데 점들을 이으면 테두리는 저절로 붙는다.
+// 손은 살 칸. 화면 오른쪽 팔에는 완장이 있다 — 그 팔을 옮기면 완장도 옮긴다.
+
+export type { PhotoPose } from '../../../shared/rules/photo'
+export const PHOTO_POSES: readonly { id: PhotoPose; name: string }[] = PHOTO_POSE_IDS.map((id) => ({ id, name: PHOTO_POSE_NAME[id] }))
+
+type XY = readonly [number, number]
+/** 화면 왼쪽 팔의 가운데 점들(어깨 → 손목). 오른쪽 팔은 좌우를 뒤집어 쓴다 */
+/**
+ * **팔 길이는 늘어뜨린 팔과 같다**(어깨에서 손목까지 네다섯 칸). 머리가 커서
+ * 팔을 들어도 손은 얼굴 옆까지만 온다 — 길게 늘이면 팔이 고무처럼 보인다.
+ */
+const ARM_L: Record<Exclude<PhotoPose, 'stand'>, { arm: XY[]; hand: XY[] }> = {
+  // 손을 턱 옆으로 들고 손가락 둘을 세운다
+  v: {
+    arm: [[11, 22], [10, 21], [9, 20]],
+    hand: [[8, 19], [9, 19], [8, 18], [7, 17], [9, 18]],
+  },
+  // 팔을 비스듬히 들고 손을 편다
+  wave: {
+    arm: [[11, 22], [10, 21], [9, 20], [8, 19]],
+    hand: [[7, 18], [8, 18], [7, 17]],
+  },
+  // 두 팔을 비스듬히 위로
+  cheer: {
+    arm: [[11, 22], [10, 21], [9, 20], [8, 19]],
+    hand: [[7, 18], [8, 18]],
+  },
+  // 두 손을 가슴 앞에 모아 하트를 쥔다(하트는 CHEST_HEART)
+  chest: {
+    arm: [[11, 22], [11, 23]],
+    hand: [[12, 24]],
+  },
+  // 팔꿈치를 한 칸만 빼고 손을 허리에
+  hips: {
+    arm: [[11, 22], [10, 23], [10, 24]],
+    hand: [[11, 25]],
+  },
+}
+/** 손하트의 하트 — 가슴 한가운데 6×4 */
+const CHEST_HEART: readonly Row[] = [
+  [BODY_Y + 1, 13, 14],
+  [BODY_Y + 1, 17, 18],
+  [BODY_Y + 2, 13, 18],
+  [BODY_Y + 3, 14, 17],
+  [BODY_Y + 4, 15, 16],
+]
+const flipX = (pts: XY[]): XY[] => pts.map(([x, y]) => [PX - 1 - x, y] as const)
+const BOTH: ReadonlySet<PhotoPose> = new Set<PhotoPose>(['cheer', 'chest', 'hips'])
+/** 팔이 몸 앞으로 지나가는 자세 — 테두리를 옷 위에도 긋는다 */
+const FRONT_OF_BODY: ReadonlySet<PhotoPose> = new Set<PhotoPose>(['chest'])
+
+/** 머리통이 차지하는 칸 — 팔이 이 위로는 안 지나간다 */
+const HEAD_CELLS: ReadonlySet<string> = new Set(HEAD_FRONT.map((p) => `${p.x},${p.y}`))
+
+function posePhoto(g: Grid, pose: Exclude<PhotoPose, 'stand'>, team: TeamId | null): void {
+  const sleeve = (g.at(11, BODY_Y + 3)?.mat ?? 'shirt') as Mat
+  const free = (x: number, y: number) => !HEAD_CELLS.has(`${x},${y}`)
+  const spec = ARM_L[pose]
+  const sides: ('L' | 'R')[] = BOTH.has(pose) ? ['L', 'R'] : ['L']
+  for (const side of sides) {
+    // 늘어뜨린 팔을 지운다 — 몸통 테두리(12 · 19)는 남긴다
+    const xs = side === 'L' ? [9, 10, 11] : [20, 21, 22]
+    for (let y = BODY_Y + 1; y <= BODY_Y + 6; y++) for (const x of xs) if (g.at(x, y)?.mat !== 'hair') g.cells[y * PX + x] = null
+    const arm = side === 'L' ? spec.arm : flipX(spec.arm)
+    const hand = side === 'L' ? spec.hand : flipX(spec.hand)
+    const core = new Set(arm.map(([x, y]) => `${x},${y}`))
+    // 테두리 먼저(빈 칸만), 그 위에 소매 가운데
+    for (const [x, y] of arm) {
+      // 위아래 · 좌우만 — 대각선까지 두르면 팔이 두 배로 두꺼워진다
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx
+        const ny = y + dy
+        if (core.has(`${nx},${ny}`) || !free(nx, ny)) continue
+        const there = g.at(nx, ny)
+        // 몸통 · 옷은 그대로 둔다 — 빈 칸과 늘어뜨린 머리 위에만 테두리
+        if (there && there.mat !== 'hair' && !FRONT_OF_BODY.has(pose)) continue
+        g.paint([[ny, nx, nx]], sleeve, 'line', MAT_LAYER.shirt)
+      }
+    }
+    for (const [x, y] of arm) if (free(x, y)) g.paint([[y, x, x]], sleeve, 'shade', MAT_LAYER.shirt)
+    // 손 — 살 한 덩이에 테두리
+    const palm = new Set(hand.map(([x, y]) => `${x},${y}`))
+    for (const [x, y] of hand) {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx
+        const ny = y + dy
+        if (palm.has(`${nx},${ny}`) || core.has(`${nx},${ny}`) || !free(nx, ny)) continue
+        const there = g.at(nx, ny)
+        if (there && there.mat !== 'hair' && !FRONT_OF_BODY.has(pose)) continue
+        g.paint([[ny, nx, nx]], 'skin', 'line', MAT_LAYER.skin)
+      }
+    }
+    for (const [x, y] of hand) if (free(x, y)) g.paint([[y, x, x]], 'skin', 'base', MAT_LAYER.skin)
+    // 완장 — 화면 오른쪽 팔을 옮겼으면 그 팔 어깨 쪽 두 칸에 다시 두른다
+    if (side === 'R' && team) for (const [x, y] of arm.slice(1, 3)) g.paint([[y, x, x]], 'band', 'base', MAT_LAYER.band)
+  }
+  if (pose === 'chest') g.paint(CHEST_HEART, 'blush', 'auto', MAT_LAYER.blush)
+}
+
+/** 기념사진 한 칸(32×32, 정면). */
+export function photoFrame(look: AvatarLook, team: TeamId | null, pose: PhotoPose): HTMLCanvasElement {
+  if (pose === 'stand') return pixelFrame(look, team, 'down', 0)
+  const id =
+    `photo-${pose}-${look.hairStyle}-${look.hairColor}-${look.expression}-${look.outfit}` +
+    `-${look.wearStyle}-${look.bottom}-${look.neckwear}-${team ?? '-'}`
+  const hit = cache.get(id)
+  if (hit) return hit
+  const out = paint(build(look, team, 'down', 0, pose), tonesFor(look, team))
+  cache.set(id, out)
+  return out
+}
+
+function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose, photo: PhotoPose = 'stand'): Grid {
   const facing: Dir = dir === 'left' ? 'right' : dir
   const side = facing === 'right'
   const spec = hairSpec(look.hairStyle)
@@ -1367,6 +1484,9 @@ function build(look: AvatarLook, team: TeamId | null, dir: Dir, pose: Pose): Gri
       if (g.at(x, y)?.mat === 'hair') g.paint([[y, x, x]], 'hair', 'shade', MAT_LAYER.hair)
     }
   }
+  // 기념사진 자세 — 정면에서만. 팔을 떼어 다시 그린다. 늘어뜨린 옆머리보다는
+  // 앞이고 머리통(얼굴 · 윤곽)은 안 덮는다
+  if (photo !== 'stand' && facing === 'down') posePhoto(g, photo, team)
   return g
 }
 
@@ -1439,8 +1559,16 @@ export const SMALL_FOOT = SMALL_PX - (SMALL_PX - SMALL_ROWS.length + SMALL_ROWS.
 const smallCache = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>()
 
 /** 지도에 세우는 24×24. 줄·칸을 골라 뽑아서 얼굴이 안 빠진다 */
+/** 기념사진 자세의 지도용 24×24 */
+export function photoFrameSmall(look: AvatarLook, team: TeamId | null, pose: PhotoPose): HTMLCanvasElement {
+  return shrink(photoFrame(look, team, pose))
+}
+
 export function pixelFrameSmall(look: AvatarLook, team: TeamId | null, dir: Dir, frame: number): HTMLCanvasElement {
-  const src = pixelFrame(look, team, dir, frame)
+  return shrink(pixelFrame(look, team, dir, frame))
+}
+
+function shrink(src: HTMLCanvasElement): HTMLCanvasElement {
   const hit = smallCache.get(src)
   if (hit) return hit
   const c = document.createElement('canvas')

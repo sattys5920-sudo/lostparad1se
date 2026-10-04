@@ -184,6 +184,11 @@ export interface GameDoc {
   answerSheet?: { openAtMs: number } | null
   /** 성적통지표를 보낸 시각(실제 시각). 있으면 열넷 화면에 한 번 뜬다 — 다시 보내면 또 뜬다 */
   reportCardAtMs?: number | null
+  /**
+   * 기념사진. 켜져 있으면 2-3 교실의 기물이 치워지고 현수막이 걸린다(rules/photo).
+   * poses 는 사람마다 고른 자세 — 자기 자리에 섰을 때만 고를 수 있다
+   */
+  photo?: { on: boolean; atMs: number; banner: string; poses?: Record<string, import('./rules/photo').PhotoPose> } | null
   /** 채점 결과. **여기 적히는 순간 정답이 모두에게 간다** */
   answerResult?: {
     atMs: number

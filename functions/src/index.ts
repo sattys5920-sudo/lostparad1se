@@ -150,6 +150,7 @@ export { hostEnter } from './hostgate'
 // 시작 전 잠금 · 탭 잠금. 감독관만
 export { hostSetLobbyStage, hostSetTabLock, hostSetBgm } from './stage'
 // 답안지 — 마지막에 서로의 역할을 맞힌다
+export { hostPhoto, setPhotoPose } from './photo'
 export { hostOpenAnswers, submitAnswers, myAnswers, hostAnswers, hostGradeAnswers, hostFinalScores, hostSetFinalScore, hostReleaseReportCards, myReportCard } from './answers'
 
 // QA용 채우기. 운영자만, 로비에서만.

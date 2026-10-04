@@ -998,3 +998,35 @@
   color: var(--accent);
 }
 .sc-pl__busyWhy { margin: var(--sp-1) 0 0; font-size: var(--fs-cap); color: var(--text-2); }
+
+/* 기념사진 — 머리 판 아래, 내 이름 자리에 서면 자세 단추 */
+.sc-pl__today .sc-pl__photo {
+  pointer-events: auto;
+  padding: var(--sp-1) var(--sp-2);
+  border: 2px solid var(--line-strong);
+  background: color-mix(in srgb, var(--bg-1) 86%, transparent);
+}
+.sc-pl__today .sc-pl__poses {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-1);
+}
+.sc-pl__today .sc-pl__poses button {
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-1);
+  color: var(--text-1);
+  font-size: var(--fs-label);
+}
+.sc-pl__today .sc-pl__poses button.is-on {
+  border-color: #b8443c;
+  background: #f6e3df;
+  color: #9c2f2a;
+  font-weight: 700;
+}
+.sc-pl__today .sc-pl__photo-hint {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-label);
+  color: var(--text-2);
+}

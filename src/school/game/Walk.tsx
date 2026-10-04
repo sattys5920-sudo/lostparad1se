@@ -35,7 +35,8 @@ import {
 } from '../map/world'
 import { PAL, buildSprites, type Dir } from '../map/sprites'
 import { MAP, UI } from '../skin'
-import { SMALL_FOOT, SMALL_PX, pixelFrame, pixelFrameSmall } from '../char/pixel'
+import { SMALL_FOOT, SMALL_PX, photoFrame, photoFrameSmall, pixelFrame, pixelFrameSmall } from '../char/pixel'
+import { PHOTO_ROOM, type PhotoPose } from '../../../shared/rules/photo'
 // 명단에서 온 생김새는 어떤 값이 들어 있을지 모른다. 서버는 검사하지
 // 않고 옮기기만 하므로, 그리기 직전에 여기서 접어 넣는다
 import { normalizeLook } from '../char/look'
@@ -224,6 +225,11 @@ export interface WalkProps {
    * 막는 자리는 걸음 자체다 — 문을 넘게 두었다가 되돌리면 튕긴다.
    */
   stayIn?: TileId | null
+  /**
+   * 기념사진(rules/photo). 있으면 2-3 교실 위 벽에 현수막을 걸고, 바닥에
+   * 열넷의 이름 자리를 그리고, 고른 자세로 사람을 그린다
+   */
+  photo?: PhotoScene | null
   /**
    * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
    * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
@@ -457,6 +463,50 @@ function bakeVignette(w: number, h: number): HTMLCanvasElement {
  * 캔버스 자체를 열쇠로 쥐는 WeakMap 에 담는다 — 다시 구워지면 새 열쇠라
  * 저절로 새 그림자가 생기고, 옛것은 같이 버려진다.
  */
+/** 기념사진 장면 — 현수막 문구 · 이름 자리 · 사람마다 고른 자세 */
+export interface PhotoScene {
+  banner: string
+  spots: readonly { x: number; y: number; name: string; mine: boolean; filled: boolean }[]
+  poses: Readonly<Record<string, PhotoPose>>
+}
+
+/**
+ * 현수막 천 한 장 — 흰 천에 붉은 테. 폭은 칸 수로. **글자는 안 굽는다** — 논리
+ * 화소로 구운 글자는 키우면 뭉개진다. 이름표처럼 위에 겹으로 얹는다
+ */
+const BANNER_BAKE = new Map<string, HTMLCanvasElement>()
+function bakeBanner(cells: number): HTMLCanvasElement {
+  const key = String(cells)
+  const hit = BANNER_BAKE.get(key)
+  if (hit) return hit
+  const w = cells * TILE
+  const h = 15
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h + 4
+  const g = c.getContext('2d') as CanvasRenderingContext2D
+  // 매단 끈
+  g.fillStyle = '#5a4a3a'
+  g.fillRect(3, 0, 1, 3)
+  g.fillRect(w - 4, 0, 1, 3)
+  // 천 · 테
+  g.fillStyle = '#b8443c'
+  g.fillRect(0, 2, w, h)
+  g.fillStyle = '#f6f1e4'
+  g.fillRect(1, 3, w - 2, h - 2)
+  g.fillStyle = '#e7dcc4'
+  g.fillRect(1, 2 + h - 3, w - 2, 1)
+  // 양 끝 꽃 장식
+  for (const x of [5, w - 8]) {
+    g.fillStyle = '#e07a8a'
+    g.fillRect(x, 7, 3, 3)
+    g.fillStyle = '#f4c542'
+    g.fillRect(x + 1, 8, 1, 1)
+  }
+  BANNER_BAKE.set(key, c)
+  return c
+}
+
 const SIGN_SHADOW = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>()
 function signShadow(plate: HTMLCanvasElement): HTMLCanvasElement {
   const had = SIGN_SHADOW.get(plate)
@@ -498,7 +548,12 @@ const BLOCKED_SAY_MS = 1500
 /** 알린 칸이 서버에 안 비치면 이만큼 기다렸다 한 번 더 알린다 — 서버가 비추는 묶음(1.5 초)보다 넉넉히 */
 const RESEND_AFTER_MS = 4000
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [] }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [], photo = null }: WalkProps) {
+  const photoRef = useRef(photo)
+  photoRef.current = photo
+  /** 현수막 글자 · 빈 이름 자리 글자. 이름표처럼 캔버스 위에 겹으로 얹는다 */
+  const bannerElRef = useRef<HTMLDivElement | null>(null)
+  const spotElsRef = useRef(new Map<string, HTMLDivElement>())
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   /** 풍선 알맹이들. 그리는 고리가 여기서 꺼내 자리만 옮긴다 */
   const sayElsRef = useRef(new Map<string, HTMLDivElement>())
@@ -1948,6 +2003,45 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         })
       }
 
+      // 기념사진 — 위 벽의 현수막과 바닥의 이름 자리. 사람보다 먼저(사람이 자리를 밟고 선다)
+      const scene = photoRef.current
+      if (scene) {
+        const room = roomById[PHOTO_ROOM as TileId].rects[0]
+        const cells = room.w - 2
+        const ban = bakeBanner(cells)
+        const bx = (room.x + 1) * TILE - camX
+        const by = (room.y - 1) * TILE - camY - 3
+        ctx.drawImage(ban, bx, by)
+        const k = scaleRef.current
+        const ox = canvas.offsetLeft
+        const oy = canvas.offsetTop
+        const bel = bannerElRef.current
+        if (bel) {
+          // 천(15 화소) 가운데에 글자. 글자 크기도 천을 따라 커지되 픽셀 글꼴이라 11 의 배수로만
+          bel.style.fontSize = `${Math.max(1, Math.floor((9 * k) / 11)) * 11}px`
+          bel.style.transform = `translate(-50%, -50%) translate(${Math.round(ox + (bx + (cells * TILE) / 2) * k)}px, ${Math.round(oy + (by + 2 + 7.5) * k)}px)`
+        }
+        for (const sp of scene.spots) {
+          const el = spotElsRef.current.get(`${sp.x},${sp.y}`)
+          if (sp.filled) {
+            if (el) el.style.display = 'none'
+            continue
+          }
+          const x0 = sp.x * TILE - camX
+          const y0 = sp.y * TILE - camY
+          // 바닥 테이프 — 네모 테두리. 내 자리는 노랗게
+          ctx.fillStyle = sp.mine ? '#e0b43a' : 'rgba(80, 90, 120, 0.55)'
+          ctx.fillRect(x0 + 2, y0 + 2, TILE - 4, 1)
+          ctx.fillRect(x0 + 2, y0 + TILE - 3, TILE - 4, 1)
+          ctx.fillRect(x0 + 2, y0 + 2, 1, TILE - 4)
+          ctx.fillRect(x0 + TILE - 3, y0 + 2, 1, TILE - 4)
+          if (el) {
+            el.style.display = ''
+            el.style.transform = `translate(-50%, -50%) translate(${Math.round(ox + (x0 + TILE / 2) * k)}px, ${Math.round(oy + (y0 + TILE / 2) * k)}px)`
+          }
+        }
+      }
+
       // 남들. 방 한가운데에 선 것으로 그린다 — 서버가 아는 것도 거기까지다.
       //
       // **걷는 사람은 그리지 않는다.** 문과 문 사이에 있는 사람은 어느
@@ -1964,7 +2058,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         const pose = p.moving ? Math.floor((now / 1000) * WALK_POSES_PER_SEC) : 0
         // 기계 앞자리에 멈춰 선 사람은 기계를 본다 — 앉아서 하는 중이다
         const seated = !p.moving && machineAtSeat({ x: Math.floor(p.x / TILE), y: Math.floor(p.y / TILE) }) !== null
-        person(p.x - camX, p.y - camY, p.team as TeamId, p.look, p.asleep, seated ? 'up' : p.dir, pose)
+        const shot = !p.moving ? photoRef.current?.poses[p.playerId] : undefined
+        person(p.x - camX, p.y - camY, p.team as TeamId, p.look, p.asleep, seated ? 'up' : p.dir, pose, shot)
       }
 
       // 나는 늘 맨 위다. 앞줄에 누가 서더라도 **나를 잃어버리면 안 된다**
@@ -1976,6 +2071,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         false,
         !self.moving && machineAtSeat({ x: self.tx, y: self.ty }) !== null ? 'up' : self.dir,
         self.moving ? Math.floor(self.phase) : 0,
+        !self.moving ? photoRef.current?.poses[me.playerId] : undefined,
       )
 
       marks(line, camX, camY, now)
@@ -2615,6 +2711,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       asleep: boolean,
       dir: Dir = 'down',
       frame = 0,
+      shot?: PhotoPose,
     ): void {
       if (!look) {
         dot(x, y, team, asleep)
@@ -2622,7 +2719,11 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       }
       // 24 화소면 줄·칸을 골라 뽑은 그림을 1:1 로 — 그냥 줄이면 눈과 입이 빠진다
       const small = CHAR_PX === SMALL_PX
-      const img = small ? pixelFrameSmall(normalizeLook(look), team, dir, frame) : pixelFrame(normalizeLook(look), team, dir, frame)
+      // 기념사진 자세를 골랐으면 정면으로 그 자세
+      const img =
+        shot && shot !== 'stand'
+          ? small ? photoFrameSmall(normalizeLook(look), team, shot) : photoFrame(normalizeLook(look), team, shot)
+          : small ? pixelFrameSmall(normalizeLook(look), team, shot ? 'down' : dir, frame) : pixelFrame(normalizeLook(look), team, shot ? 'down' : dir, frame)
       const k = CHAR_PX / img.width
       const dw = Math.round(img.width * k)
       const dh = Math.round(img.height * k)
@@ -2765,6 +2866,27 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
           {leftMin != null && <span>{leftMin} 분 남았다</span>}
         </div>
       )}
+
+      {/* 기념사진 — 현수막 글자와 아직 아무도 안 선 이름 자리 */}
+      {photo && (
+        <div className="sc-wk__banner" ref={bannerElRef}>
+          {photo.banner}
+        </div>
+      )}
+      {photo?.spots.map((sp) => (
+        <div
+          key={`${sp.x},${sp.y}`}
+          className={`sc-wk__spot${sp.mine ? ' is-me' : ''}`}
+          style={{ display: 'none' }}
+          ref={(el) => {
+            const m = spotElsRef.current
+            if (el) m.set(`${sp.x},${sp.y}`, el)
+            else m.delete(`${sp.x},${sp.y}`)
+          }}
+        >
+          {sp.name}
+        </div>
+      ))}
 
       {/*
         발치의 이름표. **방 이름은 여기 없다** — 머리 위 표시의

@@ -38,6 +38,7 @@ import { BgmDesk, LobbyStageDesk, TabLockDesk } from './StageDesk'
 import { bgmTrack, useBgm } from '../game/bgm'
 import { AnswerDesk } from './AnswerDesk'
 import { FinalScoreDesk } from './FinalScoreDesk'
+import { PhotoDesk } from './PhotoDesk'
 import { ScoreDesk } from './ScoreDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
@@ -479,6 +480,11 @@ function Desk() {
             <section className="sc-ad__sec">
               <h2>최종 점수</h2>
               <FinalScoreDesk act={act} onSaid={setSaid} sentAtMs={game?.reportCardAtMs ?? null} />
+            </section>
+
+            <section className="sc-ad__sec">
+              <h2>기념사진</h2>
+              {game && <PhotoDesk game={game} act={act} onSaid={setSaid} />}
             </section>
 
             <section className="sc-ad__sec">
