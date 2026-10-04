@@ -2,13 +2,14 @@
 //
 // 감독관이 「답안지 제출」을 누르면 어느 화면에 있든 이 종이가 뜬다.
 // 열넷 한 사람 한 사람 옆에 역할을 고르고 낸다. 채점 전까지는 고쳐 낸다.
-// 감독관이 「채점하기」를 누르면 정답과 점수가 뜬다(AnswerResult).
+// 감독관이 「채점하기」를 누르면 정답과 맞힌 개수 · 등수가 뜬다(AnswerResult).
 //
 // **메모 탭은 끌어오지 않는다.** 칸은 비어서 뜨고, 전에 낸 답안이 있으면
 // 그것만 다시 채운다.
 import { useEffect, useMemo, useState } from 'react'
 
 import type { GameDoc } from '../../../shared/model'
+import { rankRows } from '../../../shared/rules/reportCard'
 import { ROLE_NAMES, canonRoleId, type RoleId } from '../../../shared/missions/roleNames'
 import { ANSWER_ROLES } from '../../../shared/rules/answers'
 import type { GameActions } from './useGame'
@@ -128,7 +129,7 @@ export function AnswerSheet({ game, gameId, uid, act }: { game: GameDoc; gameId:
 
 const SEEN = 'sc.answers.seen'
 
-/** 채점 결과. 정답 · 내 점수 · 모두의 점수. 한 번 닫으면 그 채점은 다시 안 뜬다 */
+/** 채점 결과. 정답 · 내가 맞힌 개수 · 모두의 맞힌 개수와 등수. 한 번 닫으면 그 채점은 다시 안 뜬다 */
 export function AnswerResult({ game, gameId, uid, act }: { game: GameDoc; gameId: string; uid: string; act: GameActions }) {
   const result = game.answerResult ?? null
   const key = `${SEEN}:${gameId}:${uid}`
@@ -147,7 +148,17 @@ export function AnswerResult({ game, gameId, uid, act }: { game: GameDoc; gameId
       .then((r) => setMine(((r as { answers?: Record<string, string> }).answers ?? {}) as Record<string, string>))
       .catch(() => undefined)
   }, [result, act])
-  const me = useMemo(() => result?.scores.find((s) => s.playerId === uid) ?? null, [result, uid])
+  /*
+   * **맞힌 개수로만 줄 세운다.** 점수는 안 보인다. 같은 개수는 같은 등수 —
+   * 나보다 많이 맞힌 사람 수 + 1. 안 낸 사람은 등수 없이 맨 아래
+   */
+  const ranked = useMemo(() => {
+    if (!result) return []
+    const sent = rankRows(result.scores.filter((s) => s.submitted).map((s) => ({ ...s, score: s.correct })))
+    const unsent = result.scores.filter((s) => !s.submitted).map((s) => ({ ...s, rank: null as number | null }))
+    return [...sent, ...unsent]
+  }, [result])
+  const me = useMemo(() => ranked.find((s) => s.playerId === uid) ?? null, [ranked, uid])
 
   if (!result || seenAt === result.atMs) return null
   function close() {
@@ -163,8 +174,13 @@ export function AnswerResult({ game, gameId, uid, act }: { game: GameDoc; gameId
       <div className="sc-ans__sheet">
         <header className="sc-ans__head">
           <p className="sc-ans__eyebrow">채 점</p>
-          <h2>{me ? `${me.score} 점` : '채점 결과'}</h2>
-          {me && <p className="sc-ans__lead">{me.total} 문항 중 {me.correct} 문항을 맞혔다.</p>}
+          <h2>{me && me.submitted ? `${me.correct} / ${me.total}` : '채점 결과'}</h2>
+          {me && me.submitted && (
+            <p className="sc-ans__lead">
+              {me.total} 명 중 {me.correct} 명을 맞혔다{me.rank !== null ? ` · ${me.rank} 등` : ''}.
+            </p>
+          )}
+          {me && !me.submitted && <p className="sc-ans__lead">답안을 내지 않았다.</p>}
         </header>
         <h3 className="sc-ans__sub">정답</h3>
         <ol className="sc-ans__list is-key">
@@ -183,12 +199,13 @@ export function AnswerResult({ game, gameId, uid, act }: { game: GameDoc; gameId
             )
           })}
         </ol>
-        <h3 className="sc-ans__sub">모두의 점수</h3>
+        <h3 className="sc-ans__sub">맞힌 개수</h3>
         <ol className="sc-ans__scores">
-          {result.scores.map((s) => (
+          {ranked.map((s) => (
             <li key={s.playerId} className={s.playerId === uid ? 'is-me' : ''}>
-              <span>{s.name}</span>
-              <b>{s.submitted ? `${s.score} 점` : '안 냈다'}</b>
+              <span className="sc-ans__rank">{s.rank !== null ? `${s.rank} 등` : ''}</span>
+              <span className="sc-ans__who">{s.name}</span>
+              <b>{s.submitted ? `${s.correct} 개` : '안 냈다'}</b>
             </li>
           ))}
         </ol>

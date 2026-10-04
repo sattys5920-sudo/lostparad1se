@@ -79,7 +79,7 @@ export function AnswerDesk({ game, act, onSaid }: { game: GameDoc; act: GameActi
           <li key={r.playerId}>
             <button className="sc-an-desk__who" onClick={() => setOpen(open === r.playerId ? null : r.playerId)} disabled={!r.submitted}>
               <b>{r.name}</b>
-              <span>{r.submitted ? `냈다 · 미리 본 점수 ${r.preview?.score ?? 0} 점 (${r.preview?.correct ?? 0}/${r.preview?.total ?? 0})` : '아직 안 냈다'}</span>
+              <span>{r.submitted ? `냈다 · 미리 맞힌 개수 ${r.preview?.correct ?? 0} / ${r.preview?.total ?? 0}` : '아직 안 냈다'}</span>
             </button>
             {open === r.playerId && (
               <ol className="sc-an-desk__ans">
