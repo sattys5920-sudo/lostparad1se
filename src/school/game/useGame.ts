@@ -389,7 +389,7 @@ export function gameActions(gameId: string) {
     /** 쪽지 56장 배포판. 운영자만 — 문안 전문이 온다 */
     hostSlipBoard: () => callServer('hostSlipBoard', g),
     hostPapers: () => callServer('hostPapers', g),
-    /** 순위 — 심부름 · 걸음 · 문제 · 쪽지 발견 · 작물, 5 등까지. 운영자만 */
+    /** 순위 — 심부름 · 걸음 · 문제 · 쪽지 · 작물 · 덫 · 돈 · 말, 5 등까지. 운영자만 */
     hostRanks: () => callServer('hostRanks', g),
     hostRadioOverview: () => callServer('hostRadioOverview', g),
     /** 투명인간 투표를 연다 · 닫는다(닫으면 그 자리에서 센다) */

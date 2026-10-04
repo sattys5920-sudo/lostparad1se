@@ -1,5 +1,5 @@
-// 순위 — 운영자 화면 「이력」 탭 맨 위. 심부름 · 걸음 · 문제 · 쪽지 발견 · 작물을
-// 5 등까지. 같은 수면 같은 등수다. **서버가 센다**(hostRanks).
+// 순위 — 운영자 화면 「이력」 탭 맨 위. 심부름 · 걸음 · 문제 · 쪽지 발견 · 작물 ·
+// 덫 · 돈 · 말을 5 등까지. 같은 수면 같은 등수다. **서버가 센다**(hostRanks).
 import { useCallback, useEffect, useState } from 'react'
 
 import type { RankRow } from '../../../shared/rules/ranks'
@@ -11,6 +11,11 @@ interface Ranks {
   quizzes: RankRow[]
   notes: RankRow[]
   crops: RankRow[]
+  trapped: RankRow[]
+  trapsMade: RankRow[]
+  earned: RankRow[]
+  spent: RankRow[]
+  talk: RankRow[]
 }
 
 const BOARDS: { key: keyof Ranks; title: string; unit: string; note?: string }[] = [
@@ -19,6 +24,11 @@ const BOARDS: { key: keyof Ranks; title: string; unit: string; note?: string }[]
   { key: 'quizzes', title: '문제 많이 푼', unit: '개' },
   { key: 'notes', title: '쪽지 많이 발견한', unit: '장', note: '한 장마다 처음 주운 사람' },
   { key: 'crops', title: '작물 많이 딴', unit: '개', note: '화분에서 딴 열매 수' },
+  { key: 'trapped', title: '덫에 많이 걸린', unit: '번' },
+  { key: 'trapsMade', title: '덫 많이 만든', unit: '개', note: '제조기에 맡겨 나온 덫 수' },
+  { key: 'earned', title: '돈 많이 번', unit: '코인', note: '심부름 보상 · 작물 판 돈 · 거래로 받은 돈' },
+  { key: 'spent', title: '돈 많이 쓴', unit: '코인', note: '자판기에서 산 값 · 덫 맡긴 값 · 거래로 준 돈' },
+  { key: 'talk', title: '맵에서 말 많이 한', unit: '번', note: '무전은 빼고, 맵에서 한 말 수' },
 ]
 
 export function RankDesk({ act, onSaid }: { act: GameActions; onSaid: (t: string) => void }) {
