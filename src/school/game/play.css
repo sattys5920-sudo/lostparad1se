@@ -1178,7 +1178,11 @@
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
-  color: #9c2f2a;
+  color: #e0457b;
+  letter-spacing: 0.04em;
+  text-shadow:
+    1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff,
+    1px 1px 0 #ffd3e0;
   pointer-events: none;
 }
 /* 아직 아무도 안 선 이름 자리. 바닥 테이프 안에 적힌 이름 */
@@ -1194,6 +1198,8 @@
   pointer-events: none;
 }
 .sc-wk__spot.is-me { color: #8a6410; font-weight: 700; }
+/* 오투모 이름표 — 사람 이름표와 같은 자리, 점 대신 분홍 글자 */
+.sc-wk__tag.is-bot { color: #ffb3c8; font-weight: 700; }
 
 /*
  * 들고 있는 물건. 머리 위 한 줄이다.

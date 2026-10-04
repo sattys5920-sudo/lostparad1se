@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PHOTO_ROOM, PHOTO_SPOTS, photoSpots } from './photo'
+import { PHOTO_GIFTS, PHOTO_ROBOT, PHOTO_ROOM, PHOTO_SPOTS, PHOTO_TABLE, isPhotoDecor, photoSpots } from './photo'
 import { roomOfCell } from './board'
 import { isBlockedCell } from './blocked'
 
@@ -22,5 +22,13 @@ describe('기념사진 자리', () => {
     expect(m.get('b')).toEqual(PHOTO_SPOTS[0])
     expect(m.get('a')).toEqual(PHOTO_SPOTS[1])
     expect(m.get('c')).toEqual(PHOTO_SPOTS[2])
+  })
+  it('잔치 장식은 방 안 · 자리와 문 앞을 비킨다', () => {
+    for (const c of [PHOTO_ROBOT, PHOTO_GIFTS, ...PHOTO_TABLE]) {
+      expect(roomOfCell(c.x, c.y)).toBe(PHOTO_ROOM)
+      expect(isPhotoDecor(c.x, c.y)).toBe(true)
+      expect(c.x === 18 && c.y === 28).toBe(false)
+    }
+    for (const c of PHOTO_SPOTS) expect(isPhotoDecor(c.x, c.y)).toBe(false)
   })
 })

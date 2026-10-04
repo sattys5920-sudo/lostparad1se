@@ -27,6 +27,17 @@ export const PHOTO_SPOTS: readonly { x: number; y: number }[] = [
   { x: 22, y: 22 }, { x: 22, y: 26 },
 ]
 
+/**
+ * 잔치 장식 중 **바닥에 놓여 사람이 못 서는 것.** 자리(PHOTO_SPOTS)와 문 앞
+ * (18,28)을 비켜 둔다. 풍선 · 가랜드 · 색종이는 그림뿐이라 여기 없다
+ */
+export const PHOTO_ROBOT = { x: 23, y: 24 } as const
+export const PHOTO_TABLE: readonly { x: number; y: number }[] = [{ x: 12, y: 27 }, { x: 13, y: 27 }]
+export const PHOTO_GIFTS = { x: 24, y: 27 } as const
+export const PHOTO_ROBOT_NAME = '오투모'
+const DECOR = new Set([PHOTO_ROBOT, ...PHOTO_TABLE, PHOTO_GIFTS].map((c) => `${c.x},${c.y}`))
+export const isPhotoDecor = (x: number, y: number): boolean => DECOR.has(`${x},${y}`)
+
 export type PhotoPose = 'stand' | 'v' | 'wave' | 'cheer' | 'chest' | 'hips'
 export const PHOTO_POSE_IDS: readonly PhotoPose[] = ['stand', 'v', 'wave', 'cheer', 'chest', 'hips']
 export const PHOTO_POSE_NAME: Record<PhotoPose, string> = {

@@ -40,6 +40,7 @@ import { propTiles, WALL_PROPS, type PropKind } from './props'
 import { signTiles } from './signs'
 import type { MarkKind } from './sprites'
 import type { TeamId, TileId } from '../types'
+import { isPhotoDecor } from '../../../shared/rules/photo'
 
 export type { MarkKind } from './sprites'
 export type { PropKind } from './props'
@@ -506,6 +507,8 @@ export function isWalkable(x: number, y: number): boolean {
   if (tileAt(x, y) === 'wall') return false
   if (props.has(key(x, y)) && !cleared(x, y)) return false
   if (signs.has(key(x, y)) && !cleared(x, y)) return false
+  // 비운 방에는 잔치 장식(오투모 · 상 · 선물)이 대신 선다
+  if (cleared(x, y) && isPhotoDecor(x, y)) return false
   // 복도의 게시판과 자판기. **소품과 같은 갈래다** — 그림만 얹혀
   // 있으면 사람이 기계를 뚫고 지나간다(rules/fixtures)
   if (isFixture(x, y)) return false

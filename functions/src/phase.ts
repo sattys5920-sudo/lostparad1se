@@ -73,7 +73,8 @@ import { notify } from './notify'
 import { cellsOf, claimSeat, pickSeat, pushEveryoneOut, seatPawn, takenFrom } from './seat'
 import { checkInvariants } from './invariants'
 import { inTx } from './contended'
-import { photoClears } from './photo'
+import { photoBlocks } from './photo'
+import { isPhotoDecor } from '../../shared/rules/photo'
 import { logEvent, logSecret } from './qaLog'
 import { arriveNow } from './catchup'
 
@@ -1242,8 +1243,12 @@ export const standAt = onCall<{ gameId: string; x: number; y: number; via?: { x:
    * 위에 설 수 있었다. 막힌 칸을 뽑아 둔 데이터(rules/blocked)를 본다 —
    * 빌드 때 check-map 이 화면과 같은지 맞춰 본다
    */
-  // 기념사진 중에는 2-3 교실 기물이 치워져 있다(photo.photoClears)
-  if (isBlockedCell(x, y) && !photoClears((await gameRef(gameId).get()).data() as GameDoc | undefined, x, y)) {
+  // 기념사진 중에는 2-3 교실 기물이 치워지고 잔치 장식이 선다(photo.photoBlocks)
+  const furniture = isBlockedCell(x, y)
+  if (
+    (furniture || isPhotoDecor(x, y)) &&
+    photoBlocks((await gameRef(gameId).get()).data() as GameDoc | undefined, x, y, furniture)
+  ) {
     return { ok: false, code: 'blocked', why: '거기에는 물건이 있다.', at: await keepSeat(gameId, uid, p, { x, y }) }
   }
   /*

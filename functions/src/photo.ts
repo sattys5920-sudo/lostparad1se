@@ -2,7 +2,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 
 import type { GameDoc, PawnDoc } from '../../shared/model'
-import { PHOTO_BANNER, PHOTO_BANNER_MAX, PHOTO_ROOM, isPhotoPose, photoSpots } from '../../shared/rules/photo'
+import { PHOTO_BANNER, PHOTO_BANNER_MAX, PHOTO_ROOM, isPhotoDecor, isPhotoPose, photoSpots } from '../../shared/rules/photo'
 import { roomOfCell } from '../../shared/rules/board'
 import { requireHost } from './host'
 import { gameRef, requireUid } from './index'
@@ -39,7 +39,11 @@ export const setPhotoPose = onCall<{ gameId: string; pose: string }>(async (req)
   return { pose }
 })
 
-/** 기념사진 중에는 2-3 교실 기물이 치워진다 — 그 칸에도 설 수 있다 */
-export function photoClears(game: Pick<GameDoc, 'photo'> | undefined, x: number, y: number): boolean {
-  return !!game?.photo?.on && roomOfCell(x, y) === PHOTO_ROOM
+/**
+ * 그 칸이 지금 막혔는가. 기념사진 중에는 2-3 교실 기물이 치워지고 대신 잔치
+ * 장식(오투모 · 상 · 선물)이 그 칸을 막는다. 그 밖에는 원래 기물대로
+ */
+export function photoBlocks(game: Pick<GameDoc, 'photo'> | undefined, x: number, y: number, furniture: boolean): boolean {
+  if (game?.photo?.on && roomOfCell(x, y) === PHOTO_ROOM) return isPhotoDecor(x, y)
+  return furniture
 }
