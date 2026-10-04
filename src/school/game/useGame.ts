@@ -428,6 +428,8 @@ export function gameActions(gameId: string) {
     setPhotoPose: (pose: string) => callServer('setPhotoPose', { ...g, pose }),
     /** 공사 중인 2-3 교실을 연다 · 다시 닫는다 */
     hostSetPlazaOpen: (open: boolean) => callServer('hostSetPlazaOpen', { ...g, open }),
+    /** 공사 중인 2-3 교실 안 사람을 모두 문 앞 복도로 */
+    hostEvictPlaza: () => callServer('hostEvictPlaza', g),
     /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
     hostLiveMap: () => callServer('hostLiveMap', g),
     /** 운영자 — 방에서 오간 말. room 은 방 아이디 · 'hall' · 'all'. summary 면 방마다 줄 수 */

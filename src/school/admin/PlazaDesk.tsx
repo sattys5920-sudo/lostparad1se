@@ -23,6 +23,19 @@ export function PlazaDesk({ game, act, onSaid }: { game: GameDoc; act: GameActio
     }
   }
 
+  async function evict() {
+    if (!window.confirm('2-3 교실 안에 있는 사람을 모두 문 앞 복도로 내보낼까요?')) return
+    setBusy(true)
+    try {
+      const out = (await act.hostEvictPlaza()) as { count?: number }
+      onSaid(`2-3 교실에서 ${out.count ?? 0} 명을 복도로 내보냈다.`)
+    } catch (e) {
+      onSaid((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="sc-pz-desk">
       <p className="sc-ad__hint">
@@ -36,6 +49,11 @@ export function PlazaDesk({ game, act, onSaid }: { game: GameDoc; act: GameActio
         ) : (
           <button disabled={busy} onClick={() => void run(false)}>
             다시 닫기
+          </button>
+        )}
+        {closed && (
+          <button disabled={busy} onClick={() => void evict()}>
+            안에 있는 사람 복도로 내보내기
           </button>
         )}
         <span className="sc-ad__pill">{closed ? '공사 중 · 닫힘' : '열림'}</span>

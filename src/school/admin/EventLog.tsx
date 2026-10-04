@@ -121,6 +121,7 @@ const KIND_LABEL: Record<string, string> = {
   reset: '되돌림',
   invisibleCleared: '투명 해제',
   invisibleRestored: '투명 되돌림',
+  plazaEvict: '2-3 비움',
   errandDone: '심부름 끝',
   errandTake: '심부름 받음',
   errandQuit: '심부름 그만둠',
