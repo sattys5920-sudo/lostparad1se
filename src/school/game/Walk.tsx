@@ -9,6 +9,7 @@
 // 그래서 남은 방 한가운데에 선 것으로 그린다.
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { signSheet } from '../map/signs'
+import { CONSTRUCTION_WHY } from '../../../shared/rules/construction'
 
 import {
   centerOf,
@@ -230,6 +231,11 @@ export interface WalkProps {
    * 열넷의 이름 자리를 그리고, 고른 자세로 사람을 그린다
    */
   photo?: PhotoScene | null
+  /**
+   * 공사 중이라 닫힌 방(rules/construction). 문이 닫힌 그림에 「공사 중」 팻말이
+   * 붙고, 밖에서는 그 문을 못 넘는다. 안에 있던 사람은 나갈 수 있다
+   */
+  closedRooms?: readonly TileId[]
   /**
    * 십자키가 놓인 자리. 방 화면 위가 아니라 아래 컨트롤 바에 있어서
    * 그림 쪽에서 만들지 않고 **부모가 만든 자리를 건네받는다**.
@@ -834,10 +840,19 @@ const FOOT_PX = CHAR_PX * (6 / 32)
 
 /** 막혔다는 말을 다시 띄우기까지. 벽에 대고 밀어도 도배하지 않는다 */
 const BLOCKED_SAY_MS = 1500
+const NO_CLOSED: readonly TileId[] = []
+
+/** 그 문이 닫힌 방으로 들어가는 문인가. 그 방 안에 선 사람에게는 나가는 문이라 열려 있다 */
+function closedDoorFor(closed: readonly TileId[], x: number, y: number, fromRoom: string | null): boolean {
+  if (closed.length === 0) return false
+  const d = doorHere(x, y)
+  if (!d) return false
+  return (closed.includes(d.a) && fromRoom !== d.a) || (d.b !== null && closed.includes(d.b) && fromRoom !== d.b)
+}
 /** 알린 칸이 서버에 안 비치면 이만큼 기다렸다 한 번 더 알린다 — 서버가 비추는 묶음(1.5 초)보다 넉넉히 */
 const RESEND_AFTER_MS = 4000
 
-export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [], photo = null }: WalkProps) {
+export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTapPerson, onTapThing, onStand, padRef, reenterCosts = false, pinAt = null, bounce = null, onBlocked, frozen = false, looks = {}, live, onLive, onSelf, onDirs, roster, slot, stayIn = null, closedRooms = NO_CLOSED, says = {}, keepAbove = null, keepBelow = null, names = {}, pops = [], boards = [], things = [], pots = [], papers = [], photo = null }: WalkProps) {
   const photoRef = useRef(photo)
   photoRef.current = photo
   /** 현수막 글자 · 빈 이름 자리 글자. 이름표처럼 캔버스 위에 겹으로 얹는다 */
@@ -907,6 +922,9 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   const papersRef = useRef(papers)
   const frozenRef = useRef(frozen)
   const stayRef = useRef(stayIn)
+  const closedRef = useRef(closedRooms)
+  /** 닫힌 문 위의 「공사 중」 팻말. 이름표처럼 캔버스 위에 겹으로 얹는다 */
+  const closedSignElsRef = useRef(new Map<string, HTMLDivElement>())
   const looksRef = useRef(looks)
   const rosterRef = useRef(roster)
   const liveOutRef = useRef(onLive)
@@ -928,6 +946,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
   setBlockedCells(papers)
   frozenRef.current = frozen
   stayRef.current = stayIn
+  closedRef.current = closedRooms
   looksRef.current = looks
   rosterRef.current = roster
   liveOutRef.current = onLive
@@ -1279,6 +1298,17 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       // 아직 못 나간다. 문도 계단도 이 방 밖이면 한 칸도 안 간다
       if (shutIn(nx, ny)) return
 
+      // **공사 중인 방의 문은 닫혀 있다.** 밀면 한 번 알리고 선다 — 서버도 같은 방을 막는다
+      if (closedDoorFor(closedRef.current, nx, ny, roomAt(self.tx, self.ty)?.id ?? null)) {
+        autoPath = []
+        const t = performance.now()
+        if (t - lastBlockedMs > BLOCKED_SAY_MS) {
+          lastBlockedMs = t
+          blockedRef.current?.(CONSTRUCTION_WHY)
+        }
+        return
+      }
+
       // 계단이다. 한 칸 밟으면 다른 층으로 간다 — 걸어서는 못 잇는다.
       // 서버에 말하는 것은 여기서 하지 않는다. 옮겨 놓기만 하면
       // **선 방이 바뀐 것을 보고** 아래에서 알아서 말한다
@@ -1371,6 +1401,8 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             if (occupied.has(k)) continue
             // 갇혀 있으면 길도 이 방 안에서만 찾는다. 문 한 칸도 안 밟는다
             if (shutIn(nx, ny)) continue
+            // 공사 중인 방의 문으로는 길을 안 낸다
+            if (onDoor && closedDoorFor(closedRef.current, nx, ny, roomAt(self.tx, self.ty)?.id ?? null)) continue
             seen.add(k)
             prev.set(k, `${cur.x},${cur.y}`)
             if (k === goal) {
@@ -2055,6 +2087,13 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
             // 문을 넘어 보고 서버가 뭐라 하는지 듣는다.
             // 벽이 누운 방향에 따라 널빤지도 눕거나 선다
             img = doorIsHorizontal(x, y) ? sprites.tiles.doorH : sprites.tiles.doorV
+            // 공사 중인 방의 문 — 닫힌 문짝에 노랑·검정 띠를 친다. 팻말 글자는 위에 겹으로
+            const dd = doorHere(x, y)
+            if (dd && (closedRef.current.includes(dd.a) || (dd.b !== null && closedRef.current.includes(dd.b)))) {
+              ctx.drawImage(img, x * TILE - camX, y * TILE - camY)
+              drawClosedDoor(ctx, x * TILE - camX, y * TILE - camY, doorIsHorizontal(x, y))
+              img = null
+            }
           } else {
             /*
              * 바닥은 셋이다 — 방 · 복도 · 실외. 전에는 어디나 같은
@@ -2399,6 +2438,7 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
       const hid = wipeRef.current !== 0
       placeSays(line, camX, camY, hid)
       placeTags(line, camX, camY, hid)
+      placeClosedSigns(camX, camY)
       placeHolds(line, camX, camY, hid)
       placePops(camX, camY, hid)
     }
@@ -2559,6 +2599,24 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
      * **발치다.** 머리 위는 풍선 자리라, 이름표를 거기 두면 말할
      * 때마다 둘이 겹친다.
      */
+    /** 닫힌 문 위에 「공사 중」 팻말을 건다 */
+    function placeClosedSigns(camX: number, camY: number): void {
+      const els = closedSignElsRef.current
+      if (els.size === 0) return
+      const k = scaleRef.current
+      const ox = canvas.offsetLeft
+      const oy = canvas.offsetTop
+      for (const [key, el] of els) {
+        const [dx, dy] = key.split(',').map(Number)
+        const shut = shutBox(stayRef.current)
+        el.style.display = shut ? 'none' : ''
+        const px = Math.round(ox + (dx * TILE + TILE / 2 - camX) * k)
+        // 문 바로 위에 건다 — 문짝의 띠가 보이고, 문 앞에 선 사람 머리를 안 덮는다
+        const py = Math.round(oy + (dy * TILE + 2 - camY) * k)
+        el.style.transform = `translate(-50%, -100%) translate(${px}px, ${py}px)`
+      }
+    }
+
     function placeTags(line: readonly Standee[], camX: number, camY: number, hide: boolean): void {
       const els = tagElsRef.current
       if (els.size === 0) return
@@ -3200,6 +3258,21 @@ export function Walk({ me, view, tiles, nowMs, onCross, onRoom, onTapRoom, onTap
         </div>
       ))}
 
+      {/* 공사 중인 방의 문마다 팻말 하나 */}
+      {DOORS.filter((d) => closedRooms.includes(d.a) || (d.b !== null && closedRooms.includes(d.b))).map((d) => (
+        <div
+          key={`${d.x},${d.y}`}
+          className="sc-wk__closed"
+          ref={(el) => {
+            const m = closedSignElsRef.current
+            if (el) m.set(`${d.x},${d.y}`, el)
+            else m.delete(`${d.x},${d.y}`)
+          }}
+        >
+          공사 중
+        </div>
+      ))}
+
       {/*
         발치의 이름표. **방 이름은 여기 없다** — 머리 위 표시의
         둘째 층이 그것을 맡는다(Play.tsx). 같은 이름이 화면에 두 번
@@ -3300,6 +3373,30 @@ function drawFlag(ctx: CanvasRenderingContext2D, x: number, y: number, team: Tea
  * 방에 놓인 로봇 하나 — 한 칸(16px) 안에. 더듬이, 네모 머리, 두 눈.
  * 몸은 팀색이라 들어서면 누구 로봇인지 바로 보인다.
  */
+/**
+ * 닫힌 문 — 문짝을 꽉 닫아 그리고 노랑·검정 사선 띠를 가로로 친다.
+ * 가로 벽의 문이면 띠도 가로, 세로 벽이면 세로다
+ */
+function drawClosedDoor(ctx: CanvasRenderingContext2D, x: number, y: number, horizontal: boolean): void {
+  ctx.fillStyle = '#6b4a32'
+  ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2)
+  ctx.fillStyle = '#8a6244'
+  ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4)
+  ctx.fillStyle = '#d9b26a'
+  if (horizontal) ctx.fillRect(x + TILE - 5, y + 7, 2, 2)
+  else ctx.fillRect(x + 7, y + TILE - 5, 2, 2)
+  // 띠 — 4 화소마다 노랑 · 검정
+  const along = horizontal
+  for (let i = 0; i < TILE; i++) {
+    for (let j = 0; j < 5; j++) {
+      const stripe = Math.floor((i + j) / 3) % 2 === 0
+      ctx.fillStyle = stripe ? '#f2c230' : '#26232a'
+      if (along) ctx.fillRect(x + i, y + 5 + j, 1, 1)
+      else ctx.fillRect(x + 5 + j, y + i, 1, 1)
+    }
+  }
+}
+
 function drawRobot(ctx: CanvasRenderingContext2D, x: number, y: number, team: TeamId): void {
   ctx.fillStyle = 'rgba(0,0,0,0.25)'
   ctx.fillRect(x + 3, y + 14, 10, 1)

@@ -53,6 +53,7 @@ const beside = (me: { x: number; y: number } | null, c: { x: number; y: number }
 import { Walk, type DirWay, type PersonAt, type PhotoScene, type TapThing } from './Walk'
 import { PHOTO_POSE_IDS, PHOTO_POSE_NAME, PHOTO_ROOM, photoSpots, type PhotoPose } from '../../../shared/rules/photo'
 import { setClearedRoom } from '../map/world'
+import { CONSTRUCTION_ROOM, isUnderConstruction } from '../../../shared/rules/construction'
 import { Meet, type MeetRow } from './Meet'
 import { MADE_NO } from '../../../shared/rules/made'
 import { LAB_MACHINES, LAB_TILE } from '../../../shared/rules/trap'
@@ -777,6 +778,9 @@ function Running({ gameId, look }: { gameId: string; look: AvatarLook | null }) 
   )
 }
 
+const CLOSED_ROOMS: readonly RoomId[] = [CONSTRUCTION_ROOM as RoomId]
+const NO_ROOMS: readonly RoomId[] = []
+
 /** 아래 탭바의 세 칸. 화면은 세 장뿐이고, 나머지는 전부 시트다. */
 type Tab = 'map' | 'me' | 'radio' | 'vote' | 'note'
 
@@ -1109,6 +1113,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
   const hereCell = myCell ?? (state.view?.visiblePawns.find((p) => p.playerId === uid)?.at ?? null)
   /** 복도에 서 있는가. 방 안이면 false 다 — 서버와 같은 기준이다 */
   const inHall = hereCell !== null && isHallCell(hereCell.x, hereCell.y)
+  /** 2-3 교실이 공사 중인가(rules/construction) */
+  const underConstruction = isUnderConstruction(game, CONSTRUCTION_ROOM)
 
   /*
    * **기념사진.** 감독관이 켜면 2-3 교실의 기물이 다 빠지고 위 벽에 현수막이
@@ -1751,6 +1757,8 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
               칸이 바뀔 때 따라간다
             */
             photo={photoScene}
+            /* 공사 중인 2-3 교실 — 문이 닫혀 있다 */
+            closedRooms={underConstruction ? CLOSED_ROOMS : NO_ROOMS}
             reenterCosts={phaseOpen}
             onCross={(to, at) => {
               // 자유 시간의 방 이동에는 시간이 들지 않는다. 문을 지나면
@@ -1851,7 +1859,7 @@ function Today({ gameId, look }: { gameId: string; look: AvatarLook | null }) {
                     }
                     return
                   }
-                  if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked' || out.code === 'reenter') && back) {
+                  if (out?.ok === false && (out.code === 'occupied' || out.code === 'blocked' || out.code === 'reenter' || out.code === 'closed') && back) {
                     // Walk 는 아직 거절당한 그 칸(x,y)에 서 있을 때만 따른다 —
                     // 대답을 기다리는 사이 이미 걸어서 더 갔으면 지난 일이다
                     const goBack = (to: { x: number; y: number }, why: string | null) => {

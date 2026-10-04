@@ -1202,6 +1202,27 @@
 .sc-wk__tag.is-bot { color: #ffb3c8; font-weight: 700; }
 
 /*
+ * 「공사 중」 팻말 — 닫힌 문 위에 붙는다. 공사판 색(노랑 바탕 · 검정 글자)이라
+ * 테마를 안 탄다. 맵 위 글자라 캔버스에 안 굽고 겹으로 얹는다
+ */
+.sc-wk__closed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  padding: 1px var(--sp-1);
+  border: 1px solid #26232a;
+  background: #f2c230;
+  color: #26232a;
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  line-height: 11px;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 #26232a;
+  pointer-events: none;
+}
+
+/*
  * 들고 있는 물건. 머리 위 한 줄이다.
  *
  * 이름표(발치)와 달리 **면을 깐다** — 이름은 사람의 일부로 읽혀야

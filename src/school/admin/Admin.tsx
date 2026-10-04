@@ -39,6 +39,7 @@ import { bgmTrack, useBgm } from '../game/bgm'
 import { AnswerDesk } from './AnswerDesk'
 import { FinalScoreDesk } from './FinalScoreDesk'
 import { PhotoDesk } from './PhotoDesk'
+import { PlazaDesk } from './PlazaDesk'
 import { ScoreDesk } from './ScoreDesk'
 import { useGameNow } from '../game/Shell'
 import { TOTAL_SEATS } from '../../../shared/rules/lobby'
@@ -465,6 +466,11 @@ function Desk() {
             <section className="sc-ad__sec">
               <h2>배경음악</h2>
               {game && <BgmDesk game={game} act={act} onSaid={setSaid} />}
+            </section>
+
+            <section className="sc-ad__sec">
+              <h2>2-3 교실 공사</h2>
+              {game && <PlazaDesk game={game} act={act} onSaid={setSaid} />}
             </section>
 
             <section className="sc-ad__sec">

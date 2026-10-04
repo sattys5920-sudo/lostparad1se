@@ -426,6 +426,8 @@ export function gameActions(gameId: string) {
     hostPhoto: (on: boolean, banner?: string) => callServer('hostPhoto', { ...g, on, ...(banner !== undefined ? { banner } : {}) }),
     /** 기념사진 — 내 이름 자리에 서서 자세를 고른다 */
     setPhotoPose: (pose: string) => callServer('setPhotoPose', { ...g, pose }),
+    /** 공사 중인 2-3 교실을 연다 · 다시 닫는다 */
+    hostSetPlazaOpen: (open: boolean) => callServer('hostSetPlazaOpen', { ...g, open }),
     /** 운영자 지도 — 열넷의 자리와 하는 일. 문안 · 역할은 없다 */
     hostLiveMap: () => callServer('hostLiveMap', g),
     /** 운영자 — 방에서 오간 말. room 은 방 아이디 · 'hall' · 'all'. summary 면 방마다 줄 수 */
