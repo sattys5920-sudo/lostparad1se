@@ -1255,3 +1255,51 @@
   opacity: 0;
   pointer-events: none;
 }
+
+/* ── 순위 — 「이력」 탭 맨 위. 넷이 두 줄, 좁으면 한 줄 ── */
+.sc-rk {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-3);
+}
+.sc-rk__board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border: 1px solid var(--sc-line);
+  border-radius: 6px;
+}
+.sc-rk__board h3 {
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  line-height: 20px;
+  color: var(--sc-text);
+}
+.sc-rk__note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--sc-text-dim);
+  word-break: keep-all;
+}
+.sc-rk__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sc-rk__list li {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: var(--sp-2);
+  font-size: var(--fs-label);
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.sc-rk__rank { color: var(--sc-text-dim); }
+.sc-rk__who { color: var(--sc-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-rk__n { color: var(--sc-text-2); text-align: right; }

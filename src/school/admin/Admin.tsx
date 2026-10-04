@@ -22,6 +22,7 @@ import { gameActions, useGame } from '../game/useGame'
 import { DropHost } from './Drop'
 import { SlipDesk } from './SlipDesk'
 import { PaperDesk } from './PaperDesk'
+import { RankDesk } from './RankDesk'
 import { RadioDesk } from './RadioDesk'
 import { LiveMap } from './LiveMap'
 import { MissionDesk } from './MissionDesk'
@@ -553,11 +554,17 @@ function Desk() {
             <VoteDesk act={act} onSaid={setSaid} />
           </section>
         : tab === 'papers' ?
-          /* ── 종이 이력. 누가 발견했고 누가 들고 있고 누가 끝냈나 ── */
-          <section className="sc-ad__sec">
-            <h2>종이 이력</h2>
-            <PaperDesk act={act} onSaid={setSaid} />
-          </section>
+          /* ── 순위와 종이 이력. 누가 발견했고 누가 들고 있고 누가 끝냈나 ── */
+          <>
+            <section className="sc-ad__sec">
+              <h2>순위</h2>
+              <RankDesk act={act} onSaid={setSaid} />
+            </section>
+            <section className="sc-ad__sec">
+              <h2>종이 이력</h2>
+              <PaperDesk act={act} onSaid={setSaid} />
+            </section>
+          </>
         : tab === 'log' ?
           /* ── QA 로그. 모든 상태 변화를 시각순으로 · 불변식 검사 ── */
           <section className="sc-ad__sec">
